@@ -50,15 +50,6 @@ type CanvasToolbarProps = {
 };
 
 /** A toolbar button named and described by its tooltip. */
-/**
- * How many notes wait behind a toolbar button, beside its icon in the
- * button's own ink rather than a badge over the icon's corner. Past 99 it
- * reads 99+; the panel it opens has the exact count.
- */
-function ToolbarCount({ count }: { count: number }) {
-  return <span className="toolbar-count">{count > 99 ? "99+" : count}</span>;
-}
-
 function ToolbarButton({ label, ...button }: ButtonHTMLAttributes<HTMLButtonElement> & { label: ReactNode }) {
   return <Tip label={label}><button type="button" {...button} /></Tip>;
 }
@@ -100,7 +91,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 onClick={props.onComments}
               >
                 <AnimatedProductIcon kind="chat" size={14} converted />
-                {props.commentCount > 0 ? <ToolbarCount count={props.commentCount} /> : null}
+                {props.commentCount > 0 ? <span className="toolbar-count">{props.commentCount}</span> : null}
               </ToolbarButton>
             )}
           </>
@@ -177,7 +168,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
               onClick={props.onOverleafChat}
             >
               <MessagesSquare size={14} />
-              {props.overleafUnreadChat ? <ToolbarCount count={props.overleafUnreadChat} /> : null}
+              {props.overleafUnreadChat ? <span className="toolbar-count">{props.overleafUnreadChat}</span> : null}
             </button>
           </Tip>
         )}
