@@ -20,7 +20,7 @@ it("shows a refused writeback without claiming that edits were applied", async (
   vi.mocked(invoke).mockRejectedValueOnce(new Error("The agent project changed."));
   render(<HeadlessAgentControls projectRoot="/projects/paper" />);
   fireEvent.click(screen.getByRole("button", { name: "Apply checked changes" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("The agent project changed.");
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("The agent project changed."));
 });
 it("keeps message origins canonical while the frame uses its authenticated proxy prefix", () => {
   const origin = window.location.origin;
