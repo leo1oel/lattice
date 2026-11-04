@@ -2692,6 +2692,14 @@ msgstr "缓存的论文没有正文"
 msgid "Calendar ID"
 msgstr "日历 ID"
 
+#: src/platform/host-errors-google.ts
+msgid "Calendar supports private event fields only; attendees and invitations are unavailable."
+msgstr "日历仅支持私人日程字段，不支持参会人或邀请。"
+
+#: src/platform/host-errors-google.ts
+msgid "Calendar supports private events only."
+msgstr "日历仅支持私人日程。"
+
 #: src/google-workspace/workspace-operations.tsx
 msgid "Calendar writes manage private events. Attendees, invitations and conference creation are not supported."
 msgstr "日历写入仅管理私人日程，不支持参会人、邀请或创建会议。"
@@ -3870,6 +3878,10 @@ msgstr "全等"
 msgid "Connect another Google account"
 msgstr "连接其他 Google 账号"
 
+#: src/platform/host-errors-google.ts
+msgid "Connect Google Workspace first."
+msgstr "请先连接 Google Workspace。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connect to Overleaf"
 msgstr "连接 Overleaf"
@@ -4145,6 +4157,10 @@ msgstr "PDF 打不开"
 msgid "Could not locate {path} on Overleaf to sync its move. No files were deleted."
 msgstr "在 Overleaf 上找不到 {path}，无法同步它的移动。没有删除任何文件"
 
+#: src/platform/host-errors-google.ts
+msgid "Could not locate Google account storage."
+msgstr "无法定位 Google 账号存储位置。"
+
 #: src/platform/host-errors-setup.ts
 msgid "Could not locate your macOS Application Support folder."
 msgstr "找不到 macOS 的“Application Support”文件夹"
@@ -4157,6 +4173,14 @@ msgstr "无法打开新的 Lattice 窗口：{error}"
 #: src/project/paper-library.tsx
 msgid "Could not open the article in your browser"
 msgstr "浏览器打不开原文"
+
+#: src/platform/host-errors-google.ts
+msgid "Could not open the default browser for Google sign-in."
+msgstr "无法打开默认浏览器进行 Google 登录。"
+
+#: src/platform/host-errors-google.ts
+msgid "Could not open the Google sign-in callback."
+msgstr "无法创建 Google 登录回调监听。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
@@ -4359,6 +4383,10 @@ msgstr "无法把项目上传到 Overleaf：{error}"
 #: src/platform/host-errors-setup.ts
 msgid "Could not verify {file}: {error}"
 msgstr "无法验证 {file}：{error}"
+
+#: src/platform/host-errors-google.ts
+msgid "Could not verify the Calendar event version. Read it again before updating."
+msgstr "无法验证日程版本，请重新读取后再更新。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not write {path}: {error}"
@@ -6298,6 +6326,18 @@ msgstr "配对括号"
 msgid "Going to Overleaf"
 msgstr "传到 Overleaf"
 
+#: src/platform/host-errors-google.ts
+msgid "Google access expired or was revoked. Connect again."
+msgstr "Google 访问授权已过期或被撤销，请重新连接。"
+
+#: src/platform/host-errors-google.ts
+msgid "Google access expired. Connect again."
+msgstr "Google 访问授权已过期，请重新连接。"
+
+#: src/platform/host-errors-google.ts
+msgid "Google account storage must be private (chmod 600)."
+msgstr "Google 账号存储必须仅本人可读写（chmod 600）。"
+
 #: src/google-workspace/workspace-operations.tsx
 msgid "Google API response"
 msgstr "Google API 响应"
@@ -6306,9 +6346,37 @@ msgstr "Google API 响应"
 msgid "Google could not complete this operation. Check the resource ID, JSON, account scopes and enabled APIs. No credentials or provider error details are shown here."
 msgstr "Google 未能完成此操作。请检查资源 ID、JSON、账号授权范围和已启用的 API。此处不会显示凭据或服务提供方的错误详情。"
 
+#: src/platform/host-errors-google.ts
+msgid "Google denied this operation. Check the selected scopes, file access and enabled APIs."
+msgstr "Google 拒绝了此操作，请检查所选授权范围、文件访问权限和已启用的 API。"
+
+#: src/platform/host-errors-google.ts
+msgid "Google did not grant permission for this operation. Reconnect and approve its scope."
+msgstr "Google 未授予此操作的权限，请重新连接并批准相应授权范围。"
+
+#: src/platform/host-errors-google.ts
+msgid "Google rate limit reached. Try again later."
+msgstr "已达到 Google 请求频率限制，请稍后重试。"
+
+#: src/platform/host-errors-google.ts
+msgid "Google request exceeds the one-megabyte limit."
+msgstr "Google 请求超过 1 MiB 大小限制。"
+
+#: src/platform/host-errors-google.ts
+msgid "Google response exceeds the twenty-megabyte limit."
+msgstr "Google 响应超过 20 MiB 大小限制。"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Google Scholar"
 msgstr "Google Scholar"
+
+#: src/platform/host-errors-google.ts
+msgid "Google sign-in was cancelled or timed out."
+msgstr "Google 登录已取消或超时。"
+
+#: src/platform/host-errors-google.ts
+msgid "Google sign-in was declined."
+msgstr "Google 登录授权被拒绝。"
 
 #: src/google-workspace/google-workspace-settings.tsx
 #: src/settings/settings-dialog.tsx
@@ -6323,6 +6391,10 @@ msgstr "Google Workspace 未能完成此操作。请检查客户端配置、授�
 #: src/google-workspace/workspace-operations.tsx
 msgid "Google Workspace operations"
 msgstr "Google Workspace 操作"
+
+#: src/platform/host-errors-google.ts
+msgid "Google Workspace request failed. Check account access, enabled APIs and the requested operation."
+msgstr "Google Workspace 请求失败。请检查账号访问权限、已启用的 API 和所选操作。"
 
 #: src/canvas/proofread-card.tsx
 msgid "grammar"
@@ -7183,6 +7255,10 @@ msgstr "引用名无效"
 #: src/platform/host-errors-papers.ts
 msgid "Invalid existing bibliography entry."
 msgstr "已有的参考文献条目无效"
+
+#: src/platform/host-errors-google.ts
+msgid "Invalid Google account storage."
+msgstr "Google 账号存储无效。"
 
 #: src/papers/audit-messages.ts
 msgid "Invalid literal year; expected four digits."
@@ -10959,6 +11035,26 @@ msgstr "正文"
 msgid "Proves / turnstile"
 msgstr "推出 / 断言符"
 
+#: src/platform/host-errors-google.ts
+msgid "Provide a Google Desktop OAuth client and select at least one product."
+msgstr "请提供 Google 桌面 OAuth 客户端并至少选择一个产品。"
+
+#: src/platform/host-errors-google.ts
+msgid "Provide a Google resource ID."
+msgstr "请提供 Google 资源 ID。"
+
+#: src/platform/host-errors-google.ts
+msgid "Provide a title of at most 300 bytes."
+msgstr "请提供不超过 300 字节的标题。"
+
+#: src/platform/host-errors-google.ts
+msgid "Provide an event object."
+msgstr "请提供日程对象。"
+
+#: src/platform/host-errors-google.ts
+msgid "Provide between 1 and 200 batchUpdate requests."
+msgstr "请提供 1 至 200 个 batchUpdate 请求。"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Providers"
@@ -11191,6 +11287,10 @@ msgstr "最近项目"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
 msgstr "正在重新编译…"
+
+#: src/platform/host-errors-google.ts
+msgid "Reconnect Google Workspace with permission for this product."
+msgstr "请重新连接 Google Workspace 并授权此产品。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Reconnect to Overleaf"
@@ -12798,6 +12898,10 @@ msgstr "设置分区"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "升号"
+
+#: src/platform/host-errors-google.ts
+msgid "Sheets updates require a values array."
+msgstr "Sheets 更新需要提供 values 数组。"
 
 #. Search words for the Editor keymap setting, space-separated
 #: src/settings/settings-search-index.ts
@@ -14806,6 +14910,10 @@ msgstr "这条文献被引用了 {count} 次"
 msgid "This entry is cited in 1 place."
 msgstr "这条文献被引用了 1 次"
 
+#: src/platform/host-errors-google.ts
+msgid "This event has attendees. Use Google Calendar to manage meetings."
+msgstr "此日程包含参会人，请使用 Google 日历管理会议。"
+
 #: src/platform/host-errors-project.ts
 msgid "This figure is too large to preview inside Lattice (50 MB maximum)."
 msgstr "图片太大，无法在 Lattice 中预览（上限 50 MB）"
@@ -14841,6 +14949,10 @@ msgstr "这种文件无法在编辑器打开"
 #: src/canvas/project-asset-preview.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "无法预览此格式"
+
+#: src/platform/host-errors-google.ts
+msgid "This Google Workspace operation is not supported."
+msgstr "不支持此 Google Workspace 操作。"
 
 #: src/trellis/trellis-labels.ts
 msgid "this group"

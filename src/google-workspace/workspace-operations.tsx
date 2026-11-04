@@ -1,6 +1,6 @@
+import { runWorkspaceOperation } from "./workspace-actions";
 import { useEffect, useReducer, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -109,6 +109,9 @@ function reduce(state: State, action: Action): State {
       return { ...state, busy: false, error: true };
   }
 }
+export type WorkspaceState = State;
+export type WorkspaceAction = Action;
+
 export function WorkspaceOperations({ products }: { products: Product[] }) {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(reduce, products[0] ?? "docs", initial);
@@ -137,64 +140,14 @@ export function WorkspaceOperations({ products }: { products: Product[] }) {
       dispatch({ type: "error" });
     }
   };
-  const run = async (operation: string) => {
-    if (pending.current) return;
-    pending.current = true;
-    dispatch({ type: "start" });
-    const current = ++generation.current;
-    try {
-      const body =
-        operation === "create" && state.product !== "calendar"
-          ? { title: state.title }
-          : operation === "update" || operation === "create"
-            ? JSON.parse(state.body)
-            : null;
-      const result = await invoke<unknown>("google_workspace_request", {
-        request: {
-          product: state.product,
-          operation,
-          resourceId: state.resourceId.trim(),
-          itemId: state.itemId.trim(),
-          range: state.range,
-          body,
-        },
-      });
-      if (!live.current || generation.current !== current) return;
-      if (operation === "export") {
-        const value = result as { base64: string; mimeType: string };
-        const bytes = Uint8Array.from(atob(value.base64), (character) =>
-          character.charCodeAt(0),
-        );
-        const url = URL.createObjectURL(
-          new Blob([bytes], { type: value.mimeType }),
-        );
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "google-workspace.pdf";
-        anchor.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        dispatch({ type: "result", value: { downloaded: true } });
-      } else {
-        if (operation === "create" && result && typeof result === "object") {
-          const value = result as Record<string, unknown>;
-          const id =
-            value.documentId ??
-            value.spreadsheetId ??
-            value.presentationId ??
-            value.formId ??
-            value.id;
-          if (typeof id === "string")
-            field(state.product === "calendar" ? "itemId" : "resourceId", id);
-        }
-        dispatch({ type: "result", value: result });
-      }
-    } catch {
-      if (live.current && generation.current === current)
-        dispatch({ type: "error" });
-    } finally {
-      pending.current = false;
-    }
-  };
+  const run = (operation: string) =>
+    runWorkspaceOperation(operation, {
+      state,
+      pending,
+      generation,
+      live,
+      dispatch,
+    });
   return (
     <section
       className="google-api-workspace"

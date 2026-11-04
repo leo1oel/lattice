@@ -2692,6 +2692,14 @@ msgstr "Cached paper has no full-text body."
 msgid "Calendar ID"
 msgstr "Calendar ID"
 
+#: src/platform/host-errors-google.ts
+msgid "Calendar supports private event fields only; attendees and invitations are unavailable."
+msgstr "Calendar supports private event fields only; attendees and invitations are unavailable."
+
+#: src/platform/host-errors-google.ts
+msgid "Calendar supports private events only."
+msgstr "Calendar supports private events only."
+
 #: src/google-workspace/workspace-operations.tsx
 msgid "Calendar writes manage private events. Attendees, invitations and conference creation are not supported."
 msgstr "Calendar writes manage private events. Attendees, invitations and conference creation are not supported."
@@ -3870,6 +3878,10 @@ msgstr "Congruent"
 msgid "Connect another Google account"
 msgstr "Connect another Google account"
 
+#: src/platform/host-errors-google.ts
+msgid "Connect Google Workspace first."
+msgstr "Connect Google Workspace first."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connect to Overleaf"
 msgstr "Connect to Overleaf"
@@ -4145,6 +4157,10 @@ msgstr "Could not load PDF"
 msgid "Could not locate {path} on Overleaf to sync its move. No files were deleted."
 msgstr "Could not locate {path} on Overleaf to sync its move. No files were deleted."
 
+#: src/platform/host-errors-google.ts
+msgid "Could not locate Google account storage."
+msgstr "Could not locate Google account storage."
+
 #: src/platform/host-errors-setup.ts
 msgid "Could not locate your macOS Application Support folder."
 msgstr "Could not locate your macOS Application Support folder."
@@ -4157,6 +4173,14 @@ msgstr "Could not open a new Lattice window: {error}"
 #: src/project/paper-library.tsx
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
+
+#: src/platform/host-errors-google.ts
+msgid "Could not open the default browser for Google sign-in."
+msgstr "Could not open the default browser for Google sign-in."
+
+#: src/platform/host-errors-google.ts
+msgid "Could not open the Google sign-in callback."
+msgstr "Could not open the Google sign-in callback."
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
@@ -4359,6 +4383,10 @@ msgstr "Could not upload the project to Overleaf: {error}"
 #: src/platform/host-errors-setup.ts
 msgid "Could not verify {file}: {error}"
 msgstr "Could not verify {file}: {error}"
+
+#: src/platform/host-errors-google.ts
+msgid "Could not verify the Calendar event version. Read it again before updating."
+msgstr "Could not verify the Calendar event version. Read it again before updating."
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not write {path}: {error}"
@@ -6298,6 +6326,18 @@ msgstr "Go to the matching bracket"
 msgid "Going to Overleaf"
 msgstr "Going to Overleaf"
 
+#: src/platform/host-errors-google.ts
+msgid "Google access expired or was revoked. Connect again."
+msgstr "Google access expired or was revoked. Connect again."
+
+#: src/platform/host-errors-google.ts
+msgid "Google access expired. Connect again."
+msgstr "Google access expired. Connect again."
+
+#: src/platform/host-errors-google.ts
+msgid "Google account storage must be private (chmod 600)."
+msgstr "Google account storage must be private (chmod 600)."
+
 #: src/google-workspace/workspace-operations.tsx
 msgid "Google API response"
 msgstr "Google API response"
@@ -6306,9 +6346,37 @@ msgstr "Google API response"
 msgid "Google could not complete this operation. Check the resource ID, JSON, account scopes and enabled APIs. No credentials or provider error details are shown here."
 msgstr "Google could not complete this operation. Check the resource ID, JSON, account scopes and enabled APIs. No credentials or provider error details are shown here."
 
+#: src/platform/host-errors-google.ts
+msgid "Google denied this operation. Check the selected scopes, file access and enabled APIs."
+msgstr "Google denied this operation. Check the selected scopes, file access and enabled APIs."
+
+#: src/platform/host-errors-google.ts
+msgid "Google did not grant permission for this operation. Reconnect and approve its scope."
+msgstr "Google did not grant permission for this operation. Reconnect and approve its scope."
+
+#: src/platform/host-errors-google.ts
+msgid "Google rate limit reached. Try again later."
+msgstr "Google rate limit reached. Try again later."
+
+#: src/platform/host-errors-google.ts
+msgid "Google request exceeds the one-megabyte limit."
+msgstr "Google request exceeds the one-megabyte limit."
+
+#: src/platform/host-errors-google.ts
+msgid "Google response exceeds the twenty-megabyte limit."
+msgstr "Google response exceeds the twenty-megabyte limit."
+
 #: src/papers/bibliography-audit.tsx
 msgid "Google Scholar"
 msgstr "Google Scholar"
+
+#: src/platform/host-errors-google.ts
+msgid "Google sign-in was cancelled or timed out."
+msgstr "Google sign-in was cancelled or timed out."
+
+#: src/platform/host-errors-google.ts
+msgid "Google sign-in was declined."
+msgstr "Google sign-in was declined."
 
 #: src/google-workspace/google-workspace-settings.tsx
 #: src/settings/settings-dialog.tsx
@@ -6323,6 +6391,10 @@ msgstr "Google Workspace could not complete that action. Check your client confi
 #: src/google-workspace/workspace-operations.tsx
 msgid "Google Workspace operations"
 msgstr "Google Workspace operations"
+
+#: src/platform/host-errors-google.ts
+msgid "Google Workspace request failed. Check account access, enabled APIs and the requested operation."
+msgstr "Google Workspace request failed. Check account access, enabled APIs and the requested operation."
 
 #: src/canvas/proofread-card.tsx
 msgid "grammar"
@@ -7183,6 +7255,10 @@ msgstr "Invalid citation key."
 #: src/platform/host-errors-papers.ts
 msgid "Invalid existing bibliography entry."
 msgstr "Invalid existing bibliography entry."
+
+#: src/platform/host-errors-google.ts
+msgid "Invalid Google account storage."
+msgstr "Invalid Google account storage."
 
 #: src/papers/audit-messages.ts
 msgid "Invalid literal year; expected four digits."
@@ -10959,6 +11035,26 @@ msgstr "Prose"
 msgid "Proves / turnstile"
 msgstr "Proves / turnstile"
 
+#: src/platform/host-errors-google.ts
+msgid "Provide a Google Desktop OAuth client and select at least one product."
+msgstr "Provide a Google Desktop OAuth client and select at least one product."
+
+#: src/platform/host-errors-google.ts
+msgid "Provide a Google resource ID."
+msgstr "Provide a Google resource ID."
+
+#: src/platform/host-errors-google.ts
+msgid "Provide a title of at most 300 bytes."
+msgstr "Provide a title of at most 300 bytes."
+
+#: src/platform/host-errors-google.ts
+msgid "Provide an event object."
+msgstr "Provide an event object."
+
+#: src/platform/host-errors-google.ts
+msgid "Provide between 1 and 200 batchUpdate requests."
+msgstr "Provide between 1 and 200 batchUpdate requests."
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Providers"
@@ -11191,6 +11287,10 @@ msgstr "Recent projects"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
 msgstr "Recompiling…"
+
+#: src/platform/host-errors-google.ts
+msgid "Reconnect Google Workspace with permission for this product."
+msgstr "Reconnect Google Workspace with permission for this product."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Reconnect to Overleaf"
@@ -12798,6 +12898,10 @@ msgstr "Settings sections"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "Sharp"
+
+#: src/platform/host-errors-google.ts
+msgid "Sheets updates require a values array."
+msgstr "Sheets updates require a values array."
 
 #. Search words for the Editor keymap setting, space-separated
 #: src/settings/settings-search-index.ts
@@ -14806,6 +14910,10 @@ msgstr "This entry is cited in {count} places."
 msgid "This entry is cited in 1 place."
 msgstr "This entry is cited in 1 place."
 
+#: src/platform/host-errors-google.ts
+msgid "This event has attendees. Use Google Calendar to manage meetings."
+msgstr "This event has attendees. Use Google Calendar to manage meetings."
+
 #: src/platform/host-errors-project.ts
 msgid "This figure is too large to preview inside Lattice (50 MB maximum)."
 msgstr "This figure is too large to preview inside Lattice (50 MB maximum)."
@@ -14841,6 +14949,10 @@ msgstr "This file type can’t be opened in an editor"
 #: src/canvas/project-asset-preview.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "This format cannot be rendered in the preview"
+
+#: src/platform/host-errors-google.ts
+msgid "This Google Workspace operation is not supported."
+msgstr "This Google Workspace operation is not supported."
 
 #: src/trellis/trellis-labels.ts
 msgid "this group"

@@ -1,3 +1,4 @@
+import { runAccountAction } from "./workspace-actions";
 import { useEffect, useReducer, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
@@ -53,6 +54,9 @@ function reduce(state: State, action: Action): State {
       return { ...state, clientSecret: "" };
   }
 }
+export type AccountAction = Action;
+export type AccountStatus = Status;
+
 export function GoogleWorkspaceSettings() {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(reduce, {
@@ -110,25 +114,8 @@ export function GoogleWorkspaceSettings() {
       window.clearInterval(timer);
     };
   }, [state.status?.pending]);
-  const run = async (action: () => Promise<void>) => {
-    if (pending.current) return;
-    pending.current = true;
-    const generation = ++requestGeneration.current;
-    dispatch({ type: "start" });
-    let failed = false;
-    try {
-      await action();
-      const value = await invoke<Status>("google_workspace_status");
-      if (live.current && requestGeneration.current === generation)
-        dispatch({ type: "status", value });
-    } catch {
-      failed = true;
-    } finally {
-      pending.current = false;
-      if (live.current && requestGeneration.current === generation)
-        dispatch({ type: "finish", failed });
-    }
-  };
+  const run = (action: () => Promise<void>) =>
+    runAccountAction(action, { pending, requestGeneration, live, dispatch });
   return (
     <div
       className="settings-section google-workspace-settings"
