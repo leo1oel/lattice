@@ -8,6 +8,7 @@ import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { SavedViewState } from "./saved-view-state";
 import type { usePaperPdf } from "./use-paper-pdf";
+import { joinPhrases } from "../i18n";
 
 /**
  * Whether the full text's masthead (its title and authors at the top of the
@@ -76,8 +77,8 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
           {!mastheadInView && <span className="paper-identity-title" title={paper.title}>{paper.title}</span>}
           {!mastheadInView && authors && <span className="paper-identity-authors">{authors}</span>}
           {source && (pdf.browserUrl ? (
-            <Tip label={`${source} · ${browserActionLabel}`}>
-              <button type="button" className="paper-identity-source" aria-label={`${source}, ${browserActionLabel}`} onClick={pdf.openInBrowser}>
+            <Tip label={joinPhrases([source, browserActionLabel])}>
+              <button type="button" className="paper-identity-source" aria-label={joinPhrases([source, browserActionLabel])} onClick={pdf.openInBrowser}>
                 <span>{source}</span>
                 <ExternalLink size={11} aria-hidden="true" />
               </button>

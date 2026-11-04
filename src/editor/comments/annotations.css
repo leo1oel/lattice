@@ -720,7 +720,7 @@
 .annotation-highlight-meta { display: flex; flex-wrap: nowrap; gap: var(--space-3); min-width: 0; white-space: nowrap; }
 .annotation-highlight-meta > .annotation-card-where { flex: none; }
 .annotation-highlight-kind-label { min-width: 0; overflow: hidden; color: var(--text-tertiary); text-overflow: ellipsis; white-space: nowrap; }
-.annotation-highlight-kind-label::before { content: "·"; margin-inline-end: var(--space-3); }
+.annotation-highlight-kind-label::before { content: "\00a0"; margin-inline-end: var(--space-3); }
 
 /* The panel's empty state stands alone in a tall column: its drawing a size up. */
 .annotations-empty[data-fill] .empty-illustration { width: 80px; height: 60px; }

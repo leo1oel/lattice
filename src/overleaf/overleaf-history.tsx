@@ -232,7 +232,6 @@ function OverleafHistoryBody(props: OverleafRowProps & { onRestoreProject: () =>
       {props.compare && (
         <p className="version-mode-note">
           {unchanged ? t`Nothing has changed on Overleaf since this version` : t`Compared with now`}
-          {" · "}
           <button type="button" className="version-mode-switch" onClick={props.onCompare}>{t`Show this version's changes`}</button>
         </p>
       )}

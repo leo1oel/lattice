@@ -63,7 +63,7 @@ it("labels saved versions and offers uppercase preview images", async () => {
     throw new Error(command);
   });
   render(<LocalTemplates selected="local:b" onSelect={vi.fn()} />);
-  expect(await screen.findByRole("combobox", { name: "My templates" })).toHaveTextContent("Lab template · 2026");
+  expect(await screen.findByRole("combobox", { name: "My templates" })).toHaveTextContent("Lab template 2026");
   fireEvent.click(screen.getByRole("button", { name: "Save a local template…" }));
   fireEvent.click(screen.getByRole("button", { name: "From folder" }));
   fireEvent.click(await screen.findByRole("checkbox", { name: "figures/Preview.PNG" }));

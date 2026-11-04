@@ -142,7 +142,7 @@ export function CommandPalette(props: {
       .filter((paper) => paper.hasFullText || paper.hasBlog || paper.arxivId || paper.url)
       .map((paper) => ({
         kind: "paper", paper, id: `paper:${paper.arxivId || paper.url || paper.title}`, label: paper.title,
-        detail: [paperShortAuthors(paper), paper.year].filter(Boolean).join(" · ") || undefined,
+        detail: [paperShortAuthors(paper), paper.year].filter(Boolean).join(", ") || undefined,
         keywords: [paper.citationKey, paper.arxivId, paper.authors].filter(Boolean).join(" "),
         group: t`Papers`, icon: rowIcon(iconPrefix, "paper"), order: FOUND_ORDER.paper,
       }));

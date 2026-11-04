@@ -191,7 +191,7 @@ describe("HistoryDrawer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Agent: Revise the introduction/ }));
     expect(screen.getByText("Introduction revision")).toBeInTheDocument();
-    expect(screen.getByText("modified · +4 −2")).toBeInTheDocument();
+    expect(screen.getByText("modified +4 −2")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle("Undo this Agent turn's file changes"));
     expect(onRevert).toHaveBeenCalledWith(agentEntry);

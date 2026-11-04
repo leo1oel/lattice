@@ -42,7 +42,7 @@ export function OverleafPresenceAvatars(props: {
     if (!path) return null;
     if (peer.row === null) return path;
     const line = peer.row + 1;
-    return t`${path} · line ${line}`;
+    return t`${path}, line ${line}`;
   };
 
   return (
@@ -56,7 +56,7 @@ export function OverleafPresenceAvatars(props: {
             {shown.map((peer) => {
               const label = peer.name || t`Anonymous`;
               const place = where(peer);
-              const name = place ? t`${label} · ${place} — click to jump there` : label;
+              const name = place ? t`${label} at ${place}. Click to jump there` : label;
               return (
                 <button
                   key={peer.id}

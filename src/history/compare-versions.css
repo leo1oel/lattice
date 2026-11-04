@@ -47,8 +47,8 @@
 
 .compare-file { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); min-width: 0; }
 .compare-counts { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4) var(--space-6); min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
-.compare-summary { min-width: 0; overflow-wrap: anywhere; }
-.compare-words { display: inline-flex; align-items: baseline; gap: var(--space-3); margin-inline-start: var(--space-4); white-space: nowrap; }
+.compare-summary { min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-6); overflow-wrap: anywhere; }
+.compare-words { display: inline-flex; align-items: baseline; gap: var(--space-3); white-space: nowrap; }
 .compare-plus { color: var(--status-success); font-weight: var(--weight-semibold); }
 .compare-minus { color: var(--status-danger); font-weight: var(--weight-semibold); }
 /* "‹ 1 of 3 ›": a pill that steps the current change. */
@@ -70,7 +70,6 @@
   .compare-picker-head,
   .compare-picker-row { grid-template-columns: minmax(0, 1fr) 36px 36px; padding-inline: var(--space-5) var(--space-2); }
   .compare-passage { padding-inline-start: var(--space-6); }
-  .compare-words { margin-inline-start: 0; }
 }
 
 /* ---- The export sheet: the choices, and a page drawn as latexdiff marks it. */

@@ -108,7 +108,7 @@ function paletteDom(view: EditorView, close: () => void): { dom: HTMLElement; in
       option.id = `symbol-palette-option-${index}`;
       option.tabIndex = -1;
       option.setAttribute("role", "option");
-      option.title = `${symbol.name} · ${symbol.detail}`;
+      option.title = `${symbol.name} (${symbol.detail})`;
       option.setAttribute("aria-label", option.title);
       if (symbol.html) option.innerHTML = symbol.html;
       else option.textContent = symbol.name;

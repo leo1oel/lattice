@@ -377,7 +377,7 @@ function AnnotationReviewCard(props: {
               className="annotation-review-next"
               onClick={() => props.onNavigate(annotation.id, 1)}
             >
-              <span className="annotation-review-next-label">{t`${position} of ${total}`} ·</span>
+              <span className="annotation-review-next-label">{t`${position} of ${total}`}</span>
               <ArrowDown size={13} />
               {t`next`}
             </Button>

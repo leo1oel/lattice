@@ -218,7 +218,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     activeFile,
   );
   const paperFullTextActive = Boolean(props.document.activePaper) && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md");
-  const paperAuthors = props.document.activePaper ? paperAuthorNames(props.document.activePaper).join(" · ") : "";
+  const paperAuthors = props.document.activePaper ? paperAuthorNames(props.document.activePaper).join(", ") : "";
   const [paperVisualEligibility, setPaperVisualEligibility] = useState<{ path: string; text: string; reason: string | null } | null>(null);
   const reportPaperVisualEligibility = useCallback((reason: string | null) => {
     setPaperVisualEligibility((current) => {

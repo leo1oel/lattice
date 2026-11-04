@@ -133,7 +133,7 @@ const { commands: COMMAND_INDEX, environments: ENVIRONMENT_INDEX } = vocabulary(
 
 const detailOf = (entry: Entry) => {
   const detail = i18n._(entry.detail);
-  return entry.package ? `${detail} · ${entry.package}` : detail;
+  return entry.package ? `${detail} (${entry.package})` : detail;
 };
 
 /** Insert `text` for a picked completion, placing the caret at `caret` and marking it as a completion. */

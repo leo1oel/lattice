@@ -396,7 +396,7 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, on
                   type="button"
                   className="latex-outline-rail-row"
                   data-depth={depth}
-                  title={node.path === path ? node.title : `${node.title} · ${node.path}`}
+                  title={node.path === path ? node.title : `${node.title} (${node.path})`}
                   onClick={() => onChoose(index)}
                 >
                   <span className="latex-outline-rail-number">{number}</span>

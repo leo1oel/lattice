@@ -98,7 +98,7 @@ describe("Export for arXiv", () => {
   it("saves, shows the staged pack while it builds alone, then is ready with one thing to look at", async () => {
     const check = nextCheck();
     const { props } = renderSheet();
-    await screen.findByText("4 files · 1.3 MB · main.bbl, main.tex, neurips.sty, figures/");
+    await screen.findByText("4 files, 1.3 MB, main.bbl, main.tex, neurips.sty, figures/");
     expect(props.save).toHaveBeenCalledTimes(1);
     expect(tauri.invoke).toHaveBeenCalledWith("check_arxiv_package", expect.objectContaining({
       projectRoot: "/papers/attention",
@@ -113,11 +113,11 @@ describe("Export for arXiv", () => {
     await check.finish(checked());
     expect(row("figures").dataset.state).toBe("ok");
     expect(within(row("bibliography")).getByText("Bibliography travels as main.bbl")).toBeTruthy();
-    expect(within(row("compile")).getByText("pdfLaTeX · 9 pages · 3.1 s")).toBeTruthy();
+    expect(within(row("compile")).getByText("pdfLaTeX, 9 pages, 3.1 s")).toBeTruthy();
     expect(row("comments").dataset.state).toBe("warn");
     expect(within(row("comments")).getByText("3 comment lines, 1 of them a TODO")).toBeTruthy();
     expect(within(row("size")).getByText("1.3 MB of 50 MB")).toBeTruthy();
-    expect(screen.getByRole("status").textContent).toBe("Ready · 1 to look at");
+    expect(screen.getByRole("status").textContent).toBe("Ready, 1 to look at");
     expect(exportButton()).toHaveProperty("disabled", false);
   });
 
@@ -165,7 +165,7 @@ describe("Export for arXiv", () => {
   it("checks again when an option changes, and warns that kept comments will be published", async () => {
     checkReturns(checked());
     renderSheet();
-    await within(row("compile")).findByText("pdfLaTeX · 9 pages · 3.1 s");
+    await within(row("compile")).findByText("pdfLaTeX, 9 pages, 3.1 s");
     const kept = nextCheck();
     fireEvent.click(screen.getByRole("switch", { name: "Remove % comments" }));
     await waitFor(() => expect(tauri.invoke).toHaveBeenLastCalledWith("check_arxiv_package", expect.objectContaining({
@@ -203,13 +203,13 @@ describe("Export for arXiv", () => {
     await waitFor(() => expect(props.build).toHaveBeenCalled());
     await waitFor(() => expect(tauri.invoke).toHaveBeenCalledTimes(2));
     await check.finish(checked());
-    expect(screen.getByRole("status").textContent).toBe("Ready · 1 to look at");
+    expect(screen.getByRole("status").textContent).toBe("Ready, 1 to look at");
   });
 
   it("stops its test build when it closes", async () => {
     nextCheck();
     const { view } = renderSheet();
-    await screen.findByText("4 files · 1.3 MB · main.bbl, main.tex, neurips.sty, figures/");
+    await screen.findByText("4 files, 1.3 MB, main.bbl, main.tex, neurips.sty, figures/");
     view.unmount();
     expect(tauri.invoke).toHaveBeenCalledWith("cancel_arxiv_check", { projectRoot: "/papers/attention" });
   });

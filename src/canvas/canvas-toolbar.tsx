@@ -71,8 +71,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
     switch (props.overleafChannel) {
       case "connecting": return detail || t`Connecting to Overleaf's live channel…`;
       case "error": return detail
-        ? t({ message: `Live editing unavailable (${detail}) · syncing instead` })
-        : t`Live editing unavailable · syncing instead`;
+        ? t({ message: `Live editing unavailable (${detail}), syncing instead` })
+        : t`Live editing unavailable, syncing instead`;
       case "live": return detail || t`Live`;
       default: return t`Sync with Overleaf`;
     }
@@ -159,7 +159,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         )}
         {shows("overleaf") && props.overleafLinked && props.onOverleafChat && (
           <Tip label={props.overleafUnreadChat
-            ? t({ message: `Overleaf comments and chat · ${{ count: props.overleafUnreadChat }} waiting` })
+            ? t({ message: `Overleaf comments and chat, ${{ count: props.overleafUnreadChat }} waiting` })
             : t`Overleaf comments and chat`}
           >
             <button

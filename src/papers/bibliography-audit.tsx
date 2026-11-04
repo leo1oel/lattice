@@ -28,6 +28,7 @@ import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, t
 import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-check-keys";
 import { correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
 import "./bibliography-audit.css";
+import { comma, joinList } from "../i18n";
 
 /**
  * `inline` is the `\bibitem` as written in a root document's own reference
@@ -508,10 +509,10 @@ export function BibliographyAudit(props: {
   const sourceOutcomes: Record<string, string> = {
     matched: t`Verified publication match`,
     selected: t`Metadata source`,
-    selected_cached: t`Metadata source · cached`,
+    selected_cached: t`Metadata source (cached)`,
     candidate: t`Candidate record considered, not verified`,
-    candidate_cached: t`Candidate record considered, not verified · cached record`,
-    not_configured: t`Not enabled · add your own API key in Settings`,
+    candidate_cached: t`Candidate record considered, not verified (cached record)`,
+    not_configured: t`Not enabled. Add your own API key in Settings`,
     no_match: t`No published version found`, rate_limited: t`Rate limited`,
     batch_reused: t`Batch result reused`, queue_busy: t`Request queue busy`,
     daily_quota: t`Public daily quota exhausted`,
@@ -536,7 +537,7 @@ export function BibliographyAudit(props: {
     // selected even though the final result was unavailable. Do not present
     // those records as verified or accepted.
     if (result.status === "unavailable" && outcome === "selected") return t`Source record considered, not verified`;
-    if (result.status === "unavailable" && outcome === "selected_cached") return t`Source record considered, not verified · cached record`;
+    if (result.status === "unavailable" && outcome === "selected_cached") return t`Source record considered, not verified (cached record)`;
     return sourceOutcomes[outcome] ?? t`Unknown source response`;
   };
   const reasonLabels: Record<string, string> = {
@@ -549,23 +550,22 @@ export function BibliographyAudit(props: {
   };
   const coverage = scan?.coverage ?? [];
   const lastChecked = Object.values(results).map(result => result.checkedAt ?? "").filter(Boolean).sort().at(-1);
-  const list = (items: string[]) => items.join(i18n.locale.startsWith("zh") ? "、" : ", ");
 
   // The report's first line says what the writer has to do, in the title's serif.
-  const findings = [
+  const findings = joinList([
     counts.fix > 0 && (counts.fix === 1 ? t`1 fix to review` : t`${counts.fix} fixes to review`),
     counts.review > 0 && (counts.review === 1 ? t`1 needs your eyes` : t`${counts.review} need your eyes`),
-  ].filter(Boolean).join(" · ");
-  const leftOver = [
+  ].filter(Boolean) as string[]);
+  const leftOver = joinList([
     counts.incomplete > 0 && t`${counts.incomplete} inconclusive`,
     counts.unchecked > 0 && t`${counts.unchecked} not checked`,
-  ].filter(Boolean).join(" · ");
+  ].filter(Boolean) as string[]);
   const verdict = busy ? scan ? t`Checking ${completed} of ${progressTotal}…` : t`Reading the bibliography…`
     : !scan ? loading ? t`Reading the bibliography…` : t`Check references`
       : total === 0 ? t`No references to check`
         : counts.unchecked === total ? total === 1 ? t`1 reference, not checked yet` : t`${total} references, not checked yet`
-          : findings || (leftOver ? t`Nothing to fix · ${leftOver}`
-            : counts.kept > 0 ? t`Nothing left to review · ${counts.kept} kept as written`
+          : findings || (leftOver ? t`Nothing to fix, ${leftOver}`
+            : counts.kept > 0 ? t`Nothing left to review, ${counts.kept} kept as written`
               : total === 1 ? t`The reference is verified` : t`All ${total} references verified`);
 
   /** One line saying what a finding is about before it is opened. */
@@ -579,11 +579,11 @@ export function BibliographyAudit(props: {
     if (bucket === "review") {
       const reasons = result.candidate?.reasons;
       return Array.isArray(reasons) && reasons.length
-        ? t`${list(reasons.map(reason => reasonLabels[reason] ?? reason))} differ from a source's record`
+        ? t`${joinList(reasons.map(reason => reasonLabels[reason] ?? reason))} differ from a source's record`
         : statusLabel(result, !!entry.inline);
     }
     if (bucket === "fix") {
-      const fields = list(result.changes.map(change => fieldText(change.field).toLocaleLowerCase(i18n.locale)));
+      const fields = joinList(result.changes.map(change => fieldText(change.field).toLocaleLowerCase(i18n.locale)));
       if (entry.inline) return t`Your ${BIBITEM} differs: ${fields}`;
       const venue = result.changes.find(change => ["booktitle", "journal"].includes(change.field) && change.after);
       if (venue && result.changes.some(change => change.field === "ENTRYTYPE")) {
@@ -600,7 +600,7 @@ export function BibliographyAudit(props: {
     }
     if (result.status === "conflict") return t`Changed since the last check`;
     const silent = [...new Set((result.sources ?? []).filter(source => isSilent(source.outcome)).map(source => sourceName(source.source)))];
-    return silent.length ? t`No answer from ${list(silent)}` : statusLabel(result, !!entry.inline);
+    return silent.length ? t`No answer from ${joinList(silent)}` : statusLabel(result, !!entry.inline);
   };
 
   // Each state has its own shape as well as its colour (see `.bibliography-audit-mark`).
@@ -644,14 +644,14 @@ export function BibliographyAudit(props: {
       {message && publicationMessage(result) && <p>{publicationMessage(result)}</p>}
       {sources(result)}
       {!!result.disagreements?.length && <p>{t`The conference's own citation export and Crossref disagree on: ${result.disagreements.map(fieldText).join(", ")}. The conference export is kept.`}</p>}
-      {result.health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={result.health.checkedAt}>{new Date(result.health.checkedAt).toLocaleString(i18n.locale)}</time>{result.health.stale ? ` · ${t`Stale result`}` : ""}</p>}
+      {result.health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={result.health.checkedAt}>{new Date(result.health.checkedAt).toLocaleString(i18n.locale)}</time>{result.health.stale ? t` (Stale result)` : ""}</p>}
       {result.checkedAt && <p className="bibliography-audit-meta">{t`Last checked`}: <time dateTime={result.checkedAt}>{new Date(result.checkedAt).toLocaleString(i18n.locale)}</time></p>}
     </div>
   </Disclosure>;
   /** The printed reference with its fix marked, and what print does not show. */
   const typesetCard = (fix: TypesetFix) => <>
     <div className="bibliography-audit-typeset"><InlineEdits text={fix.text} edits={fix.edits} /></div>
-    {fix.unprinted.length > 0 && <p className="bibliography-audit-note">{t`Also changes: ${list(fix.unprinted)}`}</p>}
+    {fix.unprinted.length > 0 && <p className="bibliography-audit-note">{t`Also changes: ${joinList(fix.unprinted)}`}</p>}
   </>;
   /** Where the open finding sits among those like it; choosing it moves on. */
   const step = (index: number) => {
@@ -742,10 +742,10 @@ export function BibliographyAudit(props: {
           return <div key={`${change.field}:${changeIndex}`} className="bibliography-audit-compare">
             <p className="bibliography-audit-compare-field">{fieldText(change.field)}</p>
             <div><span>{t`Yours`}</span><p>{words.ours.map((word, i) => word.differs ? <mark key={i}>{word.word}</mark> : word.word)}</p></div>
-            <div><span>{source ? t`Source · ${sourceName(source)} · not verified` : t`Source · not verified`}</span><p>{words.theirs.map((word, i) => word.differs ? <mark key={i}>{word.word}</mark> : word.word)}</p></div>
+            <div><span>{source ? t`Not verified against ${sourceName(source)}` : t`Source not verified`}</span><p>{words.theirs.map((word, i) => word.differs ? <mark key={i}>{word.word}</mark> : word.word)}</p></div>
           </div>;
         })}
-        {candidate && candidate.reasons.length > 0 && <p className="bibliography-audit-note">{t`Conflicting or insufficient fields`}: {list(candidate.reasons.map(reason => reasonLabels[reason] ?? reason))}</p>}
+        {candidate && candidate.reasons.length > 0 && <p className="bibliography-audit-note">{t`Conflicting or insufficient fields`}: {joinList(candidate.reasons.map(reason => reasonLabels[reason] ?? reason))}</p>}
         <div className="bibliography-audit-detail-actions">
           {bucket === "review"
             ? <Button size="compact" variant="tinted" onClick={() => keep(index, true)}><Check size={12} aria-hidden="true" />{t`Keep mine`}</Button>
@@ -802,14 +802,14 @@ export function BibliographyAudit(props: {
       </div>
       {(coverage.length > 0 || lastChecked) && <p className="bibliography-audit-coverage">
         {coverage.map((file, index) => <Fragment key={`${file.kind}:${file.path}`}>
-          {index > 0 && " · "}
+          {index > 0 && comma()}
           <span className="bibliography-audit-file">{file.path}</span> {file.kind === "inline"
             ? file.entries === 1 ? t`1 ${BIBITEM}` : t`${file.entries} ${BIBITEM}`
             : file.entries === 1 ? t`1 entry` : t`${file.entries} entries`}
         </Fragment>)}
-        {lastChecked && !busy && <>{coverage.length > 0 && " · "}{t`checked`} <time dateTime={lastChecked}>{new Date(lastChecked).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" })}</time></>}
+        {lastChecked && !busy && <>{coverage.length > 0 && comma()}{t`checked`} <time dateTime={lastChecked}>{new Date(lastChecked).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" })}</time></>}
       </p>}
-      {waitingForS2 && <p className="bibliography-audit-coverage" role="status">{t`Partial results for ${completed} of ${progressTotal} references`} · {t`Waiting for Semantic Scholar…`}</p>}
+      {waitingForS2 && <p className="bibliography-audit-coverage" role="status">{t`Partial results for ${completed} of ${progressTotal} references, waiting for Semantic Scholar…`}</p>}
       {scan && total > 0 && (busy || counts.unchecked < total) && <div
         className="bibliography-audit-bar"
         role="progressbar"
@@ -843,7 +843,7 @@ export function BibliographyAudit(props: {
     {storageFailed && <p role="alert" className="bibliography-audit-alert">{t`Could not save the report on this device. Keep this window open to retain the results.`}</p>}
     {scan && scan.issues.length > 0 && shownView === "all" && <Disclosure className="bibliography-audit-local"
       summary={<><AlertTriangle size={13} aria-hidden="true" /><span>{scan.issues.length === 1 ? t`1 thing to tidy in the bibliography` : t`${scan.issues.length} things to tidy in the bibliography`}</span></>}>
-      <ul>{scan.issues.map((issue, index) => <li key={index}><code>{issue.path}{issue.key ? ` · ${issue.key}` : ""}</code><p>{auditIssueText(issue)}</p></li>)}</ul>
+      <ul>{scan.issues.map((issue, index) => <li key={index}><code>{issue.path}{issue.key ? `, ${issue.key}` : ""}</code><p>{auditIssueText(issue)}</p></li>)}</ul>
     </Disclosure>}
     {shown.slice(0, rows.shown).map((index, position) => {
       const entry = scan!.entries[index];
@@ -873,7 +873,7 @@ export function BibliographyAudit(props: {
           >
             <span className="bibliography-audit-title" title={auditEntryTitle(entry)}>{auditEntryTitle(entry)}</span>
             <span className="bibliography-audit-meta">
-              <code>{entry.key}</code> · {entry.path}{entry.line !== undefined ? `:${entry.line}` : ""}
+              <code>{entry.key}</code> {entry.path}{entry.line !== undefined ? `:${entry.line}` : ""}
               {entry.inline && <span className="bibliography-audit-tag">{BIBITEM}</span>}
               {isApplied && <span className="bibliography-audit-tag" data-tone="success"><Check size={11} aria-hidden="true" />{t`Applied`}</span>}
             </span>
@@ -897,7 +897,7 @@ export function BibliographyAudit(props: {
       {current !== null && scan ? <>
         <p className="bibliography-audit-pane-step">{bucketNames[buckets[current]]}</p>
         <h3 className="bibliography-audit-pane-title">{auditEntryTitle(scan.entries[current])}</h3>
-        <p className="bibliography-audit-meta"><code>{scan.entries[current].key}</code> · {scan.entries[current].path}{scan.entries[current].line !== undefined ? `:${scan.entries[current].line}` : ""}</p>
+        <p className="bibliography-audit-meta"><code>{scan.entries[current].key}</code> {scan.entries[current].path}{scan.entries[current].line !== undefined ? `:${scan.entries[current].line}` : ""}</p>
         {detailFor(current)}
       </> : cleanNote || (scan && total > 0 && <p className="bibliography-audit-pane-empty">{t`No reference selected`}</p>)}
     </section>}

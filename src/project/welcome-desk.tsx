@@ -97,7 +97,7 @@ export function WelcomeDesk(props: {
                 className="welcome-desk-card"
                 // Its key shows only here and in the ⌘? sheet; assistive
                 // technology reads it from aria-keyshortcuts.
-                title={`${item.path} · ⌘${index + 1}`}
+                title={`${item.path} (⌘${index + 1})`}
                 aria-keyshortcuts={`Meta+${index + 1}`}
                 disabled={props.disabled}
                 onClick={() => props.onOpen(item.path)}

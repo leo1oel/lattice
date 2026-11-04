@@ -82,16 +82,16 @@ export function ProofreadCard(props: {
   const edits = useMemo((): InlineEdit[] => ready ? [
     ...ready.review.edits.map((edit): InlineEdit => {
       const status = ready.rejected.has(edit.id) ? "kept" : "applied";
-      const note = edit.reason?.note || undefined;
+      const note = edit.reason?.note?.replace(/[\s.。!！?？]+$/u, "") || undefined;
       return {
         ...edit,
         status,
         tag: edit.reason?.category ? categories[edit.reason.category] : undefined,
-        detail: status === "applied" ? [note, keepHint].filter(Boolean).join(" · ") : note,
+        detail: status === "applied" ? note ? t`${note}. Click to keep the original` : keepHint : note,
       };
     }),
     ...heldRuns(original, ready.review).map((edit): InlineEdit => ({ ...edit, status: "held", tag: heldTags[edit.kind] })),
-  ] : [], [categories, heldTags, keepHint, original, ready]);
+  ] : [], [categories, heldTags, keepHint, original, ready, t]);
   const polishing = ask === "polish";
   const summary = state.status === "loading" ? instruction !== null ? t`Rewriting…` : polishing ? t`Polishing…` : t`Proofreading…`
     : state.status === "error" ? instruction !== null ? t`Could not rewrite` : polishing ? t`Could not polish` : t`Could not proofread`

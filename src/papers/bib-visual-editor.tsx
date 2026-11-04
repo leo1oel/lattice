@@ -781,7 +781,7 @@ function EntryDetail(props: BibVisualEditorProps & {
           {keyError && <InlineMessage level="error" className="bib-detail-error">{keyError}</InlineMessage>}
           <h2 className="bib-detail-title">{summary.title || t`Untitled`}</h2>
           {summary.authors && <p className="bib-detail-authors">{summary.authors}</p>}
-          {(summary.venue || summary.year) && <p className="bib-detail-venue">{[summary.venue, summary.year].filter(Boolean).join(" · ")}</p>}
+          {(summary.venue || summary.year) && <p className="bib-detail-venue">{[summary.venue, summary.year].filter(Boolean).join(", ")}</p>}
           <div className="bib-detail-actions">
             {readablePaper && (
               <Button size="compact" variant="secondary" onClick={() => props.onOpenPaper(readablePaper)}>

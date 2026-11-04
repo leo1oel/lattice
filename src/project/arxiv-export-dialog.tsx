@@ -141,7 +141,7 @@ export default function ArxivExportDialog({ projectRoot, projectName, save, buil
     : failures
       ? (failures === 1 ? t`1 to fix` : t`${failures} to fix`)
       : warnings
-        ? (warnings === 1 ? t`Ready · 1 to look at` : t`Ready · ${warnings} to look at`)
+        ? (warnings === 1 ? t`Ready, 1 to look at` : t`Ready, ${warnings} to look at`)
         : pack ? t`Ready` : "";
 
   return (

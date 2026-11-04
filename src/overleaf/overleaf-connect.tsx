@@ -2,10 +2,10 @@
  * Overleaf connection UI: the Settings → Overleaf section and the
  * "Open from Overleaf" project picker dialog.
  *
- * Both talk to the Rust `overleaf` bridge through Tauri commands and are
- * written for complete novices: every state (disconnected, waiting for the
- * sign-in window, loading, empty, error, downloading) carries plain-language
- * guidance about what is happening and what to do next.
+ * Both talk to the Rust `overleaf` bridge over Tauri commands and are
+ * written for novices: every state (disconnected, signing in, loading,
+ * empty, error, downloading) says in plain language what is happening and
+ * what to do next.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -40,6 +40,7 @@ import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
 import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
 import "./overleaf-connect.css";
+import { joinPhrases } from "../i18n";
 
 /** Notification source label for everything in this file. */
 const OVERLEAF_SOURCE = "Overleaf";
@@ -682,9 +683,8 @@ Files that differ are kept side by side. Nothing is overwritten`,
             : project.archived ? <Badge size="compact">{t`Archived`}</Badge> : null}
         </span>
         <span className="overleaf-project-meta">
-          {project.ownerName || project.ownerEmail || t`Unknown owner`}
-          {" · "}
-          {project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`}
+          {joinPhrases([project.ownerName || project.ownerEmail || t`Unknown owner`,
+            project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`])}
         </span>
       </button>
       {/* A download in progress is said once, by the progress line under the list. */}

@@ -87,7 +87,7 @@ function codedDetail(check: CodedDoctorCheck): string | null {
       return description && i18n._(msg`${description}: ${error}`);
     case "root-document-missing": {
       const { project = "", engine = "", document = "" } = params;
-      return i18n._(msg`Project ${project} · engine ${engine} · root ${document} (missing)`);
+      return i18n._(msg`Project ${project}, engine ${engine}, root ${document} (missing)`);
     }
     case "bibliography-missing": {
       const file = params.file ?? "";

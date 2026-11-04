@@ -679,7 +679,7 @@ describe("PDFSlick viewer integration", () => {
   });
 
   it("previews project citations without intercepting PDF navigation and keeps the card clickable", async () => {
-    const citation = { key: "smith:2024", title: "A useful paper", authors: "Smith and Chen", year: "2024", venue: "Example Journal" };
+    const citation = { key: "smith:2024", title: "A useful paper", authors: "Li, Q and Wu, X", year: "2024", venue: "Example Journal" };
     const onOpenCitation = vi.fn();
     const view = renderPdf({ url: "https://example.test/first.pdf", citations: [citation], canOpenCitation: () => true, onOpenCitation });
     const { link } = appendInternalLink(await view.findByLabelText("PDF page 1"), "#cite.0%40smith%3A2024");
@@ -687,8 +687,8 @@ describe("PDFSlick viewer integration", () => {
     link.addEventListener("click", navigate);
     fireEvent.pointerOver(link);
     const title = await view.findByRole("button", { name: citation.title });
-    expect(view.getByText("Smith · Chen")).toBeInTheDocument();
-    expect(view.getByText("Example Journal · 2024")).toBeInTheDocument();
+    expect(view.getByText("Q Li, X Wu")).toBeInTheDocument();
+    expect(view.getByText("Example Journal, 2024")).toBeInTheDocument();
     fireEvent.pointerOut(link);
     fireEvent.pointerEnter(title.closest(".citation-hover-card")!);
     await new Promise((resolve) => setTimeout(resolve, 220));

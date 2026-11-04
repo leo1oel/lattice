@@ -25,7 +25,7 @@ import {
 } from "./editor-comment-data";
 import { formatCommentTimestamp } from "./editor-comments";
 import { useIntentLabels } from "./use-intent-labels";
-import { formatCount } from "../../i18n";
+import { formatCount, joinPhrases } from "../../i18n";
 import { latexHighlights } from "../latex/latex-highlights";
 import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../latex/highlighters";
 import type { AnnotationRounds } from "../../app/annotation-rounds";
@@ -175,7 +175,7 @@ export function EditorCommentsPanel(props: {
       const out: Array<{ key: string; label: string | null; items: typeof placed }> = [];
       for (const item of placed) {
         const label = item.section?.label ?? (sections.length ? t`Before the first section` : null);
-        const heading = many ? [name, label].filter(Boolean).join(" · ") : label;
+        const heading = many ? joinPhrases([name, label]) : label;
         const last = out.at(-1);
         if (last && last.label === heading) last.items.push(item);
         else out.push({ key: `${path}:${item.section?.offset ?? -1}`, label: heading, items: [item] });
@@ -353,10 +353,10 @@ export function EditorCommentsPanel(props: {
     <div className="annotations-round" role="status">
       <span className="annotations-round-text">
         {progress.running > 0
-          ? t`Agent is revising · ${progress.answered} of ${progress.total} answered`
+          ? t`Agent is revising, ${progress.answered} of ${progress.total} answered`
           : rounds!.proposals.length === 1
-            ? t`Round ${progress.round} · 1 proposal to review`
-            : t`Round ${progress.round} · ${rounds!.proposals.length} proposals to review`}
+            ? t`Round ${progress.round}, 1 proposal to review`
+            : t`Round ${progress.round}, ${rounds!.proposals.length} proposals to review`}
       </span>
       <span className="annotations-round-bar" aria-hidden>
         <i style={{ width: `${progress.total ? Math.round((progress.answered / progress.total) * 100) : 0}%` }} />
@@ -415,8 +415,7 @@ export function EditorCommentsPanel(props: {
               <span className="annotation-status" data-annotation-status={status}>{statusLabels[status]}</span>
             )}
             <span className="annotation-card-where">
-              {[pin ? null : author, location, formatCommentTimestamp(comment.createdAt, undefined, i18n.locale, "short")]
-                .filter(Boolean).join(" · ")}
+              {joinPhrases([pin ? null : author, location, formatCommentTimestamp(comment.createdAt, undefined, i18n.locale, "short")])}
             </span>
             {outcome && outcome.outcome !== "resolved" && (
               <span className="annotation-card-outcome" key={outcome.outcome}>

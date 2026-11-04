@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import type { ProjectDeadline } from "../app-types";
 import { aoeWallClock, deadlineDraftFrom, deadlineInstant, deadlineUrgency, durationParts } from "./deadline-time";
+import { joinPhrases } from "../i18n";
 
 // eslint-disable-next-line lingui/no-unlocalized-strings -- Intl options, not interface text
 const WHEN: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
@@ -105,7 +106,7 @@ export function DeadlineCard(props: {
       <div className="deadline-card-head">
         <span className="deadline-card-venue">
           <Clock size={13} aria-hidden="true" />
-          <span title={props.deadline.venue}>{`${props.deadline.venue} · ${kindLabel(props.deadline.kind)}`}</span>
+          <span title={props.deadline.venue}>{joinPhrases([props.deadline.venue, kindLabel(props.deadline.kind)])}</span>
         </span>
         <IconButton label={t`Edit deadline`} size="compact" onClick={() => setEditing(true)}>
           <Pencil size={12} aria-hidden="true" />
@@ -113,7 +114,7 @@ export function DeadlineCard(props: {
       </div>
       <p className="deadline-card-left">{left}</p>
       <p className="deadline-card-when"><b>{aoe}</b> {t`AoE (UTC−12)`}</p>
-      <p className="deadline-card-local">{t`${when} your time · ${zone}`}</p>
+      <p className="deadline-card-local">{t`${when} your time (${zone})`}</p>
     </section>
   );
 }
@@ -183,7 +184,7 @@ function DeadlineForm(props: {
         </label>
       </div>
       {/* Empty until a date is set, its line held so the actions don't jump. */}
-      <p className="deadline-card-local">{when && t`${when} your time · ${zone}`}</p>
+      <p className="deadline-card-local">{when && t`${when} your time (${zone})`}</p>
       <div className="deadline-form-actions">
         {props.deadline && (
           <Button variant="ghost" size="compact" className="deadline-form-remove" onClick={() => props.onSave(null)}>

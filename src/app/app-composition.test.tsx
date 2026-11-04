@@ -1099,7 +1099,7 @@ describe("Overleaf sync", () => {
       }],
       overleaf_probe: () => overleafProbe(), overleaf_status: () => overleafStatus(),
     });
-    const toolbar = await screen.findByRole("button", { name: "Overleaf comments and chat · 2 waiting" });
+    const toolbar = await screen.findByRole("button", { name: "Overleaf comments and chat, 2 waiting" });
     expect(document.querySelector('.canvas-toolbar button[aria-label="Annotations"]')).toBeNull();
     fireEvent.click(toolbar);
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
@@ -2298,7 +2298,7 @@ describe("welcome screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Venue template" }), { key: "ArrowDown" });
-    fireEvent.click(screen.getByRole("option", { name: "ICML 2026 · preprint" }));
+    fireEvent.click(screen.getByRole("option", { name: "ICML 2026 (preprint)" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     await expectInvoked("create_project", { parent: "/tmp/research", name: "New paper", venue: "icml" });
     await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: "/tmp/research/New paper" }));

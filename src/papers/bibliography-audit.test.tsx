@@ -139,7 +139,7 @@ it("does not repeat a failed batch request in subsequent groups", async () => {
 it("continues other sources while S2 waits and discards its late result after cancellation", async () => {
   const finishBatch = holdBatch();
   await renderChecked();
-  await screen.findByText(/Waiting for Semantic Scholar/);
+  await screen.findByText(/waiting for Semantic Scholar/);
   await waitFor(() => expect(screen.getAllByText("Check incomplete")).toHaveLength(3));
   expect(invoke).toHaveBeenCalledWith("bibliography_audit_entry", expect.objectContaining({ s2BatchStatus: "checked" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel check" }));
@@ -182,10 +182,10 @@ it.each([
     { source: "crossref", outcome: "queue_busy" },
   ] }, ["Batch result reused", "Public daily quota exhausted", "Request queue busy"], ["Rate limited"]],
   ["shows the selected metadata source and cache attribution for updates",
-    { ...updated, sources: [{ source: "crossref", outcome: "selected_cached" }] }, ["Crossref", "Metadata source · cached"], []],
+    { ...updated, sources: [{ source: "crossref", outcome: "selected_cached" }] }, ["Crossref", "Metadata source (cached)"], []],
   ["does not present legacy selected cached sources as accepted for unavailable results",
     { ...updated, status: "unavailable", after: undefined, publicationReason: "metadata_unavailable", sources: [{ source: "dblp", outcome: "selected_cached" }] },
-    ["Independent metadata unavailable", "Source record considered, not verified · cached record"], ["Metadata source · cached"]],
+    ["Independent metadata unavailable", "Source record considered, not verified (cached record)"], ["Metadata source (cached)"]],
 ] as const)("%s", async (_, result, shown, hidden) => {
   mockAudit(result);
   await renderChecked();
@@ -371,7 +371,7 @@ it("explains when Semantic Scholar is not configured", async () => {
   await renderChecked();
   await idle();
   openRow();
-  expect(screen.getByText("Not enabled · add your own API key in Settings")).toBeVisible();
+  expect(screen.getByText("Not enabled. Add your own API key in Settings")).toBeVisible();
 });
 
 it("explains a candidate with localized identity fields and no apply action", async () => {
@@ -395,7 +395,7 @@ it("explains a candidate with localized identity fields and no apply action", as
   openRow();
   fireEvent.click(screen.getByText("Details"));
   expect(screen.getByText("A possible record conflicts with this reference")).toBeVisible();
-  expect(screen.getByText("Candidate record considered, not verified · cached record")).toBeVisible();
+  expect(screen.getByText("Candidate record considered, not verified (cached record)")).toBeVisible();
   expect(screen.getByText("Access forbidden by provider")).toBeVisible();
   expect(screen.getByText("Entry type")).toBeVisible();
   expect(screen.getByText("Publisher")).toBeVisible();
@@ -404,12 +404,12 @@ it("explains a candidate with localized identity fields and no apply action", as
   expect(screen.getByText("Candidate").closest("p")).toHaveTextContent("Candidate Press");
   for (const comparison of document.querySelectorAll(".bibliography-audit-compare")) expect(comparison.querySelector("del, ins")).toBeNull();
   expect(screen.getAllByText("Yours")).toHaveLength(2);
-  expect(screen.getAllByText("Source · DBLP · not verified")).toHaveLength(2);
+  expect(screen.getAllByText("Not verified against DBLP")).toHaveLength(2);
   expect(screen.getByText("Unverified candidate BibTeX")).toBeInTheDocument();
   fireEvent.click(screen.getByText("Current BibTeX"));
   expect(screen.getByText(entries[0].bibtex)).toBeVisible();
   expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
-  expect(screen.queryByText("Metadata source · cached")).not.toBeInTheDocument();
+  expect(screen.queryByText("Metadata source (cached)")).not.toBeInTheDocument();
 });
 
 it("never offers individual or bulk apply when a restored payload contains a malformed candidate", async () => {

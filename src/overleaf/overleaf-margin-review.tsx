@@ -44,7 +44,7 @@ import { LeavesOnClose } from "../components/ui/exit-picture";
 import { IconButton } from "../components/ui/icon-button";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { formatCount } from "../i18n";
+import { formatCount, joinPhrases } from "../i18n";
 import { OverleafChangeCard } from "./overleaf-changes";
 import { OverleafThreadCard, type OverleafThreadActions } from "./overleaf-comments";
 import type { PeopleHues } from "./overleaf-collab-people";
@@ -439,10 +439,10 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
   const railItems = items.filter((item) => onScreen.has(item.key) || item.key === opened?.key);
   const commentCount = railItems.filter((item) => item.kind === "comment").length;
   const changeCount = railItems.length - commentCount;
-  const railSummary = [
+  const railSummary = joinPhrases([
     commentCount === 1 ? t`1 comment` : commentCount ? t`${formatCount(commentCount, i18n.locale)} comments` : "",
     changeCount === 1 ? t`1 suggestion` : changeCount ? t`${formatCount(changeCount, i18n.locale)} suggestions` : "",
-  ].filter(Boolean).join(" · ");
+  ]);
 
   return (
     <>

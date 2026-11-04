@@ -155,13 +155,13 @@ describe("CompareVersions", () => {
     expect(screen.getByText("−4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "main.tex" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "§1 Introduction · Line 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "§1 Introduction, Line 2" })).toBeInTheDocument();
     expect(document.querySelector(".compare-passage del")?.textContent).toBe("look at");
     expect(document.querySelector(".compare-passage ins")?.textContent).toBe("retrieve different");
 
     fireEvent.click(screen.getByRole("button", { name: "Next change" }));
     expect(screen.getByText("2 of 2")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "§2 Method · Line 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "§2 Method, Line 5" }));
     expect(onOpenFile).toHaveBeenCalledWith("main.tex", 5);
 
     fireEvent.click(screen.getByRole("button", { name: "refs.bib" }));

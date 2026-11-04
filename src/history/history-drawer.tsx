@@ -386,7 +386,7 @@ export function HistoryDrawer(props: {
                   <small>
                     {file.kind}
                     {file.additions || file.deletions
-                      ? ` · +${file.additions} −${file.deletions}`
+                      ? ` +${file.additions} −${file.deletions}`
                       : ""}
                   </small>
                 </div>
