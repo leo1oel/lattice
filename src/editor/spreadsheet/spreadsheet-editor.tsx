@@ -413,7 +413,7 @@ function SpreadsheetEditorSurface({
       // when every one of them was.
       const derived = derivedMutation(command.id, options);
       if (localSyncQueued) {
-        queuedEdit ||= !derived;
+        if (!derived) queuedEdit = true;
         return;
       }
       const cellMutation = localCellMutation(command.id, command.params, workbook, renderedSnapshot);

@@ -2,7 +2,6 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import type { ComponentType, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import type * as Y from "yjs";
-import tutorialSheet from "../../../src-tauri/templates/tutorial/attention-results.lattice-sheet?raw";
 import type { LatticeSpreadsheetFile, SpreadsheetCellData, SpreadsheetWorkbookData } from "./spreadsheet-types";
 
 type CellValues = Record<string, Record<string, SpreadsheetCellData | null>>;
@@ -322,8 +321,10 @@ describe("SpreadsheetEditor", () => {
   // Univer's formula engine fills in computed values and plugin resources as
   // a sheet opens, and those were taken for a local edit.
   it("writes nothing for a sheet opened and closed unchanged, and Univer's derived values with the next edit", async () => {
+    const file = createDefaultSpreadsheet("Results");
+    firstSheet(file.workbook).cellData = { 3: { 5: { f: "=C4/C3" } }, 7: { 2: { f: "=AVERAGE(C3:C6)" } } };
     const opened = () => {
-      const rendered = renderSheet({ source: tutorialSheet });
+      const rendered = renderSheet({ file });
       const workbook = univerMock.workbooks.at(-1)!;
       return { ...rendered, workbook, sheet: firstSheet(workbook.data) };
     };
