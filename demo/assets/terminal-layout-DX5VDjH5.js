@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e){let t=e?.getDocument().root;return t?{beside:t.id,edge:`bottom`,share:r}:`side`}var n,r;function i(){return(i=e((()=>{n={key:"`",ctrl:!0},r=.3})))()}export{i as n,t as r,n as t};

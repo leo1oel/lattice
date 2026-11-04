@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t({layoutMinWidth:e,interfaceScale:t,screenWidth:n}){let r=Number.isFinite(t)?Math.max(.1,t):1,i=Math.ceil((Number.isFinite(e)?Math.max(640,e):640)*r);return Number.isFinite(n)&&n>0?Math.min(i,Math.floor(n)):i}function n(){return(n=e((()=>{})))()}export{t as n,n as t};

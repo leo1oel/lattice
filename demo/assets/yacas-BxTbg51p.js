@@ -1,0 +1,1 @@
+import{Tt as e,wt as t}from"./editor-CIMZpBq1.js";t();export{e as yacas};

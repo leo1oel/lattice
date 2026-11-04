@@ -1,0 +1,1 @@
+import{Dn as e,En as t}from"./editor-CIMZpBq1.js";t();export{e as scheme};

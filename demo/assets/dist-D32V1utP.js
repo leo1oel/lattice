@@ -1,0 +1,1 @@
+import"./parser-Cw8I8ftA.js";import{fa as e,pa as t}from"./editor-CIMZpBq1.js";e();export{t as yaml};

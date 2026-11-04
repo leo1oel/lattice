@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{a as t,i as n}from"./core-Cf5DhrDM.js";async function r(){await t(`plugin:process|restart`)}function i(){return(i=e((()=>{n()})))()}i();export{r as relaunch};

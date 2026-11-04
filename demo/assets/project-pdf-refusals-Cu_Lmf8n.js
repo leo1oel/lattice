@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e){return a(e)===i}function n(e){return a(e)===r||t(e)}var r,i,a;function o(){return(o=e((()=>{r=`This PDF changed on disk.`,i=`That file or folder no longer exists.`,a=e=>e instanceof Error?e.message:e})))()}export{t as n,n as r,o as t};

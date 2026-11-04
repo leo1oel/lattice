@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,t as a}from"./texlab-language-Db5-D54K.js";n();export{a as formatLatexDocument,i as isCiteOrRefCompletionContext,t as resolveTexlabDefinition,e as texlabCompletionSource,r as texlabHoverTooltip};

@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{a as t,i as n}from"./core-Cf5DhrDM.js";async function r(e,n){await t(`plugin:opener|open_url`,{url:e,with:n})}async function i(e){return t(`plugin:opener|reveal_item_in_dir`,{paths:typeof e==`string`?[e]:e})}function a(){return(a=e((()=>{n()})))()}export{r as n,i as r,a as t};

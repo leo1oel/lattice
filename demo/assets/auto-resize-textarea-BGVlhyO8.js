@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e){e.style.height=`0px`;let t=getComputedStyle(e),n=Number.parseFloat(t.minHeight)||0,r=Number.parseFloat(t.maxHeight),i=Number.isFinite(r)?r:1/0,a=e.scrollHeight,o=Math.min(Math.max(a,n),i);e.style.height=`${o}px`,e.style.overflowY=a>i?`auto`:`hidden`}function n(){return(n=e((()=>{})))()}export{t as n,n as t};

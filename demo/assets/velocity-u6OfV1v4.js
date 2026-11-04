@@ -1,0 +1,1 @@
+import{Ft as e,Pt as t}from"./editor-CIMZpBq1.js";t();export{e as velocity};

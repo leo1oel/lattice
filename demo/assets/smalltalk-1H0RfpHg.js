@@ -1,0 +1,1 @@
+import{bn as e,xn as t}from"./editor-CIMZpBq1.js";e();export{t as smalltalk};

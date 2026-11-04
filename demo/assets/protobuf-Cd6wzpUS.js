@@ -1,0 +1,1 @@
+import{Kn as e,qn as t}from"./editor-CIMZpBq1.js";e();export{t as protobuf};

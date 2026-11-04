@@ -1,0 +1,1 @@
+import{iu as e,ru as t}from"./shiki-stubs-BMJehVMd.js";e();export{t as default};

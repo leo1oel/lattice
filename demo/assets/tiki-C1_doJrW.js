@@ -1,0 +1,1 @@
+import{Xt as e,Zt as t}from"./editor-CIMZpBq1.js";e();export{t as tiki};

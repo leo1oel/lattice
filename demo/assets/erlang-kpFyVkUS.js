@@ -1,0 +1,1 @@
+import{di as e,ui as t}from"./editor-CIMZpBq1.js";e();export{t as erlang};

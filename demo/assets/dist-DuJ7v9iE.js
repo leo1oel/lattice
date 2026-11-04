@@ -1,0 +1,1 @@
+import{Ro as e,zo as t}from"./editor-CIMZpBq1.js";e();export{t as javascript};

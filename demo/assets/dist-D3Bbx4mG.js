@@ -1,0 +1,1 @@
+import{Qa as e,Za as t}from"./editor-CIMZpBq1.js";t();export{e as php};

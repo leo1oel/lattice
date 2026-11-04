@@ -1,0 +1,1 @@
+import{aa as e,ia as t}from"./editor-CIMZpBq1.js";e();export{t as asterisk};

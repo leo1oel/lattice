@@ -1,0 +1,1 @@
+import{Or as e,kr as t}from"./editor-CIMZpBq1.js";e();export{t as mbox};

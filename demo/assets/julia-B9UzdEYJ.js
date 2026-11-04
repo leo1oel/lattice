@@ -1,0 +1,1 @@
+import{Ir as e,Lr as t}from"./editor-CIMZpBq1.js";e();export{t as julia};

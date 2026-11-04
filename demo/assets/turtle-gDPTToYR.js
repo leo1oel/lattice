@@ -1,0 +1,1 @@
+import{Bt as e,Vt as t}from"./editor-CIMZpBq1.js";e();export{t as turtle};

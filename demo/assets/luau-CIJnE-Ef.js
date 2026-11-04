@@ -1,0 +1,1 @@
+import{Gc as e,Kc as t}from"./shiki-stubs-BMJehVMd.js";e();export{t as default};

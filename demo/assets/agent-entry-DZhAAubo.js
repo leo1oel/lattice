@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e){return e instanceof Element&&!!e.closest(r)}var n,r,i;function a(){return(a=e((()=>{n=`data-agent-entry`,r=`[${n}], [data-trellis-part="tab"][data-view="agent"]`,i={[n]:``}})))()}export{a as n,t as r,i as t};

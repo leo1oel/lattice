@@ -1,0 +1,1 @@
+import{lo as e,uo as t}from"./editor-CIMZpBq1.js";e();export{t as json};

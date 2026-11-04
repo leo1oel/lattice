@@ -1,0 +1,1 @@
+import{er as e,tr as t}from"./editor-CIMZpBq1.js";e();export{t as perl};

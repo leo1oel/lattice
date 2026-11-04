@@ -1,0 +1,21 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e,t,n){let r=e.slice(0,t),i=e.slice(t);return`${!r||r.endsWith(`
+
+`)?``:r.endsWith(`
+`)?`
+`:`
+
+`}${n}${i?i.startsWith(`
+
+`)?``:i.startsWith(`
+`)?`
+`:`
+
+`:`
+`}`}function n(e){return(e.split(`/`).pop()??`figure`).replace(/\.[^.]+$/,``).replace(/-converted$/,``).toLowerCase().replace(/[^a-z0-9]+/g,`-`).replace(/^-|-$/g,``)||`figure`}function r(e,r,i,a=p){let o=a.width.trim()||`\\linewidth`,s=a.placement.trim()||`t`,c=a.caption.trim()||p.caption,l=t(e,r,i.map((e,t)=>{let r=e.replace(/\\/g,`/`),i=a.label?.trim()||`fig:${n(r)}`;return[`\\begin{figure}[${s}]`,`  \\centering`,`  \\includegraphics[width=${o}]{\\detokenize{${r}}}`,`  \\caption{${c}}`,`  \\label{${t>0?`${i}-${t+1}`:i}}`,`\\end{figure}`].join(`
+`)}).join(`
+
+`));return{text:l,cursorOffset:l.indexOf(c)+c.length}}function i(e,n,r,i){let o=t(e,n,r.map(e=>{let t=e.replace(/\\/g,`/`),n=t.split(`/`).pop()??`asset`,r=a(i,t);return x.has(n.split(`.`).pop()?.toLocaleLowerCase()??``)?`![${n.replace(/\.[^.]+$/,``).replace(/[-_]+/g,` `).trim()||`asset`}](<${r}>)`:`[${n}](<${r}>)`}).join(`
+
+`));return{text:o,cursorOffset:o.length}}function a(e,t){let n=e.replace(/\\/g,`/`).split(`/`).filter(Boolean),r=t.replace(/\\/g,`/`).split(`/`).filter(Boolean);for(n.pop();n.length&&r.length&&n[0]===r[0];)n.shift(),r.shift();return[...n.map(()=>`..`),...r].join(`/`)||`.`}function o(e,t){let n;try{n=decodeURIComponent(t).replace(/\\/g,`/`)}catch{return null}if(!n||n.startsWith(`/`)||_.test(n))return null;let r=e.replace(/\\/g,`/`).split(`/`).slice(0,-1).filter(Boolean);for(let e of n.split(`/`))if(!(!e||e===`.`)){if(e!==`..`)r.push(e);else if(!r.pop())return null}return r.join(`/`)||null}function s(e,t,n,r){let i=t.search(/[?#]/),a=i<0?t:t.slice(0,i),s=i<0?``:t.slice(i),c=o(e,a);if(!c)return null;if(n.has(c))return{path:c,suffix:s,extensionless:!1};if(!r||/\.[^/]+$/.test(c))return null;let l=[...n].filter(e=>y(e)===c);return l.length===1?{path:l[0],suffix:s,extensionless:!0}:null}function c(e,t,n,r,i=!1){let o=s(e,n,r,i);if(!o||i&&s(`root.tex`,n,r,!0))return null;let c=`${a(t,o.extensionless?y(o.path):o.path)}${o.suffix}`;return c===n?null:c}function l(e,t){let n=e.lastIndexOf(`
+`,t-1)+1;for(let r=n;r<t;r+=1){if(e[r]!==`%`)continue;let t=0;for(let i=r-1;i>=n&&e[i]===`\\`;--i)t+=1;if(t%2==0)return!0}return!1}function u(e){let t=[];for(let n of e.matchAll(/<!--[\s\S]*?(?:-->|$)/g))t.push([n.index,n.index+n[0].length]);let n=null,r=0;for(;r<e.length;){let i=e.indexOf(`
+`,r),a=i<0?e.length:i+1,o=e.slice(r,i<0?e.length:i),s=/^ {0,3}(`{3,}|~{3,})/.exec(o)?.[1];!n&&s?n={character:s[0],length:s.length,start:r}:n&&s?.[0]===n.character&&s.length>=n.length&&o.slice(o.indexOf(s)+s.length).trim()===``&&(t.push([n.start,a]),n=null),r=a}return n&&t.push([n.start,e.length]),e=>t.some(([t,n])=>e>=t&&e<n)}function d(e,t,n,r,i){return e.replace(t,(e,t,...a)=>{let o=a.slice(0,n.length).findIndex(e=>e!==void 0);if(o<0||r(a[n.length]))return e;let s=i(a[o]);return s?t+n[o](s):e})}function f(e,t,n,r){if(v(t)===v(n))return e;let i=e=>c(t,n,e,r);if(/\.md$/i.test(t)){let t=d(e,m,[e=>`<${e}>`,b],u(e),i);return d(t,h,[e=>`"${e}"`,e=>`'${e}'`,b],u(t),i)}return/\.tex$/i.test(t)?d(e,g,[e=>`\\detokenize{${e}}`,e=>e],t=>l(e,t),e=>c(t,n,e.trim(),r,!0)):e}var p,m,h,g,_,v,y,b,x;function S(){return(S=e((()=>{p={width:`\\linewidth`,placement:`t`,caption:`Describe the figure.`},m=/(!\[(?:\\.|[^\]\\\n])*\]\(\s*)(?:<([^>\n]*)>|((?:\\.|[^()\s])+))(?=(?:\s+(?:"(?:\\.|[^"\n])*"|'(?:\\.|[^'\n])*'|\((?:\\.|[^)\n])*\)))?\s*\))/g,h=/(<img\b[^>]*?\s+src\s*=\s*)(?:"([^"\n]*)"|'([^'\n]*)'|([^\s"'=<>`]+))/gi,g=/(\\includegraphics\*?(?:\s*\[[^\]\n]*\])?\s*\{)(?:\\detokenize\{([^{}]*)\}|([^{}]*))(?=\})/g,_=/^[a-z][a-z\d+.-]*:/i,v=e=>e.slice(0,Math.max(0,e.lastIndexOf(`/`))),y=e=>e.replace(/\.[^/.]+$/,``),b=e=>e.replaceAll(` `,`%20`),x=new Set([`png`,`jpg`,`jpeg`,`svg`,`webp`])})))()}function C(e,t){let n=e.replace(/\\/g,`/`);if(!n||n.startsWith(`//`)||/^[a-z][a-z\d+.-]*:/i.test(n))return null;let r=n.startsWith(`/`)?[]:t.replace(/\\/g,`/`).split(`/`).slice(0,-1).filter(Boolean);for(let e of n.split(`/`))if(!(!e||e===`.`)){if(e!==`..`)r.push(e);else if(!r.pop())return null}return r.length?r.join(`/`):null}function w(){return(w=e((()=>{})))()}export{r as a,S as i,w as n,i as o,p as r,f as s,C as t};
