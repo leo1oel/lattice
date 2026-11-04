@@ -111,6 +111,7 @@ body[data-scroll-locked]::after {
 .source-editor .cm-tooltip.citation-hover-card,
 .reference-hover-card,
 .source-editor .cm-tooltip.symbol-palette,
+.source-editor .cm-tooltip.math-preview-card,
 .proofread-card,
 .annotation-review-card {
   border-radius: var(--radius-panel);

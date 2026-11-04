@@ -58,8 +58,6 @@
 .references-location { color: var(--text-secondary); font-weight: 650; white-space: nowrap; }
 .references-snippet { min-width: 0; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .document-outline-list button:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
-.math-preview { flex: none; max-height: 140px; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-panel) 70%, var(--editor-bg)); padding: var(--space-4) var(--space-6); overflow: auto; }
-.math-preview-body { color: var(--text-primary); overflow-x: auto; }
 .source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--code-ground); }
 /* Placed with `translate`, so `.popup-motion` keeps `transform` for its entrance. */
 .latex-selection-toolbar-anchor {
@@ -1036,6 +1034,25 @@ button.citation-card-title:hover, button.citation-card-title:focus-visible { tex
 .reference-hover-number { display: block; margin-top: var(--space-2); color: var(--text-secondary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; }
 .reference-hover-math { max-height: 160px; margin-top: 7px; overflow: auto; color: var(--text-primary); }
 .reference-hover-math .katex-display { margin: 0; }
+/* The live math preview (math-preview.ts): KaTeX's picture of the formula at
+   the caret, on the frosted card just above it. `--math-preview-room` is the
+   editor's width less its margins, set as the card opens; a formula wider or
+   taller than the card scrolls inside it. It shows only while the editor has
+   focus: the caret it follows is the one being typed at. */
+.source-editor .cm-tooltip.math-preview-card {
+  --math-preview-room: 560px;
+  max-width: min(560px, var(--math-preview-room));
+  max-height: min(240px, 40vh);
+  padding: var(--space-4) var(--space-6);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0;
+}
+.source-editor .cm-editor:not(.cm-focused) > .cm-tooltip.math-preview-card { visibility: hidden; }
+.math-preview-card .katex-display { margin: 0; }
+/* Half-typed math KaTeX cannot set yet keeps its last picture, quietly dimmed. */
+.math-preview-body { transition: opacity var(--motion-fast); }
+.math-preview-card[data-stale] .math-preview-body { opacity: .5; }
 .symbol-palette { width: min(340px, calc(100vw - 32px)); padding: var(--space-4); }
 .symbol-palette input { width: 100%; height: 28px; margin-bottom: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--editor-bg); padding-inline: var(--space-4); color: var(--text-primary); font-size: var(--type-caption-size); }
 .symbol-palette-grid { display: grid; grid-template-columns: repeat(8, 1fr); max-height: 216px; overflow-y: auto; }

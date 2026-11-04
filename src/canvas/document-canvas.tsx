@@ -34,7 +34,6 @@ import { clamp } from "../settings/app-settings";
 import { replaceTokenOnLine } from "../build/compile-diagnostics";
 import { sectionBreadcrumbNodes } from "../editor/latex/latex-outline";
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
-import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
 import type { FileViewState, AssetPreview } from "../app-types";
 import {
@@ -1129,9 +1128,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
             />
           )}
         </div>
-        {activeFile.endsWith(".tex") && (
-          <MathPreview source={editorSource} cursor={session.cursorOffset} macros={katexMacros} />
-        )}
         <EditorStatusBar
           position={session.position}
           onGotoLine={onGotoLineRequest}

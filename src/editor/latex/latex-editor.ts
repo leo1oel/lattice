@@ -37,6 +37,7 @@ import {
 } from "./latex-symbols";
 import type { CitationInfo, DefinitionTarget, LocalMacro, ReferenceInfo, SymbolTarget } from "./latex-text";
 import { listItemNewline, sizedDelimiterClose, type InputEdit } from "./latex-input";
+import { mathPreview } from "./math-preview";
 import { matchingMathDelimiter } from "./math-region";
 import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
@@ -416,6 +417,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     referenceTooltips(live, options.loadReferenceImage),
     options.loadReferenceImage ? graphicsTooltips(live, options.loadReferenceImage) : [],
     texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
+    currentPath.endsWith(".tex") ? mathPreview(() => live().katexMacros) : [],
     linter((view) => indexDiagnostics(view.state.doc.toString(), live(), currentPath, options.onCreateMissingFile), {
       delay: 400,
       needsRefresh: (update) => update.transactions.some((transaction) => (
