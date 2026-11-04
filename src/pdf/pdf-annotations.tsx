@@ -6,7 +6,7 @@ import { PdfAnnotationComposer } from "../canvas/pdf-annotation-composer";
 import { Button } from "../components/ui/button";
 import { CommentCard, CommentPreview } from "../editor/comments/comment-card";
 import {
-  annotationStatus, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfRect,
+  annotationStatus, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfAnchor, type PdfRect,
 } from "../editor/comments/editor-comment-data";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { notifyInfo } from "../telemetry/app-notify";
@@ -17,9 +17,11 @@ import { usePdfRenderCount, type PdfRenderCount } from "./use-pdf-document";
 import type { ActiveViewerRef } from "./use-pdf-view";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { usePdfAnchoredPopup } from "./use-pdf-anchored-popup";
+import { placePdfMark, type PdfMarkPlace } from "./pdf-annotation-place";
+import type { PageText, TextRun } from "./review-pdf";
 
-/** An annotation made on the PDF, as its page draws it: an amber highlight and its numbered pin. */
-export type PdfAnnotationMark = { id: string; number: number; page: number; rects: PdfRect[]; status: AnnotationStatus };
+/** An annotation made on the PDF, as its page draws it: an amber highlight over the words it quotes and its numbered pin. */
+export type PdfAnnotationMark = { id: string; number: number; page: number; quote: string; pdf: PdfAnchor; status: AnnotationStatus };
 
 /**
  * Text selected on a page to annotate: the page, the selection's line boxes
@@ -62,6 +64,42 @@ function selectedLines(root: HTMLElement): { page: number; pageElement: HTMLElem
   return Number.isFinite(page) && lines.length
     ? { page, pageElement, rects: lines.map((line) => ({ x: round(line.x), y: round(line.y), width: round(line.width), height: round(line.height) })) }
     : null;
+}
+
+/**
+ * Where each mark is drawn (pdf-annotation-place.ts), from the text of its
+ * page: null until the first placement on this document is known. Each page's
+ * text is read once per document.
+ */
+function usePdfMarkPlaces(recordRef: ActiveViewerRef, marks: readonly PdfAnnotationMark[], generation: number): ReadonlyMap<string, PdfMarkPlace> | null {
+  const [placed, setPlaced] = useState<{ generation: number; places: ReadonlyMap<string, PdfMarkPlace> } | null>(null);
+  const textsRef = useRef<{ generation: number; pages: Map<number, Promise<PageText | null>> } | null>(null);
+  useEffect(() => {
+    const document = recordRef.current?.slick.document;
+    if (!document || !marks.length) return;
+    if (textsRef.current?.generation !== generation) textsRef.current = { generation, pages: new Map() };
+    const texts = textsRef.current.pages;
+    const pageText = (number: number) => {
+      let text = texts.get(number);
+      if (!text) {
+        text = number > document.numPages ? Promise.resolve(null) : document.getPage(number).then(async (page) => {
+          const content = await page.getTextContent();
+          return { view: page.view, runs: content.items.filter((item): item is TextRun & typeof item => "str" in item) };
+        }).catch(() => null);
+        texts.set(number, text);
+      }
+      return text;
+    };
+    let live = true;
+    void Promise.all(marks.map(async (mark) => [mark.id, placePdfMark(await pageText(mark.page), mark)] as const)).then((entries) => {
+      if (!live) return;
+      setPlaced({ generation, places: new Map(entries.flatMap(([id, place]) => (place ? [[id, place] as const] : []))) });
+    });
+    return () => {
+      live = false;
+    };
+  }, [generation, marks, recordRef]);
+  return placed?.generation === generation ? placed.places : null;
 }
 
 /** How long the pointer rests on a passage before its preview shows, as on the source editor's comments. */
@@ -122,8 +160,9 @@ export default function PdfAnnotationLayer({
   const [card, setCard] = useState<{ id: string; keyboard: boolean } | null>(null);
   const cardRef = useLatestRef(card);
   const marks = useMemo((): PdfAnnotationMark[] => annotations.flatMap((annotation) => annotation.pdf && annotation.number && !annotation.resolved
-    ? [{ id: annotation.id, number: annotation.number, page: annotation.pdf.page, rects: annotation.pdf.rects, status: annotationStatus(annotation) }]
+    ? [{ id: annotation.id, number: annotation.number, page: annotation.pdf.page, quote: annotation.quote, pdf: annotation.pdf, status: annotationStatus(annotation) }]
     : []), [annotations]);
+  const places = usePdfMarkPlaces(recordRef, marks, generation);
   const annotatable = rounds.canAnnotatePdf();
 
   // A finished drag offers Annotate where the selection ends.
@@ -186,19 +225,23 @@ export default function PdfAnnotationLayer({
     };
   }, [annotatable, generation, previewRef, recordRef, scaleRef]);
 
-  // Each annotation's highlight and pin, drawn again whenever a page re-renders.
+  // Each annotation's highlight and pin, drawn again whenever a page re-renders,
+  // once its words are found on the page.
   useEffect(() => {
     const record = recordRef.current;
-    if (!record || !marks.length) return;
+    if (!record || !marks.length || !places) return;
     const drawn: HTMLElement[] = [];
+    // Pins of passages that start on one line stand side by side, outward from the column.
+    const stacked = new Map<string, number>();
     for (const mark of marks) {
       const pageDiv = pdfPageView(record.slick, mark.page)?.div;
-      if (!pageDiv) continue;
+      const place = places.get(mark.id);
+      if (!pageDiv || !place) continue;
       const layer = document.createElement("div");
       layer.className = "pdf-annotation-mark";
       layer.dataset.annotationStatus = mark.status;
       layer.dataset.annotationId = mark.id;
-      for (const rect of mark.rects) {
+      for (const rect of place.rects) {
         const box = document.createElement("div");
         box.className = "pdf-annotation-highlight";
         Object.assign(box.style, {
@@ -206,18 +249,21 @@ export default function PdfAnnotationLayer({
         });
         layer.append(box);
       }
-      // The pin stands at the selection's leftmost line start: left of the column for a passage
-      // across lines, just before the words for one inside a line.
-      const first = mark.rects[0] && { ...mark.rects[0], x: Math.min(...mark.rects.map((rect) => rect.x)) };
-      if (first) {
+      {
+        const { pin: at } = place;
+        const row = `${mark.page}:${at.side}:${Math.round(at.y * 200)}`;
+        const stack = stacked.get(row) ?? 0;
+        stacked.set(row, stack + 1);
         const pin = document.createElement("button");
         pin.type = "button";
         pin.className = "annotation-pin pdf-annotation-pin";
         pin.dataset.annotationStatus = mark.status;
+        pin.dataset.side = at.side;
+        pin.style.setProperty("--pin-stack", String(stack));
         pin.textContent = String(mark.number);
         pin.setAttribute("aria-label", t`Annotation ${mark.number}`);
         pin.setAttribute("aria-haspopup", "dialog");
-        Object.assign(pin.style, { left: `${first.x * 100}%`, top: `${(first.y + first.height / 2) * 100}%` });
+        Object.assign(pin.style, { left: `${at.x * 100}%`, top: `${at.y * 100}%` });
         pin.addEventListener("click", (event) => {
           event.stopPropagation();
           // Pressed from the keyboard (no pointer, so no click count), the card takes focus.
@@ -234,7 +280,7 @@ export default function PdfAnnotationLayer({
     return () => {
       for (const layer of drawn) layer.remove();
     };
-  }, [generation, marks, pageRenderGeneration, recordRef, scale, t, textLayerGeneration]);
+  }, [generation, marks, pageRenderGeneration, places, recordRef, scale, t, textLayerGeneration]);
 
   // The passage under the pointer, its highlight or its pin, previews after a
   // short rest and lights while it does; a click on it (not a drag that
@@ -350,11 +396,12 @@ export default function PdfAnnotationLayer({
           onDismiss={(written) => dismissNote(composing.selection, written)}
         />
       )}
-      {previewAnnotation?.pdf && <PdfCommentPreview key={previewAnnotation.id} annotation={previewAnnotation} />}
+      {previewAnnotation?.pdf && <PdfCommentPreview key={previewAnnotation.id} annotation={previewAnnotation} rects={places?.get(previewAnnotation.id)?.rects} />}
       {cardAnnotation?.pdf && (
         <PdfCommentCard
           key={cardAnnotation.id}
           annotation={cardAnnotation}
+          rects={places?.get(cardAnnotation.id)?.rects}
           rounds={rounds}
           keyboard={card?.keyboard ?? false}
           onResolving={fade}
@@ -365,10 +412,15 @@ export default function PdfAnnotationLayer({
   );
 }
 
+/** The passage a popup stands over: where its highlight is drawn, or the selection as saved. */
+function usePassage(annotation: EditorComment, rects: readonly PdfRect[] | undefined) {
+  return useMemo(() => annotation.pdf ? { page: annotation.pdf.page, rects: rects ?? annotation.pdf.rects } : null, [annotation.pdf, rects]);
+}
+
 /** The preview over a passage the pointer rests on: lines only, never in the pointer's way. */
-function PdfCommentPreview({ annotation }: { annotation: EditorComment }) {
+function PdfCommentPreview({ annotation, rects }: { annotation: EditorComment; rects?: readonly PdfRect[] }) {
   const ref = useRef<HTMLDivElement>(null);
-  const passage = useMemo(() => annotation.pdf ? { page: annotation.pdf.page, rects: annotation.pdf.rects } : null, [annotation.pdf]);
+  const passage = usePassage(annotation, rects);
   usePdfAnchoredPopup(ref, passage, PREVIEW_PLACE);
   return (
     <div ref={ref} role="tooltip" className="pdf-comment-popup pdf-comment-preview">
@@ -378,8 +430,10 @@ function PdfCommentPreview({ annotation }: { annotation: EditorComment }) {
 }
 
 /** An annotation's card on the PDF, above its passage, until Esc or a click elsewhere. */
-function PdfCommentCard({ annotation, rounds, keyboard, onResolving, onClose }: {
+function PdfCommentCard({ annotation, rects, rounds, keyboard, onResolving, onClose }: {
   annotation: EditorComment;
+  /** Where its passage is drawn, when placed. */
+  rects?: readonly PdfRect[];
   rounds: AnnotationRounds;
   keyboard: boolean;
   onResolving: (id: string) => void;
@@ -387,7 +441,7 @@ function PdfCommentCard({ annotation, rounds, keyboard, onResolving, onClose }: 
 }) {
   const { t } = useLingui();
   const ref = useRef<HTMLDivElement>(null);
-  const passage = useMemo(() => annotation.pdf ? { page: annotation.pdf.page, rects: annotation.pdf.rects } : null, [annotation.pdf]);
+  const passage = usePassage(annotation, rects);
   usePdfAnchoredPopup(ref, passage, CARD_PLACE);
   // Its own pin opened it: pressing the pin again is not a click elsewhere.
   useDismissOnOutsidePointer(ref, onClose, (target) => Boolean(target.closest(`[data-annotation-id="${CSS.escape(annotation.id)}"]`)));

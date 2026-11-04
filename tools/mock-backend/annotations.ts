@@ -48,7 +48,8 @@ type Options = {
    * Which notes the open project starts with, read when the app first lists
    * them: null for none, `review` for a round in review (proposals, an
    * accepted one and a question) after a settled first round, `rounds` for
-   * two settled rounds to compare, anything else for five open notes (one
+   * two settled rounds to compare, `settled` for the five notes all
+   * resolved (the Open list empty), anything else for five open notes (one
    * made on the PDF).
    */
   seed: () => string | null;
@@ -84,6 +85,7 @@ export function annotationsAnswer({ project, seed, numberBase = 0, extra, zh, au
         authorId: "me", authorName: author, resolved: false, replies: [], createdAt: at, updatedAt: at,
       }];
     });
+    if (mode === "settled") for (const annotation of annotations) annotation.resolved = true;
     if (extra) annotations.push(...extra(main, numberBase + annotations.length));
     const rounds: Array<Record<string, unknown>> = [];
     if (mode === "review" || mode === "rounds") {

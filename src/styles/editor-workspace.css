@@ -297,10 +297,15 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   -webkit-box-decoration-break: clone;
   cursor: help;
 }
+/* The band reaches below the descenders before its rule, so the rule never
+   cuts a g or a y: vertical padding on an inline mark paints without moving
+   the line. Square but for a hair, as on the PDF (.pdf-annotation-highlight). */
 .source-editor .cm-annotation {
   --annotation-mark-ink: var(--annotation-ink);
+  padding-block: 0 0.16em;
+  border-radius: 1px;
   background: var(--annotation-highlight);
-  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--annotation-mark-ink) 70%, transparent);
+  box-shadow: inset 0 -1.5px 0 color-mix(in srgb, var(--annotation-mark-ink) 70%, transparent);
 }
 .source-editor .cm-annotation[data-annotation-status="proposed"] { --annotation-mark-ink: var(--annotation-proposed-ink); background: color-mix(in srgb, var(--annotation-proposed-ink) 10%, transparent); }
 .source-editor .cm-annotation[data-annotation-status="asked"] { --annotation-mark-ink: var(--annotation-asked-ink); background: color-mix(in srgb, var(--annotation-asked-ink) 10%, transparent); }

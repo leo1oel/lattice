@@ -1306,6 +1306,11 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 .canvas-actions button { width: var(--control-size-icon); height: var(--control-size-icon); border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--text-secondary); position: relative; }
 .canvas-actions button:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
 .canvas-actions button.active { background: var(--control-active-soft); color: var(--control-active); }
+/* A button with notes waiting widens to say how many beside its icon, in
+   its own ink: the count never sits over the icon (canvas-toolbar.tsx's
+   .toolbar-count). */
+.canvas-actions button.toolbar-count-button { width: auto; min-width: var(--control-size-icon); display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-inline-tight); padding-inline: var(--space-3); }
+.toolbar-count { font: var(--type-body-compact-weight) var(--type-body-compact-size)/1 var(--ui-font); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .overleaf-toolbar-group { display: flex; align-items: center; flex: none; }
 .canvas-actions .overleaf-toolbar-group .overleaf-toolbar-primary { border-radius: var(--radius-icon) 0 0 var(--radius-icon); }
 .canvas-actions .overleaf-toolbar-group .overleaf-toolbar-menu-button { width: 18px; border-radius: 0 var(--radius-icon) var(--radius-icon) 0; }
@@ -1325,7 +1330,7 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 .overleaf-status-dot, .overleaf-channel-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--status-success); box-shadow: 0 0 0 1.5px var(--surface-titlebar); pointer-events: none; }
 .overleaf-channel-dot[data-state="connecting"] { background: var(--status-warning); animation: overleaf-channel-breathe 1.6s ease-in-out infinite; }
 .overleaf-channel-dot[data-state="error"] { background: var(--status-danger); }
-.canvas-actions .overleaf-pending-badge { top: 3px; right: 3px; min-width: 0; width: 7px; height: 7px; padding: 0; border-radius: var(--radius-pill); background: var(--control-active); box-shadow: 0 0 0 1.5px var(--surface-titlebar); color: transparent; font-size: 0; }
+.overleaf-pending-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--control-active); box-shadow: 0 0 0 1.5px var(--surface-titlebar); pointer-events: none; }
 @keyframes overleaf-channel-breathe { 50% { opacity: .35; } }
 /* The channel's moments, once each. Coming online sends one ripple out of the
    green dot; dropping to an error pops the red one. Both dots are the same
