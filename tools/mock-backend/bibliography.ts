@@ -6,10 +6,30 @@
  */
 import type { ProjectFiles } from "./project";
 
-const bibEntries = (files: ProjectFiles) => [...files].flatMap(([path, content]) => (
+/** Each entry of the project's `.bib` files, as written, with the file it is in. */
+export const bibEntries = (files: ProjectFiles) => [...files].flatMap(([path, content]) => (
   path.endsWith(".bib") && typeof content === "string" ? content.split(/\n(?=@)/).map((bibtex) => ({ path, bibtex })) : []
 ));
-const entryKey = (bibtex: string) => /^\s*@\w+\s*\{\s*([^,\s]+)\s*,/.exec(bibtex)?.[1];
+/** An entry's citation key. */
+export const entryKey = (bibtex: string) => /^\s*@\w+\s*\{\s*([^,\s]+)\s*,/.exec(bibtex)?.[1];
+
+/**
+ * A braced field's value as written, its own nested braces kept
+ * (`{BERT}: Pre-training…`), as the backend's BibTeX reader returns it; ""
+ * when the entry has no such field.
+ */
+export function rawField(entry: string, name: string): string {
+  const start = new RegExp(`\\b${name}\\s*=\\s*\\{`, "i").exec(entry);
+  if (!start) return "";
+  const from = start.index + start[0].length;
+  let depth = 1;
+  for (let index = from; index < entry.length; index += 1) {
+    if (entry[index] === "\\") index += 1;
+    else if (entry[index] === "{") depth += 1;
+    else if (entry[index] === "}" && --depth === 0) return entry.slice(from, index);
+  }
+  return "";
+}
 
 /** Every `\\cite…{keys}` in the project's .tex files, as `list_citation_usages` reports them. */
 export function citationUsages(files: ProjectFiles) {
@@ -33,8 +53,7 @@ export function citationUsages(files: ProjectFiles) {
  * their braces), so a `\\cite` there has its card.
  */
 export function bibliographyCitations(files: ProjectFiles) {
-  const field = (entry: string, name: string) => new RegExp(`\\b${name}\\s*=\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}`, "i")
-    .exec(entry)?.[1].replace(/[{}]/g, "").replace(/\s+/g, " ").trim() ?? "";
+  const field = (entry: string, name: string) => rawField(entry, name).replace(/[{}]/g, "").replace(/\s+/g, " ").trim();
   return bibEntries(files).flatMap(({ bibtex: entry }) => {
     const key = entryKey(entry);
     if (!key) return [];
@@ -52,8 +71,7 @@ export function bibliographyCitations(files: ProjectFiles) {
 export function bibliographyAuditScan(files: ProjectFiles) {
   const entries = bibEntries(files).flatMap(({ path, bibtex }) => {
     const key = entryKey(bibtex);
-    // The field's raw value, inner braces kept, as the backend sends it ("{BERT}: Pre-training…").
-    const title = /\btitle\s*=\s*\{((?:[^{}]|\{[^{}]*\})*)\}/i.exec(bibtex)?.[1] ?? "";
+    const title = rawField(bibtex, "title");
     return key ? [{ path, key, title, bibtex: bibtex.trim(), issues: [] }] : [];
   });
   const coverage = [...files].flatMap(([path, content]) => (

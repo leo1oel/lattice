@@ -171,6 +171,10 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // zustand (~1 KB) and the store with its compiled hook, +3.3 KB
 // (1,414,200 -> 1,417,523 bytes).
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.355 * 1024 * 1024);
+// A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
+// lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
+// spend the release budget: a release at its limit would fail every lab build.
+const PERF_LAB_EAGER_JS_ALLOWANCE_BYTES = 2 * 1024;
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;
@@ -178,6 +182,7 @@ const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
   report = null,
+  { lab = process.env.VITE_PERF_LAB === "1" } = {},
 ) {
   const measuredReport = report ?? await createAppSizeReport(workspace);
   const dist = path.resolve(workspace, "dist");
@@ -222,9 +227,10 @@ export async function checkAppSizeBudgets(
       `Eager rolldown-runtime is ${runtimeBytes} bytes; budget is ${ROLLDOWN_RUNTIME_BUDGET_BYTES}`,
     );
   }
-  if (eagerJsBytes > EAGER_JS_BUDGET_BYTES) {
+  const eagerJsBudgetBytes = EAGER_JS_BUDGET_BYTES + (lab ? PERF_LAB_EAGER_JS_ALLOWANCE_BYTES : 0);
+  if (eagerJsBytes > eagerJsBudgetBytes) {
     throw new Error(
-      `Eager JavaScript is ${eagerJsBytes} bytes; budget is ${EAGER_JS_BUDGET_BYTES}`,
+      `Eager JavaScript is ${eagerJsBytes} bytes; budget is ${eagerJsBudgetBytes}${lab ? " (with the perf-lab allowance)" : ""}`,
     );
   }
   for (const executable of measuredReport.claudeAgentSdkExecutables) {
@@ -249,7 +255,8 @@ export async function checkAppSizeBudgets(
   }
   return {
     eagerJsBytes,
-    eagerJsBudgetBytes: EAGER_JS_BUDGET_BYTES,
+    eagerJsBudgetBytes,
+    lab,
     rolldownRuntimeBytes: runtimeBytes,
     rolldownRuntimeBudgetBytes: ROLLDOWN_RUNTIME_BUDGET_BYTES,
     claudePathLauncherBudgetBytes: CLAUDE_PATH_LAUNCHER_BUDGET_BYTES,
@@ -377,7 +384,7 @@ async function main() {
       ? `; rolldown runtime ${humanBytes(result.rolldownRuntimeBytes)}`
       : "";
     console.log(
-      `App size guard passed: eager JS ${humanBytes(result.eagerJsBytes)} / ${humanBytes(result.eagerJsBudgetBytes)}${runtime}`,
+      `App size guard passed: eager JS ${humanBytes(result.eagerJsBytes)} / ${humanBytes(result.eagerJsBudgetBytes)}${result.lab ? " (perf-lab build)" : ""}${runtime}`,
     );
   } else {
     const report = await createAppSizeReport();

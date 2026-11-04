@@ -22,6 +22,12 @@ import {
 export const SPREADSHEET_META_KEY = "spreadsheetMeta";
 export const SPREADSHEET_LOCAL_ORIGIN = "spreadsheet-local";
 export const SPREADSHEET_AGENT_ORIGIN = "spreadsheet-agent";
+/**
+ * What Univer works out by itself rather than a change anyone made: the
+ * formula engine's computed values, and the plugin resources it adds to a
+ * workbook, both of which it produces as soon as a sheet opens.
+ */
+export const SPREADSHEET_DERIVED_ORIGIN = "spreadsheet-derived";
 const SPREADSHEET_SEED_ORIGIN = "spreadsheet-seed";
 const CONTENT_KEY = "content";
 const STYLES_KEY = "spreadsheetStyles";
@@ -216,8 +222,36 @@ function canonicalize(value: unknown): unknown {
     .map(([key, child]) => [key, canonicalize(child)]));
 }
 
+/**
+ * A worksheet as its file stores it: without the row and column IDs parsing
+ * derives again. A line still at the index its ID was derived for gets the
+ * same ID back (`normalizeWorksheet`), so writing it would only grow the file
+ * (by 1,000 rows' worth on first open) and churn it under version control.
+ * IDs that moved with an inserted or deleted line are kept.
+ */
+function withoutDerivedIds(sheet: SpreadsheetWorksheetData): SpreadsheetWorksheetData {
+  const output = { ...sheet };
+  for (const axis of AXES) {
+    const { data, idField } = SPREADSHEET_AXES[axis];
+    const lines: SpreadsheetWorksheetData["rowData"] = {};
+    for (const [key, line] of Object.entries(sheet[data])) {
+      if (axisId(line, axis) !== stableId(axis, sheet.id, Number(key))) {
+        lines[Number(key)] = line;
+        continue;
+      }
+      const { [idField]: _derived, ...custom } = line.custom as Record<string, unknown>;
+      const { custom: _custom, ...rest } = line;
+      const kept = Object.keys(custom).length > 0 ? { ...rest, custom } : rest;
+      if (Object.keys(kept).length > 0) lines[Number(key)] = kept;
+    }
+    output[data] = lines;
+  }
+  return output;
+}
+
 export function serializeSpreadsheetFile(workbook: SpreadsheetWorkbookData): string {
-  return `${JSON.stringify(canonicalize(spreadsheetFile(workbook)), null, 2)}\n`;
+  const sheets = Object.fromEntries(Object.entries(workbook.sheets).map(([id, sheet]) => [id, withoutDerivedIds(sheet)]));
+  return `${JSON.stringify(canonicalize(spreadsheetFile({ ...workbook, sheets })), null, 2)}\n`;
 }
 
 // ── Y.Doc layout ─────────────────────────────────────────────────────────────
@@ -396,8 +430,11 @@ function sheetOrderOf(workbook: SpreadsheetWorkbookData): string[] {
 
 function initializedMeta(doc: Y.Doc): Y.Map<unknown> {
   const meta = doc.getMap<unknown>(SPREADSHEET_META_KEY);
-  meta.set("formatVersion", LATTICE_SPREADSHEET_VERSION);
-  meta.set("initialized", true);
+  // Y.Map.set writes even an equal value, and every write is an update that
+  // reaches the file: set these once, so a reconcile that changes nothing
+  // stays silent.
+  if (meta.get("formatVersion") !== LATTICE_SPREADSHEET_VERSION) meta.set("formatVersion", LATTICE_SPREADSHEET_VERSION);
+  if (meta.get("initialized") !== true) meta.set("initialized", true);
   return meta;
 }
 
