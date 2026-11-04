@@ -2511,6 +2511,7 @@ msgstr "Browser storage is full or unavailable. New entries still reach the log 
 #: src/app/palette-sections.ts
 #: src/app/use-build-pipeline.ts
 #: src/project/arxiv-export-dialog.tsx
+#: src/trellis/mobile-workspace.ts
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Build"
@@ -5219,6 +5220,7 @@ msgid "Editing strength"
 msgstr "Editing strength"
 
 #: src/settings/settings-dialog.tsx
+#: src/trellis/mobile-workspace.ts
 msgid "Editor"
 msgstr "Editor"
 
@@ -8441,9 +8443,17 @@ msgstr "modified"
 msgid "Monospaced text"
 msgstr "Monospaced text"
 
+#: src/trellis/mobile-workspace.ts
+msgid "More"
+msgstr "More"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "More editor status"
 msgstr "More editor status"
+
+#: src/trellis/mobile-workspace.ts
+msgid "More panels"
+msgstr "More panels"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "More PDF actions"
@@ -10355,6 +10365,7 @@ msgstr "Pause syncing"
 
 #: src/app/focus-mode-bar.tsx
 #: src/canvas/paper-reader.tsx
+#: src/trellis/mobile-workspace.ts
 #: src/trellis/trellis-titles.ts
 msgid "PDF"
 msgstr "PDF"
@@ -10751,6 +10762,7 @@ msgstr "project"
 
 #: src/app/palette-sections.ts
 #: src/app/use-project-tree.ts
+#: src/trellis/mobile-workspace.ts
 #: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "Project"
@@ -12160,6 +12172,7 @@ msgstr "Saturation and brightness"
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/settings/literature-settings.tsx
+#: src/trellis/mobile-workspace.ts
 msgid "Save"
 msgstr "Save"
 
@@ -15983,6 +15996,10 @@ msgstr "Workspace"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace name"
 msgstr "Workspace name"
+
+#: src/trellis/mobile-workspace.ts
+msgid "Workspace panels"
+msgstr "Workspace panels"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace: {currentName}"

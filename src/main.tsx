@@ -30,6 +30,7 @@ import { installPointerFocus } from "./components/ui/pointer-focus";
 
 async function startApp() {
   await browserRuntimeReady();
+  void import("./platform/install-web-app").then(({ registerWebApp }) => registerWebApp()).catch(() => undefined);
   installGlobalErrorCapture();
   installPointerFocus();
 

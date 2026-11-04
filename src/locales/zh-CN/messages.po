@@ -2511,6 +2511,7 @@ msgstr "日志列表存不下了，新日志仍会写入文件，但重启后列
 #: src/app/palette-sections.ts
 #: src/app/use-build-pipeline.ts
 #: src/project/arxiv-export-dialog.tsx
+#: src/trellis/mobile-workspace.ts
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Build"
@@ -5219,6 +5220,7 @@ msgid "Editing strength"
 msgstr "修改程度"
 
 #: src/settings/settings-dialog.tsx
+#: src/trellis/mobile-workspace.ts
 msgid "Editor"
 msgstr "编辑器"
 
@@ -8441,9 +8443,17 @@ msgstr "修改"
 msgid "Monospaced text"
 msgstr "等宽文本"
 
+#: src/trellis/mobile-workspace.ts
+msgid "More"
+msgstr "更多"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "More editor status"
 msgstr "更多状态"
+
+#: src/trellis/mobile-workspace.ts
+msgid "More panels"
+msgstr "更多面板"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "More PDF actions"
@@ -10355,6 +10365,7 @@ msgstr "暂停同步"
 
 #: src/app/focus-mode-bar.tsx
 #: src/canvas/paper-reader.tsx
+#: src/trellis/mobile-workspace.ts
 #: src/trellis/trellis-titles.ts
 msgid "PDF"
 msgstr "PDF"
@@ -10751,6 +10762,7 @@ msgstr "项目"
 
 #: src/app/palette-sections.ts
 #: src/app/use-project-tree.ts
+#: src/trellis/mobile-workspace.ts
 #: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "项目"
@@ -12160,6 +12172,7 @@ msgstr "饱和度与亮度"
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/settings/literature-settings.tsx
+#: src/trellis/mobile-workspace.ts
 msgid "Save"
 msgstr "保存"
 
@@ -15983,6 +15996,10 @@ msgstr "工作区"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace name"
 msgstr "工作区名称"
+
+#: src/trellis/mobile-workspace.ts
+msgid "Workspace panels"
+msgstr "工作区面板"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace: {currentName}"

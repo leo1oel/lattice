@@ -70,6 +70,8 @@
   --type-micro-line-height: 14px;
   --type-micro-weight: 500;
   --type-typeset-size: 14px;
+  /* Touch editors keep focused inputs legible without iOS automatic zoom. */
+  --type-touch-input-size: 16px;
   --type-typeset-line-height: 22px;
   --insert-glyph-size: 22px; /* A character sample, sized by its tile (the visual editor's emoji picker). */
 

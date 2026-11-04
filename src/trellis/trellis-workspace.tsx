@@ -46,6 +46,11 @@ import { installLayoutHandlers, RESET_UNDO_TOAST, type ResetUndo } from "./trell
 import { useTabSync } from "./use-tab-sync";
 import { useHibernation } from "./use-hibernation";
 import "./trellis.css";
+import "./mobile-workspace.css";
+import { isMobileWorkspace } from "./mobile-viewport";
+import { isBrowserHosted } from "../platform/browser-runtime";
+
+const loadMobileWorkspace = () => import("./mobile-workspace");
 
 // Before any workspace exists: Trellis writes some labels once, at creation.
 installTrellisLabels();
@@ -75,7 +80,7 @@ const MIN_SIZE = {
  */
 function measuredMinSize(base: { width: number; height: number }, measured: () => number) {
   return {
-    get width() { return Math.max(base.width, measured()); },
+    get width() { return isMobileWorkspace() ? base.width : Math.max(base.width, measured()); },
     height: base.height,
   };
 }
@@ -223,6 +228,15 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   }, []);
 
   useTabSync(controller, ws, quietCloses);
+  useEffect(() => {
+    if (!ws || !isBrowserHosted()) return;
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
+    void loadMobileWorkspace().then(({ installMobileWorkspace }) => {
+      if (!cancelled) dispose = installMobileWorkspace(controller, ws);
+    });
+    return () => { cancelled = true; dispose?.(); };
+  }, [controller, ws, i18n.locale]);
   useHibernation(controller);
   useDocumentTabs(controller, ws);
 
@@ -276,6 +290,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     pendingSave.current = null;
   }, []);
   const onDocumentChange = useCallback((document: LayoutDocument) => {
+    // Phone navigation is a temporary camera, never the saved desktop layout.
+    if (isMobileWorkspace()) return;
     // A slot leaves its panel once a document is in it; each close reports the layout again.
     const handle = controller.ws;
     const filled = filledSlots(document);
