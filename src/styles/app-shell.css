@@ -77,11 +77,12 @@ input[type="search"]:focus-visible {
 .titlebar-sidebar { width: var(--titlebar-sidebar-width); min-width: 0; height: 100%; flex: none; display: flex; align-items: center; }
 .titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; padding-right: var(--titlebar-leading-gap); }
 .traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; }
-/* A browser tab has no traffic lights. Full screen keeps their space: AppKit
-   reveals them at its own spot over the left end of the bar, and the bar's
-   content must not sit under them. */
-.app-shell.browser-hosted .titlebar-navigator { width: var(--titlebar-navigator-width-browser); padding: 0 var(--space-4); }
-.app-shell.browser-hosted .traffic-space { width: 0; }
+/* No traffic lights beside the bar: a browser tab and the website's demo have
+   none, and full screen hides them. There the switcher starts at the bar's
+   own padding. In full screen AppKit shows them again only while the pointer
+   holds the menu bar down, in its own bar that slides in over this one. */
+:is(.app-shell.browser-hosted, .app-shell.fullscreen, .titlebar-without-lights) .titlebar-navigator { width: var(--titlebar-navigator-width-browser); padding: 0 var(--space-4); }
+:is(.app-shell.browser-hosted, .app-shell.fullscreen, .titlebar-without-lights) .traffic-space { width: 0; }
 .icon-button { width: var(--titlebar-action-size); height: var(--titlebar-action-size); border-radius: var(--radius-chrome); background: transparent; display: grid; place-items: center; color: var(--text-secondary); }
 .icon-button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 /* Soften the light/dark switch on the big themed surfaces (a rare action, so a
@@ -137,7 +138,9 @@ input[type="search"]:focus-visible {
 .compile-diagnostics-switch { min-height: var(--control-height-compact); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .compile-log-copy { margin-inline-start: auto; }
 .compile-diagnostics-tabs .ui-segmented-tab { gap: var(--space-2); }
-.compile-diagnostics-list { list-style: none; margin: 0; padding: 0; max-height: 168px; overflow: auto; display: grid; align-content: start; gap: var(--space-4); }
+/* The list scrolls, so it clips: it reaches into the body's padding by as much
+   as it pads back in, which keeps the focus rings of its rows whole. */
+.compile-diagnostics-list { list-style: none; margin: calc(-1 * var(--focus-ring-reach)); padding: var(--focus-ring-reach); max-height: calc(168px + 2 * var(--focus-ring-reach)); overflow: auto; display: grid; align-content: start; gap: var(--space-4); }
 .compile-diagnostics-group { min-width: 0; display: grid; gap: var(--space-1); }
 .compile-diagnostics-group > ul { list-style: none; margin: 0; padding: 0; display: grid; }
 .compile-diagnostics-group > ul > li { min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); }
@@ -178,7 +181,7 @@ input[type="search"]:focus-visible {
 /* The row's Copy stands at its end, as on every other message row. */
 .compile-explained-actions > .compile-diagnostic-copy { margin-inline-start: auto; }
 /* An explained card is taller than a row: the list gets room for it and the rows after it. */
-.compile-diagnostics-list:has(.compile-explained) { max-height: 320px; }
+.compile-diagnostics-list:has(.compile-explained) { max-height: calc(320px + 2 * var(--focus-ring-reach)); }
 .compile-log { display: block; box-sizing: border-box; width: 100%; field-sizing: content; min-height: 0; max-height: 220px; margin: 0; overflow: auto; resize: none; border: 1px solid var(--tone-border); border-radius: var(--radius-chrome); padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--surface-panel-raised) 90%, transparent); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Without field-sizing a textarea is two rows tall; give it the old cap. */
 @supports not (field-sizing: content) { .compile-log { height: 220px; } }
@@ -215,6 +218,9 @@ input[type="search"]:focus-visible {
   overflow: hidden;
 }
 .editor-status-bar > * { flex: none; white-space: nowrap; }
+/* The bar clips its overflow and leaves 2-3px above and below a 22px item:
+   the ring hugs the item so it fits. */
+.editor-status-bar .status-item:focus-visible { outline-offset: 0; }
 /* Every item a pointer lands on is one slab: 22px on the 28px bar, the
    control radius, the control hover and press fills, and the secondary ink
    stepping up to the primary, as the titlebar's and toolbar's controls do. */
@@ -842,6 +848,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   width: calc(100% - var(--space-5));
 }
 .papers-section .paper-import-control .import-box { width: 100%; }
+/* The field clips a pixel past its border: the trailing button's ring stays inside that. */
+.papers-section .import-box .ui-search-field-trailing button:focus-visible { outline-offset: 1px; }
 .papers-section .ui-search-field.import-box[data-control-size="compact"] {
   height: var(--navigation-search-height);
   padding-inline-start: calc(var(--search-control-padding-inline) - var(--field-control-border-width));
@@ -1050,6 +1058,9 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 /* The button is the whole row under its text, so its ring is the row's;
    the text it lies under passes every click through to it. */
 .paper-open { position: absolute; inset: 0; padding: 0; border-radius: var(--radius-icon); background: transparent; }
+/* The row spans the scrolling list edge to edge, so a ring outside it would be
+   cut off there and pass under the overlay scrollbar: it is drawn inside. */
+.paper-open:focus-visible { outline-offset: calc(-1 * var(--focus-ring-width)); }
 .paper-row > :is(.paper-glyph, .paper-title, .paper-cell, .paper-uses, .paper-meta) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
 .paper-glyph { grid-column: 1; grid-row: 1; height: var(--type-subtitle-line-height); display: grid; place-items: center; color: var(--text-secondary); }

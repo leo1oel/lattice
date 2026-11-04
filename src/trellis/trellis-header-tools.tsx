@@ -169,17 +169,21 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
           onPointerLeave={live ? () => { pressedRef.current = false; } : undefined}
           onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
         >
-          {state === "building" ? <InfinityLoader size={13} />
-            : state === "succeeded" || state === "failed" ? <BuildStatusGlyph status={state} warned={warned} fresh={fresh} />
-              : <Play size={11} fill="currentColor" />}
-          {/* Every label is laid out in one cell, with a hidden widest time beside
-              them, so the button keeps the width of the widest whatever it shows,
-              and the header's measured tools with it. */}
-          <span className="trellis-build-label">
-            {(Object.keys(labels) as Array<keyof typeof labels>).map((name) => (
-              <span key={name} className={name === shown ? undefined : "trellis-build-label-off"}>{labels[name]}</span>
-            ))}
-            <span className="trellis-build-label-off">{formatSeconds(999.9)}</span>
+          {/* What it shows, centred over a hidden sizer as wide as its widest
+              state (a 13 px glyph and the longest label, a time up to 999.9 s
+              included), so the button and the header's measured tools keep
+              one width whatever it shows, and every state reads centred. */}
+          <span className="trellis-build-face">
+            {state === "building" ? <InfinityLoader size={13} />
+              : state === "succeeded" || state === "failed" ? <BuildStatusGlyph status={state} warned={warned} fresh={fresh} />
+                : <Play size={11} fill="currentColor" />}
+            <span className="trellis-build-label"><span>{labels[shown]}</span></span>
+          </span>
+          <span className="trellis-build-sizer" aria-hidden="true">
+            <span className="trellis-build-sizer-glyph" />
+            <span className="trellis-build-sizer-labels">
+              {[...Object.values(labels), formatSeconds(999.9)].map((label, index) => <span key={index}>{label}</span>)}
+            </span>
           </span>
           {live && headline && <span id={resultId} className="sr-only">{[headline, ...facts].join(" · ")}</span>}
         </button>

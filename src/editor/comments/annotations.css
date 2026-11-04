@@ -441,7 +441,11 @@
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
   gap: var(--space-8);
 }
-.annotation-rounds-rail { display: grid; align-content: start; gap: var(--gap-tight); min-height: 0; overflow-y: auto; padding-inline-end: var(--space-4); border-inline-end: 1px solid var(--border-subtle); }
+/* The rail and the compare column scroll, so they clip: each reaches past its
+   edge into the room beside it by as much as it pads back in, which keeps the
+   rings and focus rings of the rows and cards at their edges whole, and the
+   column's overlay scrollbar in the dialog's inset instead of over the cards. */
+.annotation-rounds-rail { display: grid; align-content: start; gap: var(--gap-tight); min-height: 0; overflow-y: auto; margin-inline-start: calc(-1 * var(--focus-ring-reach)); padding-inline: var(--focus-ring-reach) var(--space-4); border-inline-end: 1px solid var(--border-subtle); }
 .annotation-version {
   display: grid;
   gap: var(--gap-tight);
@@ -479,10 +483,10 @@
 .annotation-compare-count { display: inline-flex; align-items: center; gap: var(--gap-tight); font-variant-numeric: tabular-nums; }
 .annotation-compare-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-inline-start: auto; }
 .annotation-compare-loading { display: flex; align-items: center; color: var(--text-secondary); }
-.annotation-compare-columns { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: var(--space-6); }
+.annotation-compare-columns { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: var(--space-6); margin-inline: calc(-1 * var(--focus-ring-reach)) calc(-1 * var(--drawer-content-inset)); padding-inline: var(--focus-ring-reach) var(--drawer-content-inset); padding-bottom: var(--focus-ring-reach); }
 .annotation-compare-head,
 .annotation-compare-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-6); }
-.annotation-compare-head { position: sticky; top: 0; z-index: 1; padding-bottom: var(--space-2); background: var(--surface-panel-raised); color: var(--text-secondary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); }
+.annotation-compare-head { position: sticky; top: 0; z-index: 1; margin-inline: calc(-1 * var(--focus-ring-reach)) calc(-1 * var(--drawer-content-inset)); padding: 0 var(--drawer-content-inset) var(--space-2) var(--focus-ring-reach); background: var(--surface-panel-raised); color: var(--text-secondary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); }
 .annotation-compare-file { margin: var(--space-4) 0 0; color: var(--text-secondary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--editor-font); overflow-wrap: anywhere; }
 .annotation-compare-row { scroll-margin-top: var(--space-12); }
 .annotation-compare-text {

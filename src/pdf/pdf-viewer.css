@@ -91,6 +91,8 @@
    glyphs/lines. Otherwise WebKit hits the canvas/page and jumps the range to
    the page start. Outside a drag, blank clicks still pass through normally. */
 .pdf-text-layer.selecting { pointer-events: auto; }
+/* pdf.js makes the layer focusable, and it is as wide as a fitted page: its ring stays inside the clipping viewport. */
+.pdf-text-layer:focus-visible { outline-offset: calc(-1 * var(--focus-ring-width)); }
 .pdf-text-layer :is(span, br) { position: absolute; color: transparent; white-space: pre; cursor: text; transform-origin: 0 0; user-select: none; pointer-events: auto; }
 .pdf-text-layer span:not(.markedContent) { line-height: 1; height: 1em; overflow: clip; }
 .pdf-text-layer.selecting :is(span, br),

@@ -103,7 +103,7 @@ describe("the Build button's report of the last build", () => {
   /** What the live button shows: its state class and the one visible label. */
   const shown = (container: HTMLElement) => {
     const button = container.querySelector(".trellis-build-button")!;
-    const label = [...button.querySelectorAll(".trellis-build-label > span")].find((span) => !span.classList.contains("trellis-build-label-off"));
+    const label = button.querySelector(".trellis-build-label");
     return { state: [...button.classList].find((name) => name.startsWith("is-")) ?? "idle", label: label?.textContent, busy: button.getAttribute("aria-busy") };
   };
 
