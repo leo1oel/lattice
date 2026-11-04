@@ -42,7 +42,11 @@ fn filter_invoke<R: Runtime>(invoke: tauri::ipc::Invoke<R>) -> Option<tauri::ipc
     let label = invoke.message.webview().label().to_string();
     let command = invoke.message.command();
     if label.starts_with(CONTENT)
-        || (label.starts_with(CONTROLS) && !command.starts_with("web_browser_"))
+        || (label.starts_with(CONTROLS)
+            && !matches!(
+                command,
+                "web_browser_status" | "web_browser_navigate" | "web_browser_action"
+            ))
     {
         invoke.resolver.reject("Workspace commands are unavailable in web content.");
         return None;

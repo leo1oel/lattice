@@ -9,34 +9,44 @@ fn private_workspace_command() -> &'static str {
     "private workspace data"
 }
 
+#[tauri::command]
+fn web_browser_future_workspace_command() -> &'static str {
+    "private workspace data"
+}
+
 #[test]
 fn remote_content_and_toolbar_cannot_invoke_workspace_commands() {
     let app = mock_builder()
-        .invoke_handler(isolated(tauri::generate_handler![private_workspace_command]))
+        .invoke_handler(isolated(tauri::generate_handler![
+            private_workspace_command,
+            web_browser_future_workspace_command
+        ]))
         .build(mock_context(noop_assets()))
         .unwrap();
     for label in ["main", "site-content-test", "site-controls-test"] {
         let webview =
             WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::default()).build().unwrap();
-        let response = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "private_workspace_command".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "tauri://localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.into(),
-            },
-        );
-        if label == "main" {
-            assert_eq!(
-                response.unwrap().deserialize::<String>().unwrap(),
-                "private workspace data"
+        for command in ["private_workspace_command", "web_browser_future_workspace_command"] {
+            let response = tauri::test::get_ipc_response(
+                &webview,
+                tauri::webview::InvokeRequest {
+                    cmd: command.into(),
+                    callback: tauri::ipc::CallbackFn(0),
+                    error: tauri::ipc::CallbackFn(1),
+                    url: "tauri://localhost".parse().unwrap(),
+                    body: tauri::ipc::InvokeBody::default(),
+                    headers: Default::default(),
+                    invoke_key: tauri::test::INVOKE_KEY.into(),
+                },
             );
-        } else {
-            assert!(response.is_err(), "{label} reached the workspace dispatcher");
+            if label == "main" {
+                assert_eq!(
+                    response.unwrap().deserialize::<String>().unwrap(),
+                    "private workspace data"
+                );
+            } else {
+                assert!(response.is_err(), "{label} reached the workspace dispatcher");
+            }
         }
     }
 }

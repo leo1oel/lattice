@@ -30,7 +30,7 @@ App and is restricted to its app origin. The remote view uses the dedicated
 `site-content-*` label, which matches none of the workspace's capability
 patterns. No plugin capability is granted to it. Before app-command dispatch,
 `filter_invoke` rejects every custom command from remote content and restricts
-the toolbar to the browser command family. Browser commands identify the
+the toolbar to its three status/navigation/action commands. Browser commands identify the
 calling toolbar, so a window cannot select another window by supplying an ID.
 No sidecar token, project state, custom remote script bridge or filesystem
 opener is installed in the remote page.
