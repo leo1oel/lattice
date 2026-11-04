@@ -1,20 +1,40 @@
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { proofreadPrompt } from "../../src/agent/agent-proofread";
-import mainTex from "../../src-tauri/templates/tutorial/main.tex?raw";
-import referencesBib from "../../src-tauri/templates/tutorial/references.bib?raw";
-import overrides from "./content/overrides.json";
 import { installDemoBackend } from "./demo-backend";
 
-/** The tutorial's sources as the demo opens them, with its edits made. */
-function tutorial() {
-  const files = new Map<string, string | Uint8Array>([["main.tex", mainTex], ["references.bib", referencesBib]]);
-  for (const { file, find, replace } of overrides.edits) files.set(file, String(files.get(file)).replace(find, () => replace));
-  return files;
+/**
+ * A project shaped like the demo's tutorial: its worked example as the demo
+ * stages it (the paragraph Rewrite answers for, with its typos) and the
+ * bibliography entries the tests add and audit.
+ */
+const EXAMPLE = [
+  "Consider the four-token fragment ``attention connects every position.''",
+  "For a example query at \\emph{connects}, suppose the scaled scores are $[0.4,1.2,0.1,0.8]$.",
+  "Applying softmax gives approximately $[0.18,0.41,0.14,0.27]$ after rounding.",
+  "The new representation at \\emph{connects} is therefore a convex combination of all four value vectors, with the largest contribution coming from its own value in this illustrative head.",
+  "Changing teh softmax temperature alters concentration but not the underlying value vectors; the interactive HTML file in this project lets the reader inspect that distinction.",
+].join("\n");
+const MAIN = `\\documentclass{article}\n\\begin{document}\nAttention follows \\citep{vaswani2017attention}.\n\n${EXAMPLE}\n\n\\bibliography{references}\n\\end{document}\n`;
+const REFERENCES = `@inproceedings{dao2022flashattention,
+  author        = {Dao, Tri and Fu, Daniel Y. and Ermon, Stefano and Rudra, Atri and R{\\'e}, Christopher},
+  title         = {{FlashAttention}: Fast and Memory-Efficient Exact Attention with {IO}-Awareness},
+  booktitle     = {Advances in Neural Information Processing Systems},
+  year          = {2022},
+  eprint        = {2205.14135},
+  archiveprefix = {arXiv},
 }
 
-/** The demo's worked example, the paragraph it marks for trying the agent, as the visitor selects it. */
-const EXAMPLE = /Consider the four-token fragment[\s\S]*?inspect that distinction\./.exec(tutorial().get("main.tex") as string)![0];
+@inproceedings{brown2020language,
+  author        = {Brown, Tom B. and Mann, Benjamin and Ryder, Nick},
+  title         = {Language Models are Few-Shot Learners},
+  booktitle     = {Advances in Neural Information Processing Systems},
+  year          = {2020},
+  eprint        = {2005.14165},
+  archiveprefix = {arXiv},
+}
+`;
+const tutorial = () => new Map<string, string | Uint8Array>([["main.tex", MAIN], ["references.bib", REFERENCES]]);
 
 describe("the web demo's backend", () => {
   beforeEach(() => {
