@@ -51,7 +51,9 @@ In a development/preview build, open the browser and navigate to
 `http://127.0.0.1:18592/`. The fixture deliberately sends `X-Frame-Options:
 DENY` and a `frame-ancestors 'none'` policy, proving the page is not relying on
 framing. Follow its second-page link, use Back/Forward/Reload, resize the
-window, and verify the title/address. Select **Check IPC boundary**: both the
+window, and verify the title/address. Edit the address field and test native
+Undo/Redo; Command-W must close the browser instead of targeting the research
+workspace. Select **Check IPC boundary**: both the
 harmless app-locale command and the window-size plugin request must be blocked.
 Open the fixture's `_blank` link and verify that it remains in the same browser
 window. Close the browser, then type in the original research editor to verify

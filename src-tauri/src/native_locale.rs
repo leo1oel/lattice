@@ -293,7 +293,9 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
                 let _ = app.emit_to(tauri::EventTarget::webview_window(&label), CLOSE_TAB, ());
             }
             Some(CloseAction::Window) => {
-                if let Some(window) = app.get_webview_window(&label) {
+                // A browser window has separate toolbar/content WebViews, so
+                // it is a Window rather than a single WebviewWindow.
+                if let Some(window) = app.get_window(&label) {
                     let _ = window.close();
                 }
             }
@@ -313,6 +315,14 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         return;
     };
     let Some(label) = crate::macos_window::focused_window_label() else { return };
+    if label.starts_with("site-window-") {
+        if let Some(direction) = id.strip_prefix(EDIT_HISTORY_PREFIX) {
+            // Browser fields and the website use WebKit's editing history;
+            // there is no workspace editor listening in this window.
+            send_native_edit_history(app, direction == "redo");
+        }
+        return;
+    }
     let _ = app.emit_to(tauri::EventTarget::webview_window(label), name, payload);
 }
 
@@ -443,6 +453,7 @@ mod tests {
         assert_eq!(close_action(CLOSE_TAB, "project-2"), Some(CloseAction::AskPage));
         assert_eq!(close_action(CLOSE_TAB, "main"), Some(CloseAction::AskPage));
         assert_eq!(close_action(CLOSE_TAB, "overleaf-login"), Some(CloseAction::Window));
+        assert_eq!(close_action(CLOSE_TAB, "site-window-test"), Some(CloseAction::Window));
         assert_eq!(close_action(CLOSE_WINDOW, "project-2"), Some(CloseAction::Window));
         assert_eq!(close_action(QUIT, "main"), None);
     }
