@@ -1,0 +1,143 @@
+/* The demo's bar above the app and its narrow-screen page (demo-chrome.ts).
+   They take the app's tokens once its stylesheet is in, so they follow its
+   theme; until then, and on the narrow page, the fallbacks follow the
+   browser's. */
+:root {
+  --web-demo-bar-height: 36px;
+  --web-demo-surface: #f6f6f4;
+  --web-demo-text: #1d1d1f;
+  --web-demo-muted: #6b6b70;
+  --web-demo-line: rgb(0 0 0 / .1);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --web-demo-surface: #1f1f21;
+    --web-demo-text: #f2f2f3;
+    --web-demo-muted: #a1a1a6;
+    --web-demo-line: rgb(255 255 255 / .12);
+  }
+}
+
+/* The app fills what the bar leaves (its own stylesheet sizes #root to the window). */
+body:has(> .web-demo-bar) {
+  display: flex;
+  flex-direction: column;
+}
+
+body > .web-demo-bar ~ #root {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+}
+
+.web-demo-bar {
+  flex: none;
+  height: var(--web-demo-bar-height);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle, var(--web-demo-line));
+  background: var(--surface-titlebar, var(--web-demo-surface));
+  color: var(--text-secondary, var(--web-demo-muted));
+  font: 500 12px/16px var(--ui-font, -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif);
+  white-space: nowrap;
+}
+
+.web-demo-bar a,
+.web-demo-bar button {
+  font: inherit;
+  color: var(--text-primary, var(--web-demo-text));
+  text-decoration: none;
+}
+
+.web-demo-bar-label {
+  font-weight: 600;
+}
+
+.web-demo-bar-note {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.web-demo-bar-reset,
+.web-demo-bar-download {
+  height: 24px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.web-demo-bar-reset {
+  border: 1px solid var(--border-subtle, var(--web-demo-line));
+  background: transparent;
+}
+
+.web-demo-bar-reset:hover {
+  background: var(--control-hover-surface, rgb(127 127 127 / .12));
+}
+
+.web-demo-bar-download {
+  background: var(--accent-soft, rgb(69 104 246 / .14));
+}
+
+.web-demo-bar-download:hover {
+  background: var(--control-tinted-hover-surface, rgb(69 104 246 / .22));
+}
+
+.web-demo-bar :focus-visible {
+  outline: 2px solid var(--focus-ring, #4568f6);
+  outline-offset: 1px;
+}
+
+body.web-demo-narrow {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--web-demo-surface);
+  color: var(--web-demo-text);
+  font: 400 16px/1.5 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+}
+
+.web-demo-narrow-page {
+  max-width: 32rem;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.web-demo-narrow-page h1 {
+  margin: 0 0 12px;
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.web-demo-narrow-page p {
+  margin: 0 0 20px;
+  color: var(--web-demo-muted);
+}
+
+.web-demo-narrow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.web-demo-narrow-actions a {
+  color: var(--web-demo-text);
+}
+
+.web-demo-narrow-actions .web-demo-bar-download {
+  height: 40px;
+  padding: 0 18px;
+  text-decoration: none;
+}

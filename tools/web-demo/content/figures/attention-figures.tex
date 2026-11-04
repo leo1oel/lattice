@@ -1,0 +1,71 @@
+% Lattice's own drawings of scaled dot-product and multi-head attention, for
+% the website's demo (tools/web-demo): the published tutorial's figures are
+% reproduced from the Transformer paper under a permission limited to
+% scholarly works, so the demo shows these instead. Original artwork,
+% Apache-2.0 with the rest of the repository.
+%
+% Rebuilt by `node scripts/web-demo.mjs --content`, which writes each page as a
+% PNG and the side-by-side page as attention-figure-2.pdf.
+\documentclass[tikz,border=6pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+\definecolor{ink}{HTML}{27303D}
+\definecolor{rule}{HTML}{8A94A6}
+\definecolor{mat}{HTML}{DCE7F7}
+\definecolor{norm}{HTML}{FBEFD5}
+\definecolor{mask}{HTML}{F6DEE3}
+\definecolor{soft}{HTML}{DDF0E4}
+\definecolor{head}{HTML}{E7E2F6}
+\tikzset{
+  op/.style={anchor=center, draw=ink, line width=.7pt, rounded corners=5pt, minimum width=31mm, minimum height=8.5mm, align=center, font=\small, text=ink},
+  flow/.style={-{Stealth[length=2.4mm]}, line width=.8pt, draw=ink},
+  input/.style={font=\large, text=ink},
+}
+\newcommand{\scaledattention}{%
+  \begin{tikzpicture}[node distance=5.5mm]
+    \node[op, fill=mat] (qk) {matmul \quad $QK^{\top}$};
+    \node[op, fill=norm, above=of qk] (scale) {scale \quad $\div\sqrt{d_k}$};
+    \node[op, fill=mask, above=of scale, dashed] (mask) {mask \quad \textit{optional}};
+    \node[op, fill=soft, above=of mask] (softmax) {softmax \quad row-wise};
+    \node[op, fill=mat, above=8mm of softmax, xshift=9mm, minimum width=49mm] (av) {matmul \quad weights $\cdot\,V$};
+    \node[input, below=7mm of qk.south west, xshift=8mm] (q) {$Q$};
+    \node[input, below=7mm of qk.south east, xshift=-8mm] (k) {$K$};
+    \node[input] (v) at (av.east |- q) [xshift=-8mm] {$V$};
+    \draw[flow] (q) -- (q |- qk.south);
+    \draw[flow] (k) -- (k |- qk.south);
+    \draw[flow] (qk) -- (scale);
+    \draw[flow] (scale) -- (mask);
+    \draw[flow] (mask) -- (softmax);
+    \draw[flow] (softmax.north) -- (softmax.north |- av.south);
+    \draw[flow] (v) -- (v |- av.south);
+    \draw[flow] (av.north) -- ++(0, 7mm) node[above, input] {output};
+  \end{tikzpicture}}
+\newcommand{\multihead}{%
+  \begin{tikzpicture}[node distance=5.5mm]
+    \foreach \x/\name/\label in {0/q/Q, 1/k/K, 2/v/V} {
+      \foreach \s in {2, 1} \node[op, fill=white, draw=rule, minimum width=19mm] at (\x*23mm + \s*1.4mm, \s*1.4mm) {};
+      \node[op, fill=mat, minimum width=19mm] (lin\name) at (\x*23mm, 0) {linear $W^{\label}_{i}$};
+      \node[input, below=8mm of lin\name] (in\name) {$\label$};
+      \draw[flow] (in\name) -- (lin\name);
+    }
+    \foreach \s in {2, 1} \node[op, fill=white, draw=rule, minimum width=65mm, minimum height=11mm] at ([shift={(\s*1.4mm, 19mm + \s*1.4mm)}] link.center) {};
+    \node[op, fill=head, minimum width=65mm, minimum height=11mm] (heads) at ([yshift=19mm] link.center) {scaled dot-product attention\\[-1pt]\scriptsize head $i = 1, \dots, h$};
+    \node[input, anchor=west, font=\normalsize] at (heads.east) [xshift=5mm] {$\times\, h$};
+    \foreach \name in {q, k, v} \draw[flow] (lin\name) -- (lin\name |- heads.south);
+    \node[op, fill=norm, above=7mm of heads] (concat) {concat heads};
+    \node[op, fill=mat, above=of concat] (out) {linear $W^{O}$};
+    \draw[flow] (heads) -- (concat);
+    \draw[flow] (concat) -- (out);
+    \draw[flow] (out.north) -- ++(0, 7mm) node[above, input] {output};
+  \end{tikzpicture}}
+\begin{document}
+\scaledattention
+\multihead
+\begin{tikzpicture}
+  \node[inner sep=0] (left) {\scaledattention};
+  \node[inner sep=0, anchor=south west] at ([xshift=12mm] left.south east) {\multihead};
+\end{tikzpicture}
+\end{document}

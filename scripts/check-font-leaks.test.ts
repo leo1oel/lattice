@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkApp, checkAssets, timelessFontHashes } from "./check-font-leaks.mjs";
+import { checkApp, checkAssets, checkSite, timelessFontHashes } from "./check-font-leaks.mjs";
 
 // Stand-in fonts: a container signature and some bytes. No real Timeless file
 // may enter the repository.
@@ -98,5 +98,34 @@ describe("built app check", () => {
       expect(result.stdout, target).toBe("");
       expect(result.stderr, target).toContain("is not a built .app");
     }
+  });
+});
+
+describe("website build check", () => {
+  it("finds Timeless by name or by content, and lets the open-licensed faces ship", () => {
+    const root = scratchDirectory();
+    const original = font("wOF2", "the sans face");
+    write(root, "fonts/Sans/SansVF.woff2", original);
+    const site = path.join(root, "demo");
+    write(site, "index.html", "<!doctype html>");
+    write(site, "assets/Inter-abc123.woff2", font("wOF2", "inter"));
+    write(site, "assets/KaTeX_Main-Regular-abc123.woff2", font("wOF2", "katex"));
+    write(site, "assets/TimelessSans-Regular-abc123.woff2", font("wOF2", "renamed by the build"));
+    write(site, "assets/face-abc123.woff2", original);
+    const hashes = timelessFontHashes({ fontsDirectory: path.join(root, "fonts"), emittedDirectory: site });
+    expect(checkSite(site, hashes).sort()).toEqual([
+      "assets/TimelessSans-Regular-abc123.woff2 is named for Timeless",
+      "assets/face-abc123.woff2 is a copy of a Timeless font",
+    ]);
+  });
+
+  it("fails with an I/O error when the path is not a folder", () => {
+    const root = scratchDirectory();
+    const result = spawnSync(process.execPath, [path.join(__dirname, "check-font-leaks.mjs"), "site", path.join(root, "never-created")], {
+      encoding: "utf8",
+      env: { ...process.env, LATTICE_PRIVATE_FONTS_DIR: "" },
+    });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("is not a folder");
   });
 });

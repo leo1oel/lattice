@@ -33,13 +33,17 @@ export async function prewarmProjectPreviewModules(paths: readonly string[]): Pr
   if (normalized.some((path) => path.endsWith(".tex") || path.endsWith(".pdf"))) work.push(loadPdfPreviewModule());
   // A bibliography's Preview, the reference list, so its first open draws at once.
   if (normalized.some((path) => path.endsWith(".bib"))) work.push(loadBibVisualEditorModule());
-  if (normalized.some((path) => path.endsWith(".tldr"))) {
-    work.push(Promise.all([loadBoardEditorModule(), import("../editor/board/board-store")]).then(([, board]) => {
-      // Initialize tldraw's schema/store machinery without mounting a canvas.
-      board.createBoardStore("");
-    }));
+  // The website's demo has no whiteboard, and fetches a sheet's editor (the
+  // largest chunk) only when one is opened.
+  if (!import.meta.env.LATTICE_WEB_DEMO) {
+    if (normalized.some((path) => path.endsWith(".tldr"))) {
+      work.push(Promise.all([loadBoardEditorModule(), import("../editor/board/board-store")]).then(([, board]) => {
+        // Initialize tldraw's schema/store machinery without mounting a canvas.
+        board.createBoardStore("");
+      }));
+    }
+    if (normalized.some(isSpreadsheetPath)) work.push(loadSpreadsheetEditorModule());
   }
-  if (normalized.some(isSpreadsheetPath)) work.push(loadSpreadsheetEditorModule());
   await Promise.allSettled(work);
 }
 

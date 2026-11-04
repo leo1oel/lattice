@@ -4962,6 +4962,10 @@ msgstr "下载 HTML"
 msgid "Download JSON"
 msgstr "下载 JSON"
 
+#: src/web-demo/desktop-only.tsx
+msgid "Download Lattice for Mac"
+msgstr "下载 Mac 版 Lattice"
+
 #: src/project/paper-inspector.tsx
 msgid "Download paper"
 msgstr "下载论文"
@@ -6719,6 +6723,14 @@ msgstr "论文里的 “min” 通常表示分钟或取最小值运算。"
 msgid "In colour"
 msgstr "彩色标出"
 
+#: src/web-demo/desktop-only.tsx
+msgid "In Lattice you draw here, and the Agent can sketch on the board with you."
+msgstr "在 Lattice 里，你在这里画图，AI 助手也能和你一起在白板上画。"
+
+#: src/web-demo/desktop-only.tsx
+msgid "In Lattice, Open Slide edits and presents this deck beside the paper."
+msgstr "在 Lattice 里，Open Slide 在论文旁边编辑和放映这套幻灯片。"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "In Papers"
 msgstr "已在论文库"
@@ -7171,6 +7183,10 @@ msgstr "它在 Lattice 之外被删除了，而且没有未保存的修改，所
 #: src/app/vanished-file.ts
 msgid "It was moved outside Lattice, and its tab followed it."
 msgstr "它在 Lattice 之外被移动了，标签页已跟到新位置。"
+
+#: src/web-demo/desktop-only.tsx
+msgid "It works through the AI tools you are signed in to there. Proofread, Polish and Revise from annotations answer here from a script."
+msgstr "它通过你在 Mac 上登录的 AI 工具工作。这里的校对、润色和根据批注修改由脚本作答。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
@@ -12926,6 +12942,10 @@ msgstr "已跳过 {skippedCount} 个已存在的项目。"
 msgid "Slash commands"
 msgstr "插入菜单"
 
+#: src/web-demo/desktop-only.tsx
+msgid "Slides run on your Mac"
+msgstr "幻灯片在你的 Mac 上运行"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Small capitals"
 msgstr "小型大写字母"
@@ -13790,6 +13810,10 @@ msgstr "AI 助手正在等你回答。请求已放进输入框，回答后再发
 msgid "The agent reads these each time it starts."
 msgstr "AI 助手每次启动时都会重新读取这些设置。"
 
+#: src/web-demo/desktop-only.tsx
+msgid "The Agent runs on your Mac"
+msgstr "AI 助手在你的 Mac 上运行"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "AI 助手暂不可用"
@@ -14473,6 +14497,10 @@ msgstr "无法从应用包中读取第三方声明。"
 #: src/platform/host-errors-workspace.ts
 msgid "The transaction contains no edits."
 msgstr "这次修改没有任何内容"
+
+#: src/web-demo/desktop-only.tsx
+msgid "The tutorial's whiteboard: a map of how attention connects queries, keys and values"
+msgstr "教程的白板：注意力如何连接查询、键和值"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "The two versions read the same"
@@ -15863,6 +15891,10 @@ msgstr "在这里删除文件时"
 #: src/components/ui/color-picker.tsx
 msgid "White"
 msgstr "白色"
+
+#: src/web-demo/desktop-only.tsx
+msgid "Whiteboards run on your Mac"
+msgstr "白板在你的 Mac 上运行"
 
 #: src/project/submission-items.tsx
 msgid "Who"

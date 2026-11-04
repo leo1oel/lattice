@@ -19,6 +19,8 @@ interface ImportMetaEnv {
   readonly VITE_PERF_LAB?: string;
   /** "beta" in Lattice Beta builds, else empty (vite.config.ts). */
   readonly LATTICE_FLAVOR: string;
+  /** True only in the website's demo build (vite.config.ts, src/web-demo/). */
+  readonly LATTICE_WEB_DEMO: boolean;
 }
 
 interface ImportMeta {
