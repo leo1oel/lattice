@@ -2733,6 +2733,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/project/project-replace-dialog.tsx
 #: src/project/submission-items.tsx
 #: src/telemetry/app-log.tsx
+#: src/terminal/code-run-dialog.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -4265,6 +4266,10 @@ msgstr "Could not run git: {error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not run latexdiff: {error}"
 msgstr "Could not run latexdiff: {error}"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Could not run this file. Use a program name or absolute interpreter path and JSON arrays of strings. Check that the file saved successfully."
+msgstr "Could not run this file. Use a program name or absolute interpreter path and JSON arrays of strings. Check that the file saved successfully."
 
 #: src/papers/audit-messages.ts
 msgid "Could not safely preserve this entry's BibTeX expressions."
@@ -7058,6 +7063,10 @@ msgstr "Interface size"
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
+
+#: src/terminal/terminal-view.tsx
+msgid "Interrupt command"
+msgstr "Interrupt command"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
@@ -10745,6 +10754,14 @@ msgstr "Prime"
 msgid "Product"
 msgstr "Product"
 
+#: src/terminal/code-run-dialog.tsx
+msgid "Program arguments (JSON array)"
+msgstr "Program arguments (JSON array)"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Program or interpreter"
+msgstr "Program or interpreter"
+
 #: src/app/use-project-lifecycle.ts
 msgid "project"
 msgstr "project"
@@ -12119,6 +12136,11 @@ msgstr "rtex stopped. The PDF still updates with each build."
 msgid "run {run}"
 msgstr "run {run}"
 
+#: src/terminal/code-run-dialog.tsx
+#: src/terminal/terminal-view.tsx
+msgid "Run current file"
+msgstr "Run current file"
+
 #: src/app/use-command-table.ts
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
@@ -12194,6 +12216,10 @@ msgstr "Save and build"
 #: src/canvas/annotation-composer.tsx
 msgid "Save and revise now"
 msgstr "Save and revise now"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Save and run"
+msgstr "Save and run"
 
 #: src/history/conflict-resolver.tsx
 msgid "Save and upload"
@@ -12283,6 +12309,10 @@ msgstr "Save the project before repairing."
 #: src/project/submission-items.tsx
 msgid "Save these items as a template…"
 msgstr "Save these items as a template…"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Save this file, then run it in a new terminal in the project folder. The program has the same access as your terminal."
+msgstr "Save this file, then run it in a new terminal in the project folder. The program has the same access as your terminal."
 
 #: src/app/use-command-table.ts
 #: src/trellis/trellis-workspace-switch.tsx
@@ -12380,6 +12410,10 @@ msgstr "Saving…"
 #: src/build/compile-explain.ts
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Script arguments (JSON array)"
+msgstr "Script arguments (JSON array)"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"

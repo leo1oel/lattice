@@ -66,7 +66,7 @@ type Snapshot<S extends TerminalScreen> = { sessions: readonly TerminalSession<S
 /** Output the window draws before it tells the host (see `ack`). */
 const ACK_EVERY = 64 * 1024;
 
-type Internal<S extends TerminalScreen> = { session: TerminalSession<S>; id: number | null; queued: string[]; drawn: number; closed: boolean };
+type Internal<S extends TerminalScreen> = { session: TerminalSession<S>; id: number | null; queued: string[]; drawn: number; closed: boolean; keepOnExit: boolean };
 
 export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
   private items: Internal<S>[] = [];
@@ -99,14 +99,14 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
   }
 
   /** Start a terminal in the project folder and make it the active tab. */
-  open(): TerminalSession<S> | null {
+  open(options: { input?: string; keepOnExit?: boolean } = {}): TerminalSession<S> | null {
     if (!this.root) return null;
     const used = new Set(this.items.map(({ session }) => session.number));
     let number = 1;
     while (used.has(number)) number += 1;
     const screen = this.createScreen();
     const session: TerminalSession<S> = { key: this.nextKey++, number, name: null, shell: "", screen, state: { kind: "starting" } };
-    const item: Internal<S> = { session, id: null, queued: [], drawn: 0, closed: false };
+    const item: Internal<S> = { session, id: null, queued: options.input ? [options.input] : [], drawn: 0, closed: false, keepOnExit: options.keepOnExit ?? false };
     this.items.push(item);
     this.publish(session.key);
     const root = this.root;
@@ -157,6 +157,14 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
     if (this.items.some(({ session }) => session.key === key)) this.publish(key);
   }
 
+  /** Type a deliberate action (for example Interrupt) through the same ordered input path. */
+  send(key: number, data: string) {
+    const item = this.items.find(({ session }) => session.key === key);
+    if (!item || item.closed || item.session.state.kind === "exited" || item.session.state.kind === "failed") return;
+    if (item.id === null) item.queued.push(data);
+    else void this.backend.write(item.id, data).catch(() => {});
+  }
+
   rename(key: number, name: string) {
     const item = this.items.find(({ session }) => session.key === key);
     const trimmed = name.trim();
@@ -202,7 +210,7 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
    */
   private exited(item: Internal<S>, code: number | null) {
     if (item.closed) return;
-    if (code === 0) {
+    if (code === 0 && !item.keepOnExit) {
       this.close(item.session.key);
       return;
     }

@@ -24,7 +24,7 @@ export function terminalViewType(controller: TrellisController) {
   return (
     <ViewType
       key="terminal" id="terminal" title={i18n._(PANEL_TITLES.terminal)} singleton icon={TERMINAL_ICON} minSize={MIN_SIZE} scaling={false}
-      accessory={<TerminalActions />} menu={menu}
+      accessory={<TerminalActions controller={controller} />} menu={menu}
     >
       <PanelErrorBoundary name="terminal"><TerminalView controller={controller} /></PanelErrorBoundary>
     </ViewType>

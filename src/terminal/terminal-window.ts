@@ -53,6 +53,11 @@ export function openTerminal() {
   terminals.open();
 }
 
+export function interruptActiveTerminal() {
+  const active = terminals.get().active;
+  if (active !== null) terminals.send(active, "\u0003");
+}
+
 /** Close one tab, asking first when a command still runs in it. */
 export async function closeTerminal(key: number) {
   if (await confirmStopping([key])) terminals.close(key);

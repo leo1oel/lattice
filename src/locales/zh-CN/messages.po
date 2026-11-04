@@ -2733,6 +2733,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/project/project-replace-dialog.tsx
 #: src/project/submission-items.tsx
 #: src/telemetry/app-log.tsx
+#: src/terminal/code-run-dialog.tsx
 msgid "Cancel"
 msgstr "取消"
 
@@ -4265,6 +4266,10 @@ msgstr "无法运行 git：{error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not run latexdiff: {error}"
 msgstr "无法运行 latexdiff：{error}"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Could not run this file. Use a program name or absolute interpreter path and JSON arrays of strings. Check that the file saved successfully."
+msgstr "无法运行此文件。请填写程序名称或解释器的绝对路径，并使用字符串组成的 JSON 数组。请确认文件已成功保存。"
 
 #: src/papers/audit-messages.ts
 msgid "Could not safely preserve this entry's BibTeX expressions."
@@ -7058,6 +7063,10 @@ msgstr "界面大小"
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "提示音"
+
+#: src/terminal/terminal-view.tsx
+msgid "Interrupt command"
+msgstr "中断命令"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
@@ -10745,6 +10754,14 @@ msgstr "撇号"
 msgid "Product"
 msgstr "连乘"
 
+#: src/terminal/code-run-dialog.tsx
+msgid "Program arguments (JSON array)"
+msgstr "程序参数（JSON 数组）"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Program or interpreter"
+msgstr "程序或解释器"
+
 #: src/app/use-project-lifecycle.ts
 msgid "project"
 msgstr "项目"
@@ -12119,6 +12136,11 @@ msgstr "rtex 已停止。PDF 仍会随每次编译更新。"
 msgid "run {run}"
 msgstr "第 {run} 次"
 
+#: src/terminal/code-run-dialog.tsx
+#: src/terminal/terminal-view.tsx
+msgid "Run current file"
+msgstr "运行当前文件"
+
 #: src/app/use-command-table.ts
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
@@ -12194,6 +12216,10 @@ msgstr "保存编译"
 #: src/canvas/annotation-composer.tsx
 msgid "Save and revise now"
 msgstr "保存并立即修改"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Save and run"
+msgstr "保存并运行"
 
 #: src/history/conflict-resolver.tsx
 msgid "Save and upload"
@@ -12283,6 +12309,10 @@ msgstr "请先保存再修复"
 #: src/project/submission-items.tsx
 msgid "Save these items as a template…"
 msgstr "将这些事项存为模板…"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Save this file, then run it in a new terminal in the project folder. The program has the same access as your terminal."
+msgstr "先保存此文件，再在项目文件夹的新终端中运行。此程序的访问权限与终端相同。"
 
 #: src/app/use-command-table.ts
 #: src/trellis/trellis-workspace-switch.tsx
@@ -12380,6 +12410,10 @@ msgstr "正在保存…"
 #: src/build/compile-explain.ts
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "把它缩小，例如用 width=\\linewidth 或更小的高度，让它放得进一页。"
+
+#: src/terminal/code-run-dialog.tsx
+msgid "Script arguments (JSON array)"
+msgstr "脚本参数（JSON 数组）"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
