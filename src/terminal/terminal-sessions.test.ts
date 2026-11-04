@@ -56,6 +56,18 @@ function setup(root = "/projects/thesis") {
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("terminal sessions", () => {
+  it("shows a rejected input batch instead of silently losing a stalled paste", async () => {
+    const { sessions, opened, backend } = setup();
+    const session = sessions.open()!;
+    const note = vi.spyOn(session.screen, "note");
+    opened[0].resolve(7);
+    await settle();
+    vi.spyOn(backend, "write").mockRejectedValueOnce(new Error("Terminal input queue full"));
+    session.screen.type("a paste");
+    await settle();
+    expect(note).toHaveBeenCalledWith("Terminal input queue full");
+    expect(sessions.get().sessions[0].state.kind).toBe("running");
+  });
   it("starts a shell in the project folder at the screen's size, and types what was typed while it started", async () => {
     const { sessions, opened, calls } = setup();
     const session = sessions.open()!;

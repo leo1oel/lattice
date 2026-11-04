@@ -64,6 +64,7 @@ enum Command {
 struct Session {
     expires: Instant,
     project: PathBuf,
+    projects: HashMap<String, PathBuf>,
 }
 #[derive(Clone)]
 struct Server {
@@ -73,6 +74,7 @@ struct Server {
     token: Arc<String>,
     sessions: Arc<Mutex<HashMap<String, Session>>>,
     secure_cookies: bool,
+    terminals: Arc<crate::terminal_transport::TerminalHub>,
 }
 #[derive(Deserialize)]
 struct Invoke {
@@ -109,7 +111,10 @@ pub fn main() {
                 let core = Core::new(&workspace_root,&state_dir)?;
                 let token = read_token(&token_file)?;
                 let initial = match project { Some(path)=>core.confined(&path.to_string_lossy())?,None=>core.root.clone() };
-                let state = Server { core, initial, cores:Default::default(), token:Arc::new(token), sessions:Default::default(), secure_cookies };
+                let state = Server { core, initial, cores:Default::default(), token:Arc::new(token), sessions:Default::default(), secure_cookies, terminals:Default::default() };
+                let reaper=state.clone();
+                tokio::spawn(async move {loop {tokio::time::sleep(Duration::from_secs(1)).await;reaper.terminals.reap(|session|reaper.sessions.lock().unwrap().get(session).is_some_and(|session|session.expires>Instant::now()));}});
+                let shutdown_state=state.clone();
                 let _watcher = watch_projects(&state)?;
                 let mut app = Router::new().route("/api/session", get(session).post(login).delete(logout))
                     .route("/api/projects",get(projects)).route("/api/capabilities",get(capabilities)).route("/api/invoke",post(invoke))
@@ -122,7 +127,14 @@ pub fn main() {
                 }
                 let listener = tokio::net::TcpListener::bind(listen).await.map_err(|e|e.to_string())?;
                 eprintln!("Lattice headless listening on http://{} (workspace {}; token file {})",listener.local_addr().map_err(|e|e.to_string())?,workspace_root.display(),token_file.display());
-                axum::serve(listener,app).with_graceful_shutdown(async { let _ = tokio::signal::ctrl_c().await; }).await.map_err(|e|e.to_string())
+                axum::serve(listener,app).with_graceful_shutdown(async move {
+                    let mut terminate=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("Could not handle SIGTERM");
+                    tokio::select! {_=tokio::signal::ctrl_c()=>{},_=terminate.recv()=>{}}
+                    shutdown_state.sessions.lock().unwrap().clear();
+                    shutdown_state.terminals.close_all();
+                    let _=crate::latex::abort(&shutdown_state.core.active);
+                    for core in shutdown_state.cores.lock().unwrap().values() {let _=crate::latex::abort(&core.active);}
+                }).await.map_err(|e|e.to_string())
             })
         }
     };
@@ -233,7 +245,7 @@ fn authorize(state: &Server, headers: &HeaderMap) -> Result<(), Response> {
 async fn session(State(state): State<Server>, headers: HeaderMap) -> Json<Value> {
     let auth = authenticated(&state, &headers);
     Json(
-        json!({"headless":true,"authenticated":auth,"capabilities":if auth {dispatch::capabilities()} else {Value::Null}}),
+        json!({"headless":true,"authenticated":auth,"capabilities":if auth {web_capabilities()} else {Value::Null}}),
     )
 }
 async fn login(
@@ -261,6 +273,7 @@ async fn login(
         Session {
             expires: Instant::now() + Duration::from_secs(28800),
             project: state.initial.clone(),
+            projects: HashMap::new(),
         },
     );
     let cookie = format!(
@@ -272,7 +285,7 @@ async fn login(
             (header::SET_COOKIE, HeaderValue::from_str(&cookie).unwrap()),
             (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
         ],
-        Json(json!({"headless":true,"authenticated":true,"capabilities":dispatch::capabilities()})),
+        Json(json!({"headless":true,"authenticated":true,"capabilities":web_capabilities()})),
     )
         .into_response()
 }
@@ -285,6 +298,7 @@ async fn logout(State(state): State<Server>, headers: HeaderMap) -> Response {
             cookie.split(';').map(str::trim).find_map(|v| v.strip_prefix("lattice_session="))
         {
             state.sessions.lock().unwrap().remove(id);
+            state.terminals.close_session(id);
         }
     }
     (
@@ -297,7 +311,31 @@ async fn capabilities(State(state): State<Server>, headers: HeaderMap) -> Respon
     if let Err(error) = authorize(&state, &headers) {
         return error;
     }
-    Json(dispatch::capabilities()).into_response()
+    Json(web_capabilities()).into_response()
+}
+fn web_capabilities() -> Value {
+    let mut value = dispatch::capabilities();
+    if let Some(commands) = value["commands"].as_array_mut() {
+        commands.extend(crate::terminal_transport::COMMANDS.iter().map(|command| json!(command)));
+    }
+    if let Some(unavailable) = value["unavailable"].as_array_mut() {
+        unavailable.retain(|item| item != "terminal");
+    }
+    value["terminalLimits"] =
+        json!({"perTab":4,"global":32,"reconnectLeaseSeconds":10,"requiresBrowserSession":true});
+    value
+}
+fn client_id(headers: &HeaderMap) -> Option<&str> {
+    headers.get("x-lattice-client").and_then(|value| value.to_str().ok()).filter(|client| {
+        (16..=64).contains(&client.len())
+            && client.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    })
+}
+fn selected_project(state: &Server, headers: &HeaderMap, client: Option<&str>) -> Option<PathBuf> {
+    let id = session_id(headers)?;
+    let sessions = state.sessions.lock().unwrap();
+    let session = sessions.get(&id)?;
+    Some(client.and_then(|client| session.projects.get(client)).unwrap_or(&session.project).clone())
 }
 async fn invoke(
     State(state): State<Server>, headers: HeaderMap, Json(request): Json<Invoke>,
@@ -306,9 +344,8 @@ async fn invoke(
         return error;
     }
     let id = session_id(&headers);
-    let root = match id.as_ref().and_then(|id| {
-        state.sessions.lock().unwrap().get(id).map(|session| session.project.clone())
-    }) {
+    let client = client_id(&headers).map(str::to_string);
+    let root = match selected_project(&state, &headers, client.as_deref()) {
         Some(root) => root,
         None => match request.args.get("projectRoot").and_then(Value::as_str) {
             Some(path) => match state.core.confined(path) {
@@ -318,7 +355,67 @@ async fn invoke(
             None => state.initial.clone(),
         },
     };
+    if crate::terminal_transport::COMMANDS.contains(&request.command.as_str()) {
+        let owner = match id
+            .as_deref()
+            .filter(|id| {
+                state
+                    .sessions
+                    .lock()
+                    .unwrap()
+                    .get(*id)
+                    .is_some_and(|session| session.expires > Instant::now())
+            })
+            .ok_or_else(|| "Terminals require a browser session.".to_string())
+            .and_then(|session| {
+                crate::terminal_transport::TerminalHub::owner(
+                    session,
+                    headers
+                        .get("x-lattice-client")
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or(""),
+                )
+            }) {
+            Ok(owner) => owner,
+            Err(error) => return failure(StatusCode::FORBIDDEN, "terminal_forbidden", &error),
+        };
+        if let Some(pin) = request.args.get("projectRoot").and_then(Value::as_str) {
+            if state.core.confined(pin).ok().as_ref() != Some(&root) {
+                return failure(
+                    StatusCode::CONFLICT,
+                    "project_changed",
+                    "The terminal project changed.",
+                );
+            }
+        }
+        let terminals = state.terminals.clone();
+        return match tokio::task::spawn_blocking(move || {
+            terminals.invoke(&owner, &root, &request.command, &request.args)
+        })
+        .await
+        {
+            Ok(Ok(value)) => ([(header::CACHE_CONTROL, "no-store")], Json(json!({"result":value})))
+                .into_response(),
+            Ok(Err(error)) => failure(StatusCode::BAD_REQUEST, "terminal_failed", &error),
+            Err(_) => failure(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "terminal_failed",
+                "Terminal operation failed.",
+            ),
+        };
+    }
     let selected = if request.command == "open_project" {
+        if let (Some(id), Some(client)) = (id.as_ref(), client.as_ref()) {
+            if state.sessions.lock().unwrap().get(id).is_some_and(|session| {
+                !session.projects.contains_key(client) && session.projects.len() >= 128
+            }) {
+                return failure(
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "tab_limit",
+                    "Too many project tabs for this session. Sign in again.",
+                );
+            }
+        }
         match request
             .args
             .get("path")
@@ -362,7 +459,14 @@ async fn invoke(
     if matches!(result, Ok(Ok(_))) && is_open {
         if let Some(id) = id {
             if let Some(session) = state.sessions.lock().unwrap().get_mut(&id) {
-                session.project = selected;
+                if let Some(client) = client.as_ref() {
+                    session.projects.insert(client.clone(), selected);
+                } else {
+                    session.project = selected;
+                }
+            }
+            if let Some(client) = client.as_ref() {
+                state.terminals.close_client(&id, client);
             }
         }
     }
@@ -392,6 +496,7 @@ struct Asset {
     version: Option<String>,
     start: Option<u64>,
     end: Option<u64>,
+    client: Option<String>,
 }
 async fn asset(
     State(state): State<Server>, headers: HeaderMap, Query(query): Query<Asset>,
@@ -399,11 +504,9 @@ async fn asset(
     if let Err(error) = authorize(&state, &headers) {
         return error;
     }
-    let selected = session_id(&headers)
-        .and_then(|id| {
-            state.sessions.lock().unwrap().get(&id).map(|session| session.project.clone())
-        })
-        .unwrap_or_else(|| state.initial.clone());
+    let selected =
+        selected_project(&state, &headers, query.client.as_deref().or_else(|| client_id(&headers)))
+            .unwrap_or_else(|| state.initial.clone());
     let candidate = if std::path::Path::new(&query.path).is_absolute() {
         PathBuf::from(&query.path)
     } else {
@@ -506,42 +609,84 @@ async fn asset(
         Err(_) => StatusCode::NOT_FOUND.into_response(),
     }
 }
-async fn events(State(state): State<Server>, headers: HeaderMap) -> Response {
+#[derive(Deserialize)]
+struct EventQuery {
+    client: Option<String>,
+}
+async fn events(
+    State(state): State<Server>, headers: HeaderMap, Query(query): Query<EventQuery>,
+) -> Response {
     if let Err(error) = authorize(&state, &headers) {
         return error;
     }
+    let subscription = match query.client {
+        Some(client) => {
+            let owner = match session_id(&headers)
+                .ok_or_else(|| "Terminal events require a browser session.".to_string())
+                .and_then(|session| {
+                    crate::terminal_transport::TerminalHub::owner(&session, &client)
+                }) {
+                Ok(owner) => owner,
+                Err(error) => return failure(StatusCode::FORBIDDEN, "terminal_forbidden", &error),
+            };
+            match state.terminals.subscribe(&owner) {
+                Ok(subscription) => Some(subscription),
+                Err(error) => {
+                    return failure(StatusCode::TOO_MANY_REQUESTS, "terminal_limit", &error)
+                }
+            }
+        }
+        None => None,
+    };
+    let cursor = headers
+        .get("last-event-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("terminal-"))
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0);
     let stream = stream::unfold(
-        (state.core.events.subscribe(), state, headers),
-        |(mut rx, state, headers)| async move {
+        (state.core.events.subscribe(), state, headers, subscription, cursor, false),
+        |(mut rx, state, headers, mut subscription, mut cursor, ready)| async move {
+            if !ready {
+                return Some((
+                    Ok::<_, std::convert::Infallible>(
+                        Event::default()
+                            .data(json!({"event":"server-ready","payload":{}}).to_string()),
+                    ),
+                    (rx, state, headers, subscription, cursor, true),
+                ));
+            }
             loop {
                 if !authenticated(&state, &headers) {
                     return None;
                 }
-                match rx.recv().await {
-                    Ok(value) => {
-                        if !authenticated(&state, &headers) {
-                            return None;
-                        }
-                        return Some((
-                            Ok::<_, std::convert::Infallible>(
-                                Event::default().data(value.to_string()),
-                            ),
-                            (rx, state, headers),
-                        ));
+                if let Some(current) = &subscription {
+                    if current.stream.is_closed() {
+                        return None;
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                    if let Some((id, value)) = current.stream.next(cursor) {
+                        cursor = id;
                         return Some((
                             Ok(Event::default()
-                                .data(json!({"event":"resync-required","payload":{}}).to_string())),
-                            (rx, state, headers),
-                        ))
+                                .id(format!("terminal-{id}"))
+                                .data(value.to_string())),
+                            (rx, state, headers, subscription, cursor, true),
+                        ));
                     }
-                    Err(_) => return None,
+                }
+                tokio::select! {
+                    value=rx.recv()=>match value {
+                        Ok(value)=>return Some((Ok(Event::default().data(value.to_string())),(rx,state,headers,subscription,cursor,true))),
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>return Some((Ok(Event::default().data(json!({"event":"resync-required","payload":{}}).to_string())),(rx,state,headers,subscription,cursor,true))),
+                        Err(_)=>return None,
+                    },
+                    _=async {match subscription.as_mut(){Some(subscription)=>{let _=subscription.changed.changed().await;},None=>futures_util::future::pending::<()>().await}}=>{},
+                    _=tokio::time::sleep(Duration::from_secs(1))=>{},
                 }
             }
         },
     );
-    Sse::new(stream).keep_alive(KeepAlive::default()).into_response()
+    Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(1))).into_response()
 }
 
 fn session_id(headers: &HeaderMap) -> Option<String> {

@@ -4,6 +4,8 @@ mod domain;
 pub(crate) use domain::*;
 mod dispatch;
 mod literature_credentials;
+mod terminal;
+mod terminal_transport;
 mod transport;
 fn main() {
     transport::main();

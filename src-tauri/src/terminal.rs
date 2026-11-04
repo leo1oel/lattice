@@ -16,11 +16,27 @@
 //! writer's keys to it, and ends it.
 
 pub(crate) mod caller;
+mod output;
 mod pty;
 mod session;
+pub(crate) use output::{Output, OutputMessage};
 
 pub(crate) use pty::login_shell;
 pub(crate) use session::Session;
+
+impl From<tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>> for Output {
+    fn from(channel: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>) -> Self {
+        Self::new(move |message| {
+            let body = match message {
+                OutputMessage::Bytes(bytes) => tauri::ipc::InvokeResponseBody::Raw(bytes),
+                OutputMessage::Exit(code) => tauri::ipc::InvokeResponseBody::Json(
+                    serde_json::json!({"exit": code}).to_string(),
+                ),
+            };
+            channel.send(body).map_err(|error| error.to_string())
+        })
+    }
+}
 
 mod registry;
 pub(crate) use registry::Terminals;

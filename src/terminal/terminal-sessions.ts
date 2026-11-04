@@ -112,7 +112,9 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
     const root = this.root;
     screen.onInput((data) => {
       if (item.id === null) item.queued.push(data);
-      else void this.backend.write(item.id, data).catch(() => {});
+      else void this.backend.write(item.id, data).catch((reason: unknown) => {
+        if (!item.closed) screen.note(reason instanceof Error ? reason.message : String(reason));
+      });
     });
     screen.onResize((cols, rows) => {
       if (item.id !== null) void this.backend.resize(item.id, cols, rows).catch(() => {});
@@ -145,7 +147,9 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
       this.update(item, { shell, state: { kind: "running" } });
       // The size may have changed while the shell started (the panel laid out).
       void this.backend.resize(id, screen.cols(), screen.rows()).catch(() => {});
-      for (const data of item.queued.splice(0)) void this.backend.write(id, data).catch(() => {});
+      for (const data of item.queued.splice(0)) void this.backend.write(id, data).catch((reason: unknown) => {
+        if (!item.closed) screen.note(reason instanceof Error ? reason.message : String(reason));
+      });
     }, (reason: unknown) => {
       if (item.closed) return;
       this.update(item, { state: { kind: "failed", message: reason instanceof Error ? reason.message : String(reason) } });

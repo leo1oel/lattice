@@ -2,6 +2,7 @@
 //! written to the shell, and its end.
 
 use super::pty::{self, Shell};
+use super::{Output, OutputMessage};
 use std::io::Write;
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::path::{Path, PathBuf};
@@ -9,7 +10,6 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
-use tauri::ipc::{Channel, InvokeResponseBody};
 
 /// Output is gathered for up to this long after the first byte, so a burst
 /// (a build's log) reaches the window as a few messages instead of one per
@@ -58,7 +58,7 @@ pub(crate) struct Session {
     shell: u32,
     name: String,
     master: Arc<OwnedFd>,
-    input: mpsc::Sender<Vec<u8>>,
+    input: mpsc::SyncSender<Vec<u8>>,
     stop: Arc<AtomicBool>,
     unread: Arc<AtomicUsize>,
     exit: Arc<Exit>,
@@ -76,15 +76,16 @@ impl Session {
     /// `output` as raw bytes, in order; when it ends, one JSON message
     /// `{"exit": code}` follows (`code` null when a signal ended it).
     pub(crate) fn spawn(
-        window: String, root: PathBuf, cols: u16, rows: u16, output: Channel<InvokeResponseBody>,
+        window: String, root: PathBuf, cols: u16, rows: u16, output: impl Into<Output>,
     ) -> Result<Self, String> {
         Self::spawn_shell(&pty::login_shell(), window, root, cols, rows, output)
     }
 
     pub(super) fn spawn_shell(
         shell: &Path, window: String, root: PathBuf, cols: u16, rows: u16,
-        output: Channel<InvokeResponseBody>,
+        output: impl Into<Output>,
     ) -> Result<Self, String> {
+        let output = output.into();
         let Shell { master, mut child, name } = pty::spawn_shell(shell, &root, cols, rows)
             .map_err(|error| format!("Could not start a shell: {error}"))?;
         let shell = child.id();
@@ -96,7 +97,7 @@ impl Session {
         let stop = Arc::new(AtomicBool::new(false));
         let unread = Arc::new(AtomicUsize::new(0));
         let exit = Arc::new(Exit::default());
-        let (input, keys) = mpsc::channel::<Vec<u8>>();
+        let (input, keys) = mpsc::sync_channel::<Vec<u8>>(16);
         // Writes go through a thread of their own, so a large paste into a
         // shell that is not reading never holds up a command handler.
         std::thread::spawn(move || write_input(writer, &keys));
@@ -133,7 +134,12 @@ impl Session {
 
     /// Type `bytes` into the terminal, after whatever was typed before.
     pub(crate) fn write(&self, bytes: Vec<u8>) -> Result<(), String> {
-        self.input.send(bytes).map_err(|_| "This terminal has closed.".to_string())
+        self.input.try_send(bytes).map_err(|error| match error {
+            mpsc::TrySendError::Disconnected(_) => "This terminal has closed.".to_string(),
+            mpsc::TrySendError::Full(_) => {
+                "The terminal input queue is full. Try again after it catches up.".to_string()
+            }
+        })
     }
 
     pub(crate) fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {
@@ -247,8 +253,7 @@ fn read_some(master: &OwnedFd, buffer: &mut [u8]) -> usize {
 /// Stream the terminal's output to the window until it ends, is stopped, or
 /// the window is gone, then report how the shell exited.
 fn forward_output(
-    master: &OwnedFd, output: &Channel<InvokeResponseBody>, stop: &AtomicBool,
-    unread: &AtomicUsize, exit: &Exit,
+    master: &OwnedFd, output: &Output, stop: &AtomicBool, unread: &AtomicUsize, exit: &Exit,
 ) {
     let mut chunk = vec![0u8; 64 * 1024];
     'stream: while !stop.load(Ordering::Acquire) {
@@ -285,11 +290,10 @@ fn forward_output(
         }
         unread.fetch_add(batch.len(), Ordering::AcqRel);
         // A window that reloaded or closed has no one to draw this.
-        if output.send(InvokeResponseBody::Raw(batch)).is_err() || ended {
+        if output.send(OutputMessage::Bytes(batch)).is_err() || ended {
             break;
         }
     }
     let code = exit.wait(Duration::from_secs(1)).flatten();
-    let message = serde_json::json!({ "exit": code });
-    let _ = output.send(InvokeResponseBody::Json(message.to_string()));
+    let _ = output.send(OutputMessage::Exit(code));
 }

@@ -89,6 +89,17 @@ fn a_resize_reaches_the_shell() {
 }
 
 #[test]
+fn terminal_input_is_bounded_when_the_foreground_program_does_not_read() {
+    let (_dir, root) = project();
+    let (session, _received) = spawn("main", &root);
+    session.write(b"sleep 300\n".to_vec()).unwrap();
+    wait_for("sleep to run", || session.running_command().as_deref() == Some("sleep"));
+    let full = (0..40).any(|_| session.write(vec![b'x'; 256 * 1024]).is_err());
+    session.end(Duration::from_secs(2));
+    assert!(full, "a stalled program must not admit an unlimited queue of keyboard data");
+}
+
+#[test]
 fn the_shell_exiting_on_its_own_is_reported_with_its_code() {
     let (_dir, root) = project();
     let (session, received) = spawn("main", &root);

@@ -42,7 +42,9 @@ pub(crate) fn login_shell() -> PathBuf {
     from_account
         .filter(|path| usable(path))
         .or_else(|| std::env::var_os("SHELL").map(PathBuf::from).filter(|path| usable(path)))
-        .unwrap_or_else(|| PathBuf::from("/bin/zsh"))
+        .unwrap_or_else(|| {
+            PathBuf::from(if cfg!(target_os = "macos") { "/bin/zsh" } else { "/bin/sh" })
+        })
 }
 
 /// The search path the shell starts from: Lattice's own, then the TeX
@@ -191,11 +193,21 @@ pub(super) fn foreground_job(master: &OwnedFd, shell: u32) -> Option<i32> {
 
 /// A process's name ("latexmk"), when it still exists.
 pub(super) fn process_name(pid: i32) -> Option<String> {
-    let mut buffer = [0u8; 256];
-    // SAFETY: proc_name writes at most the buffer's length.
-    let length = unsafe { libc::proc_name(pid, buffer.as_mut_ptr().cast(), buffer.len() as u32) };
-    let length = usize::try_from(length).ok().filter(|length| *length > 0)?;
-    Some(String::from_utf8_lossy(&buffer[..length]).into_owned())
+    #[cfg(not(target_os = "macos"))]
+    {
+        std::fs::read_to_string(format!("/proc/{pid}/comm"))
+            .ok()
+            .map(|name| name.trim().to_string())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let mut buffer = [0u8; 256];
+        // SAFETY: proc_name writes at most the buffer's length.
+        let length =
+            unsafe { libc::proc_name(pid, buffer.as_mut_ptr().cast(), buffer.len() as u32) };
+        let length = usize::try_from(length).ok().filter(|length| *length > 0)?;
+        Some(String::from_utf8_lossy(&buffer[..length]).into_owned())
+    }
 }
 
 /// Send `signal` to process group `group`. Lattice's own group is never one

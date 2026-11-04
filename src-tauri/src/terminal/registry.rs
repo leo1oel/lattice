@@ -98,4 +98,3 @@ impl Terminals {
         self.sessions.lock().unwrap_or_else(PoisonError::into_inner).len()
     }
 }
-

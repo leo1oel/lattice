@@ -7,7 +7,7 @@ there is no second implementation of project persistence or sync.
 
 This is an initial server API, **not full desktop parity**. Run `capabilities`
 to inspect the supported commands. Native windows/dialogs, embedded sign-in,
-system keychain, Synara/agent sidecar, terminal and Texlab are currently
+system keychain, Synara/agent sidecar and Texlab are currently
 unavailable. Unknown commands return `unsupported_command`. The existing App
 frontend needs the separate headless browser adapter to use this API; an
 unmodified desktop frontend expects its native bridge.
@@ -48,8 +48,11 @@ its toolchain has that account's filesystem permissions.
 Keep `--state-dir` outside the project directory tree so private credentials
 can never be served as project assets. `--workspace-root` is the permitted project directory tree. `--project` chooses
 the initial project (defaults to the root). Each authenticated browser session
-has its own active project. `open_project` changes only that session; multiple
-devices can open different papers. Explicit `projectRoot` arguments pin mutations
+has its own active project. Browser adapters additionally send a fresh random
+`X-Lattice-Client` per tab: `open_project` changes only that tab's project, even
+when two tabs share a cookie. Asset URLs include the same non-secret `client`
+query value; clients without that header keep the session-default behavior.
+Multiple devices can open different papers. Explicit `projectRoot` arguments pin mutations
 and reject stale requests from a previously selected project. All sessions
 share one canonical core/build state per project. A Bearer API client is
 stateless and should pass `projectRoot` on each request.
@@ -100,8 +103,16 @@ cache directories respect `XDG_DATA_HOME` and `XDG_CACHE_HOME`.
   native `project-fs-changed` and `build-progress` payloads. Filesystem changes
   outside the UI are watched too. `resync-required` means the client must refresh
   because events were dropped. Events carry project roots; clients filter them.
+- `GET /api/events?client=UUID` also carries that authenticated tab's terminal
+  callbacks: `{callback:N,payload:{index:0,message:{__latticeBridgeBinary:"BASE64"}}}`,
+  followed by an
+  exit message `{exit:codeOrNull}` and the next `{index:N,end:true}`. These are
+  the actual Tauri Channel envelopes; the adapter decodes the existing bridge
+  binary marker to an ArrayBuffer. SSE IDs support `Last-Event-ID` replay
+  during a short disconnection, without exposing output to another tab.
 - `GET /api/asset?path=...`: authenticated workspace-confined bytes; hidden
-  control directories are rejected. Relative paths use the session's project.
+  control directories are rejected. Relative paths use the tab's project when
+  `client` is present, or the session's project otherwise.
   For PDF ranges, add `version`, `start`, `end` from `read_project_asset`;
   response contains bytes `[start,end)`. Version mismatches return HTTP 409.
   Range reads reuse the domain's symlink/version checks and 16 MiB bound.
@@ -111,13 +122,38 @@ invoke. Browser adapters convert them to ArrayBuffers, or use the binary asset
 endpoint. Static `index.html` receives the `__LATTICE_HEADLESS__` bootstrap flag;
 all assets remain same-origin.
 
+## Integrated terminal
+
+The web capability list includes `terminal_open`, `terminal_write`,
+`terminal_resize`, `terminal_ack`, `terminal_running_command`, and
+`terminal_close`. These reuse the desktop PTY/session implementation, including
+output flow control and process-group hangup. They require a valid cookie
+session, `X-Lattice-Client`, and an already-connected SSE stream for that client;
+a Bearer-only invocation cannot create a persistent terminal. The frontend
+adapter must wait for SSE readiness and set its terminal capability flag.
+
+Terminal startup is pinned to the selected project. It starts the account's
+login shell in that folder, with that account's ordinary terminal permissions;
+this is not a sandbox restricting a user's shell commands to the project.
+Input is bounded to 256 KiB per request and a 16-message writer queue. Output
+pauses above the same 2 MiB unread watermark as the desktop terminal. At most
+four terminals per tab and 32 across the service may exist.
+
+Opening another project ends that tab's terminals; signing out ends all tabs of
+that session. An SSE connection may reconnect for 10 seconds after the server
+observes its loss. Unacknowledged output is replayed with its original channel
+indices. An abandoned tab, expired/revoked session, or server SIGTERM/SIGINT
+ends its shells and foreground process groups. Hiding the terminal panel does
+not end it. As with the desktop terminal, intentionally detached daemons are
+outside the foreground job lifetime contract.
+
 ## Verification
 
 ```sh
 cargo build --locked --manifest-path server/Cargo.toml
 env -u DISPLAY -u WAYLAND_DISPLAY \
   LATTICE_SERVER_BINARY="$PWD/server/target/debug/lattice-server" \
-  LATTICE_TEST_LATEX=1 python3 server/tests/smoke.py
+  LATTICE_TEST_LATEX=1 python3 server/tests/terminal_smoke.py
 ```
 
 These production-binary tests exercise authentication, cross-origin rejection,
@@ -126,3 +162,8 @@ escapes, shared history and CLI persistence, static bootstrap, a real LaTeX
 build, PDF bytes and stale-version range rejection. Without
 `LATTICE_TEST_LATEX=1`, only the toolchain-dependent test is skipped. No desktop
 process or mock backend is launched.
+The terminal suite also executes real Python in a PTY, resizes and interrupts
+it, checks ordered callback envelopes and replay, isolates same-cookie tabs and
+assets, enforces terminal limits, and verifies logout, disconnect and SIGTERM
+cleanup. Native terminal regressions continue to cover the same shared session
+implementation.
