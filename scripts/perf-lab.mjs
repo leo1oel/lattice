@@ -41,6 +41,7 @@
  *       against B (A within 10% of B, latency within a 120 Hz frame).
  */
 import { spawn } from "node:child_process";
+import { connect } from "node:net";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { capture, isMain, projectRoot, run } from "./lib/util.mjs";
@@ -195,8 +196,19 @@ const captureOrEmpty = (command, args) => {
   }
 };
 
+// Whether something answers on the port. A connect rather than lsof: lsof run
+// as the console user never sees a socket the lab account listens on.
 function portBusy(port) {
-  return captureOrEmpty("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN"]).trim() !== "";
+  return new Promise((resolve) => {
+    const socket = connect({ host: "127.0.0.1", port });
+    const settle = (busy) => {
+      socket.destroy();
+      resolve(busy);
+    };
+    socket.setTimeout(1000, () => settle(false));
+    socket.once("connect", () => settle(true));
+    socket.once("error", () => settle(false));
+  });
 }
 
 // Lab apps under `root`: one task's directory, or LAB_ROOT for every task's.
@@ -213,7 +225,7 @@ export function runPlan(options, runId, label) {
 
 // Checks shared by `run` and `host`, then a fresh working copy of the fixture
 // and the variant's saved state. Returns what the launch needs.
-function prepareLaunch(lab, variantName, options) {
+async function prepareLaunch(lab, variantName, options) {
   const { variant, suffix } = parseVariant(variantName);
   const port = Number(options.port ?? lab.port);
   if (port === REAL_APP_PORT) throw new Error(`port ${REAL_APP_PORT} belongs to the real Lattice`);
@@ -223,7 +235,7 @@ function prepareLaunch(lab, variantName, options) {
   const fixtureName = options.fixture ?? "base";
   const fixtureSource = join(lab.dir, "fixtures", fixtureName);
   if (!existsSync(fixtureSource)) throw new Error(`no fixture ${fixtureName}; run fixture first`);
-  if (portBusy(port)) throw new Error(`port ${port} is busy`);
+  if (await portBusy(port)) throw new Error(`port ${port} is busy`);
   // Two labs at once would measure each other, whichever task they belong to.
   if (labProcesses(LAB_ROOT)) throw new Error(`a lab app is already running as ${LAB_USER}`);
 
@@ -252,7 +264,7 @@ function launch(binary, environment, args, log) {
 }
 
 async function runOnce(lab, variantName, runId, options) {
-  const { variant, binary, environment } = prepareLaunch(lab, variantName, options);
+  const { variant, binary, environment } = await prepareLaunch(lab, variantName, options);
   const results = join(lab.dir, "results");
   const stem = `${variant}-run${runId}`;
   run("rm", ["-f", join(results, `${stem}.done`), join(results, `${stem}.json`)]);
@@ -294,23 +306,39 @@ async function runOnce(lab, variantName, runId, options) {
 
 // The real app with no window of its own, serving its workspace to any browser
 // on the lab port, the fixture already open. For driving with playwright-core.
+// It stays in the foreground until Ctrl-C (or TERM/HUP) or until the app exits
+// on its own, and stops the app either way, so a wrapping `lockf` holds its
+// lock exactly as long as the lab runs.
 async function host(lab, options) {
-  const { binary, port, environment } = prepareLaunch(lab, options.variant ?? "wk", options);
+  const { binary, port, environment } = await prepareLaunch(lab, options.variant ?? "wk", options);
   const log = join(lab.dir, "logs", "host.log");
-  launch(binary, environment, ["--browser-host"], log);
-  const url = `http://127.0.0.1:${port}/`;
-  for (let waited = 0; !portBusy(port); waited += 1) {
-    if (waited > 60) {
-      await stopLab(lab);
-      throw new Error(`the host never listened on ${port}; see ${log}`);
+  let signalled = null;
+  const onSignal = (signal) => { signalled = signal; };
+  const signals = ["SIGINT", "SIGTERM", "SIGHUP"];
+  // Installed before the launch: a signal Node does not handle kills it
+  // without stopping the app it started.
+  for (const signal of signals) process.on(signal, onSignal);
+  try {
+    launch(binary, environment, ["--browser-host"], log);
+    const url = `http://127.0.0.1:${port}/`;
+    for (let waited = 0; !(await portBusy(port)); waited += 1) {
+      if (signalled) return;
+      if (waited > 60) throw new Error(`the host never listened on ${port}; see ${log}`);
+      await sleep(1000);
     }
-    await sleep(1000);
+    console.log(`serving ${url} (log ${log}); Ctrl-C stops it`);
+    // Poll rather than await a Promise the signal resolves: a pending Promise
+    // holds no handle, so Node would exit at once and leave the app running.
+    // The sleep's timer is what keeps the process alive.
+    while (!signalled) {
+      if (!labProcesses(lab.dir)) throw new Error(`the lab app exited on its own; see ${log}`);
+      await sleep(1000);
+    }
+    console.log(`${signalled}: stopping the lab app`);
+  } finally {
+    await stopLab(lab);
+    for (const signal of signals) process.off(signal, onSignal);
   }
-  console.log(`serving ${url} (log ${log}); Ctrl-C stops it`);
-  await new Promise((resolve) => {
-    for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.once(signal, resolve);
-  });
-  await stopLab(lab);
 }
 
 // Every lab-account process the launch created: pid, RSS (KiB), physical
