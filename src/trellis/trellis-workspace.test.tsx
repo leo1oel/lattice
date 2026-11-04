@@ -541,3 +541,38 @@ describe("a panel's menu", () => {
     expect(button).not.toHaveAttribute("aria-expanded");
   });
 });
+
+describe("a document panel's header tools", () => {
+  withWindowBox();
+
+  // ⇧-click Build never cleaned: Trellis took the Shift-press on its chrome as
+  // the start of a marquee zoom, prevented it and captured the pointer, so the
+  // button never got its click.
+  it("keep a Shift-click, so ⇧-click Build is a clean rebuild", async () => {
+    const controller = new TrellisController();
+    const build = vi.fn();
+    controller.setBridge({
+      tabKind: () => "file",
+      tabLabel: (key: string) => key,
+      activate: () => {},
+      viewState: () => undefined,
+      rememberViewState: () => {},
+      readText: async () => "",
+      documentMode: () => "source",
+      agentShown: () => {},
+      openTool: () => {},
+      panelMenu: () => [],
+      shortcut: () => null,
+      build,
+    } as unknown as Parameters<TrellisController["setBridge"]>[0]);
+    controller.app.set({ projectRoot: "/a", activeKey: "main.tex", openTabs: ["main.tex"], tabsReady: true });
+    render(<TrellisWorkspace controller={controller} projectRoot="/a" dark={false} focusMode={false} />);
+    const button = await screen.findByRole("button", { name: "Build" });
+    const press = { button: 0, pointerType: "mouse", shiftKey: true };
+    expect(fireEvent.pointerDown(button, press)).toBe(true);
+    expect(document.querySelector("[data-marquee]")).toBeNull();
+    fireEvent.pointerUp(button, press);
+    fireEvent.click(button, { shiftKey: true });
+    expect(build).toHaveBeenCalledWith("main.tex", expect.objectContaining({ clean: true }));
+  });
+});
