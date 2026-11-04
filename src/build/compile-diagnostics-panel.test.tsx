@@ -174,6 +174,18 @@ describe("build output layout", () => {
     expect(screen.queryByRole("button", { name: "Copy log" })).not.toBeInTheDocument();
   });
 
+  // Floating, a warnings-only build's panel covered the top of page 1 after every build.
+  it("docks a build that succeeded with warnings until the writer chooses otherwise", () => {
+    const warnings = [diagnostics[1]!];
+    const { unmount } = render(<CompileDiagnosticsPanel {...props} success diagnostics={warnings} />);
+    expect(screen.getByRole("region", { name: "Compile diagnostics" })).toHaveClass("docked");
+    fireEvent.click(screen.getByRole("button", { name: "Float over the page" }));
+    unmount();
+    render(<CompileDiagnosticsPanel {...props} success diagnostics={warnings} />);
+    expect(screen.getByRole("region", { name: "Compile diagnostics" })).not.toHaveClass("docked");
+    localStorage.clear();
+  });
+
   it("docks below the page and remembers the choice for the next build", () => {
     const { unmount } = render(<CompileDiagnosticsPanel {...props} expanded />);
     const section = screen.getByRole("region", { name: "Compile diagnostics" });
@@ -211,8 +223,6 @@ describe("explained build errors", () => {
     // TeX's own words are the headline's hover, not a second visible line.
     expect(screen.getByRole("button", { name: "main.tex:3 Unknown command \\cietp" })).toHaveAttribute("title", "TeX: Undefined control sequence.");
     expect(screen.queryByText("TeX: Undefined control sequence.")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Replace with/ }));
-    expect(onReplaceToken).toHaveBeenCalledWith(typo, "\\cietp", "\\citep");
     fireEvent.click(screen.getByRole("button", { name: "Ask the agent" }));
     expect(onAskAgent).toHaveBeenCalledWith(typo);
     // The warning keeps one row, rewritten, in a different shape from the error.
@@ -220,6 +230,29 @@ describe("explained build errors", () => {
     expect(warning.getAttribute("title")).toContain("may clear once the error above is fixed");
     expect(warning.querySelector("svg")?.getAttribute("class")).toContain("triangle-alert");
     expect(screen.getByRole("button", { name: /Unknown command/ }).querySelector("svg")?.getAttribute("class")).toContain("circle-x");
+  });
+
+  // The card went on explaining an error its fix had already removed, with
+  // generic words (the token was gone from the source) and its actions
+  // disabled, for as long as the rebuild ran.
+  it("checks an error off once its fix is applied, until the next build reports", () => {
+    const onReplaceToken = vi.fn();
+    const shown = [typo, citation];
+    const { rerender } = render(<CompileDiagnosticsPanel {...props} expanded log={log} diagnostics={shown}
+      sourceOf={() => source} onReplaceToken={onReplaceToken} onAskAgent={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Replace with/ }));
+    expect(onReplaceToken).toHaveBeenCalledWith(typo, "\\cietp", "\\citep");
+    // The source now reads \citep; the row still says what it was about.
+    rerender(<CompileDiagnosticsPanel {...props} expanded log={log} diagnostics={shown}
+      sourceOf={() => source.replace("\\cietp", "\\citep")} onReplaceToken={onReplaceToken} onAskAgent={vi.fn()} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Replaced with \\citep. Building again to confirm the fix.");
+    screen.getByText("Unknown command \\cietp");
+    expect(screen.queryByRole("button", { name: /Replace with|Ask the agent/ })).toBeNull();
+    // The next build's report replaces it, whatever it says.
+    rerender(<CompileDiagnosticsPanel {...props} expanded log={log} diagnostics={[{ ...typo }]}
+      sourceOf={() => source} onReplaceToken={onReplaceToken} onAskAgent={vi.fn()} />);
+    expect(screen.queryByText(/Building again/)).toBeNull();
+    screen.getByRole("button", { name: "Ask the agent" });
   });
 
   it("explains two errors on one line each by its own command", () => {

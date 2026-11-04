@@ -162,7 +162,6 @@
 .pdf-toolbar[data-measure-narrow] .pdf-zoom-controls { gap: var(--space-1); }
 .pdf-toolbar[data-measure-narrow] .pdf-overflow { display: none; }
 .pdf-toolbar[data-measure-narrow] .pdf-overflow-trigger { display: grid; }
-.pdf-toolbar[data-measure-narrow] .pdf-search-idle .ui-search-field-trailing { display: inline-flex; }
 /* A query the row has no room for folds the toolbar (measurePdfSearchFold in
    pdf-toolbar-min-width.ts): first SyncTeX and the fit in use join the rest in
    the overflow menu; then, narrower still, the search takes the whole row

@@ -10821,6 +10821,7 @@ msgid "Proof environment (requires amsthm)"
 msgstr "证明环境（需要 amsthm）"
 
 #: src/canvas/proofread-card.tsx
+#: src/canvas/proofread-layer.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Proofread"
 msgstr "校对"
@@ -11541,6 +11542,10 @@ msgstr "已替换 $ 处"
 #: src/editor/latex/search-panel.ts
 msgid "replaced match on line $"
 msgstr "已替换第 $ 行"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Replaced with <0>{replacement}</0>. Building again to confirm the fix."
+msgstr "已替换为 <0>{replacement}</0>，正在重新编译确认修复。"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Replacement text"
@@ -12595,6 +12600,10 @@ msgstr "选中本行"
 #: src/editor/editor-keymap.ts
 msgid "Select the next occurrence"
 msgstr "选下一处"
+
+#: src/canvas/proofread-layer.tsx
+msgid "Select the text to proofread first."
+msgstr "请先选中要校对的文字。"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"

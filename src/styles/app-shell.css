@@ -177,6 +177,11 @@ input[type="search"]:focus-visible {
 .compile-explained-text { margin: 0; padding: 0 var(--space-4); color: var(--text-primary); font-size: var(--type-caption-size); line-height: 1.5; text-wrap: pretty; }
 .compile-explained-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-inline-start: var(--space-4); }
 .compile-explained-actions code { font-family: var(--editor-font); }
+/* An error just fixed from its card waits, checked off, for the build that confirms it. */
+.compile-fixed .compile-diagnostic-item > svg { color: var(--status-success); }
+.compile-fixed .compile-diagnostic-message { color: var(--text-secondary); text-decoration: line-through; text-decoration-color: var(--text-tertiary); }
+.compile-fixed .compile-explained-text { color: var(--text-secondary); }
+.compile-fixed code { font-family: var(--editor-font); }
 .compile-explained-enter { opacity: .55; }
 /* The row's Copy stands at its end, as on every other message row. */
 .compile-explained-actions > .compile-diagnostic-copy { margin-inline-start: auto; }
