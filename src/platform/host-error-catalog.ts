@@ -8,10 +8,12 @@ import { PAPERS_HOST_ERRORS } from "./host-errors-papers";
 import { PROJECT_HOST_ERRORS } from "./host-errors-project";
 import { SETUP_HOST_ERRORS } from "./host-errors-setup";
 import { WORKSPACE_HOST_ERRORS } from "./host-errors-workspace";
+import { WEB_BROWSER_HOST_ERRORS } from "./host-errors-web-browser";
 
 export const HOST_ERRORS: readonly HostErrorEntry[] = [
   ...PROJECT_HOST_ERRORS,
   ...WORKSPACE_HOST_ERRORS,
+  ...WEB_BROWSER_HOST_ERRORS,
   ...OVERLEAF_HOST_ERRORS,
   ...PAPERS_HOST_ERRORS,
   ...SETUP_HOST_ERRORS,

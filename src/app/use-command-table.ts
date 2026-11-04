@@ -29,6 +29,7 @@ import type { PaletteChoice } from "./command-palette";
 import { paletteSurface } from "./command-palette-leading";
 import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./panel-toggles";
 import { projectPanelCommands } from "./project-panel-commands";
+import { openWebBrowser } from "../web-browser/open-web-browser";
 import type { SearchDialog } from "./app-search-dialogs";
 import { collectFilePaths } from "./workspace-restore";
 import { subscribeTauriEvent } from "./effect-helpers";
@@ -223,6 +224,9 @@ export function useCommandTable({
     { id: "palette-shift-p", label: t`Command palette`, group: "project", key: "p", shift: true, palette: false, run: openCommandPalette },
     // The window's ⌘?, the Mac's Help key: every shortcut, from these commands and the keymaps.
     { id: "shortcuts", label: t`Keyboard shortcuts`, group: "project", key: "?", shift: true, run: () => setCommandOverlay({ kind: "shortcuts" }) },
+    { id: "web-browser", label: browserHosted ? t`Open a web browser tab` : t`Open web browser`, group: "navigate", run: () => {
+      void openWebBrowser(i18n.locale).catch(() => showError(t`Could not open the web browser`, t`Web browser`));
+    } },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
     { id: "layout-reset", when: inProject, label: t`Reset panel layout`, group: "layout", recent: false, run: () => void trellis.resetLayout() },
     // Trellis binds ⌘⇧↩ itself; the label follows what it would do now, as the Panels menu's entry does.

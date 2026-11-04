@@ -3493,6 +3493,10 @@ msgstr "Close {label}"
 msgid "Close {title}"
 msgstr "Close {title}"
 
+#: src/platform/host-errors-web-browser.ts
+msgid "Close a web browser window before opening another."
+msgstr "Close a web browser window before opening another."
+
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Close find"
@@ -4148,6 +4152,18 @@ msgstr "Could not open the project because its Overleaf host is invalid."
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not open the project on Overleaf: {message}"
 msgstr "Could not open the project on Overleaf: {message}"
+
+#: src/app/use-command-table.ts
+msgid "Could not open the web browser"
+msgstr "Could not open the web browser"
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Could not open the web browser window."
+msgstr "Could not open the web browser window."
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Could not open this page in the default browser."
+msgstr "Could not open this page in the default browser."
 
 #: src/papers/audit-messages.ts
 msgid "Could not parse {count} bibliography construct(s)."
@@ -5365,6 +5381,10 @@ msgstr "Enter a zoom percentage"
 #: src/platform/host-errors-papers.ts
 msgid "Enter an arXiv id, a DOI, a URL, or a paper title."
 msgstr "Enter an arXiv id, a DOI, a URL, or a paper title."
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Enter an HTTP or HTTPS web address."
+msgstr "Enter an HTTP or HTTPS web address."
 
 #: src/platform/host-errors-papers.ts
 msgid "Enter an http(s) PDF URL."
@@ -9588,6 +9608,10 @@ msgid "Open a recent project by its place"
 msgstr "Open a recent project by its place"
 
 #: src/app/use-command-table.ts
+msgid "Open a web browser tab"
+msgstr "Open a web browser tab"
+
+#: src/app/use-command-table.ts
 msgid "Open an Overleaf project"
 msgstr "Open an Overleaf project"
 
@@ -9789,6 +9813,10 @@ msgstr "Open this project on Overleaf"
 #: src/app/app-history-drawers.tsx
 msgid "Open this repository on GitHub"
 msgstr "Open this repository on GitHub"
+
+#: src/app/use-command-table.ts
+msgid "Open web browser"
+msgstr "Open web browser"
 
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
@@ -14542,6 +14570,10 @@ msgstr "The visual is not UTF-8 text."
 msgid "The visual is too large to save."
 msgstr "The visual is too large to save."
 
+#: src/platform/host-errors-web-browser.ts
+msgid "The web browser window is no longer available."
+msgstr "The web browser window is no longer available."
+
 #: src/platform/host-errors-papers.ts
 msgid "The webpage HTML exceeds the 4 MB citation extraction limit."
 msgstr "The webpage HTML exceeds the 4 MB citation extraction limit."
@@ -15323,6 +15355,10 @@ msgstr "Unknown source response"
 msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
 msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
 
+#: src/platform/host-errors-web-browser.ts
+msgid "Unknown web browser action."
+msgstr "Unknown web browser action."
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"
 msgstr "Unlink"
@@ -15823,6 +15859,10 @@ msgstr "WARN"
 msgid "Warning"
 msgstr "Warning"
 
+#: src/app/use-command-table.ts
+msgid "Web browser"
+msgstr "Web browser"
+
 #: src/project/paper-library.tsx
 #: src/project/paper-row.tsx
 msgid "Web page"
@@ -15979,6 +16019,10 @@ msgstr "Working…"
 #: src/trellis/trellis-workspaces.ts
 msgid "Workspace"
 msgstr "Workspace"
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Workspace commands are unavailable in web content."
+msgstr "Workspace commands are unavailable in web content."
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace name"

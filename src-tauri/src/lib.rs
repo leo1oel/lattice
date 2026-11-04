@@ -66,6 +66,7 @@ mod texlab;
 mod title_bar;
 mod traffic_lights;
 mod util;
+mod web_browser;
 mod web_metadata;
 mod wide_event;
 
@@ -236,6 +237,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     perf_lab::disable_app_nap();
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
+    app.manage(web_browser::WebBrowsers::default());
     app.manage(save_before_close::SaveBeforeClose::default());
     app.manage(app_restart::AppRestart::default());
     app_terminate::install(app.handle());
@@ -371,14 +373,20 @@ pub fn run() {
         // this lifecycle entirely.
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| !label.starts_with("browser-"))
+                .with_filter(|label| {
+                    !label.starts_with("browser-") && !label.starts_with("site-window-")
+                })
                 .build(),
         )
         .on_window_event(on_window_event)
         .on_page_load(on_page_load)
         .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
         .setup(setup)
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(web_browser::isolated(tauri::generate_handler![
+            web_browser::web_browser_open,
+            web_browser::web_browser_status,
+            web_browser::web_browser_navigate,
+            web_browser::web_browser_action,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_config,
             #[cfg(feature = "perf-lab")]
@@ -626,7 +634,7 @@ pub fn run() {
             save_before_close::enable_save_before_close,
             save_before_close::disable_save_before_close,
             save_before_close::finish_save_before_close,
-        ])
+        ]))
         .build(context)
         .expect("error while running tauri application");
     app.run(|app_handle, event| match event {

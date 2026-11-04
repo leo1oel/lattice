@@ -306,17 +306,20 @@ export default defineConfig(() => ({
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   build: {
+    modulePreload: { polyfill: false },
     rolldownOptions: {
       // One entry, on purpose: scripts/app-size-report.mjs expects the app's
       // chunks only.
       input: {
         app: path.resolve("index.html"),
+        browser: path.resolve("browser.html"),
       },
       output: {
         codeSplitting: {
           groups: [
             {
               name(id) {
+                if (id.includes("/src/web-browser/toolbar") || id.endsWith("/browser.html")) return "web-browser";
                 const explicitName = manualChunkName(id);
                 if (explicitName) return explicitName;
 

@@ -3493,6 +3493,10 @@ msgstr "关闭 {label}"
 msgid "Close {title}"
 msgstr "关闭 {title}"
 
+#: src/platform/host-errors-web-browser.ts
+msgid "Close a web browser window before opening another."
+msgstr "请先关闭一个浏览器窗口，再打开新窗口。"
+
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Close find"
@@ -4148,6 +4152,18 @@ msgstr "Overleaf 地址无效，无法打开"
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not open the project on Overleaf: {message}"
 msgstr "无法打开 Overleaf 项目：{message}"
+
+#: src/app/use-command-table.ts
+msgid "Could not open the web browser"
+msgstr "无法打开浏览器"
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Could not open the web browser window."
+msgstr "无法打开浏览器窗口。"
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Could not open this page in the default browser."
+msgstr "无法在默认浏览器中打开此页面。"
 
 #: src/papers/audit-messages.ts
 msgid "Could not parse {count} bibliography construct(s)."
@@ -5365,6 +5381,10 @@ msgstr "输入缩放百分比"
 #: src/platform/host-errors-papers.ts
 msgid "Enter an arXiv id, a DOI, a URL, or a paper title."
 msgstr "请输入 arXiv 编号、DOI、网址或论文标题"
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Enter an HTTP or HTTPS web address."
+msgstr "请输入 HTTP 或 HTTPS 网页地址。"
 
 #: src/platform/host-errors-papers.ts
 msgid "Enter an http(s) PDF URL."
@@ -9588,6 +9608,10 @@ msgid "Open a recent project by its place"
 msgstr "打开最近项目"
 
 #: src/app/use-command-table.ts
+msgid "Open a web browser tab"
+msgstr "打开浏览器标签页"
+
+#: src/app/use-command-table.ts
 msgid "Open an Overleaf project"
 msgstr "打开 Overleaf 项目"
 
@@ -9789,6 +9813,10 @@ msgstr "在 Overleaf 打开"
 #: src/app/app-history-drawers.tsx
 msgid "Open this repository on GitHub"
 msgstr "在 GitHub 打开"
+
+#: src/app/use-command-table.ts
+msgid "Open web browser"
+msgstr "打开内置浏览器"
 
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
@@ -14542,6 +14570,10 @@ msgstr "可视化内容不是 UTF-8 文本"
 msgid "The visual is too large to save."
 msgstr "可视化内容太大，无法保存"
 
+#: src/platform/host-errors-web-browser.ts
+msgid "The web browser window is no longer available."
+msgstr "浏览器窗口已不可用。"
+
 #: src/platform/host-errors-papers.ts
 msgid "The webpage HTML exceeds the 4 MB citation extraction limit."
 msgstr "网页 HTML 超过了提取引用信息的 4 MB 上限"
@@ -15323,6 +15355,10 @@ msgstr "来源返回未知结果"
 msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
 msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、aaai、thuthesis、ustcthesis、blank 或 chinese-article"
 
+#: src/platform/host-errors-web-browser.ts
+msgid "Unknown web browser action."
+msgstr "未知的浏览器操作。"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"
 msgstr "取消关联"
@@ -15823,6 +15859,10 @@ msgstr "警告"
 msgid "Warning"
 msgstr "警告"
 
+#: src/app/use-command-table.ts
+msgid "Web browser"
+msgstr "浏览器"
+
 #: src/project/paper-library.tsx
 #: src/project/paper-row.tsx
 msgid "Web page"
@@ -15979,6 +16019,10 @@ msgstr "正在处理…"
 #: src/trellis/trellis-workspaces.ts
 msgid "Workspace"
 msgstr "工作区"
+
+#: src/platform/host-errors-web-browser.ts
+msgid "Workspace commands are unavailable in web content."
+msgstr "网页内容无法调用工作区命令。"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace name"
