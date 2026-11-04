@@ -13,6 +13,10 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#: src/papers/bibliography-audit.tsx
+msgid " (Stale result)"
+msgstr " (Stale result)"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid " et al."
 msgstr " et al."
@@ -624,6 +628,10 @@ msgstr "{item} is not a supported source file."
 #: src/platform/host-errors-project.ts
 msgid "{item} is not an image, PDF, or text file the agent can read."
 msgstr "{item} is not an image, PDF, or text file the agent can read."
+
+#: src/project/citation-health.ts
+msgid "{kind}: {detail}"
+msgstr "{kind}: {detail}"
 
 #: src/overleaf/overleaf-presence.tsx
 msgid "{label} at {place}. Click to jump there"
@@ -11715,7 +11723,6 @@ msgstr "Resolve the conflict markers before publishing: {files}."
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
-#: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved"
 msgstr "Resolved"
 
@@ -11727,6 +11734,10 @@ msgstr "Resolved {path}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Resolved by {0}"
 msgstr "Resolved by {0}"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Resolved: {note}"
+msgstr "Resolved: {note}"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -13189,10 +13200,6 @@ msgstr "Square superset eq"
 #: src/build/build-log-messages.ts
 msgid "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
 msgstr "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
-
-#: src/papers/bibliography-audit.tsx
-msgid "Stale result"
-msgstr "Stale result"
 
 #: src/settings/grammar-settings.tsx
 #: src/settings/settings-search-index.ts

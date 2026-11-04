@@ -39,7 +39,9 @@ export function citationHealthParts(health: CitationHealth | undefined): { kind:
 /** The row's visible warning as one line, or null when there is none. */
 export function citationHealthLabel(health: CitationHealth | undefined): string | null {
   const parts = citationHealthParts(health);
-  return parts && [parts.kind, parts.detail].filter(Boolean).join(": ");
+  if (!parts) return null;
+  const { kind, detail } = parts;
+  return detail ? i18n._(msg`${kind}: ${detail}`) : kind;
 }
 
 /** The full explanation, including the "nothing found" and "unavailable" outcomes. */

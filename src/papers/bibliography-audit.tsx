@@ -644,7 +644,7 @@ export function BibliographyAudit(props: {
       {message && publicationMessage(result) && <p>{publicationMessage(result)}</p>}
       {sources(result)}
       {!!result.disagreements?.length && <p>{t`The conference's own citation export and Crossref disagree on: ${result.disagreements.map(fieldText).join(", ")}. The conference export is kept.`}</p>}
-      {result.health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={result.health.checkedAt}>{new Date(result.health.checkedAt).toLocaleString(i18n.locale)}</time>{result.health.stale ? ` (${t`Stale result`})` : ""}</p>}
+      {result.health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={result.health.checkedAt}>{new Date(result.health.checkedAt).toLocaleString(i18n.locale)}</time>{result.health.stale ? t` (Stale result)` : ""}</p>}
       {result.checkedAt && <p className="bibliography-audit-meta">{t`Last checked`}: <time dateTime={result.checkedAt}>{new Date(result.checkedAt).toLocaleString(i18n.locale)}</time></p>}
     </div>
   </Disclosure>;

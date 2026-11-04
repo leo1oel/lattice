@@ -13,6 +13,10 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#: src/papers/bibliography-audit.tsx
+msgid " (Stale result)"
+msgstr "（结果已过时）"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid " et al."
 msgstr " 等"
@@ -624,6 +628,10 @@ msgstr "{item} 不是支持的源文件"
 #: src/platform/host-errors-project.ts
 msgid "{item} is not an image, PDF, or text file the agent can read."
 msgstr "{item} 不是 AI 助手能读取的图片、PDF 或文本文件"
+
+#: src/project/citation-health.ts
+msgid "{kind}: {detail}"
+msgstr "{kind}：{detail}"
 
 #: src/overleaf/overleaf-presence.tsx
 msgid "{label} at {place}. Click to jump there"
@@ -11715,7 +11723,6 @@ msgstr "请先处理这些文件中的冲突标记再发布：{files}"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
-#: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved"
 msgstr "已解决"
 
@@ -11727,6 +11734,10 @@ msgstr "已处理 {path}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Resolved by {0}"
 msgstr "{0} 已解决"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Resolved: {note}"
+msgstr "已解决：{note}"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -13189,10 +13200,6 @@ msgstr "方形超集（含等号）"
 #: src/build/build-log-messages.ts
 msgid "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
 msgstr "之前失败的编译已过时。请使用“全新重建”（按住 Shift 点击“编译”），或删除辅助文件后重新编译。"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Stale result"
-msgstr "结果已过时"
 
 #: src/settings/grammar-settings.tsx
 #: src/settings/settings-search-index.ts

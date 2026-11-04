@@ -253,6 +253,7 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
                 const placement = placements.get(annotation.id);
                 const unplaced = placement?.kind === "unplaced";
                 const status = annotationStatus(annotation);
+                const note = annotation.body.trim() || t`No note`;
                 return (
                   <li key={annotation.id} data-resolved={annotation.resolved || undefined} data-unplaced={unplaced || undefined}>
                     <label className="review-pdf-row">
@@ -265,8 +266,7 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
                       <span className="add-papers-main">
                         <strong title={annotation.quote}>{shortQuote(annotation.quote)}</strong>
                         <span title={annotation.body}>
-                          {annotation.resolved ? `${t`Resolved`}: ` : ""}
-                          {annotation.body.trim() || t`No note`}
+                          {annotation.resolved ? t`Resolved: ${note}` : note}
                         </span>
                       </span>
                       {placement && <PlacementChip kind={placement.kind} label={placementLabel(placement)} hint={placementHint(placement)} />}
