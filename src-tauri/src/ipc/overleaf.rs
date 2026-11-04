@@ -139,6 +139,11 @@ pub fn overleaf_begin_login(
     tauri::WebviewWindowBuilder::new(&app, LOGIN_WINDOW, tauri::WebviewUrl::External(url))
         .title(title)
         .inner_size(1040.0, 780.0)
+        // Signing out removes Lattice's saved session, not WebKit's cookies.
+        // A fresh store lets the next sign-in choose another account instead
+        // of silently capturing the previous one again. The validated session
+        // is still saved separately by overleaf_poll_login.
+        .incognito(true)
         .build()
         .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
     Ok(())
