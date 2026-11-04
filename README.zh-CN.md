@@ -25,16 +25,60 @@ macOS 上的本地优先 LaTeX 工作区：论文、文献、合作者和 AI 智
 Lattice 把它们放进同一个原生 Mac 窗口。
 项目始终是磁盘上的普通文件夹：离线可用，能用任何编辑器打开，也能直接放进 Git；Overleaf 只是同步对象，论文本身留在你的 Mac 上。
 
-## 功能
+## 写作
 
-- **写作。** 源码与 PDF 并排，补全、诊断、一键编译、SyncTeX 双向跳转；大纲栏、`\cite` 悬停卡片、六种带含义的高亮笔。面板可任意停靠，保存自己的工作区；Markdown 笔记、白板、表格同在一个项目里，**导入文件…** 可带入 Mac 上的任何文件。
-- **与 Overleaf 协作。** 双向同步，实时在线状态、聊天、评论与修订；评论按对话呈现、每人一种颜色，页边审阅把评论和建议放在对应行旁边。在源码或 PDF 上批注，再让智能体按批注逐轮修改，你逐条接受或拒绝。
-- **阅读与引用文献。** 通过 arXiv ID、DOI、标题、链接或 BibTeX 添加文献，在草稿旁阅读整洁的正文，一步引用；**检查引用** 会对照 Crossref 审核你的参考文献。
-- **AI 智能体。** Agent 面板使用你自己登录的 [Claude Code](https://github.com/anthropics/claude-code) 或 [Codex](https://github.com/openai/codex)，能读项目和文献、修复编译错误、编辑文件；每处改动都可审阅或撤销。选中文字即可 **校对** 或 **润色**，每处修改都附理由。
-- **演示。** 基于 [Open Slide](https://github.com/open-slide/open-slide) 的幻灯片和论文放在同一个项目里，可编辑、评论、让智能体修改，并直接在 Lattice 中放映。
-- **历史。** 版本、你和智能体的每次编辑、Overleaf 历史汇成一条时间线；任意条目都能查看差异并恢复文件。
+源码与 PDF 并排：输入时就有补全和诊断，SyncTeX 双向跳转，用你自己的 TeX Live 一键编译。
+大纲栏跟随章节，`\cite` 键悬停即显示文献，六种带含义的高亮笔标出还要处理的地方。
+可以从 NeurIPS、ICML、ICLR、ACL、CVPR、AAAI 模板或两种学位论文模板新建，**导出 arXiv 提交包** 生成一个能独立编译的 ZIP。
+面板可任意停靠，保留写作和阅读两种布局，也能保存自己的工作区。
 
-更多截图见 [English README](README.md)。
+## 修改
+
+<img src="docs/images/review.webp" alt="批注面板处于第 2 轮，有三条修改建议待审阅；智能体对摘要开头一句的改写在 main.tex 中内联展开，带接受、拒绝和重试按钮" width="900" />
+
+选中文字即可 **校对** 或 **润色**，原地修改，每处修改都附理由。
+在源码或 PDF 上批注，再按批注逐轮修改：智能体为每条批注提出一处修改，你在原处接受或拒绝。
+**导出评阅 PDF** 把勾选的批注以标准 PDF 注释写进编译好的 PDF 副本，合作者用预览、Acrobat 或 Zotero 都能看到。
+
+### 用你自己的智能体
+
+Agent 面板运行 [Claude Code](https://github.com/anthropics/claude-code) 或 [Codex](https://github.com/openai/codex)，也可以是 Mac 上的其他智能体命令行工具，比如 Cursor、OpenCode 或 Droid，都用你自己的账号登录。
+Lattice 不自带模型，也没有自己的 AI 订阅。
+智能体能读项目和文献、修复编译错误、编辑文件；每处改动都以差异显示，可以审阅或撤销。
+
+## 文献
+
+<img src="docs/images/papers.webp" alt="左侧是有九篇文献的文献库，中间以易读的页面打开 Mamba: Linear-Time Sequence Modeling with Selective State Spaces，右侧是编译好的草稿" width="900" />
+
+<sub>图中论文：Albert Gu、Tri Dao，“Mamba: Linear-Time Sequence Modeling with Selective State Spaces”，arXiv:2312.00752，CC BY 4.0。</sub>
+
+通过 arXiv ID、DOI、标题、链接或 BibTeX 添加文献，在草稿旁以博客、论文或 PDF 的形式阅读。
+一步引用，悬停即显示文献信息。
+文献库可按引用情况排序、筛选和分组；**检查引用** 对照 Crossref 审核参考文献，并把每条结果放进可用键盘处理的队列。
+
+## 与 Overleaf 协作
+
+<img src="docs/images/collab.webp" alt="main.tex 中带 Overleaf 评论高亮和一位合作者的实时光标，旁边是 Overleaf 面板的评论页，有三组来自示例合作者的讨论，另有建议和聊天两页" width="900" />
+
+与 Overleaf 双向同步，支持实时在线状态、聊天、评论和修订。
+合作者继续用 Overleaf，他们的编辑随打随到；别人都不需要安装 Lattice。
+评论按对话呈现，每人一种颜色；页边审阅把评论和建议放在对应行旁边。
+
+## 各种格式
+
+<img src="docs/images/formats.webp" alt="编辑区打开白板 attention-map.tldr，旁边是排版好的 Markdown 文档 notes.md；项目文件树里还有同一项目的 HTML 页面、表格和幻灯片" width="900" />
+
+块编辑的 Markdown 笔记、tldraw 白板、可交互的 HTML 页面和带公式的表格，都和论文放在同一个项目里。
+幻灯片是基于 [Open Slide](https://github.com/open-slide/open-slide) 的 React 演示文稿：可以编辑、评论、让智能体修改，并直接在 Lattice 中放映。
+**导入文件…** 可以带入 Mac 上的任何其他文件。
+
+## 历史
+
+<img src="docs/images/history.webp" alt="历史面板：智能体改写摘要的条目展开为差异，带恢复文件按钮，下面是一次引用、你自己的编辑和合作者保存的版本，右侧是编译好的 PDF" width="900" />
+
+保存的版本、你和智能体的每次编辑以及 Overleaf 历史汇成一条时间线。
+打开任意条目即可查看差异并恢复文件，也可以用 **对比…** 比较任意两个版本，并导出标出改动的 PDF（使用你 TeX Live 中的 `latexdiff`）。
+项目是 Git 仓库时，Git 面板会显示改动和拉取请求。
 
 ## 安装
 

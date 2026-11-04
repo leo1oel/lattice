@@ -31,49 +31,58 @@ Your project stays an ordinary folder on disk, so it works offline, opens in any
 
 ## Write
 
-Source and PDF side by side, with completion, diagnostics, one-click builds and SyncTeX jumps both ways.
+Source and PDF side by side, with completion and diagnostics as you type, SyncTeX jumps both ways and one-click builds with your own TeX Live.
 An outline rail follows your sections, `\cite` keys show their reference on hover, and six highlighters with meanings mark what still needs work.
+Start from a NeurIPS, ICML, ICLR, ACL, CVPR or AAAI template or one of two thesis classes, and **Export for arXiv** writes one ZIP that builds on its own.
 Dock any panel anywhere, keep Writing and Reading layouts, or save your own workspaces.
-Markdown notes, whiteboards and spreadsheets live in the same project, and **Import files…** brings in anything else from your Mac.
 
-## Collaborate with Overleaf
+## Revise
 
-<img src="docs/images/collab.webp" alt="Overleaf comments open beside the source: three threads with replies from co-authors, and Comments, Suggestions and Chat tabs" width="900" />
+<img src="docs/images/review.webp" alt="Annotations panel in round 2 with three proposals to review; the agent's rewrite of the abstract's opening line is open inline in main.tex with Accept, Reject and Try again" width="900" />
 
-Two-way Overleaf sync with live presence, chat, comments and tracked changes.
-Comments read as conversations with one colour per person, and margin review sets comments and suggestions beside their lines without narrowing the text.
-
-<img src="docs/images/review.webp" alt="Annotations panel with a round of agent proposals; one proposal for the abstract is open inline in the source with Accept and Reject" width="900" />
-
+Select text to **Proofread** or **Polish** it in place, with a reason for each edit.
 Annotate the source or the PDF, then revise from your annotations in rounds: the agent proposes an edit for each one and you accept or reject it in place.
 **Export review PDF** writes the annotations you tick into a copy of the compiled PDF as standard PDF comments, so collaborators can read them in Preview, Acrobat or Zotero.
 
-## Read and cite papers
+### Bring your own agent
 
-<img src="docs/images/papers.webp" alt="Papers library with seven papers on the left and Attention Is All You Need open as a readable page beside the draft" width="900" />
+The Agent panel runs [Claude Code](https://github.com/anthropics/claude-code) or [Codex](https://github.com/openai/codex), or another agent CLI on your Mac such as Cursor, OpenCode or Droid, signed in as you.
+Lattice comes with no model and no AI subscription of its own.
+The agent reads your project and papers, fixes build errors and edits files; every change shows as a diff you can review or undo.
 
-Add papers by arXiv ID, DOI, title, link or BibTeX, read them as clean pages beside your draft, and cite in one step.
+## Research
+
+<img src="docs/images/papers.webp" alt="Papers library with nine papers on the left, Mamba: Linear-Time Sequence Modeling with Selective State Spaces open as a readable page in the middle, and the compiled draft on the right" width="900" />
+
+<sub>Paper shown: Albert Gu and Tri Dao, “Mamba: Linear-Time Sequence Modeling with Selective State Spaces”, arXiv:2312.00752, CC BY 4.0.</sub>
+
+Add papers by arXiv ID, DOI, title, link or BibTeX, and read each as a blog, the paper or the PDF beside your draft.
+Cite in one step, with the reference on hover.
 The library sorts, filters and groups by what you cite; **Check references** audits your bibliography against Crossref and shows each finding in a keyboard queue.
 
-## Work with an agent
+## Collaborate with Overleaf
 
-The Agent panel runs [Claude Code](https://github.com/anthropics/claude-code) or [Codex](https://github.com/openai/codex) with your own CLI sign-in.
-It reads your project and papers, fixes build errors and edits files; every change shows as a diff you can review or undo, and suggested follow-ups appear as chips.
-Select text to **Proofread** or **Polish** it in place, with a reason for each edit.
+<img src="docs/images/collab.webp" alt="main.tex with Overleaf comment highlights and a co-author's live cursor, beside the Overleaf panel's Comments tab with three threads from demo co-authors, and Suggestions and Chat tabs" width="900" />
 
-## Present
+Two-way Overleaf sync with live presence, chat, comments and tracked changes.
+Your co-authors stay on Overleaf and their edits arrive as they type; nobody else needs Lattice.
+Comments read as conversations with one colour per person, and margin review sets comments and suggestions beside their lines.
 
-<img src="docs/images/slides.webp" alt="An Open Slide deck titled Understanding attention open in the editor, with its slide thumbnails below and the paper's PDF on the right" width="900" />
+## Every format
 
-Slides are React decks powered by [Open Slide](https://github.com/open-slide/open-slide), kept in the same project as the paper.
-Edit them, comment on them, let the agent revise them, and present from Lattice.
+<img src="docs/images/formats.webp" alt="The attention-map.tldr whiteboard open in the editor beside notes.md shown as a formatted Markdown document; the Project tree lists the same project's HTML page, spreadsheet and slides" width="900" />
 
-## Go back in time
+Markdown notes edited in blocks, tldraw whiteboards, interactive HTML pages and spreadsheets with formulas live in the same project as the paper.
+Slides are React decks powered by [Open Slide](https://github.com/open-slide/open-slide): edit them, comment on them, let the agent revise them, and present from Lattice.
+**Import files…** brings in anything else from your Mac.
 
-<img src="docs/images/history.webp" alt="Project history: a timeline of agent edits, citations, co-author versions and your own edits, with one entry expanded to its diff" width="900" />
+## History
+
+<img src="docs/images/history.webp" alt="History panel: the agent's rewrite of the abstract expanded to its diff with Restore this file, followed by a citation, your own edit and co-authors' saved versions, with the compiled PDF on the right" width="900" />
 
 One timeline for saved versions, every edit from you or the agent, and Overleaf's history.
-Open any entry to see its diff and restore a file, or **Compare…** any two versions and export the PDF with the changes marked (via `latexdiff` from your TeX Live); the Git panel shows changes and pull requests when the project is a repository.
+Open any entry to see its diff and restore a file, or **Compare…** any two versions and export the PDF with the changes marked (via `latexdiff` from your TeX Live).
+The Git panel shows changes and pull requests when the project is a repository.
 
 ## Install
 
