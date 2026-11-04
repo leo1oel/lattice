@@ -16,8 +16,13 @@ export function mountBrowserToolbar(root: HTMLElement, bridge: Bridge, locale: s
   let alive = true;
   let polling = false;
   let failed = false;
-  const error = () => { if (alive) { failed = true; status.textContent = words.error; } };
-  const action = (value: string) => { failed = false; void bridge.invoke("web_browser_action", { action: value }).catch(error); };
+  let revision = 0;
+  const error = (attempt: number) => { if (alive && attempt === revision) { failed = true; status.textContent = words.error; } };
+  const action = (value: string) => {
+    const attempt = ++revision;
+    failed = false;
+    void bridge.invoke("web_browser_action", { action: value }).catch(() => error(attempt));
+  };
   const button = (label: string, text: string, run: () => void) => {
     const element = document.createElement("button");
     element.type = "button";
@@ -46,20 +51,22 @@ export function mountBrowserToolbar(root: HTMLElement, bridge: Bridge, locale: s
   form.onsubmit = (event) => {
     event.preventDefault();
     failed = false;
-    void bridge.invoke("web_browser_navigate", { url: address.value }).catch(error);
+    const attempt = ++revision;
+    void bridge.invoke("web_browser_navigate", { url: address.value }).catch(() => error(attempt));
     address.blur();
   };
   root.replaceChildren(form, status);
   const refresh = async () => {
     if (!alive || polling) return;
     polling = true;
+    const attempt = revision;
     try {
       const current = await bridge.invoke<Status>("web_browser_status");
-      if (!alive) return;
+      if (!alive || attempt !== revision) return;
       if (document.activeElement !== address) address.value = current.url;
       if (!failed) status.textContent = current.loading ? words.loading : current.title;
       document.title = current.title ? `${current.title} — Lattice` : "Lattice Browser";
-    } catch { error(); }
+    } catch { error(attempt); }
     finally { polling = false; }
   };
   void refresh();

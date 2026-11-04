@@ -40,3 +40,19 @@ it("localizes the independent toolbar and does not render a raw backend error", 
   expect(within(root).getByRole("status")).toHaveTextContent("浏览器操作失败");
   expect(root.textContent).not.toContain("private transport detail");
 });
+
+it("ignores an old status reply after Go selected a different page", async () => {
+  vi.useFakeTimers();
+  const root = document.createElement("div"); document.body.append(root);
+  let resolveStatus!: (value: unknown) => void;
+  const pending = new Promise((resolve) => { resolveStatus = resolve; });
+  const invoke = vi.fn().mockImplementation((command) => command === "web_browser_status" ? pending : Promise.resolve());
+  cleanup = mountBrowserToolbar(root, { invoke }, "en");
+  const input = within(root).getByRole("textbox", { name: "Web address" });
+  fireEvent.input(input, { target: { value: "https://example.org/new" } });
+  fireEvent.submit(root.querySelector("form")!);
+  resolveStatus({ url: "https://example.org/old", title: "Old page", loading: false });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(input).toHaveValue("https://example.org/new");
+  expect(within(root).getByRole("status")).not.toHaveTextContent("Old page");
+});
