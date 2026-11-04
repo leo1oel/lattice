@@ -113,6 +113,8 @@ function previewCard(view: EditorView, field: StateField<PreviewState>, macros: 
       body.innerHTML = html;
       dom.hidden = false;
       delete dom.dataset.stale;
+      // KaTeX may have arrived after the caret moved: follow it once the picture is in.
+      view.requestMeasure(followRequest);
     } else if (!region.source.trim()) {
       // An emptied formula has nothing left to picture.
       dom.hidden = true;
@@ -142,13 +144,33 @@ function previewCard(view: EditorView, field: StateField<PreviewState>, macros: 
     return { left: 0, right: 0, top: -1e4, bottom: -1e4 };
   };
 
+  /**
+   * A card too tall for its cap scrolls with the caret: as far through the
+   * picture as the caret is through the formula's source, so the row being
+   * typed in a long `align` stays in view.
+   */
+  const followRequest = {
+    key: dom,
+    read: () => {
+      const region = view.state.field(field, false)?.region;
+      const room = dom.scrollHeight - dom.clientHeight;
+      if (!region || room <= 0 || region.to <= region.from) return null;
+      return room * Math.min(1, Math.max(0, (view.state.selection.main.head - region.from) / (region.to - region.from)));
+    },
+    write: (top: number | null) => {
+      if (top !== null && !destroyed) dom.scrollTop = top;
+    },
+  };
+
   render();
   return {
     dom,
     offset: { x: 0, y: GAP },
     getCoords,
     update(update: ViewUpdate) {
-      if (update.docChanged || update.selectionSet) render();
+      if (!update.docChanged && !update.selectionSet) return;
+      render();
+      update.view.requestMeasure(followRequest);
     },
     destroy() {
       destroyed = true;
