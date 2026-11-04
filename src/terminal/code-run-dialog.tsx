@@ -8,6 +8,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { useTrellisApp, type TrellisController } from "../trellis/trellis-controller";
 import { defaultCodeProgram, runProjectCode, type CodeRunConfig } from "./code-run";
 import { followProject, terminals } from "./terminal-window";
+import "./code-run.css";
 
 type State = { program: string; programArgs: string; scriptArgs: string; busy: boolean; error: boolean };
 type Action = { type: "edit"; field: "program" | "programArgs" | "scriptArgs"; value: string } | { type: "running" } | { type: "failed" };

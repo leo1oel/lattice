@@ -1,0 +1,2 @@
+.modal.sheet-dialog.code-run-dialog { height: auto; min-height: 0; max-height: calc(100dvh - var(--space-8)); }
+.code-run-dialog .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
