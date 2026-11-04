@@ -3,9 +3,10 @@
  * Annotations panel and its Revision rounds sheet, the TODO scavenger, and
  * the submission checklist.
  *
- * The annotations are lazy, so they carry their own `Suspense` rather than
- * sharing one with the other drawers — a `null` fallback that covered all of
- * them would unmount an open TODO panel while an unrelated chunk loads.
+ * The annotations and the TODO panel are lazy, so each carries its own
+ * `Suspense` rather than sharing one with the other drawers — a `null`
+ * fallback that covered all of them would unmount an open panel while an
+ * unrelated chunk loads.
  */
 import { lazy, memo, Suspense, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -18,7 +19,6 @@ import { useSubmissionReview } from "../project/submission-review-state";
 import { collectFilePaths } from "./workspace-restore";
 import { PROJECT_VENUES } from "../project/project-venues";
 import { type TodoHit } from "../project/todo-scavenger";
-import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
 import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useTrellisController } from "../trellis/trellis-controller";
 import { showError } from "./notify";
@@ -43,6 +43,8 @@ const EMPTY_ITEMS: SubmissionItem[] = [];
 // are no part of what a window needs to start.
 const ManuscriptChecklistPanel = lazy(() => import("../project/manuscript-checklist").then((module) => ({ default: module.ManuscriptChecklistPanel })));
 const FigureInventoryDialog = lazy(() => import("../project/figure-inventory-dialog").then((module) => ({ default: module.FigureInventoryDialog })));
+// So does the TODO panel: its empty-state drawing alone is ~22 KB of path data.
+const TodoScavengerPanel = lazy(() => import("../project/todo-scavenger-panel").then((module) => ({ default: module.TodoScavengerPanel })));
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
@@ -214,7 +216,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
       </Suspense>
       <AnnotationRoundsHost rounds={annotationRounds} roundsList={comments.rounds} annotations={comments.comments} />
-      {tools.isOpen.todos && (
+      <LazyMount when={tools.isOpen.todos}>
         <TodoScavengerPanel
           hits={todoHits}
           onClose={() => tools.close("todos")}
@@ -223,7 +225,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             tools.close("todos");
           }}
         />
-      )}
+      </LazyMount>
       {figuresOpen && <Suspense fallback={null}><FigureInventoryDialog
         key={project.root} project={project} activeFile={activeFile} activeSource={activeSource} onOpen={props.openFigureFile}
         onClose={() => setFiguresOpen(false)} beforeWrite={props.beforeFigureWrite} afterWrite={props.afterFigureWrite}
