@@ -79,6 +79,44 @@ fn a_terminal_starts_in_the_project_folder_and_streams_what_the_shell_prints() {
 }
 
 #[test]
+fn a_dedicated_program_counts_as_running_without_a_child_process_group() {
+    let (_dir, root) = project();
+    let terminals = Terminals::default();
+    let (output, _) = channel();
+    let session =
+        Session::spawn_program("/bin/sleep", &["300".into()], "main".into(), root, 80, 24, output)
+            .unwrap();
+    let pid = session.shell_pid();
+    assert_eq!(session.foreground_group(), None);
+    let id = terminals.insert(session);
+    let running = terminals.running_commands();
+    terminals.close("main", id);
+    wait_for("the program to stop", || !alive(pid));
+    assert_eq!(running, 1, "a dedicated run must participate in close/restart protection");
+}
+
+#[test]
+fn a_dedicated_program_receives_literal_arguments_and_reports_its_exit() {
+    let (_dir, root) = project();
+    let (output, received) = channel();
+    let session = Session::spawn_program(
+        "/usr/bin/printf",
+        &["%s".into(), "literal;$(touch injected)".into()],
+        "main".into(),
+        root.clone(),
+        80,
+        24,
+        output,
+    )
+    .unwrap();
+    wait_for("the program exit", || !received.lock().unwrap().messages.is_empty());
+    assert!(received.lock().unwrap().text().contains("literal;$(touch injected)"));
+    assert!(!root.join("injected").exists());
+    assert_eq!(received.lock().unwrap().messages, [r#"{"exit":0}"#]);
+    assert_eq!(session.running_command(), None);
+}
+
+#[test]
 fn a_resize_reaches_the_shell() {
     let (_dir, root) = project();
     let (session, received) = spawn("main", &root);

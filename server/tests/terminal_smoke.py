@@ -195,10 +195,13 @@ class TerminalSmoke(smoke.HeadlessSmoke):
     def start_sleep(self, terminal, name):
         path = self.workspace / "alpha" / name
         code = f"import os,time;open({str(path)!r},'w').write(str(os.getpid()));time.sleep(60)"
-        self.type(terminal, "exec python3 -c " + shlex.quote(code) + "\r")
+        self.assertEqual(self.command("terminal_close",{"id":terminal})[0],200)
+        status,result=self.command("terminal_run",{"projectRoot":str(self.workspace/"alpha"),"cols":80,"rows":24,"onOutput":"__CHANNEL__:43","program":"python3","args":["-c",code]})
+        self.assertEqual(status,200,result)
+        terminal=result["result"]["id"]
         for _ in range(100):
             if path.exists():
-                return int(path.read_text())
+                return terminal,int(path.read_text())
             time.sleep(.05)
         self.fail("Terminal program did not start")
 
@@ -214,7 +217,7 @@ class TerminalSmoke(smoke.HeadlessSmoke):
     def test_terminal_logout_revokes_and_ends_the_program(self):
         self.events()
         terminal = self.terminal()
-        pid = self.start_sleep(terminal, "logout.pid")
+        terminal,pid = self.start_sleep(terminal, "logout.pid")
         self.assertEqual(self.request("DELETE", "/api/session", cookie=self.terminal_cookie)[0], 204)
         self.assert_stopped(pid)
         self.assertEqual(self.command("terminal_write", {"id": terminal, "data": "x"})[0], 401)
@@ -222,7 +225,7 @@ class TerminalSmoke(smoke.HeadlessSmoke):
     def test_terminal_disconnect_lease_ends_abandoned_program(self):
         events = self.events()
         terminal = self.terminal()
-        pid = self.start_sleep(terminal, "lease.pid")
+        terminal,pid = self.start_sleep(terminal, "lease.pid")
         events.close()
         self.assert_stopped(pid, timeout=15)
 
@@ -246,7 +249,7 @@ class TerminalSmoke(smoke.HeadlessSmoke):
         try:
             isolated.events()
             terminal = isolated.terminal()
-            pid = isolated.start_sleep(terminal, "shutdown.pid")
+            terminal,pid = isolated.start_sleep(terminal, "shutdown.pid")
             IsolatedService.server.terminate()
             self.assertEqual(IsolatedService.server.wait(timeout=10), 0)
             isolated.assert_stopped(pid)
@@ -254,6 +257,24 @@ class TerminalSmoke(smoke.HeadlessSmoke):
             for events in isolated.streams:
                 events.close()
             IsolatedService.tearDownClass()
+
+    def test_terminal_run_starts_literal_argv_without_a_login_shell(self):
+        events=self.events()
+        code="import json,os,sys;print('DIRECT_RUN:'+json.dumps(sys.argv[1:]));sys.exit(6)"
+        literal="$(touch injected); quoted ' argument"
+        status,result=self.command("terminal_run",{"projectRoot":str(self.workspace/"alpha"),"cols":80,"rows":24,"onOutput":"__CHANNEL__:42","program":"python3","args":["-c",code,literal]})
+        self.assertEqual(status,200,result)
+        output=b""
+        while True:
+            value=events.next(lambda value:value.get("callback")==42)["payload"].get("message")
+            output+=terminal_bytes(value)
+            if isinstance(value,dict) and "exit" in value:
+                self.assertEqual(value["exit"],6)
+                break
+        self.assertIn(literal,output.decode())
+        self.assertNotIn("Last login",output.decode())
+        self.assertFalse((self.workspace/"alpha"/"injected").exists())
+        self.assertNotEqual(self.command("terminal_run",{"cols":80,"rows":24,"onOutput":"__CHANNEL__:43","program":"/nonexistent/lattice-test-program","args":[]})[0],200)
 
 
 if __name__ == "__main__":

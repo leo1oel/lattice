@@ -124,7 +124,7 @@ all assets remain same-origin.
 
 ## Integrated terminal
 
-The web capability list includes `terminal_open`, `terminal_write`,
+The web capability list includes `terminal_open`, `terminal_run`, `terminal_write`,
 `terminal_resize`, `terminal_ack`, `terminal_running_command`, and
 `terminal_close`. These reuse the desktop PTY/session implementation, including
 output flow control and process-group hangup. They require a valid cookie
@@ -133,7 +133,9 @@ a Bearer-only invocation cannot create a persistent terminal. The frontend
 adapter must wait for SSE readiness and set its terminal capability flag.
 
 Terminal startup is pinned to the selected project. It starts the account's
-login shell in that folder, with that account's ordinary terminal permissions;
+login shell in that folder. `terminal_run` instead starts the chosen `program`
+and `args` directly, without injecting a shell command; it reports the actual
+program exit and participates in close/restart protection. Both have the account's ordinary terminal permissions;
 this is not a sandbox restricting a user's shell commands to the project.
 Input is bounded to 256 KiB per request and a 16-message writer queue. Output
 pauses above the same 2 MiB unread watermark as the desktop terminal. At most

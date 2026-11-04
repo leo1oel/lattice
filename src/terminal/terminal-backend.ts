@@ -32,7 +32,7 @@ function isExit(message: unknown): message is { exit: number | null } {
 }
 
 export const tauriTerminalBackend: TerminalBackend = {
-  open: async ({ projectRoot, cols, rows, onOutput, onExit }) => {
+  open: async ({ projectRoot, program, cols, rows, onOutput, onExit }) => {
     let ended = false;
     let unsubscribe = () => {};
     const finish = (code: number | null) => {
@@ -48,7 +48,7 @@ export const tauriTerminalBackend: TerminalBackend = {
       else if (Array.isArray(message)) onOutput(Uint8Array.from(message as number[]));
       else if (isExit(message)) finish(typeof message.exit === "number" ? message.exit : null);
     };
-    const opened = await invoke<{ id: number; shell: string }>("terminal_open", { projectRoot, cols, rows, onOutput: channel });
+    const opened = await invoke<{ id: number; shell: string }>(program ? "terminal_run" : "terminal_open", { projectRoot, cols, rows, onOutput: channel, ...(program ? { program: program.executable, args: program.args } : {}) });
     if (!ended && (window as Window & { __LATTICE_HEADLESS_TERMINAL__?: boolean }).__LATTICE_HEADLESS_TERMINAL__ === true) {
       // A lease can expire while the page is offline. On reconnect the old
       // channel has no server process; end its UI instead of leaving a dead

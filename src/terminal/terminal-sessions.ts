@@ -14,10 +14,13 @@
  * a way to make a terminal's screen, so its rules are tested with fakes.
  */
 
+export type TerminalProgram = { executable: string; args: string[] };
+
 /** The host side of one window's terminals (terminal-backend.ts). */
 export type TerminalBackend = {
   open: (request: {
     projectRoot: string;
+    program?: TerminalProgram;
     cols: number;
     rows: number;
     onOutput: (data: Uint8Array) => void;
@@ -139,6 +142,10 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
         return;
       }
       item.id = id;
+      if (item.drawn) {
+        void this.backend.ack(id, item.drawn).catch(() => {});
+        item.drawn = 0;
+      }
       if (item.session.state.kind !== "starting") {
         this.update(item, { shell });
         item.queued.length = 0;

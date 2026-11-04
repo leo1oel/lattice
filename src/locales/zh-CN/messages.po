@@ -3109,6 +3109,10 @@ msgstr "请选择包含 LaTeX 源文件的文件夹或 ZIP"
 msgid "Choose a folder to extract the project into."
 msgstr "请选择要把项目解压到哪个文件夹"
 
+#: src/platform/host-errors-setup.ts
+msgid "Choose a program and arguments without NUL bytes, at most 256 KiB in total."
+msgstr "请选择程序和不含 NUL 字节的参数，总大小不超过 256 KiB。"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
 msgstr "选择项目中的图片"
@@ -4306,6 +4310,10 @@ msgstr "无法启动 SyncTeX：{error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not start the live preview engine: {error}"
 msgstr "无法启动实时预览引擎：{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not start the program: {error}"
+msgstr "无法启动程序：{error}"
 
 #: src/live-preview/live-preview-settings.tsx
 msgid "Could not start: {message}"

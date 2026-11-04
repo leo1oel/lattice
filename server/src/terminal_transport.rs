@@ -11,6 +11,7 @@ use tokio::sync::watch;
 
 pub const COMMANDS: &[&str] = &[
     "terminal_open",
+    "terminal_run",
     "terminal_write",
     "terminal_resize",
     "terminal_ack",
@@ -196,7 +197,7 @@ impl TerminalHub {
             })
             .cloned()
             .ok_or("Connect the terminal event stream before opening a terminal.")?;
-        if command == "terminal_open" {
+        if command == "terminal_open" || command == "terminal_run" {
             if stream.state.lock().unwrap().connected == 0 {
                 return Err("Connect the terminal event stream before opening a terminal.".into());
             }
@@ -219,13 +220,35 @@ impl TerminalHub {
                     message,
                 )
             });
-            let terminal = Session::spawn(
-                owner.into(),
-                root.into(),
-                number("cols")?.min(1000) as u16,
-                number("rows")?.min(500) as u16,
-                output,
-            )?;
+            let cols = number("cols")?.min(1000) as u16;
+            let rows = number("rows")?.min(500) as u16;
+            let terminal = if command == "terminal_run" {
+                let program =
+                    args.get("program").and_then(Value::as_str).ok_or("Choose a program.")?;
+                let arguments = args
+                    .get("args")
+                    .and_then(Value::as_array)
+                    .ok_or("Program arguments must be an array.")?
+                    .iter()
+                    .map(|argument| {
+                        argument
+                            .as_str()
+                            .map(str::to_owned)
+                            .ok_or("Program arguments must be strings.")
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Session::spawn_program(
+                    program,
+                    &arguments,
+                    owner.into(),
+                    root.into(),
+                    cols,
+                    rows,
+                    output,
+                )?
+            } else {
+                Session::spawn(owner.into(), root.into(), cols, rows, output)?
+            };
             let shell = terminal.name().to_string();
             let id = self.registry.insert(terminal);
             state.terminals.insert(id, (owner.into(), callback));
