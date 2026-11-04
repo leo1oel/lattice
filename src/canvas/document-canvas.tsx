@@ -27,9 +27,8 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
 import { FigureInsertDialog } from "../editor/insert/figure-insert-dialog";
-import {
-  createEditorComment, resolveCommentAnchor, type AnnotationIntent,
-} from "../editor/comments/editor-comment-data";
+import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
+import { annotateSelection } from "./annotate-selection";
 import { clamp } from "../settings/app-settings";
 import { replaceTokenOnLine } from "../build/compile-diagnostics";
 import { sectionBreadcrumbNodes } from "../editor/latex/latex-outline";
@@ -115,7 +114,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   } = props.navigation;
   const { onPrepareFigure } = props.assets;
   const {
-    editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment, onOpenEditorComments,
+    editorComments, commentAuthorName, commentAuthorId, onOpenEditorComments,
     commentFocusRequest, onCommentFocusHandled,
   } = props.review;
   const settledSource = props.document.settledSource ?? editorSource;
@@ -406,22 +405,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     updateSelectionToolbar(view, owner.path);
   }, [activeFile, dismissSelectionToolbar, latestRef, openCommentComposer, primaryViewRef, proofread, props.document.editorEditable, updateSelectionToolbar]);
 
-  /**
-   * Annotate `[from, to)` of `path`, then ask the agent about every open
-   * annotation when `revise`; false when that range holds nothing to anchor it.
-   */
-  const createComment = (path: string, source: string, from: number, to: number, body: string, extra: {
-    intent?: AnnotationIntent;
-    revise?: boolean;
-  } = {}) => {
-    const comment = createEditorComment({
-      path, source, from, to, body, authorId: commentAuthorId, authorName: commentAuthorName, intent: extra.intent,
-    });
-    if (!comment) return false;
-    const created = onCreateEditorComment(comment);
-    if (created && extra.revise) props.review.annotationRounds.revise();
-    return true;
-  };
   const closeCommentComposer = () => {
     setCommentComposer(null);
     session.draftView?.deref()?.focus();
@@ -461,7 +444,8 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       return;
     }
     const { body, intent } = commentComposer;
-    if (createComment(activeFile, editorSource, range.from, range.to, body, { intent, revise })) closeCommentComposer();
+    const note = { path: activeFile, source: editorSource, from: range.from, to: range.to, body, intent, revise };
+    if (annotateSelection(props.review, note)) closeCommentComposer();
   };
   const breadcrumb = useMemo(
     () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(settledSource, session.position.line, activeFile) : [],
@@ -990,9 +974,9 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
           overleafChanges={markdownVisualChanges}
           overleafTrackChangeActions={props.review.overleafTrackChangeActions}
           editorComments={markdownVisualComments}
-          onCreateComment={(from, to, body) => createComment(
-            activeFile, props.document.source, markdownPreviewStart + from, markdownPreviewStart + to, body,
-          )}
+          onCreateComment={(from, to, body) => annotateSelection(props.review, {
+            path: activeFile, source: props.document.source, from: markdownPreviewStart + from, to: markdownPreviewStart + to, body,
+          })}
           editable={props.document.editorEditable}
           onCaretChange={(row, column) => reportVisualCaret(activeFile, row + markdownPreviewLineOffset + 1, column)}
         />
