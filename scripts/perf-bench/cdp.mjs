@@ -8,6 +8,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { onShutdown, once } from "./shutdown.mjs";
 
 /** The first Chrome/Chromium the machine has, unless `CHROME_PATH` names one. */
@@ -44,8 +45,6 @@ function findChrome() {
  * shutdown.mjs's 15 s grace.
  */
 const KILL_AFTER_MS = 5_000;
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function launchChrome({ executable = findChrome(), headless = true, width = 1440, height = 900 } = {}) {
   const profile = mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-"));

@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolve } from "node:path";
+import { isMain, projectRoot } from "./lib/util.mjs";
 
 const pinPath = "scripts/synara-runtime.json";
 
@@ -48,7 +48,7 @@ export function checkSynaraUpgrade({ projectRoot, previousRef, sourceDirectory, 
   return { previousRevision: previous.revision, revision: next.revision };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isMain(import.meta.url)) {
   const previousRef = process.argv[2];
   if (!previousRef || process.argv.length !== 3) {
     console.error("Usage: node scripts/check-synara-upgrade.mjs <previous-lattice-ref>");
@@ -56,7 +56,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   } else {
     try {
       checkSynaraUpgrade({
-        projectRoot: resolve(dirname(fileURLToPath(import.meta.url)), ".."),
+        projectRoot,
         previousRef,
         sourceDirectory: process.env.SYNARA_SOURCE_DIR?.trim(),
         previousSourceDirectory: process.env.SYNARA_PREVIOUS_SOURCE_DIR?.trim(),

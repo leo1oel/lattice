@@ -44,6 +44,7 @@ import { spawn } from "node:child_process";
 import { connect } from "node:net";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { capture, isMain, projectRoot, run } from "./lib/util.mjs";
 
 const LAB_ROOT = "/Users/Shared/lattice-tests";
@@ -187,7 +188,6 @@ function restoreState(lab) {
   });
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const captureOrEmpty = (command, args) => {
   try {
     return capture(command, args);

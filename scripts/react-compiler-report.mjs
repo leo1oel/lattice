@@ -15,9 +15,9 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { isMain, projectRoot } from "./lib/util.mjs";
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const REPO = projectRoot;
 // @babel/core is a transitive dep (of @vitejs/plugin-react) under pnpm, so
 // resolve it from the package that declares it — via the real path, since the
 // hoisted entry is a symlink and module lookup walks the physical tree.
@@ -79,9 +79,7 @@ function compileErrors(relative) {
     }));
 }
 
-const invokedDirectly = process.argv[1]
-  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invokedDirectly) {
+if (isMain(import.meta.url)) {
   const files = process.argv.slice(2).length ? process.argv.slice(2) : GUARDED_FILES;
   let total = 0;
   for (const file of files) {

@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, resolve } from "node:path";
+import { isMain, projectRoot } from "./lib/util.mjs";
 
 const pinPath = "scripts/synara-runtime.json";
 
@@ -98,7 +98,7 @@ export function checkSynaraPin({ projectRoot, baseRef }) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isMain(import.meta.url)) {
   const baseRef = process.argv[2];
   if (!baseRef || process.argv.length !== 3) {
     console.error("Usage: node scripts/check-synara-pin.mjs <base-lattice-ref>");
@@ -106,7 +106,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   } else {
     try {
       const result = checkSynaraPin({
-        projectRoot: resolve(dirname(fileURLToPath(import.meta.url)), ".."),
+        projectRoot,
         baseRef,
       });
       console.log(

@@ -31,7 +31,8 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
+import { isMain, projectRoot } from "./lib/util.mjs";
 
 const MANIFEST = "docs/performance-data/manifest.json";
 const SHA = /^[0-9a-f]{40}$/;
@@ -136,9 +137,8 @@ export async function checkPerfEvidence(root) {
   return errors;
 }
 
-if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const errors = await checkPerfEvidence(root);
+if (isMain(import.meta.url)) {
+  const errors = await checkPerfEvidence(projectRoot);
   for (const error of errors) console.error(error);
   if (errors.length) process.exit(1);
   console.log(`Performance evidence matches ${MANIFEST}.`);

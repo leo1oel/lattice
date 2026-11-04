@@ -9,6 +9,7 @@
  * Debounced work therefore fires the same number of times on a fast laptop
  * and a slow CI runner, which is what makes the counts comparable.
  */
+import { setTimeout as sleep } from "node:timers/promises";
 import { BUILD_BUTTON } from "./selectors.mjs";
 
 /** Pause after each keystroke: a quick typist, and longer than any per-keystroke debounce. */
@@ -97,8 +98,6 @@ window.__benchZoomWheel = (x, y, deltaY, count, intervalMs) => new Promise((reso
   notch();
 });
 `;
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** What scenarios drive the page with. */
 export class BenchDriver {

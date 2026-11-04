@@ -7,10 +7,10 @@
 //   defaults to the sibling ../bibcite checkout.
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import { projectRoot } from "./lib/util.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = projectRoot;
 const bibcite = process.argv[2] || resolve(root, "..", "bibcite");
 const stringsPath = resolve(bibcite, "src", "bibcite", "data", "strings.bib");
 const venuesPyPath = resolve(bibcite, "src", "bibcite", "venues.py");

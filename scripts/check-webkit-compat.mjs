@@ -27,6 +27,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import vm from "node:vm";
+import { isMain } from "./lib/util.mjs";
 
 const ITERATOR_HELPERS = ["map", "filter", "take", "drop", "flatMap", "reduce", "toArray", "forEach", "some", "every", "find"];
 
@@ -281,7 +282,7 @@ async function main() {
   console.log(`WebKit compatibility check passed: PDF.js window and worker evaluate on Safari 17.0's built-ins; polyfilled: ${[...used.keys()].join(", ")}`);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+if (isMain(import.meta.url)) {
   main().catch((error) => {
     console.error(`check-webkit-compat: ${error.message}`);
     process.exitCode = 1;

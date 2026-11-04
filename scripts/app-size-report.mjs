@@ -2,7 +2,7 @@
 
 import { lstat, readFile, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { isMain } from "./lib/util.mjs";
 
 function isInside(root, candidate) {
   return candidate === root || candidate.startsWith(`${root}${path.sep}`);
@@ -392,7 +392,7 @@ async function main() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+if (isMain(import.meta.url)) {
   main().catch((error) => {
     console.error(`app-size-report: ${error.message}`);
     process.exitCode = 1;
