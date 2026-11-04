@@ -23,6 +23,7 @@ on:
       - "scripts/react-compiler-suppressions.ts"
       - "scripts/vitest-balanced-shards.ts"
       - "scripts/vitest-fs-cache-key.ts"
+      - "tools/mock-backend/**"
       - "tools/perf-bench/**"
       - "src/index.css"
       - "vite.config.ts"

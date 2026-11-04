@@ -5,7 +5,7 @@
  * lookup that resolves a pasted reference (bench-citation-lookup.ts).
  */
 import { citationLookupAnswer } from "./bench-citation-lookup";
-import { NOT_HANDLED } from "./bench-overleaf";
+import { NOT_HANDLED } from "../mock-backend/tauri-internals";
 
 type Args = Record<string, unknown> | undefined;
 type ProjectFiles = Map<string, string | Uint8Array>;
