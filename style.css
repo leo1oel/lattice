@@ -3,8 +3,9 @@
    ink) over Schibsted Grotesk, and the app itself on tilted cards.
    At 1100 px and wider each section is laid out on the 1440 px design (positions and type scale
    with the page through --k); narrower, it becomes one column and every collage uses its own
-   400 px arrangement. Motion is added by main.js (html.motion) and never runs for reduced motion;
-   interactions (interactions.js) work in both. */
+   400 px arrangement. Motion (html.motion) is switched on by the head script before the first
+   paint and run by main.js, and never runs for reduced motion; interactions (interactions.js) work
+   in both. */
 
 @font-face { font-family: 'EB Garamond'; src: url('./assets/fonts/eb-garamond-latin-wght-normal.woff2') format('woff2'); font-weight: 400 800; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Schibsted Grotesk'; src: url('./assets/fonts/schibsted-grotesk-latin-wght-normal.woff2') format('woff2'); font-weight: 400 900; font-style: normal; font-display: swap; }
@@ -105,9 +106,12 @@ code { font: .9em/1 var(--mono); }
 .release a { text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
 .toast { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); z-index: 40; translate: -50% 16px; padding: 10px 16px; border-radius: 999px; background: var(--ink); color: var(--lift); font: 500 var(--small)/18px var(--sans); opacity: 0; pointer-events: none; transition: opacity .3s var(--ease), translate .5s var(--spring); }
 .toast.on { opacity: 1; translate: -50% 0; }
-/* ⌘S, as in Lattice (Save and build): the Build button, the build, then the check and its time. */
-.build-pill { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); z-index: 41; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 14px; border: .5px solid rgba(35, 33, 30, .18); border-radius: 10px; background: #fff; box-shadow: var(--card-shadow); color: var(--ink); font: 600 var(--small)/1 var(--sans); font-variant-numeric: tabular-nums; opacity: 0; translate: -50% 16px; pointer-events: none; transition: opacity .3s var(--ease), translate .5s var(--ease); }
+/* ⌘S, as in Lattice (Save and build): the Build button, the build, then the check and its time.
+   Its two faces share one cell, so it keeps one width and what it shows sits in its middle. */
+.build-pill { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); z-index: 41; display: grid; place-items: center; height: 40px; padding: 0 15px; border: .5px solid rgba(35, 33, 30, .18); border-radius: 10px; background: #fff; box-shadow: var(--card-shadow); color: var(--ink); font: 600 var(--small)/1 var(--sans); font-variant-numeric: tabular-nums; opacity: 0; translate: -50% 16px; pointer-events: none; transition: opacity .3s var(--ease), translate .5s var(--ease); }
 .build-pill.on { opacity: 1; translate: -50% 0; }
+.bp-face { grid-area: 1 / 1; display: flex; align-items: center; gap: 8px; transition: opacity .15s; }
+.build-pill[data-state="done"] .bp-go, .build-pill:not([data-state="done"]) .bp-done { opacity: 0; }
 .bp-icon { position: relative; width: 14px; height: 14px; }
 .bp-icon svg { position: absolute; inset: 0; width: 14px; height: 14px; opacity: 0; transition: opacity .15s; }
 .bp-play { fill: currentColor; }
@@ -117,9 +121,6 @@ code { font: .9em/1 var(--mono); }
 .bp-check path { stroke-dasharray: 1 1; stroke-dashoffset: 1; transition: stroke-dashoffset .16s var(--ease); }
 .build-pill[data-state="idle"] .bp-play, .build-pill[data-state="building"] .bp-load, .build-pill[data-state="done"] .bp-check { opacity: 1; }
 .build-pill[data-state="done"] .bp-check path { stroke-dashoffset: 0; }
-.bp-label { display: inline-grid; }
-.bp-label > span { grid-area: 1 / 1; transition: opacity .15s; }
-.build-pill[data-state="done"] .bp-build, .build-pill:not([data-state="done"]) .bp-time { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .build-pill, .build-pill * { transition: none !important; animation: none !important; } .build-pill { translate: -50% 0; } }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
@@ -321,7 +322,7 @@ code { font: .9em/1 var(--mono); }
 .download { position: relative; max-width: 1440px; margin: 0 auto; padding: 280px var(--gutter) 150px; text-align: center; }
 .source-end { position: absolute; left: min(calc(50% + 112px), calc(100% - 480px - var(--gutter))); top: 64px; width: 480px; rotate: -3deg; text-align: left; }
 .download-title { color: var(--ink); font: 400 var(--display)/.95 var(--serif); letter-spacing: -.03em; }
-.download .button-large { margin-top: 64px; }
+.download-go { margin-top: 64px; }
 .download .release { margin-top: 18px; }
 
 /* ── Footer ── */
@@ -439,33 +440,30 @@ code { font: .9em/1 var(--mono); }
 }
 
 /* ════ Motion: states before each element arrives (only with html.motion) ════ */
-.motion .headline .w { display: inline-block; padding: .1em .14em .26em; margin: -.1em -.14em -.26em; opacity: 0; translate: 0 .12em; transition: opacity .4s var(--ease), translate .6s var(--ease); }
-.motion .headline .w.on { opacity: 1; translate: 0 0; }
-.motion .hero .source { opacity: 0; translate: 0 16px; transition: opacity .6s var(--ease), translate .8s var(--ease), box-shadow .4s var(--ease), rotate .6s var(--spring); }
+/* The hero, top to bottom in about 1.5 s: main.tex (.typing), the headline word by word as its
+   title is typed, then the lede, buttons and chips together (.done) and the window just after. */
+.motion .hero .source { opacity: 0; translate: 0 16px; transition: opacity .45s var(--ease), translate .6s var(--ease), box-shadow .4s var(--ease), rotate .6s var(--spring); }
 .motion .hero.typing .source, .motion .hero.done .source { opacity: 1; translate: 0 0; }
-.motion .hero-lede, .motion .chips li, .motion .hero .window { opacity: 0; translate: 0 16px; transition: opacity .8s var(--ease), translate .8s var(--ease); }
-.motion .hero.typing .hero-lede, .motion .hero.done .chips li, .motion .hero.done .window, .motion .hero.typing .demo-entry { opacity: 1; translate: 0 0; }
-.motion .hero.typing .hero-lede { transition-delay: 1.1s; }
-.motion .hero.done .chips li { transition-delay: calc(var(--n, 0) * 35ms + 120ms); }
-.motion .hero.done .window { transition-delay: .25s; }
+.motion .hero:not(.typing, .done) .caret { visibility: hidden; }
+.motion .headline .w { display: inline-block; padding: .1em .14em .26em; margin: -.1em -.14em -.26em; opacity: 0; translate: 0 .12em; transition: opacity .3s var(--ease), translate .45s var(--ease); }
+.motion .headline .w.on { opacity: 1; translate: 0 0; }
+.motion .hero-lede, .motion .chips li, .motion .hero .window { opacity: 0; translate: 0 16px; transition: opacity .5s var(--ease), translate .6s var(--ease); }
+.motion .hero.done .hero-lede, .motion .hero.done .chips li, .motion .hero.done .window { opacity: 1; translate: 0 0; }
+.motion .hero.done .window { transition-delay: .1s; }
 
 /* Everything that arrives on scroll makes the same small movement: a 16 px rise and a fade on one
-   ease-out curve, in a short order, and nothing turns, scales or overshoots on the way in. */
-.motion .ch-title span, .motion .stage .caption, .motion .stage .points, .motion .stage .body, .motion .stage .byo-title, .motion .film-title, .motion .formats-title,
-.motion .card, .motion .player, .motion .index-cards li, .motion .faq .qa details, .motion .download .source-end, .motion .more-title, .motion .faq-head, .motion .download-title {
+   ease-out curve, and nothing turns, scales or overshoots on the way in. They arrive in reading
+   order, top to bottom and along each row: arrive() in interactions.js gives each its --d. */
+.motion .progress, .motion .ch-title span, .motion .stage .caption, .motion .stage .points, .motion .stage .body, .motion .stage .byo-title, .motion .film-title, .motion .formats-title,
+.motion .card, .motion .credit, .motion .player, .motion .index-cards li, .motion .faq .qa details, .motion .download .source-end, .motion .more-title, .motion .faq-title, .motion .faq-more, .motion .download-title, .motion .download-go {
   opacity: 0; translate: 0 16px; transition: opacity .8s var(--ease), translate .8s var(--ease); }
-.motion .in .ch-title span, .motion .in .caption, .motion .in .points, .motion .in .body, .motion .in .byo-title, .motion .in .film-title, .motion .in .formats-title,
-.motion .in .card, .motion .in .player, .motion .in .index-cards li, .motion .faq.in .qa details, .motion .download.in .source-end, .motion .in .more-title, .motion .in .faq-head, .motion .in .download-title {
-  opacity: 1; translate: 0 0; }
-.motion .in .caption, .motion .in .body, .motion .in .byo-title { transition-delay: .1s; }
-.motion .in .points { transition-delay: .2s; }
+.motion .in .progress, .motion .in .ch-title span, .motion .in .caption, .motion .in .points, .motion .in .body, .motion .in .byo-title, .motion .in .film-title, .motion .in .formats-title,
+.motion .in .card, .motion .in .credit, .motion .in .player, .motion .in .index-cards li, .motion .faq.in .qa details, .motion .download.in .source-end, .motion .in .more-title, .motion .in .faq-title, .motion .in .faq-more, .motion .in .download-title, .motion .download.in .download-go {
+  opacity: 1; translate: 0 0; transition-delay: var(--d, 0s); }
 .motion .in .card.lift { translate: 0 -4px; }
-.motion .in .card { transition-delay: calc(var(--i) * 60ms + 150ms); }
 .motion .in .card.settled, .motion .in .index-cards li.settled { transition-delay: 0s; transition-duration: .5s; }
-.motion .in .index-cards li { transition-delay: calc(var(--n, 0) * 40ms); }
-.motion .faq.in .qa details { transition-delay: calc(var(--n, 0) * 40ms); }
 .motion .progress a.f::after { scale: 0 1; transition: scale .8s var(--ease); }
-.motion .in .progress a.f::after { scale: 1 1; }
+.motion .in .progress a.f::after { scale: 1 1; transition-delay: var(--d, 0s); }
 @media (hover: hover) { .motion .in .card:hover { translate: 0 -4px; } }
 
 /* The hero window in one column, cropped the way a small product shot is: below 1100 px the editor

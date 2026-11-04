@@ -1,15 +1,20 @@
 // The site's behaviour: the download resolves to the newest release, the film plays in place, the
 // wash (and the ink a click on blank paper leaves) follows the chapter on screen, and, unless the
-// reader prefers reduced motion, the page moves: the hero's title is typed into main.tex and set
-// live, sections arrive as they scroll in, and each card plays its part of the film's take once it
-// is in view. The interactions (the lightbox, the editable title, the questions, the ink) are in
-// interactions.js and faq.js.
+// reader prefers reduced motion, the page moves: the hero arrives top to bottom with its title
+// typed into main.tex and set live, sections arrive in reading order as they scroll in, and each
+// card plays its part of the film's take once it is in view. The interactions (the lightbox, the
+// editable title, the questions, the ink) are in interactions.js and faq.js.
 
-import { enableTitleEdit, setupInteractions } from './interactions.js?v=c4';
+import { arrive, enableTitleEdit, setupInteractions } from './interactions.js?v=c5';
 import { setupFaq } from './faq.js?v=c1';
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const root = document.documentElement;
+// The head script turns motion on before the first paint, unless the reader prefers reduced
+// motion, and turns it off again if this script is late, in which case the page stays still.
+const moving = root.classList.contains('motion');
+if (moving) root.dataset.moving = 'on';
+const typers = []; // main.tex's typing, settled if the reader turns reduced motion on
 
 /* ── Download: the newest installer and its version, from the GitHub API ─────────────────── */
 // Release assets carry the version in their names, so no version or file name is written into
@@ -70,66 +75,84 @@ followWash();
 }
 setupInteractions({ reducedMotion });
 setupFaq({ reducedMotion });
-if (reducedMotion.matches) enableTitleEdit();
-else startMotion();
+if (moving) startMotion();
+else enableTitleEdit();
 // Turning reduced motion on mid-visit settles everything where it is.
 reducedMotion.addEventListener('change', () => {
   if (!reducedMotion.matches) return;
   root.classList.remove('motion');
+  typers.forEach((typer) => typer.settle());
   document.querySelectorAll('.card video, .hero-loop').forEach((video) => video.pause());
   document.querySelector('.hero .window')?.classList.remove('playing');
   enableTitleEdit();
 });
 
 function startMotion() {
-  root.classList.add('motion');
-  document.querySelectorAll('.chips li, .index-cards li, .qa details').forEach((item) => {
-    item.style.setProperty('--n', String([...item.parentElement.children].indexOf(item)));
-  });
   typeHero();
   revealSections();
   playCards();
-  playHero();
 }
 
-/* ── Hero: the title typed into main.tex, each word set in the headline as it is finished ── */
-// The source's text as tokens: line numbers (n) appear with their line; the rest is typed.
-function typer(pre, tokens, { cps = 24, onType = () => {} } = {}) {
-  const typed = tokens.filter((t) => t.cls !== 'n').map((t) => t.text).join('');
+/* ── Typing into main.tex ──────────────────────────────────────────────────────────────────── */
+// The source's text as tokens: line numbers (n) appear with their line, fixed text is there from
+// the start, and the rest is typed, at cps characters a second or in about `duration` ms. The
+// source shows its starting state at once; play() types the rest after `delay` ms, and settle()
+// stops and shows the whole text.
+function typer(pre, tokens, { cps = 24, duration, delay = 0, onType = () => {} } = {}) {
+  const typed = tokens.filter((t) => t.cls !== 'n' && !t.fixed).map((t) => t.text).join('');
   const caret = '<span class="tcaret"></span>';
+  const span = (token, text) => (token.cls ? `<span class="${token.cls}">${escapeHtml(text)}</span>` : escapeHtml(text));
   const render = (count) => {
     let left = count;
     let html = '';
     for (const token of tokens) {
       if (token.cls === 'n') { if (left > 0 || html === '') html += `<span class="n">${token.text}</span>`; continue; }
+      if (token.fixed) { html += span(token, token.text); continue; }
       if (left <= 0) break;
       const part = token.text.slice(0, left);
       left -= part.length;
-      html += token.cls ? `<span class="${token.cls}">${escapeHtml(part)}</span>` : escapeHtml(part);
+      html += span(token, part);
     }
     pre.innerHTML = html + caret;
   };
-  return new Promise((resolve) => {
-    let count = 0;
-    render(0);
+  // A typist's rhythm: quicker inside a word, a beat after a space, a longer one after a new line,
+  // which arrives with its indentation, as the editor's auto-indent puts it.
+  const steps = [];
+  for (let count = 0; count < typed.length;) {
+    const ch = typed[count];
+    count += 1;
+    if (ch === '\n') while (typed[count] === ' ') count += 1;
+    steps.push({ count, beat: ch === ' ' ? 1.7 : ch === '\n' ? 3.2 : 0.7 + Math.random() * 0.6 });
+  }
+  const unit = duration ? duration / steps.reduce((sum, step) => sum + step.beat, 0) : 1000 / cps;
+  render(0);
+  let settled = false;
+  const play = () => new Promise((resolve) => {
+    let i = 0;
     const step = () => {
-      count += 1;
-      // A new line arrives with its indentation, as the editor's auto-indent puts it.
-      if (typed[count - 1] === '\n') while (typed[count] === ' ') count += 1;
+      if (settled) return;
+      const { count, beat } = steps[i];
       render(count);
-      onType(count, typed);
-      if (count >= typed.length) { resolve(); return; }
-      const ch = typed[count - 1];
-      // A typist's rhythm: quicker inside a word, a beat at spaces, a longer one at a new line.
-      setTimeout(step, 1000 / cps * (ch === ' ' ? 1.7 : ch === '\n' ? 3.2 : 0.7 + Math.random() * 0.6));
+      onType(count);
+      i += 1;
+      if (i === steps.length) resolve();
+      else setTimeout(step, beat * unit);
     };
-    setTimeout(step, 1000 / cps);
+    setTimeout(step, delay);
   });
+  const settle = () => { settled = true; render(typed.length); pre.querySelector('.tcaret')?.remove(); };
+  typers.push({ settle });
+  return { play };
 }
 function escapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 }
 
+/* ── Hero: one entrance, top to bottom ─────────────────────────────────────────────────────── */
+// Once the fonts are in (a second at most): main.tex arrives with its title open, the title is
+// typed into it and each headline word is set as it is finished, then the lede, the buttons and
+// the chips arrive together and the window just after. About 1.5 s in all; the window's loop
+// starts loading once the window is there.
 function typeHero() {
   const hero = document.querySelector('.hero');
   const pre = hero.querySelector('[data-type-source]');
@@ -137,24 +160,28 @@ function typeHero() {
   const words = [...headline.querySelectorAll('.w')];
   const caret = headline.querySelector('.caret');
   const tokens = [
-    { cls: 'n', text: '12' }, { cls: 'cmd', text: '\\title' }, { text: '{A workspace for\n' },
+    { cls: 'n', text: '12' }, { cls: 'cmd', text: '\\title', fixed: true }, { text: '{', fixed: true }, { text: 'A workspace for\n' },
     { cls: 'n', text: '13' }, { text: '       your research}' },
   ];
   // Where each headline word ends in the typed text.
-  const typed = tokens.filter((t) => t.cls !== 'n').map((t) => t.text).join('');
+  const typed = tokens.filter((t) => t.cls !== 'n' && !t.fixed).map((t) => t.text).join('');
   let from = 0;
   const ends = words.map((word) => { const at = typed.indexOf(word.textContent, from) + word.textContent.length; from = at; return at; });
   words[0].before(caret);
-  document.fonts.ready.then(() => {
+  const title = typer(pre, tokens, {
+    duration: 700,
+    delay: 150,
+    onType: (count) => words.forEach((word, i) => {
+      if (count >= ends[i] && !word.classList.contains('on')) { word.classList.add('on'); word.after(caret); }
+    }),
+  });
+  Promise.race([document.fonts.ready, new Promise((resolve) => { setTimeout(resolve, 1000); })]).then(() => {
     hero.classList.add('typing');
-    setTimeout(() => typer(pre, tokens, {
-      onType: (count) => words.forEach((word, i) => {
-        if (count >= ends[i] && !word.classList.contains('on')) { word.classList.add('on'); word.after(caret); }
-      }),
-    }).then(() => {
-      hero.classList.add('done');
-      enableTitleEdit();
-    }), 450);
+    return title.play();
+  }).then(() => {
+    hero.classList.add('done');
+    enableTitleEdit();
+    playHero();
   });
 }
 
@@ -163,7 +190,7 @@ function revealSections() {
   const io = new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
-      entry.target.classList.add('in');
+      arrive(entry.target);
       io.unobserve(entry.target);
       // Once the cards have landed, hover and replays use the short timings.
       setTimeout(() => entry.target.querySelectorAll('.card, .index-cards li').forEach((el) => el.classList.add('settled')), 1600);
@@ -172,14 +199,16 @@ function revealSections() {
   document.querySelectorAll('.stage:not(.hero), .more, .faq, .download').forEach((section) => io.observe(section));
   const end = document.querySelector('.source-end [data-type-source]');
   const download = document.querySelector('.download');
+  if (!end || !download) return;
+  const ending = typer(end, [
+    { cls: 'n', text: '47' }, { text: 'Thanks for reading.\n' }, { cls: 'n', text: '48' }, { cls: 'cmd', text: '\\end' }, { text: '{document}' },
+  ], { cps: 20, delay: 500 });
   const endObserver = new IntersectionObserver(([entry]) => {
     if (!entry.isIntersecting) return;
     endObserver.disconnect();
-    setTimeout(() => typer(end, [
-      { cls: 'n', text: '47' }, { text: 'Thanks for reading.\n' }, { cls: 'n', text: '48' }, { cls: 'cmd', text: '\\end' }, { text: '{document}' },
-    ], { cps: 20 }), 500);
+    ending.play();
   }, { threshold: 0.4 });
-  if (end && download) endObserver.observe(download);
+  endObserver.observe(download);
 }
 
 /* ── Cards play their part of the take once, when they are in view ────────────────────────── */

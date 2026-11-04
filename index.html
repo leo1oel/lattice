@@ -28,9 +28,22 @@
     <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
     <link rel="preload" href="./assets/fonts/eb-garamond-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="./assets/fonts/schibsted-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="./style.css?v=c5">
-    <script>document.documentElement.classList.add('js');</script>
-    <script type="module" src="./main.js?v=c4"></script>
+    <link rel="preload" href="./assets/fonts/IoskeleyMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="./style.css?v=c6">
+    <script>
+      // Motion is on from the first paint, so nothing the entrance brings in is drawn before it.
+      // If main.js has not started 2.5 s on, the page is shown as it is, without the entrance.
+      (() => {
+        const root = document.documentElement;
+        root.classList.add('js');
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        root.classList.add('motion');
+        setTimeout(() => { if (!root.dataset.moving) root.classList.remove('motion'); }, 2500);
+      })();
+    </script>
+    <link rel="modulepreload" href="./interactions.js?v=c5">
+    <link rel="modulepreload" href="./faq.js?v=c1">
+    <script type="module" src="./main.js?v=c5"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -79,8 +92,8 @@
         </ul>
         <!-- data-demo-slot: where a live, in-browser Lattice can replace the picture later. -->
         <figure data-ui class="window" data-demo-slot="hero">
-          <img src="./assets/site/hero-1360.webp" srcset="./assets/site/hero-1360.webp 1360w, ./assets/site/hero-2720.webp 2720w" sizes="(min-width: 1100px) 87vw, 100vw" width="1360" height="850" alt="Lattice with the tutorial project open: the Project tree on the left, main.tex in the middle with a sentence just typed at the end of line 40, the PDF on the right already showing it, and Build reporting a 1.2 second build." fetchpriority="high">
-          <video class="hero-loop" muted playsinline loop preload="none" width="1360" height="850" data-src="./assets/site/hero-loop.mp4?v=h1" data-start="10.1" aria-hidden="true"></video>
+          <img src="./assets/site/hero-1360.webp?v=h2" srcset="./assets/site/hero-1360.webp?v=h2 1360w, ./assets/site/hero-2720.webp?v=h2 2720w" sizes="(min-width: 1100px) 87vw, 100vw" width="1360" height="850" alt="Lattice with the tutorial project open: the Project tree on the left, main.tex in the middle with a sentence just typed at the end of line 40, the PDF on the right already showing it, and Build reporting a 1.2 second build." fetchpriority="high">
+          <video class="hero-loop" muted playsinline loop preload="none" width="1360" height="850" data-src="./assets/site/hero-loop.mp4?v=h2" data-start="10.1" aria-hidden="true"></video>
         </figure>
       </section>
 
@@ -270,8 +283,10 @@
 <span class="n">48</span><span class="cmd">\end</span>{document}</pre>
         </div>
         <h2 class="download-title" id="download-title"><span class="dim">Your next paper,</span><br>in one window</h2>
-        <a class="button button-large" data-download href="https://github.com/leo1oel/lattice/releases/latest"><span>Download for Mac</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg></a>
-        <p class="release" data-requirements>For Apple Silicon Macs with macOS 14 or later</p>
+        <div class="download-go">
+          <a class="button button-large" data-download href="https://github.com/leo1oel/lattice/releases/latest"><span>Download for Mac</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg></a>
+          <p class="release" data-requirements>For Apple Silicon Macs with macOS 14 or later</p>
+        </div>
       </section>
     </main>
 
