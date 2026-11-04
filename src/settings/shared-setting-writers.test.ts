@@ -34,7 +34,7 @@ const DIRECT_WRITERS: Record<string, string> = {
   "app/app-synara-embed.ts": "each project's agent thread",
   "app/whats-new.ts": "the version this install last ran",
   "platform/browser-host-bridge.ts": "seeds a browser preview's storage",
-  "platform/browser-runtime.ts": "seeds a browser preview's storage",
+  "platform/browser-relay.ts": "seeds a browser preview's storage",
   "platform/perf-lab-harness.ts": "seeds the perf lab's storage",
   "overleaf/margin-review-mode.ts": "keyed by window label: each window's own",
   "pdf/use-pdf-view.ts": "the PDF zoom this window last used, which the next window starts from",
