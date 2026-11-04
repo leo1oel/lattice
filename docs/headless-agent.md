@@ -107,9 +107,60 @@ snapshots yourself. At most eight distinct projects and 128 tab owners run.
 ## CLI and verification
 
 `lattice-server agent-bridge --runtime RUNTIME --project PROJECT --state-dir STATE
---path /ws/bootstrap` accepts newline-delimited Synara RPC JSON on stdin and emits
-redacted RPC JSON on stdout. Negotiate protocol capabilities before opening the
-feature socket (`--path /ws?...`). EOF/Ctrl-C stops the owned process. Domain
+--path /ws` accepts newline-delimited Synara RPC JSON on stdin and emits
+redacted RPC JSON on stdout. The default `--path /ws` supports normal feature RPCs: the bridge
+negotiates the pinned protocol with its own child before connecting, including
+the new child's instance identity. `/ws/bootstrap` remains available for raw
+protocol inspection. EOF/Ctrl-C stops the owned process. Malformed
+JSON, socket and stdio failures also clean up the owned child.
+
+While the bridge remains open, user stdin can issue these reserved, closed host
+records. They operate on that bridge's fixed project and owner; they are never
+forwarded to the model:
+
+```json
+{"latticeHostCommand":"status","id":"check-1"}
+{"latticeHostCommand":"apply","id":"apply-1"}
+{"latticeHostCommand":"stop","id":"stop-1"}
+```
+
+Every host result is a single stdout record with `_tag: "LatticeHostResult"`, the
+same `id`, an `ok` boolean and either `result` or `error: {code, message}`. IDs
+must be 1–200 UTF-8 bytes. Only `id` and `latticeHostCommand` are accepted; unknown
+operations and additional fields produce errors without changing the workspace.
+`apply` uses the same checked text Apply and shared project mutation lock as the
+web UI; no Git/binary/deletion synchronization or automatic Apply is added.
+`stop` acknowledges, stops the child and exits. An identically shaped command received from the sidecar cannot execute a host
+action. Sidecar records containing `latticeHostCommand` or the reserved
+`_tag: "LatticeHostResult"` are wrapped as
+`{"_tag":"LatticeAgentMessage","message":...}`; they cannot masquerade as a
+trusted host acknowledgement. Ordinary Synara RPC frames keep their wire format.
+
+A controller can hold the process open and explicitly approve writeback after its
+normal Synara protocol/RPC flow completes, for example:
+
+```python
+process = subprocess.Popen(
+    ["lattice-server", "agent-bridge", "--runtime", runtime,
+     "--project", project, "--state-dir", state, "--path", "/ws"],
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+# Send normal Synara RPC records and collect the completed turn first.
+def host_command(command, request_id):
+    process.stdin.write(json.dumps({"latticeHostCommand": command, "id": request_id}) + "\n")
+    process.stdin.flush()
+    for line in process.stdout:
+        record = json.loads(line)
+        if record.get("_tag") == "LatticeHostResult" and record.get("id") == request_id:
+            assert record["ok"], record["error"]
+            return record["result"]
+    raise RuntimeError("Bridge stopped before acknowledging the host command")
+print(host_command("apply", "review-1"))  # applied and blocked/conflicting paths
+host_command("stop", "done-1")
+process.wait()
+```
+
+EOF never applies staged edits. A separate process's ordinary `invoke` command
+cannot apply a live bridge's private owner session. Domain
 commands use the ordinary `invoke` interface documented in `headless-server.md`;
 capabilities enumerate available commands and remaining platform limitations.
 
@@ -128,3 +179,8 @@ the dedicated device-authenticated provider home. A complete synthetic turn usin
 discovered `gpt-6.1-sol` model with `high` reasoning returned the assistant reply
 `LATTICE_REMOTE_AI_READY` and a completed turn. The frontend hook test uses
 real MessageEvents and real canvas/Yjs consumers to verify host-write refusal.
+The real-runtime CLI validation also exercised automatic feature negotiation,
+`provider.listModels` from the genuine Codex app-server, a correlated status
+result, and an acknowledged stop/clean exit. The deterministic CLI consumer
+checks explicit text Apply, blocked model-forged commands/acknowledgements,
+unsupported controls, malformed input and EOF cleanup.

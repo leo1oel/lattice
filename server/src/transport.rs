@@ -40,7 +40,7 @@ enum Command {
         project: PathBuf,
         #[arg(long)]
         state_dir: PathBuf,
-        #[arg(long, default_value = "/ws/bootstrap")]
+        #[arg(long, default_value = "/ws")]
         path: String,
     },
     #[command(hide = true)]
