@@ -42,11 +42,13 @@ export function typoFailure(main: string) {
   const line = index + 1;
   const text = lines[index]!;
   const end = text.indexOf("\\cietp") + "\\cietp".length;
+  // The mistyped command cites nothing, so its key is reported undefined too.
+  const key = /\\cietp\{([^,}]+)/.exec(text)?.[1] ?? "luong2015effective";
   return {
     log: [`./main.tex:${line}: Undefined control sequence.`, `l.${line} ${text.slice(0, end)}`, `${" ".repeat(end + 4)}${text.slice(end)}`],
     diagnostics: [
       { level: "error", message: "Undefined control sequence.", file: "main.tex", line },
-      { level: "warning", message: "Citation `luong2015effective' on page 1 undefined on input line " + line + "." },
+      { level: "warning", message: `Citation \`${key}' on page 1 undefined on input line ${line}.` },
       { level: "warning", message: "Overfull \\hbox (6.1pt too wide) in paragraph at lines 38--41", file: "main.tex", line: 38 },
     ],
   };

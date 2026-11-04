@@ -12,6 +12,10 @@
  *                     must be one of the signed artifacts (the disk image, the
  *                     updater archive and its signature, latest.json), and
  *                     none may be a font.
+ *   site DIRECTORY    a static build for the website (scripts/web-demo.mjs):
+ *                     no file may be named for Timeless or be a byte copy of a
+ *                     Timeless font. The open-licensed faces the app draws
+ *                     with (Inter, KaTeX, …) may ship.
  *   app APP           the built .app, before it is packaged: no file may be
  *                     named for Timeless or be a byte copy of a Timeless font
  *                     (those under LATTICE_PRIVATE_FONTS_DIR and the ones the
@@ -23,7 +27,7 @@
  * is caught too. Output names paths only; it never prints file contents.
  * The repository itself is checked by src/platform/font-license-guard.test.ts.
  *
- * Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | app APP
+ * Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP
  * Exit codes: 0 clean · 1 a finding · 2 usage or I/O error.
  */
 
@@ -94,15 +98,33 @@ export function checkApp(app, timelessHashes) {
   return findings;
 }
 
+/**
+ * Findings for every file of a static site build. Throws when `site` is not a
+ * folder, for the reason checkApp does.
+ */
+export function checkSite(site, timelessHashes) {
+  if (!statSync(site, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${site} is not a folder`);
+  const findings = [];
+  for (const file of walkFiles(site)) {
+    const label = path.relative(site, file).split(path.sep).join("/");
+    if (/timeless/i.test(path.basename(file))) findings.push(`${label} is named for Timeless`);
+    else if (timelessHashes.size > 0 && isFont(file) && timelessHashes.has(sha256(readFileSync(file)))) findings.push(`${label} is a copy of a Timeless font`);
+  }
+  return findings;
+}
+
 function main([mode, target, ...rest]) {
-  if (!target || rest.length > 0 || (mode !== "assets" && mode !== "app")) {
-    process.stderr.write("Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | app APP\n");
+  if (!target || rest.length > 0 || !["assets", "site", "app"].includes(mode)) {
+    process.stderr.write("Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP\n");
     return 2;
   }
+  const fontsDirectory = process.env.LATTICE_PRIVATE_FONTS_DIR || null;
   const findings = mode === "assets"
     ? checkAssets(target)
-    : checkApp(target, timelessFontHashes({
-      fontsDirectory: process.env.LATTICE_PRIVATE_FONTS_DIR || null,
+    : mode === "site"
+      ? checkSite(target, timelessFontHashes({ fontsDirectory, emittedDirectory: target }))
+      : checkApp(target, timelessFontHashes({
+      fontsDirectory,
       emittedDirectory: path.join(projectRoot, "dist", "assets"),
     }));
   for (const finding of findings) process.stderr.write(`font leak: ${finding}\n`);

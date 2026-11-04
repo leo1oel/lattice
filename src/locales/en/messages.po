@@ -4962,6 +4962,10 @@ msgstr "Download HTML"
 msgid "Download JSON"
 msgstr "Download JSON"
 
+#: src/web-demo/desktop-only.tsx
+msgid "Download Lattice for Mac"
+msgstr "Download Lattice for Mac"
+
 #: src/project/paper-inspector.tsx
 msgid "Download paper"
 msgstr "Download paper"
@@ -6719,6 +6723,14 @@ msgstr "In a paper “min” is usually minutes or the minimum operator."
 msgid "In colour"
 msgstr "In colour"
 
+#: src/web-demo/desktop-only.tsx
+msgid "In Lattice you draw here, and the Agent can sketch on the board with you."
+msgstr "In Lattice you draw here, and the Agent can sketch on the board with you."
+
+#: src/web-demo/desktop-only.tsx
+msgid "In Lattice, Open Slide edits and presents this deck beside the paper."
+msgstr "In Lattice, Open Slide edits and presents this deck beside the paper."
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "In Papers"
 msgstr "In Papers"
@@ -7171,6 +7183,10 @@ msgstr "It was deleted outside Lattice and had no unsaved edits, so its tab clos
 #: src/app/vanished-file.ts
 msgid "It was moved outside Lattice, and its tab followed it."
 msgstr "It was moved outside Lattice, and its tab followed it."
+
+#: src/web-demo/desktop-only.tsx
+msgid "It works through the AI tools you are signed in to there. Proofread, Polish and Revise from annotations answer here from a script."
+msgstr "It works through the AI tools you are signed in to there. Proofread, Polish and Revise from annotations answer here from a script."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
@@ -12926,6 +12942,10 @@ msgstr "Skipped {skippedCount} items that are already there."
 msgid "Slash commands"
 msgstr "Slash commands"
 
+#: src/web-demo/desktop-only.tsx
+msgid "Slides run on your Mac"
+msgstr "Slides run on your Mac"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Small capitals"
 msgstr "Small capitals"
@@ -13790,6 +13810,10 @@ msgstr "The agent is waiting for your answer. The request is in its composer; se
 msgid "The agent reads these each time it starts."
 msgstr "The agent reads these each time it starts."
 
+#: src/web-demo/desktop-only.tsx
+msgid "The Agent runs on your Mac"
+msgstr "The Agent runs on your Mac"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
@@ -14473,6 +14497,10 @@ msgstr "The third-party notices could not be read from the app bundle."
 #: src/platform/host-errors-workspace.ts
 msgid "The transaction contains no edits."
 msgstr "The transaction contains no edits."
+
+#: src/web-demo/desktop-only.tsx
+msgid "The tutorial's whiteboard: a map of how attention connects queries, keys and values"
+msgstr "The tutorial's whiteboard: a map of how attention connects queries, keys and values"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "The two versions read the same"
@@ -15863,6 +15891,10 @@ msgstr "When you delete a file here"
 #: src/components/ui/color-picker.tsx
 msgid "White"
 msgstr "White"
+
+#: src/web-demo/desktop-only.tsx
+msgid "Whiteboards run on your Mac"
+msgstr "Whiteboards run on your Mac"
 
 #: src/project/submission-items.tsx
 msgid "Who"

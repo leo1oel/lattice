@@ -1,0 +1,30 @@
+{
+  "//": "Edits the demo makes to the bundled tutorial (src-tauri/templates/tutorial), applied by tools/web-demo/demo-project.ts and by `node scripts/web-demo-content.mjs` before it compiles the PDF. Each `find` must occur exactly once. The figures are Lattice's own drawings (figures/), so the captions say so; the numerical example carries two slips for Proofread to catch (tools/mock-backend/text-tasks.ts).",
+  "edits": [
+    {
+      "file": "main.tex",
+      "find": "reproduced from Figure~2 of \\citet{vaswani2017attention} with permission from Google for use in scholarly works.",
+      "replace": "redrawn for Lattice after Figure~2 of \\citet{vaswani2017attention}."
+    },
+    {
+      "file": "main.tex",
+      "find": "\\texttt{figures/} contains the cited source panels and a publication-ready PDF copy.",
+      "replace": "\\texttt{figures/} contains redrawn panels and a publication-ready PDF copy."
+    },
+    {
+      "file": "notes.md",
+      "find": "alt=\"Scaled dot-product attention from Figure 2 of the Transformer paper\"",
+      "replace": "alt=\"Scaled dot-product attention, redrawn after Figure 2 of the Transformer paper\""
+    },
+    {
+      "file": "main.tex",
+      "find": "Consider the four-token fragment ``attention connects every position.''\nFor the query at \\emph{connects}",
+      "replace": "% Demo: select this paragraph, then choose Proofread in the toolbar that appears.\nConsider the four-token fragment ``attention connects every position.''\nFor a example query at \\emph{connects}"
+    },
+    {
+      "file": "main.tex",
+      "find": "Changing the softmax temperature",
+      "replace": "Changing teh softmax temperature"
+    }
+  ]
+}

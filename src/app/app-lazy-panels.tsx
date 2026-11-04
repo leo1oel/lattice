@@ -14,7 +14,11 @@ import { loadPaperLibrary, loadProjectFileTree } from "./workspace-chunks";
 // tree or the paper library.
 export const ProjectFileTree = lazyChunk(loadProjectFileTree, (module) => memo(module.ProjectFileTree));
 export const PaperLibrary = lazyChunk(loadPaperLibrary, (module) => memo(module.PaperLibrary));
-export const TrellisAgentSurface = lazy(() => import("../trellis/trellis-agent-surface"));
+// The website's demo has no Agent (it drives the AI tools signed in on the
+// Mac): its panel says so (src/web-demo/).
+export const TrellisAgentSurface = lazy(() => (import.meta.env.LATTICE_WEB_DEMO
+  ? import("../web-demo/desktop-only")
+  : import("../trellis/trellis-agent-surface")));
 export const CompileDiagnosticsPanel = lazy(() =>
   import("../build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
 );

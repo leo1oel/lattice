@@ -29,11 +29,17 @@ export const markVisualMarkdownEditorWarmed = () => {
   visualMarkdownEditorWarmed = true;
 };
 
-export const loadBoardEditorModule = chunk(() => import("../editor/board/board-editor"));
+// The website's demo (src/web-demo/) has no whiteboard or Open Slide: it shows
+// a card saying they run on the Mac, and its build leaves tldraw out.
+export const loadBoardEditorModule = chunk(() => (import.meta.env.LATTICE_WEB_DEMO
+  ? import("../web-demo/desktop-only")
+  : import("../editor/board/board-editor")));
 
 export const loadSpreadsheetEditorModule = chunk(() => import("../editor/spreadsheet/spreadsheet-editor"));
 
-export const loadOpenSlideWorkspaceModule = chunk(() => import("../editor/presentation/open-slide-workspace"));
+export const loadOpenSlideWorkspaceModule = chunk(() => (import.meta.env.LATTICE_WEB_DEMO
+  ? import("../web-demo/desktop-only")
+  : import("../editor/presentation/open-slide-workspace")));
 
 /** A .bib file's visual form: the reference list. */
 export const loadBibVisualEditorModule = chunk(() => import("../papers/bib-visual-editor"));

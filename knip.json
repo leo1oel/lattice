@@ -7,7 +7,8 @@
   // `src/main.tsx` is not listed: knip's vite plugin already derives it from the
   // `<script type="module">` in index.html.
   // The interaction benchmark reads probe.js as text and injects it over CDP,
-  // and serves bench-page.ts from its own tools/perf-bench/index.html;
+  // and serves bench-page.ts from its own tools/perf-bench/index.html, as the
+  // website's demo serves demo-page.ts from tools/web-demo/index.html;
   // perf-fixture.d.mts types perf-fixture.mjs for the bench page's import, and
   // perf-bench/selectors.d.mts types selectors.mjs for a component test's.
   // perf-bench/pdf-window-timing.mjs, divider-drag-timing.mjs and
@@ -28,7 +29,8 @@
         "scripts/perf-bench/divider-drag-timing.mjs",
         "scripts/perf-bench/tab-drag-timing.mjs",
         "scripts/perf-bench/*-figures.mjs",
-        "tools/perf-bench/bench-page.ts"
+        "tools/perf-bench/bench-page.ts",
+        "tools/web-demo/demo-page.ts"
       ],
       "project": ["src/**", "scripts/**", "tools/**"]
     },

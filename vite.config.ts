@@ -15,6 +15,11 @@ const host = process.env.TAURI_DEV_HOST;
 // the release flavor.
 const flavor = process.env.LATTICE_FLAVOR ?? "";
 if (flavor !== "" && flavor !== "beta") throw new Error(`LATTICE_FLAVOR=${flavor}: the only flavor is "beta"`);
+// `LATTICE_WEB_DEMO=1` builds the website's demo (scripts/web-demo.mjs): the
+// app swaps what needs the Mac (the Agent, whiteboards, Open Slide) for cards
+// saying so, and those parts are left out of the build.
+const webDemo = process.env.LATTICE_WEB_DEMO ?? "";
+if (webDemo !== "" && webDemo !== "1") throw new Error(`LATTICE_WEB_DEMO=${webDemo}: set it to 1 or leave it unset`);
 
 /**
  * `@pierre/diffs` imports the full `shiki` bundle, whose bundledLanguages and
@@ -258,6 +263,7 @@ const manualChunkName = (id: string) => {
 export default defineConfig(() => ({
   define: {
     "import.meta.env.LATTICE_FLAVOR": JSON.stringify(flavor),
+    "import.meta.env.LATTICE_WEB_DEMO": JSON.stringify(webDemo === "1"),
   },
   plugins: [
     // React Compiler auto-memoizes components it can prove safe, and silently

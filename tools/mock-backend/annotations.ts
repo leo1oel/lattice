@@ -58,10 +58,12 @@ type Options = {
   extra?: (main: string, numberBase: number) => MockAnnotation[];
   /** Whether the agent answers in Simplified Chinese. */
   zh: () => boolean;
+  /** Who wrote the seeded notes. */
+  author?: string;
 };
 
 /** The annotation commands' answer, or `NOT_HANDLED` for any other command. */
-export function annotationsAnswer({ project, seed, numberBase = 0, extra, zh }: Options): (command: string, args: Args) => unknown {
+export function annotationsAnswer({ project, seed, numberBase = 0, extra, zh, author = "Leo" }: Options): (command: string, args: Args) => unknown {
   let state: { annotations: MockAnnotation[]; rounds: Array<Record<string, unknown>> } | null = null;
   const roundFiles = new Map<number, RoundFile[]>();
 
@@ -79,7 +81,7 @@ export function annotationsAnswer({ project, seed, numberBase = 0, extra, zh }: 
         prefix: main.slice(Math.max(0, from - 32), from), suffix: main.slice(from + quote.length, from + quote.length + 32),
         body, ...intent ? { intent } : {},
         ...pdf ? { pdf: { page: 1, rects: [{ x: 0.408, y: 0.552, width: 0.322, height: 0.0125 }], text: quote } } : {},
-        authorId: "me", authorName: "Leo", resolved: false, replies: [], createdAt: at, updatedAt: at,
+        authorId: "me", authorName: author, resolved: false, replies: [], createdAt: at, updatedAt: at,
       }];
     });
     if (extra) annotations.push(...extra(main, numberBase + annotations.length));

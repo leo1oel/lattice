@@ -1,0 +1,112 @@
+name: Web demo
+
+# The website's interactive demo (tools/web-demo, built by scripts/web-demo.mjs):
+# the real app over an in-memory backend holding the tutorial, as a static
+# folder with relative paths.
+#
+# - A pull request that changes the demo's own inputs builds it, runs the
+#   build's checks (no private font, no bench or tldraw code, the startup
+#   size), smoke-tests it in Chrome and uploads it as an artifact.
+# - After the Release workflow succeeds, the demo is built from that release's
+#   commit, so it always matches the version people download, and published
+#   to the website's gh-pages branch under demo/ (https://leo1oel.github.io/lattice/demo/).
+#   Only demo/ is written: the site's own files belong to the website. A
+#   release whose demo fails to build or check publishes nothing, and the
+#   previous demo stays up.
+# - Run by hand (workflow_dispatch) it builds and checks the chosen ref and
+#   uploads it as an artifact; only a release publishes.
+#
+# The demo runs all of src/, but a pull request that changes only the app
+# does not build it here; the release-time build is the check that catches
+# an app change that breaks the demo, before anything is published.
+on:
+  pull_request:
+    paths:
+      - "tools/web-demo/**"
+      - "tools/mock-backend/**"
+      - "src/web-demo/**"
+      - "scripts/web-demo.mjs"
+      - "scripts/web-demo-content.mjs"
+      - "scripts/check-font-leaks.mjs"
+      - "scripts/private-fonts.ts"
+      - "src/canvas/canvas-lazy-modules.ts"
+      - "src/canvas/canvas-prewarm.ts"
+      - "src/app/app-lazy-panels.tsx"
+      - "vite.config.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/web-demo.yml"
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # After a release, the release's own commit.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: ./.github/actions/setup-pnpm
+      - run: node scripts/web-demo.mjs --build-only "$RUNNER_TEMP/web-demo"
+      # Like the perf-bench jobs, the smoke check drives the runner's
+      # preinstalled Google Chrome.
+      - run: node scripts/web-demo.mjs --dist "$RUNNER_TEMP/web-demo" --smoke
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-demo
+          path: ${{ runner.temp }}/web-demo
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # One publish at a time; a second waits rather than racing the first's push.
+    concurrency:
+      group: web-demo-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-demo
+          path: ${{ runner.temp }}/web-demo
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: site
+      - name: Replace demo/ on gh-pages
+        env:
+          VERSION: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          cd site
+          # Vite's manifest is for the build's own checks, not the site.
+          rsync -a --delete --exclude .vite "$RUNNER_TEMP/web-demo/" demo/
+          git add --all demo
+          if git diff --cached --quiet; then
+            echo "demo/ is already this build."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --quiet -m "Publish the web demo for $VERSION (${SHA:0:7})"
+          # The website is published to the same branch; take its commits
+          # and try again rather than overwrite them.
+          for attempt in 1 2 3; do
+            git push origin HEAD:gh-pages && exit 0
+            sleep $((attempt * 5))
+            git pull --rebase origin gh-pages
+          done
+          exit 1

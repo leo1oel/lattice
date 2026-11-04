@@ -1,6 +1,6 @@
 # Driving the app
 
-Three ways to see Lattice run, cheapest first. Pick the first one that can show what you need.
+Four ways to see Lattice run, cheapest first. Pick the first one that can show what you need.
 
 - **The mock-backend page**, for UI work, screenshots and QA. `pnpm perf:bench --serve` builds `tools/perf-bench/` (the real frontend over an in-memory backend holding `scripts/perf-fixture.mjs`'s project, or the bundled tutorial sample once the Guided tutorial entry opens it, so the guided tour can be driven there) and prints its URL; add `--dev` for hot reload.
   Start with `pnpm perf:bench --serve --smoke --port 0`: it reports progress on stderr while it builds (about 40 s on a quiet machine, 2 min or more on a busy one; set timeouts from that), opens the page in headless Chrome, and prints the URL only once the editor is up. Otherwise it exits 1 with the page's errors, its failed and unanswered requests, its text and a screenshot. `pnpm perf:bench --smoke` checks once and exits (`--url` checks a page already served). Until the app renders, the page itself shows and logs any load error, and says so if nothing rendered after 20 s.
@@ -12,6 +12,7 @@ Three ways to see Lattice run, cheapest first. Pick the first one that can show 
   For `chrome-devtools-axi`, add `--chrome` and export the `CHROME_DEVTOOLS_AXI_BROWSER_URL` it prints. Without it the bridge launches an installed Google Chrome, and where there is none it fails with `BRIDGE_NOT_READY`.
   Keep scratch files (TMPDIR, caches, copied registries) outside the checkout: the dev server watches every file under it.
   Tree rows live in a shadow root: click them with `page.locator('[data-item-path="…"]')`, which pierces it.
+- **The website's demo**, to see what a visitor gets. `node scripts/web-demo.mjs --serve` builds `tools/web-demo/` (the demo flavor, the tutorial over the same in-memory backend, its PDF compiled ahead of time) with every check the release applies and prints its URL; `--smoke` proves it opens in headless Chrome, and `--dist DIR` serves a folder `--build-only DIR` made. It takes `lang=en|zh-CN` and `theme=light|dark`, and shows a narrow-screen page below 900 px. After changing the tutorial, run `node scripts/web-demo-content.mjs` (needs TeX Live and poppler) and commit what it writes; `scripts/web-demo-content.test.ts` fails until you do.
 - **The browser-hosted real app**, when the Rust backend matters (builds, Overleaf, the file system). `node scripts/perf-lab.mjs host <task>` serves a lab build (below) with its fixture open; drive the printed URL with `playwright-core`.
 - **The real-window lab**, for frame rates, input latency and memory in the real WKWebView window. `scripts/perf-lab.mjs` builds Lattice with the `perf-lab` Cargo feature, runs scenarios from `src/platform/perf-lab-harness.ts` through native input, and compares medians of two builds (`--as` stages a second one, such as `main` for a baseline). A typical session:
 

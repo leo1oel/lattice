@@ -493,12 +493,12 @@ function answer(command: string, args: Args): unknown {
     case "initial_project":
       // `?tutorial=1` starts in the tutorial project, as after its Guided tutorial entry.
       return params.has("welcome") ? null : params.has("tutorial") ? openTutorial() : snapshot();
-    case "open_project":
-      if (String(args?.path ?? "").startsWith(MOVED_PROJECT_ROOT)) throw new Error("No such file or directory (os error 2)");
-      return snapshot();
     case "refresh_project":
-    case "list_project_tree_with_hidden":
+    case "open_project":
+      if (String(args?.path).startsWith(MOVED_PROJECT_ROOT)) throw new Error("No such file or directory (os error 2)");
       return snapshot();
+    case "list_project_tree_with_hidden":
+      return current.tree();
     case "open_tutorial_project":
       return openTutorial();
     case "build_project":
