@@ -1308,7 +1308,7 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 .canvas-actions button.active { background: var(--control-active-soft); color: var(--control-active); }
 /* A button with notes waiting widens to say how many beside its icon, in
    its own ink: the count never sits over the icon (canvas-toolbar.tsx). */
-.canvas-actions button.toolbar-count-button { width: auto; min-width: var(--control-size-icon); display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding-inline: 6px 7px; }
+.canvas-actions button.toolbar-count-button { width: auto; min-width: var(--control-size-icon); display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-inline-tight); padding-inline: var(--space-3); }
 .toolbar-count { font: var(--type-body-compact-weight) var(--type-body-compact-size)/1 var(--ui-font); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .overleaf-toolbar-group { display: flex; align-items: center; flex: none; }
 .canvas-actions .overleaf-toolbar-group .overleaf-toolbar-primary { border-radius: var(--radius-icon) 0 0 var(--radius-icon); }

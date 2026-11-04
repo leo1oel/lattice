@@ -56,7 +56,6 @@ type CanvasToolbarProps = {
  * reads 99+; the panel it opens has the exact count.
  */
 function ToolbarCount({ count }: { count: number }) {
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- a numeral cap, not prose
   return <span className="toolbar-count">{count > 99 ? "99+" : count}</span>;
 }
 

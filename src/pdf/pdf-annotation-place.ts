@@ -13,11 +13,12 @@
 import type { EditorComment, PdfRect } from "../editor/comments/editor-comment-data";
 import { anchoredQuads, type PageText } from "./review-pdf";
 
-/** Which side of its column a pin stands: the left margin, or the right one of a page's right-hand column. */
-export type PinSide = "start" | "end";
-
-/** A mark on its page, in fractions of the page: one band per line, and the pin's column edge and first line. */
-export type PdfMarkPlace = { rects: PdfRect[]; pin: { x: number; y: number; side: PinSide } };
+/**
+ * A mark on its page, in fractions of the page: one band per line, and the
+ * pin's column edge and first line, and which side of its column it stands:
+ * the left margin, or the right one of a page's right-hand column.
+ */
+export type PdfMarkPlace = { rects: PdfRect[]; pin: { x: number; y: number; side: "start" | "end" } };
 
 /** How far a band reaches below the glyph box (baseline − 0.22 em), as a fraction of the font size: its rule clears the descenders. */
 const RULE_CLEARANCE = 0.1;
