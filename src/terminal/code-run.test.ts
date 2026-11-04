@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -58,13 +58,13 @@ it("passes filename and argument metacharacters literally through a real POSIX s
   const root = mkdtempSync(join(tmpdir(), "lattice-code-run-"));
   try {
     const file = "analysis '; touch injected.py";
-    writeFileSync(join(root, file), "import json, sys\nopen('arguments.json','w').write(json.dumps(sys.argv[1:]))\n");
+    writeFileSync(join(root, file), "import json, sys\nprint(json.dumps(sys.argv[1:]))\n");
     const argument = "$(touch escaped); 'quoted'";
     const command = codeRunCommand(file, { program: "python3", programArgs: [], scriptArgs: [argument] });
     const result = spawnSync("/bin/sh", ["-c", command.slice(0, -1)], { cwd: root, encoding: "utf8" });
     expect(result.status, result.stderr).toBe(0);
-    expect(JSON.parse(readFileSync(join(root, "arguments.json"), "utf8"))).toEqual([argument]);
-    expect(() => readFileSync(join(root, "escaped"))).toThrow();
+    expect(JSON.parse(result.stdout)).toEqual([argument]);
+    expect(existsSync(join(root, "escaped"))).toBe(false);
     expect(() => codeRunCommand("../escape.py", { program: "python3", programArgs: [], scriptArgs: [] })).toThrow();
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

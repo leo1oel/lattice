@@ -21,19 +21,20 @@ function argumentsList(value: string): string[] {
   return parsed;
 }
 
+async function executeCodeRun(controller: TrellisController, state: State, dispatch: (action: Action) => void, onClose: () => void) {
+  dispatch({ type: "running" });
+  try {
+    const config: CodeRunConfig = { program: state.program, programArgs: argumentsList(state.programArgs), scriptArgs: argumentsList(state.scriptArgs) };
+    followProject(controller);
+    if (!(await runProjectCode(controller, terminals, config))) throw new Error();
+    onClose();
+  } catch { dispatch({ type: "failed" }); }
+}
+
 export function CodeRunDialog({ controller, onClose }: { controller: TrellisController; onClose: () => void }) {
   const { t } = useLingui();
   const path = useTrellisApp(controller, (state) => state.activeKey);
   const [state, dispatch] = useReducer(reducer, { program: defaultCodeProgram(path), programArgs: "[]", scriptArgs: "[]", busy: false, error: false });
-  const run = async () => {
-    dispatch({ type: "running" });
-    try {
-      const config: CodeRunConfig = { program: state.program, programArgs: argumentsList(state.programArgs), scriptArgs: argumentsList(state.scriptArgs) };
-      followProject(controller);
-      if (!(await runProjectCode(controller, terminals, config))) throw new Error();
-      onClose();
-    } catch { dispatch({ type: "failed" }); }
-  };
   return (
     <SheetDialog className="project-replace code-run-dialog" label={t`Run current file`} dirty={state.busy} onClose={() => { if (!state.busy) onClose(); }}>
         <PanelHeader className="drawer-header" title={t`Run current file`} onClose={() => { if (!state.busy) onClose(); }} />
@@ -45,7 +46,7 @@ export function CodeRunDialog({ controller, onClose }: { controller: TrellisCont
         {state.error && <InlineMessage level="error">{t`Could not run this file. Use a program name or absolute interpreter path and JSON arrays of strings. Check that the file saved successfully.`}</InlineMessage>}
         <div className="dialog-actions">
           <Button variant="ghost" disabled={state.busy} onClick={onClose}>{t`Cancel`}</Button>
-          <Button variant="primary" disabled={!path || !state.program.trim() || state.busy} onClick={() => void run()}>{t`Save and run`}</Button>
+          <Button variant="primary" disabled={!path || !state.program.trim() || state.busy} onClick={() => void executeCodeRun(controller, state, dispatch, onClose)}>{t`Save and run`}</Button>
         </div>
     </SheetDialog>
   );
