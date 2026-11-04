@@ -23,7 +23,7 @@ async function templateTask(work: () => Promise<void>, failed: (reason: unknown)
   try { await work(); } catch (reason) { failed(reason); } finally { finished(); }
 }
 
-const templateLabel = (item: LocalTemplate) => [item.name, item.version].filter(Boolean).join(" · ");
+const templateLabel = (item: LocalTemplate) => [item.name, item.version].filter(Boolean).join(" ");
 
 export function LocalTemplates({ selected, onSelect, currentProject = false }: {
   selected: ProjectVenue; onSelect: (value: ProjectVenue) => void; currentProject?: boolean;
@@ -51,7 +51,7 @@ export function LocalTemplates({ selected, onSelect, currentProject = false }: {
         <SelectTrigger aria-label={t`My templates`} title={active && templateLabel(active)}><SelectValue placeholder={t`Choose a saved template`} /></SelectTrigger>
         <SelectContent position="popper" className="local-template-options">{items.map((item) => <SelectItem key={item.id} value={item.id}>{templateLabel(item)}</SelectItem>)}</SelectContent>
       </Select>}
-      {active && <small className="template-details">{[active.version, active.sourceUrl, active.root, active.engine].filter(Boolean).join(" · ")}</small>}
+      {active && <small className="template-details">{[active.version, active.sourceUrl, active.root, active.engine].filter(Boolean).join(", ")}</small>}
       {active && <details><summary>{t`Files`}</summary><ul className="template-saved-files">{active.files.map((file) => <li key={file}>{file}</li>)}</ul></details>}
       {error && <p className="field-error" role="alert">{error}</p>}
       {editing && <SaveTemplateDialog currentProject={currentProject} onClose={() => setEditing(false)} onSaved={(item) => {

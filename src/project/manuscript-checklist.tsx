@@ -94,7 +94,7 @@ function BudgetRow(props: {
         ? (
           <small>
             {props.meter ? <b>{props.meter.distance}</b> : null}
-            {props.meter && props.detail ? " · " : null}
+            {props.meter && props.detail ? ", " : null}
             {props.detail}
           </small>
         )
@@ -139,7 +139,7 @@ export function ManuscriptChecklistPanel(props: {
     ? null
     : wordLimit === 1 ? t`Limit 1 word` : spaceMixedScript(t({ message: `Limit ${{ wordLimit: formatCount(wordLimit) }} words` }));
   const pageLimitNote = pageLimit == null ? null : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`;
-  const notes = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || undefined;
+  const notes = (...parts: (string | null)[]) => parts.filter(Boolean).join(", ") || undefined;
   const wordDetail = words == null
     ? notes(t`Needs a root document to count from`, wordLimitNote)
     : wordsEstimated
@@ -148,11 +148,11 @@ export function ManuscriptChecklistPanel(props: {
   const pageDetail = totalPages == null
     ? notes(pageLimitNote)
     : body.kind === "unread"
-      ? notes(t`${totalPages} total · included files not read`, pageLimitNote)
+      ? notes(t`${totalPages} total, included files not read`, pageLimitNote)
       : body.kind === "unresolved"
-        ? notes(t`${totalPages} total · end of the body not located in the PDF`, pageLimitNote)
+        ? notes(t`${totalPages} total, end of the body not located in the PDF`, pageLimitNote)
         : body.kind === "resolved" && body.mainPages !== totalPages
-          ? t({ message: `${{ totalPages }} total · body ends on p.${{ mainPages: body.mainPages }}` })
+          ? t({ message: `${{ totalPages }} total, body ends on p.${{ mainPages: body.mainPages }}` })
           : undefined;
   const wordDistance = (count: number, limit: number) => {
     const gap = Math.abs(limit - count);

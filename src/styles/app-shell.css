@@ -245,7 +245,7 @@ input[type="search"]:focus-visible {
 /* The count reads first and names its scope in the quieter ink after a dot;
    the scope is the first thing to go. */
 .editor-status-bar .status-body-words { margin-left: var(--space-2); gap: var(--space-2); }
-.editor-status-bar .status-body-words .status-word-scope::after { content: "·"; margin-left: var(--space-2); }
+.editor-status-bar .status-body-words .status-word-scope::after { content: "\00a0"; margin-left: var(--space-2); }
 .editor-status-bar .status-body-words .status-word-count { color: var(--text-primary); }
 .editor-status-bar .status-more { display: none; width: 22px; padding: 0; justify-content: center; }
 .editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
@@ -260,9 +260,9 @@ input[type="search"]:focus-visible {
 .editor-status-bar .status-vim-compact { display: none; }
 /* The save slot after the caret: tertiary ink while all is well, the
    secondary ink and a warning-tinted icon offline, danger only for a write
-   that failed. The age trails the label after a dot. */
+   that failed. The age trails the label after a space. */
 .editor-status-bar .status-save { color: var(--text-tertiary); }
-.editor-status-bar .status-save .status-save-age::before { content: "·"; margin-inline-end: var(--space-2); }
+.editor-status-bar .status-save .status-save-age::before { content: "\00a0"; margin-inline-end: var(--space-2); }
 .editor-status-bar .status-save .status-save-age { margin-inline-start: var(--space-2); }
 .editor-status-bar .status-save[data-mode="offline"] { color: var(--text-secondary); }
 .editor-status-bar .status-save[data-mode="offline"] > svg { color: var(--status-warning); }
@@ -479,7 +479,7 @@ input[type="search"]:focus-visible {
 /* How a record was matched: one quiet line, its parts set off by middle dots;
    the source links to the record without leaving the type's own ink. */
 .bib-citation-evidence { display: inline-flex; flex-wrap: wrap; align-items: center; color: var(--text-secondary); }
-.bib-citation-evidence > span + span::before { content: "·"; padding-inline: var(--space-3); }
+.bib-citation-evidence > span + span::before { content: "\00a0"; padding-inline: var(--space-3); }
 .bib-evidence-source { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; transition: color var(--motion-fast), text-decoration-color var(--motion-fast); }
 .bib-evidence-source:hover { color: var(--text-primary); text-decoration-color: currentColor; }
 /* Records a lookup could not tell apart: one radio list in a raised card, each
@@ -508,7 +508,7 @@ input[type="search"]:focus-visible {
 .bib-typeset > strong { margin-block: var(--space-1); color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); text-wrap: pretty; }
 .bib-typeset-venue { color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-typeset-doi { font-family: var(--ui-font); }
-.bib-typeset-doi[data-joined]::before { content: "·"; padding-inline: var(--space-3); }
+.bib-typeset-doi[data-joined]::before { content: "\00a0"; padding-inline: var(--space-3); }
 /* A line not filled yet names its field in the faint ink. */
 .bib-typeset > [data-unfilled] { color: var(--text-tertiary); }
 /* The lookup is one field and a way past it: the sheet fits it, and grows to the form when that appears. */
@@ -1098,7 +1098,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
    their width, up to what leaves the year in view. */
 .paper-byline > .paper-authors { flex: none; max-width: calc(100% - var(--space-6) - 5ch); }
 .paper-byline > .paper-venue { flex: 0 1 auto; }
-.paper-byline > :is(.paper-year, .paper-venue, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
+.paper-byline > :is(.paper-year, .paper-venue, .paper-source):not(:first-child)::before { content: "\00a0"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-year, .paper-cell-year { font-variant-numeric: tabular-nums; }
 :where(.paper-rows[data-row-below~="260"]) .paper-byline > .paper-venue { display: none; }
 /* A search's matching lines under its paper, best first: each a control
@@ -1173,8 +1173,8 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .paper-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-group-count { flex: none; color: var(--text-secondary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
 /* A wide list (a maximised panel) is a table: a header that stays in view
-   and sorts by any column, then one line per paper, Title · Authors · Year ·
-   Venue · Cited. A notice or a search hit takes a second line under the
+   and sorts by any column, then one line per paper, Title, Authors, Year,
+   Venue, Cited. A notice or a search hit takes a second line under the
    title. A lit row's actions surface over the end of its line. */
 .paper-table-head { display: none; }
 :where(.paper-list[data-table]) .paper-table-head, :where(.paper-list[data-table]) .paper-row { --paper-table-columns: 16px minmax(0, 1fr) minmax(0, min(200px, 22%)) 52px minmax(0, min(170px, 18%)) 52px; }

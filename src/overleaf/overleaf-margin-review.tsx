@@ -442,7 +442,7 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
   const railSummary = [
     commentCount === 1 ? t`1 comment` : commentCount ? t`${formatCount(commentCount, i18n.locale)} comments` : "",
     changeCount === 1 ? t`1 suggestion` : changeCount ? t`${formatCount(changeCount, i18n.locale)} suggestions` : "",
-  ].filter(Boolean).join(" · ");
+  ].filter(Boolean).join(", ");
 
   return (
     <>

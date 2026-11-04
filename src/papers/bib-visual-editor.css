@@ -80,7 +80,7 @@
 .bib-row-venue { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bib-row-authors { flex: none; max-width: 60%; }
 .bib-row-venue { flex: 0 1 auto; font-family: var(--reading-font); font-style: italic; }
-.bib-row-authors + .bib-row-venue::before { content: "·"; margin-inline-end: var(--space-3); font-style: normal; }
+.bib-row-authors + .bib-row-venue::before { content: "\00a0"; margin-inline-end: var(--space-3); font-style: normal; }
 .bib-row > .bib-row-foot { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 .bib-row-key { max-width: min(18ch, 100%); min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: var(--gap-hairline) var(--space-3); border-radius: var(--radius-compact); background: var(--control-hover-surface); color: var(--text-primary); font-family: var(--editor-font); }
 .bib-row-cited { display: inline-flex; align-items: center; gap: var(--space-2); font-variant-numeric: tabular-nums; }
@@ -96,7 +96,7 @@
 .bib-visual-list-viewport[data-narrow] .bib-row { grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: var(--space-3); row-gap: var(--space-2); padding-inline: var(--space-6); }
 .bib-visual-list-viewport[data-narrow] .bib-row::after { inset-inline: var(--space-6); }
 .bib-visual-list-viewport[data-narrow] .bib-row-year { grid-row: 2; justify-self: start; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.bib-visual-list-viewport[data-narrow] .bib-row-year:not(:empty)::after { content: "·"; margin-inline-start: var(--space-3); }
+.bib-visual-list-viewport[data-narrow] .bib-row-year:not(:empty)::after { content: "\00a0"; margin-inline-start: var(--space-3); }
 .bib-visual-list-viewport[data-narrow] .bib-row-title { grid-column: 1 / -1; }
 .bib-visual-list-viewport[data-narrow] .bib-row-year:empty ~ .bib-row-meta { grid-column: 1 / -1; }
 .bib-visual-list-viewport[data-narrow] .bib-row > .bib-row-foot { grid-column: 1 / -1; grid-row: 3; margin-top: var(--space-1); flex-direction: row; align-items: center; gap: var(--space-4); }

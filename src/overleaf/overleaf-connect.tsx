@@ -683,7 +683,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
         </span>
         <span className="overleaf-project-meta">
           {project.ownerName || project.ownerEmail || t`Unknown owner`}
-          {" · "}
+          {", "}
           {project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`}
         </span>
       </button>

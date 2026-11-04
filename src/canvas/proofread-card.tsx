@@ -87,7 +87,7 @@ export function ProofreadCard(props: {
         ...edit,
         status,
         tag: edit.reason?.category ? categories[edit.reason.category] : undefined,
-        detail: status === "applied" ? [note, keepHint].filter(Boolean).join(" · ") : note,
+        detail: status === "applied" ? [note, keepHint].filter(Boolean).join(" ") : note,
       };
     }),
     ...heldRuns(original, ready.review).map((edit): InlineEdit => ({ ...edit, status: "held", tag: heldTags[edit.kind] })),

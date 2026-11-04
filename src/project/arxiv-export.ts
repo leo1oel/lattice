@@ -85,7 +85,7 @@ export function summaryLine(pack: ArxivPackage) {
   const files = count === 1 ? i18n._(msg`1 file`) : i18n._(msg`${count} files`);
   const names = topLevelNames(pack.files.map((file) => file.path));
   const shown = names.slice(0, LISTED_NAMES).join(", ") + (names.length > LISTED_NAMES ? ", …" : "");
-  return `${files} · ${formatSize(pack.totalBytes)} · ${shown}`;
+  return `${files}, ${formatSize(pack.totalBytes)}, ${shown}`;
 }
 
 export function leftOutLine(leftOut: readonly string[]) {
@@ -178,7 +178,7 @@ function compileRow(pack: ArxivPackage): CheckRow {
   const seconds = (compile.durationMs / 1000).toFixed(1);
   const count = compile.pages;
   const pages = count === null ? "" : count === 1 ? i18n._(msg`1 page`) : i18n._(msg`${count} pages`);
-  const built = [engine, pages, i18n._(msg`${seconds} s`)].filter(Boolean).join(" · ");
+  const built = [engine, pages, i18n._(msg`${seconds} s`)].filter(Boolean).join(", ");
   if (engine !== "pdfLaTeX") {
     return { id: "compile", state: "warn", label, detail: i18n._(msg`${built}; arXiv builds with pdfLaTeX`) };
   }

@@ -49,7 +49,7 @@ export function CitationCandidates(props: {
             <span className="bib-candidate-body">
               <strong>{bibTextToPlain(candidate.title)}</strong>
               <span className="bib-candidate-byline">
-                {[authors || t`Authors unavailable`, candidate.year || t`Year unavailable`].join(" · ")}
+                {[authors || t`Authors unavailable`, candidate.year || t`Year unavailable`].join(", ")}
               </span>
               <em>{venue || t`Venue unavailable`}</em>
               <span className="bib-candidate-evidence">

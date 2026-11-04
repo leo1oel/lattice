@@ -150,9 +150,9 @@ describe("build output layout", () => {
   it("says a failed build whose PDF is on screen built, with its errors", () => {
     const { rerender } = render(<CompileDiagnosticsPanel {...props} />);
     const title = () => document.querySelector(".compile-diagnostics-toggle")?.textContent;
-    expect(title()).toBe("Build failed · 1 error · 1 warning");
+    expect(title()).toBe("Build failed: 1 error, 1 warning");
     rerender(<CompileDiagnosticsPanel {...props} wrotePdf />);
-    expect(title()).toBe("Built with 1 error · 1 warning");
+    expect(title()).toBe("Built with 1 error, 1 warning");
     expect(document.querySelector(".compile-diagnostics")).toHaveClass("error");
   });
 

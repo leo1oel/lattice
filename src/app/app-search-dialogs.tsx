@@ -67,7 +67,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
       return {
         id: `label:${reference.path}:${reference.label}`,
         label: reference.label,
-        detail: `${reference.path}:${reference.line}${title !== reference.label ? ` · ${title}` : ""}`,
+        detail: `${reference.path}:${reference.line}${title !== reference.label ? `, ${title}` : ""}`,
         group: t`Label`,
       };
     }),
@@ -88,7 +88,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         ? props.citations.map((citation) => ({
           id: `cite:${citation.key}`,
           label: citation.key,
-          detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(" · "),
+          detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(", "),
           group: t`Citation`,
         }))
         : props.citationKeys.map((key) => ({ id: `cite:${key}`, label: key, group: t`Citation` })),

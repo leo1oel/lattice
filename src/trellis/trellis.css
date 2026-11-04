@@ -442,7 +442,7 @@
 .build-sequence-role { display: flex; gap: var(--space-2); min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .build-sequence-message { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .build-sequence-where { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.build-sequence-where::before { content: "· "; }
+.build-sequence-where::before { content: "\00a0\00a0"; }
 .build-sequence-time { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .build-sequence-steps > li[data-state="running"] .build-sequence-time { color: var(--text-primary); }
 /* The first problem opens in its source, as F8 does. The row is washed in

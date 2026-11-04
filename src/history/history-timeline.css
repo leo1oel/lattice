@@ -301,7 +301,8 @@
 .version-action:hover:not(:disabled) { background: var(--control-hover-surface); }
 .version-action:active:not(:disabled) { background: var(--control-pressed-surface); }
 .version-action:disabled { border-color: var(--control-disabled-border); background: var(--control-disabled-surface); color: var(--control-disabled-ink); }
-.version-mode-note { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* What the version is compared with, then the switch, apart by space. */
+.version-mode-note { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-6); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .version-mode-switch { padding: 0; background: transparent; color: var(--text-primary); font: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; transition: text-decoration-color var(--motion-fast); }
 .version-mode-switch:hover:not(:disabled) { text-decoration-color: currentColor; }
 .version-note { min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }

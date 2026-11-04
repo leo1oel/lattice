@@ -687,8 +687,8 @@ describe("PDFSlick viewer integration", () => {
     link.addEventListener("click", navigate);
     fireEvent.pointerOver(link);
     const title = await view.findByRole("button", { name: citation.title });
-    expect(view.getByText("Smith · Chen")).toBeInTheDocument();
-    expect(view.getByText("Example Journal · 2024")).toBeInTheDocument();
+    expect(view.getByText("Smith, Chen")).toBeInTheDocument();
+    expect(view.getByText("Example Journal, 2024")).toBeInTheDocument();
     fireEvent.pointerOut(link);
     fireEvent.pointerEnter(title.closest(".citation-hover-card")!);
     await new Promise((resolve) => setTimeout(resolve, 220));

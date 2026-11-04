@@ -39,7 +39,7 @@ export function citationCompletions(live: () => LatexEditorLiveData) {
           displayLabel: citation.title || citation.key,
           type: "citation",
           detail: [citation.title ? citation.key : "", citation.authors, citation.year, citation.venue]
-            .filter(Boolean).join(" · ") || undefined,
+            .filter(Boolean).join(", ") || undefined,
         })),
     };
   };

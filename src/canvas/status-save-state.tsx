@@ -40,8 +40,8 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
   const label = failed ? t`Couldn’t save`
     : status.phase === "saving" ? t`Saving…`
       : offline ? t`Saved on this Mac`
-        : overleaf?.state === "live" ? t`Saved · Synced`
-          : overleaf?.state === "syncing" || overleaf?.state === "sending" ? t`Saved · Syncing…`
+        : overleaf?.state === "live" ? t`Saved and synced`
+          : overleaf?.state === "syncing" || overleaf?.state === "sending" ? t`Saved, syncing…`
             : t`Saved`;
   // The age is the disk's, so it stays off a label that already speaks of Overleaf.
   const showAge = !failed && status.phase === "saved" && age !== null && (!overleaf || overleaf.state === "manual" || overleaf.state === "paused");

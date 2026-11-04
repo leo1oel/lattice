@@ -65,13 +65,13 @@ describe("ChatPanel", () => {
     scrollTo(375);
     grow([message(), reply("m2")], 700);
     expect(list.scrollTop).toBe(700);
-    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Jump to new messages/ })).not.toBeInTheDocument();
 
     scrollTo(120);
     grow([message(), reply("m2"), reply("m3")], 800);
     expect(list.scrollTop).toBe(120);
 
-    const jump = screen.getByRole("button", { name: "New messages · Jump to latest" });
+    const jump = screen.getByRole("button", { name: "Jump to new messages" });
     fireEvent.click(jump);
     expect(list.scrollTop).toBe(800);
     expect(list).toHaveFocus();
@@ -83,9 +83,9 @@ describe("ChatPanel", () => {
     // Resetting the conversation clears the unread-history state.
     scrollTo(120);
     grow([message(), reply("m2"), reply("m3"), reply("m4"), reply("m5")], 1_000);
-    expect(screen.getByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Jump to new messages/ })).toBeInTheDocument();
     grow([], 1_000);
-    expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Jump to new messages/ })).not.toBeInTheDocument();
     expect(screen.getByText("No messages yet")).toBeInTheDocument();
   });
 

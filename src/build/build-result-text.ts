@@ -9,7 +9,7 @@ export function diagnosticCountsText(counts: DiagnosticCounts): string {
     errors ? errors === 1 ? i18n._(msg`${errors} error`) : i18n._(msg`${errors} errors`) : "",
     warnings ? warnings === 1 ? i18n._(msg`${warnings} warning`) : i18n._(msg`${warnings} warnings`) : "",
     notes ? notes === 1 ? i18n._(msg`${notes} note`) : i18n._(msg`${notes} notes`) : "",
-  ].filter(Boolean).join(" · ");
+  ].filter(Boolean).join(", ");
 }
 
 /**
@@ -24,5 +24,5 @@ export function buildHeadline(succeeded: boolean, counts: DiagnosticCounts, wrot
   if (succeeded) return issues ? i18n._(msg`Built with ${issues}`) : i18n._(msg`Built`);
   // Its own message: zh-CN's success sentence says the build succeeded.
   if (wrotePdf && counts.error > 0) return i18n._(msg({ message: `Built with ${issues}`, context: "a failed build whose PDF was still written" }));
-  return issues ? i18n._(msg`Build failed · ${issues}`) : i18n._(msg`Build failed`);
+  return issues ? i18n._(msg`Build failed: ${issues}`) : i18n._(msg`Build failed`);
 }

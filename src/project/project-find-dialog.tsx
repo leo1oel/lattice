@@ -143,7 +143,7 @@ export function ProjectFindDialog(props: {
     ? countHits(fileHits.length)
     : scope === "paper"
       ? countPapers(paperCount)
-      : paperCount ? `${countHits(fileHits.length)} · ${countPapers(paperCount)}` : countHits(fileHits.length);
+      : paperCount ? `${countHits(fileHits.length)}, ${countPapers(paperCount)}` : countHits(fileHits.length);
 
   const close = () => {
     setDebouncing(false);

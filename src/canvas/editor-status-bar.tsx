@@ -230,12 +230,12 @@ function useWordCountLabels(props: WordCountSource) {
     // The ≈ marks an estimate; only a missing count needs a note.
     manuscriptNote: projectWordCount ? null : t`Needs a root document to count from`,
     manuscriptBreakdown: projectWordCount && !estimated
-      ? spaceMixedScript(t({ message: `Text ${{ text: formatCount(projectWordCount.text) }} · headings ${{ headers: formatCount(projectWordCount.headers) }} · captions ${{ captions: formatCount(projectWordCount.captions) }}` }))
+      ? spaceMixedScript(t({ message: `Text ${{ text: formatCount(projectWordCount.text) }}, headings ${{ headers: formatCount(projectWordCount.headers) }}, captions ${{ captions: formatCount(projectWordCount.captions) }}` }))
       : null,
     file: words(fileWords),
     fileNote: characters(source.length),
     selection: selectedText ? words(selection.words) : null,
-    selectionNote: `${characters(selection.chars)} · ${lines(selection.lines)}`,
+    selectionNote: `${characters(selection.chars)}, ${lines(selection.lines)}`,
   };
 }
 

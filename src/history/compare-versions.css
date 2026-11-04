@@ -47,7 +47,7 @@
 
 .compare-file { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); min-width: 0; }
 .compare-counts { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4) var(--space-6); min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
-.compare-summary { min-width: 0; overflow-wrap: anywhere; }
+.compare-summary { min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-6); overflow-wrap: anywhere; }
 .compare-words { display: inline-flex; align-items: baseline; gap: var(--space-3); margin-inline-start: var(--space-4); white-space: nowrap; }
 .compare-plus { color: var(--status-success); font-weight: var(--weight-semibold); }
 .compare-minus { color: var(--status-danger); font-weight: var(--weight-semibold); }

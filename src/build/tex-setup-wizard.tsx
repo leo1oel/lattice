@@ -100,7 +100,7 @@ export function TexSetupWizard(props: {
     >
       {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
       {/* The download's size is the one fact the dialog adds to its title. */}
-      {paperToolsOnly ? t`Install paper tools` : t`Install Basic TeX · ${TEX_INSTALL_SIZE_HINT}`}
+      {paperToolsOnly ? t`Install paper tools` : t`Install Basic TeX (${TEX_INSTALL_SIZE_HINT})`}
     </MotionButton>
   );
 

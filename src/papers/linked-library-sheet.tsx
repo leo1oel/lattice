@@ -232,7 +232,7 @@ export function LinkedLibrarySheet(props: {
               <strong title={source}>{fileName(source)}</strong>
               <span title={source}>
                 <ArrowRight size={11} aria-hidden="true" className="linked-library-into" />
-                {updated ? `${target} · ${updated}` : target}
+                {updated ? `${target}, ${updated}` : target}
               </span>
             </span>
             <span className="linked-library-source-actions">
@@ -303,7 +303,6 @@ export function LinkedLibrarySheet(props: {
                           {/* Only a locked row says why; the others tick to remove. */}
                           {locked && (
                             <>
-                              <span aria-hidden="true">·</span>
                               <span className="linked-library-note">{t`Cited in the paper, so it stays`}</span>
                             </>
                           )}

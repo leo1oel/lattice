@@ -138,7 +138,7 @@ export function OverleafReviewDialog(props: {
   const changeSummary = total === 1 ? t`${total} file would change` : t`${total} files would change`;
   const conflictSummary = conflicts === 1 ? t`${conflicts} needs your decision` : t`${conflicts} need your decision`;
   const summary = conflicts
-    ? t`${changeSummary} · ${conflictSummary}`
+    ? t`${changeSummary}, ${conflictSummary}`
     : changeSummary;
 
   const apply = async () => {

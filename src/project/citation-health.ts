@@ -32,14 +32,14 @@ export function citationHealthParts(health: CitationHealth | undefined): { kind:
       source ? i18n._(source) : health.source,
       health.date,
       health.stale ? i18n._(msg`cached`) : null,
-    ].filter(Boolean).join(" · "),
+    ].filter(Boolean).join(", "),
   };
 }
 
 /** The row's visible warning as one line, or null when there is none. */
 export function citationHealthLabel(health: CitationHealth | undefined): string | null {
   const parts = citationHealthParts(health);
-  return parts && [parts.kind, parts.detail].filter(Boolean).join(" · ");
+  return parts && [parts.kind, parts.detail].filter(Boolean).join(": ");
 }
 
 /** The full explanation, including the "nothing found" and "unavailable" outcomes. */

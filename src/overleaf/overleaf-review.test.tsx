@@ -41,7 +41,7 @@ describe("OverleafReviewDialog", () => {
 
     render(dialog("/project"));
 
-    expect(await screen.findByText(/4 files would change · 1 needs your decision/)).toBeInTheDocument();
+    expect(await screen.findByText(/4 files would change, 1 needs your decision/)).toBeInTheDocument();
     const renderedPaths = screen.getAllByTestId("code-view-item")
       .map((item) => item.getAttribute("data-path"));
     expect(renderedPaths).toEqual(["conflict.tex", "incoming.tex", "notes.txt"]);

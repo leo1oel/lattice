@@ -103,7 +103,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   const totalMs = elapsed ?? (outcome?.status === "succeeded" ? outcome.seconds * 1000
     : last ? last.startedMs + lasted(last) : null);
   const pages = !building && outcome?.pages ? outcome.pages === 1 ? t`1 page` : spaceMixedScript(t`${formatCount(outcome.pages)} pages`) : null;
-  const facts = [pages, totalMs === null ? null : seconds(totalMs)].filter(Boolean).join(" · ");
+  const facts = [pages, totalMs === null ? null : seconds(totalMs)].filter(Boolean).join(", ");
 
   /** What a pass did, beside its program's name. */
   const role = ({ tool, run, draft }: BuildStep): string | null => {

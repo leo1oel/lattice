@@ -213,7 +213,7 @@ export function AddPapersSheet(props: {
         counts.choose === 1 ? t`1 waits for your choice` : counts.choose ? t`${counts.choose} wait for your choice` : "",
         failed === 1 ? t`1 not found` : failed ? t`${failed} not found` : "",
         resolving ? t`Looking up ${resolving}…` : "",
-      ].filter(Boolean).join(" · ");
+      ].filter(Boolean).join(", ");
 
   const stateOf = (row: Row) => {
     const item = progress.get(row.reference.id);

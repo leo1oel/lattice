@@ -231,7 +231,7 @@ export function AnnotationRoundsDialog(props: {
       accepted ? t`${accepted} accepted` : null,
       rejected ? t`${rejected} rejected` : null,
       open ? t`${open} open` : null,
-    ].filter(Boolean).join(" · ");
+    ].filter(Boolean).join(", ");
   };
 
   const restore = async () => {
@@ -286,7 +286,7 @@ export function AnnotationRoundsDialog(props: {
                       ? when(settled[0]?.startedAt)
                       : [when(version.round!.settledAt), Object.keys(version.round!.outcomes).length === 1
                         ? t`1 annotation`
-                        : t`${Object.keys(version.round!.outcomes).length} annotations`].join(" · ")}
+                        : t`${Object.keys(version.round!.outcomes).length} annotations`].join(", ")}
                   </span>
                 )}
               {version.kind === "round" && <span className="annotation-version-tag">{outcome(version.round!)}</span>}

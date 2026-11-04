@@ -102,7 +102,7 @@ describe("tex setup wizard helpers", () => {
     }));
     const { onClose, onRecheck } = renderWizard(report(check("latexmk", false)), vi.fn(async () => report(...READY)));
 
-    fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX · 1 GB" }));
+    fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX (1 GB)" }));
     expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", { mode: "full", onProgress: expect.anything() });
     expect(document.querySelector(".tex-setup-install-loader")).not.toBeNull();
     expect(onClose).not.toHaveBeenCalled();
@@ -127,10 +127,10 @@ describe("tex setup wizard helpers", () => {
       check("conference-fonts", false, "Missing uhvr8a.pfb — Permission denied"),
     )));
 
-    fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX · 1 GB" }));
+    fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX (1 GB)" }));
 
     expect(await screen.findByText(/Missing tools: latexmk/)).toBeInTheDocument();
     expect(screen.getByText(/Missing uhvr8a\.pfb — Permission denied/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Install Basic TeX · 1 GB" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Install Basic TeX (1 GB)" })).toBeEnabled();
   });
 });

@@ -255,7 +255,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .proofread-card-summary-text,
 .proofread-card-model { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.proofread-card-model::before { content: "·"; margin-inline-end: var(--gap-inline-tight); }
+.proofread-card-model::before { content: "\00a0"; margin-inline-end: var(--gap-inline-tight); }
 /* A rewrite's own instruction, where the strength switch would be. */
 .proofread-card-instruction { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-weight: var(--weight-medium); }
 /* The selection read in place (components/ui/inline-edits.tsx). */
@@ -1131,7 +1131,7 @@ body.resizing-split::after { content: ""; position: fixed; inset: 0; z-index: va
 .paper-identity-title { flex: 0 1 auto; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); animation: paper-identity-in var(--motion-moderate); }
 .paper-identity-authors { flex: none; max-width: 30%; color: var(--text-secondary); }
 .paper-identity-source { flex: none; min-width: 5em; max-width: 40%; }
-.paper-identity > * + *::before { content: "·"; margin-inline: var(--space-3); color: var(--text-tertiary); }
+.paper-identity > * + *::before { content: "\00a0"; margin-inline: var(--space-3); color: var(--text-tertiary); }
 /* The source opens the original, so it reads as text until pointed at. */
 button.paper-identity-source { height: auto; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; display: inline-flex; align-items: baseline; font: inherit; cursor: pointer; transition: color var(--motion-fast); }
 .paper-identity-source > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

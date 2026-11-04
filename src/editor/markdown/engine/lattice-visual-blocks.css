@@ -208,7 +208,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.lx-md-editor .lx-md-code-title::before { content: "·"; margin-right: var(--space-3); color: var(--lx-md-chrome-text); }
+.lx-md-editor .lx-md-code-title::before { content: "\00a0"; margin-right: var(--space-3); color: var(--lx-md-chrome-text); }
 .lx-md-editor .lx-md-code-actions { display: inline-flex; gap: var(--gap-hairline); margin-left: auto; opacity: 0; transition: opacity var(--motion-fast); }
 .lx-md-editor .lx-md-code:is(:hover, :focus-within, .is-selected) .lx-md-code-actions,
 .lx-md-editor .lx-md-code-actions:has([data-state="open"]) { opacity: 1; }

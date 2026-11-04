@@ -71,7 +71,7 @@ export type ReferenceRecord = {
 };
 
 export function bylineOf(parts: Array<string | null | undefined>): string {
-  return parts.map((part) => part?.trim()).filter(Boolean).join(" · ");
+  return parts.map((part) => part?.trim()).filter(Boolean).join(", ");
 }
 
 /** One reference the writer pasted: the text as given, and what it is. */

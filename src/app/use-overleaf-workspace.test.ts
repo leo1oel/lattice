@@ -365,7 +365,7 @@ describe("projectOverleafEditorComments", () => {
       { id: "overleaf:main", path: "main.tex", from: 7, to: 17, quote: "main quote" },
       { id: "overleaf:other", path: "chapters/other.tex", from: 44, to: 56, quote: "edited quote" },
     ]);
-    expect(comments[0]).toMatchObject({ body: "Body main", authorId: "ada@example.com", authorName: "Ada · Overleaf", resolved: false });
+    expect(comments[0]).toMatchObject({ body: "Body main", authorId: "ada@example.com", authorName: "Ada (Overleaf)", resolved: false });
   });
 
   it("keeps project anchors when no live document is joined", () => {

@@ -306,7 +306,7 @@ function CustomAccentNote(props: { accent: `#${string}`; theme: Theme }) {
         <i style={{ background: props.accent }} />
         {adjusted && <><span>→</span><i style={{ background: applied }} /></>}
       </span>
-      <span>{t`Custom · ${props.accent.toUpperCase()}`}</span>
+      <span>{t`Custom ${props.accent.toUpperCase()}`}</span>
     </span>
   );
 }

@@ -184,7 +184,7 @@ describe("LaTeX editor extensions", () => {
       const option = view.dom.querySelector(".cm-citation-option");
       expect(option?.querySelector(".cm-completionLabel")?.textContent).toBe(title || "work2026");
       expect(option?.querySelector(".cm-completionDetail")?.textContent).toBe(
-        title ? "work2026 · Alice Lee · 2026 · CHI" : "Alice Lee · 2026 · CHI",
+        title ? "work2026, Alice Lee, 2026, CHI" : "Alice Lee, 2026, CHI",
       );
     });
     press(view, "Enter");

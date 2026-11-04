@@ -228,7 +228,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
     const { name } = entry;
     const label = preset && entry.id === current ? t`Return to ${name}` : name;
     const shortcut = workspaceShortcut(index);
-    return spaceMixedScript(shortcut ? `${label} · ${shortcut}` : label);
+    return spaceMixedScript(shortcut ? `${label} (${shortcut})` : label);
   };
 
   const workspaceTabs = workspaces.map((entry, index) => {

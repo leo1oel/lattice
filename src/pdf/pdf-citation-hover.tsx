@@ -97,7 +97,7 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
 
   if (!target || !citations.includes(target.citation)) return null;
   const citation = target.citation;
-  const publication = [citation.venue, citation.year].filter(Boolean).join(" · ");
+  const publication = [citation.venue, citation.year].filter(Boolean).join(", ");
   // It arrives and leaves as every hover card does (`.popup-motion`).
   return <LeavesOnClose surface={cardRef}>{createPortal(<div
     ref={cardRef}
@@ -117,7 +117,7 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
         onOpenCitation(citation.key);
       }}>{citation.title || citation.key}</button>
       : <strong className="citation-card-title">{citation.title || citation.key}</strong>}
-    {citation.authors && <span className="citation-card-authors">{citation.authors.replace(/ and /g, " · ")}</span>}
+    {citation.authors && <span className="citation-card-authors">{citation.authors.replace(/ and /g, ", ")}</span>}
     {publication && <em className="citation-card-venue">{publication}</em>}
   </div>, document.body)}</LeavesOnClose>;
 }
