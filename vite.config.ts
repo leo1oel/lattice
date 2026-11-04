@@ -306,6 +306,8 @@ export default defineConfig(() => ({
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   build: {
+    // macOS 14's Safari 17 minimum already supports modulepreload.
+    modulePreload: { polyfill: false },
     rolldownOptions: {
       // One entry, on purpose: scripts/app-size-report.mjs expects the app's
       // chunks only.

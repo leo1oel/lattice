@@ -2724,6 +2724,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/platform/headless-project-picker.ts
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
@@ -3821,6 +3822,10 @@ msgstr "缺少会议字体检查"
 msgid "Conference fonts"
 msgstr "会议字体"
 
+#: src/build/server-tool-setup.tsx
+msgid "Configure tools on the server"
+msgstr "配置服务器上的工具"
+
 #: src/project/submission-items.tsx
 msgid "Confirm “{title}”"
 msgstr "确认“{title}”"
@@ -3844,6 +3849,14 @@ msgstr "冲突"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "全等"
+
+#: src/platform/headless-login.ts
+msgid "Connect"
+msgstr "连接"
+
+#: src/platform/headless-login.ts
+msgid "Connect to Lattice server"
+msgstr "连接 Lattice 服务器"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connect to Overleaf"
@@ -3875,6 +3888,10 @@ msgstr "连接"
 msgid "Connection failed"
 msgstr "连接失败"
 
+#: src/platform/headless-login.ts
+msgid "Connection failed. Check the server access token and try again."
+msgstr "连接失败。请检查服务器访问令牌后重试。"
+
 #: src/canvas/proofread-card.tsx
 msgid "consistency"
 msgstr "一致"
@@ -3896,6 +3913,10 @@ msgstr "包含元素"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Continue"
 msgstr "继续"
+
+#: src/build/server-tool-setup.tsx
+msgid "Continue editing"
+msgstr "继续编辑"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -4023,6 +4044,10 @@ msgstr "更正/更新"
 #: src/platform/host-errors-project.ts
 msgid "Could not allocate a temporary project file."
 msgstr "无法创建项目临时文件"
+
+#: src/platform/headless-login.ts
+msgid "Could not authenticate with this server."
+msgstr "无法通过此服务器的身份验证。"
 
 #: src/app/project-index-load.ts
 msgid "Could not be read: {failed}"
@@ -4193,6 +4218,10 @@ msgstr "无法读取 {path}：{error}"
 #: src/platform/host-errors-papers.ts
 msgid "Could not read the arXiv title lookup: {error}"
 msgstr "无法读取 arXiv 标题检索结果：{error}"
+
+#: src/platform/browser-host-assets.ts
+msgid "Could not read this asset from the server."
+msgstr "无法从服务器读取此资源。"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
@@ -7002,6 +7031,10 @@ msgstr "安装所需工具"
 msgid "Install required tools · 45 MB"
 msgstr "安装所需工具 · 45 MB"
 
+#: src/build/server-tool-setup.tsx
+msgid "Install the missing tools in the server's service environment, then recheck. You can continue editing while compilation is unavailable."
+msgstr "请在服务器的服务环境中安装缺少的工具，然后重新检查。暂时无法编译时仍可继续编辑。"
+
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
 msgstr "正在安装 LaTeX…"
@@ -8419,7 +8452,9 @@ msgstr "缺少工具"
 msgid "Missing style file `{file}`. It is part of the {venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."
 msgstr "缺少样式文件 `{file}`。它属于 {venue} 模板，应与 main.tex 位于同一目录——TeX Live 无法安装它。请通过同步或从该项目的其他副本中复制回来。"
 
+#. placeholder {0}: missing.join(", ")
 #. placeholder {0}: missingTools.join(", ")
+#: src/build/server-tool-setup.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Missing tools: {0}"
 msgstr "缺少工具：{0}"
@@ -9698,6 +9733,10 @@ msgstr "浏览器看 PDF"
 #: src/app/use-command-table.ts
 msgid "Open project history"
 msgstr "项目历史"
+
+#: src/platform/headless-project-picker.ts
+msgid "Open server project"
+msgstr "打开服务器项目"
 
 #: src/app/use-command-table.ts
 msgid "Open settings"
@@ -11086,6 +11125,10 @@ msgstr "最近用过的指令"
 #: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "最近项目"
+
+#: src/build/server-tool-setup.tsx
+msgid "Recheck server tools"
+msgstr "重新检查服务器工具"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
@@ -12657,6 +12700,14 @@ msgstr "会发送给 Crossref"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Separator"
 msgstr "分隔线"
+
+#: src/platform/headless-login.ts
+msgid "Server access token"
+msgstr "服务器访问令牌"
+
+#: src/build/server-tool-setup.tsx
+msgid "Server tools"
+msgstr "服务器工具"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -14423,6 +14474,10 @@ msgstr "是否使用连续逗号属于出版风格，不同会议和作者的选
 #: src/platform/host-errors-papers.ts
 msgid "The server returned HTTP {status} for the PDF."
 msgstr "服务器返回了 HTTP {status}，没有拿到 PDF"
+
+#: src/build/server-tool-setup.tsx
+msgid "The server's TeX installation also needs the conference fonts."
+msgstr "服务器的 TeX 环境还需要安装会议字体。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."

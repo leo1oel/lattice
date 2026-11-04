@@ -2724,6 +2724,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
+#: src/platform/headless-project-picker.ts
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
@@ -3821,6 +3822,10 @@ msgstr "Conference font verification is missing."
 msgid "Conference fonts"
 msgstr "Conference fonts"
 
+#: src/build/server-tool-setup.tsx
+msgid "Configure tools on the server"
+msgstr "Configure tools on the server"
+
 #: src/project/submission-items.tsx
 msgid "Confirm “{title}”"
 msgstr "Confirm “{title}”"
@@ -3844,6 +3849,14 @@ msgstr "Conflicts"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "Congruent"
+
+#: src/platform/headless-login.ts
+msgid "Connect"
+msgstr "Connect"
+
+#: src/platform/headless-login.ts
+msgid "Connect to Lattice server"
+msgstr "Connect to Lattice server"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connect to Overleaf"
@@ -3875,6 +3888,10 @@ msgstr "Connection"
 msgid "Connection failed"
 msgstr "Connection failed"
 
+#: src/platform/headless-login.ts
+msgid "Connection failed. Check the server access token and try again."
+msgstr "Connection failed. Check the server access token and try again."
+
 #: src/canvas/proofread-card.tsx
 msgid "consistency"
 msgstr "consistency"
@@ -3896,6 +3913,10 @@ msgstr "Contains as member"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Continue"
 msgstr "Continue"
+
+#: src/build/server-tool-setup.tsx
+msgid "Continue editing"
+msgstr "Continue editing"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -4023,6 +4044,10 @@ msgstr "Correction/update"
 #: src/platform/host-errors-project.ts
 msgid "Could not allocate a temporary project file."
 msgstr "Could not allocate a temporary project file."
+
+#: src/platform/headless-login.ts
+msgid "Could not authenticate with this server."
+msgstr "Could not authenticate with this server."
 
 #: src/app/project-index-load.ts
 msgid "Could not be read: {failed}"
@@ -4193,6 +4218,10 @@ msgstr "Could not read {path}: {error}"
 #: src/platform/host-errors-papers.ts
 msgid "Could not read the arXiv title lookup: {error}"
 msgstr "Could not read the arXiv title lookup: {error}"
+
+#: src/platform/browser-host-assets.ts
+msgid "Could not read this asset from the server."
+msgstr "Could not read this asset from the server."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
@@ -7002,6 +7031,10 @@ msgstr "Install required tools"
 msgid "Install required tools · 45 MB"
 msgstr "Install required tools · 45 MB"
 
+#: src/build/server-tool-setup.tsx
+msgid "Install the missing tools in the server's service environment, then recheck. You can continue editing while compilation is unavailable."
+msgstr "Install the missing tools in the server's service environment, then recheck. You can continue editing while compilation is unavailable."
+
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
 msgstr "Installing BasicTeX…"
@@ -8419,7 +8452,9 @@ msgstr "Missing required tools"
 msgid "Missing style file `{file}`. It is part of the {venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."
 msgstr "Missing style file `{file}`. It is part of the {venue} template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."
 
+#. placeholder {0}: missing.join(", ")
 #. placeholder {0}: missingTools.join(", ")
+#: src/build/server-tool-setup.tsx
 #: src/build/tex-setup-wizard.tsx
 msgid "Missing tools: {0}"
 msgstr "Missing tools: {0}"
@@ -9698,6 +9733,10 @@ msgstr "Open PDF in browser"
 #: src/app/use-command-table.ts
 msgid "Open project history"
 msgstr "Open project history"
+
+#: src/platform/headless-project-picker.ts
+msgid "Open server project"
+msgstr "Open server project"
 
 #: src/app/use-command-table.ts
 msgid "Open settings"
@@ -11086,6 +11125,10 @@ msgstr "Recent instructions"
 #: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "Recent projects"
+
+#: src/build/server-tool-setup.tsx
+msgid "Recheck server tools"
+msgstr "Recheck server tools"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
@@ -12657,6 +12700,14 @@ msgstr "Sent to Crossref"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Separator"
 msgstr "Separator"
+
+#: src/platform/headless-login.ts
+msgid "Server access token"
+msgstr "Server access token"
+
+#: src/build/server-tool-setup.tsx
+msgid "Server tools"
+msgstr "Server tools"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -14423,6 +14474,10 @@ msgstr "The serial comma is a house-style choice that venues and authors set dif
 #: src/platform/host-errors-papers.ts
 msgid "The server returned HTTP {status} for the PDF."
 msgstr "The server returned HTTP {status} for the PDF."
+
+#: src/build/server-tool-setup.tsx
+msgid "The server's TeX installation also needs the conference fonts."
+msgstr "The server's TeX installation also needs the conference fonts."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."

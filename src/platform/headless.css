@@ -1,0 +1,8 @@
+.headless-login { min-height:100dvh; display:flex; flex-direction:column; justify-content:center; gap:var(--space-8); max-width:30rem; margin:auto; padding:var(--space-16); color:var(--text-primary); }
+.headless-login label { display:grid; gap:var(--space-4); }
+.headless-login input,.headless-login button,.headless-project-picker button { min-height:44px; padding:var(--space-5) var(--space-8); border:1px solid var(--border-subtle); border-radius:var(--radius-control); background:var(--surface-app); color:var(--text-primary); font:inherit; }
+.headless-project-picker { max-width:min(90vw,40rem); max-height:85dvh; overflow:auto; background:var(--surface-app); color:var(--text-primary); padding:var(--space-12); border:1px solid var(--border-subtle); border-radius:var(--radius-dialog); }
+.headless-project-picker>div { display:grid; gap:var(--space-4); margin:var(--space-8) 0; }
+.headless-project-picker::backdrop { background:rgb(0 0 0 / .5); }
+
+.headless-login input { font-size:var(--type-title-size); }

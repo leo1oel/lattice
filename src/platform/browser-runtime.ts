@@ -5,11 +5,7 @@ export { encodeBridgeValue, decodeBridgeValue } from "./browser-bridge-value";
 import { APPEARANCE_KEY, loadThemePreference, systemTheme } from "../settings/app-settings";
 import { BROWSER_ENTRY_PORT } from "./flavor";
 
-/* eslint-disable lingui/no-unlocalized-strings -- bridge protocol keys shared with Tauri and the native host */
-/* eslint-enable lingui/no-unlocalized-strings */
-
 type Callback = (payload: unknown) => void;
-
 
 type BrowserMessage =
   | { type: "ready"; label: string }
@@ -578,7 +574,7 @@ function mirrorLocalStorage(relay: BrowserRelay): void {
 // Window commands the page answers itself. Anything else goes to the native host.
 /* eslint-disable lingui/no-unlocalized-strings -- Tauri command names */
 const ignored = () => undefined;
-const LOCAL_COMMANDS = new Map<string, (payload: { value?: unknown }) => unknown>([
+export const LOCAL_COMMANDS = new Map<string, (payload: { value?: unknown }) => unknown>([
   // A browser tab has no window material, so the page stays opaque.
   ["set_window_material", () => "unsupported"],
   ["plugin:window|set_min_size", ignored],
@@ -702,12 +698,16 @@ function isLoopbackPage(): boolean {
 }
 
 const runtimeWindow = window as unknown as RuntimeWindow;
-if (!runtimeWindow.__TAURI_INTERNALS__ && isLoopbackPage()) {
+if (!runtimeWindow.__TAURI_INTERNALS__ && !isHeadlessHosted() && isLoopbackPage()) {
   runtimeReady = initializeBrowserRuntime();
 }
 
 export function isBrowserHosted(): boolean {
-  return browserRuntime;
+  return browserRuntime || isHeadlessHosted();
+}
+
+export function isHeadlessHosted(): boolean {
+  return (window as Window & { __LATTICE_HEADLESS__?: boolean }).__LATTICE_HEADLESS__ === true;
 }
 
 /**
@@ -722,17 +722,10 @@ export async function readBrowserHostAsset(range: {
   start: number;
   end: number;
 }): Promise<ArrayBuffer> {
-  if (!browserSession) throw new Error(runtimeMessage("app-disconnected"));
-  const endpoint = new URL(`http://127.0.0.1:${browserSession.bridgePort}/__lattice_asset`);
-  for (const [name, value] of Object.entries(range)) endpoint.searchParams.set(name, String(value));
-  const response = await fetch(endpoint, {
-    cache: "no-store",
-    headers: { "x-lattice-session": browserSession.token },
-  });
-  if (!response.ok) {
-    throw new Error(await response.text() || runtimeMessage("entry-status", { status: String(response.status) }));
-  }
-  return response.arrayBuffer();
+  return import("./browser-host-assets").then(({ readAsset }) => readAsset(
+    range, browserSession, isHeadlessHosted(),
+    (status) => status === undefined ? runtimeMessage("app-disconnected") : runtimeMessage("entry-status", { status: String(status) }),
+  ));
 }
 
 export function browserRuntimeError(): string | null {

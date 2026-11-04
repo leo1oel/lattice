@@ -1,4 +1,4 @@
-import { applyStoredTheme, browserRuntimeError, browserRuntimeReady } from "./platform/browser-runtime";
+import { applyStoredTheme, browserRuntimeError, browserRuntimeReady, isHeadlessHosted } from "./platform/browser-runtime";
 // The visual editor's image view (engine/views/image-view.tsx) zooms with
 // react-medium-image-zoom, whose structural stylesheet is imported once at the
 // app root. Without it, the native dialog expands as an unstyled white page,
@@ -29,6 +29,8 @@ import { installEditHistoryMenu } from "./app/edit-history";
 import { installPointerFocus } from "./components/ui/pointer-focus";
 
 async function startApp() {
+  await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
+  if (isHeadlessHosted()) await import("./platform/headless-runtime").then(({ initializeHeadlessRuntime }) => initializeHeadlessRuntime());
   await browserRuntimeReady();
   installGlobalErrorCapture();
   installPointerFocus();
@@ -50,7 +52,6 @@ async function startApp() {
       .catch(() => null)
     : null;
 
-  await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
   installNativeLocaleSync();
   installEditHistoryMenu();

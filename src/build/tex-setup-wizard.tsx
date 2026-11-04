@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import {
@@ -18,6 +18,9 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { buttonClassName } from "../components/ui/button-styles";
 import { logAction } from "../telemetry/app-notify";
 import { toMessage } from "../app-utils";
+import { isHeadlessHosted } from "../platform/browser-runtime";
+
+const ServerToolSetup = lazy(() => import("./server-tool-setup"));
 
 /** Notification source label for the LaTeX install wizard. */
 const TEX_SETUP_SOURCE = "LaTeX setup";
@@ -47,6 +50,7 @@ export function TexSetupWizard(props: {
   }, [checking, installing, onClose, open, ready]);
 
   if (!props.open) return null;
+  if (isHeadlessHosted()) return <Suspense fallback={null}><ServerToolSetup {...props} /></Suspense>;
 
   const busy = props.checking || installing;
 
