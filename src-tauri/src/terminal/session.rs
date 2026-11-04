@@ -57,6 +57,7 @@ pub(crate) struct Session {
     root: PathBuf,
     shell: u32,
     name: String,
+    program: bool,
     master: Arc<OwnedFd>,
     input: mpsc::SyncSender<Vec<u8>>,
     stop: Arc<AtomicBool>,
@@ -85,9 +86,36 @@ impl Session {
         shell: &Path, window: String, root: PathBuf, cols: u16, rows: u16,
         output: impl Into<Output>,
     ) -> Result<Self, String> {
-        let output = output.into();
-        let Shell { master, mut child, name } = pty::spawn_shell(shell, &root, cols, rows)
+        let shell = pty::spawn_shell(shell, &root, cols, rows)
             .map_err(|error| format!("Could not start a shell: {error}"))?;
+        Self::attach(shell, window, root, output, false)
+    }
+
+    pub(crate) fn spawn_program(
+        program: &str, args: &[String], window: String, root: PathBuf, cols: u16, rows: u16,
+        output: impl Into<Output>,
+    ) -> Result<Self, String> {
+        if program.trim().is_empty()
+            || program.contains('\0')
+            || args.len() > 4096
+            || args.iter().any(|arg| arg.contains('\0'))
+            || program.len() + args.iter().map(String::len).sum::<usize>() > 256 * 1024
+        {
+            return Err(
+                "Choose a program and arguments without NUL bytes, at most 256 KiB in total."
+                    .into(),
+            );
+        }
+        let shell = pty::spawn_program(program, args, &root, cols, rows)
+            .map_err(|error| format!("Could not start the program: {error}"))?;
+        Self::attach(shell, window, root, output, true)
+    }
+
+    fn attach(
+        shell: Shell, window: String, root: PathBuf, output: impl Into<Output>, program: bool,
+    ) -> Result<Self, String> {
+        let output = output.into();
+        let Shell { master, mut child, name } = shell;
         let shell = child.id();
         let master = Arc::new(master);
         let writer = master
@@ -116,7 +144,7 @@ impl Session {
             std::thread::spawn(move || forward_output(&master, &output, &stop, &unread, &exit));
         }
         log::info!(target: "lattice::terminal", "Started {name} (pid {shell}) in {}", root.display());
-        Ok(Self { window, root, shell, name, master, input, stop, unread, exit })
+        Ok(Self { window, root, shell, name, program, master, input, stop, unread, exit })
     }
 
     pub(crate) fn window(&self) -> &str {
@@ -159,6 +187,14 @@ impl Session {
     pub(crate) fn running_command(&self) -> Option<String> {
         if self.exit.wait(Duration::ZERO).is_some() {
             return None;
+        }
+        if self.program {
+            return Some(
+                i32::try_from(self.shell)
+                    .ok()
+                    .and_then(pty::process_name)
+                    .unwrap_or_else(|| self.name.clone()),
+            );
         }
         pty::foreground_job(&self.master, self.shell)
             .map(|group| pty::process_name(group).unwrap_or_default())

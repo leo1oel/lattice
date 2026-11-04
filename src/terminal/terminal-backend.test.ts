@@ -35,6 +35,12 @@ it("keeps native terminal startup free of remote reconnect listeners", async () 
   await tauriTerminalBackend.open({ projectRoot: "/project", cols: 80, rows: 24, onOutput: vi.fn(), onExit: vi.fn() });
   expect(listen).not.toHaveBeenCalled();
 });
+it("starts a program with literal argv through the dedicated native/server command", async () => {
+  const program = { executable: "python3", args: ["./analysis.py", "$(literal)"] };
+  await tauriTerminalBackend.open({ projectRoot: "/project", program, cols: 80, rows: 24, onOutput: vi.fn(), onExit: vi.fn() });
+  expect(invoke).toHaveBeenCalledWith("terminal_run", expect.objectContaining({ projectRoot: "/project", program: "python3", args: program.args }));
+  expect(invoke).not.toHaveBeenCalledWith("terminal_write", expect.anything());
+});
 it("passes real ordered Channel output and exit values, then removes the reconnect listener", async () => {
   runtime.__LATTICE_HEADLESS_TERMINAL__ = true;
   const unlisten = vi.fn();
