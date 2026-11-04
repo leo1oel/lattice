@@ -1,6 +1,6 @@
 # Driving the app
 
-Three ways to see Lattice run, cheapest first. Pick the first one that can show what you need.
+Four ways to see Lattice run, cheapest first. Pick the first one that can show what you need.
 
 - **The mock-backend page**, for UI work, screenshots and QA. `pnpm perf:bench --serve` builds `tools/perf-bench/` (the real frontend over an in-memory backend holding `scripts/perf-fixture.mjs`'s project, or the bundled tutorial sample once the Guided tutorial entry opens it, so the guided tour can be driven there) and prints its URL; add `--dev` for hot reload.
   Start with `pnpm perf:bench --serve --smoke --port 0`: it reports progress on stderr while it builds (about 40 s on a quiet machine, 2 min or more on a busy one; set timeouts from that), opens the page in headless Chrome, and prints the URL only once the editor is up. Otherwise it exits 1 with the page's errors, its failed and unanswered requests, its text and a screenshot. `pnpm perf:bench --smoke` checks once and exits (`--url` checks a page already served). Until the app renders, the page itself shows and logs any load error, and says so if nothing rendered after 20 s.
