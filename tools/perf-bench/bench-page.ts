@@ -2,25 +2,31 @@
  * The performance benchmark's page: the real app, answered by an in-memory
  * backend that holds the deterministic fixture project (scripts/perf-fixture.mjs).
  *
- * Installing `__TAURI_INTERNALS__` before the app loads makes
- * src/platform/browser-runtime.ts stand aside, exactly as it does inside the
- * Tauri webview, so every `invoke` lands in `answer` below. Commands the
- * benchmark does not model resolve to `null`; `window.__latticeBench.unhandled`
- * lists them, which is where to look when a new startup command appears.
+ * tools/mock-backend stands in for Tauri (as it does for the website's demo,
+ * tools/web-demo) and holds the project, builds, text tasks and notes that
+ * both pages share; this page stages them with query parameters and adds
+ * what only the benchmark and screenshots need. Commands neither models
+ * resolve to `null`; `window.__latticeBench.unhandled` lists them, which is
+ * where to look when a new startup command appears.
  *
  * The counters (React commits, DOM mutations, long tasks) are not here: the
  * driver injects them before any page script runs, so the same probe also
  * measures the real app. See scripts/perf-bench.mjs.
  */
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
+import { annotationsAnswer, type MockAnnotation } from "../mock-backend/annotations";
+import { BUILD_STEPS, PREAMBLE_BUILD_STEPS, runningBuild, stageTypo, typoFailure, withError } from "../mock-backend/build";
+import { MOCK_MTIME, MockProject, copyBuffer, filesUnder, termMatcher } from "../mock-backend/project";
+import { installTauriInternals, NOT_HANDLED, windowAnswer, type Args } from "../mock-backend/tauri-internals";
+import { textTasks } from "../mock-backend/text-tasks";
 import { arxivAnswer } from "./bench-arxiv";
 import { paintStandInDesktop } from "./bench-glass";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { bibliographyAnswer } from "./bench-bibliography";
 import { addNestedTree } from "./bench-nested-tree";
-import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
+import { overleafAnswer } from "./bench-overleaf";
 import { terminalAnswer } from "./bench-terminal";
-import type { FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
+import type { ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
 import {
@@ -29,9 +35,6 @@ import {
 import {
   THEME_TINTS, normalizeAccent, type ThemeTint, type Translucency,
 } from "../../src/settings/theme-customization";
-
-type Callback = (payload: unknown) => void;
-type Args = Record<string, unknown> | undefined;
 
 const ROOT = "/bench/lattice-perf-fixture";
 
@@ -147,51 +150,29 @@ const tutorialBinary = import.meta.glob<string>(
   ["../../src-tauri/templates/tutorial/**/*.png", "../../src-tauri/templates/tutorial/**/*.pdf"],
   { query: "?url", import: "default", eager: true },
 );
-const current = { root: ROOT, id: "lattice-perf-fixture", name: "Lattice perf fixture", files: fixture.files };
+const current = new MockProject({ root: ROOT, id: "lattice-perf-fixture", name: "Lattice perf fixture", files: fixture.files });
 // `?arxiv=long` names the project at length, for the export sheet's width checks.
 if (params.get("arxiv") === "long") current.name = "Understanding Attention in Transformer Language Models: A Long Study";
 
 /**
- * `?build=typo`: main.tex mistypes \citep as \cietp, the build fails on it
+ * `?build=typo`: main.tex mistypes \\citep as \\cietp, the build fails on it
  * and also warns (an unresolved citation, an overfull line), so the
- * explained build error can be looked at. The tutorial's first \citep is the
- * one mistyped; the fixture, which cites nothing, gets a paragraph that does.
+ * explained build error can be looked at (mock-backend/build.ts).
  */
-function stageTypo(files: Map<string, string | Uint8Array>) {
-  const main = files.get("main.tex");
-  if (params.get("build") !== "typo" || typeof main !== "string" || main.includes("\\cietp")) return;
-  files.set("main.tex", main.includes("\\citep{")
-    ? main.replace("\\citep{", "\\cietp{")
-    : main.replace("\\end{document}", "Attention follows \\citep{bahdanau2015} and \\citep{vaswani2017}; see \\cietp{luong2015effective}.\n\\end{document}"));
-}
-stageTypo(current.files);
+const typo = params.get("build") === "typo";
+if (typo) stageTypo(current.files);
 
 async function openTutorial(): Promise<ProjectSnapshot> {
   if (current.root !== TUTORIAL_ROOT) {
-    const relative = (path: string) => path.slice(path.indexOf("/tutorial/") + "/tutorial/".length);
-    const tutorialFiles = new Map<string, string | Uint8Array>(
-      Object.entries(tutorialText).map(([path, text]) => [relative(path), text]),
-    );
-    for (const [path, url] of Object.entries(tutorialBinary)) {
-      tutorialFiles.set(relative(path), new Uint8Array(await (await fetch(url)).arrayBuffer()));
+    const tutorialFiles = new Map<string, string | Uint8Array>(filesUnder("tutorial", tutorialText));
+    for (const [path, url] of filesUnder("tutorial", tutorialBinary)) {
+      tutorialFiles.set(path, new Uint8Array(await (await fetch(url)).arrayBuffer()));
     }
-    stageTypo(tutorialFiles);
-    Object.assign(current, { root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files: tutorialFiles });
+    if (typo) stageTypo(tutorialFiles);
+    current.replace({ root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files: tutorialFiles });
   }
   return snapshot();
 }
-
-function kindOf(path: string): string {
-  const extension = path.split(".").pop()?.toLowerCase() ?? "";
-  if (extension === "tex") return "tex";
-  if (extension === "md") return "markdown";
-  if (extension === "bib") return "bib";
-  if (extension === "pdf" || extension === "png") return "figure";
-  return "text";
-}
-
-/** Folders created in the page; any other folder exists through the files in it. */
-const folders = new Set<string>();
 
 /**
  * Import files…, as far as a page without a Mac can take it. The open panel
@@ -210,8 +191,7 @@ async function importEntries(args: Args) {
   const target = String(args?.targetDirectory ?? "").replace(/\/+$/, "");
   const conflict = args?.conflict as "keepBoth" | "replace" | "skip" | undefined;
   const join = (name: string) => (target ? `${target}/${name}` : name);
-  const taken = (path: string) => current.files.has(path) || folders.has(path)
-    || [...current.files.keys()].some((file) => file.startsWith(`${path}/`));
+  const taken = (path: string) => current.taken(path);
   const names = (args?.paths as string[] ?? []).map((path) => path.split("/").pop() ?? path);
   if (!conflict) {
     const conflicts = names.filter((name) => taken(join(name)));
@@ -239,70 +219,9 @@ async function importEntries(args: Args) {
   }
   for (let step = 1; importDelay && step <= 10; step += 1) {
     await new Promise((resolve) => setTimeout(resolve, importDelay / 10));
-    emit("project-import-progress", { written: step, total: 10 });
+    tauri.emit("project-import-progress", { written: step, total: 10 });
   }
   return { conflicts: [], files, entries, skipped };
-}
-
-/** Create and rename in the tree, so new, long and deeply nested names can be looked at. */
-function createEntry(args: Args): string {
-  const path = pathArg(args);
-  if (current.files.has(path) || folders.has(path)) throw new Error(`${path} already exists.`);
-  if (args?.kind === "folder") folders.add(path);
-  else current.files.set(path, "");
-  return path;
-}
-
-function renameEntry(args: Args): string {
-  const path = pathArg(args);
-  const name = String(args?.newName ?? "");
-  const slash = path.lastIndexOf("/");
-  const next = slash < 0 ? name : `${path.slice(0, slash)}/${name}`;
-  const moved = (key: string) => (key === path ? next : key.startsWith(`${path}/`) ? next + key.slice(path.length) : key);
-  for (const [key, content] of [...current.files]) {
-    if (moved(key) === key) continue;
-    current.files.delete(key);
-    current.files.set(moved(key), content);
-  }
-  for (const key of [...folders]) {
-    folders.delete(key);
-    folders.add(moved(key));
-  }
-  return next;
-}
-
-function fileTree(): FileNode[] {
-  const root: FileNode = { name: "", path: "", kind: "directory", contentKind: "directory", children: [] };
-  const directories = new Map<string, FileNode>([["", root]]);
-  const directory = (path: string): FileNode => {
-    const existing = directories.get(path);
-    if (existing) return existing;
-    const slash = path.lastIndexOf("/");
-    const node: FileNode = {
-      name: path.slice(slash + 1), path, kind: "directory", contentKind: "directory", children: [],
-    };
-    directory(slash < 0 ? "" : path.slice(0, slash)).children.push(node);
-    directories.set(path, node);
-    return node;
-  };
-  for (const path of folders) directory(path);
-  for (const [path, content] of current.files) {
-    const slash = path.lastIndexOf("/");
-    directory(slash < 0 ? "" : path.slice(0, slash)).children.push({
-      name: path.slice(slash + 1),
-      path,
-      kind: kindOf(path),
-      contentKind: typeof content === "string" ? "text" : "binary",
-      size: content.length,
-      children: [],
-    });
-  }
-  const sort = (nodes: FileNode[]) => {
-    nodes.sort((a, b) => Number(b.kind === "directory") - Number(a.kind === "directory") || a.path.localeCompare(b.path));
-    nodes.forEach((node) => sort(node.children));
-  };
-  sort(root.children);
-  return root.children;
 }
 
 /**
@@ -325,11 +244,10 @@ let benchDeadline: ProjectDeadline | null = (() => {
  * owner, source and title, and one to do. The checklist edits them through
  * `set_submission_items`, which stamps a confirmed file the way the backend does.
  */
-const BENCH_MTIME = 1_700_000_000_000;
 let benchItems: SubmissionItem[] = params.get("submissionItems") === "1"
   ? [
-    { id: "i1", title: "Reference PDF matches the camera-ready", status: "confirmed", file: "reference.pdf", confirmedMtimeMs: BENCH_MTIME },
-    { id: "i2", title: "Main source signed off by every author", status: "confirmed", file: "main.tex", owner: "All authors", confirmedMtimeMs: BENCH_MTIME - 60_000 },
+    { id: "i1", title: "Reference PDF matches the camera-ready", status: "confirmed", file: "reference.pdf", confirmedMtimeMs: MOCK_MTIME },
+    { id: "i2", title: "Main source signed off by every author", status: "confirmed", file: "main.tex", owner: "All authors", confirmedMtimeMs: MOCK_MTIME - 60_000 },
     { id: "i3", title: "supplementary.pdf checked", status: "review", file: "supplementary/supplementary-material-final.pdf", owner: "Grace" },
     {
       id: "i4",
@@ -343,32 +261,15 @@ let benchItems: SubmissionItem[] = params.get("submissionItems") === "1"
   ]
   : [];
 
-function snapshot(): ProjectSnapshot {
-  return {
-    root: current.root,
-    manifest: {
-      schemaVersion: 1,
-      projectId: current.id,
-      name: current.name,
-      rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
-      primaryBibliography: "references.bib",
-      trusted: true,
-      venue: "neurips",
-      deadline: benchDeadline,
-      submissionItems: benchItems,
-    },
-    files: fileTree(),
-  };
-}
-
-function copyBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.slice().buffer;
-}
-
-function pathArg(args: Args): string {
-  const path = args?.path;
-  if (typeof path !== "string") throw new Error("missing path");
-  return path.startsWith(`${current.root}/`) ? path.slice(current.root.length + 1) : path;
+function snapshot() {
+  return current.snapshot({
+    rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
+    primaryBibliography: "references.bib",
+    trusted: true,
+    venue: "neurips",
+    deadline: benchDeadline,
+    submissionItems: benchItems,
+  });
 }
 
 /** A library Paper with both a full text and a blog, so its panel carries the Blog / Paper switch. */
@@ -467,53 +368,25 @@ const counts = new Map<string, number>();
  * `?build=typo` fails it on a mistyped command (stageTypo), for looking at
  * the other results. `?build=preamble` first makes the preamble format, as a
  * build after a preamble edit does (src-tauri/src/latex/preamble_format.rs).
+ * `?build=running` never finishes (mock-backend/build.ts).
  */
-/** The passes a build of the fixture runs, as latexmk announces them: pdflatex, bibtex, pdflatex again. */
-const BUILD_STEPS = [
-  { tool: "pdflatex", run: 1, draft: false, startedMs: 0, durationMs: 612 },
-  { tool: "bibtex", run: 1, draft: false, startedMs: 612, durationMs: 96 },
-  { tool: "pdflatex", run: 2, draft: false, startedMs: 708, durationMs: 431 },
-];
-const PREAMBLE_BUILD_STEPS = [
-  { tool: "pdflatex -ini", run: 1, draft: false, startedMs: 0, durationMs: 251 },
-  { tool: "pdflatex", run: 1, draft: false, startedMs: 251, durationMs: 402 },
-  { tool: "bibtex", run: 1, draft: false, startedMs: 653, durationMs: 96 },
-  { tool: "pdflatex", run: 2, draft: false, startedMs: 749, durationMs: 288 },
-];
-
-/**
- * `?build=running`: a build that never finishes, reporting its passes as
- * latexmk would (the backend's `build-progress`), so the Build button's live
- * sequence can be looked at. It stays in its second pdflatex pass.
- */
-function runningBuild(args: Args): Promise<never> {
-  const report = (elapsedMs: number, count: number) => window.setTimeout(() => emit("build-progress", {
-    projectRoot: current.root,
-    progressId: args?.progressId ?? null,
-    elapsedMs,
-    steps: BUILD_STEPS.slice(0, count).map((step, index) => index === count - 1 ? { ...step, durationMs: null } : step),
-  }), elapsedMs);
-  BUILD_STEPS.forEach((step, index) => report(step.startedMs, index + 1));
-  return new Promise<never>(() => {});
-}
-
 function buildResult() {
   const outcome = params.get("build");
   const warnings = [
     { level: "warning", message: "There were undefined references.", file: "main.tex", line: 4 },
     { level: "warning", message: "Overfull \\hbox (4.2pt too wide) in paragraph", file: "chapters/ch01.tex", line: 12 },
   ];
-  const typo = outcome === "typo" ? typoBuild() : null;
-  const failed = outcome === "failed" || typo !== null;
+  const typoError = outcome === "typo" ? typoFailure(current.text("main.tex")) : null;
+  const failed = outcome === "failed" || typoError !== null;
   return {
     success: !failed,
     hasPdf: true,
-    log: outcome === "failed" ? failedBuildLog(["./main.tex:6: Undefined control sequence.", "l.6 \\include{chapters/ch02}", "                         "])
-      : typo ? failedBuildLog(typo.log) : fixture.buildLog,
+    log: outcome === "failed" ? withError(fixture.buildLog, ["./main.tex:6: Undefined control sequence.", "l.6 \\include{chapters/ch02}", "                         "])
+      : typoError ? withError(fixture.buildLog, typoError.log) : fixture.buildLog,
     durationMs: 1_234,
     diagnostics: outcome === "clean" ? []
       : outcome === "failed" ? [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 6 }]
-        : typo ? typo.diagnostics : warnings,
+        : typoError ? typoError.diagnostics : warnings,
     rootDocument: "main.tex",
     // The failed build stops in its first pass.
     steps: failed ? [{ ...BUILD_STEPS[0], durationMs: 388 }] : outcome === "preamble" ? PREAMBLE_BUILD_STEPS : BUILD_STEPS,
@@ -522,50 +395,14 @@ function buildResult() {
   };
 }
 
-/** What TeX reports for stageTypo's \\cietp, at the line it is on now: fixed, the build succeeds again. */
-function typoBuild() {
-  const lines = String(current.files.get("main.tex") ?? "").split("\n");
-  const index = lines.findIndex((text) => text.includes("\\cietp"));
-  if (index < 0) return null;
-  const line = index + 1;
-  const text = lines[index]!;
-  const end = text.indexOf("\\cietp") + "\\cietp".length;
-  return {
-    log: [`./main.tex:${line}: Undefined control sequence.`, `l.${line} ${text.slice(0, end)}`, `${" ".repeat(end + 4)}${text.slice(end)}`],
-    diagnostics: [
-      { level: "error", message: "Undefined control sequence.", file: "main.tex", line },
-      { level: "warning", message: "Citation `luong2015effective' on page 1 undefined on input line " + line + "." },
-      { level: "warning", message: "Overfull \\hbox (6.1pt too wide) in paragraph at lines 38--41", file: "main.tex", line: 38 },
-    ],
-  };
-}
-
-/** The fixture's log with TeX's error two thirds of the way down, where a real one stops the run. */
-function failedBuildLog(error: string[]) {
-  const lines = fixture.buildLog.split("\n");
-  const at = Math.floor(lines.length * 2 / 3);
-  lines.splice(at, 0, ...error);
-  return lines.join("\n");
-}
-
 /**
  * Project search over the fixture: paths and lines holding every term, then each listed
  * Paper whose title does, shaped like the backend's hits (files first, papers
  * under `.research/papers/<key>/`), so Find in project can be looked at.
  */
 function searchProject(query: string) {
-  const terms = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  const matches = (text: string) => terms.length > 0 && terms.every((term) => text.toLocaleLowerCase().includes(term));
-  const hits: Array<Record<string, unknown>> = [];
-  for (const [path, content] of current.files) {
-    if (typeof content !== "string") continue;
-    if (matches(path)) hits.push({ kind: "file", path, title: path.slice(path.lastIndexOf("/") + 1), snippet: path, line: 1, fileKind: path.split(".").pop() });
-    content.split("\n").forEach((text, index) => {
-      if (hits.length < 40 && matches(text)) {
-        hits.push({ kind: "file", path, title: path.slice(path.lastIndexOf("/") + 1), snippet: text.trim().slice(0, 180), line: index + 1, fileKind: path.split(".").pop() });
-      }
-    });
-  }
+  const matches = termMatcher(query);
+  const hits = current.search(query, matches);
   const papers = libraryPapers ? LIBRARY_PAPERS : params.has("papers") ? BENCH_PAPERS : [];
   for (const paper of papers) {
     if (!paper.hasFullText || !matches(paper.title)) continue;
@@ -576,41 +413,13 @@ function searchProject(query: string) {
 }
 
 /**
- * The agent's read-only text task (proofreading), answered after a short
- * pause with a few fixed spelling and agreement fixes, so the inline
- * proofread card can be looked at without a provider. A Polish prompt also
- * gets a few wordiness fixes. `?proofread=failed` fails the task,
- * `?proofread=unavailable` answers like a runtime that predates the route,
- * `?proofread=unsafe` also changes the first inline math and citation key
- * (which the card must hold back), and `?proofreadModel=<name>` reports that
- * model with the answer. Each fix also answers with its reason, as the
- * prompt asks: a category and, for some, a note in the asked language.
+ * The agent's text tasks (mock-backend/text-tasks.ts). `?proofread=failed`
+ * fails the task, `?proofread=unavailable` answers like a runtime that
+ * predates the route, `?proofread=unsafe` also changes the first inline math
+ * and citation key (which the card must hold back), and
+ * `?proofreadModel=<name>` reports that model with the answer.
  */
-type Fix = [pattern: RegExp, replacement: string, category?: string, note?: string, noteZh?: string];
-const PROOFREAD_FIXES: Fix[] = [
-  [/\bteh\b/g, "the", "spelling"],
-  [/\bwich\b/g, "which", "spelling"],
-  [/\bbeleive\b/g, "believe", "spelling"],
-  [/\brecieves?\b/g, "receives", "spelling"],
-  [/\boccured\b/g, "occurred", "spelling"],
-  [/\bseperate\b/g, "separate", "spelling"],
-  [/\bachieve state of the art\b/g, "achieves state-of-the-art", "grammar", "Agreement, and a hyphenated modifier", "主谓一致，复合修饰语加连字符"],
-  [/\ba ([aeiou])/g, "an $1", "grammar", "“an” before a vowel sound", "元音前用 an"],
-  [/ {2,}/g, " "],
-  [/ ,/g, ",", "punctuation", "No space before a comma", "逗号前不空格"],
-];
-const POLISH_FIXES: Fix[] = [
-  [/\bIn this paper,? we show that\b/g, "This paper shows that", "concision"],
-  [/\bin order to\b/g, "to", "concision", "Shorter, same meaning", "更简短，意思不变"],
-  [/\bdue to the fact that\b/g, "because", "concision"],
-  [/\bvery important\b/g, "essential", "word choice", "Stronger than an intensifier", "比加强副词更有力"],
-  [/\ba lot of\b/g, "many", "word choice", "Less colloquial", "更书面"],
-];
-const UNSAFE_FIXES: Fix[] = [
-  [/\$([^$]+)\$/, "$\\hat{$1}$", "consistency"],
-  [/\\cite\{([^}]+)\}/, "\\cite{$1-2024}", "consistency"],
-];
-const proofreadTasks = new Map<string, { text: string; ready: number }>();
+const textTask = textTasks({ mode: () => params.get("proofread"), model: () => params.get("proofreadModel") });
 
 // --- Annotations ----------------------------------------------------------
 // `.research/annotations.json` kept in memory. On the tutorial, `?annotations=1`
@@ -618,39 +427,9 @@ const proofreadTasks = new Map<string, { text: string; ready: number }>();
 // in review (proposals, an accepted one and a question) after a settled first
 // round, and `?annotations=rounds` two settled rounds to compare.
 
-type BenchAnnotation = Record<string, unknown> & { id: string; quote: string; revision?: Record<string, unknown> };
-let annotationsState: { annotations: BenchAnnotation[]; rounds: Array<Record<string, unknown>> } | null = null;
-const roundFiles = new Map<number, Array<{ path: string; before: string | null; after: string | null }>>();
-
-/** The seeded notes: quote, note, intent, minutes ago, and (for one) where it sits on the PDF. */
-const SEEDED_ANNOTATIONS: Array<[string, string, string | null, number, boolean?]> = [
-  ["Attention turns a collection of token representations into context-sensitive representations by learning which pieces of information should interact.",
-    "Too abstract for the opening line; start with what the reader will be able to do", "rewrite", 42],
-  ["The Transformer made a stronger design choice", "Say what the choice was before calling it stronger", null, 31],
-  ["That choice exposes parallel computation during training", "One line contrasting this with an RNN", "clarify", 20],
-  ["The factor $1/\\sqrt{d_k}$ controls score magnitude", "Add one sentence of intuition before the variance argument", null, 12],
-  ["Multiplicative variants made this retrieval efficient", "Name the variants (dot-product, general)", "clarify", 1, true],
-];
-
-/** The agent's canned answers in the bench, by the passage they revise. */
-const BENCH_REVISIONS: Array<[string, string, string, string]> = [
-  ["Attention turns a collection",
-    "This tutorial shows how attention lets each token choose which others to read from, and why that one choice made the Transformer possible. Attention turns a collection of token representations into context-sensitive representations by learning which pieces of information should interact.",
-    "Opens with what the reader gets; the definition moves to the next sentence.", "先说读者能得到什么，定义挪到下一句。"],
-  ["Multiplicative variants",
-    "Multiplicative variants (dot-product and general scoring) made this retrieval efficient",
-    "Names the two variants Luong et al. compare.", "点名 Luong 等人比较的两种变体。"],
-  ["That choice exposes",
-    "Unlike a recurrent network, which must step through tokens one by one, that choice exposes parallel computation during training",
-    "Contrasts the Transformer with an RNN in one clause.", "用一个从句对比 RNN。"],
-  ["The Transformer made",
-    "The Transformer made attention the only path between positions, a stronger design choice",
-    "Says what the choice was before judging it.", "先说是什么选择，再评价它。"],
-];
-
-function reviewPdfStates(main: string, numberBase: number): BenchAnnotation[] {
+function reviewPdfStates(main: string, numberBase: number): MockAnnotation[] {
   const at = new Date(Date.now() - 5 * 60_000).toISOString();
-  const note = (number: number, path: string, source: string, quote: string, body: string, extra: Record<string, unknown> = {}): BenchAnnotation => {
+  const note = (number: number, path: string, source: string, quote: string, body: string, extra: Record<string, unknown> = {}): MockAnnotation => {
     const from = Math.max(0, source.indexOf(quote));
     return {
       id: `bench-review-${number}`, number: numberBase + number, path, from, to: from + quote.length, quote,
@@ -668,138 +447,27 @@ function reviewPdfStates(main: string, numberBase: number): BenchAnnotation[] {
   ];
 }
 
-function benchAnnotations() {
-  if (annotationsState) return annotationsState;
-  const seed = params.get("annotations");
-  if (!seed || current.root !== TUTORIAL_ROOT) return { annotations: [], rounds: [] };
-  const main = String(current.files.get("main.tex") ?? "");
+const annotations = annotationsAnswer({
+  project: current,
+  seed: () => (current.root === TUTORIAL_ROOT ? params.get("annotations") : null),
   // `?annotationNumbers=<n>` numbers the seeds from n + 1, for wide pins.
-  const numberBase = Number(params.get("annotationNumbers") ?? 0) || 0;
-  const annotations = SEEDED_ANNOTATIONS.flatMap(([quote, body, intent, minutes, pdf], index): BenchAnnotation[] => {
-    const from = main.indexOf(quote);
-    if (from < 0) return [];
-    const at = new Date(Date.now() - minutes * 60_000).toISOString();
-    return [{
-      id: `bench-annotation-${index + 1}`, number: numberBase + index + 1, path: "main.tex", from, to: from + quote.length, quote,
-      prefix: main.slice(Math.max(0, from - 32), from), suffix: main.slice(from + quote.length, from + quote.length + 32),
-      body, ...intent ? { intent } : {},
-      ...pdf ? { pdf: { page: 1, rects: [{ x: 0.408, y: 0.552, width: 0.322, height: 0.0125 }], text: quote } } : {},
-      authorId: "me", authorName: "Leo", resolved: false, replies: [], createdAt: at, updatedAt: at,
-    }];
-  });
+  numberBase: Number(params.get("annotationNumbers") ?? 0) || 0,
   // `?reviewPdf=states` adds what Export review PDF tells apart: a resolved
   // note with a reply, one quoting only a citation (a margin note), and one in
   // a file the PDF is not built from (not on it).
-  if (params.get("reviewPdf") === "states") annotations.push(...reviewPdfStates(main, numberBase + annotations.length));
-  const rounds: Array<Record<string, unknown>> = [];
-  if (seed === "review" || seed === "rounds") {
-    const settled = (number: number, hoursAgo: number) => ({
-      number, startedAt: new Date(Date.now() - hoursAgo * 3_600_000).toISOString(),
-      settledAt: new Date(Date.now() - (hoursAgo - 0.2) * 3_600_000).toISOString(), outcomes: {} as Record<string, string>,
-      historyId: `bench-round-${number}`,
-    });
-    const before = main.replace("A sequence model must decide how information at one position can influence another.",
-      "A sequence model has to decide, at every step, how information at one position can influence another one.");
-    const first = settled(1, 3);
-    first.outcomes = { "bench-old-1": "accepted", "bench-old-2": "accepted" };
-    roundFiles.set(1, [{ path: "main.tex", before, after: main }]);
-    rounds.push(first);
-    if (seed === "rounds") {
-      const second = settled(2, 1);
-      second.outcomes = { "bench-annotation-2": "accepted", "bench-annotation-3": "rejected" };
-      const revised = BENCH_REVISIONS[3]!;
-      const after = main.replace("The Transformer made a stronger design choice", revised[1]);
-      roundFiles.set(2, [{ path: "main.tex", before: main, after }]);
-      current.files.set("main.tex", after);
-      rounds.push(second);
-    } else {
-      const zh = lang === "zh-CN";
-      const open = { number: 2, startedAt: new Date(Date.now() - 5 * 60_000).toISOString(), outcomes: {} as Record<string, string> };
-      for (const annotation of annotations) {
-        const number = (annotation.number as number) - numberBase;
-        const canned = BENCH_REVISIONS.find(([start]) => annotation.quote.startsWith(start));
-        if (number === 4) {
-          annotation.revision = { round: 2, state: "asked", question: zh ? "直觉放在式 (2) 之前还是之后？" : "Should the intuition go before equation (2) or after it?" };
-        } else if (number === 2 && canned) {
-          annotation.revision = { round: 2, state: "accepted", original: annotation.quote, text: canned[1], reason: zh ? canned[3] : canned[2] };
-          annotation.resolved = true;
-        } else if (canned) {
-          annotation.revision = { round: 2, state: "proposed", original: annotation.quote, text: canned[1], reason: zh ? canned[3] : canned[2] };
-        }
-        if (annotation.revision) open.outcomes[annotation.id] = String(annotation.revision.state);
-      }
-      roundFiles.set(2, [{ path: "main.tex", before: main, after: null }]);
-      rounds.push(open);
-    }
-  }
-  annotationsState = { annotations, rounds };
-  return annotationsState;
-}
-
-/** The bench agent's answer to an annotation: a canned revision, or a question when asked to cite. */
-function annotationReply(prompt: string): string {
-  const passage = /<passage>\n([\s\S]*)\n<\/passage>/.exec(prompt)?.[1] ?? "";
-  const zh = prompt.includes("in Simplified Chinese");
-  if (prompt.includes("<bibliography>")) {
-    return `<question>${zh ? "要引用哪篇论文？参考文献里没有直接支持这句话的。" : "Which paper should support this? Nothing in the bibliography states it directly."}</question>`;
-  }
-  const canned = BENCH_REVISIONS.find(([start]) => passage.trim().startsWith(start));
-  const text = canned?.[1] ?? passage.replace(/\bvery\b\s*/g, "").replace(/\bin order to\b/g, "to").replace(/\bdeliberately\b\s*/g, "");
-  const reason = canned ? (zh ? canned[3] : canned[2]) : (zh ? "更紧凑，意思不变。" : "Tighter, same meaning.");
-  return `<revision>${text}</revision>\n<reason>${reason}</reason>`;
-}
-
-function textTask(args: Args): unknown {
-  const mode = params.get("proofread");
-  const action = String(args?.action ?? "");
-  if (action === "start") {
-    if (mode === "unavailable") throw "agent_route_unavailable";
-    const prompt = String(args?.prompt ?? "");
-    if (prompt.startsWith("Revise a passage")) {
-      const taskId = `text-task:${proofreadTasks.size + 1}`;
-      proofreadTasks.set(taskId, { text: annotationReply(prompt), ready: performance.now() + 1_200 + Math.random() * 1_600 });
-      return { taskId };
-    }
-    const excerpt = /<excerpt>\n([\s\S]*)\n<\/excerpt>$/.exec(prompt)?.[1] ?? "";
-    const fixes = [
-      ...PROOFREAD_FIXES,
-      ...prompt.startsWith("Polish") ? POLISH_FIXES : [],
-      ...mode === "unsafe" ? UNSAFE_FIXES : [],
-    ];
-    const zh = prompt.includes("in Simplified Chinese");
-    const reasons: string[] = [];
-    const fixed = fixes.reduce((text, [pattern, replacement, category, note, noteZh]) => text.replace(pattern, (match) => {
-      const revised = match.replace(new RegExp(pattern.source, pattern.flags.replace("g", "")), replacement);
-      if (category) reasons.push([`${match} => ${revised}`, category, ...note ? [zh ? noteZh : note] : []].join(" | "));
-      return revised;
-    }), excerpt);
-    const taskId = `text-task:${proofreadTasks.size + 1}`;
-    const text = `Here is the proofread excerpt.\n<proofread>\n${fixed}\n</proofread>\n<reasons>\n${reasons.join("\n")}\n</reasons>`;
-    proofreadTasks.set(taskId, { text, ready: performance.now() + 1_600 });
-    return { taskId };
-  }
-  const task = proofreadTasks.get(String(args?.taskId ?? ""));
-  if (!task) throw "Agent task not found.";
-  if (action === "cancel") return { status: "running" };
-  if (performance.now() < task.ready) return { status: "running" };
-  if (mode === "failed") return { status: "failed", message: "Codex is not signed in." };
-  const model = params.get("proofreadModel");
-  return { status: "completed", text: task.text, ...model ? { model } : {} };
-}
+  extra: params.get("reviewPdf") === "states" ? reviewPdfStates : undefined,
+  zh: () => lang === "zh-CN",
+});
 
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   // `?overleaf=review` (or `long`, `expired`) links the open project to Overleaf (bench-overleaf.ts).
   const overleaf = overleafAnswer(command, args, {
-    params, lang, emit, root: () => current.root,
-    text: (path) => {
-      const content = current.files.get(path);
-      return typeof content === "string" ? content : "";
-    },
+    params, lang, emit: tauri.emit, root: () => current.root, text: (path) => current.text(path),
   });
   if (overleaf !== NOT_HANDLED) return overleaf;
   // `?arxiv=ready` (or `running`, `failed`, `unbuilt`, `long`) stages Export for arXiv (bench-arxiv.ts).
-  const arxiv = arxivAnswer(command, args, { params, send: sendOnChannel });
+  const arxiv = arxivAnswer(command, args, { params, send: tauri.sendOnChannel });
   if (arxiv !== NOT_HANDLED) return arxiv;
   // `?linkedBib=ready` (or `unlinked`, `missing`, `long`) stages the linked library (bench-linked-library.ts).
   const linked = linkedLibraryAnswer(command, args, { params });
@@ -808,6 +476,12 @@ function answer(command: string, args: Args): unknown {
   if (shell !== NOT_HANDLED) return shell;
   const bibliography = bibliographyAnswer(command, args, { params, files: current.files, cited: current.root === TUTORIAL_ROOT || Boolean(scale.bibEntries) });
   if (bibliography !== NOT_HANDLED) return bibliography;
+  // `?save=fail`: every write fails as a full disk does, for the save slot's failed state.
+  if (command === "write_project_file" && params.get("save") === "fail") throw new Error("No space left on device (os error 28)");
+  for (const area of [(name: string, input: Args) => current.answer(name, input), windowAnswer, annotations]) {
+    const answered = area(command, args);
+    if (answered !== NOT_HANDLED) return answered;
+  }
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "list_local_templates":
@@ -827,31 +501,8 @@ function answer(command: string, args: Args): unknown {
       return snapshot();
     case "open_tutorial_project":
       return openTutorial();
-    case "read_project_file": {
-      const content = current.files.get(pathArg(args));
-      if (typeof content !== "string") throw new Error(`No such text file: ${pathArg(args)}`);
-      return content;
-    }
-    case "write_project_file": {
-      // `?save=fail`: every write fails as a full disk does, for the save slot's failed state.
-      if (params.get("save") === "fail") throw new Error("No space left on device (os error 28)");
-      const contents = args?.contents ?? args?.content;
-      if (typeof contents === "string") current.files.set(pathArg(args), contents);
-      return null;
-    }
-    case "read_project_asset": {
-      const path = pathArg(args);
-      const content = current.files.get(path);
-      if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${path}`);
-      return { path, mimeType: path.endsWith(".png") ? "image/png" : "application/pdf", ranges: { length: content.byteLength, version: "bench" } };
-    }
-    case "read_project_asset_range": {
-      const content = current.files.get(pathArg(args));
-      if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${pathArg(args)}`);
-      return copyBuffer(content.subarray(Number(args?.start), Number(args?.end)));
-    }
     case "build_project":
-      return params.get("build") === "running" ? runningBuild(args) : buildResult();
+      return params.get("build") === "running" ? runningBuild(tauri, current.root, args?.progressId) : buildResult();
     // `?pdf=<url>` answers with that PDF instead, such as the tutorial compiled
     // outside the checkout, for screenshots of a real page.
     case "read_compiled_pdf":
@@ -873,8 +524,6 @@ function answer(command: string, args: Args): unknown {
     case "synctex_heading_pages":
       // The fixture PDF has no SyncTeX map: about a page per 45 source lines.
       return (args?.headings as Array<{ line: number }> | undefined ?? []).map(({ line }) => Math.max(1, Math.ceil(line / 45)));
-    case "stat_project_file":
-      return { exists: current.files.has(pathArg(args)), mtimeMs: BENCH_MTIME };
     case "search_project":
       return searchProject(String(args?.query ?? ""));
     case "harper_lint":
@@ -893,7 +542,7 @@ function answer(command: string, args: Args): unknown {
     case "git_compare_files":
       return [{ path: "main.tex", kind: "modified" }, { path: "references.bib", kind: "modified" }];
     case "git_compare_file": {
-      const after = String(current.files.get(pathArg(args)) ?? "");
+      const after = String(current.files.get(current.path(args)) ?? "");
       return { before: olderText(after), after, binary: false };
     }
     case "export_changes_pdf":
@@ -909,21 +558,8 @@ function answer(command: string, args: Args): unknown {
     }
     case "list_unused_symbols":
       return { labels: [], citations: [] };
-    case "plugin:window|scale_factor":
-      return window.devicePixelRatio;
-    case "plugin:window|inner_size":
-    case "plugin:window|outer_size":
-      return {
-        width: Math.round(window.innerWidth * window.devicePixelRatio),
-        height: Math.round(window.innerHeight * window.devicePixelRatio),
-      };
     case "set_window_material":
       return glass ? ((args?.material as { translucent?: boolean } | undefined)?.translucent ? "translucent" : "opaque") : "unsupported";
-    case "plugin:window|is_focused":
-      return document.hasFocus();
-    case "plugin:window|is_fullscreen":
-    case "plugin:window|is_maximized":
-      return false;
     // Papers only with `?papers=1` (or `?papers=fulltext`, a Paper without a
     // blog, or `?papers=library`): the budgeted scenarios run with an empty library.
     case "list_papers":
@@ -940,7 +576,7 @@ function answer(command: string, args: Args): unknown {
     case "fetch_paper":
     case "fetch_web_reference":
       if (params.get("fetch") !== "pending") return null;
-      emit("paper-import-progress", "fulltext");
+      tauri.emit("paper-import-progress", "fulltext");
       return new Promise((_, reject) => pendingFetches.set(String(args?.requestId), reject));
     case "cancel_paper_fetch": {
       const reject = pendingFetches.get(String(args?.requestId));
@@ -956,23 +592,6 @@ function answer(command: string, args: Args): unknown {
       return false;
     case "agent_text_task":
       return textTask(args);
-    case "list_annotations":
-      return benchAnnotations();
-    case "save_annotations":
-      annotationsState = { annotations: (args?.annotations as BenchAnnotation[]) ?? [], rounds: (args?.rounds as Array<Record<string, unknown>>) ?? [] };
-      return null;
-    case "save_annotation_round": {
-      const number = Number(args?.number);
-      roundFiles.set(number, (args?.files as Array<{ path: string; before: string | null; after: string | null }>) ?? []);
-      return args?.settled ? `bench-round-${number}` : null;
-    }
-    case "read_annotation_round":
-      return roundFiles.get(Number(args?.number)) ?? [];
-    case "restore_annotation_round":
-      for (const file of (args?.files as Array<{ path: string; after: string | null }>) ?? []) {
-        if (typeof file.after === "string") current.files.set(file.path, file.after);
-      }
-      return null;
     // Reverse SyncTeX, roughly: page 1 of the tutorial holds main.tex's first
     // sixty lines, top to bottom; Lattice then finds the selected words near it.
     case "synctex_edit":
@@ -989,20 +608,18 @@ function answer(command: string, args: Args): unknown {
       return String(args?.destination ?? "");
     case "plugin:dialog|save":
       return `/Users/writer/Desktop/${(args?.options as { defaultPath?: string } | undefined)?.defaultPath ?? "paper.pdf"}`;
+    // No Synara here: the Agent panel shows its runtime as unavailable.
     case "synara_ensure_ready":
-    case "create_project_entry":
-      return createEntry(args);
+      throw new Error("missing path");
     case "choose_import_entries":
       return importPick.map((name) => `/Users/bench/Downloads/${name}`);
     case "import_project_files":
       return importEntries(args);
-    case "rename_project_entry":
-      return renameEntry(args);
     case "set_submission_items":
       benchItems = ((args?.items as SubmissionItem[] | undefined) ?? []).map((item) => ({
         ...item,
         confirmedMtimeMs: item.status === "confirmed" && item.file && current.files.has(item.file)
-          ? item.confirmedMtimeMs ?? BENCH_MTIME
+          ? item.confirmedMtimeMs ?? MOCK_MTIME
           : undefined,
       }));
       return snapshot().manifest;
@@ -1022,76 +639,8 @@ function answer(command: string, args: Args): unknown {
   }
 }
 
-// --- Tauri internals -----------------------------------------------------
-
-const callbacks = new Map<number, Callback>();
-const listeners = new Map<string, Set<number>>();
-let nextCallback = 1;
-let nextEvent = 1;
-const eventIds = new Map<number, { event: string; handler: number }>();
-
-/** What Tauri does for `channel.send`: the channel's callback, with the message's place in order. */
-function sendOnChannel(channel: unknown, message: unknown) {
-  const id = (channel as { id?: number } | undefined)?.id;
-  if (id !== undefined) callbacks.get(id)?.({ index: 0, message });
-}
-
-function emit(event: string, payload: unknown) {
-  for (const handler of listeners.get(event) ?? []) {
-    callbacks.get(handler)?.({ event, id: 0, payload });
-  }
-}
-
-async function invoke(command: string, args?: Args): Promise<unknown> {
-  if (command === "plugin:event|listen") {
-    const { event, handler } = args as { event: string; handler: number };
-    const id = nextEvent++;
-    eventIds.set(id, { event, handler });
-    listeners.set(event, (listeners.get(event) ?? new Set()).add(handler));
-    return id;
-  }
-  if (command === "plugin:event|unlisten") {
-    const entry = eventIds.get((args as { eventId: number }).eventId);
-    if (entry) {
-      listeners.get(entry.event)?.delete(entry.handler);
-      eventIds.delete((args as { eventId: number }).eventId);
-    }
-    return null;
-  }
-  if (command === "plugin:event|emit" || command === "plugin:event|emit_to") {
-    const { event, payload } = args as { event: string; payload: unknown };
-    emit(event, payload);
-    return null;
-  }
-  return answer(command, args);
-}
-
-Object.assign(window, {
-  __TAURI_INTERNALS__: {
-    invoke,
-    transformCallback: (callback?: Callback, once = false) => {
-      const id = nextCallback++;
-      callbacks.set(id, (payload) => {
-        if (once) callbacks.delete(id);
-        callback?.(payload);
-      });
-      return id;
-    },
-    unregisterCallback: (id: number) => callbacks.delete(id),
-    runCallback: (id: number, payload: unknown) => callbacks.get(id)?.(payload),
-    callbacks,
-    convertFileSrc: (path: string) => path,
-    metadata: {
-      currentWindow: { label: "main" },
-      currentWebview: { label: "main", windowLabel: "main" },
-    },
-    plugins: { path: { sep: "/", delimiter: ":" } },
-  },
-  __TAURI_EVENT_PLUGIN_INTERNALS__: {
-    unregisterListener: (_event: string, id: number) => callbacks.delete(id),
-  },
-  __latticeBench: { root: ROOT, emit, unhandled, counts, fixtureSizes: sizes },
-});
+const tauri = installTauriInternals(answer);
+Object.assign(window, { __latticeBench: { root: ROOT, emit: tauri.emit, unhandled, counts, fixtureSizes: sizes } });
 
 /** A query parameter restricted to `allowed`; anything else is reported and ignored. */
 function choiceParam<T extends string>(name: string, allowed: readonly T[]): T | null {

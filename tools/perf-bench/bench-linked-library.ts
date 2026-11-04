@@ -11,7 +11,7 @@
  * writes `references.bib` through the bench's own file store, and the link
  * remembers what was taken in, so reopening finds it up to date.
  */
-import { NOT_HANDLED } from "./bench-overleaf";
+import { NOT_HANDLED } from "../mock-backend/tauri-internals";
 
 type Args = Record<string, unknown> | undefined;
 

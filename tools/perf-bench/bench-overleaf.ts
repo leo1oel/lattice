@@ -16,7 +16,7 @@
  * never does, the edit still on its way that the save slot calls Syncing.
  * The comments are in the page's language (`?lang=`).
  */
-export const NOT_HANDLED = Symbol("not handled");
+import { NOT_HANDLED } from "../mock-backend/tauri-internals";
 
 type Context = {
   params: URLSearchParams;

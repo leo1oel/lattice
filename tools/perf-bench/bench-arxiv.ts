@@ -12,7 +12,7 @@
  * ship as a warning; `\input` files not merged ship on their own), and
  * Export ZIP saves to a made-up Desktop path.
  */
-import { NOT_HANDLED } from "./bench-overleaf";
+import { NOT_HANDLED } from "../mock-backend/tauri-internals";
 
 type Args = Record<string, unknown> | undefined;
 type Context = {

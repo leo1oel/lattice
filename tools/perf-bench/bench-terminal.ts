@@ -6,7 +6,7 @@
  * else is "command not found". `exit` ends the shell with code 0, `exit N`
  * with N. Nothing runs.
  */
-import { NOT_HANDLED } from "./bench-overleaf";
+import { NOT_HANDLED } from "../mock-backend/tauri-internals";
 
 type Args = Record<string, unknown> | undefined;
 /** The open project, as the bench holds it. */
