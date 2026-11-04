@@ -72,6 +72,9 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["terminal.rs", "This terminal has closed.", () => t`This terminal has closed.`],
   ["terminal/caller.rs", "The terminal is only available in a Lattice window.", () => t`The terminal is only available in a Lattice window.`],
 
+  ["terminal/session.rs", "Choose a program and arguments without NUL bytes, at most 256 KiB in total.", () => t`Choose a program and arguments without NUL bytes, at most 256 KiB in total.`],
+  ["terminal/session.rs", "Could not start the program: {error}", ([error]) => t`Could not start the program: ${error}`],
+
   // Open Slide, the presentation editor (presentation.rs). What was being
   // refreshed is Rust's English (" for slides/deck.tsx"), so the
   // translation says only that the refresh failed.

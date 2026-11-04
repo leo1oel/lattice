@@ -3110,6 +3110,10 @@ msgstr "Choose a folder or ZIP containing LaTeX source files."
 msgid "Choose a folder to extract the project into."
 msgstr "Choose a folder to extract the project into."
 
+#: src/platform/host-errors-setup.ts
+msgid "Choose a program and arguments without NUL bytes, at most 256 KiB in total."
+msgstr "Choose a program and arguments without NUL bytes, at most 256 KiB in total."
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
 msgstr "Choose a project image"
@@ -4311,6 +4315,10 @@ msgstr "Could not start SyncTeX: {error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not start the live preview engine: {error}"
 msgstr "Could not start the live preview engine: {error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not start the program: {error}"
+msgstr "Could not start the program: {error}"
 
 #: src/live-preview/live-preview-settings.tsx
 msgid "Could not start: {message}"

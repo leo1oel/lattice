@@ -1,5 +1,5 @@
 import type { TrellisController } from "../trellis/trellis-controller";
-import type { TerminalScreen, TerminalSessions } from "./terminal-sessions";
+import type { TerminalProgram, TerminalScreen, TerminalSessions } from "./terminal-sessions";
 
 export interface CodeRunConfig {
   program: string;
@@ -7,20 +7,14 @@ export interface CodeRunConfig {
   scriptArgs: string[];
 }
 
-/** POSIX shell argument, not shell code. Embedded quotes, spaces and metacharacters stay literal. */
-function shellArgument(value: string): string {
-  return "'" + value.replaceAll("'", "'\\''") + "'";
-}
-
-export function codeRunCommand(path: string, config: CodeRunConfig): string {
-  const values = [config.program, ...config.programArgs, `./${path}`, ...config.scriptArgs];
-  if (!config.program.trim() || path.startsWith("/") || path.split("/").some((part) => part === "..") || values.some((value) => /[\r\n\0]/.test(value))) {
+/** A literal program/argv request: the backend never parses it as shell code. */
+export function codeRunProgram(path: string, config: CodeRunConfig): TerminalProgram {
+  const args = [...config.programArgs, `./${path}`, ...config.scriptArgs];
+  if (!config.program.trim() || path.startsWith("/") || path.split("/").some((part) => part === "..") || [config.program,...args].some((value) => value.includes("\0"))) {
     // eslint-disable-next-line lingui/no-unlocalized-strings -- internal validation; the caller presents a localized failure
     throw new Error("Invalid program or argument.");
   }
-  // exec replaces the dedicated shell, so its exit code is the program's and
-  // Ctrl-C/closing the terminal reaches that program's process group directly.
-  return "exec " + values.map(shellArgument).join(" ") + "\r";
+  return { executable: config.program, args };
 }
 
 export function defaultCodeProgram(path: string): string {
@@ -33,12 +27,12 @@ export function defaultCodeProgram(path: string): string {
 export async function runProjectCode<S extends TerminalScreen>(controller: TrellisController, terminals: TerminalSessions<S>, config: CodeRunConfig): Promise<boolean> {
   const { projectRoot, activeKey } = controller.app.get();
   if (!projectRoot || !activeKey || !controller.bridge) return false;
-  const input = codeRunCommand(activeKey, config);
+  const program = codeRunProgram(activeKey, config);
   if (!(await controller.bridge.save())) return false;
   const current = controller.app.get();
   if (current.projectRoot !== projectRoot || current.activeKey !== activeKey) return false;
   terminals.setProject(projectRoot);
-  const session = terminals.open({ input, keepOnExit: true });
+  const session = terminals.open({ program, keepOnExit: true });
   if (!session) return false;
   terminals.rename(session.key, activeKey.split("/").at(-1) ?? activeKey);
   controller.showPanel("terminal");

@@ -56,6 +56,15 @@ function setup(root = "/projects/thesis") {
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("terminal sessions", () => {
+  it("acknowledges output drawn before the start response, without waiting for another output packet", async () => {
+    const { sessions, opened, calls } = setup();
+    sessions.open();
+    opened[0].onOutput(new Uint8Array(96 * 1024));
+    opened[0].resolve(7);
+    await settle();
+    expect(calls).toContain(`ack 7 ${96 * 1024}`);
+  });
+
   it("starts a shell in the project folder at the screen's size, and types what was typed while it started", async () => {
     const { sessions, opened, calls } = setup();
     const session = sessions.open()!;

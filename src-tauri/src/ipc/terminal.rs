@@ -53,11 +53,35 @@ pub async fn terminal_open<R: Runtime>(
         move || Session::spawn(label, root, cols, rows, on_output)
     })
     .await?;
+    register(&state, &window, &root, session)
+}
+
+/// Run a chosen program directly in its own PTY, with literal argv and no login shell.
+#[tauri::command]
+pub async fn terminal_run<R: Runtime>(
+    state: State<'_, AppState>, webview: Webview<R>, request: Request<'_>, project_root: String,
+    cols: u16, rows: u16, program: String, args: Vec<String>,
+    on_output: Channel<InvokeResponseBody>,
+) -> Result<OpenedTerminal, String> {
+    let window = caller_window(&webview, &request)?;
+    let root = pinned_root(&state, &window, &project_root, "the terminal could start")?;
+    let label = window.label().to_string();
+    let session = run_blocking("Program start", {
+        let root = root.clone();
+        move || Session::spawn_program(&program, &args, label, root, cols, rows, on_output)
+    })
+    .await?;
+    register(&state, &window, &root, session)
+}
+
+fn register<R: Runtime>(
+    state: &AppState, window: &Window<R>, root: &std::path::Path, session: Session,
+) -> Result<OpenedTerminal, String> {
     let shell = session.name().to_string();
     let id = state.terminals.insert(session);
     // The project may have changed while the shell started; the sweep that
     // ran then could not see this one.
-    if state.root_for(window.label())?.as_deref() != Some(root.as_path()) {
+    if state.root_for(window.label())?.as_deref() != Some(root) {
         state.terminals.close(window.label(), id);
         return Err("The project changed before the terminal could start.".into());
     }
@@ -133,6 +157,7 @@ mod tests {
             .manage(AppState::from_environment())
             .invoke_handler(tauri::generate_handler![
                 super::terminal_open,
+                super::terminal_run,
                 super::terminal_write,
                 super::terminal_resize,
                 super::terminal_ack,
@@ -229,6 +254,10 @@ mod tests {
         ] {
             for (cmd, body) in [
                 ("terminal_open", open.clone()),
+                (
+                    "terminal_run",
+                    json!({"projectRoot": root, "cols":80,"rows":24,"program":"python3","args":[],"onOutput":"__CHANNEL__:7"}),
+                ),
                 ("terminal_write", json!({ "id": 1, "data": "ls\r" })),
                 ("terminal_running_command", json!({ "id": 1 })),
             ] {

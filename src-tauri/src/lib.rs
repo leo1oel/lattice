@@ -618,6 +618,7 @@ pub fn run() {
             presentation::presentation_release,
             presentation::presentation_refresh_native_workspace,
             ipc::terminal::terminal_open,
+            ipc::terminal::terminal_run,
             ipc::terminal::terminal_write,
             ipc::terminal::terminal_resize,
             ipc::terminal::terminal_ack,

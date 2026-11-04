@@ -13,9 +13,9 @@ to `sh`. TypeScript and other languages depend on the program/runtime you select
 Lattice does not install those tools or silently compile a project.
 
 **Save and run** first saves the active file and starts a dedicated terminal only
-if the same document and project are still active. Arguments and the file path
-are shell-quoted as individual arguments, not interpreted as shell expressions.
-The shell is replaced by the selected program, and its output and exit status
+if the same document and project are still active. The selected program and arguments are started directly in a dedicated PTY,
+without shell interpolation or queued terminal keystrokes. The backend uses its
+configured tool search path; an explicit interpreter path is supported. Its output and exit status
 stay visible after it exits successfully. **Interrupt command** sends Ctrl-C;
 closing the terminal ends its process group. Opening a project or a run dialog
 never executes project code by itself.

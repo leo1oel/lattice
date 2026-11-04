@@ -14,10 +14,13 @@
  * a way to make a terminal's screen, so its rules are tested with fakes.
  */
 
+export type TerminalProgram = { executable: string; args: string[] };
+
 /** The host side of one window's terminals (terminal-backend.ts). */
 export type TerminalBackend = {
   open: (request: {
     projectRoot: string;
+    program?: TerminalProgram;
     cols: number;
     rows: number;
     onOutput: (data: Uint8Array) => void;
@@ -99,14 +102,14 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
   }
 
   /** Start a terminal in the project folder and make it the active tab. */
-  open(options: { input?: string; keepOnExit?: boolean } = {}): TerminalSession<S> | null {
+  open(options: { program?: TerminalProgram; keepOnExit?: boolean } = {}): TerminalSession<S> | null {
     if (!this.root) return null;
     const used = new Set(this.items.map(({ session }) => session.number));
     let number = 1;
     while (used.has(number)) number += 1;
     const screen = this.createScreen();
     const session: TerminalSession<S> = { key: this.nextKey++, number, name: null, shell: "", screen, state: { kind: "starting" } };
-    const item: Internal<S> = { session, id: null, queued: options.input ? [options.input] : [], drawn: 0, closed: false, keepOnExit: options.keepOnExit ?? false };
+    const item: Internal<S> = { session, id: null, queued: [], drawn: 0, closed: false, keepOnExit: options.keepOnExit ?? false };
     this.items.push(item);
     this.publish(session.key);
     const root = this.root;
@@ -119,6 +122,7 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
     });
     void this.backend.open({
       projectRoot: root,
+      program: options.program,
       cols: screen.cols(),
       rows: screen.rows(),
       onOutput: (data) => {
@@ -137,6 +141,10 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
         return;
       }
       item.id = id;
+      if (item.drawn) {
+        void this.backend.ack(id, item.drawn).catch(() => {});
+        item.drawn = 0;
+      }
       if (item.session.state.kind !== "starting") {
         this.update(item, { shell });
         item.queued.length = 0;

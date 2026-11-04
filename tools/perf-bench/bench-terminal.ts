@@ -74,12 +74,19 @@ const encode = (text: string) => new TextEncoder().encode(text).buffer;
 export function terminalAnswer(command: string, args: Args, project: () => Project): unknown {
   const context: Context = { root: () => project().root, files: () => [...project().files.keys()], send: deliver };
   switch (command) {
-    case "terminal_open": {
+    case "terminal_open":
+    case "terminal_run": {
       const id = nextId++;
       const shell = { channel: Number((args?.onOutput as { id?: number } | undefined)?.id), sent: 0, line: "" };
       shells.set(id, shell);
-      setTimeout(() => context.send(shell, encode(`${dim("Last login: Mon Oct 19 09:12:44 on ttys002")}\r\n${prompt(context.root())}`)), 30);
-      return { id, shell: "zsh" };
+      if (command === "terminal_run") {
+        setTimeout(() => {
+          context.send(shell, encode("[Mock terminal: program execution is unavailable in this fixture.]\r\n"));
+          context.send(shell, { exit: 125 });
+          shells.delete(id);
+        }, 30);
+      } else setTimeout(() => context.send(shell, encode(`${dim("Last login: Mon Oct 19 09:12:44 on ttys002")}\r\n${prompt(context.root())}`)), 30);
+      return { id, shell: command === "terminal_run" ? String(args?.program ?? "program") : "zsh" };
     }
     case "terminal_write": {
       const shell = shells.get(Number(args?.id));

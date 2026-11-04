@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { expect, it, vi } from "vitest";
 import { TrellisController } from "../trellis/trellis-controller";
 import { TerminalSessions, type TerminalBackend, type TerminalScreen } from "./terminal-sessions";
-import { codeRunCommand, runProjectCode } from "./code-run";
+import { codeRunProgram, runProjectCode } from "./code-run";
 
 function setup() {
   let opened: Parameters<TerminalBackend["open"]>[0] | null = null;
@@ -36,7 +36,8 @@ it("saves the real active document, starts a dedicated terminal, and retains its
   await expect(run).resolves.toBe(true);
   await Promise.resolve();
   expect(opened()).toMatchObject({ projectRoot: "/projects/example" });
-  expect(write).toHaveBeenCalledWith(9, "exec 'python3' '-u' './analysis.py' 'a b'\r");
+  expect(opened()).toMatchObject({ program: { executable: "python3", args: ["-u", "./analysis.py", "a b"] } });
+  expect(write).not.toHaveBeenCalled();
   expect(controller.showPanel).toHaveBeenCalledWith("terminal");
   opened().onExit(0);
   expect(terminals.get().sessions).toHaveLength(1);
@@ -54,18 +55,18 @@ it("does not execute when saving fails or the project changes while saving", asy
   expect(opened()).toBeNull();
 });
 
-it("passes filename and argument metacharacters literally through a real POSIX shell", () => {
+it("passes filename and argument metacharacters literally to a real Python program", () => {
   const root = mkdtempSync(join(tmpdir(), "lattice-code-run-"));
   try {
     const file = "analysis '; touch injected.py";
     writeFileSync(join(root, file), "import json, sys\nprint(json.dumps(sys.argv[1:]))\n");
     const argument = "$(touch escaped); 'quoted'";
-    const command = codeRunCommand(file, { program: "python3", programArgs: [], scriptArgs: [argument] });
-    const result = spawnSync("/bin/sh", ["-c", command.slice(0, -1)], { cwd: root, encoding: "utf8" });
+    const program = codeRunProgram(file, { program: "python3", programArgs: [], scriptArgs: [argument] });
+    const result = spawnSync(program.executable, program.args, { cwd: root, encoding: "utf8" });
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([argument]);
     expect(existsSync(join(root, "escaped"))).toBe(false);
-    expect(() => codeRunCommand("../escape.py", { program: "python3", programArgs: [], scriptArgs: [] })).toThrow();
+    expect(() => codeRunProgram("../escape.py", { program: "python3", programArgs: [], scriptArgs: [] })).toThrow();
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

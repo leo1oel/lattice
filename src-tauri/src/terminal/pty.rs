@@ -108,30 +108,47 @@ fn open(cols: u16, rows: u16) -> io::Result<(OwnedFd, OwnedFd)> {
 
 /// Start `shell` as a login shell in `cwd` on a new pseudo-terminal.
 pub(super) fn spawn_shell(shell: &Path, cwd: &Path, cols: u16, rows: u16) -> io::Result<Shell> {
-    let (cols, rows) = bounded(cols, rows);
-    let (master, slave) = open(cols, rows)?;
     let name =
         shell.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
     let mut command = Command::new(shell);
-    // `-l`, as every terminal app starts it: the login profile sets the
-    // writer's own PATH (Homebrew, TeX, pyenv), which a GUI launch lacks.
+    command.arg("-l").env("PATH", starting_path());
+    spawn_command(command, name, cwd, cols, rows)
+}
+
+/// A code run uses argv directly, without a shell command string or stdin injection.
+pub(super) fn spawn_program(
+    program: &str, args: &[String], cwd: &Path, cols: u16, rows: u16,
+) -> io::Result<Shell> {
+    let path = Path::new(program);
+    let mut command = if !path.is_absolute() && program.contains('/') {
+        crate::commands::with_child_path(Command::new(cwd.join(path)))
+    } else {
+        crate::commands::command(program)
+    };
+    command.args(args);
+    let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    spawn_command(command, name, cwd, cols, rows)
+}
+
+fn spawn_command(
+    mut command: Command, name: String, cwd: &Path, cols: u16, rows: u16,
+) -> io::Result<Shell> {
+    let (cols, rows) = bounded(cols, rows);
+    let (master, slave) = open(cols, rows)?;
     command
-        .arg("-l")
         .current_dir(cwd)
         .stdin(Stdio::from(slave.try_clone()?))
         .stdout(Stdio::from(slave.try_clone()?))
         .stderr(Stdio::from(slave.try_clone()?))
-        .env("PATH", starting_path())
         .env("TERM", "xterm-256color")
         .env("COLORTERM", "truecolor")
         .env("TERM_PROGRAM", "Lattice")
         .env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"))
-        // Lattice's own variables describe Lattice's process, not the shell's.
         .env_remove("LATTICE_PROJECT");
     // A Finder launch has no locale; without one zsh and vim treat CJK text
     // as single bytes. LC_CTYPE alone leaves messages in the writer's language.
     if ["LC_ALL", "LC_CTYPE", "LANG"].iter().all(|name| std::env::var_os(name).is_none()) {
-        command.env("LC_CTYPE", "UTF-8");
+        command.env("LC_CTYPE", if cfg!(target_os = "macos") { "UTF-8" } else { "C.UTF-8" });
     }
     // SAFETY: only async-signal-safe calls between fork and exec.
     unsafe {

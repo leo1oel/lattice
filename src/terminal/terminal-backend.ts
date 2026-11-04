@@ -30,7 +30,7 @@ function isExit(message: unknown): message is { exit: number | null } {
 }
 
 export const tauriTerminalBackend: TerminalBackend = {
-  open: async ({ projectRoot, cols, rows, onOutput, onExit }) => {
+  open: async ({ projectRoot, program, cols, rows, onOutput, onExit }) => {
     const channel = new Channel<ArrayBuffer | { exit: number | null }>();
     channel.onmessage = (message) => {
       if (message instanceof ArrayBuffer) onOutput(new Uint8Array(message));
@@ -38,7 +38,7 @@ export const tauriTerminalBackend: TerminalBackend = {
       else if (Array.isArray(message)) onOutput(Uint8Array.from(message as number[]));
       else if (isExit(message)) onExit(typeof message.exit === "number" ? message.exit : null);
     };
-    return invoke<{ id: number; shell: string }>("terminal_open", { projectRoot, cols, rows, onOutput: channel });
+    return invoke<{ id: number; shell: string }>(program ? "terminal_run" : "terminal_open", { projectRoot, cols, rows, onOutput: channel, ...(program ? { program: program.executable, args: program.args } : {}) });
   },
   // Each terminal's writes go one after another, so a long paste's pieces
   // and the keys typed after it reach the shell in order.
