@@ -25,7 +25,7 @@ import {
 } from "./editor-comment-data";
 import { formatCommentTimestamp } from "./editor-comments";
 import { useIntentLabels } from "./use-intent-labels";
-import { formatCount } from "../../i18n";
+import { formatCount, joinPhrases } from "../../i18n";
 import { latexHighlights } from "../latex/latex-highlights";
 import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../latex/highlighters";
 import type { AnnotationRounds } from "../../app/annotation-rounds";
@@ -175,7 +175,7 @@ export function EditorCommentsPanel(props: {
       const out: Array<{ key: string; label: string | null; items: typeof placed }> = [];
       for (const item of placed) {
         const label = item.section?.label ?? (sections.length ? t`Before the first section` : null);
-        const heading = many ? [name, label].filter(Boolean).join(", ") : label;
+        const heading = many ? joinPhrases([name, label]) : label;
         const last = out.at(-1);
         if (last && last.label === heading) last.items.push(item);
         else out.push({ key: `${path}:${item.section?.offset ?? -1}`, label: heading, items: [item] });
@@ -415,8 +415,7 @@ export function EditorCommentsPanel(props: {
               <span className="annotation-status" data-annotation-status={status}>{statusLabels[status]}</span>
             )}
             <span className="annotation-card-where">
-              {[pin ? null : author, location, formatCommentTimestamp(comment.createdAt, undefined, i18n.locale, "short")]
-                .filter(Boolean).join(", ")}
+              {joinPhrases([pin ? null : author, location, formatCommentTimestamp(comment.createdAt, undefined, i18n.locale, "short")])}
             </span>
             {outcome && outcome.outcome !== "resolved" && (
               <span className="annotation-card-outcome" key={outcome.outcome}>

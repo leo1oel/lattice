@@ -75,7 +75,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.queryByText("显示：")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "关闭 全局搜索" })).toBeInTheDocument();
     search("image");
-    expect(screen.getByText("2 处, 1 篇论文")).toBeInTheDocument();
+    expect(screen.getByText("2 处，1 篇论文")).toBeInTheDocument();
     rerenderWith({ hits: [] });
     search("zzq");
     expect(screen.getByText("没找到“zzq”")).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.getAllByRole("button", { name: `Open paper result: ${vit}` })).toHaveLength(4);
 
     await act(() => activateAppLocale("zh-CN"));
-    expect(screen.getByRole("status")).toHaveTextContent("3 处, 2 篇论文");
+    expect(screen.getByRole("status")).toHaveTextContent("3 处，2 篇论文");
   });
 
   it("opens paper results by click and keyboard", () => {

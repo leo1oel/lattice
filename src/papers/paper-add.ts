@@ -63,7 +63,7 @@ export function findInLibrary(papers: readonly PaperSummary[], identity: WorkIde
     ?? (title.length >= 12 ? papers.find((paper) => titleKey(paper.title) === title) : undefined);
 }
 
-/** A record as a card shows it: title, "Hewitt and Liang · 2019 · EMNLP", and what identifies it. */
+/** A record as a card shows it: title, "Hewitt and Liang, 2019, EMNLP", and what identifies it. */
 export type ReferenceRecord = {
   title: string;
   byline: string;

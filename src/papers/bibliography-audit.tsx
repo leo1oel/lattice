@@ -28,6 +28,7 @@ import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, t
 import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-check-keys";
 import { correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
 import "./bibliography-audit.css";
+import { comma, joinList } from "../i18n";
 
 /**
  * `inline` is the `\bibitem` as written in a root document's own reference
@@ -549,14 +550,13 @@ export function BibliographyAudit(props: {
   };
   const coverage = scan?.coverage ?? [];
   const lastChecked = Object.values(results).map(result => result.checkedAt ?? "").filter(Boolean).sort().at(-1);
-  const list = (items: string[]) => items.join(i18n.locale.startsWith("zh") ? "、" : ", ");
 
   // The report's first line says what the writer has to do, in the title's serif.
-  const findings = list([
+  const findings = joinList([
     counts.fix > 0 && (counts.fix === 1 ? t`1 fix to review` : t`${counts.fix} fixes to review`),
     counts.review > 0 && (counts.review === 1 ? t`1 needs your eyes` : t`${counts.review} need your eyes`),
   ].filter(Boolean) as string[]);
-  const leftOver = list([
+  const leftOver = joinList([
     counts.incomplete > 0 && t`${counts.incomplete} inconclusive`,
     counts.unchecked > 0 && t`${counts.unchecked} not checked`,
   ].filter(Boolean) as string[]);
@@ -579,11 +579,11 @@ export function BibliographyAudit(props: {
     if (bucket === "review") {
       const reasons = result.candidate?.reasons;
       return Array.isArray(reasons) && reasons.length
-        ? t`${list(reasons.map(reason => reasonLabels[reason] ?? reason))} differ from a source's record`
+        ? t`${joinList(reasons.map(reason => reasonLabels[reason] ?? reason))} differ from a source's record`
         : statusLabel(result, !!entry.inline);
     }
     if (bucket === "fix") {
-      const fields = list(result.changes.map(change => fieldText(change.field).toLocaleLowerCase(i18n.locale)));
+      const fields = joinList(result.changes.map(change => fieldText(change.field).toLocaleLowerCase(i18n.locale)));
       if (entry.inline) return t`Your ${BIBITEM} differs: ${fields}`;
       const venue = result.changes.find(change => ["booktitle", "journal"].includes(change.field) && change.after);
       if (venue && result.changes.some(change => change.field === "ENTRYTYPE")) {
@@ -600,7 +600,7 @@ export function BibliographyAudit(props: {
     }
     if (result.status === "conflict") return t`Changed since the last check`;
     const silent = [...new Set((result.sources ?? []).filter(source => isSilent(source.outcome)).map(source => sourceName(source.source)))];
-    return silent.length ? t`No answer from ${list(silent)}` : statusLabel(result, !!entry.inline);
+    return silent.length ? t`No answer from ${joinList(silent)}` : statusLabel(result, !!entry.inline);
   };
 
   // Each state has its own shape as well as its colour (see `.bibliography-audit-mark`).
@@ -651,7 +651,7 @@ export function BibliographyAudit(props: {
   /** The printed reference with its fix marked, and what print does not show. */
   const typesetCard = (fix: TypesetFix) => <>
     <div className="bibliography-audit-typeset"><InlineEdits text={fix.text} edits={fix.edits} /></div>
-    {fix.unprinted.length > 0 && <p className="bibliography-audit-note">{t`Also changes: ${list(fix.unprinted)}`}</p>}
+    {fix.unprinted.length > 0 && <p className="bibliography-audit-note">{t`Also changes: ${joinList(fix.unprinted)}`}</p>}
   </>;
   /** Where the open finding sits among those like it; choosing it moves on. */
   const step = (index: number) => {
@@ -745,7 +745,7 @@ export function BibliographyAudit(props: {
             <div><span>{source ? t`Not verified against ${sourceName(source)}` : t`Source not verified`}</span><p>{words.theirs.map((word, i) => word.differs ? <mark key={i}>{word.word}</mark> : word.word)}</p></div>
           </div>;
         })}
-        {candidate && candidate.reasons.length > 0 && <p className="bibliography-audit-note">{t`Conflicting or insufficient fields`}: {list(candidate.reasons.map(reason => reasonLabels[reason] ?? reason))}</p>}
+        {candidate && candidate.reasons.length > 0 && <p className="bibliography-audit-note">{t`Conflicting or insufficient fields`}: {joinList(candidate.reasons.map(reason => reasonLabels[reason] ?? reason))}</p>}
         <div className="bibliography-audit-detail-actions">
           {bucket === "review"
             ? <Button size="compact" variant="tinted" onClick={() => keep(index, true)}><Check size={12} aria-hidden="true" />{t`Keep mine`}</Button>
@@ -802,12 +802,12 @@ export function BibliographyAudit(props: {
       </div>
       {(coverage.length > 0 || lastChecked) && <p className="bibliography-audit-coverage">
         {coverage.map((file, index) => <Fragment key={`${file.kind}:${file.path}`}>
-          {index > 0 && ", "}
+          {index > 0 && comma()}
           <span className="bibliography-audit-file">{file.path}</span> {file.kind === "inline"
             ? file.entries === 1 ? t`1 ${BIBITEM}` : t`${file.entries} ${BIBITEM}`
             : file.entries === 1 ? t`1 entry` : t`${file.entries} entries`}
         </Fragment>)}
-        {lastChecked && !busy && <>{coverage.length > 0 && ", "}{t`checked`} <time dateTime={lastChecked}>{new Date(lastChecked).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" })}</time></>}
+        {lastChecked && !busy && <>{coverage.length > 0 && comma()}{t`checked`} <time dateTime={lastChecked}>{new Date(lastChecked).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" })}</time></>}
       </p>}
       {waitingForS2 && <p className="bibliography-audit-coverage" role="status">{t`Partial results for ${completed} of ${progressTotal} references, waiting for Semantic Scholar…`}</p>}
       {scan && total > 0 && (busy || counts.unchecked < total) && <div

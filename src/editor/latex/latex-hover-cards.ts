@@ -326,7 +326,7 @@ function equationBody(text: string, reference: ReferenceInfo): string | null {
   return region?.display ? region.source : null;
 }
 
-/** "(3) · page 4": what the last build numbered the label, once its `.aux` is read. */
+/** "(3), page 4 in the last build": what the last build numbered the label, once its `.aux` is read. */
 function compiledFact(data: LatexEditorLiveData, reference: ReferenceInfo, destroyed: () => boolean): HTMLElement | null {
   if (!data.compiledBuild) return null;
   const line = element("span", "reference-hover-number");

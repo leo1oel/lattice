@@ -22,8 +22,8 @@ function useAge(at: number | null): string | null {
 
 /**
  * The status bar's save slot, after the caret: one quiet line that says the
- * text is on disk ("Saved · just now"), and with a linked Overleaf project,
- * in other words, whether it has reached Overleaf too ("Saved · Synced"),
+ * text is on disk ("Saved", then "just now"), and with a linked Overleaf project,
+ * in other words, whether it has reached Overleaf too ("Saved and synced"),
  * as Pitch keeps "on this computer" apart from "in the cloud". It never
  * alarms about unsaved typing (the tab's dot says that, and autosave follows
  * in a second); working offline is neutral; only a write that failed is red,

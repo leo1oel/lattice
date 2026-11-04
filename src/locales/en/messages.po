@@ -124,7 +124,7 @@ msgstr "{0} comes in light only"
 msgid "{0} comments"
 msgstr "{0} comments"
 
-#. placeholder {0}: list(reasons.map(reason => reasonLabels[reason] ?? reason))
+#. placeholder {0}: joinList(reasons.map(reason => reasonLabels[reason] ?? reason))
 #: src/papers/bibliography-audit.tsx
 msgid "{0} differ from a source's record"
 msgstr "{0} differ from a source's record"
@@ -738,6 +738,10 @@ msgstr "{names} was deleted from the local project, but is still on Overleaf. Ev
 #: src/app/use-overleaf-remote-deletes.ts
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
+
+#: src/canvas/proofread-card.tsx
+msgid "{note}. Click to keep the original"
+msgstr "{note}. Click to keep the original"
 
 #: src/build/build-result-text.ts
 msgid "{notes} note"
@@ -1752,7 +1756,7 @@ msgstr "Alpha"
 msgid "Already in Papers"
 msgstr "Already in Papers"
 
-#. placeholder {0}: list(fix.unprinted)
+#. placeholder {0}: joinList(fix.unprinted)
 #: src/papers/bibliography-audit.tsx
 msgid "Also changes: {0}"
 msgstr "Also changes: {0}"
@@ -8792,7 +8796,7 @@ msgstr "No Agent logs yet"
 msgid "No annotations yet"
 msgstr "No annotations yet"
 
-#. placeholder {0}: list(silent)
+#. placeholder {0}: joinList(silent)
 #: src/papers/bibliography-audit.tsx
 msgid "No answer from {0}"
 msgstr "No answer from {0}"

@@ -28,7 +28,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/
 import { documentTools, useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import { buildHeadline } from "../build/build-result-text";
-import { formatSeconds } from "../i18n";
+import { formatSeconds, joinPhrases } from "../i18n";
 import { BuildSequence } from "./trellis-build-sequence";
 
 /**
@@ -185,7 +185,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
               {[...Object.values(labels), formatSeconds(999.9)].map((label, index) => <span key={index}>{label}</span>)}
             </span>
           </span>
-          {live && headline && <span id={resultId} className="sr-only">{[headline, ...facts].join(", ")}</span>}
+          {live && headline && <span id={resultId} className="sr-only">{joinPhrases([headline, ...facts])}</span>}
         </button>
       );
     };
@@ -195,7 +195,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     // before any build, only that. It is one card in every state, so the
     // first build does not remount the button under the press that started it.
     const place = !building && lastBuild
-      ? [lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)].filter(Boolean).join(", ")
+      ? joinPhrases([lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)])
       : null;
     return (
       <HoverCard open={cardOpen} onOpenChange={(open) => setCardOpen(open && !pressedRef.current)} openDelay={280} closeDelay={120}>

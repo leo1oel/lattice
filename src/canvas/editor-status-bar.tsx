@@ -7,7 +7,7 @@ import { countWords, textStats } from "../editor/latex/latex-edits";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { EditorKeymap, WordCount } from "../app-types";
-import { formatCount } from "../i18n";
+import { formatCount, joinPhrases } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import type { SaveSlot } from "./save-slot";
@@ -235,7 +235,7 @@ function useWordCountLabels(props: WordCountSource) {
     file: words(fileWords),
     fileNote: characters(source.length),
     selection: selectedText ? words(selection.words) : null,
-    selectionNote: `${characters(selection.chars)}, ${lines(selection.lines)}`,
+    selectionNote: joinPhrases([characters(selection.chars), lines(selection.lines)]),
   };
 }
 

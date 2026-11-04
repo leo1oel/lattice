@@ -22,7 +22,7 @@ import type { BuildStep } from "../app-types";
 import type { BuildOutcome, BuildProgressStore } from "../app/use-build-pipeline";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { diagnosticCountsText } from "../build/build-result-text";
-import { formatCount, formatSeconds } from "../i18n";
+import { formatCount, formatSeconds, joinPhrases } from "../i18n";
 import { spaceMixedScript } from "./trellis-titles";
 
 const ENGINES = new Set(["pdflatex", "xelatex", "lualatex", "latex", "platex", "uplatex"]);
@@ -103,7 +103,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   const totalMs = elapsed ?? (outcome?.status === "succeeded" ? outcome.seconds * 1000
     : last ? last.startedMs + lasted(last) : null);
   const pages = !building && outcome?.pages ? outcome.pages === 1 ? t`1 page` : spaceMixedScript(t`${formatCount(outcome.pages)} pages`) : null;
-  const facts = [pages, totalMs === null ? null : seconds(totalMs)].filter(Boolean).join(", ");
+  const facts = joinPhrases([pages, totalMs === null ? null : seconds(totalMs)]);
 
   /** What a pass did, beside its program's name. */
   const role = ({ tool, run, draft }: BuildStep): string | null => {

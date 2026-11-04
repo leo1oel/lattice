@@ -15,6 +15,7 @@ import { PanelHeader } from "../../components/ui/panel-header";
 import { SheetDialog } from "../../components/ui/sheet-dialog";
 import type { AnnotationRound, EditorComment } from "./editor-comment-data";
 import "./annotations.css";
+import { joinPhrases } from "../../i18n";
 
 /** A file's text as a round found it and left it (`save_annotation_round`). */
 type RoundFile = { path: string; before: string | null; after: string | null };
@@ -227,11 +228,11 @@ export function AnnotationRoundsDialog(props: {
     const accepted = values.filter((value) => value === "accepted").length;
     const rejected = values.filter((value) => value === "rejected").length;
     const open = values.length - accepted - rejected;
-    return [
+    return joinPhrases([
       accepted ? t`${accepted} accepted` : null,
       rejected ? t`${rejected} rejected` : null,
       open ? t`${open} open` : null,
-    ].filter(Boolean).join(", ");
+    ]);
   };
 
   const restore = async () => {
@@ -284,9 +285,9 @@ export function AnnotationRoundsDialog(props: {
                   <span className="annotation-version-detail">
                     {version.kind === "before"
                       ? when(settled[0]?.startedAt)
-                      : [when(version.round!.settledAt), Object.keys(version.round!.outcomes).length === 1
+                      : joinPhrases([when(version.round!.settledAt), Object.keys(version.round!.outcomes).length === 1
                         ? t`1 annotation`
-                        : t`${Object.keys(version.round!.outcomes).length} annotations`].join(", ")}
+                        : t`${Object.keys(version.round!.outcomes).length} annotations`])}
                   </span>
                 )}
               {version.kind === "round" && <span className="annotation-version-tag">{outcome(version.round!)}</span>}

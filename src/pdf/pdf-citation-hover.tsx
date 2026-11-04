@@ -4,6 +4,7 @@ import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/d
 import { LeavesOnClose } from "../components/ui/exit-picture";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import type { CitationInfo } from "../editor/latex/latex-text";
+import { paperBylineAuthors } from "../papers/paper-identity";
 import { addListeners } from "./pdf-viewer-utils";
 
 export type PdfCitationProps = {
@@ -97,6 +98,7 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
 
   if (!target || !citations.includes(target.citation)) return null;
   const citation = target.citation;
+  const authors = paperBylineAuthors({ authors: citation.authors });
   const publication = [citation.venue, citation.year].filter(Boolean).join(", ");
   // It arrives and leaves as every hover card does (`.popup-motion`).
   return <LeavesOnClose surface={cardRef}>{createPortal(<div
@@ -117,7 +119,7 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
         onOpenCitation(citation.key);
       }}>{citation.title || citation.key}</button>
       : <strong className="citation-card-title">{citation.title || citation.key}</strong>}
-    {citation.authors && <span className="citation-card-authors">{citation.authors.replace(/ and /g, ", ")}</span>}
+    {authors && <span className="citation-card-authors">{authors}</span>}
     {publication && <em className="citation-card-venue">{publication}</em>}
   </div>, document.body)}</LeavesOnClose>;
 }

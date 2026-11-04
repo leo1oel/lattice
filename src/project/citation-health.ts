@@ -1,6 +1,6 @@
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
-import { i18n } from "../i18n";
+import { i18n, joinPhrases } from "../i18n";
 import type { PaperSummary } from "../app-types";
 
 type CitationHealth = NonNullable<PaperSummary["citationHealth"]>;
@@ -28,11 +28,11 @@ export function citationHealthParts(health: CitationHealth | undefined): { kind:
   const source = health.source && SOURCE_LABELS.get(health.source);
   return {
     kind: i18n._(kind),
-    detail: [
+    detail: joinPhrases([
       source ? i18n._(source) : health.source,
       health.date,
       health.stale ? i18n._(msg`cached`) : null,
-    ].filter(Boolean).join(", "),
+    ]),
   };
 }
 

@@ -24,6 +24,7 @@ import {
   type ThirdPartyPackage,
 } from "./third-party-notices";
 import "./acknowledgements-settings.css";
+import { joinPhrases } from "../i18n";
 
 /** A search narrows the list to this many rows; a longer query narrows it further. */
 const SEARCH_RESULT_LIMIT = 200;
@@ -124,7 +125,7 @@ function NoticesDialog({ loaded, pkg, onClose }: { loaded: LoadedNotices; pkg: T
         {!pkg && <pre className="acknowledgements-notices-text">{loaded.text}</pre>}
         {pkg && (
           <p className="acknowledgements-notices-meta">
-            {[pkg.license || t`No license declared`, closureLabels[pkg.closure]].join(", ")}
+            {joinPhrases([pkg.license || t`No license declared`, closureLabels[pkg.closure]])}
           </p>
         )}
         {pkg && groups.length === 0 && (

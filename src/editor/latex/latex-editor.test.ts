@@ -177,14 +177,14 @@ describe("LaTeX editor extensions", () => {
   it.each(["A Study of Collaborative Writing", ""])("renders citation metadata with title %j but inserts only its key", async (title) => {
     const source = "\\cite{existing,work}";
     const view = latexView(source, source.length - 1, {
-      citations: [{ key: "work2026", title, authors: "Alice Lee", year: "2026", venue: "CHI" }],
+      citations: [{ key: "work2026", title, authors: "Lee, Alice and Kim, Bo", year: "2026", venue: "CHI" }],
     });
     startCompletion(view);
     await vi.waitFor(() => {
       const option = view.dom.querySelector(".cm-citation-option");
       expect(option?.querySelector(".cm-completionLabel")?.textContent).toBe(title || "work2026");
       expect(option?.querySelector(".cm-completionDetail")?.textContent).toBe(
-        title ? "work2026, Alice Lee, 2026, CHI" : "Alice Lee, 2026, CHI",
+        title ? "work2026, Alice Lee, Bo Kim, 2026, CHI" : "Alice Lee, Bo Kim, 2026, CHI",
       );
     });
     press(view, "Enter");

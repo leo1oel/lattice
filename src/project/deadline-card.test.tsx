@@ -81,7 +81,7 @@ describe("DeadlineCard", () => {
     vi.setSystemTime(instant - (76 * HOUR + 20 * 60_000));
     renderCard(deadline);
     const card = screen.getByRole("region", { name: "截止时间" });
-    expect(card).toHaveTextContent("NeurIPS 2027, 全文");
+    expect(card).toHaveTextContent("NeurIPS 2027，全文");
     expect(card).toHaveTextContent("还剩 3 天 4 小时");
     expect(card).toHaveTextContent("AoE 时间（UTC−12）");
     expect(card).toHaveTextContent(/^.*你的时间 [^G]+（\S+）$/);

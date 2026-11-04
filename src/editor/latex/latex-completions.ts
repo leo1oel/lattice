@@ -5,6 +5,7 @@ import type { EditorView } from "@codemirror/view";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationCompletionRange, includeCompletionRange, referenceCompletionRange } from "./latex-symbols";
 import { referenceKindLabel } from "./latex-text";
+import { paperBylineAuthors } from "../../papers/paper-identity";
 
 const GRAPHICS_FILE = /\.(png|jpe?g|pdf|svg|eps|webp)$/i;
 
@@ -38,7 +39,7 @@ export function citationCompletions(live: () => LatexEditorLiveData) {
           // Display the paper title, but keep the actual completion text a key.
           displayLabel: citation.title || citation.key,
           type: "citation",
-          detail: [citation.title ? citation.key : "", citation.authors, citation.year, citation.venue]
+          detail: [citation.title ? citation.key : "", paperBylineAuthors({ authors: citation.authors }), citation.year, citation.venue]
             .filter(Boolean).join(", ") || undefined,
         })),
     };

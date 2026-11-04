@@ -5,7 +5,7 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { BodyBoundary, ProjectDeadline, SubmissionItem } from "../app-types";
-import { formatCount } from "../i18n";
+import { formatCount, comma, joinPhrases } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { CheckStatus } from "./check-status";
 import { DeadlineCard } from "./deadline-card";
@@ -94,7 +94,7 @@ function BudgetRow(props: {
         ? (
           <small>
             {props.meter ? <b>{props.meter.distance}</b> : null}
-            {props.meter && props.detail ? ", " : null}
+            {props.meter && props.detail ? comma() : null}
             {props.detail}
           </small>
         )
@@ -139,7 +139,7 @@ export function ManuscriptChecklistPanel(props: {
     ? null
     : wordLimit === 1 ? t`Limit 1 word` : spaceMixedScript(t({ message: `Limit ${{ wordLimit: formatCount(wordLimit) }} words` }));
   const pageLimitNote = pageLimit == null ? null : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`;
-  const notes = (...parts: (string | null)[]) => parts.filter(Boolean).join(", ") || undefined;
+  const notes = (...parts: (string | null)[]) => joinPhrases(parts) || undefined;
   const wordDetail = words == null
     ? notes(t`Needs a root document to count from`, wordLimitNote)
     : wordsEstimated

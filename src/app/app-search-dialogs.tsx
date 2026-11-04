@@ -11,6 +11,7 @@ import { GotoLineDialog } from "../editor/goto-line-dialog";
 import { QuickOpenDialog } from "../project/quick-open-dialog";
 import { SearchPickerDialog, type SearchPickerItem } from "../components/ui/search-picker-dialog";
 import { parsePaperLinkPath } from "../papers/paper-link";
+import { paperBylineAuthors } from "../papers/paper-identity";
 import { flattenOutline, type OutlineNode } from "../editor/latex/latex-outline";
 import { ProjectFindDialog } from "../project/project-find-dialog";
 import type { ProjectSearch } from "./use-project-search";
@@ -88,7 +89,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         ? props.citations.map((citation) => ({
           id: `cite:${citation.key}`,
           label: citation.key,
-          detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(", "),
+          detail: [citation.title, paperBylineAuthors({ authors: citation.authors }), citation.year].filter(Boolean).join(", "),
           group: t`Citation`,
         }))
         : props.citationKeys.map((key) => ({ id: `cite:${key}`, label: key, group: t`Citation` })),

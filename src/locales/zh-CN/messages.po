@@ -124,7 +124,7 @@ msgstr "{0} 只有浅色"
 msgid "{0} comments"
 msgstr "{0} 条评论"
 
-#. placeholder {0}: list(reasons.map(reason => reasonLabels[reason] ?? reason))
+#. placeholder {0}: joinList(reasons.map(reason => reasonLabels[reason] ?? reason))
 #: src/papers/bibliography-audit.tsx
 msgid "{0} differ from a source's record"
 msgstr "{0}与来源记录不一致"
@@ -738,6 +738,10 @@ msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史�
 #: src/app/use-overleaf-remote-deletes.ts
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着"
+
+#: src/canvas/proofread-card.tsx
+msgid "{note}. Click to keep the original"
+msgstr "{note}。点击保留原文"
 
 #: src/build/build-result-text.ts
 msgid "{notes} note"
@@ -1752,7 +1756,7 @@ msgstr "阿尔法"
 msgid "Already in Papers"
 msgstr "已在论文库"
 
-#. placeholder {0}: list(fix.unprinted)
+#. placeholder {0}: joinList(fix.unprinted)
 #: src/papers/bibliography-audit.tsx
 msgid "Also changes: {0}"
 msgstr "另外还改：{0}"
@@ -8792,7 +8796,7 @@ msgstr "还没有 AI 日志"
 msgid "No annotations yet"
 msgstr "还没有批注"
 
-#. placeholder {0}: list(silent)
+#. placeholder {0}: joinList(silent)
 #: src/papers/bibliography-audit.tsx
 msgid "No answer from {0}"
 msgstr "{0} 没有回应"

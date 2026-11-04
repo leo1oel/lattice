@@ -242,7 +242,7 @@ input[type="search"]:focus-visible {
    number take the accent, the noun keeps the bar's ink. */
 .editor-status-bar .status-count { font-weight: var(--weight-medium); }
 .editor-status-bar .status-counter[data-active] :is(svg, .status-count) { color: var(--control-active); }
-/* The count reads first and names its scope in the quieter ink after a dot;
+/* The count reads first and names its scope in the quieter ink after a gap;
    the scope is the first thing to go. */
 .editor-status-bar .status-body-words { margin-left: var(--space-2); gap: var(--space-2); }
 .editor-status-bar .status-body-words .status-word-scope::after { content: "\00a0"; margin-left: var(--space-2); }
@@ -476,7 +476,7 @@ input[type="search"]:focus-visible {
 .bib-entry-record { padding-top: var(--space-8); border-top: 1px solid var(--border-subtle); }
 .bib-citation-records { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); font: var(--type-caption-size)/1.5 var(--ui-font); }
 .bib-citation-records[data-edited] .bib-citation-evidence { color: var(--text-tertiary); }
-/* How a record was matched: one quiet line, its parts set off by middle dots;
+/* How a record was matched: one quiet line, its parts set apart by spacing;
    the source links to the record without leaving the type's own ink. */
 .bib-citation-evidence { display: inline-flex; flex-wrap: wrap; align-items: center; color: var(--text-secondary); }
 .bib-citation-evidence > span + span::before { content: "\00a0"; padding-inline: var(--space-3); }

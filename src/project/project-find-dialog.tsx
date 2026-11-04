@@ -12,6 +12,7 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { fileIcon } from "../trellis/trellis-icons";
+import { joinPhrases } from "../i18n";
 
 export type ProjectFindHit = {
   kind: string;
@@ -143,7 +144,7 @@ export function ProjectFindDialog(props: {
     ? countHits(fileHits.length)
     : scope === "paper"
       ? countPapers(paperCount)
-      : paperCount ? `${countHits(fileHits.length)}, ${countPapers(paperCount)}` : countHits(fileHits.length);
+      : paperCount ? joinPhrases([countHits(fileHits.length), countPapers(paperCount)]) : countHits(fileHits.length);
 
   const close = () => {
     setDebouncing(false);

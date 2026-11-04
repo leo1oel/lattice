@@ -16,6 +16,7 @@ import { figureArgument, figureReplacement, isFigureAsset, scanFigureInventory, 
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 import type { FigureEdit as Edit } from "./figure-undo";
 import "./figure-inventory.css";
+import { comma } from "../i18n";
 
 /** Each successful file is undoable, including when a later compare-and-swap fails. */
 async function writeFigureEdits(root: string, edits: Edit[], current: () => boolean, applied: (edit: Edit) => void) {
@@ -90,7 +91,7 @@ function FigurePreview({ root, path, uses }: { root: string; path: string; uses:
       ? t({ message: `${{ width: preview.width }} × ${{ height: preview.height }} pixels` }) : t`Dimensions unknown`}</p>}
     {failed && <p>{t`Preview unavailable`}</p>}
     {!vector && uses.map((use) => <p key={`${use.source}:${use.from}`}>
-      {use.source}:{use.line}, {preview && use.widthInches
+      {use.source}:{use.line}{comma()}{preview && use.widthInches
         ? t({ message: `${{ dpi: Math.round(preview.width / use.widthInches) }} DPI at the specified width` })
         : t`DPI unknown`}
     </p>)}
