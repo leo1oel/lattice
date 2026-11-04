@@ -29,7 +29,7 @@ const { transformFileSync } = pluginReactRequire("@babel/core");
 const reactCompiler = require("babel-plugin-react-compiler");
 const linguiMacro = require("@lingui/babel-plugin-lingui-macro");
 
-export const GUARDED_FILES = [
+const GUARDED_FILES = [
   "src/App.tsx",
   "src/canvas/document-canvas.tsx",
   "src/editor/markdown/engine/lattice-visual-editor.tsx",
@@ -40,7 +40,7 @@ export const GUARDED_FILES = [
  * @param {string} relative repo-relative file path
  * @returns {{ fn: string; line: number; reason: string }[]}
  */
-export function compileErrors(relative) {
+function compileErrors(relative) {
   const events = [];
   transformFileSync(path.join(REPO, relative), {
     configFile: false,

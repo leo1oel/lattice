@@ -53,7 +53,7 @@ const LAB_NAME = "LatticeLab";
 // The shipped app's fixed browser-host port; a lab must never take it.
 const REAL_APP_PORT = 18452;
 
-export function labFor(task) {
+function labFor(task) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(task ?? "")) {
     throw new Error(`task must be lowercase letters, digits and dashes, got ${JSON.stringify(task)}`);
   }
@@ -64,13 +64,13 @@ export function labFor(task) {
 // One stable port per task, clear of the real app (18452), the test builds
 // (18462, 18472) and perf:bench --serve (18480), so two labs rarely collide;
 // `run` still refuses a busy port.
-export function defaultPort(task) {
+function defaultPort(task) {
   let hash = 2166136261;
   for (const character of task) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
   return 18500 + (hash % 400);
 }
 
-export function parseVariant(variant) {
+function parseVariant(variant) {
   const match = /^wk([a-z0-9]*)$/.exec(variant ?? "");
   if (!match) throw new Error(`variant must be wk plus an optional --as suffix, got ${JSON.stringify(variant)}`);
   return { variant, suffix: match[1] };
@@ -79,7 +79,7 @@ export function parseVariant(variant) {
 const bundlePath = (lab, suffix = "") => join(lab.dir, `${LAB_NAME}WK${suffix}.app`);
 
 /** The directories the lab app's state lives in, as the lab account sees them. */
-export function statePaths(lab) {
+function statePaths(lab) {
   const library = `${LAB_HOME}/Library`;
   return [
     `${library}/Application Support/${lab.identifier}`,
@@ -90,7 +90,7 @@ export function statePaths(lab) {
 }
 
 /** `tauri build --config` overrides: an isolated identifier and no update traffic. */
-export function buildConfig(lab, reuseRuntimes) {
+function buildConfig(lab, reuseRuntimes) {
   return {
     identifier: lab.identifier,
     productName: LAB_NAME,
@@ -215,7 +215,7 @@ function portBusy(port) {
 const labProcesses = (root) => captureOrEmpty("pgrep", ["-U", LAB_USER, "-f", `${root}/.*${LAB_NAME}`]).trim();
 const labUserPids = () => new Set(captureOrEmpty("ps", ["-U", LAB_USER, "-o", "pid="]).split("\n").map((pid) => pid.trim()).filter(Boolean));
 
-export function runPlan(options, runId, label) {
+function runPlan(options, runId, label) {
   if (options.plan) return { ...JSON.parse(options.plan), run: runId, label };
   if (options.startup) return { scenarios: [], run: runId, label, startupOnly: true };
   const scenarios = (options.scenarios ?? "").split(",").filter(Boolean);
@@ -448,7 +448,7 @@ function loadRuns(lab, variant, prefix) {
   });
 }
 
-export function metric(result, [, scenario, path]) {
+function metric(result, [, scenario, path]) {
   if (scenario.startsWith("@")) return result.marks?.[scenario.slice(1)] ?? null;
   const data = result.scenarios?.[scenario];
   // A drag that did not move the divider measured nothing.
@@ -456,7 +456,7 @@ export function metric(result, [, scenario, path]) {
   return valueAtPath(data, path) ?? null;
 }
 
-export function verdict(kind, a, b, frames) {
+function verdict(kind, a, b, frames) {
   if (a === null || b === null) return "n/a";
   const pass = {
     fps: () => a >= 0.9 * b,

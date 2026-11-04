@@ -139,16 +139,6 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   min-width: 0;
   box-sizing: border-box;
 }
-.editor-comment-quote {
-  margin: 0;
-  max-height: 3.6em;
-  overflow: hidden;
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: 1.35;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 .editor-comment-popover textarea {
   width: 100%;
   min-width: 0;
@@ -168,28 +158,6 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
-.editor-comment-popover-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-}
-.editor-comment-popover-actions button {
-  height: var(--control-height-compact);
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-chrome);
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  font-weight: 600;
-}
-.editor-comment-popover-actions button.primary {
-  background: var(--control-tinted-surface);
-  border-color: transparent;
-  color: var(--text-primary);
-}
-.editor-comment-popover-actions button.primary:hover:not(:disabled) { background: var(--control-tinted-hover-surface); }
-.editor-comment-popover-actions button.primary:disabled { opacity: .45; }
 /* Inline proofread (canvas/proofread-card.tsx): a frosted card in a CodeMirror
    block widget under the selection it would replace, so the text below moves
    down rather than hiding behind it. The surface comes from surfaces.css. */
@@ -283,11 +251,9 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   .proofread-card-mode .ui-segmented-tab { flex: 1 1 0; padding-inline: var(--gap-inline-tight); overflow: hidden; white-space: nowrap; }
 }
 .editor-comments-drawer { width: min(420px, 100%); }
-.editor-comments-content .pdf-marks-toolbar { margin-top: var(--drawer-content-inset); }
 .editor-comments-content .ui-empty-state[data-density="compact"] {
   padding-top: 0;
 }
-.pdf-mark-item.resolved { opacity: .72; }
 /* Unresolved editor comments — an Overleaf thread's per-author colours come
    from inline styles; a local annotation is an amber highlighter stroke, blue
    while the agent's proposal waits and violet while its question does. */
@@ -397,74 +363,12 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   opacity: .7;
 }
 .editor-comment-reply-meta span:first-child { font-weight: 600; }
-/* Sized to the comment body above it (.pdf-mark-body p), which a reply continues. */
 .editor-comment-reply p {
   margin: 0;
   font-size: var(--type-caption-size);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-}
-/* Reply composer: part of the thread, styled like it. */
-.editor-comment-reply-compose {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: var(--space-1) var(--space-2) var(--space-3);
-  padding-left: var(--space-5);
-  border-left: 2px solid var(--control-active);
-}
-.editor-comment-reply-compose textarea {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 7px 9px;
-  border: var(--field-control-border-width) solid var(--field-control-border-color);
-  border-radius: var(--field-control-radius);
-  background: var(--field-control-background);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: var(--type-caption-size);
-  line-height: 1.5;
-  resize: vertical;
-  overflow-x: hidden;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-.editor-comment-reply-compose textarea:focus {
-  outline: none;
-  border-color: var(--field-control-interactive-border-color);
-  box-shadow: none;
-}
-.editor-comment-reply-actions { display: flex; gap: var(--space-3); }
-.editor-comment-reply-actions button {
-  height: 24px;
-  padding: 0 11px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-icon);
-  background: transparent;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: var(--type-caption-size);
-  font-weight: 600;
-  cursor: pointer;
-}
-.editor-comment-reply-actions button:not(.primary):hover:not(:disabled) { background: var(--border-subtle); }
-/* Reply leads its row as the tinted Button does: the accent's wash, not a
- * dark slab, and a deeper wash on hover rather than the secondary one. */
-.editor-comment-reply-actions button.primary {
-  border-color: transparent;
-  background: var(--control-tinted-surface);
-}
-.editor-comment-reply-actions button.primary:hover:not(:disabled) {
-  background: var(--control-tinted-hover-surface);
-}
-.editor-comment-reply-actions button:disabled { opacity: .5; cursor: default; }
-.pdf-mark-item.focused {
-  outline: 2px solid var(--control-active);
-  outline-offset: -1px;
-  border-radius: var(--radius-control);
 }
 .source-editor > .code-editor-root { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; background: var(--code-ground); }
@@ -1273,7 +1177,6 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   font-family: var(--ui-font);
   font-size: var(--type-caption-size);
 }
-.visual-node-source-error { color: var(--status-danger); font-size: var(--type-micro-size); line-height: 1.45; }
 @media (forced-colors: active) {
   .visual-heading-rail-item:focus-visible { outline-color: Highlight; }
   .visual-heading-rail-preview-card { border: 1px solid CanvasText; }

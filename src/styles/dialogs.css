@@ -768,8 +768,6 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .theme-swatch[data-accent]::before { box-shadow: 0 0 0 1.5px var(--accent); }
 .theme-swatch-check { position: relative; pointer-events: none; animation: theme-swatch-check var(--motion-moderate); }
 @keyframes theme-swatch-check { from { opacity: 0; scale: 0.4; } }
-/* A tint's swatch is its chrome surface around the hue that names it. */
-.theme-tint-fill { background: radial-gradient(circle, var(--tint-mark) 0 38%, var(--chrome-surface) 40%); }
 .theme-accent-fill { background: var(--accent); }
 .theme-swatch[data-accent] .theme-swatch-check { color: var(--accent-contrast); }
 .theme-custom-fill { background: conic-gradient(in oklch longer hue, oklch(0.68 0.17 30), oklch(0.68 0.17 30)); }
@@ -800,10 +798,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .code-theme-preview-line { display: block; }
 .code-theme-card:hover .code-theme-preview { box-shadow: inset 0 0 0 1px var(--border-strong); }
 .code-theme-card[aria-checked="true"] .code-theme-preview { box-shadow: 0 0 0 2px var(--settings-card-surface), 0 0 0 4px var(--control-active); }
-.code-theme-card-copy { min-width: 0; display: flex; flex-direction: column; }
-.code-theme-card-copy > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .code-theme-card-name { font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-medium); }
-.code-theme-card-variants { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 /* The terms list grows under the field, so the row hangs from its top; the
    label keeps the field's height so it centres on the field's line, as every
    other row's label centres on its control. */
