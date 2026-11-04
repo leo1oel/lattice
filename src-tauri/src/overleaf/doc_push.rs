@@ -14,10 +14,10 @@
 //! for this account, as Overleaf does with an upload into a document.
 
 use super::api::Remote;
+use crate::domain_runtime as rt;
 use crate::overleaf_rt::{OtOp, RealtimeClient, RealtimeConfig, Submission};
 use crate::wide_event;
 use std::collections::{BTreeMap, BTreeSet};
-use crate::domain_runtime as rt;
 
 /// Extensions an upload reads as text on any Overleaf, so uploading one keeps
 /// a document a document. Deliberately short: a document missing from it only
