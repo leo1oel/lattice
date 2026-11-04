@@ -8683,8 +8683,8 @@ msgid "New project"
 msgstr "新建项目"
 
 #: src/platform/host-errors-project.ts
-msgid "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .tldr, or .lattice-sheet."
-msgstr "新建源文件的扩展名须为 .tex、.bib、.md、.sty、.cls、.txt、.html、.tsx、.ts、.jsx、.js、.tldr 或 .lattice-sheet"
+msgid "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet."
+msgstr "新建源文件的扩展名须为 .tex、.bib、.md、.sty、.cls、.txt、.html、.tsx、.ts、.jsx、.js、.py、.tldr 或 .lattice-sheet"
 
 #: src/trellis/trellis-labels.ts
 msgid "New split below"

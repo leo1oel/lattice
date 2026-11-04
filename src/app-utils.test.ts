@@ -256,6 +256,7 @@ describe("editor file drops", () => {
   it("classifies source files separately from figures and rejects mixed drops", () => {
     expectEach(classifyExternalProjectDrop, [
       [["/tmp/main.tex", "C:\\paper\\references.bib", "/tmp/supplement.html"], "source"],
+      [["/tmp/plot.py", "C:\\paper\\analysis.PY"], "source"],
       [["/tmp/result.svg", "/tmp/plot.pdf"], "asset"],
       [["/tmp/main.tex", "/tmp/result.png"], "mixed"],
       [["/tmp/archive.zip"], "unsupported"],
