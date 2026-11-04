@@ -1,15 +1,14 @@
-//! A trusted navigation bar beside an unprivileged remote WebView.
+//! Native navigation controls around an unprivileged remote WebView.
 //! Remote pages never receive workspace IPC authority, a sidecar token or a
 //! persistent browser profile. Website framing restrictions are not bypassed.
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Runtime, State, Webview};
+use tauri::{AppHandle, Manager, Runtime, State, Webview};
 use tauri_plugin_opener::OpenerExt;
 
 const CONTENT: &str = "site-content-";
 const CONTROLS: &str = "site-controls-";
-const BAR_HEIGHT: f64 = 80.0;
 const UNAVAILABLE: &str = "The web browser window is no longer available.";
 
 #[derive(Clone, Serialize)]
@@ -23,6 +22,7 @@ struct BrowserSession {
     content: String,
     window: String,
     status: BrowserStatus,
+    chinese: bool,
 }
 #[derive(Default)]
 pub struct WebBrowsers(Mutex<HashMap<String, BrowserSession>>);
@@ -93,7 +93,6 @@ pub async fn web_browser_open(
     let id = uuid::Uuid::new_v4().simple().to_string();
     let controls = format!("{CONTROLS}{id}");
     let content = format!("{CONTENT}{id}");
-    let window_label = format!("site-window-{id}");
     {
         let state = app.state::<WebBrowsers>();
         let mut browsers = state.0.lock().map_err(|_| UNAVAILABLE.to_string())?;
@@ -104,22 +103,16 @@ pub async fn web_browser_open(
             controls.clone(),
             BrowserSession {
                 content: content.clone(),
-                window: window_label.clone(),
+                window: content.clone(),
+                chinese: locale.as_deref() == Some("zh-CN"),
                 status: BrowserStatus { url: url.to_string(), title: String::new(), loading: true },
             },
         );
     }
-    let result = create_window(
-        &app,
-        &window_label,
-        &controls,
-        &content,
-        url,
-        locale.as_deref() == Some("zh-CN"),
-    );
+    let result = create_window(&app, &controls, &content, url, locale.as_deref() == Some("zh-CN"));
     if result.is_err() {
         app.state::<WebBrowsers>().0.lock().unwrap().remove(&controls);
-        if let Some(window) = app.get_window(&window_label) {
+        if let Some(window) = app.get_webview_window(&content) {
             let _ = window.destroy();
         }
     }
@@ -127,26 +120,8 @@ pub async fn web_browser_open(
 }
 
 fn create_window(
-    app: &AppHandle, label: &str, controls: &str, content: &str, url: tauri::Url, chinese: bool,
+    app: &AppHandle, controls: &str, content: &str, url: tauri::Url, chinese: bool,
 ) -> tauri::Result<()> {
-    let window = tauri::window::WindowBuilder::new(app, label)
-        .title(if chinese { "Lattice 浏览器" } else { "Lattice Browser" })
-        .inner_size(1100.0, 800.0)
-        .min_inner_size(600.0, 420.0)
-        .build()?;
-    let route = if chinese { "browser.html?lang=zh-CN" } else { "browser.html?lang=en" };
-    let development_url =
-        if cfg!(debug_assertions) { app.config().build.dev_url.clone() } else { None };
-    let toolbar =
-        tauri::webview::WebviewBuilder::new(controls, tauri::WebviewUrl::App(route.into()))
-            // The trusted toolbar cannot navigate to a remote document.
-            .on_navigation(move |url| toolbar_address(url, development_url.as_ref()))
-            .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
-    window.add_child(
-        toolbar,
-        LogicalPosition::new(0.0, 0.0),
-        LogicalSize::new(1100.0, BAR_HEIGHT),
-    )?;
     let navigation_app = app.clone();
     let navigation_controls = controls.to_string();
     let title_app = app.clone();
@@ -155,7 +130,12 @@ fn create_window(
     let load_controls = controls.to_string();
     let popup_app = app.clone();
     let popup_content = content.to_string();
-    let remote = tauri::webview::WebviewBuilder::new(content, tauri::WebviewUrl::External(url))
+    // A normal, single-WebView window preserves Wry's page-first command-key
+    // handling. Enabling Tauri's global multi-webview feature breaks editors.
+    let remote = tauri::WebviewWindowBuilder::new(app, content, tauri::WebviewUrl::External(url))
+        .title(if chinese { "Lattice 浏览器" } else { "Lattice Browser" })
+        .inner_size(1100.0, 800.0)
+        .min_inner_size(600.0, 420.0)
         .incognito(true)
         .on_navigation(move |url| {
             if address(url.as_str()).is_err() {
@@ -167,10 +147,12 @@ fn create_window(
             });
             true
         })
-        .on_document_title_changed(move |_, title| {
-            update(&title_app, &title_controls, |status| {
-                status.title = title.chars().take(256).collect()
-            })
+        .on_document_title_changed(move |window, title| {
+            let title: String = title.chars().take(256).collect();
+            let origin =
+                window.url().map(|url| url.origin().ascii_serialization()).unwrap_or_default();
+            let _ = window.set_title(&format!("{origin} — {title} — Lattice"));
+            update(&title_app, &title_controls, |status| status.title = title);
         })
         .on_page_load(move |_, payload| {
             update(&load_app, &load_controls, |status| {
@@ -179,41 +161,72 @@ fn create_window(
         })
         .on_new_window(move |url, _| {
             if address(url.as_str()).is_ok() {
-                if let Some(view) = popup_app.get_webview(&popup_content) {
+                if let Some(view) = popup_app.get_webview_window(&popup_content) {
                     let _ = view.navigate(url);
                 }
             }
             tauri::webview::NewWindowResponse::Deny
         })
-        .on_download(|_, _| false);
-    window.add_child(
-        remote,
-        LogicalPosition::new(0.0, BAR_HEIGHT),
-        LogicalSize::new(1100.0, 800.0 - BAR_HEIGHT),
-    )?;
+        .on_download(|_, _| false)
+        .build()?;
+    let route = if chinese { "browser.html?lang=zh-CN" } else { "browser.html?lang=en" };
+    let development_url =
+        if cfg!(debug_assertions) { app.config().build.dev_url.clone() } else { None };
+    let toolbar =
+        tauri::WebviewWindowBuilder::new(app, controls, tauri::WebviewUrl::App(route.into()))
+            .title(if chinese { "网页地址 — Lattice" } else { "Web address — Lattice" })
+            .inner_size(960.0, 96.0)
+            .min_inner_size(650.0, 96.0)
+            .resizable(false)
+            .visible(false)
+            .parent(&remote)?
+            .on_navigation(move |url| toolbar_address(url, development_url.as_ref()))
+            .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+            .build()?;
+    let close_toolbar = toolbar.clone();
+    let close_remote = remote.clone();
+    toolbar.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            let _ = close_toolbar.hide();
+            let _ = close_remote.set_focus();
+        }
+    });
     let event_app = app.clone();
     let event_controls = controls.to_string();
-    let event_content = content.to_string();
-    let event_window = window.clone();
-    window.on_window_event(move |event| match event {
-        tauri::WindowEvent::Resized(size) => {
-            let scale = event_window.scale_factor().unwrap_or(1.0);
-            if let Some(view) = event_app.get_webview(&event_content) {
-                let _ = view.set_size(LogicalSize::new(
-                    f64::from(size.width) / scale,
-                    (f64::from(size.height) / scale - BAR_HEIGHT).max(1.0),
-                ));
-            }
-            if let Some(view) = event_app.get_webview(&event_controls) {
-                let _ = view.set_size(LogicalSize::new(f64::from(size.width) / scale, BAR_HEIGHT));
-            }
-        }
-        tauri::WindowEvent::Destroyed => {
+    remote.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Destroyed) {
             event_app.state::<WebBrowsers>().0.lock().unwrap().remove(&event_controls);
+            if let Some(toolbar) = event_app.get_webview_window(&event_controls) {
+                let _ = toolbar.destroy();
+            }
         }
-        _ => {}
     });
+    if let Some(label) = crate::macos_window::focused_window_label() {
+        focus_menu(app, &label);
+    }
     Ok(())
+}
+
+pub(crate) fn is_browser_window(label: &str) -> bool {
+    label.starts_with(CONTENT) || label.starts_with(CONTROLS)
+}
+
+pub(crate) fn window_state_tracks(label: &str) -> bool {
+    !label.starts_with("browser-") && !is_browser_window(label)
+}
+
+pub(crate) fn append_navigation_menu<R: Runtime>(
+    app: &tauri::AppHandle<R>, menu: &tauri::menu::Menu<R>,
+) -> tauri::Result<()> {
+    menu::append(app, menu)
+}
+
+pub(crate) fn focus_menu<R: Runtime>(app: &tauri::AppHandle<R>, label: &str) {
+    menu::focus(app, label);
+}
+pub(crate) fn handle_menu_event(app: &AppHandle, event: &tauri::menu::MenuEvent) -> bool {
+    menu::handle(app, event)
 }
 
 fn own_session(
@@ -234,7 +247,7 @@ pub async fn web_browser_status(
 ) -> Result<BrowserStatus, String> {
     let (content, _, mut status) = own_session(&state, &caller)?;
     // SPA history.pushState can change the address without a new page load.
-    if let Some(view) = app.get_webview(&content) {
+    if let Some(view) = app.get_webview_window(&content) {
         if let Ok(url) = view.url() {
             status.url = url.to_string();
         }
@@ -248,23 +261,47 @@ pub async fn web_browser_navigate(
 ) -> Result<(), String> {
     let url = address(&url)?;
     let (content, _, _) = own_session(&state, &caller)?;
-    app.get_webview(&content)
-        .ok_or_else(|| UNAVAILABLE.to_string())?
-        .navigate(url)
-        .map_err(|_| UNAVAILABLE.to_string())
+    let remote = app.get_webview_window(&content).ok_or_else(|| UNAVAILABLE.to_string())?;
+    remote.navigate(url).map_err(|_| UNAVAILABLE.to_string())?;
+    if let Some(toolbar) = app.get_webview_window(caller.label()) {
+        let _ = toolbar.hide();
+    }
+    let _ = remote.set_focus();
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn web_browser_action(
     app: AppHandle, caller: Webview, state: State<'_, WebBrowsers>, action: String,
 ) -> Result<(), String> {
-    let (content, window, _) = own_session(&state, &caller)?;
-    let view = app.get_webview(&content).ok_or_else(|| UNAVAILABLE.to_string())?;
-    let operation = match action.as_str() {
+    let (_, window, _) = own_session(&state, &caller)?;
+    perform_action(&app, &window, &action)
+}
+
+fn perform_action(app: &AppHandle, window: &str, action: &str) -> Result<(), String> {
+    let state = app.state::<WebBrowsers>();
+    let controls = state
+        .0
+        .lock()
+        .map_err(|_| UNAVAILABLE.to_string())?
+        .iter()
+        .find(|(_, session)| session.content == window)
+        .map(|(controls, _)| controls.clone())
+        .ok_or_else(|| UNAVAILABLE.to_string())?;
+    let content = window;
+    let view = app.get_webview_window(&content).ok_or_else(|| UNAVAILABLE.to_string())?;
+    let operation = match action {
+        "address" => {
+            let toolbar =
+                app.get_webview_window(&controls).ok_or_else(|| UNAVAILABLE.to_string())?;
+            toolbar.show().map_err(|_| UNAVAILABLE.to_string())?;
+            toolbar.set_focus().map_err(|_| UNAVAILABLE.to_string())?;
+            toolbar.eval("window.dispatchEvent(new Event('lattice-browser-address'))")
+        }
         "back" => view.eval("history.back()"),
         "forward" => view.eval("history.forward()"),
         "reload" => view.reload(),
-        "close" => app.get_window(&window).ok_or_else(|| UNAVAILABLE.to_string())?.close(),
+        "close" => app.get_webview_window(&content).ok_or_else(|| UNAVAILABLE.to_string())?.close(),
         "external" => {
             return app
                 .opener()
@@ -279,5 +316,6 @@ pub async fn web_browser_action(
     operation.map_err(|_| UNAVAILABLE.to_string())
 }
 
+mod menu;
 #[cfg(test)]
 mod tests;

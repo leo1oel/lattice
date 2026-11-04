@@ -40,7 +40,7 @@ opt-level = "s"
 strip = "symbols"
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api", "unstable"] }
+tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

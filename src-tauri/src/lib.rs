@@ -178,6 +178,9 @@ fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     if let tauri::WindowEvent::Focused(is_focused) = event {
         macos_window::set_window_focused(window.label(), *is_focused);
+        if *is_focused {
+            web_browser::focus_menu(window.app_handle(), window.label());
+        }
     }
     // The page saves its last edits first; the window closes once it has.
     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -373,14 +376,16 @@ pub fn run() {
         // this lifecycle entirely.
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| {
-                    !label.starts_with("browser-") && !label.starts_with("site-window-")
-                })
+                .with_filter(web_browser::window_state_tracks)
                 .build(),
         )
         .on_window_event(on_window_event)
         .on_page_load(on_page_load)
-        .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
+        .on_menu_event(|app, event| {
+            if !web_browser::handle_menu_event(app, &event) {
+                native_locale::handle_menu_event(app, &event);
+            }
+        })
         .setup(setup)
         .invoke_handler(web_browser::isolated(tauri::generate_handler![
             web_browser::web_browser_open,

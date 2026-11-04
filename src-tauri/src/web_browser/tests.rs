@@ -81,3 +81,13 @@ fn the_trusted_toolbar_cannot_navigate_to_remote_or_another_loopback_service() {
         assert!(!toolbar_address(&value.parse().unwrap(), Some(&development)), "{value}");
     }
 }
+
+#[test]
+fn window_state_never_restores_hidden_bridges_or_private_browser_controls() {
+    for label in ["browser-workspace", "site-content-page", "site-controls-address"] {
+        assert!(!window_state_tracks(label), "{label}");
+    }
+    for label in ["main", "project-research", "overleaf-login"] {
+        assert!(window_state_tracks(label), "{label}");
+    }
+}

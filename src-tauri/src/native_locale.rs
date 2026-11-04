@@ -268,10 +268,12 @@ pub(crate) fn build_menu<R: Runtime>(
         true,
         &[&MenuItem::with_id(app, WHATS_NEW, &labels.whats_new, true, None::<&str>)?],
     )?;
-    Menu::with_items(
+    let menu = Menu::with_items(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu],
-    )
+    )?;
+    crate::web_browser::append_navigation_menu(app, &menu)?;
+    Ok(menu)
 }
 
 /// A margin review choice goes to the window it was made in, which keeps it
@@ -293,9 +295,7 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
                 let _ = app.emit_to(tauri::EventTarget::webview_window(&label), CLOSE_TAB, ());
             }
             Some(CloseAction::Window) => {
-                // A browser window has separate toolbar/content WebViews, so
-                // it is a Window rather than a single WebviewWindow.
-                if let Some(window) = app.get_window(&label) {
+                if let Some(window) = app.get_webview_window(&label) {
                     let _ = window.close();
                 }
             }
@@ -315,7 +315,7 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         return;
     };
     let Some(label) = crate::macos_window::focused_window_label() else { return };
-    if label.starts_with("site-window-") {
+    if crate::web_browser::is_browser_window(&label) {
         if let Some(direction) = id.strip_prefix(EDIT_HISTORY_PREFIX) {
             // Browser fields and the website use WebKit's editing history;
             // there is no workspace editor listening in this window.
@@ -453,7 +453,7 @@ mod tests {
         assert_eq!(close_action(CLOSE_TAB, "project-2"), Some(CloseAction::AskPage));
         assert_eq!(close_action(CLOSE_TAB, "main"), Some(CloseAction::AskPage));
         assert_eq!(close_action(CLOSE_TAB, "overleaf-login"), Some(CloseAction::Window));
-        assert_eq!(close_action(CLOSE_TAB, "site-window-test"), Some(CloseAction::Window));
+        assert_eq!(close_action(CLOSE_TAB, "site-content-test"), Some(CloseAction::Window));
         assert_eq!(close_action(CLOSE_WINDOW, "project-2"), Some(CloseAction::Window));
         assert_eq!(close_action(QUIT, "main"), None);
     }

@@ -129,7 +129,7 @@ describe("Tauri security boundary", () => {
   it("keeps the fixed browser entry local and authenticated, and bridge windows hidden", () => {
     // The window-state plugin shows new dynamic windows unless they are
     // filtered out, overriding the bridge builder's `visible(false)` setting.
-    expectContains(rustApp, '.with_filter(|label| !label.starts_with("browser-"))');
+    expectContains(rustApp, '.with_filter(web_browser::window_state_tracks)');
     expectContains(browserHost, '.title("")');
     expect(config.app.windows[0]?.visible).toBe(false);
     expectContains(rustApp, "browser_host_launch()");

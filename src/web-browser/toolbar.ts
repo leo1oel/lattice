@@ -71,5 +71,17 @@ export function mountBrowserToolbar(root: HTMLElement, bridge: Bridge, locale: s
   };
   void refresh();
   const timer = window.setInterval(() => void refresh(), 600);
-  return () => { alive = false; window.clearInterval(timer); root.replaceChildren(); };
+  const openAddress = async () => {
+    const attempt = ++revision;
+    failed = false;
+    try {
+      const current = await bridge.invoke<Status>("web_browser_status");
+      if (!alive || attempt !== revision) return;
+      address.value = current.url;
+      address.focus();
+      address.select();
+    } catch { error(attempt); }
+  };
+  window.addEventListener("lattice-browser-address", openAddress);
+  return () => { alive = false; window.clearInterval(timer); window.removeEventListener("lattice-browser-address", openAddress); root.replaceChildren(); };
 }

@@ -1,10 +1,11 @@
-:root { color-scheme:light dark; font:13px system-ui,sans-serif; background:Canvas; color:CanvasText; }
+@import "../styles/foundations.css";
+:root { color-scheme:light dark; font:var(--font-ui-body) system-ui,sans-serif; background:Canvas; color:CanvasText; }
 * { box-sizing:border-box; }
 body { margin:0; }
-#browser-toolbar { height:80px; padding:6px 8px; }
-form { display:flex; align-items:center; gap:5px; height:38px; }
-input { flex:1 1 0; min-width:100px; border:1px solid color-mix(in srgb,CanvasText 20%,transparent); border-radius:7px; padding:7px; font:inherit; background:Field; color:FieldText; }
+#browser-toolbar { height:80px; padding:var(--space-3) var(--space-4); }
+form { display:flex; align-items:center; gap:var(--space-2); height:38px; }
+input { flex:1 1 0; min-width:100px; border:1px solid color-mix(in srgb,CanvasText 20%,transparent); border-radius:7px; padding:var(--space-3); font:inherit; background:Field; color:FieldText; }
 button { min-width:30px; min-height:32px; border:0; border-radius:6px; font:inherit; color:ButtonText; background:ButtonFace; }
 button:active { background:color-mix(in srgb,CanvasText 18%,Canvas); }
 button:focus-visible,input:focus-visible { outline:2px solid Highlight; outline-offset:1px; }
-p { margin:5px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+p { margin:var(--space-2) var(--space-1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--type-caption-size); }
