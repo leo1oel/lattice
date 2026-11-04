@@ -105,8 +105,9 @@ export function installDemoBackend(files: ProjectFiles): { tauri: MockTauri; unh
       case "open_project":
       case "open_tutorial_project":
       case "refresh_project":
-      case "list_project_tree_with_hidden":
         return snapshot();
+      case "list_project_tree_with_hidden":
+        return project.tree();
       case "build_project":
         if (!opened) {
           opened = true;

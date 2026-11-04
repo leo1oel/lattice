@@ -29,6 +29,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { checkSite, timelessFontHashes } from "./check-font-leaks.mjs";
 import { isMain, projectRoot, walkFiles } from "./lib/util.mjs";
+import { PRIVATE_FONTS_DEFAULT_DIRECTORY } from "./private-fonts.ts";
 
 const DEMO = path.join(projectRoot, "tools/web-demo");
 const PORT = 18490;
@@ -140,8 +141,7 @@ export function checkBuild(outDir) {
 
 /** Where scripts/private-fonts.ts looks by default, so a copy of a face on this machine is caught too. */
 function defaultFontsDirectory() {
-  const folder = path.join(process.env.HOME ?? "", "Downloads/Timeless-Type-Family-1.094");
-  return existsSync(folder) ? folder : null;
+  return existsSync(PRIVATE_FONTS_DEFAULT_DIRECTORY) ? PRIVATE_FONTS_DEFAULT_DIRECTORY : null;
 }
 
 const kb = (bytes) => `${(bytes / 1000).toFixed(0)} KB`;

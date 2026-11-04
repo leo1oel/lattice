@@ -138,7 +138,6 @@ reaches users.
 Once the Release workflow succeeds, `web-demo.yml` builds the website's interactive demo (`tools/web-demo/`, `node scripts/web-demo.mjs`) from the release's commit and publishes it to the `gh-pages` branch under `demo/`, so <https://leo1oel.github.io/lattice/demo/> always runs the version people download.
 It writes nothing outside `demo/`: the rest of `gh-pages` is the website.
 The build is checked before anything is published (no Timeless font, by name or by bytes; no bench or tldraw code; the startup download within its budget; the app opens in headless Chrome), and a failed check leaves the previous demo up.
-Run it by hand with **publish** ticked to republish a ref without a release.
 
 ### `release-cache.yml`
 

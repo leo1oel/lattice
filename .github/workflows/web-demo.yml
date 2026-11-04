@@ -13,8 +13,8 @@ name: Web demo
 #   Only demo/ is written: the site's own files belong to the website. A
 #   release whose demo fails to build or check publishes nothing, and the
 #   previous demo stays up.
-# - Run by hand (workflow_dispatch) it builds the chosen ref, and publishes it
-#   only when asked to.
+# - Run by hand (workflow_dispatch) it builds and checks the chosen ref and
+#   uploads it as an artifact; only a release publishes.
 #
 # The demo runs all of src/, but a pull request that changes only the app
 # does not build it here; the release-time build is the check that catches
@@ -40,11 +40,6 @@ on:
     workflows: [Release]
     types: [completed]
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Publish this build to the website's demo/ folder
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -73,7 +68,7 @@ jobs:
 
   publish:
     needs: build
-    if: github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    if: github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -92,8 +87,8 @@ jobs:
           path: site
       - name: Replace demo/ on gh-pages
         env:
-          VERSION: ${{ github.event.workflow_run.head_branch || github.ref_name }}
-          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          VERSION: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           cd site
@@ -104,8 +99,9 @@ jobs:
             echo "demo/ is already this build."
             exit 0
           fi
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit --quiet -m "Publish the web demo for $VERSION (${SHA:0:7})"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --quiet -m "Publish the web demo for $VERSION (${SHA:0:7})"
           # The website is published to the same branch; take its commits
           # and try again rather than overwrite them.
           for attempt in 1 2 3; do

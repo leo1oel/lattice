@@ -43,7 +43,7 @@ export const LICENSE_FILE = "LICENSE.pdf";
 // aliases, so the faces become ordinary emitted assets.
 const FONT_ALIAS = "@lattice-private-fonts";
 
-const DEFAULT_DIRECTORY = path.join(os.homedir(), "Downloads", "Timeless-Type-Family-1.094");
+export const PRIVATE_FONTS_DEFAULT_DIRECTORY = path.join(os.homedir(), "Downloads", "Timeless-Type-Family-1.094");
 
 /**
  * Timeless runs about 3.5% narrower than Inter with a smaller x-height. Scaling
@@ -103,14 +103,14 @@ export const FACES: readonly Face[] = [
 export function privateFontsDirectory(env: NodeJS.ProcessEnv = process.env): string | null {
   const configured = env[PRIVATE_FONTS_ENV];
   const required = env[PRIVATE_FONTS_REQUIRED_ENV] === "1";
-  const directory = configured === "" ? null : path.resolve(configured ?? DEFAULT_DIRECTORY);
+  const directory = configured === "" ? null : path.resolve(configured ?? PRIVATE_FONTS_DEFAULT_DIRECTORY);
   // All or nothing: a partial copy would mix faces and metrics, and fonts
   // without their license may not be shipped at all.
   const complete = directory !== null
     && [LICENSE_FILE, ...FACES.map((face) => face.file)].every((file) => existsSync(path.join(directory, file)));
   if (complete) return directory;
   if (required) {
-    throw new Error(`${PRIVATE_FONTS_REQUIRED_ENV}=1, but ${PRIVATE_FONTS_ENV} (${configured ?? DEFAULT_DIRECTORY}) does not hold ${LICENSE_FILE} and every embedded face`);
+    throw new Error(`${PRIVATE_FONTS_REQUIRED_ENV}=1, but ${PRIVATE_FONTS_ENV} (${configured ?? PRIVATE_FONTS_DEFAULT_DIRECTORY}) does not hold ${LICENSE_FILE} and every embedded face`);
   }
   return null;
 }

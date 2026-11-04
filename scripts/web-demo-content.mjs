@@ -28,6 +28,7 @@ const TUTORIAL = path.join(projectRoot, "src-tauri/templates/tutorial");
 const CONTENT = path.join(projectRoot, "tools/web-demo/content");
 const COMPILED = path.join(CONTENT, "compiled");
 const FIGURES = ["scaled-dot-product-attention.png", "multi-head-attention.png", "attention-figure-2.pdf", "ATTRIBUTION.md"];
+const FIGURE_SOURCE = path.join(CONTENT, "figures/attention-figures.tex");
 /** The files a build of main.tex reads from the project: what inputs.json hashes. */
 const BUILD_INPUTS = /^(?:main\.tex|references\.bib|neurips\.sty|figures\/.+\.(?:png|pdf))$/;
 /** Fixed dates in the PDF, so a rebuild of the same inputs writes the same bytes. */
@@ -57,11 +58,11 @@ export function demoTutorial() {
   return files;
 }
 
-/** The hash of the files a build of the demo's tutorial reads. */
+/** The hash of the files a build of the demo's tutorial reads, and of the drawings its figures are rendered from. */
 export function buildInputsHash(files = demoTutorial()) {
   const hash = [...files].filter(([file]) => BUILD_INPUTS.test(file)).sort(([a], [b]) => a.localeCompare(b))
     .map(([file, bytes]) => `${file}\0${sha256(bytes)}`).join("\n");
-  return sha256(hash);
+  return sha256(`${hash}\n${sha256(readFileSync(FIGURE_SOURCE))}`);
 }
 
 const tool = (command, args, cwd) => capture(command, args, {
@@ -72,7 +73,7 @@ const tool = (command, args, cwd) => capture(command, args, {
 function drawFigures(scratch) {
   const dir = path.join(scratch, "figures");
   mkdirSync(dir);
-  copyFileSync(path.join(CONTENT, "figures/attention-figures.tex"), path.join(dir, "attention-figures.tex"));
+  copyFileSync(FIGURE_SOURCE, path.join(dir, "attention-figures.tex"));
   tool("pdflatex", ["-interaction=nonstopmode", "-halt-on-error", "attention-figures.tex"], dir);
   const pdf = path.join(dir, "attention-figures.pdf");
   for (const [page, name] of [[1, "scaled-dot-product-attention"], [2, "multi-head-attention"]]) {
