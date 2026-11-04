@@ -1,15 +1,15 @@
+import { BrowserEventRegistry, physicalWindowSize } from "./browser-events";
+export { BrowserEventRegistry } from "./browser-events";
+import { encodeBridgeValue, decodeBridgeValue, type BridgeValue } from "./browser-bridge-value";
+export { encodeBridgeValue, decodeBridgeValue } from "./browser-bridge-value";
 import { APPEARANCE_KEY, loadThemePreference, systemTheme } from "../settings/app-settings";
 import { BROWSER_ENTRY_PORT } from "./flavor";
 
 /* eslint-disable lingui/no-unlocalized-strings -- bridge protocol keys shared with Tauri and the native host */
-const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
-const BINARY_MARKER = "__latticeBridgeBinary";
 /* eslint-enable lingui/no-unlocalized-strings */
-const LOCAL_EVENT_START = -1;
 
 type Callback = (payload: unknown) => void;
 
-type BridgeValue = null | boolean | number | string | BridgeValue[] | { [key: string]: BridgeValue };
 
 type BrowserMessage =
   | { type: "ready"; label: string }
@@ -505,68 +505,6 @@ function showRuntimeStatus(status: RuntimeStatus): void {
   statusFocus.focus({ preventScroll: true });
 }
 
-function physicalWindowSize() {
-  return {
-    width: Math.round(window.innerWidth * window.devicePixelRatio),
-    height: Math.round(window.innerHeight * window.devicePixelRatio),
-  };
-}
-
-const WINDOW_EVENTS = new Map([["tauri://resize", "resize"], ["tauri://focus", "focus"], ["tauri://blur", "blur"]]);
-
-export class BrowserEventRegistry {
-  private nextLocalId = LOCAL_EVENT_START;
-  private readonly entries = new Map<string, {
-    callbackId: number;
-    cleanup?: () => void;
-  }>();
-
-  constructor(private readonly runCallback: (id: number, payload: unknown) => void) {}
-
-  listen(event: string, callbackId: number): number | null {
-    const domEvent = WINDOW_EVENTS.get(event);
-    if (!domEvent) return null;
-    return this.subscribe(event, callbackId, domEvent, (emit) => {
-      emit(event === "tauri://resize" ? physicalWindowSize() : event === "tauri://focus");
-    });
-  }
-
-  track(event: string, eventId: number, callbackId: number): void {
-    this.entries.set(this.key(event, eventId), { callbackId });
-  }
-
-  unregister(event: string, eventId: number, unregisterCallback: (id: number) => void): void {
-    const key = this.key(event, eventId);
-    const entry = this.entries.get(key);
-    if (!entry) return;
-    entry.cleanup?.();
-    unregisterCallback(entry.callbackId);
-    this.entries.delete(key);
-  }
-
-  /** Emulates a Tauri event with a window DOM event under a negative local id. */
-  private subscribe(
-    event: string,
-    callbackId: number,
-    domEvent: string,
-    handle: (emit: (payload: unknown) => void) => void,
-  ): number {
-    const eventId = this.nextLocalId--;
-    const emit = (payload: unknown) => this.runCallback(callbackId, { event, id: eventId, payload });
-    const listener = () => handle(emit);
-    window.addEventListener(domEvent, listener);
-    this.entries.set(this.key(event, eventId), {
-      callbackId,
-      cleanup: () => window.removeEventListener(domEvent, listener),
-    });
-    return eventId;
-  }
-
-  private key(event: string, eventId: number): string {
-    return `${event}:${eventId}`;
-  }
-}
-
 function installBrowserRuntime(config: BrowserRuntimeConfig): Promise<void> {
   const runtimeWindow = window as unknown as RuntimeWindow;
   const callbacks = new Map<number, Callback>();
@@ -756,48 +694,6 @@ async function initializeBrowserRuntime(): Promise<void> {
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
   await installBrowserRuntime(config);
-}
-
-export function encodeBridgeValue(value: unknown): BridgeValue {
-  const encoded = JSON.stringify(value ?? null, (_key, current: unknown) => {
-    if (current instanceof ArrayBuffer || ArrayBuffer.isView(current)) {
-      const bytes = current instanceof ArrayBuffer
-        ? new Uint8Array(current)
-        : new Uint8Array(current.buffer, current.byteOffset, current.byteLength);
-      return { [BINARY_MARKER]: bytesToBase64(bytes) };
-    }
-    if (current && typeof current === "object") {
-      const serialize = (current as Record<string, unknown>)[IPC_SERIALIZE_KEY];
-      if (typeof serialize === "function") return serialize.call(current);
-    }
-    return current;
-  });
-  return JSON.parse(encoded) as BridgeValue;
-}
-
-export function decodeBridgeValue(value: BridgeValue): unknown {
-  if (Array.isArray(value)) return value.map(decodeBridgeValue);
-  if (value && typeof value === "object") {
-    if (BINARY_MARKER in value && typeof value[BINARY_MARKER] === "string") {
-      return Uint8Array.from(atob(value[BINARY_MARKER]), (character) => character.charCodeAt(0)).buffer;
-    }
-    return Object.fromEntries(
-      Object.entries(value).map(([key, child]) => [key, decodeBridgeValue(child)]),
-    );
-  }
-  return value;
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  const chunkSize = 24_576;
-  let encoded = "";
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunk = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
-    let binary = "";
-    for (const byte of chunk) binary += String.fromCharCode(byte);
-    encoded += btoa(binary);
-  }
-  return encoded;
 }
 
 function isLoopbackPage(): boolean {
