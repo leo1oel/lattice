@@ -53,7 +53,7 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..7722709a57df23cb70e176191930d1be
 -export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, sanitize };
 +export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, type HeaderMeasure, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, planHeader, sanitize };
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c1850837f1b 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..f50cdce2119c3f45710f4492ffc7182865449952 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -442,22 +442,77 @@ function restorePanel(doc, panelId, fallbackLayer) {
@@ -884,7 +884,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c18
            run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
          });
      }
-@@ -4625,11 +4915,208 @@ function createWorkspace(host, initialOptions) {
+@@ -4625,11 +4915,211 @@ function createWorkspace(host, initialOptions) {
    function announce(text) {
      live.textContent = text;
    }
@@ -1039,6 +1039,9 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c18
 +    if (dom.headerMin === void 0 || Math.abs(min - dom.headerMin) > 0.5) {
 +      dom.headerMin = min;
 +      entries = layoutDoc();
++      // Header measurements redistribute panels. Keep framing on that same
++      // geometry, including when another document tab mounts after a frame.
++      nav.sync();
 +      invalidate();
 +      schedule();
 +    }
@@ -1094,7 +1097,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c18
      };
    }
    function minFraction(split, index) {
-@@ -4644,47 +5131,126 @@ function createWorkspace(host, initialOptions) {
+@@ -4644,47 +5134,126 @@ function createWorkspace(host, initialOptions) {
      const node = entries.get(id)?.node;
      return node?.kind === "split" ? node : null;
    }
@@ -1230,7 +1233,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c18
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4794,7 +5360,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5363,10 @@ function createWorkspace(host, initialOptions) {
        canGoBack: nav.canGoBack,
        canGoForward: nav.canGoForward,
        framings: nav.framings.list(),
@@ -1242,7 +1245,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c18
      };
      return snapshot;
    }
-@@ -4812,6 +5381,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4812,6 +5384,10 @@ function createWorkspace(host, initialOptions) {
      },
      commit(next, from, settle2) {
        if (settle2) settling.add(settle2);
@@ -1253,7 +1256,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c18
        if (next === doc) {
          if (!reduced()) tween.begin(from, performance.now());
          sync();
-@@ -4902,7 +5475,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4902,7 +5478,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },
@@ -1262,7 +1265,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3bfc5701df0b098065b1532e279d7c18
      schedule,
      render: () => render(),
      changed() {
-@@ -5047,6 +5620,7 @@ export {
+@@ -5047,6 +5623,7 @@ export {
    formatCombo,
    layout,
    layoutRects,

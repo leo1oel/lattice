@@ -47,7 +47,7 @@ export function installMobileWorkspace(controller: TrellisController, ws: Worksp
   placeholder.value = "";
   placeholder.textContent = i18n._(msg`More`);
   more.append(placeholder);
-  for (const kind of ["agent", "papers", "git", "history", "overleaf", "literature", "todos", "checklist"] as const) {
+  for (const kind of ["agent", "terminal", "papers", "git", "history", "overleaf", "literature", "todos", "checklist"] as const) {
     const option = document.createElement("option");
     option.value = kind;
     option.textContent = i18n._(PANEL_TITLES[kind]);

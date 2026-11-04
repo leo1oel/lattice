@@ -26,7 +26,7 @@ beforeEach(() => {
   const mount = () => () => undefined;
   ws = createWorkspace(host, {
     navigation: "free", motion: "reduced",
-    types: { project: { mount }, file: { mount }, pdf: { mount }, agent: { mount } },
+    types: { project: { mount }, file: { mount }, pdf: { mount }, agent: { mount }, terminal: { singleton: true, mount } },
     defaultLayout: L.row([
       L.panel({ id: "project-panel" }, L.view("project", { id: "project" })),
       L.panel({ id: "editor-panel" }, L.view("file", { id: "editor", params: { key: "main.tex" } })),
@@ -78,4 +78,18 @@ it("reflects dirty edits in a touch Save control and follows an explicit documen
   ws.navigation.frame("pdf-panel");
   controller.app.set({ revealRequest: 1 });
   await waitFor(() => expect(ws.navigation.framed).toBe("editor-panel"));
+});
+
+it("opens and frames the existing Terminal panel from the mobile More menu", async () => {
+  cleanup = installMobileWorkspace(controller, ws);
+  const editor = ws.view("editor")!.element;
+  const menu = document.querySelector<HTMLSelectElement>('.mobile-workspace-nav select')!;
+  expect([...menu.options].find((option) => option.value === "terminal")?.textContent).toBe("Terminal");
+  fireEvent.change(menu, { target: { value: "terminal" } });
+  const terminal = ws.view("terminal")!;
+  expect(terminal).not.toBeNull();
+  expect(ws.navigation.framed).toBe(terminal.panelId);
+  await waitFor(() => expect(terminal.visible).toBe(true));
+  expect(menu.value).toBe("");
+  expect(ws.view("editor")!.element).toBe(editor);
 });
