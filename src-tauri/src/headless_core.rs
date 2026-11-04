@@ -1,0 +1,32 @@
+//! UI-independent domain modules compiled by the standalone server.
+//! Kept beside the desktop module roots so Rust resolves their child modules normally.
+pub(crate) mod agent_literature;
+pub(crate) mod alphaxiv;
+pub(crate) mod app_identity;
+pub(crate) mod citation_audit;
+pub(crate) mod citation_batch;
+pub(crate) mod citation_health;
+pub(crate) mod commands;
+pub(crate) mod doctor;
+pub(crate) mod domain_runtime;
+pub(crate) mod export;
+pub(crate) mod firecrawl;
+pub(crate) mod fts;
+pub(crate) mod git;
+pub(crate) mod http;
+pub(crate) mod latex;
+pub(crate) mod literature;
+pub(crate) mod literature_service;
+pub(crate) mod models;
+pub(crate) mod openalex;
+pub(crate) mod overleaf;
+pub(crate) mod overleaf_rt;
+pub(crate) mod paper_pdf_proxy;
+pub(crate) mod papers;
+pub(crate) mod pdf_fonts;
+pub(crate) mod pdf_pages;
+pub(crate) mod project;
+pub(crate) mod project_fs;
+pub(crate) mod util;
+pub(crate) mod web_metadata;
+pub(crate) mod wide_event;

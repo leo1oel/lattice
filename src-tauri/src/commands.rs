@@ -83,11 +83,14 @@ pub fn managed_tools_dir() -> Option<PathBuf> {
 
 /// This build's own folder under Application Support.
 pub(crate) fn app_support_dir() -> Option<PathBuf> {
-    env::var_os("HOME").map(|home| {
-        PathBuf::from(home)
-            .join("Library/Application Support")
-            .join(crate::app_identity::identifier())
-    })
+    #[cfg(target_os = "macos")]
+    let base =
+        env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support"));
+    #[cfg(not(target_os = "macos"))]
+    let base = env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")));
+    base.map(|base| base.join(crate::app_identity::identifier()))
 }
 
 /// The managed `uv` or `uvx`, once it runs and reports the pinned version.
@@ -158,11 +161,15 @@ fn child_path() -> OsString {
 /// uses the adjacent standalone Node; the packaged macOS app resolves the same
 /// directory under Resources, beside the same standalone Node.
 fn bundled_tools_dir() -> Option<PathBuf> {
-    if tauri::is_dev() {
-        return Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("synara-runtime/bin"));
+    // Locate the bundle by its actual layout instead of asking a GUI runtime.
+    // This also works for a release-mode development binary and the server.
+    let packaged = env::current_exe().ok().and_then(|exe| {
+        exe.parent()?.parent().map(|contents| contents.join("Resources/synara-runtime/bin"))
+    });
+    if let Some(packaged) = packaged.filter(|path| path.is_dir()) {
+        return Some(packaged);
     }
-    let contents = env::current_exe().ok()?.parent()?.parent()?.to_path_buf();
-    Some(contents.join("Resources/synara-runtime/bin"))
+    Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("synara-runtime/bin"))
 }
 
 fn command_directories() -> Vec<PathBuf> {

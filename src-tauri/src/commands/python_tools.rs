@@ -297,13 +297,14 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
 }
 
 pub(crate) fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
-    match env::var_os("HOME") {
-        Some(home) => PathBuf::from(home)
-            .join("Library/Caches")
-            .join(crate::app_identity::identifier())
-            .join(name),
-        None => PathBuf::from(without_home),
-    }
+    #[cfg(target_os = "macos")]
+    let base = env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Caches"));
+    #[cfg(not(target_os = "macos"))]
+    let base = env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")));
+    base.map(|base| base.join(crate::app_identity::identifier()).join(name))
+        .unwrap_or_else(|| PathBuf::from(without_home))
 }
 
 #[cfg(test)]

@@ -1,0 +1,24 @@
+name: Headless Linux
+on:
+  pull_request:
+    paths: ['server/**', 'src-tauri/src/**', '.github/workflows/headless.yml']
+  push:
+    branches: [main]
+    paths: ['server/**', 'src-tauri/src/**', '.github/workflows/headless.yml']
+permissions:
+  contents: read
+jobs:
+  headless:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install actual LaTeX toolchain
+        run: sudo apt-get update && sudo apt-get install -y latexmk texlive-latex-base
+      - name: Build without desktop dependencies
+        run: cargo build --locked --manifest-path server/Cargo.toml
+      - name: Exercise real CLI, HTTP and PDF without a display
+        env:
+          LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
+          LATTICE_TEST_LATEX: '1'
+        run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/smoke.py

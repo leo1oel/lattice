@@ -1,0 +1,616 @@
+use crate::dispatch::{self, Core};
+use axum::{
+    extract::{DefaultBodyLimit, Query, State},
+    http::{header, HeaderMap, HeaderValue, StatusCode},
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse, Response,
+    },
+    routing::{get, post},
+    Json, Router,
+};
+use clap::{Parser, Subcommand};
+use futures_util::stream;
+use serde::Deserialize;
+use serde_json::{json, Value};
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+    net::SocketAddr,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
+use tower_http::services::ServeDir;
+
+#[derive(Parser)]
+#[command(about = "Display-free Lattice shared-core CLI and authenticated web server")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+#[derive(Subcommand)]
+enum Command {
+    /// Print the supported commands and explicit desktop-only limitations.
+    Capabilities,
+    /// Execute one command. JSON arguments are read from stdin; secrets never enter argv.
+    Invoke {
+        command: String,
+        #[arg(long)]
+        project: PathBuf,
+        #[arg(long)]
+        state_dir: Option<PathBuf>,
+    },
+    /// Serve one shared project. Bind loopback and use an authenticated HTTPS reverse proxy remotely.
+    Serve {
+        #[arg(long)]
+        workspace_root: PathBuf,
+        #[arg(long)]
+        state_dir: PathBuf,
+        #[arg(long)]
+        token_file: PathBuf,
+        #[arg(long, default_value = "127.0.0.1:18482")]
+        listen: SocketAddr,
+        #[arg(long)]
+        assets: Option<PathBuf>,
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// Require HTTPS for the authentication cookie behind a TLS reverse proxy.
+        #[arg(long)]
+        secure_cookies: bool,
+    },
+}
+#[derive(Clone)]
+struct Session {
+    expires: Instant,
+    project: PathBuf,
+}
+#[derive(Clone)]
+struct Server {
+    core: Arc<Core>,
+    initial: PathBuf,
+    cores: Arc<Mutex<HashMap<PathBuf, Arc<Core>>>>,
+    token: Arc<String>,
+    sessions: Arc<Mutex<HashMap<String, Session>>>,
+    secure_cookies: bool,
+}
+#[derive(Deserialize)]
+struct Invoke {
+    command: String,
+    #[serde(default)]
+    args: Value,
+}
+#[derive(Deserialize)]
+struct Login {
+    token: String,
+}
+
+pub fn main() {
+    let cli = Cli::parse();
+    let runtime = tokio::runtime::Runtime::new().expect("Could not start async runtime");
+    let result = match cli.command {
+        Command::Capabilities => { println!("{}", dispatch::capabilities()); Ok(()) }
+        Command::Invoke { command, project, state_dir } => {
+            // Domain code includes blocking HTTP and process execution. Keep it outside async tasks.
+            let _guard = runtime.enter();
+            (|| {
+                let mut input = String::new();
+                std::io::stdin().take(16*1024*1024).read_to_string(&mut input).map_err(|e|e.to_string())?;
+                let args = if input.trim().is_empty() { json!({}) } else { serde_json::from_str(&input).map_err(|e|e.to_string())? };
+                let state = state_dir.unwrap_or_else(|| default_state_dir());
+                let core = Core::new(&project, &state)?;
+                println!("{}", json!({"result":core.invoke(&command,args)?}));
+                Ok(())
+            })()
+        }
+        Command::Serve { workspace_root, state_dir, token_file, listen, assets, project, secure_cookies } => {
+            runtime.block_on(async {
+                if !listen.ip().is_loopback() { return Err("Refusing a non-loopback listener. Use an HTTPS reverse proxy or Tailscale Serve.".into()); }
+                let core = Core::new(&workspace_root,&state_dir)?;
+                let token = read_token(&token_file)?;
+                let initial = match project { Some(path)=>core.confined(&path.to_string_lossy())?,None=>core.root.clone() };
+                let state = Server { core, initial, cores:Default::default(), token:Arc::new(token), sessions:Default::default(), secure_cookies };
+                let _watcher = watch_projects(&state)?;
+                let mut app = Router::new().route("/api/session", get(session).post(login).delete(logout))
+                    .route("/api/projects",get(projects)).route("/api/capabilities",get(capabilities)).route("/api/invoke",post(invoke))
+                    .route("/api/asset",get(asset)).route("/api/events",get(events))
+                    .layer(DefaultBodyLimit::max(16*1024*1024)).with_state(state);
+                if let Some(assets) = assets {
+                    let index = tokio::fs::read_to_string(assets.join("index.html")).await.map_err(|e|e.to_string())?.replacen("<head>","<head><script>window.__LATTICE_HEADLESS__=true</script>",1);
+                    let index_copy=index.clone();
+                    app = app.route("/",get(move || {let index=index.clone();async move { axum::response::Html(index) }})).route("/index.html",get(move || {let index=index_copy.clone();async move { axum::response::Html(index) }})).fallback_service(ServeDir::new(assets).append_index_html_on_directories(true));
+                }
+                let listener = tokio::net::TcpListener::bind(listen).await.map_err(|e|e.to_string())?;
+                eprintln!("Lattice headless listening on http://{} (workspace {}; token file {})",listener.local_addr().map_err(|e|e.to_string())?,workspace_root.display(),token_file.display());
+                axum::serve(listener,app).with_graceful_shutdown(async { let _ = tokio::signal::ctrl_c().await; }).await.map_err(|e|e.to_string())
+            })
+        }
+    };
+    if let Err(error) = result {
+        eprintln!(
+            "{}",
+            json!({"error":{"code":if error.starts_with("unsupported_command:") {"unsupported_command"} else {"operation_failed"},"message":error}})
+        );
+        std::process::exit(1);
+    }
+}
+fn default_state_dir() -> PathBuf {
+    std::env::var_os("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".local/state")
+        })
+        .join("lattice")
+}
+fn read_token(path: &std::path::Path) -> Result<String, String> {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    if !path.exists() {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let mut file = std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .open(path)
+            .map_err(|e| e.to_string())?;
+        writeln!(file, "{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple())
+            .map_err(|e| e.to_string())?;
+    }
+    let metadata = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.permissions().mode() & 0o077 != 0
+    {
+        return Err("Token file must be a regular private file (chmod 600).".into());
+    }
+    let token = std::fs::read_to_string(path).map_err(|e| e.to_string())?.trim().to_string();
+    if token.len() < 32
+        || token.len() > 512
+        || !token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    {
+        return Err("Token must contain 32–512 alphanumeric, '-' or '_' characters.".into());
+    }
+    Ok(token)
+}
+fn equal(a: &str, b: &str) -> bool {
+    let mut difference = a.len() ^ b.len();
+    for (i, byte) in a.bytes().enumerate() {
+        difference |= usize::from(byte ^ b.as_bytes().get(i).copied().unwrap_or(0));
+    }
+    difference == 0
+}
+fn authenticated(state: &Server, headers: &HeaderMap) -> bool {
+    if let Some(token) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+    {
+        if equal(token, &state.token) {
+            return true;
+        }
+    }
+    let cookie = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()).unwrap_or("");
+    let Some(id) =
+        cookie.split(';').map(str::trim).find_map(|v| v.strip_prefix("lattice_session="))
+    else {
+        return false;
+    };
+    state.sessions.lock().unwrap().get(id).is_some_and(|session| session.expires > Instant::now())
+}
+fn same_origin(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) else {
+        return true;
+    };
+    let Some(host) = headers.get(header::HOST).and_then(|v| v.to_str().ok()) else {
+        return false;
+    };
+    origin == format!("http://{host}") || origin == format!("https://{host}")
+}
+fn failure(status: StatusCode, code: &str, message: &str) -> Response {
+    (status, Json(json!({"error":{"code":code,"message":message}}))).into_response()
+}
+fn authorize(state: &Server, headers: &HeaderMap) -> Result<(), Response> {
+    if !same_origin(headers) {
+        return Err(failure(
+            StatusCode::FORBIDDEN,
+            "origin_forbidden",
+            "Cross-origin requests are not accepted.",
+        ));
+    }
+    if !authenticated(state, headers) {
+        return Err(failure(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "Sign in using the server token.",
+        ));
+    }
+    Ok(())
+}
+async fn session(State(state): State<Server>, headers: HeaderMap) -> Json<Value> {
+    let auth = authenticated(&state, &headers);
+    Json(
+        json!({"headless":true,"authenticated":auth,"capabilities":if auth {dispatch::capabilities()} else {Value::Null}}),
+    )
+}
+async fn login(
+    State(state): State<Server>, headers: HeaderMap, Json(login): Json<Login>,
+) -> Response {
+    if !same_origin(&headers) || !equal(&login.token, &state.token) {
+        return failure(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "Invalid server token or request origin.",
+        );
+    }
+    let id = uuid::Uuid::new_v4().simple().to_string();
+    let mut sessions = state.sessions.lock().unwrap();
+    sessions.retain(|_, session| session.expires > Instant::now());
+    if sessions.len() >= 128 {
+        return failure(
+            StatusCode::TOO_MANY_REQUESTS,
+            "session_limit",
+            "Too many active sessions.",
+        );
+    }
+    sessions.insert(
+        id.clone(),
+        Session {
+            expires: Instant::now() + Duration::from_secs(28800),
+            project: state.initial.clone(),
+        },
+    );
+    let cookie = format!(
+        "lattice_session={id}; HttpOnly; SameSite=Strict; Path=/api; Max-Age=28800{}",
+        if state.secure_cookies { "; Secure" } else { "" }
+    );
+    (
+        [
+            (header::SET_COOKIE, HeaderValue::from_str(&cookie).unwrap()),
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+        ],
+        Json(json!({"headless":true,"authenticated":true,"capabilities":dispatch::capabilities()})),
+    )
+        .into_response()
+}
+async fn logout(State(state): State<Server>, headers: HeaderMap) -> Response {
+    if let Err(error) = authorize(&state, &headers) {
+        return error;
+    }
+    if let Some(cookie) = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()) {
+        if let Some(id) =
+            cookie.split(';').map(str::trim).find_map(|v| v.strip_prefix("lattice_session="))
+        {
+            state.sessions.lock().unwrap().remove(id);
+        }
+    }
+    (
+        [(header::SET_COOKIE, "lattice_session=; HttpOnly; SameSite=Strict; Path=/api; Max-Age=0")],
+        StatusCode::NO_CONTENT,
+    )
+        .into_response()
+}
+async fn capabilities(State(state): State<Server>, headers: HeaderMap) -> Response {
+    if let Err(error) = authorize(&state, &headers) {
+        return error;
+    }
+    Json(dispatch::capabilities()).into_response()
+}
+async fn invoke(
+    State(state): State<Server>, headers: HeaderMap, Json(request): Json<Invoke>,
+) -> Response {
+    if let Err(error) = authorize(&state, &headers) {
+        return error;
+    }
+    let id = session_id(&headers);
+    let root = match id.as_ref().and_then(|id| {
+        state.sessions.lock().unwrap().get(id).map(|session| session.project.clone())
+    }) {
+        Some(root) => root,
+        None => match request.args.get("projectRoot").and_then(Value::as_str) {
+            Some(path) => match state.core.confined(path) {
+                Ok(path) => path,
+                Err(error) => return failure(StatusCode::BAD_REQUEST, "path_forbidden", &error),
+            },
+            None => state.initial.clone(),
+        },
+    };
+    let selected = if request.command == "open_project" {
+        match request
+            .args
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "Missing project path".to_string())
+            .and_then(|path| state.core.confined(path))
+        {
+            Ok(path) => path,
+            Err(error) => return failure(StatusCode::BAD_REQUEST, "path_forbidden", &error),
+        }
+    } else {
+        root
+    };
+    let core = {
+        let mut cores = state.cores.lock().unwrap();
+        match cores.entry(selected.clone()) {
+            std::collections::hash_map::Entry::Occupied(entry) => entry.get().clone(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let core = match Core::new(&selected, &state.core.state_dir) {
+                    Ok(core) => core,
+                    Err(error) => {
+                        return failure(StatusCode::BAD_REQUEST, "operation_failed", &error)
+                    }
+                };
+                // All projects share the service event stream; payloads carry projectRoot.
+                let core = Arc::new(Core {
+                    root: core.root.clone(),
+                    state_dir: core.state_dir.clone(),
+                    active: core.active.clone(),
+                    mutations: Default::default(),
+                    events: state.core.events.clone(),
+                });
+                entry.insert(core).clone()
+            }
+        }
+    };
+    let is_open = request.command == "open_project";
+    let core = if request.command == "create_project" { state.core.clone() } else { core };
+    let result =
+        tokio::task::spawn_blocking(move || core.invoke(&request.command, request.args)).await;
+    if matches!(result, Ok(Ok(_))) && is_open {
+        if let Some(id) = id {
+            if let Some(session) = state.sessions.lock().unwrap().get_mut(&id) {
+                session.project = selected;
+            }
+        }
+    }
+    match result {
+        Ok(Ok(value)) => {
+            ([(header::CACHE_CONTROL, "no-store")], Json(json!({"result":value}))).into_response()
+        }
+        Ok(Err(error)) => failure(
+            StatusCode::BAD_REQUEST,
+            if error.starts_with("unsupported_command:") {
+                "unsupported_command"
+            } else {
+                "operation_failed"
+            },
+            &error,
+        ),
+        Err(_) => failure(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "The operation could not be completed.",
+        ),
+    }
+}
+#[derive(Deserialize)]
+struct Asset {
+    path: String,
+    version: Option<String>,
+    start: Option<u64>,
+    end: Option<u64>,
+}
+async fn asset(
+    State(state): State<Server>, headers: HeaderMap, Query(query): Query<Asset>,
+) -> Response {
+    if let Err(error) = authorize(&state, &headers) {
+        return error;
+    }
+    let selected = session_id(&headers)
+        .and_then(|id| {
+            state.sessions.lock().unwrap().get(&id).map(|session| session.project.clone())
+        })
+        .unwrap_or_else(|| state.initial.clone());
+    let candidate = if std::path::Path::new(&query.path).is_absolute() {
+        PathBuf::from(&query.path)
+    } else {
+        selected.join(&query.path)
+    };
+    let path = match state.core.confined(&candidate.to_string_lossy()) {
+        Ok(path) => path,
+        Err(_) => {
+            return failure(
+                StatusCode::FORBIDDEN,
+                "path_forbidden",
+                "Asset is outside the workspace.",
+            )
+        }
+    };
+    // Hidden control state and histories must never be served as arbitrary browser assets.
+    if path
+        .strip_prefix(&state.core.root)
+        .unwrap()
+        .components()
+        .any(|part| part.as_os_str().to_string_lossy().starts_with('.'))
+    {
+        return failure(
+            StatusCode::FORBIDDEN,
+            "path_forbidden",
+            "Hidden project state is not a browser asset.",
+        );
+    }
+    if query.version.is_some() || query.start.is_some() || query.end.is_some() {
+        let (Some(version), Some(start), Some(end)) = (query.version, query.start, query.end)
+        else {
+            return failure(
+                StatusCode::BAD_REQUEST,
+                "invalid_range",
+                "version, start and end are required together.",
+            );
+        };
+        let relative = match path.strip_prefix(&selected) {
+            Ok(path) => path.to_string_lossy().into_owned(),
+            Err(_) => {
+                return failure(
+                    StatusCode::FORBIDDEN,
+                    "path_forbidden",
+                    "Range asset is outside the selected project.",
+                )
+            }
+        };
+        return match tokio::task::spawn_blocking(move || {
+            crate::project::read_asset_range(&selected, &relative, &version, start, end)
+        })
+        .await
+        {
+            Ok(Ok(bytes)) => (
+                [
+                    (header::CONTENT_TYPE, "application/octet-stream"),
+                    (header::CACHE_CONTROL, "no-store"),
+                ],
+                bytes,
+            )
+                .into_response(),
+            _ => failure(
+                StatusCode::CONFLICT,
+                "asset_changed",
+                "This PDF changed or its byte range is invalid. Reopen it and try again.",
+            ),
+        };
+    }
+    let metadata = match tokio::fs::metadata(&path).await {
+        Ok(metadata) => metadata,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    if metadata.len() > 256 * 1024 * 1024 {
+        return failure(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "asset_too_large",
+            "Use versioned range reads for large files.",
+        );
+    }
+    let kind =
+        match path.extension().and_then(|v| v.to_str()).unwrap_or("").to_ascii_lowercase().as_str()
+        {
+            "pdf" => "application/pdf",
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "svg" => "image/svg+xml",
+            "webp" => "image/webp",
+            _ => "application/octet-stream",
+        };
+    match tokio::fs::read(path).await {
+        Ok(bytes) => (
+            [
+                (header::CONTENT_TYPE, kind),
+                (header::CACHE_CONTROL, "no-store"),
+                (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+                (header::CONTENT_SECURITY_POLICY, "sandbox"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+async fn events(State(state): State<Server>, headers: HeaderMap) -> Response {
+    if let Err(error) = authorize(&state, &headers) {
+        return error;
+    }
+    let stream = stream::unfold(
+        (state.core.events.subscribe(), state, headers),
+        |(mut rx, state, headers)| async move {
+            loop {
+                if !authenticated(&state, &headers) {
+                    return None;
+                }
+                match rx.recv().await {
+                    Ok(value) => {
+                        if !authenticated(&state, &headers) {
+                            return None;
+                        }
+                        return Some((
+                            Ok::<_, std::convert::Infallible>(
+                                Event::default().data(value.to_string()),
+                            ),
+                            (rx, state, headers),
+                        ));
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        return Some((
+                            Ok(Event::default()
+                                .data(json!({"event":"resync-required","payload":{}}).to_string())),
+                            (rx, state, headers),
+                        ))
+                    }
+                    Err(_) => return None,
+                }
+            }
+        },
+    );
+    Sse::new(stream).keep_alive(KeepAlive::default()).into_response()
+}
+
+fn session_id(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(header::COOKIE)?
+        .to_str()
+        .ok()?
+        .split(';')
+        .map(str::trim)
+        .find_map(|v| v.strip_prefix("lattice_session=").map(str::to_owned))
+}
+async fn projects(State(state): State<Server>, headers: HeaderMap) -> Response {
+    if let Err(error) = authorize(&state, &headers) {
+        return error;
+    }
+    let mut projects = vec![
+        json!({"path":state.core.root,"name":state.core.root.file_name().unwrap_or_default().to_string_lossy()}),
+    ];
+    if let Ok(entries) = std::fs::read_dir(&state.core.root) {
+        for entry in entries.flatten().take(1000) {
+            let path = entry.path();
+            if path.is_dir()
+                && !entry.file_name().to_string_lossy().starts_with('.')
+                && state.core.confined(&path.to_string_lossy()).is_ok()
+            {
+                projects.push(json!({"path":path,"name":entry.file_name().to_string_lossy()}));
+            }
+        }
+    }
+    Json(projects).into_response()
+}
+
+fn watch_projects(state: &Server) -> Result<notify::RecommendedWatcher, String> {
+    use notify::Watcher;
+    let cores = state.cores.clone();
+    let events = state.core.events.clone();
+    let workspace = state.core.root.clone();
+    let mut watcher =
+        notify::recommended_watcher(move |event: Result<notify::Event, notify::Error>| {
+            let Ok(event) = event else {
+                let _ = events.send(json!({"event":"resync-required","payload":{}}));
+                return;
+            };
+            if matches!(event.kind, notify::EventKind::Access(_)) {
+                return;
+            }
+            let roots = cores
+                .lock()
+                .unwrap()
+                .keys()
+                .cloned()
+                .chain(std::iter::once(workspace.clone()))
+                .collect::<std::collections::BTreeSet<_>>();
+            for root in roots {
+                let paths = event
+                    .paths
+                    .iter()
+                    .filter_map(|path| path.strip_prefix(&root).ok())
+                    .filter(|path| !path.starts_with(".research"))
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>();
+                if !paths.is_empty() {
+                    let _ = events.send(
+                        json!({"event":"project-fs-changed","payload":{"root":root,"paths":paths}}),
+                    );
+                }
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    watcher.watch(&state.core.root, notify::RecursiveMode::Recursive).map_err(|e| e.to_string())?;
+    Ok(watcher)
+}

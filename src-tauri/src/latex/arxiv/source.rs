@@ -238,7 +238,7 @@ pub(super) fn code_matches(source: &str, pattern: &Regex) -> bool {
 
 /// Each line's commands, numbered from 1: what is left of it once its
 /// comment is cut, and nothing of a verbatim or `comment` environment's body.
-pub(in crate::latex) fn code_lines(source: &str) -> Vec<(u32, &str)> {
+pub(crate) fn code_lines(source: &str) -> Vec<(u32, &str)> {
     let mut scanner = Scanner::default();
     let mut lines = Vec::new();
     for (index, line) in source.split_inclusive('\n').enumerate() {

@@ -21,6 +21,7 @@ mod command_diagnostics;
 mod commands;
 mod diagnostic_logs;
 mod doctor;
+mod domain_runtime;
 mod export;
 mod firecrawl;
 mod format_latex;
