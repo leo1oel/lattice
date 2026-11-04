@@ -14,7 +14,7 @@
  * a way to make a terminal's screen, so its rules are tested with fakes.
  */
 
-export type TerminalProgram = { executable: string; args: string[] };
+type TerminalProgram = { executable: string; args: string[] };
 
 /** The host side of one window's terminals (terminal-backend.ts). */
 export type TerminalBackend = {
