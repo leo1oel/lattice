@@ -7,12 +7,12 @@
  * sign-in window, loading, empty, error, downloading) carries plain-language
  * guidance about what is happening and what to do next.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Cloud, CloudAlert, CloudOff, FileText, Link2, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Badge } from "../components/ui/badge";
-import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
+import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { MotionButton } from "../components/ui/motion";
@@ -24,13 +24,12 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
 import { useCompositionGuard } from "../hooks/use-composition-guard";
 import { rowClassName } from "../components/ui/row";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
-import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
+import { SettingsGroup } from "../components/ui/settings-row";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
-import type { CloneTarget, OverleafLink, OverleafLoginPoll, OverleafProject, OverleafStatus } from "../app-types";
+import type { CloneTarget, OverleafLink, OverleafProject, OverleafStatus } from "../app-types";
 import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
@@ -40,171 +39,12 @@ import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
 import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
 import { LoginControls, LoginMessages } from "./overleaf-login-controls";
+import { useOverleafLogin } from "./use-overleaf-login";
+import { RetryRow, Progress, Glyph, StageMessage, StatusRow, SelectRow } from "./overleaf-connection-states";
 import "./overleaf-connect.css";
 
 /** Notification source label for everything in this file. */
 const OVERLEAF_SOURCE = "Overleaf";
-
-/**
- * Shared begin-login + poll loop. `overleaf_begin_login` opens a sign-in
- * window and returns immediately; we then poll `overleaf_poll_login` (once
- * right away, then every 1.5s) until the backend reports connected or
- * cancelled. The settings section and the picker both use this so novices
- * can connect from either place without being bounced around the app.
- */
-function useOverleafLogin(onConnected: (session: OverleafStatus) => void) {
-  const { t } = useLingui();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  /** Guidance shown when sign-in has been pending long enough to look stuck. */
-  const [hint, setHint] = useState<string | null>(null);
-  const attempts = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const active = useRef(false);
-  const connectedRef = useRef(onConnected);
-  useEffect(() => { connectedRef.current = onConnected; });
-
-  const stop = useCallback(() => {
-    active.current = false;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    setPending(false);
-  }, []);
-  // Stop polling when the component unmounts (e.g. the dialog closes).
-  useEffect(() => stop, [stop]);
-
-  const cancel = useCallback(() => {
-    stop();
-    setNotice(t`Sign-in was cancelled`);
-  }, [stop, t]);
-
-  const poll = useCallback(async function pollForLogin() {
-    if (!active.current) return;
-    try {
-      const result = await invoke<OverleafLoginPoll>("overleaf_poll_login");
-      if (!active.current) return;
-      if (result.status === "connected" && result.session) {
-        stop();
-        connectedRef.current(result.session);
-        return;
-      }
-      if (result.status === "cancelled") return cancel();
-      // Signing in takes a few seconds, but it should never take half a minute.
-      // Rather than spin forever, say what to do next (and why, when the
-      // backend got far enough to have a reason).
-      attempts.current += 1;
-      if (attempts.current >= 20) {
-        setHint(
-          result.detail
-            ? t`Still not connected: ${result.detail}`
-            : t`Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again`,
-        );
-      }
-      timer.current = setTimeout(() => void pollForLogin(), 1500);
-    } catch (reason) {
-      if (!active.current) return;
-      stop();
-      setError(toMessage(reason));
-    }
-  }, [cancel, stop, t]);
-
-  const begin = useCallback(() => {
-    if (active.current) return;
-    setError(null);
-    setNotice(null);
-    setHint(null);
-    attempts.current = 0;
-    void invoke("overleaf_begin_login", { title: t`Sign in to Overleaf` }).then(() => {
-      active.current = true;
-      setPending(true);
-      void poll();
-    }, (reason) => setError(toMessage(reason)));
-  }, [poll, t]);
-
-  return { pending, error, notice, hint, begin, cancel };
-}
-
-/** An error line with a button to try the failed load again. */
-function RetryRow(props: { error: string; busy: boolean; label: string; onRetry: () => void }) {
-  return (
-    <>
-      <InlineMessage level="error" className="overleaf-inline">{props.error}</InlineMessage>
-      <div className="overleaf-retry-row">
-        <ReloadButton size="compact" busy={props.busy} disabled={props.busy} onClick={props.onRetry}>
-          {props.label}
-        </ReloadButton>
-      </div>
-    </>
-  );
-}
-
-function Progress(props: { className?: string; text: string }) {
-  return (
-    <div className={props.className ?? "overleaf-loading"}>
-      <InfinityLoader size={15} />
-      <span>{props.text}</span>
-    </div>
-  );
-}
-
-/**
- * A small tinted tile holding an icon: the one visual anchor every Overleaf
- * card, empty state and prompt shares, so they read as one family.
- */
-function Glyph(props: { tone?: "accent" | "success" | "warning" | "danger" | "neutral"; size?: "compact" | "large"; children: ReactNode }) {
-  return (
-    <span className="overleaf-glyph" data-tone={props.tone ?? "accent"} data-size={props.size ?? "compact"} aria-hidden="true">
-      {props.children}
-    </span>
-  );
-}
-
-/**
- * The centered state of the picker's list frame when there is no list to
- * show: not connected yet, a session that expired, nothing found, or a load
- * that failed. One layout, so switching between them never jumps.
- */
-function StageMessage(props: { glyph: ReactNode; tone?: "accent" | "warning" | "danger" | "neutral"; children: ReactNode }) {
-  return (
-    <div className="overleaf-stage-message">
-      <Glyph tone={props.tone} size="large">{props.glyph}</Glyph>
-      {props.children}
-    </div>
-  );
-}
-
-/** A status tile, what it means, the detail beneath it, and an optional action. */
-function StatusRow(props: { dot: "connected" | "paused"; icon: ReactNode; title: ReactNode; detail: ReactNode; children?: ReactNode }) {
-  return (
-    <div className="overleaf-status-row">
-      <span className="overleaf-status-glyph">
-        <Glyph tone="neutral">{props.icon}</Glyph>
-        <span className={`overleaf-dot ${props.dot}`} aria-hidden="true" />
-      </span>
-      <div className="overleaf-status-text"><strong>{props.title}</strong><small>{props.detail}</small></div>
-      {props.children}
-    </div>
-  );
-}
-
-/** A settings row whose control is a dropdown over `options`, in their listed order. */
-function SelectRow<T extends string>({ label, description, value, onChange, options, setting }: {
-  label: string; description?: ReactNode; value: T; onChange: (value: T) => void; options: Record<T, string>;
-  /** What Settings search reveals this row by. */
-  setting: string;
-}) {
-  return (
-    <SettingsRow label={label} description={description} data-setting={setting}>
-      <Select value={value} onValueChange={(next) => onChange(next as T)}>
-        <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
-        <SelectContent data-settings-control="true" position="popper" align="end">
-          {(Object.entries(options) as [T, string][]).map(([key, text]) => <SelectItem key={key} value={key}>{text}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </SettingsRow>
-  );
-}
 
 /** Settings → Overleaf tab: connection status and sync behavior. */
 export function OverleafSettingsSection(props: {
