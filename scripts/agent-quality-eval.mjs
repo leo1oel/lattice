@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { isMain } from "./lib/util.mjs";
 
 const BROKERS = new Set(["cite", "upgrade_bibliography", "remove_reference"]);
 const FULL_TEXT_TOOLS = new Set([
@@ -229,4 +229,4 @@ async function main(args) {
   process.exitCode = mismatches ? 1 : 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) await main(process.argv.slice(2));
+if (isMain(import.meta.url)) await main(process.argv.slice(2));

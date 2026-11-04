@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, type RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import type { CanvasMode } from "../app-types";
 import {
   captureViewport, capturePreviewViewport, restorePreviewViewport, restoreViewport, scrollRange, sourceAnchorCenter,

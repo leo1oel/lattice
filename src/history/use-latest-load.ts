@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { hostErrorMessage } from "../app-utils";
+import { jsonEqual } from "../lib/equality";
 
 type LatestLoad<T> = { key: string | null; value: T | null; error: string; loading: boolean };
 
@@ -37,7 +38,7 @@ export function useLatestLoad<T>() {
     void request().then(
       (value) => {
         if (generation.current !== current) return;
-        setState((shown) => (!shown.loading && !shown.error && JSON.stringify(shown.value) === JSON.stringify(value)
+        setState((shown) => (!shown.loading && !shown.error && jsonEqual(shown.value, value)
           ? shown
           : { key, value, error: "", loading: false }));
       },

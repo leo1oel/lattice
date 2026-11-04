@@ -33,10 +33,10 @@
 import { spawn, spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { isMain, projectRoot } from "./lib/util.mjs";
 
-const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repo = projectRoot;
 
 /**
  * The Vitest files among changed paths. Which of them the root config
@@ -123,6 +123,6 @@ function main() {
   return failed === 0 ? 0 : 1;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
   process.exitCode = main();
 }

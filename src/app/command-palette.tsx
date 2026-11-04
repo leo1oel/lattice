@@ -24,6 +24,7 @@ import { settingsEntryKey, useSettingsSearchIndex, type SettingsSearchEntry } fr
 import type { PaperSummary } from "../app-types";
 import { commandKeys, type AppCommand } from "./use-app-commands";
 import { PALETTE_SECTIONS, type PaletteSection } from "./palette-sections";
+import { baseName } from "../lib/base-name";
 
 /** Each section's icon; its name and order are `PALETTE_SECTIONS`'. */
 const SECTION_ICONS: Record<PaletteSection, LucideIcon> = {
@@ -92,7 +93,6 @@ function topScoring(items: readonly PaletteItem[], score: (item: PaletteItem) =>
 }
 
 const folderOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/")));
-const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 /** Mount only while open, so each opening starts from an empty query. */
 export function CommandPalette(props: {
@@ -132,7 +132,7 @@ export function CommandPalette(props: {
     }));
     const byId = new Map(commandItems.map((item) => [item.id, item]));
     const fileItem = (path: string, group: string): PaletteItem => ({
-      kind: "file", path, id: `file:${path}`, label: nameOf(path), detail: folderOf(path) || undefined, group,
+      kind: "file", path, id: `file:${path}`, label: baseName(path), detail: folderOf(path) || undefined, group,
       icon: fileIcon(path, isProjectAssetFilePath(path) ? "asset" : "file"), order: FOUND_ORDER.file,
     });
     const filesGroup = t`Files`;

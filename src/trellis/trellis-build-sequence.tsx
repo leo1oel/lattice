@@ -24,6 +24,7 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { diagnosticCountsText } from "../build/build-result-text";
 import { formatCount, formatSeconds, joinPhrases } from "../i18n";
 import { spaceMixedScript } from "./trellis-titles";
+import { baseName } from "../lib/base-name";
 
 const ENGINES = new Set(["pdflatex", "xelatex", "lualatex", "latex", "platex", "uplatex"]);
 const BIBLIOGRAPHY = new Set(["bibtex", "bibtex8", "bibtexu", "pbibtex", "upbibtex", "biber"]);
@@ -119,7 +120,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   };
   const total = steps.reduce((sum, step) => sum + lasted(step), 0);
   const issue = !building ? outcome?.issue ?? null : null;
-  const where = issue?.file ? [issue.file.split("/").pop(), issue.line].filter(Boolean).join(":") : null;
+  const where = issue?.file ? [baseName(issue.file), issue.line].filter(Boolean).join(":") : null;
 
   return (
     <div className="build-sequence" data-building={building || undefined}>

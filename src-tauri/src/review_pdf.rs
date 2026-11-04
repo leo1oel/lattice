@@ -13,7 +13,8 @@
 
 use lopdf::{dictionary, IncrementalDocument, Object, ObjectId, Stream, StringFormat};
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
+
+use crate::util::sha256_hex;
 
 /// The highlight's ink, close to the amber the preview draws annotations in.
 const HIGHLIGHT_COLOUR: [f32; 3] = [1.0, 0.78, 0.25];
@@ -63,8 +64,7 @@ pub const PDF_CHANGED: &str = "The PDF was rebuilt while you were exporting. Exp
 /// `bytes` with `review`'s notes added; refused if they are not the PDF the
 /// notes were placed on.
 pub fn annotate(bytes: Vec<u8>, review: &ReviewPdf) -> Result<Vec<u8>, String> {
-    let digest =
-        Sha256::digest(&bytes).iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    let digest = sha256_hex(&bytes);
     if !digest.eq_ignore_ascii_case(&review.digest) {
         return Err(PDF_CHANGED.to_string());
     }
@@ -335,10 +335,6 @@ mod tests {
         bytes
     }
 
-    fn digest(bytes: &[u8]) -> String {
-        Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
-    }
-
     fn note(page: u32, mark: ReviewMark, contents: &str) -> ReviewNote {
         ReviewNote {
             id: format!("a{page}"),
@@ -360,7 +356,7 @@ mod tests {
     fn appends_highlights_and_notes_after_the_original_bytes() {
         let original = sample_pdf();
         let review = ReviewPdf {
-            digest: digest(&original),
+            digest: sha256_hex(&original),
             notes: vec![
                 note(
                     1,
@@ -423,7 +419,7 @@ mod tests {
     fn keeps_popups_on_the_page_inherited_media_box() {
         let original = sample_pdf();
         let review = ReviewPdf {
-            digest: digest(&original),
+            digest: sha256_hex(&original),
             notes: vec![
                 note(1, ReviewMark::Note { x: 586.0, y: 785.0 }, "At the right margin"),
                 note(
@@ -458,7 +454,7 @@ mod tests {
     #[test]
     fn refuses_a_pdf_rebuilt_since_the_notes_were_placed() {
         let original = sample_pdf();
-        let review = ReviewPdf { digest: digest(b"another build"), notes: vec![] };
+        let review = ReviewPdf { digest: sha256_hex(b"another build"), notes: vec![] };
         assert_eq!(annotate(original, &review).unwrap_err(), PDF_CHANGED);
     }
 
@@ -466,7 +462,7 @@ mod tests {
     fn refuses_a_page_the_pdf_does_not_have() {
         let original = sample_pdf();
         let review = ReviewPdf {
-            digest: digest(&original),
+            digest: sha256_hex(&original),
             notes: vec![note(3, ReviewMark::Note { x: 0.0, y: 0.0 }, "x")],
         };
         assert_eq!(annotate(original, &review).unwrap_err(), "The PDF has no page 3.");

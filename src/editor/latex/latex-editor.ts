@@ -42,6 +42,7 @@ import { matchingMathDelimiter } from "./math-region";
 import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
 import { highlightPaint } from "./latex-highlight-paint";
+import { prefersReducedMotion } from "../../lib/reduced-motion";
 
 export const latexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "500" },
@@ -250,7 +251,7 @@ export function selectionVisibilityExtension(): Extension {
  */
 const popupMotionTooltips = ViewPlugin.define((view) => {
   const leave = (tooltip: HTMLElement, parent: Node, next: Node | null) => {
-    if (!parent.isConnected || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    if (!parent.isConnected || prefersReducedMotion()) return;
     const picture = tooltip.cloneNode(true) as HTMLElement;
     picture.inert = true;
     picture.removeAttribute("role");

@@ -1,4 +1,5 @@
 import { useLayoutEffect, type ReactNode, type RefObject } from "react";
+import { prefersReducedMotion } from "../../lib/reduced-motion";
 
 /** Overlays mounted so far; a close that sees this move took no exit alone. */
 let mounts = 0;
@@ -36,7 +37,7 @@ export function useExitPicture(refs: readonly RefObject<HTMLElement | null>[]) {
         if (places.some(({ node }) => node.querySelector("iframe"))) return;
         // The overlay's elements are siblings (a portal's), so they go back together.
         if (places.some(({ parent }) => parent !== places[0].parent)) return;
-        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+        if (prefersReducedMotion()) return;
         // Marked while detached and put back in one insertion per parent, so
         // the picture costs the document as few mutations as it can: `inert`
         // already takes it out of the accessibility tree and the focus order,

@@ -36,6 +36,7 @@
  */
 /* global document, MessageChannel, KeyboardEvent, performance, PerformanceObserver, requestAnimationFrame, window -- the callbacks passed to evaluate() run in the page. */
 import { rmSync, writeFileSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
 import { URLSearchParams } from "node:url";
 import { chromium, webkit } from "playwright-core";
 import { exportTree, repo, servePage } from "./ab-pages.mjs";
@@ -125,7 +126,6 @@ function tabAndPanel(title) {
 
 /** Press at the first point and move through the rest, a step every STEP_MS; `rest` holds still there. */
 async function drag(page, points) {
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   let [at] = points;
   await page.mouse.move(at.x, at.y);
   await page.mouse.down();

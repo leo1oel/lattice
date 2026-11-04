@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode, useRef } from "react";
 import "./avatar-group.css";
+import { prefersReducedMotion } from "../../lib/reduced-motion";
 
 const DEFAULT_LIFT = -2;
 const DEFAULT_FALLOFF = 0.35;
@@ -17,7 +18,7 @@ export function AvatarGroup(props: {
     const root = rootRef.current;
     if (!root) return;
 
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    const reducedMotion = prefersReducedMotion();
     const styles = getComputedStyle(root);
     const numberProperty = (name: string, fallback: number) => {
       const value = Number.parseFloat(styles.getPropertyValue(name));

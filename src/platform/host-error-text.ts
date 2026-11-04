@@ -24,6 +24,7 @@
 // The global instance `src/i18n.ts` activates, imported from Lingui itself
 // because `src/i18n.ts` installs this module's catalog.
 import { i18n } from "@lingui/core";
+import { escapeRegExp } from "../lib/escape-regexp";
 
 /**
  * One host message: the file under `src-tauri/src` that writes it, its Rust
@@ -39,10 +40,6 @@ let compiled: CompiledEntry[] = [];
 // `{{` and `}}` are literal braces in a Rust format string; any other `{…}` is
 // an argument, named, positional or with a format spec.
 const RUST_FORMAT_TOKEN = /\{\{|\}\}|\{[^{}]*\}/g;
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /** A Rust `format!` literal as an anchored pattern capturing each argument. */
 export function rustLiteralPattern(literal: string): { pattern: RegExp; specificity: number } {

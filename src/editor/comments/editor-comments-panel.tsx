@@ -34,6 +34,7 @@ import { useRoundsView } from "./annotation-rounds-view";
 import { HighlightKindFilter, OTHER } from "./highlight-kind-filter";
 import { useCardOutcomes, type CardOutcome } from "./use-card-outcomes";
 import "./annotations.css";
+import { baseName } from "../../lib/base-name";
 
 // eslint-disable-next-line lingui/no-unlocalized-strings -- key names, drawn as glyphs
 const REVISE_KEYS = comboText(parseKeyName("Mod-Shift-Enter"));
@@ -164,7 +165,7 @@ export function EditorCommentsPanel(props: {
     return files.flatMap((path) => {
       const source = sourceFor?.(path);
       const sections = source ? sectionsOf(source, path) : [];
-      const name = path.split("/").at(-1) ?? path;
+      const name = baseName(path);
       const placed = byFile.get(path)!.map((comment) => {
         const range = source ? resolveCommentAnchor(source, comment) : null;
         const from = range?.from ?? comment.from;
@@ -369,7 +370,7 @@ export function EditorCommentsPanel(props: {
     const isAuthor = comment.authorId === props.currentAuthorId;
     const focused = comment.id === props.focusCommentId;
     const author = editorCommentAuthorDisplayName(comment.authorName, anonymousAuthor);
-    const name = comment.path.split("/").at(-1) ?? comment.path;
+    const name = baseName(comment.path);
     // The source line; a page only for a note the source cannot place.
     const location = line ? `${name}:${line}` : comment.pdf ? t`PDF p.${comment.pdf.page}` : name;
     const revision = comment.revision;

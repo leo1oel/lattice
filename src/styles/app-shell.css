@@ -570,7 +570,6 @@ input[type="search"]:focus-visible {
 .project-replace-options { display: flex; flex-wrap: wrap; gap: var(--space-6); }
 .table-generator-form label, .project-replace label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .table-generator-form > .ui-checkbox-field { grid-column: 1 / -1; }
-.table-generator-preview { margin: 0; flex: 1; min-height: 160px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-5); background: var(--surface-app); color: var(--text-secondary); font: var(--type-caption-size)/1.45 var(--editor-font); white-space: pre-wrap; }
 .table-generator-actions { display: flex; justify-content: flex-end; gap: var(--space-4); }
 .project-replace .dialog-error { margin: 0; color: var(--status-danger); font-size: var(--type-caption-size); }
 .bib-resolve-row { display: flex; gap: var(--space-4); }

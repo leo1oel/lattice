@@ -10,6 +10,7 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { useZoomScale } from "./use-zoom-scale";
 import { ZoomControls } from "./zoom-controls";
+import { baseName } from "../lib/base-name";
 
 const IMAGE_MIN_SCALE = 0.3;
 const IMAGE_MAX_SCALE = 5;
@@ -72,7 +73,7 @@ export function ProjectAssetPreview({ asset, missing = false, viewState, onViewS
           key={pdfFile.path}
           url={null}
           projectFile={pdfFile}
-          fileName={asset.path.split("/").pop() ?? "figure.pdf"}
+          fileName={baseName(asset.path)}
           initialViewState={viewState?.pdf}
           onViewState={(pdf) => onViewStateRef.current?.({ pdf })}
           onFileChanged={onFileChanged}

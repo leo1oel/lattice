@@ -13,7 +13,7 @@ import { ExternalScrollbar } from "../../components/ui/external-scrollbar";
 import { whenIdle } from "../../app/effect-helpers";
 import { utf8ToBase64 } from "../../pdf/pdf-bytes";
 import { registerAgentSpreadsheetDocument } from "../../agent/agent-spreadsheet-tools";
-import { clone, inBounds, jsonEqual, type SpreadsheetCellData, type SpreadsheetWorkbookData } from "./spreadsheet-types";
+import { clone, inBounds, type SpreadsheetCellData, type SpreadsheetWorkbookData } from "./spreadsheet-types";
 import {
   SPREADSHEET_MESSAGES,
   appearanceDefaultStyle,
@@ -34,6 +34,7 @@ import {
   spreadsheetDocContent,
   spreadsheetSnapshotFromDoc,
 } from "./spreadsheet-yjs";
+import { jsonEqual } from "../../lib/equality";
 
 const SERIALIZE_DEBOUNCE_MS = 300;
 const SERIALIZE_IDLE_TIMEOUT_MS = 1_000;

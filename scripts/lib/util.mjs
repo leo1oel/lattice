@@ -2,6 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -10,6 +11,18 @@ export const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../
 /** True when `moduleUrl` (pass `import.meta.url`) is the script Node was asked to run. */
 export function isMain(moduleUrl) {
   return Boolean(process.argv[1]) && moduleUrl === pathToFileURL(resolve(process.argv[1])).href;
+}
+
+/** A TCP port on 127.0.0.1 that was free a moment ago. */
+export function freePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
 }
 
 export const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));

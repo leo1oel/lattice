@@ -1,5 +1,5 @@
 import type { PdfFileViewState } from "../app-types";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 
 /** Copied from pdfjs-dist into public/pdfjs by the Vite pdfjs-assets plugin. */
 function pdfAssetUrl(relative: string): string {

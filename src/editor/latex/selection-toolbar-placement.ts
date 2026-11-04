@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { clamp } from "../../settings/app-settings";
+import { clamp } from "../../lib/clamp";
 import { highlightAround } from "./latex-highlights";
 import type { LatexSelectionToolbarPosition } from "./latex-selection-toolbar";
 import { markdownSelectionFormat, type MarkdownSelectionFormat } from "../markdown/markdown-source-format";

@@ -551,7 +551,7 @@ fn digest(files: &BTreeMap<String, Vec<u8>>) -> String {
         hash.update((bytes.len() as u64).to_le_bytes());
         hash.update(bytes);
     }
-    hash.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
+    format!("{:x}", hash.finalize())
 }
 
 /// A temporary folder, removed with everything in it when dropped.

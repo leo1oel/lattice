@@ -9,6 +9,7 @@ import type { GitStatusEntry } from "@pierre/trees";
 import type { FileNode, GitFileStatus } from "../app-types";
 import { fromPierrePath, toPierreDirectoryPath } from "./navigator-drag";
 import { onProjectTreeStale } from "./project-files-changed";
+import { jsonEqual } from "../lib/equality";
 
 /**
  * The Rust scanner only emits "directory"; "folder" survives because the App
@@ -119,7 +120,7 @@ export function useProjectTreeFiles(projectKey: string, files: FileNode[], onErr
         const files = await invoke<FileNode[]>("list_project_tree_with_hidden", { projectRoot: projectKey });
         // Most rescans (each window focus) find nothing new: keep the tree as it is.
         if (!disposed && request === generation) setExpandedTree((current) => (
-          current?.root === projectKey && JSON.stringify(current.files) === JSON.stringify(files)
+          current?.root === projectKey && jsonEqual(current.files, files)
             ? current
             : { root: projectKey, files }
         ));

@@ -27,6 +27,7 @@ import {
   canMergeCells, canSplitCell, deleteColumn, deleteRow, deleteTable, insertColumn, insertRow, mergeSelectedCells, moveTableColumn,
   moveTableRow, splitCurrentCell, tableContext, tableHasSpans,
 } from "../table-commands";
+import { jsonEqual } from "../../../../lib/equality";
 
 type Geometry = {
   /** The column handle's center and the table's top edge, relative to the chrome layer. */
@@ -79,7 +80,7 @@ function measureTableGeometry(editor: Editor, layer: HTMLElement | null): Geomet
   };
 }
 
-const sameGeometry = (left: Geometry | null, right: Geometry | null) => JSON.stringify(left) === JSON.stringify(right);
+const sameGeometry = (left: Geometry | null, right: Geometry | null) => jsonEqual(left, right);
 
 type Axis = "row" | "column";
 /** Where a dragged row or column would land: the boundary index, and the drop line relative to the layer. */

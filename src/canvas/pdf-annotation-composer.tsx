@@ -10,6 +10,7 @@ import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { usePdfAnchoredPopup } from "../pdf/use-pdf-anchored-popup";
 import { AnnotationForm } from "./annotation-composer";
+import { baseName } from "../lib/base-name";
 
 const COMPOSER_PLACE = { side: "below", width: 360 } as const;
 
@@ -56,7 +57,7 @@ export function PdfAnnotationComposer(props: {
   // A click outside closes it (and still selects, or presses, where it lands).
   useDismissOnOutsidePointer(popupRef, () => props.onDismiss({ body, intent }));
 
-  const name = mapped ? mapped.path.split("/").at(-1) ?? mapped.path : null;
+  const name = mapped ? baseName(mapped.path) : null;
   const location = mapped ? t`PDF p.${selection.page} → ${name}:${mapped.line}` : t`PDF p.${selection.page} → …`;
   return (
     <div

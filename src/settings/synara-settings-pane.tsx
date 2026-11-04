@@ -16,19 +16,14 @@ import {
   isSettingsViewportNearBottom,
   normalizeSynaraSettingsHeight,
 } from "../agent/synara-settings-layout";
+import { mediaQueryStore } from "../lib/media-query-store";
 
 const DEFAULT_FRAME_HEIGHT = 470;
 /** Where Settings narrows its nav and page insets (adaptive-feedback.css). */
 const COMPACT_SETTINGS_QUERY = "(max-width: 680px)";
 const SETTINGS_LAYOUT = "lattice:settings-layout";
 
-function subscribeCompactSettings(onChange: () => void) {
-  const media = window.matchMedia(COMPACT_SETTINGS_QUERY);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-const isCompactSettings = () => window.matchMedia(COMPACT_SETTINGS_QUERY).matches;
+const compactSettings = mediaQueryStore(COMPACT_SETTINGS_QUERY);
 
 type FrameSlot = { current: number | null };
 
@@ -142,7 +137,7 @@ export function SynaraSettingsPane(props: {
   // The page's insets live in the frame, which cannot see this window's
   // width: its own is the dialog's content column, and the same column width
   // occurs on both sides of the compact breakpoint.
-  const compact = useSyncExternalStore(subscribeCompactSettings, isCompactSettings);
+  const compact = useSyncExternalStore(compactSettings.subscribe, compactSettings.matches);
   const postLayout = useCallback(() => {
     if (!origin) return;
     frameRef.current?.contentWindow?.postMessage({ type: SETTINGS_LAYOUT, compact }, origin);

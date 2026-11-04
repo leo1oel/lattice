@@ -222,7 +222,6 @@ describe("shared surface contracts", () => {
     ]],
     ["keeps drawer controls clear of surrounding dividers", [
       /\.history-filters \{[^}]*margin:\s*var\(--space-6\) 0/,
-      /\.editor-comments-content \.pdf-marks-toolbar \{[^}]*margin-top:\s*var\(--drawer-content-inset\)/,
       /\.literature-search \{[^}]*margin:\s*var\(--drawer-content-inset\) 0 var\(--drawer-section-gap\)/,
     ]],
     ["keeps the spreadsheet formula controls level and off pure white", [
@@ -387,9 +386,10 @@ describe("shared surface contracts", () => {
     expect(offenders).toEqual([])
   })
 
-  it.each(["light", "dark"])("keeps the enabled comment Reply action legible at rest and on hover in the %s theme", (theme) => {
-    const rules = styleRules(parseStylesheet(["src/styles/foundations.css", ...appCssFiles].map(read).join("\n")))
-    document.body.innerHTML = '<div class="editor-comment-reply-actions"><button class="primary">Reply</button></div>'
+  it.each(["light", "dark"])("keeps the tinted Button's label legible at rest and on hover in the %s theme", (theme) => {
+    const css = ["src/styles/foundations.css", "src/components/ui/chrome.css", ...appCssFiles].map(read).join("\n")
+    const rules = styleRules(parseStylesheet(css))
+    document.body.innerHTML = '<button class="ui-button ui-button--tinted">Reply</button>'
     const button = document.querySelector("button")!
     document.documentElement.dataset.theme = theme
     try {

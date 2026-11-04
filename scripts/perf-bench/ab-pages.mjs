@@ -6,10 +6,10 @@
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
-import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { freePort } from "../lib/util.mjs";
 
 export const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -39,17 +39,6 @@ export function exportTree(ref, { prefix, install = false }) {
     throw error;
   }
   return root;
-}
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const server = createNetServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
-    });
-  });
 }
 
 /** A production build of the bench page from the tree at `root`, served. */
