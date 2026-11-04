@@ -51,7 +51,7 @@ function startFresh() {
 }
 
 if (matchMedia("(max-width: 899px)").matches) {
-  showNarrowScreenPage(lang);
+  showNarrowScreenPage(lang, theme);
 } else {
   const [{ demoTutorialFiles }, { installDemoBackend }] = await Promise.all([import("./demo-project"), import("./demo-backend")]);
   const { unhandled } = installDemoBackend(await demoTutorialFiles());
