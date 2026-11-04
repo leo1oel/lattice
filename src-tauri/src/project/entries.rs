@@ -41,7 +41,7 @@ fn new_source_file(relative: &str) -> Result<(String, &'static str), String> {
     let path = Path::new(relative.trim());
     let path = if extension(path).is_none() { path.with_extension("tex") } else { path.into() };
     let seed = source_kind(&path).and_then(|kind| kind.seed).ok_or_else(|| {
-        "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet."
+        "Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml."
             .to_string()
     })?;
     Ok((path.to_string_lossy().to_string(), seed))
@@ -314,6 +314,34 @@ mod tests {
             assert_eq!(tree_kind(root, path).as_deref(), Some(kind), "{path}");
             assert!(inventory_has(root, path, "text"), "{path}");
         }
+    }
+
+    #[test]
+    fn code_and_configuration_sources_can_be_created_imported_and_searched() {
+        let fixture = Fixture::project("code-config-sources");
+        let canonical_root = fixture.root.canonicalize().unwrap();
+        let root = &canonical_root;
+        for extension in [
+            "rs", "go", "c", "cc", "cpp", "h", "hpp", "java", "rb", "pl", "r", "sh", "bash", "zsh",
+            "json", "yaml", "yml", "toml", "xml", "css", "scss", "sql", "mjs", "cjs",
+        ] {
+            let path = format!("src/source.{extension}");
+            assert_eq!(create_entry(root, &path, "file").unwrap(), path);
+            assert!(inventory_has(root, &path, "text"));
+            let content = format!("code_config_fixture_{extension}\n");
+            let source =
+                fixture.outside(&format!("imported.{}", extension.to_ascii_uppercase()), &content);
+            let paths = vec![source.to_string_lossy().to_string()];
+            let imported = super::super::import_sources(root, &paths, "src").unwrap();
+            assert_eq!(super::super::read_file(root, &imported[0]).unwrap(), content);
+            assert!(super::super::search_files(root, &format!("code_config_fixture_{extension}"))
+                .unwrap()
+                .iter()
+                .any(|hit| hit.path == imported[0]));
+            assert_eq!(super::super::read_agent_composer_files(&paths).unwrap().len(), 1);
+        }
+        assert!(create_entry(root, "program.exe", "file").is_err());
+        assert!(create_entry(root, "../escape.rs", "file").is_err());
     }
 
     #[test]

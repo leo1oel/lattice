@@ -59,7 +59,7 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   // Creating, moving and deleting (project/entries.rs, project/create.rs)
   ["project/entries.rs", "Choose a source file or folder.", () => t`Choose a source file or folder.`],
   ["project/entries.rs", "A file or folder already exists at that path.", () => t`A file or folder already exists at that path.`],
-  ["project/entries.rs", "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet.", () => t`New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet.`],
+  ["project/entries.rs", "Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml.", () => t`Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml.`],
   ["project/entries.rs", "Deck ids must use kebab-case letters and numbers.", () => t`Deck ids must use kebab-case letters and numbers.`],
   ["project/entries.rs", "A slide deck already exists with that id.", () => t`A slide deck already exists with that id.`],
   ["project/entries.rs", "Choose a file or folder to move.", () => t`Choose a file or folder to move.`],

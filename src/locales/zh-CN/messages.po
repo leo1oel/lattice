@@ -3142,6 +3142,10 @@ msgid "Choose a source line before locating it in the PDF."
 msgstr "请先选一行源码，再到 PDF 中定位"
 
 #: src/platform/host-errors-project.ts
+msgid "Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml."
+msgstr "请选择受支持的源代码或配置文件扩展名，例如 .tex、.md、.py、.rs、.sh、.json 或 .toml。"
+
+#: src/platform/host-errors-project.ts
 msgid "Choose a valid project-relative path."
 msgstr "请选择项目内的有效路径"
 
@@ -8681,10 +8685,6 @@ msgstr "新建幻灯片"
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "新建项目"
-
-#: src/platform/host-errors-project.ts
-msgid "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet."
-msgstr "新建源文件的扩展名须为 .tex、.bib、.md、.sty、.cls、.txt、.html、.tsx、.ts、.jsx、.js、.py、.tldr 或 .lattice-sheet"
 
 #: src/trellis/trellis-labels.ts
 msgid "New split below"
