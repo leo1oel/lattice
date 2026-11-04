@@ -8,6 +8,7 @@ Crossref
 DBLP
 Firecrawl
 Google Scholar
+Google Workspace
 HTML
 LaTeX
 Lattice

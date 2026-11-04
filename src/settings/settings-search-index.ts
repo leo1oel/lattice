@@ -1,5 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import type { SettingsTab } from "../app-types";
+import { PRODUCT_NAMES } from "../google-workspace/workspace-types";
 import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { TIMELESS } from "./interface-font-credit";
 
@@ -78,6 +79,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "environment", label: t`Environment`, place: t`Agent`, terms: `HTTPS_PROXY ANTHROPIC_BASE_URL ${t({ message: "proxy key endpoint shell restart", comment: "Search words for the agent Environment settings page, space-separated" })}` },
     { tab: "environment", place: t`Environment`, id: "agent-restart", label: t`Restart agent` },
     { tab: "overleaf", label: overleaf, place: t`Integrations` },
+    { tab: "google", label: t`Google Workspace`, place: t`Integrations`, terms: Object.values(PRODUCT_NAMES).join(" ") },
     { tab: "overleaf", place: overleaf, id: "overleaf-connection", label: t`Connection` },
     { tab: "overleaf", place: overleaf, id: "overleaf-sync-mode", label: t`Sync mode`, terms: `${t`Live sync`} ${t`Manual`}` },
     { tab: "overleaf", place: overleaf, id: "overleaf-remote-delete", label: t`When you delete a file here`, terms: `${t`Ask before deleting`} ${t`Delete on Overleaf too`} ${t`Keep it on Overleaf`}`, description: t`Overleaf history keeps a copy` },

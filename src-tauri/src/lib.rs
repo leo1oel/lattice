@@ -27,6 +27,7 @@ mod format_latex;
 mod fs_watch;
 mod fts;
 mod git;
+mod google_workspace;
 mod harper;
 mod http;
 mod ipc;
@@ -378,7 +379,13 @@ pub fn run() {
         .on_page_load(on_page_load)
         .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
         .setup(setup)
+        .manage(google_workspace::GoogleState::default())
         .invoke_handler(tauri::generate_handler![
+            ipc::google_workspace::google_workspace_status,
+            ipc::google_workspace::google_workspace_begin,
+            ipc::google_workspace::google_workspace_cancel,
+            ipc::google_workspace::google_workspace_disconnect,
+            ipc::google_workspace::google_workspace_request,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_config,
             #[cfg(feature = "perf-lab")]

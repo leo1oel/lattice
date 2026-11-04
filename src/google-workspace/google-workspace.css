@@ -1,0 +1,63 @@
+.google-workspace-settings fieldset {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: var(--space-4) 0;
+  padding: 0;
+  border: 0;
+}
+.google-workspace-settings label {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-ui-body);
+}
+.google-products,
+.google-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.settings-section.google-workspace-settings .google-products label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+  gap: var(--space-2);
+}
+.settings-section.google-workspace-settings fieldset > label {
+  margin-top: 0;
+}
+.google-setup-note,
+.google-api-workspace > p {
+  color: var(--text-secondary);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+}
+.google-api-workspace {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+}
+.google-api-workspace select {
+  min-height: var(--control-height-default);
+  color: var(--text-primary);
+  background: var(--surface-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: var(--space-2);
+}
+.google-api-workspace pre {
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: var(--space-3);
+  background: var(--surface-input);
+  border-radius: var(--radius-control);
+  font-family: var(--editor-font);
+  user-select: text;
+}
+.google-api-workspace textarea {
+  font-family: var(--editor-font);
+}

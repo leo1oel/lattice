@@ -2030,6 +2030,10 @@ msgstr "应用修改"
 msgid "Apply the pending comments in {deck}."
 msgstr "应用 {deck} 中待处理的评论。"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "Apply update"
+msgstr "应用更新"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Applying figure changes…"
 msgstr "正在应用插图更改…"
@@ -2684,6 +2688,14 @@ msgstr "缓存"
 msgid "Cached paper has no full-text body."
 msgstr "缓存的论文没有正文"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "Calendar ID"
+msgstr "日历 ID"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Calendar writes manage private events. Attendees, invitations and conference creation are not supported."
+msgstr "日历写入仅管理私人日程，不支持参会人、邀请或创建会议。"
+
 #: src/project/submission-items.tsx
 msgid "Call for papers URL or note"
 msgstr "征稿链接或说明"
@@ -2713,6 +2725,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/editor/insert/table-generator-dialog.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
+#: src/google-workspace/google-workspace-settings.tsx
 #: src/history/conflict-resolver.tsx
 #: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
@@ -2869,6 +2882,10 @@ msgstr "图或表的标题"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Caution"
 msgstr "注意"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Cell range"
+msgstr "单元格范围"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cell spanning columns"
@@ -3468,6 +3485,10 @@ msgstr "清空终端"
 msgid "Click to keep the original"
 msgstr "点击保留原文"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Client secret (optional)"
+msgstr "客户端密钥（可选）"
+
 #: src/telemetry/app-notify.ts
 msgid "Clipboard"
 msgstr "剪贴板"
@@ -3845,14 +3866,26 @@ msgstr "冲突"
 msgid "Congruent"
 msgstr "全等"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Connect another Google account"
+msgstr "连接其他 Google 账号"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connect to Overleaf"
 msgstr "连接 Overleaf"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Connect your own Google Desktop OAuth client to read, create and edit research documents, spreadsheets, presentations, forms and private calendar events."
+msgstr "使用你自己的 Google 桌面 OAuth 客户端，读取、创建和编辑研究文档、电子表格、演示文稿、表单和私人日程。"
 
 #. placeholder {0}: known.email ?? known.name ?? fallbackAccountName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connected as {0}"
 msgstr "已登录：{0}"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Connected to Google Workspace"
+msgstr "已连接 Google Workspace"
 
 #: src/settings/literature-settings.tsx
 msgid "Connected without a key"
@@ -4415,6 +4448,10 @@ msgstr "无法保存"
 msgid "Couldn’t start the paper tools"
 msgstr "无法启动论文工具"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "Create"
+msgstr "创建"
+
 #: src/agent/agent-composer-prompt.ts
 msgid "Create a presentation about"
 msgstr "创建一份演示文稿，主题是："
@@ -4735,6 +4772,10 @@ msgstr "德尔塔"
 msgid "Description"
 msgstr "图片说明"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Desktop OAuth client ID"
+msgstr "桌面 OAuth 客户端 ID"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Details"
 msgstr "详情"
@@ -4804,6 +4845,10 @@ msgstr "放弃"
 #: src/trellis/trellis-document-views.tsx
 msgid "Discard and close"
 msgstr "不保存"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Disconnect Google Workspace"
+msgstr "断开 Google Workspace"
 
 #: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
@@ -5304,6 +5349,10 @@ msgstr "空集"
 msgid "Empty set (variant)"
 msgstr "空集（变体）"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Enable the selected APIs in your Google Cloud project and add your account as a test user if the consent screen is in testing. Authorization opens in your default browser. Passwords and access tokens never enter this page."
+msgstr "请在 Google Cloud 项目中启用所选 API；如果授权应用处于测试状态，还需将你的账号添加为测试用户。授权会在默认浏览器中打开，此页面不会接收 Google 密码或访问令牌。"
+
 #: src/history/versions-timeline.tsx
 msgid "Enable version tracking"
 msgstr "记录版本"
@@ -5465,6 +5514,10 @@ msgstr "估计量 / 单位向量记号"
 msgid "Eta"
 msgstr "伊塔"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "Event ID (leave blank to list events)"
+msgstr "日程 ID（留空则列出日程）"
+
 #: src/project/arxiv-export.ts
 msgid "Every figure is included"
 msgstr "所有图片均已包含"
@@ -5555,6 +5608,7 @@ msgstr "导出 arXiv 提交包…"
 msgid "Export notes…"
 msgstr "导出批注…"
 
+#: src/google-workspace/workspace-operations.tsx
 #: src/history/export-changes-dialog.tsx
 msgid "Export PDF"
 msgstr "导出 PDF"
@@ -6244,9 +6298,31 @@ msgstr "配对括号"
 msgid "Going to Overleaf"
 msgstr "传到 Overleaf"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "Google API response"
+msgstr "Google API 响应"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Google could not complete this operation. Check the resource ID, JSON, account scopes and enabled APIs. No credentials or provider error details are shown here."
+msgstr "Google 未能完成此操作。请检查资源 ID、JSON、账号授权范围和已启用的 API。此处不会显示凭据或服务提供方的错误详情。"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Google Scholar"
 msgstr "Google Scholar"
+
+#: src/google-workspace/google-workspace-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Google Workspace"
+msgstr "Google Workspace"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Google Workspace could not complete that action. Check your client configuration, consent and network connection. Existing account credentials are preserved after a failed sign-in."
+msgstr "Google Workspace 未能完成此操作。请检查客户端配置、授权和网络连接。登录失败会保留原有账号凭据。"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Google Workspace operations"
+msgstr "Google Workspace 操作"
 
 #: src/canvas/proofread-card.tsx
 msgid "grammar"
@@ -7843,6 +7919,10 @@ msgstr "关联的文献库…"
 msgid "Links to your accounts"
 msgstr "指向作者账号的链接"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "List accessible resources"
+msgstr "列出可访问资源"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "List item"
 msgstr "列表项"
@@ -8682,6 +8762,10 @@ msgstr "新建幻灯片"
 msgid "New project"
 msgstr "新建项目"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "New resource title"
+msgstr "新资源标题"
+
 #: src/platform/host-errors-project.ts
 msgid "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .tldr, or .lattice-sheet."
 msgstr "新建源文件的扩展名须为 .tex、.bib、.md、.sty、.cls、.txt、.html、.tsx、.ts、.jsx、.js、.tldr 或 .lattice-sheet"
@@ -9035,6 +9119,10 @@ msgstr "还没有论文"
 #: src/pdf/pdf-viewer.tsx
 msgid "No PDF yet"
 msgstr "还没有 PDF"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "No product permissions were granted. Reconnect and approve the products you want to use."
+msgstr "未获得任何产品权限。请重新连接并授权你希望使用的产品。"
 
 #: src/settings/synara-settings-pane.tsx
 msgid "No project open"
@@ -9638,6 +9726,10 @@ msgstr "新手教程"
 #: src/settings/settings-dialog.tsx
 msgid "Open in browser"
 msgstr "在浏览器中打开"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Open in Google"
+msgstr "在 Google 中打开"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Open in History"
@@ -10742,6 +10834,7 @@ msgstr "撇号"
 
 #: src/editor/latex/latex-command-completions.ts
 #: src/editor/latex/latex-vocabulary.ts
+#: src/google-workspace/workspace-operations.tsx
 msgid "Product"
 msgstr "连乘"
 
@@ -10992,6 +11085,14 @@ msgstr "请求太频繁，请稍后再试"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Raw build log"
 msgstr "完整日志"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Read"
+msgstr "读取"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Read responses"
+msgstr "读取回答"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
@@ -11577,6 +11678,10 @@ msgstr "回复 {author}"
 msgid "Reply…"
 msgstr "回复…"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "Request JSON (advanced)"
+msgstr "请求 JSON（高级）"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Request queue busy"
 msgstr "排队太多"
@@ -11717,6 +11822,10 @@ msgstr "正在查找文献信息…"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolving…"
 msgstr "正在查找…"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Resource ID"
+msgstr "资源 ID"
 
 #: src/agent/agent-environment.ts
 #: src/settings/agent-environment-settings.tsx
@@ -12865,6 +12974,10 @@ msgstr "登录 {linkedHost} 后继续"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to Overleaf"
 msgstr "登录 Overleaf"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Sign in with default browser"
+msgstr "使用默认浏览器登录"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign out"
@@ -15551,6 +15664,10 @@ msgstr "来源地址须为 HTTP(S)，且不能包含账号密码"
 msgid "Use letters, numbers, and :_-.+ in the {name}."
 msgstr "{name}只能包含字母、数字和 :_-.+"
 
+#: src/google-workspace/workspace-operations.tsx
+msgid "Use native API operations below. This panel does not embed Google's full web editors. Writes happen only when you choose Create or Apply update. File listing and PDF export include only files this app can access through Drive."
+msgstr "使用下方的原生 API 操作。此面板未嵌入 Google 的完整网页编辑器，仅在点击“创建”或“应用更新”时写入。文件列表和 PDF 导出仅包括此应用通过 Drive 可访问的文件。"
+
 #: src/app/use-command-table.ts
 msgid "Use the dark theme"
 msgstr "深色"
@@ -15802,6 +15919,14 @@ msgstr "等待中"
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Waiting for Google authorization…"
+msgstr "正在等待 Google 授权…"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Waiting for Google…"
+msgstr "正在等待 Google…"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
 msgstr "正在等待 Overleaf 的实时文件树，之后再同步移动的文件"
@@ -15983,6 +16108,10 @@ msgstr "工作区"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace name"
 msgstr "工作区名称"
+
+#: src/google-workspace/workspace-operations.tsx
+msgid "Workspace operations"
+msgstr "工作区操作"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace: {currentName}"

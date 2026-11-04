@@ -26,6 +26,7 @@ import type { ProjectSnapshot, SettingsTab } from "../app-types";
 import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
 import { LiteratureSettings } from "./literature-settings";
+import { GoogleWorkspaceSettings } from "../google-workspace/google-workspace-settings";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
@@ -136,6 +137,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     { label: t`Integrations`, items: [
       { tab: "overleaf", label: t`Overleaf`, icon: "cloud-upload" },
       { tab: "literature", label: t`Literature services`, icon: "api-key" },
+      { tab: "google", label: t`Google Workspace`, icon: "cloud-upload" },
     ] },
     { label: t`Diagnostics`, items: [
       { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
@@ -247,6 +249,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
+    google: <GoogleWorkspaceSettings />,
     environment: <AgentEnvironmentSettings runtime={props.synaraRuntime} />,
     overleaf: (
       <OverleafSettingsSection
