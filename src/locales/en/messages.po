@@ -1185,6 +1185,10 @@ msgstr "A copy must keep a text file's extension, such as .tex or .txt."
 msgid "A deck from another project is open in another window"
 msgstr "A deck from another project is open in another window"
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "A draggable pet follows builds and agent work. Reduced motion keeps it still."
+msgstr "A draggable pet follows builds and agent work. Reduced motion keeps it still."
+
 #: src/platform/host-errors-project.ts
 msgid "A dropped file"
 msgstr "A dropped file"
@@ -3109,6 +3113,14 @@ msgstr "Choose a folder or ZIP containing LaTeX source files."
 msgid "Choose a folder to extract the project into."
 msgstr "Choose a folder to extract the project into."
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "Choose a pet"
+msgstr "Choose a pet"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Choose a pet.json file"
+msgstr "Choose a pet.json file"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
 msgstr "Choose a project image"
@@ -3728,6 +3740,10 @@ msgstr "Comments will be published"
 #: src/platform/host-errors-workspace.ts
 msgid "Commit message cannot be empty."
 msgstr "Commit message cannot be empty."
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Companion unavailable"
+msgstr "Companion unavailable"
 
 #: src/app/annotation-rounds.ts
 msgid "Compare"
@@ -4734,6 +4750,10 @@ msgstr "Delta"
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Description"
 msgstr "Description"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Desktop companion"
+msgstr "Desktop companion"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Details"
@@ -6618,10 +6638,22 @@ msgstr "Implies"
 msgid "Import"
 msgstr "Import"
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "Import a local pet.json package with a PNG or WebP spritesheet. Codex-style sprite versions 1 and 2 are supported."
+msgstr "Import a local pet.json package with a PNG or WebP spritesheet. Codex-style sprite versions 1 and 2 are supported."
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Import a pet package first"
+msgstr "Import a pet package first"
+
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Import desktop pet"
+msgstr "Import desktop pet"
 
 #: src/app/use-project-tree.ts
 msgid "Import figures"
@@ -6648,6 +6680,10 @@ msgstr "Import images here"
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Import pet"
+msgstr "Import pet"
 
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
@@ -9549,6 +9585,10 @@ msgstr "Open a .tex file before formatting."
 msgid "Open a .tex file before pasting a figure."
 msgstr "Open a .tex file before pasting a figure."
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Open a desktop workspace to import a pet"
+msgstr "Open a desktop workspace to import a pet"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Open a file"
 msgstr "Open a file"
@@ -10492,6 +10532,30 @@ msgstr "Perpendicular"
 #: src/settings/literature-settings.tsx
 msgid "Personal key saved"
 msgstr "Personal key saved"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet artwork is available only to its companion window"
+msgstr "Pet artwork is available only to its companion window"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet file could not be opened"
+msgstr "Pet file could not be opened"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet file could not be read"
+msgstr "Pet file could not be read"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet file is too large"
+msgstr "Pet file is too large"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Pet manifest"
+msgstr "Pet manifest"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet settings have no folder"
+msgstr "Pet settings have no folder"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Phi"
@@ -12751,6 +12815,10 @@ msgstr "Show changes"
 msgid "Show changes as"
 msgstr "Show changes as"
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "Show desktop companion"
+msgstr "Show desktop companion"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "Show document outline"
@@ -13359,6 +13427,10 @@ msgstr "Superset"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "Superset or equal"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Supported pet sprite versions are 1 and 2"
+msgstr "Supported pet sprite versions are 1 and 2"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
@@ -14275,6 +14347,22 @@ msgstr "The PDF with changes marked did not build: {detail}"
 msgid "The PDF with changes marked did not build."
 msgstr "The PDF with changes marked did not build."
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet manifest is invalid"
+msgstr "The pet manifest is invalid"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet needs a name of at most 80 characters"
+msgstr "The pet needs a name of at most 80 characters"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet package has no folder"
+msgstr "The pet package has no folder"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet spritesheet could not be found"
+msgstr "The pet spritesheet could not be found"
+
 #: src/platform/host-errors-setup.ts
 msgid "The presentation project must be a directory."
 msgstr "The presentation project must be a directory."
@@ -14395,6 +14483,10 @@ msgstr "The rtex archive did not contain the live preview engine."
 msgid "The running agent started with different values. Restarting it stops any running turns."
 msgstr "The running agent started with different values. Restarting it stops any running turns."
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The saved pet artwork is invalid; import its package again"
+msgstr "The saved pet artwork is invalid; import its package again"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The saved visual must use the .html extension."
 msgstr "The saved visual must use the .html extension."
@@ -14455,6 +14547,14 @@ msgstr "The source gzip is unreadable: {error}"
 #: src/project/arxiv-export.ts
 msgid "The source spells file names in another case"
 msgstr "The source spells file names in another case"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The spritesheet must be 1536 × {height} pixels"
+msgstr "The spritesheet must be 1536 × {height} pixels"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The spritesheet must stay inside the pet package folder"
+msgstr "The spritesheet must stay inside the pet package folder"
 
 #: src/agent/agent-environment.ts
 msgid "The system proxy changed"
@@ -15542,6 +15642,10 @@ msgstr "URL"
 #: src/editor/grammar-rule-text.ts
 msgid "Use “{word}” instead of “{original}”."
 msgstr "Use “{word}” instead of “{original}”."
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Use a PNG or WebP spritesheet"
+msgstr "Use a PNG or WebP spritesheet"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Use an HTTP(S) source URL without credentials."

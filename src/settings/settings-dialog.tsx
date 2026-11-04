@@ -36,6 +36,7 @@ import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep } fr
 import { CodeThemeSettingsGroup } from "./code-theme-settings";
 import { GrammarSettingsGroup } from "./grammar-settings";
 import type { GrammarIgnores } from "../editor/harper-spellcheck";
+import { DesktopPetSettings } from "./desktop-pet-settings";
 import { ThemeSettingsGroup } from "./theme-settings";
 import type { WindowBacking } from "./use-appearance";
 import { SettingsSearch } from "./settings-search";
@@ -437,6 +438,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
       <ThemeSettingsGroup {...props} />
       <CodeThemeSettingsGroup {...props} />
       <TitlebarToolsGroup {...props} />
+      <DesktopPetSettings />
     </div>
   );
 }

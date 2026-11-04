@@ -1,0 +1,11 @@
+/* The artwork is the surface; the containing native window stays clear. */
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body { color-scheme: light dark; font: caption; user-select: none; }
+#companion { display: grid; justify-items: center; height: 196px; grid-template-rows: 30px 130px 30px; }
+.pet-controls { display: flex; justify-content: space-between; width: 130px; opacity: 0; }
+#companion:hover .pet-controls, #companion:focus-within .pet-controls { opacity: 1; }
+.pet-controls button { width: 30px; height: 28px; border: 0; border-radius: 50%; background: Canvas; color: CanvasText; font: inherit; cursor: pointer; }
+.pet-controls button:first-child { cursor: grab; }
+.pet-sprite { width: 120px; height: 130px; background-color: transparent; background-repeat: no-repeat; border: 0; padding: 0; cursor: pointer; image-rendering: pixelated; }
+.pet-status { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: Canvas; color: CanvasText; border-radius: 5px; padding-inline: 5px; align-self: start; }
+button:focus-visible { outline: 2px solid Highlight; outline-offset: 1px; }

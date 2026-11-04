@@ -77,7 +77,7 @@ impl AppRestart {
         }
     }
 
-    fn agent_turns(&self) -> usize {
+    pub(crate) fn agent_turns(&self) -> usize {
         self.agent_turns.lock().unwrap_or_else(PoisonError::into_inner).len()
     }
 

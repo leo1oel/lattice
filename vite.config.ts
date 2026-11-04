@@ -306,28 +306,29 @@ export default defineConfig(() => ({
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   build: {
+    // The minimum WebView is Safari 17, which supports modulepreload. A shared
+    // injected polyfill otherwise joins the independent HTML entry facades.
+    modulePreload: { polyfill: false },
     rolldownOptions: {
-      // One entry, on purpose: scripts/app-size-report.mjs expects the app's
-      // chunks only.
+      // The companion has a small independent entry, without mounting App.
       input: {
         app: path.resolve("index.html"),
+        pet: path.resolve("pet.html"),
       },
       output: {
         codeSplitting: {
           groups: [
             {
               name(id) {
+                if (id.includes("/src/desktop-pet/") || id.endsWith("/pet.html")) return "desktop-pet";
                 const explicitName = manualChunkName(id);
                 if (explicitName) return explicitName;
 
                 // Rolldown's automatic common chunks are split by every lazy
                 // entry signature, which shatters startup into many small
-                // requests. There is exactly one html entry, so every remaining
-                // `$initial` module is reachable from it: naming them all `app`
-                // recovers Rollup's coarser startup boundary. (While the icon
-                // lab was a second build input, modules shared with it were
-                // pulled out into a `provided-icons` chunk; with a single entry
-                // that split cannot arise.)
+                // requests. Keep the workspace startup together; the small
+                // companion entry is separated above. Shared bootstrap modules
+                // remain in this chunk rather than multiplying workspace fetches.
                 return "app";
               },
               tags: ["$initial"],

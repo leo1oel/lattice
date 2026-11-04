@@ -19,6 +19,7 @@ mod citation_batch;
 mod citation_health;
 mod command_diagnostics;
 mod commands;
+mod desktop_pet;
 mod diagnostic_logs;
 mod doctor;
 mod export;
@@ -235,6 +236,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "perf-lab")]
     perf_lab::disable_app_nap();
     app.manage(AppState::from_environment());
+    app.manage(desktop_pet::DesktopPet::load(app.handle())?);
     app.manage(browser_host::BrowserHost::default());
     app.manage(save_before_close::SaveBeforeClose::default());
     app.manage(app_restart::AppRestart::default());
@@ -242,6 +244,11 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(synara::SynaraRuntime::new(app)?);
     app.manage(presentation::PresentationRuntime::new(app)?);
     let background = browser_host_launch();
+    if !background {
+        if let Err(reason) = desktop_pet::restore(app.handle()) {
+            log::warn!(target: "lattice::pet", "{reason}");
+        }
+    }
     if let Err(reason) = app.state::<browser_host::BrowserHost>().start(app.handle()) {
         if background {
             return Err(std::io::Error::other(reason).into());
@@ -379,6 +386,10 @@ pub fn run() {
         .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
+            desktop_pet::desktop_pet_status,
+            desktop_pet::desktop_pet_asset,
+            desktop_pet::desktop_pet_import,
+            desktop_pet::desktop_pet_set_enabled,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_config,
             #[cfg(feature = "perf-lab")]

@@ -1185,6 +1185,10 @@ msgstr "副本须保留文本文件的扩展名，如 .tex 或 .txt"
 msgid "A deck from another project is open in another window"
 msgstr "另一个窗口里开着别的项目的幻灯片"
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "A draggable pet follows builds and agent work. Reduced motion keeps it still."
+msgstr "可拖动的桌面宠物会跟随编译和助手工作状态。启用减少动态效果后将保持静止。"
+
 #: src/platform/host-errors-project.ts
 msgid "A dropped file"
 msgstr "拖入的文件"
@@ -3109,6 +3113,14 @@ msgstr "请选择包含 LaTeX 源文件的文件夹或 ZIP"
 msgid "Choose a folder to extract the project into."
 msgstr "请选择要把项目解压到哪个文件夹"
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "Choose a pet"
+msgstr "选择桌面宠物"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Choose a pet.json file"
+msgstr "请选择 pet.json 文件"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
 msgstr "选择项目中的图片"
@@ -3728,6 +3740,10 @@ msgstr "注释将被公开"
 #: src/platform/host-errors-workspace.ts
 msgid "Commit message cannot be empty."
 msgstr "提交说明不能为空"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Companion unavailable"
+msgstr "桌面宠物暂不可用"
 
 #: src/app/annotation-rounds.ts
 msgid "Compare"
@@ -4734,6 +4750,10 @@ msgstr "德尔塔"
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Description"
 msgstr "图片说明"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Desktop companion"
+msgstr "桌面宠物"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Details"
@@ -6618,10 +6638,22 @@ msgstr "蕴含"
 msgid "Import"
 msgstr "导入"
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "Import a local pet.json package with a PNG or WebP spritesheet. Codex-style sprite versions 1 and 2 are supported."
+msgstr "导入本地 pet.json 宠物包及 PNG 或 WebP 精灵图。支持 Codex 风格的第 1 和第 2 版精灵图。"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Import a pet package first"
+msgstr "请先导入宠物包"
+
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "已取消导入。“{0}”仍在文献中，用 {citationCommand} 引用；不再获取全文"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Import desktop pet"
+msgstr "导入桌面宠物"
 
 #: src/app/use-project-tree.ts
 msgid "Import figures"
@@ -6648,6 +6680,10 @@ msgstr "导入图片"
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "导入 ZIP"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Import pet"
+msgstr "导入宠物"
 
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
@@ -9549,6 +9585,10 @@ msgstr "请先打开 .tex 文件"
 msgid "Open a .tex file before pasting a figure."
 msgstr "请先打开 .tex 文件再粘贴"
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Open a desktop workspace to import a pet"
+msgstr "请在桌面工作区中导入宠物"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Open a file"
 msgstr "打开文件"
@@ -10492,6 +10532,30 @@ msgstr "垂直"
 #: src/settings/literature-settings.tsx
 msgid "Personal key saved"
 msgstr "已存个人密钥"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet artwork is available only to its companion window"
+msgstr "宠物图像仅供对应的桌面宠物窗口使用"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet file could not be opened"
+msgstr "无法打开宠物文件"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet file could not be read"
+msgstr "无法读取宠物文件"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet file is too large"
+msgstr "宠物文件过大"
+
+#: src/settings/desktop-pet-settings.tsx
+msgid "Pet manifest"
+msgstr "宠物清单"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Pet settings have no folder"
+msgstr "找不到宠物设置文件夹"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Phi"
@@ -12751,6 +12815,10 @@ msgstr "显示更改"
 msgid "Show changes as"
 msgstr "改动显示方式"
 
+#: src/settings/desktop-pet-settings.tsx
+msgid "Show desktop companion"
+msgstr "显示桌面宠物"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "显示大纲"
@@ -13359,6 +13427,10 @@ msgstr "真超集"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "超集或等于"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Supported pet sprite versions are 1 and 2"
+msgstr "支持的宠物精灵图版本为 1 和 2"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
@@ -14275,6 +14347,22 @@ msgstr "标注修改的 PDF 编译失败：{detail}"
 msgid "The PDF with changes marked did not build."
 msgstr "标注修改的 PDF 编译失败"
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet manifest is invalid"
+msgstr "宠物清单无效"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet needs a name of at most 80 characters"
+msgstr "宠物名称不能为空，且不能超过 80 个字符"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet package has no folder"
+msgstr "找不到宠物包文件夹"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The pet spritesheet could not be found"
+msgstr "找不到宠物精灵图"
+
 #: src/platform/host-errors-setup.ts
 msgid "The presentation project must be a directory."
 msgstr "演示文稿项目必须是一个文件夹"
@@ -14395,6 +14483,10 @@ msgstr "rtex 安装包中没有实时预览引擎"
 msgid "The running agent started with different values. Restarting it stops any running turns."
 msgstr "正在运行的 AI 助手启动时用的是另一组设置。重启会中断正在进行的对话。"
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The saved pet artwork is invalid; import its package again"
+msgstr "保存的宠物图像无效，请重新导入宠物包"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The saved visual must use the .html extension."
 msgstr "保存的可视化内容须使用 .html 扩展名"
@@ -14455,6 +14547,14 @@ msgstr "源码 gzip 无法读取：{error}"
 #: src/project/arxiv-export.ts
 msgid "The source spells file names in another case"
 msgstr "源文件里的文件名和磁盘上的大小写不一致"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The spritesheet must be 1536 × {height} pixels"
+msgstr "精灵图必须为 1536 × {height} 像素"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The spritesheet must stay inside the pet package folder"
+msgstr "精灵图必须位于宠物包文件夹内"
 
 #: src/agent/agent-environment.ts
 msgid "The system proxy changed"
@@ -15542,6 +15642,10 @@ msgstr "URL"
 #: src/editor/grammar-rule-text.ts
 msgid "Use “{word}” instead of “{original}”."
 msgstr "用 “{word}” 代替 “{original}”。"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "Use a PNG or WebP spritesheet"
+msgstr "请使用 PNG 或 WebP 精灵图"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Use an HTTP(S) source URL without credentials."
