@@ -17,11 +17,13 @@
   // `readFigure` of the *-figures.mjs file a manifest entry names, by path.
   // Open Slide scripts are staged by prepare-presentation-runtime.mjs and
   // launched by Rust or the nested package's test script, not frontend imports.
+  // The native browser toolbar is a separate HTML entry, not part of App.
   "workspaces": {
     ".": {
       "entry": [
         "scripts/*.mjs",
         "lingui.config.ts",
+        "src/web-browser/toolbar-entry.ts",
         "scripts/perf-bench/probe.js",
         "scripts/perf-fixture.d.mts",
         "scripts/perf-bench/selectors.d.mts",
