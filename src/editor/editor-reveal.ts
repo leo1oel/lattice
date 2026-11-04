@@ -11,7 +11,7 @@
 import { StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import type { SyncTexWord } from "../app-types";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { sourceColumnForWord } from "./latex/synctex-word";
 import { focusWhenShown } from "./focus-when-shown";
 

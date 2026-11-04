@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { diagnosticSeverity, type CompileDiagnostic } from "./compile-diagnostics";
 import type { SynaraPermissionMode } from "../app/app-synara-embed";
+import { toMessage } from "../app-utils";
 
 export type CompileRepairState = {
   status: "starting" | "running" | "awaiting-approval" | "compiling" | "completed" | "failed";
@@ -107,7 +108,7 @@ export function useCompileRepair(options: {
     } catch (error) {
       // The relay currently returns plain strings, not structured conflict codes.
       // Match only a rejected start: a later failure must retain its diagnostics.
-      const detail = error instanceof Error ? error.message : String(error);
+      const detail = toMessage(error);
       const message = !operation.threadId && detail === "The workspace already has an active writer."
         ? t`Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again.`
         : !operation.threadId && detail === "A compile repair is already running."

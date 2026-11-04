@@ -29,7 +29,7 @@ import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions 
 import { FigureInsertDialog } from "../editor/insert/figure-insert-dialog";
 import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import { annotateSelection } from "./annotate-selection";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { replaceTokenOnLine } from "../build/compile-diagnostics";
 import { sectionBreadcrumbNodes } from "../editor/latex/latex-outline";
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";

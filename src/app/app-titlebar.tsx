@@ -23,6 +23,7 @@ import type { ProjectSnapshot } from "../app-types";
 import type { OpenDocuments } from "./use-open-documents";
 import { useWindowTitle } from "./use-native-window";
 import { cn } from "@/lib/utils";
+import { baseName } from "../lib/base-name";
 
 export function AppTitlebar({ project, documents, projectMenu, panelControls, canvasToolbar, focusBar }: {
   project: ProjectSnapshot;
@@ -49,7 +50,7 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
   // handed the trigger to return focus to instead.
   const triggerRef = useRef<HTMLButtonElement>(null);
   const projectName = project.manifest.name;
-  const documentTitle = documents.paper?.title ?? documents.activeTab.split("/").pop() ?? "";
+  const documentTitle = documents.paper?.title ?? baseName(documents.activeTab);
   // Project first: where the system shortens a title, the project is what tells windows apart.
   useWindowTitle(documentTitle ? t`${projectName} — ${documentTitle}` : projectName);
   // The website's demo is a page in a browser tab: no window controls to make room for.

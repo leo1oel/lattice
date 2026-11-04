@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { clearTimer, restartTimer, whenIdle, type TimerRef } from "../app/effect-helpers";
 import { interpolateScrollAnchors, scrollRange, sourceAnchorCenter, sourceAnchors, sourceScrollRange, type SourceAnchor } from "./markdown-preview-sync";
 

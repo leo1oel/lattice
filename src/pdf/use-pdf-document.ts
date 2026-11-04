@@ -10,7 +10,7 @@ import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfP
 import { pdfClickedWord } from "./pdf-clicked-word";
 import { installPdfTextLayerSelection, refreshPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { addAppLog } from "../telemetry/app-log-store";
 import type { ActiveViewerRef, PdfViewerCallbacks, PdfLocationHistory, PdfViewState } from "./use-pdf-view";

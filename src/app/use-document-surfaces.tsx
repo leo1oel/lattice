@@ -54,6 +54,7 @@ import type { SynaraHost } from "./use-synara-host";
 import type { useSyncTexNavigation } from "./use-synctex-navigation";
 import type { TexSetup } from "./use-tex-setup";
 import type { ToolDrawers } from "./use-tool-drawers";
+import { sameIgnoringCase } from "../lib/equality";
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
@@ -152,9 +153,8 @@ export function useDocumentSurfaces({
   // otherwise. The unused-symbol counts elsewhere still use the full list.
   const texlabActive = texSetup.doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
   // A citation opens its readable Paper when the library has one, else the source it cites.
-  const sameKey = (key: string | undefined, other: string) => key?.toLocaleLowerCase() === other.toLocaleLowerCase();
-  const readablePaperCited = (key: string) => papers.find((item) => sameKey(item.citationKey, key) && (item.hasFullText || item.hasBlog));
-  const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameKey(item.key, key)));
+  const readablePaperCited = (key: string) => papers.find((item) => sameIgnoringCase(item.citationKey, key) && (item.hasFullText || item.hasBlog));
+  const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameIgnoringCase(item.key, key)));
 
   // The outline, from the source's rail and status bar or the PDF's toolbar: its menu closes as the jump starts.
   const navigateOutline = (path: string, line: number) => {

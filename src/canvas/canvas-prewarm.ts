@@ -13,13 +13,14 @@ import {
 import { loadTextLanguageExtensions } from "../editor/editor-languages";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { documentFontsReady } from "../lib/document-fonts";
+import { baseName } from "../lib/base-name";
 
 /** Download project-relevant editor and preview chunks without mounting UI. */
 export async function prewarmProjectPreviewModules(paths: readonly string[]): Promise<void> {
   const normalized = paths.map((path) => path.toLocaleLowerCase());
   const representativeLanguages = new Map<string, string>();
   for (const path of paths) {
-    const filename = path.slice(path.lastIndexOf("/") + 1);
+    const filename = baseName(path);
     if (filename !== ".gitignore" && !/\.(?:tex|bib|mdx?|txt|html?|sty|cls|bst)$/i.test(filename)) continue;
     const extension = filename.includes(".") ? filename.slice(filename.lastIndexOf(".")) : filename;
     if (!representativeLanguages.has(extension)) representativeLanguages.set(extension, path);

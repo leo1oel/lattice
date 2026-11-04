@@ -9,7 +9,6 @@ import {
   clone,
   inBounds,
   isSpreadsheetCellValue,
-  jsonEqual,
   newId,
   type LatticeSpreadsheetFile,
   type SpreadsheetAxis,
@@ -18,6 +17,7 @@ import {
   type SpreadsheetWorkbookData,
   type SpreadsheetWorksheetData,
 } from "./spreadsheet-types";
+import { jsonEqual } from "../../lib/equality";
 
 export const SPREADSHEET_META_KEY = "spreadsheetMeta";
 export const SPREADSHEET_LOCAL_ORIGIN = "spreadsheet-local";

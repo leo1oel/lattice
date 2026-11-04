@@ -11,6 +11,7 @@
  * move nothing) checkable without driving a whole tree.
  */
 import type { FileTreeBatchOperation, FileTreeDropTarget } from "@pierre/trees";
+import { baseName } from "../lib/base-name";
 
 export function fromPierrePath(path: string): string {
   return path.endsWith("/") ? path.slice(0, -1) : path;
@@ -78,7 +79,7 @@ function dropLocationAt(element: Element): PointerTreeDropLocation | null {
 }
 
 export function pointerDragBasename(path: string): string {
-  const basename = fromPierrePath(path).split("/").pop() ?? "";
+  const basename = baseName(fromPierrePath(path));
   return path.endsWith("/") ? toPierreDirectoryPath(basename) : basename;
 }
 

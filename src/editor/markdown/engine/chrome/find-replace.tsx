@@ -22,6 +22,7 @@ import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 import { drawnRanges, revealPosition } from "../block-window";
 import { changedBlockRanges } from "../changed-ranges";
 import type { ChromeHost } from "./chrome-host";
+import { escapeRegExp } from "../../../../lib/escape-regexp";
 
 type Match = { from: number; to: number };
 /**
@@ -37,7 +38,7 @@ const EMPTY: FindState = { query: "", matches: [], current: 0 };
 /** An edit of more steps than this (Replace All) searches the document again rather than mapping every match through each step. */
 const MAX_MAPPED_STEPS = 8;
 
-const needleFor = (query: string) => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+const needleFor = (query: string) => new RegExp(escapeRegExp(query), "giu");
 
 /** Every match of `needle` in one textblock at `position`, appended to `matches`. */
 function matchTextblock(node: PmNode, position: number, needle: RegExp, matches: Match[]) {

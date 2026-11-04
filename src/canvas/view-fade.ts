@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import { animationTiming } from "../components/ui/motion-values";
+import { prefersReducedMotion } from "../lib/reduced-motion";
 
 /** One view fade per panel, so a quick run of switches restarts it rather than stacking. */
 const fades = new WeakMap<HTMLElement, Animation>();
@@ -12,7 +13,7 @@ const fades = new WeakMap<HTMLElement, Animation>();
  * fade costs the compositor and never a layout.
  */
 function fadeInView(host: HTMLElement) {
-  if (!host.animate || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  if (!host.animate || prefersReducedMotion()) return;
   fades.get(host)?.cancel();
   const fade = host.animate([{ opacity: 0 }, { opacity: 1 }], animationTiming("moderate"));
   fades.set(host, fade);

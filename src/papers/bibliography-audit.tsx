@@ -29,6 +29,7 @@ import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-che
 import { correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
 import "./bibliography-audit.css";
 import { comma, joinList } from "../i18n";
+import { mediaQueryStore } from "../lib/media-query-store";
 
 /**
  * `inline` is the `\bibitem` as written in a root document's own reference
@@ -129,13 +130,7 @@ function Disclosure(props: { className: string; summary: ReactNode; open?: boole
  * it has open. The sheet is the large dialog's width, so this follows the
  * window; narrower, an opened finding unfolds under its row.
  */
-const QUEUE_QUERY = "(min-width: 800px)";
-function subscribeQueueWidth(onChange: () => void) {
-  const media = window.matchMedia(QUEUE_QUERY);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-const isQueueWidth = () => window.matchMedia(QUEUE_QUERY).matches;
+const queueWidth = mediaQueryStore("(min-width: 800px)");
 
 /** Source outcomes that mean the source never answered, rather than answered "no". */
 const SILENT_OUTCOMES = new Set([
@@ -180,7 +175,7 @@ export function BibliographyAudit(props: {
   /** The finding open in the queue's pane, or unfolded under its row. */
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [view, setView] = useState<Bucket | "all">("all");
-  const queue = useSyncExternalStore(subscribeQueueWidth, isQueueWidth, () => false);
+  const queue = useSyncExternalStore(queueWidth.subscribe, queueWidth.matches, () => false);
   const rowButtons = useRef(new Map<number, HTMLButtonElement>());
   useEffect(() => () => { run.current.stop = true; cancelWait.current(); run.current.generation += 1; run.current.busy = false; }, []);
 

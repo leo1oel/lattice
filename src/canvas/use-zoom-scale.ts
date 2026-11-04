@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 
 export type ZoomScaleUpdate = number | ((current: number) => number);
 

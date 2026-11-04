@@ -29,6 +29,7 @@ import type { Mark, Node as PmNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import type { MarkdownBaseline } from "./markdown-document";
+import { escapeRegExp } from "../../../lib/escape-regexp";
 
 /** How an offset that falls between aligned content resolves: only exactly, or to the next or previous aligned position. */
 export type Snap = "exact" | "forward" | "backward";
@@ -423,7 +424,7 @@ function escapedOffsets(text: string, source: string): number[] | null {
  * found from `cursor`; null when it is not there that way.
  */
 function wrappedOffsets(text: string, source: string, cursor: number): number[] | null {
-  const pattern = text.split(" ").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+");
+  const pattern = text.split(" ").map(escapeRegExp).join("\\s+");
   const match = new RegExp(pattern, "g");
   match.lastIndex = cursor;
   const found = match.exec(source);
