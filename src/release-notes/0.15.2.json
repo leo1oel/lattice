@@ -1,0 +1,70 @@
+{
+  "version": "0.15.2",
+  "date": "2026-11-04",
+  "highlights": [
+    {
+      "title": {
+        "en": "Math preview above the formula",
+        "zh": "公式预览移到公式上方"
+      },
+      "body": {
+        "en": "The live preview of the formula you are editing now appears just above it, so it no longer covers the lines below.",
+        "zh": "正在编辑的公式的实时预览现在显示在它的正上方，不再遮住下面的内容。"
+      }
+    },
+    {
+      "title": {
+        "en": "Annotations land on the right words",
+        "zh": "批注落在正确的文字上"
+      },
+      "body": {
+        "en": "A note's mark on the PDF now covers the same words as its source, its pin sits in the margin, the empty list is a centred drawing, and the toolbar shows the note count beside its icon.",
+        "zh": "PDF 上的批注标记现在覆盖与源文件相同的文字，图钉移到页边，空列表显示为居中的插图，工具栏在图标旁显示批注数量。"
+      }
+    },
+    {
+      "title": {
+        "en": "Nothing covers your work",
+        "zh": "不再遮挡你的内容"
+      },
+      "body": {
+        "en": "The Proofread card scrolls into view, after a successful build the Build panel docks under the PDF instead of floating over it, Overleaf collaborators' names show briefly instead of always, and actions that need a selection say so.",
+        "zh": "校对卡片会自动滚动到可见位置，编译成功后编译面板会停靠在 PDF 下方而不是浮在上面，Overleaf 协作者的名字只短暂显示，需要先选中文字的操作也会给出提示。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "\"Save and revise now\" revises only the note it saves.",
+      "zh": "“保存并立即修改”现在只修改它保存的那条批注。"
+    },
+    {
+      "en": "Opening a sheet no longer rewrites the file or adds an edit to History.",
+      "zh": "打开表格不再改写文件，也不会在历史中留下一条编辑记录。"
+    },
+    {
+      "en": "⇧-click Build cleans the project before building again.",
+      "zh": "⇧-点击“编译”会先清理项目再重新编译。"
+    },
+    {
+      "en": "Jumping between the PDF and the source keeps working after the project folder moves.",
+      "zh": "项目文件夹移动后，PDF 与源文件之间的跳转仍然可用。"
+    },
+    {
+      "en": "Borders and focus rings are no longer cut off at the edge of a scrolling list, the titlebar starts at the edge when the window lights are hidden, and the Build button is centred.",
+      "zh": "边框和焦点环不再在滚动列表的边缘被截断，隐藏窗口按钮时标题栏从最左侧开始，“编译”按钮也居中了。"
+    },
+    {
+      "en": "Tabs, setup, the command palette, Check references, History, Annotations and dialogs are tidier, and lists use quieter punctuation that follows your language.",
+      "zh": "标签页、安装引导、命令面板、检查引用、历史、批注和各个对话框更整洁，列表改用更安静、随界面语言变化的标点。"
+    },
+    {
+      "en": "The browser demo shows Overleaf, Add papers, History, Versions and Rewrite honestly, and its narrow dark page is fixed.",
+      "zh": "浏览器演示如实呈现 Overleaf、添加论文、历史、版本和改写功能，窄屏深色页面的问题也已修复。"
+    },
+    {
+      "en": "The app starts with less code to load.",
+      "zh": "应用启动时需要加载的代码更少了。"
+    }
+  ]
+}
