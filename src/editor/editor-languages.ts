@@ -6,6 +6,7 @@
  * survive editor remounts, so a revisited file is parsed with its language on
  * the first frame instead of being reconfigured a moment later.
  */
+import { autocompletion } from "@codemirror/autocomplete";
 import {
   HighlightStyle,
   LanguageDescription,
@@ -131,5 +132,5 @@ export async function loadTextLanguageExtensions(path: string): Promise<Extensio
   const filename = path.slice(path.lastIndexOf("/") + 1);
   const description = LanguageDescription.matchFilename(languages, filename)
     ?? LanguageDescription.matchFilename(languages, filename.toLowerCase());
-  return description ? remember([await description.load()]) : EMPTY_EXTENSIONS;
+  return description ? remember([await description.load(), autocompletion()]) : EMPTY_EXTENSIONS;
 }
