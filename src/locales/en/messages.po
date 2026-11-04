@@ -2717,8 +2717,8 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
-#: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/overleaf/overleaf-login-controls.tsx
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -15810,7 +15810,7 @@ msgstr "Waiting for Overleaf's live file tree before syncing moved files."
 msgid "Waiting for Semantic Scholar…"
 msgstr "Waiting for Semantic Scholar…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-login-controls.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "Waiting for you to sign in in the Overleaf window…"
 

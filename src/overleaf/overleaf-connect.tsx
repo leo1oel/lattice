@@ -15,6 +15,7 @@ import { Badge } from "../components/ui/badge";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
+import { MotionButton } from "../components/ui/motion";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
@@ -26,7 +27,6 @@ import { rowClassName } from "../components/ui/row";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
-import { MotionButton } from "../components/ui/motion";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
@@ -39,12 +39,11 @@ import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
 import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
+import { LoginControls, LoginMessages } from "./overleaf-login-controls";
 import "./overleaf-connect.css";
 
 /** Notification source label for everything in this file. */
 const OVERLEAF_SOURCE = "Overleaf";
-
-type OverleafLogin = ReturnType<typeof useOverleafLogin>;
 
 /**
  * Shared begin-login + poll loop. `overleaf_begin_login` opens a sign-in
@@ -124,47 +123,6 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void) {
   }, [poll, t]);
 
   return { pending, error, notice, hint, begin, cancel };
-}
-
-/** How the last sign-in attempt ended, when that needs saying. */
-function LoginMessages({ login }: { login: OverleafLogin }) {
-  return (
-    <>
-      {login.error && <InlineMessage level="error" className="overleaf-inline">{login.error}</InlineMessage>}
-      {login.notice && <InlineMessage level="info" className="overleaf-inline">{login.notice}</InlineMessage>}
-    </>
-  );
-}
-
-/** The sign-in button, or the wait for the sign-in window, plus how the last attempt ended. */
-function LoginControls(props: { login: OverleafLogin; label: string; hint?: string }) {
-  const { t } = useLingui();
-  const { login } = props;
-  const button = (
-    <MotionButton className={buttonClassName({ variant: "primary" })} onClick={login.begin}>
-      <Cloud size={15} /> {props.label}
-    </MotionButton>
-  );
-  return (
-    <>
-      {login.pending ? (
-        <>
-          <div className="overleaf-waiting" role="status">
-            <InfinityLoader size={15} />
-            <span>{t`Waiting for you to sign in in the Overleaf window…`}</span>
-            <Button size="compact" variant="ghost" onClick={login.cancel}>{t`Cancel`}</Button>
-          </div>
-          {login.hint && <p className="overleaf-hint">{login.hint}</p>}
-        </>
-      ) : props.hint ? (
-        <div className="overleaf-connect-row">
-          {button}
-          <p className="overleaf-hint">{props.hint}</p>
-        </div>
-      ) : button}
-      <LoginMessages login={login} />
-    </>
-  );
 }
 
 /** An error line with a button to try the failed load again. */

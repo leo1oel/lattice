@@ -2717,8 +2717,8 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
-#: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
+#: src/overleaf/overleaf-login-controls.tsx
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -15810,7 +15810,7 @@ msgstr "正在等待 Overleaf 的实时文件树，之后再同步移动的文�
 msgid "Waiting for Semantic Scholar…"
 msgstr "正在等待 Semantic Scholar…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-login-controls.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "请在 Overleaf 窗口中登录…"
 
