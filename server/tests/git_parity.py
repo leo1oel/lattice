@@ -54,7 +54,9 @@ class GitParity(unittest.TestCase):
     def test_a_native_timeline_record_compare_restore_and_cli(self):
         status,_,raw=self.request('GET','/api/capabilities',cookie=self.cookie)
         self.assertEqual(status,200)
-        self.assertTrue(set(COMMANDS).issubset(json.loads(raw)['commands']))
+        capabilities=json.loads(raw)['commands']
+        self.assertTrue(set(COMMANDS).issubset(capabilities))
+        self.assertTrue(set(['git_stage','git_branch','git_push']).isdisjoint(capabilities))
         self.assertEqual(self.api('git_user_name'),'Synthetic Writer')
         (self.root/'notes.md').write_text('version two\n')
         second=self.api('git_auto_commit',{'message':'Version two','author':None,'expectedHead':self.initial,'projectRoot':str(self.root)})
@@ -84,6 +86,7 @@ class GitParity(unittest.TestCase):
     def test_b_conflicts_pins_paths_and_invalid_restore_do_not_commit(self):
         head=self.git('rev-parse','HEAD')
         (self.root/'notes.md').write_text('do not lose this edit\n')
+        self.assertEqual(self.request('POST','/api/invoke',{'command':'git_auto_commit','args':{'message':'unauthenticated'}})[0],401)
         for command,values in [
             ('git_auto_commit',{'message':'stale','expectedHead':'0'*40}),
             ('git_restore_project',{'rev':self.initial,'expectedHead':'0'*40}),

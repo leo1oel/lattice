@@ -201,3 +201,38 @@ implementation.
 The core parity suite exercises the real CLI and HTTP API: history and settings,
 annotation restoration, binary files, replacement, ZIP round-trip and refused
 destinations, plus a real LaTeX build followed by forward and inverse SyncTeX.
+
+## Human Git versions
+
+The authenticated HTTP API and `lattice-server invoke` expose the native
+version timeline: `git_user_name`, `git_show_diff`, `git_compare_files`,
+`git_compare_file`, `git_auto_commit`, `git_restore_file` and
+`git_restore_project`, alongside the existing status/init/log commands.
+Names and ordinary arguments match desktop IPC (`rev`, `from`, `to`, `path`,
+`fromPath`, `message`, `author`). `to: null` compares against current files.
+
+`git_auto_commit` records the whole project as a version; it is not a selective
+staging API. Git runs on the server with the existing domain's local fallback
+commit identity and commit hooks. It does not push, fetch or change branches.
+The native app does not currently offer independent stage/unstage, branch,
+push or pull domain commands either. This adapter does not add them or claim
+a main-branch prohibition that the human desktop timeline does not enforce.
+
+Mutations share the editor's per-project lock. Supply `projectRoot` to reject
+an operation if the browser tab has switched projects. Optionally supply the
+full `expectedHead` commit hash on a save/restore, and `expectedContent` on a
+file restore: stale values fail before a recovery commit or overwrite. These
+fields are optional for desktop-call compatibility. A restore validates its
+revision/path first and records current work as a recovery version inside the
+same lock before replacing it. File restores leave the restored file changed;
+project restores record the restored project as a new, forward-only version.
+
+Git revision paths in the native comparison/restore implementation assume a
+repository root. The service therefore asks users opening a nested project
+folder to open the repository root for these operations. A nested project's
+`git_auto_commit` still uses the native isolated index, preserving staged
+siblings outside that folder. Project path, symlink, revision and tool-state
+exclusion rules remain in the shared Git/project domain.
+
+These endpoints serve the human HTTP/CLI client. They do not change the AI
+iframe's command allowlist or enable its Git writeback capability.

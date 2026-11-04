@@ -27,3 +27,7 @@ jobs:
           LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
           LATTICE_TEST_LATEX: '1'
         run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/core_parity.py
+      - name: Exercise human Git versions with disposable repositories
+        env:
+          LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
+        run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/git_parity.py
