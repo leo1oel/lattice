@@ -8,6 +8,7 @@ import {
   normalizeSynaraOrigin,
   type SynaraRuntimeInfo,
 } from "./synara-runtime";
+import { registerHeadlessAgentProxy } from "./headless-agent-url";
 import { subscribeAgentEnvironment } from "./agent-environment";
 
 const DEVELOPMENT_ORIGIN = normalizeSynaraOrigin(
@@ -19,6 +20,7 @@ const DEVELOPMENT_RUNTIME: SynaraRuntimeInfo | null = DEVELOPMENT_ORIGIN
   : null;
 
 function normalizeRuntime(info: SynaraRuntimeInfo): SynaraRuntimeInfo {
+  registerHeadlessAgentProxy(info.origin);
   const origin = normalizeSynaraOrigin(info.origin);
   if (info.state !== "ready" || origin) return { ...info, origin };
   return { ...info, state: "stopped", origin, message: i18n._(msg`The bundled Agent service did not report a valid local address.`) };

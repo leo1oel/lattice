@@ -1986,6 +1986,12 @@ msgstr "外观"
 msgid "Applied"
 msgstr "已应用"
 
+#. placeholder {0}: state.result.applied.length
+#. placeholder {1}: state.result.blocked.length
+#: src/agent/headless-agent-controls.tsx
+msgid "Applied: {0}; needs review: {1}"
+msgstr "已应用：{0}；需检查：{1}"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Applied. The entry now matches the verified record."
 msgstr "已应用，条目现在与核实记录一致。"
@@ -2017,6 +2023,10 @@ msgstr "应用 1 处修改"
 #: src/overleaf/overleaf-review.tsx
 msgid "Apply and sync"
 msgstr "确认同步"
+
+#: src/agent/headless-agent-controls.tsx
+msgid "Apply checked changes"
+msgstr "检查并应用修改"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Apply link"
@@ -13172,6 +13182,10 @@ msgstr "方形真超集"
 msgid "Square superset eq"
 msgstr "方形超集（含等号）"
 
+#: src/agent/headless-agent-controls.tsx
+msgid "Staged workspace"
+msgstr "在副本中编辑"
+
 #: src/build/build-log-messages.ts
 msgid "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
 msgstr "之前失败的编译已过时。请使用“全新重建”（按住 Shift 点击“编译”），或删除辅助文件后重新编译。"
@@ -13809,6 +13823,10 @@ msgstr "AI 改写失败"
 #: src/app/use-synara-host.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。"
+
+#: src/agent/headless-agent-controls.tsx
+msgid "The agent edits an isolated copy. Apply checks for concurrent changes. Bibliography, deleted files and binary changes require separate review."
+msgstr "AI 在独立副本中编辑。应用修改时会检查其他设备的编辑。参考文献、已删除文件和二进制文件的修改需要单独检查。"
 
 #: src/app/use-synara-host.ts
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."

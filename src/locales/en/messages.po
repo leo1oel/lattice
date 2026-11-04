@@ -1986,6 +1986,12 @@ msgstr "Appearance"
 msgid "Applied"
 msgstr "Applied"
 
+#. placeholder {0}: state.result.applied.length
+#. placeholder {1}: state.result.blocked.length
+#: src/agent/headless-agent-controls.tsx
+msgid "Applied: {0}; needs review: {1}"
+msgstr "Applied: {0}; needs review: {1}"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Applied. The entry now matches the verified record."
 msgstr "Applied. The entry now matches the verified record."
@@ -2017,6 +2023,10 @@ msgstr "Apply 1 fix"
 #: src/overleaf/overleaf-review.tsx
 msgid "Apply and sync"
 msgstr "Apply and sync"
+
+#: src/agent/headless-agent-controls.tsx
+msgid "Apply checked changes"
+msgstr "Apply checked changes"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Apply link"
@@ -13172,6 +13182,10 @@ msgstr "Square superset"
 msgid "Square superset eq"
 msgstr "Square superset eq"
 
+#: src/agent/headless-agent-controls.tsx
+msgid "Staged workspace"
+msgstr "Staged workspace"
+
 #: src/build/build-log-messages.ts
 msgid "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
 msgstr "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
@@ -13809,6 +13823,10 @@ msgstr "The agent could not rewrite the selection."
 #: src/app/use-synara-host.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "The agent could not send the request. It is waiting in the agent's composer."
+
+#: src/agent/headless-agent-controls.tsx
+msgid "The agent edits an isolated copy. Apply checks for concurrent changes. Bibliography, deleted files and binary changes require separate review."
+msgstr "The agent edits an isolated copy. Apply checks for concurrent changes. Bibliography, deleted files and binary changes require separate review."
 
 #: src/app/use-synara-host.ts
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."

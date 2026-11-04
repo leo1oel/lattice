@@ -1,3 +1,4 @@
+import { headlessAgentBase } from "./headless-agent-url";
 import { isRecord } from "../app-utils";
 import { hasOnlyKeys, isWorkspaceRelativePath } from "./agent-protocol";
 
@@ -5,6 +6,7 @@ type SynaraRuntimeState = "starting" | "ready" | "stopped";
 
 export interface SynaraRuntimeInfo {
   state: SynaraRuntimeState;
+  workspaceMode?: "staged-explicit-writeback";
   origin: string | null;
   authToken: string | null;
   message: string | null;
@@ -251,7 +253,8 @@ export function synaraFrameUrl(input: {
   hostOrigin: string;
   authToken?: string | null;
 }): string {
-  const url = new URL(input.path || "/", input.origin);
+  const base = headlessAgentBase(input.origin);
+  const url = new URL(base === input.origin ? (input.path || "/") : (input.path || "/").replace(/^\//, ""), base);
   url.searchParams.set("embed", "1");
   url.searchParams.set("workspaceRoot", input.workspaceRoot);
   url.searchParams.set("theme", input.theme);

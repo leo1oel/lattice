@@ -1,0 +1,5 @@
+.synara-frame-shell[data-staged="true"] { display: flex; flex-direction: column; }
+.synara-frame-shell[data-staged="true"] > .synara-poc-frame { flex: 1; min-height: 0; }
+.headless-agent-controls { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.4rem; font-size: 0.75rem; border-bottom: 1px solid var(--border); background: var(--surface-sidebar); }
+.headless-agent-controls button { padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; }
+.headless-agent-result[open], .headless-agent-controls output { width: 100%; max-height: 8rem; overflow: auto; }

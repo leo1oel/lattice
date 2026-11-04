@@ -5,6 +5,7 @@
  */
 import { useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { HeadlessAgentControls } from "../agent/headless-agent-controls";
 import { AgentVisualDialog } from "../agent/agent-visual-dialog";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import { synaraEmbedUrl } from "../app/app-synara-embed";
@@ -28,7 +29,8 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
     : undefined,
   [origin, runtime.authToken, projectRoot, theme, appLocale]);
   return (
-    <div className={`synara-frame-shell ${dropActive ? "agent-drop-active" : ""}`} data-tour="agent-panel" data-ready={frameReady || undefined}>
+    <div className={`synara-frame-shell ${dropActive ? "agent-drop-active" : ""}`} data-staged={runtime.workspaceMode === "staged-explicit-writeback" || undefined} data-tour="agent-panel" data-ready={frameReady || undefined}>
+      {runtime.workspaceMode === "staged-explicit-writeback" && <HeadlessAgentControls key={projectRoot} projectRoot={projectRoot} />}
       {frameMounted && origin && <iframe
         key={`${projectRoot}\0${frameAttempt}`}
         ref={frameRef}
