@@ -4,6 +4,7 @@ mod domain;
 pub(crate) use domain::*;
 mod core_commands;
 mod dispatch;
+mod git_commands;
 mod literature_credentials;
 mod terminal;
 mod terminal_transport;

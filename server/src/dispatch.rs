@@ -67,8 +67,12 @@ pub const COMMANDS: &[&str] = &[
 ];
 
 pub fn capabilities() -> Value {
-    let commands =
-        COMMANDS.iter().chain(crate::core_commands::COMMANDS).copied().collect::<Vec<_>>();
+    let commands = COMMANDS
+        .iter()
+        .chain(crate::core_commands::COMMANDS)
+        .chain(crate::git_commands::COMMANDS)
+        .copied()
+        .collect::<Vec<_>>();
     json!({"protocolVersion":1,"headless":true,"commands":commands,
         "events":["build-progress","project-fs-changed"],
         "unavailable":["native_windows","native_file_dialogs","system_keychain","embedded_login_webview","agent_sidecar","texlab","terminal","synara"],
@@ -119,13 +123,19 @@ impl Core {
         }
     }
     fn invoke_inner(self: &Arc<Self>, command: &str, args: Value) -> Result<Value, String> {
-        if !COMMANDS.contains(&command) && !crate::core_commands::COMMANDS.contains(&command) {
+        if !COMMANDS.contains(&command)
+            && !crate::core_commands::COMMANDS.contains(&command)
+            && !crate::git_commands::COMMANDS.contains(&command)
+        {
             return Err(format!("unsupported_command: {command} is unavailable in headless mode. See /api/capabilities."));
         }
         if let Some(root) = args.get("projectRoot").and_then(Value::as_str) {
             if self.confined(root)? != self.root {
                 return Err("This service is bound to a different project.".into());
             }
+        }
+        if crate::git_commands::COMMANDS.contains(&command) {
+            return crate::git_commands::invoke(self, command, &args);
         }
         if crate::core_commands::COMMANDS.contains(&command) {
             return crate::core_commands::invoke(self, command, &args);
@@ -149,6 +159,7 @@ impl Core {
                 | "fetch_paper"
                 | "fetch_web_reference"
                 | "literature_request"
+                | "git_init"
         ) {
             Some(
                 self.mutations

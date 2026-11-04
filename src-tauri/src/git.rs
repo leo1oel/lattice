@@ -176,23 +176,35 @@ pub fn show_diff(root: &Path, rev: &str, path: &str) -> Result<GitFileDiff, Stri
 }
 
 pub fn restore_file(root: &Path, rev: &str, path: &str) -> Result<(), String> {
-    ensure_repository(root)?;
+    validate_restore(root, rev, Some(path))?;
     let rev = validate_rev(rev)?;
     let relative = normalize_relative(path)?;
-    project::safe_path(root, &relative)?;
-    if git_run(root, &["cat-file", "-e", &format!("{rev}:{relative}")]).is_err() {
-        return Err(format!("{relative} did not exist at revision {rev}."));
-    }
     git_run(root, &["restore", "--source", &rev, "--worktree", "--", &relative])
+}
+
+/// Validate before a caller records a recovery version; a bad restore request
+/// must not create a commit merely to discover its path or revision is invalid.
+pub fn validate_restore(root: &Path, rev: &str, path: Option<&str>) -> Result<(), String> {
+    ensure_repository(root)?;
+    let rev = validate_rev(rev)?;
+    if let Some(path) = path {
+        let relative = normalize_relative(path)?;
+        project::safe_path(root, &relative)?;
+        if git_run(root, &["cat-file", "-e", &format!("{rev}:{relative}")]).is_err() {
+            return Err(format!("{relative} did not exist at revision {rev}."));
+        }
+        Ok(())
+    } else {
+        git_run(root, &["rev-parse", "--verify", &format!("{rev}^{{commit}}")])
+    }
 }
 
 /// Forward-only restore: make the worktree match `rev`, then commit that as a
 /// new snapshot on top of the current history. Untracked files (like
 /// `.research/`) are never touched.
 pub fn restore_project(root: &Path, rev: &str) -> Result<String, String> {
-    ensure_repository(root)?;
+    validate_restore(root, rev, None)?;
     let rev = validate_rev(rev)?;
-    git_run(root, &["rev-parse", "--verify", &format!("{rev}^{{commit}}")])?;
     git_run(root, &["restore", "--source", &rev, "--worktree", "--", "."])?;
     // `git restore` never deletes, so drop tracked files that did not exist
     // at rev. Untracked files are absent from `ls-files` and stay intact.
@@ -238,7 +250,7 @@ pub fn auto_commit(
         .unwrap_or_else(|| "Lattice".to_string());
     let user_name = format!("user.name={identity}");
     let mut command = git_command_running_hooks(root);
-    let prefix = rev_parse(root, &["--show-prefix"])?;
+    let prefix = project_prefix(root)?;
     let folder_index = (!prefix.is_empty()).then(|| FolderIndex::new(root, &prefix)).transpose()?;
     if let Some(index) = &folder_index {
         command.env("GIT_INDEX_FILE", &index.0);
@@ -314,6 +326,11 @@ fn ensure_repository(root: &Path) -> Result<(), String> {
 
 fn is_repository(root: &Path) -> bool {
     rev_parse(root, &["--is-inside-work-tree"]).is_ok_and(|value| value == "true")
+}
+
+/// The project folder relative to its repository; empty only at its top level.
+pub fn project_prefix(root: &Path) -> Result<String, String> {
+    rev_parse(root, &["--show-prefix"])
 }
 
 fn has_head(root: &Path) -> bool {
