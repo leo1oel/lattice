@@ -306,7 +306,7 @@ export function useCommandTable({
     {
       id: "annotations-revise", when: inProject && revisableAnnotations > 0, label: t`Revise from annotations`,
       detail: revisableAnnotations === 1 ? t`1 annotation` : t`${revisableAnnotations} annotations`, group: "edit",
-      run: () => annotationRounds.revise(),
+      run: () => annotationRounds.revise("open"),
     },
     { id: "paste-image", when: inProject, label: t`Paste clipboard image as figure`, group: "edit", run: () => void tree.pasteClipboardImage() },
     { id: "format", when: latexSource, label: t`Format document`, keywords: "latexindent", group: "edit", run: formatFocusedDocument },
