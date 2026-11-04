@@ -22,3 +22,8 @@ jobs:
           LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
           LATTICE_TEST_LATEX: '1'
         run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/terminal_smoke.py
+      - name: Exercise shared project operations and real SyncTeX
+        env:
+          LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
+          LATTICE_TEST_LATEX: '1'
+        run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/core_parity.py
