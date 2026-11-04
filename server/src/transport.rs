@@ -1,5 +1,5 @@
-use crate::server_session::*;
 use crate::dispatch::{self, Core};
+use crate::server_session::*;
 use axum::{
     extract::{DefaultBodyLimit, Query, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
@@ -33,9 +33,25 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Bridge newline-delimited JSON to the sandboxed agent RPC socket. EOF stops the process.
-    AgentBridge {#[arg(long)] runtime:PathBuf,#[arg(long)] project:PathBuf,#[arg(long)] state_dir:PathBuf,#[arg(long,default_value="/ws/bootstrap")] path:String},
-    #[command(hide=true)]
-    AgentSandbox {#[arg(long)] policy:PathBuf,#[arg(long)] program:PathBuf,#[arg(last=true)] args:Vec<String>},
+    AgentBridge {
+        #[arg(long)]
+        runtime: PathBuf,
+        #[arg(long)]
+        project: PathBuf,
+        #[arg(long)]
+        state_dir: PathBuf,
+        #[arg(long, default_value = "/ws/bootstrap")]
+        path: String,
+    },
+    #[command(hide = true)]
+    AgentSandbox {
+        #[arg(long)]
+        policy: PathBuf,
+        #[arg(long)]
+        program: PathBuf,
+        #[arg(last = true)]
+        args: Vec<String>,
+    },
     /// Print the supported commands and explicit desktop-only limitations.
     Capabilities,
     /// Execute one command. JSON arguments are read from stdin; secrets never enter argv.
@@ -63,10 +79,14 @@ enum Command {
         /// Require HTTPS for the authentication cookie behind a TLS reverse proxy.
         #[arg(long)]
         secure_cookies: bool,
-        #[arg(long)] agent_runtime:Option<PathBuf>,
-        #[arg(long)] public_origin:Option<String>,
-        #[arg(long)] agent_public_origin:Option<String>,
-        #[arg(long,default_value="127.0.0.1:18583")] agent_listen:SocketAddr,
+        #[arg(long)]
+        agent_runtime: Option<PathBuf>,
+        #[arg(long)]
+        public_origin: Option<String>,
+        #[arg(long)]
+        agent_public_origin: Option<String>,
+        #[arg(long, default_value = "127.0.0.1:18583")]
+        agent_listen: SocketAddr,
     },
 }
 #[derive(Clone)]
@@ -83,10 +103,10 @@ pub(crate) struct Server {
     pub(crate) token: Arc<String>,
     pub(crate) sessions: Arc<Mutex<HashMap<String, Session>>>,
     pub(crate) secure_cookies: bool,
-    pub(crate) public_origin:String,
-    pub(crate) origin_from_host:bool,
-    pub(crate) agent_origin:String,
-    pub(crate) agents:Arc<crate::agent_runtime::Hub>,
+    pub(crate) public_origin: String,
+    pub(crate) origin_from_host: bool,
+    pub(crate) agent_origin: String,
+    pub(crate) agents: Arc<crate::agent_runtime::Hub>,
     pub(crate) terminals: Arc<crate::terminal_transport::TerminalHub>,
 }
 #[derive(Deserialize)]
@@ -102,8 +122,14 @@ struct Login {
 
 pub fn main() {
     let cli = Cli::parse();
-    if let Command::AgentSandbox {policy,program,args}=&cli.command {
-        if let Err(error)=crate::agent_sandbox::execute(policy.clone(),program.clone(),args.clone()){eprintln!("{error}");std::process::exit(1);}return;
+    if let Command::AgentSandbox { policy, program, args } = &cli.command {
+        if let Err(error) =
+            crate::agent_sandbox::execute(policy.clone(), program.clone(), args.clone())
+        {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+        return;
     }
     let runtime = tokio::runtime::Runtime::new().expect("Could not start async runtime");
     let result = match cli.command {
@@ -229,7 +255,7 @@ async fn session(State(state): State<Server>, headers: HeaderMap) -> Json<Value>
 async fn login(
     State(state): State<Server>, headers: HeaderMap, Json(login): Json<Login>,
 ) -> Response {
-    if !same_origin(&state,&headers) || !equal(&login.token, &state.token) {
+    if !same_origin(&state, &headers) || !equal(&login.token, &state.token) {
         return failure(
             StatusCode::UNAUTHORIZED,
             "unauthorized",
@@ -310,7 +336,16 @@ async fn invoke(
             None => state.initial.clone(),
         },
     };
-    if crate::agent_runtime::COMMANDS.contains(&request.command.as_str()) {return crate::agent_transport::invoke(&state,&headers,&root,&request.command,&request.args).await;}
+    if crate::agent_runtime::COMMANDS.contains(&request.command.as_str()) {
+        return crate::agent_transport::invoke(
+            &state,
+            &headers,
+            &root,
+            &request.command,
+            &request.args,
+        )
+        .await;
+    }
     if crate::terminal_transport::COMMANDS.contains(&request.command.as_str()) {
         let owner = match id
             .as_deref()
