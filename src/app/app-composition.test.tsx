@@ -2333,7 +2333,7 @@ describe("welcome screen", () => {
     setAutoBuildMode("manual");
     let answer = buildResult({ durationMs: 3_200 })();
     renderApp({ ...projectCommands(), build_project: () => answer });
-    const showing = () => buildButton().querySelector(".trellis-build-label > span:not(.trellis-build-label-off)")?.textContent;
+    const showing = () => buildButton().querySelector(".trellis-build-label")?.textContent;
     await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
     expect(showing()).toBe("3.2 s");
     answer = failedBuild("Undefined control sequence.")();

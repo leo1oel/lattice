@@ -566,6 +566,9 @@
   --focus-ring: var(--focus);
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+  /* How far a focus ring reaches past its control: the room a scroller keeps
+     at an edge so the ring of a control flush with it is not cut off. */
+  --focus-ring-reach: calc(var(--focus-ring-width) + var(--focus-ring-offset));
   /* Where a dragged tab or panel will land (Trellis's drop slot): the focus
      ring's colour as a faint wash over a veil of the panel, so the drop
      label reads over a page, and the same colour as its edge. */

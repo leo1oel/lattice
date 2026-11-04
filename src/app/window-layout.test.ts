@@ -128,10 +128,10 @@ describe("narrow pane chrome", () => {
 describe("the titlebar's traffic-light space", () => {
   const style = document.createElement("style");
   style.textContent = readFileSync("src/styles/app-shell.css", "utf8");
-  const trafficSpace = (shellClass: string) => {
+  const trafficSpace = (shellClass: string, barClass = "") => {
     const shell = document.createElement("div");
     shell.className = `app-shell ${shellClass}`;
-    shell.innerHTML = `<header class="titlebar"><div class="traffic-space"></div></header>`;
+    shell.innerHTML = `<header class="titlebar ${barClass}"><div class="traffic-space"></div></header>`;
     document.body.append(shell);
     try {
       return getComputedStyle(shell.querySelector(".traffic-space")!).width;
@@ -142,12 +142,13 @@ describe("the titlebar's traffic-light space", () => {
   beforeAll(() => { document.head.append(style); });
   afterAll(() => { style.remove(); });
 
-  it("stays reserved in full screen, where AppKit reveals the lights over the bar's left end", () => {
+  it("is reserved beside a window's traffic lights", () => {
     expect(trafficSpace("")).toBe("var(--titlebar-traffic-space-width)");
-    expect(trafficSpace("fullscreen")).toBe(trafficSpace(""));
   });
 
-  it("is dropped in a browser tab, which has no traffic lights", () => {
+  it("is dropped where there are none: full screen, a browser tab and the website's demo", () => {
+    expect(trafficSpace("fullscreen")).toBe("0px");
     expect(trafficSpace("browser-hosted")).toBe("0px");
+    expect(trafficSpace("", "titlebar-without-lights")).toBe("0px");
   });
 });

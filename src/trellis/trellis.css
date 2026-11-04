@@ -323,7 +323,7 @@
    Markdown, HTML and Papers. A panel's ⋯ menu repeats them. */
 .trellis-build-button {
   height: calc(var(--control-height-compact) - var(--space-2));
-  display: inline-flex; align-items: center; gap: var(--space-3);
+  display: inline-grid; place-items: center;
   padding: 0 var(--space-5) 0 var(--space-4);
   border-radius: var(--radius-icon);
   /* Gray in both themes: a tint of the text on the panel's own surface. */
@@ -403,7 +403,12 @@
   70% { translate: -1px 0; }
   85% { translate: .5px 0; }
 }
-.trellis-build-label { display: inline-grid; font-variant-numeric: tabular-nums; }
+.trellis-build-face,
+.trellis-build-sizer { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: var(--space-3); }
+.trellis-build-sizer { visibility: hidden; }
+.trellis-build-sizer-glyph { width: 13px; flex: none; }
+.trellis-build-label,
+.trellis-build-sizer-labels { display: inline-grid; font-variant-numeric: tabular-nums; }
 /* The Build button's card (trellis-build-sequence.tsx): the verdict
    with its pages and time, the document and when, a track with one segment
    per pass, the passes in latexmk's order, SyncTeX, the first problem, and
@@ -448,8 +453,7 @@
 .build-sequence-issue .build-sequence-tool { color: var(--text-primary); }
 .build-sequence-issue > svg { color: var(--text-secondary); }
 .build-sequence-hint { margin-top: var(--space-2); padding: var(--space-4) var(--space-5) var(--space-2); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.trellis-build-label > span { grid-area: 1 / 1; }
-.trellis-build-label > .trellis-build-label-off { visibility: hidden; }
+.trellis-build-sizer-labels > span { grid-area: 1 / 1; }
 /* On the strip the switch is a row of icons; the chosen one is a ringed plate on the panel's own surface, like the selected tab. */
 .trellis-view-switcher.ui-segmented { background: transparent; }
 /* An unselected document's switch holds its place in the stacked action row. */
@@ -490,7 +494,7 @@
 /* Short of room for the tabs, Build keeps only its icon and a Paper only its
    modes (see the tab sizes above); the panel menu repeats both. */
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-paper-content { display: none; }
-.lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-label { display: none; }
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] :is(.trellis-build-label, .trellis-build-sizer-labels) { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-button { padding-inline: var(--space-4); }
 
 /* ---------------------------------------------------------------- motion
