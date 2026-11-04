@@ -50,6 +50,16 @@ type CanvasToolbarProps = {
 };
 
 /** A toolbar button named and described by its tooltip. */
+/**
+ * How many notes wait behind a toolbar button, beside its icon in the
+ * button's own ink rather than a badge over the icon's corner. Past 99 it
+ * reads 99+; the panel it opens has the exact count.
+ */
+function ToolbarCount({ count }: { count: number }) {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a numeral cap, not prose
+  return <span className="toolbar-count">{count > 99 ? "99+" : count}</span>;
+}
+
 function ToolbarButton({ label, ...button }: ButtonHTMLAttributes<HTMLButtonElement> & { label: ReactNode }) {
   return <Tip label={label}><button type="button" {...button} /></Tip>;
 }
@@ -84,9 +94,14 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         {props.activeKind === "document" && (
           <>
             {!props.overleafLinked && shows("comments") && (
-              <ToolbarButton label={t`Annotations`} className={props.commentCount ? "active" : ""} data-tour="comments" onClick={props.onComments}>
+              <ToolbarButton
+                label={t`Annotations`}
+                className={props.commentCount ? "active toolbar-count-button" : ""}
+                data-tour="comments"
+                onClick={props.onComments}
+              >
                 <AnimatedProductIcon kind="chat" size={14} converted />
-                {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
+                {props.commentCount > 0 ? <ToolbarCount count={props.commentCount} /> : null}
               </ToolbarButton>
             )}
           </>
@@ -112,7 +127,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 {showOverleafOnline
                   ? <em className="overleaf-status-dot" aria-hidden="true" />
                   : props.overleafPending && !props.overleafSyncing
-                    ? <em className="collab-peer-badge overleaf-pending-badge">•</em>
+                    ? <em className="overleaf-pending-dot" aria-hidden="true" />
                     : props.overleafLinked && (props.overleafChannel === "connecting" || props.overleafChannel === "error")
                       // The channel is on its way up or failed: say so at a glance,
                       // not only in the tooltip. Syncing carries on either way.
@@ -159,11 +174,11 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           >
             <button
               type="button"
-              className={props.overleafUnreadChat ? "history-button active" : "history-button"}
+              className={props.overleafUnreadChat ? "history-button active toolbar-count-button" : "history-button"}
               onClick={props.onOverleafChat}
             >
               <MessagesSquare size={14} />
-              {props.overleafUnreadChat ? <em className="collab-peer-badge">{props.overleafUnreadChat}</em> : null}
+              {props.overleafUnreadChat ? <ToolbarCount count={props.overleafUnreadChat} /> : null}
             </button>
           </Tip>
         )}

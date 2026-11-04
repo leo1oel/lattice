@@ -617,15 +617,18 @@ export function EditorCommentsPanel(props: {
     </div>
   );
 
-  // Before the first annotation the empty state is all the panel shows, so
-  // it fills the panel and centres; a filter that matches nothing keeps the
-  // list's compact line at the top.
+  // Nothing to list is all the panel shows, so it fills the panel and centres:
+  // before the first annotation, with nothing open, nothing settled or no
+  // match. Only under a round's progress banner does it keep a compact line.
+  const centred = !banner;
+  const emptyKind = !hasComments ? "comments" : query.trim() ? "search" : filter === "resolved" ? "annotations-unsettled" : "annotations-clear";
   const emptyState = !visible.length && (
     <EmptyState
-      fill={!hasComments}
-      align={hasComments ? "start" : "center"}
-      density={hasComments ? "compact" : "default"}
-      icon={<EmptyIllustration kind={hasComments && query.trim() ? "search" : "comments"} size={hasComments ? "compact" : "default"} />}
+      className="annotations-empty"
+      fill={centred}
+      align={centred ? "center" : "start"}
+      density={centred ? "default" : "compact"}
+      icon={<EmptyIllustration kind={emptyKind} size={centred ? "default" : "compact"} />}
       // Before the first one, a title and the way forward (Return / Open a
       // file); Annotate itself is on the selection, which has no key.
       title={!hasComments ? t`No annotations yet` : undefined}
@@ -640,7 +643,7 @@ export function EditorCommentsPanel(props: {
       )}
     />
   );
-  const list = highlightList || (!hasComments && !banner ? emptyState : (
+  const list = highlightList || (emptyState && centred ? emptyState : (
     <div className="annotations-list">
       {banner}
       {emptyState}

@@ -59,7 +59,11 @@ describe("EditorCommentsPanel", () => {
         onUpdateBody={vi.fn()} onReply={vi.fn()}
       />,
     );
-    expect(screen.getByText("No open annotations")).toBeInTheDocument();
+    // With every note settled, the empty Open list fills the panel and centres, its drawing a page of checked pins.
+    const empty = screen.getByText("No open annotations").closest<HTMLElement>("[data-slot='empty-state']")!;
+    expect(empty).toHaveAttribute("data-fill");
+    expect(empty).toHaveAttribute("data-align", "center");
+    expect(empty.querySelector(".empty-illustration")).toHaveAttribute("data-kind", "annotations-clear");
     expect(screen.queryByRole("button", { name: /Return to/ })).not.toBeInTheDocument();
   });
 
