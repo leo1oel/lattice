@@ -4,17 +4,20 @@
  * from the performance bench. What needs the Mac says so: the Build answers
  * with the PDF compiled ahead of time (content/compiled/) and tells a
  * visitor whose edits it does not show; the Agent, papers outside the
- * demo's library and native dialogs decline.
+ * demo's library, Overleaf and native dialogs decline. Edits land in History,
+ * and Versions tracks the tutorial from the moment the page opened it.
  */
 import { annotationsAnswer } from "../mock-backend/annotations";
 import { bibliographyAuditScan, bibliographyCitations, citationUsages, labelReferences } from "../mock-backend/bibliography";
 import { BUILD_STEPS, stageTypo, typoFailure, withError } from "../mock-backend/build";
+import { historyAnswer } from "../mock-backend/history";
 import { MockProject, termMatcher, type ProjectFiles } from "../mock-backend/project";
 import { installTauriInternals, NOT_HANDLED, windowAnswer, type Args, type MockTauri } from "../mock-backend/tauri-internals";
 import { textTasks } from "../mock-backend/text-tasks";
+import { versionsAnswer } from "../mock-backend/versions";
 import build from "./content/compiled/build.json";
 import compiledPdf from "./content/compiled/main.pdf?url";
-import { paperHits, papersAnswer } from "./demo-papers";
+import { paperHits, papersAnswer, type PapersContext } from "./demo-papers";
 import { synctexAnswer } from "./demo-synctex";
 
 /** Where the tutorial seems to live; the app shows it in a few places (the window title, Reveal). */
@@ -36,6 +39,15 @@ export function installDemoBackend(files: ProjectFiles): { tauri: MockTauri; unh
   let pdf: Promise<ArrayBuffer> | null = null;
 
   const annotations = annotationsAnswer({ project, seed: () => "open", zh, author: "Ada" });
+  const history = historyAnswer({ project });
+  const versions = versionsAnswer({ project });
+  const papers: PapersContext = {
+    notFound: NOT_HANDLED,
+    zh: false,
+    files: project.files,
+    // As papers.rs cites: the entry appended to the bibliography, as a History entry of its own.
+    cite: (key, bibtex) => history.cite("references.bib", key, bibtex),
+  };
   const textTask = textTasks();
   const snapshot = () => project.snapshot({
     rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
@@ -94,8 +106,9 @@ export function installDemoBackend(files: ProjectFiles): { tauri: MockTauri; unh
 
   function answer(command: string, args: Args): unknown {
     for (const area of [
-      (name: string, input: Args) => project.answer(name, input), windowAnswer, annotations, synctexAnswer,
-      (name: string, input: Args) => papersAnswer(name, input, NOT_HANDLED, zh()),
+      // History answers the editor's saves itself, so each lands there.
+      history, (name: string, input: Args) => project.answer(name, input), versions, windowAnswer, annotations, synctexAnswer,
+      (name: string, input: Args) => papersAnswer(name, input, { ...papers, zh: zh(), files: project.files }),
     ]) {
       const answered = area(command, args);
       if (answered !== NOT_HANDLED) return answered;
@@ -150,8 +163,18 @@ export function installDemoBackend(files: ProjectFiles): { tauri: MockTauri; unh
       }
       case "overleaf_status":
         return { connected: false, expired: false, email: null, name: null, host: "https://www.overleaf.com" };
-      case "git_status":
-        return { available: false, repository: false, branch: null, files: [] };
+      // Signing in opens Overleaf in a window of the Mac app, and syncing runs there.
+      case "overleaf_begin_login":
+      case "overleaf_poll_login":
+        throw new Error(say(
+          "Overleaf sync runs in Lattice on your Mac: sign in there, and your projects stay in sync as you write.",
+          "Overleaf 同步在 Mac 上的 Lattice 里运行：在那里登录后，你的项目会在写作时保持同步。",
+        ));
+      // latexdiff typesets the marked-up PDF with the visitor's TeX.
+      case "export_changes_pdf":
+        throw new Error(say("Exporting a PDF with changes marked needs Lattice and TeX on your Mac.", "导出标注修改的 PDF 需要 Mac 上的 Lattice 和 TeX。"));
+      case "search_paper_library":
+        return [];
       case "list_unused_symbols":
         return { labels: [], citations: [] };
       case "set_window_material":

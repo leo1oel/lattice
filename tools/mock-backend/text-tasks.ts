@@ -2,11 +2,14 @@
  * The agent's read-only text tasks without a provider: Proofread and Polish
  * answer after a short pause with a few fixed spelling, agreement and
  * wordiness fixes, and a passage sent for revision from a note gets the
- * canned rewrite for it (annotations.ts), so the inline cards can be tried.
+ * canned rewrite for it (annotations.ts), and Rewrite with an instruction
+ * gets the scripted answer to that instruction (rewrites.ts), so the inline
+ * cards can be tried.
  * Each fix also answers with its reason, as the prompt asks: a category and,
  * for some, a note in the asked language.
  */
 import { cannedRevision } from "./annotations";
+import { rewriteWithInstruction } from "./rewrites";
 import type { Args } from "./tauri-internals";
 
 type Fix = [pattern: RegExp, replacement: string, category?: string, note?: string, noteZh?: string];
@@ -48,7 +51,7 @@ type Options = {
 
 /** `agent_text_task`'s answer: start a task, then poll it until its pause is over. */
 export function textTasks({ mode = () => null, model = () => null }: Options = {}): (args: Args) => unknown {
-  const tasks = new Map<string, { text: string; ready: number }>();
+  const tasks = new Map<string, { text: string; ready: number; failure?: string }>();
   return (args) => {
     const action = String(args?.action ?? "");
     if (action === "start") {
@@ -60,12 +63,22 @@ export function textTasks({ mode = () => null, model = () => null }: Options = {
         return { taskId };
       }
       const excerpt = /<excerpt>\n([\s\S]*)\n<\/excerpt>$/.exec(prompt)?.[1] ?? "";
+      const zh = prompt.includes("in Simplified Chinese");
+      // The writer's own instruction (agent-proofread.ts `customTask`), never the fixed fixes below.
+      const instruction = /^Revise the LaTeX excerpt [^\n]*\n<instruction>\n([\s\S]*?)\n<\/instruction>/.exec(prompt)?.[1];
+      if (instruction !== undefined) {
+        const answer = rewriteWithInstruction(instruction, excerpt, zh);
+        const taskId = `text-task:${tasks.size + 1}`;
+        tasks.set(taskId, "failure" in answer
+          ? { text: "", failure: answer.failure, ready: performance.now() + 1_200 }
+          : { text: reply(answer.text, answer.reasons), ready: performance.now() + 1_600 });
+        return { taskId };
+      }
       const fixes = [
         ...PROOFREAD_FIXES,
         ...prompt.startsWith("Polish") ? POLISH_FIXES : [],
         ...mode() === "unsafe" ? UNSAFE_FIXES : [],
       ];
-      const zh = prompt.includes("in Simplified Chinese");
       const reasons: string[] = [];
       const fixed = fixes.reduce((text, [pattern, replacement, category, note, noteZh]) => text.replace(pattern, (match) => {
         const revised = match.replace(new RegExp(pattern.source, pattern.flags.replace("g", "")), replacement);
@@ -73,8 +86,7 @@ export function textTasks({ mode = () => null, model = () => null }: Options = {
         return revised;
       }), excerpt);
       const taskId = `text-task:${tasks.size + 1}`;
-      const text = `Here is the proofread excerpt.\n<proofread>\n${fixed}\n</proofread>\n<reasons>\n${reasons.join("\n")}\n</reasons>`;
-      tasks.set(taskId, { text, ready: performance.now() + 1_600 });
+      tasks.set(taskId, { text: reply(fixed, reasons), ready: performance.now() + 1_600 });
       return { taskId };
     }
     const task = tasks.get(String(args?.taskId ?? ""));
@@ -82,9 +94,15 @@ export function textTasks({ mode = () => null, model = () => null }: Options = {
     if (action === "cancel") return { status: "running" };
     if (performance.now() < task.ready) return { status: "running" };
     if (mode() === "failed") return { status: "failed", message: "Codex is not signed in." };
+    if (task.failure) return { status: "failed", message: task.failure };
     const name = model();
     return { status: "completed", text: task.text, ...name ? { model: name } : {} };
   };
+}
+
+/** The agent's reply to a proofread or rewrite: the revised excerpt and a reason per change, between the markers the prompt asks for. */
+function reply(text: string, reasons: string[]): string {
+  return `Here is the revised excerpt.\n<proofread>\n${text}\n</proofread>\n<reasons>\n${reasons.join("\n")}\n</reasons>`;
 }
 
 /** The agent's answer to a note: its canned revision, or a question when asked to cite. */
