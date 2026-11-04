@@ -8,6 +8,10 @@ import { PANEL_TITLES } from "./trellis-titles";
 /** Frame one existing panel; keep document/editor/agent hosts and the desktop arrangement intact. */
 export function installMobileWorkspace(controller: TrellisController, ws: WorkspaceHandle): () => void {
   const query = window.matchMedia("(max-width: 700px)");
+  // React wraps the engine element in .lattice-trellis. The navigation must
+  // share the outer workspace's flex column, rather than extend its canvas.
+  const host = ws.element.closest<HTMLElement>(".lattice-trellis") ?? ws.element;
+  const container = host.parentElement;
   let active = false;
   let previousFrame: string | null = null;
   let lastKey = "";
@@ -78,15 +82,15 @@ export function installMobileWorkspace(controller: TrellisController, ws: Worksp
     active = enabled;
     if (active) {
       previousFrame = ws.navigation.framed;
-      ws.element.parentElement?.classList.add("mobile-workspace");
-      ws.element.after(nav);
+      container?.classList.add("mobile-workspace");
+      host.after(nav);
       ws.update({ navigation: "focus" });
       show(controller.app.get().activeKey ? "editor" : "project");
       sync();
     } else {
       cancelAnimationFrame(frame);
       nav.remove();
-      ws.element.parentElement?.classList.remove("mobile-workspace");
+      container?.classList.remove("mobile-workspace");
       ws.update({ navigation: "free" });
       ws.navigation.frame(previousFrame ?? "all");
     }
@@ -99,6 +103,6 @@ export function installMobileWorkspace(controller: TrellisController, ws: Worksp
     unsubscribe();
     cancelAnimationFrame(frame);
     nav.remove();
-    ws.element.parentElement?.classList.remove("mobile-workspace");
+    container?.classList.remove("mobile-workspace");
   };
 }

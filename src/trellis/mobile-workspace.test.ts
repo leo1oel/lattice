@@ -16,8 +16,12 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(390);
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(650);
   const parent = document.createElement("div");
+  parent.className = "workspace trellis-workspace";
+  const wrapper = document.createElement("div");
+  wrapper.className = "lattice-trellis";
   const host = document.createElement("div");
-  parent.append(host);
+  wrapper.append(host);
+  parent.append(wrapper);
   document.body.append(parent);
   const mount = () => () => undefined;
   ws = createWorkspace(host, {
@@ -44,6 +48,11 @@ it("navigates real Trellis panels and restores desktop framing without replacing
   ws.navigation.frame("project-panel");
   const original = ws.getDocument();
   cleanup = installMobileWorkspace(controller, ws);
+  const nav = document.querySelector(".mobile-workspace-nav")!;
+  const workspace = document.querySelector(".workspace.trellis-workspace")!;
+  expect(nav.parentElement).toBe(workspace);
+  expect(workspace).toHaveClass("mobile-workspace");
+  expect(document.querySelector(".lattice-trellis")?.nextElementSibling).toBe(nav);
   await waitFor(() => expect(ws.navigation.framed).toBe("editor-panel"));
   const editorSurface = ws.view("editor")!.element;
   fireEvent.click(document.querySelector(".mobile-workspace-nav button:nth-child(3)")!);
@@ -54,6 +63,7 @@ it("navigates real Trellis panels and restores desktop framing without replacing
   media.dispatchEvent(new Event("change"));
   expect(ws.navigation.framed).toBe("project-panel");
   expect(document.querySelector(".mobile-workspace-nav")).toBeNull();
+  expect(workspace).not.toHaveClass("mobile-workspace");
   expect(ws.getDocument().root).toEqual(original.root);
 });
 it("reflects dirty edits in a touch Save control and follows an explicit document reveal", async () => {
