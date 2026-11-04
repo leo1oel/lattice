@@ -106,7 +106,7 @@ export function installHeadlessRuntime(session: HeadlessSession): () => void {
     if (session.capabilities && !session.capabilities.commands.includes(command)) {
       throw new Error(`${command} is unavailable on this server. See server capabilities.`);
     }
-    if (command === "terminal_open" || command === "terminal_attach") await waitForEvents();
+    if (command === "terminal_open" || command === "terminal_run" || command === "terminal_attach") await waitForEvents();
     const value = await serverRequest<{ result: unknown }>("/api/invoke", { command, args: encodeBridgeValue(args) });
     if (command === "read_compiled_pdf" && Array.isArray(value.result)) return Uint8Array.from(value.result).buffer;
     return decodeBridgeValue(value.result as Parameters<typeof decodeBridgeValue>[0]);

@@ -64,12 +64,12 @@ describe("the real Tauri consumers on a headless server", () => {
     ServerEvents.current.onmessage?.({ data: JSON.stringify({ callback: id, payload: { message: { __latticeBridgeBinary: "aGk=" }, index: 0 } }) });
     expect(new Uint8Array(output.mock.calls[0][0])).toEqual(Uint8Array.from([104, 105]));
   });
-  it("waits for SSE before starting a terminal so its first channel message cannot be lost", async () => {
+  it.each(["terminal_open", "terminal_run"])("waits for SSE before %s so its first channel message cannot be lost", async (command) => {
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ result: null })));
     vi.stubGlobal("fetch", fetch);
     install();
     ServerEvents.current.readyState = 0;
-    const opening = invoke("terminal_open", {});
+    const opening = invoke(command, {});
     await Promise.resolve();
     expect(fetch).not.toHaveBeenCalled();
     ServerEvents.current.readyState = 1;
