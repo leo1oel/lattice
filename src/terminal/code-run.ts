@@ -8,12 +8,12 @@ export interface CodeRunConfig {
 }
 
 /** POSIX shell argument, not shell code. Embedded quotes, spaces and metacharacters stay literal. */
-export function shellArgument(value: string): string {
+function shellArgument(value: string): string {
   return "'" + value.replaceAll("'", "'\\''") + "'";
 }
 
 export function codeRunCommand(path: string, config: CodeRunConfig): string {
-  const values = [config.program, ...config.programArgs, path, ...config.scriptArgs];
+  const values = [config.program, ...config.programArgs, `./${path}`, ...config.scriptArgs];
   if (!config.program.trim() || path.startsWith("/") || path.split("/").some((part) => part === "..") || values.some((value) => /[\r\n\0]/.test(value))) {
     // eslint-disable-next-line lingui/no-unlocalized-strings -- internal validation; the caller presents a localized failure
     throw new Error("Invalid program or argument.");

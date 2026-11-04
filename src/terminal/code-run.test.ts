@@ -36,7 +36,7 @@ it("saves the real active document, starts a dedicated terminal, and retains its
   await expect(run).resolves.toBe(true);
   await Promise.resolve();
   expect(opened()).toMatchObject({ projectRoot: "/projects/example" });
-  expect(write).toHaveBeenCalledWith(9, "exec 'python3' '-u' 'analysis.py' 'a b'\r");
+  expect(write).toHaveBeenCalledWith(9, "exec 'python3' '-u' './analysis.py' 'a b'\r");
   expect(controller.showPanel).toHaveBeenCalledWith("terminal");
   opened().onExit(0);
   expect(terminals.get().sessions).toHaveLength(1);
