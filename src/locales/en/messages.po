@@ -8236,7 +8236,7 @@ msgstr "Math array"
 msgid "Math outside math mode"
 msgstr "Math outside math mode"
 
-#: src/editor/latex/math-preview.tsx
+#: src/editor/latex/math-preview.ts
 msgid "Math preview"
 msgstr "Math preview"
 

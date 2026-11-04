@@ -8236,7 +8236,7 @@ msgstr "数学阵列"
 msgid "Math outside math mode"
 msgstr "数学内容写在了数学模式之外"
 
-#: src/editor/latex/math-preview.tsx
+#: src/editor/latex/math-preview.ts
 msgid "Math preview"
 msgstr "公式预览"
 
