@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f0ebe3">
+    <meta name="robots" content="noindex">
+    <title>Page not found — Lattice</title>
+    <!-- GitHub Pages serves this for any missing path, at that path, so every link here is absolute. -->
+    <link rel="icon" type="image/svg+xml" href="/lattice/assets/icon.svg?v=a">
+    <link rel="icon" type="image/png" sizes="32x32" href="/lattice/assets/favicon-32.png">
+    <link rel="stylesheet" href="/lattice/style.css?v=c5">
+    <style>
+      /* A missing page, as TeX reports a missing command: main.log stops at the prompt. Return goes
+         on (back to the site), as it does in TeX; h and Return asks for TeX's help. */
+      .lost { max-width: 1040px; margin: 0 auto; padding: 9vh var(--gutter) 14vh; position: relative; z-index: 1; }
+      .lost .source { max-width: 640px; rotate: -1.5deg; }
+      .lost .source-code { min-height: 0; padding: 18px 20px 20px; font: var(--small)/24px var(--mono); white-space: pre-wrap; }
+      .lost .prompt::after { content: ''; display: inline-block; width: 2px; height: 17px; margin-left: 1px; vertical-align: -3px; background: #1f2328; animation: blink 1.06s steps(1) infinite; }
+      .lost-title { margin: 64px 0 0 -.04em; color: var(--ink); font: 400 var(--display)/.95 var(--serif); letter-spacing: -.03em; }
+      .lost .button { margin-top: 36px; }
+      @media (prefers-reduced-motion: reduce) { .lost .prompt::after { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="wash" aria-hidden="true"><i data-w="download" class="on"></i></div>
+    <header class="nav">
+      <a class="wordmark" href="/lattice/" aria-label="Lattice home">
+        <svg class="mark" viewBox="88 88 848 848" aria-hidden="true"><g transform="rotate(45 512 512)"><path class="weft" pathLength="1" d="M250 336H774"/><path class="weft" pathLength="1" d="M250 512H774"/><path class="weft" pathLength="1" d="M250 688H774"/><path class="warp" pathLength="1" d="M336 250V478"/><path class="warp" pathLength="1" d="M336 546V774"/><path class="warp" pathLength="1" d="M512 250V302"/><path class="warp" pathLength="1" d="M512 370V654"/><path class="warp" pathLength="1" d="M512 722V774"/><path class="warp" pathLength="1" d="M688 250V478"/><path class="warp" pathLength="1" d="M688 546V774"/><circle cx="336" cy="250" r="34"/><circle cx="336" cy="774" r="34"/><circle cx="512" cy="250" r="34"/><circle cx="512" cy="774" r="34"/><circle cx="688" cy="250" r="34"/><circle cx="688" cy="774" r="34"/></g></svg>
+        <span>Lattice</span>
+      </a>
+    </header>
+    <main class="lost">
+      <div class="source" role="img" aria-label="main.log: Undefined control sequence, at line 404, \pagenotfound">
+        <div class="source-bar"><span class="source-tab"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13"/></svg>main.log</span></div>
+        <pre class="source-code" data-log>! Undefined control sequence.
+l.404 <span class="cmd">\pagenotfound</span>
+
+<span class="prompt">? </span></pre>
+      </div>
+      <h1 class="lost-title"><span class="dim">Page</span> not found</h1>
+      <a class="button" href="/lattice/"><span>Back to Lattice</span></a>
+    </main>
+    <script>
+      // TeX's prompt: Return carries on (home); h and Return prints TeX's own help for this error.
+      const log = document.querySelector('[data-log]');
+      const prompt = log.querySelector('.prompt');
+      const HELP = "The control sequence at the end of the top line\nof your error message was never \\def'ed. If you have\nmisspelled it (e.g., `\\hobx'), type `I' and the correct\nspelling (e.g., `I\\hbox'). Otherwise just continue,\nand I'll forget about whatever was undefined.\n\n";
+      let typed = '';
+      addEventListener('keydown', (event) => {
+        if (event.metaKey || event.ctrlKey || event.altKey || event.target.closest?.('a, button')) return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (typed.trim().toLowerCase() === 'h') {
+            prompt.before(`? h\n${HELP}`);
+            typed = '';
+            prompt.textContent = '? ';
+            return;
+          }
+          location.href = '/lattice/';
+        } else if (event.key === 'Backspace') {
+          typed = typed.slice(0, -1);
+        } else if (event.key.length === 1 && typed.length < 24) {
+          typed += event.key;
+        } else return;
+        prompt.textContent = `? ${typed}`;
+      });
+    </script>
+  </body>
+</html>

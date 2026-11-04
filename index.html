@@ -3,65 +3,292 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#ffffff">
-    <meta name="description" content="A workspace for your research.">
-    <title>Lattice — A workspace for your research.</title>
+    <meta name="theme-color" content="#f0ebe3">
+    <meta name="description" content="A local-first LaTeX workspace for macOS, with your papers, your co-authors and an AI agent in the same window.">
+    <title>Lattice — A workspace for your research</title>
     <link rel="canonical" href="https://leo1oel.github.io/lattice/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Lattice">
     <meta property="og:url" content="https://leo1oel.github.io/lattice/">
-    <meta property="og:title" content="Lattice — A workspace for your research.">
-    <meta property="og:description" content="A workspace for your research.">
-    <meta property="og:image" content="https://leo1oel.github.io/lattice/assets/social-card-v2.png">
+    <meta property="og:title" content="Lattice — A workspace for your research">
+    <meta property="og:description" content="A local-first LaTeX workspace for macOS, with your papers, your co-authors and an AI agent in the same window.">
+    <meta property="og:image" content="https://leo1oel.github.io/lattice/assets/social-card-v3.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Lattice logo and A workspace for your research. on a white background.">
+    <meta property="og:image:alt" content="The Lattice mark and name, and the line A workspace for your research, on warm paper with an olive and mustard wash.">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Lattice — A workspace for your research.">
-    <meta name="twitter:description" content="A workspace for your research.">
-    <meta name="twitter:image" content="https://leo1oel.github.io/lattice/assets/social-card-v2.png">
-    <meta name="twitter:image:alt" content="Lattice logo and A workspace for your research. on a white background.">
-    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
-    <link rel="stylesheet" href="./style.css?v=copy-1">
-    <link rel="stylesheet" href="./designs.css?v=1">
-    <script type="module" src="./main.js?v=wheel-speed-2"></script>
-    <script type="module" src="./designs.js?v=fading-brackets-1"></script>
+    <meta name="twitter:title" content="Lattice — A workspace for your research">
+    <meta name="twitter:description" content="A local-first LaTeX workspace for macOS, with your papers, your co-authors and an AI agent in the same window.">
+    <meta name="twitter:image" content="https://leo1oel.github.io/lattice/assets/social-card-v3.png">
+    <meta name="twitter:image:alt" content="The Lattice mark and name, and the line A workspace for your research, on warm paper with an olive and mustard wash.">
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg?v=a">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./assets/favicon-16.png">
+    <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+    <link rel="preload" href="./assets/fonts/eb-garamond-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="./assets/fonts/schibsted-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="./style.css?v=c5">
+    <script>document.documentElement.classList.add('js');</script>
+    <script type="module" src="./main.js?v=c4"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <svg class="effect-definitions" width="0" height="0" aria-hidden="true">
-      <defs>
-        <filter id="gather-template" x="-50%" y="-100%" width="200%" height="350%" color-interpolation-filters="sRGB">
-          <feTurbulence type="fractalNoise" baseFrequency=".6" numOctaves="1" seed="12" result="noise"/>
-          <feComponentTransfer in="noise" result="scatter">
-            <feFuncR type="linear" slope="3" intercept="-1"/>
-            <feFuncG type="linear" slope="3" intercept="-1"/>
-          </feComponentTransfer>
-          <feDisplacementMap in="SourceGraphic" in2="scatter" scale="80" xChannelSelector="R" yChannelSelector="G"/>
-          <feOffset dy="48"/>
-        </filter>
-      </defs>
-    </svg>
-    <div class="page-frame" aria-hidden="true">
-      <span></span><span></span><span></span><span></span>
+    <div class="wash" aria-hidden="true">
+      <i data-w="hero"></i><i data-w="film"></i><i data-w="write"></i><i data-w="revise"></i>
+      <i data-w="research"></i><i data-w="collaborate"></i><i data-w="formats"></i><i data-w="download"></i>
     </div>
+
+    <header class="nav">
+      <a class="wordmark" href="./" aria-label="Lattice home">
+        <svg class="mark" viewBox="88 88 848 848" aria-hidden="true"><g transform="rotate(45 512 512)"><path class="weft" pathLength="1" d="M250 336H774"/><path class="weft" pathLength="1" d="M250 512H774"/><path class="weft" pathLength="1" d="M250 688H774"/><path class="warp" pathLength="1" d="M336 250V478"/><path class="warp" pathLength="1" d="M336 546V774"/><path class="warp" pathLength="1" d="M512 250V302"/><path class="warp" pathLength="1" d="M512 370V654"/><path class="warp" pathLength="1" d="M512 722V774"/><path class="warp" pathLength="1" d="M688 250V478"/><path class="warp" pathLength="1" d="M688 546V774"/><circle cx="336" cy="250" r="34"/><circle cx="336" cy="774" r="34"/><circle cx="512" cy="250" r="34"/><circle cx="512" cy="774" r="34"/><circle cx="688" cy="250" r="34"/><circle cx="688" cy="774" r="34"/></g></svg>
+        <span>Lattice</span>
+      </a>
+      <nav aria-label="Site">
+        <a href="#film">Film</a>
+        <a href="#faq">Questions</a>
+        <a href="https://github.com/leo1oel/lattice">GitHub</a>
+        <a class="button button-small" data-download href="https://github.com/leo1oel/lattice/releases/latest"><span>Download</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg></a>
+      </nav>
+    </header>
+
     <main id="main">
-      <div class="intro">
-        <div class="divider" aria-hidden="true"></div>
-        <h1><a class="wordmark" href="./" aria-label="Lattice home">
-          <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(45 24 24)" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-            <path pathLength="1" d="M10 13h28"/><path pathLength="1" d="M10 24h28"/><path pathLength="1" d="M10 35h28"/>
-            <path pathLength="1" d="M13 10v28"/><path pathLength="1" d="M24 10v28"/><path pathLength="1" d="M35 10v28"/>
-          </g></svg>
-          <span>Lattice</span>
-        </a></h1>
-        <nav class="actions" aria-label="Get Lattice">
-          <a class="download" href="https://github.com/leo1oel/lattice/releases/download/v0.1.286/Lattice_0.1.286_aarch64.dmg" aria-label="Download for macOS" download><span>Download</span><svg class="platform-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></a>
-          <a class="github" href="https://github.com/leo1oel/lattice" aria-label="Lattice on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a>
-        </nav>
-        <p class="description">A workspace for your research.<span class="format-line" aria-hidden="true"><span class="format-wheel"><span class="format-size">Spreadsheets</span><span class="format-label" data-slot="0">LaTeX</span><span class="format-label" data-slot="1">Markdown</span><span class="format-label" data-slot="2">Slides</span><span class="format-label" data-slot="-2">Canvas</span><span class="format-label" data-slot="-1">Spreadsheets</span></span><span class="format-suffix">All in one place.</span></span><span class="sr-only">LaTeX, Markdown, Slides, Canvas, Spreadsheets. All in one place.</span></p>
-      </div>
+      <section class="stage hero" data-wash="hero" aria-labelledby="hero-title">
+        <div class="source" data-source data-ui>
+          <div class="source-bar"><span class="source-tab"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13"/></svg>main.tex</span><span class="try" aria-hidden="true">Click to edit the title</span></div>
+          <pre class="source-code" data-type-source aria-hidden="true"><span class="n">12</span><span class="cmd">\title</span>{A workspace for
+<span class="n">13</span>       your research}</pre>
+        </div>
+        <h1 class="headline" id="hero-title" data-headline><span class="dim"><span class="w">A</span> <span class="w">workspace</span> <span class="w">for</span></span><br><span data-line2><span class="w">your</span> <span class="w">research</span></span><span class="caret" aria-hidden="true"></span></h1>
+        <div class="hero-lede">
+          <p>A <span class="nb">local-first</span> LaTeX workspace for macOS, with your papers, your <span class="nb">co-authors</span> and an AI agent in the same window</p>
+          <div class="actions">
+            <a class="button" data-download href="https://github.com/leo1oel/lattice/releases/latest"><span>Download for Mac</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg></a>
+            <a class="film-link" href="#film" data-film-link><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13.25"/><path d="M11.5 9.5v9l7-4.5-7-4.5Z"/></svg>Watch the film <span>1:21</span></a>
+          </div>
+          <p class="demo-entry"><a class="demo-link" href="./demo/" data-demo-chapter="">Try Lattice in your browser<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a><span class="demo-desktop">The in-browser demo opens on a larger screen</span></p>
+        </div>
+        <ul class="chips" aria-label="Jump to a chapter">
+          <li><a href="#write" style="--c: var(--ch-write)">Live PDF</a></li>
+          <li><a href="#revise" style="--c: var(--ch-revise)">Polish</a></li>
+          <li><a href="#research" style="--c: var(--ch-research)">Citations</a></li>
+          <li><a href="#revise" style="--c: var(--ch-revise)">Bring your own agent</a></li>
+          <li><a href="#formats" style="--c: var(--ch-formats)">Slides</a></li>
+          <li><a href="#research" style="--c: var(--ch-research)">arXiv papers</a></li>
+          <li><a href="#collaborate" style="--c: var(--ch-collab)">Overleaf sync</a></li>
+        </ul>
+        <!-- data-demo-slot: where a live, in-browser Lattice can replace the picture later. -->
+        <figure data-ui class="window" data-demo-slot="hero">
+          <img src="./assets/site/hero-1360.webp" srcset="./assets/site/hero-1360.webp 1360w, ./assets/site/hero-2720.webp 2720w" sizes="(min-width: 1100px) 87vw, 100vw" width="1360" height="850" alt="Lattice with the tutorial project open: the Project tree on the left, main.tex in the middle with a sentence just typed at the end of line 40, the PDF on the right already showing it, and Build reporting a 1.2 second build." fetchpriority="high">
+          <video class="hero-loop" muted playsinline loop preload="none" width="1360" height="850" data-src="./assets/site/hero-loop.mp4?v=h1" data-start="10.1" aria-hidden="true"></video>
+        </figure>
+      </section>
+
+      <section class="stage film" id="film" data-wash="film" aria-labelledby="film-title">
+        <h2 class="film-title" id="film-title"><span class="dim">Lattice</span> at work</h2>
+        <figure data-ui class="player" data-player>
+          <div class="shot">
+            <video playsinline preload="none" poster="./assets/video/lattice-en-poster.webp?v=r16" data-film>
+              <source src="./assets/video/lattice-en.mp4?v=r16" type="video/mp4">
+            </video>
+            <button class="play" type="button" aria-label="Play the film" data-play><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M12 8.5v17l14-8.5-14-8.5Z"/></svg></button>
+          </div>
+        </figure>
+      </section>
+
+      <section class="stage chapter write" id="write" data-wash="write" aria-labelledby="write-title">
+        <div class="ch-text">
+          <nav class="progress" aria-label="Chapters, now at Write"><a class="f" href="#write" aria-label="01 Write" aria-current="true"></a><a href="#revise" aria-label="02 Revise"></a><a href="#research" aria-label="03 Research"></a><a href="#collaborate" aria-label="04 Collaborate"></a><a href="#formats" aria-label="05 Every format"></a></nav>
+          <h2 class="ch-title" id="write-title"><a href="#write" data-anchor><span>Write</span></a></h2>
+          <p class="caption"><span class="dim">Write LaTeX</span><br>The PDF keeps up as you type</p>
+          <ul class="points">
+            <li><button type="button" data-cards="0">Completion and diagnostics as you type</button></li>
+            <li><button type="button" data-cards="0 1">SyncTeX jumps, source to PDF and back</button></li>
+            <li><button type="button" data-cards="1">One-click builds with your own TeX Live</button></li>
+          </ul>
+        </div>
+        <div class="collage" data-demo-slot="write" style="--bx: 600; --by: 120; --bw: 744; --bh: 760; --nh: 470">
+          <figure data-ui class="card" style="--i: 0; --dx: 20; --dy: 50; --dw: 560; --dr: -3; --nx: 0; --ny: 24; --nw: 320; --nr: -3">
+            <div class="shot" role="img" aria-label="main.tex in Lattice: a sentence typed at the end of line 40."><video muted playsinline preload="none" poster="./assets/loops/write-source.webp" width="1040" height="866" data-src="./assets/loops/write-source.mp4"></video></div>
+          </figure>
+          <figure data-ui class="card" style="--i: 1; --dx: 384; --dy: 270; --dw: 350; --dr: 4; --nx: 196; --ny: 196; --nw: 200; --nr: 4">
+            <div class="shot" role="img" aria-label="The PDF beside it, setting each word as it is typed."><video muted playsinline preload="none" poster="./assets/loops/write-pdf.webp" width="920" height="1136" data-src="./assets/loops/write-pdf.mp4"></video></div>
+          </figure>
+        </div>
+      </section>
+
+      <section class="stage chapter revise" id="revise" data-wash="revise" aria-labelledby="revise-title">
+        <div class="ch-text">
+          <nav class="progress" aria-label="Chapters, now at Revise"><a class="f" href="#write" aria-label="01 Write"></a><a class="f" href="#revise" aria-label="02 Revise" aria-current="true"></a><a href="#research" aria-label="03 Research"></a><a href="#collaborate" aria-label="04 Collaborate"></a><a href="#formats" aria-label="05 Every format"></a></nav>
+          <h2 class="ch-title" id="revise-title"><a href="#revise" data-anchor><span>Revise</span></a></h2>
+          <p class="caption"><span class="dim">Polish a sentence</span><br>Every edit comes with a reason</p>
+          <ul class="points">
+            <li><button type="button" data-cards="0">Proofread or Polish any selection</button></li>
+            <li><button type="button" data-cards="1">Agent edits shown as diffs you can undo</button></li>
+          </ul>
+          <div class="byo">
+            <h3 class="byo-title">Bring your own agent</h3>
+            <p class="body">Claude Code, Codex, Cursor, OpenCode or Droid, signed in as you: no model or AI subscription comes with Lattice</p>
+          </div>
+        </div>
+        <div class="collage" data-demo-slot="revise" style="--bx: 96; --by: 150; --bw: 744; --bh: 880; --nh: 480">
+          <figure data-ui class="card" style="--i: 0; --dx: 16; --dy: 40; --dw: 660; --dr: 2.5; --nx: 0; --ny: 20; --nw: 340; --nr: 2.5">
+            <div class="shot" role="img" aria-label="Polish on a selected sentence: two edits, each tagged concision, then Accept all."><video muted playsinline preload="none" poster="./assets/loops/revise-polish.webp" width="1020" height="672" data-src="./assets/loops/revise-polish.mp4"></video></div>
+            <span class="tag" style="--tx: 5%">Polish</span>
+          </figure>
+          <figure data-ui class="card" style="--i: 1; --dx: 400; --dy: 434; --dw: 276; --dr: -5; --nx: 210; --ny: 190; --nw: 180; --nr: -5">
+            <div class="shot" role="img" aria-label="The Agent panel: asked to rewrite the abstract's first sentence, the agent edits main.tex and explains the change."><video muted playsinline preload="none" poster="./assets/loops/revise-agent.webp" width="664" height="980" data-src="./assets/loops/revise-agent.mp4"></video></div>
+            <span class="tag" style="--tx: 22%">Agent</span>
+          </figure>
+        </div>
+      </section>
+
+      <section class="stage chapter research" id="research" data-wash="research" aria-labelledby="research-title">
+        <div class="ch-text">
+          <nav class="progress" aria-label="Chapters, now at Research"><a class="f" href="#write" aria-label="01 Write"></a><a class="f" href="#revise" aria-label="02 Revise"></a><a class="f" href="#research" aria-label="03 Research" aria-current="true"></a><a href="#collaborate" aria-label="04 Collaborate"></a><a href="#formats" aria-label="05 Every format"></a></nav>
+          <h2 class="ch-title" id="research-title"><a href="#research" data-anchor><span>Research</span></a></h2>
+          <p class="caption"><span class="dim">Paste a link</span><br>The paper comes in</p>
+          <ul class="points">
+            <li><button type="button" data-cards="1">Add papers by arXiv ID, DOI or title</button></li>
+            <li><button type="button" data-cards="0 1 2">Read each as a blog, the paper or the PDF</button></li>
+            <li><button type="button" data-cards="3">Cite in one step, with the reference on hover</button></li>
+          </ul>
+        </div>
+        <div class="collage fan" data-demo-slot="research" style="--bx: 580; --by: 80; --bw: 764; --bh: 900; --nh: 540">
+          <figure data-ui class="card" style="--i: 0; --dx: 160; --dy: 70; --dw: 262; --dr: -7; --nx: 0; --ny: 30; --nw: 150; --nr: -7; --fx: -36">
+            <div class="shot"><img src="./assets/site/read-blog.webp" width="640" height="794" alt="The Mamba paper opened on Blog, a plain-language overview." loading="lazy"></div>
+            <span class="tag tag-low" style="--tx: 12%">Blog</span>
+          </figure>
+          <figure data-ui class="card" style="--i: 1; --dx: 322; --dy: 38; --dw: 262; --dr: -1; --nx: 125; --ny: 8; --nw: 150; --nr: -1; --fx: 0">
+            <div class="shot"><img src="./assets/site/read-paper.webp" width="640" height="794" alt="The same paper as Paper: the full text, set for reading." loading="lazy"></div>
+            <span class="tag tag-low" style="--tx: 12%">Paper</span>
+          </figure>
+          <figure data-ui class="card" style="--i: 2; --dx: 482; --dy: 92; --dw: 262; --dr: 6; --nx: 250; --ny: 36; --nw: 150; --nr: 6; --fx: 36">
+            <div class="shot"><img src="./assets/site/read-pdf.webp" width="640" height="794" alt="The same paper as the original PDF." loading="lazy"></div>
+            <span class="tag tag-low" style="--tx: 12%">PDF</span>
+          </figure>
+          <figure data-ui class="card pop" style="--i: 3; --dx: 40; --dy: 480; --dw: 580; --dr: -2.5; --nx: 10; --ny: 250; --nw: 380; --nr: -2.5">
+            <div class="shot" role="img" aria-label="Citing the paper as you write: the completion offers gu2023mamba, and hovering the key shows its reference card."><video muted playsinline preload="none" poster="./assets/loops/research-cite.webp" width="1048" height="744" data-src="./assets/loops/research-cite.mp4"></video></div>
+          </figure>
+        </div>
+        <p class="credit">Paper shown: Albert Gu and Tri Dao, “Mamba: Linear-Time Sequence Modeling with Selective State Spaces”, arXiv:2312.00752, CC BY 4.0.</p>
+      </section>
+
+      <section class="stage chapter collaborate" id="collaborate" data-wash="collaborate" aria-labelledby="collaborate-title">
+        <div class="ch-text">
+          <nav class="progress" aria-label="Chapters, now at Collaborate"><a class="f" href="#write" aria-label="01 Write"></a><a class="f" href="#revise" aria-label="02 Revise"></a><a class="f" href="#research" aria-label="03 Research"></a><a class="f" href="#collaborate" aria-label="04 Collaborate" aria-current="true"></a><a href="#formats" aria-label="05 Every format"></a></nav>
+          <h2 class="ch-title" id="collaborate-title"><a href="#collaborate" data-anchor><span>Collaborate</span></a></h2>
+        </div>
+        <div class="ch-side">
+          <p class="caption"><span class="dim">Lattice and Overleaf,</span><br>in sync both ways</p>
+          <ul class="points">
+            <li><button type="button" data-cards="0 1">Two-way sync with live presence</button></li>
+            <li><button type="button" data-cards="0">Your co-authors stay on Overleaf</button></li>
+            <li><button type="button" data-cards="1" data-peer="Demo Author">Their edits arrive as they type</button></li>
+          </ul>
+        </div>
+        <div class="collage" data-demo-slot="collaborate" style="--bx: 96; --by: 380; --bw: 1248; --bh: 560; --nh: 490">
+          <figure data-ui class="card" style="--i: 0; --dx: 8; --dy: 40; --dw: 652; --dr: -2.5; --nx: 0; --ny: 20; --nw: 330; --nr: -2.5">
+            <div class="shot" role="img" aria-label="Overleaf in the browser: a sentence typed there, then Lattice's words arriving behind its cursor."><video muted playsinline preload="none" poster="./assets/loops/collab-overleaf.webp?v=r16" width="1360" height="846" data-src="./assets/loops/collab-overleaf.mp4?v=r16"></video></div>
+            <span class="tag" style="--tx: 5%">Overleaf</span>
+          </figure>
+          <figure data-ui class="card" style="--i: 1; --dx: 584; --dy: 100; --dw: 646; --dr: 2.5; --nx: 70; --ny: 250; --nw: 330; --nr: 2.5">
+            <div class="shot" role="img" aria-label="Lattice on the Mac: the Overleaf sentence arriving as it is typed, then a reply typed in Lattice."><video muted playsinline preload="none" poster="./assets/loops/collab-lattice.webp?v=r16" width="1360" height="846" data-src="./assets/loops/collab-lattice.mp4?v=r16"></video></div>
+            <span class="tag" style="left: auto; right: 6%">Lattice</span>
+          </figure>
+        </div>
+      </section>
+
+      <section class="stage chapter formats" id="formats" data-wash="formats" aria-labelledby="formats-title">
+        <div class="ch-text">
+          <div class="ch-label"><nav class="progress" aria-label="Chapters, now at Every format"><a class="f" href="#write" aria-label="01 Write"></a><a class="f" href="#revise" aria-label="02 Revise"></a><a class="f" href="#research" aria-label="03 Research"></a><a class="f" href="#collaborate" aria-label="04 Collaborate"></a><a class="f" href="#formats" aria-label="05 Every format" aria-current="true"></a></nav></div>
+          <h2 class="formats-title" id="formats-title"><span class="dim">Every format,</span><br>in one project</h2>
+        </div>
+        <div class="ch-side">
+          <ul class="points">
+            <li><button type="button" data-cards="1">Markdown notes, edited in blocks</button></li>
+            <li><button type="button" data-cards="0">tldraw whiteboards</button></li>
+            <li><button type="button" data-cards="2">Interactive HTML pages</button></li>
+            <li><button type="button" data-cards="3">Slides in React, presented from Lattice</button></li>
+            <li><button type="button" data-cards="4">Spreadsheets with formulas</button></li>
+          </ul>
+        </div>
+        <div class="collage" data-demo-slot="formats" style="--bx: 96; --by: 450; --bw: 1248; --bh: 800; --nh: 710">
+          <figure data-ui class="card" style="--i: 1; --dx: 620; --dy: 20; --dw: 470; --dr: 5; --nx: 150; --ny: 170; --nw: 240; --nr: 5">
+            <div class="shot"><img src="./assets/site/format-tldr.webp" width="1000" height="625" alt="A tldraw whiteboard of how attention moves information." loading="lazy"></div>
+          </figure>
+          <figure data-ui class="card" style="--i: 0; --dx: 16; --dy: 70; --dw: 640; --dr: -4; --nx: 0; --ny: 20; --nw: 300; --nr: -4">
+            <div class="shot" role="img" aria-label="notes.md in the block editor, scrolling to its figure."><video muted playsinline preload="none" poster="./assets/loops/format-md.webp" width="1280" height="800" data-src="./assets/loops/format-md.mp4"></video></div>
+          </figure>
+          <figure data-ui class="card" style="--i: 2; --dx: 850; --dy: 240; --dw: 380; --dr: -3; --nx: 0; --ny: 320; --nw: 230; --nr: -3">
+            <div class="shot" role="img" aria-label="An interactive HTML page: choosing Head 2 changes the live matrix."><video muted playsinline preload="none" poster="./assets/loops/format-html.webp" width="1000" height="626" data-src="./assets/loops/format-html.mp4"></video></div>
+          </figure>
+          <figure data-ui class="card" style="--i: 3; --dx: 250; --dy: 450; --dw: 470; --dr: 3; --nx: 170; --ny: 420; --nw: 220; --nr: 3">
+            <div class="shot" role="img" aria-label="An Open Slide deck written in React: the second slide is chosen."><video muted playsinline preload="none" poster="./assets/loops/format-slides.webp" width="1000" height="626" data-src="./assets/loops/format-slides.mp4"></video></div>
+          </figure>
+          <figure data-ui class="card" style="--i: 4; --dx: 740; --dy: 480; --dw: 470; --dr: -6; --nx: 20; --ny: 540; --nw: 230; --nr: -6">
+            <div class="shot"><img src="./assets/site/format-sheet.webp" width="1000" height="625" alt="A spreadsheet of attention experiment results." loading="lazy"></div>
+          </figure>
+        </div>
+      </section>
+
+      <section class="more" id="more" aria-labelledby="more-title">
+        <h2 class="more-title" id="more-title"><span class="dim">Everything else</span><br>a paper needs</h2>
+        <ul class="index-cards">
+          <li style="--r: -1.2deg; --c: var(--ch-revise)"><h3>Annotations and review</h3><p>Note on the source or the PDF; the agent proposes each fix</p></li>
+          <li style="--r: 0.8deg; --c: var(--ch-write)"><h3>History</h3><p>Every save, every agent edit and Overleaf’s history, in one timeline</p></li>
+          <li style="--r: -0.6deg; --c: var(--ch-research)"><h3>Export for arXiv</h3><p>One ZIP that builds on its own</p></li>
+          <li style="--r: 0.9deg; --c: var(--ch-research)"><h3>Check references</h3><p>Your bibliography, checked against Crossref</p></li>
+          <li style="--r: -1deg; --c: var(--accent)"><h3>Submission checks</h3><p><span class="nb">Double-blind</span> leaks caught before you submit</p></li>
+          <li style="--r: 1.3deg; --c: var(--ch-formats)"><h3>Templates</h3><p>NeurIPS, ICML, ICLR, ACL, CVPR, AAAI and two thesis classes</p></li>
+          <li style="--r: -0.7deg; --c: var(--ch-hero)"><h3>Workspaces</h3><p>Dock any panel anywhere and keep the layout</p></li>
+          <li style="--r: 1.1deg; --c: var(--muted)"><h3>Terminal and Git</h3><p>A terminal in the project folder, and a Git panel</p></li>
+          <li style="--r: -1.4deg; --c: var(--ch-revise)"><h3>Figures</h3><p>TikZ and PGFPlots figures, typeset and checked before they go in</p></li>
+        </ul>
+      </section>
+
+      <section class="faq" id="faq" aria-labelledby="faq-title">
+        <div class="faq-head">
+          <h2 class="faq-title" id="faq-title"><span class="dim">Questions,</span> answered</h2>
+          <p class="faq-more">Something else? <a href="https://github.com/leo1oel/lattice/issues">Ask on GitHub</a></p>
+        </div>
+        <div class="qa" data-faq>
+          <details><summary><span>What is Lattice?</span><i aria-hidden="true"></i></summary><div class="answer"><p>A Mac app for writing papers in LaTeX. The source and its live PDF sit side by side, with the papers you cite, your co-authors on Overleaf and an AI agent in the same window. Your project stays an ordinary folder on your Mac, so it opens in any other editor and fits under Git.</p></div></details>
+          <details><summary><span>Does it include a model, or do I need a separate AI subscription?</span><i aria-hidden="true"></i></summary><div class="answer"><p>Lattice includes no model and has no account or subscription of its own. It drives the coding agent you already use, signed in with your own account: Claude Code or Codex, or another agent CLI it finds on your Mac, such as Cursor, OpenCode or Droid. That agent’s own plan or API key is what you pay for, if anything. Writing, live preview, citations and Overleaf sync need no AI at all.</p></div></details>
+          <details><summary><span>What do I need to install?</span><i aria-hidden="true"></i></summary><div class="answer"><p>An Apple Silicon Mac with macOS 14 or later, and a TeX distribution: your own MacTeX or TeX Live, or BasicTeX, which Lattice can install for you. For the agent, install and sign in to Claude Code or Codex (or another supported agent CLI). Lattice is not available for Intel Macs, Windows or Linux.</p></div></details>
+          <details><summary><span>Does Lattice upload my files to the cloud?</span><i aria-hidden="true"></i></summary><div class="answer"><p>No. Your project is a folder on your Mac, and Lattice has no server that stores it. Files leave your Mac only through a feature you use: Overleaf sync sends the project to your Overleaf account; the agent sends what it reads to its own provider, under your sign-in; adding a paper looks it up on arXiv, Crossref or OpenAlex. Lattice also checks GitHub for updates. The bundled agent runtime has its telemetry turned off.</p></div></details>
+          <details><summary><span>My <span class="nb">co-authors</span> are on Overleaf. Can I work with them?</span><i aria-hidden="true"></i></summary><div class="answer"><p>Yes. Connect the project to Overleaf with your own Overleaf account, and Lattice syncs both ways as you type: your co-authors keep working on overleaf.com and see your edits arrive, and theirs arrive in Lattice, with presence, comments, chat and tracked changes. Nobody else needs Lattice.</p></div></details>
+          <details><summary><span>Is Lattice free?</span><i aria-hidden="true"></i></summary><div class="answer"><p>Yes. Lattice is open source under the Apache License 2.0, and the download costs nothing. One part has its own terms: the Trellis panel layout is free for non-commercial use, so using Lattice at a company or other for-profit organisation needs a Trellis licence from its author.</p></div></details>
+          <details><summary><span>Does it work offline?</span><i aria-hidden="true"></i></summary><div class="answer"><p>Yes. Writing, live preview, builds, history and the papers already in your project work without a connection, because everything lives in the project folder and builds run on your own TeX. Overleaf sync, the agent and adding new papers need the network.</p></div></details>
+        </div>
+      </section>
+
+      <section class="download" id="download" data-wash="download" aria-labelledby="download-title">
+        <div class="source source-end" aria-hidden="true" data-ui>
+          <div class="source-bar"><span class="source-tab"><svg viewBox="0 0 16 16"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13"/></svg>main.tex</span></div>
+          <pre class="source-code" data-type-source><span class="n">47</span>Thanks for reading.
+<span class="n">48</span><span class="cmd">\end</span>{document}</pre>
+        </div>
+        <h2 class="download-title" id="download-title"><span class="dim">Your next paper,</span><br>in one window</h2>
+        <a class="button button-large" data-download href="https://github.com/leo1oel/lattice/releases/latest"><span>Download for Mac</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg></a>
+        <p class="release" data-requirements>For Apple Silicon Macs with macOS 14 or later</p>
+      </section>
     </main>
+
+    <footer class="footer">
+      <p><svg class="mark" viewBox="88 88 848 848" aria-hidden="true"><g transform="rotate(45 512 512)"><path class="weft" pathLength="1" d="M250 336H774"/><path class="weft" pathLength="1" d="M250 512H774"/><path class="weft" pathLength="1" d="M250 688H774"/><path class="warp" pathLength="1" d="M336 250V478"/><path class="warp" pathLength="1" d="M336 546V774"/><path class="warp" pathLength="1" d="M512 250V302"/><path class="warp" pathLength="1" d="M512 370V654"/><path class="warp" pathLength="1" d="M512 722V774"/><path class="warp" pathLength="1" d="M688 250V478"/><path class="warp" pathLength="1" d="M688 546V774"/><circle cx="336" cy="250" r="34"/><circle cx="336" cy="774" r="34"/><circle cx="512" cy="250" r="34"/><circle cx="512" cy="774" r="34"/><circle cx="688" cy="250" r="34"/><circle cx="688" cy="774" r="34"/></g></svg>Lattice is open source under the Apache License 2.0; the Trellis panel layout has its own non-commercial terms.</p>
+      <nav aria-label="Project links">
+        <a href="https://github.com/leo1oel/lattice">GitHub</a>
+        <a href="https://github.com/leo1oel/lattice/releases">Releases</a>
+        <a href="https://github.com/leo1oel/lattice/tree/main/docs">Docs</a>
+        <a href="https://github.com/leo1oel/lattice/issues">Issues</a>
+      </nav>
+    </footer>
+
+    <dialog class="lightbox" aria-label="A closer look" data-lightbox>
+      <figure><div class="lb-shot" data-lb-shot></div><figcaption data-lb-caption></figcaption></figure>
+      <button class="lb-close" type="button" aria-label="Close" data-lb-close><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+    </dialog>
+    <div class="toast" role="status" aria-live="polite" data-toast></div>
   </body>
 </html>
