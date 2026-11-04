@@ -478,6 +478,10 @@ msgstr "{description}: {path} could not run: {error}"
 msgid "{description}: not found on PATH"
 msgstr "{description}: not found on PATH"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{detail}. {limit}"
+msgstr "{detail}. {limit}"
+
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — BibTeX source"
 msgstr "{documentName} — BibTeX source"

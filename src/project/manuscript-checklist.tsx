@@ -5,7 +5,7 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { BodyBoundary, ProjectDeadline, SubmissionItem } from "../app-types";
-import { formatCount, comma, joinPhrases } from "../i18n";
+import { formatCount, comma } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { CheckStatus } from "./check-status";
 import { DeadlineCard } from "./deadline-card";
@@ -139,14 +139,14 @@ export function ManuscriptChecklistPanel(props: {
     ? null
     : wordLimit === 1 ? t`Limit 1 word` : spaceMixedScript(t({ message: `Limit ${{ wordLimit: formatCount(wordLimit) }} words` }));
   const pageLimitNote = pageLimit == null ? null : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`;
-  const notes = (...parts: (string | null)[]) => joinPhrases(parts) || undefined;
+  const notes = (detail: string, limit: string | null) => (limit ? t`${detail}. ${limit}` : detail);
   const wordDetail = words == null
     ? notes(t`Needs a root document to count from`, wordLimitNote)
     : wordsEstimated
       ? notes(t`Root document only, estimated without texcount`, wordLimitNote)
       : undefined;
   const pageDetail = totalPages == null
-    ? notes(pageLimitNote)
+    ? pageLimitNote ?? undefined
     : body.kind === "unread"
       ? notes(t`${totalPages} total, included files not read`, pageLimitNote)
       : body.kind === "unresolved"
