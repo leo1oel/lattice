@@ -26,3 +26,7 @@ jobs:
         env:
           LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
         run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/agent_smoke.py
+      - name: Preserve authenticated HTTPS reverse-proxy origin handling
+        env:
+          LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
+        run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/origin_smoke.py

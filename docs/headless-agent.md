@@ -50,6 +50,11 @@ lattice-server serve --workspace-root /srv/papers --state-dir /srv/lattice-state
   --agent-public-origin https://machine.example.ts.net:8444
 ```
 
+Without an agent or an explicit `--public-origin`, existing reverse-proxy
+deployments retain Host-derived origin checks (`https` with `--secure-cookies`,
+otherwise `http`). Explicit origins always take precedence; agent deployments
+use the exact configured origin and never this fallback.
+
 The reverse proxy maps 8443 to 18482 and 8444 to 18583. Both origins must use the
 same scheme and hostname, with different ports. The main listener never serves
 agent documents, and the agent listener has no general invoke/file/terminal API.

@@ -84,6 +84,7 @@ pub(crate) struct Server {
     pub(crate) sessions: Arc<Mutex<HashMap<String, Session>>>,
     pub(crate) secure_cookies: bool,
     pub(crate) public_origin:String,
+    pub(crate) origin_from_host:bool,
     pub(crate) agent_origin:String,
     pub(crate) agents:Arc<crate::agent_runtime::Hub>,
     pub(crate) terminals: Arc<crate::terminal_transport::TerminalHub>,
@@ -131,12 +132,13 @@ pub fn main() {
                 let token = read_token(&token_file)?;
                 let initial = match project { Some(path)=>core.confined(&path.to_string_lossy())?,None=>core.root.clone() };
                 if secure_cookies&&agent_runtime.is_some()&&public_origin.is_none(){return Err("Configure --public-origin and --agent-public-origin for HTTPS agent deployments".into());}
+                let origin_from_host=agent_runtime.is_none()&&public_origin.is_none();
                 let public_origin=crate::agent_listener::origin(&public_origin.unwrap_or_else(||format!("http://{bound}")))?;
                 let agent_listener=if agent_runtime.is_some(){Some(crate::agent_listener::bind(agent_listen).await?)}else{None};
                 let agent_origin=crate::agent_listener::origin(&agent_public_origin.unwrap_or_else(||format!("http://{}",agent_listener.as_ref().and_then(|listener|listener.local_addr().ok()).unwrap_or(agent_listen))))?;
                 if agent_runtime.is_some()&&(public_origin==agent_origin||reqwest::Url::parse(&public_origin).unwrap().scheme()!=reqwest::Url::parse(&agent_origin).unwrap().scheme()||reqwest::Url::parse(&public_origin).unwrap().host_str()!=reqwest::Url::parse(&agent_origin).unwrap().host_str()){return Err("The agent needs a different port with the same hostname and HTTP/HTTPS scheme".into());}
                 let agents=Arc::new(crate::agent_runtime::Hub::new(agent_runtime,state_dir.clone())?);
-                let state = Server { public_origin, agent_origin, agents, core, initial, cores:Default::default(), token:Arc::new(token), sessions:Default::default(), secure_cookies, terminals:Default::default() };
+                let state = Server { public_origin, origin_from_host, agent_origin, agents, core, initial, cores:Default::default(), token:Arc::new(token), sessions:Default::default(), secure_cookies, terminals:Default::default() };
                 let reaper=state.clone();
                 tokio::spawn(async move {loop {tokio::time::sleep(Duration::from_secs(1)).await;reaper.agents.reap(|session|reaper.sessions.lock().unwrap().get(session).is_some_and(|session|session.expires>Instant::now()));reaper.terminals.reap(|session|reaper.sessions.lock().unwrap().get(session).is_some_and(|session|session.expires>Instant::now()));}});
                 let shutdown_state=state.clone();

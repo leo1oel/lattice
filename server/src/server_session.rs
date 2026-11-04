@@ -34,6 +34,17 @@ pub(crate) fn authenticated(state: &Server, headers: &HeaderMap) -> bool {
 }
 pub(crate) fn same_origin(state: &Server, headers: &HeaderMap) -> bool {
     match headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
+        Some(origin) if state.origin_from_host => {
+            // Legacy non-agent HTTPS deployments derive their public authority
+            // from the proxy-preserved Host. Never use this fallback when an
+            // explicit origin or the independent agent listener is configured.
+            let scheme = if state.secure_cookies { "https" } else { "http" };
+            headers
+                .get(header::HOST)
+                .and_then(|host| host.to_str().ok())
+                .and_then(|host| crate::agent_listener::origin(&format!("{scheme}://{host}")).ok())
+                .is_some_and(|expected| expected == origin)
+        }
         Some(origin) => origin == state.public_origin,
         None => !headers
             .get("sec-fetch-site")
