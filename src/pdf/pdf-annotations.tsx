@@ -12,7 +12,7 @@ import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-poin
 import { notifyInfo } from "../telemetry/app-notify";
 import { addListeners } from "./pdf-viewer-utils";
 import { pdfPageView } from "./pdf-slick";
-import { pdfSelectedPlainTextWithin } from "./pdf-text-layer-selection";
+import { isPdfCopyField, pdfSelectedPlainTextWithin } from "./pdf-text-layer-selection";
 import { usePdfRenderCount, type PdfRenderCount } from "./use-pdf-document";
 import type { ActiveViewerRef } from "./use-pdf-view";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -216,12 +216,27 @@ export default function PdfAnnotationLayer({
       },
     });
     const removeScroll = addListeners(record.root, { scroll: dismiss }, { passive: true });
+    // Work anywhere else ends the offer too: a double-click's SyncTeX jump
+    // into the source and typing there, a build, another panel. Only a press
+    // inside the PDF used to, so Annotate stood over the page for minutes.
+    // The hidden copy field takes focus after a drag; it is still the PDF's.
+    const away = (target: EventTarget | null) => target instanceof Node && !record.root.contains(target)
+      && !(target instanceof Element && target.closest(".pdf-annotate-offer"));
+    const removeAway = addListeners(document, {
+      pointerdown: (event: PointerEvent) => {
+        if (away(event.target)) dismiss();
+      },
+      focusin: (event: FocusEvent) => {
+        if (!isPdfCopyField(event.target) && away(event.target)) dismiss();
+      },
+    }, { capture: true });
     // Mounted by the drag that just ended: offer for its selection too.
     schedule();
     return () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       removeRoot();
       removeScroll();
+      removeAway();
     };
   }, [annotatable, generation, previewRef, recordRef, scaleRef]);
 

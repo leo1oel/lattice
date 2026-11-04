@@ -60,19 +60,13 @@ describe("measurePdfToolbarMinWidth", () => {
   // buttons and their gap 50, and the field's own padding 12.
   const fixed = 16 + 12 + 100 + 50 + 12;
 
-  it("reserves room for a typed query beside its match controls before the first keystroke", () => {
-    // Idle: icon 12 + gap 4 + placeholder 66 = 82. Typing: eight characters 48 + gap 4 + controls 141.
-    expect(measurePdfToolbarMinWidth(toolbar(141))).toBe(fixed + 193);
-  });
-
-  it("reserves room for a three-digit match count beyond the idle counter", () => {
-    // "000 / 000" is 54px; the counter reads "0 / 0" at its 31px minimum, so the controls grow by 23.
-    expect(measurePdfToolbarMinWidth(toolbar(141, 31))).toBe(fixed + 193 + 23);
-  });
-
-  it("keeps the whole placeholder when that is the wider state", () => {
-    expect(measurePdfToolbarMinWidth(toolbar(10))).toBe(fixed + 82);
-    // A toolbar with no match controls (no PDF yet) budgets the placeholder alone.
+  it("budgets the field's icon and whole placeholder, and leaves a typed query to the fold", () => {
+    // Icon 12 + gap 4 + placeholder 66 = 82, however wide the match controls
+    // are: reserving a query beside them (48 + 4 + 141) took 111px more from
+    // the source editor beside the PDF in a narrow window.
+    expect(measurePdfToolbarMinWidth(toolbar(141))).toBe(fixed + 82);
+    expect(measurePdfToolbarMinWidth(toolbar(141, 31))).toBe(fixed + 82);
+    // A toolbar with no match controls (no PDF yet) budgets the same.
     expect(measurePdfToolbarMinWidth(toolbar(null))).toBe(fixed + 82);
   });
 

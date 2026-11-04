@@ -10821,6 +10821,7 @@ msgid "Proof environment (requires amsthm)"
 msgstr "Proof environment (requires amsthm)"
 
 #: src/canvas/proofread-card.tsx
+#: src/canvas/proofread-layer.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Proofread"
 msgstr "Proofread"
@@ -11541,6 +11542,10 @@ msgstr "replaced $ matches"
 #: src/editor/latex/search-panel.ts
 msgid "replaced match on line $"
 msgstr "replaced match on line $"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Replaced with <0>{replacement}</0>. Building again to confirm the fix."
+msgstr "Replaced with <0>{replacement}</0>. Building again to confirm the fix."
 
 #: src/project/project-replace-dialog.tsx
 msgid "Replacement text"
@@ -12595,6 +12600,10 @@ msgstr "Select the line"
 #: src/editor/editor-keymap.ts
 msgid "Select the next occurrence"
 msgstr "Select the next occurrence"
+
+#: src/canvas/proofread-layer.tsx
+msgid "Select the text to proofread first."
+msgstr "Select the text to proofread first."
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"

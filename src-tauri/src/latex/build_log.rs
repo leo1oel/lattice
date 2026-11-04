@@ -134,11 +134,18 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     .unwrap();
     let located = |capture: &Captures, level: &str| {
         let file = Some(normalize_log_path(&capture[1]));
-        diagnostic(file, capture[2].parse().ok(), level, capture[3].trim().to_string())
+        let message = match level {
+            "warning" => warning_message(log, capture),
+            _ => capture[3].trim().to_string(),
+        };
+        diagnostic(file, capture[2].parse().ok(), level, message)
     };
 
     let mut diagnostics: Vec<Diagnostic> = file_line
         .captures_iter(log)
+        // A located package warning is read once, below, without its
+        // `Package natbib Warning:` header.
+        .filter(|capture| !warning_on_line.is_match(&capture[0]))
         .take(40)
         .map(|capture| {
             let warns = capture[3].to_ascii_lowercase().contains("warning");
@@ -170,9 +177,9 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         push_unique(&mut diagnostics, advice);
     }
     for capture in warning.captures_iter(log).take(40) {
-        let message = capture[1].trim();
-        if !is_pass_noise_warning(message) {
-            push_unique(&mut diagnostics, diagnostic(None, None, "warning", message.to_string()));
+        let message = warning_message(log, &capture);
+        if !is_pass_noise_warning(&message) {
+            push_unique(&mut diagnostics, diagnostic(None, None, "warning", message));
         }
     }
     // The same noise warnings also arrive with a `file:line:` prefix through
@@ -191,6 +198,34 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     super::cjk_text::explain_cjk_text(log, &mut diagnostics);
     super::engine_mismatch::explain_pdftex_only_commands(log, &mut diagnostics);
     diagnostics
+}
+
+/// A warning's whole message. TeX writes a long one over several lines: a
+/// package or class starts each further line with its name in parentheses,
+/// `(hyperref)       removing …`, and LaTeX's own warnings indent it under
+/// the text, so reading one line cut the message mid-sentence ("You have
+/// requested package `neurips',"). `capture` is a warning pattern's match,
+/// whose last group is the message's first line.
+fn warning_message(log: &str, capture: &Captures) -> String {
+    let whole = capture.get(0).expect("a match has group 0");
+    let first = &capture[capture.len() - 1];
+    let source = Regex::new(r"(?:Package|Class) (\S+) Warning:").unwrap();
+    let continuation = match source.captures(whole.as_str()) {
+        Some(source) => format!("({})", &source[1]),
+        None => " ".repeat("LaTeX Warning: ".len()),
+    };
+    let mut message = first.trim().to_string();
+    // The match ends at its line's end, so the first item is that line's rest.
+    for line in log[whole.end()..].lines().skip(1) {
+        let Some(rest) = line.strip_prefix(&continuation) else { break };
+        let rest = rest.trim();
+        if rest.is_empty() {
+            break;
+        }
+        message.push(' ');
+        message.push_str(rest);
+    }
+    message
 }
 
 /// A file TeX names in its log, `./main.tex` or `../shared/macros.tex`.
@@ -377,6 +412,35 @@ mod tests {
         assert_eq!(diagnostics[1].file.as_deref(), Some("main.tex"));
         assert_eq!(diagnostics[1].level, "warning");
         assert!(diagnostics.iter().any(|item| item.file.is_none() && item.level == "warning"));
+    }
+
+    #[test]
+    fn a_warning_keeps_the_lines_tex_continued_it_on() {
+        // The tutorial's own warning, cut at "neurips'," in the Build card.
+        let log = pass(
+            "LaTeX Warning: You have requested package `neurips',\n\
+             \x20              but the package provides `neurips_2026'.\n\
+             \n\
+             Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n\
+             (hyperref)                removing `math shift' on input line 12.\n\
+             (./main.aux)\n\
+             ./main.tex:40: Package natbib Warning: Citation `x' on page 1 undefined\n\
+             (natbib)                on input line 40.\n\
+             LaTeX Warning: Label `a' multiply defined.\n\
+             \x20[1]\n",
+        );
+        let messages: Vec<_> =
+            parse_diagnostics(&log).into_iter().map(|item| item.message).collect();
+        assert_eq!(
+            messages,
+            [
+                "Citation `x' on page 1 undefined on input line 40.",
+                "You have requested package `neurips', but the package provides `neurips_2026'.",
+                "Token not allowed in a PDF string (Unicode): removing `math shift' on input line 12.",
+                // A line that only starts with a space is TeX's own output.
+                "Label `a' multiply defined.",
+            ]
+        );
     }
 
     fn located(diagnostics: &[Diagnostic]) -> Vec<(&str, Option<&str>, Option<u32>, &str)> {
