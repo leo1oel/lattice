@@ -40,7 +40,11 @@ export class MockProject implements Contents {
   path(args: Args): string {
     const path = args?.path;
     if (typeof path !== "string") throw new Error("missing path");
-    return path.startsWith(`${this.root}/`) ? path.slice(this.root.length + 1) : path;
+    return this.relative(path);
+  }
+
+  private relative(path: string): string {
+    return path === this.root ? "" : path.startsWith(`${this.root}/`) ? path.slice(this.root.length + 1) : path;
   }
 
   /** A text file's contents, or "" for a binary or missing one. */
@@ -108,7 +112,29 @@ export class MockProject implements Contents {
     const path = this.path(args);
     const name = String(args?.newName ?? "");
     const slash = path.lastIndexOf("/");
-    const next = slash < 0 ? name : `${path.slice(0, slash)}/${name}`;
+    return this.relocate(path, slash < 0 ? name : `${path.slice(0, slash)}/${name}`);
+  }
+
+  /** Moves an entry into another folder ("" for the project's top), keeping its name. */
+  move(args: Args): string {
+    const path = this.path(args);
+    const target = this.relative(String(args?.targetDirectory ?? "")).replace(/^\/+|\/+$/g, "");
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    const next = target ? `${target}/${name}` : name;
+    if (next !== path && this.taken(next)) throw new Error(`${next} already exists.`);
+    return this.relocate(path, next);
+  }
+
+  /** Deletes a file, or a folder with everything in it. */
+  delete(args: Args): null {
+    const path = this.path(args);
+    const inside = (key: string) => key === path || key.startsWith(`${path}/`);
+    for (const key of [...this.files.keys()]) if (inside(key)) this.files.delete(key);
+    for (const key of [...this.folders]) if (inside(key)) this.folders.delete(key);
+    return null;
+  }
+
+  private relocate(path: string, next: string): string {
     const moved = (key: string) => (key === path ? next : key.startsWith(`${path}/`) ? next + key.slice(path.length) : key);
     for (const [key, content] of [...this.files]) {
       if (moved(key) === key) continue;
@@ -172,6 +198,10 @@ export class MockProject implements Contents {
         return this.create(args);
       case "rename_project_entry":
         return this.rename(args);
+      case "move_project_entry":
+        return this.move(args);
+      case "delete_project_entry":
+        return this.delete(args);
       default:
         return NOT_HANDLED;
     }
