@@ -350,3 +350,7 @@
 }
 .overleaf-browser-login, .overleaf-browser-login form { display: grid; gap: var(--space-3); }
 .overleaf-browser-login { margin-top: var(--space-4); }
+.overleaf-stage-message .overleaf-browser-login { width: min(100%, 44ch); }
+.overleaf-browser-login form { text-align: left; }
+.overleaf-stage:has(.overleaf-browser-login form) { overflow: auto; }
+.overleaf-stage:has(.overleaf-browser-login form) .overleaf-stage-message { justify-content: flex-start; }
