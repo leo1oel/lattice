@@ -5,12 +5,18 @@
  * match: every needle character in order, each step scoring higher the closer
  * it follows the previous one. Zero when the characters do not all appear.
  * Spaces only separate the parts, so "note 12" finds notes/note-012.md.
+ *
+ * With `runs`, each character must follow the previous one directly or begin
+ * a word, so "sp" finds Show Panel and "proofsel" Proofread selection, while
+ * letters scattered inside words ("proof" across "Import Overleaf") are no
+ * match: a palette that lists those reads as broken.
  */
-function subsequenceScore(hay: string, needle: string): number {
+function subsequenceScore(hay: string, needle: string, runs = false): number {
   let score = 0;
   let index = 0;
   for (const character of needle.replace(/\s+/g, "")) {
-    const next = hay.indexOf(character, index);
+    let next = hay.indexOf(character, index);
+    while (runs && next > index && !wordStart(hay, next)) next = hay.indexOf(character, next + 1);
     if (next < 0) return 0;
     score += 10 - Math.min(9, next - index);
     index = next + 1;
@@ -43,7 +49,7 @@ const wordStart = (hay: string, at: number) => at === 0 || /[\s/._\-·(]/.test(h
  * How well `item` matches `query`, zero for no match. The label leads (whole,
  * then its start), then a run of the query anywhere in what the row says,
  * higher at the start of a word; then every spaced part of the query somewhere
- * ("agent show" finds Show Agent), then its characters in order.
+ * ("agent show" finds Show Agent), then runs of it at word starts.
  */
 export function scoreItem(item: RankedRow, query: string): number {
   const needle = query.toLocaleLowerCase();
@@ -56,7 +62,7 @@ export function scoreItem(item: RankedRow, query: string): number {
   if (at >= 0) return (wordStart(hay, at) ? 700 : 500) - Math.min(at, 200);
   const terms = needle.split(/\s+/).filter(Boolean);
   if (terms.length > 1 && terms.every((term) => hay.includes(term))) return 280;
-  return Math.min(250, subsequenceScore(hay, needle));
+  return Math.min(250, subsequenceScore(hay, needle, true));
 }
 
 /** How well a project path matches `query`: its whole, its file name, a run of it, then its characters in order. */

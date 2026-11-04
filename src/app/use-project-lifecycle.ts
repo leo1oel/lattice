@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -106,15 +106,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
    */
   const [launching, setLaunching] = useState(true);
 
-  // `name: null` is the untouched default, resolved per render so it follows the interface language.
-  const [createFormState, setCreateForm] = useState<Omit<CreateProjectForm, "name"> & { name: string | null }>({
-    open: false, error: null, name: null, venue: "neurips",
-  });
-  const defaultProjectName = t`Untitled research`;
-  const createForm = useMemo<CreateProjectForm>(
-    () => ({ ...createFormState, name: createFormState.name ?? defaultProjectName }),
-    [createFormState, defaultProjectName],
-  );
+  // An empty name is the field's placeholder, "Untitled research" in the interface language.
+  const [createForm, setCreateForm] = useState<CreateProjectForm>({ open: false, error: null, name: "", venue: "neurips" });
   const updateCreateForm = useCallback((update: Partial<CreateProjectForm>) => {
     setCreateForm((form) => ({ ...form, error: null, ...update }));
   }, []);
@@ -296,15 +289,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   }, [openProjectWindow, project?.root, switchProject, t]);
 
   const createProject = useCallback(async () => {
-    if (!createForm.name.trim()) {
-      updateCreateForm({ error: t`Enter a project name.` });
-      return;
-    }
     const parent = await open({ directory: true, multiple: false, title: t`Choose where to create the project` });
     if (!parent) return;
     await revealNewProject(t`Creating project…`, async () => {
       const snapshot = await invoke<ProjectSnapshot>("create_project", {
-        parent, name: createForm.name, venue: createForm.venue,
+        parent, name: createForm.name.trim() || t`Untitled research`, venue: createForm.venue,
       });
       updateCreateForm({ open: false });
       return snapshot.root;

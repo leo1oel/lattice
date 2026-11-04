@@ -81,6 +81,8 @@ export function OverleafCollabDrawer(props: {
   const tab = (label: string, count: number) => (
     <>
       <span className="overleaf-collab-tab-label">{label}</span>
+      {/* Read as "Comments 5"; the flex gap draws the space. */}
+      {count > 0 && " "}
       {count > 0 && <span className="overleaf-collab-tab-count">{formatCount(count, i18n.locale)}</span>}
     </>
   );
@@ -145,7 +147,7 @@ export function OverleafCollabDrawer(props: {
                     showResolved={showResolved}
                     onChange={setShowResolved}
                     openLabel={t`Unresolved`}
-                    resolvedLabel={t({ message: `All (${threadCount})` })}
+                    resolvedLabel={tab(t({ message: "All", context: "comment filter" }), threadCount)}
                   />
                 )}
               </div>

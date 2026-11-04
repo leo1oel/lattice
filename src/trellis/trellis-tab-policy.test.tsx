@@ -240,6 +240,31 @@ describe("a panel out of room", () => {
     expect(strip()).toEqual(["main.tex", "a.tex", "b.tex", "q.tex"]);
   });
 
+  it("never closes the project's root document for quick looks", async () => {
+    const { controller, closed, open, strip } = await openProject(["main.tex", "a.tex"]);
+    controller.texts.set("main.tex", "\\documentclass{article}\n\\begin{document}\n\\end{document}\n");
+    // A kept tab and a run of quick looks, each away from main.tex, which is used least recently.
+    await open("a.tex");
+    await open("sheet.lattice-sheet");
+    await open("notes.md", { quick: true });
+    await open("a.html", { quick: true });
+    await open("b.tldr", { quick: true });
+    expect(closed).toEqual(["a.tex", "notes.md", "a.html"]);
+    expect(strip()).toEqual(["main.tex", "sheet.lattice-sheet", "b.tldr"]);
+  });
+
+  it("never closes a document edited this session", async () => {
+    const { controller, closed, open, strip } = await openProject(["main.tex", "a.tex", "b.tex"]);
+    await open("a.tex");
+    act(() => controller.app.set({ activeDirty: true }));
+    act(() => controller.app.set({ activeDirty: false }));
+    await open("b.tex");
+    await open("main.tex");
+    await open("c.tex");
+    expect(closed).toEqual(["b.tex"]);
+    expect(strip()).toEqual(["main.tex", "a.tex", "c.tex"]);
+  });
+
   it("leaves the tabs restored with the project alone", async () => {
     const { controller, closed, ws } = await openProject(["main.tex"]);
     act(() => controller.app.set({ openTabs: ["main.tex", "a.tex", "b.tex", "c.tex", "d.tex"] }));

@@ -14,6 +14,7 @@ import { ScrollArea } from "../../components/ui/scroll-area";
 import { SearchField } from "../../components/ui/search-field";
 import { Textarea } from "../../components/ui/textarea";
 import { AnnotationPin } from "./annotation-pin";
+import { AnnotationQuote } from "./annotation-quote";
 import {
   annotationStatus,
   editorCommentAuthorDisplayName,
@@ -139,8 +140,9 @@ export function EditorCommentsPanel(props: {
     }
   };
 
-  const openCount = props.comments.filter((comment) => !comment.resolved).length;
-  const resolvedCount = props.comments.length - openCount;
+  // Each count is what its filter lists (shownIn).
+  const openCount = props.comments.filter((comment) => shownIn("open", comment)).length;
+  const resolvedCount = props.comments.filter((comment) => shownIn("resolved", comment)).length;
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     const matches = (comment: EditorComment) => !needle || [
@@ -256,13 +258,10 @@ export function EditorCommentsPanel(props: {
   // whose tooltip would open; the grid still draws them beside the title.
   const header = (
     <div className="annotations-head">
-      <div className="annotations-title-row">
-        {!props.embedded && <h2 className="annotations-title">{t`Annotations`}</h2>}
-      </div>
       {highlightKinds.length > 0 && (
         <div className="annotations-tabs" role="group" aria-label={t`Annotations and highlights`}>
           <button type="button" className="annotations-tab" aria-pressed={mode === "notes"} onClick={() => setMode("notes")}>
-            {t`Notes`}<span className="annotations-tab-count">{formatCount(openCount + resolvedCount, i18n.locale)}</span>
+            {t`Notes`}<span className="annotations-tab-count">{formatCount(props.comments.length, i18n.locale)}</span>
           </button>
           <button type="button" className="annotations-tab" aria-pressed={mode === "highlights"} onClick={() => setMode("highlights")}>
             {t`Highlights`}<span className="annotations-tab-count">{formatCount(highlights.length, i18n.locale)}</span>
@@ -371,7 +370,8 @@ export function EditorCommentsPanel(props: {
     const focused = comment.id === props.focusCommentId;
     const author = editorCommentAuthorDisplayName(comment.authorName, anonymousAuthor);
     const name = comment.path.split("/").at(-1) ?? comment.path;
-    const location = comment.pdf ? t`PDF p.${comment.pdf.page}` : line ? `${name}:${line}` : name;
+    // The source line; a page only for a note the source cannot place.
+    const location = line ? `${name}:${line}` : comment.pdf ? t`PDF p.${comment.pdf.page}` : name;
     const revision = comment.revision;
     const asking = status === "asked" && revision?.question;
     const pin = comment.number ?? 0;
@@ -404,7 +404,7 @@ export function EditorCommentsPanel(props: {
           {pin
             ? <AnnotationPin number={pin} status={status ?? "open"} />
             : <span className="annotation-card-author-dot" aria-hidden />}
-          <span className="annotation-card-quote">{comment.quote.trim() || t`(empty span)`}</span>
+          <span className="annotation-card-quote">{comment.quote.trim() ? <AnnotationQuote text={comment.quote.trim()} /> : t`(empty span)`}</span>
           {comment.body
             ? <span className="annotation-card-note">{comment.body}</span>
             : comment.intent && <span className="annotation-card-note">{intentLabels[comment.intent]}</span>}

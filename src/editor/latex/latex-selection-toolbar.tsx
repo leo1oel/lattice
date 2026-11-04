@@ -14,7 +14,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { MessageDescriptor } from "@lingui/core";
@@ -28,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/pop
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 import { selectionToolbarMenuClassName } from "../../components/ui/menu-surface";
 import { chunk, lazyChunk } from "../../lib/lazy-chunk";
+import { listenForRewriteMenu } from "./selection-toolbar-placement";
 
 export type LatexSelectionAction =
   | "bold"
@@ -53,6 +54,8 @@ export type LatexSelectionToolbarPosition = {
   top: number;
   below: boolean;
   maxWidth: number;
+  /** The editor's box, inset: the toolbar, measured once drawn, stays inside it. */
+  bounds?: { left: number; right: number };
 };
 
 const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: typeof Bold; separated?: boolean; shortcut?: string }[] = [
@@ -99,10 +102,18 @@ export function LatexSelectionToolbar(props: {
   const [linkUrl, setLinkUrl] = useState("https://");
   const [linkOpen, setLinkOpen] = useState(false);
   const [highlightOpen, setHighlightOpen] = useState(false);
+  const [rewriteOpen, setRewriteOpen] = useState(false);
   const highlightPrefs = useHighlightPrefs();
   // It grows from the selection as every popup does and, gone, fades where it stood.
   const anchorRef = useRef<HTMLDivElement | null>(null);
   useExitPicture([anchorRef]);
+  // Its centre as placed, moved in so its real width (the placement only
+  // estimates it) never crosses the editor's edge.
+  const [width, setWidth] = useState(0);
+  // Its buttons follow these props, and a new placement may wrap it to another width.
+  useLayoutEffect(() => setWidth(anchorRef.current?.offsetWidth ?? 0), [props.position, props.canComment, props.canProofread, props.commentOnly]);
+  const { bounds } = props.position;
+  const left = bounds && width ? Math.min(Math.max(props.position.left, bounds.left + width / 2), bounds.right - width / 2) : props.position.left;
   const lastHighlighter = highlighterOf(highlightPrefs.last);
   const lastHighlight = lastHighlighter ? highlightPrefs.meaningOf(lastHighlighter) : highlightPrefs.last;
   const applyLink = () => {
@@ -118,6 +129,11 @@ export function LatexSelectionToolbar(props: {
   const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
     : action === "proofread" || action === "polish" ? canAskAgent : !props.commentOnly);
   const onDismiss = props.onDismiss;
+  // The palette's Rewrite selection… opens the menu its button opens.
+  useEffect(() => (canAskAgent ? listenForRewriteMenu(() => {
+    warmInstructionMenu();
+    setRewriteOpen(true);
+  }) : undefined), [canAskAgent]);
   useEffect(() => {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {
       const target = event.target;
@@ -134,7 +150,7 @@ export function LatexSelectionToolbar(props: {
       className={`latex-selection-toolbar-anchor ${popupMotionClassName}${props.position.below ? " below" : ""}`}
       data-side={props.position.below ? "bottom" : "top"}
       style={{
-        left: props.position.left,
+        left,
         top: props.position.top,
         maxWidth: props.position.maxWidth,
       }}
@@ -159,7 +175,7 @@ export function LatexSelectionToolbar(props: {
         })}
         {canAskAgent && (
           <span className="latex-selection-tool">
-            <Popover>
+            <Popover open={rewriteOpen} onOpenChange={setRewriteOpen}>
               <Tip label={t`Rewrite with an instruction`} side="top">
                 <PopoverTrigger asChild>
                   <button type="button" aria-label={t`Rewrite with an instruction`} onPointerEnter={warmInstructionMenu} onFocus={warmInstructionMenu}>

@@ -160,7 +160,7 @@ export function CreateProjectDialog(props: {
         <h2>{t`Create a research project`}</h2>
         <label>
           {t`Project name`}
-          <Input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
+          <Input autoFocus value={props.projectName} placeholder={t`Untitled research`} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
         </label>
         <div className="venue-picker">
           <span className="venue-picker-label">{t`Venue template`}</span>

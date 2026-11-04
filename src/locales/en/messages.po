@@ -1581,6 +1581,10 @@ msgstr "Adding {0} of {1}"
 msgid "Adding paper"
 msgstr "Adding paper"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
+msgstr "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "Adding…"
@@ -1682,8 +1686,9 @@ msgid "All"
 msgstr "All"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "All ({threadCount})"
-msgstr "All ({threadCount})"
+msgctxt "comment filter"
+msgid "All"
+msgstr "All"
 
 #: src/papers/bibliography-audit.tsx
 msgid "All {total} references verified"
@@ -1892,7 +1897,6 @@ msgstr "Annotation deleted"
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
-#: src/editor/comments/editor-comments-panel.tsx
 #: src/pdf/pdf-annotations.tsx
 #: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -4856,7 +4860,7 @@ msgstr "Document authors"
 msgid "Document date"
 msgstr "Document date"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Document is already formatted."
 msgstr "Document is already formatted."
 
@@ -5138,6 +5142,10 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "Edit"
 
+#: src/history/history-drawer.tsx
+msgid "Edit {editedName}"
+msgstr "Edit {editedName}"
+
 #: src/app/use-command-table.ts
 msgid "Edit and preview HTML"
 msgstr "Edit and preview HTML"
@@ -5341,10 +5349,6 @@ msgstr "Enter a citation key to remove."
 #: src/platform/host-errors-workspace.ts
 msgid "Enter a DOI, arXiv id, or paper title."
 msgstr "Enter a DOI, arXiv id, or paper title."
-
-#: src/app/use-project-lifecycle.ts
-msgid "Enter a project name."
-msgstr "Enter a project name."
 
 #: src/settings/literature-settings.tsx
 msgid "Enter a replacement key"
@@ -5994,7 +5998,7 @@ msgstr "For all"
 msgid "For each item already here"
 msgstr "For each item already here"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Format"
 msgstr "Format"
 
@@ -6002,6 +6006,7 @@ msgstr "Format"
 msgid "Format currently supports .tex, .cls, and .sty files."
 msgstr "Format currently supports .tex, .cls, and .sty files."
 
+#: src/app/format-document.ts
 #: src/app/use-command-table.ts
 msgid "Format document"
 msgstr "Format document"
@@ -6010,7 +6015,7 @@ msgstr "Format document"
 msgid "Format selected LaTeX"
 msgstr "Format selected LaTeX"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Formatted with latexindent."
 msgstr "Formatted with latexindent."
 
@@ -6991,16 +6996,16 @@ msgid "Install package for {0}"
 msgstr "Install package for {0}"
 
 #: src/build/tex-setup-wizard.tsx
+msgid "Install paper tools"
+msgstr "Install paper tools"
+
+#: src/build/tex-setup-wizard.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "Install required tools"
-
-#: src/build/tex-setup-wizard.tsx
-msgid "Install required tools · 45 MB"
-msgstr "Install required tools · 45 MB"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9541,7 +9546,7 @@ msgstr "Open {title}"
 msgid "Open {title} in browser"
 msgstr "Open {title} in browser"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Open a .tex file before formatting."
 msgstr "Open a .tex file before formatting."
 
@@ -11997,6 +12002,10 @@ msgstr "Rewrite"
 msgctxt "selection instruction"
 msgid "Rewrite"
 msgstr "Rewrite"
+
+#: src/app/use-command-table.ts
+msgid "Rewrite selection…"
+msgstr "Rewrite selection…"
 
 #: src/canvas/proofread-card.tsx
 msgid "Rewrite suggestion"
@@ -15411,6 +15420,7 @@ msgid "Untitled"
 msgstr "Untitled"
 
 #: src/app/use-project-lifecycle.ts
+#: src/project/project-dialogs.tsx
 msgid "Untitled research"
 msgstr "Untitled research"
 
@@ -16104,8 +16114,8 @@ msgid "You read the publisher's notice and kept citing it"
 msgstr "You read the publisher's notice and kept citing it"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "You sign in on Overleaf. Lattice never sees your password"
-msgstr "You sign in on Overleaf. Lattice never sees your password"
+msgid "You sign in on Overleaf. Lattice never sees your password."
+msgstr "You sign in on Overleaf. Lattice never sees your password."
 
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
