@@ -8,7 +8,7 @@
 
 use super::parse::parse_name_status_z;
 use super::{
-    ensure_repository, git_command, git_output, is_binary_path, is_internal_path,
+    blob_spec, ensure_repository, git_command, git_output, is_binary_path, is_internal_path,
     normalize_relative, nul_separated, show_blob_bytes, validate_rev, GitFileDiff, GitLogFile,
 };
 use crate::project;
@@ -23,10 +23,20 @@ pub fn compare_files(root: &Path, from: &str, to: Option<&str>) -> Result<Vec<Gi
     ensure_repository(root)?;
     let from = validate_rev(from)?;
     let to = to.map(validate_rev).transpose()?;
-    let mut args =
-        vec!["diff", "--no-ext-diff", "--no-textconv", "--name-status", "-z", "-M", from.as_str()];
+    // `--relative`: only the project folder's files, named from it, when the
+    // project sits inside a larger repository.
+    let mut args = vec![
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--name-status",
+        "--relative",
+        "-z",
+        "-M",
+        from.as_str(),
+    ];
     args.extend(to.as_deref());
-    args.push("--");
+    args.extend(["--", "."]);
     let mut files = parse_name_status_z(&git_output(root, &args)?);
     if to.is_none() {
         let untracked = git_output(root, &["ls-files", "-z", "--others", "--exclude-standard"])?;
@@ -52,9 +62,9 @@ pub fn compare_file(
     if is_binary_path(&relative) {
         return Ok(GitFileDiff { before: None, after: None, binary: true });
     }
-    let before = show_blob_bytes(root, &format!("{from}:{from_relative}"));
+    let before = show_blob_bytes(root, &blob_spec(&from, &from_relative));
     let after = match to {
-        Some(to) => show_blob_bytes(root, &format!("{to}:{relative}")),
+        Some(to) => show_blob_bytes(root, &blob_spec(&to, &relative)),
         None => fs::read(on_disk).ok(),
     };
     Ok(GitFileDiff::from_blobs(before, after))
