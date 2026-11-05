@@ -26,7 +26,7 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
   const src = useMemo(() => origin
     ? synaraEmbedUrl({ origin, authToken: runtime.authToken, hostPreferences: runtime.hostPreferences, projectRoot, theme, locale: appLocale })
     : undefined,
-  [origin, runtime.authToken, projectRoot, theme, appLocale]);
+  [origin, runtime.authToken, runtime.hostPreferences, projectRoot, theme, appLocale]);
   return (
     <div className={`synara-frame-shell ${dropActive ? "agent-drop-active" : ""}`} data-tour="agent-panel" data-ready={frameReady || undefined}>
       {frameMounted && origin && <iframe
