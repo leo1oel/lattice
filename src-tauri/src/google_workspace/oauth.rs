@@ -187,7 +187,9 @@ fn finish(dir: &Path, state: &GoogleState, flow: Flow) -> Result<(), String> {
         if !client.client_secret.is_empty() {
             fields.push(("client_secret", &client.client_secret));
         }
-        let http = account::client_for(&token_url)?;
+        let http = account::client_for(&token_url).inspect_err(|_| {
+            log::warn!("Google OAuth token client initialization failed");
+        })?;
         let response = http
             .post(&token_url)
             .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
