@@ -77,20 +77,23 @@ function selectedLines(root: HTMLElement): { page: number; pageElement: HTMLElem
 /** How long source notes wait after a change before SyncTeX looks them up, so typing in a passage runs no process per key. */
 const SOURCE_PLACE_DELAY_MS = 250;
 
+type PdfDocument = NonNullable<NonNullable<ActiveViewerRef["current"]>["slick"]["document"]>;
+
 /**
- * What one document's marks are measured from, read once per document: each
+ * What one document's marks are measured from, read once per document (a
+ * rebuild that redraws only its changed pages swaps the document under the
+ * same viewer, pdf-page-swap.ts, so `serial` counts documents): each
  * page's text, and the text of each annotated source file when the PDF
  * arrived, which is what it was built from; and where each source note was
  * placed, by note and quote, so typing elsewhere in the file looks nothing up again.
  */
 type DocumentReads = {
-  generation: number;
+  document: PdfDocument;
+  serial: number;
   pages: Map<number, Promise<PageText | null>>;
   built: Map<string, Promise<string | null>>;
   sourcePlaces: Map<string, Promise<PlacedMark | null>>;
 };
-
-type PdfDocument = NonNullable<NonNullable<ActiveViewerRef["current"]>["slick"]["document"]>;
 
 function pageTextOf(reads: DocumentReads, document: PdfDocument, number: number) {
   let text = reads.pages.get(number);
@@ -110,21 +113,24 @@ function pageTextOf(reads: DocumentReads, document: PdfDocument, number: number)
  * and its words put it (pdf-source-marks.ts). Null until the first PDF
  * note's placement on this document is known; source notes arrive one by
  * one after it, each SyncTeX lookup a process of its own, so the PDF never
- * waits on them.
+ * waits on them. Measured again whenever the pages are redrawn from another
+ * document (`pageRenders`): a rebuild moves the words its marks cover.
  */
 function usePdfMarkPlaces(
-  recordRef: ActiveViewerRef, rounds: AnnotationRounds, marks: readonly PdfAnnotationMark[], generation: number,
+  recordRef: ActiveViewerRef, rounds: AnnotationRounds, marks: readonly PdfAnnotationMark[], generation: number, pageRenders: number,
 ): ReadonlyMap<string, PlacedMark> | null {
-  const [placed, setPlaced] = useState<{ generation: number; places: ReadonlyMap<string, PlacedMark> } | null>(null);
-  const [sourcePlaced, setSourcePlaced] = useState<{ generation: number; places: ReadonlyMap<string, PlacedMark | null> } | null>(null);
+  const [placed, setPlaced] = useState<{ generation: number; serial: number; places: ReadonlyMap<string, PlacedMark> } | null>(null);
+  const [sourcePlaced, setSourcePlaced] = useState<{ serial: number; places: ReadonlyMap<string, PlacedMark | null> } | null>(null);
   const readsRef = useRef<DocumentReads | null>(null);
   useEffect(() => {
     const document = recordRef.current?.slick.document;
     if (!document) return;
-    if (readsRef.current?.generation !== generation) {
-      readsRef.current = { generation, pages: new Map(), built: new Map(), sourcePlaces: new Map() };
+    if (readsRef.current?.document !== document) {
+      const serial = (readsRef.current?.serial ?? 0) + 1;
+      readsRef.current = { document, serial, pages: new Map(), built: new Map(), sourcePlaces: new Map() };
     }
     const reads = readsRef.current;
+    const { serial } = reads;
     let live = true;
     const onPdf = marks.flatMap((mark) => (mark.annotation.pdf ? [{ mark, pdf: mark.annotation.pdf }] : []));
     void Promise.all(onPdf.map(async ({ mark, pdf }) => {
@@ -132,7 +138,7 @@ function usePdfMarkPlaces(
       return [mark.id, place && { page: pdf.page, ...place }] as const;
     })).then((entries) => {
       if (!live) return;
-      setPlaced({ generation, places: new Map(entries.flatMap(([id, place]) => (place ? [[id, place] as const] : []))) });
+      setPlaced({ generation, serial, places: new Map(entries.flatMap(([id, place]) => (place ? [[id, place] as const] : []))) });
     });
 
     const inSource = marks.filter((mark) => !mark.annotation.pdf);
@@ -174,9 +180,9 @@ function usePdfMarkPlaces(
           const result = await place;
           if (!live) return;
           setSourcePlaced((current) => {
-            const base = current?.generation === generation ? current.places : null;
+            const base = current?.serial === serial ? current.places : null;
             if (base?.has(id) && base.get(id) === result) return current;
-            return { generation, places: new Map(base).set(id, result) };
+            return { serial, places: new Map(base).set(id, result) };
           });
         }
       })();
@@ -185,10 +191,11 @@ function usePdfMarkPlaces(
       live = false;
       window.clearTimeout(timer);
     };
-  }, [generation, marks, recordRef, rounds]);
+  }, [generation, marks, pageRenders, recordRef, rounds]);
   return useMemo(() => {
     if (placed?.generation !== generation) return null;
-    const sources = sourcePlaced?.generation === generation ? sourcePlaced.places : null;
+    // Source notes placed on an earlier document are left out until placed on this one.
+    const sources = sourcePlaced?.serial === placed.serial ? sourcePlaced.places : null;
     if (!sources?.size) return placed.places;
     const places = new Map(placed.places);
     for (const [id, place] of sources) if (place) places.set(id, place);
@@ -258,7 +265,7 @@ export default function PdfAnnotationLayer({
       ? [{ id: annotation.id, number: annotation.number, status: annotationStatus(annotation), annotation }]
       : []
   )), [annotations]);
-  const places = usePdfMarkPlaces(recordRef, rounds, marks, generation);
+  const places = usePdfMarkPlaces(recordRef, rounds, marks, generation, pageRenderGeneration);
   const annotatable = rounds.canAnnotatePdf();
 
   // A finished drag offers Annotate where the selection ends.

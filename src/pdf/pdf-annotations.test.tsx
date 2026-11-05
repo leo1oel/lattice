@@ -78,17 +78,38 @@ const SOURCE = [
   "by a constant before the softmax.",
 ].join("\n");
 
-/** A one-page PDF reading SOURCE's prose, its text as PDF.js gives it. */
+/** A one-page PDF document reading SOURCE's prose from `top` (its first baseline), its text as PDF.js gives it. */
+function compiledDocument(top = 700) {
+  const items = [
+    { str: "Scaled dot-product attention divides the scores by", transform: [10, 0, 0, 10, 72, top], width: 250, height: 10 },
+    { str: "a constant before the softmax.", transform: [10, 0, 0, 10, 72, top - 12], width: 150, height: 10 },
+  ];
+  return { numPages: 1, getPage: vi.fn(async () => ({ view: [0, 0, 612, 792], getTextContent: async () => ({ items }) })) };
+}
+
 function compiledPage() {
   const root = document.createElement("div");
   root.innerHTML = `<div data-page-number="1"></div>`;
   document.body.append(root);
-  const items = [
-    { str: "Scaled dot-product attention divides the scores by", transform: [10, 0, 0, 10, 72, 700], width: 250, height: 10 },
-    { str: "a constant before the softmax.", transform: [10, 0, 0, 10, 72, 688], width: 150, height: 10 },
-  ];
-  const getPage = vi.fn(async () => ({ view: [0, 0, 612, 792], getTextContent: async () => ({ items }) }));
-  return { root, slick: { document: { numPages: 1, getPage } } };
+  return { root, slick: { document: compiledDocument() } };
+}
+
+/** Page draws a test announces, as the preview does after each draw and after a rebuild swaps the document in. */
+function countedDraws() {
+  const listeners = new Set<() => void>();
+  let pages = 1;
+  const count: PdfRenderCount = {
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    pages: () => pages,
+    textLayers: () => 1,
+  };
+  return { count, drawn: () => {
+    pages += 1;
+    for (const listener of listeners) listener();
+  } };
 }
 
 describe("annotations made in the source, on the PDF", () => {
@@ -150,5 +171,41 @@ describe("annotations made in the source, on the PDF", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalled());
     await act(async () => answer(null));
     expect(screen.queryByRole("button", { name: "Annotation 1" })).toBeNull();
+  });
+});
+
+describe("marks after a rebuild", () => {
+  // A rebuild that changes only some pages swaps the new document into the
+  // open viewer (pdf-page-swap.ts) without a new viewer generation; the marks
+  // stood where their words used to be, over other words.
+  it("follow their words when a rebuild swaps the document into the open viewer", async () => {
+    const quote = "divides the scores";
+    const from = SOURCE.indexOf(quote);
+    const sourceNote = createEditorComment({ path: "main.tex", source: SOURCE, from, to: from + quote.length, number: 1, body: "Why?", authorId: "me", authorName: "Ada" })!;
+    const onPdf = createEditorComment({
+      path: "main.tex", source: SOURCE, from: SOURCE.indexOf("a constant"), to: SOURCE.indexOf(" before"), number: 2, body: "Which?", authorId: "me", authorName: "Ada",
+      pdf: { page: 1, rects: [{ x: 0.1176, y: 0.12, width: 0.1, height: 0.013 }], text: "a constant" },
+    })!;
+    let syncTop = 84;
+    vi.mocked(invoke).mockImplementation(async () => ({ page: 1, x: 72, y: syncTop, width: 400, height: 10 }));
+    const record = compiledPage();
+    const draws = countedDraws();
+    const rounds = { canAnnotatePdf: () => false, readSource: async () => SOURCE } as unknown as AnnotationRounds;
+    render(
+      <PdfAnnotationLayer
+        recordRef={{ current: record } as unknown as ActiveViewerRef} previewRef={createRef()} rounds={rounds}
+        annotations={[sourceNote, onPdf]} generation={1} renderCount={draws.count} scale={1}
+      />,
+    );
+    const top = (id: string) => Number.parseFloat(record.root.querySelector<HTMLElement>(`[data-annotation-id="${id}"] .pdf-annotation-highlight`)?.style.top ?? "NaN");
+    await waitFor(() => expect(top(sourceNote.id)).toBeCloseTo((792 - 707.8) / 792 * 100, 0));
+    expect(top(onPdf.id)).toBeCloseTo((792 - 695.8) / 792 * 100, 0);
+
+    // The rebuilt PDF prints the passage 300 pt lower.
+    syncTop = 384;
+    record.slick.document = compiledDocument(400);
+    act(() => draws.drawn());
+    await waitFor(() => expect(top(sourceNote.id)).toBeCloseTo((792 - 407.8) / 792 * 100, 0));
+    expect(top(onPdf.id)).toBeCloseTo((792 - 395.8) / 792 * 100, 0);
   });
 });
