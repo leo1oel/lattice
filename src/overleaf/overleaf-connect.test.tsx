@@ -141,6 +141,35 @@ describe("Overleaf settings section", () => {
     expect(invoke).toHaveBeenCalledWith("overleaf_poll_login");
   });
 
+  it("ignores a poll from a cancelled sign-in once the next sign-in has started", async () => {
+    let answerFirstPoll: (poll: unknown) => void = () => undefined;
+    const firstPoll = new Promise((resolve) => { answerFirstPoll = resolve; });
+    let polls = 0;
+    mockInvoke({
+      ...signsIn,
+      overleaf_status: disconnected,
+      overleaf_poll_login: () => (++polls === 1 ? firstPoll : { status: "pending", session: null }),
+    });
+    render(settings());
+
+    fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
+    expect(await screen.findByText(/Waiting for you to sign in in the Overleaf window/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
+    expect(await screen.findByText(/Waiting for you to sign in in the Overleaf window/)).toBeInTheDocument();
+    expect(screen.queryByText(/Sign-in was cancelled/)).not.toBeInTheDocument();
+    await waitFor(() => expect(polls).toBe(2));
+
+    // The backend answers the first attempt's poll with "cancelled" because
+    // that attempt has ended; it must not end the attempt now under way.
+    answerFirstPoll({ status: "cancelled", session: null });
+    await firstPoll;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByText(/Waiting for you to sign in in the Overleaf window/)).toBeInTheDocument();
+    expect(screen.queryByText(/Sign-in was cancelled/)).not.toBeInTheDocument();
+    expect(invokeCalls("overleaf_cancel_login")).toHaveLength(1);
+  });
+
   it("pauses and resumes a (legacy, host-less) link, telling the app each time so the toolbar follows", async () => {
     const onLinkChanged = vi.fn();
     let paused = false;

@@ -45,11 +45,13 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
   const attempts = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = useRef(false);
+  const generation = useRef(0);
   const connectedRef = useRef(onConnected);
   useEffect(() => { connectedRef.current = onConnected; });
 
   const stop = useCallback(() => {
     active.current = false;
+    generation.current += 1;
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     dispatch({ type: "stopped" });
@@ -66,11 +68,11 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
     dispatch({ type: "notice", notice: t`Sign-in was cancelled` });
   }, [stop, t]);
 
-  const poll = useCallback(async function pollForLogin() {
-    if (!active.current) return;
+  const poll = useCallback(async function pollForLogin(attempt: number) {
+    if (attempt !== generation.current) return;
     try {
       const result = await invoke<OverleafLoginPoll>("overleaf_poll_login");
-      if (!active.current) return;
+      if (attempt !== generation.current) return;
       if (result.status === "connected" && result.session) {
         stop();
         connectedRef.current(result.session);
@@ -89,9 +91,9 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
             : t`Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again`,
         });
       }
-      timer.current = setTimeout(() => void pollForLogin(), 1500);
+      timer.current = setTimeout(() => void pollForLogin(attempt), 1500);
     } catch (reason) {
-      if (!active.current) return;
+      if (attempt !== generation.current) return;
       stop();
       dispatch({ type: "failed", error: toMessage(reason) });
     }
@@ -104,7 +106,7 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
     void invoke("overleaf_begin_login", { title: t`Sign in to Overleaf` }).then(() => {
       active.current = true;
       dispatch({ type: "waiting" });
-      void poll();
+      void poll(generation.current);
     }, (reason) => dispatch({ type: "failed", error: toMessage(reason) }));
   }, [poll, t]);
 
