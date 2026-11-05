@@ -133,7 +133,7 @@ pub(super) fn extension(path: impl AsRef<Path>) -> Option<String> {
 /// The text sources Lattice imports, as `(extension, mime the agent composer
 /// attaches it as, what a new file starts with, whether search reads it)`. A
 /// `None` mime is never attached and a `None` seed is never created. Keep in
-/// sync with PROJECT_SOURCE_EXTENSIONS in src/app-utils.ts, which decides what
+/// sync with isProjectSourceFilePath in src/app-utils.ts, which decides what
 /// the frontend offers to the source import path.
 const SOURCE_KINDS: &[(&str, Option<&str>, Option<&str>, bool)] = &[
     ("tex", Some("text/x-tex"), Some("% New LaTeX file\n"), true),
@@ -150,6 +150,7 @@ const SOURCE_KINDS: &[(&str, Option<&str>, Option<&str>, bool)] = &[
     ("ts", Some("text/javascript"), Some(""), true),
     ("jsx", Some("text/javascript"), Some(""), true),
     ("js", Some("text/javascript"), Some(""), true),
+    ("py", Some("text/x-python"), Some(""), true),
 ];
 
 /// A [`SOURCE_KINDS`] row, found by `path`'s extension.

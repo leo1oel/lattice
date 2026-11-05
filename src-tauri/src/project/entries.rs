@@ -41,7 +41,7 @@ fn new_source_file(relative: &str) -> Result<(String, &'static str), String> {
     let path = Path::new(relative.trim());
     let path = if extension(path).is_none() { path.with_extension("tex") } else { path.into() };
     let seed = source_kind(&path).and_then(|kind| kind.seed).ok_or_else(|| {
-        "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .tldr, or .lattice-sheet."
+        "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet."
             .to_string()
     })?;
     Ok((path.to_string_lossy().to_string(), seed))
@@ -314,6 +314,30 @@ mod tests {
             assert_eq!(tree_kind(root, path).as_deref(), Some(kind), "{path}");
             assert!(inventory_has(root, path, "text"), "{path}");
         }
+    }
+
+    #[test]
+    fn python_sources_can_be_created_imported_read_and_searched() {
+        let fixture = Fixture::project("python-sources");
+        let canonical_root = fixture.root.canonicalize().unwrap();
+        let root = &canonical_root;
+        let created = create_entry(root, "scripts/plot.py", "file").unwrap();
+        assert_eq!(created, "scripts/plot.py");
+        assert_eq!(super::super::read_file(root, &created).unwrap(), "");
+        assert!(inventory_has(root, "scripts/plot.py", "text"));
+
+        let content = "def render_figure():\n    return 42\n";
+        let source = fixture.outside("analysis.PY", content);
+        let sources = vec![source.to_string_lossy().to_string()];
+        let imported = super::super::import_sources(root, &sources, "scripts").unwrap();
+        assert_eq!(imported, vec!["scripts/analysis.PY"]);
+        assert_eq!(super::super::read_file(root, &imported[0]).unwrap(), content);
+        assert!(super::super::search_files(root, "render_figure").unwrap().iter().any(|hit| {
+            hit.path == "scripts/analysis.PY" && hit.snippet.contains("def render_figure")
+        }));
+        let attachments = super::super::read_agent_composer_files(&sources).unwrap();
+        assert_eq!(attachments.len(), 1);
+        assert_eq!(attachments[0].mime_type, "text/x-python");
     }
 
     #[test]

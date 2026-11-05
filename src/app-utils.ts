@@ -69,7 +69,7 @@ function hasExtension(...extensions: string[]): (path: string) => boolean {
 
 export const isProjectSourceFilePath = hasExtension(
   "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr", "lattice-sheet",
-  "tsx", "ts", "jsx", "js",
+  "tsx", "ts", "jsx", "js", "py",
 );
 export const isProjectAssetFilePath = hasExtension("png", "jpg", "jpeg", "pdf", "svg", "eps", "webp");
 export const isHtmlFilePath = hasExtension("html");
