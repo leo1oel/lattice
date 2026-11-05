@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import type { EditorState, Text } from "@codemirror/state";
 import { hoverTooltip, type Tooltip } from "@codemirror/view";
+import { commandInMath } from "../editor/latex/math-region";
 
 const OPEN_CITATION = /\\(?:cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite)\*?(?:\[[^\]]*\]){0,2}\{([^}]*)$/;
 const OPEN_REFERENCE = /\\(?:ref|eqref|pageref|autoref|cref|Cref)\*?\{([^}]*)$/;
@@ -111,15 +112,21 @@ export function texlabCompletionSource(getPath: () => string) {
   };
 }
 
-/** TexLab's hover card; `fallback` answers when TexLab is off, missing or has nothing to say. */
-export function texlabHoverTooltip(
+/**
+ * TexLab's hover card; `fallback` answers when TexLab is off, missing or has
+ * nothing to say. A command inside math gets no card from either: the live
+ * math preview already shows the formula above it, and a description on top
+ * would stack two overlays.
+ */
+export function texlabHover(
   getPath: () => string,
   fallback: (state: EditorState, pos: number) => Tooltip | null = () => null,
   texlab = true,
 ) {
-  return hoverTooltip(async (view, pos) => {
-    const position = texlab ? texlabPosition(getPath(), view.state, pos) : null;
-    if (!position) return fallback(view.state, pos);
+  return async (state: EditorState, pos: number): Promise<Tooltip | null> => {
+    if (commandInMath(state.doc, pos)) return null;
+    const position = texlab ? texlabPosition(getPath(), state, pos) : null;
+    if (!position) return fallback(state, pos);
     const answer = await quietly<Tooltip>(async () => {
       const hover = await askTexlab<{ contents: string } | null>("texlab_hover", position.request);
       if (!hover?.contents.trim()) return null;
@@ -135,8 +142,13 @@ export function texlabHoverTooltip(
         },
       };
     });
-    return answer ?? fallback(view.state, pos);
-  }, { hoverTime: 420 });
+    return answer ?? fallback(state, pos);
+  };
+}
+
+export function texlabHoverTooltip(...args: Parameters<typeof texlabHover>) {
+  const hover = texlabHover(...args);
+  return hoverTooltip((view, pos) => hover(view.state, pos), { hoverTime: 420 });
 }
 
 export async function resolveTexlabDefinition(path: string, text: string, line: number, character: number): Promise<TexlabLocation | null> {

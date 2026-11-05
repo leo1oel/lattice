@@ -1,8 +1,10 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
+import type { Tooltip } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isCiteOrRefCompletionContext, texlabCompletionSource } from "./texlab-language";
+import { latexCommandHover } from "../editor/latex/latex-command-completions";
+import { isCiteOrRefCompletionContext, texlabCompletionSource, texlabHover } from "./texlab-language";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 const invokeMock = vi.mocked(invoke);
@@ -54,5 +56,34 @@ describe("texlabCompletionSource", () => {
     invokeMock.mockRejectedValueOnce("TexLab read timed out.");
     expect(await complete(state, "failing.tex")).toBeNull();
     expect(sentTexts()).toEqual(["\\end", null]);
+  });
+});
+
+describe("texlabHover", () => {
+  const description = (tooltip: Tooltip | null) => tooltip && (tooltip.create(null as never).dom.textContent ?? "");
+  const hoverAt = (source: string, texlab: boolean) => {
+    const pos = source.indexOf("|");
+    const state = EditorState.create({ doc: source.replace("|", "") });
+    return texlabHover(() => "paper.tex", latexCommandHover, texlab)(state, pos).then(description);
+  };
+
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ contents: "TexLab says" });
+  });
+
+  it("gives a command inside math no description, from TexLab or the built-in vocabulary", async () => {
+    for (const texlab of [true, false]) {
+      expect(await hoverAt("Let $n \\ti|mes n$ be", texlab)).toBeNull();
+      expect(await hoverAt("\\[ a \\ti|mes b \\]", texlab)).toBeNull();
+      expect(await hoverAt("\\begin{align}\n  a &= b \\ti|mes c\n\\end{align}", texlab)).toBeNull();
+    }
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("still describes the same command outside math, and a math environment's own delimiter", async () => {
+    expect(await hoverAt("text \\ti|mes text", true)).toBe("TexLab says");
+    expect(await hoverAt("\\sec|tion{Intro} $n$", false)).toBe("\\section\nTop-level section heading");
+    expect(await hoverAt("\\begin{ali|gn}\n  a = b\n\\end{align}", false)).toBe("align\nMulti-line aligned equations");
   });
 });

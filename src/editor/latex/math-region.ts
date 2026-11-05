@@ -151,3 +151,20 @@ export function unclosedMathDiagnostics(text: string): Diagnostic[] {
     return [];
   });
 }
+
+/**
+ * True when `position` is on a `\command` inside a math body, which the live
+ * math preview already sets above the formula. A region's own delimiters,
+ * such as `\begin{align}`, are not its body.
+ */
+export function commandInMath(doc: Text, position: number): boolean {
+  const line = doc.lineAt(position);
+  const offset = position - line.from;
+  for (const match of line.text.matchAll(/\\[A-Za-z@]+/g)) {
+    if (offset < match.index || offset > match.index + match[0].length) continue;
+    const from = line.from + match.index;
+    const region = mathRegionInDocument(doc, from);
+    return region !== null && from >= region.from + region.open.length && from + match[0].length <= region.to - region.close.length;
+  }
+  return false;
+}
