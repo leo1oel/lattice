@@ -62,8 +62,8 @@ restating it.
 
 The frontend calls the same API in a window and in a browser tab: in a tab,
 `browser-runtime.ts` installs a `__TAURI_INTERNALS__` that relays each call over
-the bridge. The webview calls Rust with `invoke("command_name", args)` against **187
-registered commands** (see §2). Data flows the other way over Tauri events, of
+the bridge. The webview calls Rust with `invoke("command_name", args)` against the
+registered commands (counted in §2.1). Data flows the other way over Tauri events, of
 which there are only **four** emitted from the project and editor layers:
 
 | Event | Emitted in | Meaning |
@@ -255,8 +255,8 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
-`lib.rs` (~580 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **189** commands in
+`lib.rs` (~700 lines) declares the modules, sets up plugins, the window
+lifecycle and the child runtimes, and registers **220** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
