@@ -1624,6 +1624,11 @@ msgstr "已取消管理员授权，未安装任何内容。"
 msgid "Agent"
 msgstr "AI 助手"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Agent defaults"
+msgstr "助手默认设置"
+
 #. placeholder {0}: progress.answered
 #. placeholder {1}: progress.total
 #: src/editor/comments/editor-comments-panel.tsx

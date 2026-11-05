@@ -72,6 +72,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     ] satisfies SettingsSearchEntry[] : []),
     { tab: "editor", place: editor, id: "auto-updates", label: t`Automatic updates` },
     { tab: "editor", place: editor, id: "version", label: t`Version`, terms: t`Check for updates` },
+    { tab: "agent-defaults", label: t`Agent defaults`, place: t`Agent` },
     { tab: "agent", label: t`Providers`, place: t`Agent` },
     { tab: "mcp", label: t`MCP`, place: t`Agent` },
     { tab: "api", label: t`Skills`, place: t`Agent` },

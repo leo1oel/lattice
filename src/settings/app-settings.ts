@@ -204,7 +204,7 @@ export const recordGuidedTourOutcome = (outcome: "completed" | "skipped") => {
 };
 
 const SETTINGS_TABS: readonly SettingsTab[] = [
-  "appearance", "editor", "agent", "mcp", "environment", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",
+  "appearance", "editor", "agent", "agent-defaults", "mcp", "environment", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",
 ];
 
 /** Settings reopens on the page it was last left on. */
@@ -213,7 +213,7 @@ export const persistSettingsTab = (tab: SettingsTab) => persistSetting(SETTINGS_
 
 /** The pages that configure the agent, which need its runtime started. */
 export function isSynaraSettingsTab(tab: SettingsTab): boolean {
-  return tab === "agent" || tab === "mcp" || tab === "api";
+  return tab === "agent" || tab === "agent-defaults" || tab === "mcp" || tab === "api";
 }
 
 export const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";

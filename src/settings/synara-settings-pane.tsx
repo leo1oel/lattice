@@ -52,11 +52,11 @@ function settingsFrameSrc(url: string, section: string) {
 }
 
 /**
- * Providers, MCP and Skills are Synara's own settings pages, embedded without
+ * Agent defaults, Providers, MCP and Skills are Synara's own settings pages, embedded without
  * their own scrolling: the iframe reports its content height and forwards wheel
  * gestures, and the host settings viewport does all of the scrolling.
  *
- * One frame serves all three for the whole dialog, from the first visit to one
+ * One frame serves them for the whole dialog, from the first visit to one
  * of them: it stays loaded (hidden) on the other tabs, so returning to the page
  * it shows is instant, and switching between them never reloads it. A switch
  * hides the frame at once and shows it again only when Synara answers that very

@@ -67,6 +67,7 @@ describe("settings search", () => {
   it("finds the Agent pages by name only, and project rows only with a project", () => {
     expect(search("mcp")).toEqual(["page:mcp"]);
     expect(search("providers")).toEqual(["page:agent"]);
+    expect(search("agent defaults")).toEqual(["page:agent-defaults"]);
     expect(search("engine", false)).toEqual([]);
   });
 

@@ -1624,6 +1624,11 @@ msgstr "Administrator approval was cancelled, so nothing was installed."
 msgid "Agent"
 msgstr "Agent"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Agent defaults"
+msgstr "Agent defaults"
+
 #. placeholder {0}: progress.answered
 #. placeholder {1}: progress.total
 #: src/editor/comments/editor-comments-panel.tsx
