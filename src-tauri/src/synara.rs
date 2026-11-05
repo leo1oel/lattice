@@ -251,9 +251,14 @@ impl SynaraRuntime {
         self.node.configure(&mut command);
         command.arg(&self.server_entry);
         // Web storage is scoped to the complete iframe origin, including its
-        // port. Reuse the previous sidecar port when it is free so composer
-        // preferences such as the last model and effort survive app restarts;
-        // retain dynamic allocation as the safe fallback for port conflicts.
+        // port. Reuse the previous sidecar port when it is free so a sidecar
+        // restarted within one Lattice session keeps the frames' origin, and
+        // with it the storage they already wrote. It cannot carry storage
+        // across a quit: WebKit drops this third-party frame's storage when
+        // Lattice exits, whatever the port, so the fork keeps the panel's
+        // local-only settings and drafts in its own state directory instead
+        // (docs/synara-fork-ledger.md). Dynamic allocation remains the
+        // fallback for port conflicts.
         let port = available_preferred_server_port(self.preferred_port);
         wide_event::record("port", if port.is_some() { "preferred" } else { "dynamic" });
         match port {
