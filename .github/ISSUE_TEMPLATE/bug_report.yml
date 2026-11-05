@@ -18,8 +18,6 @@ body:
         > screenshots, or a project snippet, remove:
         > * **Overleaf session cookies** (`overleaf_session2`, `sharelatex.sid`)
         >   and anything from `overleaf-session.json`;
-        > * **Lattice share invites, join links, and room secrets** — a share
-        >   secret in a public issue lets anyone into that project;
         > * **AI provider API keys** and MCP server credentials;
         > * **absolute file paths** (`/Users/yourname/…`) and the names of
         >   unpublished papers, collaborators, or private projects.
@@ -140,5 +138,5 @@ body:
     attributes:
       label: Redaction check
       options:
-        - label: I have removed Overleaf cookies, share invites and secrets, API keys, and identifying file paths from everything I pasted above.
+        - label: I have removed Overleaf cookies, API keys, and identifying file paths from everything I pasted above.
           required: true
