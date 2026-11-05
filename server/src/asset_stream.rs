@@ -79,10 +79,14 @@ fn mime(path: &Path) -> &'static str {
     }
 }
 
-/// Inclusive HTTP single byte ranges. Reject multipart and malformed requests
-/// rather than constructing unbounded multipart replies. HEAD ignores Range.
+/// Inclusive HTTP single byte ranges. The caller ignores unsupported units
+/// and multipart requests; malformed/unsatisfiable byte ranges receive 416.
 fn byte_range(value: &str, length: u64) -> Option<(u64, u64)> {
-    let (start, end) = value.strip_prefix("bytes=")?.split_once('-')?;
+    let (unit, value) = value.split_once('=')?;
+    if !unit.eq_ignore_ascii_case("bytes") {
+        return None;
+    }
+    let (start, end) = value.split_once('-')?;
     if length == 0 {
         return None;
     }
@@ -153,7 +157,13 @@ pub(crate) async fn serve(
     let range = if method == Method::GET
         && text_header(headers, header::IF_RANGE).is_none_or(|value| value == etag)
     {
-        text_header(headers, header::RANGE)
+        // RFC 9110 14.2: unknown units must be ignored. Decline multipart
+        // replies rather than incorrectly calling satisfiable ranges invalid.
+        text_header(headers, header::RANGE).filter(|value| {
+            headers.get_all(header::RANGE).iter().count() == 1
+                && value.split_once('=').is_some_and(|(unit, _)| unit.eq_ignore_ascii_case("bytes"))
+                && !value.contains(',')
+        })
     } else {
         None
     };

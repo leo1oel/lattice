@@ -133,9 +133,7 @@ class MediaStreaming(unittest.TestCase):
             "bytes=1024-",
             "bytes=9-4",
             "bytes=-0",
-            "bytes=0-1,4-5",
             "bytes=",
-            "items=0-1",
             "bytes=18446744073709551616-",
             "bytes=+1-4",
             "bytes=--",
@@ -149,6 +147,15 @@ class MediaStreaming(unittest.TestCase):
                 path="/api/asset?path=empty.webm", headers={"Range": "bytes=0-"}
             )[0],
             416,
+        )
+        # RFC 9110 14.2 requires ignoring unknown units. This single-range
+        # implementation also declines multipart replies by ignoring Range.
+        for value in ["items=0-1", "bytes=0-1,4-5"]:
+            status, headers, body = self.request(headers={"Range": value})
+            self.assertEqual((status, body), (200, self.payload))
+            self.assertNotIn("content-range", headers)
+        self.assertEqual(
+            self.request(headers={"Range": "Bytes=0-2"})[2], self.payload[:3]
         )
 
     def test_large_sparse_file_uses_bounded_streaming(self):

@@ -141,8 +141,9 @@ sandbox policy and private `no-store` responses. Directory traversal, hidden
 paths, symlinks at any path component and non-regular files are refused.
 An authenticated `HEAD` returns metadata without reading the file body and
 ignores Range. A single `Range: bytes=start-end`, open-ended or suffix request
-returns 206 with Content-Range; invalid, multipart or unsatisfiable ranges return
-416. `If-Range` restarts from the whole current file when its ETag is stale;
+returns 206 with Content-Range; invalid or unsatisfiable byte ranges return
+416. Unknown range units and multipart requests are ignored (a normal 200),
+following [RFC 9110 section 14.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-14.2). `If-Range` restarts from the whole current file when its ETag is stale;
 `If-None-Match` can return 304. An open descriptor pins a replaced file, while
 ETags distinguish revisions between requests; in-place writes during a transfer
 can still change that transfer's bytes, so do not rewrite media being presented.
