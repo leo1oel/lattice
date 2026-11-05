@@ -14,6 +14,7 @@ import {
   normalizeAccent,
 } from "./theme-customization";
 import { type CodeTheme, type CodeThemeVariant, CODE_THEMES, CODE_THEME_VARIANTS } from "./code-themes";
+import { clamp } from "../lib/clamp";
 
 export type Theme = "light" | "dark";
 /** What the user picked; `system` tracks the OS appearance as it changes. */
@@ -99,10 +100,6 @@ function writeProjectEntry(key: string, root: string, value: unknown, map = read
   delete map[root];
   const entries = [...Object.entries(map), [root, value]].slice(-PROJECT_HISTORY_MAX);
   localStorage.setItem(key, JSON.stringify(Object.fromEntries(entries)));
-}
-
-export function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
 }
 
 export function loadRecentProjects(): RecentProject[] {

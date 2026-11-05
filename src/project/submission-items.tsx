@@ -20,6 +20,7 @@ import {
   type SubmissionTemplate,
 } from "../settings/app-settings";
 import { itemCondition, type ItemCondition, type LinkedFileStat } from "./submission-item-state";
+import { baseName } from "../lib/base-name";
 
 function newItem(title: string, from?: Partial<SubmissionItem>): SubmissionItem {
   return { ...from, id: crypto.randomUUID(), title, status: "todo" };
@@ -36,8 +37,6 @@ const hostOf = (source: string) => {
 // eslint-disable-next-line lingui/no-unlocalized-strings -- Intl options, not interface text; a bare "YYYY-MM-DD" parses as UTC midnight
 const CHECKED_DAY: Intl.DateTimeFormatOptions = { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" };
 const signedOff = (condition: ItemCondition) => condition === "confirmed" || condition === "pending";
-const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-
 function ItemMark(props: { condition: ItemCondition }) {
   const { condition } = props;
   return (

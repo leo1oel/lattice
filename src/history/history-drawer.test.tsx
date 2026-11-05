@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitLogEntry } from "../app-types";
 import { mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
+import { activateAppLocale } from "../i18n";
 import { HistoryDrawer } from "./history-drawer";
 import { pierreView } from "./pierre-test-mocks";
 
@@ -88,6 +89,20 @@ describe("HistoryDrawer", () => {
       expect(screen.queryByText("Edit main.tex")).not.toBeInTheDocument();
     }
     fireEvent.click(view("Everything"));
+  });
+
+  it("titles a saved file by its name in the interface language, its folder left to the meta line", async () => {
+    mockBackend();
+    const nested = { id: "t2", label: "Edit sections/intro.tex", timestamp: "2026-07-16T00:01:00Z", files: ["sections/intro.tex"] };
+    render(<HistoryDrawer {...required} history={[historyItem, nested]} />);
+    const title = await screen.findByText("Edit intro.tex");
+    expect(title.closest(".history-row")).toHaveTextContent("sections/intro.tex");
+    // A file at the project's top says nothing the title does not.
+    const top = screen.getByText("Edit main.tex").closest(".history-row")!;
+    expect(top.querySelector(".history-row-detail")).toBeNull();
+    await act(() => activateAppLocale("zh-CN"));
+    expect(screen.getByText("编辑 intro.tex")).toBeInTheDocument();
+    await act(() => activateAppLocale("en"));
   });
 
   it("keeps the activity in view when the git backend is unreachable", async () => {
@@ -176,7 +191,7 @@ describe("HistoryDrawer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Agent: Revise the introduction/ }));
     expect(screen.getByText("Introduction revision")).toBeInTheDocument();
-    expect(screen.getByText("modified · +4 −2")).toBeInTheDocument();
+    expect(screen.getByText("modified +4 −2")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle("Undo this Agent turn's file changes"));
     expect(onRevert).toHaveBeenCalledWith(agentEntry);

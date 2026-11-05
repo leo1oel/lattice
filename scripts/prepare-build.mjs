@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { isMain } from "./lib/util.mjs";
 
 export function buildPreparationPlan(debugValue) {
   if (debugValue !== undefined && debugValue !== "true" && debugValue !== "false") {
@@ -27,6 +26,6 @@ function prepareBuild() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
   prepareBuild();
 }

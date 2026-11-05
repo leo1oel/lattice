@@ -56,7 +56,7 @@ describe("acknowledgements", () => {
     await renderPane();
     expect(screen.getByRole("heading", { name: "Acknowledgements" })).toBeInTheDocument();
     const tauri = screen.getByText("Tauri").closest<HTMLElement>("[data-slot=settings-row]")!;
-    expect(within(tauri).getByText("MIT OR Apache-2.0 · 2.11.5")).toBeInTheDocument();
+    expect(within(tauri).getByText("MIT OR Apache-2.0, 2.11.5")).toBeInTheDocument();
     expect(screen.getByText("Open Knowledge")).toBeInTheDocument();
     expect(screen.getByText(/Uses Trellis by DanFessler - github\.com\/DanFessler\/trellis/)).toBeInTheDocument();
     // A build without the licensed fonts does not mention them.
@@ -66,7 +66,7 @@ describe("acknowledgements", () => {
   it("lists every shipped package by closure, searchable, and opens each one's license text", async () => {
     license.url = null;
     await renderPane();
-    expect(screen.getByRole("heading", { name: "All third-party software · 3" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "All third-party software (3)" })).toBeInTheDocument();
     const interfaceClosure = screen.getByRole("button", { name: /Interface\s*2 packages/ });
     expect(interfaceClosure).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("button", { name: /zustand/ })).not.toBeInTheDocument();

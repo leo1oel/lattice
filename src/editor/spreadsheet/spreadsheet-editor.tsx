@@ -4,7 +4,7 @@ import { useLingui } from "@lingui/react";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import * as Y from "yjs";
-import { CommandType, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, type IWorkbookData } from "@univerjs/core";
+import { CommandType, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, type IExecutionOptions, type IWorkbookData } from "@univerjs/core";
 import type { FWorkbook } from "@univerjs/preset-sheets-core";
 import { isRecord } from "../../app-utils";
 import { logAction } from "../../telemetry/app-notify";
@@ -13,7 +13,7 @@ import { ExternalScrollbar } from "../../components/ui/external-scrollbar";
 import { whenIdle } from "../../app/effect-helpers";
 import { utf8ToBase64 } from "../../pdf/pdf-bytes";
 import { registerAgentSpreadsheetDocument } from "../../agent/agent-spreadsheet-tools";
-import { clone, inBounds, jsonEqual, type SpreadsheetCellData, type SpreadsheetWorkbookData } from "./spreadsheet-types";
+import { clone, inBounds, type SpreadsheetCellData, type SpreadsheetWorkbookData } from "./spreadsheet-types";
 import {
   SPREADSHEET_MESSAGES,
   appearanceDefaultStyle,
@@ -24,6 +24,7 @@ import {
   withSpreadsheetAppearance,
 } from "./spreadsheet-univer";
 import {
+  SPREADSHEET_DERIVED_ORIGIN,
   SPREADSHEET_LOCAL_ORIGIN,
   SpreadsheetDocumentError,
   applySpreadsheetCellChanges,
@@ -33,6 +34,7 @@ import {
   spreadsheetDocContent,
   spreadsheetSnapshotFromDoc,
 } from "./spreadsheet-yjs";
+import { jsonEqual } from "../../lib/equality";
 
 const SERIALIZE_DEBOUNCE_MS = 300;
 const SERIALIZE_IDLE_TIMEOUT_MS = 1_000;
@@ -40,6 +42,12 @@ const MAX_PATCHED_REMOTE_CELLS = 1_000;
 const SET_RANGE_VALUES_MUTATION = "sheet.mutation.set-range-values";
 const FUNCTIONS_PANEL_SELECTOR = '[data-u-comp="sheets-formula-functions-panel"]';
 const VIEW_KEYS = ["zoomRatio", "scrollTop", "scrollLeft"] as const;
+/**
+ * The formula engine's work: its own mutations, and the computed values it
+ * writes with the cell mutation an edit uses, flagged `fromFormula`. What
+ * they change is derived (SPREADSHEET_DERIVED_ORIGIN).
+ */
+const derivedMutation = (id: string, options: IExecutionOptions | undefined) => id.startsWith("formula.") || options?.fromFormula === true;
 
 export type SpreadsheetEditorProps = {
   path: string;
@@ -317,6 +325,7 @@ function SpreadsheetEditorSurface({
     let renderedSnapshot = initialSnapshot;
     let applyingRemote = false;
     let localSyncQueued = false;
+    let queuedEdit = false;
     let remoteSyncQueued = false;
     // Univer mutations issued while applying foreign/appearance changes must not echo back into the Y.Doc.
     const asRemote = (apply: () => void) => {
@@ -390,31 +399,40 @@ function SpreadsheetEditorSurface({
     appearanceObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-tint", "style"] });
 
     const onTransaction = (transaction: Y.Transaction) => {
-      if (transaction.origin === SPREADSHEET_LOCAL_ORIGIN || remoteSyncQueued) return;
+      if (transaction.origin === SPREADSHEET_LOCAL_ORIGIN || transaction.origin === SPREADSHEET_DERIVED_ORIGIN || remoteSyncQueued) return;
       remoteSyncQueued = true;
       queueMicrotask(applyRemoteSnapshot);
     };
     doc.on("afterTransaction", onTransaction);
 
-    const commandListener = univerAPI.onCommandExecuted((command) => {
+    const commandListener = univerAPI.onCommandExecuted((command, options) => {
       scheduleViewState();
       const commandUnitId = (command.params as { unitId?: unknown } | undefined)?.unitId;
       if (command.type !== CommandType.MUTATION || (commandUnitId !== undefined && commandUnitId !== workbook.getId())) return;
-      if (applyingRemote || localSyncQueued) return;
+      if (applyingRemote) return;
+      // One snapshot reconciles every command of a tick; it is derived only
+      // when every one of them was.
+      const derived = derivedMutation(command.id, options);
+      if (localSyncQueued) {
+        if (!derived) queuedEdit = true;
+        return;
+      }
       const cellMutation = localCellMutation(command.id, command.params, workbook, renderedSnapshot);
-      if (cellMutation && applySpreadsheetCellChanges(doc, renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes, SPREADSHEET_LOCAL_ORIGIN)) {
+      const origin = derived ? SPREADSHEET_DERIVED_ORIGIN : SPREADSHEET_LOCAL_ORIGIN;
+      if (cellMutation && applySpreadsheetCellChanges(doc, renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes, origin)) {
         updateSnapshotCells(renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes);
         if (remoteSyncQueued) applyRemoteSnapshot();
         return;
       }
       localSyncQueued = true;
+      queuedEdit = !derived;
       queueMicrotask(() => {
         localSyncQueued = false;
         if (disposed || applyingRemote) return;
         // Scroll and zoom are view state, kept per user outside the file.
         const next = withSheetViews(commandSnapshot(workbook, renderedSnapshot), renderedSnapshot.sheets);
         if (jsonEqual(next, renderedSnapshot)) return;
-        reconcileSpreadsheetDocChanges(doc, renderedSnapshot, next, SPREADSHEET_LOCAL_ORIGIN);
+        reconcileSpreadsheetDocChanges(doc, renderedSnapshot, next, queuedEdit ? SPREADSHEET_LOCAL_ORIGIN : SPREADSHEET_DERIVED_ORIGIN);
         renderedSnapshot = next;
         // A remote transaction can land after the command event but before
         // this microtask. Render the merged Y.Doc immediately so the local
@@ -466,7 +484,13 @@ function SpreadsheetEditorSurface({
       localSourceRef.current = content;
       callbacks.current.onChange(content);
     };
-    const onUpdate = () => {
+    // Opening a sheet writes nothing: what Univer derives on its own (formula
+    // values, plugin resources) waits in the document until someone changes
+    // something, and is then written with that change.
+    let edited = false;
+    const onUpdate = (_update: Uint8Array, origin: unknown) => {
+      if (origin === SPREADSHEET_DERIVED_ORIGIN && !edited) return;
+      edited = true;
       cancelScheduled?.();
       const timer = setTimeout(() => {
         // Canonical source generation still walks every row. Keep that work

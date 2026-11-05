@@ -71,8 +71,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
     switch (props.overleafChannel) {
       case "connecting": return detail || t`Connecting to Overleaf's live channel…`;
       case "error": return detail
-        ? t({ message: `Live editing unavailable (${detail}) · syncing instead` })
-        : t`Live editing unavailable · syncing instead`;
+        ? t({ message: `Live editing unavailable (${detail}), syncing instead` })
+        : t`Live editing unavailable, syncing instead`;
       case "live": return detail || t`Live`;
       default: return t`Sync with Overleaf`;
     }
@@ -84,9 +84,14 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         {props.activeKind === "document" && (
           <>
             {!props.overleafLinked && shows("comments") && (
-              <ToolbarButton label={t`Annotations`} className={props.commentCount ? "active" : ""} data-tour="comments" onClick={props.onComments}>
+              <ToolbarButton
+                label={t`Annotations`}
+                className={props.commentCount ? "active toolbar-count-button" : ""}
+                data-tour="comments"
+                onClick={props.onComments}
+              >
                 <AnimatedProductIcon kind="chat" size={14} converted />
-                {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
+                {props.commentCount > 0 ? <span className="toolbar-count">{props.commentCount}</span> : null}
               </ToolbarButton>
             )}
           </>
@@ -112,7 +117,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 {showOverleafOnline
                   ? <em className="overleaf-status-dot" aria-hidden="true" />
                   : props.overleafPending && !props.overleafSyncing
-                    ? <em className="collab-peer-badge overleaf-pending-badge">•</em>
+                    ? <em className="overleaf-pending-dot" aria-hidden="true" />
                     : props.overleafLinked && (props.overleafChannel === "connecting" || props.overleafChannel === "error")
                       // The channel is on its way up or failed: say so at a glance,
                       // not only in the tooltip. Syncing carries on either way.
@@ -154,16 +159,16 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         )}
         {shows("overleaf") && props.overleafLinked && props.onOverleafChat && (
           <Tip label={props.overleafUnreadChat
-            ? t({ message: `Overleaf comments and chat · ${{ count: props.overleafUnreadChat }} waiting` })
+            ? t({ message: `Overleaf comments and chat, ${{ count: props.overleafUnreadChat }} waiting` })
             : t`Overleaf comments and chat`}
           >
             <button
               type="button"
-              className={props.overleafUnreadChat ? "history-button active" : "history-button"}
+              className={props.overleafUnreadChat ? "history-button active toolbar-count-button" : "history-button"}
               onClick={props.onOverleafChat}
             >
               <MessagesSquare size={14} />
-              {props.overleafUnreadChat ? <em className="collab-peer-badge">{props.overleafUnreadChat}</em> : null}
+              {props.overleafUnreadChat ? <span className="toolbar-count">{props.overleafUnreadChat}</span> : null}
             </button>
           </Tip>
         )}

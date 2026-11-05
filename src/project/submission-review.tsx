@@ -79,7 +79,7 @@ export function SubmissionReviewGroups(props: { review: SubmissionReview; rows: 
       )}
       {blind.length > 0 && (
         <section className="checklist-review">
-          <h3>{t`Double-blind review · ${venue}`}</h3>
+          <h3>{t`Double-blind review for ${venue}`}</h3>
           <div className="checklist-rows">{blind.map(view)}</div>
         </section>
       )}

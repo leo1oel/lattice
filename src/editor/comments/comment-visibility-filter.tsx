@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 
@@ -9,8 +10,9 @@ import { cn } from "@/lib/utils";
 export function CommentVisibilityFilter({ showResolved, onChange, openLabel, resolvedLabel, className }: {
   showResolved: boolean;
   onChange: (showResolved: boolean) => void;
-  openLabel: string;
-  resolvedLabel: string;
+  openLabel: ReactNode;
+  /** A label, and its count drawn as every switcher's count is. */
+  resolvedLabel: ReactNode;
   className?: string;
 }) {
   const { t } = useLingui();

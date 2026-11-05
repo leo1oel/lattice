@@ -114,6 +114,18 @@ await assert.rejects(
   checkAppSizeBudgets(workspace, report),
   /Bundled Claude executable.*PATH launcher budget/,
 );
+// A perf-lab build's own hooks get an allowance over the release budget; a
+// release build gets none, whatever the environment says.
+const releaseBudget = (await checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [] }, { lab: false })).eagerJsBudgetBytes;
+for (const [lab, eagerJsBytes, error] of [
+  [false, releaseBudget + 313, /Eager JavaScript is \d+ bytes; budget is \d+$/],
+  [true, releaseBudget + 313, null],
+  [true, releaseBudget + 2 * 1024 + 1, /budget is \d+ \(with the perf-lab allowance\)/],
+]) {
+  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], eagerJsBytes }, { lab });
+  await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
+}
+
 // Budgets over a measured report: which overrides pass and which fail how.
 const MiB = 1024 * 1024;
 for (const [overrides, error] of [

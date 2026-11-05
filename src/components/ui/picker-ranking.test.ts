@@ -22,6 +22,15 @@ describe("scoreItem", () => {
     expect(scoreItem(row("Use the dark theme", { keywords: "theme appearance" }), "appearance")).toBeGreaterThan(0);
   });
 
+  it("reads leftover letters as runs at word starts, never scattered inside words", () => {
+    expect(scoreItem(row("Show Agent panel"), "sap")).toBeGreaterThan(0);
+    expect(scoreItem(row("Proofread selection"), "proofsel")).toBeGreaterThan(0);
+    // The palette once listed these for "proof".
+    for (const label of ["Import Overleaf ZIP", "Open an Overleaf project", "Refresh file tree", "Export project ZIP"]) {
+      expect(scoreItem(row(label, { group: "Project" }), "proof")).toBe(0);
+    }
+  });
+
   it("finds nothing for letters the row does not hold in order", () => {
     expect(scoreItem(row("Build project"), "xyz")).toBe(0);
   });

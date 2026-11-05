@@ -126,8 +126,15 @@ export function openDocumentTab(
       width: room.widths.get(view.id) ?? 0,
     })),
     room.short,
-    // Only the active document can hold unsaved changes: App saves each one it leaves.
-    { held: (tab) => tab === key || tab === activeKey || controller.pendingDrops.has(tab), lastUsed: controller.tabs.lastUsed },
+    // Only the active document can hold unsaved changes: App saves each one it
+    // leaves. A root document (one that sets its own \documentclass, as a
+    // build reads it) and the documents edited this session are the writer's
+    // work, never a look. Every tab's last text is in `texts` once drawn.
+    {
+      held: (tab) => tab === key || tab === activeKey || controller.pendingDrops.has(tab)
+        || controller.tabs.held.has(tab) || Boolean(controller.texts.get(tab)?.includes("\\documentclass")),
+      lastUsed: controller.tabs.lastUsed,
+    },
   );
   const info = ws.open("file", { params, reuse, focus: false, placement: { into: panelId } });
   for (const id of evicted) void ws.close(id);
@@ -159,7 +166,11 @@ export function useDocumentTabs(controller: TrellisController, ws: WorkspaceHand
     const follow = () => {
       const { activeKey, activeDirty } = controller.app.get();
       if (activeKey !== active && activeKey) controller.tabs.touch(activeKey);
-      if (activeDirty && (!dirty || activeKey !== active)) controller.tabs.keep(activeKey);
+      // An edited document is the writer's work: never closed for room after.
+      if (activeDirty && (!dirty || activeKey !== active)) {
+        controller.tabs.held.add(activeKey);
+        controller.tabs.keep(activeKey);
+      }
       active = activeKey;
       dirty = activeDirty;
     };

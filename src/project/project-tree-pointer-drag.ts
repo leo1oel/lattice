@@ -16,6 +16,8 @@ import {
   toPierreDirectoryPath,
   type PointerTreeDropLocation,
 } from "./navigator-drag";
+import { prefersReducedMotion } from "../lib/reduced-motion";
+import { toMessage } from "../app-utils";
 
 export type ProjectTreeModel = ReturnType<typeof useFileTree>["model"];
 
@@ -179,7 +181,7 @@ function createDragPreview(
     },
     finish() {
       if (frame != null) window.cancelAnimationFrame(frame);
-      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true) {
+      if (prefersReducedMotion()) {
         preview.remove();
         return;
       }
@@ -326,7 +328,7 @@ export function useProjectTreePointerDrag(
         else model.batch(operations);
       } catch (reason) {
         options.resetTree();
-        options.onError(reason instanceof Error ? reason.message : String(reason));
+        options.onError(toMessage(reason));
         return;
       }
       options.onDropped(draggedPaths, location.target);

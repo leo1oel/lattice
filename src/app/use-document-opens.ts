@@ -13,6 +13,7 @@ import {
   claimGenerations, ownerOf, publishDeferredEdits, recordNavigationTiming, type LoadOptions, type OpenClaim,
 } from "./open-document-intents";
 import type { DocumentStore } from "./use-document-store";
+import { baseName } from "../lib/base-name";
 
 export type DocumentOpens = ReturnType<typeof useDocumentOpens>;
 
@@ -136,7 +137,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       return;
     }
     const clearOpening = () => setOpening((shown) => (shown?.generation === loadGeneration ? null : shown));
-    setOpening({ generation: loadGeneration, label: path.split("/").at(-1) ?? path });
+    setOpening({ generation: loadGeneration, label: baseName(path) });
     await afterNextPaintOpportunity();
     const openingPaintMs = performance.now() - switchStartedAt;
     if (intentRef.current !== loadGeneration) {

@@ -33,6 +33,7 @@ import {
 } from "./project-tree-pointer-drag";
 import { notifyCopied } from "../telemetry/app-notify";
 import { useTrellisController } from "../trellis/trellis-controller";
+import { baseName } from "../lib/base-name";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
 // design-system `--row-height-tree` (28px, the compact control height).
@@ -151,7 +152,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
       onRename: (event) => {
         const source = fromPierrePath(event.sourcePath);
         const destination = fromPierrePath(event.destinationPath);
-        const name = destination.split("/").at(-1);
+        const name = baseName(destination);
         if (!name) return;
         if (creation.persist(source, destination, event.isFolder)) return;
         settleTreePath(

@@ -19,6 +19,7 @@ import type { Extension } from "@codemirror/state";
 import { tags } from "@lezer/highlight";
 import { bibtex } from "codemirror-lang-bib";
 import { isHtmlFilePath } from "../app-utils";
+import { baseName } from "../lib/base-name";
 
 /** Shared empty array: a new `[]` per call would reconfigure CodeMirror needlessly. */
 export const EMPTY_EXTENSIONS: Extension[] = [];
@@ -104,7 +105,7 @@ const loadHtmlExtensions = once(() => import("@codemirror/lang-html").then(({ ht
 const resolvedLanguageExtensions = new Map<string, Extension[]>();
 
 function languageCacheKey(path: string): string {
-  const filename = path.slice(path.lastIndexOf("/") + 1).toLocaleLowerCase();
+  const filename = baseName(path).toLocaleLowerCase();
   const dot = filename.lastIndexOf(".");
   return dot > 0 ? filename.slice(dot) : filename;
 }
@@ -129,7 +130,7 @@ export async function loadTextLanguageExtensions(path: string): Promise<Extensio
   if (isHtmlFilePath(path)) return loadHtmlExtensions().then(remember);
 
   const { languages } = await import("@codemirror/language-data");
-  const filename = path.slice(path.lastIndexOf("/") + 1);
+  const filename = baseName(path);
   const description = LanguageDescription.matchFilename(languages, filename)
     ?? LanguageDescription.matchFilename(languages, filename.toLowerCase());
   return description ? remember([await description.load(), autocompletion()]) : EMPTY_EXTENSIONS;

@@ -12,7 +12,8 @@
  * A panel whose strip has no room for another tab with its whole title
  * closes tabs for the one coming in, as the writer's own close would (see
  * trellis-document-tabs.tsx): its preview first, then the least recently
- * used. Never a pinned tab, the active document or one with unsaved changes;
+ * used. Never a pinned tab, the active document (the one that can hold
+ * unsaved changes), the project's root document or one edited this session;
  * with none of its tabs free to go, the strip squeezes and scrolls as before.
  *
  * Both marks are params of the file view, so they are saved and restored
@@ -56,6 +57,8 @@ export class DocumentTabs {
   /** The document the last quick look asked for, until App's open of it lands. */
   private previewKey: string | null = null;
   private readonly used = new Map<string, number>();
+  /** The documents edited this session: never closed to make room. */
+  readonly held = new Set<string>();
   private clock = 0;
 
   constructor(private readonly workspace: () => WorkspaceHandle | null) {}

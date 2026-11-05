@@ -121,7 +121,7 @@ describe("useOverleafPresence roster", () => {
     await flush();
     inProject({ type: "presenceUpdated", user: peer({ docId: "document-A" }) }, "/project-A");
     expect(view.getAllByRole("button")).toHaveLength(1);
-    expect(view.getByRole("button")).toHaveAttribute("aria-label", "Ada Lovelace · document-B · line 5 — click to jump there");
+    expect(view.getByRole("button")).toHaveAttribute("aria-label", "Ada Lovelace at document-B, line 5. Click to jump there");
     view.unmount();
   });
 
@@ -130,7 +130,7 @@ describe("useOverleafPresence roster", () => {
       peers: [peer()], reconnecting: true, pathForDoc: () => "main.tex", onJump: () => {}, onMessageEveryone: () => {},
     }));
     expect(view.container.querySelector(".overleaf-presence-avatars.reconnecting")).not.toBeNull();
-    expect(view.getByRole("button")).toHaveAttribute("aria-label", "Ada Lovelace · main.tex · line 5 — click to jump there (reconnecting…)");
+    expect(view.getByRole("button")).toHaveAttribute("aria-label", "Ada Lovelace at main.tex, line 5. Click to jump there (reconnecting…)");
     view.unmount();
   });
 

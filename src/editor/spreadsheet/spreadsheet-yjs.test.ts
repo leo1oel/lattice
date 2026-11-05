@@ -89,6 +89,26 @@ describe("spreadsheet Yjs model", () => {
     expect(parseSpreadsheetFile(spreadsheetDocContent(doc))?.workbook.sheetOrder).toEqual(restored.sheetOrder);
   });
 
+  // Every row and column ID parsing derives again was written out: the
+  // tutorial sheet grew from 5 KB to 133 KB the first time it was saved.
+  it("writes only the row and column IDs parsing could not derive again", () => {
+    const canonical = serializeSpreadsheetFile(parseSpreadsheetFile(tutorialSpreadsheetSource)!.workbook);
+    expect(canonical).not.toMatch(/__lattice(Row|Column)Id/);
+    expect(canonical.length).toBeLessThan(tutorialSpreadsheetSource.length * 2);
+    expect(serializeSpreadsheetFile(parseSpreadsheetFile(canonical)!.workbook)).toBe(canonical);
+
+    // IDs that moved with an inserted row are kept, and every ID reads back unchanged.
+    const doc = seededDoc();
+    setValues(doc, "A3", [["anchor"]]);
+    applySpreadsheetBatch(doc, { operations: [{ type: "insert_rows", before: 2, count: 1 }] });
+    const ids = (workbook: SpreadsheetWorkbookData) => Object.values(firstSheet(workbook).rowData).map(latticeRowId);
+    const saved = spreadsheetDocContent(doc);
+    expect(ids(parseSpreadsheetFile(saved)!.workbook)).toEqual(ids(spreadsheetSnapshotFromDoc(doc)));
+    // Only the first row is still where its ID was derived: the new second
+    // row and the 99 it pushed down keep theirs.
+    expect(saved.match(/__latticeRowId/g)?.length).toBe(100);
+  });
+
   it.each([
     ["peers synced from one seed", syncedDocs],
     ["peers that concurrently initialized an empty imported spreadsheet", () => [seededDoc(), seededDoc()]],

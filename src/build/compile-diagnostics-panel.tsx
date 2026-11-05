@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChevronDown, ChevronUp, CircleHelp, CircleX, CornerDownLeft, LoaderCircle, PanelBottom, PictureInPicture2, Square, TriangleAlert, WandSparkles, ScrollText } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, CircleHelp, CircleX, CornerDownLeft, LoaderCircle, PanelBottom, PictureInPicture2, Square, TriangleAlert, WandSparkles, ScrollText } from "lucide-react";
 import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
@@ -27,27 +27,35 @@ const DOCKED_KEY = "lattice.build-output-docked.v1";
 
 /**
  * Floating keeps the page at full height and covers its top; docked gives
- * the output its own strip under the PDF. One preference for every project;
- * it is read whenever the panel appears, so the next build keeps the choice.
+ * the output its own strip under the PDF. One preference for every project,
+ * read whenever the panel appears, so the next build keeps the choice. Until
+ * the writer chooses, a build that succeeded docks: its warnings floated over
+ * page 1's title and abstract after every build until closed. A failed build
+ * floats, as its errors are what there is to read.
  */
-function useDockedPreference() {
-  const [docked, setDocked] = useState(() => {
+function useDockedPreference(success: boolean) {
+  const [choice, setChoice] = useState<boolean | null>(() => {
+    let stored: string | null = null;
     try {
-      return localStorage.getItem(DOCKED_KEY) === "1";
+      stored = localStorage.getItem(DOCKED_KEY);
     } catch {
-      return false;
+      // Unavailable storage: no choice made.
     }
+    // Outside the try blocks: the React Compiler skips a hook whose try holds a conditional.
+    if (stored === "1") return true;
+    if (stored === "0") return false;
+    return null;
   });
   const change = (next: boolean) => {
-    setDocked(next);
+    setChoice(next);
+    const stored = next ? "1" : "0";
     try {
-      if (next) localStorage.setItem(DOCKED_KEY, "1");
-      else localStorage.removeItem(DOCKED_KEY);
+      localStorage.setItem(DOCKED_KEY, stored);
     } catch {
       // Unavailable storage only forgets the choice for the next build.
     }
   };
-  return [docked, change] as const;
+  return [choice ?? success, change] as const;
 }
 
 function SeverityIcon({ level }: { level: string }) {
@@ -180,7 +188,12 @@ export function CompileDiagnosticsPanel(props: {
   const tone = summary.error > 0 || !props.success ? "error" : summary.warning > 0 ? "warning" : "info";
   const hasLog = Boolean(props.log.trim());
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
-  const [docked, setDocked] = useDockedPreference();
+  const [docked, setDocked] = useDockedPreference(props.success);
+  // Errors fixed in place from this list (Replace with …), by the build that
+  // reported them: until the build that follows reports again, they say so
+  // instead of explaining an error whose token has left the source.
+  const [fixed, setFixed] = useState<{ of: CompileDiagnostic[]; replaced: ReadonlyMap<CompileDiagnostic, string> }>({ of: [], replaced: new Map() });
+  const replaced = fixed.of === props.diagnostics ? fixed.replaced : null;
   if (props.success && !diagnostics.length && !props.repair) return null;
   // The same sentence the Build button's tip gives for this build.
   const title = diagnostics.length || !props.success ? buildHeadline(props.success, summary, props.wrotePdf) : t`Build notes`;
@@ -277,6 +290,21 @@ export function CompileDiagnosticsPanel(props: {
                           text={`${location} ${diagnostic.message}`}
                         />
                       );
+                      const replacement = replaced?.get(diagnostic);
+                      if (replacement !== undefined) {
+                        return (
+                          <li key={`${severity}-${diagnostic.line ?? ""}-${index}`} className="compile-explained compile-fixed">
+                            <div className="compile-diagnostic-item">
+                              <Check size={15} />
+                              <span className="compile-diagnostic-message">{explained?.headline ?? text}</span>
+                              {line ? <span className="compile-diagnostic-line">{t`line ${line}`}</span> : null}
+                            </div>
+                            <p className="compile-explained-text" role="status">
+                              <Trans>Replaced with <code>{replacement}</code>. Building again to confirm the fix.</Trans>
+                            </p>
+                          </li>
+                        );
+                      }
                       if (explained && severity === "error") {
                         const { suggestion, token } = explained;
                         return (
@@ -297,7 +325,10 @@ export function CompileDiagnosticsPanel(props: {
                             <p className="compile-explained-text">{explained.explanation}</p>
                             <div className="compile-explained-actions">
                               {suggestion && token && props.onReplaceToken && (
-                                <Button variant="secondary" size="compact" onClick={() => props.onReplaceToken?.(diagnostic, token, suggestion)}>
+                                <Button variant="secondary" size="compact" onClick={() => {
+                                  setFixed({ of: props.diagnostics, replaced: new Map([...replaced ?? [], [diagnostic, suggestion]]) });
+                                  props.onReplaceToken?.(diagnostic, token, suggestion);
+                                }}>
                                   <Trans>Replace with <code>{suggestion}</code></Trans>
                                   <CornerDownLeft size={12} aria-hidden="true" className="compile-explained-enter" />
                                 </Button>

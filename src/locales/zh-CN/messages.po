@@ -13,6 +13,10 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#: src/papers/bibliography-audit.tsx
+msgid " (Stale result)"
+msgstr "（结果已过时）"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid " et al."
 msgstr " 等"
@@ -124,7 +128,7 @@ msgstr "{0} 只有浅色"
 msgid "{0} comments"
 msgstr "{0} 条评论"
 
-#. placeholder {0}: list(reasons.map(reason => reasonLabels[reason] ?? reason))
+#. placeholder {0}: joinList(reasons.map(reason => reasonLabels[reason] ?? reason))
 #: src/papers/bibliography-audit.tsx
 msgid "{0} differ from a source's record"
 msgstr "{0}与来源记录不一致"
@@ -289,8 +293,8 @@ msgid "{changedCount} changed from the grammar style"
 msgstr "{changedCount} 条与语法风格默认不同"
 
 #: src/overleaf/overleaf-review.tsx
-msgid "{changeSummary} · {conflictSummary}"
-msgstr "{changeSummary} · {conflictSummary}"
+msgid "{changeSummary}, {conflictSummary}"
+msgstr "{changeSummary}，{conflictSummary}"
 
 #: src/build/compile-explain.ts
 msgid "{command} runs past a blank line"
@@ -459,8 +463,8 @@ msgid "{definitions} definitions"
 msgstr "{definitions} 处定义"
 
 #: src/project/references-panel.tsx
-msgid "{definitionSummary} · {referenceSummary}"
-msgstr "{definitionSummary} · {referenceSummary}"
+msgid "{definitionSummary}, {referenceSummary}"
+msgstr "{definitionSummary}，{referenceSummary}"
 
 #: src/build/tex-doctor-messages.ts
 msgid "{description}: {error}"
@@ -473,6 +477,10 @@ msgstr "{description}：无法运行 {path}：{error}"
 #: src/build/tex-doctor-messages.ts
 msgid "{description}: not found on PATH"
 msgstr "{description}：在 PATH 中未找到"
+
+#: src/project/manuscript-checklist.tsx
+msgid "{detail}. {limit}"
+msgstr "{detail}。{limit}"
 
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — BibTeX source"
@@ -625,9 +633,13 @@ msgstr "{item} 不是支持的源文件"
 msgid "{item} is not an image, PDF, or text file the agent can read."
 msgstr "{item} 不是 AI 助手能读取的图片、PDF 或文本文件"
 
+#: src/project/citation-health.ts
+msgid "{kind}: {detail}"
+msgstr "{kind}：{detail}"
+
 #: src/overleaf/overleaf-presence.tsx
-msgid "{label} · {place} — click to jump there"
-msgstr "{label} · {place}——点击跳转"
+msgid "{label} at {place}. Click to jump there"
+msgstr "{label} 在 {place}，点击跳转"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "{label}. Restart live preview"
@@ -667,8 +679,8 @@ msgid "{more} more replies"
 msgstr "另有 {more} 条回复"
 
 #: src/project/project-dialogs.tsx
-msgid "{name} · preprint"
-msgstr "{name} · 预印本"
+msgid "{name} (preprint)"
+msgstr "{name}（预印本）"
 
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
@@ -679,8 +691,8 @@ msgid "{name} {edition}"
 msgstr "{name} {edition}"
 
 #: src/project/project-dialogs.tsx
-msgid "{name} {edition} · preprint"
-msgstr "{name} {edition} · 预印本"
+msgid "{name} {edition} (preprint)"
+msgstr "{name} {edition}（预印本）"
 
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
@@ -739,6 +751,10 @@ msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史�
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着"
 
+#: src/canvas/proofread-card.tsx
+msgid "{note}. Click to keep the original"
+msgstr "{note}。点击保留原文"
+
 #: src/build/build-result-text.ts
 msgid "{notes} note"
 msgstr "{notes} 条提示"
@@ -753,8 +769,8 @@ msgid "{notice}. Open notice"
 msgstr "{notice}。查看公告"
 
 #: src/editor/latex/latex-hover-cards.ts
-msgid "{number} · page {page} in the last build"
-msgstr "{number} · 上次编译第 {page} 页"
+msgid "{number}, page {page} in the last build"
+msgstr "{number}，上次编译第 {page} 页"
 
 #: src/canvas/proofread-card.tsx
 msgid "{offered} edits"
@@ -780,10 +796,6 @@ msgstr "{paragraphs} 个段落有改动"
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
-
-#: src/overleaf/overleaf-presence.tsx
-msgid "{path} · line {line}"
-msgstr "{path} · 第 {line} 行"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} disappeared during sync"
@@ -820,6 +832,10 @@ msgstr "{path} 已被删除"
 #: src/app/vanished-file.ts
 msgid "{path} was moved to {moved}"
 msgstr "{path} 已被移到 {moved}"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "{path}, line {line}"
+msgstr "{path} 第 {line} 行"
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -919,16 +935,16 @@ msgid "{total} references, not checked yet"
 msgstr "共 {total} 条文献，尚未检查"
 
 #: src/project/manuscript-checklist.tsx
-msgid "{totalPages} total · body ends on p.{mainPages}"
-msgstr "共 {totalPages} 页 · 正文到第 {mainPages} 页"
+msgid "{totalPages} total, body ends on p.{mainPages}"
+msgstr "共 {totalPages} 页，正文到第 {mainPages} 页"
 
 #: src/project/manuscript-checklist.tsx
-msgid "{totalPages} total · end of the body not located in the PDF"
-msgstr "共 {totalPages} 页 · 没在 PDF 里找到正文结尾"
+msgid "{totalPages} total, end of the body not located in the PDF"
+msgstr "共 {totalPages} 页，没在 PDF 里找到正文结尾"
 
 #: src/project/manuscript-checklist.tsx
-msgid "{totalPages} total · included files not read"
-msgstr "共 {totalPages} 页 · 未计入引用的文件"
+msgid "{totalPages} total, included files not read"
+msgstr "共 {totalPages} 页，未计入引用的文件"
 
 #: src/project/submission-review.tsx
 msgid "{venue} camera-ready copy: anonymity is not checked."
@@ -947,8 +963,8 @@ msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
 
 #: src/project/deadline-card.tsx
-msgid "{when} your time · {zone}"
-msgstr "你的时间 {when} · {zone}"
+msgid "{when} your time ({zone})"
+msgstr "你的时间 {when}（{zone}）"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
@@ -984,8 +1000,8 @@ msgid "⌘⇧J jumps back"
 msgstr "⌘⇧J 跳回"
 
 #: src/trellis/trellis-header-tools.tsx
-msgid "⌘S · ⇧-click for a clean rebuild"
-msgstr "⌘S · 按住 ⇧ 点击从头编译"
+msgid "⌘S, or ⇧-click for a clean rebuild"
+msgstr "⌘S，按住 ⇧ 点击则从头编译"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 {BIBITEM}"
@@ -1581,6 +1597,10 @@ msgstr "正在添加第 {0} / {1} 篇"
 msgid "Adding paper"
 msgstr "正在添加论文"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
+msgstr "添加论文和查找引用需要 uv（一个 45 MB 的 Python 工具）。写作和编译不需要它"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "正在添加…"
@@ -1607,8 +1627,8 @@ msgstr "AI 助手"
 #. placeholder {0}: progress.answered
 #. placeholder {1}: progress.total
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "Agent is revising · {0} of {1} answered"
-msgstr "AI 助手正在修改 · 已答复 {0}/{1}"
+msgid "Agent is revising, {0} of {1} answered"
+msgstr "AI 助手正在修改，已答复 {0}/{1}"
 
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
@@ -1682,8 +1702,9 @@ msgid "All"
 msgstr "全部"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "All ({threadCount})"
-msgstr "全部（{threadCount}）"
+msgctxt "comment filter"
+msgid "All"
+msgstr "全部"
 
 #: src/papers/bibliography-audit.tsx
 msgid "All {total} references verified"
@@ -1722,8 +1743,8 @@ msgid "All third-party software"
 msgstr "全部第三方软件"
 
 #: src/settings/acknowledgements-settings.tsx
-msgid "All third-party software · {total}"
-msgstr "全部第三方软件 · {total}"
+msgid "All third-party software ({total})"
+msgstr "全部第三方软件（{total}）"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "All your projects are archived or trashed"
@@ -1747,7 +1768,7 @@ msgstr "阿尔法"
 msgid "Already in Papers"
 msgstr "已在论文库"
 
-#. placeholder {0}: list(fix.unprinted)
+#. placeholder {0}: joinList(fix.unprinted)
 #: src/papers/bibliography-audit.tsx
 msgid "Also changes: {0}"
 msgstr "另外还改：{0}"
@@ -1892,7 +1913,6 @@ msgstr "已删除批注"
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
-#: src/editor/comments/editor-comments-panel.tsx
 #: src/pdf/pdf-annotations.tsx
 #: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -2521,13 +2541,13 @@ msgstr "编译"
 msgid "Build failed"
 msgstr "编译失败"
 
-#: src/build/build-result-text.ts
-msgid "Build failed · {issues}"
-msgstr "编译失败 · {issues}"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build failed without a captured log"
 msgstr "编译失败，没有日志"
+
+#: src/build/build-result-text.ts
+msgid "Build failed: {issues}"
+msgstr "编译失败：{issues}"
 
 #: src/app/use-build-pipeline.ts
 msgid "Build files cleaned"
@@ -2774,8 +2794,8 @@ msgid "Candidate record considered, not verified"
 msgstr "找到相近记录，未确认"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Candidate record considered, not verified · cached record"
-msgstr "找到相近记录，未确认 · 缓存"
+msgid "Candidate record considered, not verified (cached record)"
+msgstr "找到相近记录，未确认（缓存）"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot apply the change because {path} changed. Try again."
@@ -4502,8 +4522,8 @@ msgstr "自定义"
 
 #. placeholder {0}: props.accent.toUpperCase()
 #: src/settings/theme-settings.tsx
-msgid "Custom · {0}"
-msgstr "自定义 · {0}"
+msgid "Custom {0}"
+msgstr "自定义 {0}"
 
 #: src/settings/theme-settings.tsx
 msgid "Custom accent"
@@ -4856,7 +4876,7 @@ msgstr "文档作者"
 msgid "Document date"
 msgstr "文档日期"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Document is already formatted."
 msgstr "格式已经整齐"
 
@@ -4919,8 +4939,8 @@ msgid "Double-blind review"
 msgstr "双盲评审"
 
 #: src/project/submission-review.tsx
-msgid "Double-blind review · {venue}"
-msgstr "双盲评审 · {venue}"
+msgid "Double-blind review for {venue}"
+msgstr "{venue} 双盲评审"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Double-click a paragraph"
@@ -5138,6 +5158,10 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "编辑"
 
+#: src/history/history-drawer.tsx
+msgid "Edit {editedName}"
+msgstr "编辑 {editedName}"
+
 #: src/app/use-command-table.ts
 msgid "Edit and preview HTML"
 msgstr "边写边看"
@@ -5341,10 +5365,6 @@ msgstr "请输入要删除的引用名"
 #: src/platform/host-errors-workspace.ts
 msgid "Enter a DOI, arXiv id, or paper title."
 msgstr "请输入 DOI、arXiv 编号或论文标题"
-
-#: src/app/use-project-lifecycle.ts
-msgid "Enter a project name."
-msgstr "请输入项目名称"
 
 #: src/settings/literature-settings.tsx
 msgid "Enter a replacement key"
@@ -5994,7 +6014,7 @@ msgstr "任意"
 msgid "For each item already here"
 msgstr "对每个同名项目"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Format"
 msgstr "排版"
 
@@ -6002,6 +6022,7 @@ msgstr "排版"
 msgid "Format currently supports .tex, .cls, and .sty files."
 msgstr "格式化目前只支持 .tex、.cls 和 .sty 文件"
 
+#: src/app/format-document.ts
 #: src/app/use-command-table.ts
 msgid "Format document"
 msgstr "整理排版"
@@ -6010,7 +6031,7 @@ msgstr "整理排版"
 msgid "Format selected LaTeX"
 msgstr "格式"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Formatted with latexindent."
 msgstr "已整理排版"
 
@@ -6445,11 +6466,6 @@ msgstr "隐藏 PDF"
 msgid "Highlight"
 msgstr "高亮"
 
-#. placeholder {0}: placement.page
-#: src/pdf/review-pdf-sheet.tsx
-msgid "Highlight · p. {0}"
-msgstr "高亮 · 第 {0} 页"
-
 #: src/editor/latex/highlight-palette.tsx
 msgid "Highlight {hex}"
 msgstr "用 {hex} 高亮"
@@ -6458,6 +6474,11 @@ msgstr "用 {hex} 高亮"
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Highlight color"
 msgstr "高亮颜色"
+
+#. placeholder {0}: placement.page
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Highlight on p. {0}"
+msgstr "第 {0} 页的高亮"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Highlight tips, warnings, and notes."
@@ -6960,8 +6981,8 @@ msgid "Install automatically"
 msgstr "自动安装"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Install Basic TeX · {TEX_INSTALL_SIZE_HINT}"
-msgstr "安装 LaTeX · {TEX_INSTALL_SIZE_HINT}"
+msgid "Install Basic TeX ({TEX_INSTALL_SIZE_HINT})"
+msgstr "安装 LaTeX（{TEX_INSTALL_SIZE_HINT}）"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
@@ -6991,16 +7012,16 @@ msgid "Install package for {0}"
 msgstr "安装 {0} 所需的组件"
 
 #: src/build/tex-setup-wizard.tsx
+msgid "Install paper tools"
+msgstr "安装论文工具"
+
+#: src/build/tex-setup-wizard.tsx
 msgid "Install required paper tools"
-msgstr "安装工具"
+msgstr "安装论文工具"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "安装所需工具"
-
-#: src/build/tex-setup-wizard.tsx
-msgid "Install required tools · 45 MB"
-msgstr "安装所需工具 · 45 MB"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -7217,6 +7238,10 @@ msgstr "期刊"
 #: src/papers/bibliography-audit.tsx
 msgid "Journal"
 msgstr "期刊"
+
+#: src/components/ui/chat-panel.tsx
+msgid "Jump to new messages"
+msgstr "跳到新消息"
 
 #: src/app/use-command-table.ts
 msgid "Jump to PDF"
@@ -7876,12 +7901,12 @@ msgid "Live editing is unavailable; regular syncing continues"
 msgstr "暂不能实时协作，普通同步照常"
 
 #: src/canvas/canvas-toolbar.tsx
-msgid "Live editing unavailable · syncing instead"
-msgstr "暂不能实时协作 · 改用同步"
+msgid "Live editing unavailable ({detail}), syncing instead"
+msgstr "暂不能实时协作（{detail}），改用同步"
 
 #: src/canvas/canvas-toolbar.tsx
-msgid "Live editing unavailable ({detail}) · syncing instead"
-msgstr "暂不能实时协作（{detail}）· 改用同步"
+msgid "Live editing unavailable, syncing instead"
+msgstr "暂不能实时协作，改用同步"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Live editing with Overleaf could not start ({detail}). Your project still syncs every few seconds."
@@ -8140,8 +8165,8 @@ msgstr "映射到"
 
 #. placeholder {0}: placement.page
 #: src/pdf/review-pdf-sheet.tsx
-msgid "Margin note · p. {0}"
-msgstr "页边批注 · 第 {0} 页"
+msgid "Margin note on p. {0}"
+msgstr "第 {0} 页的页边批注"
 
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "Margin review"
@@ -8347,8 +8372,8 @@ msgid "Metadata source"
 msgstr "资料来源"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Metadata source · cached"
-msgstr "资料来源 · 缓存"
+msgid "Metadata source (cached)"
+msgstr "资料来源（缓存）"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Middle table rule"
@@ -8658,10 +8683,6 @@ msgid "New Markdown file"
 msgstr "新建 Markdown"
 
 #: src/components/ui/chat-panel.tsx
-msgid "New messages · Jump to latest"
-msgstr "有新消息 · 跳到最新"
-
-#: src/components/ui/chat-panel.tsx
 msgid "New messages are available."
 msgstr "有新消息"
 
@@ -8787,7 +8808,7 @@ msgstr "还没有 AI 日志"
 msgid "No annotations yet"
 msgstr "还没有批注"
 
-#. placeholder {0}: list(silent)
+#. placeholder {0}: joinList(silent)
 #: src/papers/bibliography-audit.tsx
 msgid "No answer from {0}"
 msgstr "{0} 没有回应"
@@ -8993,8 +9014,8 @@ msgid "No notes came with this version"
 msgstr "这个版本没有附带更新说明"
 
 #: src/project/paper-inspector.tsx
-msgid "No notices · checked {date}"
-msgstr "无撤稿或更正通告 · {date} 查"
+msgid "No notices, checked {date}"
+msgstr "无撤稿或更正通告，{date} 查"
 
 #: src/project/references-panel.tsx
 msgid "No occurrences"
@@ -9236,17 +9257,17 @@ msgstr "未连接 Overleaf 实时协作通道"
 msgid "Not downloaded"
 msgstr "未下载"
 
+#: src/settings/literature-settings.tsx
+msgid "Not enabled, needs a personal API key"
+msgstr "未启用，需要个人密钥"
+
+#: src/settings/literature-settings.tsx
+msgid "Not enabled, needs an API key"
+msgstr "未启用，需要密钥"
+
 #: src/papers/bibliography-audit.tsx
-msgid "Not enabled · add your own API key in Settings"
-msgstr "未启用 · 请在设置里填密钥"
-
-#: src/settings/literature-settings.tsx
-msgid "Not enabled · API key required"
-msgstr "未启用 · 需要密钥"
-
-#: src/settings/literature-settings.tsx
-msgid "Not enabled · personal API key required"
-msgstr "未启用 · 需要个人密钥"
+msgid "Not enabled. Add your own API key in Settings"
+msgstr "未启用，请在设置里填密钥"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Not equal"
@@ -9280,6 +9301,11 @@ msgstr "不是 UTF-8 文本，转换为 UTF-8 后即可纳入检查：{encoded}"
 #: src/papers/bibliography-audit.tsx
 msgid "Not verified"
 msgstr "未确认"
+
+#. placeholder {0}: sourceName(source)
+#: src/papers/bibliography-audit.tsx
+msgid "Not verified against {0}"
+msgstr "未与 {0} 核实"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "not written"
@@ -9336,8 +9362,8 @@ msgstr "项目里没有名为 {file} 的文件。检查路径和大小写；路�
 
 #. placeholder {0}: counts.kept
 #: src/papers/bibliography-audit.tsx
-msgid "Nothing left to review · {0} kept as written"
-msgstr "没有待审的了 · {0} 条保留原文"
+msgid "Nothing left to review, {0} kept as written"
+msgstr "没有待审的了，{0} 条保留原文"
 
 #. placeholder {0}: deferredQuery.trim()
 #: src/settings/acknowledgements-settings.tsx
@@ -9349,8 +9375,8 @@ msgid "Nothing to change — {target} already matches."
 msgstr "无需更改，{target} 已经一致。"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Nothing to fix · {leftOver}"
-msgstr "没有要改的 · {leftOver}"
+msgid "Nothing to fix, {leftOver}"
+msgstr "没有要改的，{leftOver}"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "Nothing to rerun"
@@ -9541,7 +9567,7 @@ msgstr "打开{title}"
 msgid "Open {title} in browser"
 msgstr "在浏览器中打开 {title}"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Open a .tex file before formatting."
 msgstr "请先打开 .tex 文件"
 
@@ -9896,8 +9922,8 @@ msgid "Overleaf comments and chat"
 msgstr "评论聊天"
 
 #: src/canvas/canvas-toolbar.tsx
-msgid "Overleaf comments and chat · {count} waiting"
-msgstr "评论和聊天 · {count} 条未读"
+msgid "Overleaf comments and chat, {count} waiting"
+msgstr "评论和聊天，{count} 条未读"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf could not create the project ({status}): {detail}"
@@ -10291,8 +10317,8 @@ msgid "Partial derivative"
 msgstr "偏导数"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Partial results for {completed} of {progressTotal} references"
-msgstr "已有 {completed}/{progressTotal} 条结果"
+msgid "Partial results for {completed} of {progressTotal} references, waiting for Semantic Scholar…"
+msgstr "已有 {completed}/{progressTotal} 条文献的部分结果，正在等 Semantic Scholar…"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "pass {run}"
@@ -10756,8 +10782,8 @@ msgid "Project"
 msgstr "项目"
 
 #: src/build/tex-doctor-messages.ts
-msgid "Project {project} · engine {engine} · root {document} (missing)"
-msgstr "项目 {project} · 引擎 {engine} · 主文档 {document}（缺失）"
+msgid "Project {project}, engine {engine}, root {document} (missing)"
+msgstr "项目 {project}，引擎 {engine}，主文档 {document}（缺失）"
 
 #: src/editor/latex/latex-text.ts
 msgid "project command"
@@ -10821,6 +10847,7 @@ msgid "Proof environment (requires amsthm)"
 msgstr "证明环境（需要 amsthm）"
 
 #: src/canvas/proofread-card.tsx
+#: src/canvas/proofread-layer.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Proofread"
 msgstr "校对"
@@ -10885,8 +10912,8 @@ msgid "Psi"
 msgstr "普西"
 
 #: src/settings/literature-settings.tsx
-msgid "Public access · no key"
-msgstr "公共通道 · 无密钥"
+msgid "Public access, no key needed"
+msgstr "公共通道，无需密钥"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Public daily quota exhausted"
@@ -11035,14 +11062,6 @@ msgstr "正在读取第三方声明…"
 msgid "Ready"
 msgstr "就绪"
 
-#: src/project/arxiv-export-dialog.tsx
-msgid "Ready · {warnings} to look at"
-msgstr "就绪 · {warnings} 项待查看"
-
-#: src/project/arxiv-export-dialog.tsx
-msgid "Ready · 1 to look at"
-msgstr "就绪 · 1 项待查看"
-
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
 msgstr "可以编译了"
@@ -11050,6 +11069,14 @@ msgstr "可以编译了"
 #: src/project/manuscript-checklist.tsx
 msgid "Ready to submit"
 msgstr "可以投稿"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Ready, {warnings} to look at"
+msgstr "就绪，{warnings} 项待查看"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Ready, 1 to look at"
+msgstr "就绪，1 项待查看"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Real part"
@@ -11542,6 +11569,10 @@ msgstr "已替换 $ 处"
 msgid "replaced match on line $"
 msgstr "已替换第 $ 行"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Replaced with <0>{replacement}</0>. Building again to confirm the fix."
+msgstr "已替换为 <0>{replacement}</0>，正在重新编译确认修复。"
+
 #: src/project/project-replace-dialog.tsx
 msgid "Replacement text"
 msgstr "替换成"
@@ -11696,7 +11727,6 @@ msgstr "请先处理这些文件中的冲突标记再发布：{files}"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
-#: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved"
 msgstr "已解决"
 
@@ -11708,6 +11738,10 @@ msgstr "已处理 {path}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Resolved by {0}"
 msgstr "{0} 已解决"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Resolved: {note}"
+msgstr "已解决：{note}"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -11993,6 +12027,10 @@ msgctxt "selection instruction"
 msgid "Rewrite"
 msgstr "改写"
 
+#: src/app/use-command-table.ts
+msgid "Rewrite selection…"
+msgstr "按指令改写…"
+
 #: src/canvas/proofread-card.tsx
 msgid "Rewrite suggestion"
 msgstr "改写建议"
@@ -12077,13 +12115,13 @@ msgstr "第 {0} 轮"
 #. placeholder {0}: progress.round
 #. placeholder {1}: rounds!.proposals.length
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "Round {0} · {1} proposals to review"
-msgstr "第 {0} 轮 · {1} 条建议待审阅"
+msgid "Round {0}, {1} proposals to review"
+msgstr "第 {0} 轮，{1} 条建议待审阅"
 
 #. placeholder {0}: progress.round
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "Round {0} · 1 proposal to review"
-msgstr "第 {0} 轮 · 1 条建议待审阅"
+msgid "Round {0}, 1 proposal to review"
+msgstr "第 {0} 轮，1 条建议待审阅"
 
 #: src/app/annotation-rounds.ts
 msgid "Round {number} is saved as a version"
@@ -12312,14 +12350,6 @@ msgstr "请先保存修改再导出。"
 msgid "Saved"
 msgstr "已保存"
 
-#: src/canvas/status-save-state.tsx
-msgid "Saved · Synced"
-msgstr "已保存 · 已同步"
-
-#: src/canvas/status-save-state.tsx
-msgid "Saved · Syncing…"
-msgstr "已保存 · 正在同步…"
-
 #. placeholder {0}: result.path
 #: src/history/export-changes-dialog.tsx
 msgid "Saved {0}"
@@ -12332,6 +12362,10 @@ msgstr "{age}已保存"
 #: src/app/save-source-copy.ts
 msgid "Saved a copy to {written}"
 msgstr "副本已保存到 {written}"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved and synced"
+msgstr "已保存并同步"
 
 #: src/canvas/status-save-state.tsx
 msgid "Saved on this Mac"
@@ -12362,6 +12396,10 @@ msgstr "修改已保存到 {written}"
 #: src/project/paper-library-status.tsx
 msgid "Saved-text search unavailable"
 msgstr "无法搜索论文全文"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved, syncing…"
+msgstr "已保存，正在同步…"
 
 #: src/project/paper-inspector.tsx
 msgid "Saved, with its overview"
@@ -12595,6 +12633,10 @@ msgstr "选中本行"
 #: src/editor/editor-keymap.ts
 msgid "Select the next occurrence"
 msgstr "选下一处"
+
+#: src/canvas/proofread-layer.tsx
+msgid "Select the text to proofread first."
+msgstr "请先选中要校对的文字。"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"
@@ -13034,15 +13076,6 @@ msgctxt "where a literature result came from"
 msgid "Source"
 msgstr "来源"
 
-#. placeholder {0}: sourceName(source)
-#: src/papers/bibliography-audit.tsx
-msgid "Source · {0} · not verified"
-msgstr "来源 · {0} · 未核实"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Source · not verified"
-msgstr "来源 · 未核实"
-
 #: src/onboarding/guided-tour-steps.ts
 msgid "Source and PDF, linked"
 msgstr "双向跳转"
@@ -13068,6 +13101,10 @@ msgstr "源码编辑器字号"
 msgid "Source location in PDF"
 msgstr "在 PDF 中的位置"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Source not verified"
+msgstr "来源未核实"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Source path is outside this project."
 msgstr "源文件不在本项目中"
@@ -13081,8 +13118,8 @@ msgid "Source record considered, not verified"
 msgstr "来源记录，未确认"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Source record considered, not verified · cached record"
-msgstr "来源记录，未确认 · 缓存"
+msgid "Source record considered, not verified (cached record)"
+msgstr "来源记录，未确认（缓存）"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Source service error"
@@ -13167,10 +13204,6 @@ msgstr "方形超集（含等号）"
 #: src/build/build-log-messages.ts
 msgid "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
 msgstr "之前失败的编译已过时。请使用“全新重建”（按住 Shift 点击“编译”），或删除辅助文件后重新编译。"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Stale result"
-msgstr "结果已过时"
 
 #: src/settings/grammar-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -13678,8 +13711,8 @@ msgid "Text"
 msgstr "正文"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "Text {text} · headings {headers} · captions {captions}"
-msgstr "正文 {text} · 标题 {headers} · 图注 {captions}"
+msgid "Text {text}, headings {headers}, captions {captions}"
+msgstr "正文 {text}，标题 {headers}，图注 {captions}"
 
 #: src/build/compile-explain.ts
 msgid "Text before {BEGIN_DOCUMENT}"
@@ -15128,8 +15161,8 @@ msgid "Try that again now"
 msgstr "现在可以再试一次了"
 
 #: src/project/project-dialogs.tsx
-msgid "Tsinghua University thesis · {name}"
-msgstr "清华大学学位论文 · {name}"
+msgid "Tsinghua University thesis ({name})"
+msgstr "清华大学学位论文（{name}）"
 
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "TSV (tab)"
@@ -15402,6 +15435,7 @@ msgid "Untitled"
 msgstr "无标题"
 
 #: src/app/use-project-lifecycle.ts
+#: src/project/project-dialogs.tsx
 msgid "Untitled research"
 msgstr "未命名"
 
@@ -15581,8 +15615,8 @@ msgid "Using shared quota"
 msgstr "使用共享额度"
 
 #: src/project/project-dialogs.tsx
-msgid "USTC thesis · {name}"
-msgstr "中国科学技术大学学位论文 · {name}"
+msgid "USTC thesis ({name})"
+msgstr "中国科学技术大学学位论文（{name}）"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Value"
@@ -15649,8 +15683,8 @@ msgid "Verified"
 msgstr "已核实"
 
 #: src/editor/latex/latex-hover-cards.ts
-msgid "Verified · Crossref"
-msgstr "已核验 · Crossref"
+msgid "Verified by Crossref"
+msgstr "已经 Crossref 核验"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"
@@ -15805,10 +15839,6 @@ msgstr "等待你输入 Mac 密码…"
 #: src/platform/host-errors-overleaf.ts
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
 msgstr "正在等待 Overleaf 的实时文件树，之后再同步移动的文件"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Waiting for Semantic Scholar…"
-msgstr "正在等待 Semantic Scholar…"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
@@ -16095,7 +16125,7 @@ msgid "You read the publisher's notice and kept citing it"
 msgstr "你读过出版方公告，仍保留引用"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "You sign in on Overleaf. Lattice never sees your password"
+msgid "You sign in on Overleaf. Lattice never sees your password."
 msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 
 #: src/settings/settings-dialog.tsx

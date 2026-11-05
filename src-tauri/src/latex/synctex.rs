@@ -30,14 +30,17 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
     // `records::source_at`); the records around the point still name the line
     // that placed it, or failing that the nearest one that has a line.
     let pdf = root.join(&pdf);
+    let synctex = records::read(&pdf);
     let (input, line) = parse_synctex_edit(&output)
         .or_else(|| {
-            records::read(&pdf).and_then(|synctex| records::source_at(&synctex, page, (x, y)))
+            synctex.as_deref().and_then(|synctex| records::source_at(synctex, page, (x, y)))
         })
         .ok_or_else(|| "No LaTeX source was found for this PDF position.".to_string())?;
     let canonical_root = root.canonicalize().map_err(|error| error.to_string())?;
-    let canonical_input =
-        build_folder(&pdf).join(&input).canonicalize().map_err(|error| error.to_string())?;
+    let canonical_input = Inputs::new(synctex.as_deref(), &pdf)
+        .path(&input)
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
     let relative = canonical_input
         .strip_prefix(&canonical_root)
         .map_err(|_| "SyncTeX returned a source file outside this project.".to_string())?;
@@ -99,10 +102,50 @@ pub fn forward_search(
     })
 }
 
-/// The folder TeX ran in, which SyncTeX's relative input names start from:
-/// the one holding the PDF, as latexmk `-cd` typesets beside the document.
-fn build_folder(pdf: &Path) -> &Path {
-    pdf.parent().unwrap_or(pdf)
+/// Where the input names in a PDF's SyncTeX data are now.
+///
+/// TeX ran in the folder holding the PDF (latexmk `-cd` typesets beside the
+/// document), and SyncTeX names an input relative to that folder, or by an
+/// absolute path, which it always uses for the document itself
+/// (`/…/paper/./main.tex`). Once the project folder is moved, copied or
+/// renamed, those absolute names still point at the folder it was built in,
+/// which is gone or another copy, and latexmk sees nothing to rebuild. So a
+/// name inside the folder the document was recorded in is read inside the
+/// folder the PDF is in now.
+struct Inputs {
+    folder: PathBuf,
+    recorded: Option<PathBuf>,
+}
+
+impl Inputs {
+    /// `pdf` is the PDF's full path.
+    fn new(synctex: Option<&str>, pdf: &Path) -> Self {
+        // TeX opens the document before anything it loads, so the first
+        // absolute name with the PDF's stem is the document's.
+        let recorded = synctex.and_then(|synctex| {
+            input_names(synctex)
+                .map(|name| Path::new(name).components().collect::<PathBuf>())
+                .find(|name| name.is_absolute() && name.file_stem() == pdf.file_stem())
+                .and_then(|document| document.parent().map(Path::to_path_buf))
+        });
+        Self { folder: pdf.parent().unwrap_or(pdf).to_path_buf(), recorded }
+    }
+
+    /// Where the input SyncTeX recorded as `name` is now.
+    fn path(&self, name: &str) -> PathBuf {
+        let name = Path::new(name);
+        match self.recorded.as_deref().and_then(|recorded| name.strip_prefix(recorded).ok()) {
+            Some(inside) => self.folder.join(inside),
+            None => self.folder.join(name),
+        }
+    }
+}
+
+/// Every input name in SyncTeX data, as TeX opened it.
+fn input_names(synctex: &str) -> impl Iterator<Item = &str> {
+    synctex
+        .lines()
+        .filter_map(|record| record.strip_prefix("Input:")?.split_once(':').map(|(_, name)| name))
 }
 
 /// The name SyncTeX recorded `source` under. `synctex view` matches the
@@ -111,11 +154,10 @@ fn build_folder(pdf: &Path) -> &Path {
 /// project-relative name finds it.
 fn recorded_name(synctex: &str, pdf: &Path, source: &Path) -> Option<String> {
     let source = source.canonicalize().ok()?;
-    synctex
-        .lines()
-        .filter_map(|record| record.strip_prefix("Input:")?.split_once(':').map(|(_, name)| name))
+    let inputs = Inputs::new(Some(synctex), pdf);
+    input_names(synctex)
         .filter(|name| Path::new(name).file_name() == source.file_name())
-        .find(|name| build_folder(pdf).join(name).canonicalize().is_ok_and(|name| name == source))
+        .find(|name| inputs.path(name).canonicalize().is_ok_and(|name| name == source))
         .map(str::to_string)
 }
 
@@ -144,10 +186,9 @@ pub fn body_pages(root: &Path, spans: &[BodySpan]) -> Result<Option<u32>, String
             Some((path, span.before.unwrap_or(u32::MAX)))
         })
         .collect();
-    // SyncTeX names its inputs as TeX opened them, absolute or from the
-    // build's folder.
+    let inputs = Inputs::new(Some(&synctex), &pdf);
     Ok(records::last_page_before(&synctex, |input| {
-        let input = build_folder(&pdf).join(input);
+        let input = inputs.path(input);
         // Most inputs are the TeX installation's: only a name a span has is resolved.
         if !spans.iter().any(|(path, _)| path.file_name() == input.file_name()) {
             return None;
@@ -180,10 +221,10 @@ pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<
             Some((path, index, heading.line))
         })
         .collect();
+    let inputs = Inputs::new(Some(&synctex), &pdf);
     Ok(records::heading_pages(&synctex, count, |input| {
-        // SyncTeX names its inputs as TeX opened them, absolute or from the
-        // build's folder; most are the TeX installation's.
-        let input = build_folder(&pdf).join(input);
+        // Most inputs are the TeX installation's.
+        let input = inputs.path(input);
         if !headings.iter().any(|(path, ..)| path.file_name() == input.file_name()) {
             return Vec::new();
         }

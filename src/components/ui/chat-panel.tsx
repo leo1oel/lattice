@@ -220,7 +220,7 @@ export function ChatPanel(props: {
       </span>
       {hasMessagesBelow && (
         <Button size="compact" variant="secondary" className="chat-latest-button" onClick={scrollToLatest}>
-          {t`New messages · Jump to latest`}
+          {t`Jump to new messages`}
         </Button>
       )}
 

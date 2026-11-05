@@ -68,7 +68,7 @@ import type { PdfAnnotationMark, PdfTextSelection } from "./pdf-annotations";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { PDF_MAX_SCALE, PDF_MIN_SCALE, parsePdfZoomPercent } from "./pdf-viewer-utils";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { currentProjectPdf, saveProjectPdf, type ProjectPdfFile } from "./project-pdf";
 import { pdfSource, usePdfDocument, type PdfRenderCount } from "./use-pdf-document";
 import { usePdfSearch } from "./use-pdf-search";

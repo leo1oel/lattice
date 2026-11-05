@@ -8,6 +8,7 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { STYLE_ATTRIBUTES } from "./engine-schema";
+import { jsonEqual } from "../../../lib/equality";
 
 /**
  * What a sequence of nodes means, ignoring how it was written: style
@@ -36,7 +37,7 @@ function semanticJSON(node: JSONContent): unknown {
     const value = semanticJSON(child) as { text?: string; marks?: unknown } | null;
     if (!value) continue;
     const previous = content[content.length - 1] as { text?: string; marks?: unknown } | undefined;
-    if (value.text != null && previous?.text != null && JSON.stringify(previous.marks) === JSON.stringify(value.marks)) {
+    if (value.text != null && previous?.text != null && jsonEqual(previous.marks, value.marks)) {
       content[content.length - 1] = { ...previous, text: previous.text + value.text };
     } else {
       content.push(value);

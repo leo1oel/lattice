@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { invoke } from "@tauri-apps/api/core";
 import type { GitFileStatus, GitStatus, ProjectSnapshot } from "../app-types";
 import { onProjectTreeStale } from "../project/project-files-changed";
+import { jsonEqual } from "../lib/equality";
 
 /**
  * The open project's snapshot and its imperative identity. `projectRef`, what
@@ -128,7 +129,7 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
           const remoteUrl = status?.repository ? status.remoteUrl ?? null : null;
           setGitStatus((current) => (
             current.projectRoot === currentProject.root
-            && JSON.stringify(current.files) === JSON.stringify(files)
+            && jsonEqual(current.files, files)
             && current.remoteUrl === remoteUrl
               ? current
               : { projectRoot: currentProject.root, files, remoteUrl }

@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { projectRoot } from "./lib/util.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = projectRoot;
 const allowlistPath = path.join(root, "scripts/i18n-unlocalized-baseline.txt");
 const catalogPath = path.join(root, "src/locales/zh-CN/messages.po");
 const ruleId = "lingui/no-unlocalized-strings";

@@ -33,9 +33,9 @@ describe("Overleaf collaboration drawer localization", () => {
       hasLocalComments: true, localCommentCount: 2, localComments: <div>Unsynced file discussion</div>,
     };
     const { rerender } = render(drawer("comments", props));
-    expect(screen.getByRole("tab", { name: "Comments3" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Comments 3" })).toBeInTheDocument();
     expect(screen.queryByText("Unsynced file discussion")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Lattice only2" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Lattice only 2" }));
     expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
     rerender(drawer("comments", { ...props, localCommentCount: 0 }));
     expect(screen.getByRole("tab", { name: "Lattice only" })).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("Overleaf collaboration drawer localization", () => {
       comments: { threads: [{ id: "t1", messages: [{ id: "c1", content: "Settled point", authorName: "Ada", authorEmail: "", timestamp: 0, mine: false }], resolved: true, resolvedBy: "Robin", resolvedAt: null }] },
     }));
     expect(screen.queryByText("Settled point")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "All (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: "All 1" }));
     fireEvent.click(screen.getByRole("button", { name: /Resolved by Robin/ }));
     expect(screen.getByText("Settled point")).toBeInTheDocument();
   });

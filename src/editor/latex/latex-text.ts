@@ -1,6 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { i18n } from "../../i18n";
+import { escapeRegExp } from "../../lib/escape-regexp";
 
 export const LABEL = /\\label\{([^}]*)\}/g;
 const GRAPHICSPATH = /\\graphicspath\s*\{((?:\{[^}]*\})+)\}/g;
@@ -59,8 +60,6 @@ export type LocalMacro = {
   detail: string;
   type: "keyword" | "type";
 };
-
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Maps ascending offsets to 1-based lines in one pass over the source, so

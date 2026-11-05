@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
+import { msg } from "@lingui/core/macro";
 import { isolateHistory } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
 import { PROOFREAD_MAX_LENGTH, ProofreadFailure, proofreadWithAgent, type ProofreadAsk } from "../agent/agent-proofread";
@@ -16,6 +17,8 @@ import {
 import { markAcceptedEdits, type AcceptedEdit } from "../editor/change-marks";
 import { proofreadAnchor, setProofreadAnchorEffect } from "../editor/proofread-anchor";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { i18n } from "../i18n";
+import { notifyInfo } from "../telemetry/app-notify";
 import type { ProofreadBridge } from "./proofread-bridge";
 import { ProofreadCard, type ProofreadCardState } from "./proofread-card";
 
@@ -39,6 +42,36 @@ function anchoredText(view: EditorView, from: number, to: number): { original: s
   // Past the limit the card refuses before asking, so it needs no context.
   if (original.length > PROOFREAD_MAX_LENGTH) return { original, context: { before: "", after: "" } };
   return { original, context: proofreadContext(view.state.doc.toString(), from, to) };
+}
+
+/**
+ * Scroll the editor just enough to show the card under the selection, top
+ * first when it is taller than the editor. Only the editor's own scroller
+ * moves: a selection near the bottom used to open the card below the fold,
+ * leaving nothing on screen but the greyed source.
+ */
+function revealCard(view: EditorView, host: HTMLElement) {
+  view.requestMeasure({
+    key: host,
+    read: () => ({ card: host.getBoundingClientRect(), box: view.scrollDOM.getBoundingClientRect() }),
+    write: ({ card, box }) => {
+      if (!host.isConnected || !card.height) return;
+      const margin = 12;
+      const below = card.bottom + margin - box.bottom;
+      const above = card.top - margin - box.top;
+      if (above < 0) view.scrollDOM.scrollTop += above;
+      else if (below > 0) view.scrollDOM.scrollTop += Math.min(below, above);
+    },
+  });
+}
+
+/**
+ * ⌘⌥P (or the menu) with nothing selected: say what it needs rather than do
+ * nothing, which read as a broken shortcut. Handled, so the key stops here.
+ */
+function askForSelection(): true {
+  notifyInfo(i18n._(msg`Proofread`), i18n._(msg`Select the text to proofread first.`), { timeoutMs: 2_400, dedupeKey: "proofread-no-selection" });
+  return true;
 }
 
 type ProofreadLayerProps = {
@@ -67,7 +100,8 @@ export const ProofreadLayer = memo(function ProofreadLayer(props: ProofreadLayer
     if (active) return;
     return bridge.connect({
       request: (view, ask = "proofread") => {
-        if (!editable || !projectRoot || view.state.selection.main.empty) return false;
+        if (!editable || !projectRoot) return false;
+        if (view.state.selection.main.empty) return askForSelection();
         pendingRef.current = { view, ask };
         setActive(true);
         return true;
@@ -163,12 +197,13 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
     setSession(null);
   }, [viewRef]);
 
-  /** Proofread, polish or rewrite `view`'s selection; false when there is nothing to proofread. */
+  /** Proofread, polish or rewrite `view`'s selection; false when the editor cannot be proofread. */
   const start = useCallback((view: EditorView, ask: ProofreadAsk = "proofread") => {
     const { activeFile, editable, projectRoot } = optionsRef.current;
     const range = view.state.selection.main;
     const { original, context } = anchoredText(view, range.from, range.to);
-    if (!editable || !projectRoot || !original.trim()) return false;
+    if (!editable || !projectRoot) return false;
+    if (!original.trim()) return askForSelection();
     const host = document.createElement("div");
     host.className = "proofread-card-host";
     // Collapse the selection so the toolbar steps aside; the span stays marked.
@@ -252,6 +287,14 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
       return { ...current, state: { ...current.state, rejected } };
     });
   }, []);
+
+  // Brought into view when it opens, and again when the answer changes its size.
+  const shownHost = session && session.path === options.activeFile ? session.host : null;
+  const status = session?.state.status;
+  useLayoutEffect(() => {
+    const view = viewRef.current;
+    if (view && shownHost) revealCard(view, shownHost);
+  }, [shownHost, status, viewRef]);
 
   // A rebuilt editor (another file, a reload) has lost the card's widget.
   useEffect(() => close, [close, options.activeFile, options.editorKey, options.projectRoot]);

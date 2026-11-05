@@ -13,10 +13,11 @@ import {
 } from "../editor/comments/editor-comment-data";
 import "../editor/comments/annotations.css";
 import { useIntentLabels } from "../editor/comments/use-intent-labels";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { onLayoutChange } from "../app/effect-helpers";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { baseName } from "../lib/base-name";
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names, drawn as glyphs */
 const SAVE_KEYS = comboText(parseKeyName("Mod-Enter"));
@@ -173,7 +174,7 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
     reposition();
     return onLayoutChange([host, view.contentDOM], reposition);
   }, [anchorKey, draftRef, view]);
-  const name = draft.path.split("/").at(-1) ?? draft.path;
+  const name = baseName(draft.path);
   return (
     <div
       ref={popupRef}

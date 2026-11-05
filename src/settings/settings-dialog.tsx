@@ -45,6 +45,7 @@ import { AppLogsSettings } from "../telemetry/app-log";
 import { LivePreviewSettings } from "../live-preview/live-preview-settings";
 import type { LivePreview } from "../live-preview/use-live-preview";
 import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime";
+import { prefersReducedMotion } from "../lib/reduced-motion";
 
 /** The Settings tabs that embed a Synara settings page, and which one. */
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = { agent: "providers", api: "skills", mcp: "integrations" };
@@ -193,7 +194,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     const frame = window.requestAnimationFrame(() => {
       const row = settingsViewportRef.current?.querySelector<HTMLElement>(`[data-setting="${reveal.entry.id}"]`);
       if (!row) return;
-      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+      const reducedMotion = prefersReducedMotion();
       row.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
       // Focus the row's own control, so the next key changes the setting.
       row.querySelector<HTMLElement>(

@@ -19,7 +19,7 @@
 // flagged for quarantine as the issue's policy asks.
 import { appendFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { pathToFileURL } from "node:url";
+import { isMain } from "./lib/util.mjs";
 
 const LABEL = "known-flakes";
 const TITLE = "Known flakes";
@@ -174,7 +174,7 @@ async function main() {
   console.log(`recorded: ${comment.html_url}`);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMain(import.meta.url)) {
   main().catch((error) => {
     console.error(error.message);
     process.exit(1);

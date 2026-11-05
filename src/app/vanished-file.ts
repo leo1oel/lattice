@@ -14,6 +14,7 @@ import { writeSourceCopy } from "./save-source-copy";
 import { isVanished, type DocumentStore, type VanishedFile } from "./use-document-store";
 import type { DocumentTreeChanges } from "./use-document-tree-changes";
 import { settleVanished, vanishedToastKey } from "./vanished-file-wait";
+import { baseName } from "../lib/base-name";
 
 /** The open documents' state and commands, as of the call. */
 export type VanishedContext = {
@@ -138,7 +139,7 @@ async function saveElsewhere(context: VanishedContext, vanished: VanishedFile) {
   if (!stillWaiting(store, vanished)) return;
   const { root } = vanished;
   const { path } = vanished;
-  const name = path.slice(path.lastIndexOf("/") + 1);
+  const name = baseName(path);
   const destination = await saveDialog({ title: i18n._(msg`Save ${name} As`), defaultPath: `${root}/${path}` })
     .catch(() => null);
   if (!stillWaiting(store, vanished)) return;

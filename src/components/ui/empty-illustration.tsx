@@ -14,8 +14,8 @@ export type EmptyIllustrationKind = "comments" | "search" | "history" | "done";
 
 const order = (index: number) => ({ "--draw-order": index }) as CSSProperties;
 
-/** A stroke that draws itself in, in sequence. */
-function Line({ d, i, className }: { d: string; i: number; className?: string }) {
+/** A stroke that draws itself in, in sequence. Drawings a lazy panel owns use it too. */
+export function Line({ d, i, className }: { d: string; i: number; className?: string }) {
   return <path className={cn("empty-illustration-line", className)} d={d} pathLength={1} style={order(i)} />;
 }
 
