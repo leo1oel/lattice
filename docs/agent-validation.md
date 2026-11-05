@@ -34,7 +34,9 @@ A red CI check that your change cannot reach is probably a known flake: search
 the pinned [Known flakes](https://github.com/leo1oel/lattice/issues/342) issue
 for the test's name before you investigate it. When CI fails on `main`,
 `flake-rerun.yml` re-runs the failed jobs once; on any branch, a re-run that
-passes records what failed the attempt before. `flake-hunt.yml` records what
+passes records what failed the attempt before. `synara-pin` is never recorded:
+it checks the published Synara fork, so it rightly passes on a re-run once the
+fork branch is pushed. `flake-hunt.yml` records what
 fails in its nightly stress passes. The issue also holds the quarantine policy.
 To see how flaky a test is, run its file many times under load with
 `node scripts/burn-in.mjs --runs 20 --burn 4 <file> -- -t "<test name>"`; CI's

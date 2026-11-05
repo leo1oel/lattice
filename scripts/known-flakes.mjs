@@ -54,6 +54,25 @@ export function failuresInLog(log) {
   return [...found];
 }
 
+// Jobs whose verdict turns on something outside the commit, so a re-run of the
+// same commit can rightly pass. `synara-pin` checks the published Synara fork:
+// it fails while the pin's commit is not yet on the fork branch, and passes
+// once that is pushed (PR runs 41191198576 and 41306135855 failed 68 s and
+// 23 min before the push, and passed when re-run after it).
+const OUTSIDE_THE_COMMIT = new Set(["synara-pin"]);
+
+/**
+ * The jobs of a failed attempt that a passing re-run shows were flaky. Not a
+ * sharded check's reporting job (`perf-bench` for `perf-bench (1/2)`), which
+ * fails only because a shard did and whose log names nothing, and not a job
+ * in OUTSIDE_THE_COMMIT.
+ */
+export function flakyJobs(jobs) {
+  return jobs.filter((job) => job.conclusion === "failure" &&
+    !OUTSIDE_THE_COMMIT.has(job.name) &&
+    !jobs.some((shard) => shard.conclusion === "failure" && shard.name.startsWith(`${job.name} (`)));
+}
+
 const KINDS = ["rerun", "pr-rerun", "hunt"];
 
 /**
@@ -134,12 +153,9 @@ async function main() {
 
   const details = await (await gh.request(`/actions/runs/${run}`)).json();
   const jobs = await gh.all(`/actions/runs/${run}/attempts/${attempt}/jobs?per_page=100`, "jobs");
-  // A sharded check's reporting job (`perf-bench` for `perf-bench (1/2)`)
-  // fails only because a shard did, and its log names nothing.
-  const failed = jobs.filter((job, _, all) => job.conclusion === "failure" &&
-    !all.some((shard) => shard.conclusion === "failure" && shard.name.startsWith(`${job.name} (`)));
+  const failed = flakyJobs(jobs);
   if (failed.length === 0) {
-    console.log(`run ${run} attempt ${attempt} has no failed job; nothing to record`);
+    console.log(`run ${run} attempt ${attempt} has no flaky job; nothing to record`);
     return;
   }
 
