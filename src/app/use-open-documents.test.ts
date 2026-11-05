@@ -170,6 +170,24 @@ describe("tree changes", () => {
     await act(async () => { docs.current().reopenClosed(); });
     expect(docs.current().file).toBe("main.tex");
   });
+
+  it("puts a document, not a data file sorted before it, in front of a deleted root", async () => {
+    const docs = renderDocuments({ "main.tex": "Main", "data/results.json": "{}", "sections/intro.tex": "Intro" });
+    await docs.enter();
+    docs.files.delete("main.tex");
+    docs.setSnapshot(["data/results.json", "sections/intro.tex"]);
+    await act(() => docs.current().remove(["main.tex"]));
+    expect(docs.current()).toMatchObject({ file: "sections/intro.tex", text: "Intro" });
+  });
+
+  it("falls back to a code or configuration file only when no document is left", async () => {
+    const docs = renderDocuments({ "main.tex": "Main", "data/results.json": "{}" });
+    await docs.enter();
+    docs.files.delete("main.tex");
+    docs.setSnapshot(["data/results.json"]);
+    await act(() => docs.current().remove(["main.tex"]));
+    expect(docs.current()).toMatchObject({ file: "data/results.json", text: "{}" });
+  });
 });
 
 describe("durable text and disk", () => {
