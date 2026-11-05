@@ -9,7 +9,7 @@
       },
       "body": {
         "en": "Python and common code and configuration files (JavaScript, Rust, Go, C and C++, Java, Ruby, R, shell scripts, JSON, YAML, TOML, XML, CSS, SQL and more) can be created, dropped in, searched and attached to the agent, and their editors offer autocompletion.",
-        "zh": "Python 以及常见的代码和配置文件（JavaScript、Rust、Go、C 和 C++、Java、Ruby、R、Shell 脚本、JSON、YAML、TOML、XML、CSS、SQL 等）现在可以新建、拖入、搜索并附加给智能体，编辑这些文件时还有自动补全。"
+        "zh": "Python 以及常见的代码和配置文件（JavaScript、Rust、Go、C 和 C++、Java、Ruby、R、Shell 脚本、JSON、YAML、TOML、XML、CSS、SQL 等）现在可以新建、拖入、搜索并附加给AI 助手，编辑这些文件时还有自动补全。"
       }
     },
     {
@@ -25,7 +25,7 @@
     {
       "title": {
         "en": "The agent panel remembers your setup",
-        "zh": "智能体面板记住你的设置"
+        "zh": "AI 助手面板记住你的设置"
       },
       "body": {
         "en": "Your default provider, model, effort, hidden providers, provider order and drafts are kept across launches, and Settings → Agent providers has a Default provider row.",
