@@ -1,7 +1,7 @@
 use crate::dispatch::{self, Core};
 use axum::{
     extract::{DefaultBodyLimit, Query, State},
-    http::{header, HeaderMap, HeaderValue, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
@@ -394,7 +394,7 @@ struct Asset {
     end: Option<u64>,
 }
 async fn asset(
-    State(state): State<Server>, headers: HeaderMap, Query(query): Query<Asset>,
+    State(state): State<Server>, headers: HeaderMap, method: Method, Query(query): Query<Asset>,
 ) -> Response {
     if let Err(error) = authorize(&state, &headers) {
         return error;
@@ -471,40 +471,7 @@ async fn asset(
             ),
         };
     }
-    let metadata = match tokio::fs::metadata(&path).await {
-        Ok(metadata) => metadata,
-        Err(_) => return StatusCode::NOT_FOUND.into_response(),
-    };
-    if metadata.len() > 256 * 1024 * 1024 {
-        return failure(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "asset_too_large",
-            "Use versioned range reads for large files.",
-        );
-    }
-    let kind =
-        match path.extension().and_then(|v| v.to_str()).unwrap_or("").to_ascii_lowercase().as_str()
-        {
-            "pdf" => "application/pdf",
-            "png" => "image/png",
-            "jpg" | "jpeg" => "image/jpeg",
-            "svg" => "image/svg+xml",
-            "webp" => "image/webp",
-            _ => "application/octet-stream",
-        };
-    match tokio::fs::read(path).await {
-        Ok(bytes) => (
-            [
-                (header::CONTENT_TYPE, kind),
-                (header::CACHE_CONTROL, "no-store"),
-                (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
-                (header::CONTENT_SECURITY_POLICY, "sandbox"),
-            ],
-            bytes,
-        )
-            .into_response(),
-        Err(_) => StatusCode::NOT_FOUND.into_response(),
-    }
+    crate::asset_stream::serve(&state.core.root, &candidate, &headers, method).await
 }
 async fn events(State(state): State<Server>, headers: HeaderMap) -> Response {
     if let Err(error) = authorize(&state, &headers) {

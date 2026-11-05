@@ -126,3 +126,37 @@ escapes, shared history and CLI persistence, static bootstrap, a real LaTeX
 build, PDF bytes and stale-version range rejection. Without
 `LATTICE_TEST_LATEX=1`, only the toolchain-dependent test is skipped. No desktop
 process or mock backend is launched.
+
+## Authenticated media streaming
+
+Ordinary `GET /api/asset?path=...` responses stream from one confined regular-file
+descriptor in bounded chunks. MP4/M4V, WebM and QuickTime receive video MIME
+types; MP3, M4A, WAV and Ogg receive audio MIME types. A browser still needs a
+decoder for the actual codec: this route does not transcode or add a project
+video editor. The native slide runtime and headless slide editing remain
+separate capabilities.
+
+The route retains session/Bearer authentication, origin checks, `nosniff`, a
+sandbox policy and private `no-store` responses. Directory traversal, hidden
+paths, symlinks at any path component and non-regular files are refused.
+An authenticated `HEAD` returns metadata without reading the file body and
+ignores Range. A single `Range: bytes=start-end`, open-ended or suffix request
+returns 206 with Content-Range; invalid, multipart or unsatisfiable ranges return
+416. `If-Range` restarts from the whole current file when its ETag is stale;
+`If-None-Match` can return 304. An open descriptor pins a replaced file, while
+ETags distinguish revisions between requests; in-place writes during a transfer
+can still change that transfer's bytes, so do not rewrite media being presented.
+
+The existing `version`/`start`/`end` PDF query protocol stays unchanged. Those
+version-pinned reads are distinct from ordinary HTTP Range. The former 256 MiB
+whole-file limit does not apply to streaming responses; memory remains bounded
+by chunk size and backpressure instead of the media file's length.
+
+```sh
+LATTICE_SERVER_BINARY=server/target/debug/lattice-server \
+  python3 server/tests/media_streaming.py
+```
+
+The consumer suite uses a real binary, including a 1 GiB sparse media asset,
+GET/HEAD/range validators, disconnects, authentication/origin checks and a
+parent-directory symlink swap. It needs neither a graphical display nor TeX.

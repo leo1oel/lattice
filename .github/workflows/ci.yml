@@ -426,6 +426,22 @@ jobs:
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 
+  headless-media:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo fmt --manifest-path server/Cargo.toml --check
+      - run: cargo build --locked --manifest-path server/Cargo.toml
+      - name: Exercise authenticated media against the real display-free server
+        run: python3 server/tests/media_streaming.py
+
   # The research environment's verifier, run in the pinned TeX Live image its
   # Harbor tasks use, since its scores depend on that exact toolchain: unit
   # tests (the TeX ones build real papers), every seed built twice in
