@@ -4,6 +4,7 @@ import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { i18n } from "../i18n";
 import { utf8ToBase64 } from "../pdf/pdf-bytes";
 import { logAction } from "../telemetry/app-notify";
+import { baseName } from "../lib/base-name";
 
 /**
  * The way out when the open file cannot be written in place (a full disk, a
@@ -12,7 +13,7 @@ import { logAction } from "../telemetry/app-notify";
  * name (export.rs `save_text_copy`); a cancelled panel writes nothing.
  */
 export async function saveSourceCopy(path: string, text: string): Promise<void> {
-  const name = path.slice(path.lastIndexOf("/") + 1);
+  const name = baseName(path);
   const trace = logAction(i18n._(msg`Save`), i18n._(msg`Save a copy`), name, "save-source-copy");
   try {
     const destination = await saveDialog({ title: i18n._(msg`Save a copy of ${name}`), defaultPath: name });

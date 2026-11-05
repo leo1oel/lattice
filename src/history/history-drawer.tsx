@@ -36,6 +36,10 @@ import {
   type DiffFileChange,
 } from "./pierre-diff";
 import "./history-timeline.css";
+import { baseName } from "../lib/base-name";
+
+/** The label history.rs gives a file saved through Lattice. */
+const EDIT_LABEL = /^Edit (.+)$/;
 
 export type HistoryItem = {
   id: string;
@@ -328,6 +332,11 @@ export function HistoryDrawer(props: {
       : item.kind === "agent-checkpoint"
         ? t`Undo this Agent turn's file changes`
         : t`Restore the state before this change`;
+    // The host labels a file saved through Lattice "Edit {path}" (history.rs), in English: shown in the
+    // interface language by its file name, and its path then left to the meta line only when it adds a folder.
+    const edited = EDIT_LABEL.exec(item.label)?.[1];
+    const editedName = edited && item.files.length === 1 && item.files[0] === edited ? baseName(edited) : null;
+    const files = editedName === edited ? [] : item.files;
     const additions = item.fileSummaries?.reduce((sum, file) => sum + file.additions, 0) ?? 0;
     const deletions = item.fileSummaries?.reduce((sum, file) => sum + file.deletions, 0) ?? 0;
     return (
@@ -336,11 +345,11 @@ export function HistoryDrawer(props: {
         data-history-entry={item.id}
         glyph={<Glyph size={13} strokeWidth={1.75} />}
         tone={actor}
-        title={item.label}
+        title={editedName ? t`Edit ${editedName}` : item.label}
         meta={(
           <>
             <span className="history-row-actor">{actorLabels[actor] ?? t`You`}</span>
-            {item.files.length > 0 && <span className="history-row-detail">{item.files.join(", ")}</span>}
+            {files.length > 0 && <span className="history-row-detail">{files.join(", ")}</span>}
             <HistoryStat additions={additions} deletions={deletions} format={formatCount} />
           </>
         )}
@@ -378,7 +387,7 @@ export function HistoryDrawer(props: {
                   <small>
                     {file.kind}
                     {file.additions || file.deletions
-                      ? ` · +${file.additions} −${file.deletions}`
+                      ? ` +${file.additions} −${file.deletions}`
                       : ""}
                   </small>
                 </div>

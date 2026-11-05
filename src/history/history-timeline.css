@@ -170,7 +170,8 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  /* Space, not a dot, between who, what and how much. */
+  gap: var(--space-6);
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--type-caption-size);
@@ -178,12 +179,12 @@
   white-space: nowrap;
 }
 .history-row-meta:last-child { grid-column: 1 / -1; }
-.history-row-meta > :not(:first-child):is(.history-row-detail, .history-row-count)::before { content: "·"; margin-right: var(--space-2); }
 .history-row-actor { flex: none; }
 .history-row-detail { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .history-row-count { flex: none; }
 .history-row-tag { flex: 0 1 auto; min-width: 0; overflow: hidden; padding: 0 var(--space-2); border-radius: var(--radius-compact); background: var(--control-hover-surface); text-overflow: ellipsis; }
-.history-person { flex: 0 1 auto; min-width: 4.5em; display: inline-flex; align-items: center; gap: var(--space-2); overflow: hidden; }
+/* A name gives way after the file names do, never wider than it is (a short "You" leaves no gap). */
+.history-person { flex: 0 .25 auto; min-width: 16px; display: inline-flex; align-items: center; gap: var(--space-2); overflow: hidden; }
 .history-person-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Initials on the person's own colour, as the presence avatars draw them. */
 .history-avatar { flex: none; width: 16px; height: 16px; border-radius: var(--radius-pill); display: grid; place-items: center; color: #fff; font-size: calc(var(--type-micro-size) * .73); font-weight: var(--weight-semibold); letter-spacing: 0; line-height: 1; }
@@ -226,10 +227,6 @@
 @container history (width < 300px) {
   .history-empty .research-art { width: 96px; }
   .versions-save-label { display: none; }
-}
-/* A narrow panel lets names give way sooner. */
-@container history (width < 340px) {
-  .history-person { min-width: 2.5em; }
 }
 
 /* ---- An opened version */
@@ -304,7 +301,8 @@
 .version-action:hover:not(:disabled) { background: var(--control-hover-surface); }
 .version-action:active:not(:disabled) { background: var(--control-pressed-surface); }
 .version-action:disabled { border-color: var(--control-disabled-border); background: var(--control-disabled-surface); color: var(--control-disabled-ink); }
-.version-mode-note { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* What the version is compared with, then the switch, apart by space. */
+.version-mode-note { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-6); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .version-mode-switch { padding: 0; background: transparent; color: var(--text-primary); font: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; transition: text-decoration-color var(--motion-fast); }
 .version-mode-switch:hover:not(:disabled) { text-decoration-color: currentColor; }
 .version-note { min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }

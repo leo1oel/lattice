@@ -15,10 +15,9 @@
 // Usage: node scripts/release-notes.mjs <version> [YYYY-MM-DD]
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { isMain, projectRoot } from "./lib/util.mjs";
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Markdown down to the plain text the sheet shows: no emphasis markers or code ticks. */
 const plain = (text) => text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1").trim();
@@ -87,7 +86,7 @@ export function writeReleaseNotes(version, date, root = projectRoot) {
   return { path: notesPath, untranslated: texts.filter((text) => !text.zh).length };
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
   const [version, date = new Date().toISOString().slice(0, 10)] = process.argv.slice(2);
   if (!/^\d+\.\d+\.\d+$/.test(version ?? "")) throw new Error("Usage: node scripts/release-notes.mjs <x.y.z> [YYYY-MM-DD]");
   const written = writeReleaseNotes(version, date);

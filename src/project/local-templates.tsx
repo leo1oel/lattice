@@ -23,7 +23,7 @@ async function templateTask(work: () => Promise<void>, failed: (reason: unknown)
   try { await work(); } catch (reason) { failed(reason); } finally { finished(); }
 }
 
-const templateLabel = (item: LocalTemplate) => [item.name, item.version].filter(Boolean).join(" · ");
+const templateLabel = (item: LocalTemplate) => [item.name, item.version].filter(Boolean).join(" ");
 
 export function LocalTemplates({ selected, onSelect, currentProject = false }: {
   selected: ProjectVenue; onSelect: (value: ProjectVenue) => void; currentProject?: boolean;
@@ -42,14 +42,17 @@ export function LocalTemplates({ selected, onSelect, currentProject = false }: {
   const active = items.find((item) => selected === `local:${item.id}`);
   return (
     <section className="local-templates" aria-label={t`My templates`}>
-      <span>{t`My templates`}</span>
+      {/* A field label, not a heading; saving one is a side errand, so a quiet action on that line. */}
+      <div className="local-templates-head">
+        <span className="venue-picker-label">{t`My templates`}</span>
+        <Button variant="ghost" size="compact" onClick={() => setEditing(true)}>{t`Save a local template…`}</Button>
+      </div>
       {items.length > 0 && <Select value={active?.id ?? ""} onValueChange={(id) => onSelect(`local:${id}`)}>
         <SelectTrigger aria-label={t`My templates`} title={active && templateLabel(active)}><SelectValue placeholder={t`Choose a saved template`} /></SelectTrigger>
         <SelectContent position="popper" className="local-template-options">{items.map((item) => <SelectItem key={item.id} value={item.id}>{templateLabel(item)}</SelectItem>)}</SelectContent>
       </Select>}
-      {active && <small className="template-details">{[active.version, active.sourceUrl, active.root, active.engine].filter(Boolean).join(" · ")}</small>}
+      {active && <small className="template-details">{[active.version, active.sourceUrl, active.root, active.engine].filter(Boolean).join(", ")}</small>}
       {active && <details><summary>{t`Files`}</summary><ul className="template-saved-files">{active.files.map((file) => <li key={file}>{file}</li>)}</ul></details>}
-      <Button variant="secondary" onClick={() => setEditing(true)}>{t`Save a local template…`}</Button>
       {error && <p className="field-error" role="alert">{error}</p>}
       {editing && <SaveTemplateDialog currentProject={currentProject} onClose={() => setEditing(false)} onSaved={(item) => {
         setItems((previous) => [...previous, item]);

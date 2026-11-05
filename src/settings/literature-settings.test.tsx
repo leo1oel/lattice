@@ -67,7 +67,7 @@ it("shows shared Firecrawl quota and lets a personal key override it", async () 
 it("requires a Firecrawl key when no shared default is available", async () => {
   vi.mocked(invoke).mockResolvedValue({ ...anonymous, firecrawl: "missing" });
   await ready();
-  expect(screen.getByText("Not enabled · API key required")).toBeInTheDocument();
+  expect(screen.getByText("Not enabled, needs an API key")).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Test connection" })[2]).toBeDisabled();
 });
 
@@ -100,5 +100,5 @@ it("keeps credentials disabled when secure storage cannot be read", async () => 
   render(<LiteratureSettings />);
   await screen.findByRole("alert");
   expect(screen.getAllByLabelText("API key")[0]).toBeDisabled();
-  expect(screen.queryByText("Public access · no key")).not.toBeInTheDocument();
+  expect(screen.queryByText("Public access, no key needed")).not.toBeInTheDocument();
 });

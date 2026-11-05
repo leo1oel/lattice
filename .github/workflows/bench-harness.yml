@@ -18,6 +18,7 @@ on:
     paths: &harness-paths
       - "scripts/perf-bench.mjs"
       - "scripts/perf-bench/**"
+      - "scripts/lib/util.mjs"
       - "scripts/perf-fixture.mjs"
       - "scripts/private-fonts.ts"
       - "scripts/react-compiler-suppressions.ts"

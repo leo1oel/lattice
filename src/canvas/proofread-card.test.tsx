@@ -68,6 +68,23 @@ describe("ProofreadCard", () => {
     expect(order).toEqual(["0", "1"]);
   });
 
+  it("sets an applied edit's reason apart from the hint to keep the original", () => {
+    renderCard("proofread", {
+      status: "ready",
+      review: {
+        edits: [
+          { id: 0, from: 0, to: 2, insert: "Ours", reason: { category: "grammar", note: "subject-verb agreement" } },
+          { id: 1, from: 3, to: 5, insert: "show", reason: { category: "grammar", note: "tense." } },
+        ],
+        held: [],
+      },
+      rejected: new Set(),
+    }, "We do it.");
+    const labels = screen.getAllByRole("button", { pressed: true }).map((edit) => edit.getAttribute("aria-label"));
+    expect(labels[0]).toMatch(/subject-verb agreement\. Click to keep the original$/);
+    expect(labels[1]).toMatch(/[^.]tense\. Click to keep the original$/);
+  });
+
   it("says a failed rewrite could not rewrite", () => {
     renderCard({ instruction: "Shorten" }, { status: "error", message: "The agent could not rewrite the selection.", retryable: true });
     expect(screen.getByRole("status")).toHaveTextContent("Could not rewrite");

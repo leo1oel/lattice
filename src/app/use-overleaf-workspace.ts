@@ -68,7 +68,7 @@ export function projectOverleafEditorComments(
       body: first?.content ?? "", authorId: first?.authorEmail ?? "overleaf",
       authorColor: first && personColor(hues, { name: first.authorName, email: first.authorEmail, mine: first.mine }),
       // eslint-disable-next-line lingui/no-unlocalized-strings -- a name tagged with the product, the same in every locale
-      authorName: first ? `${first.authorName} · Overleaf` : "Overleaf", resolved: thread.resolved,
+      authorName: first ? `${first.authorName} (Overleaf)` : "Overleaf", resolved: thread.resolved,
       replies: rest.map((message) => ({
         id: message.id, authorId: message.authorEmail ?? "overleaf", authorName: message.authorName,
         authorColor: personColor(hues, { name: message.authorName, email: message.authorEmail, mine: message.mine }),

@@ -54,10 +54,10 @@ describe("DeadlineCard", () => {
     renderCard(deadline);
     const card = screen.getByRole("region", { name: "Deadline" });
     expect(card).toHaveAttribute("data-urgency", "calm");
-    expect(card).toHaveTextContent("NeurIPS 2027 · full paper");
+    expect(card).toHaveTextContent("NeurIPS 2027, full paper");
     expect(card).toHaveTextContent("3 days 4 hours left");
     expect(card).toHaveTextContent("Sat, May 15, 11:59 PM AoE (UTC−12)");
-    expect(card).toHaveTextContent(/your time · \S+/);
+    expect(card).toHaveTextContent(/your time \(\S+\)/);
     expect(card).not.toHaveTextContent("GMT+12");
   });
 
@@ -81,10 +81,10 @@ describe("DeadlineCard", () => {
     vi.setSystemTime(instant - (76 * HOUR + 20 * 60_000));
     renderCard(deadline);
     const card = screen.getByRole("region", { name: "截止时间" });
-    expect(card).toHaveTextContent("NeurIPS 2027 · 全文");
+    expect(card).toHaveTextContent("NeurIPS 2027，全文");
     expect(card).toHaveTextContent("还剩 3 天 4 小时");
     expect(card).toHaveTextContent("AoE 时间（UTC−12）");
-    expect(card).toHaveTextContent(/^.*你的时间 [^G]+ · \S+$/);
+    expect(card).toHaveTextContent(/^.*你的时间 [^G]+（\S+）$/);
   });
 
   it("adds a deadline with AoE pinned, naming it after the project's template", () => {

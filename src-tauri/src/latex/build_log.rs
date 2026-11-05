@@ -1,6 +1,7 @@
 //! Reading latexmk's log: diagnostics for the editor, and a trimmed copy for
 //! the Log tab.
 
+use super::rc_failure::rc_file_failure;
 use crate::models::{Diagnostic, MessageParams};
 use regex::{Captures, Regex};
 
@@ -133,11 +134,18 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     .unwrap();
     let located = |capture: &Captures, level: &str| {
         let file = Some(normalize_log_path(&capture[1]));
-        diagnostic(file, capture[2].parse().ok(), level, capture[3].trim().to_string())
+        let message = match level {
+            "warning" => warning_message(log, capture),
+            _ => capture[3].trim().to_string(),
+        };
+        diagnostic(file, capture[2].parse().ok(), level, message)
     };
 
     let mut diagnostics: Vec<Diagnostic> = file_line
         .captures_iter(log)
+        // A located package warning is read once, below, without its
+        // `Package natbib Warning:` header.
+        .filter(|capture| !warning_on_line.is_match(&capture[0]))
         .take(40)
         .map(|capture| {
             let warns = capture[3].to_ascii_lowercase().contains("warning");
@@ -169,9 +177,9 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         push_unique(&mut diagnostics, advice);
     }
     for capture in warning.captures_iter(log).take(40) {
-        let message = capture[1].trim();
-        if !is_pass_noise_warning(message) {
-            push_unique(&mut diagnostics, diagnostic(None, None, "warning", message.to_string()));
+        let message = warning_message(log, &capture);
+        if !is_pass_noise_warning(&message) {
+            push_unique(&mut diagnostics, diagnostic(None, None, "warning", message));
         }
     }
     // The same noise warnings also arrive with a `file:line:` prefix through
@@ -190,6 +198,34 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     super::cjk_text::explain_cjk_text(log, &mut diagnostics);
     super::engine_mismatch::explain_pdftex_only_commands(log, &mut diagnostics);
     diagnostics
+}
+
+/// A warning's whole message. TeX writes a long one over several lines: a
+/// package or class starts each further line with its name in parentheses,
+/// `(hyperref)       removing …`, and LaTeX's own warnings indent it under
+/// the text, so reading one line cut the message mid-sentence ("You have
+/// requested package `neurips',"). `capture` is a warning pattern's match,
+/// whose last group is the message's first line.
+fn warning_message(log: &str, capture: &Captures) -> String {
+    let whole = capture.get(0).expect("a match has group 0");
+    let first = &capture[capture.len() - 1];
+    let source = Regex::new(r"(?:Package|Class) (\S+) Warning:").unwrap();
+    let continuation = match source.captures(whole.as_str()) {
+        Some(source) => format!("({})", &source[1]),
+        None => " ".repeat("LaTeX Warning: ".len()),
+    };
+    let mut message = first.trim().to_string();
+    // The match ends at its line's end, so the first item is that line's rest.
+    for line in log[whole.end()..].lines().skip(1) {
+        let Some(rest) = line.strip_prefix(&continuation) else { break };
+        let rest = rest.trim();
+        if rest.is_empty() {
+            break;
+        }
+        message.push(' ');
+        message.push_str(rest);
+    }
+    message
 }
 
 /// A file TeX names in its log, `./main.tex` or `../shared/macros.tex`.
@@ -231,67 +267,6 @@ fn missing_dependency_advice(missing_file: &str) -> Diagnostic {
                 "Missing LaTeX dependency `{missing_file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
             ),
         ),
-    }
-}
-
-/// latexmk runs a project's rc file before any engine pass, and a `die` there
-/// ends the build with only the rc's own output in the log: no LaTeX error,
-/// so the diagnostics list stayed empty and the raw dump was all anyone saw.
-fn rc_file_failure(log: &str) -> Option<Diagnostic> {
-    let rc_error = Regex::new(
-        r"(?m)^Latexmk: Initialization file '([^'\n]+)' gave an error:[ \t]*\n((?:[ \t]+\S[^\n]*\n?)*)",
-    )
-    .unwrap();
-    let capture = rc_error.captures(log)?;
-    Some(playwright_browser_missing(log).unwrap_or_else(|| {
-        let file = capture[1].trim_start_matches("./");
-        let reason = crate::util::collapse_whitespace(&capture[2]);
-        let reason = reason.trim_end_matches('.');
-        let message = if reason.is_empty() {
-            format!("latexmk stopped before LaTeX ran because {file} failed. The Log tab shows the output of the command it runs.")
-        } else {
-            format!("latexmk stopped before LaTeX ran because {file} failed: {reason}. The Log tab shows the output of the command it runs.")
-        };
-        advice("error", "latexmkrc-failed", &[("file", file), ("reason", reason)], message)
-    }))
-}
-
-/// Projects render figures from `.latexmkrc` with Playwright. Its browsers are
-/// a separate download per Playwright release, so an unpinned `playwright`
-/// dependency that resolves a new release fails with "Executable doesn't
-/// exist" until that release's browser is installed. Lattice runs latexmk with
-/// the user's HOME, so the lookup is the same `~/Library/Caches/ms-playwright`
-/// a Terminal build uses; the fix is the install Playwright asks for, run by
-/// the same Playwright, which the traceback's site-packages path identifies.
-fn playwright_browser_missing(log: &str) -> Option<Diagnostic> {
-    let missing = Regex::new(r"(?m)Executable doesn't exist at (.+?)\s*$").unwrap();
-    let executable = missing.captures(log)?.get(1)?.as_str();
-    let chromium_build = Regex::new(r"^chromium[a-z_]*-\d+$").unwrap();
-    // Match the browser directory only: the browsers directory can sit under a
-    // custom PLAYWRIGHT_BROWSERS_PATH whose own components look like `name-123`.
-    let needs_chromium = std::path::Path::new(executable)
-        .components()
-        .filter_map(|component| component.as_os_str().to_str())
-        .any(|component| chromium_build.is_match(component));
-    if !needs_chromium {
-        return None;
-    }
-    let python_env =
-        Regex::new(r#"File "([^"\n]+?)/lib/python[0-9.]+/site-packages/playwright/"#).unwrap();
-    let capture = python_env.captures(log)?;
-    let python = format!("{}/bin/python3", &capture[1]);
-    let command = format!("{} -m playwright install chromium", shell_word(&python));
-    let message = format!(
-        "The project's .latexmkrc runs Playwright, and the Chromium this Playwright version needs is not downloaded, so latexmk stopped before LaTeX ran. Run `{command}` in Terminal, then build again."
-    );
-    Some(advice("error", "playwright-chromium-missing", &[("command", &command)], message))
-}
-
-fn shell_word(value: &str) -> String {
-    if value.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"/._+-@%=:,".contains(&byte)) {
-        value.to_string()
-    } else {
-        format!("'{}'", value.replace('\'', "'\"'\"'"))
     }
 }
 
@@ -364,27 +339,6 @@ fn strip_latexmk_preamble(log: &str) -> String {
     log[start..].trim_start().to_string()
 }
 
-/// The tail of the reported log (reproduced with a `.latexmkrc` that runs
-/// a uv script whose unpinned Playwright resolved 1.63.0, browsers absent).
-#[cfg(test)]
-pub(super) const PLAYWRIGHT_RC_FAILURE: &str = r#"Traceback (most recent call last):
-  File "/Users/me/paper/scripts/export_probe_pdfs.py", line 20, in main
-    browser = p.chromium.launch()
-  File "/Users/me/.cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2/lib/python3.13/site-packages/playwright/_impl/_connection.py", line 632, in wrap_api_call
-    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
-playwright._impl._errors.Error: BrowserType.launch: Executable doesn't exist at /Users/me/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell
-╔════════════════════════════════════════════════════════════╗
-║ Looks like Playwright was just installed or updated.       ║
-║ Please run the following command to download new browsers: ║
-║                                                            ║
-║     playwright install                                     ║
-╚════════════════════════════════════════════════════════════╝
-Latexmk: Initialization file './.latexmkrc' gave an error:
-     Probe SVG conversion failed
-
-Latexmk: Stopping because of problem with rc file
-"#;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -397,41 +351,6 @@ mod tests {
         let diagnostics = parse_diagnostics(log);
         let found = diagnostics.iter().find(|item| item.message.contains(needle));
         found.unwrap_or_else(|| panic!("nothing about {needle} in {diagnostics:?}")).message.clone()
-    }
-
-    #[test]
-    fn explains_a_failing_latexmkrc_and_the_playwright_browser_it_needs() {
-        let diagnostics = parse_diagnostics(PLAYWRIGHT_RC_FAILURE);
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-        assert_eq!(diagnostics[0].level, "error");
-        assert!(diagnostics[0].message.contains("Chromium"), "{diagnostics:?}");
-        let environment = "/Users/me/.cache/uv/environments-v2/export-probe-pdfs-d4814944139a86e2";
-        // The same Playwright the rc ran, so the download matches build 1243;
-        // a path with spaces is quoted and a relocated browsers directory
-        // is still recognized.
-        let relocated = PLAYWRIGHT_RC_FAILURE
-            .replace("/Users/me/.cache/uv", "/Users/me/My Cache/uv")
-            .replace("/Users/me/Library/Caches", "/Volumes/build-2026");
-        for (log, python) in [
-            (PLAYWRIGHT_RC_FAILURE.to_string(), format!("{environment}/bin/python3")),
-            (relocated, format!("'{}/bin/python3'", environment.replace(".cache", "My Cache"))),
-        ] {
-            let message = &parse_diagnostics(&log)[0].message;
-            let command = format!("`{python} -m playwright install chromium`");
-            assert!(message.contains(&command), "{message}");
-        }
-
-        // Without Playwright, the rc file and its own error are named instead
-        // of leaving only the raw log.
-        let diagnostics = parse_diagnostics(
-            "Latexmk: Initialization file './.latexmkrc' gave an error:\n     \
-             Figure export failed\n\nLatexmk: Stopping because of problem with rc file\n",
-        );
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-        assert!(
-            diagnostics[0].message.contains(".latexmkrc failed: Figure export failed."),
-            "{diagnostics:?}"
-        );
     }
 
     #[test]
@@ -493,6 +412,35 @@ mod tests {
         assert_eq!(diagnostics[1].file.as_deref(), Some("main.tex"));
         assert_eq!(diagnostics[1].level, "warning");
         assert!(diagnostics.iter().any(|item| item.file.is_none() && item.level == "warning"));
+    }
+
+    #[test]
+    fn a_warning_keeps_the_lines_tex_continued_it_on() {
+        // The tutorial's own warning, cut at "neurips'," in the Build card.
+        let log = pass(
+            "LaTeX Warning: You have requested package `neurips',\n\
+             \x20              but the package provides `neurips_2026'.\n\
+             \n\
+             Package hyperref Warning: Token not allowed in a PDF string (Unicode):\n\
+             (hyperref)                removing `math shift' on input line 12.\n\
+             (./main.aux)\n\
+             ./main.tex:40: Package natbib Warning: Citation `x' on page 1 undefined\n\
+             (natbib)                on input line 40.\n\
+             LaTeX Warning: Label `a' multiply defined.\n\
+             \x20[1]\n",
+        );
+        let messages: Vec<_> =
+            parse_diagnostics(&log).into_iter().map(|item| item.message).collect();
+        assert_eq!(
+            messages,
+            [
+                "Citation `x' on page 1 undefined on input line 40.",
+                "You have requested package `neurips', but the package provides `neurips_2026'.",
+                "Token not allowed in a PDF string (Unicode): removing `math shift' on input line 12.",
+                // A line that only starts with a space is TeX's own output.
+                "Label `a' multiply defined.",
+            ]
+        );
     }
 
     fn located(diagnostics: &[Diagnostic]) -> Vec<(&str, Option<&str>, Option<u32>, &str)> {

@@ -14,6 +14,7 @@ import type {
 } from "./app-types";
 import { i18n } from "./i18n";
 import { hostErrorText } from "./platform/host-error-text";
+import { baseName } from "./lib/base-name";
 
 /** A cited-only work may have no arXiv id, so identity falls back to its key. */
 export function paperKey(paper: PaperSummary): string {
@@ -421,7 +422,7 @@ function remapProjectFileNode(node: FileNode, change: ProjectPathChange): FileNo
   const path = remapProjectPath(node.path, [change]);
   return {
     ...node,
-    name: path.split("/").at(-1) ?? node.name,
+    name: baseName(path),
     path,
     children: node.children.map((child) => remapProjectFileNode(child, change)),
   };

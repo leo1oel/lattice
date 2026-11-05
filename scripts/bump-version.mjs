@@ -16,11 +16,10 @@
 // the maintainer fills in before the release commit.
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { projectRoot } from "./lib/util.mjs";
 import { writeReleaseNotes } from "./release-notes.mjs";
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pkgPath = join(projectRoot, "package.json");
 const confPath = join(projectRoot, "src-tauri/tauri.conf.json");
 const cargoPath = join(projectRoot, "src-tauri/Cargo.toml");

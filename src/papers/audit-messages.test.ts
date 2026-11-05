@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { auditIssueText, auditResultMessage, auditSourceName } from "./audit-messages";
+import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName } from "./audit-messages";
 
 describe("audit messages", () => {
+  it("title a reference as LaTeX sets it, braces and accents typeset", () => {
+    expect(auditEntryTitle({ key: "devlin2019", title: "{BERT}: Pre-training of Deep Bidirectional Transformers" }))
+      .toBe("BERT: Pre-training of Deep Bidirectional Transformers");
+    expect(auditEntryTitle({ key: "k", title: "{\\\"U}ber {FlashAttention}--2" })).toBe("Über FlashAttention–2");
+    expect(auditEntryTitle({ key: "k", title: "" })).toBe("k");
+  });
+
   it("render scan findings with the English the host writes", () => {
     const cases: [string, Record<string, string>, string][] = [
       ["missing-field", { requirement: "year or date", type: "article" }, "Missing year or date field for article entry."],

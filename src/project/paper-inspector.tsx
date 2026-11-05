@@ -105,7 +105,7 @@ export function PaperInspector(props: PaperInspectorProps) {
   const usesId = useId();
   const abstract = usePaperAbstract(props.projectKey, paper);
   const year = paper.year?.trim();
-  const kicker = [props.venue, year].filter(Boolean).join(" · ");
+  const kicker = [props.venue, year].filter(Boolean).join(", ");
   const names = paperAuthorNames(paper);
   const shownNames = names.length > 8 ? names.slice(0, 6) : names;
   const authors = names.length > shownNames.length
@@ -219,7 +219,7 @@ export function PaperInspector(props: PaperInspectorProps) {
               ) : (
                 <dd className="paper-inspector-health" data-kind="clear">
                   <Check size={12} aria-hidden="true" />
-                  <span>{t({ message: `No notices · checked ${{ date: health.checkedAt.slice(0, 10) }}` })}</span>
+                  <span>{t({ message: `No notices, checked ${{ date: health.checkedAt.slice(0, 10) }}` })}</span>
                 </dd>
               )}
             </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { clamp, loadSplitRatio, persistSplitRatio } from "../settings/app-settings";
+import { loadSplitRatio, persistSplitRatio } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { SPLIT_PREVIEW_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "../app/window-layout";
 import type { CanvasMode } from "../app-types";
 import { setSplitResizerResistance, trackResizeDrag } from "./split-resizer";

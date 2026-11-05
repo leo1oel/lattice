@@ -4,6 +4,7 @@ import { formatSize, projectItemPath, toMessage } from "../app-utils";
 import { i18n } from "../i18n";
 import { notifyError } from "../telemetry/app-notify";
 import { showError } from "./notify";
+import { baseName } from "../lib/base-name";
 
 // Matched in backend text: src-tauri/src/project/tree.rs `too_large`.
 const TOO_LARGE = /^This file is too large to open in the editor \((\d+) bytes; the limit is (\d+) bytes\)\.$/;
@@ -21,7 +22,7 @@ export function showFileOpenFailure(reason: unknown, root: string | undefined, p
     showError(reported);
     return;
   }
-  const name = path.split("/").pop() ?? path;
+  const name = baseName(path);
   const size = formatSize(Number(tooLarge[1]));
   const limit = formatSize(Number(tooLarge[2]));
   const reveal = (projectRoot: string) => revealItemInDir(projectItemPath(projectRoot, path)).catch((failure: unknown) => {

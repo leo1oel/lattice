@@ -147,45 +147,8 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .agent-git-workspace-close:hover { color: var(--text-primary); background: var(--control-active-soft); }
 .synara-source-control-frame { display: block; flex: 1; min-height: 0; width: 100%; border: 0; background: var(--surface-input); }
 .ui-panel-header-title > .ui-badge { margin-left: var(--space-1); }
-.git-commit-button {
-  width: 100%;
-  height: var(--control-height-compact);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-icon);
-  border: 1px solid transparent;
-  background: var(--control-active-soft);
-  color: var(--control-active);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--gap-inline-tight);
-  font-size: var(--type-micro-size);
-  transition: filter var(--motion-fast), opacity var(--motion-fast);
-}
-.git-commit-button:disabled { opacity: .45; }
-.git-commit-button:hover:not(:disabled) { filter: brightness(1.03); }
 .git-empty { margin: 0; font-size: var(--type-micro-size); color: var(--text-secondary); }
 
-.pdf-marks-toolbar {
-  display: grid;
-  gap: var(--drawer-section-gap);
-  margin-bottom: var(--drawer-section-gap);
-}
-/* The filter keeps its own width under the full-width search field. */
-.pdf-marks-toolbar .comment-visibility-filter { justify-self: start; }
-.pdf-mark-edit { display: grid; gap: var(--space-3); padding: 0 var(--space-2) var(--space-2); }
-.pdf-mark-edit textarea {
-  width: 100%;
-  border: var(--field-control-border-width) solid var(--field-control-border-color);
-  border-radius: var(--field-control-radius);
-  background: var(--field-control-background);
-  color: var(--text-primary);
-  padding: var(--space-4);
-  font: inherit;
-  font-size: var(--type-body-compact-size);
-  resize: vertical;
-}
-.pdf-marks-list { display: flex; flex-direction: column; gap: var(--space-4); }
 .literature-drawer { width: min(480px, 100%); }
 .literature-search {
   display: grid;
@@ -234,7 +197,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .literature-byline { min-width: 0; display: flex; align-items: center; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); white-space: nowrap; }
 .literature-byline > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .literature-byline > span + span { flex: none; font-variant-numeric: tabular-nums; }
-.literature-byline > span + span::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
+.literature-byline > span + span::before { content: "\00a0"; width: var(--space-6); display: inline-block; text-align: center; }
 .literature-signal { margin-inline-start: auto; flex: none; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; transition: opacity var(--motion-fast-exit); }
 .literature-result:is(:hover, :focus-within):not([data-expanded]) .literature-signal { opacity: 0; transition-duration: var(--duration-fast); }
 .literature-in { display: inline-flex; flex: none; align-items: center; gap: var(--space-2); color: var(--status-success); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
@@ -290,93 +253,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
 }
 .lit-load-more:hover:not(:disabled) { background: var(--navigation-tree-hover-surface); color: var(--text-secondary); }
 .lit-load-more:disabled { opacity: 0.7; }
-.pdf-mark-item {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface-app);
-  overflow: hidden;
-}
-.pdf-mark-body {
-  width: 100%;
-  padding: var(--space-4) var(--space-5);
-  border: 0;
-  background: transparent;
-  text-align: left;
-  color: var(--text-primary);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  cursor: pointer;
-}
-.pdf-mark-body:hover { background: color-mix(in srgb, var(--border-subtle) 55%, transparent); }
-.pdf-mark-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  font-weight: 600;
-}
-/* The author leads; the file and state after it are quieter. */
-.pdf-mark-meta span + span { color: var(--text-tertiary); font-weight: var(--weight-medium); }
-/* The commented span, quoted the way the Overleaf drawer quotes it, so the
-   comment itself reads as the card's text. */
-.pdf-mark-quote {
-  padding: var(--space-2) var(--space-4);
-  border-left: 2px solid var(--control-active);
-  border-radius: var(--radius-icon);
-  background: var(--control-active-soft);
-  font-size: var(--type-caption-size);
-  font-style: italic;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.pdf-mark-body p {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: var(--type-caption-size);
-  line-height: 1.45;
-}
-.pdf-mark-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4) var(--space-4);
-}
-.pdf-mark-actions button {
-  height: 24px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-icon);
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-panel-raised);
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-  line-height: 1;
-}
-.pdf-mark-actions button.danger {
-  color: var(--status-danger);
-}
-/* PDF marks panel: icon-only delete. */
-.pdf-marks-list .pdf-mark-actions button.danger {
-  width: 24px;
-  padding: 0;
-}
-/* Editor comments panel: labeled actions stay on one line. */
-.editor-comments-content .pdf-mark-actions button.danger {
-  width: auto;
-  min-width: 0;
-  padding: 0 var(--space-4);
-}
 /* A long file name shortens instead of widening the empty state. */
 .editor-comments-return { max-width: 100%; }
 .editor-comments-return span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -390,18 +266,4 @@ body.resizing-panels .resizable-drawer { transition: none; }
 }
 .source-editor .cm-content ::selection {
   background: var(--code-selection-focused);
-}
-.collab-peer-badge {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  min-width: 12px;
-  height: 12px;
-  padding: 0 3px;
-  border-radius: var(--radius-pill);
-  background: var(--control-active);
-  color: var(--control-active-contrast);
-  font-style: normal;
-  font-size: var(--type-micro-size);
-  line-height: 12px;
 }

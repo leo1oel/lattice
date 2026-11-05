@@ -137,7 +137,7 @@ function SynaraRecoveryActions({ onRetry }: { onRetry: () => void }) {
 function SynaraFailureActions(props: { runtime: SynaraRuntimeInfo; onRetry: () => void }) {
   const { t } = useLingui();
   const message = props.runtime.message?.trim();
-  const build = [props.runtime.version, props.runtime.revision?.slice(0, 12)].filter(Boolean).join(" · ");
+  const build = [props.runtime.version, props.runtime.revision?.slice(0, 12)].filter(Boolean).join(", ");
   // What a writer pastes into a report. The startup excerpt is arbitrary
   // sidecar output, so credentials are stripped as the app log strips them.
   const copied = redactLogText([t`Agent unavailable`, message, build && t`Agent version ${build}`].filter(Boolean).join("\n"));

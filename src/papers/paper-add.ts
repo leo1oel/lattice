@@ -7,7 +7,7 @@
 import type { PaperSummary } from "../app-types";
 import { baseArxivId, explicitArxivId } from "./arxiv-id";
 import { bibTextToPlain, parseBibDocument, summarizeEntry } from "./bib-document";
-import { i18n } from "../i18n";
+import { i18n, joinPhrases } from "../i18n";
 import { paperAuthorNames, paperShortAuthors } from "./paper-identity";
 
 export type ReferenceKind = "arxiv" | "doi" | "url" | "bibtex" | "title";
@@ -63,7 +63,7 @@ export function findInLibrary(papers: readonly PaperSummary[], identity: WorkIde
     ?? (title.length >= 12 ? papers.find((paper) => titleKey(paper.title) === title) : undefined);
 }
 
-/** A record as a card shows it: title, "Hewitt and Liang · 2019 · EMNLP", and what identifies it. */
+/** A record as a card shows it: title, "Hewitt and Liang, 2019, EMNLP", and what identifies it. */
 export type ReferenceRecord = {
   title: string;
   byline: string;
@@ -71,7 +71,7 @@ export type ReferenceRecord = {
 };
 
 export function bylineOf(parts: Array<string | null | undefined>): string {
-  return parts.map((part) => part?.trim()).filter(Boolean).join(" · ");
+  return joinPhrases(parts.map((part) => part?.trim()));
 }
 
 /** One reference the writer pasted: the text as given, and what it is. */

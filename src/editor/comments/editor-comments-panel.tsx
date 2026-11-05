@@ -7,12 +7,14 @@ import { Button } from "../../components/ui/button";
 import { DestructiveIconButton } from "../../components/ui/destructive-button";
 import { EmptyIllustration } from "../../components/ui/empty-illustration";
 import { EmptyState } from "../../components/ui/empty-state";
+import { AnnotationsEmptyIllustration } from "./annotations-empty-illustration";
 import { IconButton } from "../../components/ui/icon-button";
 import { ResizableDrawer } from "../../components/ui/resizable-drawer";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { SearchField } from "../../components/ui/search-field";
 import { Textarea } from "../../components/ui/textarea";
 import { AnnotationPin } from "./annotation-pin";
+import { AnnotationQuote } from "./annotation-quote";
 import {
   annotationStatus,
   editorCommentAuthorDisplayName,
@@ -23,7 +25,7 @@ import {
 } from "./editor-comment-data";
 import { formatCommentTimestamp } from "./editor-comments";
 import { useIntentLabels } from "./use-intent-labels";
-import { formatCount } from "../../i18n";
+import { formatCount, joinPhrases } from "../../i18n";
 import { latexHighlights } from "../latex/latex-highlights";
 import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../latex/highlighters";
 import type { AnnotationRounds } from "../../app/annotation-rounds";
@@ -32,6 +34,7 @@ import { useRoundsView } from "./annotation-rounds-view";
 import { HighlightKindFilter, OTHER } from "./highlight-kind-filter";
 import { useCardOutcomes, type CardOutcome } from "./use-card-outcomes";
 import "./annotations.css";
+import { baseName } from "../../lib/base-name";
 
 // eslint-disable-next-line lingui/no-unlocalized-strings -- key names, drawn as glyphs
 const REVISE_KEYS = comboText(parseKeyName("Mod-Shift-Enter"));
@@ -138,8 +141,9 @@ export function EditorCommentsPanel(props: {
     }
   };
 
-  const openCount = props.comments.filter((comment) => !comment.resolved).length;
-  const resolvedCount = props.comments.length - openCount;
+  // Each count is what its filter lists (shownIn).
+  const openCount = props.comments.filter((comment) => shownIn("open", comment)).length;
+  const resolvedCount = props.comments.filter((comment) => shownIn("resolved", comment)).length;
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     const matches = (comment: EditorComment) => !needle || [
@@ -161,7 +165,7 @@ export function EditorCommentsPanel(props: {
     return files.flatMap((path) => {
       const source = sourceFor?.(path);
       const sections = source ? sectionsOf(source, path) : [];
-      const name = path.split("/").at(-1) ?? path;
+      const name = baseName(path);
       const placed = byFile.get(path)!.map((comment) => {
         const range = source ? resolveCommentAnchor(source, comment) : null;
         const from = range?.from ?? comment.from;
@@ -172,7 +176,7 @@ export function EditorCommentsPanel(props: {
       const out: Array<{ key: string; label: string | null; items: typeof placed }> = [];
       for (const item of placed) {
         const label = item.section?.label ?? (sections.length ? t`Before the first section` : null);
-        const heading = many ? [name, label].filter(Boolean).join(" · ") : label;
+        const heading = many ? joinPhrases([name, label]) : label;
         const last = out.at(-1);
         if (last && last.label === heading) last.items.push(item);
         else out.push({ key: `${path}:${item.section?.offset ?? -1}`, label: heading, items: [item] });
@@ -255,13 +259,10 @@ export function EditorCommentsPanel(props: {
   // whose tooltip would open; the grid still draws them beside the title.
   const header = (
     <div className="annotations-head">
-      <div className="annotations-title-row">
-        {!props.embedded && <h2 className="annotations-title">{t`Annotations`}</h2>}
-      </div>
       {highlightKinds.length > 0 && (
         <div className="annotations-tabs" role="group" aria-label={t`Annotations and highlights`}>
           <button type="button" className="annotations-tab" aria-pressed={mode === "notes"} onClick={() => setMode("notes")}>
-            {t`Notes`}<span className="annotations-tab-count">{formatCount(openCount + resolvedCount, i18n.locale)}</span>
+            {t`Notes`}<span className="annotations-tab-count">{formatCount(props.comments.length, i18n.locale)}</span>
           </button>
           <button type="button" className="annotations-tab" aria-pressed={mode === "highlights"} onClick={() => setMode("highlights")}>
             {t`Highlights`}<span className="annotations-tab-count">{formatCount(highlights.length, i18n.locale)}</span>
@@ -353,10 +354,10 @@ export function EditorCommentsPanel(props: {
     <div className="annotations-round" role="status">
       <span className="annotations-round-text">
         {progress.running > 0
-          ? t`Agent is revising · ${progress.answered} of ${progress.total} answered`
+          ? t`Agent is revising, ${progress.answered} of ${progress.total} answered`
           : rounds!.proposals.length === 1
-            ? t`Round ${progress.round} · 1 proposal to review`
-            : t`Round ${progress.round} · ${rounds!.proposals.length} proposals to review`}
+            ? t`Round ${progress.round}, 1 proposal to review`
+            : t`Round ${progress.round}, ${rounds!.proposals.length} proposals to review`}
       </span>
       <span className="annotations-round-bar" aria-hidden>
         <i style={{ width: `${progress.total ? Math.round((progress.answered / progress.total) * 100) : 0}%` }} />
@@ -369,8 +370,9 @@ export function EditorCommentsPanel(props: {
     const isAuthor = comment.authorId === props.currentAuthorId;
     const focused = comment.id === props.focusCommentId;
     const author = editorCommentAuthorDisplayName(comment.authorName, anonymousAuthor);
-    const name = comment.path.split("/").at(-1) ?? comment.path;
-    const location = comment.pdf ? t`PDF p.${comment.pdf.page}` : line ? `${name}:${line}` : name;
+    const name = baseName(comment.path);
+    // The source line; a page only for a note the source cannot place.
+    const location = line ? `${name}:${line}` : comment.pdf ? t`PDF p.${comment.pdf.page}` : name;
     const revision = comment.revision;
     const asking = status === "asked" && revision?.question;
     const pin = comment.number ?? 0;
@@ -403,7 +405,7 @@ export function EditorCommentsPanel(props: {
           {pin
             ? <AnnotationPin number={pin} status={status ?? "open"} />
             : <span className="annotation-card-author-dot" aria-hidden />}
-          <span className="annotation-card-quote">{comment.quote.trim() || t`(empty span)`}</span>
+          <span className="annotation-card-quote">{comment.quote.trim() ? <AnnotationQuote text={comment.quote.trim()} /> : t`(empty span)`}</span>
           {comment.body
             ? <span className="annotation-card-note">{comment.body}</span>
             : comment.intent && <span className="annotation-card-note">{intentLabels[comment.intent]}</span>}
@@ -414,8 +416,7 @@ export function EditorCommentsPanel(props: {
               <span className="annotation-status" data-annotation-status={status}>{statusLabels[status]}</span>
             )}
             <span className="annotation-card-where">
-              {[pin ? null : author, location, formatCommentTimestamp(comment.createdAt, undefined, i18n.locale, "short")]
-                .filter(Boolean).join(" · ")}
+              {joinPhrases([pin ? null : author, location, formatCommentTimestamp(comment.createdAt, undefined, i18n.locale, "short")])}
             </span>
             {outcome && outcome.outcome !== "resolved" && (
               <span className="annotation-card-outcome" key={outcome.outcome}>
@@ -617,15 +618,20 @@ export function EditorCommentsPanel(props: {
     </div>
   );
 
-  // Before the first annotation the empty state is all the panel shows, so
-  // it fills the panel and centres; a filter that matches nothing keeps the
-  // list's compact line at the top.
+  // Nothing to list is all the panel shows, so it fills the panel and centres:
+  // before the first annotation, with nothing open, nothing settled or no
+  // match. Only under a round's progress banner does it keep a compact line.
+  const centred = !banner;
+  const emptyIcon = !hasComments || query.trim()
+    ? <EmptyIllustration kind={hasComments ? "search" : "comments"} size={centred ? "default" : "compact"} />
+    : <AnnotationsEmptyIllustration settled={filter !== "resolved"} size={centred ? "default" : "compact"} />;
   const emptyState = !visible.length && (
     <EmptyState
-      fill={!hasComments}
-      align={hasComments ? "start" : "center"}
-      density={hasComments ? "compact" : "default"}
-      icon={<EmptyIllustration kind={hasComments && query.trim() ? "search" : "comments"} size={hasComments ? "compact" : "default"} />}
+      className="annotations-empty"
+      fill={centred}
+      align={centred ? "center" : "start"}
+      density={centred ? "default" : "compact"}
+      icon={emptyIcon}
       // Before the first one, a title and the way forward (Return / Open a
       // file); Annotate itself is on the selection, which has no key.
       title={!hasComments ? t`No annotations yet` : undefined}
@@ -640,7 +646,7 @@ export function EditorCommentsPanel(props: {
       )}
     />
   );
-  const list = highlightList || (!hasComments && !banner ? emptyState : (
+  const list = highlightList || (emptyState && centred ? emptyState : (
     <div className="annotations-list">
       {banner}
       {emptyState}

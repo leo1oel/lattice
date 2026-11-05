@@ -32,14 +32,16 @@ function pdfLetters(text: string): string {
 export function sourceLetters(source: string, start: number, end: number): { letters: string; offsets: number[] } {
   let letters = "";
   const offsets: number[] = [];
-  for (let index = start; index < end; index += 1) {
+  // A window that runs to the last line reaches one past a file without a final newline.
+  const stop = Math.min(end, source.length);
+  for (let index = start; index < stop; index += 1) {
     const char = source[index]!;
     if (char === "\\") {
-      while (index + 1 < end && /[A-Za-z@]/.test(source[index + 1]!)) index += 1;
+      while (index + 1 < stop && /[A-Za-z@]/.test(source[index + 1]!)) index += 1;
       continue;
     }
     if (char === "%" && source[index - 1] !== "\\") {
-      while (index + 1 < end && source[index + 1] !== "\n") index += 1;
+      while (index + 1 < stop && source[index + 1] !== "\n") index += 1;
       continue;
     }
     if (!LETTER.test(char)) continue;

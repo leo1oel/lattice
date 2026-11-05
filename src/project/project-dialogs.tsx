@@ -160,7 +160,7 @@ export function CreateProjectDialog(props: {
         <h2>{t`Create a research project`}</h2>
         <label>
           {t`Project name`}
-          <Input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
+          <Input autoFocus value={props.projectName} placeholder={t`Untitled research`} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
         </label>
         <div className="venue-picker">
           <span className="venue-picker-label">{t`Venue template`}</span>
@@ -179,10 +179,10 @@ export function CreateProjectDialog(props: {
                 // mode are part of the name: ICLR's and CVPR's styles have no
                 // preprint mode, and a thesis is named by its university.
                 <SelectItem key={id} value={id}>
-                  {id === "thuthesis" ? t`Tsinghua University thesis · ${name}`
-                    : id === "ustcthesis" ? t`USTC thesis · ${name}`
-                      : edition === undefined ? t`${name} · preprint`
-                        : preprint ? t`${name} ${edition} · preprint` : t`${name} ${edition}`}
+                  {id === "thuthesis" ? t`Tsinghua University thesis (${name})`
+                    : id === "ustcthesis" ? t`USTC thesis (${name})`
+                      : edition === undefined ? t`${name} (preprint)`
+                        : preprint ? t`${name} ${edition} (preprint)` : t`${name} ${edition}`}
                 </SelectItem>
               ))}
             </SelectContent>

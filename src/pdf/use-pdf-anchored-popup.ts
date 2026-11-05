@@ -1,6 +1,6 @@
 import { useLayoutEffect, type RefObject } from "react";
 import type { PdfRect } from "../editor/comments/editor-comment-data";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 
 /** A passage on a page, as fractions of the page. */
 export type PdfPassage = { page: number; rects: readonly PdfRect[] };

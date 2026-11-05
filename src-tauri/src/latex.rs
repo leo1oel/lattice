@@ -42,6 +42,7 @@ mod figure_preview;
 mod pinned;
 mod preamble_format;
 mod prewarm;
+mod rc_failure;
 mod shown_pdf;
 mod submission_review;
 mod synctex;

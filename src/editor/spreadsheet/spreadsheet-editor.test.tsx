@@ -81,10 +81,10 @@ function makeApi() {
   let active: MockWorkbook | null = null;
   const api = {
     Event: Object.fromEntries(["SelectionChanged", "CellPointerMove", "SheetEditStarted", "SheetEditEnded", "ActiveSheetChanged"].map((name) => [name, name])),
-    commandListener: undefined as ((command: MockCommand) => void) | undefined,
+    commandListener: undefined as ((command: MockCommand, options?: Record<string, unknown>) => void) | undefined,
     createWorkbook: (data: SpreadsheetWorkbookData) => (active = makeWorkbook(data)),
     disposeUnit: vi.fn(() => { active = null; }),
-    onCommandExecuted: (listener: (command: MockCommand) => void) => {
+    onCommandExecuted: (listener: (command: MockCommand, options?: Record<string, unknown>) => void) => {
       api.commandListener = listener;
       return { dispose: () => { if (api.commandListener === listener) api.commandListener = undefined; } };
     },
@@ -315,6 +315,48 @@ describe("SpreadsheetEditor", () => {
     await savedWorkbook(onChange);
     expect(univerMock.workbooks).toHaveLength(1);
     expect(univerMock.api?.disposeUnit).not.toHaveBeenCalled();
+  });
+
+  // Opening the tutorial sheet rewrote it and logged an Edit in History:
+  // Univer's formula engine fills in computed values and plugin resources as
+  // a sheet opens, and those were taken for a local edit.
+  it("writes nothing for a sheet opened and closed unchanged, and Univer's derived values with the next edit", async () => {
+    const file = createDefaultSpreadsheet("Results");
+    firstSheet(file.workbook).cellData = { 3: { 5: { f: "=C4/C3" } }, 7: { 2: { f: "=AVERAGE(C3:C6)" } } };
+    const opened = () => {
+      const rendered = renderSheet({ file });
+      const workbook = univerMock.workbooks.at(-1)!;
+      return { ...rendered, workbook, sheet: firstSheet(workbook.data) };
+    };
+    // As Univer 0.25 does on open: its own mutations around the computed
+    // values, which it writes with the cell mutation an edit uses (here both
+    // on its own and folded into a snapshot of the formula mutations).
+    const formulaEngine = async ({ workbook, sheet }: ReturnType<typeof opened>) => {
+      const listener = univerMock.api!.commandListener!;
+      const computed = (row: number, column: number, v: number) => {
+        sheet.cellData[row][column] = { ...sheet.cellData[row][column], v, t: 2 };
+        const params = { unitId: workbook.getId(), subUnitId: sheet.id, cellValue: { [row]: { [column]: { v, t: 2 } } } };
+        listener({ id: "sheet.mutation.set-range-values", type: 2, params }, { onlyLocal: true, fromFormula: true });
+      };
+      await settled(() => computed(7, 2, 0.77825));
+      await settled(() => {
+        workbook.data.resources = [{ name: "SHEET_RANGE_PROTECTION_PLUGIN", data: "" }];
+        listener({ id: "formula.mutation.set-formula-calculation-start", type: 2, params: {} });
+        computed(3, 5, 1.0104712041884816);
+        listener({ id: "formula.mutation.set-formula-calculation-result", type: 2, params: {} });
+      });
+    };
+    const unchanged = opened();
+    await formulaEngine(unchanged);
+    unchanged.view.unmount();
+    expect(unchanged.onChange).not.toHaveBeenCalled();
+
+    const edited = opened();
+    const { onChange, sheet, workbook } = edited;
+    await formulaEngine(edited);
+    sheet.cellData[20] = { 0: { v: "A note", t: 1 } };
+    await dispatchMutation(workbook);
+    expect(firstSheet(await savedWorkbook(onChange)).cellData).toMatchObject({ 3: { 5: { v: 1.0104712041884816 } }, 7: { 2: { v: 0.77825 } }, 20: { 0: { v: "A note" } } });
   });
 
   it("does not reconcile view-only Univer commands into the native file", async () => {

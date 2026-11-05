@@ -12,6 +12,9 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { fileIcon } from "../trellis/trellis-icons";
+import { joinPhrases } from "../i18n";
+import { escapeRegExp } from "../lib/escape-regexp";
+import { baseName } from "../lib/base-name";
 
 export type ProjectFindHit = {
   kind: string;
@@ -25,7 +28,6 @@ export type ProjectFindHit = {
 /** Which results show: the search always runs over both, so switching never searches again. */
 type FindScope = "all" | "file" | "paper";
 
-const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const folderOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
 /** The snippet with each query term marked, so the eye lands on why it matched. */
@@ -55,7 +57,7 @@ function revealCurrentHit(from: Element) {
 function markTerms(text: string, query: string) {
   const terms = [...new Set(query.toLocaleLowerCase().split(/\s+/).filter((term) => term.length > 1))];
   if (!terms.length) return text;
-  const pattern = new RegExp(`(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
   return text.split(pattern).map((part, index) => (index % 2 ? <mark key={index}>{part}</mark> : part));
 }
 
@@ -143,7 +145,7 @@ export function ProjectFindDialog(props: {
     ? countHits(fileHits.length)
     : scope === "paper"
       ? countPapers(paperCount)
-      : paperCount ? `${countHits(fileHits.length)} · ${countPapers(paperCount)}` : countHits(fileHits.length);
+      : paperCount ? joinPhrases([countHits(fileHits.length), countPapers(paperCount)]) : countHits(fileHits.length);
 
   const close = () => {
     setDebouncing(false);
@@ -190,7 +192,7 @@ export function ProjectFindDialog(props: {
                 // The hits below still say their file to a screen reader.
                 <li className="project-find-group" aria-hidden="true" title={hit.path}>
                   <span className="project-find-hit-icon">{fileIcon(hit.path, "file")}</span>
-                  <span className="project-find-hit-name">{fileName(hit.path)}</span>
+                  <span className="project-find-hit-name">{baseName(hit.path)}</span>
                   {folderOf(hit.path) && <span className="project-find-hit-folder">{folderOf(hit.path)}</span>}
                   <span className="project-find-group-count">{runLength}</span>
                 </li>
@@ -224,7 +226,7 @@ export function ProjectFindDialog(props: {
                     // The header shows the file; here it is spoken only, then
                     // the line number in its own column before the text.
                     <span className="project-find-hit-heading">
-                      <span className="sr-only">{fileName(hit.path)}</span>
+                      <span className="sr-only">{baseName(hit.path)}</span>
                       {folderOf(hit.path) && <span className="sr-only">{folderOf(hit.path)}</span>}
                       {hit.line ? <span className="project-find-hit-line">{hit.line}</span> : null}
                     </span>

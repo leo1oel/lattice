@@ -43,7 +43,7 @@ describe("submission checklist review", () => {
 
   it("passes an anonymous NeurIPS paper with clean fonts", () => {
     const { row } = renderReview(clean);
-    expect(screen.getByRole("heading", { name: "Double-blind review · NeurIPS" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Double-blind review for NeurIPS" })).toBeInTheDocument();
     expect(row("Author names")).toHaveClass("ok");
     expect(row("Author names")).toHaveTextContent("Hidden");
     for (const label of ["Acknowledgements and thanks", "Links to your accounts", "Self-citing wording", "Author in PDF metadata", "Type 3 fonts", "Fonts not embedded"]) {

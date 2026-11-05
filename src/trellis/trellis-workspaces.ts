@@ -20,6 +20,7 @@
 import { i18n } from "../i18n";
 import { msg } from "@lingui/core/macro";
 import type { LayoutDocument, LayoutNode, PanelNode, ViewRecord } from "@danfessler/trellis";
+import { sameIgnoringCase } from "../lib/equality";
 
 const LIBRARY_KEY = "lattice.trellis-workspaces.v1";
 const LIBRARY_VERSION = 1;
@@ -168,7 +169,6 @@ export function layoutShape(doc: LayoutDocument): string {
 }
 
 const newId = () => `ws-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-const sameName = (a: string, b: string) => a.toLocaleLowerCase() === b.toLocaleLowerCase();
 const defaultName = () => i18n._(msg`Workspace`);
 /**
  * The default name, and "+"'s numbered ones ("Workspace 2"…), as stored: in
@@ -384,7 +384,7 @@ export class WorkspaceLibrary {
   /** Whether `name` is free for a workspace: none other has it, ignoring case. */
   nameFree(name: string, except?: string) {
     const stored = storedName(name.trim());
-    return !this.load().workspaces.some((entry) => entry.id !== except && sameName(entry.name, stored));
+    return !this.load().workspaces.some((entry) => entry.id !== except && sameIgnoringCase(entry.name, stored));
   }
 
   /** `base`, or the first of "base 2", "base 3"… that no workspace has, as stored. */

@@ -71,8 +71,8 @@ describe("papers", () => {
     });
     // The warning is the notice's own link, beside the key, not a mark that
     // takes room from the title.
-    const notice = await screen.findByRole("button", { name: "Retracted · Retraction Watch · 2023-09-17. Open notice" });
-    expect([...notice.children].map((part) => part.textContent)).toEqual(["Retracted", "Retraction Watch · 2023-09-17"]);
+    const notice = await screen.findByRole("button", { name: "Retracted: Retraction Watch, 2023-09-17. Open notice" });
+    expect([...notice.children].map((part) => part.textContent)).toEqual(["Retracted", "Retraction Watch, 2023-09-17"]);
     expect(screen.queryByText(/No Crossref update metadata found/, { selector: ".paper-citation-health" })).not.toBeInTheDocument();
     fireEvent.click(notice);
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://doi.org/10.5555/retraction-notice"));
@@ -380,7 +380,7 @@ describe("papers", () => {
     const paperHeader = document.querySelector<HTMLElement>(".paper-visual-header");
     expect(paperHeader).not.toBeNull();
     expect(within(paperHeader!).getByRole("heading", { name: "Attention Is All You Need" })).toBeInTheDocument();
-    expect(within(paperHeader!).getByText("Ashish Vaswani · Noam Shazeer")).toBeInTheDocument();
+    expect(within(paperHeader!).getByText("Ashish Vaswani, Noam Shazeer")).toBeInTheDocument();
     expect(paperHeader!.compareDocumentPosition(abstractHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("title: Attention Is All You Need")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("checkbox"));

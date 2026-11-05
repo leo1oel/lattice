@@ -32,6 +32,7 @@ import { Extension, callOrReturn, getExtensionField, isMacOS, type AnyExtension,
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type DecorationSource, type EditorView, type NodeView } from "@tiptap/pm/view";
+import { sameItems } from "../../../lib/equality";
 
 /** A document of fewer top-level blocks is drawn whole. */
 const MIN_BLOCKS = 250;
@@ -278,8 +279,6 @@ function anchorsOf(node: PmNode, inner: DecorationSource, sizes: Sizes): string[
   return ids;
 }
 
-const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((id, index) => id === b[index]);
-
 /** A top-level block not drawn: an empty box of its size, holding its anchors. */
 function placeholderView(node: PmNode, inner: DecorationSource, view: EditorView, sizes: Sizes): NodeView {
   const dom = document.createElement("div");
@@ -296,7 +295,7 @@ function placeholderView(node: PmNode, inner: DecorationSource, view: EditorView
     dom,
     update(next, decorations, innerDecorations) {
       if (!windowOf(view) || isLive(decorations) || next.type !== current.type) return false;
-      if (!sameIds(anchorsOf(next, innerDecorations, sizes), anchors)) return false;
+      if (!sameItems(anchorsOf(next, innerDecorations, sizes), anchors)) return false;
       if (next !== current) {
         current = next;
         applySize(dom, sizes.of(current));
@@ -457,8 +456,6 @@ function allLive(doc: PmNode): DecorationSet {
   return DecorationSet.create(doc, decorations);
 }
 
-const samePins = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((pos, index) => pos === b[index]);
-
 function nextWindowState(transaction: Transaction, value: WindowState, state: EditorState, sizes: Sizes): WindowState {
   const { doc } = state;
   if (!layoutAvailable() || doc.childCount < MIN_BLOCKS) {
@@ -472,7 +469,7 @@ function nextWindowState(transaction: Transaction, value: WindowState, state: Ed
     window = { from: transaction.mapping.map(window.from, 1), to: transaction.mapping.map(window.to, -1) };
   }
   const pins = pinnedBlocks(state);
-  if (window === value.window && !transaction.docChanged && samePins(pins, value.pins)) return value;
+  if (window === value.window && !transaction.docChanged && sameItems(pins, value.pins)) return value;
   window = covering(doc, window ?? { from: 0, to: 0 }, sizes);
   return { window, pins, decorations: liveDecorations(doc, window, pins) };
 }

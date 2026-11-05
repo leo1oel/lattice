@@ -124,10 +124,6 @@ export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-export function jsonEqual(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
 /** A safe integer in [0, count). */
 export function inBounds(index: unknown, count: number): boolean {
   return Number.isSafeInteger(index) && Number(index) >= 0 && Number(index) < count;

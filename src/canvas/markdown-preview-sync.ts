@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { markdownPreviewSyncPolicy } from "../editor/markdown/markdown-preview-sync-policy";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { clearTimer } from "../app/effect-helpers";
 import type { CanvasMode, VisualMarkdownViewState } from "../app-types";
 

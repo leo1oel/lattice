@@ -76,6 +76,17 @@ function pdfTextLetters(text: string): string[] {
 }
 
 /**
+ * The quads over an annotation made on the PDF, on `page`: the words its
+ * source range quotes, which are whole words (pdf-source-anchor.ts widens a
+ * selection cut mid-word), so the PDF marks what the source marks; the
+ * selection's own text when the quote does not read on the page (a formula).
+ */
+export function anchoredQuads(page: PageText, annotation: Pick<EditorComment, "quote" | "pdf">, nearY: number | null): Quad[] | null {
+  return findQuads(page, quoteLetters(annotation.quote), nearY)
+    ?? (annotation.pdf ? findQuads(page, pdfTextLetters(annotation.pdf.text), nearY) : null);
+}
+
+/**
  * Commands whose argument is a key the page never prints: `\cite{vaswani}`
  * reads "[1]", so its letters would only match the bibliography.
  */
@@ -210,10 +221,10 @@ export async function placeAnnotation(annotation: EditorComment, reader: Placeme
   const height = (homeText.view[3] ?? 0) - (homeText.view[1] ?? 0);
   // Where on the page it was: SyncTeX's box, or the selection's first line.
   const top = (homeText.view[3] ?? 0) - (anchor ? (anchor.rects[0]?.y ?? 0) * height : sync!.y);
-  const wanted = anchor ? pdfTextLetters(anchor.text) : quoteLetters(annotation.quote);
   for (const page of nearbyPages(home, reader.pageCount)) {
     const text = page === home ? homeText : await reader.page(page);
-    const quads = findQuads(text, wanted, page === home ? top : null);
+    const near = page === home ? top : null;
+    const quads = anchor ? anchoredQuads(text, annotation, near) : findQuads(text, quoteLetters(annotation.quote), near);
     if (quads) return { kind: "highlight", page, quads };
   }
   return marginNote(home, homeText.view, top);

@@ -4,6 +4,7 @@
 import type { FileNode } from "../../app-types";
 import { PageSearchIndex } from "../../project/workspace-search";
 import { scanHeadings, type HeadingEntry } from "./markdown-headings";
+import { baseName } from "../../lib/base-name";
 
 export type MarkdownDocEntry = {
   path: string;
@@ -48,7 +49,7 @@ function parseDocument(path: string, content: string): MarkdownDocEntry {
     body = end < 0 ? [] : lines.slice(end + 1);
   }
   const headings = scanHeadings(body).filter((heading) => heading.text && heading.slug);
-  const title = headings.find((heading) => heading.level === 1)?.text ?? docName.split("/").pop() ?? docName;
+  const title = headings.find((heading) => heading.level === 1)?.text ?? baseName(docName);
   return { path: normalizedPath, docName, title, headings, content };
 }
 

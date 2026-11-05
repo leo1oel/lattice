@@ -8,6 +8,7 @@ import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { flattenOutline, outlineNumbers, parseLatexOutline, type OutlineNode } from "./latex-outline";
+import { baseName } from "../../lib/base-name";
 
 /** More marks than this and the rail keeps the upper levels; the outline it opens lists every one. */
 const MAX_MARKS = 32;
@@ -94,12 +95,11 @@ function showCurrent(state: Live, root: HTMLElement | null, force = false) {
  * those instead.
  */
 function railOutline(path: string, manuscript: OutlineNode[], rootPath: string, source: string): Outline & { name: string } {
-  const name = (file: string) => file.split("/").at(-1) ?? file;
   const own = path === rootPath || flattenOutline(manuscript).some((node) => node.path === path)
     ? null
     : parseLatexOutline(source, path);
   const nodes = own?.length ? own : manuscript;
-  return { ...headingRail(nodes), name: name(own?.length ? path : rootPath || path) };
+  return { ...headingRail(nodes), name: baseName(own?.length ? path : rootPath || path) };
 }
 
 function headingRail(nodes: OutlineNode[]): Outline {
@@ -396,7 +396,7 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, on
                   type="button"
                   className="latex-outline-rail-row"
                   data-depth={depth}
-                  title={node.path === path ? node.title : `${node.title} · ${node.path}`}
+                  title={node.path === path ? node.title : `${node.title} (${node.path})`}
                   onClick={() => onChoose(index)}
                 >
                   <span className="latex-outline-rail-number">{number}</span>

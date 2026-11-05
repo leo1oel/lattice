@@ -2,10 +2,10 @@
  * Overleaf connection UI: the Settings → Overleaf section and the
  * "Open from Overleaf" project picker dialog.
  *
- * Both talk to the Rust `overleaf` bridge through Tauri commands and are
- * written for complete novices: every state (disconnected, waiting for the
- * sign-in window, loading, empty, error, downloading) carries plain-language
- * guidance about what is happening and what to do next.
+ * Both talk to the Rust `overleaf` bridge over Tauri commands and are
+ * written for novices: every state (disconnected, signing in, loading,
+ * empty, error, downloading) says in plain language what is happening and
+ * what to do next.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -40,6 +40,7 @@ import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
 import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
 import "./overleaf-connect.css";
+import { joinPhrases } from "../i18n";
 
 /** Notification source label for everything in this file. */
 const OVERLEAF_SOURCE = "Overleaf";
@@ -210,7 +211,7 @@ function Glyph(props: { tone?: "accent" | "success" | "warning" | "danger" | "ne
 function StageMessage(props: { glyph: ReactNode; tone?: "accent" | "warning" | "danger" | "neutral"; children: ReactNode }) {
   return (
     <div className="overleaf-stage-message">
-      <Glyph tone={props.tone} size="large">{props.glyph}</Glyph>
+      {props.glyph && <Glyph tone={props.tone} size="large">{props.glyph}</Glyph>}
       {props.children}
     </div>
   );
@@ -421,7 +422,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
               <LoginControls
                 login={login}
                 label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
-                hint={t`You sign in on Overleaf. Lattice never sees your password`}
+                hint={t`You sign in on Overleaf. Lattice never sees your password.`}
               />
             </div>
           </div>
@@ -682,9 +683,8 @@ Files that differ are kept side by side. Nothing is overwritten`,
             : project.archived ? <Badge size="compact">{t`Archived`}</Badge> : null}
         </span>
         <span className="overleaf-project-meta">
-          {project.ownerName || project.ownerEmail || t`Unknown owner`}
-          {" · "}
-          {project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`}
+          {joinPhrases([project.ownerName || project.ownerEmail || t`Unknown owner`,
+            project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`])}
         </span>
       </button>
       {/* A download in progress is said once, by the progress line under the list. */}
@@ -737,12 +737,12 @@ Files that differ are kept side by side. Nothing is overwritten`,
         )}
         {known && !known.connected && (
           <div className="overleaf-stage" data-plain="">
-            <StageMessage glyph={known.expired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={known.expired ? "warning" : "accent"}>
+            <StageMessage glyph={known.expired && <CloudAlert size={20} />} tone="warning">
               {known.expired && <p className="overleaf-stage-text">{t`Your Overleaf session expired`}</p>}
               <LoginControls
                 login={login}
                 label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
-                hint={t`You sign in on Overleaf. Lattice never sees your password`}
+                hint={t`You sign in on Overleaf. Lattice never sees your password.`}
               />
             </StageMessage>
           </div>

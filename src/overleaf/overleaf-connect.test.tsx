@@ -251,7 +251,7 @@ describe("Overleaf picker dialog", () => {
     expect(within(dialog).queryByRole("separator")).not.toBeInTheDocument();
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
     expect(screen.getByText("Thesis Draft")).toBeInTheDocument();
-    expect(screen.getByText(/Ada · updated/)).toBeInTheDocument();
+    expect(screen.getByText(/Ada, updated/)).toBeInTheDocument();
     const projectListViewport = screen.getByLabelText("Overleaf projects");
     expect(projectListViewport).toHaveAttribute("data-slot", "scroll-area-viewport");
     expect(projectListViewport.querySelectorAll("[data-slot='scroll-area-viewport']")).toHaveLength(0);
