@@ -355,18 +355,20 @@ export const LAYOUT_CHECKS = [
         if (!parked.includes(heading)) throw new Error(`the released drag's ${parked.length} characters lack "${heading}"`);
       }
 
+      const headingHeight = `(() => {
+        const span = [...document.querySelectorAll(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .textLayer span`)})]
+          .find((node) => node.textContent.startsWith("Page 1:"));
+        return span ? span.offsetHeight : 0;
+      })()`;
+      // Read before the pinch: 80 ms after it the zoom commits, and a busy
+      // runner that reads it later has the zoomed height to beat by 30%.
+      const before = await driver.evaluate(headingHeight);
       // A trackpad pinch, as Chromium reports it: a Ctrl-wheel over the page.
       await driver.evaluate(`document.elementFromPoint(${first.left + 1}, ${first.y}).dispatchEvent(new WheelEvent("wheel", {
         bubbles: true, cancelable: true, ctrlKey: true, deltaY: -40, clientX: ${first.left + 1}, clientY: ${first.y},
       }))`);
       // The preview is a transform; once input stops PDF.js draws the pages
       // again at the new scale and the highlight is repainted on them.
-      const headingHeight = `(() => {
-        const span = [...document.querySelectorAll(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .textLayer span`)})]
-          .find((node) => node.textContent.startsWith("Page 1:"));
-        return span ? span.offsetHeight : 0;
-      })()`;
-      const before = await driver.evaluate(headingHeight);
       await driver.waitFor(`!document.querySelector(${JSON.stringify(`${COMPILED_PDF} .pdfViewer`)}).style.transform
         && ${headingHeight} > ${before * 1.3}
         && document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .pdf-sel-rect`)})`, {
@@ -375,9 +377,15 @@ export const LAYOUT_CHECKS = [
       await pdfViewDrawn(driver, "the zoomed pages drawn");
 
       const scroller = await driver.waitFor(`window.__benchVisibleRect(${JSON.stringify(PDF_SCROLLER)})`, { what: "the PDF's scroller" });
+      const scrollTop = `document.querySelector(${JSON.stringify(PDF_SCROLLER)}).scrollTop`;
       for (const deltaY of [14_000, 14_000, 14_000, 14_000]) {
+        const top = await driver.evaluate(scrollTop);
         await driver.mouse("mouseWheel", scroller.x, scroller.y, { button: "none", deltaX: 0, deltaY });
-        await driver.nextFrame();
+        // Chromium scrolls on the compositor and hands the page the delta in
+        // a later frame, not always the next one on a busy runner. One still
+        // in flight at the jump to the top below lands on top of it, a wheel
+        // step down the document.
+        await driver.waitFor(`${scrollTop} !== ${top}`, { what: "the wheel's scroll" });
         await pdfViewDrawn(driver, "the pages scrolled to drawn");
       }
       if (await driver.evaluate(`!!document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] canvas`)})`)) {
