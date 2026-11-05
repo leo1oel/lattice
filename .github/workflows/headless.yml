@@ -1,10 +1,10 @@
 name: Headless Linux
 on:
   pull_request:
-    paths: ['server/**', 'src-tauri/src/**', '.github/workflows/headless.yml']
+    paths: ['server/**', 'src-tauri/src/**', 'scripts/synara-runtime.json', 'pnpm-lock.yaml', 'package.json', '.github/actions/setup-pnpm/**', '.github/workflows/headless.yml']
   push:
     branches: [main]
-    paths: ['server/**', 'src-tauri/src/**', '.github/workflows/headless.yml']
+    paths: ['server/**', 'src-tauri/src/**', 'scripts/synara-runtime.json', 'pnpm-lock.yaml', 'package.json', '.github/actions/setup-pnpm/**', '.github/workflows/headless.yml']
 permissions:
   contents: read
 jobs:
@@ -30,3 +30,10 @@ jobs:
         env:
           LATTICE_SERVER_BINARY: ${{ github.workspace }}/server/target/debug/lattice-server
         run: env -u DISPLAY -u WAYLAND_DISPLAY python3 server/tests/origin_smoke.py
+  browser-resource-routing:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      - name: Execute pinned production preloader against the proxy bootstrap
+        run: node --experimental-vm-modules server/tests/browser_assets.mjs

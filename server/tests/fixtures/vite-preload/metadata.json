@@ -1,0 +1,10 @@
+{
+  "synaraRevision": "1660088e539f3a637043ab68e91322e147ff2a15",
+  "synaraVersion": "1.1.0",
+  "viteVersion": "8.1.5",
+  "originalPath": "server/dist/client/assets/preload-helper-Czpn1I53.js",
+  "sha256": "aba87f2a53e45ecdc9113fc30387d16e449d1676428cf5f82dd624c1df97d152",
+  "license": "MIT",
+  "source": "https://github.com/leo1oel/synara/tree/1660088e539f3a637043ab68e91322e147ff2a15",
+  "generatorSource": "https://github.com/vitejs/vite/blob/v8.1.5/packages/vite/src/node/plugins/importAnalysisBuild.ts"
+}

@@ -184,3 +184,25 @@ The real-runtime CLI validation also exercised automatic feature negotiation,
 result, and an acknowledged stop/clean exit. The deterministic CLI consumer
 checks explicit text Apply, blocked model-forged commands/acknowledgements,
 unsupported controls, malformed input and EOF cleanup.
+
+To verify browser resource routing against the prepared pinned runtime's actual
+Vite preloader, install the repository's development dependencies and run:
+
+```sh
+node --experimental-vm-modules server/tests/browser_assets.mjs
+# Optionally compare against a freshly prepared runtime:
+node --experimental-vm-modules server/tests/browser_assets.mjs PREPARED_RUNTIME
+```
+
+CI uses the existing Node 22 / pnpm 10 frozen-install action and the test-only,
+SHA-verified preloader fixture (source/version/license in
+`server/tests/fixtures/vite-preload`). No private machine artifact is required.
+The optional runtime argument must match the same pinned helper hash.
+
+This executes the real preloader with the proxy bootstrap and DOM property
+setters. It verifies that stylesheet loading allows the main import to run,
+direct script/worker URLs stay within the authenticated route, and worker
+options plus blob/external/already-scoped URLs are preserved. The HTTP check
+must also confirm that root `/assets/...` requests return 404 and authenticated
+`/api/agent/CLIENT/assets/...` requests return 200. Do not add an unauthenticated
+root asset fallback to conceal a browser routing failure.
