@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e){return{subscribe(t){let n=window.matchMedia(e);return n.addEventListener(`change`,t),()=>n.removeEventListener(`change`,t)},matches:()=>window.matchMedia(e).matches}}function n(){return(n=e((()=>{})))()}export{t as n,n as t};

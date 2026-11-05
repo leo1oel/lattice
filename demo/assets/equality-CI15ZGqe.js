@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e,t){return e.length===t.length&&e.every((e,n)=>e===t[n])}function n(e,t){return JSON.stringify(e)===JSON.stringify(t)}function r(e,t){return e?.toLocaleLowerCase()===t.toLocaleLowerCase()}function i(){return(i=e((()=>{})))()}export{t as i,n,r,i as t};
