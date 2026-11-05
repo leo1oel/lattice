@@ -15,6 +15,45 @@ use std::{
 const AUTHORIZE_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const USERINFO_URL: &str = "https://openidconnect.googleapis.com/v1/userinfo";
 
+/// Provider descriptions can contain credentials or reflected request data.
+/// Keep diagnostics finite: an HTTP status and a recognized OAuth error code.
+pub(super) fn token_rejection(mut response: reqwest::blocking::Response) -> String {
+    let status = response.status().as_u16();
+    let mut bytes = Vec::new();
+    let code =
+        if response.by_ref().take(4097).read_to_end(&mut bytes).is_ok() && bytes.len() <= 4096 {
+            serde_json::from_slice::<serde_json::Value>(&bytes)
+                .ok()
+                .and_then(|value| match value.get("error").and_then(serde_json::Value::as_str) {
+                    Some("invalid_client") => Some("invalid_client"),
+                    Some("invalid_grant") => Some("invalid_grant"),
+                    Some("invalid_request") => Some("invalid_request"),
+                    Some("unauthorized_client") => Some("unauthorized_client"),
+                    Some("redirect_uri_mismatch") => Some("redirect_uri_mismatch"),
+                    Some("access_denied") => Some("access_denied"),
+                    _ => None,
+                })
+                .unwrap_or("unknown")
+        } else {
+            "unknown"
+        };
+    format!("http_status={status} oauth_error={code}")
+}
+
+fn network_class(error: &reqwest::Error) -> &'static str {
+    if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connection"
+    } else if error.is_body() {
+        "body"
+    } else if error.is_decode() {
+        "decode"
+    } else {
+        "request"
+    }
+}
+
 pub(super) fn challenge(verifier: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
 }
@@ -154,16 +193,29 @@ fn finish(dir: &Path, state: &GoogleState, flow: Flow) -> Result<(), String> {
             .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
             .body(account::form(&fields))
             .send()
-            .map_err(|_| API_ERROR.to_string())?;
+            .map_err(|error| {
+                log::warn!(
+                    "Google OAuth token exchange network failure: {}",
+                    network_class(&error)
+                );
+                API_ERROR.to_string()
+            })?;
         if !response.status().is_success() {
+            log::warn!("Google OAuth token exchange rejected: {}", token_rejection(response));
             return Err(API_ERROR.into());
         }
-        let value: serde_json::Value = response.json().map_err(|_| API_ERROR.to_string())?;
+        let value: serde_json::Value = response.json().map_err(|_| {
+            log::warn!("Google OAuth token exchange returned invalid JSON");
+            API_ERROR.to_string()
+        })?;
         let access = value
             .get("access_token")
             .and_then(|v| v.as_str())
             .filter(|v| !v.is_empty())
-            .ok_or(API_ERROR)?
+            .ok_or_else(|| {
+                log::warn!("Google OAuth token exchange omitted its access token");
+                API_ERROR.to_string()
+            })?
             .to_string();
         let requested = std::iter::once("openid")
             .chain(std::iter::once("email"))
@@ -197,7 +249,9 @@ fn finish(dir: &Path, state: &GoogleState, flow: Flow) -> Result<(), String> {
         if state.0.generation.load(Ordering::SeqCst) != generation {
             return Err(API_ERROR.into());
         }
-        return account::save(dir, &credentials);
+        return account::save(dir, &credentials).inspect_err(|_| {
+            log::warn!("Google OAuth credential storage write failed");
+        });
     }
     Err("Google sign-in was cancelled or timed out.".into())
 }

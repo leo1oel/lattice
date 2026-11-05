@@ -415,3 +415,35 @@ fn browser_callback_exchanges_pkce_code_and_failed_reconnect_preserves_previous_
         }
     }
 }
+
+#[test]
+fn oauth_token_diagnostics_allowlist_codes_without_reflecting_provider_secrets() {
+    let codes = [
+        "invalid_client",
+        "invalid_grant",
+        "invalid_request",
+        "unauthorized_client",
+        "redirect_uri_mismatch",
+        "access_denied",
+    ];
+    let mut replies = codes
+        .iter()
+        .map(|code| {
+            (400, json!({"error":code,"error_description":"private-code private-secret private-token"}))
+        })
+        .collect::<Vec<_>>();
+    replies.push((401, json!({"error":"private-code private-secret"})));
+    replies.push((502, json!({"error":{"message":"private-token"}})));
+    replies.push((400, json!({"error":"invalid_client","extra":"x".repeat(8192)})));
+    let provider = Provider::new(replies);
+    for expected in codes.iter().copied().chain(["unknown", "unknown", "unknown"]) {
+        let response =
+            account::client_for(&provider.base).unwrap().post(&provider.base).send().unwrap();
+        let status = response.status().as_u16();
+        let diagnostic = oauth::token_rejection(response);
+        assert_eq!(diagnostic, format!("http_status={status} oauth_error={expected}"));
+        assert!(!diagnostic.contains("private"));
+        assert!(!diagnostic.contains("extra"));
+    }
+    assert_eq!(provider.seen.lock().unwrap().len(), 9);
+}
