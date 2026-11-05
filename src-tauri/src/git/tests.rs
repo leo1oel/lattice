@@ -239,9 +239,11 @@ fn restores_one_file_or_rewinds_the_project_and_rejects_unsafe_revisions() {
     assert_eq!(fs::read_to_string(root.join(".research/notes.md")).unwrap(), "notes\n");
     let short = git(&root, &["rev-parse", "--short", &first]);
     assert_eq!(last_commit(&root, "%s"), format!("Restore project to {short}"));
-    // A second identical restore finds a clean tree and returns HEAD.
+    // A second identical restore finds a clean tree and returns HEAD; the
+    // four versions are the two commits, the file restore's edit saved
+    // before the project restore, and that restore.
     assert_eq!(restore_project(&root, &first).unwrap(), restored);
-    assert_eq!(git(&root, &["rev-list", "--count", "HEAD"]), "3");
+    assert_eq!(git(&root, &["rev-list", "--count", "HEAD"]), "4");
 }
 
 /// Only a `..` path segment is traversal; a file name that contains two
@@ -436,4 +438,96 @@ fn reading_a_repository_never_runs_programs_its_config_names() {
     write_version(&root, None, &scratch("config-programs-now")).unwrap();
     restore_file(&root, &first, "main.tex").unwrap();
     assert_eq!(ran(), Vec::<String>::new(), "Lattice ran a program from the repository config");
+}
+
+/// A paper at `monorepo/paper/` beside a top-level `main.tex` of the same
+/// name: its timeline lists only the commits that touched the paper, by its
+/// own paths, and every read and restore of `main.tex` means the paper's.
+#[test]
+fn versions_of_a_folder_in_a_larger_repository_are_that_folders_own() {
+    let Some(repo) = repo("nested-versions") else { return };
+    let first = commit(
+        &repo,
+        &[
+            ("main.tex", "top one\n"),
+            ("notes.tex", "top only\n"),
+            ("paper/main.tex", "paper one\n"),
+        ],
+        "first",
+    );
+    commit(&repo, &[("src/lib.rs", "outside\n")], "outside");
+    let both =
+        commit(&repo, &[("main.tex", "top two\n"), ("paper/main.tex", "paper two\n")], "both");
+    let paper = repo.join("paper");
+
+    let entries = log(&paper, 10).unwrap();
+    let messages = entries.iter().map(|entry| entry.message.as_str()).collect::<Vec<_>>();
+    assert_eq!(messages, ["both", "first"]);
+    let paths = entries
+        .iter()
+        .map(|entry| entry.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    assert_eq!(paths, [["main.tex"], ["main.tex"]]);
+
+    let diff = show_diff(&paper, &both, "main.tex").unwrap();
+    assert_eq!(
+        (diff.before.as_deref(), diff.after.as_deref()),
+        (Some("paper one\n"), Some("paper two\n"))
+    );
+
+    repo.write("paper/main.tex", "paper three\n");
+    repo.write("main.tex", "top three\n");
+    let changed = compare_files(&paper, &first, None).unwrap();
+    assert_eq!(changed.iter().map(|file| file.path.as_str()).collect::<Vec<_>>(), ["main.tex"]);
+    let diff = compare_file(&paper, &first, Some(&both), "main.tex", None).unwrap();
+    assert_eq!(
+        (diff.before.as_deref(), diff.after.as_deref()),
+        (Some("paper one\n"), Some("paper two\n"))
+    );
+
+    // `notes.tex` is the repository's, never the paper's.
+    assert!(restore_file(&paper, &first, "notes.tex").unwrap_err().contains("did not exist"));
+    restore_file(&paper, &first, "main.tex").unwrap();
+    assert_eq!(fs::read_to_string(paper.join("main.tex")).unwrap(), "paper one\n");
+    assert_eq!(fs::read_to_string(repo.join("main.tex")).unwrap(), "top three\n");
+
+    repo.write("paper/main.tex", "paper four\n");
+    restore_project(&paper, &first).unwrap();
+    assert_eq!(fs::read_to_string(paper.join("main.tex")).unwrap(), "paper one\n");
+    assert_eq!(fs::read_to_string(repo.join("main.tex")).unwrap(), "top three\n");
+    assert_eq!(git(&repo, &["show", "--name-only", "--format=", "HEAD"]), "paper/main.tex");
+}
+
+/// A restore first saves what is on disk as a version of its own, so nothing
+/// typed since the last version is lost; a restore that cannot happen saves
+/// nothing, so it leaves no version behind.
+#[test]
+fn a_restore_saves_the_project_first_only_when_it_can_restore() {
+    let Some(root) = repo("restore-saves") else { return };
+    let first = commit(&root, &[("a.tex", "one\n"), ("gone.tex", "g\n")], "first");
+    fs::remove_file(root.join("gone.tex")).unwrap();
+    commit(&root, &[("a.tex", "two\n"), ("new.tex", "n\n")], "second");
+    root.write("a.tex", "typed since\n");
+    let count = || git(&root, &["rev-list", "--count", "HEAD"]);
+
+    for (rev, path) in
+        [(first.as_str(), "new.tex"), ("deadbeef", "a.tex"), (first.as_str(), "../a.tex")]
+    {
+        assert!(restore_file(&root, rev, path).is_err(), "{rev} {path}");
+    }
+    assert!(restore_project(&root, "deadbeef").is_err());
+    assert_eq!(count(), "2", "a failed restore recorded a version");
+    assert_eq!(fs::read_to_string(root.join("a.tex")).unwrap(), "typed since\n");
+
+    restore_file(&root, &first, "a.tex").unwrap();
+    assert_eq!(fs::read_to_string(root.join("a.tex")).unwrap(), "one\n");
+    assert_eq!(last_commit(&root, "%s"), "Auto-saved version");
+    assert_eq!(git(&root, &["show", "HEAD:a.tex"]), "typed since");
+
+    restore_project(&root, &first).unwrap();
+    let messages = git(&root, &["log", "-2", "--format=%s"]);
+    let short = git(&root, &["rev-parse", "--short", &first]);
+    assert_eq!(messages, format!("Restore project to {short}\nAuto-saved version"));
+    assert_eq!(git(&root, &["show", "HEAD~:a.tex"]), "one");
+    assert!(root.join("gone.tex").exists() && !root.join("new.tex").exists());
 }

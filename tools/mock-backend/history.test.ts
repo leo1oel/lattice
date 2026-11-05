@@ -59,9 +59,22 @@ describe("the mock backend's versions", () => {
     expect(versions("git_compare_files", { from: first!.hash, to: null })).toEqual([{ path: "extra.tex", kind: "added" }, { path: "main.tex", kind: "modified" }]);
     expect(versions("git_show_diff", { rev: saved, path: "main.tex" })).toEqual({ before: "one", after: "two", binary: false });
 
+    save("main.tex", "typed since");
     versions("git_restore_project", { rev: first!.hash });
     expect(project.text("main.tex")).toBe("one");
     expect(project.files.has("extra.tex")).toBe(false);
-    expect((versions("git_log", { limit: 10 }) as Array<{ message: string }>)[0]!.message).toBe(`Restore project to ${first!.hash.slice(0, 7)}`);
+    const messages = () => (versions("git_log", { limit: 10 }) as Array<{ message: string }>).map((entry) => entry.message);
+    expect(messages().slice(0, 2)).toEqual([`Restore project to ${first!.hash.slice(0, 7)}`, "Auto-saved version"]);
+  });
+
+  it("saves the project before a restore, and only for one it can make", () => {
+    const { project, versions, save } = setup();
+    const [first] = versions("git_log", { limit: 10 }) as Array<{ hash: string }>;
+    save("main.tex", "typed since");
+    expect(() => versions("git_restore_file", { rev: first!.hash, path: "gone.tex" })).toThrow(/did not exist/);
+    expect(versions("git_log", { limit: 10 })).toHaveLength(1);
+    versions("git_restore_file", { rev: first!.hash, path: "main.tex" });
+    expect(project.text("main.tex")).toBe("one");
+    expect(versions("git_log", { limit: 10 })).toMatchObject([{ message: "Auto-saved version" }, { hash: first!.hash }]);
   });
 });

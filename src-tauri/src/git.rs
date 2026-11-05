@@ -156,7 +156,21 @@ pub fn log(root: &Path, limit: usize) -> Result<Vec<GitLogEntry>, String> {
     }
     let limit_arg = format!("--max-count={limit}");
     let format = "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s";
-    let args = ["log", "--no-ext-diff", "--no-textconv", "--name-status", "-M", &limit_arg, format];
+    // A project can sit inside a larger repository: `-- .` keeps the commits
+    // that touched the folder and `--relative` names their files from it, as
+    // every other command here reads them.
+    let args = [
+        "log",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--name-status",
+        "--relative",
+        "-M",
+        &limit_arg,
+        format,
+        "--",
+        ".",
+    ];
     Ok(parse_log(&git_output(root, &args)?))
 }
 
@@ -170,29 +184,38 @@ pub fn show_diff(root: &Path, rev: &str, path: &str) -> Result<GitFileDiff, Stri
     }
     // `rev^:path` fails both when rev has no parent and when the file was
     // added in rev; either way there is no "before" side.
-    let before = show_blob_bytes(root, &format!("{rev}^:{relative}"));
-    let after = show_blob_bytes(root, &format!("{rev}:{relative}"));
+    let before = show_blob_bytes(root, &blob_spec(&format!("{rev}^"), &relative));
+    let after = show_blob_bytes(root, &blob_spec(&rev, &relative));
     Ok(GitFileDiff::from_blobs(before, after))
 }
 
+/// What a restore commits before it overwrites the project, so nothing typed
+/// since the last version is lost. The versions list shows it translated
+/// (`AUTO_COMMIT_MESSAGES.autoSaved` in version-messages.ts).
+const AUTO_SAVED_MESSAGE: &str = "Auto-saved version";
+
+/// Put one file back as `rev` had it, after saving the project as a version.
 pub fn restore_file(root: &Path, rev: &str, path: &str) -> Result<(), String> {
     ensure_repository(root)?;
     let rev = validate_rev(rev)?;
     let relative = normalize_relative(path)?;
     project::safe_path(root, &relative)?;
-    if git_run(root, &["cat-file", "-e", &format!("{rev}:{relative}")]).is_err() {
+    if git_run(root, &["cat-file", "-e", &blob_spec(&rev, &relative)]).is_err() {
         return Err(format!("{relative} did not exist at revision {rev}."));
     }
+    // Saved only now: a restore refused above must not leave a version behind.
+    auto_commit(root, AUTO_SAVED_MESSAGE, None)?;
     git_run(root, &["restore", "--source", &rev, "--worktree", "--", &relative])
 }
 
-/// Forward-only restore: make the worktree match `rev`, then commit that as a
-/// new snapshot on top of the current history. Untracked files (like
-/// `.research/`) are never touched.
+/// Forward-only restore: save the project as a version, make the worktree
+/// match `rev`, then commit that as a new snapshot on top of the current
+/// history. Untracked files (like `.research/`) are never touched.
 pub fn restore_project(root: &Path, rev: &str) -> Result<String, String> {
     ensure_repository(root)?;
     let rev = validate_rev(rev)?;
     git_run(root, &["rev-parse", "--verify", &format!("{rev}^{{commit}}")])?;
+    auto_commit(root, AUTO_SAVED_MESSAGE, None)?;
     git_run(root, &["restore", "--source", &rev, "--worktree", "--", "."])?;
     // `git restore` never deletes, so drop tracked files that did not exist
     // at rev. Untracked files are absent from `ls-files` and stay intact.
@@ -347,6 +370,14 @@ fn normalize_relative(path: &str) -> Result<String, String> {
         return Err(invalid());
     }
     Ok(names.join("/"))
+}
+
+/// The `rev:path` that names a project file's blob. Git resolves a bare
+/// `rev:path` from the top of the repository, which is not the project folder
+/// when the project sits inside a larger one: there `rev:main.tex` is the
+/// repository's own `main.tex`. A `./` path is resolved from the folder.
+fn blob_spec(rev: &str, relative: &str) -> String {
+    format!("{rev}:./{relative}")
 }
 
 fn validate_rev(rev: &str) -> Result<String, String> {

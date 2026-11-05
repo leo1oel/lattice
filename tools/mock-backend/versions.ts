@@ -14,6 +14,8 @@ type Version = { hash: string; shortHash: string; authorName: string; timestamp:
 
 /** Written when tracking starts (git.rs `init`); the versions list shows it translated. */
 const INITIALIZED = "Initialize version tracking";
+/** Written before a restore overwrites the project (git.rs `restore_file`, `restore_project`). */
+const AUTO_SAVED = "Auto-saved version";
 
 /** Lattice's own state, which git.rs keeps out of every version. */
 const internal = (path: string) => path === ".research" || path.startsWith(".research/");
@@ -113,12 +115,15 @@ export function versionsAnswer({ project, author = "Lattice", now = () => new Da
         const path = String(args?.path ?? "");
         const content = at.tree.get(path);
         if (content === undefined) throw new Error(`${path} did not exist at revision ${at.shortHash}.`);
+        commit(AUTO_SAVED);
         project.files.set(path, content);
         return null;
       }
-      // Forward-only, as git.rs restores: the files as `rev` had them, committed as a new version.
+      // Forward-only, as git.rs restores: the project saved as it is, then the
+      // files as `rev` had them, committed as a new version.
       case "git_restore_project": {
         const at = version(args?.rev);
+        commit(AUTO_SAVED);
         for (const path of [...project.files.keys()]) if (!internal(path) && head().tree.has(path) && !at.tree.has(path)) project.files.delete(path);
         for (const [path, content] of at.tree) project.files.set(path, content);
         return commit(`Restore project to ${at.shortHash}`) ?? head().hash;
