@@ -472,7 +472,20 @@ export const LAYOUT_CHECKS = [
       // The menu item sends the web view selectAll:, which runs the same
       // editing command as this; ⌘A never gets here, the editor's keymap
       // takes it. WebKit selects the drawn lines only (native-select-all.ts).
-      await driver.evaluate(`document.execCommand("selectAll")`);
+      // It reports that selection a task later, after any timer that came due
+      // meanwhile; one whose transaction redraws the caret's line (a lint
+      // result on a slow runner) put the caret back over it. The timer here
+      // keeps the text and makes that happen every run. It finds the view as
+      // EditorView.findFromDOM does.
+      await driver.evaluate(`(() => {
+        const view = document.querySelector(${JSON.stringify(SOURCE)}).cmTile?.root?.view;
+        if (!view) throw new Error("no EditorView behind the source editor's content (CodeMirror's cmTile)");
+        setTimeout(() => {
+          const at = view.state.selection.main.head;
+          view.dispatch({ changes: { from: at, to: at + 1, insert: view.state.sliceDoc(at, at + 1) } });
+        });
+        document.execCommand("selectAll");
+      })()`);
       await driver.nextFrame();
       await driver.type("x");
       const left = await driver.waitFor(`(() => {

@@ -1,6 +1,6 @@
 import { selectAll } from "@codemirror/commands";
 import type { Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { type EditorView, ViewPlugin } from "@codemirror/view";
 
 /**
  * Whether the DOM selection reaches from before the first rendered character
@@ -46,14 +46,52 @@ function selectsEveryRenderedCharacter(content: HTMLElement, selection: Selectio
  * so the check waits a task. Only a selection that reaches across every
  * rendered character is widened, so a `selectstart` that turns out to be
  * something else (a context click on the editor's padding) changes nothing.
+ *
+ * WebKit reports the new selection (`selectionchange`) a task after the
+ * command too, and a timer that came due meanwhile runs first. A transaction
+ * it dispatches (a lint result, a collaborator's edit) can redraw, and a
+ * redraw puts the editor's selection back into the DOM over one CodeMirror
+ * has not read yet: the Select All is gone by the time the task looks, and
+ * the next key types at the old caret. So the selection is also looked at in
+ * the first update after `selectstart`, which plugins see before the redraw.
  */
-export const nativeSelectAllSelectsDocument: Extension = EditorView.domEventObservers({
-  selectstart(event, view) {
-    if (event.target !== view.contentDOM) return;
-    setTimeout(() => {
-      if (!view.contentDOM.isConnected || !view.hasFocus) return;
-      if (!selectsEveryRenderedCharacter(view.contentDOM, view.contentDOM.ownerDocument.getSelection())) return;
-      selectAll(view);
+class NativeSelectAll {
+  /** The task that widens, from `selectstart` at the content element until it runs. */
+  private pending: ReturnType<typeof setTimeout> | null = null;
+  private selectedAll = false;
+
+  constructor(private readonly view: EditorView) {}
+
+  update() {
+    this.look();
+  }
+
+  private look() {
+    if (this.pending === null || this.selectedAll) return;
+    const { contentDOM } = this.view;
+    this.selectedAll = selectsEveryRenderedCharacter(contentDOM, contentDOM.ownerDocument.getSelection());
+  }
+
+  arm() {
+    if (this.pending !== null) clearTimeout(this.pending);
+    this.selectedAll = false;
+    this.pending = setTimeout(() => {
+      this.look();
+      this.pending = null;
+      if (!this.selectedAll || !this.view.contentDOM.isConnected || !this.view.hasFocus) return;
+      selectAll(this.view);
     });
+  }
+
+  destroy() {
+    if (this.pending !== null) clearTimeout(this.pending);
+  }
+}
+
+export const nativeSelectAllSelectsDocument: Extension = ViewPlugin.fromClass(NativeSelectAll, {
+  eventObservers: {
+    selectstart(event, view) {
+      if (event.target === view.contentDOM) this.arm();
+    },
   },
 });
