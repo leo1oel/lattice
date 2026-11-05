@@ -16,7 +16,7 @@
   "fixes": [
     {
       "en": "Marks on the PDF follow their words after a rebuild that changes only some pages.",
-      "zh": "只改动部分页面的重新构建后，PDF 上的标记仍会跟随对应的文字。"
+      "zh": "重新编译只改动了部分页面时，PDF 上的标记仍会跟随对应的文字。"
     },
     {
       "en": "Choosing Select All from the menu and then typing now always replaces everything.",
