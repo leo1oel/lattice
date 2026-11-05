@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { ArrowUpRight, MessageSquareText } from "lucide-react";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import { PdfAnnotationComposer } from "../canvas/pdf-annotation-composer";
 import { Button } from "../components/ui/button";
 import { CommentCard, CommentPreview } from "../editor/comments/comment-card";
 import {
-  annotationStatus, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfAnchor, type PdfRect,
+  annotationStatus, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfRect,
 } from "../editor/comments/editor-comment-data";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { notifyInfo } from "../telemetry/app-notify";
@@ -16,12 +17,19 @@ import { isPdfCopyField, pdfSelectedPlainTextWithin } from "./pdf-text-layer-sel
 import { usePdfRenderCount, type PdfRenderCount } from "./use-pdf-document";
 import type { ActiveViewerRef } from "./use-pdf-view";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { usePdfAnchoredPopup } from "./use-pdf-anchored-popup";
-import { placePdfMark, type PdfMarkPlace } from "./pdf-annotation-place";
-import type { PageText, TextRun } from "./review-pdf";
+import { usePdfAnchoredPopup, type PdfPassage } from "./use-pdf-anchored-popup";
+import { drawnOnPdf } from "./pdf-drawn-annotations";
+import { placePdfMark } from "./pdf-annotation-place";
+import { linesAsBuilt, placeSourceMark, type PlacedMark, type SourceMarkReader } from "./pdf-source-marks";
+import type { PageText, SyncBox, TextRun } from "./review-pdf";
 
-/** An annotation made on the PDF, as its page draws it: an amber highlight over the words it quotes and its numbered pin. */
-export type PdfAnnotationMark = { id: string; number: number; page: number; quote: string; pdf: PdfAnchor; status: AnnotationStatus };
+/**
+ * An annotation as the PDF draws it: an amber highlight over the words it
+ * quotes and its numbered pin. One made on the PDF is drawn where it was
+ * made; one made in a .tex file where SyncTeX puts its lines in the last
+ * build (pdf-source-marks.ts).
+ */
+export type PdfAnnotationMark = { id: string; number: number; status: AnnotationStatus; annotation: EditorComment };
 
 /**
  * Text selected on a page to annotate: the page, the selection's line boxes
@@ -66,40 +74,126 @@ function selectedLines(root: HTMLElement): { page: number; pageElement: HTMLElem
     : null;
 }
 
+/** How long source notes wait after a change before SyncTeX looks them up, so typing in a passage runs no process per key. */
+const SOURCE_PLACE_DELAY_MS = 250;
+
 /**
- * Where each mark is drawn (pdf-annotation-place.ts), from the text of its
- * page: null until the first placement on this document is known. Each page's
- * text is read once per document.
+ * What one document's marks are measured from, read once per document: each
+ * page's text, and the text of each annotated source file when the PDF
+ * arrived, which is what it was built from; and where each source note was
+ * placed, by note and quote, so typing elsewhere in the file looks nothing up again.
  */
-function usePdfMarkPlaces(recordRef: ActiveViewerRef, marks: readonly PdfAnnotationMark[], generation: number): ReadonlyMap<string, PdfMarkPlace> | null {
-  const [placed, setPlaced] = useState<{ generation: number; places: ReadonlyMap<string, PdfMarkPlace> } | null>(null);
-  const textsRef = useRef<{ generation: number; pages: Map<number, Promise<PageText | null>> } | null>(null);
+type DocumentReads = {
+  generation: number;
+  pages: Map<number, Promise<PageText | null>>;
+  built: Map<string, Promise<string | null>>;
+  sourcePlaces: Map<string, Promise<PlacedMark | null>>;
+};
+
+type PdfDocument = NonNullable<NonNullable<ActiveViewerRef["current"]>["slick"]["document"]>;
+
+function pageTextOf(reads: DocumentReads, document: PdfDocument, number: number) {
+  let text = reads.pages.get(number);
+  if (!text) {
+    text = number > document.numPages ? Promise.resolve(null) : document.getPage(number).then(async (page) => {
+      const content = await page.getTextContent();
+      return { view: page.view, runs: content.items.filter((item): item is TextRun & typeof item => "str" in item) };
+    }).catch(() => null);
+    reads.pages.set(number, text);
+  }
+  return text;
+}
+
+/**
+ * Where each mark is drawn, from the text of its page: a PDF note's on the
+ * page it was made (pdf-annotation-place.ts), a source note's where SyncTeX
+ * and its words put it (pdf-source-marks.ts). Null until the first PDF
+ * note's placement on this document is known; source notes arrive one by
+ * one after it, each SyncTeX lookup a process of its own, so the PDF never
+ * waits on them.
+ */
+function usePdfMarkPlaces(
+  recordRef: ActiveViewerRef, rounds: AnnotationRounds, marks: readonly PdfAnnotationMark[], generation: number,
+): ReadonlyMap<string, PlacedMark> | null {
+  const [placed, setPlaced] = useState<{ generation: number; places: ReadonlyMap<string, PlacedMark> } | null>(null);
+  const [sourcePlaced, setSourcePlaced] = useState<{ generation: number; places: ReadonlyMap<string, PlacedMark | null> } | null>(null);
+  const readsRef = useRef<DocumentReads | null>(null);
   useEffect(() => {
     const document = recordRef.current?.slick.document;
-    if (!document || !marks.length) return;
-    if (textsRef.current?.generation !== generation) textsRef.current = { generation, pages: new Map() };
-    const texts = textsRef.current.pages;
-    const pageText = (number: number) => {
-      let text = texts.get(number);
-      if (!text) {
-        text = number > document.numPages ? Promise.resolve(null) : document.getPage(number).then(async (page) => {
-          const content = await page.getTextContent();
-          return { view: page.view, runs: content.items.filter((item): item is TextRun & typeof item => "str" in item) };
-        }).catch(() => null);
-        texts.set(number, text);
-      }
-      return text;
-    };
+    if (!document) return;
+    if (readsRef.current?.generation !== generation) {
+      readsRef.current = { generation, pages: new Map(), built: new Map(), sourcePlaces: new Map() };
+    }
+    const reads = readsRef.current;
     let live = true;
-    void Promise.all(marks.map(async (mark) => [mark.id, placePdfMark(await pageText(mark.page), mark)] as const)).then((entries) => {
+    const onPdf = marks.flatMap((mark) => (mark.annotation.pdf ? [{ mark, pdf: mark.annotation.pdf }] : []));
+    void Promise.all(onPdf.map(async ({ mark, pdf }) => {
+      const place = placePdfMark(await pageTextOf(reads, document, pdf.page), mark.annotation);
+      return [mark.id, place && { page: pdf.page, ...place }] as const;
+    })).then((entries) => {
       if (!live) return;
       setPlaced({ generation, places: new Map(entries.flatMap(([id, place]) => (place ? [[id, place] as const] : []))) });
     });
+
+    const inSource = marks.filter((mark) => !mark.annotation.pdf);
+    if (!inSource.length) return () => { live = false; };
+    const reader: SourceMarkReader = {
+      pageCount: document.numPages,
+      page: async (number) => {
+        const text = await pageTextOf(reads, document, number);
+        // Unreadable: the note is left without a mark.
+        if (!text) throw new RangeError(String(number));
+        return text;
+      },
+      sync: (path, line, column) => invoke<SyncBox | null>("synctex_view", { path, line, column }),
+    };
+    const builtText = (path: string) => {
+      let text = reads.built.get(path);
+      if (!text) {
+        text = rounds.readSource(path);
+        reads.built.set(path, text);
+      }
+      return text;
+    };
+    // Snapshot the files as they were when this PDF arrived, before any wait.
+    for (const mark of inSource) void builtText(mark.annotation.path);
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        for (const { id, annotation } of inSource) {
+          if (!live) return;
+          const key = `${id}\u0000${annotation.quote}`;
+          let place = reads.sourcePlaces.get(key);
+          if (!place) {
+            place = Promise.all([rounds.readSource(annotation.path), builtText(annotation.path)]).then(([source, built]) => (
+              source === null || source.slice(annotation.from, annotation.to) !== annotation.quote
+                ? null
+                : placeSourceMark(annotation, source, linesAsBuilt(annotation, source, built), reader)
+            )).catch(() => null);
+            reads.sourcePlaces.set(key, place);
+          }
+          const result = await place;
+          if (!live) return;
+          setSourcePlaced((current) => {
+            const base = current?.generation === generation ? current.places : null;
+            if (base?.has(id) && base.get(id) === result) return current;
+            return { generation, places: new Map(base).set(id, result) };
+          });
+        }
+      })();
+    }, SOURCE_PLACE_DELAY_MS);
     return () => {
       live = false;
+      window.clearTimeout(timer);
     };
-  }, [generation, marks, recordRef]);
-  return placed?.generation === generation ? placed.places : null;
+  }, [generation, marks, recordRef, rounds]);
+  return useMemo(() => {
+    if (placed?.generation !== generation) return null;
+    const sources = sourcePlaced?.generation === generation ? sourcePlaced.places : null;
+    if (!sources?.size) return placed.places;
+    const places = new Map(placed.places);
+    for (const [id, place] of sources) if (place) places.set(id, place);
+    return places;
+  }, [generation, placed, sourcePlaced]);
 }
 
 /** How long the pointer rests on a passage before its preview shows, as on the source editor's comments. */
@@ -159,10 +253,12 @@ export default function PdfAnnotationLayer({
   /** The annotation whose card is open; `keyboard` when its pin was pressed from the keyboard. */
   const [card, setCard] = useState<{ id: string; keyboard: boolean } | null>(null);
   const cardRef = useLatestRef(card);
-  const marks = useMemo((): PdfAnnotationMark[] => annotations.flatMap((annotation) => annotation.pdf && annotation.number && !annotation.resolved
-    ? [{ id: annotation.id, number: annotation.number, page: annotation.pdf.page, quote: annotation.quote, pdf: annotation.pdf, status: annotationStatus(annotation) }]
-    : []), [annotations]);
-  const places = usePdfMarkPlaces(recordRef, marks, generation);
+  const marks = useMemo((): PdfAnnotationMark[] => annotations.flatMap((annotation) => (
+    annotation.number && drawnOnPdf(annotation)
+      ? [{ id: annotation.id, number: annotation.number, status: annotationStatus(annotation), annotation }]
+      : []
+  )), [annotations]);
+  const places = usePdfMarkPlaces(recordRef, rounds, marks, generation);
   const annotatable = rounds.canAnnotatePdf();
 
   // A finished drag offers Annotate where the selection ends.
@@ -249,8 +345,8 @@ export default function PdfAnnotationLayer({
     // Pins of passages that start on one line stand side by side, outward from the column.
     const stacked = new Map<string, number>();
     for (const mark of marks) {
-      const pageDiv = pdfPageView(record.slick, mark.page)?.div;
       const place = places.get(mark.id);
+      const pageDiv = place && pdfPageView(record.slick, place.page)?.div;
       if (!pageDiv || !place) continue;
       const layer = document.createElement("div");
       layer.className = "pdf-annotation-mark";
@@ -266,7 +362,7 @@ export default function PdfAnnotationLayer({
       }
       {
         const { pin: at } = place;
-        const row = `${mark.page}:${at.side}:${Math.round(at.y * 200)}`;
+        const row = `${place.page}:${at.side}:${Math.round(at.y * 200)}`;
         const stack = stacked.get(row) ?? 0;
         stacked.set(row, stack + 1);
         const pin = document.createElement("button");
@@ -381,8 +477,10 @@ export default function PdfAnnotationLayer({
 
   const cardAnnotation = card ? annotations.find((annotation) => annotation.id === card.id) ?? null : null;
   const previewAnnotation = previewId && previewId !== card?.id
-    ? annotations.find((annotation) => annotation.id === previewId && annotation.pdf) ?? null
+    ? annotations.find((annotation) => annotation.id === previewId) ?? null
     : null;
+  const previewPassage = previewAnnotation && passageOf(previewAnnotation, places);
+  const cardPassage = cardAnnotation && passageOf(cardAnnotation, places);
 
   return (
     <>
@@ -411,12 +509,14 @@ export default function PdfAnnotationLayer({
           onDismiss={(written) => dismissNote(composing.selection, written)}
         />
       )}
-      {previewAnnotation?.pdf && <PdfCommentPreview key={previewAnnotation.id} annotation={previewAnnotation} rects={places?.get(previewAnnotation.id)?.rects} />}
-      {cardAnnotation?.pdf && (
+      {previewAnnotation && previewPassage && (
+        <PdfCommentPreview key={previewAnnotation.id} annotation={previewAnnotation} passage={previewPassage} />
+      )}
+      {cardAnnotation && cardPassage && (
         <PdfCommentCard
           key={cardAnnotation.id}
           annotation={cardAnnotation}
-          rects={places?.get(cardAnnotation.id)?.rects}
+          passage={cardPassage}
           rounds={rounds}
           keyboard={card?.keyboard ?? false}
           onResolving={fade}
@@ -427,15 +527,16 @@ export default function PdfAnnotationLayer({
   );
 }
 
-/** The passage a popup stands over: where its highlight is drawn, or the selection as saved. */
-function usePassage(annotation: EditorComment, rects: readonly PdfRect[] | undefined) {
-  return useMemo(() => annotation.pdf ? { page: annotation.pdf.page, rects: rects ?? annotation.pdf.rects } : null, [annotation.pdf, rects]);
+/** The passage a popup stands over: where its highlight is drawn, or a PDF note's selection as saved. */
+function passageOf(annotation: EditorComment, places: ReadonlyMap<string, PlacedMark> | null): PdfPassage | null {
+  const place = places?.get(annotation.id);
+  if (place) return place;
+  return annotation.pdf ?? null;
 }
 
 /** The preview over a passage the pointer rests on: lines only, never in the pointer's way. */
-function PdfCommentPreview({ annotation, rects }: { annotation: EditorComment; rects?: readonly PdfRect[] }) {
+function PdfCommentPreview({ annotation, passage }: { annotation: EditorComment; passage: PdfPassage }) {
   const ref = useRef<HTMLDivElement>(null);
-  const passage = usePassage(annotation, rects);
   usePdfAnchoredPopup(ref, passage, PREVIEW_PLACE);
   return (
     <div ref={ref} role="tooltip" className="pdf-comment-popup pdf-comment-preview">
@@ -445,10 +546,9 @@ function PdfCommentPreview({ annotation, rects }: { annotation: EditorComment; r
 }
 
 /** An annotation's card on the PDF, above its passage, until Esc or a click elsewhere. */
-function PdfCommentCard({ annotation, rects, rounds, keyboard, onResolving, onClose }: {
+function PdfCommentCard({ annotation, passage, rounds, keyboard, onResolving, onClose }: {
   annotation: EditorComment;
-  /** Where its passage is drawn, when placed. */
-  rects?: readonly PdfRect[];
+  passage: PdfPassage;
   rounds: AnnotationRounds;
   keyboard: boolean;
   onResolving: (id: string) => void;
@@ -456,7 +556,6 @@ function PdfCommentCard({ annotation, rects, rounds, keyboard, onResolving, onCl
 }) {
   const { t } = useLingui();
   const ref = useRef<HTMLDivElement>(null);
-  const passage = usePassage(annotation, rects);
   usePdfAnchoredPopup(ref, passage, CARD_PLACE);
   // Its own pin opened it: pressing the pin again is not a click elsewhere.
   useDismissOnOutsidePointer(ref, onClose, (target) => Boolean(target.closest(`[data-annotation-id="${CSS.escape(annotation.id)}"]`)));

@@ -11,7 +11,7 @@
  * margin beside the column the passage starts in, never over its words.
  */
 import type { EditorComment, PdfRect } from "../editor/comments/editor-comment-data";
-import { anchoredQuads, type PageText } from "./review-pdf";
+import { anchoredQuads, type PageText, type Quad } from "./review-pdf";
 
 /**
  * A mark on its page, in fractions of the page: one band per line, and the
@@ -55,6 +55,23 @@ function pinPlace(page: PageText | null, first: PdfRect): PdfMarkPlace["pin"] {
   return { x: Math.min(first.x, fraction(Math.min(...column.map((run) => run.left)))), y, side: "start" };
 }
 
+/** The bands over `quads` (user space) on `page`, in fractions of the page, each reaching just below its line's descenders. */
+export function quadBands(page: PageText, quads: readonly Quad[]): PdfRect[] {
+  const [x0 = 0, y0 = 0, x1 = 612, y1 = 792] = page.view;
+  const width = x1 - x0;
+  const height = y1 - y0;
+  return quads.map(([left, top, right, , , bottom]): PdfRect => {
+    const low = bottom - (top - bottom) * RULE_CLEARANCE;
+    return { x: round((left - x0) / width), y: round((y1 - top) / height), width: round((right - left) / width), height: round((top - low) / height) };
+  });
+}
+
+/** A mark of `rects` (fractions of the page) on `page`, its pin beside the first line's column. */
+export function markOf(page: PageText | null, rects: PdfRect[]): PdfMarkPlace | null {
+  const first = rects[0] && { ...rects[0], x: Math.min(...rects.map((rect) => rect.x)) };
+  return first ? { rects, pin: pinPlace(page, first) } : null;
+}
+
 /**
  * Where `annotation` is drawn on `page` (its text, or null when it could not
  * be read): over its quoted words, or, when they do not read on the page,
@@ -64,16 +81,8 @@ export function placePdfMark(page: PageText | null, annotation: Pick<EditorComme
   const anchor = annotation.pdf;
   const saved = anchor?.rects ?? [];
   const [x0 = 0, y0 = 0, x1 = 612, y1 = 792] = page?.view ?? [];
-  const width = x1 - x0;
   const height = y1 - y0;
   const nearY = saved[0] ? y1 - saved[0].y * height : null;
-  const quads = page && width > 0 && height > 0 ? anchoredQuads(page, annotation, nearY) : null;
-  const rects = quads
-    ? quads.map(([left, top, right, , , bottom]): PdfRect => {
-      const low = bottom - (top - bottom) * RULE_CLEARANCE;
-      return { x: round((left - x0) / width), y: round((y1 - top) / height), width: round((right - left) / width), height: round((top - low) / height) };
-    })
-    : saved;
-  const first = rects[0] && { ...rects[0], x: Math.min(...rects.map((rect) => rect.x)) };
-  return first ? { rects, pin: pinPlace(page, first) } : null;
+  const quads = page && x1 > x0 && height > 0 ? anchoredQuads(page, annotation, nearY) : null;
+  return markOf(page, page && quads ? quadBands(page, quads) : saved);
 }

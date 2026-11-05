@@ -62,6 +62,7 @@ import type { PdfFileViewState } from "../app-types";
 import { logAction } from "../telemetry/app-notify";
 import { utf8ToBase64 } from "./pdf-bytes";
 import type { ViewerRecord } from "./pdf-slick";
+import { PdfAnnotationLoader } from "./pdf-annotation-loader";
 import { PdfSourceTargets, type PdfSourceQuote, type PdfSyncTarget } from "./pdf-source-targets";
 import { usePdfSelectionReport } from "./pdf-text-layer-selection";
 import type { PdfAnnotationMark, PdfTextSelection } from "./pdf-annotations";
@@ -86,7 +87,6 @@ export type { PdfAnnotationMark, PdfSourceQuote, PdfSyncTarget, PdfTextSelection
 export type PdfPageLayerProps = { recordRef: ActiveViewerRef; generation: number; renderCount: PdfRenderCount };
 
 // Keep import expressions outside the component: React Compiler cannot lower them.
-const PdfAnnotationLayer = lazy(() => import("./pdf-annotations"));
 const ReviewPdfSheet = lazy(() => import("./review-pdf-sheet"));
 const NO_ANNOTATIONS: readonly EditorComment[] = [];
 const noSubscription = () => () => {};
@@ -457,22 +457,19 @@ export function PdfPreview({
   usePdfSelectionReport(recordRef, generation, callbacks);
   const { zoomLabelRef, applyManualScale, stepZoom, toggleFit } = usePdfZoom(recordRef, generation, view);
 
-  // Annotating loads with the first selection made on the PDF, or with the
-  // first annotation it has to draw; until then the preview carries none of it.
   const [annotating, setAnnotating] = useState(false);
-  const annotationLayer = annotationRounds && (annotating || annotations?.some((annotation) => annotation.pdf && !annotation.resolved)) ? (
-    <Suspense fallback={null}>
-      <PdfAnnotationLayer
-        recordRef={recordRef}
-        previewRef={previewRef}
-        rounds={annotationRounds}
-        annotations={annotations ?? NO_ANNOTATIONS}
-        generation={generation}
-        renderCount={doc.renderCount}
-        scale={scale}
-      />
-    </Suspense>
-  ) : null;
+  const annotationLayer = annotationRounds && (
+    <PdfAnnotationLoader
+      annotating={annotating}
+      recordRef={recordRef}
+      previewRef={previewRef}
+      rounds={annotationRounds}
+      annotations={annotations ?? NO_ANNOTATIONS}
+      generation={generation}
+      renderCount={doc.renderCount}
+      scale={scale}
+    />
+  );
 
   // A compiled PDF on screen, loaded and not mid-swap, is what a review copy
   // is exported from (review-pdf-sheet.tsx); the Annotations panel asks it
