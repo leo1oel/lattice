@@ -7,7 +7,7 @@ import { PdfAnnotationComposer } from "../canvas/pdf-annotation-composer";
 import { Button } from "../components/ui/button";
 import { CommentCard, CommentPreview } from "../editor/comments/comment-card";
 import {
-  annotationStatus, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfRect,
+  annotationStatus, resolveCommentAnchor, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfRect,
 } from "../editor/comments/editor-comment-data";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { notifyInfo } from "../telemetry/app-notify";
@@ -170,11 +170,13 @@ function usePdfMarkPlaces(
           const key = `${id}\u0000${annotation.quote}`;
           let place = reads.sourcePlaces.get(key);
           if (!place) {
-            place = Promise.all([rounds.readSource(annotation.path), builtText(annotation.path)]).then(([source, built]) => (
-              source === null || source.slice(annotation.from, annotation.to) !== annotation.quote
-                ? null
-                : placeSourceMark(annotation, source, linesAsBuilt(annotation, source, built), reader)
-            )).catch(() => null);
+            place = Promise.all([rounds.readSource(annotation.path), builtText(annotation.path)]).then(([source, built]) => {
+              // Where the note is in the file now: its stored range is where it was made, as the editor finds it.
+              const range = source === null ? null : resolveCommentAnchor(source, annotation);
+              if (!source || !range) return null;
+              const here = { ...annotation, ...range };
+              return placeSourceMark(here, source, linesAsBuilt(here, source, built), reader);
+            }).catch(() => null);
             reads.sourcePlaces.set(key, place);
           }
           const result = await place;

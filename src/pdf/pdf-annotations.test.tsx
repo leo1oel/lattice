@@ -178,7 +178,7 @@ describe("marks after a rebuild", () => {
   // A rebuild that changes only some pages swaps the new document into the
   // open viewer (pdf-page-swap.ts) without a new viewer generation; the marks
   // stood where their words used to be, over other words.
-  it("follow their words when a rebuild swaps the document into the open viewer", async () => {
+  it("follow their words when a rebuild swaps the document into the open viewer, wherever the edit moved them", async () => {
     const quote = "divides the scores";
     const from = SOURCE.indexOf(quote);
     const sourceNote = createEditorComment({ path: "main.tex", source: SOURCE, from, to: from + quote.length, number: 1, body: "Why?", authorId: "me", authorName: "Ada" })!;
@@ -190,7 +190,8 @@ describe("marks after a rebuild", () => {
     vi.mocked(invoke).mockImplementation(async () => ({ page: 1, x: 72, y: syncTop, width: 400, height: 10 }));
     const record = compiledPage();
     const draws = countedDraws();
-    const rounds = { canAnnotatePdf: () => false, readSource: async () => SOURCE } as unknown as AnnotationRounds;
+    let text = SOURCE;
+    const rounds = { canAnnotatePdf: () => false, readSource: async () => text } as unknown as AnnotationRounds;
     render(
       <PdfAnnotationLayer
         recordRef={{ current: record } as unknown as ActiveViewerRef} previewRef={createRef()} rounds={rounds}
@@ -201,7 +202,9 @@ describe("marks after a rebuild", () => {
     await waitFor(() => expect(top(sourceNote.id)).toBeCloseTo((792 - 707.8) / 792 * 100, 0));
     expect(top(onPdf.id)).toBeCloseTo((792 - 695.8) / 792 * 100, 0);
 
-    // The rebuilt PDF prints the passage 300 pt lower.
+    // Lines written above the passage print it 300 pt lower. The note keeps
+    // the range it was made on; the editor finds it in the text by its quote.
+    text = `% Two lines\n% added above.\n${SOURCE}`;
     syncTop = 384;
     record.slick.document = compiledDocument(400);
     act(() => draws.drawn());
