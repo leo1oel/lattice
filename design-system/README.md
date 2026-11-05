@@ -72,21 +72,21 @@ the app's CSS), and re-export. Tokens with `app: none` are documentation only.
 
 ## The review loop
 
-The captain reviews the product, never the system pages: the app on the Paper
+The maintainer reviews the product, never the system pages: the app on the Paper
 file's App screens page, the website and films on their own review pages or
 boards.
 
-1. The captain comments on what is under review. For the app, that is a
+1. The maintainer comments on what is under review. For the app, that is a
    comment pinned to a screen's artboard in Paper.
 2. The agent reads the open threads (`list_comment_threads`, then
    `get_comment_thread` for each in full) and fixes the screen in Paper, or the
    website or film on its own surface.
 3. When a comment implies a rule or a value of the system (a colour, a spacing
    step, a motion curve, a rule on the Guidelines page), that agent, not the
-   captain, updates the Paper file: the token or rule, and the components and
+   maintainer, updates the Paper file: the token or rule, and the components and
    patterns that show it. It runs `node design-system/export.mjs` and the drift
    check.
-4. An app screen's change reaches the app's code only once the captain picks
+4. An app screen's change reaches the app's code only once the maintainer picks
    it; the drift check then holds the app and the exported copy together. The
    agent resolves the thread (`set_comment_thread_status`) when its change is
    in, and names the thread in the pull request.

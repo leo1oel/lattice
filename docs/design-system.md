@@ -13,7 +13,7 @@ which another product can build from. `design-system/` holds its exported copy
 copy and this app's CSS disagree. The app does not import `design-system/tokens.css`:
 `theme.css` and `foundations.css` stay the app's source, and the drift test is
 the contract between them. Its App screens page draws the app's main screens
-on those tokens, where the captain comments on them; a change picked there
+on those tokens, where the maintainer comments on them; a change picked there
 lands in the Paper file and in the app, through the review loop in
 `design-system/README.md`.
 
