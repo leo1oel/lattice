@@ -136,7 +136,7 @@ describe("VersionsTimeline", () => {
 
   it("restores a file only after confirmation and reports the change", async () => {
     const onVersionsChanged = vi.fn();
-    mockGitLog({ ...lineDiff, git_restore_file: undefined, git_auto_commit: null });
+    mockGitLog({ ...lineDiff, git_restore_file: undefined });
     renderVersions(<VersionsTimeline onVersionsChanged={onVersionsChanged} />);
 
     fireEvent.click(within(await expandFirstEntry()).getByRole("button", { name: /main\.tex/ }));
@@ -151,6 +151,25 @@ describe("VersionsTimeline", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_restore_file", { rev: "aaa111", path: "main.tex" }));
     expect(confirm).toHaveBeenCalledWith("Restore main.tex to this version? The current state is saved as a version first.", expect.anything());
     await waitFor(() => expect(onVersionsChanged).toHaveBeenCalledTimes(1));
+  });
+
+  // The host saves the project before it restores, and only once it knows it
+  // can: a version the panel saved first would outlive the failed restore.
+  it("leaves no version behind when a file cannot be restored", async () => {
+    mockGitLog({
+      ...lineDiff,
+      git_auto_commit: "ccc333",
+      git_restore_file: () => Promise.reject(new Error("main.tex did not exist at revision aaa111.")),
+    });
+    vi.mocked(confirm).mockResolvedValueOnce(true);
+    renderVersions(<VersionsTimeline />);
+
+    fireEvent.click(within(await expandFirstEntry()).getByRole("button", { name: /main\.tex/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Restore this file/ }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_restore_file", { rev: "aaa111", path: "main.tex" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /Restore this file/ })).toBeEnabled());
+    expect(invoke).not.toHaveBeenCalledWith("git_auto_commit", expect.anything());
   });
 
   it("saves a manual version with the typed label", async () => {
@@ -187,7 +206,7 @@ describe("VersionsTimeline", () => {
   it("restores the whole project after confirmation, reporting success only after the reload and build", async () => {
     let finish!: () => void;
     const onVersionsChanged = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
-    mockGitLog({ git_restore_project: "ddd444", git_auto_commit: null });
+    mockGitLog({ git_restore_project: "ddd444" });
     vi.mocked(confirm).mockResolvedValue(true);
     renderVersions(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
     const restore = within(await expandFirstEntry()).getByRole("button", { name: /Restore project to this version/ });

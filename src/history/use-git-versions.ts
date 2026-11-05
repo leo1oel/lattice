@@ -2,8 +2,10 @@
  * The project's git-backed versions: the log the history timeline lists, and
  * the actions on it — start tracking, save a version, restore a file or the
  * whole project. Restores are forward-only (the host commits the restored
- * tree as a new version), and each first saves the working tree as a version
- * of its own, so nothing typed since the last version is lost either.
+ * tree as a new version), and the host first saves the working tree as a
+ * version of its own, so nothing typed since the last version is lost either.
+ * It saves only once it knows the restore can happen: a version saved here
+ * first would outlive a restore the host then refused.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -128,9 +130,6 @@ export function useGitVersions(props: {
     }
   };
 
-  /** Commit the working tree before a restore overwrites it; a clean tree commits nothing. */
-  const saveCurrentState = () => invoke<string | null>("git_auto_commit", { message: AUTO_COMMIT_MESSAGES.autoSaved, author: null });
-
   return {
     phase,
     entries,
@@ -157,7 +156,6 @@ export function useGitVersions(props: {
     restoreFile: async (hash: string, path: string) => {
       if (!await confirmAction(t`Restore ${path} to this version? The current state is saved as a version first.`)) return;
       await runAction(t`Restore file`, `${path} @ ${hash}`, async () => {
-        await saveCurrentState();
         await invoke("git_restore_file", { rev: hash, path });
         await callbacksRef.current.onVersionsChanged?.();
         return t`Restored ${path}.`;
@@ -169,7 +167,6 @@ export function useGitVersions(props: {
 Nothing is lost: the current state is saved as a version first`;
       if (!await confirmAction(warning)) return;
       await runAction(t`Restore project`, hash, async () => {
-        await saveCurrentState();
         await invoke<string>("git_restore_project", { rev: hash });
         await callbacksRef.current.onVersionsChanged?.();
         return t`Project restored.`;

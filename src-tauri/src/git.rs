@@ -189,6 +189,12 @@ pub fn show_diff(root: &Path, rev: &str, path: &str) -> Result<GitFileDiff, Stri
     Ok(GitFileDiff::from_blobs(before, after))
 }
 
+/// What a restore commits before it overwrites the project, so nothing typed
+/// since the last version is lost. The versions list shows it translated
+/// (`AUTO_COMMIT_MESSAGES.autoSaved` in version-messages.ts).
+const AUTO_SAVED_MESSAGE: &str = "Auto-saved version";
+
+/// Put one file back as `rev` had it, after saving the project as a version.
 pub fn restore_file(root: &Path, rev: &str, path: &str) -> Result<(), String> {
     ensure_repository(root)?;
     let rev = validate_rev(rev)?;
@@ -197,16 +203,19 @@ pub fn restore_file(root: &Path, rev: &str, path: &str) -> Result<(), String> {
     if git_run(root, &["cat-file", "-e", &blob_spec(&rev, &relative)]).is_err() {
         return Err(format!("{relative} did not exist at revision {rev}."));
     }
+    // Saved only now: a restore refused above must not leave a version behind.
+    auto_commit(root, AUTO_SAVED_MESSAGE, None)?;
     git_run(root, &["restore", "--source", &rev, "--worktree", "--", &relative])
 }
 
-/// Forward-only restore: make the worktree match `rev`, then commit that as a
-/// new snapshot on top of the current history. Untracked files (like
-/// `.research/`) are never touched.
+/// Forward-only restore: save the project as a version, make the worktree
+/// match `rev`, then commit that as a new snapshot on top of the current
+/// history. Untracked files (like `.research/`) are never touched.
 pub fn restore_project(root: &Path, rev: &str) -> Result<String, String> {
     ensure_repository(root)?;
     let rev = validate_rev(rev)?;
     git_run(root, &["rev-parse", "--verify", &format!("{rev}^{{commit}}")])?;
+    auto_commit(root, AUTO_SAVED_MESSAGE, None)?;
     git_run(root, &["restore", "--source", &rev, "--worktree", "--", "."])?;
     // `git restore` never deletes, so drop tracked files that did not exist
     // at rev. Untracked files are absent from `ls-files` and stay intact.

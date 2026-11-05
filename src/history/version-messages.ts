@@ -10,6 +10,7 @@ import { i18n } from "../i18n";
 export const AUTO_COMMIT_MESSAGES = {
   // eslint-disable-next-line lingui/no-unlocalized-strings -- persisted git history, translated by versionMessageLabel
   overleafSync: "Overleaf sync",
+  // Also written by the host (git.rs) before it restores a file or the project.
   // eslint-disable-next-line lingui/no-unlocalized-strings -- persisted git history, translated by versionMessageLabel
   autoSaved: "Auto-saved version",
   // eslint-disable-next-line lingui/no-unlocalized-strings -- persisted git history, translated by versionMessageLabel
