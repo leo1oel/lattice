@@ -1,0 +1,34 @@
+{
+  "version": "0.15.4",
+  "date": "2026-11-05",
+  "highlights": [
+    {
+      "title": {
+        "en": "Notes from the .tex on the PDF",
+        "zh": "在 PDF 上显示 .tex 中的批注"
+      },
+      "body": {
+        "en": "Annotations made in a .tex file now also show on the PDF, on the words they belong to, with the same marks, pins and cards as notes made on the PDF.",
+        "zh": "在 .tex 文件中添加的批注现在也会显示在 PDF 上，落在对应的文字处，标记、图钉和卡片都与在 PDF 上添加的批注一致。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Marks on the PDF follow their words after a rebuild that changes only some pages.",
+      "zh": "只改动部分页面的重新构建后，PDF 上的标记仍会跟随对应的文字。"
+    },
+    {
+      "en": "Choosing Select All from the menu and then typing now always replaces everything.",
+      "zh": "从菜单选择“全选”后再输入，现在总能替换全部内容。"
+    },
+    {
+      "en": "The in-browser demo opens PNG figures as images, loads images in Markdown notes, shows a placeholder while it starts, and explains that Source control runs in the Mac app instead of showing an error.",
+      "zh": "浏览器在线演示现在会把 PNG 图片显示为图像、能加载 Markdown 笔记中的图片、启动时显示占位画面，并说明 Git 功能需在 Mac 应用中使用，而不再报错。"
+    },
+    {
+      "en": "The README links the browser demo and the release notes, and the project now has a code of conduct.",
+      "zh": "README 新增了浏览器在线演示和更新说明的链接，项目也有了行为准则。"
+    }
+  ]
+}
