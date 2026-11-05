@@ -59,6 +59,10 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
 
   const cancel = useCallback(() => {
     stop();
+    // Close the sign-in window, and end the attempt in the backend: a poll
+    // already validating a cookie then saves no session, instead of signing
+    // in while this says cancelled.
+    void invoke("overleaf_cancel_login").catch(() => {});
     dispatch({ type: "notice", notice: t`Sign-in was cancelled` });
   }, [stop, t]);
 

@@ -9,6 +9,7 @@ use serde_json::Value;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 pub(super) const DEFAULT_HOST: &str = "https://www.overleaf.com";
 const SESSION_FILE: &str = "overleaf-session.json";
@@ -250,9 +251,41 @@ fn opens_dashboard(html: &str) -> bool {
         .any(|name| meta_content(html, name).is_some())
 }
 
+/// Sign-in attempts, so ending them (Cancel, Sign out) wins over a poll that
+/// was still validating a cookie at that moment. Validation is a request to
+/// Overleaf that can take 30 s; without this, such a poll saved the session
+/// after the user had signed out, or while the UI said the sign-in was
+/// cancelled. The lock is held to compare and write, never across that request.
+#[derive(Default)]
+pub struct LoginAttempts {
+    /// How many times attempts were ended; a poll's attempt is the count it began at.
+    ended: Mutex<u64>,
+}
+
+impl LoginAttempts {
+    /// The attempt a poll beginning now belongs to.
+    pub fn current(&self) -> u64 {
+        *self.lock()
+    }
+
+    /// End every attempt so far, and run `then` before a poll of any of them
+    /// can save a session.
+    pub fn end<T>(&self, then: impl FnOnce() -> T) -> T {
+        let mut ended = self.lock();
+        *ended += 1;
+        then()
+    }
+
+    fn lock(&self) -> MutexGuard<'_, u64> {
+        self.ended.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// Validate `cookie` against the dashboard and save it as the session, unless
+/// `attempt` ended meanwhile: then nothing is saved and the answer is `None`.
 pub fn store_session_cookie(
-    config_dir: &Path, host: &str, cookie: &str,
-) -> Result<OverleafStatus, String> {
+    config_dir: &Path, host: &str, cookie: &str, logins: &LoginAttempts, attempt: u64,
+) -> Result<Option<OverleafStatus>, String> {
     let host = normalize_host(host);
     let cookie = cookie.trim().to_string();
     if cookie.is_empty() {
@@ -277,8 +310,13 @@ pub fn store_session_cookie(
     let (email, name) = parse_user_meta(&html);
     let user_id = meta_content(&html, "ol-user_id");
     let session = SessionFile { host, cookie, email, name, user_id, expired: false };
+    let ended = logins.lock();
+    if *ended != attempt {
+        return Ok(None);
+    }
     save_session(config_dir, &session)?;
-    Ok(session.status())
+    drop(ended);
+    Ok(Some(session.status()))
 }
 
 pub fn disconnect(config_dir: &Path) -> Result<(), String> {
@@ -425,7 +463,10 @@ mod tests {
         assert_eq!(absent.host, DEFAULT_HOST);
 
         let cookie = "overleaf_session2=abc123; GCLB=balancer";
-        let status = store_session_cookie(&config, &server.base, cookie).unwrap();
+        let logins = LoginAttempts::default();
+        let status = store_session_cookie(&config, &server.base, cookie, &logins, logins.current())
+            .unwrap()
+            .expect("an attempt nothing ended");
         assert!(status.connected);
         assert_eq!(status.email.as_deref(), Some("researcher@example.edu"));
         assert_eq!(status.name.as_deref(), Some("Robin Researcher"));
@@ -450,6 +491,33 @@ mod tests {
         disconnect(&config).unwrap();
         assert!(!session_status(&config).unwrap().connected);
         disconnect(&config).unwrap(); // idempotent
+    }
+
+    #[test]
+    fn signing_out_while_a_sign_in_validates_its_cookie_saves_nothing() {
+        let config = TempDir::new("sign-out-race");
+        let logins = std::sync::Arc::new(LoginAttempts::default());
+        // Sign out (or Cancel) arrives while Overleaf has not yet answered
+        // the poll's validation request.
+        let (during, ending) = (config.to_path_buf(), std::sync::Arc::clone(&logins));
+        let server = Mock {
+            on_request: Some(Box::new(move |_, _| ending.end(|| disconnect(&during)).unwrap())),
+            ..Default::default()
+        }
+        .serve();
+        let cookie = "overleaf_session2=abc123";
+        let attempt = logins.current();
+        assert!(store_session_cookie(&config, &server.base, cookie, &logins, attempt)
+            .unwrap()
+            .is_none());
+        assert!(!session_status(&config).unwrap().connected);
+
+        // A sign-in begun after that one ended is saved.
+        let server = Mock::default().serve();
+        let next = logins.current();
+        let saved = store_session_cookie(&config, &server.base, cookie, &logins, next).unwrap();
+        assert!(saved.is_some_and(|status| status.connected));
+        assert!(session_status(&config).unwrap().connected);
     }
 
     #[test]

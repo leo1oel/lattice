@@ -19,7 +19,9 @@ const linkedProject: OverleafLink = {
   projectId: "p1", projectName: "Attention Paper", host: "https://www.overleaf.com", lastSync: "2026-07-24T00:00:00Z", paused: false,
 };
 /** A sign-in window that reports the account connected on the first poll. */
-const signsIn: CommandTable = { overleaf_begin_login: undefined, overleaf_poll_login: { status: "connected", session: connected } };
+const signsIn: CommandTable = {
+  overleaf_begin_login: undefined, overleaf_cancel_login: undefined, overleaf_poll_login: { status: "connected", session: connected },
+};
 
 const project = (id: string, name: string, overrides: Partial<OverleafProject> = {}): OverleafProject => ({
   id, name, lastUpdated: "2026-07-24T00:00:00Z", ownerEmail: "researcher@example.edu", ownerName: "Robin",
@@ -128,6 +130,9 @@ describe("Overleaf settings section", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(await screen.findByRole("button", { name: /Connect to Overleaf/ })).toBeInTheDocument();
     expect(screen.getByText(/Sign-in was cancelled/)).toBeInTheDocument();
+    // The backend closes the sign-in window and saves nothing a poll still
+    // under way captures, so the account cannot connect behind "cancelled".
+    expect(invokeCalls("overleaf_cancel_login")).toHaveLength(1);
 
     poll = signsIn.overleaf_poll_login;
     fireEvent.click(screen.getByRole("button", { name: /Connect to Overleaf/ }));
