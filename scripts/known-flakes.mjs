@@ -76,6 +76,24 @@ export function flakyJobs(jobs) {
 const KINDS = ["rerun", "pr-rerun", "hunt"];
 
 /**
+ * `text` as one inline code span, which renders no markdown, links or
+ * @mentions. Job, test and branch names come from the run, and a fork's pull
+ * request controls its own job names, log output and branch name, so none of
+ * them may close the span early: the fence is one backtick longer than any
+ * run of backticks inside (CommonMark), a space pads content that starts or
+ * ends with one, and whitespace is collapsed so a line break cannot end it.
+ * An ordinary name keeps the single-backtick form older comments used, which
+ * recentSightings matches.
+ */
+export function codeSpan(text) {
+  const flat = String(text).replace(/\s+/g, " ").trim() || "(unnamed)";
+  const longest = Math.max(0, ...(flat.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = "`".repeat(longest + 1);
+  const pad = flat.startsWith("`") || flat.endsWith("`") ? " " : "";
+  return `${fence}${pad}${flat}${pad}${fence}`;
+}
+
+/**
  * The comment's first line: what kind of sighting this is, in which workflow
  * (flake-rerun.yml watches more than CI), and where to read the failed attempt.
  * A pull request's run names the pull request, unless it came from a fork,
@@ -86,13 +104,13 @@ export function headline(kind, attempt, run) {
   if (kind === "hunt") return `**Failed in the nightly flake hunt** · ${where}`;
   if (kind === "rerun") return `**Flaky on main**: attempt ${attempt} failed, the re-run of its failed jobs passed · ${where}`;
   const pulls = (run.pull_requests ?? []).map((pull) => `#${pull.number}`).join(", ");
-  return `**Flaky on ${pulls ? `pull request ${pulls}` : `\`${run.head_branch}\``}**: attempt ${attempt} failed, a re-run of the same commit passed · ${where}`;
+  return `**Flaky on ${pulls ? `pull request ${pulls}` : codeSpan(run.head_branch)}**: attempt ${attempt} failed, a re-run of the same commit passed · ${where}`;
 }
 
 /** Times `check` was recorded in the issue's comments within the last week. */
 export function recentSightings(comments, check, now) {
   return comments.filter((comment) =>
-    now - Date.parse(comment.created_at) < WEEK_MS && comment.body.includes(`\`${check}\``)).length;
+    now - Date.parse(comment.created_at) < WEEK_MS && comment.body.includes(codeSpan(check))).length;
 }
 
 function api(repo, token) {
@@ -168,15 +186,15 @@ async function main() {
     const log = await (await gh.request(`/actions/jobs/${job.id}/logs`)).text();
     const checks = failuresInLog(log);
     if (checks.length === 0) {
-      lines.push(`- \`${job.name}\`: no test named in [the log](${job.html_url}); read it from the first error`);
+      lines.push(`- ${codeSpan(job.name)}: no test named in [the log](${job.html_url}); read it from the first error`);
       continue;
     }
     for (const check of checks.slice(0, MAX_PER_JOB)) {
       const seen = recentSightings(comments, check, now) + 1;
       const flag = seen >= 2 ? ` — **seen ${seen} times in 7 days: quarantine it** (policy above)` : "";
-      lines.push(`- \`${job.name}\`: \`${check}\`${flag}`);
+      lines.push(`- ${codeSpan(job.name)}: ${codeSpan(check)}${flag}`);
     }
-    if (checks.length > MAX_PER_JOB) lines.push(`- \`${job.name}\`: ${checks.length - MAX_PER_JOB} more in [the log](${job.html_url})`);
+    if (checks.length > MAX_PER_JOB) lines.push(`- ${codeSpan(job.name)}: ${checks.length - MAX_PER_JOB} more in [the log](${job.html_url})`);
   }
 
   const body = `${headline(kind, attempt, details)}\n\n${lines.join("\n")}\n`;
