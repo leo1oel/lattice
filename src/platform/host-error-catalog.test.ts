@@ -91,7 +91,6 @@ describe("host error catalog", () => {
  * for every error written there, or `<file>: <literal>` for one.
  */
 const UNTRANSLATED: Record<string, string> = {
-  "synara/host_preferences.rs": "the background preference bridge only logs a fixed failure stage, never displays backend errors",
   "latex/figure_preview.rs": "answers the agent's figure-preview tool, which reads and acts on it",
   "research_env.rs": "the research environment answers the agent, never the interface",
   "research_env/": "the research environment answers the agent, never the interface",
