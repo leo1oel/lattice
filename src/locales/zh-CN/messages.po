@@ -4620,6 +4620,10 @@ msgstr "年份减一"
 msgid "Default"
 msgstr "默认"
 
+#: src/settings/settings-search-index.ts
+msgid "Default provider"
+msgstr "默认提供商"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Define a command"
 msgstr "定义命令"

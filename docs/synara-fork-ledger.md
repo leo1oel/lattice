@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-02 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-05 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**697 files, +66,729 / −8,037 lines**. It carries embedded-workspace UI, a skills manager,
+**709 files, +65,830 / −8,089 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -76,6 +76,14 @@ The listing costs about 555 characters (two skills, about 140 tokens) in the fir
 Every embedded frame (the Agent panel, the Git drawer's views, Settings' pages) leaves Lattice's own shortcuts to Lattice. It asks for them with `lattice:request-host-shortcuts`; Lattice answers, and sends again whenever the set changes, `lattice:host-shortcuts` (version 1) with the keys its window's command table can run at that moment, each as `{key, mod, ctrl, shift, alt}`.
 A capture listener installed before the first render stops such a key ahead of every Synara binding and posts it back as `synara:host-shortcut` (`key`, `code` and the four modifier flags); Lattice dispatches it again on that frame's iframe element, so it runs as if pressed beside the frame, and drops one it does not run at that moment.
 So with focus in a frame ⌘P is quick open rather than Synara's file search, ⌘1 the first workspace rather than a thread, and ⌘K, ⌘S, ⌘, and ⌘W work at all; a key Lattice does not claim (⌘F, ⌘C, ⌘Z) keeps its meaning in the frame.
+
+The embedded frames now keep their local-only state across Lattice launches.
+Lattice's window is `tauri://localhost` and the frames are `http://127.0.0.1:<port>`, so they are third-party and WebKit gives them partitioned localStorage that it drops when Lattice quits, whatever the port: every launch used to start from the default provider, sticky model and effort, hidden and ordered providers, and no drafts.
+In the embed, `apps/web/src/bootstrap.ts` now reads the server's copy (`GET /api/lattice/embed-storage`, bearer-authenticated like the other Lattice relays) before any store hydrates, imports it into keys the session has not written, and mirrors changes back about once a second (`POST`, plus on `pagehide`); each frame mirrors independently, and the server keeps the newest reading of each key.
+The copy is `userdata/lattice-embed-storage.json` under the Synara home, mode 0600, and holds only `synara:`/`synara.` keys within the desktop origin migration's bounds (2,048 entries, 16 MiB); Lattice reads none of it, and standalone Synara never calls the route.
+A change in its last second before quit can still be lost, and the large pasted images Synara keeps in IndexedDB rather than localStorage are not mirrored; a draft's text is.
+
+Settings → Agent (Synara's Providers page) now starts its embed-only Generation defaults with **Default provider**, the provider new chats start on until a model is picked. It is the same row as Synara's General page, which Lattice does not frame; standalone Synara still shows it only on General. Lattice's settings search finds the page by that name.
 
 ## Synara 0.9.1 compatibility
 

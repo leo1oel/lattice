@@ -25,7 +25,8 @@ export type SettingsSearchEntry = {
 /**
  * Every setting the host draws, in page order. The Agent pages belong to
  * Synara's embedded settings, which the host neither reads nor restyles, so
- * they are found by their page name alone and open as they always do.
+ * they are found by their page name (and, for Providers, its Default provider
+ * row) and open as they always do.
  */
 export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: string | null, livePreview = false): SettingsSearchEntry[] {
   const { t } = useLingui();
@@ -72,7 +73,8 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     ] satisfies SettingsSearchEntry[] : []),
     { tab: "editor", place: editor, id: "auto-updates", label: t`Automatic updates` },
     { tab: "editor", place: editor, id: "version", label: t`Version`, terms: t`Check for updates` },
-    { tab: "agent", label: t`Providers`, place: t`Agent` },
+    // The Providers page also holds Default provider, the provider new chats start on.
+    { tab: "agent", label: t`Providers`, place: t`Agent`, terms: t`Default provider` },
     { tab: "mcp", label: t`MCP`, place: t`Agent` },
     { tab: "api", label: t`Skills`, place: t`Agent` },
     { tab: "environment", label: t`Environment`, place: t`Agent`, terms: `HTTPS_PROXY ANTHROPIC_BASE_URL ${t({ message: "proxy key endpoint shell restart", comment: "Search words for the agent Environment settings page, space-separated" })}` },
