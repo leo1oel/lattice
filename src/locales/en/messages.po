@@ -3162,6 +3162,10 @@ msgid "Choose a source line before locating it in the PDF."
 msgstr "Choose a source line before locating it in the PDF."
 
 #: src/platform/host-errors-project.ts
+msgid "Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml."
+msgstr "Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml."
+
+#: src/platform/host-errors-project.ts
 msgid "Choose a valid project-relative path."
 msgstr "Choose a valid project-relative path."
 
@@ -8702,10 +8706,6 @@ msgstr "New presentation"
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "New project"
-
-#: src/platform/host-errors-project.ts
-msgid "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet."
-msgstr "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .py, .tldr, or .lattice-sheet."
 
 #: src/trellis/trellis-labels.ts
 msgid "New split below"

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { isProjectSourceFilePath, remapProjectPath, type ProjectPathChange } from "../app-utils";
+import { isProjectDocumentFilePath, isProjectSourceFilePath, remapProjectPath, type ProjectPathChange } from "../app-utils";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import type { DocumentOpens } from "./use-document-opens";
 import type { DocumentStore } from "./use-document-store";
@@ -47,8 +47,13 @@ export function useDocumentTreeChanges(store: DocumentStore, loadFile: DocumentO
       )) ?? snapshot.manifest.rootDocuments.find((document) => (
         livePaths.has(document.path) && !gone(document.path)
       ));
+      // A document before code or configuration, in the open tabs and then the
+      // tree, so a `data/` folder sorting first cannot put its JSON in front.
+      const openTab = (kind: (path: string) => boolean) => remainingTabs.find((tab) => livePaths.has(tab) && kind(tab));
       const replacement = rootDocument?.path
-        ?? remainingTabs.find((tab) => livePaths.has(tab) && isProjectSourceFilePath(tab))
+        ?? openTab(isProjectDocumentFilePath)
+        ?? [...livePaths].find(isProjectDocumentFilePath)
+        ?? openTab(isProjectSourceFilePath)
         ?? [...livePaths].find(isProjectSourceFilePath);
       if (replacement) await loadFile(replacement);
     } else if (deletedActiveAsset) {

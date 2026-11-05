@@ -67,9 +67,22 @@ function hasExtension(...extensions: string[]): (path: string) => boolean {
   return (path) => known.has(fileExtension(path));
 }
 
-export const isProjectSourceFilePath = hasExtension(
+/**
+ * The source kinds a project held before code and configuration files
+ * joined them: writing, its bibliographies and styles, canvases, sheets and
+ * Open Slide decks. A fallback that has to pick some file to show prefers
+ * these, so a project's `package.json` or a data dump never stands in for its
+ * writing.
+ */
+const DOCUMENT_EXTENSIONS = [
   "tex", "bib", "md", "txt", "html", "sty", "cls", "bst", "tldr", "lattice-sheet",
-  "tsx", "ts", "jsx", "js", "py",
+  "tsx", "ts", "jsx", "js",
+];
+export const isProjectDocumentFilePath = hasExtension(...DOCUMENT_EXTENSIONS);
+export const isProjectSourceFilePath = hasExtension(
+  ...DOCUMENT_EXTENSIONS, "py", "mjs", "cjs",
+  "rs", "go", "c", "cc", "cpp", "h", "hpp", "java", "rb", "pl", "r",
+  "sh", "bash", "zsh", "json", "yaml", "yml", "toml", "xml", "css", "scss", "sql",
 );
 export const isProjectAssetFilePath = hasExtension("png", "jpg", "jpeg", "pdf", "svg", "eps", "webp");
 export const isHtmlFilePath = hasExtension("html");
