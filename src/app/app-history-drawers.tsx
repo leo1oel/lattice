@@ -34,6 +34,11 @@ import type { CompileProject, OpenProjectFile, OverleafLink, ProjectSnapshot, Re
 const HistoryDrawer = lazy(() =>
   import("../history/history-drawer").then((module) => ({ default: module.HistoryDrawer })),
 );
+// The website's demo has no Git workspace (the Agent's runtime serves it, and
+// that runs on the Mac): its drawer says so (src/web-demo/).
+const GitWorkspace = import.meta.env.LATTICE_WEB_DEMO
+  ? lazy(() => import("../web-demo/desktop-only").then((module) => ({ default: module.GitWorkspaceFrames })))
+  : GitWorkspaceFrames;
 
 /** Run a history change once the reader confirms it; a failure becomes an error toast. */
 async function afterConfirming(question: string, change: () => Promise<void>) {
@@ -188,16 +193,19 @@ export function AppHistoryDrawers({ tools, synara: {
               </button>
             </div>
           </div>
-          <GitWorkspaceFrames
-            // A frame belongs to one project: another project's starts afresh.
-            key={project.root}
-            frame={frame}
-            view={gitWorkspaceView}
-            turnReview={agentTurnReview}
-            runtime={synaraRuntime}
-            onRetryRuntime={retrySynaraRuntime}
-            frameRef={sourceControlFrameRef}
-          />
+          {/* The demo's card is a chunk of its own: an empty drawer while it loads. */}
+          <Suspense fallback={null}>
+            <GitWorkspace
+              // A frame belongs to one project: another project's starts afresh.
+              key={project.root}
+              frame={frame}
+              view={gitWorkspaceView}
+              turnReview={agentTurnReview}
+              runtime={synaraRuntime}
+              onRetryRuntime={retrySynaraRuntime}
+              frameRef={sourceControlFrameRef}
+            />
+          </Suspense>
         </ResizableDrawer>
       ) : null}
     </>

@@ -1,5 +1,5 @@
 {
-  "//": "Edits the demo makes to the bundled tutorial (src-tauri/templates/tutorial), applied by tools/web-demo/demo-project.ts and by `node scripts/web-demo-content.mjs` before it compiles the PDF. Each `find` must occur exactly once. The figures are Lattice's own drawings (figures/), so the captions say so; the numerical example carries two slips for Proofread to catch (tools/mock-backend/text-tasks.ts).",
+  "//": "Edits the demo makes to the bundled tutorial (src-tauri/templates/tutorial), applied by tools/web-demo/demo-project.ts and by `node scripts/web-demo-content.mjs` before it compiles the PDF. Each `find` must occur exactly once. The figures are Lattice's own drawings (figures/), so the captions say so; the numerical example carries two slips for Proofread to catch (tools/mock-backend/text-tasks.ts), and the abstract's Build hint says builds are simulated.",
   "edits": [
     {
       "file": "main.tex",
@@ -15,6 +15,11 @@
       "file": "notes.md",
       "find": "alt=\"Scaled dot-product attention from Figure 2 of the Transformer paper\"",
       "replace": "alt=\"Scaled dot-product attention, redrawn after Figure 2 of the Transformer paper\""
+    },
+    {
+      "file": "main.tex",
+      "find": "% Tutorial: revise the final sentence above, then select Build to see the PDF update.",
+      "replace": "% Demo: builds here are simulated, so the PDF keeps its text. Select Build to see how Lattice explains the mistyped command below."
     },
     {
       "file": "main.tex",

@@ -56,6 +56,16 @@ describe("the web demo's backend", () => {
     return outcome.value;
   }
 
+  it("shows a PNG figure as an image, as the app does, and reads a PDF in ranges", async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const pdf = new Uint8Array([..."%PDF-1.7\n"].map((char) => char.charCodeAt(0)));
+    installDemoBackend(new Map([...tutorial(), ["figures/a.png", png], ["figures/b.pdf", pdf]]));
+    expect(await answer("read_project_asset", { path: "figures/a.png" })).toEqual({ path: "figures/a.png", mimeType: "image/png", base64: "iVBORw0KGgo=" });
+    expect(await answer("read_project_asset", { path: "figures/b.pdf" })).toEqual({
+      path: "figures/b.pdf", mimeType: "application/pdf", ranges: { length: pdf.byteLength, version: "bench" },
+    });
+  });
+
   it("says Overleaf sync runs on the Mac instead of answering the sign-in with nothing", async () => {
     await expect(answer("overleaf_begin_login", { title: "Sign in to Overleaf" })).rejects.toThrow(/Overleaf sync runs in Lattice on your Mac/);
     document.documentElement.lang = "zh-CN";

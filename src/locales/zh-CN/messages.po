@@ -6760,6 +6760,10 @@ msgstr "在 Lattice 里，你在这里画图，AI 助手也能和你一起在白
 msgid "In Lattice, Open Slide edits and presents this deck beside the paper."
 msgstr "在 Lattice 里，Open Slide 在论文旁边编辑和放映这套幻灯片。"
 
+#: src/web-demo/desktop-only.tsx
+msgid "In Lattice, this panel shows the project's Git changes and pull requests, and what each Agent turn changed."
+msgstr "在 Lattice 里，这个面板显示项目的 Git 更改和 PR，以及 AI 助手每一轮改了什么。"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "In Papers"
 msgstr "已在论文库"
@@ -13091,6 +13095,10 @@ msgstr "源码修改"
 #: src/trellis/trellis-titles.ts
 msgid "Source control"
 msgstr "Git"
+
+#: src/web-demo/desktop-only.tsx
+msgid "Source control runs on your Mac"
+msgstr "Git 面板在你的 Mac 上运行"
 
 #: src/platform/host-errors-papers.ts
 msgid "Source download failed: {error}"

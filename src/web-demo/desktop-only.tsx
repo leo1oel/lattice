@@ -1,8 +1,8 @@
 /**
  * What the website's demo shows in place of the parts of Lattice that need
- * the Mac: the Agent (it drives the AI tools signed in there), whiteboards
- * (tldraw is licensed for the app, not the website) and Open Slide (a local
- * server). Each is a card that says so and offers the download, standing in
+ * the Mac: the Agent (it drives the AI tools signed in there), the Git
+ * workspace (the Agent's runtime serves it), whiteboards (tldraw is licensed
+ * for the app, not the website) and Open Slide (a local server). Each is a card that says so and offers the download, standing in
  * the panel or tab the real surface would fill.
  *
  * Loaded only in the demo build (`import.meta.env.LATTICE_WEB_DEMO`), through
@@ -11,11 +11,12 @@
 import type { ComponentProps, ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
-import { Bot, Presentation, Shapes } from "lucide-react";
+import { Bot, GitBranch, Presentation, Shapes } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
 import type { BoardEditorProps } from "../editor/board/board-editor";
 import type { OpenSlideWorkspaceProps } from "../editor/presentation/open-slide-workspace";
+import type { GitWorkspaceFrames as RealGitWorkspaceFrames } from "../app/git-workspace-frames";
 import type TrellisAgentSurface from "../trellis/trellis-agent-surface";
 import attentionMapStill from "./attention-map-board.webp";
 import "./desktop-only.css";
@@ -58,6 +59,18 @@ export default function DemoAgentSurface(_props: ComponentProps<typeof TrellisAg
         description={t`It works through the AI tools you are signed in to there. Proofread, Polish and Revise from annotations answer here from a script.`}
       />
     </div>
+  );
+}
+
+/** The Source control drawer's body, under its Changes and Pull requests tabs. */
+export function GitWorkspaceFrames(_props: ComponentProps<typeof RealGitWorkspaceFrames>) {
+  const { t } = useLingui();
+  return (
+    <DesktopOnlyCard
+      icon={<GitBranch size={20} />}
+      title={t`Source control runs on your Mac`}
+      description={t`In Lattice, this panel shows the project's Git changes and pull requests, and what each Agent turn changed.`}
+    />
   );
 }
 

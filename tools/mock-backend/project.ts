@@ -185,7 +185,12 @@ export class MockProject implements Contents {
         const path = this.path(args);
         const content = this.files.get(path);
         if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${path}`);
-        return { path, mimeType: path.endsWith(".png") ? "image/png" : "application/pdf", ranges: { length: content.byteLength, version: "bench" } };
+        // As src-tauri/src/project/assets.rs answers: a PDF is read a range at
+        // a time, a figure arrives inline and is shown as an image.
+        if (path.toLowerCase().endsWith(".pdf")) {
+          return { path, mimeType: "application/pdf", ranges: { length: content.byteLength, version: "bench" } };
+        }
+        return { path, mimeType: "image/png", base64: base64Of(content) };
       }
       case "read_project_asset_range": {
         const content = this.files.get(this.path(args));
@@ -212,6 +217,13 @@ export class MockProject implements Contents {
 export function termMatcher(query: string): (text: string) => boolean {
   const terms = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return (text) => terms.length > 0 && terms.every((term) => text.toLocaleLowerCase().includes(term));
+}
+
+function base64Of(bytes: Uint8Array): string {
+  let binary = "";
+  // In slices: spreading a whole figure into one call overflows the stack.
+  for (let start = 0; start < bytes.length; start += 0x8000) binary += String.fromCharCode(...bytes.subarray(start, start + 0x8000));
+  return btoa(binary);
 }
 
 export function copyBuffer(bytes: Uint8Array): ArrayBuffer {
