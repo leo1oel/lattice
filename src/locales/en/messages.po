@@ -1306,6 +1306,10 @@ msgstr "A selected source file has disappeared. Review the source again."
 msgid "A slide deck already exists with that id."
 msgstr "A slide deck already exists with that id."
 
+#: src/platform/host-errors-project.ts
+msgid "A snapshot file changed while it was being read."
+msgstr "A snapshot file changed while it was being read."
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "A source file changed. Refresh and preview the replacement again."
 msgstr "A source file changed. Refresh and preview the replacement again."
@@ -9524,6 +9528,14 @@ msgstr "Only project PDFs are saved as copies."
 msgid "Only project sidecar files can be written under .research."
 msgstr "Only project sidecar files can be written under .research."
 
+#: src/platform/host-errors-project.ts
+msgid "Only regular files and directories are supported."
+msgstr "Only regular files and directories are supported."
+
+#: src/platform/host-errors-project.ts
+msgid "Only regular files can enter an agent snapshot."
+msgstr "Only regular files can enter an agent snapshot."
+
 #: src/settings/grammar-settings.tsx
 msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
 msgstr "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
@@ -10821,6 +10833,10 @@ msgstr "Project history content"
 msgid "Project name"
 msgstr "Project name"
 
+#: src/platform/host-errors-project.ts
+msgid "Project nesting exceeds the snapshot limit."
+msgstr "Project nesting exceeds the snapshot limit."
+
 #: src/overleaf/overleaf-history.tsx
 msgid "project restore"
 msgstr "project restore"
@@ -10829,6 +10845,14 @@ msgstr "project restore"
 #: src/overleaf/overleaf-history.tsx
 msgid "Project restored."
 msgstr "Project restored."
+
+#: src/platform/host-errors-project.ts
+msgid "Project snapshot exceeds its byte limit."
+msgstr "Project snapshot exceeds its byte limit."
+
+#: src/platform/host-errors-project.ts
+msgid "Project snapshot has too many entries."
+msgstr "Project snapshot has too many entries."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Project uploaded and connected to Overleaf."

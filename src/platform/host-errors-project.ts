@@ -54,6 +54,12 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   }],
   ["project_fs.rs", "Could not allocate a temporary project file.", () => t`Could not allocate a temporary project file.`],
   ["project_fs.rs", "Symbolic links cannot be moved or renamed.", () => t`Symbolic links cannot be moved or renamed.`],
+  ["project_fs.rs", "Project nesting exceeds the snapshot limit.", () => t`Project nesting exceeds the snapshot limit.`],
+  ["project_fs.rs", "Project snapshot has too many entries.", () => t`Project snapshot has too many entries.`],
+  ["project_fs.rs", "Only regular files can enter an agent snapshot.", () => t`Only regular files can enter an agent snapshot.`],
+  ["project_fs.rs", "Project snapshot exceeds its byte limit.", () => t`Project snapshot exceeds its byte limit.`],
+  ["project_fs.rs", "A snapshot file changed while it was being read.", () => t`A snapshot file changed while it was being read.`],
+  ["project_fs.rs", "Only regular files and directories are supported.", () => t`Only regular files and directories are supported.`],
   ["project/manifest.rs", "The selected path is not a folder.", () => t`The selected path is not a folder.`],
 
   // Creating, moving and deleting (project/entries.rs, project/create.rs)

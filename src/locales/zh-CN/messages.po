@@ -1306,6 +1306,10 @@ msgstr "选中的源文件已不存在，请重新检查来源"
 msgid "A slide deck already exists with that id."
 msgstr "已有使用这个 ID 的幻灯片"
 
+#: src/platform/host-errors-project.ts
+msgid "A snapshot file changed while it was being read."
+msgstr "读取快照文件时，该文件已发生更改。"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "A source file changed. Refresh and preview the replacement again."
 msgstr "源文件已更改，请刷新后重新预览替换。"
@@ -9524,6 +9528,14 @@ msgstr "只能另存项目中的 PDF"
 msgid "Only project sidecar files can be written under .research."
 msgstr ".research 下只能写入项目的附属文件"
 
+#: src/platform/host-errors-project.ts
+msgid "Only regular files and directories are supported."
+msgstr "仅支持普通文件和目录。"
+
+#: src/platform/host-errors-project.ts
+msgid "Only regular files can enter an agent snapshot."
+msgstr "AI 助手快照仅支持普通文件。"
+
 #: src/settings/grammar-settings.tsx
 msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
 msgstr "这里只列出语法风格或你改动过的规则。共有 {ruleCount} 条规则，在筛选框中输入即可搜索全部规则。"
@@ -10821,6 +10833,10 @@ msgstr "项目历史内容"
 msgid "Project name"
 msgstr "项目名称"
 
+#: src/platform/host-errors-project.ts
+msgid "Project nesting exceeds the snapshot limit."
+msgstr "项目目录层级超过快照限制。"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "project restore"
 msgstr "恢复项目"
@@ -10829,6 +10845,14 @@ msgstr "恢复项目"
 #: src/overleaf/overleaf-history.tsx
 msgid "Project restored."
 msgstr "项目已恢复"
+
+#: src/platform/host-errors-project.ts
+msgid "Project snapshot exceeds its byte limit."
+msgstr "项目快照超出大小限制。"
+
+#: src/platform/host-errors-project.ts
+msgid "Project snapshot has too many entries."
+msgstr "项目快照中的条目过多。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Project uploaded and connected to Overleaf."
