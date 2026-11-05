@@ -1,9 +1,13 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { acceptCompletion, currentCompletions, startCompletion } from "@codemirror/autocomplete";
 import { redo, undo } from "@codemirror/commands";
+import { highlightingFor, syntaxTree } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { tags } from "@lezer/highlight";
 import { afterEach, expect, it } from "vitest";
 import { CodeMirrorHost } from "./codemirror-host";
+import { loadTextLanguageExtensions } from "./editor-languages";
 import { retainParkedEditors } from "./parked-editors";
 
 afterEach(() => {
@@ -24,6 +28,47 @@ const host = (path: string, label: string, extensions = NONE) => (
     onCreateEditor={() => {}}
   />
 );
+
+it("offers Python names and keywords in a highlighted source editor", async () => {
+  let view: EditorView | null = null;
+  const extensions = await loadTextLanguageExtensions("scripts/plot.py");
+  const source = "def render_figure():\n    return 42\n\nren";
+  render(
+    <CodeMirrorHost
+      label="plot.py — source"
+      value={source}
+      extensions={extensions}
+      onChange={() => {}}
+      onUpdate={() => {}}
+      onCreateEditor={(created) => { view = created; }}
+    />,
+  );
+  expect(screen.getByRole("textbox", { name: "plot.py — source" })).toHaveTextContent("render_figure");
+  expect(syntaxTree(view!.state).toString()).toContain("FunctionDefinition");
+  expect(highlightingFor(view!.state, [tags.definitionKeyword])).toEqual(expect.any(String));
+  act(() => {
+    view!.dispatch({ selection: { anchor: source.length } });
+    expect(startCompletion(view!)).toBe(true);
+  });
+  await waitFor(() => expect(currentCompletions(view!.state).map((option) => option.label)).toContain("render_figure"));
+  // CodeMirror briefly ignores acceptance while a newly opened list settles.
+  await waitFor(() => {
+    let accepted = false;
+    act(() => { accepted = acceptCompletion(view!); });
+    expect(accepted).toBe(true);
+  });
+  expect(view!.state.doc.toString()).toBe(source.replace(/ren$/, "render_figure"));
+
+  act(() => {
+    const end = view!.state.doc.length;
+    view!.dispatch({
+      changes: { from: end, insert: "\nimp" },
+      selection: { anchor: end + 4 },
+      userEvent: "input.type",
+    });
+  });
+  await waitFor(() => expect(currentCompletions(view!.state).map((option) => option.label)).toContain("import"));
+});
 
 it("names the source textbox after its document, across renames, reconfigures and resumed documents", () => {
   const view = render(host("main.tex", "main.tex — LaTeX source"));
