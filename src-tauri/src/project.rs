@@ -42,6 +42,7 @@ mod manifest;
 mod manifest_settings;
 mod moved_file;
 mod paths;
+mod pdf_copy;
 mod references;
 mod search;
 mod symbols;
@@ -58,7 +59,7 @@ pub use annotations::{
 pub use archive::{export_project_zip, import_project_zip};
 pub(crate) use archive::{safe_zip_entry_name, zip_entry_display_name, zip_time};
 pub use assets::AssetPreview;
-pub use assets::{prepare_latex_figure, read_asset, read_asset_range, save_asset_copy};
+pub use assets::{prepare_latex_figure, read_asset, read_asset_range};
 pub use bibliography::{
     bbl_target_for_bib, bib_target_for_bbl, citations, read_bib_entry, save_bib_entry,
     CitationIndex,
@@ -97,6 +98,7 @@ pub use manifest_settings::{
 pub use moved_file::find_moved_file;
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};
+pub use pdf_copy::save_asset_copy;
 pub use references::references;
 pub use references::ReferenceIndex;
 pub(crate) use search::{

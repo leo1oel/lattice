@@ -72,7 +72,7 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/create.rs", "That folder already exists and is not empty.", () => t`That folder already exists and is not empty.`],
   ["project/create.rs", "A folder named “{TUTORIAL_PROJECT_NAME}” already exists in Lattice Tutorials. Move it, then try again.", ([name]) => t`A folder named “${name}” already exists in Lattice Tutorials. Move it, then try again.`],
 
-  // Opening files (project/tree.rs, project/assets.rs)
+  // Opening files (project/tree.rs, project/assets.rs, project/pdf_copy.rs)
   ["project/tree.rs", "This file is not UTF-8 text, so Lattice cannot open it. Convert it to UTF-8 (for example, re-save it as UTF-8 in another text editor) and open it again.", () => t`This file is not UTF-8 text, so Lattice cannot open it. Convert it to UTF-8 (for example, re-save it as UTF-8 in another text editor) and open it again.`],
   ["project/tree.rs", "This is a binary or unsupported file and cannot be opened in the source editor.", () => t`This is a binary or unsupported file and cannot be opened in the source editor.`],
   ["project/assets.rs", "This PDF changed on disk.", () => t`This PDF changed on disk.`],
@@ -84,8 +84,8 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/assets.rs", "Only project PDFs are read in ranges.", () => t`Only project PDFs are read in ranges.`],
   ["project/assets.rs", "This byte range cannot be read.", () => t`This byte range cannot be read.`],
   ["project/assets.rs", "This byte range is outside the file.", () => t`This byte range is outside the file.`],
-  ["project/assets.rs", "Only project PDFs are saved as copies.", () => t`Only project PDFs are saved as copies.`],
-  ["project/assets.rs", "Choose a file to save the PDF to.", () => t`Choose a file to save the PDF to.`],
+  ["project/pdf_copy.rs", "Only project PDFs are saved as copies.", () => t`Only project PDFs are saved as copies.`],
+  ["project/pdf_copy.rs", "Choose a file to save the PDF to.", () => t`Choose a file to save the PDF to.`],
   ["project/assets.rs", "Choose an image or PDF from the project.", () => t`Choose an image or PDF from the project.`],
   ["project/assets.rs", "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice.", () => t`SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice.`],
   ["project/assets.rs", "Lattice could not convert this figure for LaTeX.", () => t`Lattice could not convert this figure for LaTeX.`],
