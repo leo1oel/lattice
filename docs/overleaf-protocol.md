@@ -180,6 +180,11 @@ purpose.
   synchronized, and atomically renamed. On Unix it stays mode `0600`. That
   limits accidental disclosure; it is **not** encryption, and moving the cookie
   into the macOS Keychain remains an open hardening step.
+- Each new sign-in window uses a fresh, non-persistent browser data store.
+  Deleting the saved session on sign-out does not clear WebKit's persistent
+  cookies; reusing them would immediately reconnect the previous account and
+  close the window before the user can choose another one. A successful
+  sign-in still saves its validated cookie in the session file above.
 - Dashboard metadata parsing must keep supporting both the current and the
   legacy project-list meta tags, including HTML entity decoding.
 - Mutating HTTP requests carry the CSRF value from the same authenticated
@@ -337,6 +342,21 @@ purpose.
   versions as synchronized.
 
 ## Opt-in cloud tests
+
+### Native sign-in regression
+
+This needs the real macOS login window: a mocked backend cannot exercise
+WebKit's cookie store. No project needs to be created or edited.
+
+1. Sign in to account A, then sign out in Settings → Overleaf.
+2. Choose Connect to Overleaf again. The sign-in window must stay open on
+   Overleaf's login page instead of immediately reconnecting account A.
+3. Cancel and reconnect once more; cancelling must not restore account A.
+4. Sign in to account B, using email/password or SSO, and verify Settings and
+   the project picker show account B. Quit and reopen Lattice; account B
+   must remain connected through the saved session.
+
+### Project and realtime tests
 
 Ten Rust tests are `#[ignore]`d because they need a saved session and a real
 project — two under `overleaf/`, eight in `overleaf_rt/tests.rs`:
