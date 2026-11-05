@@ -570,18 +570,32 @@
 /* The pin stands in the margin beside the passage's column, its first line's
    middle, clear of the words (pdf-annotation-place.ts): left of the column,
    or right of a two-column page's right-hand one. Pins of passages that
-   start on one line stand side by side, outward. */
+   start on one line stand side by side, outward.
+   It grows and shrinks with the page like the words beside it: at 100% zoom
+   it is the gutter's pin (.cm-annotation-pin), its 14px and its figure.
+   PDF.js gives each page --total-scale-factor, the zoom (1 at 100%, a CSS px
+   per PDF point here). Zoomed far out it stops at 0.8, where the figure
+   still reads, and an unpainted box keeps 20px under the pointer.
+   pdfslick's stylesheet makes everything in the viewer content-box with
+   !important, so the sizes leave out the padding, and the button's own
+   padding above and below (2px and 3px in WebKit) is taken away: with both,
+   the pin stood 21px tall beside the gutter's 14px. */
 .pdf-annotation-pin {
   --pin-stack: 0;
+  --pin-scale: max(0.8, var(--total-scale-factor, 1));
   position: absolute;
-  min-width: 16px;
-  height: 16px;
-  padding-inline: var(--gap-tight);
-  translate: calc(-100% - 6px - var(--pin-stack) * (100% + 3px)) -50%;
+  min-width: calc((14px - 2 * var(--gap-tight)) * var(--pin-scale));
+  height: calc(14px * var(--pin-scale));
+  padding-block: 0;
+  padding-inline: calc(var(--gap-tight) * var(--pin-scale));
+  font-size: calc(var(--type-micro-size) * var(--pin-scale));
+  line-height: 1;
+  translate: calc(-100% - 6px * var(--pin-scale) - var(--pin-stack) * (100% + 3px * var(--pin-scale))) -50%;
   pointer-events: auto;
   cursor: pointer;
 }
-.pdf-annotation-pin[data-side="end"] { translate: calc(6px + var(--pin-stack) * (100% + 3px)) -50%; }
+.pdf-annotation-pin[data-side="end"] { translate: calc(6px * var(--pin-scale) + var(--pin-stack) * (100% + 3px * var(--pin-scale))) -50%; }
+.pdf-annotation-pin::before { content: ""; position: absolute; inset-block: min(0px, 50% - 10px); inset-inline: min(0px, 50% - 10px); }
 .pdf-annotate-offer {
   position: absolute;
   z-index: 6;
