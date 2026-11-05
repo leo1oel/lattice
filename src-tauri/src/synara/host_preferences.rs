@@ -180,10 +180,12 @@ fn save(directory: &Path, patch: Patch) -> Result<(), String> {
     crate::project_fs::ProjectDir::open(directory)?.atomic_write(FILE, &bytes)
 }
 
-pub(super) fn runtime_info(app: &tauri::AppHandle) -> Result<SynaraRuntimeInfo, String> {
+pub(super) fn runtime_info(
+    app: &tauri::AppHandle, native_workspace: bool,
+) -> Result<SynaraRuntimeInfo, String> {
     let runtime = app.state::<SynaraRuntime>();
     let mut info = runtime.ensure_ready()?;
-    if runtime.external_origin.is_none() {
+    if native_workspace && runtime.external_origin.is_none() {
         let preferences = app
             .path()
             .app_config_dir()
