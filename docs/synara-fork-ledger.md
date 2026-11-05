@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-05 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**708 files, +65,738 / −8,047 lines**. It carries embedded-workspace UI, a skills manager,
+**709 files, +65,830 / −8,089 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -82,6 +82,8 @@ Lattice's window is `tauri://localhost` and the frames are `http://127.0.0.1:<po
 In the embed, `apps/web/src/bootstrap.ts` now reads the server's copy (`GET /api/lattice/embed-storage`, bearer-authenticated like the other Lattice relays) before any store hydrates, imports it into keys the session has not written, and mirrors changes back about once a second (`POST`, plus on `pagehide`); each frame mirrors independently, and the server keeps the newest reading of each key.
 The copy is `userdata/lattice-embed-storage.json` under the Synara home, mode 0600, and holds only `synara:`/`synara.` keys within the desktop origin migration's bounds (2,048 entries, 16 MiB); Lattice reads none of it, and standalone Synara never calls the route.
 A change in its last second before quit can still be lost, and the large pasted images Synara keeps in IndexedDB rather than localStorage are not mirrored; a draft's text is.
+
+Settings → Agent (Synara's Providers page) now starts its embed-only Generation defaults with **Default provider**, the provider new chats start on until a model is picked. It is the same row as Synara's General page, which Lattice does not frame; standalone Synara still shows it only on General. Lattice's settings search finds the page by that name.
 
 ## Synara 0.9.1 compatibility
 

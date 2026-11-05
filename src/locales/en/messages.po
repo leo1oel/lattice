@@ -4616,6 +4616,10 @@ msgstr "Decrement year"
 msgid "Default"
 msgstr "Default"
 
+#: src/settings/settings-search-index.ts
+msgid "Default provider"
+msgstr "Default provider"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Define a command"
 msgstr "Define a command"
