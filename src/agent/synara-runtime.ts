@@ -11,6 +11,25 @@ export interface SynaraRuntimeInfo {
   startupMs: number | null;
   version: string | null;
   revision: string | null;
+  /** Native-only, non-secret UI choices restored before the embedded app starts. */
+  hostPreferences?: SynaraHostPreferences;
+}
+
+export interface SynaraHostPreferences {
+  nonce: string;
+  origin: string;
+  preferences: {
+    defaultProvider?: string;
+    composer?: {
+      stickyActiveProvider: string | null;
+      stickyModelSelectionByProvider: Record<string, {
+        provider: string;
+        model: string;
+        instanceId?: string;
+        options?: { reasoningEffort?: string; effort?: string; thinkingLevel?: string; fastMode?: boolean };
+      }>;
+    };
+  };
 }
 
 export const EMPTY_SYNARA_RUNTIME: SynaraRuntimeInfo = {
@@ -250,6 +269,7 @@ export function synaraFrameUrl(input: {
   surface?: "chrome" | "drawer";
   hostOrigin: string;
   authToken?: string | null;
+  hostPreferences?: SynaraHostPreferences;
 }): string {
   const url = new URL(input.path || "/", input.origin);
   url.searchParams.set("embed", "1");
@@ -260,6 +280,11 @@ export function synaraFrameUrl(input: {
   url.searchParams.set("hostOrigin", input.hostOrigin);
   if (input.authToken) {
     url.hash = new URLSearchParams({ "lattice-auth": input.authToken }).toString();
+  }
+  if (input.hostPreferences?.origin === input.origin) {
+    const hash = new URLSearchParams(url.hash.slice(1));
+    hash.set("lattice-prefs", JSON.stringify(input.hostPreferences));
+    url.hash = hash.toString();
   }
   return url.toString();
 }

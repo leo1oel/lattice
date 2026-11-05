@@ -9,6 +9,7 @@
 //! skill (`preferences`).
 
 mod environment;
+pub(crate) mod host_preferences;
 mod preferences;
 mod proxy;
 pub(crate) mod restart;
@@ -52,6 +53,8 @@ pub struct SynaraRuntimeInfo {
     startup_ms: Option<u64>,
     version: Option<String>,
     revision: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    host_preferences: Option<host_preferences::Seed>,
 }
 
 #[derive(Deserialize)]
@@ -82,6 +85,7 @@ struct LogTail {
 
 #[derive(Default)]
 pub struct SynaraRuntime {
+    host_preferences: host_preferences::Bridge,
     node: NodeRuntime,
     server_entry: PathBuf,
     bundled_skills_dir: PathBuf,
@@ -128,6 +132,7 @@ impl SynaraRuntime {
             shell_prefetch.start(restart::read_login_shell);
         }
         Ok(Self {
+            host_preferences: host_preferences::Bridge::default(),
             node: NodeRuntime::resolve(&runtime_root.join("bin")),
             server_entry: runtime_root.join("server/dist/index.mjs"),
             bundled_skills_dir: resources.join("src").join("embedded_skills"),
@@ -154,6 +159,7 @@ impl SynaraRuntime {
             startup_ms: Some(startup_ms),
             version: self.version.clone(),
             revision: self.revision.clone(),
+            host_preferences: None,
         }
     }
 
@@ -314,7 +320,7 @@ pub async fn synara_ensure_ready(app: tauri::AppHandle) -> Result<SynaraRuntimeI
     // Process launch, sandbox verification and health polling can take seconds.
     // A synchronous command occupies the native event loop before the WebView
     // can paint the loading surface that requested it.
-    tauri::async_runtime::spawn_blocking(move || app.state::<SynaraRuntime>().ensure_ready())
+    tauri::async_runtime::spawn_blocking(move || host_preferences::runtime_info(&app))
         .await
         .map_err(|error| format!("Agent startup worker failed: {error}"))?
 }

@@ -7,6 +7,7 @@ import {
   agentGitWorkspacePath,
   synaraFrameUrl,
   type AgentGitWorkspaceView,
+  type SynaraHostPreferences,
 } from "../agent/synara-runtime";
 import { type AppLocale } from "../settings/app-settings";
 
@@ -31,6 +32,7 @@ export function persistSynaraThread(projectRoot: string, threadId: string): void
 export type SynaraFrameContext = {
   origin: string;
   authToken: string | null;
+  hostPreferences?: SynaraHostPreferences;
   projectRoot: string;
   theme: "light" | "dark";
   locale: AppLocale;

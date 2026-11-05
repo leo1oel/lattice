@@ -168,6 +168,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       surface: "drawer",
       hostOrigin: window.location.origin,
       authToken: props.synaraRuntime.authToken,
+      hostPreferences: props.synaraRuntime.hostPreferences,
     })
     : null;
 

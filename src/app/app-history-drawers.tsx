@@ -70,6 +70,7 @@ export function AppHistoryDrawers({ tools, synara: {
   const frame = synaraOrigin ? {
     origin: synaraOrigin,
     authToken: synaraRuntime.authToken,
+    hostPreferences: synaraRuntime.hostPreferences,
     projectRoot: project.root,
     theme: props.theme,
     locale: props.appLocale,

@@ -3,6 +3,7 @@
   "src/app/window-layout.test.ts": "minimum width vs tauri.conf.json; narrow-pane and traffic-light-space CSS in jsdom",
   "src/platform/tauri-security-config.test.ts": "CSP, capabilities, packaging: Rust, JSON, scripts",
   "src/platform/polyfills.test.ts": "public/polyfills.js loads from index.html before any module",
+  "src/agent/synara-host-preferences.test.ts": "native document-start host preference bridge executes from Rust include_str, outside the module import graph",
   "src/platform/clean-room-guard.test.ts": "every package.json's dependencies and license",
   "src/platform/source-text-test-guard.test.ts": "this guard",
   "src/platform/ipc-error-phrases.test.ts": "every backend error phrase the UI matches is still written by its Rust source",

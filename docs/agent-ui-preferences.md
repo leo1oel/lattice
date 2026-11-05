@@ -1,0 +1,11 @@
+# Native agent UI preferences
+
+The embedded loopback agent is a third-party frame below Lattice's custom-protocol document. WebKit documents third-party LocalStorage as partitioned and ephemeral, so a persistent main WebView and a stable loopback port alone cannot retain its UI choices across Quit and reopen. See [WebKit tracking prevention](https://webkit.org/tracking-prevention/).
+
+Native workspace windows install `synara/host_preferences.js` at document start in all frames. It activates inside an agent frame only for an embedded HTTP loopback page carrying the current native bridge nonce and matching managed origin. The native runtime response places the typed seed in the frame URL fragment, alongside the existing authentication fragment. The script consumes only its own fragment entry and restores missing storage keys before the agent's application modules initialize. A session-only hydration marker prevents later sibling frames from reviving an old seed after an explicit reset.
+
+Only `defaultProvider` and sticky provider/model routing selections with known effort and fast-mode options are mirrored to `app_config_dir/synara-host-preferences.json`. The host never receives an app-settings envelope, provider credentials, auth tokens, draft text, attachments, or arbitrary Web Storage. The bounded typed schema rejects unknown fields; writes merge the two independent preference sections under one mutex and use the existing atomic, private-file writer. Invalid existing files remain unchanged.
+
+Save messages require the native nonce, the exact owning iframe window, and its URL origin. The native command additionally requires a workspace window and the currently managed sidecar origin. Development external runtimes and browser/headless clients do not receive this seed or a new HTTP preference endpoint. Browser privacy settings and the pinned Synara revision remain unchanged.
+
+The small adapter currently targets the pinned agent's `synara:app-settings:v1` and `synara:composer-drafts:v1` (composer envelope version 6). When upgrading that runtime, verify these transport shapes and the native Quit/reopen regression, as well as the production-script tests. This bridge preserves choices already made in the agent; it does not establish a second default-provider control or restore conversations.

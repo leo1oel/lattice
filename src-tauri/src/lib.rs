@@ -131,6 +131,7 @@ fn overlay_title_bar<'a, R: Runtime, M: Manager<R>>(
 /// policy.
 fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result<WebviewWindow> {
     let builder = WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::default())
+        .initialization_script_for_all_frames(synara::host_preferences::initialization_script(app))
         .title(app.package_info().name.as_str())
         .inner_size(1440.0, 900.0)
         .min_inner_size(640.0, 680.0)
@@ -610,6 +611,7 @@ pub fn run() {
             browser_host::dialogs::browser_dialog_save,
             macos_window::set_pdf_copy_text,
             synara::synara_ensure_ready,
+            synara::host_preferences::synara_save_host_preferences,
             synara::synara_open_skills_folder,
             synara::synara_open_log_folder,
             synara::restart::synara_agent_environment,
