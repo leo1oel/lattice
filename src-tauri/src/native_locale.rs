@@ -313,7 +313,19 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         return;
     };
     let Some(label) = crate::macos_window::focused_window_label() else { return };
+    if name == EDIT_HISTORY_EVENT && !asks_page_for_edit_history(&label) {
+        send_native_edit_history(app, payload == "redo");
+        return;
+    }
     let _ = app.emit_to(tauri::EventTarget::webview_window(label), name, payload);
+}
+
+/// Whether Undo or Redo in the window labelled `label` goes to its page,
+/// which hands it to the focused editor (src/app/edit-history.ts). A window
+/// without Lattice's page (the Overleaf sign-in) has no listener for the
+/// event, so its fields get WebKit's own undo straight away.
+fn asks_page_for_edit_history(label: &str) -> bool {
+    crate::is_workspace_window(label)
 }
 
 /// What the predefined Undo and Redo items did: send AppKit's `undo:` or
@@ -445,6 +457,13 @@ mod tests {
         assert_eq!(close_action(CLOSE_TAB, "overleaf-login"), Some(CloseAction::Window));
         assert_eq!(close_action(CLOSE_WINDOW, "project-2"), Some(CloseAction::Window));
         assert_eq!(close_action(QUIT, "main"), None);
+    }
+
+    #[test]
+    fn undo_and_redo_reach_webkit_directly_in_a_window_without_lattice_page() {
+        assert!(asks_page_for_edit_history("main"));
+        assert!(asks_page_for_edit_history("project-2"));
+        assert!(!asks_page_for_edit_history("overleaf-login"));
     }
 
     #[test]
