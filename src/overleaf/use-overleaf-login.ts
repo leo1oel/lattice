@@ -11,6 +11,12 @@ function loginReducer(state: LoginState, action: LoginAction): LoginState {
   return { ...state, [action.type]: action.value };
 }
 
+// Keep the native action's error boundary outside the hook: the compiler
+// cannot lower conditional result handling inside a try/catch block.
+async function runLoginPoll(action: () => Promise<void>, onError: (reason: unknown) => void) {
+  try { await action(); } catch (reason) { onError(reason); }
+}
+
 /**
  * Shared begin-login + poll loop. `overleaf_begin_login` opens a sign-in
  * window and returns immediately; we then poll `overleaf_poll_login` (once
@@ -24,6 +30,7 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
   const attempts = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = useRef(false);
+  const pollRef = useRef<(() => Promise<void>) | null>(null);
   const connectedRef = useRef(onConnected);
   useEffect(() => { connectedRef.current = onConnected; });
 
@@ -41,35 +48,36 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
     dispatch({ type: "notice", value: t`Sign-in was cancelled` });
   }, [stop, t]);
 
-  const poll = useCallback(async function pollForLogin() {
+  const poll = useCallback(() => runLoginPoll(async () => {
     if (!active.current) return;
-    try {
-      const result = await invoke<OverleafLoginPoll>("overleaf_poll_login");
-      if (!active.current) return;
-      if (result.status === "connected" && result.session) {
-        stop();
-        connectedRef.current(result.session);
-        return;
-      }
-      if (result.status === "cancelled") return cancel();
-      // Signing in takes a few seconds, but it should never take half a minute.
-      // Rather than spin forever, say what to do next (and why, when the
-      // backend got far enough to have a reason).
-      attempts.current += 1;
-      if (attempts.current >= 20) {
-        dispatch({ type: "hint", value:
-          result.detail
-            ? t`Still not connected: ${result.detail}`
-            : t`Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again`,
-        });
-      }
-      timer.current = setTimeout(() => void pollForLogin(), 1500);
-    } catch (reason) {
-      if (!active.current) return;
+    const result = await invoke<OverleafLoginPoll>("overleaf_poll_login");
+    if (!active.current) return;
+    if (result.status === "connected" && result.session) {
       stop();
-      dispatch({ type: "error", value: toMessage(reason) });
+      connectedRef.current(result.session);
+      return;
     }
-  }, [cancel, stop, t]);
+    if (result.status === "cancelled") return cancel();
+    // Signing in takes a few seconds, but it should never take half a minute.
+    // Rather than spin forever, say what to do next (and why, when the
+    // backend got far enough to have a reason).
+    attempts.current += 1;
+    if (attempts.current >= 20) {
+      dispatch({ type: "hint", value:
+        result.detail
+          ? t`Still not connected: ${result.detail}`
+          : t`Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again`,
+      });
+    }
+    timer.current = setTimeout(() => void pollRef.current?.(), 1500);
+  }, (reason) => {
+    if (!active.current) return;
+    stop();
+    dispatch({ type: "error", value: toMessage(reason) });
+  }), [cancel, stop, t]);
+  // A committed callback keeps the next timer on the current locale and
+  // handlers without a recursive named expression the compiler cannot hoist.
+  useEffect(() => { pollRef.current = poll; }, [poll]);
 
   const begin = useCallback(() => {
     if (active.current) return;
