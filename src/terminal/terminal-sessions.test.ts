@@ -170,6 +170,18 @@ describe("terminal sessions", () => {
     expect(calls.filter((call) => call.startsWith("ack"))).toEqual([`ack 3 ${80 * 1024}`]);
   });
 
+  it("acknowledges output drawn before the host returned the terminal's id, so the host does not stay paused", async () => {
+    // The host stops reading the shell past 2 MB unacknowledged (session.rs
+    // HIGH_WATER), so no later packet would ever arrive to carry this ack.
+    const { sessions, opened, calls } = setup();
+    sessions.open();
+    for (let sent = 0; sent < 3; sent += 1) opened[0].onOutput(new Uint8Array(1024 * 1024));
+    expect(calls.filter((call) => call.startsWith("ack"))).toEqual([]);
+    opened[0].resolve(7);
+    await settle();
+    expect(calls.filter((call) => call.startsWith("ack"))).toEqual([`ack 7 ${3 * 1024 * 1024}`]);
+  });
+
   it("reports what closing would stop, only for terminals that run something", async () => {
     const { sessions, opened, running } = setup();
     const [a, b] = [sessions.open()!, sessions.open()!];

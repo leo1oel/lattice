@@ -9,6 +9,7 @@ use crate::app_state::{AppState, Lease, ProjectLease};
 use crate::{command_diagnostics, git, overleaf, wide_event};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State, Window};
 use tokio::time::Instant;
@@ -151,8 +152,11 @@ pub fn overleaf_begin_login(
 
 #[tauri::command]
 pub async fn overleaf_poll_login(
-    app: AppHandle, host: Option<String>,
+    app: AppHandle, state: State<'_, AppState>, host: Option<String>,
 ) -> Result<overleaf::OverleafLoginPoll, String> {
+    // Taken before the window is looked at: Cancel or Sign out from here on
+    // ends this attempt, and its session is then not saved.
+    let attempt = state.overleaf_logins.current();
     let Some(window) = app.get_webview_window(LOGIN_WINDOW) else {
         return Ok(overleaf::OverleafLoginPoll::cancelled());
     };
@@ -174,10 +178,11 @@ pub async fn overleaf_poll_login(
         matching.iter().map(|cookie| format!("{}={}", cookie.name(), cookie.value())).collect();
     let header = pairs.join("; ");
     let config = overleaf_config_dir(&app)?;
+    let logins = Arc::clone(&state.overleaf_logins);
     // Polled every second while the user signs in, and a rejected cookie is
     // the normal "not yet".
     let validated = run_quietly("The Overleaf login task", move || {
-        Ok(overleaf::store_session_cookie(&config, &host, &header))
+        Ok(overleaf::store_session_cookie(&config, &host, &header, &logins, attempt))
     })
     .await?;
     match validated {
@@ -186,10 +191,21 @@ pub async fn overleaf_poll_login(
         // "not yet" — keep polling, but hand the reason back so the UI can stop
         // spinning silently if it never resolves.
         Err(reason) => Ok(overleaf::OverleafLoginPoll::pending(Some(reason))),
-        Ok(session) => {
+        Ok(None) => Ok(overleaf::OverleafLoginPoll::cancelled()),
+        Ok(Some(session)) => {
             let _ = window.close();
             Ok(overleaf::OverleafLoginPoll::connected(session))
         }
+    }
+}
+
+/// Cancel a sign-in: close its window, and save no session a poll already
+/// under way captures from it.
+#[tauri::command]
+pub fn overleaf_cancel_login(app: AppHandle, state: State<'_, AppState>) {
+    state.overleaf_logins.end(|| ());
+    if let Some(window) = app.get_webview_window(LOGIN_WINDOW) {
+        let _ = window.close();
     }
 }
 
@@ -201,7 +217,10 @@ pub async fn overleaf_disconnect(app: AppHandle, state: State<'_, AppState>) -> 
     // The live channel authenticates with the session being thrown away.
     state.shutdown_all_realtime();
     let config = overleaf_config_dir(&app)?;
-    run_blocking("Overleaf disconnect", move || overleaf::disconnect(&config)).await
+    let logins = Arc::clone(&state.overleaf_logins);
+    // Ended together with the removal, so a sign-in poll still validating its
+    // cookie cannot save the session again after it.
+    run_blocking("Overleaf disconnect", move || logins.end(|| overleaf::disconnect(&config))).await
 }
 
 #[tauri::command]

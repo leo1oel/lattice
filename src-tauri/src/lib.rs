@@ -560,6 +560,7 @@ pub fn run() {
             ipc::overleaf::overleaf_status,
             ipc::overleaf::overleaf_begin_login,
             ipc::overleaf::overleaf_poll_login,
+            ipc::overleaf::overleaf_cancel_login,
             ipc::overleaf::overleaf_disconnect,
             ipc::overleaf::overleaf_list_projects,
             ipc::overleaf::overleaf_clone_target,

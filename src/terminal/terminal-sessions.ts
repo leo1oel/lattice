@@ -137,6 +137,13 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
         return;
       }
       item.id = id;
+      // Output drawn before the id arrived could not be acknowledged. Say so
+      // now: past 2 MB unacknowledged the host stops reading the shell, so no
+      // further packet would come along to carry this ack.
+      if (item.drawn > 0) {
+        void this.backend.ack(id, item.drawn).catch(() => {});
+        item.drawn = 0;
+      }
       if (item.session.state.kind !== "starting") {
         this.update(item, { shell });
         item.queued.length = 0;

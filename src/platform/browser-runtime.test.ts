@@ -2,8 +2,8 @@ import { fireEvent, renderHook, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { useAppCommands } from "../app/use-app-commands";
 import { FakeWebSocket, lastSocket, sockets } from "./fake-websocket";
+import { BrowserRelay } from "./browser-relay";
 import {
-  BrowserRelay,
   BrowserEventRegistry,
   decodeBridgeValue,
   encodeBridgeValue,
@@ -296,9 +296,10 @@ describe("browser bridge recovery", () => {
     // Detachment is page-lifetime state, so each case needs a fresh module.
     vi.resetModules();
     const runtime = await import("./browser-runtime");
+    const { BrowserRelay: ReloadedRelay } = await import("./browser-relay");
     const detached = vi.fn();
     runtime.subscribeBrowserRuntimeDetached(detached);
-    new runtime.BrowserRelay(config, new Map(), vi.fn());
+    new ReloadedRelay(config, new Map(), vi.fn());
     const socket = sockets.at(-1)!;
     socket.message({ type: "ready", label: "browser-test" });
     socket.message({ type: "storage", entries: [] });

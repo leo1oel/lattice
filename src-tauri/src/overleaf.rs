@@ -51,8 +51,8 @@ mod upload;
 
 pub use account::{
     cookie_domain_matches, disconnect, has_session_cookie, is_session_rejection, list_projects,
-    normalize_host, session_status, settle_session_error, store_session_cookie, OverleafLoginPoll,
-    OverleafProject, OverleafStatus,
+    normalize_host, session_status, settle_session_error, store_session_cookie, LoginAttempts,
+    OverleafLoginPoll, OverleafProject, OverleafStatus,
 };
 pub use files::{checkpoint_realtime_text, is_conflict_copy, RealtimeCheckpoint};
 pub use link::{

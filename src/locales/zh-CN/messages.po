@@ -12904,7 +12904,7 @@ msgid "Sign in to {linkedHost}, then resume"
 msgstr "登录 {linkedHost} 后继续"
 
 #: src/app/use-overleaf-workspace.ts
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign in to Overleaf"
 msgstr "登录 Overleaf"
 
@@ -12920,7 +12920,7 @@ msgstr "退出 Overleaf？\n"
 "\n"
 "关联的项目会停止同步，直到重新登录。已下载的文件仍在这台 Mac 上"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign-in was cancelled"
 msgstr "登录已取消"
 
@@ -13267,7 +13267,7 @@ msgid "Status"
 msgstr "状态"
 
 #. placeholder {0}: result.detail
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
 msgstr "仍未连接：{0}"
 
@@ -13275,7 +13275,7 @@ msgstr "仍未连接：{0}"
 msgid "Still on Overleaf"
 msgstr "Overleaf 上仍在"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "还在等。请取消、关掉 Overleaf 窗口后再连一次"
 

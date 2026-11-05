@@ -7,7 +7,7 @@
  * empty, error, downloading) says in plain language what is happening and
  * what to do next.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type ReactNode, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Cloud, CloudAlert, CloudOff, FileText, Link2, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
@@ -30,13 +30,14 @@ import { MotionButton } from "../components/ui/motion";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
-import type { CloneTarget, OverleafLink, OverleafLoginPoll, OverleafProject, OverleafStatus } from "../app-types";
+import type { CloneTarget, OverleafLink, OverleafProject, OverleafStatus } from "../app-types";
 import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { notifyError, notifyInfo, notifySuccess } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
+import { useOverleafLogin } from "./use-overleaf-login";
 import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
 import "./overleaf-connect.css";
@@ -46,86 +47,6 @@ import { joinPhrases } from "../i18n";
 const OVERLEAF_SOURCE = "Overleaf";
 
 type OverleafLogin = ReturnType<typeof useOverleafLogin>;
-
-/**
- * Shared begin-login + poll loop. `overleaf_begin_login` opens a sign-in
- * window and returns immediately; we then poll `overleaf_poll_login` (once
- * right away, then every 1.5s) until the backend reports connected or
- * cancelled. The settings section and the picker both use this so novices
- * can connect from either place without being bounced around the app.
- */
-function useOverleafLogin(onConnected: (session: OverleafStatus) => void) {
-  const { t } = useLingui();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  /** Guidance shown when sign-in has been pending long enough to look stuck. */
-  const [hint, setHint] = useState<string | null>(null);
-  const attempts = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const active = useRef(false);
-  const connectedRef = useRef(onConnected);
-  useEffect(() => { connectedRef.current = onConnected; });
-
-  const stop = useCallback(() => {
-    active.current = false;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    setPending(false);
-  }, []);
-  // Stop polling when the component unmounts (e.g. the dialog closes).
-  useEffect(() => stop, [stop]);
-
-  const cancel = useCallback(() => {
-    stop();
-    setNotice(t`Sign-in was cancelled`);
-  }, [stop, t]);
-
-  const poll = useCallback(async function pollForLogin() {
-    if (!active.current) return;
-    try {
-      const result = await invoke<OverleafLoginPoll>("overleaf_poll_login");
-      if (!active.current) return;
-      if (result.status === "connected" && result.session) {
-        stop();
-        connectedRef.current(result.session);
-        return;
-      }
-      if (result.status === "cancelled") return cancel();
-      // Signing in takes a few seconds, but it should never take half a minute.
-      // Rather than spin forever, say what to do next (and why, when the
-      // backend got far enough to have a reason).
-      attempts.current += 1;
-      if (attempts.current >= 20) {
-        setHint(
-          result.detail
-            ? t`Still not connected: ${result.detail}`
-            : t`Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again`,
-        );
-      }
-      timer.current = setTimeout(() => void pollForLogin(), 1500);
-    } catch (reason) {
-      if (!active.current) return;
-      stop();
-      setError(toMessage(reason));
-    }
-  }, [cancel, stop, t]);
-
-  const begin = useCallback(() => {
-    if (active.current) return;
-    setError(null);
-    setNotice(null);
-    setHint(null);
-    attempts.current = 0;
-    void invoke("overleaf_begin_login", { title: t`Sign in to Overleaf` }).then(() => {
-      active.current = true;
-      setPending(true);
-      void poll();
-    }, (reason) => setError(toMessage(reason)));
-  }, [poll, t]);
-
-  return { pending, error, notice, hint, begin, cancel };
-}
 
 /** How the last sign-in attempt ended, when that needs saying. */
 function LoginMessages({ login }: { login: OverleafLogin }) {

@@ -21,6 +21,8 @@ pub(crate) struct AppState {
     /// limit. Frontend instances also debounce, but page reloads, multiple
     /// windows, and different projects still share the same account allowance.
     pub(crate) overleaf_sync_started: tokio::sync::Mutex<Option<tokio::time::Instant>>,
+    /// Overleaf sign-ins under way, which Cancel and Sign out end.
+    pub(crate) overleaf_logins: Arc<crate::overleaf::LoginAttempts>,
     /// One import per window. The request id prevents a late Cancel click from
     /// stopping the next import after the UI has already moved on.
     pub(crate) paper_imports: Mutex<HashMap<String, (String, Arc<AtomicBool>)>>,
@@ -91,6 +93,7 @@ impl AppState {
             roots: Mutex::new(roots),
             projects: Mutex::default(),
             overleaf_sync_started: tokio::sync::Mutex::new(None),
+            overleaf_logins: Arc::default(),
             paper_imports: Mutex::default(),
             paper_fetches: Mutex::default(),
             terminals: terminal::Terminals::default(),
