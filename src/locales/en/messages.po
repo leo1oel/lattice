@@ -12904,7 +12904,7 @@ msgid "Sign in to {linkedHost}, then resume"
 msgstr "Sign in to {linkedHost}, then resume"
 
 #: src/app/use-overleaf-workspace.ts
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign in to Overleaf"
 msgstr "Sign in to Overleaf"
 
@@ -12920,7 +12920,7 @@ msgstr "Sign out of Overleaf?\n"
 "\n"
 "Linked projects stop syncing until you sign in again. Downloaded files stay on this Mac."
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign-in was cancelled"
 msgstr "Sign-in was cancelled"
 
@@ -13267,7 +13267,7 @@ msgid "Status"
 msgstr "Status"
 
 #. placeholder {0}: result.detail
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
 msgstr "Still not connected: {0}"
 
@@ -13275,7 +13275,7 @@ msgstr "Still not connected: {0}"
 msgid "Still on Overleaf"
 msgstr "Still on Overleaf"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
