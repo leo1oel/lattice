@@ -51,10 +51,26 @@ const REPORT_ONLY_BY_SCENARIO = {
   startup: ["mutations"],
   "tab-drag": ["mutations"],
 };
+/**
+ * Counts that depend on frame timing in one engine only, so the other still
+ * gates them:
+ * - WebKit `tab-drag` commits and hooks: on the macOS runner they follow how
+ *   many frames the drag spans, as its mutations do. Main's runs of
+ *   2026-11-03 to 05 read 52–71 commits and 11,753–14,679 hooks (one job's
+ *   two runs: 52 and 68 commits), against ceilings of 69 and 15,422. Chromium
+ *   read 53–56 commits and 11,691–11,831 hooks in every one of them.
+ */
+const REPORT_ONLY_BY_ENGINE = {
+  webkit: { "tab-drag": ["commits", "hooks"] },
+};
 
-/** The counts a scenario's ceilings gate; they repeat from run to run. */
-export const gatedCounts = (scenario) => {
-  const reportOnly = [...REPORT_ONLY, ...(REPORT_ONLY_BY_SCENARIO[scenario] ?? [])];
+/** The counts a scenario's ceilings gate in an engine; they repeat from run to run. */
+export const gatedCounts = (scenario, engine = "chromium") => {
+  const reportOnly = [
+    ...REPORT_ONLY,
+    ...(REPORT_ONLY_BY_SCENARIO[scenario] ?? []),
+    ...(REPORT_ONLY_BY_ENGINE[engine]?.[scenario] ?? []),
+  ];
   return COUNTS.filter((key) => !reportOnly.includes(key));
 };
 
@@ -66,8 +82,8 @@ export const gatedCounts = (scenario) => {
  * gated was any run's, not the fewest. Report-only counts vary the most, so
  * they must not decide which run is kept; the kept run's are the ones reported.
  */
-export function bestOf(scenario, runs) {
-  const gated = gatedCounts(scenario);
+export function bestOf(scenario, runs, engine = "chromium") {
+  const gated = gatedCounts(scenario, engine);
   const total = (run) => gated.reduce((sum, key) => sum + run[key], 0);
   const kept = runs.reduce((best, run) => (total(run) < total(best) ? run : best));
   return { ...kept, ...Object.fromEntries(gated.map((key) => [key, Math.min(...runs.map((run) => run[key]))])) };
@@ -98,14 +114,15 @@ export const ceilingFor = (value) => Math.ceil(value + Math.max(HEADROOM_MIN, va
  * @param {{ scenarios: Record<string, Record<string, number>> }} budgets
  * @param {{ name: string, result: Record<string, number> }[]} results
  * @param {"check" | "ratchet" | "update"} mode
+ * @param {"chromium" | "webkit"} engine whose runs these are
  */
-export function applyBudgets(budgets, results, mode) {
+export function applyBudgets(budgets, results, mode, engine = "chromium") {
   const next = { ...budgets, scenarios: { ...budgets.scenarios } };
   const failures = [];
   const slack = [];
   let changed = false;
   for (const { name, result } of results) {
-    const gated = gatedCounts(name);
+    const gated = gatedCounts(name, engine);
     // Report-only counts have no ceiling; drop any left from before they were.
     const ceilings = Object.fromEntries(Object.entries(next.scenarios[name] ?? {}).filter(([key]) => gated.includes(key)));
     if (Object.keys(ceilings).length !== Object.keys(next.scenarios[name] ?? {}).length) changed = true;

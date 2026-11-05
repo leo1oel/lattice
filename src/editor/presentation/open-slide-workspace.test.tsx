@@ -419,11 +419,25 @@ describe("OpenSlideWorkspace", () => {
       const frame = screen.getByTitle(FRAME_TITLE) as HTMLIFrameElement;
       window.dispatchEvent(new MessageEvent("message", { data, origin, source: source === undefined ? frame.contentWindow : source }));
     };
+    // The frame is in the DOM from the commit that brings the runtime, but
+    // React runs that commit's effects, the message listener among them, a
+    // task later once its time slice is spent, as on a loaded CI runner. The
+    // access post is one of those effects.
+    const frameListening = async () => {
+      await screen.findByTitle(FRAME_TITLE);
+      await waitFor(() => expect(fetchCalls("access")).toHaveLength(1));
+    };
+    // Spend React's time slice on every read of the clock, so those effects
+    // always run a task after the frame appears.
+    beforeEach(() => {
+      let now = performance.now();
+      vi.spyOn(performance, "now").mockImplementation(() => (now += 10));
+    });
 
     it("forwards each of the deck's requests once, naming the deck for all but a new draft", async () => {
       const onAgentRequest = vi.fn();
       render(workspace({ onAgentRequest }));
-      await screen.findByTitle(FRAME_TITLE);
+      await frameListening();
 
       post(request());
       post(request());
@@ -440,7 +454,7 @@ describe("OpenSlideWorkspace", () => {
     it("ignores other frames and origins, other decks, unknown kinds and an inactive deck", async () => {
       const onAgentRequest = vi.fn();
       const { rerender } = render(workspace({ onAgentRequest }));
-      await screen.findByTitle(FRAME_TITLE);
+      await frameListening();
 
       post(request(), { source: window });
       post(request(), { origin: "http://127.0.0.1:9" });

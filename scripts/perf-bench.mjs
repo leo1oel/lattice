@@ -95,6 +95,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { freePort } from "./lib/util.mjs";
 import { applyBudgets, bestOf, COUNTS, gatedCounts } from "./perf-bench/budgets.mjs";
+import { profileSummary } from "./perf-bench/cpu-profile.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { launchWebKit } from "./perf-bench/webkit.mjs";
 import { LAYOUT_CHECKS } from "./perf-bench/layout-checks.mjs";
@@ -649,24 +650,6 @@ async function layout(options, checks, vite) {
   }
 }
 
-/** Self time per function, heaviest first, from a CDP CPU profile. */
-function profileSummary(profile, top = 25) {
-  const self = new Map();
-  const byId = new Map(profile.nodes.map((node) => [node.id, node]));
-  const interval = new Map();
-  for (let index = 0; index < profile.samples.length; index += 1) {
-    const id = profile.samples[index];
-    interval.set(id, (interval.get(id) ?? 0) + (profile.timeDeltas[index + 1] ?? 0));
-  }
-  for (const [id, micros] of interval) {
-    const { callFrame } = byId.get(id);
-    const where = callFrame.url ? `${callFrame.url.replace(/^https?:\/\/[^/]+\//, "").replace(/\?.*$/, "")}:${callFrame.lineNumber + 1}` : "";
-    const key = `${callFrame.functionName || "(anonymous)"} ${where}`.trim();
-    self.set(key, (self.get(key) ?? 0) + micros / 1000);
-  }
-  return [...self].sort((a, b) => b[1] - a[1]).slice(0, top).map(([name, ms]) => `${ms.toFixed(1).padStart(8)} ms  ${name}`);
-}
-
 async function measure(page, driver, scenario, profileTo) {
   if (!scenario.startup) await driver.evaluate("window.__latticeProbe.reset()");
   if (profileTo) {
@@ -812,7 +795,7 @@ async function benchmark(options, scenarios, vite) {
     for (const scenario of scenarios) {
       const runs = [];
       for (let run = 0; run < options.runs; run += 1) runs.push(await runScenario(browser, url, scenario, options, run));
-      const result = bestOf(scenario.name, runs);
+      const result = bestOf(scenario.name, runs, options.engine);
       results.push({ scenario, result, runs });
       console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key] ?? "–"}`).join(", ")} (across runs: ${acrossRuns(options, runs)})`);
     }
@@ -834,6 +817,7 @@ async function benchmark(options, scenarios, vite) {
     JSON.parse(readFileSync(budgetsFile, "utf8")),
     results.map(({ scenario, result }) => ({ name: scenario.name, result })),
     mode,
+    options.engine,
   );
   if (changed && !options.dev && !options.only && !options.shard) {
     writeFileSync(budgetsFile, `${JSON.stringify(budgets, null, 2)}\n`);
@@ -902,7 +886,7 @@ async function against(options, scenarios) {
           runs[side.name].push(await runScenario(browser, side.url, scenario, options, run, ` (${side.name})`));
         }
       }
-      const best = { base: bestOf(scenario.name, runs.base), head: bestOf(scenario.name, runs.head) };
+      const best = { base: bestOf(scenario.name, runs.base, options.engine), head: bestOf(scenario.name, runs.head, options.engine) };
       rows.push({ scenario, best, runs });
       console.error(`${scenario.name}: base ${acrossRuns(options, runs.base)}; head ${acrossRuns(options, runs.head)}`);
     }
@@ -918,7 +902,7 @@ async function against(options, scenarios) {
   // between runs of one side reads as noise, not as the change.
   const table = [["scenario", "count", "base", "head", "change", "base runs", "head runs"]];
   for (const { scenario, best, runs } of rows) {
-    const gated = gatedCounts(scenario.name);
+    const gated = gatedCounts(scenario.name, options.engine);
     for (const key of COUNTS) {
       const [a, b] = [best.base[key], best.head[key]];
       if (a === null || b === null) continue;

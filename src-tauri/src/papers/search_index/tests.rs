@@ -191,13 +191,41 @@ fn rebuilds_an_index_that_cannot_be_read() {
     // An index from an older schema is rebuilt as well.
     OPEN.lock().unwrap().remove(&library.index());
     let index = Index::open_in_dir(library.index()).unwrap();
-    let mut writer: IndexWriter = index.writer_with_num_threads(1, WRITER_MEMORY).unwrap();
+    let mut writer = writer(&index).unwrap();
     let mut commit = writer.prepare_commit().unwrap();
     commit.set_payload(r#"{"schema":0,"papers":{}}"#);
     commit.commit().unwrap();
     drop(writer);
     assert_eq!(keys(&library.search("sparse")), ["a"]);
     assert!(!library.sync_wrote());
+}
+
+/// The writer lock can stay busy for a moment after its writer went: a
+/// child process spawned meanwhile holds a copy of its descriptor until it
+/// execs. A sync waits that out. A lock held for longer is another process's
+/// writer, and a search then answers from what was last committed.
+#[test]
+fn waits_out_a_writer_lock_busy_for_a_moment() {
+    let library = Library::new(&[("a", "Alpha", "Sparse attention.\n")]);
+    assert!(library.sync_wrote());
+    let other = Index::open_in_dir(library.index()).unwrap();
+
+    let held = writer(&other).unwrap();
+    let release = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(100));
+        drop(held);
+    });
+    library.dir.write("papers/a/paper.md", "Dense retrieval.\n");
+    assert_eq!(keys(&library.search("dense")), ["a"]);
+    release.join().unwrap();
+
+    let held = writer(&other).unwrap();
+    library.dir.write("papers/a/paper.md", "Contrastive pretraining.\n");
+    let error = sync(&library.index(), &library.texts()).unwrap_err();
+    assert!(error.contains("LockBusy"), "{error}");
+    assert_eq!(keys(&library.search("dense")), ["a"]);
+    drop(held);
+    assert_eq!(keys(&library.search("contrastive")), ["a"]);
 }
 
 /// A common word lists every paper that has it, not only the papers whose

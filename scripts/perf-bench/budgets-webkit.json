@@ -72,9 +72,7 @@
       "mutations": 137
     },
     "tab-drag": {
-      "commits": 69,
-      "renders": 2171,
-      "hooks": 15422
+      "renders": 2171
     }
   }
 }

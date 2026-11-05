@@ -24,6 +24,8 @@ use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
 use tantivy::collector::{Collector, SegmentCollector};
 use tantivy::columnar::{Column, StrColumn};
 use tantivy::query::{BooleanQuery, Occur, Query, TermQuery};
@@ -43,6 +45,9 @@ const WORD_TOKENIZER: &str = "lattice_paper_words";
 /// tantivy's floor is 15 MB per indexing thread; a whole library's text
 /// (13 MB for 150 papers) fits one segment at this size.
 const WRITER_MEMORY: usize = 32_000_000;
+/// How long a busy writer lock is waited for before it counts as held by
+/// another process (see `writer`).
+const LOCK_WAIT: Duration = Duration::from_millis(500);
 /// Lines a paper's rank reads (see `search_open`); each paper keeps at least
 /// these many of its best lines while every match is grouped.
 const RANKED_LINES: usize = 3;
@@ -262,7 +267,7 @@ fn sync_open(open: &mut OpenIndex, papers: &[PaperText]) -> tantivy::Result<bool
         return Ok(false);
     }
     let fields = open.fields;
-    let mut writer: IndexWriter = open.index.writer_with_num_threads(1, WRITER_MEMORY)?;
+    let mut writer = writer(&open.index)?;
     for key in removed.into_iter().chain(changed.iter().map(|paper| &paper.key)) {
         writer.delete_term(Term::from_field_text(fields.paper, key));
     }
@@ -279,6 +284,23 @@ fn sync_open(open: &mut OpenIndex, papers: &[PaperText]) -> tantivy::Result<bool
     open.reader.reload()?;
     open.indexed = payload.papers;
     Ok(true)
+}
+
+/// The index's single writer. Its lock is a `flock` on a descriptor this
+/// process opens close-on-exec, but a child spawned meanwhile (a build, git,
+/// a terminal) keeps a copy of it until its exec, so the lock stays busy for
+/// a moment after the last writer let it go. Wait that out; only a lock
+/// still busy after `LOCK_WAIT` is another process's writer.
+fn writer(index: &Index) -> tantivy::Result<IndexWriter> {
+    let deadline = Instant::now() + LOCK_WAIT;
+    loop {
+        match index.writer_with_num_threads(1, WRITER_MEMORY) {
+            Err(TantivyError::LockFailure(..)) if Instant::now() < deadline => {
+                thread::sleep(Duration::from_millis(5));
+            }
+            result => return result,
+        }
+    }
 }
 
 fn add_paper(
