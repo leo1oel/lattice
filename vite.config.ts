@@ -306,6 +306,10 @@ export default defineConfig(() => ({
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   build: {
+    // Vite's modulepreload polyfill is startup JS every window runs, for
+    // browsers without <link rel="modulepreload">. The macOS 14 minimum
+    // (tauri.conf.json) ships Safari 17's WebKit, which has it natively.
+    modulePreload: { polyfill: false },
     rolldownOptions: {
       // One entry, on purpose: scripts/app-size-report.mjs expects the app's
       // chunks only.
