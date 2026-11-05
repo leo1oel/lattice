@@ -8,9 +8,8 @@ cannot be talked into passing a cheat. Tasks are
 Claude Code, Codex CLI and every other Harbor agent run them in a pinned
 TeX Live container unchanged, and Tinker's Harbor RL recipe trains on them.
 
-This is Phase 1 of the plan in the research-env scout report: the TeX-only
-task families, which need only TeX Live and `pdftotext`, not the Lattice
-app. Everything here is the Python standard library; nothing to install.
+This first phase covers the TeX-only task families, which need only TeX
+Live and `pdftotext`, not the Lattice app. Everything here is the Python standard library; nothing to install.
 
 ```bash
 cd research-env

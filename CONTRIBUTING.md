@@ -3,6 +3,8 @@
 Thanks for helping make Lattice a better research companion. Bug reports,
 feature ideas, documentation improvements, and focused code contributions are
 all welcome.
+Everyone taking part is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Report a bug or suggest an improvement
 

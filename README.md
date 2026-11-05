@@ -8,7 +8,7 @@
 
 A local-first LaTeX workspace for macOS, with your papers, your co-authors and an AI agent in the same window
 
-[Download](https://github.com/leo1oel/lattice/releases/latest)&emsp;[Website](https://leo1oel.github.io/lattice/)&emsp;[Watch the film](https://leo1oel.github.io/lattice/#film)&emsp;[Docs](docs/README.md)&emsp;[Issues](https://github.com/leo1oel/lattice/issues)&emsp;[中文](README.zh-CN.md)
+[Download](https://github.com/leo1oel/lattice/releases/latest)&emsp;[Try it in your browser](https://leo1oel.github.io/lattice/demo/)&emsp;[Website](https://leo1oel.github.io/lattice/)&emsp;[Watch the film](https://leo1oel.github.io/lattice/#film)&emsp;[Release notes](https://github.com/leo1oel/lattice/releases)&emsp;[Developer docs](docs/README.md)&emsp;[Issues](https://github.com/leo1oel/lattice/issues)&emsp;[中文](README.zh-CN.md)
 
 [![Release](https://img.shields.io/github/v/release/leo1oel/lattice?style=flat-square&label=release&color=556324)](https://github.com/leo1oel/lattice/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/leo1oel/lattice/ci.yml?branch=main&style=flat-square&label=checks)](https://github.com/leo1oel/lattice/actions/workflows/ci.yml)
@@ -87,6 +87,7 @@ The Git panel shows changes and pull requests when the project is a repository.
 ## Install
 
 Lattice runs on Apple Silicon Macs with macOS 14 or later, and builds with your own [MacTeX](https://tug.org/mactex/) or TeX Live.
+No TeX yet? Lattice notices at launch and offers to install BasicTeX for you.
 
 1. Download the `.dmg` from the [latest release](https://github.com/leo1oel/lattice/releases/latest) and drag Lattice into Applications.
 2. Open a folder, start from a template, or connect an Overleaf project.

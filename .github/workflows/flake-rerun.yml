@@ -85,6 +85,8 @@ jobs:
     steps:
       # workflow_run checks out the default branch, never the run's own
       # commit, so a pull request cannot change the script that runs here.
+      # It can still choose its job names, branch name and log output, which
+      # the comment quotes; the script keeps each inside a code span.
       - uses: actions/checkout@v7
         with:
           sparse-checkout: scripts/known-flakes.mjs

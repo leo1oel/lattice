@@ -6760,6 +6760,10 @@ msgstr "In Lattice you draw here, and the Agent can sketch on the board with you
 msgid "In Lattice, Open Slide edits and presents this deck beside the paper."
 msgstr "In Lattice, Open Slide edits and presents this deck beside the paper."
 
+#: src/web-demo/desktop-only.tsx
+msgid "In Lattice, this panel shows the project's Git changes and pull requests, and what each Agent turn changed."
+msgstr "In Lattice, this panel shows the project's Git changes and pull requests, and what each Agent turn changed."
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "In Papers"
 msgstr "In Papers"
@@ -13091,6 +13095,10 @@ msgstr "Source changes"
 #: src/trellis/trellis-titles.ts
 msgid "Source control"
 msgstr "Source control"
+
+#: src/web-demo/desktop-only.tsx
+msgid "Source control runs on your Mac"
+msgstr "Source control runs on your Mac"
 
 #: src/platform/host-errors-papers.ts
 msgid "Source download failed: {error}"

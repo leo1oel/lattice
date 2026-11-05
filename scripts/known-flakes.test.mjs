@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { failuresInLog, flakyJobs, headline, recentSightings } from "./known-flakes.mjs";
+import { codeSpan, failuresInLog, flakyJobs, headline, recentSightings } from "./known-flakes.mjs";
 
 // Lines as GitHub serves a job log: a timestamp, then the runner's colours.
 const at = (line) => `2026-10-14T00:01:46.7460905Z ${line}`;
@@ -55,6 +55,29 @@ describe("recentSightings", () => {
     ];
     expect(recentSightings(comments, "a.test.ts > x", now)).toBe(1);
   });
+
+  it("matches a name with backticks in the span it was recorded in", () => {
+    const now = Date.parse("2026-10-14T12:00:00Z");
+    const comments = [{ created_at: "2026-10-13T12:00:00Z", body: `- \`rust\`: ${codeSpan("a `b` c")}` }];
+    expect(recentSightings(comments, "a `b` c", now)).toBe(1);
+  });
+});
+
+describe("codeSpan", () => {
+  it("keeps an ordinary name in the single-backtick form older comments used", () => {
+    expect(codeSpan("src/a.test.ts > suite > x")).toBe("`src/a.test.ts > suite > x`");
+  });
+
+  it("keeps a name a fork controls from closing the span early", () => {
+    // Markdown, an @mention and an image after a stray backtick would render.
+    expect(codeSpan("x` **@someone** ![a](https://e.test/a.png) `y")).toBe("``x` **@someone** ![a](https://e.test/a.png) `y``");
+    expect(codeSpan("a ``` b")).toBe("````a ``` b````");
+    expect(codeSpan("`edge`")).toBe("`` `edge` ``");
+  });
+
+  it("collapses line breaks, which could end the span or start a new block", () => {
+    expect(codeSpan("job\n\n# Heading @someone")).toBe("`job # Heading @someone`");
+  });
 });
 
 describe("headline", () => {
@@ -76,6 +99,10 @@ describe("headline", () => {
 
   it("falls back to the branch for a fork's pull request, which the run does not link", () => {
     expect(headline("pr-rerun", 1, { ...run, pull_requests: [] })).toContain("**Flaky on `fix/reopen`**");
+  });
+
+  it("keeps a fork's branch name inside its code span", () => {
+    expect(headline("pr-rerun", 1, { ...run, pull_requests: [], head_branch: "x`@someone`y" })).toContain("**Flaky on ``x`@someone`y``**");
   });
 
   it("keeps main's re-run and the hunt apart from pull requests", () => {

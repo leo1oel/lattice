@@ -34,20 +34,6 @@ That form is private to you and the maintainer, gives us a place to work on a
 fix together, and turns into the published advisory and CVE request when the
 fix ships.
 
-> **Maintainer setup note.** Private vulnerability reporting must be switched on
-> for this repository (Settings → Advanced Security → Private vulnerability
-> reporting). If the link above 404s for you, that switch is off — please open a
-> public issue that says only *"I would like to report a security issue
-> privately, please enable private vulnerability reporting"* and nothing else,
-> and wait for a private channel before sharing any detail.
-
-<!--
-  MAINTAINER TODO before the repository is made public: if you want an email
-  fallback alongside GitHub's form, publish a role address (e.g. one on a
-  domain you control) and replace the line below. Do not put a personal or
-  institutional mailbox here.
--->
-
 There is currently **no published security email address** — GitHub's private
 advisory form is the only supported private channel.
 
