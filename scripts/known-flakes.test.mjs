@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { failuresInLog, headline, recentSightings } from "./known-flakes.mjs";
+import { failuresInLog, flakyJobs, headline, recentSightings } from "./known-flakes.mjs";
 
 // Lines as GitHub serves a job log: a timestamp, then the runner's colours.
 const at = (line) => `2026-10-14T00:01:46.7460905Z ${line}`;
@@ -25,6 +25,23 @@ describe("failuresInLog", () => {
 
   it("names nothing in a log without a failing test", () => {
     expect(failuresInLog(at("Error: Process completed with exit code 1."))).toEqual([]);
+  });
+});
+
+describe("flakyJobs", () => {
+  const job = (name, conclusion = "failure") => ({ name, conclusion });
+
+  it("keeps the failed jobs, not a sharded check's reporting job", () => {
+    const jobs = [job("perf-bench (1/2)"), job("perf-bench (2/2)", "success"), job("perf-bench"), job("rust"), job("tex", "success")];
+    expect(flakyJobs(jobs).map((each) => each.name)).toEqual(["perf-bench (1/2)", "rust"]);
+  });
+
+  it("keeps a reporting job whose shards passed: its own step failed", () => {
+    expect(flakyJobs([job("perf-bench (1/2)", "success"), job("perf-bench")]).map((each) => each.name)).toEqual(["perf-bench"]);
+  });
+
+  it("drops synara-pin, which passes on a re-run once the fork branch is pushed", () => {
+    expect(flakyJobs([job("synara-pin"), job("rust")]).map((each) => each.name)).toEqual(["rust"]);
   });
 });
 

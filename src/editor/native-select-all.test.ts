@@ -30,11 +30,21 @@ function longEditor() {
  * `selectstart` at `target`, then a selection from the start of the first
  * of `lines` to the end of the last (WebKit ends it in the gap after them).
  */
-async function browserSelect(target: Element, lines: Element[]) {
+async function browserSelect(target: Element, lines: Element[], { before }: { before?: () => void } = {}) {
   target.dispatchEvent(new Event("selectstart", { bubbles: true, cancelable: true }));
   const last = lines.at(-1)!;
   document.getSelection()!.setBaseAndExtent(lines[0], 0, last, last.childNodes.length);
+  before?.();
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/**
+ * A transaction that redraws the line holding the caret and leaves the text as
+ * it was, like a lint result, a parse or a collaborator's edit landing there.
+ */
+function redrawCaretLine(view: EditorView) {
+  const at = view.state.selection.main.head;
+  view.dispatch({ changes: { from: at, to: at + 1, insert: view.state.sliceDoc(at, at + 1) } });
 }
 const renderedLines = (view: EditorView) => [...view.contentDOM.querySelectorAll(".cm-line")];
 
@@ -48,6 +58,16 @@ it("widens the browser's Select All over the rendered lines to the whole documen
   // The premise: only part of the document is in the DOM.
   expect(renderedLines(view).length).toBeLessThan(LINES);
   await browserSelect(view.contentDOM, renderedLines(view));
+  expect(selected(view)).toEqual({ from: 0, to: view.state.doc.length });
+});
+
+// WebKit reports the new selection a task after the command, and a timer that
+// came due meanwhile runs first. A transaction from it redraws, and CodeMirror
+// then puts its own caret back over a DOM selection it had not read yet.
+it("widens a Select All that a transaction redrew before anything read it", async () => {
+  const view = longEditor();
+  view.dispatch({ selection: { anchor: 20 } });
+  await browserSelect(view.contentDOM, renderedLines(view), { before: () => redrawCaretLine(view) });
   expect(selected(view)).toEqual({ from: 0, to: view.state.doc.length });
 });
 

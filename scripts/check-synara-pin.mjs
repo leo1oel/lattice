@@ -74,10 +74,10 @@ export function checkSynaraPin({ projectRoot, baseRef }) {
       succeeds(scratch, ["fetch", "-q", "--no-tags", "--filter=tree:0", "origin", revision]);
 
     if (!ensure(next.revision)) {
-      throw new Error(`Pinned revision ${next.revision} is not published on ${next.repository}. Push the fork commit before publishing the pin.`);
+      throw new Error(`Pinned revision ${next.revision} is not published on ${next.repository}. Push the fork commit before publishing the pin, then re-run this check: a push to the fork does not start it.`);
     }
     if (!succeeds(scratch, ["merge-base", "--is-ancestor", next.revision, branchRef])) {
-      throw new Error(`Pinned revision ${next.revision} is not on ${next.branch}. Merge it into ${next.branch} and push the branch, so later pins cut from its tip keep this change.`);
+      throw new Error(`Pinned revision ${next.revision} is not on ${next.branch}. Merge it into ${next.branch} and push the branch, so later pins cut from its tip keep this change, then re-run this check: a push to the fork does not start it.`);
     }
 
     if (previous?.revision && previous.revision !== next.revision) {
