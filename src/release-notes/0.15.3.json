@@ -1,0 +1,66 @@
+{
+  "version": "0.15.3",
+  "date": "2026-11-05",
+  "highlights": [
+    {
+      "title": {
+        "en": "Code files in your project",
+        "zh": "项目中的代码文件"
+      },
+      "body": {
+        "en": "Python and common code and configuration files (JavaScript, Rust, Go, C and C++, Java, Ruby, R, shell scripts, JSON, YAML, TOML, XML, CSS, SQL and more) can be created, dropped in, searched and attached to the agent, and their editors offer autocompletion.",
+        "zh": "Python 以及常见的代码和配置文件（JavaScript、Rust、Go、C 和 C++、Java、Ruby、R、Shell 脚本、JSON、YAML、TOML、XML、CSS、SQL 等）现在可以新建、拖入、搜索并附加给智能体，编辑这些文件时还有自动补全。"
+      }
+    },
+    {
+      "title": {
+        "en": "Switch Overleaf accounts",
+        "zh": "切换 Overleaf 账号"
+      },
+      "body": {
+        "en": "After signing out you can sign in with a different account. Sign out and Cancel now really end a sign-in in progress, and ⌘Z and ⇧⌘Z work in the sign-in window.",
+        "zh": "退出登录后可以换一个账号重新登录。“退出登录”和“取消”现在会真正结束正在进行的登录，登录窗口中也能使用 ⌘Z 和 ⇧⌘Z。"
+      }
+    },
+    {
+      "title": {
+        "en": "The agent panel remembers your setup",
+        "zh": "智能体面板记住你的设置"
+      },
+      "body": {
+        "en": "Your default provider, model, effort, hidden providers, provider order and drafts are kept across launches, and Settings → Agent providers has a Default provider row.",
+        "zh": "默认提供商、模型、推理强度、隐藏的提供商、提供商顺序和草稿在重新启动后都会保留，“设置 → AI 助手 → 模型”页面新增了“默认提供商”一行。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Hovering a command inside a formula no longer opens its description over the live math preview.",
+      "zh": "在公式中悬停命令时，不再在实时数学预览上方弹出命令说明。"
+    },
+    {
+      "en": "Versions shows the right timeline and restores correctly for a project inside a larger Git repository, and a refused restore no longer leaves a stray auto-saved version.",
+      "zh": "位于更大 Git 仓库中的项目，其版本时间线和恢复操作现在都正确无误；被拒绝的恢复也不再留下多余的自动保存版本。"
+    },
+    {
+      "en": "Zoomed panels stay on screen in narrow windows.",
+      "zh": "在较窄的窗口中，放大的面板会保持在屏幕内。"
+    },
+    {
+      "en": "The terminal no longer freezes on heavy output when it opens.",
+      "zh": "终端打开时遇到大量输出不再卡住。"
+    },
+    {
+      "en": "A pipe or other special file ending in .pdf no longer stalls PDF reading.",
+      "zh": "以 .pdf 结尾的管道或其他特殊文件不再导致 PDF 读取卡住。"
+    },
+    {
+      "en": "Literature search no longer answers from an out-of-date index after two searches clash.",
+      "zh": "两次搜索冲突后，文献搜索不再使用过期的索引作答。"
+    },
+    {
+      "en": "The app starts with a little less code to load.",
+      "zh": "应用启动时需要加载的代码又少了一些。"
+    }
+  ]
+}
