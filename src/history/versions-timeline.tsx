@@ -151,7 +151,6 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; project
       {props.compare && (
         <p className="version-mode-note">
           {t`Compared with now`}
-          {" · "}
           <button type="button" className="version-mode-switch" onClick={props.onCompare}>{t`Show this version's changes`}</button>
         </p>
       )}

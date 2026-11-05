@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import "./color-picker.css";
+import { clamp } from "../../lib/clamp";
 
 /**
  * A custom color on one surface, the way desktop editors draw it (Figma,
@@ -32,8 +33,6 @@ export type ColorSwatchGroup = { id: string; label: string; colors: readonly str
 
 /** How a color reads where it lands, for the one-line verdict under the preview. */
 export type ColorLegibility = { ok: boolean; ratio: number; fix?: string };
-
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 /** `#RRGGBB` for a typed or pasted color, with or without `#`, in three or six digits. */
 function normalizeHex(value: string): string | null {

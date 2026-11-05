@@ -56,8 +56,11 @@ export function showDemoBar(lang: "en" | "zh-CN", reset: () => void) {
   document.body.prepend(bar);
 }
 
-/** The page shown instead of the app on a narrow screen. */
-export function showNarrowScreenPage(lang: "en" | "zh-CN") {
+/**
+ * The page shown instead of the app on a narrow screen, in the appearance the
+ * website asked for (`system` follows the browser's).
+ */
+export function showNarrowScreenPage(lang: "en" | "zh-CN", theme: "light" | "dark" | "system") {
   const words = WORDS[lang];
   document.getElementById("root")?.remove();
   document.body.classList.add("web-demo-narrow");
@@ -70,4 +73,5 @@ export function showNarrowScreenPage(lang: "en" | "zh-CN") {
     ),
   ));
   document.documentElement.lang = lang;
+  if (theme !== "system") document.documentElement.dataset.webDemoTheme = theme;
 }

@@ -5,7 +5,7 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { BodyBoundary, ProjectDeadline, SubmissionItem } from "../app-types";
-import { formatCount } from "../i18n";
+import { formatCount, comma } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { CheckStatus } from "./check-status";
 import { DeadlineCard } from "./deadline-card";
@@ -94,7 +94,7 @@ function BudgetRow(props: {
         ? (
           <small>
             {props.meter ? <b>{props.meter.distance}</b> : null}
-            {props.meter && props.detail ? " · " : null}
+            {props.meter && props.detail ? comma() : null}
             {props.detail}
           </small>
         )
@@ -139,20 +139,20 @@ export function ManuscriptChecklistPanel(props: {
     ? null
     : wordLimit === 1 ? t`Limit 1 word` : spaceMixedScript(t({ message: `Limit ${{ wordLimit: formatCount(wordLimit) }} words` }));
   const pageLimitNote = pageLimit == null ? null : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`;
-  const notes = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || undefined;
+  const notes = (detail: string, limit: string | null) => (limit ? t`${detail}. ${limit}` : detail);
   const wordDetail = words == null
     ? notes(t`Needs a root document to count from`, wordLimitNote)
     : wordsEstimated
       ? notes(t`Root document only, estimated without texcount`, wordLimitNote)
       : undefined;
   const pageDetail = totalPages == null
-    ? notes(pageLimitNote)
+    ? pageLimitNote ?? undefined
     : body.kind === "unread"
-      ? notes(t`${totalPages} total · included files not read`, pageLimitNote)
+      ? notes(t`${totalPages} total, included files not read`, pageLimitNote)
       : body.kind === "unresolved"
-        ? notes(t`${totalPages} total · end of the body not located in the PDF`, pageLimitNote)
+        ? notes(t`${totalPages} total, end of the body not located in the PDF`, pageLimitNote)
         : body.kind === "resolved" && body.mainPages !== totalPages
-          ? t({ message: `${{ totalPages }} total · body ends on p.${{ mainPages: body.mainPages }}` })
+          ? t({ message: `${{ totalPages }} total, body ends on p.${{ mainPages: body.mainPages }}` })
           : undefined;
   const wordDistance = (count: number, limit: number) => {
     const gap = Math.abs(limit - count);

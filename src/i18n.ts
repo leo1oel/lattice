@@ -53,3 +53,14 @@ export function formatCount(value: number, locale: string = i18n.locale || "en")
 export function formatSeconds(seconds: number): string {
   return `${seconds.toFixed(1)} s`;
 }
+
+const zh = () => i18n.locale.startsWith("zh");
+
+/** The comma between the clauses of one line, full-width in Chinese ("3 处，2 篇论文"). */
+export const comma = () => (zh() ? "，" : ", ");
+
+/** A line's clauses joined with `comma`, leaving out the empty ones. */
+export const joinPhrases = (parts: readonly (string | false | null | undefined)[]) => parts.filter(Boolean).join(comma());
+
+/** Items listed within one clause, with the enumeration comma "、" between them in Chinese. */
+export const joinList = (items: readonly string[]) => items.join(zh() ? "、" : ", ");

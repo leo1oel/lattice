@@ -103,7 +103,7 @@ describe("the Build button's report of the last build", () => {
   /** What the live button shows: its state class and the one visible label. */
   const shown = (container: HTMLElement) => {
     const button = container.querySelector(".trellis-build-button")!;
-    const label = [...button.querySelectorAll(".trellis-build-label > span")].find((span) => !span.classList.contains("trellis-build-label-off"));
+    const label = button.querySelector(".trellis-build-label");
     return { state: [...button.classList].find((name) => name.startsWith("is-")) ?? "idle", label: label?.textContent, busy: button.getAttribute("aria-busy") };
   };
 
@@ -160,19 +160,19 @@ describe("the Build button's report of the last build", () => {
     expect(container.querySelector(".trellis-build-pip")).not.toBeNull();
     expect(container.querySelector(".trellis-build-burst")).toBeNull();
     expect(button).toHaveAccessibleName("Build");
-    expect(button).toHaveAccessibleDescription("Built with 2 warnings · main.tex · 1.2 s · just now");
+    expect(button).toHaveAccessibleDescription("Built with 2 warnings, main.tex, 1.2 s, just now");
     cleanup();
     const clean = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2) });
     expect(clean.container.querySelector(".trellis-build-pip")).toBeNull();
-    expect(clean.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built · main.tex · 1.2 s · just now");
+    expect(clean.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built, main.tex, 1.2 s, just now");
     cleanup();
     const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
-    expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed · 1 error · main.tex · just now");
+    expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed: 1 error, main.tex, just now");
     cleanup();
     // A failure whose PDF is on screen, errors and all, says it built.
     const withErrors = renderTools(tex, { active: true }, { lastBuild: failed(true) });
     expect(shown(withErrors.container)).toMatchObject({ state: "is-failed" });
-    expect(withErrors.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built with 1 error · main.tex · just now");
+    expect(withErrors.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built with 1 error, main.tex, just now");
   });
 
   // Vitest empties CSS imports, so the button's stylesheet and the app's
@@ -217,13 +217,13 @@ describe("the Build button's report of the last build", () => {
     const finishedAt = Date.now();
     const { container } = renderTools(tex, { active: true }, { lastBuild: { ...succeeded(1.2), finishedAt } });
     const button = container.querySelector<HTMLButtonElement>(".trellis-build-button")!;
-    expect(button).toHaveAccessibleDescription("Built · main.tex · 1.2 s · just now");
+    expect(button).toHaveAccessibleDescription("Built, main.tex, 1.2 s, just now");
     const now = vi.spyOn(Date, "now").mockReturnValue(finishedAt + 3 * 60_000);
     act(() => button.focus());
-    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2 s · 3 minutes ago/);
+    expect(button).toHaveAccessibleDescription(/^Built, main\.tex, 1\.2 s, 3 minutes ago/);
     now.mockReturnValue(finishedAt + 2 * 3_600_000);
     fireEvent.pointerEnter(button);
-    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2 s · 2 hours ago/);
+    expect(button).toHaveAccessibleDescription(/^Built, main\.tex, 1\.2 s, 2 hours ago/);
     now.mockRestore();
   });
 

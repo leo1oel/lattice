@@ -28,6 +28,7 @@ import {
 } from "./paper-add";
 import { paperShortAuthors } from "./paper-identity";
 import "./add-papers-sheet.css";
+import { joinPhrases } from "../i18n";
 
 /** One of each kind the box reads; identifiers and BibTeX read the same in every locale, and so does a cited title. */
 // eslint-disable-next-line lingui/no-unlocalized-strings -- examples of what to paste, not prose
@@ -208,12 +209,12 @@ export function AddPapersSheet(props: {
       : done === queue.length
         ? done === 1 ? t`Added 1 paper` : t`Added ${done} papers`
         : t`Added ${done} of ${queue.length}`
-    : [
+    : joinPhrases([
         counts.duplicate === 1 ? t`1 already in Papers is skipped` : counts.duplicate ? t`${counts.duplicate} already in Papers are skipped` : "",
         counts.choose === 1 ? t`1 waits for your choice` : counts.choose ? t`${counts.choose} wait for your choice` : "",
         failed === 1 ? t`1 not found` : failed ? t`${failed} not found` : "",
         resolving ? t`Looking up ${resolving}…` : "",
-      ].filter(Boolean).join(" · ");
+      ]);
 
   const stateOf = (row: Row) => {
     const item = progress.get(row.reference.id);

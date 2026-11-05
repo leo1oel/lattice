@@ -18,7 +18,7 @@ describe("CanvasToolbar Overleaf status", () => {
     const onOverleafChat = vi.fn();
     const { rerender } = render(<CanvasToolbar {...baseProps} overleafLinked onOverleafChat={onOverleafChat} overleafUnreadChat={3} />);
     expect(screen.queryByRole("button", { name: "Annotations" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Overleaf comments and chat · 3 waiting" }));
+    fireEvent.click(screen.getByRole("button", { name: "Overleaf comments and chat, 3 waiting" }));
     expect(onOverleafChat).toHaveBeenCalledOnce();
     rerender(<CanvasToolbar {...baseProps} commentCount={2} />);
     expect(screen.getByRole("button", { name: "Annotations" })).toHaveTextContent("2");

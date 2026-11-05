@@ -25,7 +25,7 @@ export function ReferencesPanel(props: {
   const definitionSummary = definitions === 1 ? t`${definitions} definition` : t`${definitions} definitions`;
   const referenceSummary = references === 1 ? t`${references} reference` : t`${references} references`;
   const summary = definitions && references
-    ? t`${definitionSummary} · ${referenceSummary}`
+    ? t`${definitionSummary}, ${referenceSummary}`
     : definitions
       ? definitionSummary
       : references

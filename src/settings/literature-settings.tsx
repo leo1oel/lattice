@@ -88,7 +88,7 @@ export function LiteratureSettings() {
     return notice?.target === target ? <InlineMessage level={notice.level}>{notice.text}</InlineMessage> : null;
   }
   const disabled = busy !== null || !credentials;
-  const sourceLabel = (provider: Provider, source?: CredentialSource) => source === "saved" ? t`Personal key saved` : source === "environment" ? t`Using environment key` : source === "shared" ? t`Using shared quota` : source === "missing" ? t`Not enabled · API key required` : provider === "semanticscholar" ? t`Not enabled · personal API key required` : t`Public access · no key`;
+  const sourceLabel = (provider: Provider, source?: CredentialSource) => source === "saved" ? t`Personal key saved` : source === "environment" ? t`Using environment key` : source === "shared" ? t`Using shared quota` : source === "missing" ? t`Not enabled, needs an API key` : provider === "semanticscholar" ? t`Not enabled, needs a personal API key` : t`Public access, no key needed`;
 
   return (
     <div className="settings-section literature-settings" aria-busy={busy !== null}>

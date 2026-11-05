@@ -67,9 +67,9 @@ describe("EditorStatusBar", () => {
     renderStatus({ projectWordCount: texcount, path: "chapters/intro.tex", source: "Two words", selectedText: "Hello big\nworld" });
     const details = openDetails();
     expect(within(details).getAllByRole("term").map((term) => term.textContent)).toEqual(["Manuscript", "This file", "Selection"]);
-    expect(details).toHaveTextContent("Manuscript120,400 wordsText 120,000 · headings 400 · captions 0");
+    expect(details).toHaveTextContent("Manuscript120,400 wordsText 120,000, headings 400, captions 0");
     expect(details).toHaveTextContent("This file2 words9 characters");
-    expect(details).toHaveTextContent("Selection3 words15 characters · 2 lines");
+    expect(details).toHaveTextContent("Selection3 words15 characters, 2 lines");
   });
 
   it("marks an estimated manuscript count as one, and says when there is none", () => {
@@ -116,10 +116,10 @@ describe("the save slot", () => {
   });
 
   it.each([
-    [{ state: "live", lastSync: null }, "Saved · Synced", "saved"],
+    [{ state: "live", lastSync: null }, "Saved and synced", "saved"],
     [{ state: "offline", lastSync: null }, "Saved on this Mac", "offline"],
-    [{ state: "syncing", lastSync: null }, "Saved · Syncing…", "saved"],
-    [{ state: "sending", lastSync: null }, "Saved · Syncing…", "saved"],
+    [{ state: "syncing", lastSync: null }, "Saved, syncing…", "saved"],
+    [{ state: "sending", lastSync: null }, "Saved, syncing…", "saved"],
   ] as const)("words the Overleaf layer apart from the disk (%o)", (overleaf, name, mode) => {
     renderStatus({ saveSlot: slot({ overleaf }) });
     expect(screen.getByRole("button", { name })).toHaveAttribute("data-mode", mode);
@@ -136,7 +136,7 @@ describe("the save slot", () => {
 
   it("keeps live editing's promise while an edit is still on its way", () => {
     renderStatus({ saveSlot: slot({ overleaf: { state: "sending", lastSync: null } }) });
-    fireEvent.click(screen.getByRole("button", { name: "Saved · Syncing…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Saved, syncing…" }));
     const details = screen.getByRole("dialog", { name: "Save state" });
     expect(within(details).getByText("Syncing…")).toBeInTheDocument();
   });

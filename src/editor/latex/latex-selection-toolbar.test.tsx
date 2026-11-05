@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LatexSelectionToolbar } from "./latex-selection-toolbar";
+import { openRewriteMenu } from "./selection-toolbar-placement";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -101,6 +102,31 @@ describe("LaTeX selection toolbar", () => {
     const suggested = await screen.findByRole("group", { name: "Suggested instructions" });
     fireEvent.click(within(suggested).getByRole("button", { name: "Translate into academic English" }));
     expect(onAction).toHaveBeenCalledWith("rewrite", "Translate into academic English");
+  });
+
+  it("moves in by its drawn width so it never crosses the editor's edge", () => {
+    const width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(380);
+    renderToolbar({ position: { ...position, left: 250, bounds: { left: 96, right: 900 } } });
+    // Its centre sits half its width in from the editor's left edge: 96 + 190.
+    expect(screen.getByRole("toolbar").style.left).toBe("286px");
+    cleanup();
+    renderToolbar({ position: { ...position, left: 800, bounds: { left: 96, right: 900 } } });
+    expect(screen.getByRole("toolbar").style.left).toBe("710px");
+    width.mockRestore();
+  });
+
+  it("opens its Rewrite menu for the palette's Rewrite selection…, shown or shown again a moment later", async () => {
+    renderToolbar({ canProofread: true });
+    act(() => openRewriteMenu(() => {}));
+    expect(await screen.findByRole("textbox", { name: "Instruction" })).toBeInTheDocument();
+    cleanup();
+    // The palette took focus and put the toolbar away: the canvas shows it again for the ask.
+    openRewriteMenu(() => renderToolbar({ canProofread: true }));
+    expect(await screen.findByRole("textbox", { name: "Instruction" })).toBeInTheDocument();
+    cleanup();
+    // An ask is taken once, and lapses.
+    renderToolbar({ canProofread: true });
+    expect(screen.queryByRole("textbox", { name: "Instruction" })).toBeNull();
   });
 
   it("offers rewriting only where proofreading is", () => {

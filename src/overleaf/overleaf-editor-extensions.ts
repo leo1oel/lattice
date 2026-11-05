@@ -109,13 +109,20 @@ export function posForRowColumn(doc: Text, row: number, column: number): number 
   return line.from + Math.min(Math.max(column, 0), line.length);
 }
 
+/**
+ * A remote caret: a coloured bar whose name tag shows for a moment when the
+ * caret arrives or moves, and while the pointer rests on it, as in Overleaf.
+ * A tag that never went away sat over the line above and hid its text.
+ */
 class PresenceCaretWidget extends WidgetType {
-  constructor(private readonly name: string, private readonly color: string) {
+  constructor(private readonly name: string, private readonly color: string, private readonly row: number, private readonly column: number) {
     super();
   }
 
+  // A moved caret gets a new element, which plays the tag's moment again;
+  // one that stayed put keeps its element, and its tag stays hidden.
   eq(other: PresenceCaretWidget): boolean {
-    return other.name === this.name && other.color === this.color;
+    return other.name === this.name && other.color === this.color && other.row === this.row && other.column === this.column;
   }
 
   toDOM(): HTMLElement {
@@ -128,10 +135,11 @@ class PresenceCaretWidget extends WidgetType {
     return wrap;
   }
 
-  // Never a native caret to blink or a click target to steal — this is a
-  // read-only projection of someone else's position, not a selection.
+  // Never a native caret to blink: a press on the bar (which takes the
+  // pointer only to show its name) places the writer's own caret there, as a
+  // press on the text would.
   ignoreEvent(): boolean {
-    return true;
+    return false;
   }
 
   get estimatedHeight(): number {
@@ -142,7 +150,7 @@ class PresenceCaretWidget extends WidgetType {
 export function buildPresenceCursorDecorations(doc: Text, cursors: PresenceCursor[]): DecorationSet {
   return Decoration.set(
     cursors.map((cursor) => Decoration.widget({
-      widget: new PresenceCaretWidget(cursor.name, presenceCursorColor(cursor)),
+      widget: new PresenceCaretWidget(cursor.name, presenceCursorColor(cursor), cursor.row, cursor.column),
       side: 1,
     }).range(posForRowColumn(doc, cursor.row, cursor.column))),
     true,
@@ -151,7 +159,7 @@ export function buildPresenceCursorDecorations(doc: Text, cursors: PresenceCurso
 
 export const setOverleafCursorsEffect = StateEffect.define<PresenceCursor[]>();
 
-/** Remote carets with always-visible name tags; peers re-anchor once their next position arrives. */
+/** Remote carets, named for a moment as they move and on hover; peers re-anchor once their next position arrives. */
 export function overleafCursorsExtension(options: { getCursors?: () => PresenceCursor[] } = {}): Extension {
   return [
     listDecorationField(buildPresenceCursorDecorations, options.getCursors, setOverleafCursorsEffect),
@@ -162,7 +170,6 @@ export function overleafCursorsExtension(options: { getCursors?: () => PresenceC
         display: "inline",
         borderLeft: "2px solid",
         marginLeft: "-1px",
-        pointerEvents: "none",
       },
       ".cm-overleaf-caret-dot": {
         position: "absolute",
@@ -183,6 +190,17 @@ export function overleafCursorsExtension(options: { getCursors?: () => PresenceC
         whiteSpace: "nowrap",
         zIndex: "6",
         pointerEvents: "none",
+        opacity: "0",
+        animation: "cm-overleaf-caret-name 2.4s ease-in",
+      },
+      // Two seconds named, then a short fade back to the bare caret.
+      "@keyframes cm-overleaf-caret-name": {
+        "0%, 85%": { opacity: "1" },
+        "100%": { opacity: "0" },
+      },
+      ".cm-overleaf-caret:hover .cm-overleaf-caret-label": {
+        opacity: "1",
+        animation: "none",
       },
       ".cm-overleaf-caret.cm-caret-label-below .cm-overleaf-caret-label": {
         top: "calc(100% + 2px)",

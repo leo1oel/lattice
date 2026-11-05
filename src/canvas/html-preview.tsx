@@ -3,7 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { EditorView } from "@codemirror/view";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
-import { clamp } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import { clearTimer, frameCoalescer, restartTimer, type TimerRef } from "../app/effect-helpers";
 import { calculateVerticalScrollGeometry, EXTERNAL_SCROLLBAR_TRACK_INSET } from "../components/ui/external-scrollbar-geometry";
 import { documentRelativeProjectPath } from "../project/document-relative-path";

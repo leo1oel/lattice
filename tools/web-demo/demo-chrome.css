@@ -1,6 +1,7 @@
 /* The demo's bar above the app and its narrow-screen page (demo-chrome.ts).
    They take the app's tokens once its stylesheet is in, so they follow its
    theme; until then, and on the narrow page, the fallbacks follow the
+   appearance the website asked for (`data-web-demo-theme`), or else the
    browser's. */
 :root {
   --web-demo-bar-height: 36px;
@@ -11,13 +12,25 @@
   color-scheme: light dark;
 }
 
+:root[data-web-demo-theme="light"] {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-web-demo-theme="light"]) {
     --web-demo-surface: #1f1f21;
     --web-demo-text: #f2f2f3;
     --web-demo-muted: #a1a1a6;
     --web-demo-line: rgb(255 255 255 / .12);
   }
+}
+
+:root[data-web-demo-theme="dark"] {
+  --web-demo-surface: #1f1f21;
+  --web-demo-text: #f2f2f3;
+  --web-demo-muted: #a1a1a6;
+  --web-demo-line: rgb(255 255 255 / .12);
+  color-scheme: dark;
 }
 
 /* The app fills what the bar leaves (its own stylesheet sizes #root to the window). */

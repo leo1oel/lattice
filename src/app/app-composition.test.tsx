@@ -1099,7 +1099,7 @@ describe("Overleaf sync", () => {
       }],
       overleaf_probe: () => overleafProbe(), overleaf_status: () => overleafStatus(),
     });
-    const toolbar = await screen.findByRole("button", { name: "Overleaf comments and chat · 2 waiting" });
+    const toolbar = await screen.findByRole("button", { name: "Overleaf comments and chat, 2 waiting" });
     expect(document.querySelector('.canvas-toolbar button[aria-label="Annotations"]')).toBeNull();
     fireEvent.click(toolbar);
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
@@ -1117,7 +1117,7 @@ describe("Overleaf sync", () => {
     await waitFor(() => expect(document.querySelector(".overleaf-collab-drawer")).toBeNull());
     fireEvent.click(document.querySelector<HTMLButtonElement>(".status-comments")!);
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Comments2/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /^Comments/ })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
     fireEvent.click(screen.getByRole("tab", { name: /^Lattice only/ }));
@@ -1333,11 +1333,11 @@ describe("project tree and projects", () => {
     const sections = () => [...document.querySelectorAll(".quick-open-modal [data-slot='picker-section-label']")].map((label) => label.textContent);
 
     fireEvent.change(await palette(), { target: { value: "intro" } });
-    expect(sections()).toContain("Files");
+    screen.getByRole("option", { name: /intro/ });
     fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
     await waitForSelectedTab("chapters/intro.tex");
 
-    // The file shown before this one leads its group; the open one is not offered.
+    // The file shown before leads its group; the open one is not offered.
     await palette();
     expect(sections()).toContain("Recent files");
     expect(screen.getByRole("option", { name: "main.tex" })).toBeInTheDocument();
@@ -2298,7 +2298,7 @@ describe("welcome screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Venue template" }), { key: "ArrowDown" });
-    fireEvent.click(screen.getByRole("option", { name: "ICML 2026 · preprint" }));
+    fireEvent.click(screen.getByRole("option", { name: "ICML 2026 (preprint)" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     await expectInvoked("create_project", { parent: "/tmp/research", name: "New paper", venue: "icml" });
     await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: "/tmp/research/New paper" }));
@@ -2333,7 +2333,7 @@ describe("welcome screen", () => {
     setAutoBuildMode("manual");
     let answer = buildResult({ durationMs: 3_200 })();
     renderApp({ ...projectCommands(), build_project: () => answer });
-    const showing = () => buildButton().querySelector(".trellis-build-label > span:not(.trellis-build-label-off)")?.textContent;
+    const showing = () => buildButton().querySelector(".trellis-build-label")?.textContent;
     await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
     expect(showing()).toBe("3.2 s");
     answer = failedBuild("Undefined control sequence.")();

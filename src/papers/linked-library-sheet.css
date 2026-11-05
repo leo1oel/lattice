@@ -20,7 +20,7 @@
 
 /* A label, so the whole row ticks; past the dialogs' form-label column. */
 .modal .linked-library-row { padding: var(--space-5) var(--space-6); display: grid; font-weight: var(--weight-regular); text-align: start; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; cursor: default; }
-.linked-library-row .add-papers-main > span { display: flex; gap: var(--space-2); min-width: 0; }
+.linked-library-row .add-papers-main > span { display: flex; gap: var(--space-4); min-width: 0; }
 .linked-library-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .linked-library-row code { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; font: var(--type-micro-size)/var(--type-caption-line-height) var(--editor-font); }
 .linked-library-rows > li[data-kind="removed"] .add-papers-main > strong { text-decoration: line-through; text-decoration-color: var(--text-tertiary); }

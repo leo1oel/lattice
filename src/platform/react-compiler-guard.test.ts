@@ -134,7 +134,6 @@ const BASELINE: Record<string, number> = {
   "src/papers/bib-entry-dialog.tsx": 1,
   "src/papers/bibliography-audit.tsx": 1,
   "src/papers/literature-discovery-panel.tsx": 2,
-  "src/project/manuscript-checklist.tsx": 1,
   "src/project/project-file-tree.tsx": 2,
   "src/project/project-tree-files.ts": 1,
   "src/settings/literature-settings.tsx": 1,

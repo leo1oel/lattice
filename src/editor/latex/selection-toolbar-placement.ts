@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { clamp } from "../../settings/app-settings";
+import { clamp } from "../../lib/clamp";
 import { highlightAround } from "./latex-highlights";
 import type { LatexSelectionToolbarPosition } from "./latex-selection-toolbar";
 import { markdownSelectionFormat, type MarkdownSelectionFormat } from "../markdown/markdown-source-format";
@@ -66,10 +66,43 @@ export function selectionToolbarPlacement(view: EditorView, path: string): Selec
   // A highlight around the selection: the palette ticks its colour and offers Remove.
   const highlight = path.endsWith(".tex") ? highlightAround(view.state.doc, range.from, range.to) : null;
   return {
-    position: { left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16) },
+    position: {
+      left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16),
+      bounds: { left: editorBounds.left + 8, right: editorBounds.right - 8 },
+    },
     highlight: highlight ? highlight.color ?? "" : null,
     format: markdown ? markdownSelectionFormat(view.state) : null,
     from: range.from,
     to: range.to,
   };
+}
+
+/*
+ * The palette's Rewrite selection… opens the toolbar's Rewrite menu. The
+ * palette took focus, which put the toolbar away, so the canvas shows it again
+ * and the ask waits a moment for it. Here rather than in the toolbar, whose
+ * module exports only components.
+ */
+const openers = new Set<() => void>();
+/** When an ask that no toolbar was there to take was made. */
+let askedAt = Number.NEGATIVE_INFINITY;
+
+/**
+ * Open the shown toolbar's Rewrite menu; with none shown, `show` one, whose
+ * menu opens if it comes within a second.
+ */
+export function openRewriteMenu(show: () => void) {
+  if (openers.size === 0) askedAt = Date.now();
+  for (const open of openers) open();
+  show();
+}
+
+/** A shown toolbar listens until the returned stop runs, taking an ask that waited for it. */
+export function listenForRewriteMenu(open: () => void): () => void {
+  openers.add(open);
+  if (Date.now() - askedAt < 1000) {
+    askedAt = Number.NEGATIVE_INFINITY;
+    open();
+  }
+  return () => { openers.delete(open); };
 }

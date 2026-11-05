@@ -569,7 +569,7 @@ mod tests {
         let parent = TempDir::new("latex");
         let root = project::create(&parent, "Playwright probes").unwrap();
         fs::write(root.join("main.pdf"), b"%PDF-1.5 stale").unwrap();
-        let traceback = super::super::build_log::PLAYWRIGHT_RC_FAILURE;
+        let traceback = super::super::rc_failure::PLAYWRIGHT_RC_FAILURE;
         fs::write(root.join("playwright-error.txt"), traceback.split("Latexmk:").next().unwrap())
             .unwrap();
         fs::write(

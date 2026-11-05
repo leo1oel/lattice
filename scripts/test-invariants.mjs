@@ -10,13 +10,13 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { isMain, projectRoot } from "./lib/util.mjs";
 
-const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repo = projectRoot;
 
 export const invariantTests = () => Object.keys(JSON.parse(readFileSync(path.join(repo, "src/platform/invariant-tests.json"), "utf8")));
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
   const { status, signal } = spawnSync("pnpm", ["exec", "vitest", "run", ...invariantTests(), ...process.argv.slice(2)], { cwd: repo, stdio: "inherit" });
   process.exit(status ?? (signal ? 1 : 0));
 }

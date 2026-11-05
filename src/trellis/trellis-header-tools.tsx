@@ -28,7 +28,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/
 import { documentTools, useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import { buildHeadline } from "../build/build-result-text";
-import { formatSeconds } from "../i18n";
+import { formatSeconds, joinPhrases } from "../i18n";
 import { BuildSequence } from "./trellis-build-sequence";
 
 /**
@@ -169,19 +169,23 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
           onPointerLeave={live ? () => { pressedRef.current = false; } : undefined}
           onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
         >
-          {state === "building" ? <InfinityLoader size={13} />
-            : state === "succeeded" || state === "failed" ? <BuildStatusGlyph status={state} warned={warned} fresh={fresh} />
-              : <Play size={11} fill="currentColor" />}
-          {/* Every label is laid out in one cell, with a hidden widest time beside
-              them, so the button keeps the width of the widest whatever it shows,
-              and the header's measured tools with it. */}
-          <span className="trellis-build-label">
-            {(Object.keys(labels) as Array<keyof typeof labels>).map((name) => (
-              <span key={name} className={name === shown ? undefined : "trellis-build-label-off"}>{labels[name]}</span>
-            ))}
-            <span className="trellis-build-label-off">{formatSeconds(999.9)}</span>
+          {/* What it shows, centred over a hidden sizer as wide as its widest
+              state (a 13 px glyph and the longest label, a time up to 999.9 s
+              included), so the button and the header's measured tools keep
+              one width whatever it shows, and every state reads centred. */}
+          <span className="trellis-build-face">
+            {state === "building" ? <InfinityLoader size={13} />
+              : state === "succeeded" || state === "failed" ? <BuildStatusGlyph status={state} warned={warned} fresh={fresh} />
+                : <Play size={11} fill="currentColor" />}
+            <span className="trellis-build-label"><span>{labels[shown]}</span></span>
           </span>
-          {live && headline && <span id={resultId} className="sr-only">{[headline, ...facts].join(" · ")}</span>}
+          <span className="trellis-build-sizer" aria-hidden="true">
+            <span className="trellis-build-sizer-glyph" />
+            <span className="trellis-build-sizer-labels">
+              {[...Object.values(labels), formatSeconds(999.9)].map((label, index) => <span key={index}>{label}</span>)}
+            </span>
+          </span>
+          {live && headline && <span id={resultId} className="sr-only">{joinPhrases([headline, ...facts])}</span>}
         </button>
       );
     };
@@ -191,7 +195,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     // before any build, only that. It is one card in every state, so the
     // first build does not remount the button under the press that started it.
     const place = !building && lastBuild
-      ? [lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)].filter(Boolean).join(" · ")
+      ? joinPhrases([lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)])
       : null;
     return (
       <HoverCard open={cardOpen} onOpenChange={(open) => setCardOpen(open && !pressedRef.current)} openDelay={280} closeDelay={120}>
@@ -202,7 +206,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             progress={tools.buildProgress}
             outcome={building ? null : lastBuild}
             place={place}
-            hint={t`⌘S · ⇧-click for a clean rebuild`}
+            hint={t`⌘S, or ⇧-click for a clean rebuild`}
             onProblem={() => controller.bridge?.nextBuildProblem()}
           />
         </HoverCardContent>

@@ -20,6 +20,8 @@
    badge passes over, in whichever surface the host sits on. */
 .empty-illustration-paper { fill: var(--surface-panel-raised); }
 .empty-illustration-knot { fill: currentColor; opacity: .7; }
+/* The band a settled annotation leaves on its passage: the highlight's tint, quieter. */
+.empty-illustration-band { fill: var(--annotation-highlight); animation: empty-illustration-land var(--motion-moderate) both; animation-delay: 200ms; transform-box: fill-box; transform-origin: left center; }
 .empty-illustration-knot[data-thread="weft"] { fill: var(--mark-weft); opacity: 1; }
 .empty-illustration-knot[data-thread="warp"] { fill: var(--mark-warp); opacity: 1; }
 .empty-illustration-now { fill: var(--surface-panel-raised); stroke: var(--mark-weft); stroke-width: 1.75; opacity: 1; }

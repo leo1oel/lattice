@@ -73,6 +73,23 @@ describe("overleafCursorsExtension", () => {
     view.destroy();
   });
 
+  // The tags stayed up for good over the line above each caret; they show
+  // as a caret arrives or moves, which is when its element is new.
+  it("draws a caret anew only when it moves, so its name shows then and not on every edit", () => {
+    let cursors = [cursor({ row: 1, column: 1 })];
+    const view = mountView("alpha\nbeta", overleafCursorsExtension({ getCursors: () => cursors }));
+    const drawn = () => view.dom.querySelector<HTMLElement>(".cm-overleaf-caret");
+    const first = drawn();
+    view.dispatch({ changes: { from: 0, insert: "x" } });
+    cursors = [cursor({ row: 1, column: 1 })];
+    view.dispatch({ effects: setOverleafCursorsEffect.of(cursors) });
+    expect(drawn()).toBe(first);
+    cursors = [cursor({ row: 1, column: 3 })];
+    view.dispatch({ effects: setOverleafCursorsEffect.of(cursors) });
+    expect(drawn()).not.toBe(first);
+    view.destroy();
+  });
+
   it("places a top-edge name label below its caret", async () => {
     const view = mountView("alpha\nbeta", overleafCursorsExtension({ getCursors: () => [cursor()] }));
     const caret = view.dom.querySelector<HTMLElement>(".cm-overleaf-caret")!;

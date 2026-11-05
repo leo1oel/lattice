@@ -12,6 +12,7 @@ import { useReducedMotion } from "motion/react";
 import { animationTiming } from "../../../../components/ui/motion-values";
 import type { PanzoomObject } from "@panzoom/panzoom";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { toMessage } from "../../../../app-utils";
 
 const PAN_STEP = 48;
 
@@ -69,7 +70,7 @@ export function MermaidDiagram({ chart }: { chart: string }) {
         setError(null);
       }).catch((reason: unknown) => {
         if (cancelled) return;
-        const message = reason instanceof Error ? reason.message : String(reason);
+        const message = toMessage(reason);
         setError(message.trim() || t`This diagram could not be rendered.`);
       });
     }, svg == null ? 0 : 250);

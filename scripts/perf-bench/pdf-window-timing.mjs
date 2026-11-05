@@ -34,11 +34,11 @@
 /* global document, performance, requestAnimationFrame, window -- the callbacks passed to evaluate() run in the page. */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { chromium, webkit } from "playwright-core";
+import { freePort } from "../lib/util.mjs";
 import { figures, median } from "./pdf-window-figures.mjs";
 import { patchedAt } from "./pdfjs-patch-swap.mjs";
 import { APP_READY } from "./selectors.mjs";
@@ -93,17 +93,6 @@ function existsAt(ref, file) {
   } catch {
     return false;
   }
-}
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const server = createNetServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
-    });
-  });
 }
 
 /** A production build of the bench page, served; `before` swaps in REF's files. */

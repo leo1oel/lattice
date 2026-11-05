@@ -1,6 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { isMain } from "./lib/util.mjs";
 
 // Public downloads must not consume GitHub's anonymous REST API quota.
 // Resolve against release metadata rather than guessing platform filenames.
@@ -35,7 +34,7 @@ export function normalizeUpdaterManifest(manifest, release) {
   return { ...manifest, platforms };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isMain(import.meta.url)) {
   const [, , manifestPath, releasePath] = process.argv;
   if (!manifestPath || !releasePath) {
     throw new Error("Usage: node scripts/normalize-updater-manifest.mjs <latest.json> <release.json>");

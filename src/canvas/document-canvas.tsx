@@ -19,7 +19,7 @@ import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
 import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES } from "../editor/latex/latex-selection-toolbar";
-import { selectionToolbarPlacement, type SelectionToolbarPlacement } from "../editor/latex/selection-toolbar-placement";
+import { openRewriteMenu, selectionToolbarPlacement, type SelectionToolbarPlacement } from "../editor/latex/selection-toolbar-placement";
 import { documentHighlightColors } from "../editor/latex/latex-highlights";
 import { applySourceSelectionEdit, editAndFocus, type SourceSelectionAction } from "./source-selection-edits";
 import { MarkdownSourceToolbar } from "./markdown-source-toolbar";
@@ -27,14 +27,12 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
 import { FigureInsertDialog } from "../editor/insert/figure-insert-dialog";
-import {
-  createEditorComment, resolveCommentAnchor, type AnnotationIntent,
-} from "../editor/comments/editor-comment-data";
-import { clamp } from "../settings/app-settings";
+import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
+import { annotateSelection } from "./annotate-selection";
+import { clamp } from "../lib/clamp";
 import { replaceTokenOnLine } from "../build/compile-diagnostics";
 import { sectionBreadcrumbNodes } from "../editor/latex/latex-outline";
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
-import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
 import type { FileViewState, AssetPreview } from "../app-types";
 import {
@@ -115,7 +113,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   } = props.navigation;
   const { onPrepareFigure } = props.assets;
   const {
-    editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment, onOpenEditorComments,
+    editorComments, commentAuthorName, commentAuthorId, onOpenEditorComments,
     commentFocusRequest, onCommentFocusHandled,
   } = props.review;
   const settledSource = props.document.settledSource ?? editorSource;
@@ -186,7 +184,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   useRegistration(props.document.onCompletionCloseChange, closeSourceCompletion);
   const primarySurface: AgentHostSurface = props.document.activePaper ? "paper" : "editor";
   const primaryKind = props.document.activePaper ? null : structuredDocumentKind(activeFile);
-  // Every open deck renders in OpenSlideDeckPool; these change only with what they hold, so the pool re-derives only then.
+  // Every open deck renders in OpenSlideDeckPool, which re-derives only when these change.
   const activeDeckSource = primaryKind === "presentation" ? props.document.source : null;
   const activeDeck = useMemo(() => (
     activeDeckSource === null ? null : { path: activeFile, source: activeDeckSource, editable: props.document.editorEditable }
@@ -220,7 +218,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     activeFile,
   );
   const paperFullTextActive = Boolean(props.document.activePaper) && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md");
-  const paperAuthors = props.document.activePaper ? paperAuthorNames(props.document.activePaper).join(" · ") : "";
+  const paperAuthors = props.document.activePaper ? paperAuthorNames(props.document.activePaper).join(", ") : "";
   const [paperVisualEligibility, setPaperVisualEligibility] = useState<{ path: string; text: string; reason: string | null } | null>(null);
   const reportPaperVisualEligibility = useCallback((reason: string | null) => {
     setPaperVisualEligibility((current) => {
@@ -406,22 +404,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     updateSelectionToolbar(view, owner.path);
   }, [activeFile, dismissSelectionToolbar, latestRef, openCommentComposer, primaryViewRef, proofread, props.document.editorEditable, updateSelectionToolbar]);
 
-  /**
-   * Annotate `[from, to)` of `path`, then ask the agent about every open
-   * annotation when `revise`; false when that range holds nothing to anchor it.
-   */
-  const createComment = (path: string, source: string, from: number, to: number, body: string, extra: {
-    intent?: AnnotationIntent;
-    revise?: boolean;
-  } = {}) => {
-    const comment = createEditorComment({
-      path, source, from, to, body, authorId: commentAuthorId, authorName: commentAuthorName, intent: extra.intent,
-    });
-    if (!comment) return false;
-    const created = onCreateEditorComment(comment);
-    if (created && extra.revise) props.review.annotationRounds.revise();
-    return true;
-  };
   const closeCommentComposer = () => {
     setCommentComposer(null);
     session.draftView?.deref()?.focus();
@@ -461,7 +443,8 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       return;
     }
     const { body, intent } = commentComposer;
-    if (createComment(activeFile, editorSource, range.from, range.to, body, { intent, revise })) closeCommentComposer();
+    const note = { path: activeFile, source: editorSource, from: range.from, to: range.to, body, intent, revise };
+    if (annotateSelection(props.review, note)) closeCommentComposer();
   };
   const breadcrumb = useMemo(
     () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(settledSource, session.position.line, activeFile) : [],
@@ -509,7 +492,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   useEffect(() => {
     const request = editorNavigation;
     if (!request || request.path !== activeFile) return;
-    // No source view to land in; in Markdown's Preview the visual editor answers it (visualReveal).
+    // No source view: in Markdown's Preview the visual editor answers it (visualReveal).
     if (props.document.mode === "pdf" || props.document.mode === "asset") return;
     // A ref can be assigned before CodeMirror's DOM reports connected; treat the
     // view as ready, since the later attachment does not rerun this effect.
@@ -543,16 +526,17 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     if (!request) return;
     void insertFigures(request.paths, { x: request.clientX, y: request.clientY }).finally(() => onRequestHandled(request.id));
   }, [figureDropRequest, insertFigures, onRequestHandled]);
-  // The palette's Proofread / Polish selection: the source editor's selection,
-  // which it kept while the palette had focus. Settled whether or not a
-  // proofread could start, so it never waits for the next selection.
+  // The palette's Proofread, Polish or Rewrite.
   useEffect(() => {
     const request = proofreadRequest;
     if (!request) return;
     const view = primaryViewRef.current ?? editorViewRef.current;
-    if (view && props.document.editorEditable) proofread.start(view, request.mode);
+    if (view && props.document.editorEditable) {
+      if (request.mode !== "rewrite") proofread.start(view, request.mode);
+      else openRewriteMenu(() => updateSelectionToolbar(view, activeFile));
+    }
     onRequestHandled(request.id);
-  }, [editorViewRef, onRequestHandled, primaryViewRef, proofread, proofreadRequest, props.document.editorEditable]);
+  }, [activeFile, editorViewRef, onRequestHandled, primaryViewRef, proofread, proofreadRequest, props.document.editorEditable, updateSelectionToolbar]);
   // One-shot LaTeX edits at the insertion target's caret, each settled once applied.
   useEffect(() => {
     const view = editorViewRef.current;
@@ -579,15 +563,15 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     const request = viewRestore;
     if (!request) return;
     // An explicit jump supersedes an older saved position, even mid-mount, or
-    // the restore could run later and undo a completed SyncTeX navigation.
+    // the restore could run later and undo a SyncTeX jump.
     if (editorNavigation?.path === request.path) {
       onRequestHandled(request.id);
       return;
     }
     const view = editorViewRef.current;
     if (!view || request.path !== activeFile) return;
-    // The editor came back from where it was parked, already exactly where it
-    // was left; the saved pixel offset would land elsewhere (see parked-editors.ts).
+    // The editor came back from where it was parked, exactly as it was left;
+    // the saved pixel offset would land elsewhere (see parked-editors.ts).
     if (takeResumed(view)) {
       onRequestHandled(request.id);
       return;
@@ -990,9 +974,9 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
           overleafChanges={markdownVisualChanges}
           overleafTrackChangeActions={props.review.overleafTrackChangeActions}
           editorComments={markdownVisualComments}
-          onCreateComment={(from, to, body) => createComment(
-            activeFile, props.document.source, markdownPreviewStart + from, markdownPreviewStart + to, body,
-          )}
+          onCreateComment={(from, to, body) => annotateSelection(props.review, {
+            path: activeFile, source: props.document.source, from: markdownPreviewStart + from, to: markdownPreviewStart + to, body,
+          })}
           editable={props.document.editorEditable}
           onCaretChange={(row, column) => reportVisualCaret(activeFile, row + markdownPreviewLineOffset + 1, column)}
         />
@@ -1129,9 +1113,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
             />
           )}
         </div>
-        {activeFile.endsWith(".tex") && (
-          <MathPreview source={editorSource} cursor={session.cursorOffset} macros={katexMacros} />
-        )}
         <EditorStatusBar
           position={session.position}
           onGotoLine={onGotoLineRequest}

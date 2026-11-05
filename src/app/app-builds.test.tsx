@@ -35,7 +35,7 @@ describe("builds and the PDF reader", () => {
       expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
     });
     const diagnostics = await screen.findByLabelText("Compile diagnostics", {}, { timeout: 40_000 });
-    expect(within(diagnostics).getByText("Build failed · 1 error")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("Build failed: 1 error")).toBeInTheDocument();
     expect(within(diagnostics).getByText(/Sync or copy it back from another copy/)).toBeInTheDocument();
     fireEvent.click(within(diagnostics).getByRole("button", { name: "Dismiss diagnostics" }));
     expect(screen.queryByLabelText("Compile diagnostics")).not.toBeInTheDocument();

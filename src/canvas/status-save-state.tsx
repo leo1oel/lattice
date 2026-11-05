@@ -22,8 +22,8 @@ function useAge(at: number | null): string | null {
 
 /**
  * The status bar's save slot, after the caret: one quiet line that says the
- * text is on disk ("Saved · just now"), and with a linked Overleaf project,
- * in other words, whether it has reached Overleaf too ("Saved · Synced"),
+ * text is on disk ("Saved", then "just now"), and with a linked Overleaf project,
+ * in other words, whether it has reached Overleaf too ("Saved and synced"),
  * as Pitch keeps "on this computer" apart from "in the cloud". It never
  * alarms about unsaved typing (the tab's dot says that, and autosave follows
  * in a second); working offline is neutral; only a write that failed is red,
@@ -40,8 +40,8 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
   const label = failed ? t`Couldn’t save`
     : status.phase === "saving" ? t`Saving…`
       : offline ? t`Saved on this Mac`
-        : overleaf?.state === "live" ? t`Saved · Synced`
-          : overleaf?.state === "syncing" || overleaf?.state === "sending" ? t`Saved · Syncing…`
+        : overleaf?.state === "live" ? t`Saved and synced`
+          : overleaf?.state === "syncing" || overleaf?.state === "sending" ? t`Saved, syncing…`
             : t`Saved`;
   // The age is the disk's, so it stays off a label that already speaks of Overleaf.
   const showAge = !failed && status.phase === "saved" && age !== null && (!overleaf || overleaf.state === "manual" || overleaf.state === "paused");

@@ -150,7 +150,7 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
 
   /** The comment a reader shows: its pin and intent, the note, what it is about, and its replies. */
   const contentsOf = (annotation: EditorComment, placement: ReviewPlacement) => {
-    const heading = annotation.intent ? `#${annotation.number} · ${intentLabels[annotation.intent]}` : `#${annotation.number}`;
+    const heading = annotation.intent ? `#${annotation.number} ${intentLabels[annotation.intent]}` : `#${annotation.number}`;
     const parts = [heading, annotation.body.trim()];
     // A highlight shows its words; a margin note says which they are.
     if (placement.kind === "note") parts.push(t`On “${shortQuote(annotation.quote)}”`);
@@ -215,7 +215,7 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
   const placementLabel = (placement: ReviewPlacement | undefined) => {
     if (!placement) return "";
     if (placement.kind === "unplaced") return t`Not on this PDF`;
-    return placement.kind === "highlight" ? t`Highlight · p. ${placement.page}` : t`Margin note · p. ${placement.page}`;
+    return placement.kind === "highlight" ? t`Highlight on p. ${placement.page}` : t`Margin note on p. ${placement.page}`;
   };
   // Why a row cannot be ticked, and how to fix it: the only hint a row keeps.
   const placementHint = (placement: ReviewPlacement | undefined) => (placement?.kind === "unplaced"
@@ -253,6 +253,7 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
                 const placement = placements.get(annotation.id);
                 const unplaced = placement?.kind === "unplaced";
                 const status = annotationStatus(annotation);
+                const note = annotation.body.trim() || t`No note`;
                 return (
                   <li key={annotation.id} data-resolved={annotation.resolved || undefined} data-unplaced={unplaced || undefined}>
                     <label className="review-pdf-row">
@@ -265,8 +266,7 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
                       <span className="add-papers-main">
                         <strong title={annotation.quote}>{shortQuote(annotation.quote)}</strong>
                         <span title={annotation.body}>
-                          {annotation.resolved ? `${t`Resolved`} · ` : ""}
-                          {annotation.body.trim() || t`No note`}
+                          {annotation.resolved ? t`Resolved: ${note}` : note}
                         </span>
                       </span>
                       {placement && <PlacementChip kind={placement.kind} label={placementLabel(placement)} hint={placementHint(placement)} />}

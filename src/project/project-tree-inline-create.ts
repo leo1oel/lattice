@@ -10,6 +10,7 @@ import { fromPierrePath } from "./navigator-drag";
 import type { NewEntryRequest, NewEntryType } from "./project-new-entries";
 import { treePath } from "./project-tree-files";
 import type { ProjectTreeModel } from "./project-tree-pointer-drag";
+import { baseName } from "../lib/base-name";
 
 export type EntryKind = "file" | "folder" | "presentation";
 
@@ -70,7 +71,7 @@ export function useInlineCreation(
     // Creation modes may pin an extension (e.g. boards → .tldr): a name typed
     // without one gets it, and an explicit user-typed extension wins.
     let destination = fromPierrePath(destinationPath);
-    if (pending.extension && !/\.[^./\\]+$/.test(destination.split("/").at(-1) ?? "")) {
+    if (pending.extension && !/\.[^./\\]+$/.test(baseName(destination))) {
       destination = `${destination}.${pending.extension}`;
     }
     const { onCreateEntry, resetTree } = optionsRef.current;
@@ -121,7 +122,7 @@ export function useInlineCreation(
             input.setSelectionRange(0, input.value.length - extension.length - 1);
           }
           input.addEventListener("keydown", (event) => {
-            if (event.key !== "Enter" || input.value.trim() !== (path.split("/").at(-1) ?? "")) return;
+            if (event.key !== "Enter" || input.value.trim() !== baseName(path)) return;
             // Pierre treats an unchanged rename as a no-op and therefore
             // skips onRename. Enter still means "create".
             const pending = pendingRef.current.get(path);

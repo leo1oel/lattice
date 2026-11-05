@@ -520,3 +520,75 @@ fn a_root_document_in_a_subfolder_previews_and_syncs_its_own_fresh_build() {
         assert!(!root.join("cv/sop/sop.aux").exists(), "{engine}: clean left the build's aux");
     }
 }
+
+#[test]
+fn reads_inputs_recorded_where_the_project_was_built_where_it_is_now() {
+    let synctex = "SyncTeX Version:1\n\
+        Input:1:/Users/writer/old/./main.tex\n\
+        Input:2:/usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls\n\
+        Input:3:./sections/intro.tex\n\
+        Input:4:/Users/writer/older/notes.tex\n";
+    let inputs = Inputs::new(Some(synctex), Path::new("/Users/writer/renamed/main.pdf"));
+    for (recorded, now) in [
+        ("/Users/writer/old/./main.tex", "/Users/writer/renamed/main.tex"),
+        ("./sections/intro.tex", "/Users/writer/renamed/sections/intro.tex"),
+        // Outside the folder it was built in, a name stays where it is.
+        (
+            "/usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls",
+            "/usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls",
+        ),
+        ("/Users/writer/older/notes.tex", "/Users/writer/older/notes.tex"),
+    ] {
+        assert_eq!(inputs.path(recorded), Path::new(now), "{recorded}");
+    }
+}
+
+/// A project built where it was created, then given to `moved` (a rename or
+/// a copy) without building again: latexmk sees nothing to rerun there.
+fn built_then(moved: impl FnOnce(&Path, &Path)) -> (TempDir, PathBuf) {
+    let parent = TempDir::new("synctex-moved");
+    let built = parent.join("built");
+    fs::create_dir(&built).unwrap();
+    let root = project::create(&built, "Moved").unwrap();
+    fs::write(
+        root.join("main.tex"),
+        "\\documentclass{article}\n\\begin{document}\n\\section{Alpha}\nAlpha paragraph.\n\n\\input{beta}\n\\end{document}\n",
+    )
+    .unwrap();
+    fs::write(root.join("beta.tex"), "Beta paragraph.\\par\n").unwrap();
+    let steps = super::super::BuildSteps::silent();
+    let result = super::super::build(&root, true, &Default::default(), None, &steps).unwrap();
+    assert!(result.success, "{}", result.log);
+    let now = parent.join("now");
+    moved(&root, &now);
+    (parent, now)
+}
+
+#[test]
+#[ignore = "requires a local latexmk and pdfLaTeX installation"]
+fn searches_both_ways_after_the_project_folder_moves_or_is_copied() {
+    let rename = |from: &Path, to: &Path| fs::rename(from, to).unwrap();
+    let copy = |from: &Path, to: &Path| {
+        let copied = std::process::Command::new("cp").arg("-R").arg(from).arg(to).status().unwrap();
+        assert!(copied.success());
+    };
+    for (how, (_parent, root)) in [("moved", built_then(rename)), ("copied", built_then(copy))] {
+        for (path, line) in [("main.tex", 4), ("beta.tex", 1)] {
+            let target = forward_search(&root, path, line, 0)
+                .unwrap()
+                .unwrap_or_else(|| panic!("{how}: {path}:{line} has no PDF position"));
+            let back = inverse_search(
+                &root,
+                target.page,
+                target.x + target.width / 2.0,
+                target.y + target.height / 2.0,
+            )
+            .unwrap_or_else(|error| panic!("{how}: {error}"));
+            assert_eq!((back.path.as_str(), back.line), (path, line), "{how}");
+        }
+        let heading = SourceLine { path: "main.tex".to_string(), line: 3 };
+        assert_eq!(heading_pages(&root, &[heading]).unwrap(), vec![Some(1)], "{how}");
+        let span = BodySpan { path: "main.tex".to_string(), before: None };
+        assert_eq!(body_pages(&root, &[span]).unwrap(), Some(1), "{how}");
+    }
+}

@@ -67,7 +67,6 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
   const [view, setView] = useState<WeakRef<EditorView> | null>(null);
 
   const [position, setPosition] = useState({ line: 1, column: 0 });
-  const [cursorOffset, setCursorOffset] = useState(0);
   const [selectedText, setSelectedText] = useState("");
   const completionActiveRef = useRef(false);
 
@@ -151,7 +150,6 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     const head = current.state.selection.main.head;
     const line = current.state.doc.lineAt(head);
     const column = head - line.from;
-    setCursorOffset(head);
     setPosition((shown) => shown.line === line.number && shown.column === column ? shown : { line: line.number, column });
     latestRef.current.navigation.onEditorPosition({ path: at, line: line.number, column });
     latestRef.current.navigation.onViewState(at, { cursor: head, scrollTop: current.scrollDOM.scrollTop });
@@ -206,7 +204,6 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     host,
     position,
     setPosition,
-    cursorOffset,
     selectedText,
     vimMode,
     /** The open file's comments. */

@@ -111,8 +111,9 @@ export type AnnotationRoundsSnapshot = {
  * Revision rounds: asking the agent to revise the passages the writer
  * annotated, and the writer's decision on each proposal.
  *
- * A round asks about every open annotation at once (`revise`), each in its
- * own text task, a few at a time; asking again while a round still has
+ * A round asks about the annotations `revise` names, each in its own text
+ * task, a few at a time: every open one from the panel's Revise, only the new
+ * one from a note's Save and revise now; asking again while a round still has
  * proposals waiting adds to that round. Each answer is saved with its
  * annotation as it arrives. Proposals are accepted or rejected in the editor
  * (`accepted`, `rejected`), and nothing reaches a file until accepted.
@@ -395,13 +396,17 @@ export class AnnotationRounds {
     this.pump();
   }
 
-  /** Ask the agent to revise every open annotation (or `ids`), and show the panel. */
-  revise = (ids?: readonly string[]) => {
+  /**
+   * Ask the agent to revise `scope`, every open annotation for `"open"`, and
+   * show the panel. No default: a note saved with Save and revise now names
+   * itself, so asking about one passage never rewrites every other note.
+   */
+  revise = (scope: readonly string[] | "open") => {
     const deps = this.deps;
     if (!deps) return;
     const running = new Set(this.tasks.keys());
     const candidates = deps.store.stateRef.current.annotations
-      .filter((annotation) => revisable(annotation, running) && (!ids || ids.includes(annotation.id)));
+      .filter((annotation) => revisable(annotation, running) && (scope === "open" || scope.includes(annotation.id)));
     this.start(candidates.map((annotation) => annotation.id));
     deps.openPanel();
   };
@@ -558,7 +563,7 @@ export class AnnotationRounds {
     return { path: target.path, line: source.slice(0, range.from).split("\n").length, from: range.from, to: range.to, source };
   };
 
-  /** Save a note made on the PDF; false when its source no longer holds the span. Revises at once with `revise`. */
+  /** Save a note made on the PDF; false when its source no longer holds the span. Revises it alone at once with `revise`. */
   createFromPdf = (selection: PdfTextSelection, mapped: MappedPdfSelection, body: string, intent: AnnotationIntent | undefined, revise: boolean) => {
     const deps = this.deps;
     if (!deps) return false;
@@ -569,7 +574,8 @@ export class AnnotationRounds {
       intent, pdf: { page: selection.page, rects: selection.rects, text: selection.text },
     });
     if (!comment) return false;
-    if (deps.store.create(comment) && revise) this.revise();
+    const created = deps.store.create(comment);
+    if (created && revise) this.revise([created.id]);
     return true;
   };
 

@@ -42,7 +42,8 @@ import { resizeTextareaToContent } from "../components/ui/auto-resize-textarea";
 import { notifySuccess } from "../telemetry/app-notify";
 import { toMessage } from "../app-utils";
 import { formatCount } from "../i18n";
-import { BIB_LIST_RATIO_DEFAULT, clamp, loadBibListRatio, persistBibListRatio } from "../settings/app-settings";
+import { BIB_LIST_RATIO_DEFAULT, loadBibListRatio, persistBibListRatio } from "../settings/app-settings";
+import { clamp } from "../lib/clamp";
 import type { SymbolOccurrence } from "../project/references-panel";
 import { appendBibEntry, formatBibEntry } from "./bib-entry";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
@@ -52,6 +53,7 @@ import {
   type BibEdit, type BibEntry, type BibField, type BibParseError, type BibSummary,
 } from "./bib-document";
 import "./bib-visual-editor.css";
+import { sameIgnoringCase as sameKey } from "../lib/equality";
 
 /** The reference last in front in each file, for the next list of it. */
 const selectedByPath = new Map<string, string>();
@@ -120,8 +122,6 @@ const leaveField = (field: HTMLElement) => field.closest<HTMLElement>(".bib-visu
 
 /** `entry` still has `field` (by name) at `index`. */
 const sameField = (entry: BibEntry, index: number, field: BibField) => entry.fields[index]?.name === field.name;
-
-const sameKey = (a: string | undefined, b: string) => a?.toLocaleLowerCase() === b.toLocaleLowerCase();
 
 /** The rows drawn for a view `height` tall scrolled to `top`: those in it and OVERSCAN either side. */
 function drawnRows(top: number, height: number, rowHeight: number, count: number) {
@@ -781,7 +781,7 @@ function EntryDetail(props: BibVisualEditorProps & {
           {keyError && <InlineMessage level="error" className="bib-detail-error">{keyError}</InlineMessage>}
           <h2 className="bib-detail-title">{summary.title || t`Untitled`}</h2>
           {summary.authors && <p className="bib-detail-authors">{summary.authors}</p>}
-          {(summary.venue || summary.year) && <p className="bib-detail-venue">{[summary.venue, summary.year].filter(Boolean).join(" · ")}</p>}
+          {(summary.venue || summary.year) && <p className="bib-detail-venue">{[summary.venue, summary.year].filter(Boolean).join(", ")}</p>}
           <div className="bib-detail-actions">
             {readablePaper && (
               <Button size="compact" variant="secondary" onClick={() => props.onOpenPaper(readablePaper)}>

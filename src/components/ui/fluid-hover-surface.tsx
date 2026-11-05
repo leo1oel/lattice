@@ -3,6 +3,7 @@ import type { Transition } from "motion/react";
 import { FluidHoverHighlight } from "./fluid-hover-highlight";
 import { useFluidHover } from "./use-fluid-hover";
 import "./fluid-hover.css";
+import { sameItems } from "../../lib/equality";
 
 const menuItems = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]';
 const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading], .settings-nav-group-label';
@@ -144,7 +145,7 @@ function AwakeSurface({
     const syncItems = () => {
       const next = Array.from(container.querySelectorAll<HTMLElement>(selector))
         .filter((item) => owns(item) && !item.closest('[hidden], [inert]'));
-      if (next.length === items.length && next.every((item, i) => item === items[i])) return;
+      if (sameItems(next, items)) return;
       clear();
       release();
       items = next;

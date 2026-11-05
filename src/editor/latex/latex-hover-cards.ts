@@ -91,7 +91,7 @@ function healthFact(paper: PaperSummary | undefined): HTMLSpanElement | null {
     badge = fact(warning.kind, "warning");
     badge.prepend(factIcon(["m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3", "M12 9v4", "M12 17h.01"]));
   } else if (health?.kind === "unknown") {
-    badge = fact(i18n._(msg`Verified · Crossref`), "success");
+    badge = fact(i18n._(msg`Verified by Crossref`), "success");
     badge.prepend(factIcon(["M20 6 9 17l-5-5"]));
   }
   if (badge && title) badge.title = title;
@@ -134,7 +134,7 @@ function citationCard(
   const authors = paperBylineAuthors({ authors: paper?.authors || citation.authors });
   if (authors) dom.append(element("span", "citation-card-authors", authors));
   // No-break spaces keep the year with the venue's last word when the line wraps.
-  const publication = [citation.venue, citation.year].filter(Boolean).join("\u00a0·\u00a0");
+  const publication = [citation.venue, citation.year].filter(Boolean).join(",\u00a0");
   if (publication) dom.append(Object.assign(element("em", "citation-card-venue", publication), { title: publication }));
 
   const facts = element("div", "citation-card-facts");
@@ -326,7 +326,7 @@ function equationBody(text: string, reference: ReferenceInfo): string | null {
   return region?.display ? region.source : null;
 }
 
-/** "(3) · page 4": what the last build numbered the label, once its `.aux` is read. */
+/** "(3), page 4 in the last build": what the last build numbered the label, once its `.aux` is read. */
 function compiledFact(data: LatexEditorLiveData, reference: ReferenceInfo, destroyed: () => boolean): HTMLElement | null {
   if (!data.compiledBuild) return null;
   const line = element("span", "reference-hover-number");
@@ -336,7 +336,7 @@ function compiledFact(data: LatexEditorLiveData, reference: ReferenceInfo, destr
     if (!compiled?.number || destroyed()) return;
     const number = reference.kind === "equation" ? `(${compiled.number})` : compiled.number;
     const { page } = compiled;
-    line.textContent = page ? i18n._(msg`${number} · page ${page} in the last build`) : number;
+    line.textContent = page ? i18n._(msg`${number}, page ${page} in the last build`) : number;
     line.hidden = false;
   });
   return line;
@@ -360,7 +360,7 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
         const { imagePath } = reference;
         if (imagePath && loadImage) dom.append(figurePreview(imagePath, reference.title || reference.label, loadImage, () => destroyed));
         dom.append(
-          element("small", "", `${referenceKindLabel(reference.kind)} · ${reference.label}`),
+          element("small", "", `${referenceKindLabel(reference.kind)} ${reference.label}`),
           element("strong", "", reference.title || reference.label),
         );
         const fact = compiledFact(data, reference, () => destroyed);

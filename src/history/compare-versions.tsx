@@ -19,7 +19,7 @@ import { InlineEdits } from "../components/ui/inline-edits";
 import { InlineMessage } from "../components/ui/inline-message";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { SegmentedControl } from "../components/ui/segmented-control";
-import { formatCount } from "../i18n";
+import { formatCount, joinPhrases } from "../i18n";
 import { FileKindIcon, HistoryDiff } from "./file-diff-view";
 import { useLatestLoad } from "./use-latest-load";
 import { onProjectFilesChanged } from "../project/project-files-changed";
@@ -154,7 +154,7 @@ export function CompareVersions(props: {
 
   const meta = (entry: GitLogEntry) => {
     const at = new Date(entry.timestamp).getTime();
-    return `${dayName(at, i18n.locale)} ${clockTime(at, i18n.locale)} · ${entry.authorName || t`Unknown`}`;
+    return joinPhrases([`${dayName(at, i18n.locale)} ${clockTime(at, i18n.locale)}`, entry.authorName || t`Unknown`]);
   };
   const hidden = automatic.filter((entry) => !listed.includes(entry)).length;
 
@@ -321,7 +321,6 @@ function ComparedFileChanges(props: {
       <div className="compare-counts">
         <span className="compare-summary">
           <span className="compare-path" title={path}>{path}</span>
-          {" · "}
           <span>{passages.length === 1 ? t`1 changed paragraph` : t`${paragraphs} changed paragraphs`}</span>
           {counts && (
             <span className="compare-words">
@@ -348,7 +347,7 @@ function ComparedFileChanges(props: {
         {passages.map((passage, index) => {
           const section = sectionAt(after, passage.line);
           const where = t`Line ${passage.line}`;
-          const label = section ? `${section} · ${where}` : where;
+          const label = joinPhrases([section, where]);
           return (
             <section
               key={`${passage.line}:${index}`}

@@ -124,23 +124,16 @@
 .annotations-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "title actions" "tabs tabs" "filter filter" "search search";
+  /* No title of its own: the panel's tab names it. The first control takes the row the actions end. */
+  grid-template-areas: "filter actions" "search search";
   align-items: center;
   gap: var(--space-4) var(--space-2);
   padding: var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
-.annotations-title-row { grid-area: title; display: flex; align-items: baseline; gap: var(--space-4); min-width: 0; }
+.annotations-head:has(> .annotations-tabs) { grid-template-areas: "tabs actions" "filter filter" "search search"; }
 .annotations-filter { grid-area: filter; }
 .annotations-search { grid-area: search; }
-.annotations-title {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  font: var(--type-title-weight) var(--type-title-size)/var(--type-title-line-height) var(--type-title-font);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .annotations-head-actions { grid-area: actions; display: flex; align-items: center; gap: var(--gap-tight); }
 .annotations-filter { justify-self: start; max-width: 100%; min-width: 0; }
 .annotations-filter .ui-segmented-tab { display: inline-flex; align-items: center; gap: var(--gap-inline-tight); min-width: 0; }
@@ -276,6 +269,9 @@
 }
 .annotation-card-body > .annotation-pin { margin-top: var(--gap-tight); }
 .annotation-card-author-dot { width: 8px; height: 8px; margin: var(--space-2) auto 0; border-radius: var(--radius-pill); background: var(--text-secondary); }
+/* A quoted formula stays on one line; its scripts keep the line's height. */
+.annotation-card-math { white-space: nowrap; }
+.annotation-card-math :is(sub, sup) { line-height: 0; }
 .annotation-card-quote {
   min-width: 0;
   display: -webkit-box;
@@ -441,7 +437,11 @@
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
   gap: var(--space-8);
 }
-.annotation-rounds-rail { display: grid; align-content: start; gap: var(--gap-tight); min-height: 0; overflow-y: auto; padding-inline-end: var(--space-4); border-inline-end: 1px solid var(--border-subtle); }
+/* The rail and the compare column scroll, so they clip: each reaches past its
+   edge into the room beside it by as much as it pads back in, which keeps the
+   rings and focus rings of the rows and cards at their edges whole, and the
+   column's overlay scrollbar in the dialog's inset instead of over the cards. */
+.annotation-rounds-rail { display: grid; align-content: start; gap: var(--gap-tight); min-height: 0; overflow-y: auto; margin-inline-start: calc(-1 * var(--focus-ring-reach)); padding-inline: var(--focus-ring-reach) var(--space-4); border-inline-end: 1px solid var(--border-subtle); }
 .annotation-version {
   display: grid;
   gap: var(--gap-tight);
@@ -479,10 +479,10 @@
 .annotation-compare-count { display: inline-flex; align-items: center; gap: var(--gap-tight); font-variant-numeric: tabular-nums; }
 .annotation-compare-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-inline-start: auto; }
 .annotation-compare-loading { display: flex; align-items: center; color: var(--text-secondary); }
-.annotation-compare-columns { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: var(--space-6); }
+.annotation-compare-columns { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: var(--space-6); margin-inline: calc(-1 * var(--focus-ring-reach)) calc(-1 * var(--drawer-content-inset)); padding-inline: var(--focus-ring-reach) var(--drawer-content-inset); padding-bottom: var(--focus-ring-reach); }
 .annotation-compare-head,
 .annotation-compare-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-6); }
-.annotation-compare-head { position: sticky; top: 0; z-index: 1; padding-bottom: var(--space-2); background: var(--surface-panel-raised); color: var(--text-secondary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); }
+.annotation-compare-head { position: sticky; top: 0; z-index: 1; margin-inline: calc(-1 * var(--focus-ring-reach)) calc(-1 * var(--drawer-content-inset)); padding: 0 var(--drawer-content-inset) var(--space-2) var(--focus-ring-reach); background: var(--surface-panel-raised); color: var(--text-secondary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); }
 .annotation-compare-file { margin: var(--space-4) 0 0; color: var(--text-secondary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--editor-font); overflow-wrap: anywhere; }
 .annotation-compare-row { scroll-margin-top: var(--space-12); }
 .annotation-compare-text {
@@ -541,11 +541,14 @@
 
 /* --- On the PDF --------------------------------------------------------- */
 .pdf-annotation-mark { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+/* One band per line, the height of the line's type, its rule along the
+   bottom below the descenders, square but for a hair of rounding: the same
+   tint and rule the source draws (.cm-annotation in editor-workspace.css). */
 .pdf-annotation-highlight {
   position: absolute;
-  border-radius: var(--radius-compact);
+  border-radius: 1px;
   background: var(--annotation-highlight);
-  box-shadow: inset 0 -2px 0 var(--annotation-highlight-edge);
+  box-shadow: inset 0 -1.5px 0 var(--annotation-highlight-edge);
   transition: background-color var(--motion-fast);
 }
 /* The passage under the pointer deepens, and the text over it takes a pointer: a click opens its card. */
@@ -564,13 +567,21 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/* The pin stands in the margin beside the passage's column, its first line's
+   middle, clear of the words (pdf-annotation-place.ts): left of the column,
+   or right of a two-column page's right-hand one. Pins of passages that
+   start on one line stand side by side, outward. */
 .pdf-annotation-pin {
+  --pin-stack: 0;
   position: absolute;
-  translate: calc(-100% - 4px) -50%;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: var(--gap-tight);
+  translate: calc(-100% - 6px - var(--pin-stack) * (100% + 3px)) -50%;
   pointer-events: auto;
   cursor: pointer;
-  box-shadow: 0 0 0 2px var(--surface-panel);
 }
+.pdf-annotation-pin[data-side="end"] { translate: calc(6px + var(--pin-stack) * (100% + 3px)) -50%; }
 .pdf-annotate-offer {
   position: absolute;
   z-index: 6;
@@ -709,4 +720,7 @@
 .annotation-highlight-meta { display: flex; flex-wrap: nowrap; gap: var(--space-3); min-width: 0; white-space: nowrap; }
 .annotation-highlight-meta > .annotation-card-where { flex: none; }
 .annotation-highlight-kind-label { min-width: 0; overflow: hidden; color: var(--text-tertiary); text-overflow: ellipsis; white-space: nowrap; }
-.annotation-highlight-kind-label::before { content: "·"; margin-inline-end: var(--space-3); }
+.annotation-highlight-kind-label::before { content: "\00a0"; margin-inline-end: var(--space-3); }
+
+/* The panel's empty state stands alone in a tall column: its drawing a size up. */
+.annotations-empty[data-fill] .empty-illustration { width: 80px; height: 60px; }

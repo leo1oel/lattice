@@ -50,7 +50,7 @@ export function useRoundsView(
     proposals: pendingProposals(comments),
     revisable: comments.filter((annotation) => revisable(annotation, running)).length,
     hasRounds: roundsList.some((round) => round.settledAt),
-    onRevise: () => annotationRounds.revise(),
+    onRevise: () => annotationRounds.revise("open"),
     onReview: annotationRounds.openReview,
     onRetry: (id: string) => annotationRounds.retry(id),
     onAnswer: annotationRounds.answer,
