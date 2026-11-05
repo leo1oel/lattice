@@ -70,6 +70,25 @@ describe("perf bench budgets", () => {
     expect(over.failures).toEqual([{ scenario: "pdf-scroll", key: "hooks", value: 11, ceiling: 10 }]);
   });
 
+  it("only reports WebKit's tab-drag commits and hooks, which follow the frames a drag spans there", () => {
+    expect(gatedCounts("tab-drag")).toEqual(["commits", "renders", "hooks"]);
+    expect(gatedCounts("tab-drag", "webkit")).toEqual(["renders"]);
+    expect(gatedCounts("typing", "webkit")).toEqual(gatedCounts("typing"));
+
+    // CI run 41224484791's WebKit job: 70 commits against a ceiling of 69.
+    const budgets = { scenarios: { "tab-drag": { commits: 69, renders: 2171, hooks: 15422 } } };
+    const result = { ...counts(1), commits: 70, renders: 1964, hooks: 15665 };
+    const webkit = applyBudgets(budgets, [{ name: "tab-drag", result }], "check", "webkit");
+    expect(webkit.failures).toEqual([]);
+    expect(webkit.budgets.scenarios["tab-drag"]).toEqual({ renders: 2171 });
+    const chromium = applyBudgets(budgets, [{ name: "tab-drag", result }], "check", "chromium");
+    expect(chromium.failures.map(({ key }) => key)).toEqual(["commits", "hooks"]);
+    // The run kept is the one with fewer renders, not the one with fewer commits.
+    const fewerCommits = { ...counts(1), commits: 52, renders: 2000 };
+    const fewerRenders = { ...counts(1), commits: 68, renders: 1990 };
+    expect(bestOf("tab-drag", [fewerCommits, fewerRenders], "webkit")).toEqual(fewerRenders);
+  });
+
   it("keeps the run with the fewest gated counts, whatever its report-only counts", () => {
     const noisy = { ...counts(1), commits: 12, recalcs: 120 };
     const quiet = { ...counts(1), commits: 9, recalcs: 200 };

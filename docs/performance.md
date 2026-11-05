@@ -144,14 +144,15 @@ Only counts that repeat from run to run are gated; a flaky gate is worse than
 none. The rest depend on frame timing, so the same build measures them
 differently on each run and more so on a busy machine. They are still measured
 and printed, and `--json` keeps them, but no ceiling holds them
-(`REPORT_ONLY` and `REPORT_ONLY_BY_SCENARIO` in `scripts/perf-bench/budgets.mjs`):
+(`REPORT_ONLY`, `REPORT_ONLY_BY_SCENARIO` and, for one engine only,
+`REPORT_ONLY_BY_ENGINE` in `scripts/perf-bench/budgets.mjs`):
 
 | Scenario | Gated | Report-only | Why report-only |
 | --- | --- | --- | --- |
 | every scenario | | `recalcs`, `layouts` | Two DOM changes landing in one frame share a pass. One build measured 120–207 `pdf-scroll` recalculations across runs, more under load. |
 | `pdf-scroll`, `source-scroll` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
 | `markdown-preview-scroll` | | `commits`, `renders`, `hooks`, `mutations` | The same scrollbar fade, and Base UI's scroll area (the visual editor's scroller) re-renders when a scroll burst starts and 500 ms after it ends, in React state. How many bursts 40 notches make depends on stalls (139–259 renders on one machine, 225 on the CI runner). |
-| `tab-drag` | `commits`, `renders`, `hooks` | `mutations` | Trellis moves the lifted panel and the panels making room for a drop on every frame, and how many frames a drag spans depends on the machine (10,909–11,356 across runs of one build). |
+| `tab-drag` | `commits`, `renders`, `hooks`; WebKit: `renders` | `mutations`; WebKit: `commits`, `hooks` too | Trellis moves the lifted panel and the panels making room for a drop on every frame, and how many frames a drag spans depends on the machine (10,909–11,356 across runs of one build). In WebKit on the macOS runner the commits and hooks follow it too: main's runs of 2026-11-03 to 05 read 52–71 commits (one job's two runs: 52 and 68), where Chromium read 53–56 every time and still gates them. |
 | `latex-typing`, `long-tex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
 | `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
 | `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |
