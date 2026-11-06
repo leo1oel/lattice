@@ -83,8 +83,6 @@ export type AnnotationRoundsDeps = {
   sourceRef: Ref<string>;
   openProjectFile: OpenProjectFile;
   author: { id: string; name: string };
-  /** A project linked to Overleaf keeps its notes as Overleaf threads, and so do notes made on its PDF. */
-  overleafLinked: boolean;
   openPanel: () => void;
   openHistoryEntry: (id: string) => void;
   /** Save pending edits before files are restored; false when that failed. */

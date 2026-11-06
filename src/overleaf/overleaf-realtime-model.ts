@@ -19,8 +19,6 @@ export type EntityEntry = { id: string; path: string; kind: "doc" | "file" | "fo
 export type OverleafPermission = "owner" | "readAndWrite" | "review" | "readOnly" | "unknown";
 export type JoinedProject = {
   publicId: string | null; docs: DocEntry[]; entities: EntityEntry[]; permission: OverleafPermission;
-  /** The main document Overleaf compiles (its `rootDoc_id`), as a path. */
-  rootDocument?: string | null;
   /** Overleaf's track-changes setting for this account: whether our edits go out as suggestions. */
   trackChanges?: boolean;
   /** Our account, and the colour our suggestions are drawn in. */

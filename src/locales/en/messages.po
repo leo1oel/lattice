@@ -2599,10 +2599,6 @@ msgstr "Build notes"
 msgid "Build now compiles {path}."
 msgstr "Build now compiles {path}."
 
-#: src/overleaf/use-overleaf-root-document.ts
-msgid "Build now compiles {rootDocument}, the main document on Overleaf."
-msgstr "Build now compiles {rootDocument}, the main document on Overleaf."
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build output"
 msgstr "Build output"
@@ -4171,10 +4167,6 @@ msgstr "Could not find figure “{path}”."
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "Could not find included file “{path}”."
-
-#: src/overleaf/use-overleaf-root-document.ts
-msgid "Could not follow Overleaf’s main document {rootDocument}"
-msgstr "Could not follow Overleaf’s main document {rootDocument}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."

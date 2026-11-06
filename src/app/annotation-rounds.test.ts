@@ -44,7 +44,7 @@ function roundsWith(annotations: EditorComment[]) {
   const rounds = new AnnotationRounds();
   rounds.attach({
     store, projectRootRef: { current: "/paper" }, activeFileRef: { current: "main.tex" }, sourceRef: { current: SOURCE },
-    openProjectFile: vi.fn(), author: { id: "ada", name: "Ada" }, overleafLinked: false, openPanel: vi.fn(),
+    openProjectFile: vi.fn(), author: { id: "ada", name: "Ada" }, openPanel: vi.fn(),
     openHistoryEntry: vi.fn(), save: vi.fn(async () => true), reloadAfterRestore: vi.fn(async () => {}),
   });
   /** The passages the agent was asked to revise, once every task has answered. */

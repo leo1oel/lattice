@@ -2599,10 +2599,6 @@ msgstr "提示"
 msgid "Build now compiles {path}."
 msgstr "现在编译 {path}"
 
-#: src/overleaf/use-overleaf-root-document.ts
-msgid "Build now compiles {rootDocument}, the main document on Overleaf."
-msgstr "现在编译 {rootDocument}，即 Overleaf 上的主文档"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build output"
 msgstr "编译结果"
@@ -4171,10 +4167,6 @@ msgstr "找不到图片“{path}”"
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "找不到文件“{path}”"
-
-#: src/overleaf/use-overleaf-root-document.ts
-msgid "Could not follow Overleaf’s main document {rootDocument}"
-msgstr "无法跟随 Overleaf 的主文档 {rootDocument}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."

@@ -9,9 +9,6 @@ import type { OtDocument } from "./ot";
 import type { OverleafConnectionState, OverleafConnectionStore } from "./overleaf-connection-store";
 import type { DocEntry, EntityEntry } from "./overleaf-realtime-model";
 
-/** A connect result's or tree event's tree; projectJoined names no entities and no main document. */
-type DocumentTree = { docs: DocEntry[]; entities?: EntityEntry[]; rootDocument?: string | null };
-
 /** `documents` is every document the connection holds, by id; the tree itself lives in `store`. */
 export function useOverleafDocumentTree(documents: RefObject<Map<string, OtDocument>>, store: OverleafConnectionStore) {
   // Subscribed, not read: the tree can arrive from the connect call or from an
@@ -31,8 +28,8 @@ export function useOverleafDocumentTree(documents: RefObject<Map<string, OtDocum
   }, [documents, store]);
 
   /** Replace both directions of the live document tree without dropping held ids. */
-  const noteDocumentTree = useCallback(({ docs: entries, entities: entityEntries, rootDocument }: DocumentTree) => {
-    store.getState().showDocumentTree(entries, entityEntries, rootDocument);
+  const noteDocumentTree = useCallback((entries: DocEntry[], entityEntries?: EntityEntry[]) => {
+    store.getState().showDocumentTree(entries, entityEntries);
     const previous = pathsByDocId.current;
     const next = new Map(entries.map((doc) => [doc.id, doc.path]));
     // A tree event can remove a document while its final operation is still

@@ -594,7 +594,6 @@ pub fn run() {
             ipc::overleaf::overleaf_probe,
             ipc::overleaf::overleaf_sync,
             ipc::overleaf_realtime::overleaf_rt_connect,
-            ipc::overleaf_realtime::overleaf_adopt_root_document,
             ipc::overleaf_realtime::overleaf_rt_disconnect,
             ipc::overleaf_realtime::overleaf_rt_join_doc,
             ipc::overleaf_realtime::overleaf_rt_leave_doc,

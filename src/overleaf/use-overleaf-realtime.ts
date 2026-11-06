@@ -550,7 +550,7 @@ export function useOverleafRealtime(options: {
         // appeared this way is joinable straight away. A permission is never
         // taken from these events, only from the connect result: each
         // handshake must name the role for the connection it set up.
-        noteDocumentTree(payload);
+        noteDocumentTree(payload.docs, payload.type === "treeChanged" ? payload.entities : undefined);
         return;
       case "disconnected": {
         const reason = payload.reason || i18n._(msg`The realtime connection closed.`);
@@ -626,7 +626,7 @@ export function useOverleafRealtime(options: {
       requestReconnectRef.current = () => undefined;
       setStatus("off");
       setDetail(null);
-      noteDocumentTree({ docs: [], rootDocument: null });
+      noteDocumentTree([]);
       setProjectPermission({ projectRoot: null, permission: "unknown" });
       stopEverything();
       connectionRoot.current = null;
@@ -678,7 +678,7 @@ export function useOverleafRealtime(options: {
         // else's edit and apply it twice.
         if (joined.publicId) publicId.current = joined.publicId;
         connectionRoot.current = connectingRoot;
-        noteDocumentTree(joined);
+        noteDocumentTree(joined.docs, joined.entities);
         setProjectPermission({ projectRoot: connectingRoot, permission: joined.permission });
         noteProject(joined);
         setStatus("live");

@@ -50,17 +50,6 @@ describe("Overleaf connection store", () => {
     expect(store.getState().entities.size).toBe(0);
   });
 
-  it("keeps Overleaf's main document until a tree names another, or none", () => {
-    const store = createOverleafConnectionStore();
-    const { showDocumentTree } = store.getState();
-    showDocumentTree([{ id: "doc-v2", path: "main_v2.tex" }], [], "main_v2.tex");
-    // The projectJoined event names no main document; the connect result did.
-    showDocumentTree([{ id: "doc-v2", path: "main_v2.tex" }]);
-    expect(store.getState().rootDocument).toBe("main_v2.tex");
-    showDocumentTree([], [], null);
-    expect(store.getState().rootDocument).toBeNull();
-  });
-
   it("keeps the live paths' array while the set is unchanged, so nothing re-renders", () => {
     const store = createOverleafConnectionStore();
     const { publishLivePaths } = store.getState();
@@ -80,7 +69,7 @@ describe("Overleaf connection store", () => {
     const store = createOverleafConnectionStore();
     const { noteChannelEvent, forgetChannel } = store.getState();
     noteChannelEvent({ type: "connected", publicId: "me", projectRoot: ROOT });
-    noteChannelEvent({ type: "treeChanged", docs: [{ id: "doc-a", path: "a.tex" }], entities: [], rootDocument: null, projectRoot: ROOT });
+    noteChannelEvent({ type: "treeChanged", docs: [{ id: "doc-a", path: "a.tex" }], entities: [], projectRoot: ROOT });
     expect(store.getState().selfId).toBe("me");
     expect([...store.getState().docPaths]).toEqual([["doc-a", "a.tex"]]);
     // A connection Overleaf has not named yet leaves the last id alone.

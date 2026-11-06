@@ -71,7 +71,7 @@ pub use review::{
     resolve_thread, send_chat_message, threads, OverleafCommentAnchor, OverleafMessage,
     OverleafThread,
 };
-pub use root_document::{adopt_root_document, followed_root_document};
+pub use root_document::{record_root_document, reported_root_document};
 pub use sync::{
     classify_sync_error, preview, probe, sync, sync_relocations, OverleafPreview, OverleafProbe,
     OverleafSyncResult,

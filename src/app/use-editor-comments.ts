@@ -209,9 +209,9 @@ export function useEditorComments({
     if (!overleafLink || !project) return "annotation";
     const docId = docIdOf(path);
     if (!docId && overleafDocPaths.size) return "annotation";
-    if (!overleafRealtime.liveFile) return "offline";
-    return overleafRealtime.docId === docId ? "overleaf" : "other-file";
-  }, [docIdOf, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project]);
+    if (overleafRealtime.liveFile && overleafRealtime.docId === docId) return "overleaf";
+    return overleafRealtime.status === "live" ? "other-file" : "offline";
+  }, [docIdOf, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, overleafRealtime.status, project]);
 
   const create = useCallback((comment: EditorComment): EditorComment | null => {
     const docId = docIdOf(comment.path);

@@ -134,7 +134,7 @@ it("resolves and reopens from the panel with a toast whose undo puts it back", a
 // A note made on the PDF of a linked project is an Overleaf comment, which
 // Overleaf takes only on the document the live channel holds.
 it("sends a PDF note to Overleaf only for the live file, and keeps one for a file Overleaf lacks", () => {
-  const destinationIn = (docPaths: Map<string, string>, realtime: { docId: string | null; liveFile: boolean }, linked = true) => {
+  const destinationIn = (docPaths: Map<string, string>, realtime: { status: string; docId: string | null; liveFile: boolean }, linked = true) => {
     const overleaf = {
       overleafLink: linked ? { projectId: "p" } : null, overleafComments: { threads: [], anchors: new Map() },
       overleafCommentsRef: { current: { threads: [] } }, overleafDocPaths: docPaths, overleafRealtime: realtime,
@@ -148,13 +148,15 @@ it("sends a PDF note to Overleaf only for the live file, and keeps one for a fil
     return result.current.destination;
   };
   const docs = new Map([["doc-v2", "main_v2.tex"], ["doc-intro", "intro.tex"]]);
-  const live = destinationIn(docs, { docId: "doc-v2", liveFile: true });
+  const live = destinationIn(docs, { status: "live", docId: "doc-v2", liveFile: true });
   expect(live("main_v2.tex")).toBe("overleaf");
   expect(live("intro.tex")).toBe("other-file");
+  // Connected, with a tab Overleaf cannot edit live open (an image, a Paper): open the file, not reconnect.
+  expect(destinationIn(docs, { status: "live", docId: null, liveFile: false })("main_v2.tex")).toBe("other-file");
   // A file Overleaf does not have stays an annotation here, as in the editor.
   expect(live("notes.tex")).toBe("annotation");
   // Disconnected, or connected before the channel named its documents: never quietly kept here.
-  expect(destinationIn(docs, { docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
-  expect(destinationIn(new Map(), { docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
-  expect(destinationIn(docs, { docId: "doc-v2", liveFile: true }, false)("main_v2.tex")).toBe("annotation");
+  expect(destinationIn(docs, { status: "error", docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
+  expect(destinationIn(new Map(), { status: "connecting", docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
+  expect(destinationIn(docs, { status: "live", docId: "doc-v2", liveFile: true }, false)("main_v2.tex")).toBe("annotation");
 });

@@ -17,7 +17,6 @@ import {
 } from "../overleaf/overleaf-connection-store";
 import { overleafRemoteDeletePolicy, overleafSyncModeSetting } from "../overleaf/overleaf-sync-settings";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
-import { useOverleafRootDocument } from "../overleaf/use-overleaf-root-document";
 import {
   isOverleafProjectRefusal,
   OVERLEAF_NOT_CONNECTED,
@@ -674,7 +673,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       bumpExternalChangeGeneration();
     },
   });
-  useOverleafRootDocument(overleafStore, project?.root ?? null, refreshProject, projectOperationGenerationRef);
   useLayoutEffect(() => {
     resumeRealtimePathsRef.current = overleafRealtime.resumePaths;
   }, [overleafRealtime.resumePaths]);
