@@ -12,6 +12,10 @@ pub struct RootDocument {
     pub path: String,
     pub name: String,
     pub is_default: bool,
+    /// The writer chose this default with Set as main document: while it is on
+    /// disk, the file open when building no longer re-targets the build.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub chosen: bool,
 }
 
 fn default_pdf_engine() -> String {

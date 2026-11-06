@@ -11,6 +11,9 @@
  */
 import { Suspense, useMemo, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
+import { i18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import { paperImportStageLabel } from "../papers/paper-import-progress";
 import type { NewEntryRequest, NewEntryType } from "../project/project-new-entries";
@@ -20,9 +23,10 @@ import type { TrellisController } from "../trellis/trellis-controller";
 import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import { PanelActions } from "../trellis/trellis-panel-actions";
 import type { GitStatus, PaperSummary, ProjectSnapshot } from "../app-types";
+import { toMessage } from "../app-utils";
 import { PaperLibrary, ProjectFileTree, TrellisAgentSurface } from "./app-lazy-panels";
 import { useStableHandlers } from "./effect-helpers";
-import { showError } from "./notify";
+import { showError, showNotice } from "./notify";
 import { OpeningOverlay } from "./opening-overlay";
 import type { OpenDocuments } from "./use-open-documents";
 import type { usePaperActions } from "./use-paper-actions";
@@ -55,7 +59,7 @@ export function usePanelPortals({
   newEntry: { request: NewEntryRequest | null; requestNew: (type: NewEntryType) => void };
   gitFiles: GitStatus["files"];
   rootDocumentPath: string | null | undefined;
-  library: Pick<ReturnType<typeof useProjectLibrary>, "papers" | "paperLoad" | "retryPapers" | "citations" | "unusedSymbols">;
+  library: Pick<ReturnType<typeof useProjectLibrary>, "papers" | "paperLoad" | "retryPapers" | "citations" | "unusedSymbols" | "refreshProject">;
   overleafSyncing: boolean;
   paperActions: ReturnType<typeof usePaperActions>;
   referenceImport: ReferenceImport;
@@ -116,6 +120,14 @@ export function usePanelPortals({
     onImportAssets: tree.chooseAssets,
     onImportFiles: (targetDirectory: string) => void tree.chooseFiles(targetDirectory),
     onPasteImage: (targetDirectory: string) => void tree.importSystemClipboardImage(targetDirectory),
+    onSetMainDocument: (path: string) => {
+      if (!project) return;
+      const projectRoot = project.root;
+      void invoke("set_root_document", { projectRoot, path })
+        .then(() => library.refreshProject())
+        .then(() => showNotice(i18n._(msg`Build now compiles ${path}.`)))
+        .catch((reason) => showError(toMessage(reason)));
+    },
   });
   const paperLibraryHandlers = useStableHandlers({
     onReveal: tree.revealItem,
@@ -158,6 +170,7 @@ export function usePanelPortals({
             activeFile={activeAsset || activePaper || (documents.tabsReady && !documents.tabs.includes(activeFile)) ? "" : activeFile}
             activeAssetPath={activeAsset?.path ?? ""}
             protectedPaths={protectedProjectPaths}
+            mainDocument={project.manifest.rootDocuments.find((document) => document.isDefault && document.chosen)?.path ?? null}
             assetDropTarget={tree.assetDropTarget}
             assetImporting={tree.assetImporting}
             {...fileTreeHandlers}

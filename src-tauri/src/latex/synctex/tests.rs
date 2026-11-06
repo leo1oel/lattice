@@ -439,6 +439,7 @@ fn subfolder_project(engine: &str) -> (TempDir, Vec<u8>) {
         path: "cv/sop/sop.tex".to_string(),
         name: "sop".to_string(),
         is_default: true,
+        chosen: false,
     });
     project::write_manifest(&root, &manifest).unwrap();
     root.write(

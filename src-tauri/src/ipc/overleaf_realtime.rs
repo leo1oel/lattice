@@ -5,12 +5,12 @@
 
 use super::overleaf::{overleaf_config_dir, settled};
 use super::{current_root, pinned_root, run_blocking, scoped_root};
-use crate::app_state::{AppState, Lease, ProjectLease};
+use crate::app_state::{AppState, Lease, ProjectLease, ProjectResources};
 use crate::overleaf;
-use crate::overleaf_rt::{self, RealtimeClient};
+use crate::overleaf_rt::{self, RealtimeClient, RealtimeEvent};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tauri::{AppHandle, Emitter, State, Window};
 
 #[derive(Default)]
@@ -25,6 +25,9 @@ pub(crate) struct OverleafRealtimeState {
     /// the same lease that prevents a new join until the sync finishes.
     joined_paths: BTreeMap<String, String>,
     join_receipts: BTreeMap<String, String>,
+    /// Overleaf's main document as this connection last reported it (the join,
+    /// then each tree change), which `record_root_document` writes to the link.
+    root_document: Option<String>,
 }
 
 impl OverleafRealtimeState {
@@ -35,6 +38,7 @@ impl OverleafRealtimeState {
         self.root = root;
         self.joined_paths.clear();
         self.join_receipts.clear();
+        self.root_document = None;
         self.client.take()
     }
 
@@ -175,13 +179,27 @@ pub async fn overleaf_rt_connect(
     }
 
     let event_state = Arc::clone(&project.realtime);
+    let event_project = Arc::downgrade(&project);
     let event_root = root.clone();
     let emit_label = window.label().to_string();
     let emitter = app.clone();
     let connecting = RealtimeClient::connect(
         overleaf_rt::RealtimeConfig { user_id, host, cookie, project_id },
         move |event| {
-            if event_state.lock().is_ok_and(|realtime| realtime.owns(generation, &event_root)) {
+            let mut reported = false;
+            let owned = event_state.lock().is_ok_and(|mut realtime| {
+                let owns = realtime.owns(generation, &event_root);
+                if let (true, RealtimeEvent::TreeChanged { root_document, .. }) = (owns, &event) {
+                    reported = realtime.root_document != *root_document;
+                    realtime.root_document = root_document.clone();
+                }
+                owns
+            });
+            if reported {
+                let (project, root) = (Weak::clone(&event_project), event_root.clone());
+                tauri::async_runtime::spawn(record_root_document(project, root, generation));
+            }
+            if owned {
                 let event = ScopedEvent { project_root: &event_root, event };
                 let _ = emitter.emit_to(emit_label.as_str(), "overleaf-realtime", event);
             }
@@ -213,6 +231,7 @@ pub async fn overleaf_rt_connect(
         let mut realtime = project.realtime()?;
         if realtime.owns(generation, &root) {
             realtime.client = Some(Arc::clone(&client));
+            realtime.root_document = tree.root_document.clone();
             installed = true;
         }
     }
@@ -227,15 +246,43 @@ pub async fn overleaf_rt_connect(
     // that was already under way.
     let root_folder_id = tree.root_folder_id.clone();
     let permission = tree.permission.as_str().to_string();
-    let _lease = ProjectLease::take(project, Lease::Exclusive).await;
+    let lease = ProjectLease::take(project, Lease::Exclusive).await;
     if current_root(&state, &window)? != root {
         return Err("The project changed before Overleaf could finish connecting.".to_string());
     }
+    let root_document = reported_root_document(&lease.project, generation, &root)?;
     run_blocking("The Overleaf metadata update", move || {
-        overleaf::set_realtime_metadata(&root, &root_folder_id, &permission)
+        overleaf::set_realtime_metadata(&root, &root_folder_id, &permission)?;
+        match root_document {
+            Some(path) => overleaf::record_root_document(&root, path.as_deref()),
+            None => Ok(()),
+        }
     })
     .await?;
     Ok(joined)
+}
+
+/// Overleaf's main document as connection `generation` of `root` last reported
+/// it; `None` once another connection replaced it. Read under the project lease
+/// rather than carried from the report, so a later report recorded first is
+/// never overwritten by an earlier one.
+fn reported_root_document(
+    project: &ProjectResources, generation: u64, root: &Path,
+) -> Result<Option<Option<String>>, String> {
+    let realtime = project.realtime()?;
+    Ok(realtime.owns(generation, root).then(|| realtime.root_document.clone()))
+}
+
+/// Record the main document a tree change reported in the link state, which
+/// the sync rewrites too; one at a time.
+async fn record_root_document(project: Weak<ProjectResources>, root: PathBuf, generation: u64) {
+    let Some(project) = project.upgrade() else { return };
+    let lease = ProjectLease::take(project, Lease::Exclusive).await;
+    let Ok(Some(path)) = reported_root_document(&lease.project, generation, &root) else { return };
+    let _ = run_blocking("Overleaf main document", move || {
+        overleaf::record_root_document(&root, path.as_deref())
+    })
+    .await;
 }
 
 #[tauri::command]

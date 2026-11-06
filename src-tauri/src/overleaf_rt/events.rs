@@ -62,6 +62,8 @@ pub enum RealtimeEvent {
     TreeChanged {
         docs: Vec<DocEntry>,
         entities: Vec<EntityEntry>,
+        /// The main document Overleaf compiles, as a path (see `ProjectTree`).
+        root_document: Option<String>,
     },
     /// Someone in the project moved, or appeared for the first time.
     ///

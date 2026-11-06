@@ -421,6 +421,7 @@ pub fn run() {
             ipc::workspace::export_arxiv_package,
             ipc::workspace::refresh_project,
             ipc::workspace::update_project_manifest,
+            ipc::workspace::set_root_document,
             ipc::workspace::set_project_deadline,
             ipc::workspace::set_project_spelling_words,
             ipc::workspace::set_project_grammar_ignores,

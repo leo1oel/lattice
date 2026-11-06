@@ -234,6 +234,25 @@ pub async fn update_project_manifest(
     .await
 }
 
+/// Set as main document: the .tex file builds compile from now on.
+#[tauri::command]
+pub async fn set_root_document(
+    state: State<'_, AppState>, window: Window, project_root: String, path: String,
+) -> Result<ProjectManifest, String> {
+    let root = pinned_root(&state, &window, &project_root, "the main document could be set")?;
+    run_blocking("Main document update", move || {
+        let relative = path.trim().replace('\\', "/");
+        let file = project::safe_path(&root, &relative);
+        if !relative.to_ascii_lowercase().ends_with(".tex")
+            || !file.is_ok_and(|file| file.is_file())
+        {
+            return Err(format!("{relative} is not a LaTeX file in this project."));
+        }
+        project::choose_root_document(&root, &relative)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn set_project_deadline(
     state: State<'_, AppState>, window: Window, deadline: Option<ProjectDeadline>,

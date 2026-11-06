@@ -4,7 +4,9 @@ import { useLingui } from "@lingui/react/macro";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { ContextMenuItem as PierreContextMenuItem, ContextMenuOpenContext, FileTreeDropTarget } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
-import { Check, ClipboardPaste, Copy, Eye, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil, RotateCw } from "lucide-react";
+import {
+  Check, ClipboardPaste, Copy, Eye, FilePlay, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil, RotateCw,
+} from "lucide-react";
 import { ContextMenu, ContextMenuTrigger } from "../components/ui/context-menu";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { absoluteProjectPath } from "../app-utils";
@@ -52,6 +54,12 @@ export type ProjectFileTreeProps = {
   activeFile: string;
   activeAssetPath: string;
   protectedPaths: string[];
+  /**
+   * The .tex file the writer chose as the main document, which a .tex file's
+   * menu can change; `null` while builds follow the open file instead.
+   */
+  mainDocument: string | null;
+  onSetMainDocument: (path: string) => void;
   onFile: (path: string) => void;
   onLikelyFile?: (path: string) => void;
   onAsset: (path: string) => void;
@@ -360,6 +368,13 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
         { icon: ImagePlus, label: t`Import images here`, disabled: props.assetImporting, run: () => props.onImportAssets(path) },
         { icon: ClipboardPaste, label: t`Paste clipboard image as figure`, run: () => props.onPasteImage(path) },
       ] : []),
+      // Which file Build compiles is the writer's to choose, as in Overleaf's
+      // Main document setting; the check says which one was chosen.
+      ...(!directory && /\.tex$/i.test(path) ? [{
+        icon: path === props.mainDocument ? Check : FilePlay, label: t`Set as main document`, group: true,
+        checked: path === props.mainDocument,
+        run: () => { if (path !== props.mainDocument) props.onSetMainDocument(path); },
+      }] : []),
       { icon: Pencil, label: t`Rename`, group: true, run: () => model.startRenaming(item.path) },
       {
         icon: Copy,

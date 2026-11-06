@@ -576,7 +576,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   useLayoutEffect(() => {
     annotationRounds.attach({
       store: editorComments, projectRootRef, activeFileRef, sourceRef, openProjectFile: openFile,
-      author: { id: editorCommentAuthorId, name: authorName }, overleafLinked: overleafLink !== null,
+      author: { id: editorCommentAuthorId, name: authorName },
       openPanel: () => tools.open("comments"),
       openHistoryEntry: (historyEntry) => tools.open("history", { historyEntry }),
       save,

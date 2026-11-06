@@ -77,6 +77,10 @@ pub(super) struct SyncState {
     /// [`SyncState::access`]).
     #[serde(default)]
     pub permission: Option<String>,
+    /// Overleaf's main document (its `rootDoc_id`, as a path) as the live
+    /// channel last reported it; see `root_document::record_root_document`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root_document: Option<String>,
     /// Relative path (forward slashes) → sha256 hex of the content at the
     /// last successful sync.
     #[serde(default)]

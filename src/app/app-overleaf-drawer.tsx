@@ -8,7 +8,8 @@ import {
   type Dispatch, type ReactNode, type RefObject, type SetStateAction,
 } from "react";
 import type { EditorView } from "@codemirror/view";
-import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
+import { OVERLEAF_COMMENT_PREFIX } from "../overleaf/overleaf-editor-comments";
+import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 import type { OpenProjectFile, ViewRestoreRequest } from "../app-types";
 import { lazyChunk } from "../lib/lazy-chunk";
 import { hadSuggestions, loadMarginReviewLayer, rememberSuggestions, subscribeMarginReviewFiles } from "../overleaf/margin-review-files";

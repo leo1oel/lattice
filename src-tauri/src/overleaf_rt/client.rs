@@ -3,7 +3,7 @@
 
 use super::codec::*;
 use super::events::*;
-use super::tree::{parse_project, NodeKind, Tree};
+use super::tree::{parse_project, NodeKind, ProjectTree, Tree};
 use super::{NOT_CONNECTED, SESSION_EXPIRED, USER_AGENT};
 use crate::util::url_encode;
 use futures_util::sink::{Sink, SinkExt};
@@ -201,9 +201,9 @@ impl Shared {
     fn edit_tree(&self, edit: impl FnOnce(&mut Tree) -> bool) {
         let mut tree = lock(&self.tree);
         if edit(&mut tree) {
-            let (docs, entities) = (tree.docs(), tree.entities());
+            let changed = tree.changed();
             drop(tree);
-            self.emit(RealtimeEvent::TreeChanged { docs, entities });
+            self.emit(changed);
         }
     }
 }
@@ -410,6 +410,8 @@ fn handle_event(shared: &Arc<Shared>, data: &str) -> Result<(), String> {
                 shared.edit_tree(|tree| tree.move_to(id, folder));
             }
         }
+        // Someone chose another main document in Overleaf's settings.
+        "rootDocUpdated" => shared.edit_tree(|tree| tree.set_root_doc(arg(0))),
         "removeEntity" => {
             if let Some(id) = arg(0) {
                 shared.edit_tree(|tree| tree.remove(id));
@@ -497,27 +499,6 @@ pub struct RealtimeClient {
     /// an event emitted before the app's listener is up is simply lost, and
     /// without the document ids there is no live editing at all.
     project: ProjectTree,
-}
-
-/// What `joinProject` told us about the project.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProjectTree {
-    pub root_folder_id: String,
-    pub docs: Vec<DocEntry>,
-    /// Everything in the project, so a file can be acted on by id.
-    pub entities: Vec<EntityEntry>,
-    /// Our own Overleaf account id, echoed back so the app can name itself in
-    /// the per-account settings Overleaf stores.
-    pub user_id: Option<String>,
-    /// What this account may do to the project. The connect answer carries
-    /// it: without it the app read `undefined` and overwrote what the
-    /// projectJoined event had established, so a reviewer's first keystroke
-    /// went out as a plain edit, the server refused it, and live editing died.
-    pub permission: Permission,
-    /// Whether edits should be recorded as suggestions rather than applied
-    /// outright, for this account.
-    pub track_changes: bool,
 }
 
 // Hand-written because `Shared` holds the app's event callback; `Debug` is what
@@ -630,6 +611,7 @@ impl RealtimeClient {
             root_folder_id: tree.root.clone(),
             docs: tree.docs(),
             entities: tree.entities(),
+            root_document: tree.root_document(),
             user_id: config.user_id.clone(),
             permission,
             track_changes: track_changes_for(track_changes.as_ref(), config.user_id.as_deref()),

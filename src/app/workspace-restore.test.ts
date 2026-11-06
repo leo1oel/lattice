@@ -49,4 +49,15 @@ describe("workspace restore", () => {
       activeTab: "sections/intro.tex",
     });
   });
+
+  // An Overleaf project whose main document is main_v2.tex, with an older
+  // main.tex beside it, opened on main.tex whatever builds compiled.
+  it("opens a project on the document builds compile, whatever it is called", () => {
+    const both = {
+      ...snapshot,
+      files: [file("main.tex"), file("main_v2.tex")],
+      manifest: { rootDocuments: [{ path: "main.tex", isDefault: false }, { path: "main_v2.tex", isDefault: true }] },
+    } as unknown as ProjectSnapshot;
+    expect(planWorkspaceRestore(both, [], null, null)).toMatchObject({ primaryFile: "main_v2.tex", tabs: ["main_v2.tex"] });
+  });
 });

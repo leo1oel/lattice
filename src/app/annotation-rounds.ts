@@ -24,7 +24,7 @@ import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { notifyInfo } from "../telemetry/app-notify";
 import { showError } from "./notify";
 import { createAnnotationReviewBridge } from "../canvas/annotation-review-bridge";
-import type { EditorComments } from "./use-editor-comments";
+import type { CommentDestination, EditorComments } from "./use-editor-comments";
 
 /** Text tasks the agent service runs at once is four; one stays free for a proofread. */
 const CONCURRENT_REVISIONS = 3;
@@ -76,15 +76,13 @@ const lineAt = (source: string, offset: number) => source.slice(0, offset).split
 
 /** What the rounds read and do in the app, attached by App once it has them. */
 export type AnnotationRoundsDeps = {
-  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "setActiveId" | "openComment" | "resolve" | "reply">;
+  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "destination" | "setActiveId" | "openComment" | "resolve" | "reply">;
   projectRootRef: Ref<string | null>;
   activeFileRef: Ref<string>;
   /** The active file's live text. */
   sourceRef: Ref<string>;
   openProjectFile: OpenProjectFile;
   author: { id: string; name: string };
-  /** A project linked to Overleaf keeps its notes as Overleaf threads, which have no place on the PDF. */
-  overleafLinked: boolean;
   openPanel: () => void;
   openHistoryEntry: (id: string) => void;
   /** Save pending edits before files are restored; false when that failed. */
@@ -550,8 +548,11 @@ export class AnnotationRounds {
     await deps.reloadAfterRestore();
   };
 
-  /** Annotations can be made on the compiled PDF (not in a project linked to Overleaf). */
-  canAnnotatePdf = () => Boolean(this.deps && !this.deps.overleafLinked);
+  /** Annotations can be made on the compiled PDF; in a project linked to Overleaf they become Overleaf comments. */
+  canAnnotatePdf = () => Boolean(this.deps);
+
+  /** Where a note made on the PDF and placed in `path` goes (see `CommentDestination`). */
+  pdfNoteDestination = (path: string): CommentDestination => this.deps?.store.destination(path) ?? "annotation";
 
   /** Where text selected on the PDF was written: SyncTeX's line, then the words around it. */
   mapPdfSelection = async (selection: PdfTextSelection): Promise<MappedPdfSelection> => {
@@ -563,12 +564,20 @@ export class AnnotationRounds {
     return { path: target.path, line: source.slice(0, range.from).split("\n").length, from: range.from, to: range.to, source };
   };
 
-  /** Save a note made on the PDF; false when its source no longer holds the span. Revises it alone at once with `revise`. */
+  /**
+   * Save a note made on the PDF; false when its source no longer holds the
+   * span. Revises it alone at once with `revise`. An Overleaf comment is
+   * anchored by offset in the live document, so it is placed again in the
+   * text as it stands now, which collaborators may have changed meanwhile.
+   */
   createFromPdf = (selection: PdfTextSelection, mapped: MappedPdfSelection, body: string, intent: AnnotationIntent | undefined, revise: boolean) => {
     const deps = this.deps;
     if (!deps) return false;
+    const source = deps.store.destination(mapped.path) === "overleaf" ? deps.sourceRef.current : mapped.source;
+    const range = source === mapped.source ? mapped : sourceRangeForPdfText(source, mapped.line, selection.text);
+    if (!range || source.slice(range.from, range.to) !== mapped.source.slice(mapped.from, mapped.to)) return false;
     const comment = createEditorComment({
-      path: mapped.path, source: mapped.source, from: mapped.from, to: mapped.to, body,
+      path: mapped.path, source, from: range.from, to: range.to, body,
       // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
       authorId: deps.author.id, authorName: deps.author.name.trim() || "Anonymous",
       intent, pdf: { page: selection.page, rects: selection.rects, text: selection.text },

@@ -407,7 +407,12 @@ const NOT_EDITABLE: &str =
 pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
     let path = safe_path(root, relative)?;
     // One read serves classification and content.
-    let metadata = fs::symlink_metadata(&path).map_err(err)?;
+    // A tab, a restored workspace or a stale root can name a file a sync or
+    // Finder removed; "No such file or directory (os error 2)" said neither which.
+    let metadata = fs::symlink_metadata(&path).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => format!("{relative} is not in the project folder."),
+        _ => err(error),
+    })?;
     if !metadata.file_type().is_file() {
         return Err(NOT_EDITABLE.to_string());
     }

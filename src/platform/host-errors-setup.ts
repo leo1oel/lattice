@@ -55,7 +55,7 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
 
   // The document a build compiles (latex/build.rs names its argument;
   // latex/pinned.rs and texcount.rs write the positional form)
-  ["latex/build.rs", "Root document not found: {document}", ([path]) => t`Root document not found: ${path}`],
+  ["latex/build.rs", "{document}, the main document, is missing. Right-click another .tex file in the Project panel and choose Set as main document.", ([path]) => t`${path}, the main document, is missing. Right-click another .tex file in the Project panel and choose Set as main document.`],
   ["latex/pinned.rs", "Root document not found: {}", ([path]) => t`Root document not found: ${path}`],
 
   // The built-in agent's startup (synara.rs). The startup log is the

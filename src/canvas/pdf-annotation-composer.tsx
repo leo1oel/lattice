@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { hostErrorMessage } from "../app-utils";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
+import type { CommentDestination } from "../app/use-editor-comments";
 import { useExitPicture } from "../components/ui/exit-picture";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
@@ -37,6 +38,10 @@ export function PdfAnnotationComposer(props: {
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState(props.initial?.body ?? "");
   const [intent, setIntent] = useState<AnnotationIntent | undefined>(props.initial?.intent);
+  // Where Save found the note had to go, when the live channel moved on after
+  // it opened. Kept in state: the React Compiler memoizes the render-time read
+  // below on `rounds` and `mapped`, so a bare re-render would not re-read it.
+  const [destinationAtSave, setDestinationAtSave] = useState<CommentDestination | null>(null);
   const { rounds } = props;
 
   useEffect(() => {
@@ -59,6 +64,16 @@ export function PdfAnnotationComposer(props: {
 
   const name = mapped ? baseName(mapped.path) : null;
   const location = mapped ? t`PDF p.${selection.page} → ${name}:${mapped.line}` : t`PDF p.${selection.page} → …`;
+  // In a project linked to Overleaf the note becomes an Overleaf comment on
+  // the span SyncTeX found, which collaborators see; Overleaf takes one only
+  // on the file the live channel holds, so a passage elsewhere says why not.
+  const destination = destinationAtSave ?? (mapped ? rounds.pdfNoteDestination(mapped.path) : null);
+  const toOverleaf = destination !== null && destination !== "annotation";
+  const notLive = destination === "other-file"
+    ? t`Overleaf takes a comment only on the file open in the editor, and this passage is in ${name}. Double-click it to open ${name}, then select it again.`
+    : destination === "offline"
+      ? t`This comment would go to Overleaf, but ${name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again.`
+      : null;
   return (
     <div
       ref={popupRef}
@@ -73,14 +88,20 @@ export function PdfAnnotationComposer(props: {
         location={location}
         body={body}
         intent={intent}
-        error={error}
-        ready={Boolean(mapped)}
-        canRevise
+        error={error ?? notLive}
+        ready={Boolean(mapped) && !notLive}
+        canRevise={!toOverleaf}
+        overleaf={toOverleaf}
         onBodyChange={setBody}
         onIntentChange={setIntent}
         onCancel={() => props.onDismiss({ body, intent })}
         onSave={(revise) => {
           if (!mapped) return;
+          const destinationNow = rounds.pdfNoteDestination(mapped.path);
+          if (destinationNow === "other-file" || destinationNow === "offline") {
+            setDestinationAtSave(destinationNow);
+            return;
+          }
           if (rounds.createFromPdf(selection, mapped, body, intent, revise)) props.onDone();
           else setError(t`The source changed since the PDF was built. Build again, then annotate.`);
         }}

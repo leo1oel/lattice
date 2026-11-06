@@ -268,6 +268,7 @@ pub fn instantiate(
                 path: file.clone(),
                 name: file.clone(),
                 is_default: *file == item.root,
+                chosen: false,
             })
             .collect();
         manifest::write_manifest(&root, &manifest)?;

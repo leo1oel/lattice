@@ -52,7 +52,8 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     let adopted = !root.join(MANIFEST_PATH).exists();
     wide_event::record("adopted", adopted);
     let mut manifest = if adopted { adopt_folder(&root)? } else { read_manifest(&root)? };
-    if apply_tex_magic_comments(&root, &mut manifest)? {
+    let replaced = replace_missing_root(&root, &mut manifest);
+    if apply_tex_magic_comments(&root, &mut manifest)? || replaced {
         write_manifest(&root, &manifest)?;
     }
     if manifest.schema_version < MANIFEST_SCHEMA_VERSION {
@@ -203,6 +204,7 @@ fn make_default_root(manifest: &mut ProjectManifest, relative: &str, fallback_na
             path: relative.to_string(),
             name: document_name(relative, fallback_name),
             is_default: false,
+            chosen: false,
         });
         changed = true;
     }
@@ -210,6 +212,35 @@ fn make_default_root(manifest: &mut ProjectManifest, relative: &str, fallback_na
         let is_default = document.path == relative;
         changed |= document.is_default != is_default;
         document.is_default = is_default;
+        document.chosen &= is_default;
+    }
+    changed
+}
+
+/// In a project linked to Overleaf, a sync applies Overleaf's rename or delete
+/// of a root document (`main.tex` → `main_v2.tex`), which a local delete is
+/// refused. Still named here, it was restored into the editor and read as a
+/// file that is gone ("No such file or directory"). Overleaf's copy decides
+/// what exists, so the roots that are gone are dropped, and a default that went
+/// with them, or a list left empty, is filled: by Overleaf's main document as
+/// the live channel last reported it, then by what a folder opened for the
+/// first time would detect.
+/// A local folder keeps an absent root: mid-checkout or on another branch it
+/// is still the writer's setting, and the build says which file is missing.
+fn replace_missing_root(root: &Path, manifest: &mut ProjectManifest) -> bool {
+    let exists = |relative: &str| safe_path(root, relative).is_ok_and(|path| path.is_file());
+    let Some(reported) = crate::overleaf::reported_root_document(root) else { return false };
+    let default_missing =
+        default_root_document(manifest).is_some_and(|document| !exists(&document.path));
+    let listed = manifest.root_documents.len();
+    manifest.root_documents.retain(|document| exists(&document.path));
+    let mut changed = manifest.root_documents.len() != listed;
+    if default_missing || manifest.root_documents.is_empty() {
+        if let Some(replacement) =
+            reported.filter(|path| exists(path)).or_else(|| detect_root_document(root))
+        {
+            changed |= make_default_root(manifest, &replacement, "Root");
+        }
     }
     changed
 }
@@ -414,6 +445,30 @@ pub fn set_compile_root(root: &Path, path: &str) -> Result<ProjectManifest, Stri
     make_default_root(&mut manifest, &relative, &relative);
     write_manifest(root, &manifest)?;
     Ok(manifest)
+}
+
+/// Set as main document: `path` becomes the default, and stays it while it is
+/// on disk whichever file is open when building (see `main_document_chosen`).
+pub fn choose_root_document(root: &Path, path: &str) -> Result<ProjectManifest, String> {
+    let relative = path.trim().replace('\\', "/");
+    let mut manifest = read_manifest(root)?;
+    make_default_root(&mut manifest, &relative, &relative);
+    for document in &mut manifest.root_documents {
+        document.chosen = document.is_default;
+    }
+    write_manifest(root, &manifest)?;
+    Ok(manifest)
+}
+
+/// Whether the default is one the writer chose (Set as main document) and is
+/// still on disk; then only a one-off build compiles anything else.
+pub fn main_document_chosen(root: &Path) -> bool {
+    read_manifest(root)
+        .ok()
+        .and_then(|manifest| {
+            default_root_document(&manifest).filter(|document| document.chosen).cloned()
+        })
+        .is_some_and(|document| safe_path(root, &document.path).is_ok_and(|path| path.is_file()))
 }
 
 /// Pick the best root `.tex` for foreign / Overleaf-style trees.

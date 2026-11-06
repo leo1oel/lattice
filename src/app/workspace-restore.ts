@@ -75,9 +75,9 @@ export function planWorkspaceRestore(
   const paperKeys = new Set(papers.filter((paper) => paper.hasBlog || paper.hasFullText)
     .map((paper) => paperTabKey(paper.arxivId)));
   const validTab = (path: string) => sourcePaths.has(path) || assetPaths.has(path) || paperKeys.has(path);
-  const rootDocument = rootDocuments.find((document) => document.path === "main.tex")
-    ?? rootDocuments.find((document) => document.isDefault)
-    ?? rootDocuments[0];
+  // The document builds compile, whatever it is called: a project whose
+  // Overleaf main document is main_v2.tex opens on that, not on a main.tex.
+  const rootDocument = rootDocuments.find((document) => document.isDefault) ?? rootDocuments[0];
   // In place of a Paper that can no longer be read, open the project's root
   // document rather than whichever file happened to sit behind the Paper.
   const unreadablePaper = Boolean(layout?.activeTab && isPaperTabKey(layout.activeTab) && !paperKeys.has(layout.activeTab));

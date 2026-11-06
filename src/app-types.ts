@@ -10,6 +10,8 @@ type RootDocument = {
   path: string;
   name: string;
   isDefault: boolean;
+  /** The writer chose this default (Set as main document): builds compile it whichever file is open. */
+  chosen?: boolean;
 };
 
 export type ProjectVenue =

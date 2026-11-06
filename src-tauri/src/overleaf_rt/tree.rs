@@ -6,7 +6,8 @@
 //! path. So the only way to keep a path→document map current without
 //! re-reading the project is to hold the tree itself and resolve paths from it.
 
-use super::events::{DocEntry, EntityEntry, Permission};
+use super::events::{DocEntry, EntityEntry, Permission, RealtimeEvent};
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -36,6 +37,33 @@ struct TreeNode {
 pub(super) struct Tree {
     nodes: HashMap<String, TreeNode>,
     pub root: String,
+    /// The id of the project's main document, which `joinProject` names as
+    /// `rootDoc_id` and `rootDocUpdated` changes.
+    root_doc: Option<String>,
+}
+
+/// What `joinProject` told us about the project.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectTree {
+    pub root_folder_id: String,
+    pub docs: Vec<DocEntry>,
+    /// Everything in the project, so a file can be acted on by id.
+    pub entities: Vec<EntityEntry>,
+    /// The project's main document (`rootDoc_id`), the file Overleaf compiles,
+    /// as a path; `None` when it names no document in the tree.
+    pub root_document: Option<String>,
+    /// Our own Overleaf account id, echoed back so the app can name itself in
+    /// the per-account settings Overleaf stores.
+    pub user_id: Option<String>,
+    /// What this account may do to the project. The connect answer carries
+    /// it: without it the app read `undefined` and overwrote what the
+    /// projectJoined event had established, so a reviewer's first keystroke
+    /// went out as a plain edit, the server refused it, and live editing died.
+    pub permission: Permission,
+    /// Whether edits should be recorded as suggestions rather than applied
+    /// outright, for this account.
+    pub track_changes: bool,
 }
 
 impl Tree {
@@ -43,6 +71,7 @@ impl Tree {
         let mut tree = Tree {
             nodes: HashMap::new(),
             root: root.get("_id").and_then(Value::as_str).unwrap_or_default().to_string(),
+            root_doc: None,
         };
         tree.absorb(root, None, 0);
         tree
@@ -126,6 +155,25 @@ impl Tree {
         entities.map(|entity| DocEntry { id: entity.id, path: entity.path }).collect()
     }
 
+    /// The main document's path, while it is a document in the tree.
+    pub fn root_document(&self) -> Option<String> {
+        let id = self.root_doc.as_deref()?;
+        (self.nodes.get(id)?.kind == NodeKind::Doc).then(|| self.path_of(id)).flatten()
+    }
+
+    pub fn set_root_doc(&mut self, id: Option<&str>) -> bool {
+        let changed = self.root_doc.as_deref() != id;
+        self.root_doc = id.map(str::to_string);
+        changed
+    }
+
+    /// The tree as the app is told it changed: every document and entity, and
+    /// the main document, which a rename or move of it changes too.
+    pub fn changed(&self) -> RealtimeEvent {
+        let (docs, entities) = (self.docs(), self.entities());
+        RealtimeEvent::TreeChanged { docs, entities, root_document: self.root_document() }
+    }
+
     pub fn rename(&mut self, id: &str, name: &str) -> bool {
         self.nodes.get_mut(id).map(|node| node.name = name.to_string()).is_some()
     }
@@ -189,5 +237,49 @@ pub(super) fn parse_project(body: &[Value]) -> Result<(Tree, Permission, Option<
         return Err("Overleaf's root folder has no id.".to_string());
     }
     let track_changes = project.get("trackChangesState").cloned();
-    Ok((Tree::from_root(root), permission, track_changes))
+    let mut tree = Tree::from_root(root);
+    tree.set_root_doc(project.get("rootDoc_id").and_then(Value::as_str));
+    Ok((tree, permission, track_changes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::tests::project_tree;
+    use super::*;
+    use serde_json::json;
+
+    fn joined(root_doc: Value) -> Tree {
+        let mut project = project_tree();
+        project["rootDoc_id"] = root_doc;
+        parse_project(&[project, json!("owner")]).unwrap().0
+    }
+
+    /// The main document is named by id, so a rename or move in the browser
+    /// changes its path without any event that mentions it.
+    #[test]
+    fn the_main_document_is_followed_by_id_through_renames_and_settings_changes() {
+        let mut tree = joined(json!("doc-1"));
+        assert_eq!(tree.root_document().as_deref(), Some("main.tex"));
+
+        assert!(tree.rename("doc-1", "main_v2.tex"));
+        let RealtimeEvent::TreeChanged { root_document, .. } = tree.changed() else { panic!() };
+        assert_eq!(root_document.as_deref(), Some("main_v2.tex"));
+
+        // `rootDocUpdated`: someone chose another main document.
+        assert!(tree.set_root_doc(Some("doc-2")));
+        assert!(!tree.set_root_doc(Some("doc-2")), "the same choice again changes nothing");
+        assert_eq!(tree.root_document().as_deref(), Some("sections/intro.tex"));
+
+        // Deleted, it names nothing rather than a path that is gone.
+        assert!(tree.remove("folder-1"));
+        assert_eq!(tree.root_document(), None);
+    }
+
+    #[test]
+    fn a_main_document_that_is_no_document_names_nothing() {
+        // A binary file, an id the tree never held, or none at all.
+        for root_doc in [json!("file-1"), json!("doc-unknown"), Value::Null] {
+            assert_eq!(joined(root_doc.clone()).root_document(), None, "{root_doc}");
+        }
+    }
 }

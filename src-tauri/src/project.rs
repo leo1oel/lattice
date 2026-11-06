@@ -88,8 +88,9 @@ pub use linked_bibliography::{
 };
 pub(crate) use manifest::ensure_ignore_line;
 pub use manifest::{
-    classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_manifest,
-    resolve_compile_root, set_compile_root, tex_program_engine,
+    choose_root_document, classify_open_error, has_latexmkrc, latexmk_engine_arg,
+    main_document_chosen, open, read_manifest, resolve_compile_root, set_compile_root,
+    tex_program_engine,
 };
 pub use manifest_settings::{
     set_deadline, set_grammar_ignores, set_spelling_words, set_submission_items,

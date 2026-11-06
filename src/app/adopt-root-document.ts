@@ -9,7 +9,9 @@ import { baseName } from "../lib/base-name";
 export function adoptRootDocument(project: ProjectSnapshot, rootDocument: string): ProjectSnapshot {
   const documents = project.manifest.rootDocuments;
   if (documents.some((document) => document.isDefault && document.path === rootDocument)) return project;
-  const rootDocuments = documents.map((document) => ({ ...document, isDefault: document.path === rootDocument }));
+  const rootDocuments: typeof documents = documents.map((document) => ({
+    ...document, isDefault: document.path === rootDocument, chosen: document.chosen && document.path === rootDocument,
+  }));
   if (!documents.some((document) => document.path === rootDocument)) {
     const stem = baseName(rootDocument).replace(/\.tex$/i, "");
     rootDocuments.push({ path: rootDocument, name: stem || rootDocument, isDefault: true });
