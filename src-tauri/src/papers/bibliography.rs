@@ -1,6 +1,6 @@
-//! Running bibcite, and the edits it makes to the primary bibliography:
-//! removing a reference (optionally with its manuscript citations) and
-//! upgrading preprints to their publications.
+//! Running bibcite, and the edits made to the primary bibliography: removing
+//! a reference (optionally with its manuscript citations), which cuts out only
+//! that entry's text, and upgrading preprints to their publications.
 //!
 //! bibcite always works on a scratch copy; nothing reaches the project until
 //! the result has been checked and is committed through `commit_bibliography`
@@ -209,40 +209,30 @@ pub enum CitationRemovalMode {
     Remove,
 }
 
-/// Remove the primary bibliography entry for `key`, retaining any downloaded
-/// cache.
+/// Remove the primary bibliography entry for `key` through a citation
+/// transaction History can undo, retaining any downloaded cache. Only the
+/// writer asks for this, from the interface.
 pub fn remove_reference(
-    root: &Path, key: &str, history: HistoryMode, mode: CitationRemovalMode,
+    root: &Path, key: &str, mode: CitationRemovalMode,
 ) -> Result<RemoveResult, String> {
     let key = key.trim();
     if key.is_empty() {
         return Err("Enter a citation key to remove.".to_string());
     }
-    let blockers = project::find_citation_usages(root, key)?;
-    if mode == CitationRemovalMode::Preview
-        || (!blockers.is_empty() && mode == CitationRemovalMode::Block)
-    {
-        return Ok(RemoveResult { key: key.to_string(), blockers, ..RemoveResult::default() });
-    }
     let manifest = project::read_manifest(root)?;
     let path = project::safe_path(root, &manifest.primary_bibliography)?;
     let before = fs::read_to_string(&path).unwrap_or_default();
-    let exact_key = project::parse_bibliography(&before)
+    let (exact_key, start, end) = project::bibliography_entry_spans(&before)
         .into_iter()
-        .find(|entry| entry.key.eq_ignore_ascii_case(key))
-        .map(|entry| entry.key)
+        .find(|(entry, _, _)| entry.eq_ignore_ascii_case(key))
         .ok_or_else(|| format!("Citation key `{key}` is not in the primary bibliography."))?;
-    let after = {
-        let scratch = ScratchBibliography::new("lattice-remove", Some(&before))?;
-        let mut command = commands::BIBCITE.command()?;
-        let stdout = run_bibcite(
-            "bibcite",
-            command.arg("remove").arg("--no-tidy").arg(&scratch.path).arg(&exact_key),
-        )?;
-        parse_report(&stdout)?;
-        run_bibcite_tidy(&scratch.path)?;
-        scratch.read()?
-    };
+    let blockers = project::find_citation_usages(root, &exact_key)?;
+    if mode == CitationRemovalMode::Preview
+        || (!blockers.is_empty() && mode == CitationRemovalMode::Block)
+    {
+        return Ok(RemoveResult { key: exact_key, blockers, ..RemoveResult::default() });
+    }
+    let after = without_entry(&before, start, end);
     let (mut file_edits, removed_citations) = if mode == CitationRemovalMode::Remove {
         project::remove_citation_usages(root, &exact_key)?
     } else {
@@ -258,29 +248,12 @@ pub fn remove_reference(
         })
         .collect::<Vec<_>>();
     let changed_files = changes.iter().map(|change| change.path.clone()).collect();
-    let transaction_id = match history {
-        HistoryMode::Record => project::apply_citation_transaction_checked(
-            root,
-            &format!("Remove {exact_key}"),
-            file_edits,
-        )?
-        .map(|record| record.id),
-        HistoryMode::Defer => {
-            for (relative, before, _) in &file_edits {
-                let current =
-                    fs::read_to_string(project::safe_path(root, relative)?).map_err(err)?;
-                if current != *before {
-                    return Err(format!(
-                        "Cannot remove the reference because {relative} changed. Try again."
-                    ));
-                }
-            }
-            for (relative, _, contents) in file_edits {
-                fs::write(project::safe_path(root, &relative)?, contents).map_err(err)?;
-            }
-            None
-        }
-    };
+    let transaction_id = project::apply_citation_transaction_checked(
+        root,
+        &format!("Remove {exact_key}"),
+        file_edits,
+    )?
+    .map(|record| record.id);
     Ok(RemoveResult {
         key: exact_key,
         removed: true,
@@ -290,6 +263,24 @@ pub fn remove_reference(
         transaction_id,
         changes,
     })
+}
+
+/// The bibliography without the entry at `start..end` and the blank lines
+/// after it; every other byte stays. Not bibcite: its `remove` rewrites every
+/// entry (sorted fields, rebraced values) and its tidy drops fields such as
+/// volume and pages across the whole file, so deleting one reference lost
+/// metadata in the others and Check references saw every entry as changed.
+fn without_entry(bibliography: &str, start: usize, end: usize) -> String {
+    let rest = bibliography[end..].trim_start_matches([' ', '\t', '\r', '\n']);
+    let mut kept = format!("{}{rest}", &bibliography[..start]);
+    if rest.is_empty() {
+        // The last entry went: so does the separator that preceded it.
+        kept.truncate(kept.trim_end().len());
+        if !kept.is_empty() {
+            kept.push_str(if bibliography.contains("\r\n") { "\r\n" } else { "\n" });
+        }
+    }
+    kept
 }
 
 /// Upgrade preprints to their publications. Only the agent asks for this, and
@@ -379,13 +370,13 @@ mod tests {
     use super::*;
     use crate::papers::test_support::TestProject;
     #[cfg(unix)]
-    use crate::papers::test_support::{fake_bibcite, tool_lock, write_test_tool, ToolOverride};
+    use crate::papers::test_support::{tool_lock, write_test_tool, ToolOverride};
     #[cfg(unix)]
     use crate::test_support::TempDir;
     use CitationRemovalMode::*;
 
     fn remove(project: &TestProject, key: &str, mode: CitationRemovalMode) -> RemoveResult {
-        remove_reference(&project.root, key, HistoryMode::Record, mode).unwrap()
+        remove_reference(&project.root, key, mode).unwrap()
     }
 
     #[test]
@@ -449,16 +440,13 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
     #[test]
     fn remove_can_keep_or_delete_manuscript_citations() {
-        let _lock = tool_lock();
         let project = TestProject::new(concat!(
             "@article{first, title={First}}\n",
             "@article{target, title={Target}, eprint={2401.00001}}\n",
             "@article{last, title={Last}}\n",
         ));
-        let _bibcite = ToolOverride::set(&commands::BIBCITE, &fake_bibcite(&project.parent));
         let manuscript = concat!(
             "% Example only: \\cite{target}\n",
             "Inline example: \\verb|\\cite{target}|.\n",
@@ -500,6 +488,33 @@ mod tests {
         assert_eq!(kept.changed_files, ["references.bib"]);
         assert_eq!(fs::read_to_string(&main).unwrap(), edited);
         assert!(!project.bibliography().contains("first"));
+    }
+
+    /// Removing one entry leaves every other byte as the writer wrote it:
+    /// field order, spacing, bare numbers and fields bibcite's tidy drops.
+    /// Check references keys its saved results on that text.
+    #[test]
+    fn remove_cuts_out_only_that_entry() {
+        let first = "@article{vaswani2017attention,\n  title={Attention is all you need},\n  journal={NeurIPS},\n  volume={30},\n  year={2017}\n}";
+        let middle = "@misc{teoh2025nextlatent,\n  title = {Next latent prediction},\n  eprint = {2501.00001}\n}";
+        let last = "@inproceedings{he2016deep,\n  author = {He, Kaiming},\n  year = 2016,\n  pages = {770--778}\n}";
+        for (contents, key, expected) in [
+            (
+                format!("% Shared library\n{first}\n\n{middle}\n\n{last}\n"),
+                "teoh2025nextlatent",
+                format!("% Shared library\n{first}\n\n{last}\n"),
+            ),
+            (format!("{first}\n\n{middle}\n"), "TEOH2025nextlatent", format!("{first}\n")),
+            (format!("{middle}\n\n{last}\n"), "teoh2025nextlatent", format!("{last}\n")),
+            (format!("{first}\r\n\r\n{middle}\r\n"), "teoh2025nextlatent", format!("{first}\r\n")),
+            (format!("{middle}\n"), "teoh2025nextlatent", String::new()),
+        ] {
+            let project = TestProject::new(&contents);
+            let result = remove(&project, key, Block);
+            assert!(result.removed, "{contents}");
+            assert_eq!(result.key, "teoh2025nextlatent");
+            assert_eq!(project.bibliography(), expected, "{contents}");
+        }
     }
 
     #[test]

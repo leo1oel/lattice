@@ -5,7 +5,7 @@ use super::{current_root, in_project, pinned_root, run_blocking, scoped_root};
 use crate::agent_literature::AgentBibliographyMutation;
 use crate::app_state::{AppState, Lease};
 use crate::models::ResolvedCitation;
-use crate::papers::{self, CitationRemovalMode, HistoryMode};
+use crate::papers::{self, CitationRemovalMode};
 use crate::{citation_audit, project};
 use serde_json::Value;
 use std::path::PathBuf;
@@ -88,7 +88,7 @@ pub async fn remove_reference(
             Some("remove") => CitationRemovalMode::Remove,
             Some(_) => return Err("Choose whether to keep or remove manuscript citations.".into()),
         };
-        papers::remove_reference(&root, &key, HistoryMode::Record, mode)
+        papers::remove_reference(&root, &key, mode)
     })
     .await
 }

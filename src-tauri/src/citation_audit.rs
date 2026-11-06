@@ -67,6 +67,10 @@ pub struct AuditEntry {
     /// report can open it in the editor.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
+    /// `bibtex`'s content apart from formatting (`content_fingerprint`): a
+    /// saved result still holds while it matches.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub fingerprint: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

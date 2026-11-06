@@ -466,6 +466,24 @@ it("invalidates changed snapshots on reopen and never offers the stale proposal"
   expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
 });
 
+it("after an edit, checks only the new or changed references and keeps the rest", async () => {
+  const checked = { status: "checked", message: "No update found.", before: "", changes: [] };
+  let current = entries.map(entry => ({ ...entry, fingerprint: entry.key }));
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: current, issues: [] } : checked);
+  const view = await renderChecked();
+  await screen.findByText("All 3 references verified");
+  view.rerender(<BibliographyAudit {...view.props} open={false} />);
+  // key0 reformatted, key1 edited, key2 removed, key3 added.
+  current = [{ ...current[0], bibtex: "@article{key0,\n  title = {Paper 0},\n}" }, { ...current[1], bibtex: "@article{key1,title={Edited}}", fingerprint: "edited" },
+    { path: "refs3.bib", key: "key3", title: "Paper 3", bibtex: "@article{key3,title={Paper 3}}", issues: [], fingerprint: "key3" }];
+  vi.mocked(invoke).mockClear();
+  view.rerender(<BibliographyAudit {...view.props} />);
+  await screen.findByText("2 references are new or changed since the last check. The others keep their results.");
+  fireEvent.click(screen.getByRole("button", { name: "Check 2 references" }));
+  await screen.findByText("All 3 references verified");
+  expect(calls("bibliography_audit_entry").map(([, args]) => (args as { entry: AuditEntry }).entry.key)).toEqual(["key1", "key3"]);
+});
+
 it("preserves applied status against the post-apply snapshot", async () => {
   let currentEntries = entries.slice(0, 1);
   vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan" ? { entries: currentEntries, issues: [] } : updated);

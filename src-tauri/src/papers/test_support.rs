@@ -93,7 +93,7 @@ pub(super) fn write_test_tool(path: &Path, contents: &str) {
 
 /// `bibcite` is an integration boundary, not the behavior under test in the
 /// project-transaction cases. Keep those tests hermetic while preserving the
-/// exact add/remove/tidy command shapes production uses.
+/// exact add/tidy command shapes production uses.
 #[cfg(unix)]
 pub(super) fn fake_bibcite(parent: &Path) -> PathBuf {
     let path = parent.join("fake-bibcite");
@@ -112,13 +112,6 @@ pub(super) fn fake_bibcite(parent: &Path) -> PathBuf {
             "}\n",
             "BIB\n",
             "    printf '{\"key\": \"stub2024\"}\\n'\n",
-            "    ;;\n",
-            // Fixture entries sit on one line, so dropping the entry is
-            // dropping the line that opens it.
-            "  remove)\n",
-            "    grep -iv \"^@[a-z]*{$4,\" \"$3\" > \"$3.tmp\" || true\n",
-            "    mv \"$3.tmp\" \"$3\"\n",
-            "    printf '{\"key\": \"%s\"}\\n' \"$4\"\n",
             "    ;;\n",
             "  tidy) ;;\n",
             "  *) exit 2 ;;\n",

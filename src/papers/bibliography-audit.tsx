@@ -23,7 +23,8 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { comboKeys, parseKeyName } from "../app/key-combos";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useProgressiveRows } from "../hooks/use-progressive-rows";
-import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } from "./bibliography-audit-storage";
+import { loadAuditReport, saveAuditReport } from "./bibliography-audit-storage";
+import { auditKey, auditReport, carryOver } from "./audit-carry-over";
 import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, auditSourceOutcome, type CodedAuditIssue } from "./audit-messages";
 import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-check-keys";
 import { bibFieldName, correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
@@ -33,9 +34,10 @@ import { mediaQueryStore } from "../lib/media-query-store";
 
 /**
  * `inline` is the `\bibitem` as written in a root document's own reference
- * list: checked, never rewritten. `line` is where the entry or item starts.
+ * list: checked, never rewritten. `line` is where the entry or item starts;
+ * `fingerprint`, what it says apart from formatting (audit-carry-over.ts).
  */
-export type AuditEntry = { path: string; key: string; title: string; bibtex: string; issues: string[]; inline?: string; line?: number };
+export type AuditEntry = { path: string; key: string; title: string; bibtex: string; issues: string[]; inline?: string; line?: number; fingerprint?: string };
 /** A file the scan read references from: a `.bib` file or a root document's inline list. */
 type AuditCoverage = { path: string; kind: "bibliography" | "inline"; entries: number };
 type AuditScan = { entries: AuditEntry[]; issues: ({ path: string; key?: string } & CodedAuditIssue)[]; coverage?: AuditCoverage[] };
@@ -79,36 +81,6 @@ const ACTIONABLE = new Set<Bucket>(["fix", "review"]);
 const AUDIT_ROW_HEIGHT = 54;
 /** A row's status mark: its bucket, or the check running on it right now. */
 type Mark = Bucket | "checking";
-
-/** Results follow an entry across rescans by its file and citation key. */
-const auditKey = (entry: AuditEntry) => `${entry.path}\0${entry.key}`;
-
-function auditReport(scan: AuditScan, results: Record<number, AuditResult>, applied: Set<number>, kept: Set<number>): AuditReport {
-  return scan.entries.flatMap((entry, index) => results[index]
-    ? [[auditKey(entry), { snapshot: entry.bibtex, result: results[index], applied: applied.has(index), ...(kept.has(index) ? { kept: true } : {}) }]]
-    : []);
-}
-
-/**
- * Carries prior results over to a fresh scan while an entry's BibTeX is
- * unchanged; `changed` decides what an edited entry shows instead.
- */
-function carryOver(entries: AuditEntry[], prior: Map<string, SavedAudit>, changed?: (entry: AuditEntry, saved: SavedAudit) => AuditResult) {
-  const results: Record<number, AuditResult> = {};
-  const applied = new Set<number>();
-  const kept = new Set<number>();
-  entries.forEach((entry, index) => {
-    const saved = prior.get(auditKey(entry));
-    if (saved?.snapshot === entry.bibtex) {
-      results[index] = saved.result;
-      if (saved.applied) applied.add(index);
-      if (saved.kept) kept.add(index);
-    } else if (saved && changed) {
-      results[index] = changed(entry, saved);
-    }
-  });
-  return { results, applied, kept };
-}
 
 /** Without each index in `indexes`: a fresh result replaces what the writer did with the old one. */
 const without = (indexes: Iterable<number>) => (previous: Set<number>) => {
@@ -182,7 +154,7 @@ export function BibliographyAudit(props: {
   useEffect(() => {
     if (!scan || loading) return;
     let disposed = false;
-    void saveAuditReport(props.projectRoot, auditReport(scan, results, applied, kept)).then(
+    void saveAuditReport(props.projectRoot, auditReport(scan.entries, results, applied, kept)).then(
       () => { if (!disposed) setStorageFailed(false); },
       () => { if (!disposed) setStorageFailed(true); },
     );
@@ -209,7 +181,7 @@ export function BibliographyAudit(props: {
       setScan(next);
       const indexesToCheck = next.entries.flatMap((entry, index) => !requested || requested.has(auditKey(entry)) ? [index] : []);
       setCheckCount(indexesToCheck.length);
-      const retained = carryOver(next.entries, new Map(auditReport(scan, results, applied, kept)));
+      const retained = carryOver(next.entries, new Map(auditReport(scan.entries, results, applied, kept)));
       setResults(retained.results); setApplied(retained.applied); setKept(retained.kept); setSelected(new Set());
       let s2Failure: S2BatchStatus | undefined;
       // Twenty keeps cancellation responsive and fits the health-cache refresh
@@ -509,6 +481,9 @@ export function BibliographyAudit(props: {
     fix: t`Fixes to review`, review: t`Need your eyes`, incomplete: t`Inconclusive`,
     unchecked: t`Not checked yet`, kept: t`Kept as written`, verified: t`Verified`,
   };
+  // New or edited since the last check (a result nothing carried over, or
+  // "Entry changed"): checking only these brings the report up to date.
+  const outdated = scan && !busy && Object.keys(results).length ? scan.entries.flatMap((_, index) => results[index]?.status !== "conflict" && results[index] ? [] : [index]) : [];
   const coverage = scan?.coverage ?? [];
   const lastChecked = Object.values(results).map(result => result.checkedAt ?? "").filter(Boolean).sort().at(-1);
 
@@ -755,7 +730,10 @@ export function BibliographyAudit(props: {
         <div className="bibliography-audit-actions">
           {busy
             ? <Button size="compact" variant="ghost" disabled={stopping} onClick={() => { run.current.stop = true; cancelWait.current(); setStopping(true); }}>{stopping ? t`Stopping…` : t`Cancel check`}</Button>
-            : <Button size="compact" variant="ghost" onClick={() => void start()} disabled={!scan || loading || applying !== null}><RotateCcw size={12} aria-hidden="true" />{counts.unchecked === total ? t`Check all` : t`Check again`}</Button>}
+            : <>
+              {outdated.length > 0 && outdated.length < total && <Button size="compact" variant="ghost" onClick={() => void start(outdated)} disabled={loading || applying !== null}>{outdated.length === 1 ? t`Check 1 reference` : t`Check ${outdated.length} references`}</Button>}
+              <Button size="compact" variant="ghost" onClick={() => void start()} disabled={!scan || loading || applying !== null}><RotateCcw size={12} aria-hidden="true" />{counts.unchecked === total ? t`Check all` : t`Check again`}</Button>
+            </>}
           {updates.length > 0 && !busy && <Button size="compact" variant="tinted" disabled={applying !== null} onClick={() => void apply(updates, -1)}>
             {applying === -1 ? <InfinityLoader size={12} /> : <Check size={12} aria-hidden="true" />}{updates.length === 1 ? t`Apply 1 fix` : t`Apply ${updates.length} fixes`}
           </Button>}
@@ -770,6 +748,9 @@ export function BibliographyAudit(props: {
         </Fragment>)}
         {lastChecked && !busy && <>{coverage.length > 0 && comma()}{t`checked`} <time dateTime={lastChecked}>{new Date(lastChecked).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" })}</time></>}
       </p>}
+      {outdated.length > 0 && outdated.length < total && <p className="bibliography-audit-coverage" role="status">{outdated.length === 1
+        ? t`1 reference is new or changed since the last check. The others keep their results.`
+        : t`${outdated.length} references are new or changed since the last check. The others keep their results.`}</p>}
       {waitingForS2 && <p className="bibliography-audit-coverage" role="status">{t`Partial results for ${completed} of ${progressTotal} references, waiting for Semantic Scholar…`}</p>}
       {/* True while the project stays open: the sheet stays mounted when closed (see above). */}
       {busy && <p className="bibliography-audit-coverage">{t`Closing this window does not stop the check. It keeps running in the background, and the results wait here.`}</p>}

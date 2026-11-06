@@ -221,9 +221,11 @@ $LATTICE_BIN literature '{"tool":"search_literature","params":{"query":"…"}}'
 ```
 
 The dispatcher is `enum LiteratureRequest` (`agent_literature.rs`,
-`#[serde(tag = "tool", content = "params")]`) with **8** variants:
+`#[serde(tag = "tool", content = "params")]`) with **7** variants:
 `search_literature`, `fetch_paper`, `list_papers`, `search_library`,
-`fetch_web_reference`, `cite`, `upgrade_bibliography`, `remove_reference`.
+`fetch_web_reference`, `cite`, `upgrade_bibliography`. The agent's
+`remove_reference` deletes nothing itself: the app answers it and asks the
+writer (`src/agent/agent-reference-removal.ts`).
 Success prints JSON to stdout and exits 0; an error prints to stderr and exits
 1; a bad payload or missing `LATTICE_PROJECT_ROOT` exits 2.
 
