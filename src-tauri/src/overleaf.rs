@@ -29,7 +29,8 @@
 //!   use `folder_id=<root>` and the project-relative path verbatim. Overleaf
 //!   creates missing subfolders for nested relative paths.
 //!
-//! Layout: `account` is the signed-in session, `link` the persisted link
+//! Layout: `account` is the signed-in session, `projects` what it can open
+//! (the project list, pending invitations, a pasted link), `link` the persisted link
 //! between a folder and a project (and how one is made), `files` the local
 //! side of sync and its merge bases, `sync` the ZIP-based sync, preview and
 //! probe, `review` chat, comments, history and tracked changes, and `api` the
