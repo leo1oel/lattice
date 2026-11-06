@@ -6,8 +6,11 @@
 import { Suspense, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import type { EditorView } from "@codemirror/view";
+import type { PaperSummary } from "../app-types";
 import type { DocumentCanvasProps } from "./canvas-model";
 import { BibVisualEditor, MarkdownPreviewLoading } from "./canvas-lazy-editors";
+
+const NO_PAPERS: PaperSummary[] = [];
 
 export function BibPreview({ canvas, path, sourceView, cursorRef, onChange, onUndo, onRedo, onActivate }: {
   canvas: DocumentCanvasProps;
@@ -32,7 +35,7 @@ export function BibPreview({ canvas, path, sourceView, cursorRef, onChange, onUn
           source={document.source}
           projectRoot={canvas.preferences.projectRoot}
           editable={document.editorEditable}
-          papers={bibliography.papers ?? []}
+          papers={bibliography.papers ?? NO_PAPERS}
           paperFetchStates={bibliography.paperFetchStates}
           sourceView={sourceView}
           cursorRef={cursorRef}

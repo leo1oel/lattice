@@ -1,4 +1,5 @@
-import { projectCommands, projectSnapshot, refreshableProject, expectEditorText, expectInvoked, pause, SINGLE_TRANSFORMER } from "./app-test-utils";
+import { deferred, fileNode, openTreeFile, projectCommands, projectSnapshot, refreshableProject, expectEditorText, expectInvoked, pause, SINGLE_TRANSFORMER } from "./app-test-utils";
+import { PAPER_TOOLS_MISSING } from "../build/tex-setup";
 import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 import type { EditorView } from "@codemirror/view";
@@ -116,5 +117,39 @@ describe("citation card in the source editor", () => {
     fireEvent.click(within(card).getByRole("button", { name: OPEN_PAPER }));
     await expectInvoked("fetch_paper", { arxivId: citedOnly.arxivId, requestId: expect.any(String) });
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(`https://arxiv.org/pdf/${citedOnly.arxivId}`));
+  });
+
+  it("leaves the browser alone when the failed download is no longer wanted, or needs the paper tools", async () => {
+    const citedOnly = { ...SINGLE_TRANSFORMER, hasFullText: false };
+    const downloads = [deferred<unknown>(), deferred<unknown>()];
+    let fetches = 0;
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: [fileNode("main.tex"), fileNode("notes.tex")] }), SOURCE),
+      list_citations: () => ({ skipped: [], citations: [{ ...CITATIONS.citations[0], arxivId: citedOnly.arxivId }] }),
+      list_papers: () => [citedOnly],
+      fetch_paper: () => downloads[fetches++].promise,
+      run_doctor: () => Promise.reject(new Error("no doctor here")),
+    });
+    const openCard = async (view: EditorView, fetch: number) => {
+      act(() => {
+        view.focus();
+        view.dispatch({ selection: { anchor: SOURCE.indexOf("chen") + 2 } });
+      });
+      fireEvent.click(within(await keyboardCard(view)).getByRole("button", { name: OPEN_PAPER }));
+      await waitFor(() => expect(fetches).toBe(fetch));
+    };
+    // The writer asks for the paper, then opens another file while arXiv is slow.
+    await openCard(await expectEditorText(SOURCE), 1);
+    await openTreeFile("notes.tex");
+    await act(async () => downloads[0].reject(new Error("arXiv is unreachable")));
+    await openTreeFile("main.tex");
+    expect(openUrl).not.toHaveBeenCalled();
+
+    // The paper tools are missing: their setup is offered, not the browser.
+    await openCard(await expectEditorText(SOURCE), 2);
+    await act(async () => downloads[1].reject(new Error(PAPER_TOOLS_MISSING)));
+    await expectInvoked("run_doctor");
+    await pause(50);
+    expect(openUrl).not.toHaveBeenCalled();
   });
 });

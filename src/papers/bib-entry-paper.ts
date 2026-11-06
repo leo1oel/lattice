@@ -6,6 +6,8 @@
  * own (usePaperActions' fetchAndOpenPaper, behind the host's `onOpenPaper`):
  * its progress is that panel's fetch state, and a failure is its error.
  */
+import { useEffect, useReducer } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary } from "../app-types";
 import { paperKey } from "../app-utils";
 import type { PaperFetchState } from "../project/paper-row";
@@ -20,12 +22,31 @@ export type EntryPaper = { paper: PaperSummary | null; state: EntryPaperState };
 
 export type PaperFetchStates = Readonly<Record<string, PaperFetchState>>;
 
+const NO_DOWNLOADS: PaperSummary[] = [];
+
 /**
- * The library's paper for the entry `key` (by citation key, else by arXiv
- * id or web address, as the library lists another .bib's downloaded
- * reference), else, for a reference of another .bib not downloaded yet, one
- * made from the entry itself, which the fetch takes as it takes a
- * citation-only row: by arXiv id or by web address.
+ * The papers a reference list opens: the library's, then the downloaded
+ * references of the project's other .bib files, which the library does not
+ * list. Those are read again whenever the library is, as every download ends.
+ */
+export function useBibliographyPapers(papers: PaperSummary[]): PaperSummary[] {
+  const [downloads, setDownloads] = useReducer((_: PaperSummary[], next: PaperSummary[]) => next, NO_DOWNLOADS);
+  useEffect(() => {
+    let disposed = false;
+    invoke<PaperSummary[]>("list_bibliography_downloads")
+      .then((rows) => { if (!disposed) setDownloads(rows); })
+      .catch(() => { if (!disposed) setDownloads(NO_DOWNLOADS); });
+    return () => { disposed = true; };
+  }, [papers]);
+  return downloads.length ? [...papers, ...downloads] : papers;
+}
+
+/**
+ * The paper for the entry `key` among `papers` (by citation key, else by
+ * arXiv id or web address, as another .bib's downloaded reference is listed),
+ * else, for a reference of another .bib not downloaded yet, one made from the
+ * entry itself, which the fetch takes as it takes a citation-only row: by
+ * arXiv id or by web address.
  */
 export function entryPaper(
   papers: readonly PaperSummary[],

@@ -3,6 +3,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { createRef, type ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary } from "../app-types";
 import { BibVisualEditor } from "./bib-visual-editor";
 
@@ -51,6 +52,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.mocked(invoke).mockImplementation(async () => []);
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -92,16 +94,21 @@ describe("BibVisualEditor / opening a reference's paper", () => {
     expect(onOpenPaper).toHaveBeenCalledWith(expect.objectContaining({ arxivId: "", url: "https://example.com/post" }));
   });
 
-  // As the library lists another .bib's reference once downloaded: keyless,
-  // under the arXiv work (no version) or the address it was captured from.
+  // As list_bibliography_downloads lists another .bib's reference once
+  // downloaded, apart from the library: keyless, under the arXiv work (no
+  // version) or the address it was captured from.
   it.each([
     ["preprint", preprint.replace("1706.03762", "1706.03762v5"), "Attention", { arxivId: "1706.03762", title: "Attention Is All You Need" }],
     ["web page", webPage, "Blog Post", { arxivId: "web-0123456789abcdef", url: "https://example.com/post", title: "A Blog Post" }],
-  ])("opens a downloaded %s of a .bib the library does not cite from", (_, source, title, listed) => {
+  ])("opens a downloaded %s of a .bib the library does not cite from", async (_, source, title, listed) => {
     const paper: PaperSummary = { ...listed, hasFullText: true, hasBlog: false };
-    const { onOpenPaper } = renderEditor(source, { papers: [paper] });
-    fireEvent.click(within(option(title)).getByRole("button", { name: "Open paper" }));
+    vi.mocked(invoke).mockImplementation(async (command) => (command === "list_bibliography_downloads" ? [paper] : []));
+    const { onOpenPaper } = renderEditor(source);
+    fireEvent.click(await within(option(title)).findByRole("button", { name: "Open paper" }));
     expect(onOpenPaper).toHaveBeenCalledWith(paper);
+    fireEvent.click(option(title));
+    fireEvent.click(detail().getByRole("button", { name: "Open paper" }));
+    expect(onOpenPaper).toHaveBeenLastCalledWith(paper);
   });
 
   it("says why there is nothing to open for a reference with only a DOI", () => {

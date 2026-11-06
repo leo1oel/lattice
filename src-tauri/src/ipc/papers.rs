@@ -155,6 +155,16 @@ pub async fn list_papers(
     .await
 }
 
+/// The downloaded references of the project's other `.bib` files, for their
+/// reference lists; the library (`list_papers`) does not list them.
+#[tauri::command]
+pub async fn list_bibliography_downloads(
+    state: State<'_, AppState>, window: Window,
+) -> Result<Vec<PaperSummary>, String> {
+    in_project(&state, &window, "Bibliography download scan", papers::list_bibliography_downloads)
+        .await
+}
+
 /// The Papers panel's background recheck of what `list_papers` returned with
 /// cached citation health: DOI → health, for the rows to merge in.
 #[tauri::command]

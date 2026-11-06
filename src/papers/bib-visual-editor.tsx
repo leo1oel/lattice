@@ -42,7 +42,7 @@ import { appendBibEntry, formatBibEntry } from "./bib-entry";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
 import { applyBibEdit, bibUnreadableReason, deleteEntryEdit, readBibDocument, summarizeEntries, type BibParseError, type BibSummary } from "./bib-document";
 import { EntryDetail, type Committed, type EntryEdit, type Row } from "./bib-entry-detail";
-import { entryPaper, type PaperFetchStates } from "./bib-entry-paper";
+import { entryPaper, useBibliographyPapers, type PaperFetchStates } from "./bib-entry-paper";
 import { BibRow } from "./bib-row";
 import { useBibSourceSync } from "./use-bib-source-sync";
 import "./bib-visual-editor.css";
@@ -139,6 +139,7 @@ function sortSurname(summary: BibSummary): string {
 export function BibVisualEditor(props: BibVisualEditorProps) {
   const { t } = useLingui();
   const { onChange, onUndo, onRedo } = props;
+  const papers = useBibliographyPapers(props.papers);
   // The file as it is now, for edits and for a toast's Undo long after the render that raised it.
   const latestRef = useLatestRef(props);
   // A deferred copy: typing in the source beside the list re-reads the file
@@ -238,7 +239,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
   });
   const openEntryPaper = (key: string) => {
     const row = rows.find((item) => item.entry.key === key);
-    const found = row && entryPaper(props.papers, key, row.summary, props.paperFetchStates);
+    const found = row && entryPaper(papers, key, row.summary, props.paperFetchStates);
     if (found?.paper && found.state !== "downloading") props.onOpenPaper(found.paper);
   };
 
@@ -556,7 +557,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
                   citedCount={usageOf(row.entry.key).length}
                   top={(first + offset) * rowHeight}
                   height={rowHeight}
-                  paperState={entryPaper(props.papers, row.entry.key, row.summary, props.paperFetchStates).state}
+                  paperState={entryPaper(papers, row.entry.key, row.summary, props.paperFetchStates).state}
                   onSelect={(key) => {
                     select(key);
                     showInSource(key);
@@ -588,6 +589,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
             <EntryDetail
               key={selected.entry.key}
               {...props}
+              papers={papers}
               row={selected}
               rows={rows}
               macros={parse.document.macros}

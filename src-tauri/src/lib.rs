@@ -505,6 +505,7 @@ pub fn run() {
             ipc::papers::paper_pdf_preview_url,
             ipc::papers::fetch_web_reference,
             ipc::papers::list_papers,
+            ipc::papers::list_bibliography_downloads,
             ipc::papers::refresh_citation_health,
             ipc::papers::search_paper_library,
             ipc::papers::read_paper,

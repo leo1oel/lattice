@@ -45,7 +45,8 @@ pub(crate) use citation::{
 pub(crate) use ids::{arxiv_base_id, explicit_arxiv_id};
 pub use import::import_reference;
 pub use library::{
-    list_library, list_papers, read_paper, read_paper_blog_local, refresh_citation_health,
+    list_bibliography_downloads, list_library, list_papers, read_paper, read_paper_blog_local,
+    refresh_citation_health,
 };
 pub use library_search::{refresh_search_index, search_library, search_library_text};
 pub use search_index::PaperTextMatch;

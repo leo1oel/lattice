@@ -37,7 +37,7 @@ export function usePaperActions({
   // the timer that clears its "success" glyph, by paper key.
   const paperFetches = useRef<{ requests: Record<string, string>; timers: Record<string, number> }>({ requests: {}, timers: {} });
 
-  /** Download `paper`'s text and open it; resolves false when the download failed (and said so). */
+  /** Download `paper`'s text and open it; resolves false when the download failed while still wanted (and said so). */
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary): Promise<boolean> => {
     if (!canDownloadPaper(paper)) {
       if (paper.url) await openUrl(paper.url).catch((reason: unknown) => showError(toMessage(reason)));
@@ -86,8 +86,12 @@ export function usePaperActions({
       delete fetches.requests[key];
       clearFetchState();
       const message = toMessage(reason);
-      if (isMissingPaperToolsError(message)) void openForMissingPaperTools(message);
-      else if (opening.isCurrent()) showError(message);
+      if (isMissingPaperToolsError(message)) {
+        void openForMissingPaperTools(message);
+        return true;
+      }
+      if (!opening.isCurrent()) return true;
+      showError(message);
       return false;
     }).finally(() => {
       if (!Object.keys(fetches.requests).length) clearImportStage();
