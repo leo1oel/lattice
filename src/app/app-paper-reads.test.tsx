@@ -1,4 +1,4 @@
-import { type Commands, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, papersList, openPaper, findProjectTreeItem, expectInvoked, invokeCalls, paneContent, visualEditorOf, fileNodes } from "./app-test-utils";
+import { type Commands, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, openPaper, findProjectTreeItem, expectInvoked, invokeCalls, paneContent, visualEditorOf, fileNodes, stubScrollBox } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 import { invoke } from "@tauri-apps/api/core";
@@ -107,21 +107,43 @@ describe("paper reads", () => {
     expect(screen.queryByRole("heading", { name: "Paper must stay closed" })).toBeNull();
   });
 
-  it("remembers the selected paper content when reopening an article", async () => {
+  // Captain: "第一次点开 paper, 应该默认显示全文并且滚动到最上面吧" — the first open of a Paper shows its full text, from the top.
+  it("opens a Paper on its full text and reopens one on the content last chosen for it", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot(), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper({ hasBlog: true }), { arxivId: "2407.06438", title: "Second paper", hasFullText: true, hasBlog: true }],
+      read_paper: PAPER_ABSTRACT, read_paper_blog_local: "# Paper overview\n\nBlog content.",
+    });
+    const selected = async (name: string) => waitFor(() => expect(
+      within(screen.getByRole("tablist", { name: "Paper content" })).getByRole("tab", { name }),
+    ).toHaveAttribute("aria-selected", "true"));
+    await openPaper("Attention Is All You Need");
+    await selected("Paper");
+    expect(await screen.findByRole("heading", { name: "Abstract" })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Paper content" })).getByRole("tab", { name: "Blog" }));
+    await selected("Blog");
+    // Another Paper's first open is still its full text.
+    await openPaper("Second paper");
+    await waitFor(() => expect(invokeCalls("read_paper")).toHaveLength(2));
+    await selected("Paper");
+    fireEvent.click(await findProjectTreeItem("main.tex"));
+    await openPaper("Attention Is All You Need");
+    await waitFor(() => expect(invokeCalls("read_paper")).toHaveLength(3));
+    await selected("Blog");
+  });
+
+  it("shows a reading file first opened from its top, not at the last one's scroll offset", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"), list_papers: () => [attentionPaper({ hasBlog: true })],
       read_paper: PAPER_ABSTRACT, read_paper_blog_local: "# Attention overview\n\nBlog content.",
     });
     await openPaper("Attention Is All You Need");
-    const paperContent = await screen.findByRole("tablist", { name: "Paper content" });
-    fireEvent.click(within(paperContent).getByRole("tab", { name: "Paper" }));
-    await waitFor(() => expect(within(paperContent).getByRole("tab", { name: "Paper" })).toHaveAttribute("aria-selected", "true"));
-    fireEvent.click(await findProjectTreeItem("main.tex"));
-    const paper = await (await papersList()).findByTitle("Attention Is All You Need");
-    await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
-    fireEvent.click(paper);
-    await waitFor(() => expect(invokeCalls("read_paper")).toHaveLength(2));
-    const reopenedPaperContent = await screen.findByRole("tablist", { name: "Paper content" });
-    await waitFor(() => expect(within(reopenedPaperContent).getByRole("tab", { name: "Paper" })).toHaveAttribute("aria-selected", "true"));
+    const viewport = (await screen.findByRole("heading", { name: "Abstract" })).closest<HTMLElement>('[data-testid="editor-scroll-container"]')!;
+    stubScrollBox(viewport, 600, 4800);
+    viewport.scrollTop = 1800;
+    fireEvent.scroll(viewport);
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Paper content" })).getByRole("tab", { name: "Blog" }));
+    const blogViewport = (await screen.findByRole("heading", { name: "Attention overview" })).closest<HTMLElement>('[data-testid="editor-scroll-container"]')!;
+    expect(blogViewport.scrollTop).toBe(0);
   });
 });

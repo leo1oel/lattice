@@ -3756,6 +3756,11 @@ msgstr "注释"
 msgid "Comments"
 msgstr "评论"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgctxt "margin review"
+msgid "Comments and suggestions on the lines you can see. Scroll to see others."
+msgstr "编辑器中当前可见的行上的评论和修订建议。滚动可查看其他内容。"
+
 #. placeholder {0}: knownAuthorName ?? ""
 #. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
@@ -6833,6 +6838,11 @@ msgstr "本文中"
 msgid "In use"
 msgstr "实际使用"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgctxt "margin review"
+msgid "In view"
+msgstr "当前可见"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "引入另一个 TeX 文件"
@@ -9545,11 +9555,6 @@ msgstr "针对“{0}”"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "位于行"
-
-#: src/overleaf/overleaf-margin-review.tsx
-msgctxt "margin review"
-msgid "On screen"
-msgstr "这一屏"
 
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"

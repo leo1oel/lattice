@@ -1191,9 +1191,10 @@ describe("Overleaf sync", () => {
   it.each([
     { cached: false, fallback: false }, { cached: true, fallback: false }, { cached: true, fallback: true },
   ])("opens an AlphaXiv overview and routes source links (%j)", async ({ cached, fallback }) => {
-    const url = "https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning";
+    const url = "https://www.alphaxiv.org/abs/2609.mimo";
     const citationUrl = `${url}.pdf#page=8`;
-    const paper = { arxivId: "web-0123456789abcdef", url, title: "MiMo-V2.6", hasFullText: fallback, hasBlog: cached };
+    const [quote, sentence] = ["We use a large … per sequence", "We use a large training set of many tokens per sequence"];
+    const paper = { arxivId: "web-0123", url, title: "MiMo-V2.6", hasFullText: fallback, hasBlog: cached };
     renderApp({
       ...refreshableProject(), list_papers: () => [{ ...paper }],
       fetch_web_reference: () => {
@@ -1201,22 +1202,24 @@ describe("Overleaf sync", () => {
         return { arxivId: paper.arxivId, paperPath: "", blogPath: `.research/papers/${paper.arxivId}/blog.md` };
       },
       read_paper: () => {
-        if (fallback) return "# Original full text\n\nWe use a large training dataset with many tokens per sequence";
+        if (fallback) return `# Original full text\n\n${sentence}`;
         throw new Error("Full text unavailable");
       },
       paper_pdf_preview_url: () => {
         if (fallback) throw new Error("PDF unavailable");
         return "http://127.0.0.1:3456/paper.pdf?token=test";
       },
-      read_paper_blog_local: () => `# MiMo overview\n\nTraining uses 1,568 prompts. [p8](${citationUrl} "We use a large training … tokens per sequence")`,
+      read_paper_blog_local: () => `# MiMo overview\n\nTraining uses 1,568 prompts. [p8](${citationUrl} "${quote}")`,
     });
     fireEvent.click(await screen.findByRole("button", { name: /^MiMo-V2\.6/ }));
+    if (fallback) fireEvent.click(await screen.findByRole("tab", { name: "Blog" }));
     expect(await screen.findByRole("heading", { name: "MiMo overview" })).toBeVisible();
     const citation = await screen.findByRole("link", { name: "p8" });
     expect(citation).toHaveAttribute("href", citationUrl);
-    expect(citation).toHaveAttribute("title", "We use a large training … tokens per sequence");
+    expect(citation).toHaveAttribute("title", quote);
     expect(screen.getByRole("button", { name: "View original PDF" })).toBeVisible();
-    const blogViewport = citation.closest<HTMLElement>('[data-testid="editor-scroll-container"]')!;
+    const scroller = (link: HTMLElement) => link.closest<HTMLElement>('[data-testid="editor-scroll-container"]')!;
+    const blogViewport = scroller(citation);
     stubScrollBox(blogViewport, 600, 2400);
     blogViewport.scrollTop = 735;
     fireEvent.scroll(blogViewport);
@@ -1224,13 +1227,13 @@ describe("Overleaf sync", () => {
     await expectInvoked("paper_pdf_preview_url", { url: `${url}.pdf` });
     if (fallback) {
       expect(await screen.findByRole("heading", { name: "Original full text" })).toBeVisible();
-      await waitFor(() => expect(window.getSelection()?.toString()).toBe("We use a large training dataset with many tokens per sequence"));
+      await waitFor(() => expect(window.getSelection()?.toString()).toBe(sentence));
     }
     expect(await screen.findByRole("button", { name: "Back to Blog" })).toBeVisible();
     expect(openUrl).not.toHaveBeenCalledWith(citationUrl);
     fireEvent.click(screen.getByRole("button", { name: "Back to Blog" }));
     expect(await screen.findByRole("heading", { name: "MiMo overview" })).toBeVisible();
-    const returnedViewport = screen.getByRole("link", { name: "p8" }).closest<HTMLElement>('[data-testid="editor-scroll-container"]')!;
+    const returnedViewport = scroller(screen.getByRole("link", { name: "p8" }));
     stubScrollBox(returnedViewport, 600, 2400);
     await waitFor(() => expect(returnedViewport.scrollTop).toBe(735));
     expect(invoke).not.toHaveBeenCalledWith("fetch_paper", expect.anything());

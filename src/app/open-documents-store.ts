@@ -28,7 +28,7 @@ export type OpenDocumentsState = {
   paperView: PaperView;
   paperMarkdown: string;
   savedPaperMarkdown: string;
-  /** The alphaXiv overview ("blog"), the default reading view; null when the Paper has no report. */
+  /** The alphaXiv overview ("blog"); null when the Paper has no report. */
   paperBlog: string | null;
   savedPaperBlog: string | null;
   /**
@@ -78,7 +78,7 @@ export type OpenDocumentsStore = StoreApi<OpenDocumentsState & OpenDocumentsActi
 
 const initialState = (): OpenDocumentsState => ({
   file: "", text: "", savedText: "", outsideText: null, asset: null,
-  paper: null, paperView: "blog", paperMarkdown: "", savedPaperMarkdown: "", paperBlog: null, savedPaperBlog: null,
+  paper: null, paperView: "fulltext", paperMarkdown: "", savedPaperMarkdown: "", paperBlog: null, savedPaperBlog: null,
   tabs: [], revealRequest: 0, mode: "split", opening: null, navStack: [], navIndex: -1,
   persistenceReadyRoot: null, tabsSettledRoot: null,
 });

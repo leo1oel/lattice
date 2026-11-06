@@ -31,7 +31,12 @@ export async function readPaperDocuments(arxivId: string) {
   };
 }
 
-/** Keep full text when it is showing and exists; otherwise prefer the overview. */
-export function preferredPaperView(current: PaperView, markdown: string, blog: string | null): PaperView {
-  return current === "fulltext" && markdown ? "fulltext" : blog ? "blog" : "fulltext";
+/**
+ * The view a Paper opens in: the one last shown for it when that file is
+ * readable, else its full text, and the overview only when there is no full
+ * text. A Paper opened for the first time is read from its own first page.
+ */
+export function preferredPaperView(remembered: PaperView | undefined, markdown: string, blog: string | null): PaperView {
+  if (remembered === "blog" && blog) return "blog";
+  return markdown || !blog ? "fulltext" : "blog";
 }
