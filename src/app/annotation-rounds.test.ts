@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reviseAnnotationWithAgent } from "../agent/agent-annotations";
 import { annotateSelection } from "../canvas/annotate-selection";
 import { createEditorComment, type AnnotationIntent, type AnnotationRound, type EditorComment } from "../editor/comments/editor-comment-data";
+import { sourceRangeForPdfText } from "../editor/comments/pdf-source-anchor";
 import { AnnotationRounds, type AnnotationRoundsDeps } from "./annotation-rounds";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -42,8 +43,9 @@ function roundsWith(annotations: EditorComment[]) {
     destination: () => "annotation", setActiveId: vi.fn(), openComment: vi.fn(), resolve: vi.fn(), reply: vi.fn(),
   };
   const rounds = new AnnotationRounds();
+  const sourceRef = { current: SOURCE };
   rounds.attach({
-    store, projectRootRef: { current: "/paper" }, activeFileRef: { current: "main.tex" }, sourceRef: { current: SOURCE },
+    store, projectRootRef: { current: "/paper" }, activeFileRef: { current: "main.tex" }, sourceRef,
     openProjectFile: vi.fn(), author: { id: "ada", name: "Ada" }, openPanel: vi.fn(),
     openHistoryEntry: vi.fn(), save: vi.fn(async () => true), reloadAfterRestore: vi.fn(async () => {}),
   });
@@ -53,7 +55,7 @@ function roundsWith(annotations: EditorComment[]) {
     return vi.mocked(reviseAnnotationWithAgent).mock.calls.map(([request]) => request.passage);
   };
   const proposed = () => state.current.annotations.filter((annotation) => annotation.revision?.state === "proposed").map((annotation) => annotation.quote);
-  return { rounds, store, asked, proposed };
+  return { rounds, store, sourceRef, asked, proposed };
 }
 
 beforeEach(() => {
@@ -61,6 +63,38 @@ beforeEach(() => {
   vi.mocked(reviseAnnotationWithAgent).mockReset().mockImplementation(async ({ passage }) => ({
     kind: "revision", text: passage.replace(/\bvery\b\s*/g, ""), reason: "Shorter.",
   }));
+});
+
+describe("AnnotationRounds / PDF notes posted to Overleaf", () => {
+  // Overleaf anchors a comment by offset in the live document, which a
+  // collaborator may have changed since the passage was selected on the PDF.
+  function overleafNote(live: string) {
+    const { rounds, store, sourceRef } = roundsWith([]);
+    const create = vi.fn(() => null);
+    Object.assign(store, { destination: () => "overleaf", create });
+    sourceRef.current = live;
+    // As mapPdfSelection placed it when the PDF text was selected.
+    const { from, to } = sourceRangeForPdfText(SOURCE, 2, passage(1))!;
+    const mapped = { path: "main.tex", line: 2, from, to, source: SOURCE };
+    const selection = { page: 1, rects: [], text: passage(1), point: { x: 0, y: 0 } };
+    const saved = rounds.createFromPdf(selection, mapped, "Cite this.", undefined, false);
+    return { saved, create, from, quote: SOURCE.slice(from, to) };
+  }
+
+  it("anchors the comment where the passage stands in the live text now", () => {
+    const added = "A collaborator wrote this line above.\n";
+    const { saved, create, from, quote } = overleafNote(added + SOURCE);
+    expect(saved).toBe(true);
+    const [comment] = create.mock.calls[0] as unknown as [EditorComment];
+    expect(comment.from).toBe(added.length + from);
+    expect(comment.quote).toBe(quote);
+  });
+
+  it("posts nothing when the passage itself changed since the PDF was built", () => {
+    const { saved, create } = overleafNote(SOURCE.replace("deliberately simple", "simple"));
+    expect(saved).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+  });
 });
 
 describe("AnnotationRounds / revise scope", () => {

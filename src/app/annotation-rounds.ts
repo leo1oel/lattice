@@ -564,12 +564,20 @@ export class AnnotationRounds {
     return { path: target.path, line: source.slice(0, range.from).split("\n").length, from: range.from, to: range.to, source };
   };
 
-  /** Save a note made on the PDF; false when its source no longer holds the span. Revises it alone at once with `revise`. */
+  /**
+   * Save a note made on the PDF; false when its source no longer holds the
+   * span. Revises it alone at once with `revise`. An Overleaf comment is
+   * anchored by offset in the live document, so it is placed again in the
+   * text as it stands now, which collaborators may have changed meanwhile.
+   */
   createFromPdf = (selection: PdfTextSelection, mapped: MappedPdfSelection, body: string, intent: AnnotationIntent | undefined, revise: boolean) => {
     const deps = this.deps;
     if (!deps) return false;
+    const source = deps.store.destination(mapped.path) === "overleaf" ? deps.sourceRef.current : mapped.source;
+    const range = source === mapped.source ? mapped : sourceRangeForPdfText(source, mapped.line, selection.text);
+    if (!range || source.slice(range.from, range.to) !== mapped.source.slice(mapped.from, mapped.to)) return false;
     const comment = createEditorComment({
-      path: mapped.path, source: mapped.source, from: mapped.from, to: mapped.to, body,
+      path: mapped.path, source, from: range.from, to: range.to, body,
       // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
       authorId: deps.author.id, authorName: deps.author.name.trim() || "Anonymous",
       intent, pdf: { page: selection.page, rects: selection.rects, text: selection.text },
