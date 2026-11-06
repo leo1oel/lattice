@@ -115,6 +115,24 @@ mod tests {
         assert_eq!(default_root(&root), "main_v2.tex");
     }
 
+    /// Opened mid-sync, before Overleaf's main document arrived, the project is
+    /// left with no root; the next open, once it is here, fills the list.
+    #[test]
+    fn an_empty_root_list_is_filled_once_overleafs_main_document_arrives() {
+        let root = linked_root(&[("main.tex", PAPER)], &[("main.tex", PAPER)]);
+        project::open(&root).unwrap();
+        record_root_document(&root, Some("main_v2.tex")).unwrap();
+        std::fs::remove_file(root.join("main.tex")).unwrap();
+        project::open(&root).unwrap();
+        assert_eq!(roots(&root), []);
+
+        // Detection alone would pick paper.tex, a conventional name.
+        std::fs::write(root.join("paper.tex"), PAPER).unwrap();
+        std::fs::write(root.join("main_v2.tex"), PAPER).unwrap();
+        project::open(&root).unwrap();
+        assert_eq!(roots(&root), [("main_v2.tex".to_string(), true)]);
+    }
+
     /// A root that is not the default and went with a sync is dropped too, so
     /// a restore cannot open it from the manifest.
     #[test]
