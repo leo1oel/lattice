@@ -130,3 +130,31 @@ it("resolves and reopens from the panel with a toast whose undo puts it back", a
   act(later);
   expect(view.result.current.comments[0]?.resolved).toBe(false);
 });
+
+// A note made on the PDF of a linked project is an Overleaf comment, which
+// Overleaf takes only on the document the live channel holds.
+it("sends a PDF note to Overleaf only for the live file, and keeps one for a file Overleaf lacks", () => {
+  const destinationIn = (docPaths: Map<string, string>, realtime: { docId: string | null; liveFile: boolean }, linked = true) => {
+    const overleaf = {
+      overleafLink: linked ? { projectId: "p" } : null, overleafComments: { threads: [], anchors: new Map() },
+      overleafCommentsRef: { current: { threads: [] } }, overleafDocPaths: docPaths, overleafRealtime: realtime,
+      overleafEditorComments: [], setOverleafCollabOpen: vi.fn(), setOverleafCollabTab: vi.fn(),
+    } as unknown as Parameters<typeof useEditorComments>[0]["overleaf"];
+    const { result } = renderHook(() => useEditorComments({
+      project: { root: "/project" } as unknown as ProjectSnapshot, projectRootRef: { current: "/project" },
+      activeFileRef: { current: "main_v2.tex" }, openProjectFile: vi.fn(), overleaf, author: { id: "me", name: "Me" },
+      openSources: () => new Map(), agentOptionsRef: { current: null },
+    }));
+    return result.current.destination;
+  };
+  const docs = new Map([["doc-v2", "main_v2.tex"], ["doc-intro", "intro.tex"]]);
+  const live = destinationIn(docs, { docId: "doc-v2", liveFile: true });
+  expect(live("main_v2.tex")).toBe("overleaf");
+  expect(live("intro.tex")).toBe("other-file");
+  // A file Overleaf does not have stays an annotation here, as in the editor.
+  expect(live("notes.tex")).toBe("annotation");
+  // Disconnected, or connected before the channel named its documents: never quietly kept here.
+  expect(destinationIn(docs, { docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
+  expect(destinationIn(new Map(), { docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
+  expect(destinationIn(docs, { docId: "doc-v2", liveFile: true }, false)("main_v2.tex")).toBe("annotation");
+});

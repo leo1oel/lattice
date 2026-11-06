@@ -834,6 +834,10 @@ msgstr "{path} 不是文件夹"
 msgid "{path} is not a UTF-8 path."
 msgstr "{path} 不是 UTF-8 路径"
 
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not in the project folder."
+msgstr "{path} 不在项目文件夹里"
+
 #: src/app/vanished-file.ts
 msgid "{path} was deleted"
 msgstr "{path} 已被删除"
@@ -845,6 +849,10 @@ msgstr "{path} 已被移到 {moved}"
 #: src/overleaf/overleaf-presence.tsx
 msgid "{path}, line {line}"
 msgstr "{path} 第 {line} 行"
+
+#: src/platform/host-errors-setup.ts
+msgid "{path}, the main document, is missing. Right-click another .tex file in the Project panel and choose Set as main document."
+msgstr "主文档 {path} 不见了。在“项目”面板里右键另一个 .tex 文件，选择“设为主文档”。"
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -2587,6 +2595,14 @@ msgstr "已复制编译日志"
 msgid "Build notes"
 msgstr "提示"
 
+#: src/app/use-panel-portals.tsx
+msgid "Build now compiles {path}."
+msgstr "现在编译 {path}"
+
+#: src/overleaf/use-overleaf-root-document.ts
+msgid "Build now compiles {rootDocument}, the main document on Overleaf."
+msgstr "现在编译 {rootDocument}，即 Overleaf 上的主文档"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build output"
 msgstr "编译结果"
@@ -3721,6 +3737,10 @@ msgstr "{opener} 的评论"
 msgid "Comment from {opener}, {0} messages"
 msgstr "{opener} 的评论，共 {0} 条消息"
 
+#: src/canvas/annotation-composer.tsx
+msgid "Comment on Overleaf"
+msgstr "评论到 Overleaf"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
 msgstr "评论所选"
@@ -4151,6 +4171,10 @@ msgstr "找不到图片“{path}”"
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "找不到文件“{path}”"
+
+#: src/overleaf/use-overleaf-root-document.ts
+msgid "Could not follow Overleaf’s main document {rootDocument}"
+msgstr "无法跟随 Overleaf 的主文档 {rootDocument}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
@@ -10170,6 +10194,10 @@ msgstr "Overleaf 还在同步，请稍后再切换"
 msgid "Overleaf sync paused"
 msgstr "同步已暂停"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
+msgstr "Overleaf 只接受编辑器中打开的文件上的评论，而这段文字在 {name} 里。双击它打开 {name}，再重新选中。"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf turned this request away, though the session is still valid."
 msgstr "会话仍然有效，但 Overleaf 拒绝了这次请求"
@@ -12794,6 +12822,10 @@ msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "服务"
 
+#: src/project/project-file-tree.tsx
+msgid "Set as main document"
+msgstr "设为主文档"
+
 #: src/settings/agent-environment-settings.tsx
 msgid "Set HTTPS_PROXY or ANTHROPIC_BASE_URL in your shell startup file, or turn on a proxy in macOS, then restart the agent."
 msgstr "在 shell 启动文件中设置 HTTPS_PROXY 或 ANTHROPIC_BASE_URL，或在 macOS 中开启代理，然后重启 AI 助手。"
@@ -14799,6 +14831,10 @@ msgstr "还没写内容"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 msgstr "这条评论已没有对应文字，无法操作"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "This comment would go to Overleaf, but {name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again."
+msgstr "这条评论会发到 Overleaf，但 {name} 现在没有与 Overleaf 实时编辑。重新连接实时编辑（或打开实时同步）后再重新选中。"
 
 #: src/history/conflict-resolver.tsx
 msgid "This computer"

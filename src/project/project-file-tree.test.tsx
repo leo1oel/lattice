@@ -38,6 +38,8 @@ function baseProps(): ProjectFileTreeProps {
     activeFile: "main.tex",
     activeAssetPath: "",
     protectedPaths: [],
+    mainDocument: "main.tex",
+    onSetMainDocument: vi.fn(),
     onFile: vi.fn(),
     onAsset: vi.fn(),
     onBeginFigureDrag: vi.fn(),
@@ -283,6 +285,29 @@ describe("ProjectFileTree", () => {
     fireEvent.contextMenu(intro);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     await waitFor(() => expect(view.props.onDeleteEntries).toHaveBeenCalledWith(["main.tex", "sections/intro.tex"]));
+  });
+
+  // Overleaf's Main document setting: which file Build compiles is the writer's to choose.
+  it("sets a .tex file as the main document from its menu, and checks the one that is", async () => {
+    expandSections();
+    const view = renderTree();
+    fireEvent.contextMenu(await findTreeItem("main.tex"));
+    const current = await screen.findByRole("menuitemcheckbox", { name: "Set as main document" });
+    expect(current).toHaveAttribute("aria-checked", "true");
+    expect(current.querySelector("svg")).toHaveClass("lucide-check");
+    fireEvent.click(current);
+    expect(view.props.onSetMainDocument).not.toHaveBeenCalled();
+
+    fireEvent.contextMenu(await findTreeItem("sections/intro.tex"));
+    const other = await screen.findByRole("menuitemcheckbox", { name: "Set as main document" });
+    expect(other).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(other);
+    await waitFor(() => expect(view.props.onSetMainDocument).toHaveBeenCalledWith("sections/intro.tex"));
+    expect(view.props.onSetMainDocument).toHaveBeenCalledTimes(1);
+    // A folder is never compiled.
+    fireEvent.contextMenu(await findTreeItem("sections/"));
+    await screen.findByRole("menuitem", { name: "Rename" });
+    expect(screen.queryByRole("menuitemcheckbox", { name: "Set as main document" })).toBeNull();
   });
 
   it("keeps a pressed row from scrolling itself into view, so a row cut off at the edge still opens", async () => {

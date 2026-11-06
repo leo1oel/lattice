@@ -39,7 +39,7 @@ function roundsWith(annotations: EditorComment[]) {
       state.current = { ...state.current, annotations: [...state.current.annotations, created] };
       return created;
     },
-    setActiveId: vi.fn(), openComment: vi.fn(), resolve: vi.fn(), reply: vi.fn(),
+    destination: () => "annotation", setActiveId: vi.fn(), openComment: vi.fn(), resolve: vi.fn(), reply: vi.fn(),
   };
   const rounds = new AnnotationRounds();
   rounds.attach({

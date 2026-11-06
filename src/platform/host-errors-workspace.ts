@@ -38,6 +38,8 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/index_sources.rs", "Could not read {}: {message}", ([path, error]) => t`Could not read ${path}: ${error}`],
   ["overleaf/files.rs", "Could not write {rel}: {error}", ([path, error]) => t`Could not write ${path}: ${error}`],
   ["overleaf/sync.rs", "Could not delete {path}: {e}", ([path, error]) => t`Could not delete ${path}: ${error}`],
+  // A file a tab or a restored workspace names, removed by a sync or Finder (project/tree.rs).
+  ["project/tree.rs", "{relative} is not in the project folder.", ([path]) => t`${path} is not in the project folder.`],
 
   // The window's project (ipc.rs)
   ["ipc.rs", "Open a project first.", () => t`Open a project first.`],

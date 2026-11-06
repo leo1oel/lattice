@@ -56,6 +56,8 @@ export function AnnotationForm(props: {
   ready?: boolean;
   /** The agent can be asked now; otherwise only Save is offered. */
   canRevise: boolean;
+  /** An Overleaf comment carries words alone: no intents, and Save says where it goes. */
+  overleaf?: boolean;
   onBodyChange: (body: string) => void;
   onIntentChange: (intent: AnnotationIntent | undefined) => void;
   onCancel: () => void;
@@ -64,7 +66,7 @@ export function AnnotationForm(props: {
   const { t } = useLingui();
   const labels = useIntentLabels();
   const ready = props.ready !== false;
-  const saveable = ready && Boolean(props.body.trim() || props.intent);
+  const saveable = ready && Boolean(props.body.trim() || (!props.overleaf && props.intent));
   return (
     <div
       className="annotation-form"
@@ -91,7 +93,7 @@ export function AnnotationForm(props: {
         value={props.body}
         onChange={(event) => props.onBodyChange(event.target.value)}
       />
-      <div className="annotation-intents" role="group" aria-label={t`What the agent should do`}>
+      {!props.overleaf && <div className="annotation-intents" role="group" aria-label={t`What the agent should do`}>
         {ANNOTATION_INTENTS.map((intent) => (
           <button
             type="button"
@@ -103,11 +105,11 @@ export function AnnotationForm(props: {
             {labels[intent]}
           </button>
         ))}
-      </div>
+      </div>}
       {props.error && <p role="alert" className="annotation-form-error">{props.error}</p>}
       <div className="annotation-form-actions">
         <Button size="compact" variant="tinted" disabled={!saveable} onClick={() => props.onSave(false)}>
-          {t`Save`} <kbd>{SAVE_KEYS}</kbd>
+          {props.overleaf ? t`Comment on Overleaf` : t`Save`} <kbd>{SAVE_KEYS}</kbd>
         </Button>
         {props.canRevise && (
           <Button size="compact" variant="ghost" disabled={!saveable} onClick={() => props.onSave(true)}>

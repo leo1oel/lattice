@@ -156,10 +156,10 @@ pub fn classify_build_error(error: &str) -> Failure {
         }
     } else if error == ALREADY_RUNNING {
         Failure { kind: "build_busy", fix: "Wait for the running build, or stop it, then retry." }
-    } else if error.starts_with("Root document not found") {
+    } else if error.contains(", the main document, is missing.") {
         Failure {
             kind: "root_document_missing",
-            fix: "Open the main .tex file and build from it, or fix the compile root.",
+            fix: "Set an existing .tex file as the main document, or build from it.",
         }
     } else if error.starts_with("The project changed") {
         Failure { kind: "project_changed", fix: "Build again in the project now open." }
@@ -169,6 +169,12 @@ pub fn classify_build_error(error: &str) -> Failure {
 }
 
 const ALREADY_RUNNING: &str = "A build is already running.";
+
+/// The manifest names a main document that is not on disk (see
+/// `project::open`, which replaces one it can): say which, and where to choose.
+fn missing_root(document: &str) -> String {
+    format!("{document}, the main document, is missing. Right-click another .tex file in the Project panel and choose Set as main document.")
+}
 
 pub fn build(
     root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>, steps: &BuildSteps,
@@ -316,7 +322,7 @@ fn run_latexmk_with(
     let document = compiled_document(root, &manifest)?;
     let root_document = project::safe_path(root, &document)?;
     if !root_document.exists() {
-        return Err(format!("Root document not found: {document}"));
+        return Err(missing_root(&document));
     }
     let prepared = if use_format {
         preamble_format::prepare(root, &manifest, &document, &root_document, active, steps)
@@ -497,7 +503,7 @@ mod tests {
             "toolchain_missing"
         );
         assert_eq!(kind(ALREADY_RUNNING), "build_busy");
-        assert_eq!(kind("Root document not found: main.tex"), "root_document_missing");
+        assert_eq!(kind(&missing_root("main.tex")), "root_document_missing");
         assert_eq!(kind("The project changed before its build could start."), "project_changed");
         assert_eq!(kind("latexmk exited unexpectedly: signal"), "build_error");
     }

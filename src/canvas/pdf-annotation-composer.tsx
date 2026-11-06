@@ -59,6 +59,16 @@ export function PdfAnnotationComposer(props: {
 
   const name = mapped ? baseName(mapped.path) : null;
   const location = mapped ? t`PDF p.${selection.page} → ${name}:${mapped.line}` : t`PDF p.${selection.page} → …`;
+  // In a project linked to Overleaf the note becomes an Overleaf comment on
+  // the span SyncTeX found, which collaborators see; Overleaf takes one only
+  // on the file the live channel holds, so a passage elsewhere says why not.
+  const destination = mapped ? rounds.pdfNoteDestination(mapped.path) : null;
+  const toOverleaf = destination !== null && destination !== "annotation";
+  const notLive = destination === "other-file"
+    ? t`Overleaf takes a comment only on the file open in the editor, and this passage is in ${name}. Double-click it to open ${name}, then select it again.`
+    : destination === "offline"
+      ? t`This comment would go to Overleaf, but ${name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again.`
+      : null;
   return (
     <div
       ref={popupRef}
@@ -73,9 +83,10 @@ export function PdfAnnotationComposer(props: {
         location={location}
         body={body}
         intent={intent}
-        error={error}
-        ready={Boolean(mapped)}
-        canRevise
+        error={error ?? notLive}
+        ready={Boolean(mapped) && !notLive}
+        canRevise={!toOverleaf}
+        overleaf={toOverleaf}
         onBodyChange={setBody}
         onIntentChange={setIntent}
         onCancel={() => props.onDismiss({ body, intent })}

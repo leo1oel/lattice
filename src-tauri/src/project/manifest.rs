@@ -52,7 +52,8 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     let adopted = !root.join(MANIFEST_PATH).exists();
     wide_event::record("adopted", adopted);
     let mut manifest = if adopted { adopt_folder(&root)? } else { read_manifest(&root)? };
-    if apply_tex_magic_comments(&root, &mut manifest)? {
+    let replaced = replace_missing_root(&root, &mut manifest);
+    if apply_tex_magic_comments(&root, &mut manifest)? || replaced {
         write_manifest(&root, &manifest)?;
     }
     if manifest.schema_version < MANIFEST_SCHEMA_VERSION {
@@ -212,6 +213,30 @@ fn make_default_root(manifest: &mut ProjectManifest, relative: &str, fallback_na
         document.is_default = is_default;
     }
     changed
+}
+
+/// In a project linked to Overleaf, a sync applies Overleaf's rename or delete
+/// of the root document (`main.tex` → `main_v2.tex`), which a local delete is
+/// refused. Still named here, it was restored into the editor and read as a
+/// file that is gone ("No such file or directory"). Overleaf's copy decides
+/// what exists, so its main document comes first, then what a folder opened
+/// for the first time would detect, and the roots that are gone are dropped.
+/// A local folder keeps an absent root: mid-checkout or on another branch it
+/// is still the writer's setting, and the build says which file is missing.
+fn replace_missing_root(root: &Path, manifest: &mut ProjectManifest) -> bool {
+    let exists = |relative: &str| safe_path(root, relative).is_ok_and(|path| path.is_file());
+    let Some(followed) = crate::overleaf::followed_root_document(root) else { return false };
+    if default_root_document(manifest).is_none_or(|document| exists(&document.path)) {
+        return false;
+    }
+    let Some(replacement) =
+        followed.filter(|path| exists(path)).or_else(|| detect_root_document(root))
+    else {
+        return false;
+    };
+    manifest.root_documents.retain(|document| exists(&document.path));
+    make_default_root(manifest, &replacement, "Root");
+    true
 }
 
 /// Honor `% !TEX root=` / `% !TEX program=` style magic comments when present.

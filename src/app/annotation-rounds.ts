@@ -24,7 +24,7 @@ import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { notifyInfo } from "../telemetry/app-notify";
 import { showError } from "./notify";
 import { createAnnotationReviewBridge } from "../canvas/annotation-review-bridge";
-import type { EditorComments } from "./use-editor-comments";
+import type { CommentDestination, EditorComments } from "./use-editor-comments";
 
 /** Text tasks the agent service runs at once is four; one stays free for a proofread. */
 const CONCURRENT_REVISIONS = 3;
@@ -76,14 +76,14 @@ const lineAt = (source: string, offset: number) => source.slice(0, offset).split
 
 /** What the rounds read and do in the app, attached by App once it has them. */
 export type AnnotationRoundsDeps = {
-  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "setActiveId" | "openComment" | "resolve" | "reply">;
+  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "destination" | "setActiveId" | "openComment" | "resolve" | "reply">;
   projectRootRef: Ref<string | null>;
   activeFileRef: Ref<string>;
   /** The active file's live text. */
   sourceRef: Ref<string>;
   openProjectFile: OpenProjectFile;
   author: { id: string; name: string };
-  /** A project linked to Overleaf keeps its notes as Overleaf threads, which have no place on the PDF. */
+  /** A project linked to Overleaf keeps its notes as Overleaf threads, and so do notes made on its PDF. */
   overleafLinked: boolean;
   openPanel: () => void;
   openHistoryEntry: (id: string) => void;
@@ -550,8 +550,11 @@ export class AnnotationRounds {
     await deps.reloadAfterRestore();
   };
 
-  /** Annotations can be made on the compiled PDF (not in a project linked to Overleaf). */
-  canAnnotatePdf = () => Boolean(this.deps && !this.deps.overleafLinked);
+  /** Annotations can be made on the compiled PDF; in a project linked to Overleaf they become Overleaf comments. */
+  canAnnotatePdf = () => Boolean(this.deps);
+
+  /** Where a note made on the PDF and placed in `path` goes (see `CommentDestination`). */
+  pdfNoteDestination = (path: string): CommentDestination => this.deps?.store.destination(path) ?? "annotation";
 
   /** Where text selected on the PDF was written: SyncTeX's line, then the words around it. */
   mapPdfSelection = async (selection: PdfTextSelection): Promise<MappedPdfSelection> => {

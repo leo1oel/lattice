@@ -51,6 +51,12 @@ export type OverleafConnectionState = {
    */
   docs: Map<string, string>;
   entities: Map<string, { id: string; kind: string }>;
+  /**
+   * The main document Overleaf compiles, as the channel last named it: on
+   * joining and with each tree change (a rename of it, or someone choosing
+   * another in Overleaf's settings). `useOverleafRootDocument` follows it.
+   */
+  rootDocument: string | null;
   /** The paths the channel owns, sorted, which ordinary syncing must leave alone. */
   livePaths: string[];
 };
@@ -60,8 +66,12 @@ type Setters = {
 };
 
 type OverleafConnectionActions = Setters & {
-  /** Replace the channel's tree with a connect result's or a tree event's. */
-  showDocumentTree: (entries: DocEntry[], entityEntries?: EntityEntry[]) => void;
+  /**
+   * Replace the channel's tree with a connect result's or a tree event's. A
+   * `rootDocument` left out (the projectJoined event names none) keeps the one
+   * named before.
+   */
+  showDocumentTree: (entries: DocEntry[], entityEntries?: EntityEntry[], rootDocument?: string | null) => void;
   /** Publish the paths the channel owns; an unchanged set keeps its array. */
   publishLivePaths: (paths: string[]) => void;
   /** Follow the live channel's identity and tree for presence. */
@@ -102,7 +112,7 @@ const initialState = (): OverleafConnectionState => ({
   conflictPath: null, selfId: null, docPaths: new Map(),
   status: "off", detail: null, liveFile: false, unacknowledged: false,
   projectPermission: { projectRoot: null, permission: "unknown" },
-  docs: new Map(), entities: new Map(), livePaths: [],
+  docs: new Map(), entities: new Map(), rootDocument: null, livePaths: [],
 });
 
 /**
@@ -124,9 +134,10 @@ export function createOverleafConnectionStore(): OverleafConnectionStore {
     return {
       ...initialState(),
       ...setters,
-      showDocumentTree: (entries, entityEntries = []) => set({
+      showDocumentTree: (entries, entityEntries = [], rootDocument) => set({
         docs: new Map(entries.map((doc) => [doc.path, doc.id])),
         entities: new Map(entityEntries.map((entity) => [entity.path, { id: entity.id, kind: entity.kind }])),
+        ...(rootDocument === undefined ? {} : { rootDocument }),
       }),
       publishLivePaths: (paths) => set(({ livePaths }) => (
         livePaths.length === paths.length && livePaths.every((path, index) => path === paths[index]) ? {} : { livePaths: paths }

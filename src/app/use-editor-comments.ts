@@ -13,9 +13,18 @@ import {
 import { publishMarginReviewComments } from "../overleaf/margin-review-files";
 import { showError } from "./notify";
 import { notifyInfo } from "../telemetry/app-notify";
-import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
+import { OVERLEAF_COMMENT_PREFIX } from "../overleaf/overleaf-editor-comments";
+import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 
 type Ref<T> = { readonly current: T };
+
+/**
+ * Where a note on a file goes: an annotation of this project's, or a thread on
+ * Overleaf. In a linked project it can go nowhere yet: Overleaf takes a
+ * comment only on the document the live channel holds, which is the open file
+ * ("other-file" while another is), and none while nothing is live ("offline").
+ */
+export type CommentDestination = "annotation" | "overleaf" | "other-file" | "offline";
 
 /** The project's local annotations and the revision rounds that asked about them. */
 export type AnnotationsState = { annotations: EditorComment[]; rounds: AnnotationRound[] };
@@ -188,8 +197,24 @@ export function useEditorComments({
    * to the annotation as saved, or null when it became an Overleaf thread or
    * could not be made.
    */
+  const docIdOf = useCallback((path: string) => (
+    [...overleafDocPaths.entries()].find(([, docPath]) => docPath === path)?.[0] ?? null
+  ), [overleafDocPaths]);
+  /**
+   * Where a note on `path` made on the PDF goes. Unlike `create`, a linked
+   * project whose channel has not named its documents yet is "offline", not
+   * an annotation: a note meant for Overleaf must not be kept here unseen.
+   */
+  const destination = useCallback((path: string): CommentDestination => {
+    if (!overleafLink || !project) return "annotation";
+    const docId = docIdOf(path);
+    if (!docId && overleafDocPaths.size) return "annotation";
+    if (!overleafRealtime.liveFile) return "offline";
+    return overleafRealtime.docId === docId ? "overleaf" : "other-file";
+  }, [docIdOf, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project]);
+
   const create = useCallback((comment: EditorComment): EditorComment | null => {
-    const docId = [...overleafDocPaths.entries()].find(([, path]) => path === comment.path)?.[0] ?? null;
+    const docId = docIdOf(comment.path);
     if (!overleafLink || !docId || !project) {
       const annotation = { ...comment, number: nextAnnotationNumber(stateRef.current.annotations) };
       commit(withAnnotations((current) => [...current, annotation]));
@@ -204,7 +229,7 @@ export function useEditorComments({
       .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
       .catch((reason) => showError(toMessage(reason)));
     return null;
-  }, [overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, commit, t]);
+  }, [docIdOf, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, commit, t]);
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);
@@ -290,7 +315,7 @@ export function useEditorComments({
   }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, rounds: state.rounds, stateRef, commit, all, update, create, toggleResolved, resolve, reply, reset, load, openComment,
+    comments, rounds: state.rounds, stateRef, commit, all, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
     deleteComment, panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
     activeId, setActiveId, focusRequest, focusHandled,
   };

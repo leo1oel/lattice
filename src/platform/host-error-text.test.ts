@@ -37,6 +37,10 @@ describe("hostErrorText", () => {
       expect(hostErrorText(english)).toMatch(/\p{Script=Han}/u);
     }
     expect(hostErrorText("Root document not found: main.tex")).toBe("找不到主文档：main.tex");
+    // A main document a sync or Finder removed: which file, and where to choose another.
+    expect(hostErrorText("main.tex is not in the project folder.")).toBe("main.tex 不在项目文件夹里");
+    expect(hostErrorText("main.tex, the main document, is missing. Right-click another .tex file in the Project panel and choose Set as main document."))
+      .toBe("主文档 main.tex 不见了。在“项目”面板里右键另一个 .tex 文件，选择“设为主文档”。");
     expect(hostErrorText("Keep the owner to at most 80 characters.")).toBe("负责人最多 80 个字符");
   });
 

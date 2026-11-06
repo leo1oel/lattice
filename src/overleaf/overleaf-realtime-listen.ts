@@ -31,7 +31,7 @@ const OVERLEAF_REALTIME_EVENT = "overleaf-realtime";
 type ChannelEvent =
   | { type: "connected"; publicId: string }
   | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[]; permission: OverleafPermission }
-  | { type: "treeChanged"; docs: DocEntry[]; entities: EntityEntry[] }
+  | { type: "treeChanged"; docs: DocEntry[]; entities: EntityEntry[]; rootDocument: string | null }
   | DocUpdateEvent
   | { type: "docAck"; docId: string; version: number }
   | { type: "otError"; docId: string; message: string }

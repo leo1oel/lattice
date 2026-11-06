@@ -7,7 +7,7 @@ use super::overleaf::{overleaf_config_dir, settled};
 use super::{current_root, pinned_root, run_blocking, scoped_root};
 use crate::app_state::{AppState, Lease, ProjectLease};
 use crate::overleaf;
-use crate::overleaf_rt::{self, RealtimeClient};
+use crate::overleaf_rt::{self, RealtimeClient, RealtimeEvent};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -25,6 +25,9 @@ pub(crate) struct OverleafRealtimeState {
     /// the same lease that prevents a new join until the sync finishes.
     joined_paths: BTreeMap<String, String>,
     join_receipts: BTreeMap<String, String>,
+    /// Overleaf's main document as this connection last reported it (the join,
+    /// then each tree change), which `overleaf_adopt_root_document` follows.
+    root_document: Option<String>,
 }
 
 impl OverleafRealtimeState {
@@ -35,6 +38,7 @@ impl OverleafRealtimeState {
         self.root = root;
         self.joined_paths.clear();
         self.join_receipts.clear();
+        self.root_document = None;
         self.client.take()
     }
 
@@ -181,7 +185,14 @@ pub async fn overleaf_rt_connect(
     let connecting = RealtimeClient::connect(
         overleaf_rt::RealtimeConfig { user_id, host, cookie, project_id },
         move |event| {
-            if event_state.lock().is_ok_and(|realtime| realtime.owns(generation, &event_root)) {
+            let owned = event_state.lock().is_ok_and(|mut realtime| {
+                let owns = realtime.owns(generation, &event_root);
+                if let (true, RealtimeEvent::TreeChanged { root_document, .. }) = (owns, &event) {
+                    realtime.root_document = root_document.clone();
+                }
+                owns
+            });
+            if owned {
                 let event = ScopedEvent { project_root: &event_root, event };
                 let _ = emitter.emit_to(emit_label.as_str(), "overleaf-realtime", event);
             }
@@ -213,6 +224,7 @@ pub async fn overleaf_rt_connect(
         let mut realtime = project.realtime()?;
         if realtime.owns(generation, &root) {
             realtime.client = Some(Arc::clone(&client));
+            realtime.root_document = tree.root_document.clone();
             installed = true;
         }
     }
@@ -236,6 +248,32 @@ pub async fn overleaf_rt_connect(
     })
     .await?;
     Ok(joined)
+}
+
+/// Follow Overleaf's main document, which the live channel reports on joining
+/// and with every tree change (the app hears `rootDocument` and asks). Read
+/// from this project's own connection, never from the request, so a report
+/// from the project a window just left cannot pick another project's root.
+/// Answers the manifest when builds now compile it.
+#[tauri::command]
+pub async fn overleaf_adopt_root_document(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<Option<crate::models::ProjectManifest>, String> {
+    let root = pinned_root(&state, &window, &project_root, "the main document could be followed")?;
+    let project = state.project(&root);
+    // The sync rewrites the same link state file; one at a time.
+    let _lease = ProjectLease::take(Arc::clone(&project), Lease::Exclusive).await;
+    let reported = {
+        let realtime = project.realtime()?;
+        realtime
+            .root
+            .as_deref()
+            .filter(|owner| *owner == root.as_path())
+            .and(realtime.root_document.clone())
+    };
+    let Some(path) = reported else { return Ok(None) };
+    run_blocking("Overleaf main document", move || overleaf::adopt_root_document(&root, &path))
+        .await
 }
 
 #[tauri::command]

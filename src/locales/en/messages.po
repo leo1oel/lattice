@@ -834,6 +834,10 @@ msgstr "{path} is not a folder."
 msgid "{path} is not a UTF-8 path."
 msgstr "{path} is not a UTF-8 path."
 
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not in the project folder."
+msgstr "{path} is not in the project folder."
+
 #: src/app/vanished-file.ts
 msgid "{path} was deleted"
 msgstr "{path} was deleted"
@@ -845,6 +849,10 @@ msgstr "{path} was moved to {moved}"
 #: src/overleaf/overleaf-presence.tsx
 msgid "{path}, line {line}"
 msgstr "{path}, line {line}"
+
+#: src/platform/host-errors-setup.ts
+msgid "{path}, the main document, is missing. Right-click another .tex file in the Project panel and choose Set as main document."
+msgstr "{path}, the main document, is missing. Right-click another .tex file in the Project panel and choose Set as main document."
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -2587,6 +2595,14 @@ msgstr "Build log copied"
 msgid "Build notes"
 msgstr "Build notes"
 
+#: src/app/use-panel-portals.tsx
+msgid "Build now compiles {path}."
+msgstr "Build now compiles {path}."
+
+#: src/overleaf/use-overleaf-root-document.ts
+msgid "Build now compiles {rootDocument}, the main document on Overleaf."
+msgstr "Build now compiles {rootDocument}, the main document on Overleaf."
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build output"
 msgstr "Build output"
@@ -3721,6 +3737,10 @@ msgstr "Comment from {opener}"
 msgid "Comment from {opener}, {0} messages"
 msgstr "Comment from {opener}, {0} messages"
 
+#: src/canvas/annotation-composer.tsx
+msgid "Comment on Overleaf"
+msgstr "Comment on Overleaf"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
 msgstr "Comment on selected Markdown"
@@ -4151,6 +4171,10 @@ msgstr "Could not find figure “{path}”."
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "Could not find included file “{path}”."
+
+#: src/overleaf/use-overleaf-root-document.ts
+msgid "Could not follow Overleaf’s main document {rootDocument}"
+msgstr "Could not follow Overleaf’s main document {rootDocument}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
@@ -10170,6 +10194,10 @@ msgstr "Overleaf sync is finishing. Try switching projects again in a moment."
 msgid "Overleaf sync paused"
 msgstr "Overleaf sync paused"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
+msgstr "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
+
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf turned this request away, though the session is still valid."
 msgstr "Overleaf turned this request away, though the session is still valid."
@@ -12794,6 +12822,10 @@ msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "Services"
 
+#: src/project/project-file-tree.tsx
+msgid "Set as main document"
+msgstr "Set as main document"
+
 #: src/settings/agent-environment-settings.tsx
 msgid "Set HTTPS_PROXY or ANTHROPIC_BASE_URL in your shell startup file, or turn on a proxy in macOS, then restart the agent."
 msgstr "Set HTTPS_PROXY or ANTHROPIC_BASE_URL in your shell startup file, or turn on a proxy in macOS, then restart the agent."
@@ -14799,6 +14831,10 @@ msgstr "This comment has no text yet"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 msgstr "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "This comment would go to Overleaf, but {name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again."
+msgstr "This comment would go to Overleaf, but {name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again."
 
 #: src/history/conflict-resolver.tsx
 msgid "This computer"
