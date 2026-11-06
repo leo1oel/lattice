@@ -116,7 +116,9 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       }
       return;
     }
-    if (key === activeFile && fileFallback) await openFile(fileFallback);
+    // A Paper or figure in front stays there: the file beneath it was not on
+    // screen (a preview tab the Paper's own tab took over, say).
+    if (key === activeFile && fileFallback && !openPaperNow && !openAsset) await openFile(fileFallback);
   }, [
     closePaper, closedRef, flushAndCheckDirty, flushRef, intentRef, loadFile, openFile, paperBuffersDirty, renderedRef,
     remove, save, setAsset, setMode, setOpening, setTabs, tabsRef, vanishedRef,
