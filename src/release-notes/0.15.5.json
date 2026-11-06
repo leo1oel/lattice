@@ -21,6 +21,16 @@
         "en": "When Claude Code cannot start, the card says why and what to do, such as updating a Claude Code older than 2.0.63 or signing in. A model your account cannot use is greyed out with the reason, and the composer switches to the default model with a notice. An Anthropic 403 refusal gets its own message, and warnings show next to the composer.",
         "zh": "Claude Code 无法启动时，卡片会说明原因和解决办法，例如更新低于 2.0.63 的 Claude Code 或先登录。你的账号无法使用的模型会显示为灰色并注明原因，输入框会切换到默认模型并给出提示。Anthropic 的 403 拒绝有单独的提示，警告也会显示在输入框旁边。"
       }
+    },
+    {
+      "title": {
+        "en": "No more repeated login keychain prompts",
+        "zh": "不再反复请求访问登录钥匙串"
+      },
+      "body": {
+        "en": "Lattice no longer asks for the login keychain over and over. A denied or unanswered prompt is remembered, and Settings > Agent > Usage & limits has a Refresh button to try again.",
+        "zh": "Lattice 不再一遍又一遍地请求访问登录钥匙串。被拒绝或未响应的请求会被记住；如需重试，可在“设置 > AI 助手 > 用量与限制”中点“刷新”。"
+      }
     }
   ],
   "fixes": [
