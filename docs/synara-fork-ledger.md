@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-05 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-06 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**709 files, +65,830 / −8,089 lines**. It carries embedded-workspace UI, a skills manager,
+**720 files, +66,597 / −8,106 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -84,6 +84,11 @@ The copy is `userdata/lattice-embed-storage.json` under the Synara home, mode 06
 A change in its last second before quit can still be lost, and the large pasted images Synara keeps in IndexedDB rather than localStorage are not mirrored; a draft's text is.
 
 Settings → Agent (Synara's Providers page) now starts its embed-only Generation defaults with **Default provider**, the provider new chats start on until a model is picked. It is the same row as Synara's General page, which Lattice does not frame; standalone Synara still shows it only on General. Lattice's settings search finds the page by that name.
+
+A Claude turn that fails because Claude Code exited now says why, in plain words. Synara spawns Claude Code itself, so the Agent SDK never saw its stderr, and the card (and its **Copy error** text) read only "Claude Code process exited with code 1", about a millisecond after the turn started, whenever the `claude` Lattice runs died at startup; an outdated Claude Code that rejects one of the SDK's launch flags does exactly that (1.0.x rejects `--setting-sources`, 2.0.0 in Full access `--allow-dangerously-skip-permissions`).
+The adapter now pipes that stderr (still copied to the sidecar's error log), keeps a bounded tail per process, and puts its most telling line, redacted, after the exit message, with a code the card turns into a localized line saying what went wrong and what to do: `claude_cli_outdated` (too old: run `claude update`), `claude_auth_required` (not signed in: run `claude auth login`), `claude_model_unavailable` (the account cannot use the model: Change model) or `claude_cli_failed` (stopped unexpectedly: run `claude -p hi`; also given when stderr was empty, under the generic text).
+That line stays visible under the card's three-line clamp in the narrow panel, and Copy error includes it.
+The Claude provider status also refuses a CLI older than the pinned SDK's flags (2.0.63, bisected against npm releases with Synara's real arguments): it reports "Claude Code <version> is too old for this app", so the model picker shows Claude as needing setup, with **Open provider settings**, instead of offering models that fail at once. The check reuses the existing `--version` probe and skips the auth probe, so it adds no keychain read.
 
 ## Synara 0.9.1 compatibility
 
