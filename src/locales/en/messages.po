@@ -11067,6 +11067,11 @@ msgctxt "macOS menu bar"
 msgid "Quit {name}"
 msgstr "Quit {name}"
 
+#. Search words for the agent Usage & limits settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "quota credits rate limit refresh"
+msgstr "quota credits rate limit refresh"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -15681,6 +15686,11 @@ msgstr "Upsilon"
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Usage & limits"
+msgstr "Usage & limits"
 
 #: src/editor/grammar-rule-text.ts
 msgid "Use “{word}” instead of “{original}”."

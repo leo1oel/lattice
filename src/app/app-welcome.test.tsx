@@ -260,6 +260,29 @@ describe("welcome screen", () => {
     expect(frame.src).toBe(src);
   });
 
+  // "usage" is the section id of Synara's own Usage & limits page (its
+  // settingsNavigation.ts), whose Refresh is the only control that retries a
+  // denied Keychain read; an id it does not list is ignored by the frame.
+  it("frames Synara's usage page under Agent, where a denied Keychain read can be retried", async () => {
+    renderApp(projectCommands());
+    await chooseProjectMenuItem("Settings");
+    await findSettingsDialog(10_000);
+    const nav = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
+    const agentGroup = screen.getByRole("group", { name: "Agent" });
+    expect(within(agentGroup).getByRole("button", { name: "Usage & limits" })).toBeInTheDocument();
+    nav("Usage & limits");
+    const frame = await findFrame("Synara Usage & limits settings");
+    expect(new URL(frame.src).searchParams.get("section")).toBe("usage");
+    const embed = frame.closest<HTMLElement>(".synara-settings-embed")!;
+    const posted = vi.spyOn(frame.contentWindow!, "postMessage");
+    const requests = () => posted.mock.calls.map(([data]) => data as { type: string; section: string; request: number })
+      .filter((data) => data.type === "lattice:set-settings-section");
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
+    await waitFor(() => expect(requests()).toEqual([expect.objectContaining({ section: "usage" })]));
+    postWindowMessage(frame.contentWindow, { type: "synara:settings-section-ready", section: "usage", request: requests()[0].request });
+    await waitFor(() => expect(embed).toHaveAttribute("data-ready", "true"));
+  });
+
   it("keeps successful TeX checks compact while retaining failure details", async () => {
     renderApp({ initial_project: null, run_doctor: { ok: true, summary: "ready", checks: [
       { name: "latexmk", detail: "LaTeX build driver: /Library/TeX/texbin/latexmk", ok: true },

@@ -348,7 +348,7 @@ role's leading (or on `normal`) is a missing role, not a choice.
 - **The Synara iframe mirrors four of these.** The pinned runtime sets its own
   title, subtitle, body-compact and caption, at both steps, and its Settings
   control height (`apps/web/src/embedMode.ts`), so the Agent panel and the
-  Providers, MCP and Skills pages line up with the native ones. Those values
+  Synara Settings pages Lattice frames line up with the native ones. Those values
   move only together with a Synara pin; until the pin that takes this scale,
   the runtime keeps the earlier one (sans titles at 600, an 11px caption,
   30px Settings controls).

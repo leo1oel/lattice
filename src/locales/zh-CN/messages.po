@@ -11067,6 +11067,11 @@ msgctxt "macOS menu bar"
 msgid "Quit {name}"
 msgstr "退出 {name}"
 
+#. Search words for the agent Usage & limits settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "quota credits rate limit refresh"
+msgstr "配额 额度 积分 速率 限制 刷新"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -15681,6 +15686,11 @@ msgstr "宇普西龙"
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Usage & limits"
+msgstr "用量与限制"
 
 #: src/editor/grammar-rule-text.ts
 msgid "Use “{word}” instead of “{original}”."
