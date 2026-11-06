@@ -248,7 +248,7 @@ pub async fn set_root_document(
         {
             return Err(format!("{relative} is not a LaTeX file in this project."));
         }
-        project::set_compile_root(&root, &relative)
+        project::choose_root_document(&root, &relative)
     })
     .await
 }

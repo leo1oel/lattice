@@ -42,9 +42,10 @@ pub(super) fn compiled_document(root: &Path, manifest: &ProjectManifest) -> Resu
     default_root_document(manifest).map(|document| document.path.clone())
 }
 
-/// Overleaf's compile rule: the file open in the editor wins when it is a
-/// compilable root itself (\documentclass) or names one via `% !TEX root`.
-/// The winner is written back as the manifest default before latexmk runs, so
+/// Overleaf's compile rule, unless the writer chose the main document (Set as
+/// main document, `project::main_document_chosen`), which then always builds:
+/// the file open in the editor wins when it is a compilable root itself
+/// (\documentclass) or names one via `% !TEX root`. The winner is written back as the manifest default before latexmk runs, so
 /// a chapter opened next still compiles this document, and everything that
 /// resolves the default root (PDF preview, SyncTeX, clean) agrees on what was
 /// built. A standalone figure or subfiles chapter is the exception: it
@@ -53,11 +54,11 @@ pub(super) fn compiled_document(root: &Path, manifest: &ProjectManifest) -> Resu
 pub(super) fn choose_compile_root(root: &Path, open_document: Option<&str>) -> Result<(), String> {
     match open_document.and_then(|open| project::resolve_compile_root(root, open)) {
         Some(target) if target.one_off => set_one_off_root(root, Some(&target.path)),
-        Some(target) => {
+        Some(target) if !project::main_document_chosen(root) => {
             set_one_off_root(root, None);
             project::set_compile_root(root, &target.path)?;
         }
-        None => set_one_off_root(root, None),
+        _ => set_one_off_root(root, None),
     }
     Ok(())
 }
@@ -106,5 +107,40 @@ mod tests {
             assert!(!is_one_off_root(&root));
         }
         assert_eq!(project::read_manifest(&root).unwrap().root_documents.len(), 1);
+    }
+
+    /// The captain's project: main.tex and main_v2.tex both declare a class.
+    #[test]
+    fn a_main_document_set_by_the_writer_builds_whichever_root_is_open() {
+        let root = TempDir::new("chosen-root");
+        project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+        let paper = "\\documentclass{article}\n\\begin{document}x\\end{document}\n";
+        root.write("main.tex", paper);
+        root.write("main_v2.tex", paper);
+        root.write(
+            "figures/plot.tex",
+            "\\documentclass{standalone}\n\\begin{document}x\\end{document}\n",
+        );
+        let compiled =
+            || compiled_document(&root, &project::read_manifest(&root).unwrap()).unwrap();
+
+        // Nothing chosen: the open root wins and becomes the default.
+        choose_compile_root(&root, Some("main_v2.tex")).unwrap();
+        assert_eq!(compiled(), "main_v2.tex");
+
+        project::choose_root_document(&root, "main.tex").unwrap();
+        choose_compile_root(&root, Some("main_v2.tex")).unwrap();
+        assert_eq!(compiled(), "main.tex", "Set as main document outlasts the open tab");
+        // A standalone figure still builds on its own, and the choice stands.
+        choose_compile_root(&root, Some("figures/plot.tex")).unwrap();
+        assert_eq!(compiled(), "figures/plot.tex");
+        choose_compile_root(&root, Some("main_v2.tex")).unwrap();
+        assert_eq!(compiled(), "main.tex");
+
+        // A chosen main document that is gone no longer holds the build.
+        std::fs::remove_file(root.join("main.tex")).unwrap();
+        choose_compile_root(&root, Some("main_v2.tex")).unwrap();
+        assert_eq!(compiled(), "main_v2.tex");
+        assert!(!project::main_document_chosen(&root));
     }
 }

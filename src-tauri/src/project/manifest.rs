@@ -204,6 +204,7 @@ fn make_default_root(manifest: &mut ProjectManifest, relative: &str, fallback_na
             path: relative.to_string(),
             name: document_name(relative, fallback_name),
             is_default: false,
+            chosen: false,
         });
         changed = true;
     }
@@ -211,6 +212,7 @@ fn make_default_root(manifest: &mut ProjectManifest, relative: &str, fallback_na
         let is_default = document.path == relative;
         changed |= document.is_default != is_default;
         document.is_default = is_default;
+        document.chosen &= is_default;
     }
     changed
 }
@@ -442,6 +444,30 @@ pub fn set_compile_root(root: &Path, path: &str) -> Result<ProjectManifest, Stri
     make_default_root(&mut manifest, &relative, &relative);
     write_manifest(root, &manifest)?;
     Ok(manifest)
+}
+
+/// Set as main document: `path` becomes the default, and stays it while it is
+/// on disk whichever file is open when building (see `main_document_chosen`).
+pub fn choose_root_document(root: &Path, path: &str) -> Result<ProjectManifest, String> {
+    let relative = path.trim().replace('\\', "/");
+    let mut manifest = read_manifest(root)?;
+    make_default_root(&mut manifest, &relative, &relative);
+    for document in &mut manifest.root_documents {
+        document.chosen = document.is_default;
+    }
+    write_manifest(root, &manifest)?;
+    Ok(manifest)
+}
+
+/// Whether the default is one the writer chose (Set as main document) and is
+/// still on disk; then only a one-off build compiles anything else.
+pub fn main_document_chosen(root: &Path) -> bool {
+    read_manifest(root)
+        .ok()
+        .and_then(|manifest| {
+            default_root_document(&manifest).filter(|document| document.chosen).cloned()
+        })
+        .is_some_and(|document| safe_path(root, &document.path).is_ok_and(|path| path.is_file()))
 }
 
 /// Pick the best root `.tex` for foreign / Overleaf-style trees.

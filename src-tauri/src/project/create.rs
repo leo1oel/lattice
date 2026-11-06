@@ -194,6 +194,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
             path: "main.tex".to_string(),
             name: "Main paper".to_string(),
             is_default: true,
+            chosen: false,
         }],
         primary_bibliography: "references.bib".to_string(),
         trusted: false,
