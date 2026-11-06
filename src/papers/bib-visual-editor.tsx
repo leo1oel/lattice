@@ -17,28 +17,21 @@
  * source beside it never waits for the list.
  */
 import {
-  useCallback, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState,
+  useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowDownUp, ArrowLeft, BookOpen, Check, Code2, ExternalLink, ListFilter, Plus, Trash2, X } from "lucide-react";
+import { ArrowDownUp, BookOpen, Check, ListFilter, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { CopyButton } from "../components/copy-button";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { EmptyState } from "../components/ui/empty-state";
-import { IconButton } from "../components/ui/icon-button";
-import { InlineMessage } from "../components/ui/inline-message";
-import { Input } from "../components/ui/input";
 import { ListTool } from "../components/ui/list-tool";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Textarea } from "../components/ui/textarea";
-import { resizeTextareaToContent } from "../components/ui/auto-resize-textarea";
 import { notifySuccess } from "../telemetry/app-notify";
 import { toMessage } from "../app-utils";
 import { formatCount } from "../i18n";
@@ -47,11 +40,8 @@ import { clamp } from "../lib/clamp";
 import type { SymbolOccurrence } from "../project/references-panel";
 import { appendBibEntry, formatBibEntry } from "./bib-entry";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
-import {
-  addFieldEdit, applyBibEdit, bibUnreadableReason, changeTypeEdit, deleteEntryEdit, editableValue, encodeValue,
-  readBibDocument, removeFieldEdit, renameKeyEdit, replaceValueEdit, summarizeEntries, validCitationKey,
-  type BibEdit, type BibEntry, type BibField, type BibParseError, type BibSummary,
-} from "./bib-document";
+import { applyBibEdit, bibUnreadableReason, deleteEntryEdit, readBibDocument, summarizeEntries, type BibParseError, type BibSummary } from "./bib-document";
+import { EntryDetail, type Committed, type EntryEdit, type Row } from "./bib-entry-detail";
 import "./bib-visual-editor.css";
 import { sameIgnoringCase as sameKey } from "../lib/equality";
 
@@ -81,15 +71,6 @@ const OVERSCAN = 8;
  */
 const REDRAW_MARGIN = 2;
 
-/** The types the type menu offers; an entry of another type keeps it and lists it too. */
-const ENTRY_TYPES = [
-  "article", "inproceedings", "book", "incollection", "inbook", "proceedings", "phdthesis", "mastersthesis",
-  "techreport", "misc", "online", "unpublished", "manual", "booklet",
-];
-
-/** Fields whose values run long enough for a box that wraps. */
-const LONG_FIELDS = new Set(["title", "author", "editor", "abstract", "note", "annote", "annotation", "keywords", "booktitle", "journal"]);
-
 export type BibVisualEditorProps = {
   path: string;
   source: string;
@@ -111,18 +92,7 @@ export type BibVisualEditorProps = {
 
 type Filter = "all" | "cited" | "unused";
 type Sort = "file" | "year" | "author" | "title";
-type Row = { entry: BibEntry; summary: BibSummary; index: number };
 type Usages = { byKey: Map<string, SymbolOccurrence[]>; everything: boolean };
-/** A change to one entry, measured on `source` with `entry` as found there; falsy makes none. */
-type EntryEdit = (source: string, entry: BibEntry) => BibEdit | null | false | undefined;
-type Committed = { next: string; base: string; change: BibEdit };
-
-/** Leave a field (which writes it) for the editor around it, so its keys (⌘Z) still apply. */
-const leaveField = (field: HTMLElement) => field.closest<HTMLElement>(".bib-visual")?.focus();
-
-/** `entry` still has `field` (by name) at `index`. */
-const sameField = (entry: BibEntry, index: number, field: BibField) => entry.fields[index]?.name === field.name;
-
 /** The rows drawn for a view `height` tall scrolled to `top`: those in it and OVERSCAN either side. */
 function drawnRows(top: number, height: number, rowHeight: number, count: number) {
   return {
@@ -685,293 +655,6 @@ function BibRow(props: {
             </span>
           )}
       </span>
-    </div>
-  );
-}
-
-function EntryDetail(props: BibVisualEditorProps & {
-  /** The text `row` was read from, which its offsets measure. */
-  parsedText: string;
-  row: Row;
-  rows: Row[];
-  macros: Map<string, string>;
-  usages: { list: SymbolOccurrence[]; everything: boolean } | null;
-  edit: (change: EntryEdit) => Committed | null;
-  onRenamed: (key: string) => void;
-  onDelete: () => void;
-  onBack: () => void;
-}) {
-  const { t } = useLingui();
-  const { row, edit, editable } = props;
-  const text = props.parsedText;
-  const { entry, summary } = row;
-  const paper = props.papers.find((item) => sameKey(item.citationKey, entry.key))
-    ?? (summary.arxivId ? props.papers.find((item) => item.arxivId === summary.arxivId) : undefined);
-  const readablePaper = paper && (paper.hasFullText || paper.hasBlog) ? paper : undefined;
-  const doiUrl = summary.doi && /^10\.\d{4,9}\/\S+$/.test(summary.doi) ? `https://doi.org/${summary.doi}` : null;
-  const arxivUrl = summary.arxivId ? `https://arxiv.org/abs/${summary.arxivId}` : null;
-  const webUrl = /^https?:\/\//i.test(summary.url) && ![arxivUrl, doiUrl].includes(summary.url) ? summary.url : null;
-  const keyId = useId();
-
-  const [keyError, setKeyError] = useState<string | null>(null);
-  const renameKey = (next: string) => {
-    const key = next.trim();
-    if (key === entry.key) return setKeyError(null);
-    if (!validCitationKey(key)) return setKeyError(t`A citation key cannot be empty or contain spaces, commas, braces, quotes or %.`);
-    if (props.rows.some((other) => other !== row && sameKey(other.entry.key, key))) return setKeyError(t`Another reference already uses “${key}”.`);
-    setKeyError(null);
-    if (edit((_, current) => renameKeyEdit(current, key)) !== null) props.onRenamed(key);
-  };
-  const types = ENTRY_TYPES.includes(entry.kind) ? ENTRY_TYPES : [entry.kind, ...ENTRY_TYPES];
-
-  const [newField, setNewField] = useState({ name: "", value: "", error: null as string | null });
-  const addField = () => {
-    const name = newField.name.trim();
-    if (!/^[A-Za-z][\w:.+-]*$/.test(name)) return setNewField((current) => ({ ...current, error: t`Field names start with a letter and have no spaces.` }));
-    if (entry.fields.some((field) => field.name.toLowerCase() === name.toLowerCase())) {
-      return setNewField((current) => ({ ...current, error: t`This reference already has a “${name}” field.` }));
-    }
-    const raw = encodeValue(newField.value, "brace", props.macros);
-    if (raw === null) return setNewField((current) => ({ ...current, error: t`Braces in the value must be balanced.` }));
-    if (edit((source, current) => addFieldEdit(source, current, name, raw)) !== null) setNewField({ name: "", value: "", error: null });
-  };
-
-  const nociteAll = "\\nocite{*}";
-  const usageLabel = props.usages === null ? null
-    : props.usages.list.length ? null
-      : props.usages.everything ? t`Not cited by key, but ${nociteAll} includes every entry` : t`Not cited in any .tex file`;
-
-  return (
-    <ScrollArea className="bib-detail" viewportClassName="bib-detail-viewport">
-      <div className="bib-detail-content">
-        <button type="button" className="bib-detail-back" onClick={props.onBack}>
-          <ArrowLeft size={13} aria-hidden="true" />
-          {t`All references`}
-        </button>
-        <header className="bib-detail-header">
-          <div className="bib-detail-identity">
-            <Select value={entry.kind} disabled={!editable} onValueChange={(value) => edit((_, current) => changeTypeEdit(current, value))}>
-              <SelectTrigger size="compact" aria-label={t`Entry type`} className="bib-detail-type"><SelectValue /></SelectTrigger>
-              <SelectContent position="popper" align="start">
-                {types.map((value) => <SelectItem key={value} value={value}>{`@${value}`}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <label className="sr-only" htmlFor={keyId}>{t`Citation key`}</label>
-            <Input
-              key={entry.key}
-              id={keyId}
-              controlSize="compact"
-              className="bib-detail-key"
-              defaultValue={entry.key}
-              readOnly={!editable}
-              aria-invalid={keyError ? true : undefined}
-              spellCheck={false}
-              onBlur={(event) => renameKey(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") leaveField(event.currentTarget);
-                if (event.key === "Escape") {
-                  event.currentTarget.value = entry.key;
-                  setKeyError(null);
-                  leaveField(event.currentTarget);
-                }
-              }}
-            />
-            <CopyButton className="bib-detail-copy" text={entry.key} title={t`Copy citation key`} />
-          </div>
-          {keyError && <InlineMessage level="error" className="bib-detail-error">{keyError}</InlineMessage>}
-          <h2 className="bib-detail-title">{summary.title || t`Untitled`}</h2>
-          {summary.authors && <p className="bib-detail-authors">{summary.authors}</p>}
-          {(summary.venue || summary.year) && <p className="bib-detail-venue">{[summary.venue, summary.year].filter(Boolean).join(", ")}</p>}
-          <div className="bib-detail-actions">
-            {readablePaper && (
-              <Button size="compact" variant="secondary" onClick={() => props.onOpenPaper(readablePaper)}>
-                <BookOpen size={13} aria-hidden="true" />
-                {t`Open paper`}
-              </Button>
-            )}
-            {doiUrl && <LinkButton kind="doi" url={doiUrl} onOpen={props.onOpenUrl} />}
-            {arxivUrl && <LinkButton kind="arxiv" url={arxivUrl} onOpen={props.onOpenUrl} />}
-            {webUrl && <LinkButton kind="web" url={webUrl} onOpen={props.onOpenUrl} />}
-            <Button size="compact" variant="ghost" onClick={() => props.onOpenLine(props.path, entry.line)}>
-              <Code2 size={13} aria-hidden="true" />
-              {t`Show in source`}
-            </Button>
-            {editable && (
-              <Button size="compact" variant="ghost" className="bib-detail-delete" onClick={props.onDelete}>
-                <Trash2 size={13} aria-hidden="true" />
-                {t`Delete`}
-              </Button>
-            )}
-          </div>
-        </header>
-        <section className="bib-detail-section" aria-labelledby={`${keyId}-cited`}>
-          <h3 id={`${keyId}-cited`}>{t`Cited in`}</h3>
-          {props.usages === null && <p className="bib-detail-muted">{t`Looking through the manuscript…`}</p>}
-          {usageLabel && <p className="bib-detail-unused">{usageLabel}</p>}
-          {props.usages && props.usages.list.length > 0 && (
-            <ul className="bib-detail-usages">
-              {props.usages.list.map((usage, index) => (
-                <li key={`${usage.path}:${usage.line}:${index}`}>
-                  <button type="button" onClick={() => props.onOpenLine(usage.path, usage.line)}>
-                    <span className="bib-usage-place">{`${usage.path}:${usage.line}`}</span>
-                    <span className="bib-usage-snippet">{usage.snippet.trim()}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section className="bib-detail-section" aria-labelledby={`${keyId}-fields`}>
-          <h3 id={`${keyId}-fields`}>{t`Fields`}</h3>
-          <div className="bib-detail-fields">
-            {entry.fields.map((field, index) => (
-              <FieldRow
-                key={`${index}:${field.name}:${text.slice(field.valueFrom, field.valueTo)}`}
-                field={field}
-                raw={text.slice(field.valueFrom, field.valueTo)}
-                macros={props.macros}
-                editable={editable}
-                onCommit={(raw) => edit((_, current) => sameField(current, index, field) && replaceValueEdit(current.fields[index], raw))}
-                onRemove={() => edit((source, current) => sameField(current, index, field) && removeFieldEdit(source, current, current.fields[index]))}
-              />
-            ))}
-          </div>
-          {editable && (
-            <form
-              className="bib-detail-add-field"
-              onSubmit={(event) => {
-                event.preventDefault();
-                addField();
-              }}
-            >
-              <Input
-                controlSize="compact"
-                className="bib-add-field-name"
-                value={newField.name}
-                placeholder={t`Field`}
-                aria-label={t`New field name`}
-                spellCheck={false}
-                onChange={(event) => setNewField({ ...newField, name: event.target.value, error: null })}
-              />
-              <Input
-                controlSize="compact"
-                value={newField.value}
-                placeholder={t`Value`}
-                aria-label={t`New field value`}
-                onChange={(event) => setNewField({ ...newField, value: event.target.value, error: null })}
-              />
-              <Button type="submit" size="compact" variant="secondary" disabled={!newField.name.trim()}>{t`Add field`}</Button>
-              {newField.error && <InlineMessage level="error" className="bib-detail-error">{newField.error}</InlineMessage>}
-            </form>
-          )}
-        </section>
-      </div>
-    </ScrollArea>
-  );
-}
-
-/** An entry's DOI, arXiv abstract or web page, opened in the browser. */
-function LinkButton({ kind, url, onOpen }: { kind: "doi" | "arxiv" | "web"; url: string; onOpen: (url: string) => void }) {
-  const { t } = useLingui();
-  const label = kind === "doi" ? "DOI" : kind === "arxiv" ? "arXiv" : t`Link`;
-  return (
-    <Button size="compact" variant="ghost" title={url} onClick={() => onOpen(url)}>
-      <ExternalLink size={13} aria-hidden="true" />
-      {label}
-    </Button>
-  );
-}
-
-/**
- * One field: its name and its value between the delimiters it was written
- * with. The value is written back when the field loses focus (or on Enter,
- * ⌘Enter in a long field); Escape puts the written value back.
- */
-function FieldRow(props: {
-  field: BibField;
-  raw: string;
-  macros: Map<string, string>;
-  editable: boolean;
-  onCommit: (raw: string) => void;
-  onRemove: () => void;
-}) {
-  const { t } = useLingui();
-  const { field } = props;
-  const { text, style } = editableValue(props.raw);
-  const id = useId();
-  const [invalid, setInvalid] = useState(false);
-  // A long value's box grows with its text, and again when the pane's width rewraps it.
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const fitToContent = useCallback((element: HTMLTextAreaElement | null) => {
-    observerRef.current?.disconnect();
-    observerRef.current = null;
-    if (!element) return;
-    resizeTextareaToContent(element);
-    let width = element.clientWidth;
-    observerRef.current = new ResizeObserver(() => {
-      if (element.clientWidth === width) return;
-      width = element.clientWidth;
-      resizeTextareaToContent(element);
-    });
-    observerRef.current.observe(element);
-  }, []);
-  const long = LONG_FIELDS.has(field.name.toLowerCase()) || text.length > 48 || text.includes("\n");
-  const save = (value: string) => {
-    if (value === text) return setInvalid(false);
-    const raw = encodeValue(value, style, props.macros);
-    setInvalid(raw === null);
-    if (raw !== null) props.onCommit(raw);
-  };
-  const name = field.name;
-  const common = {
-    id,
-    defaultValue: text,
-    readOnly: !props.editable,
-    spellCheck: false,
-    "aria-invalid": invalid || undefined,
-    onBlur: (event: { currentTarget: HTMLInputElement | HTMLTextAreaElement }) => save(event.currentTarget.value),
-  };
-  const revert = (target: HTMLInputElement | HTMLTextAreaElement) => {
-    target.value = text;
-    setInvalid(false);
-    leaveField(target);
-  };
-  return (
-    <div className="bib-field" data-style={style}>
-      <label htmlFor={id} className="bib-field-name">{name}</label>
-      {long ? (
-        <Textarea
-          {...common}
-          rows={1}
-          className="bib-field-value"
-          ref={fitToContent}
-          onInput={(event) => resizeTextareaToContent(event.currentTarget)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) leaveField(event.currentTarget);
-            if (event.key === "Escape") revert(event.currentTarget);
-          }}
-        />
-      ) : (
-        <Input
-          {...common}
-          controlSize="compact"
-          className="bib-field-value"
-          onKeyDown={(event) => {
-            if (event.key === "Enter") leaveField(event.currentTarget);
-            if (event.key === "Escape") revert(event.currentTarget);
-          }}
-        />
-      )}
-      {props.editable && (
-        <IconButton size="compact" className="bib-field-remove" label={t`Remove the ${name} field`} onClick={props.onRemove}>
-          <X size={13} aria-hidden="true" />
-        </IconButton>
-      )}
-      {invalid && (
-        <InlineMessage level="error" className="bib-field-error">
-          {style === "raw" ? t`This value joins strings with #; keep it valid BibTeX.` : t`Braces in the value must be balanced.`}
-        </InlineMessage>
-      )}
     </div>
   );
 }
