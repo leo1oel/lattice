@@ -80,6 +80,21 @@ function agentEntryPointPatches(modulePath) {
     // brief and sends it.
     return [
       ["  FolderPlus,\n", "  FolderPlus,\n  Sparkles,\n"],
+      // Upstream offers the header's New deck whenever its own agent is
+      // enabled, connected or not, and that agent is always off here. Lattice
+      // AI is always on offer, so the button drafts a deck in its composer,
+      // like the empty state's.
+      [
+        `function NewDeckButton() {
+  const t = useLocale();
+  const agent = useCreateDeckWithAgent();
+  if (!agent) return null;
+`,
+        `function NewDeckButton() {
+  const t = useLocale();
+  const agent = { provider: { name: ${LATTICE_AGENT_NAME} }, start: () => requestLatticeAgent('draft-deck') };
+`,
+      ],
       [
         `              <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
                 {t.home.createSlideHintPrefix}
