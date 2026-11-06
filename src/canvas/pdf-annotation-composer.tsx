@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { hostErrorMessage } from "../app-utils";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
@@ -37,6 +37,7 @@ export function PdfAnnotationComposer(props: {
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState(props.initial?.body ?? "");
   const [intent, setIntent] = useState<AnnotationIntent | undefined>(props.initial?.intent);
+  const [, recheckDestination] = useReducer((count: number) => count + 1, 0);
   const { rounds } = props;
 
   useEffect(() => {
@@ -92,6 +93,11 @@ export function PdfAnnotationComposer(props: {
         onCancel={() => props.onDismiss({ body, intent })}
         onSave={(revise) => {
           if (!mapped) return;
+          const destinationNow = rounds.pdfNoteDestination(mapped.path);
+          if (destinationNow === "other-file" || destinationNow === "offline") {
+            recheckDestination();
+            return;
+          }
           if (rounds.createFromPdf(selection, mapped, body, intent, revise)) props.onDone();
           else setError(t`The source changed since the PDF was built. Build again, then annotate.`);
         }}
