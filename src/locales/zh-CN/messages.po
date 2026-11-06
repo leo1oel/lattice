@@ -2234,6 +2234,10 @@ msgstr "返回{view}"
 msgid "Back to choices"
 msgstr "返回"
 
+#: src/overleaf/use-overleaf-login.ts
+msgid "Back to Overleaf sign-in"
+msgstr "返回 Overleaf 登录"
+
 #: src/editor/markdown/engine/views/footnote-views.tsx
 msgid "Back to reference"
 msgstr "返回原文"

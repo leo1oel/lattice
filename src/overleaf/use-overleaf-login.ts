@@ -103,7 +103,10 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
     if (active.current) return;
     dispatch({ type: "begin" });
     attempts.current = 0;
-    void invoke("overleaf_begin_login", { title: t`Sign in to Overleaf` }).then(() => {
+    // The window has no browser chrome; `backLabel` names the control that
+    // returns from an SSO provider's page to Overleaf's other sign-in methods.
+    const args = { title: t`Sign in to Overleaf`, backLabel: t`Back to Overleaf sign-in` };
+    void invoke("overleaf_begin_login", args).then(() => {
       active.current = true;
       dispatch({ type: "waiting" });
       void poll(generation.current);
