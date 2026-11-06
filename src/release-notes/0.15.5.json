@@ -1,0 +1,48 @@
+{
+  "version": "0.15.5",
+  "date": "2026-11-06",
+  "highlights": [
+    {
+      "title": {
+        "en": "Every Overleaf project you can open",
+        "zh": "显示你能打开的所有 Overleaf 项目"
+      },
+      "body": {
+        "en": "The import list shows all your Overleaf projects in Overleaf's own order with each owner, plus invitations you have not accepted yet, with Open invitation. You can also paste an Overleaf project or share link to open it, and you are told clearly when it needs joining, an accepted invitation or access.",
+        "zh": "导入列表会按 Overleaf 自己的顺序列出你的所有 Overleaf 项目并注明每个项目的所有者，还会列出你尚未接受的邀请，可点“打开邀请”。你也可以粘贴 Overleaf 项目链接或分享链接来打开项目；如果需要先加入项目、接受邀请或获得访问权限，会明确告诉你。"
+      }
+    },
+    {
+      "title": {
+        "en": "The AI assistant says what went wrong",
+        "zh": "AI 助手会说明出了什么问题"
+      },
+      "body": {
+        "en": "When Claude Code cannot start, the card says why and what to do, such as updating a Claude Code older than 2.0.63 or signing in. A model your account cannot use is greyed out with the reason, and the composer switches to the default model with a notice. An Anthropic 403 refusal gets its own message, and warnings show next to the composer.",
+        "zh": "Claude Code 无法启动时，卡片会说明原因和解决办法，例如更新低于 2.0.63 的 Claude Code 或先登录。你的账号无法使用的模型会显示为灰色并注明原因，输入框会切换到默认模型并给出提示。Anthropic 的 403 拒绝有单独的提示，警告也会显示在输入框旁边。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "The Overleaf sign-in window has a Back to Overleaf sign-in button on Google, ORCID, IEEE and SSO pages.",
+      "zh": "Overleaf 登录窗口在 Google、ORCID、IEEE 和 SSO 页面上提供“返回 Overleaf 登录”按钮。"
+    },
+    {
+      "en": "Check references proposes references and field names in English in any interface language, no longer sticks the tag to the next word, no longer proposes braces around a whole title, and no longer names an undated paper NIPS. A note says that closing the window does not stop the check.",
+      "zh": "“检查引用”在任何界面语言下都用英文给出建议的参考文献和字段名，标签不再与后面的单词粘在一起，不再建议给整个标题加花括号，也不再把没有年份的论文命名为 NIPS。另有提示说明关闭窗口不会停止检查。"
+    },
+    {
+      "en": "Annotation pins on the PDF match the size of the source gutter's pins and scale with the zoom.",
+      "zh": "PDF 上的批注图钉与源码边栏中的图钉大小一致，并会随缩放变化。"
+    },
+    {
+      "en": "The editor runs on Tiptap 3.33.0, and presentations on the latest Open Slide.",
+      "zh": "编辑器升级到 Tiptap 3.33.0，演示文稿使用最新版 Open Slide。"
+    },
+    {
+      "en": "Developer builds give the performance lab its own test keychain.",
+      "zh": "开发版为性能测试环境提供独立的测试钥匙串。"
+    }
+  ]
+}
