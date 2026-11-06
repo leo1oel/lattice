@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-06 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**760 files, +69,824 / −8,542 lines**. It carries embedded-workspace UI, a skills manager,
+**760 files, +69,904 / −8,590 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -105,6 +105,7 @@ Claude problems are now said next to the composer, where the writer is looking, 
 
 Usage refreshes no longer raise a macOS Keychain prompt every few seconds. Before, every usage poll ran `security find-generic-password` for "Claude Code-credentials" (and "Factory CLI" for a Factory login) several times, each read whose access list lacks `security` raised a "security wants to use the login keychain" prompt, "Allow" covered that one read only, and a denied read was retried on the next poll, so typing the password never stopped them.
 The server now reads each Keychain item at most once and keeps the answer in the sidecar's memory (`apps/server/src/providerUsage/keychainReads.ts`, for Claude, Codex, Cursor and Factory): a granted secret is reused for 12 hours (and re-read once only when the token it carried is found expired or rejected), concurrent refreshes share one read, and a denied or failed read is not tried again until the user presses Refresh on the usage page (`forceRefresh`), which Lattice frames as Settings → Agent → Usage & limits, or the sidecar restarts with Lattice; a rewritten credential file re-checks only an item that was absent, never a denial. `security` now gets 60 seconds instead of 5, which killed it while its prompt was still open, so a password typed after that reached no one.
+In the embed that usage page hides its sidebar-only rows (the sidebar usage accounts and the sidebar ring choice), since Lattice embeds no Synara rail or sidebar for them to change (fork `164c06dbb856aba95e7b967f5d6e5cb273900ae0`); it keeps the popover options, Refresh and the provider cards, and standalone Synara is unchanged.
 
 ## Synara 0.9.1 compatibility
 
