@@ -21,9 +21,10 @@ export type EntryPaper = { paper: PaperSummary | null; state: EntryPaperState };
 export type PaperFetchStates = Readonly<Record<string, PaperFetchState>>;
 
 /**
- * The library's paper for the entry `key` (by citation key, else by arXiv id),
- * else, for a .bib the library does not list (not the primary bibliography),
- * one made from the entry itself, which the fetch takes as it takes a
+ * The library's paper for the entry `key` (by citation key, else by arXiv
+ * id or web address, as the library lists another .bib's downloaded
+ * reference), else, for a reference of another .bib not downloaded yet, one
+ * made from the entry itself, which the fetch takes as it takes a
  * citation-only row: by arXiv id or by web address.
  */
 export function entryPaper(
@@ -34,6 +35,7 @@ export function entryPaper(
 ): EntryPaper {
   const paper = papers.find((item) => sameIgnoringCase(item.citationKey, key))
     ?? (summary.arxivId ? papers.find((item) => item.arxivId === summary.arxivId) : undefined)
+    ?? (summary.url ? papers.find((item) => item.url === summary.url) : undefined)
     ?? (summary.arxivId || summary.url ? {
       arxivId: summary.arxivId, doi: summary.doi || undefined, url: summary.url || undefined, title: summary.title || key,
       year: summary.year || undefined, citationKey: key, hasFullText: false, hasBlog: false,

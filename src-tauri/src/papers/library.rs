@@ -1,6 +1,8 @@
 //! The paper library: everything the primary bibliography cites, joined to
 //! whichever bundle holds its text. The bibliography is authoritative: a work
 //! without a bundle is still listed, and a bundle nobody cites stays hidden.
+//! A reference of the project's other `.bib` files is listed only once its
+//! text has been downloaded.
 
 use super::bundle::{file_has_body, is_bundle_asset_path, read_asset_manifest, PaperMetadata};
 use super::ids::{arxiv_base_id, same_arxiv_work, validate_paper_key};
@@ -50,15 +52,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     );
     let mut papers = Vec::new();
     for citation in citations {
-        // Cache attachment requires an explicit identity. Titles alone cannot
-        // prove that the downloaded text belongs to this citation.
-        let by_arxiv = bundles.iter().position(|bundle| {
-            citation.arxiv_id.as_deref().is_some_and(|cited| same_arxiv_work(cited, &bundle.key))
-        });
-        let by_url = bundles
-            .iter()
-            .position(|bundle| citation.url.as_deref().is_some_and(|cited| bundle.captured(cited)));
-        let matched = by_arxiv.or(by_url).map(|index| bundles.remove(index));
+        let matched = take_bundle(&mut bundles, &citation);
         papers.push(PaperSummary {
             // Keep whichever id can actually fetch the text: the bundle's, else
             // whatever the bibliography entry points at.
@@ -83,8 +77,49 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             asset_paths: matched.map(|bundle| bundle.asset_paths).unwrap_or_default(),
         });
     }
+    // A reference in another .bib, which its own reference list can download,
+    // is listed once its text is here, keyless: the primary bibliography,
+    // which removing a reference edits, does not hold it.
+    if !bundles.is_empty() {
+        let primary_keys: Vec<String> =
+            papers.iter().filter_map(|paper| paper.citation_key.clone()).collect();
+        for citation in project::citations(root)?.citations {
+            if primary_keys.iter().any(|key| key.eq_ignore_ascii_case(&citation.key)) {
+                continue;
+            }
+            let Some(bundle) = take_bundle(&mut bundles, &citation) else { continue };
+            papers.push(PaperSummary {
+                arxiv_id: bundle.key,
+                citation_health: None,
+                doi: citation.doi,
+                url: citation.url,
+                title: super::title_or_key(citation.title, &citation.key),
+                authors: citation.bibtex_authors,
+                year: Some(citation.year).filter(|year| !year.is_empty()),
+                citation_key: None,
+                has_full_text: bundle.has_full_text,
+                has_blog: bundle.has_blog,
+                asset_paths: bundle.asset_paths,
+            });
+        }
+    }
     papers.sort_by_key(|paper| paper.title.to_lowercase());
     Ok(papers)
+}
+
+/// The cached bundle holding `citation`'s text, taken out of `bundles`. Cache
+/// attachment requires an explicit identity: titles alone cannot prove that
+/// the downloaded text belongs to this citation.
+fn take_bundle(
+    bundles: &mut Vec<CachedBundle>, citation: &crate::models::CitationInfo,
+) -> Option<CachedBundle> {
+    let by_arxiv = bundles.iter().position(|bundle| {
+        citation.arxiv_id.as_deref().is_some_and(|cited| same_arxiv_work(cited, &bundle.key))
+    });
+    let by_url = bundles
+        .iter()
+        .position(|bundle| citation.url.as_deref().is_some_and(|cited| bundle.captured(cited)));
+    by_arxiv.or(by_url).map(|index| bundles.remove(index))
 }
 
 /// Recheck the citation health of every DOI the bibliography cites (within
@@ -462,6 +497,58 @@ mod tests {
         .unwrap();
         assert!(reused.reused);
         assert_eq!(reused.arxiv_id, blog_id);
+    }
+
+    /// A reference of another `.bib` joins the listing, keyless, once the
+    /// paper it names was downloaded (by arXiv id or captured URL); one not
+    /// downloaded yet, and a bundle no .bib names, stay out.
+    #[test]
+    fn lists_the_downloaded_references_of_other_bibliographies() {
+        let blog = "https://example.com/a-blog-post";
+        let blog_id = web_reference_id(blog);
+        let project = TestProject::new(ATTENTION_BIB);
+        project.write(
+            "chapters/extra.bib",
+            &format!(
+                "@article{{lei2025scalability, title={{The Scalability of Simplicity}}, eprint={{2504.10462v2}}}}\n\
+                 @misc{{blog2024, title={{A Blog Post}}, url={{{blog}}}}}\n\
+                 @article{{pending, title={{Not downloaded}}, eprint={{2501.00009}}}}\n"
+            ),
+        );
+        project.write(".research/papers/2504.10462/paper.md", "# Simplicity\n\nText.\n");
+        project.write(".research/papers/2401.00001/paper.md", "# Skimmed\n\nText.\n");
+        let markdown = "# A Blog Post\n\nThe captured content.\n";
+        let capture = PaperMetadata::new(
+            &blog_id,
+            &blog_id,
+            "A Blog Post".into(),
+            FIRECRAWL_CONVERTER,
+            "web",
+            blog,
+            markdown,
+        );
+        project.write_bundle(markdown, &capture);
+
+        let papers = list_papers(&project.root).unwrap();
+        let listed: Vec<_> = papers
+            .iter()
+            .map(|paper| {
+                (
+                    paper.citation_key.as_deref(),
+                    paper.arxiv_id.as_str(),
+                    paper.url.as_deref(),
+                    paper.has_full_text,
+                )
+            })
+            .collect();
+        assert_eq!(
+            listed,
+            [
+                (None, blog_id.as_str(), Some(blog), true),
+                (Some("vaswani2017attention"), "1706.03762", None, false),
+                (None, "2504.10462", None, true),
+            ]
+        );
     }
 
     #[cfg(unix)]

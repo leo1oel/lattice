@@ -2,7 +2,9 @@ import { projectCommands, projectSnapshot, refreshableProject, expectEditorText,
 import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 import type { EditorView } from "@codemirror/view";
-import { act, fireEvent, within } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -77,5 +79,42 @@ describe("citation card in the source editor", () => {
     fireEvent.click(within(card).getByRole("button", { name: "A Single Transformer" }));
     await expectInvoked("fetch_paper", { arxivId: citedOnly.arxivId, requestId: expect.any(String) });
     await expectInvoked("read_paper", { arxivId: citedOnly.arxivId });
+  });
+
+  it("opens a cited web page in the browser rather than capturing it", async () => {
+    const page = "https://example.com/a-blog-post";
+    renderApp({
+      ...projectCommands(projectSnapshot(), SOURCE),
+      list_citations: () => ({ skipped: [], citations: [{ ...CITATIONS.citations[0], url: page }] }),
+      list_papers: () => [{ arxivId: "", url: page, title: "A Single Transformer", citationKey: "chen2024single", hasFullText: false, hasBlog: false }],
+    });
+    const view = await expectEditorText(SOURCE);
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: SOURCE.indexOf("chen") + 2 } });
+    });
+    const card = await keyboardCard(view);
+    fireEvent.click(within(card).getByRole("button", { name: "A Single Transformer" }));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(page));
+    expect(invoke).not.toHaveBeenCalledWith("fetch_web_reference", expect.anything());
+  });
+
+  it("opens the cited source in the browser when the preprint's download fails", async () => {
+    const citedOnly = { ...SINGLE_TRANSFORMER, hasFullText: false };
+    renderApp({
+      ...projectCommands(projectSnapshot(), SOURCE),
+      list_citations: () => ({ skipped: [], citations: [{ ...CITATIONS.citations[0], arxivId: citedOnly.arxivId }] }),
+      list_papers: () => [citedOnly],
+      fetch_paper: () => Promise.reject(new Error("arXiv is unreachable")),
+    });
+    const view = await expectEditorText(SOURCE);
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: SOURCE.indexOf("chen") + 2 } });
+    });
+    const card = await keyboardCard(view);
+    fireEvent.click(within(card).getByRole("button", { name: OPEN_PAPER }));
+    await expectInvoked("fetch_paper", { arxivId: citedOnly.arxivId, requestId: expect.any(String) });
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(`https://arxiv.org/pdf/${citedOnly.arxivId}`));
   });
 });

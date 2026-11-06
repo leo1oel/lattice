@@ -37,10 +37,11 @@ export function usePaperActions({
   // the timer that clears its "success" glyph, by paper key.
   const paperFetches = useRef<{ requests: Record<string, string>; timers: Record<string, number> }>({ requests: {}, timers: {} });
 
-  const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
+  /** Download `paper`'s text and open it; resolves false when the download failed (and said so). */
+  const fetchAndOpenPaper = useCallback(async (paper: PaperSummary): Promise<boolean> => {
     if (!canDownloadPaper(paper)) {
       if (paper.url) await openUrl(paper.url).catch((reason: unknown) => showError(toMessage(reason)));
-      return;
+      return true;
     }
     // Reserve the navigation when the user asks, not after a potentially slow
     // network fetch. Any later file/Paper/asset click invalidates this claim.
@@ -80,13 +81,14 @@ export function usePaperActions({
       if (!opening.isCurrent()) return;
       await openPaper(fetched, { claim: opening });
     };
-    await fetchAndOpen().catch((reason: unknown) => {
-      if (!live()) return;
+    return fetchAndOpen().then(() => true, (reason: unknown) => {
+      if (!live()) return true;
       delete fetches.requests[key];
       clearFetchState();
       const message = toMessage(reason);
       if (isMissingPaperToolsError(message)) void openForMissingPaperTools(message);
       else if (opening.isCurrent()) showError(message);
+      return false;
     }).finally(() => {
       if (!Object.keys(fetches.requests).length) clearImportStage();
     });

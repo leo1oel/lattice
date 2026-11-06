@@ -92,6 +92,18 @@ describe("BibVisualEditor / opening a reference's paper", () => {
     expect(onOpenPaper).toHaveBeenCalledWith(expect.objectContaining({ arxivId: "", url: "https://example.com/post" }));
   });
 
+  // As the library lists another .bib's reference once downloaded: keyless,
+  // under the arXiv work (no version) or the address it was captured from.
+  it.each([
+    ["preprint", preprint.replace("1706.03762", "1706.03762v5"), "Attention", { arxivId: "1706.03762", title: "Attention Is All You Need" }],
+    ["web page", webPage, "Blog Post", { arxivId: "web-0123456789abcdef", url: "https://example.com/post", title: "A Blog Post" }],
+  ])("opens a downloaded %s of a .bib the library does not cite from", (_, source, title, listed) => {
+    const paper: PaperSummary = { ...listed, hasFullText: true, hasBlog: false };
+    const { onOpenPaper } = renderEditor(source, { papers: [paper] });
+    fireEvent.click(within(option(title)).getByRole("button", { name: "Open paper" }));
+    expect(onOpenPaper).toHaveBeenCalledWith(paper);
+  });
+
   it("says why there is nothing to open for a reference with only a DOI", () => {
     renderEditor(doiOnly);
     expect(within(option("Structural Probe")).queryByRole("button")).toBeNull();

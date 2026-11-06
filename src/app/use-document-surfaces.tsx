@@ -123,7 +123,7 @@ export function useDocumentSurfaces({
   syncTex: ReturnType<typeof useSyncTexNavigation>;
   setPaperPdfOpen: (open: boolean) => void;
   /** Opens a .bib reference's paper (downloading it first), and each download's progress. */
-  paperActions: Pick<ReturnType<typeof usePaperActions>, "readPaper" | "paperFetchStates">;
+  paperActions: Pick<ReturnType<typeof usePaperActions>, "readPaper" | "fetchAndOpenPaper" | "paperFetchStates">;
 }) {
   if (!project) return null;
   const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, save } = documents;
@@ -156,17 +156,24 @@ export function useDocumentSurfaces({
   // otherwise. The unused-symbol counts elsewhere still use the full list.
   const texlabActive = texSetup.doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
   // A citation opens its Paper when the library has its text or can download
-  // it first (as a .bib reference's Download and open does), else the source it cites.
+  // a preprint or published paper first (a cited web page stays in the
+  // browser), else the source it cites, as it does when that download fails.
   const paperCited = (key: string) => papers.find((item) => sameIgnoringCase(item.citationKey, key)
-    && (item.hasFullText || item.hasBlog || canDownloadPaper(item)));
+    && (item.hasFullText || item.hasBlog || (Boolean(item.arxivId || item.doi) && canDownloadPaper(item))));
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameIgnoringCase(item.key, key)));
   // The source editor's citation card and the PDF's open the same thing.
   const canOpenCitation = (key: string) => Boolean(paperCited(key) || citationUrl(key));
   const onOpenCitation = (key: string) => {
     const paper = paperCited(key);
     const url = citationUrl(key);
-    if (paper) paperActions.readPaper(paper);
-    else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
+    const openSource = () => {
+      if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
+    };
+    if (paper?.hasFullText || paper?.hasBlog) paperActions.readPaper(paper);
+    else if (paper) void paperActions.fetchAndOpenPaper(paper).then((downloaded) => {
+      if (!downloaded) openSource();
+    });
+    else openSource();
   };
 
   // The outline, from the source's rail and status bar or the PDF's toolbar: its menu closes as the jump starts.
