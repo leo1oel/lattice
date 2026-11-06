@@ -2234,6 +2234,10 @@ msgstr "Back to {view}"
 msgid "Back to choices"
 msgstr "Back to choices"
 
+#: src/overleaf/use-overleaf-login.ts
+msgid "Back to Overleaf sign-in"
+msgstr "Back to Overleaf sign-in"
+
 #: src/editor/markdown/engine/views/footnote-views.tsx
 msgid "Back to reference"
 msgstr "Back to reference"

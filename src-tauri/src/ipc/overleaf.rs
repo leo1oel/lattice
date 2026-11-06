@@ -124,10 +124,11 @@ pub async fn overleaf_status(app: AppHandle) -> Result<overleaf::OverleafStatus,
 /// Open Overleaf's own login page in a dedicated window. The user signs in
 /// exactly as they would in a browser (including SSO); `overleaf_poll_login`
 /// then captures the session cookie — no manual copying for the common case.
-/// `title` is the window title in the interface language.
+/// `title` is the window title and `back_label` the "return to the login
+/// page" control's text, both in the interface language.
 #[tauri::command]
 pub fn overleaf_begin_login(
-    app: AppHandle, host: Option<String>, title: String,
+    app: AppHandle, host: Option<String>, title: String, back_label: String,
 ) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window(LOGIN_WINDOW) {
         let _ = existing.set_focus();
@@ -137,8 +138,14 @@ pub fn overleaf_begin_login(
     let url: tauri::Url = format!("{host}/login")
         .parse()
         .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
+    let return_script = login_return_script(&url, &back_label);
     tauri::WebviewWindowBuilder::new(&app, LOGIN_WINDOW, tauri::WebviewUrl::External(url))
         .title(title)
+        // The window has no browser chrome, so once the user follows an SSO
+        // button (Google, ORCID, …) nothing leads back to Overleaf's other
+        // sign-in methods. Main frame only: the control belongs to the page,
+        // not to provider iframes.
+        .initialization_script(return_script)
         .inner_size(1040.0, 780.0)
         // Signing out removes Lattice's saved session, not WebKit's cookies.
         // A fresh store lets the next sign-in choose another account instead
@@ -148,6 +155,12 @@ pub fn overleaf_begin_login(
         .build()
         .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
     Ok(())
+}
+
+/// The script that gives every page but `login` a control back to it.
+fn login_return_script(login: &tauri::Url, label: &str) -> String {
+    let config = serde_json::json!({ "url": login.as_str(), "label": label });
+    format!("{}({config});", include_str!("overleaf_login_return.js"))
 }
 
 #[tauri::command]
@@ -622,5 +635,17 @@ mod tests {
             Duration::from_secs(4)
         );
         assert!(full_sync_delay(Some(now - Duration::from_secs(7)), now).is_zero());
+    }
+
+    #[test]
+    fn the_login_return_control_gets_its_page_and_text_as_data() {
+        let login: tauri::Url = "https://www.overleaf.com/login".parse().unwrap();
+        let script = login_return_script(&login, "返回 \"Overleaf\" 登录</script>");
+
+        // The label is a JSON string handed to the script, never spliced in
+        // as code, so no translation can break out of it.
+        assert!(script.ends_with(
+            r#"({"label":"返回 \"Overleaf\" 登录</script>","url":"https://www.overleaf.com/login"});"#
+        ));
     }
 }
