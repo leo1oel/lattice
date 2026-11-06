@@ -118,7 +118,7 @@ describe("workspace layout persistence", () => {
       canvasMode: "split",
       documentMode: "split",
       bibMode: "source",
-      paperView: "blog",
+      paperView: "fulltext",
     });
   });
 

@@ -98,6 +98,6 @@ export function planWorkspaceRestore(
     mode,
     documentMode: layout?.documentMode ?? "split",
     bibMode: layout?.bibMode ?? "source",
-    paperView: layout?.paperView ?? "blog",
+    paperView: layout?.paperView ?? "fulltext",
   };
 }

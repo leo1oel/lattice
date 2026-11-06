@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview, OpenFileOptions, PaperSummary } from "../app-types";
@@ -214,8 +214,14 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
     showTab, textRef, viewStateRef,
   ]);
 
+  // The view each Paper was last shown in, by arXiv id, so reopening one keeps
+  // the writer's choice while a Paper never opened starts on its full text.
+  const paperViewsRef = useRef(new Map<string, PaperView>());
+
   /** Show the Paper's overview or its full text: two distinct editable documents. */
   const choosePaperView = useCallback((view: PaperView) => {
+    const shown = renderedRef.current.paper;
+    if (shown) paperViewsRef.current.set(shown.arxivId, view);
     if (view === renderedRef.current.paperView) return;
     // Publish the old NodeView while its path still owns the callback, then change identity.
     if (flushRef.current?.() === false) return;
@@ -269,7 +275,9 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       // the Paper and dropping the late edit.
       if (flushAndCheckDirty(owner)) return null;
       setPaperBuffers(fullText, blog);
-      setPaperView((current) => preferredPaperView(current, fullText, blog));
+      const view = preferredPaperView(paperViewsRef.current.get(target.arxivId), fullText, blog);
+      paperViewsRef.current.set(target.arxivId, view);
+      setPaperView(view);
       if (!fullText && blog) showNotice(t`Full paper text is unavailable; showing the overview instead.`);
       setPaper(target);
       setAsset(null);
@@ -286,9 +294,11 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
     if (!opened) return false;
     // Honor a view the caller named when it is locally readable; the open
     // already fell back to whichever side exists.
-    if (options?.view === "fulltext" && opened.hasFullText) choosePaperView("fulltext");
-    else if (options?.view === "blog" && opened.hasBlog) choosePaperView("blog");
-    else return true;
+    if ((options?.view === "fulltext" && opened.hasFullText) || (options?.view === "blog" && opened.hasBlog)) {
+      // The Paper may not have rendered yet, so remember the view under its own id.
+      paperViewsRef.current.set(target.arxivId, options.view);
+      choosePaperView(options.view);
+    } else return true;
     // A search hit's line, in the reading file it was found in: the Preview
     // answers the request once that file is the one in front.
     if (options.line) requestLine(paperDocumentPath(target.arxivId, options.view), options.line);

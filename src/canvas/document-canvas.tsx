@@ -57,7 +57,7 @@ import { EditorStatusBar } from "./editor-status-bar";
 import { isLatexSourcePath } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
 import {
-  capturePreviewViewport, minimalTextChange, rangesWithinPreview, restorePreviewAnchor, restorePreviewViewport, restoreViewport,
+  capturePreviewViewport, keepPreviewAnchorOnResize, minimalTextChange, rangesWithinPreview, restorePreviewViewport, restoreViewport,
   spliceMarkdownBody, useSettledPreviewText,
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
@@ -266,6 +266,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   // Another file, a Paper's other reading or its PDF, or another layout comes in on a fade.
   useViewFade(props.hosts.editorHost, [activeFile, props.document.activeAsset?.path, props.document.mode, paperPdfOpen].join("\n"));
   const markdownPreviewPersistenceCleanupRef = useRef<(() => void) | null>(null);
+  const markdownPreviewPathRef = useRef<string | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
   const markdownPreviewViewportLockRef = useRef(0);
   const markdownPreviewReconcileFromSourceRef = useRef<(() => void) | null>(null);
@@ -680,42 +681,25 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       else restoring = false;
     });
     let lastAnchor = anchor;
-    let width = viewport.clientWidth;
+    // Split mode's scroll sync and its insertion lock own this scroll while they turn native anchoring off.
+    const keep = keepPreviewAnchorOnResize(viewport, () => lastAnchor, () => restoring);
     const report = () => {
       // A preview being torn down has no layout left to read a place from;
       // one rewrapped at a width the observer below has yet to see scrolled
       // only by that reflow (native anchoring), not by the reader.
-      if (restoring || !viewport.isConnected || (viewport.clientWidth && viewport.clientWidth !== width)) return;
+      if (restoring || !viewport.isConnected || (viewport.clientWidth && viewport.clientWidth !== keep.width())) return;
       const place = capturePreviewViewport(viewport);
       lastAnchor = place.anchor;
       onFileViewState?.(path, { visualMarkdown: place });
     };
-    // The block last read at the top stays there through a change of width
-    // (a panel resized, a Writing or Reading layout taking over), as the text
-    // above it rewraps; WebKit has no native scroll anchoring to do it. The
-    // observer runs after that layout and before it paints.
-    let resizeFrames = 0;
-    const [scheduleKeep, cancelKeep] = frameCoalescer(() => {
-      resizeFrames += 1;
-      if (lastAnchor && !restorePreviewAnchor(viewport, lastAnchor) && resizeFrames < 10) scheduleKeep();
-    });
-    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
-      // Hidden (no width) is no new width: the place waits for it to show again.
-      if (viewport.clientWidth === width || !viewport.clientWidth) return;
-      width = viewport.clientWidth;
-      // Split mode's scroll sync and its insertion lock own this scroll, and
-      // both turn native anchoring off while they do.
-      if (restoring || !lastAnchor || viewport.style.overflowAnchor === "none") return;
-      resizeFrames = 0;
-      if (!restorePreviewAnchor(viewport, lastAnchor)) scheduleKeep();
-    });
-    resizeObserver?.observe(viewport);
     viewport.addEventListener("scroll", report, { passive: true });
     if (saved) scheduleRestore();
+    // A file with no place of its own (a Paper's full text read first) opens at its top, not at the last one's offset.
+    else if (markdownPreviewPathRef.current !== path && quoteFallback?.path !== path && !jumping()) viewport.scrollTop = 0;
+    markdownPreviewPathRef.current = path;
     markdownPreviewPersistenceCleanupRef.current = () => {
       cancelRestore();
-      cancelKeep();
-      resizeObserver?.disconnect();
+      keep.stop();
       restoring = false;
       report();
       viewport.removeEventListener("scroll", report);

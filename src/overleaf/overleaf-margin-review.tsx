@@ -439,6 +439,10 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
   const railItems = items.filter((item) => onScreen.has(item.key) || item.key === opened?.key);
   const commentCount = railItems.filter((item) => item.kind === "comment").length;
   const changeCount = railItems.length - commentCount;
+  // The rail lists only what sits on the lines in the editor's view, and its
+  // list follows the scroll; the heading says so, and its hint says it whole.
+  const railTitle = t({ message: "In view", context: "margin review" });
+  const railHint = t({ message: "Comments and suggestions on the lines you can see. Scroll to see others.", context: "margin review" });
   const railSummary = joinPhrases([
     commentCount === 1 ? t`1 comment` : commentCount ? t`${formatCount(commentCount, i18n.locale)} comments` : "",
     changeCount === 1 ? t`1 suggestion` : changeCount ? t`${formatCount(changeCount, i18n.locale)} suggestions` : "",
@@ -521,14 +525,15 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
           <aside
             ref={railRef}
             className="margin-review-rail"
-            aria-label={t({ message: "On screen", context: "margin review" })}
+            aria-label={railTitle}
+            aria-description={railHint}
             onKeyDown={(event) => {
               const key = (event.target as HTMLElement).closest<HTMLElement>("[data-review-key]")?.dataset.reviewKey ?? opened.key;
               walk(event, key);
             }}
           >
             <header className="margin-review-rail-head">
-              <h2>{t({ message: "On screen", context: "margin review" })}</h2>
+              <h2 title={railHint}>{railTitle}</h2>
               <span>{railSummary}</span>
               <IconButton size="compact" label={t`Close`} onClick={() => close(true)}>
                 <X size={14} aria-hidden="true" />

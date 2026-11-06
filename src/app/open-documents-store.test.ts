@@ -8,7 +8,7 @@ describe("open documents store", () => {
   it("starts with nothing open, in split view, and keeps each window's store apart", () => {
     const store = createOpenDocumentsStore();
     expect(store.getState()).toMatchObject({
-      file: "", text: "", savedText: "", asset: null, paper: null, paperView: "blog",
+      file: "", text: "", savedText: "", asset: null, paper: null, paperView: "fulltext",
       tabs: [], revealRequest: 0, mode: "split", opening: null, navStack: [], navIndex: -1,
     });
     store.getState().showFileText("main.tex", "Main");

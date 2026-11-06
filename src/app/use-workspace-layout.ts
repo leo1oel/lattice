@@ -29,7 +29,7 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
     persistenceReadyRoot, setPersistenceReadyRoot, setTabsSettledRoot, setNavStack, setNavIndex,
     setPaper, setAsset, setPaperBuffers, showFileText,
   } = store;
-  const { loadFile, openPaper, openAsset, choosePaperView } = opens;
+  const { loadFile, openPaper, openAsset } = opens;
 
   // ---- Layout persistence -----------------------------------------------------------------------------------------
   useEffect(() => {
@@ -126,9 +126,8 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
             const target = depsRef.current.papers.find((item) => item.arxivId === arxivId)
               ?? plannedPapers.find((item) => item.arxivId === arxivId);
             if (target) {
-              if (!(await openPaper(target))) return;
+              if (!(await openPaper(target, { view: restoredView }))) return;
               if (projectRef.current?.root === snapshot.root) {
-                choosePaperView(restoredView);
                 setMode(restoredMode === "source" || restoredMode === "split" ? restoredMode : "pdf");
               }
             }
@@ -138,7 +137,7 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
       },
     };
   }, [
-    bibModeRef, choosePaperView, depsRef, documentModeRef, htmlModesRef, intentRef, loadFile, openAsset, openPaper,
+    bibModeRef, depsRef, documentModeRef, htmlModesRef, intentRef, loadFile, openAsset, openPaper,
     projectOperationGenerationRef, projectRef, setAsset, setMode, setNavIndex, setNavStack, setPaper,
     setPaperBuffers, setPaperView, setPersistenceReadyRoot, setTabs, setTabsSettledRoot, showFileText, viewStates,
   ]);

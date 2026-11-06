@@ -301,7 +301,7 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
     canvasMode,
     documentMode,
     bibMode: oneOf(candidate.bibMode, DOCUMENT_MODES, "source"),
-    paperView: oneOf(candidate.paperView, ["fulltext"], "blog"),
+    paperView: oneOf(candidate.paperView, ["blog"], "fulltext"),
   };
 }
 

@@ -358,9 +358,22 @@ describe("papers", () => {
     expect(invoke).toHaveBeenCalledWith("read_paper_blog_local", { arxivId: "1706.03762" });
     expect(invoke).not.toHaveBeenCalledWith("read_paper_blog", { arxivId: "1706.03762" });
     expect(document.querySelector(".paper-reader")).toBeNull();
-    expect(await screen.findByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
+    // A Paper opens on its full text, under its own masthead.
+    const abstractHeading = await screen.findByRole("heading", { name: "Abstract" });
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
+    const paperHeader = document.querySelector<HTMLElement>(".paper-visual-header");
+    expect(within(paperHeader!).getByRole("heading", { name: "Attention Is All You Need" })).toBeInTheDocument();
+    expect(within(paperHeader!).getByText("Ashish Vaswani, Noam Shazeer")).toBeInTheDocument();
+    expect(paperHeader!.compareDocumentPosition(abstractHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("title: Attention Is All You Need")).not.toBeInTheDocument();
+
+    // A Paper's panel switches between the Paper itself and its Blog, and, like any Markdown, between Edit, Split and Preview.
+    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
+    const paperContent = screen.getByRole("tablist", { name: "Paper content" });
+    expect(within(paperContent).getByRole("tab", { name: "Paper" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(within(paperContent).getByRole("tab", { name: "Blog" }));
+    expect(await screen.findByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
     // The Blog has no masthead of its own, so the strip names the whole Paper;
     // its source is the way to the original.
     const identity = document.querySelector<HTMLElement>(".paper-identity")!;
@@ -368,21 +381,7 @@ describe("papers", () => {
     expect(within(identity).getByText("Vaswani and Shazeer")).toBeInTheDocument();
     fireEvent.click(within(identity).getByRole("button", { name: "arXiv 1706.03762, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762"));
-
-    // A Paper's panel switches between its Blog and the Paper itself, and, like any Markdown, between Edit, Split and Preview.
-    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
-    const paperContent = screen.getByRole("tablist", { name: "Paper content" });
-    expect(within(paperContent).getByRole("tab", { name: "Blog" })).toHaveAttribute("aria-selected", "true");
-    expect(within(paperContent).getByRole("tab", { name: "Paper" })).toBeInTheDocument();
-
     fireEvent.click(within(paperContent).getByRole("tab", { name: "Paper" }));
-    const abstractHeading = await screen.findByRole("heading", { name: "Abstract" });
-    const paperHeader = document.querySelector<HTMLElement>(".paper-visual-header");
-    expect(paperHeader).not.toBeNull();
-    expect(within(paperHeader!).getByRole("heading", { name: "Attention Is All You Need" })).toBeInTheDocument();
-    expect(within(paperHeader!).getByText("Ashish Vaswani, Noam Shazeer")).toBeInTheDocument();
-    expect(paperHeader!.compareDocumentPosition(abstractHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByText("title: Attention Is All You Need")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("checkbox"));
     await waitFor(() => expect(screen.getByRole("checkbox")).toBeChecked());
     // Saving writes the whole file: the ticked task, and the metadata the reader never showed.
@@ -446,8 +445,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     await openPaper("Attention Is All You Need");
     await waitFor(() => expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true"));
-    // Read in the Paper's full text rather than its Blog.
-    fireEvent.click(await screen.findByRole("tab", { name: "Paper" }));
+    // It opens on the Paper's full text rather than its Blog.
     await screen.findByRole("heading", { name: "Attention" });
     const panel = (id: string) => document.querySelector(`[data-trellis-part="panel"][data-panel="${id}"]`);
     const workspaceTab = () => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Workspace" });

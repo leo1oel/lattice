@@ -3756,6 +3756,11 @@ msgstr "comments"
 msgid "Comments"
 msgstr "Comments"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgctxt "margin review"
+msgid "Comments and suggestions on the lines you can see. Scroll to see others."
+msgstr "Comments and suggestions on the lines you can see. Scroll to see others."
+
 #. placeholder {0}: knownAuthorName ?? ""
 #. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
@@ -6833,6 +6838,11 @@ msgstr "In this paper"
 msgid "In use"
 msgstr "In use"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgctxt "margin review"
+msgid "In view"
+msgstr "In view"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "Include another TeX file"
@@ -9545,11 +9555,6 @@ msgstr "On “{0}”"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "on line"
-
-#: src/overleaf/overleaf-margin-review.tsx
-msgctxt "margin review"
-msgid "On screen"
-msgstr "On screen"
 
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { markdownPreviewSyncPolicy } from "../editor/markdown/markdown-preview-sync-policy";
 import { clamp } from "../lib/clamp";
-import { clearTimer } from "../app/effect-helpers";
+import { clearTimer, frameCoalescer } from "../app/effect-helpers";
 import type { CanvasMode, VisualMarkdownViewState } from "../app-types";
 
 /**
@@ -263,4 +263,33 @@ export function restorePreviewAnchor(viewport: HTMLElement, anchor: PreviewAncho
 /** The saved block back in place when there is one, else the saved share of the scroll range. */
 export function restorePreviewViewport(viewport: HTMLElement, snapshot: PreviewViewportSnapshot): boolean {
   return snapshot.anchor ? restorePreviewAnchor(viewport, snapshot.anchor) : restoreViewport(viewport, snapshot);
+}
+
+/**
+ * Keep the block last read at the top of a preview there through a change of
+ * width (a panel resized, a Writing or Reading layout taking over), as the
+ * text above it rewraps; WebKit has no native scroll anchoring to do it. The
+ * observer runs after that layout and before it paints. `anchor` reads that
+ * block; while `held`, or while native anchoring is off (another owner has
+ * the scroll), a new width is only noted. `width()` is the last width seen.
+ */
+export function keepPreviewAnchorOnResize(viewport: HTMLElement, anchor: () => PreviewAnchor | undefined, held: () => boolean) {
+  let width = viewport.clientWidth;
+  let frames = 0;
+  const [scheduleKeep, cancelKeep] = frameCoalescer(() => {
+    frames += 1;
+    const block = anchor();
+    if (block && !restorePreviewAnchor(viewport, block) && frames < 10) scheduleKeep();
+  });
+  const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+    // Hidden (no width) is no new width: the place waits for it to show again.
+    if (viewport.clientWidth === width || !viewport.clientWidth) return;
+    width = viewport.clientWidth;
+    const block = anchor();
+    if (held() || !block || viewport.style.overflowAnchor === "none") return;
+    frames = 0;
+    if (!restorePreviewAnchor(viewport, block)) scheduleKeep();
+  });
+  observer?.observe(viewport);
+  return { width: () => width, stop: () => { cancelKeep(); observer?.disconnect(); } };
 }
