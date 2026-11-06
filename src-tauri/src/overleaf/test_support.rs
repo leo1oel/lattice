@@ -59,10 +59,14 @@ impl MockServer {
 /// Called with each request's method and URL as it arrives.
 pub(super) type OnRequest = Box<dyn FnMut(&str, &str) + Send>;
 
-/// How the mock Overleaf behaves. Its dashboard is always
-/// [`projects_page_html`].
+/// How the mock Overleaf behaves.
 #[derive(Default)]
 pub(super) struct Mock {
+    /// The dashboard page; [`projects_page_html`] when unset.
+    pub dashboard: Option<String>,
+    /// `(method, path, status, JSON body)` answers that take precedence over
+    /// the built-in ones.
+    pub routes: Vec<(&'static str, &'static str, u16, String)>,
     /// The project download.
     pub zip: Vec<u8>,
     /// Served one per version read, a `/updates?min_count=1` request (the
@@ -93,7 +97,8 @@ impl Mock {
         let recorded = Arc::clone(&requests);
         let mut versions: VecDeque<i64> = self.versions.iter().copied().collect();
         let mut uploads = 0usize;
-        let html = projects_page_html();
+        let html = self.dashboard.take().unwrap_or_else(projects_page_html);
+        let routes = std::mem::take(&mut self.routes);
         let base = serve_http(move |mut request| {
             let mut body = Vec::new();
             let _ = request.as_reader().read_to_end(&mut body);
@@ -116,10 +121,15 @@ impl Mock {
             }
             let path = url.split('?').next().unwrap_or("");
             const JSON: Option<&str> = Some("application/json");
+            let route = routes.iter().find(|(m, p, ..)| *m == method && *p == path);
             let (status, content_type, body): (u16, Option<&str>, Vec<u8>) = match (
                 method.as_str(),
                 path,
             ) {
+                _ if route.is_some() => {
+                    let (.., status, body) = route.unwrap();
+                    (*status, JSON, body.clone().into_bytes())
+                }
                 ("GET", p) if p.ends_with("/updates") && !url.ends_with("?min_count=1") => {
                     let body = serde_json::json!({ "updates": self.history });
                     (200, JSON, body.to_string().into_bytes())
@@ -174,6 +184,11 @@ impl Mock {
 
 /// The dashboard: CSRF token, the signed-in user, and three projects.
 pub(super) fn projects_page_html() -> String {
+    dashboard_html(&default_projects(), &serde_json::json!([]))
+}
+
+/// The prefetched blob of [`projects_page_html`].
+pub(super) fn default_projects() -> serde_json::Value {
     let owner = |email: &str, first: &str, last: &str| serde_json::json!({ "email": email, "firstName": first, "lastName": last });
     let project = |id: &str, name: &str, updated: &str, access: &str, archived: bool, owner| {
         serde_json::json!({
@@ -182,7 +197,7 @@ pub(super) fn projects_page_html() -> String {
         })
     };
     let researcher = owner("researcher@example.edu", "Robin", "Researcher");
-    let projects = serde_json::json!({
+    serde_json::json!({
         "totalSize": 3,
         "projects": [
             project("proj-old", "Old Paper", "2026-01-02T10:00:00.000Z", "owner", false, researcher.clone()),
@@ -190,21 +205,35 @@ pub(super) fn projects_page_html() -> String {
                 owner("advisor@example.edu", "Ada", "Advisor")),
             project("proj-archived", "Archived Paper", "2026-03-01T10:00:00.000Z", "owner", true, researcher),
         ]
-    });
+    })
+}
+
+/// A dashboard page carrying `projects` as its prefetched blob (left out when
+/// null, as when Overleaf's background listing failed) and `notifications`.
+pub(super) fn dashboard_html(
+    projects: &serde_json::Value, notifications: &serde_json::Value,
+) -> String {
     let user = serde_json::json!({
         "id": "u1", "email": "researcher@example.edu", "first_name": "Robin", "last_name": "Researcher"
     });
     let attr = |json: &serde_json::Value| {
         json.to_string().replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;")
     };
+    let blob = match projects.is_null() {
+        true => String::new(),
+        false => format!(
+            "<meta name=\"ol-prefetchedProjectsBlob\" data-type=\"json\" content=\"{}\">",
+            attr(projects)
+        ),
+    };
     format!(
         "<html><head>\
          <meta name=\"ol-csrfToken\" content=\"{CSRF}\">\
          <meta name=\"ol-user\" data-type=\"json\" content=\"{}\">\
-         <meta name=\"ol-prefetchedProjectsBlob\" data-type=\"json\" content=\"{}\">\
-         </head><body></body></html>",
+         <meta name=\"ol-notifications\" data-type=\"json\" content=\"{}\">\
+         {blob}</head><body></body></html>",
         attr(&user),
-        attr(&projects),
+        attr(notifications),
     )
 }
 

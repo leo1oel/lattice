@@ -563,6 +563,7 @@ pub fn run() {
             ipc::overleaf::overleaf_cancel_login,
             ipc::overleaf::overleaf_disconnect,
             ipc::overleaf::overleaf_list_projects,
+            ipc::overleaf::overleaf_resolve_link,
             ipc::overleaf::overleaf_clone_target,
             ipc::overleaf::overleaf_clone_project,
             ipc::overleaf::overleaf_publish_project,

@@ -31,7 +31,7 @@ msgid "."
 msgstr "."
 
 #. placeholder {0}: target.folder
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
 "\n"
 "Files that differ are kept side by side. Nothing is overwritten"
@@ -102,6 +102,11 @@ msgstr "{0} already in Papers are skipped"
 msgid "{0} annotations"
 msgstr "{0} annotations"
 
+#. placeholder {0}: props.account
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "{0} can’t open this project"
+msgstr "{0} can’t open this project"
+
 #. placeholder {0}: changes.length
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{0} changes"
@@ -152,6 +157,11 @@ msgstr "{0} fixes to review"
 #: src/papers/bibliography-audit.tsx
 msgid "{0} inconclusive"
 msgstr "{0} inconclusive"
+
+#. placeholder {0}: invite.inviterName
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "{0} invited you. Accept on Overleaf to open it here"
+msgstr "{0} invited you. Accept on Overleaf to open it here"
 
 #. placeholder {0}: entry.path
 #: src/papers/bibliography-audit.tsx
@@ -1396,6 +1406,14 @@ msgstr "Accept {kept} of {offered}"
 msgid "Accept all"
 msgstr "Accept all"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Accept it on Overleaf, then paste the link here again."
+msgstr "Accept it on Overleaf, then paste the link here again."
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Accept the invitation on Overleaf to open it here"
+msgstr "Accept the invitation on Overleaf to open it here"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Accepted"
 msgstr "Accepted"
@@ -1745,7 +1763,7 @@ msgstr "All third-party software"
 msgid "All third-party software ({total})"
 msgstr "All third-party software ({total})"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "All your projects are archived or trashed"
 msgstr "All your projects are archived or trashed"
 
@@ -2065,7 +2083,7 @@ msgstr "Approve the macOS prompt to continue"
 msgid "Approximately equal"
 msgstr "Approximately equal"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Archived"
 msgstr "Archived"
 
@@ -2740,7 +2758,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect-parts.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3059,6 +3077,7 @@ msgid "Checking the connection to {linkedHost}…"
 msgstr "Checking the connection to {linkedHost}…"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Checking your Overleaf connection…"
 msgstr "Checking your Overleaf connection…"
 
@@ -3482,7 +3501,7 @@ msgid "Clear PDF search"
 msgstr "Clear PDF search"
 
 #: src/components/ui/search-field.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
 msgstr "Clear search"
@@ -3877,6 +3896,7 @@ msgid "Congruent"
 msgstr "Congruent"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Connect to Overleaf"
 msgstr "Connect to Overleaf"
 
@@ -4035,6 +4055,10 @@ msgstr "Copy path"
 msgid "Copy source"
 msgstr "Copy source"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Copy the link from the project’s address bar or its Share menu."
+msgstr "Copy the link from the project’s address bar or its Share menu."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Copyright"
 msgstr "Copyright"
@@ -4160,7 +4184,7 @@ msgstr "Could not open the article in your browser"
 msgid "Could not open the log folder: {error}"
 msgstr "Could not open the log folder: {error}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Could not open the Overleaf project"
 msgstr "Could not open the Overleaf project"
 
@@ -4346,7 +4370,7 @@ msgstr "Could not start: {message}"
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "Could not unpack the rtex archive: {error}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Could not upload the project to Overleaf"
 msgstr "Could not upload the project to Overleaf"
 
@@ -4981,7 +5005,7 @@ msgstr "Down double arrow"
 msgid "Download {url}"
 msgstr "Download {url}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Download a new copy"
 msgstr "Download a new copy"
 
@@ -5014,7 +5038,7 @@ msgid "Downloaded paper files will be kept."
 msgstr "Downloaded paper files will be kept."
 
 #. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Downloading {0}…"
 msgstr "Downloading {0}…"
 
@@ -6598,6 +6622,10 @@ msgstr "Idea"
 msgid "If and only if"
 msgstr "If and only if"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "If someone shared it with you, accept their invitation or open their share link once on Overleaf. If they shared it with another account, sign in with that one in Settings → Overleaf."
+msgstr "If someone shared it with you, accept their invitation or open their share link once on Overleaf. If they shared it with another account, sign in with that one in Settings → Overleaf."
+
 #: src/editor/harper-spellcheck.ts
 msgid "Ignore rule in project"
 msgstr "Ignore rule in project"
@@ -7184,6 +7212,14 @@ msgstr "Invalid transaction id."
 msgid "Invalid worksheet: {name}"
 msgstr "Invalid worksheet: {name}"
 
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Invitation"
+msgstr "Invitation"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Invitations"
+msgstr "Invitations"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "Iota"
@@ -7241,6 +7277,10 @@ msgstr "Italic text"
 #: src/project/submission-items.tsx
 msgid "Item"
 msgstr "Item"
+
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
+msgstr "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
@@ -7460,7 +7500,7 @@ msgstr "Last synced"
 msgid "Last synced {0}"
 msgstr "Last synced {0}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "last update unknown"
 msgstr "last update unknown"
 
@@ -7603,6 +7643,11 @@ msgstr "Lattice couldn’t restart automatically. Quit and reopen it manually."
 #: src/canvas/status-save-state.tsx
 msgid "Lattice couldn’t write {file}"
 msgstr "Lattice couldn’t write {file}"
+
+#. placeholder {0}: props.host
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
+msgstr "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 
 #: src/overleaf/overleaf-collab.tsx
 msgctxt "comment source"
@@ -7858,7 +7903,7 @@ msgstr "Link a Zotero or Paperpile export"
 msgid "Link definition"
 msgstr "Link definition"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Link this folder"
 msgstr "Link this folder"
 
@@ -8066,7 +8111,7 @@ msgstr "Loading the conversation…"
 msgid "Loading versions…"
 msgstr "Loading versions…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Loading your Overleaf projects…"
 msgstr "Loading your Overleaf projects…"
 
@@ -8137,6 +8182,10 @@ msgstr "Looking up {resolving}…"
 #: src/canvas/document-canvas.tsx
 msgid "Looking up references is not available here."
 msgstr "Looking up references is not available here."
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Looking up this link on Overleaf…"
+msgstr "Looking up this link on Overleaf…"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Looking up…"
@@ -8709,7 +8758,7 @@ msgstr "New messages are available."
 msgid "New name"
 msgstr "New name"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "New Overleaf project name"
 msgstr "New Overleaf project name"
 
@@ -9076,11 +9125,11 @@ msgstr "No PDF yet"
 msgid "No project open"
 msgstr "No project open"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "No projects in this account yet"
 msgstr "No projects in this account yet"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "No projects match your search"
 msgstr "No projects match your search"
 
@@ -9556,7 +9605,7 @@ msgid "Only the listed graphics arguments will change. Image files stay in place
 msgstr "Only the listed graphics arguments will change. Image files stay in place."
 
 #: src/history/export-changes-dialog.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Open"
 msgstr "Open"
 
@@ -9665,7 +9714,7 @@ msgstr "Open finding"
 msgid "Open folder"
 msgstr "Open folder"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/project/project-dialogs.tsx
 msgid "Open from Overleaf"
 msgstr "Open from Overleaf"
@@ -9693,6 +9742,12 @@ msgstr "Open in Lattice app"
 msgid "Open in Overleaf"
 msgstr "Open in Overleaf"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Open invitation"
+msgstr "Open invitation"
+
+#: src/overleaf/overleaf-pasted-link.tsx
 #: src/project/paper-inspector.tsx
 #: src/project/paper-row.tsx
 msgid "Open link in browser"
@@ -9805,6 +9860,10 @@ msgstr "Open the document this suggestion is in first."
 msgid "Open the file this suggestion is in first"
 msgstr "Open the file this suggestion is in first"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Open the link in your browser and choose Join project on Overleaf, then paste it here again."
+msgstr "Open the link in your browser and choose Join project on Overleaf, then paste it here again."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "Open the linked Overleaf project before changing its sync setting."
@@ -9889,10 +9948,6 @@ msgstr "Origins and adapted work"
 msgid "Other colours"
 msgstr "Other colours"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Other projects"
-msgstr "Other projects"
-
 #: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
 msgid "Outline"
@@ -9968,6 +10023,10 @@ msgstr "Overleaf disconnected this session."
 msgid "Overleaf does not offer the websocket transport (offers {transports})"
 msgstr "Overleaf does not offer the websocket transport (offers {transports})"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Overleaf doesn’t recognize this link"
+msgstr "Overleaf doesn’t recognize this link"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "Overleaf doesn’t support live editing for this file, so it will use regular sync."
@@ -10013,7 +10072,7 @@ msgstr "Overleaf live editing reconnected."
 msgid "Overleaf project actions"
 msgstr "Overleaf project actions"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf projects"
 
@@ -10849,9 +10908,13 @@ msgstr "project restore"
 msgid "Project restored."
 msgstr "Project restored."
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Project uploaded and connected to Overleaf."
 msgstr "Project uploaded and connected to Overleaf."
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Projects"
+msgstr "Projects"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proof environment (requires amsthm)"
@@ -11130,6 +11193,7 @@ msgid "Recompiling…"
 msgstr "Recompiling…"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Reconnect to Overleaf"
 msgstr "Reconnect to Overleaf"
 
@@ -11284,6 +11348,10 @@ msgstr "Release to focus {title}"
 #: src/app/project-panel-commands.ts
 msgid "reload files folders sync disk"
 msgstr "reload files folders sync disk"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Reload list"
+msgstr "Reload list"
 
 #: src/telemetry/panel-error-boundary.tsx
 msgid "Reload panel"
@@ -11935,7 +12003,7 @@ msgstr "Retrieved record information"
 #: src/agent/synara-loading-surface.tsx
 #: src/app/git-workspace-frames.tsx
 #: src/live-preview/live-preview-settings.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/telemetry/app-log.tsx
 msgid "Retry"
 msgstr "Retry"
@@ -12452,9 +12520,9 @@ msgstr "Search"
 msgid "Search by name or license"
 msgstr "Search by name or license"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Search by project or owner…"
-msgstr "Search by project or owner…"
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Search by project or owner, or paste a link…"
+msgstr "Search by project or owner, or paste a link…"
 
 #: src/editor/latex/symbol-palette.ts
 msgid "Search by symbol, command or meaning"
@@ -12504,7 +12572,7 @@ msgstr "Search or add papers"
 msgid "Search or import papers"
 msgstr "Search or import papers"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Search Overleaf projects"
 msgstr "Search Overleaf projects"
 
@@ -12791,7 +12859,7 @@ msgstr "Show all results"
 msgid "Show annotations"
 msgstr "Show annotations"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Show archived"
 msgstr "Show archived"
 
@@ -13777,6 +13845,10 @@ msgstr "That history entry no longer exists."
 msgid "That is a folder."
 msgstr "That is a folder."
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "That isn’t an Overleaf project link"
+msgstr "That isn’t an Overleaf project link"
+
 #: src/platform/host-errors-project.ts
 msgid "That item"
 msgstr "That item"
@@ -14657,6 +14729,15 @@ msgstr "This account cannot accept or reject suggestions here"
 msgid "This account cannot accept or reject suggestions here."
 msgstr "This account cannot accept or reject suggestions here."
 
+#. placeholder {0}: answer.projectName
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This account hasn’t joined “{0}” yet"
+msgstr "This account hasn’t joined “{0}” yet"
+
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This account hasn’t joined this shared project yet"
+msgstr "This account hasn’t joined this shared project yet"
+
 #: src/app/use-project-tree.ts
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
@@ -14785,6 +14866,10 @@ msgstr "this group"
 msgid "This HTML file is too large to open (32 MB maximum)."
 msgstr "This HTML file is too large to open (32 MB maximum)."
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This invitation is waiting on Overleaf"
+msgstr "This invitation is waiting on Overleaf"
+
 #: src/platform/host-errors-project.ts
 msgid "This is a binary or unsupported file and cannot be opened in the source editor."
 msgstr "This is a binary or unsupported file and cannot be opened in the source editor."
@@ -14813,9 +14898,18 @@ msgstr "This line closes a group that was never opened, or leaves math mode with
 msgid "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 msgstr "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 
+#. placeholder {0}: answer.host
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This link is for {0}"
+msgstr "This link is for {0}"
+
 #: src/editor/grammar-rule-text.ts
 msgid "This looks like a typo. Did you mean “{word}”?"
 msgstr "This looks like a typo. Did you mean “{word}”?"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "This Overleaf account"
+msgstr "This Overleaf account"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "This Overleaf account can no longer open the project. It may have been removed from the project, or the project deleted."
@@ -15125,7 +15219,7 @@ msgstr "translation"
 msgid "Translucency"
 msgstr "Translucency"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Trashed"
 msgstr "Trashed"
 
@@ -15359,7 +15453,7 @@ msgstr "Unknown environment {name}"
 msgid "Unknown label “{key}”."
 msgstr "Unknown label “{key}”."
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Unknown owner"
 msgstr "Unknown owner"
 
@@ -15519,7 +15613,7 @@ msgid "Updated"
 msgstr "Updated"
 
 #. placeholder {0}: relativeTime(project.lastUpdated)
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "updated {0}"
 msgstr "updated {0}"
 
@@ -15547,7 +15641,7 @@ msgstr "Updates the .bib entry and every \\cite"
 msgid "Updating…"
 msgstr "Updating…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Upload “{name}” to Overleaf and connect this folder?\n"
 "\n"
 "Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac."
@@ -15555,20 +15649,20 @@ msgstr "Upload “{name}” to Overleaf and connect this folder?\n"
 "\n"
 "Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac."
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Upload and connect"
 msgstr "Upload and connect"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Upload this project to Overleaf"
 msgstr "Upload this project to Overleaf"
 
 #. placeholder {0}: publishName.trim()
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Uploading {0}…"
 msgstr "Uploading {0}…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Uploading…"
 msgstr "Uploading…"
 
@@ -15851,7 +15945,7 @@ msgstr "Waiting for administrator approval…"
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
 msgstr "Waiting for Overleaf's live file tree before syncing moved files."
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect-parts.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "Waiting for you to sign in in the Overleaf window…"
 
@@ -16119,7 +16213,7 @@ msgstr "You"
 msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 msgstr "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "You can close this once the transfer finishes"
 msgstr "You can close this once the transfer finishes"
 
@@ -16136,6 +16230,7 @@ msgid "You read the publisher's notice and kept citing it"
 msgstr "You read the publisher's notice and kept citing it"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "You sign in on Overleaf. Lattice never sees your password."
 msgstr "You sign in on Overleaf. Lattice never sees your password."
 
@@ -16159,6 +16254,11 @@ msgstr "Your colours"
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "Your edits stay on this Mac until the next sync"
 
+#. placeholder {0}: answer.projectName
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Your invitation to “{0}” is waiting on Overleaf"
+msgstr "Your invitation to “{0}” is waiting on Overleaf"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Your name"
@@ -16172,7 +16272,7 @@ msgstr "your Overleaf account"
 msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
 msgstr "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Your Overleaf session expired"
 msgstr "Your Overleaf session expired"
 
@@ -16187,10 +16287,6 @@ msgstr "Your project"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
 msgstr "Your project files are safe"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Your projects"
-msgstr "Your projects"
 
 #: src/papers/bibliography-audit.tsx
 #: src/papers/linked-library-sheet.tsx

@@ -12,7 +12,7 @@ import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 import type { useProjectLifecycle } from "./use-project-lifecycle";
 
 const OverleafPickerDialog = lazy(() =>
-  import("../overleaf/overleaf-connect").then((module) => ({ default: module.OverleafPickerDialog })),
+  import("../overleaf/overleaf-project-picker").then((module) => ({ default: module.OverleafPickerDialog })),
 );
 const OverleafReviewDialog = lazy(() =>
   import("../overleaf/overleaf-review").then((module) => ({ default: module.OverleafReviewDialog })),
