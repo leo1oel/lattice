@@ -79,9 +79,11 @@ export function revealExtension(): Extension {
  * Send `view` to `from`…`to` (a caret when `to` is omitted): select it,
  * center its first line, mark its lines for a moment and focus the editor —
  * once its surface is shown, if it is not yet. Positions are clamped to the
- * document, so a stale target still lands.
+ * document, so a stale target still lands. `focus: false` leaves the keyboard
+ * where it is: a pane beside the editor that shows its place there (a .bib
+ * reference list in Split) keeps it.
  */
-export function revealInEditor(view: EditorView, target: { from: number; to?: number }) {
+export function revealInEditor(view: EditorView, target: { from: number; to?: number }, { focus = true } = {}) {
   const { length } = view.state.doc;
   const from = clamp(target.from, 0, length);
   const to = clamp(target.to ?? from, from, length);
@@ -93,7 +95,7 @@ export function revealInEditor(view: EditorView, target: { from: number; to?: nu
       ...(marks ? [setRevealFlash.of({ from, to })] : []),
     ],
   });
-  focusWhenShown({ dom: view.dom, focus: () => view.focus(), hasFocus: () => view.hasFocus, alive: () => view.dom.isConnected });
+  if (focus) focusWhenShown({ dom: view.dom, focus: () => view.focus(), hasFocus: () => view.hasFocus, alive: () => view.dom.isConnected });
   centerAgainOnceDrawn(view, from);
   if (!marks) return;
   window.clearTimeout(flashTimers.get(view));

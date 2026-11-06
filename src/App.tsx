@@ -591,7 +591,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     projectState, documents, refreshProject, refreshHistory,
     clearImportStage: referenceImport.clearStage, openForMissingPaperTools: texSetup.openForMissingPaperTools,
   });
-  const { readDraggedPaper } = paperActions;
+  const { readPaper } = paperActions;
 
   const referenceImages = useReferenceImages(project?.root, references);
 
@@ -701,7 +701,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     checkReferences, requestNewEntry, settingsOpen: settingsWindow.open, openSettings, whatsNew, browserHosted,
     theme: { preference: themePreference, setPreference: setThemePreference }, interfaceZoom,
     knownAuthorName: commentAuthor.knownName,
-    prewarmLikelyProjectFile, readDraggedPaper,
+    prewarmLikelyProjectFile, readPaper,
   });
   const { commands, openPaletteFromTitlebar, paletteShortcut } = commandTable;
   const commandOverlays = <AppCommandOverlays commands={commands} overlay={commandTable.overlay} />;
@@ -731,7 +731,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       locale: appLocale, theme, editorKeymap: appearance.editorKeymap, editorSpellcheck: appearance.editorSpellcheck,
       onAddSpellingWord: addProjectSpellingWord, interactivePreviewsEnabled: postStartupInteraction,
     },
-    library, latex, texlabDiagnostics, referenceImport, referenceImages, sourceNavigation, setSearchDialog, tree, overleaf,
+    library, latex, texlabDiagnostics, referenceImport, referenceImages, sourceNavigation, setSearchDialog, tree, overleaf, paperActions,
     tools, agentContext, trellis, synara, texSetup, saveSlot, movingWorkspace, livePreview, syncTex, setPaperPdfOpen,
     canvasRequests: { requests: canvasRequests.requests, settle: settleCanvasRequest },
     onEditorPosition: handleEditorPosition,
@@ -799,7 +799,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         <PaperDropBridge
           library={{ projectRoot: project.root, papers }}
           interfaceScale={appearance.interfaceScale}
-          onOpen={readDraggedPaper}
+          onOpen={readPaper}
           onError={(reason) => showError(toMessage(reason))}
         />
       </Suspense>

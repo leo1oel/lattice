@@ -37,10 +37,11 @@ export function usePaperActions({
   // the timer that clears its "success" glyph, by paper key.
   const paperFetches = useRef<{ requests: Record<string, string>; timers: Record<string, number> }>({ requests: {}, timers: {} });
 
-  const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
+  /** Download `paper`'s text and open it; resolves false when the download failed while still wanted (and said so). */
+  const fetchAndOpenPaper = useCallback(async (paper: PaperSummary): Promise<boolean> => {
     if (!canDownloadPaper(paper)) {
       if (paper.url) await openUrl(paper.url).catch((reason: unknown) => showError(toMessage(reason)));
-      return;
+      return true;
     }
     // Reserve the navigation when the user asks, not after a potentially slow
     // network fetch. Any later file/Paper/asset click invalidates this claim.
@@ -67,8 +68,10 @@ export function usePaperActions({
       if (!live()) return;
       delete fetches.requests[key];
       await refreshProject();
+      // A paper the library does not list (a reference of a .bib that is not
+      // the primary bibliography) opens by the bundle the fetch wrote.
       const fetched = (await invoke<PaperSummary[]>("list_papers"))
-        .find((item) => item.arxivId === result.arxivId) ?? { ...paper, hasFullText: true };
+        .find((item) => item.arxivId === result.arxivId) ?? { ...paper, arxivId: result.arxivId, hasFullText: true };
       setPaperFetchStates((current) => ({ ...current, [key]: "success" }));
       if (fetches.timers[key]) window.clearTimeout(fetches.timers[key]);
       fetches.timers[key] = window.setTimeout(() => {
@@ -78,13 +81,18 @@ export function usePaperActions({
       if (!opening.isCurrent()) return;
       await openPaper(fetched, { claim: opening });
     };
-    await fetchAndOpen().catch((reason: unknown) => {
-      if (!live()) return;
+    return fetchAndOpen().then(() => true, (reason: unknown) => {
+      if (!live()) return true;
       delete fetches.requests[key];
       clearFetchState();
       const message = toMessage(reason);
-      if (isMissingPaperToolsError(message)) void openForMissingPaperTools(message);
-      else if (opening.isCurrent()) showError(message);
+      if (isMissingPaperToolsError(message)) {
+        void openForMissingPaperTools(message);
+        return true;
+      }
+      if (!opening.isCurrent()) return true;
+      showError(message);
+      return false;
     }).finally(() => {
       if (!Object.keys(fetches.requests).length) clearImportStage();
     });
@@ -103,7 +111,8 @@ export function usePaperActions({
     clearImportStage();
   };
 
-  const readDraggedPaper = (paper: PaperSummary) => {
+  /** Open `paper` (one dragged in, picked in the palette or a .bib reference's), downloading it first when only cited. */
+  const readPaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
     else if (paper.arxivId || paper.url) void fetchAndOpenPaper(paper);
     else showError(t`This paper has no local reading or downloadable source.`);
@@ -121,5 +130,5 @@ export function usePaperActions({
     refreshHistory, refreshProject, save, sourceRef, captureProjectScope,
   ]);
 
-  return { paperFetchStates, fetchAndOpenPaper, cancelPaperFetches, readDraggedPaper, deletePaper };
+  return { paperFetchStates, fetchAndOpenPaper, cancelPaperFetches, readPaper, deletePaper };
 }

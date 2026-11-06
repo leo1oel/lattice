@@ -44,8 +44,9 @@ import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
 import { useCommittedRef, useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
-  BibVisualEditor, BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, SpreadsheetEditor,
+  BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, SpreadsheetEditor,
 } from "./canvas-lazy-editors";
+import { BibPreview } from "./bib-preview";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { AnnotationComposer } from "./annotation-composer";
 import { EditorCommentCards } from "./editor-comment-cards";
@@ -139,9 +140,9 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     selectionToolbarOwnerRef.current = { path, from: placement.from, to: placement.to };
     setSelectionToolbar(placement);
   }, [dismissSelectionToolbar]);
-  // Filled by the split scroll coordinator; the source editor's updates poke
-  // it so cursor motion reveals the matching preview block.
-  const markdownCursorRevealRef = useRef<(() => void) | null>(null);
+  // Filled by Split's Markdown scroll coordinator or .bib reference list; the
+  // source's updates poke it so cursor motion reveals what the cursor is in.
+  const cursorRevealRef = useRef<(() => void) | null>(null);
   const session = useSourceSession(props, {
     latestRef,
     proofread,
@@ -163,7 +164,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
         // it again, left floating over whatever panel replaced the editor.
         else if (update.selectionSet || update.docChanged || selectionToolbarOwnerRef.current) updateSelectionToolbar(view, path);
       }
-      markdownCursorRevealRef.current?.();
+      cursorRevealRef.current?.();
     },
   });
   const { viewRef: primaryViewRef, viewPathRef: primaryViewPathRef, insertionViewRef: editorViewRef } = session;
@@ -761,7 +762,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     peerScrollSettleMs: markdownSyncPolicy.peerScrollSettleMs,
     suppressedRef: markdownScrollSyncSuppressedRef,
     viewportLockRef: markdownPreviewViewportLockRef,
-    cursorRevealRef: markdownCursorRevealRef,
+    cursorRevealRef: cursorRevealRef,
     reconcileRef: markdownPreviewReconcileFromSourceRef,
   });
 
@@ -983,25 +984,16 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     />
   ) : markdownPreview;
   const bibPreview = bibDocument ? (
-    <div className="bib-preview" onPointerDownCapture={activatePrimarySurface} onFocusCapture={activatePrimarySurface}>
-      <Suspense fallback={<MarkdownPreviewLoading />}>
-        <BibVisualEditor
-          path={activeFile}
-          source={props.document.source}
-          projectRoot={props.preferences.projectRoot}
-          editable={props.document.editorEditable}
-          papers={props.bibliography.papers ?? []}
-          usageRevision={props.bibliography.citationUsageRevision}
-          onChange={replaceBibSource}
-          onUndo={undoVisualMarkdown}
-          onRedo={redoVisualMarkdown}
-          onOpenLine={(path, line) => props.navigation.onTexlabGoto(path, line)}
-          onOpenPaper={(paper) => props.bibliography.onOpenPaper?.(paper)}
-          onOpenUrl={(url) => props.bibliography.onOpenUrl?.(url)}
-          onResolveCitation={(query) => props.bibliography.onResolveCitation?.(query) ?? Promise.reject(new Error(t`Looking up references is not available here.`))}
-        />
-      </Suspense>
-    </div>
+    <BibPreview
+      canvas={props}
+      path={activeFile}
+      sourceView={props.document.mode === "split" ? primaryScrollbarView?.deref() : null}
+      cursorRef={cursorRevealRef}
+      onChange={replaceBibSource}
+      onUndo={undoVisualMarkdown}
+      onRedo={redoVisualMarkdown}
+      onActivate={activatePrimarySurface}
+    />
   ) : null;
   const carriesFigure = (event: DragEvent) => Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE);
   // The rail mounts with the editor's view: it reads the viewport from the start.

@@ -50,6 +50,18 @@ describe("opening documents", () => {
     expect(docs.files.get("main.tex")).toBe("Main");
   });
 
+  it("keeps a Paper in front when the tab of the file beneath it closes", async () => {
+    const docs = renderDocuments({ "main.tex": "Main", "references.bib": "@misc{a,}" }, { papers: [PAPER] });
+    await docs.enter();
+    await act(() => docs.current().openFile("references.bib"));
+    await act(() => docs.current().openPaper(PAPER));
+    // The workspace replacing the .bib's preview tab with the Paper's closes it.
+    vi.mocked(invoke).mockClear();
+    await act(() => docs.current().close("references.bib"));
+    expect(docs.current()).toMatchObject({ paper: PAPER, activeTab: PAPER_TAB, tabs: ["main.tex", PAPER_TAB] });
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "main.tex" }));
+  });
+
   it("closes the open figure back to the last file tab, and reopens it through the asset reader", async () => {
     const docs = renderDocuments({ "main.tex": "Main", "intro.tex": "Intro" }, { paths: ["main.tex", "intro.tex", "fig.png"] });
     await docs.enter();

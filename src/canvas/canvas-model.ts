@@ -101,8 +101,10 @@ type CanvasPreferences = Readonly<{
 type CanvasBibliography = Readonly<{
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
-  /** A .bib reference's library paper, opened from the reference list. */
+  /** A .bib reference's paper, opened from the reference list: downloaded first when only cited. */
   onOpenPaper?: (paper: PaperSummary) => void;
+  /** The Papers downloads under way (and just done), by paper key: the reference list shows their progress. */
+  paperFetchStates?: Readonly<Record<string, "loading" | "success">>;
   /** A .bib reference's DOI, arXiv or web link. */
   onOpenUrl?: (url: string) => void;
   /** Whether a citation card's Open paper has a readable library paper or a source link to open. */
