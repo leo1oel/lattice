@@ -35,12 +35,19 @@ const visible = (text: string) => text && !text.trim()
   ? text.replace(/\n/g, "↵").replace(/[^\S\n]/g, "␣")
   : text.replace(/\s+/g, " ");
 
-/** `text`'s edge spaces drawn outside a mark, so the strike and the wash cover words only. */
-function marked(text: string, mark: (core: string) => ReactNode): ReactNode {
+/**
+ * `text`'s edge spaces drawn outside a mark, so the strike and the wash cover
+ * words only. `last`: the edit's final words, whose trailing space the edit
+ * draws after its tag, so the tag stays with them rather than the next word.
+ */
+function marked(text: string, mark: (core: string) => ReactNode, last = false): ReactNode {
   if (!text.trim()) return mark(visible(text));
   const core = /^(\s*)([\s\S]*?)(\s*)$/.exec(text)!;
-  return <>{core[1] ? " " : null}{mark(visible(core[2]!))}{core[3] ? " " : null}</>;
+  return <>{core[1] ? " " : null}{mark(visible(core[2]!))}{core[3] && !last ? " " : null}</>;
 }
+
+/** Whether the edit's final words (as `marked` draws them with `last`) end in a space. */
+const trailingSpace = (text: string) => !!text.trim() && /\s$/.test(text);
 
 /**
  * Unchanged source read as prose: a line break is a space, as TeX reads it,
@@ -85,6 +92,8 @@ export function InlineEdits(props: {
     const deleted = visible(original).trim();
     const inserted = visible(revised).trim();
     const change = !inserted ? t`Delete “${deleted}”` : !deleted ? t`Insert “${inserted}”` : t`Replace “${deleted}” with “${inserted}”`;
+    const last = edit.status === "applied" && revised ? revised : original;
+    const trailing = trailingSpace(last) ? " " : null;
     const tag = edit.status === "held"
       ? <>{WORD_JOINER}<span className="inline-edit-tag" aria-hidden><Lock size={12} strokeWidth={1.5} />{edit.tag}</span></>
       : edit.tag && <>{WORD_JOINER}<span className="inline-edit-tag" aria-hidden>{edit.tag}</span></>;
@@ -92,8 +101,8 @@ export function InlineEdits(props: {
       parts.push(
         <Tip key={edit.id} label={edit.detail} side="top">
           <span className="inline-edit" data-status="held" style={order}>
-            {marked(original, (core) => <span className="inline-edit-original">{core}</span>)}
-            {tag}
+            {marked(original, (core) => <span className="inline-edit-original">{core}</span>, true)}
+            {tag}{trailing}
             <span className="sr-only">{[t`Held back: ${change}`, edit.tag, edit.detail].filter(Boolean).join(". ")}</span>
           </span>
         </Tip>,
@@ -103,9 +112,9 @@ export function InlineEdits(props: {
     const applied = edit.status === "applied";
     const body = applied
       // A space, not a margin, between the two, so a narrow line can break there.
-      ? <>{original && marked(original, (core) => <del>{core}</del>)}{original && revised ? " " : null}{revised && marked(revised, (core) => <ins>{core}</ins>)}</>
+      ? <>{original && marked(original, (core) => <del>{core}</del>, !revised)}{original && revised ? " " : null}{revised && marked(revised, (core) => <ins>{core}</ins>, true)}</>
       // A kept insertion has no words of its own: a caret marks where it would go.
-      : original ? marked(original, (core) => <span className="inline-edit-original">{core}</span>) : <span className="inline-edit-caret" aria-hidden>⁁</span>;
+      : original ? marked(original, (core) => <span className="inline-edit-original">{core}</span>, true) : <span className="inline-edit-caret" aria-hidden>⁁</span>;
     const toggle = onToggle && (() => onToggle(edit.id));
     parts.push(
       <Tip key={edit.id} label={edit.detail} side="top">
@@ -128,7 +137,7 @@ export function InlineEdits(props: {
           })}
         >
           {body}
-          {tag}
+          {tag}{trailing}
         </span>
       </Tip>,
     );

@@ -225,6 +225,22 @@ it("continues while hidden", async () => {
   ]);
 });
 
+it("says a running check survives closing, and keeps checking while closed", async () => {
+  let finish!: (value: AuditResult) => void;
+  vi.mocked(invoke).mockImplementation(async command => command === "bibliography_audit_scan"
+    ? { entries: entries.slice(0, 1), issues: [] }
+    : new Promise(resolve => { finish = resolve; }));
+  const { rerender, props: p } = await renderChecked();
+  await waitFor(() => expect(calls("bibliography_audit_entry")).toHaveLength(1));
+  expect(screen.getByText(/^Closing this window does not stop the check/)).toBeVisible();
+  rerender(<BibliographyAudit {...p} open={false} />);
+  await act(async () => finish(updated));
+  rerender(<BibliographyAudit {...p} />);
+  expect(await screen.findByText("Update available")).toBeInTheDocument();
+  expect(screen.queryByText(/^Closing this window/)).not.toBeInTheDocument();
+  expect(calls("bibliography_audit_entry")).toHaveLength(1);
+});
+
 it("files an update as a fix rather than a success, folds its fields and BibTeX, and opens notices natively", async () => {
   const health = { kind: "corrected", link: "https://doi.org/10.1234/notice", checkedAt: "2026-09-05" };
   mockAudit({ ...updated, health });

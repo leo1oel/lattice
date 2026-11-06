@@ -1,6 +1,4 @@
-import { msg } from "@lingui/core/macro";
 import type { InlineEdit } from "../components/ui/inline-edits";
-import { i18n } from "../i18n";
 import { bibTextToPlain, entryValues, parseBibDocument } from "./bib-document";
 import { paperAuthorNames } from "./paper-identity";
 
@@ -9,6 +7,10 @@ import { paperAuthorNames } from "./paper-identity";
  * it prints, with a proposed fix marked in place (struck and inserted words,
  * through `InlineEdits`), and two versions of a field with only the words
  * that differ marked.
+ *
+ * The reference and the names of its fields are English whatever the
+ * interface language: they are what the `.bib` file holds and what the
+ * bibliography prints, so "et al.", "vol." and "pp." are never translated.
  */
 
 export type FieldChange = { field: string; before: string; after: string };
@@ -20,6 +22,18 @@ export type TypesetFix = {
   /** Changed fields a printed reference does not show (entry type, DOI, publisher). */
   unprinted: string[];
 };
+
+/* eslint-disable lingui/no-unlocalized-strings -- BibTeX field names and reference typography, English like the .bib file */
+const FIELD_NAMES: Record<string, string> = {
+  title: "Title", author: "Authors", year: "Year", journal: "Journal", booktitle: "Booktitle",
+  publisher: "Publisher", volume: "Volume", number: "Number", pages: "Pages", doi: "DOI", url: "URL",
+  ENTRYTYPE: "Entry type", venue: "Venue",
+};
+/* eslint-enable lingui/no-unlocalized-strings */
+/** A field's name where the reference itself is shown. */
+export const bibFieldName = (field: string) => FIELD_NAMES[field] ?? field;
+/** An edit's tag: the lowercase names of the fields it changes. */
+const tagOf = (fields: readonly string[]) => [...new Set(fields.map((field) => bibFieldName(field).toLowerCase()))].join(", ");
 
 type Piece = "author" | "title" | "venue" | "volume" | "pages" | "year";
 const PIECES: readonly Piece[] = ["author", "title", "venue", "volume", "pages", "year"];
@@ -36,7 +50,8 @@ function printedAuthors(raw: string, all: boolean): string {
   const others = /\band\s+others\s*$/i.test(raw);
   if (!people.length) return "";
   const names = (all ? people : people.slice(0, 3)).join(", ");
-  return others || names.length < people.join(", ").length ? i18n._(msg`${names} et al.`) : names;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- printed reference, English like the .bib file
+  return others || names.length < people.join(", ").length ? `${names} et al.` : names;
 }
 
 /** One record's printed pieces, each with the punctuation that follows it. */
@@ -54,8 +69,8 @@ function printedPieces(bibtex: string, allAuthors: boolean): Record<Piece, strin
     author: printedAuthors(values.get("author") ?? values.get("editor") ?? "", allAuthors),
     title: plain("title"),
     venue,
-    volume: volume && i18n._(msg`vol. ${volume}`),
-    pages: pages && i18n._(msg`pp. ${pages}`),
+    volume: volume && `vol. ${volume}`,
+    pages: pages && `pp. ${pages}`,
     year: plain("year") || (values.get("date") ?? "").slice(0, 4),
   };
   for (const piece of PIECES) {
@@ -72,13 +87,13 @@ function printedPieces(bibtex: string, allAuthors: boolean): Record<Piece, strin
  * `after` prints differently one edit, tagged with the fields it changes. A
  * run is whole pieces, so the marks fall on whole words.
  */
-export function typesetBibFix(before: string, after: string, changes: readonly FieldChange[], label: (field: string) => string): TypesetFix {
+export function typesetBibFix(before: string, after: string, changes: readonly FieldChange[]): TypesetFix {
   const changed = new Set(changes.map((change) => pieceOf(change.field)));
   const old = printedPieces(before, changed.has("author"));
   const next = printedPieces(after, changed.has("author"));
   const tagsOf = (pieces: Piece[]) => {
-    const fields = changes.filter((change) => pieces.includes(pieceOf(change.field)!)).map((change) => label(change.field).toLocaleLowerCase(i18n.locale));
-    return [...new Set(fields.length ? fields : pieces.map((piece) => label(piece).toLocaleLowerCase(i18n.locale)))].join(", ");
+    const fields = changes.filter((change) => pieces.includes(pieceOf(change.field)!)).map((change) => change.field);
+    return tagOf(fields.length ? fields : pieces);
   };
   let text = "";
   const edits: InlineEdit[] = [];
@@ -101,7 +116,7 @@ export function typesetBibFix(before: string, after: string, changes: readonly F
     run.pieces.push(piece);
   }
   close();
-  const unprinted = changes.filter((change) => !pieceOf(change.field)).map((change) => label(change.field));
+  const unprinted = changes.filter((change) => !pieceOf(change.field)).map((change) => bibFieldName(change.field));
   // A reference without a year ends on its last piece's comma and space.
   const printed = text.trimEnd();
   return { text: printed, edits: edits.map((edit) => ({ ...edit, to: Math.min(edit.to, printed.length) })), unprinted };
@@ -119,7 +134,7 @@ function locate(text: string, needle: string): number {
  * record marked where the item states it. A difference the item does not
  * state word for word (an abbreviated author list) is listed instead.
  */
-export function typesetInlineFix(written: string, changes: readonly FieldChange[], label: (field: string) => string): TypesetFix {
+export function typesetInlineFix(written: string, changes: readonly FieldChange[]): TypesetFix {
   const text = bibTextToPlain(written);
   const edits: InlineEdit[] = [];
   const unprinted: string[] = [];
@@ -128,10 +143,10 @@ export function typesetInlineFix(written: string, changes: readonly FieldChange[
     const at = locate(text, before);
     const clash = edits.some((edit) => at < edit.to && at + before.length > edit.from);
     if (at < 0 || clash) {
-      unprinted.push(label(change.field));
+      unprinted.push(bibFieldName(change.field));
       continue;
     }
-    edits.push({ id: edits.length, from: at, to: at + before.length, insert: bibTextToPlain(change.after), status: "applied", tag: label(change.field).toLocaleLowerCase(i18n.locale) });
+    edits.push({ id: edits.length, from: at, to: at + before.length, insert: bibTextToPlain(change.after), status: "applied", tag: tagOf([change.field]) });
   }
   return { text, edits, unprinted };
 }

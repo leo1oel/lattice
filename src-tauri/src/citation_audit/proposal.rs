@@ -154,20 +154,15 @@ pub(super) fn cleanup_result(checked: AuditResult) -> AuditResult {
     let mut changed = false;
     if let Some(title) = values.get("title") {
         // Preserve source casing rather than guessing a dictionary of model
-        // names. One mixed-case/acronym token protects the complete title,
-        // including adjacent proper nouns (e.g. Microsoft COCO).
-        let enclosed = title.starts_with('{')
-            && brace_depths(title)
-                .all(|(i, c, depth)| depth > 0 || i + c.len_utf8() == title.len());
-        if !enclosed
-            && title
-                .split_whitespace()
-                .any(|word| word.chars().filter(|c| c.is_uppercase()).count() > 1)
-            && expressions
-                .get("title")
-                .is_some_and(|raw| raw == &format!("{{{title}}}") || raw == &format!("\"{title}\""))
+        // names, but brace only the words that carry it. Bracing the whole
+        // title would also freeze its ordinary words against a sentence-case
+        // style, which then cannot lowercase "Few-Shot Learners".
+        if let Some(protected) = expressions
+            .get("title")
+            .filter(|raw| *raw == &format!("{{{title}}}") || *raw == &format!("\"{title}\""))
+            .and_then(|_| protected_title(title))
         {
-            expressions.insert("title".into(), format!("{{{{{title}}}}}"));
+            expressions.insert("title".into(), format!("{{{protected}}}"));
             changed = true;
         }
     }
@@ -218,6 +213,69 @@ pub(super) fn cleanup_result(checked: AuditResult) -> AuditResult {
         cleaned.message = checked.message;
     }
     cleaned
+}
+
+/// `title` with each word a style must not recase braced on its own: an
+/// acronym or mixed-case name (BERT, LoRA, ImageNet, DINOv2, 3D, GPT-4), or
+/// None when no such word is unprotected. Hyphenated title case ("Few-Shot")
+/// is ordinary capitalisation. A word already inside braces, or carrying a
+/// command or math, is the writer's own markup and stays as written.
+fn protected_title(title: &str) -> Option<String> {
+    let mixed_case = |word: &str| {
+        word.split(['-', '/']).any(|part| part.chars().skip(1).any(char::is_uppercase))
+    };
+    let mut words = Vec::new();
+    let (mut depth, mut escaped, mut start) = (0, false, None);
+    for (index, character) in title.char_indices() {
+        if !std::mem::take(&mut escaped) {
+            match character {
+                '\\' => escaped = true,
+                '{' => depth += 1,
+                '}' => depth -= 1,
+                _ => {}
+            }
+        }
+        match (character.is_whitespace() && depth == 0, start) {
+            (true, Some(from)) => {
+                words.push(from..index);
+                start = None;
+            }
+            (false, None) => start = Some(index),
+            _ => {}
+        }
+    }
+    if depth != 0 {
+        return None;
+    }
+    words.extend(start.map(|from| from..title.len()));
+    let mut protected = String::new();
+    let mut cursor = 0;
+    for word in words {
+        let text = &title[word.clone()];
+        let core = text.trim_matches(|c: char| !c.is_alphanumeric());
+        if core.is_empty() || text.contains(['{', '}', '\\', '$']) || !mixed_case(core) {
+            continue;
+        }
+        let at = word.start + text.find(core).unwrap();
+        protected.push_str(&title[cursor..at]);
+        protected.push_str(&format!("{{{core}}}"));
+        cursor = at + core.len();
+    }
+    (cursor > 0).then(|| protected + &title[cursor..])
+}
+
+/// A title without the brace pairs that enclose all of it. Such a pair only
+/// freezes the whole title's casing, so adding or removing one is not a
+/// correction a source can make.
+fn unwrapped_title(mut title: &str) -> &str {
+    while let Some(inner) = title.trim().strip_prefix('{').and_then(|v| v.strip_suffix('}')) {
+        let closes_early = brace_depths(inner).any(|(_, _, depth)| depth < 0);
+        if closes_early {
+            break;
+        }
+        title = inner;
+    }
+    title.trim()
 }
 
 fn deduplicated_authors(raw: &str) -> Option<String> {
@@ -292,8 +350,10 @@ pub(super) fn proposal(before: &str, after: String, message: &str) -> AuditResul
             } else {
                 (field_value(&old_values, field), field_value(&new_values, field))
             };
+            // Field order and alignment are never compared; title braces
+            // are, except a pair around the whole title.
             let changed = if field == "title" {
-                old != new
+                unwrapped_title(&old) != unwrapped_title(&new)
             } else {
                 normalize_text(&old) != normalize_text(&new)
             };
@@ -394,11 +454,54 @@ mod tests {
         let after = cleanup(before).unwrap();
         assert_eq!(
             fields(&after)["title"],
-            "{LLaVA VLMs ImageNet SigLIP DINOv2 EVEv2 Microsoft COCO}"
+            "{LLaVA} {VLMs} {ImageNet} {SigLIP} {DINOv2} {EVEv2} Microsoft {COCO}"
         );
         assert_eq!(fields(&after)["author"], "{Gemma Team} and Jane Doe");
         assert!(metadata_identity_matches(before, &after));
         assert!(cleanup(&after).is_none());
+    }
+
+    #[test]
+    fn title_protection_braces_names_never_the_whole_title() {
+        let entry = |title: &str| {
+            format!("@inproceedings{{x,title={{{title}}},author={{Jane Doe}},year={{2020}}}}")
+        };
+        // Title case, an acronym already braced, and a fully braced title
+        // are already right: bracing the whole title only freezes its case.
+        for title in [
+            "Language Models are Few-Shot Learners",
+            "{BERT}: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+            "{Language Models are Few-Shot Learners}",
+            "Efficient Transformers: A Survey",
+            r"\textsc{NASA} data",
+            "{Microsoft COCO}: Common Objects in Context",
+        ] {
+            assert!(cleanup(&entry(title)).is_none(), "{title}");
+        }
+        for (title, expected) in [
+            (
+                "LoRA: Low-Rank Adaptation of Large Language Models",
+                "{LoRA}: Low-Rank Adaptation of Large Language Models",
+            ),
+            ("Scaling (GPT-4) to 3D Scenes", "Scaling ({GPT-4}) to {3D} Scenes"),
+            ("ReAct: {Synergizing} Reasoning", "{ReAct}: {Synergizing} Reasoning"),
+        ] {
+            let after = cleanup(&entry(title)).expect(title);
+            assert_eq!(fields(&after)["title"], expected);
+        }
+    }
+
+    #[test]
+    fn whole_title_braces_and_field_layout_are_not_changes() {
+        let before = "@inproceedings{brown2020language,\n  title={Language Models are Few-Shot Learners},\n  author={Brown, Tom and Mann, Benjamin},\n  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},\n  year={2020}\n}";
+        let after = "@inproceedings{brown2020language,\n  year      = {2020},\n  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},\n  author    = {Brown, Tom and Mann, Benjamin},\n  title     = {{{Language Models are Few-Shot Learners}}}\n}";
+        let checked = proposal(before, after.into(), "A published version is available.");
+        assert_eq!(checked.status, "checked");
+        assert!(checked.changes.is_empty());
+        // A brace around one word is typography a source can correct.
+        let named = proposal(before, before.replace("Language Models", "{Language} Models"), "");
+        assert_eq!(named.changes.len(), 1);
+        assert_eq!(unwrapped_title("{BERT}: Pre-training {X}"), "{BERT}: Pre-training {X}");
     }
 
     #[test]

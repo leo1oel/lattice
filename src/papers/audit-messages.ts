@@ -117,3 +117,42 @@ export function auditSourceName(source: string): string {
       return source;
   }
 }
+
+/** What a source answered about a reference, as the report says it. */
+const SOURCE_OUTCOMES: Record<string, MessageDescriptor> = {
+  matched: msg`Verified publication match`,
+  selected: msg`Metadata source`,
+  selected_cached: msg`Metadata source (cached)`,
+  candidate: msg`Candidate record considered, not verified`,
+  candidate_cached: msg`Candidate record considered, not verified (cached record)`,
+  not_configured: msg`Not enabled. Add your own API key in Settings`,
+  no_match: msg`No published version found`, rate_limited: msg`Rate limited`,
+  batch_reused: msg`Batch result reused`, queue_busy: msg`Request queue busy`,
+  daily_quota: msg`Public daily quota exhausted`,
+  batch_rate_limited: msg`Rate limited; subsequent Semantic Scholar queries skipped`,
+  batch_queue_busy: msg`Request queue busy; subsequent Semantic Scholar queries skipped`,
+  batch_daily_quota: msg`Public daily quota exhausted; subsequent Semantic Scholar queries skipped`,
+  batch_upstream_rate_limit: msg`Semantic Scholar rate limited the service; subsequent queries skipped`,
+  batch_unauthorized: msg`Semantic Scholar authorization failed; subsequent queries skipped`,
+  batch_network: msg`Semantic Scholar connection failed; subsequent queries skipped`,
+  batch_malformed: msg`Semantic Scholar returned an invalid response; subsequent queries skipped`,
+  batch_timeout: msg`Semantic Scholar request timed out; subsequent queries skipped`,
+  batch_unavailable: msg`Semantic Scholar unavailable; subsequent queries skipped`,
+  blocked: msg`Requests blocked`, timeout: msg`Request timed out`,
+  connection_failed: msg`Connection failed`, network: msg`Network connection failed`,
+  unauthorized: msg`Authorization failed`, malformed: msg`Invalid response from source`,
+  forbidden: msg`Access forbidden by provider`,
+  upstream_rate_limit: msg`Source rate limit reached`, server_error: msg`Source service error`,
+  unavailable: msg`Source temporarily unavailable`,
+};
+
+/** A source's answer in the interface language; `status` is the whole result's. */
+export function auditSourceOutcome(status: string, outcome: string): string {
+  // Reports saved before candidate outcomes existed may say that a source was
+  // selected even though the final result was unavailable. Do not present
+  // those records as verified or accepted.
+  if (status === "unavailable" && outcome === "selected") return i18n._(msg`Source record considered, not verified`);
+  if (status === "unavailable" && outcome === "selected_cached") return i18n._(msg`Source record considered, not verified (cached record)`);
+  const message = SOURCE_OUTCOMES[outcome];
+  return message ? i18n._(message) : i18n._(msg`Unknown source response`);
+}

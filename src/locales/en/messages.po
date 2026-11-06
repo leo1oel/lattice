@@ -739,7 +739,6 @@ msgid "{names} and {count} more"
 msgstr "{names} and {count} more"
 
 #: src/papers/paper-identity.ts
-#: src/papers/reference-typeset.ts
 msgid "{names} et al."
 msgstr "{names} et al."
 
@@ -1405,7 +1404,7 @@ msgstr "Accepted"
 msgid "Access denied. Check the key"
 msgstr "Access denied. Check the key"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Access forbidden by provider"
 msgstr "Access forbidden by provider"
 
@@ -2140,7 +2139,7 @@ msgstr "Author in PDF metadata"
 msgid "Author names"
 msgstr "Author names"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Authorization failed"
 msgstr "Authorization failed"
 
@@ -2286,7 +2285,7 @@ msgid "BasicTeX was installed, but required file {file} could not be found.\n"
 msgstr "BasicTeX was installed, but required file {file} could not be found.\n"
 "{detail}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Batch result reused"
 msgstr "Batch result reused"
 
@@ -2789,11 +2788,11 @@ msgstr "Cancelled"
 msgid "Candidate does not match reference"
 msgstr "Candidate does not match reference"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Candidate record considered, not verified"
 msgstr "Candidate record considered, not verified"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Candidate record considered, not verified (cached record)"
 msgstr "Candidate record considered, not verified (cached record)"
 
@@ -3589,6 +3588,10 @@ msgstr "Closed just now"
 msgid "Closed-path integral"
 msgstr "Closed-path integral"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Closing this window does not stop the check. It keeps running in the background, and the results wait here."
+msgstr "Closing this window does not stop the check. It keeps running in the background, and the results wait here."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Club suit"
 msgstr "Club suit"
@@ -3895,7 +3898,7 @@ msgstr "Connecting to Overleaf's live channel…"
 msgid "Connection"
 msgstr "Connection"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Connection failed"
 msgstr "Connection failed"
 
@@ -7161,7 +7164,7 @@ msgstr "Invalid PDF source position."
 msgid "Invalid regular expression: {error}"
 msgstr "Invalid regular expression: {error}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Invalid response from source"
 msgstr "Invalid response from source"
 
@@ -8379,11 +8382,11 @@ msgstr "Metadata check incomplete: {error}"
 msgid "Metadata may be available, but the citation-health check was incomplete."
 msgstr "Metadata may be available, but the citation-health check was incomplete."
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Metadata source"
 msgstr "Metadata source"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Metadata source (cached)"
 msgstr "Metadata source (cached)"
 
@@ -8632,7 +8635,7 @@ msgstr "Needs your answer"
 msgid "Negation / not"
 msgstr "Negation / not"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Network connection failed"
 msgstr "Network connection failed"
 
@@ -9077,7 +9080,7 @@ msgstr "No projects in this account yet"
 msgid "No projects match your search"
 msgstr "No projects match your search"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "No published version found"
 msgstr "No published version found"
 
@@ -9273,7 +9276,7 @@ msgstr "Not enabled, needs a personal API key"
 msgid "Not enabled, needs an API key"
 msgstr "Not enabled, needs an API key"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not enabled. Add your own API key in Settings"
 msgstr "Not enabled. Add your own API key in Settings"
 
@@ -10609,10 +10612,6 @@ msgstr "PostScript output"
 msgid "Pounds sterling"
 msgstr "Pounds sterling"
 
-#: src/papers/reference-typeset.ts
-msgid "pp. {pages}"
-msgstr "pp. {pages}"
-
 #: src/trellis/trellis-build-sequence.tsx
 msgid "preamble"
 msgstr "preamble"
@@ -10923,11 +10922,11 @@ msgstr "Psi"
 msgid "Public access, no key needed"
 msgstr "Public access, no key needed"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Public daily quota exhausted"
 msgstr "Public daily quota exhausted"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 msgstr "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 
@@ -11012,11 +11011,11 @@ msgstr "Quote"
 msgid "Radical"
 msgstr "Radical"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Rate limited"
 msgstr "Rate limited"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Rate limited; subsequent Semantic Scholar queries skipped"
 msgstr "Rate limited; subsequent Semantic Scholar queries skipped"
 
@@ -11616,15 +11615,15 @@ msgstr "Reply to {author}"
 msgid "Reply…"
 msgstr "Reply…"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Request queue busy"
 msgstr "Request queue busy"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Request queue busy; subsequent Semantic Scholar queries skipped"
 msgstr "Request queue busy; subsequent Semantic Scholar queries skipped"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Request timed out"
 msgstr "Request timed out"
 
@@ -11632,7 +11631,7 @@ msgstr "Request timed out"
 msgid "requested"
 msgstr "requested"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Requests blocked"
 msgstr "Requests blocked"
 
@@ -12663,19 +12662,19 @@ msgstr "Self-citing wording"
 msgid "Semantic Scholar"
 msgstr "Semantic Scholar"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar authorization failed; subsequent queries skipped"
 msgstr "Semantic Scholar authorization failed; subsequent queries skipped"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar connection failed; subsequent queries skipped"
 msgstr "Semantic Scholar connection failed; subsequent queries skipped"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar rate limited the service; subsequent queries skipped"
 msgstr "Semantic Scholar rate limited the service; subsequent queries skipped"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar request timed out; subsequent queries skipped"
 msgstr "Semantic Scholar request timed out; subsequent queries skipped"
 
@@ -12683,11 +12682,11 @@ msgstr "Semantic Scholar request timed out; subsequent queries skipped"
 msgid "Semantic Scholar requires a personal API key."
 msgstr "Semantic Scholar requires a personal API key."
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar returned an invalid response; subsequent queries skipped"
 msgstr "Semantic Scholar returned an invalid response; subsequent queries skipped"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar unavailable; subsequent queries skipped"
 msgstr "Semantic Scholar unavailable; subsequent queries skipped"
 
@@ -13121,23 +13120,23 @@ msgstr "Source not verified"
 msgid "Source path is outside this project."
 msgstr "Source path is outside this project."
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source rate limit reached"
 msgstr "Source rate limit reached"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source record considered, not verified"
 msgstr "Source record considered, not verified"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source record considered, not verified (cached record)"
 msgstr "Source record considered, not verified (cached record)"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source service error"
 msgstr "Source service error"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source temporarily unavailable"
 msgstr "Source temporarily unavailable"
 
@@ -15360,7 +15359,7 @@ msgstr "Unknown label “{key}”."
 msgid "Unknown owner"
 msgstr "Unknown owner"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Unknown source response"
 msgstr "Unknown source response"
 
@@ -15698,7 +15697,7 @@ msgstr "Verified"
 msgid "Verified by Crossref"
 msgstr "Verified by Crossref"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Verified publication match"
 msgstr "Verified publication match"
 
@@ -15831,10 +15830,6 @@ msgstr "Visual Markdown"
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Visual Markdown editor"
 msgstr "Visual Markdown editor"
-
-#: src/papers/reference-typeset.ts
-msgid "vol. {volume}"
-msgstr "vol. {volume}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Volume"
