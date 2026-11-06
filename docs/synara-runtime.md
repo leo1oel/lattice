@@ -37,6 +37,7 @@ describes what the sidecar is and how it is built and synced; it is not a second
   Synara removes the fragment before opening authenticated WebSocket and HTTP routes.
 - Runtime data lives under Lattice's app-data directory, not inside the application bundle.
 - Telemetry and automatic browser launch are disabled for the bundled process. Background provider probes (Cursor's model discovery and Git-writing text generation) never send an ACP `authenticate`, so a signed-out Cursor account cannot open its sign-in page at startup; sign-in starts only from the **Sign in** button in Settings → Providers, or from a turn the writer sends.
+- Provider usage reads each macOS Keychain item at most once per sidecar and remembers a denied or timed-out read, so usage polls do not prompt again. To retry after granting access, press Refresh in Settings → Agent → Usage & limits (Synara's `usage` page, which sends `forceRefresh`), or restart Lattice.
 - Lattice starts the fork with `AGENT_HOST_PROFILE=lattice`. The upstream-shaped default profile
   remains unchanged, so the same fork can still be tested against upstream behavior.
 - The host profile owns every model-visible boundary: host prompt, MCP server identity, provider

@@ -117,8 +117,8 @@ application, loaded into a cross-origin `<iframe>`:
   `<iframe>` per view visited — Changes, Pull requests, an agent turn — kept
   mounted under the selected one, behind a loading shell until that frame
   posts `synara:embed-ready`), and the agent settings pane in
-  `src/settings/synara-settings-pane.tsx` (one `<iframe>` for Providers, MCP
-  and Skills, opened on the first of them visited with a `section` param and
+  `src/settings/synara-settings-pane.tsx` (one `<iframe>` for Providers, MCP,
+  Skills and Usage & limits, opened on the first of them visited with a `section` param and
   kept loaded under the native tabs; a switch hides it until the frame answers
   that `lattice:set-settings-section` request with `synara:settings-section-ready`).
   The first two get their URLs from
