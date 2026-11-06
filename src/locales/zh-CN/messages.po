@@ -1186,7 +1186,7 @@ msgstr "有一个 {BRACE_OPEN} 没有闭合"
 msgid "A checklist holds at most 200 items."
 msgstr "清单最多 200 项"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引号或 %。"
 
@@ -1518,7 +1518,7 @@ msgstr "添加评论"
 msgid "Add exactly one bibliography entry at a time."
 msgstr "一次只能加一条"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Add field"
 msgstr "添加字段"
 
@@ -1751,7 +1751,7 @@ msgstr "全部级别"
 msgid "All papers"
 msgstr "全部论文"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "All references"
 msgstr "全部文献"
 
@@ -1977,7 +1977,7 @@ msgstr "别的宏包或模板已经加载了 {name}。请在 \\documentclass 之
 msgid "Another paper is being added"
 msgstr "另一篇论文正在添加"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Another reference already uses “{key}”."
 msgstr "已有另一条文献使用“{key}”。"
 
@@ -2524,7 +2524,7 @@ msgstr "表格底线"
 msgid "Brace-delimited matrix"
 msgstr "用花括号包裹的矩阵"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Braces in the value must be balanced."
 msgstr "值中的花括号必须成对。"
 
@@ -3345,8 +3345,8 @@ msgstr "可能匹配"
 msgid "citation key"
 msgstr "引用名"
 
+#: src/papers/bib-entry-detail.tsx
 #: src/papers/bib-entry-dialog.tsx
-#: src/papers/bib-visual-editor.tsx
 msgid "Citation key"
 msgstr "引用名"
 
@@ -3408,7 +3408,7 @@ msgstr "引用工具"
 msgid "Citations"
 msgstr "引用"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-row.tsx
 msgid "Citations in the manuscript: {citedCount}"
 msgstr "在稿件中被引用 {citedCount} 次"
 
@@ -3433,11 +3433,11 @@ msgstr "本文引用 {count} 次"
 msgid "Cited {times}× here"
 msgstr "本文引用 {times} 次"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-row.tsx
 msgid "Cited ×{citedCount}"
 msgstr "引用 ×{citedCount}"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Cited in"
 msgstr "引用位置"
 
@@ -4006,7 +4006,7 @@ msgstr "复制 \\cite"
 msgid "Copy \\cite command"
 msgstr "复制 \\cite 命令"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/project/paper-row.tsx
 msgid "Copy citation key"
 msgstr "复制引用名"
@@ -4685,7 +4685,7 @@ msgstr "定义"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/project/project-file-tree.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
@@ -5014,6 +5014,10 @@ msgstr "下载 {url}"
 msgid "Download a new copy"
 msgstr "重新下载"
 
+#: src/papers/bib-entry-detail.tsx
+msgid "Download and open"
+msgstr "下载并打开"
+
 #: src/project/paper-row.tsx
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
@@ -5067,6 +5071,10 @@ msgstr "正在下载 rtex… {percent}%"
 #: src/telemetry/app-updater.tsx
 msgid "Downloading update…"
 msgstr "正在下载更新…"
+
+#: src/papers/bib-entry-detail.tsx
+msgid "Downloading…"
+msgstr "正在下载…"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "DPI unknown"
@@ -5460,8 +5468,8 @@ msgstr "条目已变"
 msgid "entry type"
 msgstr "条目类型"
 
+#: src/papers/bib-entry-detail.tsx
 #: src/papers/bib-entry-dialog.tsx
-#: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "类型"
@@ -5700,15 +5708,15 @@ msgstr "正在获取 Overleaf 版本…"
 msgid "Fetching the paper overview…"
 msgstr "正在获取概览…"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Field"
 msgstr "字段"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Field names start with a letter and have no spaces."
 msgstr "字段名须以字母开头，且不含空格。"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Fields"
 msgstr "字段"
 
@@ -7896,7 +7904,7 @@ msgstr "表达式下方加横线"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/papers/add-papers-sheet.tsx
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/papers/linked-library-sheet.tsx
 msgid "Link"
 msgstr "链接"
@@ -8181,7 +8189,7 @@ msgstr "长引文"
 msgid "Look up and add"
 msgstr "查找并添加"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Looking through the manuscript…"
 msgstr "正在查找稿件中的引用…"
 
@@ -8189,7 +8197,7 @@ msgstr "正在查找稿件中的引用…"
 msgid "Looking up {resolving}…"
 msgstr "正在查找 {resolving} 条…"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/bib-preview.tsx
 msgid "Looking up references is not available here."
 msgstr "此处无法查找文献。"
 
@@ -8731,11 +8739,11 @@ msgstr "新建白板"
 msgid "New changes on Overleaf"
 msgstr "Overleaf 有新内容"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "New field name"
 msgstr "新字段名"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "New field value"
 msgstr "新字段值"
 
@@ -8958,6 +8966,10 @@ msgstr "这次更新没有文件改动"
 #: src/project/project-find-dialog.tsx
 msgid "No files match “{trimmedQuery}”"
 msgstr "没有文件包含“{trimmedQuery}”"
+
+#: src/papers/bib-entry-detail.tsx
+msgid "No full text to download"
+msgstr "没有可下载的全文"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
@@ -9301,11 +9313,11 @@ msgstr "尚未检查"
 msgid "Not checked yet"
 msgstr "还没检查"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Not cited by key, but {nociteAll} includes every entry"
 msgstr "未按引用名引用，但 {nociteAll} 会收录所有条目"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Not cited in any .tex file"
 msgstr "未在任何 .tex 文件中引用"
 
@@ -9783,7 +9795,7 @@ msgid "Open page"
 msgstr "打开网页"
 
 #: src/editor/latex/latex-hover-cards.ts
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/project/paper-inspector.tsx
 msgid "Open paper"
 msgstr "打开论文"
@@ -11431,7 +11443,7 @@ msgstr "删除版本名“{0}”"
 msgid "Remove the “{0}” label from this Overleaf version?"
 msgstr "删除这个版本名“{0}”？"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Remove the {name} field"
 msgstr "删除 {name} 字段"
 
@@ -12902,7 +12914,7 @@ msgstr "在访达中显示"
 msgid "Show in history"
 msgstr "历史中显示"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Show in source"
 msgstr "在源码中显示"
 
@@ -14996,7 +15008,7 @@ msgstr "此项目用的是 {linkedHost}，请退出并重新连接它"
 msgid "This proposal has been decided."
 msgstr "这条建议已处理。"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "This reference already has a “{name}” field."
 msgstr "这条文献已有“{name}”字段。"
 
@@ -15036,7 +15048,7 @@ msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 T
 msgid "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."
 msgstr "这个标题没有可独立核实的标识，请改为提供官方 BibTeX 或链接"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "This value joins strings with #; keep it valid BibTeX."
 msgstr "此值用 # 拼接字符串，请保持为有效的 BibTeX。"
 
@@ -15549,7 +15561,8 @@ msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "不支持的电子表格协作格式：{version}"
 
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
+#: src/papers/bib-row.tsx
 msgid "Untitled"
 msgstr "无标题"
 
@@ -15558,6 +15571,7 @@ msgstr "无标题"
 msgid "Untitled research"
 msgstr "未命名"
 
+#: src/papers/bib-row.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Unused"
 msgstr "未引用"
@@ -15742,7 +15756,7 @@ msgstr "使用共享额度"
 msgid "USTC thesis ({name})"
 msgstr "中国科学技术大学学位论文（{name}）"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Value"
 msgstr "值"
 

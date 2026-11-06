@@ -18,14 +18,14 @@
  */
 import {
   useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState,
-  type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent,
+  type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject,
 } from "react";
+import type { EditorView } from "@codemirror/view";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowDownUp, BookOpen, Check, ListFilter, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { EmptyState } from "../components/ui/empty-state";
@@ -42,6 +42,9 @@ import { appendBibEntry, formatBibEntry } from "./bib-entry";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
 import { applyBibEdit, bibUnreadableReason, deleteEntryEdit, readBibDocument, summarizeEntries, type BibParseError, type BibSummary } from "./bib-document";
 import { EntryDetail, type Committed, type EntryEdit, type Row } from "./bib-entry-detail";
+import { entryPaper, type PaperFetchStates } from "./bib-entry-paper";
+import { BibRow } from "./bib-row";
+import { useBibSourceSync } from "./use-bib-source-sync";
 import "./bib-visual-editor.css";
 import { sameIgnoringCase as sameKey } from "../lib/equality";
 
@@ -85,7 +88,17 @@ export type BibVisualEditorProps = {
   onRedo: () => boolean;
   /** Show 1-based `line` of `path` in its source. */
   onOpenLine: (path: string, line: number) => void;
+  /** Open the reference's paper, downloading it first when the library has only its citation. */
   onOpenPaper: (paper: PaperSummary) => void;
+  /** The Papers downloads under way (and just done), by paper key. */
+  paperFetchStates?: PaperFetchStates;
+  /**
+   * The source editor beside the list (Split), and the slot its every update
+   * calls: the list follows the reference under its cursor, and a reference
+   * clicked in the list is shown there.
+   */
+  sourceView?: EditorView | null;
+  cursorRef?: RefObject<(() => void) | null>;
   onOpenUrl: (url: string) => void;
   onResolveCitation: (query: string) => Promise<ResolvedCitationDraft>;
 };
@@ -216,6 +229,19 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
     setRevealKey(key);
   };
 
+  // ---- Split: the list in step with the source beside it.
+  const showInSource = useBibSourceSync({
+    sourceView: props.sourceView, cursorRef: props.cursorRef, rows, selectedKey, onFollow: (key) => {
+      setSelectedKey(key);
+      setRevealKey(key);
+    },
+  });
+  const openEntryPaper = (key: string) => {
+    const row = rows.find((item) => item.entry.key === key);
+    const found = row && entryPaper(props.papers, key, row.summary, props.paperFetchStates);
+    if (found?.paper && found.state !== "downloading") props.onOpenPaper(found.paper);
+  };
+
   const deleteEntry = (row: Row) => {
     const committed = editEntry(row, deleteEntryEdit);
     if (committed === null) return;
@@ -328,6 +354,8 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
     const index = revealKey === null ? -1 : shown.findIndex((row) => row.entry.key === revealKey);
     if (!list || index === -1) return;
     setRevealKey(null);
+    // A row already whole in view stays where it is.
+    if (index * rowHeight >= list.scrollTop && (index + 1) * rowHeight <= list.scrollTop + list.clientHeight) return;
     list.scrollTop = Math.max(0, index * rowHeight - (list.clientHeight - rowHeight) / 2);
   }, [revealKey, rowHeight, shown]);
   // A filter that shrinks the list below the scroll position starts it from the top.
@@ -528,7 +556,12 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
                   citedCount={usageOf(row.entry.key).length}
                   top={(first + offset) * rowHeight}
                   height={rowHeight}
-                  onSelect={select}
+                  paperState={entryPaper(props.papers, row.entry.key, row.summary, props.paperFetchStates).state}
+                  onSelect={(key) => {
+                    select(key);
+                    showInSource(key);
+                  }}
+                  onOpenPaper={openEntryPaper}
                 />
               ))}
             </div>
@@ -602,59 +635,6 @@ function UnreadableBibliography(props: { error: BibParseError; onOpenLine: (line
         description={bibUnreadableReason(props.error)}
         actions={<Button size="compact" variant="secondary" onClick={() => props.onOpenLine(props.error.line)}>{t`Go to the error`}</Button>}
       />
-    </div>
-  );
-}
-
-/**
- * One reference in the list. Its own component, so moving the window of rows
- * drawn renders only the rows it brings in, and a row whose reference, flags
- * and place are unchanged is not drawn again.
- */
-function BibRow(props: {
-  id: string;
-  summary: BibSummary;
-  citationKey: string;
-  selected: boolean;
-  unused: boolean;
-  citedCount: number;
-  top: number;
-  height: number;
-  onSelect: (key: string) => void;
-}) {
-  const { t } = useLingui();
-  const { summary, citationKey, citedCount } = props;
-  return (
-    <div
-      id={props.id}
-      role="option"
-      aria-selected={props.selected}
-      className="bib-row"
-      style={{ top: props.top, height: props.height }}
-      onClick={() => props.onSelect(citationKey)}
-    >
-      <span className="bib-row-year">{summary.year}</span>
-      <span className="bib-row-title">{summary.title || <em>{t`Untitled`}</em>}</span>
-      <span className="bib-row-meta">
-        {summary.shortAuthors && <span className="bib-row-authors">{summary.shortAuthors}</span>}
-        {summary.venue && <i className="bib-row-venue">{summary.venue}</i>}
-      </span>
-      {/* The type is left to the detail: a reference list does not set it. */}
-      <span className="bib-row-foot">
-        <code className="bib-row-key">{citationKey}</code>
-        {props.unused
-          ? <Badge size="compact" tone="warning" className="bib-row-badge">{t`Unused`}</Badge>
-          : citedCount > 0 && (
-            <span className="bib-row-cited" title={t`Citations in the manuscript: ${citedCount}`}>
-              {/* One dot a citation, up to five; the count says the rest. */}
-              <span className="bib-row-dots" aria-hidden="true">
-                {Array.from({ length: Math.min(citedCount, 5) }, (_, dot) => <i key={dot} />)}
-              </span>
-              <span aria-hidden="true">{citedCount}</span>
-              <span className="sr-only">{t`Cited ×${citedCount}`}</span>
-            </span>
-          )}
-      </span>
     </div>
   );
 }

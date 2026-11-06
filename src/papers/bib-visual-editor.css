@@ -87,6 +87,13 @@
 .bib-row-dots { display: inline-flex; gap: var(--space-1); }
 .bib-row-dots > i { width: 4px; height: 4px; border-radius: var(--radius-pill); background: var(--mark-weft); }
 .bib-row-badge { flex: none; max-width: 100%; }
+/* What opening the reference's paper does (bib-entry-paper.ts): read it, or
+   download it first. A column of its own at the end, there only when the
+   entry has a paper to open, quiet until the row is pointed at or in front. */
+.bib-row:has(> .bib-row-paper) { grid-template-columns: var(--bib-year-column) minmax(0, 1fr) fit-content(40%) auto; }
+.bib-row > .bib-row-paper { grid-column: -2; grid-row: 1 / -1; align-self: center; color: var(--text-tertiary); }
+.bib-row:is(:hover, [aria-selected="true"]) > .bib-row-paper,
+.bib-row > .bib-row-paper[data-state="downloading"] { color: var(--text-primary); }
 
 /* Too narrow for a margin (NARROW_LIST_WIDTH: the narrowest panel, or the
    list beside the reference): the year leads the byline, and the key and its
@@ -100,6 +107,10 @@
 .bib-visual-list-viewport[data-narrow] .bib-row-title { grid-column: 1 / -1; }
 .bib-visual-list-viewport[data-narrow] .bib-row-year:empty ~ .bib-row-meta { grid-column: 1 / -1; }
 .bib-visual-list-viewport[data-narrow] .bib-row > .bib-row-foot { grid-column: 1 / -1; grid-row: 3; margin-top: var(--space-1); flex-direction: row; align-items: center; gap: var(--space-4); }
+/* The open control keeps a column at the end, beside all three lines. */
+.bib-visual-list-viewport[data-narrow] .bib-row:has(> .bib-row-paper) { grid-template-columns: auto minmax(0, 1fr) auto; }
+.bib-visual-list-viewport[data-narrow] .bib-row:has(> .bib-row-paper) > :is(.bib-row-title, .bib-row-foot),
+.bib-visual-list-viewport[data-narrow] .bib-row:has(> .bib-row-paper) > .bib-row-year:empty ~ .bib-row-meta { grid-column: 1 / -2; }
 
 .bib-visual-detail { min-width: 0; min-height: 0; display: grid; }
 .bib-visual-detail > .ui-empty-state { align-self: center; padding: var(--space-16) var(--space-8); }
@@ -124,6 +135,8 @@
 .bib-detail-venue { margin: 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 .bib-detail-venue { font-family: var(--reading-font); font-style: italic; font-variant-numeric: oldstyle-nums proportional-nums; }
 .bib-detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+/* Why the reference has no Open paper: on a line of its own, under its links. */
+.bib-detail-no-paper { order: 1; flex-basis: 100%; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-detail-delete { color: var(--status-danger); }
 .bib-detail-error { margin: 0; }
 

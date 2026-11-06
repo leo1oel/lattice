@@ -98,7 +98,7 @@ export type CommandTableDeps = {
   interfaceZoom: Pick<ReturnType<typeof useInterfaceZoom>, "zoom">;
   knownAuthorName: string | null;
   prewarmLikelyProjectFile: (path: string) => void;
-  readDraggedPaper: (paper: PaperSummary) => void;
+  readPaper: (paper: PaperSummary) => void;
 };
 
 export function useCommandTable({
@@ -106,7 +106,7 @@ export function useCommandTable({
   syncTex, agentContext, tools, tree, referenceImport, projectSearch, editorComments, lifecycle, overleaf, syncOverleaf,
   todoCount, updateCanvasRequest, setSearchDialog, setTableGeneratorOpen, setArxivExportOpen, checkReferences,
   requestNewEntry, settingsOpen, openSettings, whatsNew, browserHosted, theme, interfaceZoom, knownAuthorName,
-  prewarmLikelyProjectFile, readDraggedPaper,
+  prewarmLikelyProjectFile, readPaper,
 }: CommandTableDeps) {
   // Left to React as it was inside App, where the compiler built the table
   // afresh each render and kept only the run closures: compiled on its own it
@@ -385,7 +385,7 @@ export function useCommandTable({
           else if (choice.kind === "file") {
             if (isProjectAssetFilePath(choice.path)) void openAsset(choice.path);
             else void openFile(choice.path);
-          } else if (choice.kind === "paper") readDraggedPaper(choice.paper);
+          } else if (choice.kind === "paper") readPaper(choice.paper);
           else if (choice.kind === "find") openProjectFindFor(choice.query);
           else openSettings(choice.entry.tab, null, choice.entry);
         }, 0), 0);

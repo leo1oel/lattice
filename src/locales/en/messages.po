@@ -1186,7 +1186,7 @@ msgstr "A {BRACE_OPEN} is never closed"
 msgid "A checklist holds at most 200 items."
 msgstr "A checklist holds at most 200 items."
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 
@@ -1518,7 +1518,7 @@ msgstr "Add comment"
 msgid "Add exactly one bibliography entry at a time."
 msgstr "Add exactly one bibliography entry at a time."
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Add field"
 msgstr "Add field"
 
@@ -1751,7 +1751,7 @@ msgstr "All levels"
 msgid "All papers"
 msgstr "All papers"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "All references"
 msgstr "All references"
 
@@ -1977,7 +1977,7 @@ msgstr "Another package or the template already loads {name}. Pass your options 
 msgid "Another paper is being added"
 msgstr "Another paper is being added"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Another reference already uses “{key}”."
 msgstr "Another reference already uses “{key}”."
 
@@ -2524,7 +2524,7 @@ msgstr "Bottom table rule"
 msgid "Brace-delimited matrix"
 msgstr "Brace-delimited matrix"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Braces in the value must be balanced."
 msgstr "Braces in the value must be balanced."
 
@@ -3345,8 +3345,8 @@ msgstr "Citation candidates"
 msgid "citation key"
 msgstr "citation key"
 
+#: src/papers/bib-entry-detail.tsx
 #: src/papers/bib-entry-dialog.tsx
-#: src/papers/bib-visual-editor.tsx
 msgid "Citation key"
 msgstr "Citation key"
 
@@ -3408,7 +3408,7 @@ msgstr "Citation tool"
 msgid "Citations"
 msgstr "Citations"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-row.tsx
 msgid "Citations in the manuscript: {citedCount}"
 msgstr "Citations in the manuscript: {citedCount}"
 
@@ -3433,11 +3433,11 @@ msgstr "Cited {count}× in this paper"
 msgid "Cited {times}× here"
 msgstr "Cited {times}× here"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-row.tsx
 msgid "Cited ×{citedCount}"
 msgstr "Cited ×{citedCount}"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Cited in"
 msgstr "Cited in"
 
@@ -4006,7 +4006,7 @@ msgstr "Copy \\cite"
 msgid "Copy \\cite command"
 msgstr "Copy \\cite command"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/project/paper-row.tsx
 msgid "Copy citation key"
 msgstr "Copy citation key"
@@ -4685,7 +4685,7 @@ msgstr "Definition"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/project/project-file-tree.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
@@ -5014,6 +5014,10 @@ msgstr "Download {url}"
 msgid "Download a new copy"
 msgstr "Download a new copy"
 
+#: src/papers/bib-entry-detail.tsx
+msgid "Download and open"
+msgstr "Download and open"
+
 #: src/project/paper-row.tsx
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
@@ -5067,6 +5071,10 @@ msgstr "Downloading rtex… {percent}%"
 #: src/telemetry/app-updater.tsx
 msgid "Downloading update…"
 msgstr "Downloading update…"
+
+#: src/papers/bib-entry-detail.tsx
+msgid "Downloading…"
+msgstr "Downloading…"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "DPI unknown"
@@ -5460,8 +5468,8 @@ msgstr "Entry changed"
 msgid "entry type"
 msgstr "entry type"
 
+#: src/papers/bib-entry-detail.tsx
 #: src/papers/bib-entry-dialog.tsx
-#: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "Entry type"
@@ -5700,15 +5708,15 @@ msgstr "Fetching the Overleaf copy…"
 msgid "Fetching the paper overview…"
 msgstr "Fetching the paper overview…"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Field"
 msgstr "Field"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Field names start with a letter and have no spaces."
 msgstr "Field names start with a letter and have no spaces."
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Fields"
 msgstr "Fields"
 
@@ -7896,7 +7904,7 @@ msgstr "Line under an expression"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/papers/add-papers-sheet.tsx
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/papers/linked-library-sheet.tsx
 msgid "Link"
 msgstr "Link"
@@ -8181,7 +8189,7 @@ msgstr "Long quotation"
 msgid "Look up and add"
 msgstr "Look up and add"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Looking through the manuscript…"
 msgstr "Looking through the manuscript…"
 
@@ -8189,7 +8197,7 @@ msgstr "Looking through the manuscript…"
 msgid "Looking up {resolving}…"
 msgstr "Looking up {resolving}…"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/bib-preview.tsx
 msgid "Looking up references is not available here."
 msgstr "Looking up references is not available here."
 
@@ -8731,11 +8739,11 @@ msgstr "New board"
 msgid "New changes on Overleaf"
 msgstr "New changes on Overleaf"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "New field name"
 msgstr "New field name"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "New field value"
 msgstr "New field value"
 
@@ -8958,6 +8966,10 @@ msgstr "No file changes recorded for this update"
 #: src/project/project-find-dialog.tsx
 msgid "No files match “{trimmedQuery}”"
 msgstr "No files match “{trimmedQuery}”"
+
+#: src/papers/bib-entry-detail.tsx
+msgid "No full text to download"
+msgstr "No full text to download"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
@@ -9301,11 +9313,11 @@ msgstr "Not checked"
 msgid "Not checked yet"
 msgstr "Not checked yet"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Not cited by key, but {nociteAll} includes every entry"
 msgstr "Not cited by key, but {nociteAll} includes every entry"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Not cited in any .tex file"
 msgstr "Not cited in any .tex file"
 
@@ -9783,7 +9795,7 @@ msgid "Open page"
 msgstr "Open page"
 
 #: src/editor/latex/latex-hover-cards.ts
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 #: src/project/paper-inspector.tsx
 msgid "Open paper"
 msgstr "Open paper"
@@ -11431,7 +11443,7 @@ msgstr "Remove the \"{0}\" label"
 msgid "Remove the “{0}” label from this Overleaf version?"
 msgstr "Remove the “{0}” label from this Overleaf version?"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Remove the {name} field"
 msgstr "Remove the {name} field"
 
@@ -12902,7 +12914,7 @@ msgstr "Show in Finder"
 msgid "Show in history"
 msgstr "Show in history"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Show in source"
 msgstr "Show in source"
 
@@ -14996,7 +15008,7 @@ msgstr "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgid "This proposal has been decided."
 msgstr "This proposal has been decided."
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "This reference already has a “{name}” field."
 msgstr "This reference already has a “{name}” field."
 
@@ -15036,7 +15048,7 @@ msgstr "This TeX Live release is older than the package repository. Install the 
 msgid "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."
 msgstr "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "This value joins strings with #; keep it valid BibTeX."
 msgstr "This value joins strings with #; keep it valid BibTeX."
 
@@ -15549,7 +15561,8 @@ msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "Unsupported spreadsheet collaboration format: {version}"
 
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
+#: src/papers/bib-row.tsx
 msgid "Untitled"
 msgstr "Untitled"
 
@@ -15558,6 +15571,7 @@ msgstr "Untitled"
 msgid "Untitled research"
 msgstr "Untitled research"
 
+#: src/papers/bib-row.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Unused"
 msgstr "Unused"
@@ -15742,7 +15756,7 @@ msgstr "Using shared quota"
 msgid "USTC thesis ({name})"
 msgstr "USTC thesis ({name})"
 
-#: src/papers/bib-visual-editor.tsx
+#: src/papers/bib-entry-detail.tsx
 msgid "Value"
 msgstr "Value"
 

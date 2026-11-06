@@ -67,8 +67,10 @@ export function usePaperActions({
       if (!live()) return;
       delete fetches.requests[key];
       await refreshProject();
+      // A paper the library does not list (a reference of a .bib that is not
+      // the primary bibliography) opens by the bundle the fetch wrote.
       const fetched = (await invoke<PaperSummary[]>("list_papers"))
-        .find((item) => item.arxivId === result.arxivId) ?? { ...paper, hasFullText: true };
+        .find((item) => item.arxivId === result.arxivId) ?? { ...paper, arxivId: result.arxivId, hasFullText: true };
       setPaperFetchStates((current) => ({ ...current, [key]: "success" }));
       if (fetches.timers[key]) window.clearTimeout(fetches.timers[key]);
       fetches.timers[key] = window.setTimeout(() => {
@@ -103,7 +105,8 @@ export function usePaperActions({
     clearImportStage();
   };
 
-  const readDraggedPaper = (paper: PaperSummary) => {
+  /** Open `paper` (one dragged in, picked in the palette or a .bib reference's), downloading it first when only cited. */
+  const readPaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
     else if (paper.arxivId || paper.url) void fetchAndOpenPaper(paper);
     else showError(t`This paper has no local reading or downloadable source.`);
@@ -121,5 +124,5 @@ export function usePaperActions({
     refreshHistory, refreshProject, save, sourceRef, captureProjectScope,
   ]);
 
-  return { paperFetchStates, fetchAndOpenPaper, cancelPaperFetches, readDraggedPaper, deletePaper };
+  return { paperFetchStates, fetchAndOpenPaper, cancelPaperFetches, readPaper, deletePaper };
 }

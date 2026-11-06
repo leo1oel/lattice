@@ -42,6 +42,7 @@ import type { useCanvasRequests } from "./use-canvas-requests";
 import type { EditorComments } from "./use-editor-comments";
 import type { OpenDocuments } from "./use-open-documents";
 import type { useOverleafWorkspace } from "./use-overleaf-workspace";
+import type { usePaperActions } from "./use-paper-actions";
 import type { usePreviewPrewarm } from "./use-preview-prewarm";
 import type { useLatexStructure } from "./use-latex-structure";
 import type { useProjectLibrary } from "./use-project-library";
@@ -68,7 +69,7 @@ export function useDocumentSurfaces({
   project, projectState: { projectRef, setProject }, documents, settledSource, workspaceIndex, preferences, library, latex,
   texlabDiagnostics, referenceImport, referenceImages, canvasRequests, onEditorPosition, sourceNavigation, setSearchDialog,
   outline, tableGenerator, tree, overleaf, layout, comments, tools, agentContext, openSlide, trellis, synara, build, texSetup,
-  saveSlot, movingWorkspace, livePreview, pdfPage, syncTex, setPaperPdfOpen,
+  saveSlot, movingWorkspace, livePreview, pdfPage, syncTex, setPaperPdfOpen, paperActions,
 }: {
   surfaces: Pick<AppSurfaces, "documentCanvas" | "projectPdfPanel">;
   project: ProjectSnapshot | null;
@@ -121,6 +122,8 @@ export function useDocumentSurfaces({
   pdfPage: { setCount: (count: number | null) => void; setNumber: (page: number) => void };
   syncTex: ReturnType<typeof useSyncTexNavigation>;
   setPaperPdfOpen: (open: boolean) => void;
+  /** Opens a .bib reference's paper (downloading it first), and each download's progress. */
+  paperActions: Pick<ReturnType<typeof usePaperActions>, "readPaper" | "paperFetchStates">;
 }) {
   if (!project) return null;
   const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, openPaper, save } = documents;
@@ -209,7 +212,8 @@ export function useDocumentSurfaces({
       }}
       bibliography={{
         papers,
-        onOpenPaper: (paper) => void openPaper(paper),
+        onOpenPaper: paperActions.readPaper,
+        paperFetchStates: paperActions.paperFetchStates,
         onOpenUrl: (url) => void openUrl(url).catch((reason) => showError(toMessage(reason))),
         canOpenCitation,
         onOpenCitation,

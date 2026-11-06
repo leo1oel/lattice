@@ -6,7 +6,8 @@
  */
 import { useCallback, useId, useReducer, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { ArrowLeft, BookOpen, Code2, ExternalLink, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Code2, ExternalLink, FileDown, Trash2, X } from "lucide-react";
+import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
 import { IconButton } from "../components/ui/icon-button";
@@ -22,6 +23,7 @@ import {
   type BibEdit, type BibEntry, type BibField, type BibSummary,
 } from "./bib-document";
 import type { BibVisualEditorProps } from "./bib-visual-editor";
+import { entryPaper, type EntryPaperState } from "./bib-entry-paper";
 import { sameIgnoringCase as sameKey } from "../lib/equality";
 
 /** The types the type menu offers; an entry of another type keeps it and lists it too. */
@@ -78,9 +80,7 @@ export function EntryDetail(props: BibVisualEditorProps & {
   const { row, edit, editable } = props;
   const text = props.parsedText;
   const { entry, summary } = row;
-  const paper = props.papers.find((item) => sameKey(item.citationKey, entry.key))
-    ?? (summary.arxivId ? props.papers.find((item) => item.arxivId === summary.arxivId) : undefined);
-  const readablePaper = paper && (paper.hasFullText || paper.hasBlog) ? paper : undefined;
+  const paper = entryPaper(props.papers, entry.key, summary, props.paperFetchStates);
   const doiUrl = summary.doi && /^10\.\d{4,9}\/\S+$/.test(summary.doi) ? `https://doi.org/${summary.doi}` : null;
   const arxivUrl = summary.arxivId ? `https://arxiv.org/abs/${summary.arxivId}` : null;
   const webUrl = /^https?:\/\//i.test(summary.url) && ![arxivUrl, doiUrl].includes(summary.url) ? summary.url : null;
@@ -156,12 +156,7 @@ export function EntryDetail(props: BibVisualEditorProps & {
           {summary.authors && <p className="bib-detail-authors">{summary.authors}</p>}
           {(summary.venue || summary.year) && <p className="bib-detail-venue">{[summary.venue, summary.year].filter(Boolean).join(", ")}</p>}
           <div className="bib-detail-actions">
-            {readablePaper && (
-              <Button size="compact" variant="secondary" onClick={() => props.onOpenPaper(readablePaper)}>
-                <BookOpen size={13} aria-hidden="true" />
-                {t`Open paper`}
-              </Button>
-            )}
+            <EntryPaperAction state={paper.state} onOpen={() => paper.paper && props.onOpenPaper(paper.paper)} />
             {doiUrl && <LinkButton kind="doi" url={doiUrl} onOpen={props.onOpenUrl} />}
             {arxivUrl && <LinkButton kind="arxiv" url={arxivUrl} onOpen={props.onOpenUrl} />}
             {webUrl && <LinkButton kind="web" url={webUrl} onOpen={props.onOpenUrl} />}
@@ -240,6 +235,54 @@ export function EntryDetail(props: BibVisualEditorProps & {
         </section>
       </div>
     </ScrollArea>
+  );
+}
+
+/**
+ * The open control, labelled in the reference's detail and an icon on its
+ * row. While the paper downloads it says so and takes no second click; an
+ * entry with nothing to fetch gets no control on its row, and a line saying
+ * why in its detail.
+ */
+export function EntryPaperAction({ state, iconOnly = false, onOpen }: {
+  state: EntryPaperState;
+  iconOnly?: boolean;
+  onOpen: () => void;
+}) {
+  const { t } = useLingui();
+  if (state === "none") return iconOnly ? null : <span className="bib-detail-no-paper">{t`No full text to download`}</span>;
+  const label = state === "open" ? t`Open paper` : state === "download" ? t`Download and open` : t`Downloading…`;
+  const icon = state === "open" ? <BookOpen size={13} aria-hidden="true" />
+    : state === "download" ? <FileDown size={13} aria-hidden="true" />
+      : <InfinityLoader size={12} />;
+  const open = () => {
+    if (state !== "downloading") onOpen();
+  };
+  if (iconOnly) {
+    return (
+      <IconButton
+        size="compact"
+        className="bib-row-paper"
+        label={label}
+        data-state={state}
+        aria-disabled={state === "downloading" || undefined}
+        // The row is an option of the list, which keeps the keyboard; its
+        // detail has the same control in reach of it.
+        tabIndex={-1}
+        onClick={(event) => {
+          event.stopPropagation();
+          open();
+        }}
+      >
+        {icon}
+      </IconButton>
+    );
+  }
+  return (
+    <Button size="compact" variant="secondary" data-state={state} aria-disabled={state === "downloading" || undefined} onClick={open}>
+      {icon}
+      {label}
+    </Button>
   );
 }
 
