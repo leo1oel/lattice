@@ -9,7 +9,7 @@ import { baseName } from "../lib/base-name";
 export function adoptRootDocument(project: ProjectSnapshot, rootDocument: string): ProjectSnapshot {
   const documents = project.manifest.rootDocuments;
   if (documents.some((document) => document.isDefault && document.path === rootDocument)) return project;
-  const rootDocuments = documents.map((document) => ({
+  const rootDocuments: typeof documents = documents.map((document) => ({
     ...document, isDefault: document.path === rootDocument, chosen: document.chosen && document.path === rootDocument,
   }));
   if (!documents.some((document) => document.path === rootDocument)) {
