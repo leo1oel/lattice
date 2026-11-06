@@ -1,9 +1,9 @@
-import { projectCommands, projectSnapshot, expectEditorText, expectInvoked, pause, SINGLE_TRANSFORMER } from "./app-test-utils";
+import { projectCommands, projectSnapshot, refreshableProject, expectEditorText, expectInvoked, pause, SINGLE_TRANSFORMER } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 import type { EditorView } from "@codemirror/view";
 import { act, fireEvent, within } from "@testing-library/react";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 /**
  * The source editor's citation card opens what the PDF's does: the cited
@@ -52,5 +52,30 @@ describe("citation card in the source editor", () => {
     const card = await keyboardCard(view);
     fireEvent.click(within(card).getByRole("button", { name: control === "title" ? "A Single Transformer" : OPEN_PAPER }));
     await expectInvoked("read_paper", { arxivId: SINGLE_TRANSFORMER.arxivId });
+  });
+
+  it("downloads a cited preprint the library has not fetched, then opens it, from the card's title", async () => {
+    const citedOnly = { ...SINGLE_TRANSFORMER, hasFullText: false };
+    let fetched = false;
+    renderApp({
+      // The download refreshes the project before it opens the Paper.
+      ...refreshableProject(projectSnapshot(), SOURCE),
+      list_citations: () => CITATIONS,
+      list_papers: () => [{ ...citedOnly, hasFullText: fetched }],
+      fetch_paper: () => {
+        fetched = true;
+        return { arxivId: citedOnly.arxivId, paperPath: `.research/papers/${citedOnly.arxivId}/paper.md` };
+      },
+      read_paper: "# Paper body",
+    });
+    const view = await expectEditorText(SOURCE);
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: SOURCE.indexOf("chen") + 2 } });
+    });
+    const card = await keyboardCard(view);
+    fireEvent.click(within(card).getByRole("button", { name: "A Single Transformer" }));
+    await expectInvoked("fetch_paper", { arxivId: citedOnly.arxivId, requestId: expect.any(String) });
+    await expectInvoked("read_paper", { arxivId: citedOnly.arxivId });
   });
 });

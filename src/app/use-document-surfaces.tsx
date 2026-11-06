@@ -22,7 +22,7 @@ import { ChunkGate } from "../components/chunk-gate";
 import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
 import type { LivePreview } from "../live-preview/use-live-preview";
-import { citationSourceUrl } from "../papers/paper-source";
+import { canDownloadPaper, citationSourceUrl } from "../papers/paper-source";
 import type { TrellisController } from "../trellis/trellis-controller";
 import type { EditorPosition, ProjectManifest, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
@@ -126,7 +126,7 @@ export function useDocumentSurfaces({
   paperActions: Pick<ReturnType<typeof usePaperActions>, "readPaper" | "paperFetchStates">;
 }) {
   if (!project) return null;
-  const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, openPaper, save } = documents;
+  const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, save } = documents;
   const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;
   const { papers, citationKeys, citations, unusedSymbols } = library;
   const { gotoDefinition, findSymbolReferences, beginRename, beginSymbolRename } = sourceNavigation;
@@ -155,15 +155,17 @@ export function useDocumentSurfaces({
   // available (assume it is until the doctor report loads) and fall back to it
   // otherwise. The unused-symbol counts elsewhere still use the full list.
   const texlabActive = texSetup.doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
-  // A citation opens its readable Paper when the library has one, else the source it cites.
-  const readablePaperCited = (key: string) => papers.find((item) => sameIgnoringCase(item.citationKey, key) && (item.hasFullText || item.hasBlog));
+  // A citation opens its Paper when the library has its text or can download
+  // it first (as a .bib reference's Download and open does), else the source it cites.
+  const paperCited = (key: string) => papers.find((item) => sameIgnoringCase(item.citationKey, key)
+    && (item.hasFullText || item.hasBlog || canDownloadPaper(item)));
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameIgnoringCase(item.key, key)));
   // The source editor's citation card and the PDF's open the same thing.
-  const canOpenCitation = (key: string) => Boolean(readablePaperCited(key) || citationUrl(key));
+  const canOpenCitation = (key: string) => Boolean(paperCited(key) || citationUrl(key));
   const onOpenCitation = (key: string) => {
-    const paper = readablePaperCited(key);
+    const paper = paperCited(key);
     const url = citationUrl(key);
-    if (paper) void openPaper(paper);
+    if (paper) paperActions.readPaper(paper);
     else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
   };
 
