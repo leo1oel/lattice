@@ -31,7 +31,7 @@ msgid "."
 msgstr "。"
 
 #. placeholder {0}: target.folder
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
 "\n"
 "Files that differ are kept side by side. Nothing is overwritten"
@@ -102,6 +102,11 @@ msgstr "{0} 篇已在论文库，将跳过"
 msgid "{0} annotations"
 msgstr "{0} 条批注"
 
+#. placeholder {0}: props.account
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "{0} can’t open this project"
+msgstr "{0} 打不开这个项目"
+
 #. placeholder {0}: changes.length
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{0} changes"
@@ -152,6 +157,11 @@ msgstr "{0} 处修改待审"
 #: src/papers/bibliography-audit.tsx
 msgid "{0} inconclusive"
 msgstr "{0} 条没有结论"
+
+#. placeholder {0}: invite.inviterName
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "{0} invited you. Accept on Overleaf to open it here"
+msgstr "{0} 邀请了你，在 Overleaf 上接受后就能在这里打开"
 
 #. placeholder {0}: entry.path
 #: src/papers/bibliography-audit.tsx
@@ -1397,6 +1407,14 @@ msgstr "接受 {kept}/{offered} 处"
 msgid "Accept all"
 msgstr "全部接受"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Accept it on Overleaf, then paste the link here again."
+msgstr "先在 Overleaf 上接受邀请，再把链接粘贴到这里。"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Accept the invitation on Overleaf to open it here"
+msgstr "在 Overleaf 上接受邀请后就能在这里打开"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Accepted"
 msgstr "已接受"
@@ -1746,7 +1764,7 @@ msgstr "全部第三方软件"
 msgid "All third-party software ({total})"
 msgstr "全部第三方软件（{total}）"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "All your projects are archived or trashed"
 msgstr "项目都已归档或删除"
 
@@ -2066,7 +2084,7 @@ msgstr "请在 macOS 弹窗中点“允许”"
 msgid "Approximately equal"
 msgstr "约等于"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Archived"
 msgstr "已归档"
 
@@ -2741,7 +2759,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect-parts.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3060,6 +3078,7 @@ msgid "Checking the connection to {linkedHost}…"
 msgstr "正在检查 {linkedHost}…"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Checking your Overleaf connection…"
 msgstr "正在检查 Overleaf…"
 
@@ -3483,7 +3502,7 @@ msgid "Clear PDF search"
 msgstr "清空"
 
 #: src/components/ui/search-field.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
 msgstr "清空"
@@ -3874,6 +3893,7 @@ msgid "Congruent"
 msgstr "全等"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Connect to Overleaf"
 msgstr "连接 Overleaf"
 
@@ -4032,6 +4052,10 @@ msgstr "复制路径"
 msgid "Copy source"
 msgstr "复制源代码"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Copy the link from the project’s address bar or its Share menu."
+msgstr "请从项目的地址栏或“分享”菜单复制链接。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Copyright"
 msgstr "版权符号"
@@ -4157,7 +4181,7 @@ msgstr "浏览器打不开原文"
 msgid "Could not open the log folder: {error}"
 msgstr "无法打开日志文件夹：{error}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Could not open the Overleaf project"
 msgstr "无法打开该项目"
 
@@ -4343,7 +4367,7 @@ msgstr "无法启动：{message}"
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "无法解压 rtex 安装包：{error}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Could not upload the project to Overleaf"
 msgstr "上传失败"
 
@@ -4978,7 +5002,7 @@ msgstr "下双线箭头"
 msgid "Download {url}"
 msgstr "下载 {url}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Download a new copy"
 msgstr "重新下载"
 
@@ -5011,7 +5035,7 @@ msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文会保留"
 
 #. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Downloading {0}…"
 msgstr "正在下载 {0}…"
 
@@ -6595,6 +6619,10 @@ msgstr "想法"
 msgid "If and only if"
 msgstr "当且仅当"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "If someone shared it with you, accept their invitation or open their share link once on Overleaf. If they shared it with another account, sign in with that one in Settings → Overleaf."
+msgstr "如果有人分享给你，请先在 Overleaf 上接受邀请，或在浏览器里打开一次分享链接。如果对方分享给的是另一个账号，请在 设置 → Overleaf 中改用那个账号登录。"
+
 #: src/editor/harper-spellcheck.ts
 msgid "Ignore rule in project"
 msgstr "在本项目中忽略此规则"
@@ -7181,6 +7209,14 @@ msgstr "历史记录 ID 无效"
 msgid "Invalid worksheet: {name}"
 msgstr "无效的工作表：{name}"
 
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Invitation"
+msgstr "邀请"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Invitations"
+msgstr "邀请"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "约塔"
@@ -7238,6 +7274,10 @@ msgstr "斜体文本"
 #: src/project/submission-items.tsx
 msgid "Item"
 msgstr "事项"
+
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Its owner may have turned link sharing off or reset the link. Ask them for a new one."
+msgstr "项目所有者可能关闭了链接分享或重置了链接，请向对方要一个新链接。"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
@@ -7457,7 +7497,7 @@ msgstr "上次同步"
 msgid "Last synced {0}"
 msgstr "上次同步：{0}"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "last update unknown"
 msgstr "更新时间未知"
 
@@ -7600,6 +7640,11 @@ msgstr "没能自动重启，请退出后重新打开"
 #: src/canvas/status-save-state.tsx
 msgid "Lattice couldn’t write {file}"
 msgstr "Lattice 无法写入 {file}"
+
+#. placeholder {0}: props.host
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
+msgstr "Lattice 当前登录的是 {0}。要打开其他 Overleaf 服务器上的项目，请在 设置 → Overleaf 中登录那台服务器。"
 
 #: src/overleaf/overleaf-collab.tsx
 msgctxt "comment source"
@@ -7855,7 +7900,7 @@ msgstr "关联 Zotero 或 Paperpile 的导出文件"
 msgid "Link definition"
 msgstr "链接定义"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Link this folder"
 msgstr "关联此文件夹"
 
@@ -8063,7 +8108,7 @@ msgstr "正在加载…"
 msgid "Loading versions…"
 msgstr "正在加载版本…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Loading your Overleaf projects…"
 msgstr "正在加载项目…"
 
@@ -8134,6 +8179,10 @@ msgstr "正在查找 {resolving} 条…"
 #: src/canvas/document-canvas.tsx
 msgid "Looking up references is not available here."
 msgstr "此处无法查找文献。"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Looking up this link on Overleaf…"
+msgstr "正在 Overleaf 上查找这个链接…"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Looking up…"
@@ -8706,7 +8755,7 @@ msgstr "有新消息"
 msgid "New name"
 msgstr "新名称"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "New Overleaf project name"
 msgstr "项目名称"
 
@@ -9073,11 +9122,11 @@ msgstr "还没有 PDF"
 msgid "No project open"
 msgstr "未打开项目"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "No projects in this account yet"
 msgstr "账号里还没有项目"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "No projects match your search"
 msgstr "没有匹配的项目"
 
@@ -9553,7 +9602,7 @@ msgid "Only the listed graphics arguments will change. Image files stay in place
 msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
 
 #: src/history/export-changes-dialog.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Open"
 msgstr "打开"
 
@@ -9662,7 +9711,7 @@ msgstr "当前问题"
 msgid "Open folder"
 msgstr "打开文件夹"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/project/project-dialogs.tsx
 msgid "Open from Overleaf"
 msgstr "从 Overleaf 打开"
@@ -9690,6 +9739,12 @@ msgstr "在 Lattice 中打开"
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Open invitation"
+msgstr "打开邀请"
+
+#: src/overleaf/overleaf-pasted-link.tsx
 #: src/project/paper-inspector.tsx
 #: src/project/paper-row.tsx
 msgid "Open link in browser"
@@ -9802,6 +9857,10 @@ msgstr "请先打开所在文档"
 msgid "Open the file this suggestion is in first"
 msgstr "请先打开所在文件"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Open the link in your browser and choose Join project on Overleaf, then paste it here again."
+msgstr "在浏览器里打开这个链接，在 Overleaf 上选择 Join project（加入项目），再把链接粘贴到这里。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "请先打开关联的项目，再改同步设置"
@@ -9886,10 +9945,6 @@ msgstr "起源与改编作品"
 msgid "Other colours"
 msgstr "其他颜色"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Other projects"
-msgstr "其他项目"
-
 #: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
 msgid "Outline"
@@ -9965,6 +10020,10 @@ msgstr "Overleaf 断开了这次会话"
 msgid "Overleaf does not offer the websocket transport (offers {transports})"
 msgstr "Overleaf 不提供 WebSocket 连接方式（只提供 {transports}）"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Overleaf doesn’t recognize this link"
+msgstr "Overleaf 不认识这个链接"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "此文件不支持实时协作，改用普通同步"
@@ -10010,7 +10069,7 @@ msgstr "实时协作已恢复"
 msgid "Overleaf project actions"
 msgstr "Overleaf 选项"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf 项目"
 
@@ -10850,9 +10909,13 @@ msgstr "恢复项目"
 msgid "Project restored."
 msgstr "项目已恢复"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Project uploaded and connected to Overleaf."
 msgstr "已上传并关联 Overleaf"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Projects"
+msgstr "项目"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proof environment (requires amsthm)"
@@ -11131,6 +11194,7 @@ msgid "Recompiling…"
 msgstr "正在重新编译…"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Reconnect to Overleaf"
 msgstr "重新连接"
 
@@ -11285,6 +11349,10 @@ msgstr "松开放大{title}"
 #: src/app/project-panel-commands.ts
 msgid "reload files folders sync disk"
 msgstr "刷新 重新载入 文件 文件夹 同步 磁盘 reload files folders sync disk"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Reload list"
+msgstr "重新加载列表"
 
 #: src/telemetry/panel-error-boundary.tsx
 msgid "Reload panel"
@@ -11936,7 +12004,7 @@ msgstr "查找结果"
 #: src/agent/synara-loading-surface.tsx
 #: src/app/git-workspace-frames.tsx
 #: src/live-preview/live-preview-settings.tsx
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/telemetry/app-log.tsx
 msgid "Retry"
 msgstr "重试"
@@ -12453,9 +12521,9 @@ msgstr "搜索"
 msgid "Search by name or license"
 msgstr "按名称或许可证搜索"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Search by project or owner…"
-msgstr "搜项目名或作者…"
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Search by project or owner, or paste a link…"
+msgstr "搜项目名或作者，或粘贴链接…"
 
 #: src/editor/latex/symbol-palette.ts
 msgid "Search by symbol, command or meaning"
@@ -12505,7 +12573,7 @@ msgstr "搜索或添加论文"
 msgid "Search or import papers"
 msgstr "搜索或导入论文"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Search Overleaf projects"
 msgstr "搜索项目"
 
@@ -12792,7 +12860,7 @@ msgstr "显示全部"
 msgid "Show annotations"
 msgstr "显示批注"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Show archived"
 msgstr "显示已归档"
 
@@ -13778,6 +13846,10 @@ msgstr "这条历史记录已不存在"
 msgid "That is a folder."
 msgstr "这是一个文件夹"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "That isn’t an Overleaf project link"
+msgstr "这不是 Overleaf 项目链接"
+
 #: src/platform/host-errors-project.ts
 msgid "That item"
 msgstr "该项"
@@ -14658,6 +14730,15 @@ msgstr "此账号没有权限处理修订"
 msgid "This account cannot accept or reject suggestions here."
 msgstr "此账号没有权限处理修订"
 
+#. placeholder {0}: answer.projectName
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This account hasn’t joined “{0}” yet"
+msgstr "这个账号还没有加入“{0}”"
+
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This account hasn’t joined this shared project yet"
+msgstr "这个账号还没有加入这个共享项目"
+
 #: src/app/use-project-tree.ts
 msgid "This action cannot be undone."
 msgstr "删除后无法恢复"
@@ -14786,6 +14867,10 @@ msgstr "这一组"
 msgid "This HTML file is too large to open (32 MB maximum)."
 msgstr "HTML 文件太大，无法打开（上限 32 MB）"
 
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This invitation is waiting on Overleaf"
+msgstr "这个邀请还在 Overleaf 上等你接受"
+
 #: src/platform/host-errors-project.ts
 msgid "This is a binary or unsupported file and cannot be opened in the source editor."
 msgstr "这是二进制文件或不支持的文件，无法在源码编辑器中打开"
@@ -14814,9 +14899,18 @@ msgstr "这一行关闭了一个从未打开的分组，或在 $ 之前用 {BRAC
 msgid "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 msgstr "这一行在 $…$ 之外用了只能在数学模式中使用的命令或字符，比如 _ 或 ^。把数学内容放进 $…$，或用 \\_ 输出下划线。"
 
+#. placeholder {0}: answer.host
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "This link is for {0}"
+msgstr "这个链接属于 {0}"
+
 #: src/editor/grammar-rule-text.ts
 msgid "This looks like a typo. Did you mean “{word}”?"
 msgstr "这里似乎有笔误，你是想写 “{word}” 吗？"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "This Overleaf account"
+msgstr "这个 Overleaf 账号"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "This Overleaf account can no longer open the project. It may have been removed from the project, or the project deleted."
@@ -15126,7 +15220,7 @@ msgstr "翻译"
 msgid "Translucency"
 msgstr "毛玻璃"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Trashed"
 msgstr "已删除"
 
@@ -15360,7 +15454,7 @@ msgstr "未知环境 {name}"
 msgid "Unknown label “{key}”."
 msgstr "找不到标签“{key}”"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Unknown owner"
 msgstr "作者未知"
 
@@ -15520,7 +15614,7 @@ msgid "Updated"
 msgstr "已更新"
 
 #. placeholder {0}: relativeTime(project.lastUpdated)
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "updated {0}"
 msgstr "更新于 {0}"
 
@@ -15548,7 +15642,7 @@ msgstr "会同步改 .bib 和所有 \\cite"
 msgid "Updating…"
 msgstr "正在更新…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Upload “{name}” to Overleaf and connect this folder?\n"
 "\n"
 "Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac."
@@ -15556,20 +15650,20 @@ msgstr "把“{name}”上传到 Overleaf 并关联？\n"
 "\n"
 "会用要同步的文件新建一个 Overleaf 项目。应用数据、账号信息、编译结果和 Git 记录仍留在这台 Mac"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Upload and connect"
 msgstr "上传关联"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Upload this project to Overleaf"
 msgstr "上传到 Overleaf"
 
 #. placeholder {0}: publishName.trim()
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Uploading {0}…"
 msgstr "正在上传 {0}…"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Uploading…"
 msgstr "正在上传…"
 
@@ -15856,7 +15950,7 @@ msgstr "等待你输入 Mac 密码…"
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
 msgstr "正在等待 Overleaf 的实时文件树，之后再同步移动的文件"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-connect-parts.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "请在 Overleaf 窗口中登录…"
 
@@ -16124,7 +16218,7 @@ msgstr "你"
 msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 msgstr "你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目；你的修改保留在这台 Mac 上"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "You can close this once the transfer finishes"
 msgstr "传完即可关闭"
 
@@ -16141,6 +16235,7 @@ msgid "You read the publisher's notice and kept citing it"
 msgstr "你读过出版方公告，仍保留引用"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "You sign in on Overleaf. Lattice never sees your password."
 msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 
@@ -16164,6 +16259,11 @@ msgstr "你的颜色"
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "你的修改留在这台 Mac 上，下次同步时上传"
 
+#. placeholder {0}: answer.projectName
+#: src/overleaf/overleaf-pasted-link.tsx
+msgid "Your invitation to “{0}” is waiting on Overleaf"
+msgstr "“{0}”的邀请还在 Overleaf 上等你接受"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Your name"
@@ -16177,7 +16277,7 @@ msgstr "你的 Overleaf 账户"
 msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
 msgstr "Overleaf 登录已失效。重新登录前，你的修改留在这台 Mac 上"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 msgid "Your Overleaf session expired"
 msgstr "登录已过期"
 
@@ -16192,10 +16292,6 @@ msgstr "你的项目"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
 msgstr "你的文件都在，没有丢失"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Your projects"
-msgstr "我的项目"
 
 #: src/papers/bibliography-audit.tsx
 #: src/papers/linked-library-sheet.tsx

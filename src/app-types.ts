@@ -409,6 +409,20 @@ export type OverleafProject = {
   archived: boolean;
   trashed: boolean;
 };
+/** An invitation to an Overleaf project that has not been accepted yet; `url` is Overleaf's invitation page. */
+export type OverleafInvite = { projectId: string; projectName: string; inviterName: string | null; url: string };
+/** Every project the account can open, newest first as Overleaf lists them, and its pending invitations. */
+export type OverleafProjectList = { projects: OverleafProject[]; invites: OverleafInvite[] };
+/** What a pasted Overleaf project or share link opens for the signed-in account. */
+export type PastedOverleafLink =
+  | { kind: "project"; project: OverleafProject }
+  /** A share link this account has not joined: Overleaf asks before adding anyone. */
+  | { kind: "needsJoin"; projectName: string | null; url: string }
+  | { kind: "invited"; projectName: string | null; url: string }
+  | { kind: "noAccess" }
+  | { kind: "notFound" }
+  | { kind: "otherHost"; host: string }
+  | { kind: "unrecognized" };
 /** What "Open from Overleaf" would do with a project, before it does it. */
 export type CloneTarget = {
   /**

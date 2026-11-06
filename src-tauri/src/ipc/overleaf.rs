@@ -239,9 +239,18 @@ pub async fn overleaf_disconnect(app: AppHandle, state: State<'_, AppState>) -> 
 #[tauri::command]
 pub async fn overleaf_list_projects(
     app: AppHandle,
-) -> Result<Vec<overleaf::OverleafProject>, String> {
+) -> Result<overleaf::OverleafProjectList, String> {
     let config = overleaf_config_dir(&app)?;
     settled(&app, run_blocking(TASK, move || overleaf::list_projects(&config)).await).await
+}
+
+/// What a pasted Overleaf project or share link opens for this account.
+#[tauri::command]
+pub async fn overleaf_resolve_link(
+    app: AppHandle, link: String,
+) -> Result<overleaf::PastedLink, String> {
+    let config = overleaf_config_dir(&app)?;
+    settled(&app, run_blocking(TASK, move || overleaf::resolve_link(&config, &link)).await).await
 }
 
 /// Where Overleaf projects are downloaded to.

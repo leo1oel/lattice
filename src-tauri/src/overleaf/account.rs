@@ -1,5 +1,6 @@
-//! The signed-in session: the stored cookie, sign-in validation, the account's
-//! project list, and the cookie rules the sign-in window relies on.
+//! The signed-in session: the stored cookie, sign-in validation, and the
+//! cookie rules the sign-in window relies on. What the account can open is in
+//! `projects`.
 
 use super::api::{fetch_projects_page, full_name, http_client, json_str, meta_content};
 use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED, SESSION_STILL_VALID};
@@ -24,19 +25,6 @@ pub struct OverleafStatus {
     pub email: Option<String>,
     pub name: Option<String>,
     pub host: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OverleafProject {
-    pub id: String,
-    pub name: String,
-    pub last_updated: Option<String>,
-    pub owner_email: Option<String>,
-    pub owner_name: Option<String>,
-    pub access_level: Option<String>,
-    pub archived: bool,
-    pub trashed: bool,
 }
 
 /// One tick of the sign-in-window polling loop (see `overleaf_poll_login`).
@@ -245,7 +233,7 @@ fn mark_expired(config_dir: &Path, cookie: &str) -> bool {
 /// rather than insisting on the projects blob alone: if Overleaf renames that
 /// meta tag, connecting should still succeed and the project list should be
 /// the thing that reports a clear parse error.
-fn opens_dashboard(html: &str) -> bool {
+pub(super) fn opens_dashboard(html: &str) -> bool {
     ["ol-prefetchedProjectsBlob", "ol-projects", "ol-user", "ol-usersEmail"]
         .iter()
         .any(|name| meta_content(html, name).is_some())
@@ -326,22 +314,6 @@ pub fn disconnect(config_dir: &Path) -> Result<(), String> {
     }
 }
 
-pub fn list_projects(config_dir: &Path) -> Result<Vec<OverleafProject>, String> {
-    let mut session = load_session(config_dir)?;
-    let client = http_client(30)?;
-    let html = fetch_projects_page(&client, &session.host, &session.cookie)?;
-    // Backfill the account id for sessions stored before it was recorded.
-    // This page is fetched anyway, and without the id the per-account track
-    // changes setting reads as if we were an anonymous guest.
-    if session.user_id.is_none() {
-        if let Some(user_id) = meta_content(&html, "ol-user_id") {
-            session.user_id = Some(user_id);
-            let _ = save_session(config_dir, &session);
-        }
-    }
-    parse_projects_meta(&html)
-}
-
 /// Our own Overleaf account id, fetched once if the session predates our
 /// storing it.
 ///
@@ -370,51 +342,6 @@ fn parse_user_meta(html: &str) -> (Option<String>, Option<String>) {
         Some(user) => (json_str(&user, &["email"]), full_name(&user)),
         None => (meta_content(html, "ol-usersEmail"), None),
     }
-}
-
-fn parse_projects_meta(html: &str) -> Result<Vec<OverleafProject>, String> {
-    let parse_error =
-        |e: serde_json::Error| format!("Could not parse the Overleaf project list: {e}");
-    let raw_projects: Vec<Value> =
-        if let Some(blob) = meta_content(html, "ol-prefetchedProjectsBlob") {
-            let value: Value = serde_json::from_str(&blob).map_err(parse_error)?;
-            value.get("projects").and_then(|p| p.as_array()).cloned().unwrap_or_default()
-        } else if let Some(blob) = meta_content(html, "ol-projects") {
-            serde_json::from_str(&blob).map_err(parse_error)?
-        } else {
-            return Err(SESSION_EXPIRED.to_string());
-        };
-
-    let mut projects: Vec<OverleafProject> = (raw_projects.iter())
-        .filter_map(|value| {
-            let owner = value.get("owner");
-            let owner_name = owner.map(|o| {
-                let first = json_str(o, &["firstName", "first_name"]).unwrap_or_default();
-                let last = json_str(o, &["lastName", "last_name"]).unwrap_or_default();
-                format!("{first} {last}").trim().to_string()
-            });
-            Some(OverleafProject {
-                id: json_str(value, &["id", "_id"])?,
-                name: json_str(value, &["name"])?,
-                last_updated: json_str(value, &["lastUpdated"]),
-                owner_email: owner.and_then(|o| json_str(o, &["email"])),
-                owner_name: owner_name.filter(|n| !n.is_empty()),
-                access_level: json_str(value, &["accessLevel"]),
-                archived: json_flag(value, "archived"),
-                trashed: json_flag(value, "trashed"),
-            })
-        })
-        .collect();
-    projects.sort_by(|a, b| b.last_updated.cmp(&a.last_updated).then(a.name.cmp(&b.name)));
-    Ok(projects)
-}
-
-/// Overleaf encodes archived/trashed as booleans today; very old instances
-/// used per-user id arrays.
-fn json_flag(value: &Value, key: &str) -> bool {
-    value
-        .get(key)
-        .is_some_and(|v| v.as_bool().unwrap_or_else(|| v.as_array().is_some_and(|a| !a.is_empty())))
 }
 
 #[cfg(test)]
@@ -518,21 +445,5 @@ mod tests {
         let saved = store_session_cookie(&config, &server.base, cookie, &logins, next).unwrap();
         assert!(saved.is_some_and(|status| status.connected));
         assert!(session_status(&config).unwrap().connected);
-    }
-
-    #[test]
-    fn overleaf_list_projects_parses_and_sorts() {
-        let server = Mock::default().serve();
-        let config = signed_in(&server.base);
-        let projects = list_projects(&config).unwrap();
-        // Sorted by lastUpdated descending.
-        let ids: Vec<&str> = projects.iter().map(|project| project.id.as_str()).collect();
-        assert_eq!(ids, ["proj-new", "proj-archived", "proj-old"]);
-        assert_eq!(projects[0].name, "New Paper");
-        assert_eq!(projects[0].access_level.as_deref(), Some("readAndWrite"));
-        assert_eq!(projects[0].owner_email.as_deref(), Some("advisor@example.edu"));
-        assert_eq!(projects[0].owner_name.as_deref(), Some("Ada Advisor"));
-        assert!(!projects[0].archived && projects[1].archived && !projects[1].trashed);
-        assert_eq!(projects[2].last_updated.as_deref(), Some("2026-01-02T10:00:00.000Z"));
     }
 }

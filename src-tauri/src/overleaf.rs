@@ -43,6 +43,7 @@ mod case_collisions;
 mod doc_push;
 mod files;
 mod link;
+mod projects;
 mod review;
 mod sync;
 #[cfg(test)]
@@ -50,9 +51,9 @@ mod test_support;
 mod upload;
 
 pub use account::{
-    cookie_domain_matches, disconnect, has_session_cookie, is_session_rejection, list_projects,
-    normalize_host, session_status, settle_session_error, store_session_cookie, LoginAttempts,
-    OverleafLoginPoll, OverleafProject, OverleafStatus,
+    cookie_domain_matches, disconnect, has_session_cookie, is_session_rejection, normalize_host,
+    session_status, settle_session_error, store_session_cookie, LoginAttempts, OverleafLoginPoll,
+    OverleafStatus,
 };
 pub use files::{checkpoint_realtime_text, is_conflict_copy, RealtimeCheckpoint};
 pub use link::{
@@ -60,6 +61,7 @@ pub use link::{
     record_relocation, set_paused, set_permission, set_realtime_metadata, CloneTarget,
     OverleafLink,
 };
+pub use projects::{list_projects, resolve_link, OverleafProjectList, PastedLink};
 pub use review::{
     accept_changes, change_authors, chat_messages, comment_anchors, delete_entity, delete_message,
     delete_thread, edit_message, history_add_label, history_delete_label, history_diff,

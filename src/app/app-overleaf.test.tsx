@@ -127,7 +127,7 @@ describe("Overleaf sync", () => {
       // source of truth for where their web project lives.
       overleaf_link: () => overleafLink({ projectId: "ol/project id", host: "" }),
       overleaf_status: () => overleafStatus({ host: "https://overleaf.example.edu/" }),
-      overleaf_list_projects: () => [],
+      overleaf_list_projects: () => ({ projects: [], invites: [] }),
     }, { syncMode: "manual" });
     const actions = await screen.findByRole("button", { name: "Overleaf project actions" });
     fireEvent.pointerDown(actions, { button: 0, pointerType: "mouse" });
