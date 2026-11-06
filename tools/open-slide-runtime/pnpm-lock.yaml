@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@open-slide/core@2.3.1':
+    hash: 8136a1cf29b4533901f5aa93b9cf24296f1eb7817e024b24b334031693d8a1ca
+    path: patches/@open-slide__core@2.3.1.patch
+
 importers:
 
   .:
@@ -13,7 +18,7 @@ importers:
         version: 5.3.0
       '@open-slide/core':
         specifier: 2.3.1
-        version: 2.3.1(esbuild@0.28.0)(jiti@2.7.0)
+        version: 2.3.1(patch_hash=8136a1cf29b4533901f5aa93b9cf24296f1eb7817e024b24b334031693d8a1ca)(esbuild@0.28.0)(jiti@2.7.0)
       katex:
         specifier: 0.17.0
         version: 0.17.0
@@ -2662,7 +2667,7 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.3
 
-  '@open-slide/core@2.3.1(esbuild@0.28.0)(jiti@2.7.0)':
+  '@open-slide/core@2.3.1(patch_hash=8136a1cf29b4533901f5aa93b9cf24296f1eb7817e024b24b334031693d8a1ca)(esbuild@0.28.0)(jiti@2.7.0)':
     dependencies:
       '@babel/parser': 7.29.8
       '@babel/types': 7.29.8

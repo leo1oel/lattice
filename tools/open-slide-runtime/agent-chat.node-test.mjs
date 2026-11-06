@@ -38,6 +38,8 @@ test("sends the canvas's agent entry points to the Lattice panel", async () => {
   assert.match(layer.transformed, /format\(t\.agent\.applyCommentsWith, \{ provider: 'Lattice AI' \}\)/);
   assert.doesNotMatch(home.transformed, /\/create-slide|createSlideHint/);
   assert.match(home.transformed, /onClick=\{\(\) => requestLatticeAgent\('draft-deck'\)\}/);
+  // The header's New deck drafts with Lattice AI although Open Slide's own agent is off.
+  assert.match(home.transformed, /function NewDeckButton\(\) \{\n {2}const t = useLocale\(\);\n {2}const agent = \{ provider: \{ name: 'Lattice AI' \}, start: \(\) => requestLatticeAgent\('draft-deck'\) \};\n {2}return \(/);
   assert.match(home.transformed, /^ {2}Sparkles,$/m);
   for (const { transformed } of [slide, layer, home]) {
     assert.match(transformed, /window\.parent\.postMessage\(\{ type: 'lattice:agent-request', version: 1, kind, slideId, nonce \}, '\*'\)/);
