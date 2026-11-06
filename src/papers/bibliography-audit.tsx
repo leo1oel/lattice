@@ -24,9 +24,9 @@ import { comboKeys, parseKeyName } from "../app/key-combos";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useProgressiveRows } from "../hooks/use-progressive-rows";
 import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } from "./bibliography-audit-storage";
-import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, type CodedAuditIssue } from "./audit-messages";
+import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, auditSourceOutcome, type CodedAuditIssue } from "./audit-messages";
 import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-check-keys";
-import { correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
+import { bibFieldName, correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
 import "./bibliography-audit.css";
 import { comma, joinList } from "../i18n";
 import { mediaQueryStore } from "../lib/media-query-store";
@@ -501,40 +501,6 @@ export function BibliographyAudit(props: {
     crossref: t`Crossref`, unpaywall: t`Unpaywall`, openalex: t`OpenAlex`,
   };
   const sourceName = (source: string) => sourceNames[source] ?? auditSourceName(source);
-  const sourceOutcomes: Record<string, string> = {
-    matched: t`Verified publication match`,
-    selected: t`Metadata source`,
-    selected_cached: t`Metadata source (cached)`,
-    candidate: t`Candidate record considered, not verified`,
-    candidate_cached: t`Candidate record considered, not verified (cached record)`,
-    not_configured: t`Not enabled. Add your own API key in Settings`,
-    no_match: t`No published version found`, rate_limited: t`Rate limited`,
-    batch_reused: t`Batch result reused`, queue_busy: t`Request queue busy`,
-    daily_quota: t`Public daily quota exhausted`,
-    batch_rate_limited: t`Rate limited; subsequent Semantic Scholar queries skipped`,
-    batch_queue_busy: t`Request queue busy; subsequent Semantic Scholar queries skipped`,
-    batch_daily_quota: t`Public daily quota exhausted; subsequent Semantic Scholar queries skipped`,
-    batch_upstream_rate_limit: t`Semantic Scholar rate limited the service; subsequent queries skipped`,
-    batch_unauthorized: t`Semantic Scholar authorization failed; subsequent queries skipped`,
-    batch_network: t`Semantic Scholar connection failed; subsequent queries skipped`,
-    batch_malformed: t`Semantic Scholar returned an invalid response; subsequent queries skipped`,
-    batch_timeout: t`Semantic Scholar request timed out; subsequent queries skipped`,
-    batch_unavailable: t`Semantic Scholar unavailable; subsequent queries skipped`,
-    blocked: t`Requests blocked`, timeout: t`Request timed out`,
-    connection_failed: t`Connection failed`, network: t`Network connection failed`,
-    unauthorized: t`Authorization failed`, malformed: t`Invalid response from source`,
-    forbidden: t`Access forbidden by provider`,
-    upstream_rate_limit: t`Source rate limit reached`, server_error: t`Source service error`,
-    unavailable: t`Source temporarily unavailable`,
-  };
-  const sourceOutcome = (result: AuditResult, outcome: string) => {
-    // Reports saved before candidate outcomes existed may say that a source was
-    // selected even though the final result was unavailable. Do not present
-    // those records as verified or accepted.
-    if (result.status === "unavailable" && outcome === "selected") return t`Source record considered, not verified`;
-    if (result.status === "unavailable" && outcome === "selected_cached") return t`Source record considered, not verified (cached record)`;
-    return sourceOutcomes[outcome] ?? t`Unknown source response`;
-  };
   const reasonLabels: Record<string, string> = {
     ...fieldLabels, insufficient_identity: t`Insufficient identifying metadata`,
     record: t`Record identity`, arxiv: t`arXiv identifier`,
@@ -617,7 +583,7 @@ export function BibliographyAudit(props: {
   const sources = (result: AuditResult) => !!result.sources?.length && <dl className="bibliography-audit-sources">
     {result.sources.map(source => <div key={source.source}>
       <dt>{sourceName(source.source)}</dt>
-      <dd>{sourceOutcome(result, source.outcome)}</dd>
+      <dd>{auditSourceOutcome(result.status, source.outcome)}</dd>
     </div>)}
   </dl>;
   const healthNotice = (result: AuditResult) => {
@@ -693,7 +659,7 @@ export function BibliographyAudit(props: {
       ? result.candidate : undefined;
     return <div className="bibliography-audit-detail">
       {bucket === "fix" && !entry.inline && <>
-        {typesetCard(typesetBibFix(entry.bibtex, result.after!, result.changes, fieldText))}
+        {typesetCard(typesetBibFix(entry.bibtex, result.after!, result.changes))}
         <div className="bibliography-audit-detail-actions">
           {/* eslint-disable-next-line lingui/no-unlocalized-strings -- key names for assistive tech, from REFERENCE_CHECK_SHORTCUTS */}
           <Button size="compact" variant="tinted" disabled={!canApply(index)} aria-keyshortcuts="A Meta+Enter" onClick={() => void applyAndAdvance(index)}>
@@ -705,7 +671,7 @@ export function BibliographyAudit(props: {
         </div>
       </>}
       {bucket === "fix" && entry.inline && <>
-        {typesetCard(typesetInlineFix(entry.inline, result.changes, fieldText))}
+        {typesetCard(typesetInlineFix(entry.inline, result.changes))}
         <p className="bibliography-audit-note">{t`${entry.path} keeps its own reference list. Lattice compares it with the verified record but never edits it`}</p>
         <div className="bibliography-audit-detail-actions">
           {goTo(entry, t`Go to ${BIBITEM} in ${entry.path}`, "tinted")}
@@ -719,7 +685,7 @@ export function BibliographyAudit(props: {
       {bucket === "fix" && <Disclosure className="bibliography-audit-more" summary={t`Fields and BibTeX`}>
         <div className="bibliography-audit-more-body">
           <dl className="bibliography-audit-fields">{result.changes.map(change => <div key={change.field}>
-            <dt>{fieldText(change.field)}</dt>
+            <dt>{bibFieldName(change.field)}</dt>
             <dd><del>{change.before || "—"}</del><ArrowRight size={11} aria-label={t`becomes`} /><ins>{change.after || "—"}</ins></dd>
           </div>)}</dl>
           {bibtex(entry.inline ? t`Verified record (BibTeX)` : t`Proposed BibTeX`, result.after!)}
@@ -805,6 +771,8 @@ export function BibliographyAudit(props: {
         {lastChecked && !busy && <>{coverage.length > 0 && comma()}{t`checked`} <time dateTime={lastChecked}>{new Date(lastChecked).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" })}</time></>}
       </p>}
       {waitingForS2 && <p className="bibliography-audit-coverage" role="status">{t`Partial results for ${completed} of ${progressTotal} references, waiting for Semantic Scholar…`}</p>}
+      {/* True while the project stays open: the sheet stays mounted when closed (see above). */}
+      {busy && <p className="bibliography-audit-coverage">{t`Closing this window does not stop the check. It keeps running in the background, and the results wait here.`}</p>}
       {scan && total > 0 && (busy || counts.unchecked < total) && <div
         className="bibliography-audit-bar"
         role="progressbar"

@@ -20,6 +20,9 @@ const ICLR: Site = Site {
     source: "ICLR Proceedings",
     venue: "International Conference on Learning Representations (ICLR)",
 };
+/// Proceedings before 2018 are named "(NIPS)" (bibcite's year rule). This
+/// site needs no such rule while `paper_path` accepts only the
+/// "-Abstract-Conference" pages it has published since 2022.
 const NEURIPS: Site = Site {
     base: "https://papers.nips.cc",
     source: "NeurIPS Proceedings",

@@ -739,7 +739,6 @@ msgid "{names} and {count} more"
 msgstr "{names} 等 {count} 人"
 
 #: src/papers/paper-identity.ts
-#: src/papers/reference-typeset.ts
 msgid "{names} et al."
 msgstr "{names} 等"
 
@@ -1405,7 +1404,7 @@ msgstr "已接受"
 msgid "Access denied. Check the key"
 msgstr "密钥被拒，请检查"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Access forbidden by provider"
 msgstr "来源拒绝访问"
 
@@ -2140,7 +2139,7 @@ msgstr "PDF 元数据中的作者"
 msgid "Author names"
 msgstr "作者姓名"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Authorization failed"
 msgstr "授权失败"
 
@@ -2290,7 +2289,7 @@ msgid "BasicTeX was installed, but required file {file} could not be found.\n"
 msgstr "BasicTeX 已安装，但找不到必需的文件 {file}。\n"
 "{detail}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Batch result reused"
 msgstr "沿用批量结果"
 
@@ -2793,11 +2792,11 @@ msgstr "已取消"
 msgid "Candidate does not match reference"
 msgstr "找到的记录对不上"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Candidate record considered, not verified"
 msgstr "找到相近记录，未确认"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Candidate record considered, not verified (cached record)"
 msgstr "找到相近记录，未确认（缓存）"
 
@@ -3593,6 +3592,10 @@ msgstr "刚刚截止"
 msgid "Closed-path integral"
 msgstr "闭路积分"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Closing this window does not stop the check. It keeps running in the background, and the results wait here."
+msgstr "关闭窗口不会中断检查：检查会在后台继续，结果会保留在这里。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Club suit"
 msgstr "梅花"
@@ -3899,7 +3902,7 @@ msgstr "正在连接 Overleaf…"
 msgid "Connection"
 msgstr "连接"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Connection failed"
 msgstr "连接失败"
 
@@ -7165,7 +7168,7 @@ msgstr "PDF 位置无效"
 msgid "Invalid regular expression: {error}"
 msgstr "正则表达式无效：{error}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Invalid response from source"
 msgstr "来源返回出错"
 
@@ -8383,11 +8386,11 @@ msgstr "信息核对没查完：{error}"
 msgid "Metadata may be available, but the citation-health check was incomplete."
 msgstr "可能有可用信息，但检查没完成"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Metadata source"
 msgstr "资料来源"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Metadata source (cached)"
 msgstr "资料来源（缓存）"
 
@@ -8636,7 +8639,7 @@ msgstr "等你回答"
 msgid "Negation / not"
 msgstr "否定 / 非"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Network connection failed"
 msgstr "网络连不上"
 
@@ -9081,7 +9084,7 @@ msgstr "账号里还没有项目"
 msgid "No projects match your search"
 msgstr "没有匹配的项目"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "No published version found"
 msgstr "没有正式发表版"
 
@@ -9277,7 +9280,7 @@ msgstr "未启用，需要个人密钥"
 msgid "Not enabled, needs an API key"
 msgstr "未启用，需要密钥"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not enabled. Add your own API key in Settings"
 msgstr "未启用，请在设置里填密钥"
 
@@ -10613,10 +10616,6 @@ msgstr "生成 PostScript"
 msgid "Pounds sterling"
 msgstr "英镑符号"
 
-#: src/papers/reference-typeset.ts
-msgid "pp. {pages}"
-msgstr "第 {pages} 页"
-
 #: src/trellis/trellis-build-sequence.tsx
 msgid "preamble"
 msgstr "导言区"
@@ -10927,11 +10926,11 @@ msgstr "普西"
 msgid "Public access, no key needed"
 msgstr "公共通道，无需密钥"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Public daily quota exhausted"
 msgstr "今日免费额度用完"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 msgstr "今日免费额度用完，跳过 Semantic Scholar"
 
@@ -11016,11 +11015,11 @@ msgstr "引用块"
 msgid "Radical"
 msgstr "根号"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Rate limited"
 msgstr "请求太频繁"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Rate limited; subsequent Semantic Scholar queries skipped"
 msgstr "请求太频繁，跳过 Semantic Scholar"
 
@@ -11620,15 +11619,15 @@ msgstr "回复 {author}"
 msgid "Reply…"
 msgstr "回复…"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Request queue busy"
 msgstr "排队太多"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Request queue busy; subsequent Semantic Scholar queries skipped"
 msgstr "排队太多，跳过 Semantic Scholar"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Request timed out"
 msgstr "请求超时"
 
@@ -11636,7 +11635,7 @@ msgstr "请求超时"
 msgid "requested"
 msgstr "手动"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Requests blocked"
 msgstr "请求被拦"
 
@@ -12667,19 +12666,19 @@ msgstr "自引措辞"
 msgid "Semantic Scholar"
 msgstr "Semantic Scholar"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar authorization failed; subsequent queries skipped"
 msgstr "Semantic Scholar 授权失败，已跳过"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar connection failed; subsequent queries skipped"
 msgstr "Semantic Scholar 连不上，已跳过"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar rate limited the service; subsequent queries skipped"
 msgstr "Semantic Scholar 请求太频繁，已跳过"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar request timed out; subsequent queries skipped"
 msgstr "Semantic Scholar 超时，已跳过"
 
@@ -12687,11 +12686,11 @@ msgstr "Semantic Scholar 超时，已跳过"
 msgid "Semantic Scholar requires a personal API key."
 msgstr "Semantic Scholar 需要个人 API 密钥"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar returned an invalid response; subsequent queries skipped"
 msgstr "Semantic Scholar 返回出错，已跳过"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Semantic Scholar unavailable; subsequent queries skipped"
 msgstr "Semantic Scholar 暂不可用，已跳过"
 
@@ -13125,23 +13124,23 @@ msgstr "来源未核实"
 msgid "Source path is outside this project."
 msgstr "源文件不在本项目中"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source rate limit reached"
 msgstr "来源请求太频繁"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source record considered, not verified"
 msgstr "来源记录，未确认"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source record considered, not verified (cached record)"
 msgstr "来源记录，未确认（缓存）"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source service error"
 msgstr "来源出错"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Source temporarily unavailable"
 msgstr "来源暂时不可用"
 
@@ -15364,7 +15363,7 @@ msgstr "找不到标签“{key}”"
 msgid "Unknown owner"
 msgstr "作者未知"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Unknown source response"
 msgstr "来源返回未知结果"
 
@@ -15702,7 +15701,7 @@ msgstr "已核实"
 msgid "Verified by Crossref"
 msgstr "已经 Crossref 核验"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Verified publication match"
 msgstr "已找到发表版"
 
@@ -15835,10 +15834,6 @@ msgstr "可视编辑"
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Visual Markdown editor"
 msgstr "可视化 Markdown 编辑器"
-
-#: src/papers/reference-typeset.ts
-msgid "vol. {volume}"
-msgstr "第 {volume} 卷"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Volume"

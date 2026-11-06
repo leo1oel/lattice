@@ -42,10 +42,10 @@ pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, 
             let (bibtex, venue) = normalized.get(&id)?;
             // These proceedings have a direct authoritative check. A fast
             // index result must not bypass the formal-version author lookup.
-            if venue
-                .as_deref()
-                .is_some_and(|venue| venue.contains("NeurIPS") || venue.contains("ICLR"))
-            {
+            // Before 2018 the canonical NeurIPS name ends "(NIPS)".
+            if venue.as_deref().is_some_and(|venue| {
+                ["NeurIPS", "(NIPS)", "ICLR"].iter().any(|name| venue.contains(name))
+            }) {
                 return None;
             }
             let mut checked = batch_comparison(&entry.bibtex, paper, bibtex, venue.as_deref())?;
@@ -167,13 +167,7 @@ fn normalize_s2_batch(
         input.push('\n');
         // Normalize the independent venue field too; the generated BibTeX
         // must agree with it before a preprint can become a publication.
-        let venue = paper.venue.as_deref().unwrap_or("");
-        let venue = if venue.contains(['{', '}', '\\']) { "" } else { venue };
-        input.push_str(&format!(
-            "@misc{{latticeVenue{}, journal = {{{venue}}}, year = {{{}}}}}\n",
-            order.len(),
-            paper.year.unwrap_or(0)
-        ));
+        input.push_str(&venue_hint(order.len(), paper));
     }
     if order.is_empty() {
         return Ok(BTreeMap::new());
@@ -205,6 +199,16 @@ fn normalize_s2_batch(
             Ok((id, (bibtex.to_string(), venue)))
         })
         .collect()
+}
+
+/// A paper's own venue field as an entry bibcite can normalize. bibcite
+/// names a venue by its year (NIPS before 2018, NeurIPS from then on), so an
+/// unknown year is left out rather than read as year 0.
+fn venue_hint(index: usize, paper: &Paper) -> String {
+    let venue = paper.venue.as_deref().unwrap_or("");
+    let venue = if venue.contains(['{', '}', '\\']) { "" } else { venue };
+    let year = paper.year.map(|year| format!(", year = {{{year}}}")).unwrap_or_default();
+    format!("@misc{{latticeVenue{index}, journal = {{{venue}}}{year}}}\n")
 }
 
 #[cfg(test)]
@@ -246,6 +250,49 @@ mod tests {
         let (bibtex, venue) = &normalized["ARXIV:2401.12345"];
         assert!(batch_comparison(before, &papers["ARXIV:2401.12345"], bibtex, venue.as_deref())
             .is_none());
+    }
+
+    #[test]
+    #[ignore = "requires installed bibcite; normalizes offline without S2 requests"]
+    fn installed_batch_normalizer_names_neurips_by_year() {
+        for (year, expected) in [
+            (serde_json::json!(2017), "Advances in Neural Information Processing Systems (NIPS)"),
+            (
+                serde_json::json!(2020),
+                "Advances in Neural Information Processing Systems (NeurIPS)",
+            ),
+            (
+                serde_json::Value::Null,
+                "Advances in Neural Information Processing Systems (NeurIPS)",
+            ),
+        ] {
+            let paper = s2_paper(serde_json::json!({
+                "externalIds": {"ArXiv":"2005.14165"}, "title":"A paper",
+                "venue":"Neural Information Processing Systems", "year":year,
+                "citationStyles":{"bibtex":"@inproceedings{remote, title={A paper}, author={Alice Smith}, booktitle={Neural Information Processing Systems}}"}
+            }));
+            let normalized =
+                normalize_s2_batch(&BTreeMap::from([("ARXIV:2005.14165".into(), paper)])).unwrap();
+            assert_eq!(normalized["ARXIV:2005.14165"].1.as_deref(), Some(expected), "{year}");
+        }
+    }
+
+    #[test]
+    fn venue_hint_never_dates_an_undated_paper_to_year_zero() {
+        let paper = |year: serde_json::Value| {
+            s2_paper(serde_json::json!({
+                "externalIds":{"ArXiv":"2005.14165"}, "title":"Language Models are Few-Shot Learners",
+                "venue":"Neural Information Processing Systems", "year":year
+            }))
+        };
+        assert_eq!(
+            venue_hint(1, &paper(serde_json::json!(2020))),
+            "@misc{latticeVenue1, journal = {Neural Information Processing Systems}, year = {2020}}\n"
+        );
+        assert_eq!(
+            venue_hint(2, &paper(serde_json::Value::Null)),
+            "@misc{latticeVenue2, journal = {Neural Information Processing Systems}}\n"
+        );
     }
 
     #[test]

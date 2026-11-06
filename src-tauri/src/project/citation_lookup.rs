@@ -270,7 +270,7 @@ mod tests {
             "@misc{gemma,title={Gemma: Open AI Models},author={Gemma Team and Jane Doe},year={2024}}",
             "fallback",
         );
-        assert_eq!(resolved.title, "{Gemma: Open AI Models}");
+        assert_eq!(resolved.title, "Gemma: Open {AI} Models");
         assert_eq!(resolved.author, "{Gemma Team} and Jane Doe");
         assert!(resolved.bibtex.contains("author = {{Gemma Team} and Jane Doe}"));
     }
