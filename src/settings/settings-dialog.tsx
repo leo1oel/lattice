@@ -48,7 +48,9 @@ import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime"
 import { prefersReducedMotion } from "../lib/reduced-motion";
 
 /** The Settings tabs that embed a Synara settings page, and which one. */
-const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = { agent: "providers", api: "skills", mcp: "integrations" };
+const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
+  agent: "providers", api: "skills", mcp: "integrations", usage: "usage",
+};
 
 export type SettingsDialogProps = DoctorSettingsProps & {
   /**
@@ -132,6 +134,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "agent", label: t`Providers`, icon: "robot" },
       { tab: "mcp", label: t`MCP`, icon: "plugs" },
       { tab: "api", label: t`Skills`, icon: "package" },
+      { tab: "usage", label: t`Usage & limits`, icon: "clock-back" },
       { tab: "environment", label: t`Environment`, icon: "api-key" },
     ] },
     { label: t`Integrations`, items: [

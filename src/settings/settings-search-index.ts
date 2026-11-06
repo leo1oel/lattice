@@ -77,6 +77,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "agent", label: t`Providers`, place: t`Agent`, terms: t`Default provider` },
     { tab: "mcp", label: t`MCP`, place: t`Agent` },
     { tab: "api", label: t`Skills`, place: t`Agent` },
+    { tab: "usage", label: t`Usage & limits`, place: t`Agent`, terms: t({ message: "quota credits rate limit refresh", comment: "Search words for the agent Usage & limits settings page, space-separated" }) },
     { tab: "environment", label: t`Environment`, place: t`Agent`, terms: `HTTPS_PROXY ANTHROPIC_BASE_URL ${t({ message: "proxy key endpoint shell restart", comment: "Search words for the agent Environment settings page, space-separated" })}` },
     { tab: "environment", place: t`Environment`, id: "agent-restart", label: t`Restart agent` },
     { tab: "overleaf", label: overleaf, place: t`Integrations` },
