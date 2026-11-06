@@ -170,7 +170,7 @@ export function usePanelPortals({
             activeFile={activeAsset || activePaper || (documents.tabsReady && !documents.tabs.includes(activeFile)) ? "" : activeFile}
             activeAssetPath={activeAsset?.path ?? ""}
             protectedPaths={protectedProjectPaths}
-            mainDocument={rootDocumentPath ?? null}
+            mainDocument={project.manifest.rootDocuments.find((document) => document.isDefault && document.chosen)?.path ?? null}
             assetDropTarget={tree.assetDropTarget}
             assetImporting={tree.assetImporting}
             {...fileTreeHandlers}

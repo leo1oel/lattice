@@ -304,6 +304,13 @@ describe("ProjectFileTree", () => {
     fireEvent.click(other);
     await waitFor(() => expect(view.props.onSetMainDocument).toHaveBeenCalledWith("sections/intro.tex"));
     expect(view.props.onSetMainDocument).toHaveBeenCalledTimes(1);
+    // A default no one chose (the open file built it) can still be pinned.
+    view.rerenderWith({ mainDocument: null });
+    fireEvent.contextMenu(await findTreeItem("main.tex"));
+    const unchosen = await screen.findByRole("menuitemcheckbox", { name: "Set as main document" });
+    expect(unchosen).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(unchosen);
+    await waitFor(() => expect(view.props.onSetMainDocument).toHaveBeenCalledWith("main.tex"));
     // A folder is never compiled.
     fireEvent.contextMenu(await findTreeItem("sections/"));
     await screen.findByRole("menuitem", { name: "Rename" });
