@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index 2b9f6448394eb40b3d6b143977f85e07e97c2d15..fb12fec52a9504e3cca0045686faabee1864188b 100644
+index de695776f6c22e98eac23f94b0e48e7a65177c15..4a4d52a40be2b34c5ce02abc7ef8b4961fb1d61e 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -111,10 +111,21 @@ function createContentComponent() {
@@ -24,7 +24,7 @@ index 2b9f6448394eb40b3d6b143977f85e07e97c2d15..fb12fec52a9504e3cca0045686faabee
  			notifySubscribers();
  		},
  		/**
-@@ -802,6 +813,13 @@ function ReactMarkViewRenderer(component, options = {}) {
+@@ -801,6 +812,13 @@ function ReactMarkViewRenderer(component, options = {}) {
  */
  function captureDOMSelection(element) {
  	var _element$ownerDocumen;
@@ -39,7 +39,7 @@ index 2b9f6448394eb40b3d6b143977f85e07e97c2d15..fb12fec52a9504e3cca0045686faabee
  	const selection = typeof root.getSelection === "function" ? root.getSelection() : (_element$ownerDocumen = element.ownerDocument) === null || _element$ownerDocumen === void 0 || (_element$ownerDocumen = _element$ownerDocumen.defaultView) === null || _element$ownerDocumen === void 0 ? void 0 : _element$ownerDocumen.getSelection();
  	if (!selection || selection.rangeCount === 0) return null;
 diff --git a/dist/index.js b/dist/index.js
-index c1e6896f3ef8c9ec4d4d9d3271ca1f1ece276d09..790d09dc2b1b978f6534dd364c40da52e52690d6 100644
+index ad2281b2e1260919ece4f7daf985e965ae41cbee..b9dcc5510c8c143c091fcfc2a86eab6b6bb15cdf 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -87,10 +87,21 @@ function createContentComponent() {
@@ -64,7 +64,7 @@ index c1e6896f3ef8c9ec4d4d9d3271ca1f1ece276d09..790d09dc2b1b978f6534dd364c40da52
  			notifySubscribers();
  		},
  		/**
-@@ -778,6 +789,13 @@ function ReactMarkViewRenderer(component, options = {}) {
+@@ -777,6 +788,13 @@ function ReactMarkViewRenderer(component, options = {}) {
  */
  function captureDOMSelection(element) {
  	var _element$ownerDocumen;
@@ -79,7 +79,7 @@ index c1e6896f3ef8c9ec4d4d9d3271ca1f1ece276d09..790d09dc2b1b978f6534dd364c40da52
  	const selection = typeof root.getSelection === "function" ? root.getSelection() : (_element$ownerDocumen = element.ownerDocument) === null || _element$ownerDocumen === void 0 || (_element$ownerDocumen = _element$ownerDocumen.defaultView) === null || _element$ownerDocumen === void 0 ? void 0 : _element$ownerDocumen.getSelection();
  	if (!selection || selection.rangeCount === 0) return null;
 diff --git a/src/EditorContent.tsx b/src/EditorContent.tsx
-index cedf56dba1088d0370a03cbe27b4457612a7634d..dbde9af34a2fc57a402681233b547223ada82488 100644
+index 56bd2e7d26be992197a90023ddaefd1d5d8f8039..2aec59113d2000714120a6fa0d5642e8e0a42bb0 100644
 --- a/src/EditorContent.tsx
 +++ b/src/EditorContent.tsx
 @@ -83,11 +83,24 @@ export function createContentComponent(): ContentComponent {
