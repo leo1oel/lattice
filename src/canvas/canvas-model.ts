@@ -105,6 +105,10 @@ type CanvasBibliography = Readonly<{
   onOpenPaper?: (paper: PaperSummary) => void;
   /** A .bib reference's DOI, arXiv or web link. */
   onOpenUrl?: (url: string) => void;
+  /** Whether a citation card's Open paper has a readable library paper or a source link to open. */
+  canOpenCitation?: (key: string) => boolean;
+  /** A citation card's Open paper, and its title: the readable library paper, else the source it cites. */
+  onOpenCitation?: (key: string) => void;
   /** Looks a citation up for the reference list's Add reference. */
   onResolveCitation?: (query: string) => Promise<ResolvedCitationDraft>;
   /** Changes after the manuscript was saved, so the reference list scans its citations again. */

@@ -155,6 +155,14 @@ export function useDocumentSurfaces({
   // A citation opens its readable Paper when the library has one, else the source it cites.
   const readablePaperCited = (key: string) => papers.find((item) => sameIgnoringCase(item.citationKey, key) && (item.hasFullText || item.hasBlog));
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameIgnoringCase(item.key, key)));
+  // The source editor's citation card and the PDF's open the same thing.
+  const canOpenCitation = (key: string) => Boolean(readablePaperCited(key) || citationUrl(key));
+  const onOpenCitation = (key: string) => {
+    const paper = readablePaperCited(key);
+    const url = citationUrl(key);
+    if (paper) void openPaper(paper);
+    else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
+  };
 
   // The outline, from the source's rail and status bar or the PDF's toolbar: its menu closes as the jump starts.
   const navigateOutline = (path: string, line: number) => {
@@ -203,6 +211,8 @@ export function useDocumentSurfaces({
         papers,
         onOpenPaper: (paper) => void openPaper(paper),
         onOpenUrl: (url) => void openUrl(url).catch((reason) => showError(toMessage(reason))),
+        canOpenCitation,
+        onOpenCitation,
         onResolveCitation: referenceImport.resolveBibQuery,
         citationUsageRevision: unusedSymbols,
         citationKeys,
@@ -394,13 +404,8 @@ export function useDocumentSurfaces({
       }}
       citations={{
         citations,
-        canOpenCitation: (key) => Boolean(readablePaperCited(key) || citationUrl(key)),
-        onOpenCitation: (key) => {
-          const paper = readablePaperCited(key);
-          const url = citationUrl(key);
-          if (paper) void openPaper(paper);
-          else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
-        },
+        canOpenCitation,
+        onOpenCitation,
       }}
       outline={{
         nodes: latex.outlineNodes,
