@@ -122,11 +122,27 @@ function citationCard(
   host: { keyboard: boolean; close: () => void; onGotoDefinition?: (target: DefinitionTarget) => void },
 ): HTMLDivElement {
   const dom = createHoverCard("citation-hover-card", view, 160);
+  const { onOpenCitation } = data;
+  const openPaper: CardAction | undefined = onOpenCitation && data.canOpenCitation?.(citation.key)
+    ? { label: i18n._(msg`Open paper`), lead: true, run: () => { host.close(); onOpenCitation(citation.key); } }
+    : undefined;
+  const { onGotoDefinition } = host;
+  const gotoEntry: CardAction | undefined = onGotoDefinition
+    ? { label: i18n._(msg`Go to entry`), run: () => { host.close(); onGotoDefinition({ kind: "citation", key: citation.key }); } }
+    : undefined;
   const heading = citation.title || citation.key;
   dom.setAttribute("role", "group");
   dom.setAttribute("aria-label", heading);
   if (citation.title) dom.append(element("span", "citation-card-key", citation.key));
-  const title = element("strong", "citation-card-title", heading);
+  // The title runs Open paper, or Go to entry when there is no paper to open.
+  const titleAction = openPaper ?? gotoEntry;
+  let title: HTMLElement;
+  if (titleAction) {
+    const button = element("button", "citation-card-title", heading);
+    button.type = "button";
+    button.addEventListener("click", () => void titleAction.run(button));
+    title = button;
+  } else title = element("strong", "citation-card-title", heading);
   title.title = heading;
   dom.append(title);
   const paper = data.papers?.find((item) => item.citationKey?.toLocaleLowerCase() === citation.key.toLocaleLowerCase());
@@ -156,14 +172,7 @@ function citationCard(
   if (source) facts.append(fact(source));
   dom.append(facts);
 
-  const actions: CardAction[] = [];
-  if (data.canOpenCitation?.(citation.key)) {
-    actions.push({ label: i18n._(msg`Open paper`), lead: true, run: () => { host.close(); data.onOpenCitation?.(citation.key); } });
-  }
-  const { onGotoDefinition } = host;
-  if (onGotoDefinition) {
-    actions.push({ label: i18n._(msg`Go to entry`), run: () => { host.close(); onGotoDefinition({ kind: "citation", key: citation.key }); } });
-  }
+  const actions: CardAction[] = [openPaper, gotoEntry].filter((action) => action !== undefined);
   const copyLabel = i18n._(msg`Copy key`);
   actions.push({
     label: copyLabel,
@@ -254,7 +263,8 @@ export function citationCardAtCursor(
           dom.addEventListener("focusout", (event) => {
             if (!(event.relatedTarget instanceof Node && dom.contains(event.relatedTarget))) close();
           });
-          return { dom, mount: () => dom.querySelector("button")?.focus() };
+          // The first action takes focus, not the title, so Return runs the lead action its hint names.
+          return { dom, mount: () => dom.querySelector<HTMLButtonElement>(".citation-card-actions button")?.focus() };
         },
       }),
     });
