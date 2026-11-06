@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-06 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**746 files, +68,715 / −8,414 lines**. It carries embedded-workspace UI, a skills manager,
+**746 files, +68,764 / −8,414 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -91,7 +91,7 @@ That line stays visible under the card's three-line clamp in the narrow panel, a
 The Claude provider status also refuses a CLI older than the pinned SDK's flags (2.0.63, bisected against npm releases with Synara's real arguments): it reports "Claude Code <version> is too old. Run `claude update` in Terminal.", so the model picker shows Claude as needing setup, with **Open provider setup**, instead of offering models that fail at once. That line is kept short so the button stays inside the setup panel's 12.5rem height cap without scrolling. The check reuses the existing `--version` probe and skips the auth probe, so it adds no keychain read.
 
 A model the Claude account cannot use is no longer offered again after it fails once. The picker lists Synara's static Claude catalog, so a model the account has no access to stayed selectable and every send with it failed with "There's an issue with the selected model".
-When a turn fails with the Agent SDK's `model_not_found`, the adapter records the model for that provider account, and ProviderHealth adds it to the account's status as the new optional `unavailableModels` field (`{model, reason, recordedAt}`), publishing at once.
+When a turn fails with the Agent SDK's `model_not_found`, or Claude Code exits before a result with "There's an issue with the selected model" on stderr (`claude_model_unavailable`), the adapter records the model for that provider account, and ProviderHealth adds it to the account's status as the new optional `unavailableModels` field (`{model, reason, recordedAt}`), publishing at once.
 The picker keeps the row but greys it with "Not available to your account" (zh-CN "你的账号用不了"), on the provider tab and on a starred preset; the composer moves to the provider's default model (or the first model not refused) without taking focus.
 The entry clears only when a turn with that model succeeds, when the user rechecks the provider (`server.refreshProviders` with the new optional `explicit` flag, sent only by the sign-in window's status check and close: Settings → Agent → the Claude account → Sign in), when a refresh finds the instance's account changed (signed in or out, another auth method or subscription), or when the sidecar restarts (entries are kept in memory only). Automatic refreshes (the startup check 10 s after load, window focus at most every 15 s, the hourly check) keep it, or the model would be offered again within seconds and fail the same way. Synara's former "Refresh status" button on the Providers page is gone (removed with the fork's provider-enablement cleanup), so the embedded panel has no other explicit recheck. Entries cost no probe or keychain read, and a refresh keeps an entry recorded after it started.
 The failed turn's card now also carries the localized next step for this code ("你的 Claude 账号用不了这个模型。请点「更改模型」换一个。"), which before covered only the stderr-classified `claude_model_unavailable`.
