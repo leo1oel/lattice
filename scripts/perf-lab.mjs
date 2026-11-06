@@ -196,6 +196,41 @@ const captureOrEmpty = (command, args) => {
   }
 };
 
+// The lab account's keychain, made afresh before every launch. latticetest
+// never logs in at the console, so no login ever unlocks its keychains: one
+// unlocked by hand relocks at the next restart, after which every read of an
+// item in it (the Synara runtime's provider usage probes and the bundled
+// `claude` run `security find-generic-password … -w`, again and again)
+// raises a SecurityAgent prompt on the console user's screen, titled
+// "security wants to use the login keychain", that only latticetest's own
+// keychain password answers. A search of an unlocked keychain that holds
+// nothing finds nothing at once, so the agent reads "not signed in" without
+// a prompt, and the app's own items (literature keys) land here instead of
+// asking for a keychain to store them in. A fresh keychain also keeps no item
+// a previous ad hoc signed build owns, whose access list would prompt the
+// next build. The password is a throwaway: the keychain holds nothing worth
+// one, and perf-lab must create it unattended.
+const LAB_KEYCHAIN = "perf-lab.keychain-db";
+const LAB_KEYCHAIN_PASSWORD = "perf-lab";
+
+function freshLabKeychain() {
+  // `security` resolves the bare keychain name and the user search list
+  // against $HOME, which this machine's sudoers keeps as the console user's
+  // unless told otherwise: pin the lab account's own, as `launch` does.
+  const command = (...args) => ["-n", "-u", LAB_USER, "-H", "/usr/bin/env", "-i",
+    `HOME=${LAB_HOME}`, `USER=${LAB_USER}`, `LOGNAME=${LAB_USER}`, "/usr/bin/security", ...args];
+  const security = (...args) => capture("sudo", command(...args));
+  // Deleting even a locked keychain asks for nothing; a missing one fails.
+  captureOrEmpty("sudo", command("delete-keychain", LAB_KEYCHAIN));
+  security("create-keychain", "-p", LAB_KEYCHAIN_PASSWORD, LAB_KEYCHAIN);
+  // No options: no auto-lock timeout and no lock on sleep.
+  security("set-keychain-settings", LAB_KEYCHAIN);
+  // The only keychain searched, so a lookup never reaches a locked one, such
+  // as the account's login keychain.
+  security("list-keychains", "-d", "user", "-s", LAB_KEYCHAIN);
+  security("default-keychain", "-d", "user", "-s", LAB_KEYCHAIN);
+}
+
 // Whether something answers on the port. A connect rather than lsof: lsof run
 // as the console user never sees a socket the lab account listens on.
 function portBusy(port) {
@@ -240,6 +275,7 @@ async function prepareLaunch(lab, variantName, options) {
   if (labProcesses(LAB_ROOT)) throw new Error(`a lab app is already running as ${LAB_USER}`);
 
   restoreState(lab);
+  freshLabKeychain();
   const project = join(lab.dir, "work", "wk");
   asLabUser("/usr/bin/rsync", ["-a", "--delete", `${fixtureSource}/`, `${project}/`]);
   const environment = {
