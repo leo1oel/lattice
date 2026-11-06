@@ -1,11 +1,12 @@
 /**
  * Tiptap's own editing behaviors as they reach the Lattice visual engine:
- * StarterKit's list keymap, core deleteSelection, the Table extension with
- * Lattice's attributes, and Suggestion's allowedPrefixes. Each case drives the
- * real editor through keys or typed text and asserts the Markdown it writes,
+ * StarterKit's list keymap, core deleteSelection and clearNodes (the selection
+ * toolbar's "Text" block), the Table extension with Lattice's attributes, and
+ * Suggestion's allowedPrefixes. Each case drives the real editor through keys,
+ * typed text or the toolbar and asserts the Markdown it writes,
  * so a @tiptap/* upgrade that changes one of them fails here.
  */
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
@@ -117,6 +118,16 @@ describe("deleteSelection", () => {
     press("Backspace");
     type(editor, "X");
     await waitFor(() => expect(lastChange(onChange)).toBe("a **X** z"));
+  });
+});
+
+describe("clearNodes (the selection toolbar's Text block)", () => {
+  it("turns a selection across a nested list into plain paragraphs, lifting every level", async () => {
+    const { editor, onChange } = renderEditor("- a\n  - b\n");
+    caret(editor, nodePos(editor, "a"), nodePos(editor, "b") + 1);
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "Block type" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Text" }));
+    await waitFor(() => expect(lastChange(onChange)).toBe("a\n\nb\n"));
   });
 });
 
