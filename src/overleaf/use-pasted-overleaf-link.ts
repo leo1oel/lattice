@@ -8,13 +8,12 @@ import { invoke } from "@tauri-apps/api/core";
 import type { PastedOverleafLink } from "../app-types";
 
 /**
- * Whether search text is a link (or a bare project id) to look up rather than
- * words to filter by: a URL, or a host with a path, as an address bar copies it.
+ * Whether search text is a link to look up rather than words to filter by: a
+ * URL, or a host with a path, as an address bar copies it.
  */
 export function looksLikeOverleafLink(text: string): boolean {
   const value = text.trim();
   return /^(https?:\/\/|www\.)\S+$/i.test(value)
-    || /^[0-9a-f]{24}$/i.test(value)
     || /^[^\s/]+\.[^\s/]+\/\S+$/.test(value);
 }
 
@@ -34,7 +33,9 @@ function reduceLookup(state: LookupState, action: LookupAction): LookupState {
 
 /**
  * Look up `link` (null: nothing to look up) after a short pause, so typing a
- * link out by hand asks once. `onFailure` turns an expired session into the
+ * link out by hand asks once. `retry` asks again for the same text, as a
+ * failed lookup or pasting the link again after acting on Overleaf does.
+ * `onFailure` turns an expired session into the
  * picker's reconnect state and reports anything else through `report`.
  */
 export function usePastedLink(link: string | null, onFailure: Failure) {

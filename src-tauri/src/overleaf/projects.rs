@@ -241,9 +241,6 @@ enum Link {
 /// for a link that names nothing to look up.
 fn parse_link(pasted: &str, host: &str) -> Result<Link, PastedLink> {
     let pasted = pasted.trim();
-    if is_object_id(pasted) {
-        return Ok(Link::Project(pasted.to_string()));
-    }
     let lower = pasted.to_ascii_lowercase();
     let absolute = if lower.starts_with("http://") || lower.starts_with("https://") {
         pasted.to_string()

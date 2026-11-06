@@ -378,6 +378,30 @@ describe("Overleaf picker dialog", () => {
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
   });
 
+  it("asks again when the same link is pasted after joining on Overleaf", async () => {
+    const shared = project("64b000000000000000000002", "Lab Notes", { ownerName: "Ada", accessLevel: "readWrite" });
+    const link = "https://www.overleaf.com/read/abcdefghijkl";
+    let joined = false;
+    mockConnectedPicker({
+      overleaf_resolve_link: () => joined
+        ? { kind: "project", project: shared }
+        : { kind: "needsJoin", projectName: "Lab Notes", url: link },
+    });
+    renderPicker();
+    await screen.findByText("Attention Paper");
+    const search = screen.getByRole("searchbox", { name: "Search Overleaf projects" });
+    fireEvent.paste(search);
+    fireEvent.change(search, { target: { value: link } });
+    expect(await screen.findByText("This account hasn’t joined “Lab Notes” yet")).toBeInTheDocument();
+    joined = true;
+    // Pasting over the same text changes nothing in the field.
+    fireEvent.paste(search);
+    expect(await screen.findByRole("button", { name: /Lab Notes/ })).toBeInTheDocument();
+    expect(screen.queryByText("This account hasn’t joined “Lab Notes” yet")).not.toBeInTheDocument();
+    const asked = vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_resolve_link");
+    expect(asked).toEqual([["overleaf_resolve_link", { link }], ["overleaf_resolve_link", { link }]]);
+  });
+
   it("offers a retry when looking up a link fails", async () => {
     let attempts = 0;
     mockConnectedPicker({

@@ -368,6 +368,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 value={search}
                 disabled={working}
                 onChange={(event) => dispatch({ type: "search", search: event.target.value })}
+                onPaste={pasted.retry}
                 onClear={() => dispatch({ type: "search", search: "" })}
               />
               <CheckboxField

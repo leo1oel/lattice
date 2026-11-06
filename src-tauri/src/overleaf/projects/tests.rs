@@ -111,7 +111,7 @@ fn reads_every_link_overleaf_hands_out() {
         (format!("https://www.overleaf.com/project/{MINE}"), project(MINE)),
         (format!("  overleaf.com/project/{MINE}/  "), project(MINE)),
         (format!("http://WWW.overleaf.com/project/{MINE}?x=1#y"), project(MINE)),
-        (MINE.to_string(), project(MINE)),
+        (MINE.to_string(), Err(PastedLink::Unrecognized)),
         (
             format!("https://www.overleaf.com/project/{MINE}/invite/token/9f8e7d"),
             Ok(Link::Invite {
