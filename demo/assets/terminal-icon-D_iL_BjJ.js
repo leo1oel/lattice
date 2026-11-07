@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{nt as t,tt as n,zs as r}from"./ui-MIICAFG4.js";var i,a;function o(){return(o=e((()=>{t(),i=r(),a=(0,i.jsx)(n,{size:14})})))()}export{o as n,a as t};

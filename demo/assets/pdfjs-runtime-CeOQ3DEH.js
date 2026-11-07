@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{m as t,w as n}from"./pdf-reader-C9iqc9Ue.js";var r;function i(){return(i=e((()=>{r=``+new URL(`pdf.worker-Df-HV2HA.js`,import.meta.url).href})))()}function a(){return(a=e((()=>{n(),i(),t.workerSrc=r})))()}export{a as t};

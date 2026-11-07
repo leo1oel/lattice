@@ -1,1 +1,0 @@
-import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{zs as t}from"./ui-DWLlpsG_.js";var n,r;function i(){return(i=e((()=>{n=t(),r=(0,n.createContext)(null)})))()}export{i as n,r as t};
