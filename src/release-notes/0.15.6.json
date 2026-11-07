@@ -1,0 +1,64 @@
+{
+  "version": "0.15.6",
+  "date": "2026-11-07",
+  "highlights": [
+    {
+      "title": {
+        "en": "Overleaf projects open after the main file is renamed",
+        "zh": "Overleaf 主文件改名后项目仍能打开"
+      },
+      "body": {
+        "en": "A project whose main file was renamed on Overleaf, for example from main.tex to main_v2.tex, opens again instead of showing \"No such file or directory\". Right-click a .tex file and choose Set as main document to pick what is built, and your choice always decides. In Overleaf-linked projects you can select text in the PDF and post an Overleaf comment on the matching source.",
+        "zh": "主文件在 Overleaf 上改过名的项目（例如从 main.tex 改为 main_v2.tex）现在能正常打开，不再显示“No such file or directory”。右键点击 .tex 文件并选择“设为主文档”即可决定编译哪个文件，并且始终以你的选择为准。在关联 Overleaf 的项目中，你可以在 PDF 中选中文字，在对应的源码上发表 Overleaf 评论。"
+      }
+    },
+    {
+      "title": {
+        "en": "The AI assistant never deletes a reference on its own",
+        "zh": "AI 助手不会擅自删除参考文献"
+      },
+      "body": {
+        "en": "It asks you before removing a .bib entry. Removing an entry no longer reformats the others, which used to lose fields such as volume and pages, and after an edit Check references checks only the entries that changed.",
+        "zh": "删除 .bib 条目前，AI 助手会先询问你。删除一个条目不再会重新格式化其他条目（以前会丢失 volume、pages 等字段），编辑之后“检查引用”只会重新检查改动过的条目。"
+      }
+    },
+    {
+      "title": {
+        "en": "A .bib file's Split view stays in step",
+        "zh": "并排查看 .bib 文件时两边保持同步"
+      },
+      "body": {
+        "en": "The source and the reference list follow each other both ways, and each reference offers Open paper or Download and open.",
+        "zh": "源码和参考文献列表会双向同步，每条参考文献都提供“打开论文”或“下载并打开”。"
+      }
+    },
+    {
+      "title": {
+        "en": "Project actions in the File menu",
+        "zh": "项目操作进入“文件”菜单"
+      },
+      "body": {
+        "en": "The macOS File menu has New Project (⇧⌘N), Open, Open Recent, Open from Overleaf, Import Overleaf ZIP, Export ZIP and Export for arXiv, the same actions as the project title menu.",
+        "zh": "macOS 的“文件”菜单新增“新建项目”（⇧⌘N）、“打开”、“打开最近使用”、“从 Overleaf 打开”、“导入 Overleaf ZIP”、“导出 ZIP”和“导出 arXiv 提交包”，与项目标题菜单中的操作相同。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Clicking the paper title on a citation card opens the paper, or its .bib entry, and Open paper is back on the card.",
+      "zh": "点击引用卡片上的论文标题会打开该论文（或它的 .bib 条目），卡片上的“打开论文”也回来了。"
+    },
+    {
+      "en": "A paper opens on its full text, at the top, the first time you open it.",
+      "zh": "第一次打开论文时，会显示全文并从顶部开始。"
+    },
+    {
+      "en": "Margin review's On screen list is now called In view, with a tooltip saying what it lists.",
+      "zh": "页边审阅中的“这一屏”列表改名为“当前可见”，并有提示说明其中列出的内容。"
+    },
+    {
+      "en": "History > Compare > Export PDF with changes no longer runs latexdiff without end. It stops after a time or memory limit, Cancel works while it runs, closing the comparison or quitting Lattice stops it, and files that read each other with \\input are named in a clear message.",
+      "zh": "“历史 > 对比 > 导出修改对照 PDF”不会再让 latexdiff 无休止地运行。超过时间或内存上限时会停止；运行期间可以点“取消”，关闭对比或退出 Lattice 也会停止它；如果文件之间用 \\input 互相读入，会给出明确提示并指出是哪些文件。"
+    }
+  ]
+}
