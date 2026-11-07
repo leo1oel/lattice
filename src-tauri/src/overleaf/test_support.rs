@@ -69,6 +69,9 @@ pub(super) struct Mock {
     pub routes: Vec<(&'static str, &'static str, u16, String)>,
     /// The project download.
     pub zip: Vec<u8>,
+    /// What every download after the first serves instead, when set: the
+    /// project as it stands once someone has edited it.
+    pub later_zip: Option<Vec<u8>>,
     /// Served one per version read, a `/updates?min_count=1` request (the
     /// last value repeats). An empty list answers 404, matching an instance
     /// without history.
@@ -97,6 +100,7 @@ impl Mock {
         let recorded = Arc::clone(&requests);
         let mut versions: VecDeque<i64> = self.versions.iter().copied().collect();
         let mut uploads = 0usize;
+        let mut downloads = 0usize;
         let html = self.dashboard.take().unwrap_or_else(projects_page_html);
         let routes = std::mem::take(&mut self.routes);
         let base = serve_http(move |mut request| {
@@ -145,7 +149,11 @@ impl Mock {
                     }
                 },
                 ("GET", "/project") => (200, Some("text/html"), html.clone().into_bytes()),
-                ("GET", p) if p.ends_with("/download/zip") => (200, None, self.zip.clone()),
+                ("GET", p) if p.ends_with("/download/zip") => {
+                    downloads += 1;
+                    let later = self.later_zip.as_ref().filter(|_| downloads > 1);
+                    (200, None, later.unwrap_or(&self.zip).clone())
+                }
                 ("POST", "/project/new/upload") => {
                     let body = "{\"success\":true,\"project_id\":\"published-project-1\"}";
                     (200, JSON, body.into())

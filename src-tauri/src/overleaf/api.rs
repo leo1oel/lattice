@@ -116,8 +116,8 @@ fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
                 response.headers().get(RETRY_AFTER).and_then(|value| value.to_str().ok()),
             ),
             Err(error) if error.is_connect() => Attempt::NotConnected,
-            // A timeout already spent the caller's whole budget (two minutes
-            // for a project download); tripling it is not a retry.
+            // A timeout already spent the caller's whole budget; tripling it
+            // is not a retry. (A project download retries on its own terms.)
             Err(error) if error.is_timeout() => return outcome,
             Err(_) => Attempt::NoAnswer,
         };
@@ -197,26 +197,85 @@ pub(super) fn full_name(user: &Value) -> Option<String> {
 
 // ---- Project snapshots ------------------------------------------------------
 
+/// How far a project download has got: bytes received so far, and the whole
+/// size when Overleaf says it up front (it streams the zip as it builds it, so
+/// usually it does not). Starts again from zero when an attempt is retried.
+pub type DownloadProgress<'a> = &'a (dyn Fn(u64, Option<u64>) + Sync);
+
+/// Attempts at a project download in all, for one that breaks off part way.
+const DOWNLOAD_ATTEMPTS: u32 = 3;
+
+/// Why one attempt at a download did not produce the zip.
+enum Download {
+    /// The connection failed, stalled or broke off: the next attempt may well
+    /// get through. Overleaf builds the zip afresh for each request, so there
+    /// is nothing to resume; the retry starts from the first byte.
+    Interrupted(String),
+    /// Overleaf answered, and trying again would get the same answer.
+    Refused(String),
+}
+
+/// `GET {host}/project/{id}/download/zip`, the whole project.
+///
+/// A project with a few multi-megabyte PDFs is tens of megabytes, which over
+/// a slow or distant link takes minutes. So the client's deadline bounds each
+/// read of the body (a stall), never the download as a whole: reqwest's
+/// blocking `bytes()` gives the entire body one deadline, and a download that
+/// was still arriving failed at it, minutes in, as "error decoding response
+/// body". An attempt that stalls or breaks off is tried again.
 pub(super) fn download_project_zip(
-    client: &Client, host: &str, cookie: &str, project_id: &str,
+    client: &Client, host: &str, cookie: &str, project_id: &str, progress: DownloadProgress,
 ) -> Result<Vec<u8>, String> {
-    let request =
-        client.get(format!("{host}/project/{project_id}/download/zip")).header(COOKIE, cookie);
-    let response =
-        send_as(request, |e| format!("Could not download the project from Overleaf: {e}"))?;
-    let response = expect_success(response, "for the project download")?;
+    let url = format!("{host}/project/{project_id}/download/zip");
+    let mut attempt = 1;
+    loop {
+        match download_once(client.get(&url).header(COOKIE, cookie), progress) {
+            Ok(bytes) => return Ok(bytes),
+            Err(Download::Interrupted(error)) if attempt < DOWNLOAD_ATTEMPTS => {
+                log::warn!(target: "lattice::overleaf", "Retrying the project download: {error}");
+                wide_event::add("download_retries", 1);
+                std::thread::sleep(RETRY_BASE * 2u32.pow(attempt));
+                attempt += 1;
+            }
+            Err(Download::Interrupted(error) | Download::Refused(error)) => return Err(error),
+        }
+    }
+}
+
+fn download_once(request: RequestBuilder, progress: DownloadProgress) -> Result<Vec<u8>, Download> {
+    let response = send_with_retries(request).map_err(|e| {
+        Download::Interrupted(format!("Could not download the project from Overleaf: {e}"))
+    })?;
+    check_authenticated(&response).map_err(Download::Refused)?;
+    let mut response =
+        expect_success(response, "for the project download").map_err(Download::Refused)?;
     let content_type = (response.headers().get(CONTENT_TYPE))
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
-    let bytes = response
-        .bytes()
-        .map_err(|error| {
-            format!("Could not reach Overleaf while reading the project download: {error}")
-        })?
-        .to_vec();
+    let total = response.content_length();
+    let mut bytes = Vec::new();
+    let mut chunk = vec![0u8; 64 * 1024];
+    progress(0, total);
+    loop {
+        // Each read gets the client's whole deadline (see the blocking
+        // `Response`'s `Read`), so this fails only when the bytes stop.
+        match response.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                bytes.extend_from_slice(&chunk[..read]);
+                progress(bytes.len() as u64, total);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(error) => {
+                return Err(Download::Interrupted(format!(
+                    "Could not reach Overleaf while reading the project download: {error}"
+                )));
+            }
+        }
+    }
     if content_type.contains("text/html") || !bytes.starts_with(b"PK") {
-        return Err(SESSION_EXPIRED.to_string());
+        return Err(Download::Refused(SESSION_EXPIRED.to_string()));
     }
     Ok(bytes)
 }
@@ -497,5 +556,85 @@ mod tests {
             .expect_err("a foreign session must be rejected");
         assert!(error.contains("https://overleaf-a.example"));
         assert!(error.contains("Sign out and connect"));
+    }
+}
+
+#[cfg(test)]
+mod download_tests {
+    use super::*;
+    use crate::overleaf::test_support::build_zip;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    fn big_zip() -> Vec<u8> {
+        // Incompressible, like the figures and PDFs that make a project big.
+        let mut seed = 0x9E37_79B9_7F4A_7C15_u64;
+        let figure: Vec<u8> = (0..96 * 1024)
+            .map(|_| {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                seed as u8
+            })
+            .collect();
+        build_zip(&[("main.tex", b"\\documentclass{article}"), ("figures/plot.pdf", &figure)])
+    }
+
+    /// A server sending `zip` in 8 KiB pieces 150 ms apart: a download that
+    /// keeps moving but takes longer than a short deadline. With `cut_first`,
+    /// the first attempt's connection drops a third of the way through.
+    fn serve_trickle(zip: Vec<u8>, cut_first: bool) -> (String, Arc<AtomicUsize>) {
+        use std::io::Write;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&attempts);
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let (mut stream, zip) = (stream.unwrap(), zip.clone());
+                let attempt = seen.fetch_add(1, Ordering::SeqCst);
+                std::thread::spawn(move || {
+                    let mut head = Vec::new();
+                    let mut byte = [0u8; 1];
+                    while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).unwrap_or(0) == 1 {
+                        head.push(byte[0]);
+                    }
+                    let length = zip.len();
+                    let header = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {length}\r\nConnection: close\r\n\r\n"
+                    );
+                    stream.write_all(header.as_bytes()).unwrap();
+                    let stop = if cut_first && attempt == 0 { length / 3 } else { length };
+                    for piece in zip[..stop].chunks(8 * 1024) {
+                        std::thread::sleep(Duration::from_millis(150));
+                        if stream.write_all(piece).is_err() {
+                            return;
+                        }
+                    }
+                    let _ = stream.flush();
+                });
+            }
+        });
+        (base, attempts)
+    }
+
+    #[test]
+    fn a_download_slower_than_the_deadline_finishes_while_it_keeps_moving() {
+        // ~13 chunks of 150 ms: about two seconds against a one-second deadline.
+        let zip = big_zip();
+        let (base, _) = serve_trickle(zip.clone(), false);
+        let client = http_client(1).unwrap();
+        let bytes = download_project_zip(&client, &base, "c=1", "p", &|_, _| {}).unwrap();
+        assert_eq!(bytes, zip);
+    }
+
+    #[test]
+    fn a_download_cut_off_part_way_is_tried_again() {
+        let zip = big_zip();
+        let (base, attempts) = serve_trickle(zip.clone(), true);
+        let client = http_client(5).unwrap();
+        let bytes = download_project_zip(&client, &base, "c=1", "p", &|_, _| {}).unwrap();
+        assert_eq!(bytes, zip);
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
     }
 }

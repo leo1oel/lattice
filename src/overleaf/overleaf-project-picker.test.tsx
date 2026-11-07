@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -8,11 +9,12 @@ import { OverleafPickerDialog } from "./overleaf-project-picker";
 import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs } from "../telemetry/app-log-store";
 import type { OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
-import { mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
+import { mockInvoke, mockListen, type CommandTable } from "../platform/tauri-test-mocks";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn() }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
 const disconnected: OverleafStatus = { connected: false, expired: false, email: null, name: null, host: "https://www.overleaf.com" };
@@ -287,6 +289,23 @@ describe("Overleaf picker dialog", () => {
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_begin_login", { title: "Sign in to Overleaf", backLabel: "Back to Overleaf sign-in" });
     expect(invoke).toHaveBeenCalledWith("overleaf_poll_login");
+  });
+
+  it("says how much of a long download has arrived (#670)", async () => {
+    const emit = mockListen();
+    let resolveClone: (root: string) => void = () => undefined;
+    mockConnectedPicker({ overleaf_clone_project: () => new Promise<string>((resolve) => { resolveClone = resolve; }) });
+    const { onCloned } = renderPicker();
+    await openFirstProject();
+    expect(await screen.findByText("Downloading Attention Paper…")).toBeInTheDocument();
+    await waitFor(() => expect(listen).toHaveBeenCalledWith("overleaf-download-progress", expect.any(Function)));
+    // Overleaf streams the zip as it builds it, so usually without a size.
+    emit({ received: 12_400_000, total: null });
+    expect(await screen.findByText("Downloading Attention Paper… 12.4 MB")).toBeInTheDocument();
+    emit({ received: 30_000_000, total: 41_000_000 });
+    expect(await screen.findByText("Downloading Attention Paper… 30 MB of 41 MB")).toBeInTheDocument();
+    resolveClone("/tmp/cloned/Attention Paper");
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
   });
 
   it("closes on Escape only while no download is in flight", async () => {

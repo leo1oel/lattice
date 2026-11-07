@@ -25,7 +25,9 @@ import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
 import type { CloneTarget, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
-import { confirmAction, relativeTime, toMessage } from "../app-utils";
+import { confirmAction, formatSize, relativeTime, toMessage } from "../app-utils";
+import { subscribeTauriEvent } from "../app/effect-helpers";
+import { listenInThisWindow } from "../app/window-events";
 import { InlineMessage } from "../components/ui/inline-message";
 import { notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useOverleafLogin } from "./use-overleaf-login";
@@ -35,7 +37,7 @@ import { joinPhrases } from "../i18n";
 import { Glyph, LoginControls, OVERLEAF_SOURCE, Progress, RetryRow, StageMessage } from "./overleaf-connect-parts";
 import { PastedLinkMessage } from "./overleaf-pasted-link";
 import { looksLikeOverleafLink, usePastedLink } from "./use-pasted-overleaf-link";
-import { initialPickerState, reducePicker } from "./overleaf-picker-state";
+import { initialPickerState, reducePicker, type DownloadProgress } from "./overleaf-picker-state";
 
 
 
@@ -69,7 +71,7 @@ function OverleafPicker(props: PickerProps) {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(reducePicker, props.currentProject?.name ?? "", initialPickerState);
   const { status, statusLoading, statusError, list, projectsLoading, projectsError, invitationOpened } = state;
-  const { search, showArchived, selected, cloning, publishing, transferError, publishName } = state;
+  const { search, showArchived, selected, cloning, downloaded, publishing, transferError, publishName } = state;
   const { compositionProps, isComposing } = useCompositionGuard();
   const login = useOverleafLogin((session) => {
     dispatch({ type: "status", status: session });
@@ -194,6 +196,21 @@ Files that differ are kept side by side. Nothing is overwritten`,
     .filter((project) => matches(project.name, project.ownerName, project.ownerEmail));
   const invites = (list?.invites ?? []).filter((invite) => matches(invite.projectName, invite.inviterName));
   const working = Boolean(cloning) || publishing;
+  // A project with large figures takes minutes to arrive over a slow link:
+  // say how much has, so a long download reads as moving, not stuck.
+  const cloningId = cloning?.id ?? null;
+  useEffect(() => {
+    if (!cloningId) return;
+    return subscribeTauriEvent<DownloadProgress>(
+      (handler) => listenInThisWindow("overleaf-download-progress", handler),
+      (progress) => dispatch({ type: "downloaded", progress }),
+    );
+  }, [cloningId]);
+  const received = downloaded?.received ? formatSize(downloaded.received) : null;
+  const total = downloaded?.total ? formatSize(downloaded.total) : null;
+  const downloadText = !cloning ? "" : total && received
+    ? t`Downloading ${cloning.name}… ${received} of ${total}`
+    : received ? t`Downloading ${cloning.name}… ${received}` : t`Downloading ${cloning.name}…`;
   const updated = (project: OverleafProject) => Date.parse(project.lastUpdated ?? "") || 0;
   // One list, newest first whoever owns it: the order of Overleaf's own
   // dashboard (its default sort is lastUpdated, descending).
@@ -446,9 +463,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
             {working && (
               <Progress
                 className="overleaf-progress"
-                text={cloning
-                  ? t`Downloading ${cloning.name}…`
-                  : t`Uploading ${publishName.trim()}…`}
+                text={cloning ? downloadText : t`Uploading ${publishName.trim()}…`}
               />
             )}
           </>

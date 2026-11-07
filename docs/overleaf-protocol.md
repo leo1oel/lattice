@@ -204,6 +204,13 @@ purpose.
   or HEAD) on a reset, 502, 503 or 504. An idempotent DELETE is not retried
   there: a repeat after it landed answers 404. Timeouts, other statuses and non-replayable
   bodies are never retried (`retry_wait` in `src-tauri/src/overleaf/api.rs`).
+- The project ZIP is the exception for timeouts. It can be tens of megabytes
+  and take minutes, so the client deadline bounds each read of its body (a
+  stall), never the whole download, and an attempt that stalls or breaks off
+  is tried again from the start, three attempts in all: Overleaf builds the
+  ZIP per request, so there is nothing to resume. The window cloning a
+  project hears `overleaf-download-progress` as it arrives
+  (`download_project_zip` in `src-tauri/src/overleaf/api.rs`).
 - Creating a project from local files uses `POST /project/new/upload` with
   multipart fields `name` and `qqfile`; success is identified by the returned
   `project_id`, not by a redirect.
@@ -218,6 +225,17 @@ purpose.
   from local files and base copies whose hashes match it; anything that cannot
   be, any tree change, and any held hollow download mean downloading
   (`agreed_remote_files` in `src-tauri/src/overleaf/sync.rs`).
+- A full sync downloads before it takes the project's exclusive lease, so
+  creating, deleting and saving files do not wait out the download
+  (`prefetch` in `src-tauri/src/overleaf/sync/prefetch.rs`). Under the lease
+  the download is used only if the sync state still agrees with the one it
+  was taken against, apart from live documents and files only whose agreed
+  hash moved on, which the sync leaves alone for the next one
+  (`Prefetched::fits`). When nothing read ahead fits, the sync lets go of the
+  lease and reads ahead again, behind the same account-wide gap between
+  downloads; after `READ_AHEAD_ROUNDS` such reads it downloads under the lease
+  instead, so a sync always finishes. A read ahead that downloaded nothing
+  does not count towards that gap.
 - Uploads run a few at a time, except that a file into a folder Overleaf may
   not have yet goes first and alone, so two uploads never race to create the
   same folder.

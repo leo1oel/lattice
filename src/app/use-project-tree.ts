@@ -16,16 +16,16 @@ import { waitForAgentSpreadsheetDocument } from "../agent/agent-spreadsheet-tool
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "../editor/insert/clipboard-image";
 import { rewriteMovedDocumentAssetPaths } from "../editor/insert/figure-insertion";
 import type { OverleafSyncMode } from "../settings/app-settings";
-import { logAction, notifyInfo, updateAppToastProgress } from "../telemetry/app-notify";
+import { logAction } from "../telemetry/app-notify";
 import type { TrellisController } from "../trellis/trellis-controller";
-import { disposeWhenSettled, subscribeTauriEvent } from "./effect-helpers";
+import { disposeWhenSettled } from "./effect-helpers";
+import { IMPORT_TOAST, withImportProgress } from "./project-import-progress";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { showError } from "./notify";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import type { OpenDocuments } from "./use-open-documents";
 import type { useProjectLibrary } from "./use-project-library";
 import type { ProjectState, useProjectTreeWatch } from "./use-project-state";
-import { listenInThisWindow } from "./window-events";
 import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 
 const loadWebview = () => import("@tauri-apps/api/webview");
@@ -104,34 +104,6 @@ export type ImportConflictRequest = {
   targetDirectory: string;
   answer: (choice: NameConflict | null) => void;
 };
-
-/** The toast a long import reports progress in, which its outcome then replaces. */
-const IMPORT_TOAST = "project-import";
-/** An import that outlasts a glance shows its progress. */
-const IMPORT_PROGRESS_DELAY_MS = 400;
-
-/** Run an import, showing its `project-import-progress` in a toast once it takes long enough to wait on. */
-async function withImportProgress<T>(source: string, title: string, run: () => Promise<T>): Promise<T> {
-  let fraction = 0;
-  let shown = false;
-  const timer = window.setTimeout(() => {
-    shown = true;
-    notifyInfo(source, title, { progress: fraction, dedupeKey: IMPORT_TOAST });
-  }, IMPORT_PROGRESS_DELAY_MS);
-  const stop = subscribeTauriEvent<{ written: number; total: number }>(
-    (handler) => listenInThisWindow("project-import-progress", handler),
-    ({ written, total }) => {
-      fraction = total ? written / total : 1;
-      if (shown) updateAppToastProgress(IMPORT_TOAST, fraction);
-    },
-  );
-  try {
-    return await run();
-  } finally {
-    window.clearTimeout(timer);
-    stop();
-  }
-}
 
 /** Read the image on the system clipboard as PNG bytes. */
 async function readClipboardPng() {
@@ -232,12 +204,15 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       await refreshProject();
       await refreshHistory();
       if (kind !== "folder") {
-        // A local-only file has no Overleaf document id and therefore cannot
-        // join realtime editing. Upload it before opening the editor so the
-        // first keystroke does not have to wait for a later full-sync timer.
-        const { overleaf } = depsRef.current;
-        if (overleaf.link && overleaf.syncMode === "live") await overleaf.syncRef.current({ auto: true });
         await openFile(createdPath);
+        // A local-only file has no Overleaf document id and therefore cannot
+        // join realtime editing. Upload it now rather than at a later
+        // full-sync timer, but without holding the new file back for it: a
+        // sync downloads the whole project first, which for one with large
+        // figures takes minutes (#670). Whatever is typed meanwhile goes up
+        // with it, and the file joins live editing once the sync settles.
+        const { overleaf } = depsRef.current;
+        if (overleaf.link && overleaf.syncMode === "live") void overleaf.syncRef.current({ auto: true });
       }
       return createdPath;
     };
