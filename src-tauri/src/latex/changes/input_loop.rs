@@ -107,11 +107,8 @@ fn includes(text: &str, base: &Path, root: &Path) -> Vec<Read> {
                 // latexdiff's working folder; each version's is resolved in that
                 // version's own folder, so its own tree is walked. An absolute
                 // folder stays as written.
-                let folder = if capture.get(3).is_some() {
-                    base.join(folder)
-                } else {
-                    root.join(folder)
-                };
+                let folder =
+                    if capture.get(3).is_some() { base.join(folder) } else { root.join(folder) };
                 let file = folder.join(with_extension(name));
                 Read { base: file.parent().unwrap_or(base).to_path_buf(), file }
             };

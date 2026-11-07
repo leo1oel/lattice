@@ -81,8 +81,8 @@ impl From<String> for Failed {
 /// the number `exports.begin()` gave it; once a later export or a cancel
 /// has taken over, its children are not started.
 pub fn export_changes_pdf(
-    root: &Path, from: &str, to: Option<&str>, options: ChangesPdfOptions, exports: &ChangesExports,
-    export: u64,
+    root: &Path, from: &str, to: Option<&str>, options: ChangesPdfOptions,
+    exports: &ChangesExports, export: u64,
 ) -> Result<ChangesPdf, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?.path.replace('\\', "/");
@@ -404,11 +404,13 @@ mod tests {
         let looped = commit(&root);
         let exports = ChangesExports::default();
 
-        let error = export_changes_pdf(&root, &clean, None, OPTIONS, &exports, exports.begin()).unwrap_err();
+        let error = export_changes_pdf(&root, &clean, None, OPTIONS, &exports, exports.begin())
+            .unwrap_err();
         assert_eq!(error, "In the newer version, main.tex → a.tex → b.tex → a.tex read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again.");
 
         root.write("b.tex", "B again\n");
-        let error = export_changes_pdf(&root, &looped, None, OPTIONS, &exports, exports.begin()).unwrap_err();
+        let error = export_changes_pdf(&root, &looped, None, OPTIONS, &exports, exports.begin())
+            .unwrap_err();
         assert!(
             error.starts_with("In the older version, main.tex → a.tex → b.tex → a.tex"),
             "{error}"
@@ -476,7 +478,8 @@ mod tests {
             margin_bars: true,
             only_changed_pages: true,
         };
-        let saved = export_changes_pdf(&root, from.trim(), None, every, &exports, exports.begin()).unwrap();
+        let saved =
+            export_changes_pdf(&root, from.trim(), None, every, &exports, exports.begin()).unwrap();
         assert_eq!((saved.path.as_str(), saved.simplified), ("main-changes.pdf", false));
         assert!(fs::read(root.join("main-changes.pdf")).unwrap().starts_with(b"%PDF-"));
         assert!(fs::read_to_string(root.join(".gitignore")).unwrap().contains("/main-changes.pdf"));
@@ -489,6 +492,10 @@ mod tests {
             margin_bars: false,
             only_changed_pages: false,
         };
-        assert!(!export_changes_pdf(&root, from.trim(), None, plain, &exports, exports.begin()).unwrap().simplified);
+        assert!(
+            !export_changes_pdf(&root, from.trim(), None, plain, &exports, exports.begin())
+                .unwrap()
+                .simplified
+        );
     }
 }
