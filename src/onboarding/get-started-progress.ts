@@ -55,9 +55,9 @@ export const SAMPLE_TITLE = "\\title{Understanding Attention: A Worked Guide to 
 
 export const isTitle = (line: string) => line.trimStart().startsWith("\\title{");
 
-/** The manuscript's \title line as it reads now, once its text is known. */
-export function sampleTitle(controller: TrellisController): string | null {
-  return controller.texts.get(SAMPLE_MANUSCRIPT)?.split("\n").find(isTitle) ?? null;
+/** The open project's manuscript as it reads now (the editor's text while it is open), or null. */
+export async function readSampleManuscript(controller: TrellisController): Promise<string | null> {
+  return await controller.bridge?.readText(SAMPLE_MANUSCRIPT) ?? null;
 }
 
 /**
@@ -78,9 +78,14 @@ export function watchGetStartedBuild(controller: TrellisController, sampleOpen: 
     if (!sampleOpen()) return;
     if (build.status === "failed") failed = true;
     if (build.status !== "succeeded") return;
-    const title = sampleTitle(controller);
-    const tried = import.meta.env.LATTICE_WEB_DEMO ? failed : title !== null && title.trim() !== SAMPLE_TITLE;
-    if (tried) markGetStartedStep("build");
+    if (import.meta.env.LATTICE_WEB_DEMO) {
+      if (failed) markGetStartedStep("build");
+      return;
+    }
+    void readSampleManuscript(controller).then((text) => {
+      const title = text?.split("\n").find(isTitle);
+      if (title !== undefined && title.trim() !== SAMPLE_TITLE) markGetStartedStep("build");
+    });
   });
 }
 

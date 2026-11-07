@@ -14,7 +14,7 @@
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import type { TrellisController, TrellisSingleton } from "../trellis/trellis-controller";
-import { isTitle, SAMPLE_MANUSCRIPT, type GetStartedStepId } from "./get-started-progress";
+import { isTitle, readSampleManuscript, SAMPLE_MANUSCRIPT, type GetStartedStepId } from "./get-started-progress";
 
 export type ShowMeContext = {
   controller: TrellisController;
@@ -52,8 +52,8 @@ function manuscriptPanel(controller: TrellisController): DOMRect | null {
 }
 
 /** The manuscript's \title line, 1-based, once its text is known. */
-function titleLine(controller: TrellisController): number | undefined {
-  const index = controller.texts.get(SAMPLE_MANUSCRIPT)?.split("\n").findIndex(isTitle) ?? -1;
+async function titleLine(controller: TrellisController): Promise<number | undefined> {
+  const index = (await readSampleManuscript(controller))?.split("\n").findIndex(isTitle) ?? -1;
   return index >= 0 ? index + 1 : undefined;
 }
 
@@ -76,7 +76,7 @@ export const GET_STARTED: readonly GetStartedStep[] = [
       ? msg`Press Build, read how Lattice explains the typo this copy has on purpose, apply the fix, and build again.`
       : msg`Edit the \\title line in main.tex and press ⌘S to see the PDF beside it update in about a second.`,
     hint: import.meta.env.LATTICE_WEB_DEMO ? msg`Press Build` : msg`Edit the title, then press ⌘S`,
-    reveal: (context) => showManuscript(context, titleLine(context.controller)),
+    reveal: (context) => void titleLine(context.controller).then((line) => showManuscript(context, line)),
     target: ({ controller }) => manuscriptPanel(controller),
   },
   {

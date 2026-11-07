@@ -28,13 +28,16 @@ const MANUSCRIPT = `\\documentclass{article}\n${SAMPLE_TITLE}\n\\begin{document}
 /** Only what the checklist reads of the controller. */
 function fakeController() {
   const docTools = new SmallStore<Pick<TrellisDocToolsState, "lastBuild">>({ lastBuild: null });
-  const texts = new Map([[SAMPLE_MANUSCRIPT, MANUSCRIPT]]);
+  // The open project's files, as the bridge reads them; `texts` is the panels' cache, which may still hold another project's.
+  const files = new Map([[SAMPLE_MANUSCRIPT, MANUSCRIPT]]);
+  const texts = new Map<string, string>();
   const pdf = { id: "pdf", type: "pdf", placement: "docked", visible: true, selected: true, params: {}, panelId: "panel-pdf" };
   const agent = { id: "agent", type: "agent", placement: "docked", visible: true, selected: true, params: {}, panelId: "panel-agent" };
   const manuscript = { id: "file-main", type: "file", placement: "docked", visible: true, selected: true, params: { key: SAMPLE_MANUSCRIPT }, panelId: "panel-main" };
   const controller = {
     docTools,
     texts,
+    bridge: { readText: async (path: string) => files.get(path) ?? null },
     app: { get: () => ({ activeKey: SAMPLE_MANUSCRIPT }) },
     ws: { view: (kind: string) => ({ pdf, agent } as Record<string, unknown>)[kind], views: () => [manuscript], select: vi.fn() },
     panelRect: vi.fn(() => new DOMRect(600, 40, 400, 700)),
@@ -42,7 +45,7 @@ function fakeController() {
     revealTool: vi.fn(),
     subscribeWorkspace: vi.fn(() => () => undefined),
   } as unknown as TrellisController;
-  return { controller, docTools, texts, showPanel: controller.showPanel as ReturnType<typeof vi.fn> };
+  return { controller, docTools, files, texts, showPanel: controller.showPanel as ReturnType<typeof vi.fn> };
 }
 
 function succeeded(finishedAt: number): BuildOutcome {
@@ -51,6 +54,12 @@ function succeeded(finishedAt: number): BuildOutcome {
     rootDocument: SAMPLE_MANUSCRIPT, finishedAt, steps: [], pages: 4, synctex: true, issue: null,
   };
 }
+
+/** A build lands, and the reads it starts settle. */
+const finish = (docTools: ReturnType<typeof fakeController>["docTools"], build: BuildOutcome) => act(async () => {
+  docTools.set({ lastBuild: build });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
 
 function renderPanel(
   overrides: Partial<GetStartedPanelProps> = {}, report: ReturnType<typeof doctor> | null = doctor(), fake = fakeController(),
@@ -110,42 +119,54 @@ describe("GetStartedPanel", () => {
     expect(screen.getByText("1/6")).toBeInTheDocument();
   });
 
-  it("ticks the build step only once a build of a title the writer changed succeeds", () => {
-    const { controller, docTools, texts } = renderPanel();
+  it("ticks the build step only once a build of a title the writer changed succeeds", async () => {
+    const { controller, docTools, files } = renderPanel();
     const stop = watchGetStartedBuild(controller, () => true);
     // The sample building with its own title proves nothing was tried.
-    act(() => docTools.set({ lastBuild: succeeded(1) }));
+    await finish(docTools, succeeded(1));
     expect(step("build")).toHaveAttribute("data-state", "current");
 
-    texts.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
-    act(() => docTools.set({ lastBuild: { ...succeeded(2), status: "failed", wrotePdf: false } as BuildOutcome }));
+    files.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
+    await finish(docTools, { ...succeeded(2), status: "failed", wrotePdf: false } as BuildOutcome);
     expect(step("build")).toHaveAttribute("data-state", "current");
-    act(() => docTools.set({ lastBuild: succeeded(3) }));
+    await finish(docTools, succeeded(3));
     expect(step("build")).toHaveAttribute("data-state", "done");
     expect(step("jump")).toHaveAttribute("data-state", "current");
     expect(stored()?.done).toEqual(["latex", "build"]);
     stop();
   });
 
-  it("ticks the build step for a title edited on an earlier launch, as the sample is kept across launches", () => {
-    const { controller, docTools, texts } = renderPanel();
+  it("ticks the build step for a title edited on an earlier launch, as the sample is kept across launches", async () => {
+    const { controller, docTools, files } = renderPanel();
     const stop = watchGetStartedBuild(controller, () => true);
     // Edited on an earlier launch, whose builds all failed without TeX.
-    texts.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
-    act(() => docTools.set({ lastBuild: succeeded(1) }));
+    files.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
+    await finish(docTools, succeeded(1));
     expect(step("build")).toHaveAttribute("data-state", "done");
     stop();
   });
 
-  it("ticks the build step for a build that succeeded while the checklist was closed", () => {
+  it("ticks the build step for a build that succeeded while the checklist was closed", async () => {
     const fake = fakeController();
     const stop = watchGetStartedBuild(fake.controller, () => true);
-    fake.texts.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
-    fake.docTools.set({ lastBuild: succeeded(1) });
+    fake.files.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
+    await finish(fake.docTools, succeeded(1));
     stop();
     renderPanel({}, doctor(), fake);
     expect(step("build")).toHaveAttribute("data-state", "done");
     expect(step("jump")).toHaveAttribute("data-state", "current");
+  });
+
+  it("reads the sample's title from the sample, not another project's main.tex left in the panels' cache", async () => {
+    const { controller, docTools, texts, props } = renderPanel();
+    texts.set(SAMPLE_MANUSCRIPT, "\\documentclass{article}\n\n\n\\title{My own paper}\n");
+    const stop = watchGetStartedBuild(controller, () => true);
+    await finish(docTools, succeeded(1));
+    expect(step("build")).toHaveAttribute("data-state", "current");
+    stop();
+    // Show me lands on the sample's own title line too.
+    fireEvent.click(within(step("build")).getByRole("button", { name: "Show me" }));
+    await waitFor(() => expect(props.openFile).toHaveBeenCalledWith(SAMPLE_MANUSCRIPT, { line: 2 }));
   });
 
   it("brings LaTeX back as the current step when the check finds it missing again", () => {
@@ -213,10 +234,10 @@ describe("GetStartedPanel", () => {
     expect(props.openFile).not.toHaveBeenCalled();
   });
 
-  it("opens the manuscript on its title line for the build step", () => {
+  it("opens the manuscript on its title line for the build step", async () => {
     const { props } = renderPanel();
     fireEvent.click(within(step("build")).getByRole("button", { name: "Show me" }));
-    expect(props.openFile).toHaveBeenCalledWith(SAMPLE_MANUSCRIPT, { line: 2 });
+    await waitFor(() => expect(props.openFile).toHaveBeenCalledWith(SAMPLE_MANUSCRIPT, { line: 2 }));
   });
 
   it("says how to connect Claude Code or Codex, and rechecks by restarting the agent", async () => {

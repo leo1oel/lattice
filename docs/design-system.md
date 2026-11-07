@@ -371,7 +371,7 @@ The interface carries no taglines, and labels do the explaining: a row, option o
 What stays as secondary copy is what the writer would otherwise miss: why a control is disabled or has no effect, a warning before something irreversible, overwritten or shared (what an export contains, what leaves the Mac), an error and its way out, and credits a licence requires.
 A shortcut or gesture that only a hint line taught moves into its control's tooltip (`Tip`'s `shortcut`, or the hover card a control already has); a list picker draws no ↑↓/↵/Esc legend.
 A status line beside a loading indicator goes to assistive technology instead (see the loading rule below), and a count a progress track already shows is read out, not printed.
-Onboarding is the one exception: each Get started step (`src/onboarding/get-started-steps.ts`) carries one sentence of why under its title, because a first-time writer cannot yet tell what a label stands for. Nothing else borrows it, and a step never gets a second sentence: the only extra is the Agent step's connect instructions, folded under a closed disclosure so a writer already connected is not told to install.
+Onboarding is the one exception: each Get started step (`src/onboarding/get-started-steps.ts`) carries one sentence of why under its title, because a first-time writer cannot yet tell what a label stands for. Nothing else borrows it, and a step never gets a second sentence: the only extras are the Agent step's connect instructions, folded under a closed disclosure so a writer already connected is not told to install, and the cite step's paper-tools aside, shown only while the paper tools are missing.
 
 ## Geometry
 
