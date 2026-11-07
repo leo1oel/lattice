@@ -39,7 +39,6 @@ import {
 } from "./app/use-native-window";
 import { useRefState, useStableHandlers } from "./app/effect-helpers";
 import { useLatestRef } from "./hooks/use-latest-ref";
-import { useGuidedTour } from "./onboarding/use-guided-tour";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { commandShortcutText } from "./app/use-app-commands";
 import { useCommandTable } from "./app/use-command-table";
@@ -74,6 +73,8 @@ import { TrellisController, TrellisControllerContext, useTrellisUi } from "./tre
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import type { OpenSlideContext } from "./editor/presentation/open-slide-bridge";
 import { ChunkGate } from "./components/chunk-gate";
+import { LazyMount } from "./components/lazy-mount";
+import { markGetStartedStep } from "./onboarding/get-started-progress";
 import { lazyChunk } from "./lib/lazy-chunk";
 import { loadTrellisWorkspace } from "./app/workspace-chunks";
 import type { AppSurfaces } from "./app/app-surfaces";
@@ -115,7 +116,7 @@ const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 // (app/app-surfaces.ts).
 // The workspace (and the Trellis library) load after the eager startup chunks.
 const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.default);
-const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
+const GetStartedPanel = lazy(() => import("./onboarding/get-started-panel"));
 
 function App({ surfaces }: { surfaces: AppSurfaces }) {
   const {
@@ -251,6 +252,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
   const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
     updateCanvasRequest("cite", { key, command, id: crypto.randomUUID() });
+    if (command === "cite") markGetStartedStep("cite");
     reveal("editor");
   }, [reveal, updateCanvasRequest]);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
@@ -479,7 +481,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   });
   const { reset: resetEditorComments, load: loadEditorComments } = editorComments;
   const unresolvedComments = editorComments.all.filter((comment) => !comment.resolved).length;
-  const unresolvedCommentsRef = useLatestRef(unresolvedComments);
 
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
@@ -518,7 +519,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     },
   });
 
-  const { tour: guidedTour, start: startGuidedTour, end: endGuidedTour, finish: finishGuidedTour } = useGuidedTour();
   const lifecycle = useProjectLifecycle({
     projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm, loadCanvas: loadDocumentCanvas,
     resetCompileTracking: resetAgentCompileTracking,
@@ -527,7 +527,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef,
     },
     resetProjectUi: () => {
-      endGuidedTour();
       resetAgentSelection();
       resetEditorComments();
       annotationRounds.reset();
@@ -544,7 +543,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       setPdfPageCount(null);
       tools.close("checklist");
     },
-    startTour: startGuidedTour,
+    showGetStarted: () => tools.open("start"),
     shellRef, browserHosted,
   });
   const {
@@ -858,18 +857,13 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         </ChunkGate>
         {panelPortals}
         {documentSurfaces}
-        {guidedTour && (
-          <Suspense fallback={null}>
-            <GuidedTour
-              key={guidedTour.run}
-              replay={guidedTour.replay}
-              controller={trellis}
-              openFile={(path) => void openFile(path)}
-              commentCount={() => unresolvedCommentsRef.current}
-              onClose={finishGuidedTour}
-            />
-          </Suspense>
-        )}
+        <LazyMount when={tools.isOpen.start}>
+          <GetStartedPanel
+            controller={trellis} openFile={openFile} texSetup={texSetup} openProviderSettings={settingsWindow.openProviderSettings}
+            newProject={() => updateCreateForm({ open: true })} openFolder={chooseExisting}
+            openOverleaf={() => setOverleafPickerOpen(true)} onClose={() => tools.close("start")}
+          />
+        </LazyMount>
       </main>
 
 

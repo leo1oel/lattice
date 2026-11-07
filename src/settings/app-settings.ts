@@ -39,14 +39,12 @@ const LAST_FILE_KEY = "lattice.last-file.v1";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
 export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
-const GUIDED_TOUR_KEY = "lattice.guided-tour.v1";
 export const APPEARANCE_KEY = "lattice.appearance.v5";
 const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"];
 export const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
 export const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
 const SETTINGS_TAB_KEY = "lattice.settings-tab.v1";
 const RECENT_COMMANDS_KEY = "lattice.recent-commands.v1";
-const PAPER_TOOLS_DEFERRED_KEY = "lattice.paper-tools-deferred.v1";
 const SUBMISSION_TEMPLATES_KEY = "lattice.submission-templates.v1";
 /** Projects (by root) whose LuaLaTeX live preview is on; off unless turned on. */
 /** Each project's own live preview choice: root → true or false. */
@@ -190,18 +188,6 @@ export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 
-/** The writer put off installing the paper tools: launch no longer asks; the first paper feature does. */
-export const hasDeferredPaperTools = () => safely(() => localStorage.getItem(PAPER_TOOLS_DEFERRED_KEY) === "1", false);
-
-export const deferPaperTools = () => persistSetting(PAPER_TOOLS_DEFERRED_KEY, "1");
-
-/** Whether the writer has walked the guided tour to its end before, so it is offered as a replay. */
-export const hasFinishedGuidedTour = () => safely(() => localStorage.getItem(GUIDED_TOUR_KEY) === "completed", false);
-
-/** A finished tour stays finished: skipping a replay does not forget it. */
-export const recordGuidedTourOutcome = (outcome: "completed" | "skipped") => {
-  if (outcome === "completed" || !hasFinishedGuidedTour()) persistSetting(GUIDED_TOUR_KEY, outcome);
-};
 
 const SETTINGS_TABS: readonly SettingsTab[] = [
   "appearance", "editor", "agent", "mcp", "usage", "environment", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",

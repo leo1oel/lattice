@@ -37,6 +37,7 @@ import { useSynaraPopupDismissalBridge } from "../agent/synara-popup-dismissal";
 import { useSynaraHostShortcuts } from "../agent/synara-host-shortcuts";
 import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from "../agent/synara-runtime";
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
+import { markGetStartedStep } from "../onboarding/get-started-progress";
 import { announceBibliographyWrite } from "../project/project-files-changed";
 import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-embed";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -389,6 +390,8 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
         const activity = parseAgentTurnActivity(data);
         // Another project's turn never lights this one's decks.
         if (!activity || activity.workspaceRoot !== projectRootRef.current) return;
+        // A turn under way means the writer really asked the Agent something.
+        if (activity.state === "running") markGetStartedStep("agent");
         publishAgentDeckPresence(nextAgentDeckPresence(
           agentDeckPresence(), activity, contextDeck(host.hostContext, activity.workspaceRoot),
         ));

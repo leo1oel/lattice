@@ -1,0 +1,152 @@
+/*
+ * The Get started checklist (get-started-panel.tsx). Its summary and rows
+ * borrow the Submission checklist's look (.checklist-* in dialogs.css): a
+ * serif line, a segmented track, check marks in rows.
+ */
+.get-started-drawer { padding: var(--space-5) var(--space-5) var(--space-8); }
+
+.get-started-drawer .checklist-summary { margin-bottom: var(--space-5); }
+
+.get-started-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-panel-raised);
+  overflow: hidden;
+}
+
+.get-started-step + .get-started-step { border-top: 1px solid var(--border-subtle); }
+.get-started-step[data-state="current"] { background: color-mix(in srgb, var(--control-active) 5%, transparent); }
+
+.get-started-step-head {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast);
+}
+
+.get-started-step-head:hover { background: var(--control-hover-surface); }
+
+.get-started-step-head strong {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  font-weight: var(--weight-medium);
+}
+
+.get-started-step-head > span {
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.get-started-step[data-state="done"] .get-started-step-head strong,
+.get-started-step[data-state="skipped"] .get-started-step-head strong { color: var(--text-secondary); font-weight: var(--weight-regular); }
+
+.get-started-step.ok .checklist-status { background: var(--status-success-soft); color: var(--status-success); }
+
+.get-started-number {
+  font-size: var(--type-micro-size);
+  line-height: 1;
+  font-weight: var(--weight-semibold);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.get-started-step[data-state="current"] .get-started-number { background: var(--text-primary); color: var(--surface-panel-raised); }
+
+.get-started-step-body { padding: 0 var(--space-5) var(--space-5) calc(18px + var(--space-10)); }
+
+.get-started-step-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-line-height);
+  text-wrap: pretty;
+}
+
+.get-started-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+.get-started-actions:empty { display: none; }
+
+.get-started-keys {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-icon);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text-primary) 12%, transparent);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.get-started-aside {
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+
+.get-started-aside .get-started-actions { margin-top: var(--space-4); }
+.get-started-step-body .get-started-aside-title { color: var(--text-primary); font-weight: var(--weight-medium); }
+
+.get-started-setup {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-8);
+  color: var(--text-secondary);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-line-height);
+}
+
+.get-started-setup code { font-family: var(--editor-font); color: var(--text-primary); }
+.get-started-links { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.get-started-link { gap: var(--space-1); }
+
+/* "Show me": a ring and a word over the place, above the workspace and below every dialog and menu. Nothing dims. */
+.get-started-show-me { position: fixed; inset: 0; z-index: var(--z-onboarding); pointer-events: none; }
+
+.get-started-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: var(--radius-dialog);
+  box-shadow: 0 0 0 2px var(--control-active), 0 0 0 8px color-mix(in srgb, var(--control-active) 18%, transparent);
+  animation: get-started-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes get-started-pulse {
+  50% { box-shadow: 0 0 0 2px var(--control-active), 0 0 0 12px color-mix(in srgb, var(--control-active) 8%, transparent); }
+}
+
+.get-started-hint {
+  position: absolute;
+  translate: -50% 0;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--text-primary);
+  color: var(--surface-panel-raised);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  box-shadow: var(--elevation-dialog);
+}
+
+.get-started-hint .get-started-keys { background: color-mix(in srgb, var(--surface-panel-raised) 18%, transparent); color: inherit; box-shadow: none; }
+
+body:has(.modal-backdrop, .drawer-backdrop) .get-started-show-me { display: none; }

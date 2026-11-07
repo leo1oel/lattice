@@ -16,8 +16,6 @@ const PERSISTED_KEYS: Record<string, string> = {
   RECENT_COMMANDS_KEY: "a history: storage is read again just before each write",
   RECENT_KEY: "the recent selection instructions, a history read again just before each write",
   TUTORIAL_SEEN_KEY: "a one-way flag",
-  PAPER_TOOLS_DEFERRED_KEY: "a one-way flag",
-  GUIDED_TOUR_KEY: "a one-way flag, read again just before each write",
   SETTINGS_TAB_KEY: "where this window last left Settings",
   SPLIT_RATIO_KEY: "this window's layout, which the next window starts from",
   BIB_LIST_RATIO_KEY: "this window's layout, which the next window starts from",

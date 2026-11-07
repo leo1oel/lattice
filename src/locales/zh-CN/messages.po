@@ -191,6 +191,12 @@ msgstr "{0} 条批注"
 msgid "{0} of {1} selected"
 msgstr "已选 {0} / {1} 项"
 
+#. placeholder {0}: done.size
+#. placeholder {1}: GET_STARTED_STEPS.length
+#: src/onboarding/get-started-panel.tsx
+msgid "{0} of {1} steps done"
+msgstr "已完成 {0}/{1} 步"
+
 #. placeholder {0}: formatCount(current + 1)
 #: src/history/compare-versions.tsx
 msgid "{0} of {paragraphs}"
@@ -596,10 +602,6 @@ msgstr "{hours} 小时"
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours} 小时前"
-
-#: src/onboarding/guided-tour.tsx
-msgid "{index} of {stops}"
-msgstr "第 {index}/{stops} 步"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
@@ -1016,10 +1018,6 @@ msgstr "% 注释"
 #: src/build/build-log-messages.ts
 msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
 msgstr "`{command}` 只能在 pdfLaTeX 中使用，但这份文档是用 {engine} 编译的。将项目切换到 pdfLaTeX 即可编译。"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "⌘⇧J jumps back"
-msgstr "⌘⇧J 跳回"
 
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S, or ⇧-click for a clean rebuild"
@@ -1635,6 +1633,10 @@ msgstr "正在添加论文"
 msgid "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
 msgstr "添加论文和查找引用需要 uv（一个 45 MB 的 Python 工具）。写作和编译不需要它"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Adding papers needs the paper tools, about 45 MB."
+msgstr "添加论文需要论文工具，约 45 MB。"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "正在添加…"
@@ -2137,13 +2139,17 @@ msgstr "改外部文件、联网前问我"
 msgid "Ask for risky actions"
 msgstr "有风险时问我"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Ask it anything"
-msgstr "随便问"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Ask the agent"
 msgstr "交给助手"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Ask the Agent here"
+msgstr "在这里问 AI 助手"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Ask the Agent to revise"
+msgstr "让 AI 助手改一段"
 
 #: src/canvas/annotation-review.tsx
 msgid "Asking the agent again…"
@@ -2247,7 +2253,6 @@ msgid "Azure"
 msgstr "天蓝色"
 
 #: src/editor/insert/table-generator-dialog.tsx
-#: src/onboarding/guided-tour.tsx
 msgid "Back"
 msgstr "上一步"
 
@@ -2666,6 +2671,10 @@ msgstr "构建后检查"
 msgid "Build to count"
 msgstr "编译后统计"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Build, then fix an error"
+msgstr "编译，再修好一个错误"
+
 #: src/pdf/pdf-viewer.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/trellis/trellis-build-sequence.tsx
@@ -2964,6 +2973,10 @@ msgstr "居中的多行公式"
 msgid "Change"
 msgstr "更换"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Change the title, then build"
+msgstr "改个标题，再编译"
+
 #: src/history/compare-versions.tsx
 msgid "Changed files"
 msgstr "有改动的文件"
@@ -3111,6 +3124,7 @@ msgstr "正在检查 {linkedHost}…"
 msgid "Checking your Overleaf connection…"
 msgstr "正在检查 Overleaf…"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/settings/settings-dialog.tsx
@@ -3273,10 +3287,6 @@ msgstr "需要选择"
 #: src/platform/host-errors-project.ts
 msgid "Choose pdf, xelatex, or lualatex."
 msgstr "请选择 pdf、xelatex 或 lualatex"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Choose Reading in Panels"
-msgstr "在“面板”里选阅读"
 
 #: src/project/local-templates.tsx
 msgid "Choose template source"
@@ -3446,6 +3456,10 @@ msgstr "在稿件中被引用 {citedCount} 次"
 msgid "citations or references"
 msgstr "引用或交叉引用"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Cite a paper"
+msgstr "引用一篇论文"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cite bibliography entries"
 msgstr "引用参考文献条目"
@@ -3539,6 +3553,10 @@ msgstr "清空"
 #: src/terminal/terminal-view-type.tsx
 msgid "Clear terminal"
 msgstr "清空终端"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Click in the text, then press ⌘⇧K"
+msgstr "在正文里点一下，再按 ⌘⇧K"
 
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
@@ -3784,7 +3802,6 @@ msgid "comments"
 msgstr "注释"
 
 #: src/app/use-editor-comments.ts
-#: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
 msgid "Comments"
@@ -3933,6 +3950,10 @@ msgstr "冲突"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "全等"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Connect Claude Code or Codex"
+msgstr "连接 Claude Code 或 Codex"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
@@ -4990,7 +5011,7 @@ msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 #: src/app/whats-new-dialog.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/onboarding/guided-tour.tsx
+#: src/onboarding/get-started-panel.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/linked-library-sheet.tsx
 msgid "Done"
@@ -5020,9 +5041,13 @@ msgstr "双盲评审"
 msgid "Double-blind review for {venue}"
 msgstr "{venue} 双盲评审"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Double-click a paragraph"
-msgstr "双击一段"
+#: src/onboarding/get-started-steps.ts
+msgid "Double-click a sentence"
+msgstr "双击任意一句"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Double-click any sentence in the PDF to land on the line that wrote it. ⌘⇧J jumps back."
+msgstr "双击 PDF 里任意一句，光标会跳到写出它的那一行；在源码里按 ⌘⇧J 跳回 PDF。"
 
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
@@ -5056,6 +5081,10 @@ msgstr "下载并打开"
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Download for Mac"
+msgstr "下载 Mac 版"
+
 #: src/agent/agent-visual-dialog.tsx
 msgid "Download HTML"
 msgstr "下载 HTML"
@@ -5067,6 +5096,10 @@ msgstr "下载 JSON"
 #: src/web-demo/desktop-only.tsx
 msgid "Download Lattice for Mac"
 msgstr "下载 Mac 版 Lattice"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Download Lattice for Mac to write your own, from a venue template or an Overleaf project."
+msgstr "下载 Mac 版 Lattice，用会议模板或 Overleaf 项目写你自己的论文。"
 
 #: src/project/paper-inspector.tsx
 msgid "Download paper"
@@ -5303,6 +5336,14 @@ msgstr "编辑消息内容"
 msgid "Edit table"
 msgstr "编辑表格"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Edit the \\title line in main.tex and press ⌘S. The PDF beside it updates in about a second."
+msgstr "改一下 main.tex 里的 \\title 这一行，按 ⌘S，旁边的 PDF 大约一秒后更新。"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Edit the title, then press ⌘S"
+msgstr "改好标题，按 ⌘S"
+
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "edited"
@@ -5422,10 +5463,6 @@ msgstr "记录版本"
 #: src/editor/latex/latex-command-completions.ts
 msgid "End an environment"
 msgstr "结束环境"
-
-#: src/onboarding/guided-tour.tsx
-msgid "End tour"
-msgstr "结束教程"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -5970,10 +6007,6 @@ msgstr "正在 PDF 中定位每条批注…"
 msgid "Finding it in the source…"
 msgstr "正在源码中查找…"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Finish"
-msgstr "完成"
-
 #: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
 msgstr "请先打完当前字，再切换项目"
@@ -6166,6 +6199,10 @@ msgstr "从“{name}”起"
 msgid "From folder"
 msgstr "从文件夹"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "From Overleaf"
+msgstr "从 Overleaf"
+
 #: src/settings/agent-environment-settings.tsx
 msgid "From the environment Lattice was opened with"
 msgstr "来自启动 Lattice 时的环境"
@@ -6249,6 +6286,11 @@ msgstr "通用"
 #: src/settings/literature-settings.tsx
 msgid "Get API key"
 msgstr "申请密钥"
+
+#: src/onboarding/get-started-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Get started"
+msgstr "上手"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Gets (short left arrow)"
@@ -6874,6 +6916,10 @@ msgstr "会议论文"
 msgid "In progress"
 msgstr "进行中"
 
+#: src/onboarding/get-started-steps.ts
+msgid "In the editor, press ⌘⇧K and pick one of this project’s papers. Add your own in Papers by arXiv ID, DOI or title."
+msgstr "在编辑器里按 ⌘⇧K，从本项目的论文里选一篇。也可以在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
 msgstr "较新的版本里，{chain} 用 \\input 互相读入，latexdiff 会永远停不下来。请删掉让它们绕成一圈的那个 \\input，然后再导出。"
@@ -7115,6 +7161,11 @@ msgstr "安装 LaTeX"
 msgid "Install later"
 msgstr "稍后安装"
 
+#: src/onboarding/get-started-panel.tsx
+#: src/onboarding/get-started-steps.ts
+msgid "Install LaTeX"
+msgstr "安装 LaTeX"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 才能编译"
@@ -7129,12 +7180,17 @@ msgstr "安装 LaTeX"
 msgid "Install missing package"
 msgstr "安装组件"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Install one of them."
+msgstr "装好其中一个。"
+
 #. placeholder {0}: status.missingFile
 #: src/build/tex-dependency-installer.tsx
 msgid "Install package for {0}"
 msgstr "安装 {0} 所需的组件"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/onboarding/get-started-panel.tsx
 msgid "Install paper tools"
 msgstr "安装论文工具"
 
@@ -7373,6 +7429,10 @@ msgstr "期刊"
 #: src/papers/bibliography-audit.tsx
 msgid "Journal"
 msgstr "期刊"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Jump between PDF and source"
+msgstr "在 PDF 和源码间跳转"
 
 #: src/components/ui/chat-panel.tsx
 msgid "Jump to new messages"
@@ -7687,6 +7747,10 @@ msgstr "Lattice"
 msgid "Lattice {version} is ready"
 msgstr "Lattice {version} 已就绪"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Lattice builds your PDF with the LaTeX on this Mac. BasicTeX is about 1 GB."
+msgstr "Lattice 用这台 Mac 上的 LaTeX 编译 PDF。BasicTeX 约 1 GB。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "{activeFile} 暂停同步，Lattice 正在核对"
@@ -7742,6 +7806,10 @@ msgctxt "comment source"
 msgid "Lattice only"
 msgstr "仅 Lattice"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
+msgstr "Lattice 会像终端一样在 PATH 里找到它并运行。装在别处？在「设置 › 模型」里填上它的路径。"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice 出错了"
@@ -7778,10 +7846,6 @@ msgstr "布局已重置"
 #: src/live-preview/live-preview-status.tsx
 msgid "Layout updating"
 msgstr "版面更新中"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Layouts for each task"
-msgstr "按需布局"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
@@ -8855,6 +8919,7 @@ msgid "New presentation"
 msgstr "新建幻灯片"
 
 #: src/app/use-command-table.ts
+#: src/onboarding/get-started-panel.tsx
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "新建项目"
@@ -8907,10 +8972,6 @@ msgstr "最新优先"
 #: src/canvas/annotation-review.tsx
 msgid "next"
 msgstr "下一个"
-
-#: src/onboarding/guided-tour.tsx
-msgid "Next"
-msgstr "下一步"
 
 #: src/app/use-command-table.ts
 msgid "Next build problem"
@@ -9442,9 +9503,13 @@ msgstr "没找到"
 msgid "Not in a file"
 msgstr "不在任何文件中"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Not now"
-msgstr "以后再说"
+#: src/onboarding/get-started-panel.tsx
+msgid "Not installed"
+msgstr "未安装"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Not needed here"
+msgstr "演示中无需安装"
 
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Not on this PDF"
@@ -9802,6 +9867,7 @@ msgstr "打开文件…"
 msgid "Open finding"
 msgstr "当前问题"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "打开文件夹"
@@ -9857,10 +9923,6 @@ msgstr "打开日志文件夹"
 #: src/agent/synara-loading-surface.tsx
 msgid "Open logs"
 msgstr "打开日志"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Open notes.md"
-msgstr "打开 notes.md"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
@@ -10445,7 +10507,6 @@ msgstr "纸面色"
 
 #: src/app/command-palette.tsx
 #: src/canvas/use-paper-pdf.ts
-#: src/onboarding/guided-tour-steps.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -10850,13 +10911,13 @@ msgstr "幻灯片组件"
 msgid "Presets"
 msgstr "预设"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Press ⌘⇧K in the editor to cite one"
-msgstr "在编辑器按 ⌘⇧K 引用"
+#: src/onboarding/get-started-steps.ts
+msgid "Press Build"
+msgstr "点「编译」"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Press ⌘S or click Build"
-msgstr "按 ⌘S 或点“编译”"
+#: src/onboarding/get-started-steps.ts
+msgid "Press Build. This copy has a typo on purpose: read how Lattice explains it, apply the fix, and build again."
+msgstr "点「编译」。这份示例故意留了一个错字：看 Lattice 怎么解释它，应用修复，再编译一次。"
 
 #: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
@@ -11078,6 +11139,10 @@ msgstr "正文"
 msgid "Proves / turnstile"
 msgstr "推出 / 断言符"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Provider settings"
+msgstr "模型设置"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Providers"
@@ -11247,6 +11312,7 @@ msgstr "正在读取各轮修改…"
 msgid "Reading the third-party notices…"
 msgstr "正在读取第三方声明…"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Ready"
@@ -11303,6 +11369,14 @@ msgstr "最近用过的指令"
 #: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "最近项目"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Recheck"
+msgstr "重新检测"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Rechecking…"
+msgstr "正在重新检测…"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
@@ -12764,6 +12838,10 @@ msgstr "看看新功能"
 msgid "Select {0}"
 msgstr "选择 {0}"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
+msgstr "选中一段，点「批注」，写下要改什么，再点「保存并立即修改」。"
+
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
@@ -12809,10 +12887,6 @@ msgstr "选中列表"
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select task list"
 msgstr "选中清单"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Select text, then choose Comment"
-msgstr "选中文字，点“评论”"
 
 #: src/project/local-templates.tsx
 msgid "Select the compile root in the file list to continue."
@@ -13025,6 +13099,10 @@ msgstr "在源码中显示"
 msgid "Show in the source"
 msgstr "在源码中定位"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Show me"
+msgstr "指给我看"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "显示预览"
@@ -13099,6 +13177,10 @@ msgstr "并排分栏块"
 msgid "Sigma"
 msgstr "西格马"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Sign in once: run <0>claude</0> or <1>codex</1> in Terminal."
+msgstr "在终端里运行 <0>claude</0> 或 <1>codex</1>，登录一次。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to {linkedHost} to resume syncing"
 msgstr "登录 {linkedHost} 后继续同步"
@@ -13162,6 +13244,7 @@ msgstr "可伸缩左定界符"
 msgid "Skills"
 msgstr "技能"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/import-conflict-dialog.tsx
 msgid "Skip"
@@ -13174,6 +13257,10 @@ msgstr "跳过这些更改"
 #: src/papers/reference-check-keys.ts
 msgid "Skip to the next finding"
 msgstr "跳到下一个问题"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Skipped"
+msgstr "已跳过"
 
 #. placeholder {0}: skipped[0]
 #: src/app/use-project-tree.ts
@@ -13279,10 +13366,6 @@ msgstr "源码"
 msgctxt "where a literature result came from"
 msgid "Source"
 msgstr "来源"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Source and PDF, linked"
-msgstr "双向跳转"
 
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Source changes"
@@ -13430,17 +13513,21 @@ msgstr "另起一页"
 msgid "Start an environment"
 msgstr "开始环境"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Start from a venue template, open a folder on this Mac, or bring a project from Overleaf."
+msgstr "用会议模板新建、打开这台 Mac 上的文件夹，或从 Overleaf 导入项目。"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start the appendices"
 msgstr "开始附录"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Start tour"
-msgstr "开始教程"
-
 #: src/history/use-git-versions.ts
 msgid "Start tracking versions"
 msgstr "记录版本"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Start your own paper"
+msgstr "开始写你自己的论文"
 
 #: src/telemetry/app-log.tsx
 msgid "Started"
@@ -14006,10 +14093,6 @@ msgstr "{what} 下载中断：{error}"
 msgid "the acknowledgement did not arrive in time"
 msgstr "确认超时"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "The Agent"
-msgstr "AI 助手"
-
 #: src/agent/agent-reference-removal.ts
 msgid "The agent asked to delete this entry. Nothing in the paper cites it now, and an entry nobody cites is harmless: BibTeX lists only cited entries."
 msgstr "AI 助手请求删除这条文献。论文里已没有地方引用它，而没被引用的文献并无影响：BibTeX 只列出被引用的条目。"
@@ -14062,6 +14145,10 @@ msgstr "AI 助手每次启动时都会重新读取这些设置。"
 #: src/web-demo/desktop-only.tsx
 msgid "The Agent runs on your Mac"
 msgstr "AI 助手在你的 Mac 上运行"
+
+#: src/onboarding/get-started-steps.ts
+msgid "The Agent runs on your Mac with Claude Code or Codex. Download Lattice to try it."
+msgstr "AI 助手在你的 Mac 上通过 Claude Code 或 Codex 运行。下载 Lattice 就能试。"
 
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
@@ -15347,10 +15434,6 @@ msgstr "表格顶线"
 msgid "Top-level section heading"
 msgstr "顶级章节标题"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Tour progress"
-msgstr "导览进度"
-
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Translate into academic English"
 msgstr "翻译成学术英语"
@@ -16128,14 +16211,6 @@ msgstr "经纬"
 msgid "Weierstrass p"
 msgstr "魏尔斯特拉斯 p"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Welcome back"
-msgstr "欢迎回来"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Welcome to Lattice"
-msgstr "欢迎使用 Lattice"
-
 #: src/project/deadline-card.tsx
 msgid "What is due"
 msgstr "截止内容"
@@ -16323,10 +16398,6 @@ msgstr "请先输入消息"
 msgid "Write a reply first."
 msgstr "请先输入回复"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Write, then build"
-msgstr "写完编译"
-
 #: src/trellis/trellis-titlebar.tsx
 msgid "Writing"
 msgstr "写作"
@@ -16394,6 +16465,10 @@ msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 msgid "You’re on the latest version"
 msgstr "已是最新版"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "You’re ready to write"
+msgstr "可以开始写了"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Your {BIBITEM} differs: {fields}"
 msgstr "你的 {BIBITEM} 有出入：{fields}"
@@ -16409,6 +16484,10 @@ msgstr "你的颜色"
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "你的修改留在这台 Mac 上，下次同步时上传"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Your first paper in Lattice"
+msgstr "在 Lattice 写第一篇论文"
 
 #. placeholder {0}: answer.projectName
 #: src/overleaf/overleaf-pasted-link.tsx
@@ -16435,10 +16514,6 @@ msgstr "登录已过期"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "登录已过期，请重新登录"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Your project"
-msgstr "你的项目"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"

@@ -191,6 +191,12 @@ msgstr "{0} notes"
 msgid "{0} of {1} selected"
 msgstr "{0} of {1} selected"
 
+#. placeholder {0}: done.size
+#. placeholder {1}: GET_STARTED_STEPS.length
+#: src/onboarding/get-started-panel.tsx
+msgid "{0} of {1} steps done"
+msgstr "{0} of {1} steps done"
+
 #. placeholder {0}: formatCount(current + 1)
 #: src/history/compare-versions.tsx
 msgid "{0} of {paragraphs}"
@@ -596,10 +602,6 @@ msgstr "{hours} hours"
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours}h ago"
-
-#: src/onboarding/guided-tour.tsx
-msgid "{index} of {stops}"
-msgstr "{index} of {stops}"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
@@ -1016,10 +1018,6 @@ msgstr "% comment"
 #: src/build/build-log-messages.ts
 msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
 msgstr "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "⌘⇧J jumps back"
-msgstr "⌘⇧J jumps back"
 
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S, or ⇧-click for a clean rebuild"
@@ -1635,6 +1633,10 @@ msgstr "Adding paper"
 msgid "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
 msgstr "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Adding papers needs the paper tools, about 45 MB."
+msgstr "Adding papers needs the paper tools, about 45 MB."
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "Adding…"
@@ -2137,13 +2139,17 @@ msgstr "Ask before outside edits and network"
 msgid "Ask for risky actions"
 msgstr "Ask for risky actions"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Ask it anything"
-msgstr "Ask it anything"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Ask the agent"
 msgstr "Ask the agent"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Ask the Agent here"
+msgstr "Ask the Agent here"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Ask the Agent to revise"
+msgstr "Ask the Agent to revise"
 
 #: src/canvas/annotation-review.tsx
 msgid "Asking the agent again…"
@@ -2247,7 +2253,6 @@ msgid "Azure"
 msgstr "Azure"
 
 #: src/editor/insert/table-generator-dialog.tsx
-#: src/onboarding/guided-tour.tsx
 msgid "Back"
 msgstr "Back"
 
@@ -2666,6 +2671,10 @@ msgstr "Build to check"
 msgid "Build to count"
 msgstr "Build to count"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Build, then fix an error"
+msgstr "Build, then fix an error"
+
 #: src/pdf/pdf-viewer.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/trellis/trellis-build-sequence.tsx
@@ -2964,6 +2973,10 @@ msgstr "Centered multi-line equations"
 msgid "Change"
 msgstr "Change"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Change the title, then build"
+msgstr "Change the title, then build"
+
 #: src/history/compare-versions.tsx
 msgid "Changed files"
 msgstr "Changed files"
@@ -3111,6 +3124,7 @@ msgstr "Checking the connection to {linkedHost}…"
 msgid "Checking your Overleaf connection…"
 msgstr "Checking your Overleaf connection…"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/settings/settings-dialog.tsx
@@ -3273,10 +3287,6 @@ msgstr "Choose one"
 #: src/platform/host-errors-project.ts
 msgid "Choose pdf, xelatex, or lualatex."
 msgstr "Choose pdf, xelatex, or lualatex."
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Choose Reading in Panels"
-msgstr "Choose Reading in Panels"
 
 #: src/project/local-templates.tsx
 msgid "Choose template source"
@@ -3446,6 +3456,10 @@ msgstr "Citations in the manuscript: {citedCount}"
 msgid "citations or references"
 msgstr "citations or references"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Cite a paper"
+msgstr "Cite a paper"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cite bibliography entries"
 msgstr "Cite bibliography entries"
@@ -3539,6 +3553,10 @@ msgstr "Clear search"
 #: src/terminal/terminal-view-type.tsx
 msgid "Clear terminal"
 msgstr "Clear terminal"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Click in the text, then press ⌘⇧K"
+msgstr "Click in the text, then press ⌘⇧K"
 
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
@@ -3784,7 +3802,6 @@ msgid "comments"
 msgstr "comments"
 
 #: src/app/use-editor-comments.ts
-#: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
 msgid "Comments"
@@ -3933,6 +3950,10 @@ msgstr "Conflicts"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "Congruent"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Connect Claude Code or Codex"
+msgstr "Connect Claude Code or Codex"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
@@ -4990,7 +5011,7 @@ msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 #: src/app/whats-new-dialog.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/onboarding/guided-tour.tsx
+#: src/onboarding/get-started-panel.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/linked-library-sheet.tsx
 msgid "Done"
@@ -5020,9 +5041,13 @@ msgstr "Double-blind review"
 msgid "Double-blind review for {venue}"
 msgstr "Double-blind review for {venue}"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Double-click a paragraph"
-msgstr "Double-click a paragraph"
+#: src/onboarding/get-started-steps.ts
+msgid "Double-click a sentence"
+msgstr "Double-click a sentence"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Double-click any sentence in the PDF to land on the line that wrote it. ⌘⇧J jumps back."
+msgstr "Double-click any sentence in the PDF to land on the line that wrote it. ⌘⇧J jumps back."
 
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
@@ -5056,6 +5081,10 @@ msgstr "Download and open"
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Download for Mac"
+msgstr "Download for Mac"
+
 #: src/agent/agent-visual-dialog.tsx
 msgid "Download HTML"
 msgstr "Download HTML"
@@ -5067,6 +5096,10 @@ msgstr "Download JSON"
 #: src/web-demo/desktop-only.tsx
 msgid "Download Lattice for Mac"
 msgstr "Download Lattice for Mac"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Download Lattice for Mac to write your own, from a venue template or an Overleaf project."
+msgstr "Download Lattice for Mac to write your own, from a venue template or an Overleaf project."
 
 #: src/project/paper-inspector.tsx
 msgid "Download paper"
@@ -5303,6 +5336,14 @@ msgstr "Edit message text"
 msgid "Edit table"
 msgstr "Edit table"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Edit the \\title line in main.tex and press ⌘S. The PDF beside it updates in about a second."
+msgstr "Edit the \\title line in main.tex and press ⌘S. The PDF beside it updates in about a second."
+
+#: src/onboarding/get-started-steps.ts
+msgid "Edit the title, then press ⌘S"
+msgstr "Edit the title, then press ⌘S"
+
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "edited"
@@ -5422,10 +5463,6 @@ msgstr "Enable version tracking"
 #: src/editor/latex/latex-command-completions.ts
 msgid "End an environment"
 msgstr "End an environment"
-
-#: src/onboarding/guided-tour.tsx
-msgid "End tour"
-msgstr "End tour"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -5970,10 +6007,6 @@ msgstr "Finding each note on the PDF…"
 msgid "Finding it in the source…"
 msgstr "Finding it in the source…"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Finish"
-msgstr "Finish"
-
 #: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
 msgstr "Finish the current text composition, then switch projects again."
@@ -6166,6 +6199,10 @@ msgstr "From {name}"
 msgid "From folder"
 msgstr "From folder"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "From Overleaf"
+msgstr "From Overleaf"
+
 #: src/settings/agent-environment-settings.tsx
 msgid "From the environment Lattice was opened with"
 msgstr "From the environment Lattice was opened with"
@@ -6249,6 +6286,11 @@ msgstr "General"
 #: src/settings/literature-settings.tsx
 msgid "Get API key"
 msgstr "Get API key"
+
+#: src/onboarding/get-started-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Get started"
+msgstr "Get started"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Gets (short left arrow)"
@@ -6874,6 +6916,10 @@ msgstr "In proceedings"
 msgid "In progress"
 msgstr "In progress"
 
+#: src/onboarding/get-started-steps.ts
+msgid "In the editor, press ⌘⇧K and pick one of this project’s papers. Add your own in Papers by arXiv ID, DOI or title."
+msgstr "In the editor, press ⌘⇧K and pick one of this project’s papers. Add your own in Papers by arXiv ID, DOI or title."
+
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
 msgstr "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
@@ -7115,6 +7161,11 @@ msgstr "Install BasicTeX"
 msgid "Install later"
 msgstr "Install later"
 
+#: src/onboarding/get-started-panel.tsx
+#: src/onboarding/get-started-steps.ts
+msgid "Install LaTeX"
+msgstr "Install LaTeX"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "Install LaTeX to compile"
 msgstr "Install LaTeX to compile"
@@ -7129,12 +7180,17 @@ msgstr "Install LaTeX tools"
 msgid "Install missing package"
 msgstr "Install missing package"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Install one of them."
+msgstr "Install one of them."
+
 #. placeholder {0}: status.missingFile
 #: src/build/tex-dependency-installer.tsx
 msgid "Install package for {0}"
 msgstr "Install package for {0}"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/onboarding/get-started-panel.tsx
 msgid "Install paper tools"
 msgstr "Install paper tools"
 
@@ -7373,6 +7429,10 @@ msgstr "journal"
 #: src/papers/bibliography-audit.tsx
 msgid "Journal"
 msgstr "Journal"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Jump between PDF and source"
+msgstr "Jump between PDF and source"
 
 #: src/components/ui/chat-panel.tsx
 msgid "Jump to new messages"
@@ -7687,6 +7747,10 @@ msgstr "Lattice"
 msgid "Lattice {version} is ready"
 msgstr "Lattice {version} is ready"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Lattice builds your PDF with the LaTeX on this Mac. BasicTeX is about 1 GB."
+msgstr "Lattice builds your PDF with the LaTeX on this Mac. BasicTeX is about 1 GB."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -7742,6 +7806,10 @@ msgctxt "comment source"
 msgid "Lattice only"
 msgstr "Lattice only"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
+msgstr "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice UI crashed"
@@ -7778,10 +7846,6 @@ msgstr "Layout reset"
 #: src/live-preview/live-preview-status.tsx
 msgid "Layout updating"
 msgstr "Layout updating"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Layouts for each task"
-msgstr "Layouts for each task"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
@@ -8855,6 +8919,7 @@ msgid "New presentation"
 msgstr "New presentation"
 
 #: src/app/use-command-table.ts
+#: src/onboarding/get-started-panel.tsx
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "New project"
@@ -8907,10 +8972,6 @@ msgstr "Newest first"
 #: src/canvas/annotation-review.tsx
 msgid "next"
 msgstr "next"
-
-#: src/onboarding/guided-tour.tsx
-msgid "Next"
-msgstr "Next"
 
 #: src/app/use-command-table.ts
 msgid "Next build problem"
@@ -9442,9 +9503,13 @@ msgstr "Not found"
 msgid "Not in a file"
 msgstr "Not in a file"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Not now"
-msgstr "Not now"
+#: src/onboarding/get-started-panel.tsx
+msgid "Not installed"
+msgstr "Not installed"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Not needed here"
+msgstr "Not needed here"
 
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Not on this PDF"
@@ -9802,6 +9867,7 @@ msgstr "Open file…"
 msgid "Open finding"
 msgstr "Open finding"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "Open folder"
@@ -9857,10 +9923,6 @@ msgstr "Open log folder"
 #: src/agent/synara-loading-surface.tsx
 msgid "Open logs"
 msgstr "Open logs"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Open notes.md"
-msgstr "Open notes.md"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
@@ -10445,7 +10507,6 @@ msgstr "Paper tones"
 
 #: src/app/command-palette.tsx
 #: src/canvas/use-paper-pdf.ts
-#: src/onboarding/guided-tour-steps.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -10850,13 +10911,13 @@ msgstr "Presentation runtime"
 msgid "Presets"
 msgstr "Presets"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Press ⌘⇧K in the editor to cite one"
-msgstr "Press ⌘⇧K in the editor to cite one"
+#: src/onboarding/get-started-steps.ts
+msgid "Press Build"
+msgstr "Press Build"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Press ⌘S or click Build"
-msgstr "Press ⌘S or click Build"
+#: src/onboarding/get-started-steps.ts
+msgid "Press Build. This copy has a typo on purpose: read how Lattice explains it, apply the fix, and build again."
+msgstr "Press Build. This copy has a typo on purpose: read how Lattice explains it, apply the fix, and build again."
 
 #: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
@@ -11078,6 +11139,10 @@ msgstr "Prose"
 msgid "Proves / turnstile"
 msgstr "Proves / turnstile"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Provider settings"
+msgstr "Provider settings"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Providers"
@@ -11247,6 +11312,7 @@ msgstr "Reading the rounds…"
 msgid "Reading the third-party notices…"
 msgstr "Reading the third-party notices…"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Ready"
@@ -11303,6 +11369,14 @@ msgstr "Recent instructions"
 #: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "Recent projects"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Recheck"
+msgstr "Recheck"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Rechecking…"
+msgstr "Rechecking…"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
@@ -12764,6 +12838,10 @@ msgstr "See what’s new"
 msgid "Select {0}"
 msgstr "Select {0}"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
+msgstr "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
+
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
@@ -12809,10 +12887,6 @@ msgstr "Select numbered list"
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select task list"
 msgstr "Select task list"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Select text, then choose Comment"
-msgstr "Select text, then choose Comment"
 
 #: src/project/local-templates.tsx
 msgid "Select the compile root in the file list to continue."
@@ -13025,6 +13099,10 @@ msgstr "Show in source"
 msgid "Show in the source"
 msgstr "Show in the source"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Show me"
+msgstr "Show me"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
@@ -13099,6 +13177,10 @@ msgstr "Side-by-side column block"
 msgid "Sigma"
 msgstr "Sigma"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Sign in once: run <0>claude</0> or <1>codex</1> in Terminal."
+msgstr "Sign in once: run <0>claude</0> or <1>codex</1> in Terminal."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to {linkedHost} to resume syncing"
 msgstr "Sign in to {linkedHost} to resume syncing"
@@ -13162,6 +13244,7 @@ msgstr "Sized opening delimiter"
 msgid "Skills"
 msgstr "Skills"
 
+#: src/onboarding/get-started-panel.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/import-conflict-dialog.tsx
 msgid "Skip"
@@ -13174,6 +13257,10 @@ msgstr "Skip these changes"
 #: src/papers/reference-check-keys.ts
 msgid "Skip to the next finding"
 msgstr "Skip to the next finding"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Skipped"
+msgstr "Skipped"
 
 #. placeholder {0}: skipped[0]
 #: src/app/use-project-tree.ts
@@ -13279,10 +13366,6 @@ msgstr "Source"
 msgctxt "where a literature result came from"
 msgid "Source"
 msgstr "Source"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Source and PDF, linked"
-msgstr "Source and PDF, linked"
 
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Source changes"
@@ -13430,17 +13513,21 @@ msgstr "Start a new page"
 msgid "Start an environment"
 msgstr "Start an environment"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Start from a venue template, open a folder on this Mac, or bring a project from Overleaf."
+msgstr "Start from a venue template, open a folder on this Mac, or bring a project from Overleaf."
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start the appendices"
 msgstr "Start the appendices"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Start tour"
-msgstr "Start tour"
-
 #: src/history/use-git-versions.ts
 msgid "Start tracking versions"
 msgstr "Start tracking versions"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Start your own paper"
+msgstr "Start your own paper"
 
 #: src/telemetry/app-log.tsx
 msgid "Started"
@@ -14006,10 +14093,6 @@ msgstr "The {what} download was interrupted: {error}"
 msgid "the acknowledgement did not arrive in time"
 msgstr "the acknowledgement did not arrive in time"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "The Agent"
-msgstr "The Agent"
-
 #: src/agent/agent-reference-removal.ts
 msgid "The agent asked to delete this entry. Nothing in the paper cites it now, and an entry nobody cites is harmless: BibTeX lists only cited entries."
 msgstr "The agent asked to delete this entry. Nothing in the paper cites it now, and an entry nobody cites is harmless: BibTeX lists only cited entries."
@@ -14062,6 +14145,10 @@ msgstr "The agent reads these each time it starts."
 #: src/web-demo/desktop-only.tsx
 msgid "The Agent runs on your Mac"
 msgstr "The Agent runs on your Mac"
+
+#: src/onboarding/get-started-steps.ts
+msgid "The Agent runs on your Mac with Claude Code or Codex. Download Lattice to try it."
+msgstr "The Agent runs on your Mac with Claude Code or Codex. Download Lattice to try it."
 
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
@@ -15347,10 +15434,6 @@ msgstr "Top table rule"
 msgid "Top-level section heading"
 msgstr "Top-level section heading"
 
-#: src/onboarding/guided-tour.tsx
-msgid "Tour progress"
-msgstr "Tour progress"
-
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Translate into academic English"
 msgstr "Translate into academic English"
@@ -16128,14 +16211,6 @@ msgstr "Weft & Warp"
 msgid "Weierstrass p"
 msgstr "Weierstrass p"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Welcome back"
-msgstr "Welcome back"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Welcome to Lattice"
-msgstr "Welcome to Lattice"
-
 #: src/project/deadline-card.tsx
 msgid "What is due"
 msgstr "What is due"
@@ -16323,10 +16398,6 @@ msgstr "Write a message first."
 msgid "Write a reply first."
 msgstr "Write a reply first."
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Write, then build"
-msgstr "Write, then build"
-
 #: src/trellis/trellis-titlebar.tsx
 msgid "Writing"
 msgstr "Writing"
@@ -16394,6 +16465,10 @@ msgstr "You sign in on Overleaf. Lattice never sees your password."
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "You’re ready to write"
+msgstr "You’re ready to write"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Your {BIBITEM} differs: {fields}"
 msgstr "Your {BIBITEM} differs: {fields}"
@@ -16409,6 +16484,10 @@ msgstr "Your colours"
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "Your edits stay on this Mac until the next sync"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Your first paper in Lattice"
+msgstr "Your first paper in Lattice"
 
 #. placeholder {0}: answer.projectName
 #: src/overleaf/overleaf-pasted-link.tsx
@@ -16435,10 +16514,6 @@ msgstr "Your Overleaf session expired"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Your Overleaf session expired. Sign in again"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Your project"
-msgstr "Your project"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"

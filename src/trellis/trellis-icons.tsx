@@ -52,6 +52,7 @@ export const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
   literature: <BookOpen size={14} />,
   todos: <ListTodo size={14} />,
   checklist: <ClipboardCheck size={14} />,
+  start: <ListChecks size={14} />,
 };
 
 /**

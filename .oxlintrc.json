@@ -551,8 +551,6 @@
         "src/hooks/use-progressive-rows.ts",
         "src/live-preview/live-preview-settings.tsx",
         "src/live-preview/use-live-preview.ts",
-        "src/onboarding/guided-tour.tsx",
-        "src/onboarding/use-guided-tour.ts",
         "src/overleaf/overleaf-collab.tsx",
         "src/overleaf/overleaf-comments.tsx",
         "src/overleaf/overleaf-connect.tsx",

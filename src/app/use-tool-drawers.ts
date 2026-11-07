@@ -7,9 +7,10 @@ import type { ReferenceImport } from "./use-reference-import";
 import type { SynaraHost } from "./use-synara-host";
 import { useLoadingShell } from "./use-loading-shell";
 import { focusHistoryEntry } from "../history/history-focus";
+import { setGetStartedShown } from "../onboarding/get-started-progress";
 
 /** The tool drawers whose open state App itself keeps; comments and literature keep theirs in their own hooks. */
-export type AppToolDrawer = "history" | "git" | "todos" | "checklist";
+export type AppToolDrawer = "history" | "git" | "todos" | "checklist" | "start";
 
 export type OpenToolOptions = {
   /** Git: show this view of the working tree. */
@@ -22,7 +23,7 @@ export type OpenToolOptions = {
   historyEntry?: string;
 };
 
-const CLOSED: Record<AppToolDrawer, boolean> = { history: false, git: false, todos: false, checklist: false };
+const CLOSED: Record<AppToolDrawer, boolean> = { history: false, git: false, todos: false, checklist: false, start: false };
 
 /**
  * The one way App opens a tool drawer, from wherever it is asked for: the
@@ -70,6 +71,7 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
   const { setLiteratureOpen } = references;
 
   const setOpen = useCallback((kind: AppToolDrawer, open: boolean) => {
+    if (kind === "start") setGetStartedShown(open);
     setIsOpen((current) => (current[kind] === open ? current : { ...current, [kind]: open }));
   }, []);
   const [opening, startOpening] = useTransition();
@@ -126,10 +128,15 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
     setGitView(view);
   }, []);
 
-  /** A pinned turn review belongs to the outgoing project's thread, and its TODOs to its files. */
+  /**
+   * A pinned turn review belongs to the outgoing project's thread, and its
+   * TODOs to its files. Get started belongs to the sample: it comes back with
+   * the sample's layout, not into the next project's.
+   */
   const resetForProject = useCallback(() => {
     setTurnReview(null);
     close("todos");
+    close("start");
   }, [close]);
 
   // The source control embed has its own close button, which posts here.
