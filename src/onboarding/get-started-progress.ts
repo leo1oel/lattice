@@ -4,9 +4,10 @@
  * project share it) so the checklist picks up where it was left.
  *
  * Small and eager on purpose. The places where a step really happens (a
- * citation inserted, a SyncTeX jump landing, an Agent turn starting, another
- * project entered) mark it here as they happen, whether or not the checklist
- * panel is open; the panel itself loads only when shown.
+ * citation inserted, a SyncTeX jump landing, an Agent turn starting or an
+ * annotation answered, another project entered) mark it here as they happen,
+ * whether or not the checklist panel is open; the panel itself loads only
+ * when shown.
  */
 import { sharedSetting } from "../settings/shared-setting";
 

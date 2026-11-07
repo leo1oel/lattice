@@ -20,6 +20,7 @@ import {
 } from "../editor/comments/editor-comment-data";
 import { sourceRangeForPdfText } from "../editor/comments/pdf-source-anchor";
 import { i18n } from "../i18n";
+import { markGetStartedStep } from "../onboarding/get-started-progress";
 import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { notifyInfo } from "../telemetry/app-notify";
 import { showError } from "./notify";
@@ -346,6 +347,7 @@ export class AnnotationRounds {
     }).then(
       (answer) => {
         if (stale()) return;
+        if (!import.meta.env.LATTICE_WEB_DEMO) markGetStartedStep("agent");
         this.record(id, answer.kind === "revision"
           ? { round, state: "proposed", original: passage, text: answer.text, reason: answer.reason }
           : { round, state: "asked", question: answer.question });

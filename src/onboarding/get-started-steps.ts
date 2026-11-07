@@ -56,6 +56,9 @@ function manuscriptPanel(controller: TrellisController): DOMRect | null {
 
 const isTitle = (line: string) => line.trimStart().startsWith("\\title{");
 
+/** The \title line the sample ships with (src-tauri/templates/tutorial/main.tex). */
+export const SAMPLE_TITLE = "\\title{Understanding Attention: A Worked Guide to Transformer Reasoning}";
+
 /** The manuscript's \title line as it reads now, once its text is known. */
 export function sampleTitle(controller: TrellisController): string | null {
   return controller.texts.get(SAMPLE_MANUSCRIPT)?.split("\n").find(isTitle) ?? null;
@@ -77,14 +80,14 @@ export const GET_STARTED: readonly GetStartedStep[] = [
   {
     id: "latex",
     title: msg`Install LaTeX`,
-    why: msg`Lattice builds your PDF with the LaTeX on this Mac. BasicTeX is about 1 GB.`,
+    why: msg`Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB.`,
   },
   {
     id: "build",
     title: import.meta.env.LATTICE_WEB_DEMO ? msg`Build, then fix an error` : msg`Change the title, then build`,
     why: import.meta.env.LATTICE_WEB_DEMO
-      ? msg`Press Build. This copy has a typo on purpose: read how Lattice explains it, apply the fix, and build again.`
-      : msg`Edit the \\title line in main.tex and press ⌘S. The PDF beside it updates in about a second.`,
+      ? msg`Press Build, read how Lattice explains the typo this copy has on purpose, apply the fix, and build again.`
+      : msg`Edit the \\title line in main.tex and press ⌘S to see the PDF beside it update in about a second.`,
     hint: import.meta.env.LATTICE_WEB_DEMO ? msg`Press Build` : msg`Edit the title, then press ⌘S`,
     reveal: (context) => showManuscript(context, titleLine(context.controller)),
     target: ({ controller }) => manuscriptPanel(controller),
@@ -92,7 +95,7 @@ export const GET_STARTED: readonly GetStartedStep[] = [
   {
     id: "jump",
     title: msg`Jump between PDF and source`,
-    why: msg`Double-click any sentence in the PDF to land on the line that wrote it. ⌘⇧J jumps back.`,
+    why: msg`Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back.`,
     hint: msg`Double-click a sentence`,
     reveal: ({ controller }) => controller.showPanel("pdf", { focus: false }),
     target: ({ controller }) => panelOf(controller, "pdf"),
@@ -100,7 +103,7 @@ export const GET_STARTED: readonly GetStartedStep[] = [
   {
     id: "cite",
     title: msg`Cite a paper`,
-    why: msg`In the editor, press ⌘⇧K and pick one of this project’s papers. Add your own in Papers by arXiv ID, DOI or title.`,
+    why: msg`In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title.`,
     hint: msg`Click in the text, then press ⌘⇧K`,
     reveal: (context) => showManuscript(context),
     target: ({ controller }) => manuscriptPanel(controller),
@@ -109,11 +112,11 @@ export const GET_STARTED: readonly GetStartedStep[] = [
     id: "agent",
     title: msg`Ask the Agent to revise`,
     why: import.meta.env.LATTICE_WEB_DEMO
-      ? msg`The Agent runs on your Mac with Claude Code or Codex. Download Lattice to try it.`
+      ? msg`Download Lattice to try the Agent, which runs on your Mac with Claude Code or Codex.`
       : msg`Select a paragraph, choose Annotate, write what should change, then Save and revise now.`,
-    hint: msg`Ask the Agent here`,
-    reveal: ({ controller }) => controller.showPanel("agent", { focus: false }),
-    target: ({ controller }) => panelOf(controller, "agent"),
+    hint: msg`Select a paragraph, then choose Annotate`,
+    reveal: (context) => showManuscript(context),
+    target: ({ controller }) => manuscriptPanel(controller),
   },
   {
     id: "own",

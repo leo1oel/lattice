@@ -1653,6 +1653,7 @@ msgstr "Administrator approval was cancelled, so nothing was installed."
 #: src/agent/agent-visual-save.ts
 #: src/app/use-synara-host.ts
 #: src/history/history-drawer.tsx
+#: src/onboarding/get-started-panel.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-agent-surface.tsx
@@ -2142,10 +2143,6 @@ msgstr "Ask for risky actions"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Ask the agent"
 msgstr "Ask the agent"
-
-#: src/onboarding/get-started-steps.ts
-msgid "Ask the Agent here"
-msgstr "Ask the Agent here"
 
 #: src/onboarding/get-started-steps.ts
 msgid "Ask the Agent to revise"
@@ -5046,8 +5043,8 @@ msgid "Double-click a sentence"
 msgstr "Double-click a sentence"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Double-click any sentence in the PDF to land on the line that wrote it. ⌘⇧J jumps back."
-msgstr "Double-click any sentence in the PDF to land on the line that wrote it. ⌘⇧J jumps back."
+msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
+msgstr "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
 
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
@@ -5100,6 +5097,10 @@ msgstr "Download Lattice for Mac"
 #: src/onboarding/get-started-steps.ts
 msgid "Download Lattice for Mac to write your own, from a venue template or an Overleaf project."
 msgstr "Download Lattice for Mac to write your own, from a venue template or an Overleaf project."
+
+#: src/onboarding/get-started-steps.ts
+msgid "Download Lattice to try the Agent, which runs on your Mac with Claude Code or Codex."
+msgstr "Download Lattice to try the Agent, which runs on your Mac with Claude Code or Codex."
 
 #: src/project/paper-inspector.tsx
 msgid "Download paper"
@@ -5337,8 +5338,8 @@ msgid "Edit table"
 msgstr "Edit table"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Edit the \\title line in main.tex and press ⌘S. The PDF beside it updates in about a second."
-msgstr "Edit the \\title line in main.tex and press ⌘S. The PDF beside it updates in about a second."
+msgid "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it update in about a second."
+msgstr "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it update in about a second."
 
 #: src/onboarding/get-started-steps.ts
 msgid "Edit the title, then press ⌘S"
@@ -6917,8 +6918,8 @@ msgid "In progress"
 msgstr "In progress"
 
 #: src/onboarding/get-started-steps.ts
-msgid "In the editor, press ⌘⇧K and pick one of this project’s papers. Add your own in Papers by arXiv ID, DOI or title."
-msgstr "In the editor, press ⌘⇧K and pick one of this project’s papers. Add your own in Papers by arXiv ID, DOI or title."
+msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
+msgstr "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
 
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
@@ -7748,8 +7749,8 @@ msgid "Lattice {version} is ready"
 msgstr "Lattice {version} is ready"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Lattice builds your PDF with the LaTeX on this Mac. BasicTeX is about 1 GB."
-msgstr "Lattice builds your PDF with the LaTeX on this Mac. BasicTeX is about 1 GB."
+msgid "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
+msgstr "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -10916,8 +10917,8 @@ msgid "Press Build"
 msgstr "Press Build"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Press Build. This copy has a typo on purpose: read how Lattice explains it, apply the fix, and build again."
-msgstr "Press Build. This copy has a typo on purpose: read how Lattice explains it, apply the fix, and build again."
+msgid "Press Build, read how Lattice explains the typo this copy has on purpose, apply the fix, and build again."
+msgstr "Press Build, read how Lattice explains the typo this copy has on purpose, apply the fix, and build again."
 
 #: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
@@ -11373,6 +11374,10 @@ msgstr "Recent projects"
 #: src/onboarding/get-started-panel.tsx
 msgid "Recheck"
 msgstr "Recheck"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Recheck restarts the agent, which would stop the turn running now. Recheck once it ends."
+msgstr "Recheck restarts the agent, which would stop the turn running now. Recheck once it ends."
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Rechecking…"
@@ -12842,6 +12847,10 @@ msgstr "Select {0}"
 msgid "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
 msgstr "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
 
+#: src/onboarding/get-started-steps.ts
+msgid "Select a paragraph, then choose Annotate"
+msgstr "Select a paragraph, then choose Annotate"
+
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
@@ -14145,10 +14154,6 @@ msgstr "The agent reads these each time it starts."
 #: src/web-demo/desktop-only.tsx
 msgid "The Agent runs on your Mac"
 msgstr "The Agent runs on your Mac"
-
-#: src/onboarding/get-started-steps.ts
-msgid "The Agent runs on your Mac with Claude Code or Codex. Download Lattice to try it."
-msgstr "The Agent runs on your Mac with Claude Code or Codex. Download Lattice to try it."
 
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."

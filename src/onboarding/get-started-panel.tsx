@@ -18,11 +18,12 @@
 import { useEffect, useReducer, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowUpRight, ListChecks } from "lucide-react";
 import { restartAgentRuntime } from "../agent/agent-environment";
 import { toMessage } from "../app-utils";
-import { showError } from "../app/notify";
+import { showError, showWarning } from "../app/notify";
 import { Button } from "../components/ui/button";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -35,7 +36,7 @@ import type { TrellisController } from "../trellis/trellis-controller";
 import {
   GET_STARTED_STEPS, getStartedProgress, markGetStartedStep, skipGetStartedStep, type GetStartedStepId,
 } from "./get-started-progress";
-import { GET_STARTED, sampleTitle, type GetStartedStep, type ShowMeContext } from "./get-started-steps";
+import { GET_STARTED, SAMPLE_TITLE, sampleTitle, type GetStartedStep, type ShowMeContext } from "./get-started-steps";
 import "./get-started.css";
 
 const CLAUDE_CODE_URL = "https://github.com/anthropics/claude-code";
@@ -129,33 +130,31 @@ function ShowMeRing({ target, hint, onDone }: { target: () => DOMRect | null; hi
 }
 
 function useBuildStep(controller: TrellisController) {
-  // A build of the sample under the title it had when the checklist first
-  // saw it proves nothing was tried: the step waits for a build that
-  // succeeds, after the checklist came up, with a title of the writer's own.
+  // A build of the sample under the title it ships with proves nothing was
+  // tried: the step waits for a build that succeeds, after the checklist came
+  // up, with a title of the writer's own, whenever it was written.
   // The demo's copy fails on a typo it ships with on the first Build asked
   // for, so there the step is a success after a failure: the error read and
   // fixed.
   useEffect(() => {
     let last = controller.docTools.get().lastBuild;
     let failed = false;
-    let first = sampleTitle(controller);
     return controller.docTools.subscribe(() => {
-      first ??= sampleTitle(controller);
       const build = controller.docTools.get().lastBuild;
       if (build === last || !build) return;
       last = build;
       if (build.status === "failed") failed = true;
       if (build.status !== "succeeded") return;
       const title = sampleTitle(controller);
-      const tried = import.meta.env.LATTICE_WEB_DEMO ? failed : first !== null && title !== null && title !== first;
+      const tried = import.meta.env.LATTICE_WEB_DEMO ? failed : title !== null && title.trim() !== SAMPLE_TITLE;
       if (tried) markGetStartedStep("build");
     });
   }, [controller]);
 }
 
 type PanelView = {
-  /** The row opened by hand, and how many steps were done then: it stays open until another gets done. */
-  open: { step: GetStartedStepId; seen: number } | null;
+  /** The row opened by hand (null: the open one closed), and how many steps were done then: it stays so until another gets done. */
+  open: { step: GetStartedStepId | null; seen: number } | null;
   /** The step whose place "Show me" is ringing. */
   showing: GetStartedStep | null;
   rechecking: boolean;
@@ -206,6 +205,7 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
 
   const done = new Set<GetStartedStepId>(progress.done);
   if (texReady) done.add("latex");
+  else if (report && isCompileSetupMissing(report)) done.delete("latex");
   const skipped = new Set(progress.skipped);
   const current = GET_STARTED_STEPS.find((step) => !done.has(step) && !skipped.has(step)) ?? null;
   // A row opened by hand stays open until another step gets done.
@@ -218,13 +218,24 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
     update({ showing: step });
   };
   const stopShowing = () => update({ showing: null });
-  // A restart makes the agent look for the provider CLIs again, as it does when it starts.
-  const recheck = () => {
+  // A restart makes the agent look for the provider CLIs again, as it does
+  // when it starts. It would stop every window's running turns, so while one
+  // runs (src-tauri/src/app_restart.rs counts them) it waits.
+  const recheck = async () => {
     update({ rechecking: true });
-    void restartAgentRuntime().catch((reason: unknown) => showError(toMessage(reason))).finally(() => {
-      update({ rechecking: false });
+    try {
+      const { agentTurns } = await invoke<{ agentTurns: number }>("restart_impact");
+      if (agentTurns) {
+        showWarning(t`Recheck restarts the agent, which would stop the turn running now. Recheck once it ends.`, t`Agent`);
+        return;
+      }
+      await restartAgentRuntime();
       controller.showPanel("agent", { focus: false });
-    });
+    } catch (reason) {
+      showError(toMessage(reason));
+    } finally {
+      update({ rechecking: false });
+    }
   };
 
   const valueOf = (id: GetStartedStepId): ReactNode => {
@@ -292,7 +303,7 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
           </ol>
           <div className="get-started-actions">
             <Button size="compact" variant="secondary" onClick={props.openProviderSettings}>{t`Provider settings`}</Button>
-            <Button size="compact" variant="secondary" disabled={rechecking} onClick={recheck}>
+            <Button size="compact" variant="secondary" disabled={rechecking} onClick={() => void recheck()}>
               {rechecking ? t`Rechecking…` : t`Recheck`}
             </Button>
           </div>
@@ -333,7 +344,7 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
                 type="button"
                 className="get-started-step-head"
                 aria-expanded={isOpen}
-                onClick={() => update({ open: isOpen ? null : { step: step.id, seen: done.size } })}
+                onClick={() => update({ open: { step: isOpen ? null : step.id, seen: done.size } })}
               >
                 {isDone || skipped.has(step.id)
                   ? <CheckStatus ok={isDone ? true : null} />

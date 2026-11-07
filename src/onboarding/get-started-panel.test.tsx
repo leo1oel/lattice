@@ -8,7 +8,10 @@ import GetStartedPanel, { type GetStartedPanelProps } from "./get-started-panel"
 import { GET_STARTED_KEY, markGetStartedStep, skipGetStartedStep } from "./get-started-progress";
 import { SAMPLE_MANUSCRIPT } from "./get-started-steps";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
+const running = vi.hoisted(() => ({ agentTurns: 0 }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (command: string) => (command === "restart_impact" ? { terminalCommands: 0, builds: 0, agentTurns: running.agentTurns } : undefined)),
+}));
 
 const TEX = ["latexmk", "pdflatex", "synctex", "bibtex", "conference-fonts"];
 const doctor = (missing: string[] = []) => ({
@@ -17,7 +20,8 @@ const doctor = (missing: string[] = []) => ({
   checks: [...TEX, "uv", "uvx"].map((name) => ({ name, detail: "", ok: !missing.includes(name) })),
 });
 
-const SAMPLE_TITLE = "\\title{Understanding Attention}";
+// The title src-tauri/templates/tutorial/main.tex ships with.
+const SAMPLE_TITLE = "\\title{Understanding Attention: A Worked Guide to Transformer Reasoning}";
 const MANUSCRIPT = `\\documentclass{article}\n${SAMPLE_TITLE}\n\\begin{document}\nHello.\n\\end{document}\n`;
 
 /** Only what the checklist reads of the controller. */
@@ -25,11 +29,12 @@ function fakeController() {
   const docTools = new SmallStore<Pick<TrellisDocToolsState, "lastBuild">>({ lastBuild: null });
   const texts = new Map([[SAMPLE_MANUSCRIPT, MANUSCRIPT]]);
   const pdf = { id: "pdf", type: "pdf", placement: "docked", visible: true, selected: true, params: {}, panelId: "panel-pdf" };
+  const manuscript = { id: "file-main", type: "file", placement: "docked", visible: true, selected: true, params: { key: SAMPLE_MANUSCRIPT }, panelId: "panel-main" };
   const controller = {
     docTools,
     texts,
     app: { get: () => ({ activeKey: SAMPLE_MANUSCRIPT }) },
-    ws: { view: (kind: string) => (kind === "pdf" ? pdf : undefined), views: () => [], select: vi.fn() },
+    ws: { view: (kind: string) => (kind === "pdf" ? pdf : undefined), views: () => [manuscript], select: vi.fn() },
     panelRect: vi.fn(() => new DOMRect(600, 40, 400, 700)),
     showPanel: vi.fn(),
     revealTool: vi.fn(),
@@ -75,6 +80,7 @@ const stored = () => JSON.parse(localStorage.getItem(GET_STARTED_KEY) ?? "null")
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  running.agentTurns = 0;
   vi.mocked(invoke).mockClear();
 });
 
@@ -114,6 +120,44 @@ describe("GetStartedPanel", () => {
     expect(step("build")).toHaveAttribute("data-state", "done");
     expect(step("jump")).toHaveAttribute("data-state", "current");
     expect(stored()?.done).toEqual(["latex", "build"]);
+  });
+
+  it("ticks the build step for a title edited before the checklist came up, as the sample is kept across launches", () => {
+    const { docTools, texts } = renderPanel();
+    // Edited on an earlier launch, whose builds all failed without TeX.
+    texts.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
+    act(() => docTools.set({ lastBuild: succeeded(1) }));
+    expect(step("build")).toHaveAttribute("data-state", "done");
+  });
+
+  it("brings LaTeX back as the current step when the check finds it missing again", () => {
+    markGetStartedStep("latex");
+    markGetStartedStep("build");
+    const { texSetup } = renderPanel({}, doctor(["latexmk"]));
+    expect(step("latex")).toHaveAttribute("data-state", "current");
+    expect(screen.getByText("1/6")).toBeInTheDocument();
+    fireEvent.click(within(step("latex")).getByRole("button", { name: "Install LaTeX" }));
+    expect(texSetup.openWizard).toHaveBeenCalledTimes(1);
+  });
+
+  it("collapses the current step from its header, and opens it again", () => {
+    renderPanel();
+    const head = within(step("build")).getByRole("button", { name: /Change the title, then build/ });
+    expect(head).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(head);
+    expect(head).toHaveAttribute("aria-expanded", "false");
+    expect(within(step("build")).queryByRole("button", { name: "Show me" })).not.toBeInTheDocument();
+    fireEvent.click(head);
+    expect(head).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("points the Agent step at the editor, where Annotate is", async () => {
+    const { props, showPanel } = renderPanel();
+    fireEvent.click(within(step("agent")).getByRole("button", { name: /Ask the Agent to revise/ }));
+    fireEvent.click(within(step("agent")).getByRole("button", { name: "Show me" }));
+    expect(await screen.findByText("Select a paragraph, then choose Annotate")).toBeInTheDocument();
+    expect(showPanel).not.toHaveBeenCalledWith("agent", expect.anything());
+    expect(props.openFile).not.toHaveBeenCalled();
   });
 
   it("shows steps marked where they happened, and keeps skipped ones aside", () => {
@@ -168,8 +212,19 @@ describe("GetStartedPanel", () => {
     expect(props.openProviderSettings).toHaveBeenCalledTimes(1);
 
     fireEvent.click(within(agent).getByRole("button", { name: "Recheck" }));
-    expect(invoke).toHaveBeenCalledWith("synara_restart");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("synara_restart"));
     await waitFor(() => expect(showPanel).toHaveBeenCalledWith("agent", { focus: false }));
+  });
+
+  it("never rechecks by a restart while a turn is running in any window", async () => {
+    running.agentTurns = 1;
+    const { showPanel } = renderPanel();
+    fireEvent.click(within(step("agent")).getByRole("button", { name: /Ask the Agent to revise/ }));
+    fireEvent.click(within(step("agent")).getByRole("button", { name: "Recheck" }));
+    await waitFor(() => expect(within(step("agent")).getByRole("button", { name: "Recheck" })).toBeEnabled());
+    expect(invoke).toHaveBeenCalledWith("restart_impact");
+    expect(invoke).not.toHaveBeenCalledWith("synara_restart");
+    expect(showPanel).not.toHaveBeenCalled();
   });
 
   it("offers a project of the writer's own as the last step", () => {

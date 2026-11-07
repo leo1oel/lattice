@@ -1653,6 +1653,7 @@ msgstr "已取消管理员授权，未安装任何内容。"
 #: src/agent/agent-visual-save.ts
 #: src/app/use-synara-host.ts
 #: src/history/history-drawer.tsx
+#: src/onboarding/get-started-panel.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-agent-surface.tsx
@@ -2142,10 +2143,6 @@ msgstr "有风险时问我"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Ask the agent"
 msgstr "交给助手"
-
-#: src/onboarding/get-started-steps.ts
-msgid "Ask the Agent here"
-msgstr "在这里问 AI 助手"
 
 #: src/onboarding/get-started-steps.ts
 msgid "Ask the Agent to revise"
@@ -5046,8 +5043,8 @@ msgid "Double-click a sentence"
 msgstr "双击任意一句"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Double-click any sentence in the PDF to land on the line that wrote it. ⌘⇧J jumps back."
-msgstr "双击 PDF 里任意一句，光标会跳到写出它的那一行；在源码里按 ⌘⇧J 跳回 PDF。"
+msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
+msgstr "双击 PDF 里任意一句，光标会跳到写出它的那一行，在源码里按 ⌘⇧J 跳回 PDF。"
 
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
@@ -5100,6 +5097,10 @@ msgstr "下载 Mac 版 Lattice"
 #: src/onboarding/get-started-steps.ts
 msgid "Download Lattice for Mac to write your own, from a venue template or an Overleaf project."
 msgstr "下载 Mac 版 Lattice，用会议模板或 Overleaf 项目写你自己的论文。"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Download Lattice to try the Agent, which runs on your Mac with Claude Code or Codex."
+msgstr "下载 Lattice 就能试 AI 助手，它在你的 Mac 上通过 Claude Code 或 Codex 运行。"
 
 #: src/project/paper-inspector.tsx
 msgid "Download paper"
@@ -5337,8 +5338,8 @@ msgid "Edit table"
 msgstr "编辑表格"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Edit the \\title line in main.tex and press ⌘S. The PDF beside it updates in about a second."
-msgstr "改一下 main.tex 里的 \\title 这一行，按 ⌘S，旁边的 PDF 大约一秒后更新。"
+msgid "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it update in about a second."
+msgstr "改一下 main.tex 里的 \\title 这一行并按 ⌘S，旁边的 PDF 大约一秒后就会更新。"
 
 #: src/onboarding/get-started-steps.ts
 msgid "Edit the title, then press ⌘S"
@@ -6917,8 +6918,8 @@ msgid "In progress"
 msgstr "进行中"
 
 #: src/onboarding/get-started-steps.ts
-msgid "In the editor, press ⌘⇧K and pick one of this project’s papers. Add your own in Papers by arXiv ID, DOI or title."
-msgstr "在编辑器里按 ⌘⇧K，从本项目的论文里选一篇。也可以在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
+msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
+msgstr "在编辑器里按 ⌘⇧K，从本项目的论文里选一篇，或在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
@@ -7748,8 +7749,8 @@ msgid "Lattice {version} is ready"
 msgstr "Lattice {version} 已就绪"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Lattice builds your PDF with the LaTeX on this Mac. BasicTeX is about 1 GB."
-msgstr "Lattice 用这台 Mac 上的 LaTeX 编译 PDF。BasicTeX 约 1 GB。"
+msgid "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
+msgstr "Lattice 用这台 Mac 上的 LaTeX 编译 PDF，BasicTeX 约 1 GB。"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -10916,8 +10917,8 @@ msgid "Press Build"
 msgstr "点「编译」"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Press Build. This copy has a typo on purpose: read how Lattice explains it, apply the fix, and build again."
-msgstr "点「编译」。这份示例故意留了一个错字：看 Lattice 怎么解释它，应用修复，再编译一次。"
+msgid "Press Build, read how Lattice explains the typo this copy has on purpose, apply the fix, and build again."
+msgstr "点「编译」，看 Lattice 怎么解释这份示例故意留下的错字，应用修复，再编译一次。"
 
 #: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
@@ -11373,6 +11374,10 @@ msgstr "最近项目"
 #: src/onboarding/get-started-panel.tsx
 msgid "Recheck"
 msgstr "重新检测"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Recheck restarts the agent, which would stop the turn running now. Recheck once it ends."
+msgstr "重新检测会重启 AI 助手，正在运行的对话会被中断。请等它结束后再重新检测。"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Rechecking…"
@@ -12842,6 +12847,10 @@ msgstr "选择 {0}"
 msgid "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
 msgstr "选中一段，点「批注」，写下要改什么，再点「保存并立即修改」。"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Select a paragraph, then choose Annotate"
+msgstr "选中一段，再点「批注」"
+
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
@@ -14145,10 +14154,6 @@ msgstr "AI 助手每次启动时都会重新读取这些设置。"
 #: src/web-demo/desktop-only.tsx
 msgid "The Agent runs on your Mac"
 msgstr "AI 助手在你的 Mac 上运行"
-
-#: src/onboarding/get-started-steps.ts
-msgid "The Agent runs on your Mac with Claude Code or Codex. Download Lattice to try it."
-msgstr "AI 助手在你的 Mac 上通过 Claude Code 或 Codex 运行。下载 Lattice 就能试。"
 
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
