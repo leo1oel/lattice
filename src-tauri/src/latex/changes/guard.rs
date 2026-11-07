@@ -76,17 +76,20 @@ impl ChangesExports {
     /// Stop the export under way, if any, killing its child's whole group at
     /// once: on quit there is no later moment to do it in.
     pub fn cancel(&self) {
-        let mut state = self.lock();
-        state.latest += 1;
-        if let Some((_, group)) = state.child.take() {
-            commands::signal_process_group(group, libc::SIGKILL);
-        }
+        Self::supersede(&mut self.lock());
     }
 
     /// Stop any export under way and number a new one.
     pub(super) fn begin(&self) -> u64 {
-        self.cancel();
-        self.lock().latest
+        Self::supersede(&mut self.lock())
+    }
+
+    fn supersede(state: &mut Exports) -> u64 {
+        state.latest += 1;
+        if let Some((_, group)) = state.child.take() {
+            commands::signal_process_group(group, libc::SIGKILL);
+        }
+        state.latest
     }
 
     fn lock(&self) -> MutexGuard<'_, Exports> {

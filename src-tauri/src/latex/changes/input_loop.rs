@@ -69,7 +69,7 @@ impl Walk<'_> {
         }
         let text = fs::read(&read.file).ok()?;
         self.stack.push((identity.clone(), read.file.clone()));
-        for child in includes(&String::from_utf8_lossy(&text), &read.base) {
+        for child in includes(&String::from_utf8_lossy(&text), &read.base, self.folder) {
             if let Some(chain) = self.visit(child) {
                 return Some(chain);
             }
@@ -85,8 +85,9 @@ impl Walk<'_> {
     }
 }
 
-/// The existing files `text` pastes in, outside comments.
-fn includes(text: &str, base: &Path) -> Vec<Read> {
+/// The existing files `text` pastes in, outside comments; `root` is the
+/// version's folder, where latexdiff runs.
+fn includes(text: &str, base: &Path, root: &Path) -> Vec<Read> {
     let mut found = Vec::new();
     for line in text.lines() {
         let code = &line[..comment_start(line).unwrap_or(line.len())];
@@ -103,11 +104,12 @@ fn includes(text: &str, base: &Path) -> Vec<Read> {
             } else {
                 let (folder, name) = (capture[4].trim(), capture[5].trim());
                 // `\subimport` is relative to the current folder, `\import` to
-                // where latexdiff runs, which is the newer version's folder.
+                // where latexdiff runs: the version's own folder, so each
+                // version's tree is walked. An absolute folder stays as written.
                 let folder = if capture.get(3).is_some() {
                     base.join(folder)
                 } else {
-                    PathBuf::from(folder)
+                    root.join(folder)
                 };
                 let file = folder.join(with_extension(name));
                 Read { base: file.parent().unwrap_or(base).to_path_buf(), file }
@@ -210,6 +212,24 @@ mod tests {
                 "paper/parts/deep/two.tex".into(),
                 "paper/parts/deep/back.tex".into(),
                 "paper/parts/one.tex".into(),
+            ])
+        );
+    }
+
+    #[test]
+    fn imports_resolve_in_the_version_folder() {
+        let root = project(&[
+            ("main.tex", "\\import{sections/}{a}\n"),
+            ("sections/a.tex", "\\input{b}\n"),
+            ("sections/b.tex", "\\import{sections/}{a}\n"),
+        ]);
+        assert_eq!(
+            input_loop(&root, "main.tex"),
+            Some(vec![
+                "main.tex".into(),
+                "sections/a.tex".into(),
+                "sections/b.tex".into(),
+                "sections/a.tex".into(),
             ])
         );
     }
