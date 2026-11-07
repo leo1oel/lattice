@@ -233,6 +233,24 @@ describe("Overleaf picker dialog", () => {
     expect(onCloned).not.toHaveBeenCalled();
   });
 
+  // A slow drive among the folders checked can hold the lookup back; Open
+  // pressed meanwhile must not download a second copy of a linked folder.
+  it("waits for the local-copy lookup before choosing to download", async () => {
+    let answer: (copies: unknown) => void = () => undefined;
+    mockConnectedPicker({
+      overleaf_local_copies: () => new Promise((resolve) => { answer = resolve; }),
+      overleaf_reopen_local_copy: undefined,
+    });
+    const onOpenLocalCopy = vi.fn();
+    const { onCloned } = renderPicker({ onOpenLocalCopy });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", expect.anything()));
+    await openFirstProject();
+    answer({ p1: nativeVlm });
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
+    expect(onCloned).not.toHaveBeenCalled();
+  });
+
   // The role the dashboard reports now is what the copy syncs with: a viewer
   // promoted to editor since the last visit can write at once.
   it.each(["readAndWrite", null] as const)("gives the local copy the %s role Overleaf reports before opening it", async (accessLevel) => {

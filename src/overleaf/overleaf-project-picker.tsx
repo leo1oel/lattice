@@ -5,7 +5,7 @@
  * as a local Lattice project — or, for a project already linked to a folder
  * on this Mac, open that folder rather than download a second copy.
  */
-import { useCallback, useEffect, useReducer, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useReducer, useRef, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Cloud, CloudAlert, CloudOff, ExternalLink, FileText, HardDrive, MailOpen, SearchX, UploadCloud } from "lucide-react";
@@ -89,6 +89,7 @@ function OverleafPicker(props: PickerProps) {
     props.onConnectionChanged?.();
   });
   const { onClose, onConnectionChanged, knownFolders, onOpenLocalCopy } = props;
+  const lookup = useRef<Promise<Record<string, LocalCopy>>>(Promise.resolve({}));
 
   const loadStatus = useCallback(async () => {
     dispatch({ type: "statusLoading" });
@@ -198,12 +199,13 @@ Files that differ are kept side by side. Nothing is overwritten`,
    * one — a second copy would sync too, drift apart from the first and leave
    * the writer guessing which holds their work — or else a download. The
    * copy first takes the role the dashboard reports now, as a reopened
-   * download does.
+   * download does. The lookup is awaited, so an Open pressed before it answers
+   * still finds the copy.
    */
   const openProject = async (project: OverleafProject) => {
-    const copy = localCopies[project.id];
-    if (!copy || !props.onOpenLocalCopy) return clone(project);
     if (cloning || publishing) return;
+    const copy = props.onOpenLocalCopy ? (await lookup.current)[project.id] : undefined;
+    if (!copy || !props.onOpenLocalCopy) return clone(project);
     try {
       await invoke("overleaf_reopen_local_copy", { path: copy.path, projectId: project.id, accessLevel: project.accessLevel });
     } catch (reason) {
@@ -231,13 +233,13 @@ Files that differ are kept side by side. Nothing is overwritten`,
     const listed = [...(list?.projects ?? []), ...(linked ? [linked] : [])];
     if (!onOpenLocalCopy || !listed.length) return;
     let disposed = false;
-    invoke<Record<string, LocalCopy>>("overleaf_local_copies", {
+    lookup.current = invoke<Record<string, LocalCopy>>("overleaf_local_copies", {
       names: listed.map((project) => project.name),
       folders: (knownFolders ?? []).map((folder) => folder.path),
     })
-      .then((copies) => { if (!disposed) dispatch({ type: "localCopies", copies }); })
       // Without an answer every project downloads, which is what it did before.
-      .catch(() => undefined);
+      .catch(() => ({}));
+    void lookup.current.then((copies) => { if (!disposed) dispatch({ type: "localCopies", copies }); });
     return () => { disposed = true; };
   }, [list, linked, knownFolders, onOpenLocalCopy]);
   const query = link ? "" : search.trim().toLowerCase();
