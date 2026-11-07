@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 const INDEX_FILE: &str = "overleaf-local-copies.json";
 /// Plenty for anyone's projects, and a bound on what one lookup reads.
@@ -37,6 +38,13 @@ pub struct LocalCopy {
     pub path: String,
     /// The path for people to read, with the home folder as `~`.
     pub display: String,
+}
+
+/// Every window reads and rewrites the one list, through one temporary file.
+static INDEX_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_index() -> MutexGuard<'static, ()> {
+    INDEX_LOCK.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 fn index_path(config_dir: &Path) -> PathBuf {
@@ -66,6 +74,7 @@ fn write_index(config_dir: &Path, index: &Index) -> Result<(), String> {
 /// called this.
 pub fn remember_local_copy(config_dir: &Path, root: &Path) {
     let Ok(root) = root.canonicalize() else { return };
+    let _lock = lock_index();
     let mut index = read_index(config_dir);
     if index.folders.first() == Some(&root) {
         return;
@@ -93,9 +102,11 @@ fn display_path(path: &Path) -> String {
 /// default download folder of each listed project), checked before the
 /// remembered list. The first folder that is linked to a project on the
 /// signed-in host answers for it. Remembered folders that no longer hold a
-/// link are dropped from the list.
+/// link are dropped from the list; one whose parent cannot be reached either,
+/// such as on a drive that is not mounted, stays for when it is back.
 pub fn local_copies(config_dir: &Path, candidates: &[PathBuf]) -> BTreeMap<String, LocalCopy> {
     let session = read_session(config_dir).ok();
+    let _lock = lock_index();
     let index = read_index(config_dir);
     let mut found = BTreeMap::new();
     let mut seen = Vec::new();
@@ -103,7 +114,7 @@ pub fn local_copies(config_dir: &Path, candidates: &[PathBuf]) -> BTreeMap<Strin
     let remembered = index.folders.iter().map(|folder| (folder, true));
     for (folder, from_index) in candidates.iter().map(|folder| (folder, false)).chain(remembered) {
         let Ok(root) = folder.canonicalize() else {
-            if from_index {
+            if from_index && folder.parent().is_some_and(Path::exists) {
                 stale.push(folder.clone());
             }
             continue;

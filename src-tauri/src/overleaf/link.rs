@@ -307,6 +307,26 @@ pub fn clone_target(
     Ok(CloneTarget { kind, path: root.to_string_lossy().into_owned(), folder })
 }
 
+/// Ready a folder already linked to `project_id` to open again, recording the
+/// role the dashboard now reports. That role is the one thing that can have
+/// changed while the folder sat there. A missing dashboard role clears an old
+/// writable role: unknown must fail closed until realtime supplies fresh
+/// evidence.
+pub fn reopen_local_copy(
+    config_dir: &Path, root: &Path, project_id: &str, access_level: Option<&str>,
+) -> Result<(), String> {
+    let mut state = load_state(root)?;
+    if state.project_id != project_id {
+        return Err(format!("{} is no longer linked to this Overleaf project.", root.display()));
+    }
+    if state.permission.as_deref() != access_level {
+        state.permission = access_level.map(str::to_string);
+        save_state(root, &state)?;
+    }
+    remember_local_copy(config_dir, root);
+    Ok(())
+}
+
 /// The folder a project named `project_name` downloads into first.
 pub fn download_folder(dest_parent: &Path, project_name: &str) -> Result<PathBuf, String> {
     Ok(dest_parent.join(sanitize_project_name(project_name)?))
@@ -361,13 +381,9 @@ pub fn adopt_project(
 /// the same name holding something else does not block the download either;
 /// the copy lands beside it under a numbered name, the way a second download of
 /// the same file would.
-///
-/// `separate` is the writer asking for a second copy anyway ("Download a new
-/// copy"): copies already linked to the project are passed over like any other
-/// occupied folder, so the download always lands in a folder of its own.
 pub fn clone_project(
     config_dir: &Path, project_id: &str, project_name: &str, dest_parent: &Path,
-    access_level: Option<&str>, separate: bool, progress: DownloadProgress,
+    access_level: Option<&str>, progress: DownloadProgress,
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
     let folder_name = sanitize_project_name(project_name)?;
@@ -381,17 +397,8 @@ pub fn clone_project(
                 root = candidate;
                 break;
             }
-            "open" if !separate => {
-                // The one thing that can have changed while it sat there: what
-                // this account is now allowed to do with the project. A
-                // missing dashboard role clears an old writable role: unknown
-                // must fail closed until realtime supplies fresh evidence.
-                let mut state = load_state(&candidate)?;
-                if state.permission.as_deref() != access_level {
-                    state.permission = access_level.map(str::to_string);
-                    save_state(&candidate, &state)?;
-                }
-                remember_local_copy(config_dir, &candidate);
+            "open" => {
+                reopen_local_copy(config_dir, &candidate, project_id, access_level)?;
                 return Ok(candidate);
             }
             _ => {}

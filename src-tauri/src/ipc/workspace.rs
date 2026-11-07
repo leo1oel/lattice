@@ -135,16 +135,23 @@ pub async fn open_project(
             let snapshot =
                 run_quietly("Project opening", move || project::open(Path::new(&path))).await?;
             let root = PathBuf::from(&snapshot.root);
-            if state.window_showing(&root).is_some_and(|label| label != window.label()) {
-                return Err(
-                    "This project is already open in another Lattice window. Open it in the browser from that window instead."
-                        .to_string(),
-                );
-            }
+            ensure_not_shown_elsewhere(&state, window.label(), &root)?;
             state.set_root(window.label(), root).await?;
             Ok(snapshot)
         })
         .await
+}
+
+/// One project shows in one window: its own editor buffers, build and Overleaf
+/// connection. The app matches this answer to raise that window instead.
+fn ensure_not_shown_elsewhere(state: &AppState, label: &str, root: &Path) -> Result<(), String> {
+    if state.window_showing(root).is_some_and(|showing| showing != label) {
+        return Err(
+            "This project is already open in another Lattice window. Open it in the browser from that window instead."
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 /// Unpack a project from a ZIP. As with `create_project`, placing it in a
@@ -314,4 +321,24 @@ pub fn watch_project(
         *watcher = Some(fs_watch::spawn(app, root)?);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_not_shown_elsewhere;
+    use crate::app_state::AppState;
+    use std::path::PathBuf;
+
+    #[test]
+    fn a_project_another_window_shows_is_refused_with_the_phrase_the_app_matches() {
+        let state = AppState::from_environment();
+        let (paper, notes) = (PathBuf::from("/papers/native-vlm"), PathBuf::from("/papers/notes"));
+        state.bind_window("project-1", paper.clone()).unwrap();
+
+        // `OPEN_IN_ANOTHER_WINDOW` in src/app/use-project-lifecycle.ts.
+        let refused = ensure_not_shown_elsewhere(&state, "main", &paper).unwrap_err();
+        assert!(refused.contains("already open in another Lattice window"), "got: {refused}");
+        assert_eq!(ensure_not_shown_elsewhere(&state, "project-1", &paper), Ok(()));
+        assert_eq!(ensure_not_shown_elsewhere(&state, "main", &notes), Ok(()));
+    }
 }

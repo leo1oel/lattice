@@ -56,7 +56,7 @@ function renderPicker(props: Partial<Parameters<typeof OverleafPickerDialog>[0]>
 
 /** What `overleaf_clone_project` is sent for the Attention Paper row. */
 const cloneArgs = (overrides: Record<string, unknown> = {}) => ({
-  projectId: "p1", name: "Attention Paper", accessLevel: "owner", adopt: false, separate: false, ...overrides,
+  projectId: "p1", name: "Attention Paper", accessLevel: "owner", adopt: false, ...overrides,
 });
 
 /** Select the Attention Paper row and press Open. */
@@ -211,7 +211,7 @@ describe("Overleaf picker dialog", () => {
   // to download a second copy that synced too and drifted from the first.
   const nativeVlm = { path: "/Users/me/Papers/Native VLM", display: "~/Papers/Native VLM" };
   it("opens the folder already linked to a project instead of downloading a second copy", async () => {
-    mockConnectedPicker({ overleaf_local_copies: { p1: nativeVlm } });
+    mockConnectedPicker({ overleaf_local_copies: { p1: nativeVlm }, overleaf_reopen_local_copy: undefined });
     const onOpenLocalCopy = vi.fn();
     const { onClose, onBeforeClone, onCloned } = renderPicker({ onOpenLocalCopy, knownFolders: [{ path: nativeVlm.path }] });
     expect(await screen.findByText("Opens your local copy at ~/Papers/Native VLM")).toBeInTheDocument();
@@ -222,28 +222,47 @@ describe("Overleaf picker dialog", () => {
     const thesis = screen.getByRole("button", { name: /Thesis Draft/ });
     expect(within(thesis).queryByText(/Opens your local copy/)).not.toBeInTheDocument();
 
+    // There is no way to download a second copy beside it.
+    fireEvent.click(screen.getByRole("button", { name: /Attention Paper/ }));
+    expect(screen.queryByRole("button", { name: "Download a new copy" })).not.toBeInTheDocument();
     await openFirstProject();
-    expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path);
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
     expect(onClose).toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
     expect(onBeforeClone).not.toHaveBeenCalled();
     expect(onCloned).not.toHaveBeenCalled();
   });
 
-  it("still downloads a separate copy when asked, without offering to link the folder", async () => {
+  // The role the dashboard reports now is what the copy syncs with: a viewer
+  // promoted to editor since the last visit can write at once.
+  it.each(["readAndWrite", null] as const)("gives the local copy the %s role Overleaf reports before opening it", async (accessLevel) => {
     mockConnectedPicker({
+      overleaf_list_projects: listed([{ ...projects[0]!, accessLevel }]),
       overleaf_local_copies: { p1: nativeVlm },
-      overleaf_clone_target: { kind: "occupied", path: "/tmp/Overleaf Projects/Attention Paper", folder: "Attention Paper" },
-      overleaf_clone_project: "/tmp/Overleaf Projects/Attention Paper (2)",
+      overleaf_reopen_local_copy: undefined,
     });
     const onOpenLocalCopy = vi.fn();
-    const { onCloned } = renderPicker({ onOpenLocalCopy });
-    fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Download a new copy" }));
-    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/Overleaf Projects/Attention Paper (2)"));
-    expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs({ separate: true }));
-    expect(confirm).not.toHaveBeenCalled();
+    renderPicker({ onOpenLocalCopy });
+    await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
+    await openFirstProject();
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    expect(invoke).toHaveBeenCalledWith("overleaf_reopen_local_copy", { path: nativeVlm.path, projectId: "p1", accessLevel });
+    const reopen = vi.mocked(invoke).mock.calls.findIndex(([command]) => command === "overleaf_reopen_local_copy");
+    expect(vi.mocked(invoke).mock.invocationCallOrder[reopen]).toBeLessThan(onOpenLocalCopy.mock.invocationCallOrder[0]!);
+  });
+
+  it("reports a local copy it could not ready and keeps the dialog open", async () => {
+    mockConnectedPicker({
+      overleaf_local_copies: { p1: nativeVlm },
+      overleaf_reopen_local_copy: () => { throw new Error("/Users/me/Papers/Native VLM is no longer linked to this Overleaf project."); },
+    });
+    const onOpenLocalCopy = vi.fn();
+    const { onClose } = renderPicker({ onOpenLocalCopy });
+    await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
+    await openFirstProject();
+    await waitFor(() => expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent(/no longer linked/));
     expect(onOpenLocalCopy).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("downloads as before when no folder here is linked to the project", async () => {
@@ -406,7 +425,7 @@ describe("Overleaf picker dialog", () => {
     expect(invoke).toHaveBeenCalledWith("overleaf_resolve_link", { link });
     fireEvent.keyDown(search, { key: "Enter" });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", {
-      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite", adopt: false, separate: false,
+      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite", adopt: false,
     }));
   });
 

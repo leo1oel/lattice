@@ -148,12 +148,8 @@ Lattice will create a new Overleaf project from the files that normally sync. La
     dispatch({ type: "publishing", publishing: false });
   };
 
-  /**
-   * Download `project` into its folder, or answer null when the user backed
-   * out first. `separate` is "Download a new copy": a fresh folder even when
-   * one is already linked to the project.
-   */
-  const download = async (project: OverleafProject, separate: boolean) => {
+  /** Download `project` into its folder, or answer null when the user backed out first. */
+  const download = async (project: OverleafProject) => {
     // A folder of this name already holding files, with no link to any
     // Overleaf project, is what Stop syncing leaves behind. Downloading a
     // second copy beside it strands whatever was written in the meantime in
@@ -162,8 +158,7 @@ Lattice will create a new Overleaf project from the files that normally sync. La
       .catch(() => null);
     // Named buttons say what each choice does, so the question stays short.
     // Declining downloads a separate copy, as it always has.
-    // Asking for a new copy already answered this.
-    const adopt = !separate && target?.kind === "occupied" && await confirmAction({
+    const adopt = target?.kind === "occupied" && await confirmAction({
       message: t`“${target.folder}” already has files and isn’t linked to Overleaf
 
 Files that differ are kept side by side. Nothing is overwritten`,
@@ -176,15 +171,14 @@ Files that differ are kept side by side. Nothing is overwritten`,
       name: project.name,
       accessLevel: project.accessLevel,
       adopt,
-      separate,
     });
   };
 
-  const clone = async (project: OverleafProject, separate = false) => {
+  const clone = async (project: OverleafProject) => {
     if (cloning || publishing) return;
     dispatch({ type: "cloning", project });
     try {
-      const root = await download(project, separate);
+      const root = await download(project);
       dispatch({ type: "cloning", project: null });
       if (root === null) return;
       props.onCloned(root);
@@ -202,12 +196,22 @@ Files that differ are kept side by side. Nothing is overwritten`,
   /**
    * Open `project`: the folder on this Mac already linked to it when there is
    * one — a second copy would sync too, drift apart from the first and leave
-   * the writer guessing which holds their work — or else a download.
+   * the writer guessing which holds their work — or else a download. The
+   * copy first takes the role the dashboard reports now, as a reopened
+   * download does.
    */
-  const openProject = (project: OverleafProject) => {
+  const openProject = async (project: OverleafProject) => {
     const copy = localCopies[project.id];
-    if (!copy || !props.onOpenLocalCopy) return void clone(project);
+    if (!copy || !props.onOpenLocalCopy) return clone(project);
     if (cloning || publishing) return;
+    try {
+      await invoke("overleaf_reopen_local_copy", { path: copy.path, projectId: project.id, accessLevel: project.accessLevel });
+    } catch (reason) {
+      const detail = toMessage(reason);
+      dispatch({ type: "transferFailed", error: detail });
+      notifyError(OVERLEAF_SOURCE, t`Could not open the Overleaf project`, { detail });
+      return;
+    }
     props.onOpenLocalCopy(copy.path);
     onClose();
   };
@@ -273,7 +277,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
     const current = row ? row.dataset.projectId : linked?.id ?? selected;
     const index = ordered.findIndex((project) => project.id === current);
     if (event.key === "Enter") {
-      if (index >= 0) { event.preventDefault(); openProject(ordered[index]); }
+      if (index >= 0) { event.preventDefault(); void openProject(ordered[index]); }
       return;
     }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") return;
@@ -314,16 +318,11 @@ Files that differ are kept side by side. Nothing is overwritten`,
         )}
       </button>
       {/* A download in progress is said once, by the progress line under the list. */}
-      {chosen && cloning?.id !== project.id && copy && (
-        <Button size="compact" variant="ghost" className="overleaf-open-button" disabled={working} onClick={() => void clone(project, true)}>
-          {t`Download a new copy`}
-        </Button>
-      )}
       {chosen && cloning?.id !== project.id && (
         <MotionButton
           className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}
           disabled={working}
-          onClick={() => openProject(project)}
+          onClick={() => void openProject(project)}
         >
           {t`Open`}
         </MotionButton>

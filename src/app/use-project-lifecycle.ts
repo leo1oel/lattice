@@ -31,7 +31,7 @@ const LAUNCH_EMPTY_WINDOW_MS = 1_000;
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
 /** What `open_project` answers when another window already shows the project. */
 // eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
-export const OPEN_IN_ANOTHER_WINDOW = "already open in another Lattice window";
+const OPEN_IN_ANOTHER_WINDOW = "already open in another Lattice window";
 
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;

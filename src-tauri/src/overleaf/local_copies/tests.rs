@@ -1,5 +1,7 @@
 use super::*;
-use crate::overleaf::link::{adopt_project, clone_project, clone_target, publish_project};
+use crate::overleaf::link::{
+    adopt_project, clone_project, clone_target, publish_project, reopen_local_copy,
+};
 use crate::overleaf::test_support::*;
 
 /// A folder linked to `project_id` on `host`, wherever it sits.
@@ -43,7 +45,7 @@ fn a_linked_folder_outside_the_download_folder_is_found_by_its_link() {
 fn cloning_adopting_and_publishing_remember_the_folder() {
     let server = Mock::project(&[("main.tex", b"remote body")]).serve();
     let (config, parent) = (signed_in(&server.base), TempDir::new("clone-parent"));
-    let cloned = clone_project(&config, "proj-1", "Cloned", &parent, None, false).unwrap();
+    let cloned = clone_project(&config, "proj-1", "Cloned", &parent, None, &|_, _| {}).unwrap();
 
     let left = TempDir::new("left-behind");
     left.write("main.tex", "kept");
@@ -84,23 +86,63 @@ fn deleted_unlinked_and_other_host_folders_do_not_answer() {
     assert_eq!(read_index(&config).folders, vec![other_host.canonicalize().unwrap()]);
 }
 
-/// "Download a new copy" passes over the copy already linked in the download
-/// folder and lands beside it, and both stay known.
+/// Reopening a copy found here records the role the dashboard reports now —
+/// a viewer promoted to editor, or an editor demoted — as reopening a download
+/// always did, and an unreported role clears the old one. A folder linked to
+/// another project since is not reopened as this one.
 #[test]
-fn a_separate_copy_lands_beside_the_linked_one() {
-    let server = Mock::project(&[("main.tex", b"remote body")]).serve();
-    let (config, parent) = (signed_in(&server.base), TempDir::new("clone-parent"));
-    let first = clone_project(&config, "proj-1", "Paper", &parent, None, false).unwrap();
-    assert_eq!(clone_project(&config, "proj-1", "Paper", &parent, None, false).unwrap(), first);
+fn reopening_a_local_copy_records_the_current_role() {
+    let host = "https://www.overleaf.com";
+    let (config, elsewhere) = (signed_in(host), TempDir::new("native-vlm"));
+    link_folder(&elsewhere, host, "proj-1");
+    edit_state(&elsewhere, |state| state.permission = Some("readOnly".to_string()));
 
-    let second = clone_project(&config, "proj-1", "Paper", &parent, None, true).unwrap();
-    assert_eq!(second, parent.join("Paper (2)"));
-    assert_eq!(load_state(&second).unwrap().project_id, "proj-1");
-    // The most recently linked one answers for the project.
-    assert_eq!(local_copies(&config, &[]).get("proj-1").unwrap().path, canonical(&second));
-    // A recent project the app passes in comes first.
-    let copies = local_copies(&config, std::slice::from_ref(&first));
-    assert_eq!(copies["proj-1"].path, canonical(&first));
+    reopen_local_copy(&config, &elsewhere, "proj-1", Some("readAndWrite")).unwrap();
+    assert_eq!(load_state(&elsewhere).unwrap().permission.as_deref(), Some("readAndWrite"));
+    assert_eq!(local_copies(&config, &[])["proj-1"].path, canonical(&elsewhere));
+    reopen_local_copy(&config, &elsewhere, "proj-1", None).unwrap();
+    assert_eq!(load_state(&elsewhere).unwrap().permission, None);
+
+    assert!(reopen_local_copy(&config, &elsewhere, "proj-2", Some("owner")).is_err());
+    assert_eq!(load_state(&elsewhere).unwrap().permission, None);
+}
+
+/// A remembered folder on a drive that is not mounted is kept, so with the
+/// drive back the project opens it again instead of downloading a second copy.
+#[test]
+fn a_folder_on_an_unmounted_drive_is_remembered_for_when_it_is_back() {
+    let host = "https://www.overleaf.com";
+    let (config, volumes) = (signed_in(host), TempDir::new("volumes"));
+    let (drive, away) = (volumes.join("Work"), volumes.join("Unplugged"));
+    let folder = drive.join("Native VLM");
+    fs::create_dir_all(&folder).unwrap();
+    link_folder(&folder, host, "proj-1");
+    remember_local_copy(&config, &folder);
+    let path = canonical(&folder);
+
+    fs::rename(&drive, &away).unwrap();
+    assert!(local_copies(&config, &[]).is_empty());
+    fs::rename(&away, &drive).unwrap();
+    assert_eq!(local_copies(&config, &[])["proj-1"].path, path);
+}
+
+/// Windows remembering their folders at the same moment each keep theirs.
+#[test]
+fn folders_remembered_at_once_are_all_kept() {
+    let config = signed_in("https://www.overleaf.com");
+    let folders: Vec<TempDir> = (0..8).map(|n| TempDir::new(&format!("window-{n}"))).collect();
+    std::thread::scope(|scope| {
+        for folder in &folders {
+            let config = &config;
+            scope.spawn(move || remember_local_copy(config, folder));
+        }
+    });
+    let mut remembered = read_index(&config).folders;
+    remembered.sort();
+    let mut expected: Vec<PathBuf> =
+        folders.iter().map(|folder| folder.canonicalize().unwrap()).collect();
+    expected.sort();
+    assert_eq!(remembered, expected);
 }
 
 #[test]

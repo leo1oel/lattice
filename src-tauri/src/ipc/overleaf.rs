@@ -336,9 +336,6 @@ pub async fn overleaf_clone_project(
     // second copy beside it. Only meaningful when `overleaf_clone_target`
     // reported `occupied`.
     adopt: Option<bool>,
-    // `separate`: download a second copy even when one is already linked
-    // here — the picker's "Download a new copy".
-    separate: Option<bool>,
 ) -> Result<String, String> {
     let config = overleaf_config_dir(&app)?;
     let parent = overleaf_projects_dir(&app)?;
@@ -358,8 +355,7 @@ pub async fn overleaf_clone_project(
                 );
             }
         }
-        let separate = separate.unwrap_or(false);
-        overleaf::clone_project(&config, &project_id, &name, &parent, access_level, separate, &progress)
+        overleaf::clone_project(&config, &project_id, &name, &parent, access_level, &progress)
     })
     .await;
     let root = settled(&app, downloaded).await?;
@@ -401,6 +397,21 @@ pub async fn overleaf_local_copies(
             names.iter().filter_map(|name| overleaf::download_folder(&parent, name).ok());
         let candidates: Vec<PathBuf> = folders.iter().map(PathBuf::from).chain(downloads).collect();
         Ok(overleaf::local_copies(&config, &candidates))
+    })
+    .await
+}
+
+/// Ready the folder `overleaf_local_copies` found for `project_id` to open,
+/// recording the role the dashboard reports now, as reopening a download does.
+#[tauri::command]
+pub async fn overleaf_reopen_local_copy(
+    app: AppHandle, state: State<'_, AppState>, path: String, project_id: String,
+    access_level: Option<String>,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let _lease = state.lease(&path, Lease::Shared).await;
+    run_blocking("Overleaf local copy", move || {
+        overleaf::reopen_local_copy(&config, Path::new(&path), &project_id, access_level.as_deref())
     })
     .await
 }

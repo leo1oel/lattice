@@ -21,6 +21,7 @@ const pickerCommands = {
     invites: [],
   }),
   overleaf_local_copies: () => ({ vlm: { path: NATIVE_VLM, display: "~/Papers/Native VLM" } }),
+  overleaf_reopen_local_copy: () => undefined,
   open_project_window: () => ({ label: "project-2", focusedExisting: true }),
 };
 
