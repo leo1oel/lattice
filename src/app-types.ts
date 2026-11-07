@@ -15,7 +15,7 @@ type RootDocument = {
 };
 
 export type ProjectVenue =
-  | "neurips" | "icml" | "iclr" | "acl" | "cvpr" | "aaai" | "thuthesis" | "ustcthesis" | "blank" | "chinese-article"
+  | "neurips" | "icml" | "iclr" | "acl" | "cvpr" | "cvpr-rebuttal" | "aaai" | "thuthesis" | "ustcthesis" | "blank" | "chinese-article"
   | `local:${string}`;
 
 export type ProjectManifest = {

@@ -711,6 +711,10 @@ msgstr "{name} {edition}"
 msgid "{name} {edition} (preprint)"
 msgstr "{name} {edition}（预印本）"
 
+#: src/project/project-dialogs.tsx
+msgid "{name} {edition} Rebuttal"
+msgstr "{name} {edition} 作者回复（Rebuttal）"
+
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
 msgstr "无法读取 {name}。{reason}"
@@ -15744,8 +15748,8 @@ msgid "Unknown source response"
 msgstr "来源返回未知结果"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
-msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、aaai、thuthesis、ustcthesis、blank 或 chinese-article"
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、cvpr-rebuttal、aaai、thuthesis、ustcthesis、blank 或 chinese-article"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"

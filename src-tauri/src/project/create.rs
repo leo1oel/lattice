@@ -33,6 +33,10 @@ const ICLR_TEMPLATE: TemplateFiles = venue_template!("iclr-2026":
 const ACL_TEMPLATE: TemplateFiles = venue_template!("acl": "main.tex", "acl.sty", "acl_natbib.bst");
 const CVPR_TEMPLATE: TemplateFiles =
     venue_template!("cvpr-2027": "main.tex", "cvpr.sty", "ieeenat_fullname.bst");
+// The author kit's `rebuttal.tex`, byte for byte, as `main.tex`, with the
+// `preamble.tex` it inputs.
+const CVPR_REBUTTAL_TEMPLATE: TemplateFiles = venue_template!("cvpr-2027-rebuttal":
+    "main.tex", "preamble.tex", "cvpr.sty", "ieeenat_fullname.bst");
 const AAAI_TEMPLATE: TemplateFiles =
     venue_template!("aaai-2027": "main.tex", "aaai2027.sty", "aaai2027.bst");
 // The classes draw their covers from these PDFs at fixed paths.
@@ -88,6 +92,8 @@ pub enum Venue {
     Iclr,
     Acl,
     Cvpr,
+    /// The one-page CVPR author response.
+    CvprRebuttal,
     Aaai,
     Thuthesis,
     Ustcthesis,
@@ -104,13 +110,14 @@ impl Venue {
             "iclr" => Ok(Self::Iclr),
             "acl" | "arr" => Ok(Self::Acl),
             "cvpr" => Ok(Self::Cvpr),
+            "cvpr-rebuttal" => Ok(Self::CvprRebuttal),
             "aaai" => Ok(Self::Aaai),
             "thuthesis" => Ok(Self::Thuthesis),
             "ustcthesis" => Ok(Self::Ustcthesis),
             "blank" => Ok(Self::Blank),
             "chinese-article" | "ctexart" => Ok(Self::ChineseArticle),
             other => Err(format!(
-                "Unknown venue “{other}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+                "Unknown venue “{other}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
             )),
         }
     }
@@ -122,6 +129,7 @@ impl Venue {
             Self::Iclr => "iclr",
             Self::Acl => "acl",
             Self::Cvpr => "cvpr",
+            Self::CvprRebuttal => "cvpr-rebuttal",
             Self::Aaai => "aaai",
             Self::Thuthesis => "thuthesis",
             Self::Ustcthesis => "ustcthesis",
@@ -138,6 +146,7 @@ impl Venue {
             Self::Neurips | Self::Iclr => Some(9),
             Self::Icml | Self::Acl | Self::Cvpr => Some(8),
             Self::Aaai => Some(7),
+            Self::CvprRebuttal => Some(1),
             Self::Thuthesis | Self::Ustcthesis | Self::Blank | Self::ChineseArticle => None,
         }
     }
@@ -153,7 +162,13 @@ impl Venue {
     /// gets XeLaTeX and gives up the live preview.
     fn engine(self) -> &'static str {
         match self {
-            Self::Neurips | Self::Icml | Self::Iclr | Self::Acl | Self::Cvpr | Self::Aaai => "pdf",
+            Self::Neurips
+            | Self::Icml
+            | Self::Iclr
+            | Self::Acl
+            | Self::Cvpr
+            | Self::CvprRebuttal
+            | Self::Aaai => "pdf",
             Self::Thuthesis | Self::Ustcthesis | Self::ChineseArticle => "xelatex",
             Self::Blank => "lualatex",
         }
@@ -172,11 +187,22 @@ impl Venue {
             Self::Iclr => ICLR_TEMPLATE,
             Self::Acl => ACL_TEMPLATE,
             Self::Cvpr => CVPR_TEMPLATE,
+            Self::CvprRebuttal => CVPR_REBUTTAL_TEMPLATE,
             Self::Aaai => AAAI_TEMPLATE,
             Self::Thuthesis => THUTHESIS_TEMPLATE,
             Self::Ustcthesis => USTCTHESIS_TEMPLATE,
             Self::Blank => &[("main.tex", b"\\documentclass{article}\n\\begin{document}\n\\title{LATTICE_PROJECT_TITLE}\n\\maketitle\n\n\\end{document}\n")],
             Self::ChineseArticle => &[("main.tex", b"\\documentclass{ctexart}\n\\begin{document}\n\\title{LATTICE_PROJECT_TITLE}\n\\maketitle\n\n\\end{document}\n")],
+        }
+    }
+
+    /// The bibliography a new project starts with, empty. The rebuttal keeps
+    /// the author kit's `\\bibliography{main}` unmodified, so its citations
+    /// go to `main.bib`.
+    fn bibliography(self) -> &'static str {
+        match self {
+            Self::CvprRebuttal => "main.bib",
+            _ => "references.bib",
         }
     }
 }
@@ -196,7 +222,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
             is_default: true,
             chosen: false,
         }],
-        primary_bibliography: "references.bib".to_string(),
+        primary_bibliography: venue.bibliography().to_string(),
         trusted: false,
         engine: venue.engine().to_string(),
         keep_engine: false,
@@ -238,7 +264,7 @@ pub fn create_with_venue(parent: &Path, name: &str, venue: Venue) -> Result<Path
             fs::write(path, contents).map_err(err)?;
         }
     }
-    fs::write(root.join("references.bib"), "").map_err(err)?;
+    fs::write(root.join(venue.bibliography()), "").map_err(err)?;
     Ok(root)
 }
 
@@ -401,12 +427,13 @@ mod tests {
         "ustcthesis.cls",
     ];
 
-    const ALL_VENUES: [Venue; 10] = [
+    const ALL_VENUES: [Venue; 11] = [
         Venue::Neurips,
         Venue::Icml,
         Venue::Iclr,
         Venue::Acl,
         Venue::Cvpr,
+        Venue::CvprRebuttal,
         Venue::Aaai,
         Venue::Thuthesis,
         Venue::Ustcthesis,
@@ -560,6 +587,42 @@ mod tests {
                 let log = fs::read_to_string(root.join("main.log")).unwrap();
                 assert!(!log.contains("Missing character"), "{}: {log}", venue.as_str());
             }
+        }
+    }
+
+    #[test]
+    fn the_cvpr_rebuttal_is_the_author_kits_response_template_unmodified() {
+        let parent = Fixture::empty("cvpr-rebuttal");
+        let root = create_with_venue(&parent.root, "cvpr-response", Venue::CvprRebuttal).unwrap();
+        let manifest = read_manifest(&root).unwrap();
+        assert_eq!(Venue::parse(&manifest.venue), Ok(Venue::CvprRebuttal));
+        assert_eq!(
+            (
+                manifest.engine.as_str(),
+                manifest.page_budget,
+                manifest.primary_bibliography.as_str()
+            ),
+            ("pdf", Some(1), "main.bib")
+        );
+        // Every file, main.tex included, is the author kit's byte for byte:
+        // the response keeps the kit's title and its \bibliography{main}.
+        for (file, contents) in CVPR_REBUTTAL_TEMPLATE {
+            assert_eq!(fs::read(root.join(file)).unwrap(), *contents, "{file}");
+        }
+        let main = read(&root, "main.tex");
+        for expected in
+            ["\\usepackage[rebuttal]{cvpr}", "\\input{preamble}", "\\bibliography{main}"]
+        {
+            assert!(main.contains(expected), "{expected}");
+        }
+        assert_eq!(read(&root, "main.bib"), "");
+        assert!(!root.join("references.bib").exists());
+        // The paper and the response ship the same release's style files.
+        for file in ["cvpr.sty", "ieeenat_fullname.bst"] {
+            let style = |template: TemplateFiles| {
+                template.iter().find(|(path, _)| *path == file).unwrap().1
+            };
+            assert_eq!(style(CVPR_REBUTTAL_TEMPLATE), style(CVPR_TEMPLATE), "{file}");
         }
     }
 
