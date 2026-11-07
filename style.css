@@ -324,6 +324,7 @@ code { font: .9em/1 var(--mono); }
 .download-title { color: var(--ink); font: 400 var(--display)/.95 var(--serif); letter-spacing: -.03em; }
 .download-go { margin-top: 64px; }
 .download .release { margin-top: 18px; }
+.hero-lede .intel-entry { margin-top: -6px; color: var(--muted); }
 
 /* ── Footer ── */
 .footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 28px; max-width: calc(1440px - 2 * 96px); margin: 0 var(--gutter) 56px; padding-top: 28px; font: var(--small)/20px var(--sans); color: var(--muted); }
