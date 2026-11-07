@@ -95,7 +95,7 @@ No TeX yet? Lattice offers to install BasicTeX for you: it is the first step of 
 
 Official builds are signed, notarized by Apple, and update themselves.
 
-**Linux (experimental).** Releases that pass their Linux checks also carry an x86_64 `.AppImage`, for Ubuntu 22.04 or later, Fedora 41 and similar distributions.
+**Linux (experimental).** Releases that pass their Linux checks also carry an x86_64 `.AppImage`, for Ubuntu 22.04 or later, Fedora 45 and similar distributions.
 Make it executable (`chmod +x Lattice_*.AppImage`) and run it; it builds with the TeX Live from your distribution's packages.
 On Linux, Lattice does not update itself, so download each new release, and the built-in Agent is not available yet.
 

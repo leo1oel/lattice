@@ -155,7 +155,7 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
    not a font) and `check-font-leaks.mjs appdir` on its extracted contents
    (no Timeless file outside the binary, no font outside the bundled
    runtimes under `usr/lib/Lattice/`).
-2. **smoke** (Docker guests `ubuntu:22.04`, `ubuntu:24.04`, `fedora:41`,
+2. **smoke** (Docker guests `ubuntu:22.04`, `ubuntu:24.04`, `fedora:45`,
    with GTK 3, Mesa and Xvfb): `.github/scripts/smoke-appimage.sh` extracts
    the AppImage, requires every bundled ELF to resolve its libraries and its
    glibc/libstdc++ versions, and requires the app to still be running 20 s
