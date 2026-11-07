@@ -51,7 +51,7 @@ export function skipGetStartedStep(step: GetStartedStepId) {
 
 /** The sample's manuscript (src-tauri/templates/tutorial/main.tex), and the \title line it ships with. */
 export const SAMPLE_MANUSCRIPT = "main.tex";
-export const SAMPLE_TITLE = "\\title{Understanding Attention: A Worked Guide to Transformer Reasoning}";
+const SAMPLE_TITLE = "\\title{Understanding Attention: A Worked Guide to Transformer Reasoning}";
 
 export const isTitle = (line: string) => line.trimStart().startsWith("\\title{");
 
