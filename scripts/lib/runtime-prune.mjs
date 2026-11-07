@@ -41,11 +41,17 @@ const NATIVE_CANDIDATE = /(?:^[^.]+$|\.(?:node|so|dylib|dll|exe)$|\.so\.\d+(?:\.
 
 const MACH_O_CPU_ARM64 = 0x0100000c;
 const MACH_O_CPU_X86_64 = 0x01000007;
+// ELF e_machine (a little-endian half-word at offset 18) per npm Linux CPU.
+const ELF_MACHINE = { "linux-x64": 0x3e, "linux-arm64": 0xb7 };
+// What a musl-linked binary needs and a glibc system lacks: musl's loader
+// (`ld-musl-x86_64.so.1`) and its libc, whose soname is plain `libc.so`
+// (Alpine's is `libc.musl-x86_64.so.1`); glibc's is `libc.so.6`.
+const MUSL_LINKAGE = /^(?:ld-musl-.+|libc\.musl-.+|libc\.so)$/;
 
 function readHeader(path) {
   const descriptor = openSync(path, "r");
   try {
-    const header = Buffer.alloc(8);
+    const header = Buffer.alloc(20);
     const length = readSync(descriptor, header, 0, header.length, 0);
     return header.subarray(0, length);
   } finally {
@@ -54,18 +60,66 @@ function readHeader(path) {
 }
 
 /**
- * True for a binary macOS on `platform` can never load: an ELF or PE file, or
- * a thin Mach-O Node addon for the other CPU (an arm64 Node cannot dlopen an
- * x86_64 addon). A thin x86_64 executable could still run under Rosetta, and
- * universal binaries cover both CPUs, so neither is foreign.
+ * The basenames of what a 64-bit little-endian ELF file links against: its
+ * program interpreter (PT_INTERP) and its DT_NEEDED libraries. Read from the
+ * headers rather than searched for, since a glibc build of Node or Bun can
+ * carry these names as text in its own libc detection.
+ */
+function elfLinkage(contents) {
+  if (contents.length < 64 || contents[4] !== 2 || contents[5] !== 1) return [];
+  const u64 = (offset) => Number(contents.readBigUInt64LE(offset));
+  const cString = (offset) => {
+    const end = contents.indexOf(0, offset);
+    return contents.toString("latin1", offset, end < 0 ? contents.length : end);
+  };
+  const segments = [];
+  const [phoff, phentsize, phnum] = [u64(32), contents.readUInt16LE(54), contents.readUInt16LE(56)];
+  for (let index = 0; index < phnum; index += 1) {
+    const at = phoff + index * phentsize;
+    if (at + 56 > contents.length) break;
+    segments.push({ type: contents.readUInt32LE(at), offset: u64(at + 8), vaddr: u64(at + 16), size: u64(at + 32) });
+  }
+  const fileOffset = (vaddr) => {
+    const load = segments.find((segment) => segment.type === 1 && vaddr >= segment.vaddr && vaddr < segment.vaddr + segment.size);
+    return load ? vaddr - load.vaddr + load.offset : null;
+  };
+  const names = segments.filter((segment) => segment.type === 3).map((segment) => cString(segment.offset));
+  const dynamic = segments.find((segment) => segment.type === 2);
+  if (dynamic) {
+    const needed = [];
+    let strtab = null;
+    for (let at = dynamic.offset; at + 16 <= Math.min(dynamic.offset + dynamic.size, contents.length); at += 16) {
+      const tag = contents.readBigInt64LE(at);
+      if (tag === 0n) break;
+      if (tag === 1n) needed.push(u64(at + 8));
+      if (tag === 5n) strtab = fileOffset(u64(at + 8));
+    }
+    if (strtab !== null) for (const name of needed) if (strtab + name < contents.length) names.push(cString(strtab + name));
+  }
+  return names.map((name) => basename(name));
+}
+
+/**
+ * True for a binary `platform` can never load. On macOS: an ELF or PE file,
+ * or a thin Mach-O Node addon for the other CPU (an arm64 Node cannot dlopen
+ * an x86_64 addon); a thin x86_64 executable could still run under Rosetta,
+ * and universal binaries cover both CPUs, so neither is foreign. On Linux: a
+ * Mach-O or PE Node addon, an ELF file for the other CPU, or one linked
+ * against musl. Lattice ships Linux as a glibc AppImage, and pnpm installs the
+ * `-musl` builds of rolldown, lightningcss and the like beside the `-gnu`
+ * ones because it cannot tell which libc the runtime will meet.
  */
 export function isForeignBinary(path, platform) {
   if (!NATIVE_CANDIDATE.test(basename(path))) return false;
   const header = readHeader(path);
   if (header.length < 4) return false;
-  if (header.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) return !platform.startsWith("linux-");
+  if (header.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) {
+    if (!platform.startsWith("linux-")) return true;
+    if (header.length >= 20 && ELF_MACHINE[platform] !== undefined && header.readUInt16LE(18) !== ELF_MACHINE[platform]) return true;
+    return elfLinkage(readFileSync(path)).some((name) => MUSL_LINKAGE.test(name));
+  }
   if (header[0] === 0x4d && header[1] === 0x5a && /\.(?:node|dll|exe)$/i.test(path)) return !platform.startsWith("win32-");
-  if (header.length === 8 && header.readUInt32LE(0) === 0xfeedfacf && path.endsWith(".node")) {
+  if (header.length >= 8 && header.readUInt32LE(0) === 0xfeedfacf && path.endsWith(".node")) {
     const cpu = header.readUInt32LE(4);
     if (platform === "darwin-arm64") return cpu !== MACH_O_CPU_ARM64;
     if (platform === "darwin-x64") return cpu !== MACH_O_CPU_X86_64;
@@ -82,7 +136,7 @@ export function isForeignBinary(path, platform) {
  * Lattice ships Linux as a glibc AppImage. macOS runtimes are left to the
  * file checks above, as they always were.
  */
-export function isForeignLinuxPackage(manifest, platform) {
+function isForeignLinuxPackage(manifest, platform) {
   if (!platform.startsWith("linux-")) return false;
   const cpu = platform.slice("linux-".length);
   const excludes = (field, value) => {
