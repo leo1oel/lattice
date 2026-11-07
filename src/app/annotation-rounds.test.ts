@@ -4,6 +4,7 @@ import { reviseAnnotationWithAgent } from "../agent/agent-annotations";
 import { annotateSelection } from "../canvas/annotate-selection";
 import { createEditorComment, type AnnotationIntent, type AnnotationRound, type EditorComment } from "../editor/comments/editor-comment-data";
 import { sourceRangeForPdfText } from "../editor/comments/pdf-source-anchor";
+import { getStartedProgress } from "../onboarding/get-started-progress";
 import { AnnotationRounds, type AnnotationRoundsDeps } from "./annotation-rounds";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -123,6 +124,21 @@ describe("AnnotationRounds / revise scope", () => {
 
     expect(await asked()).toEqual([passage(2)]);
     expect(proposed()).toEqual([passage(2)]);
+  });
+
+  it("counts an Annotate answer as the Get started Agent step done, and a failed one not", async () => {
+    localStorage.clear();
+    vi.mocked(reviseAnnotationWithAgent).mockRejectedValueOnce(new Error("no provider"));
+    const first = roundsWith([annotationOn(0, 1, "rewrite")]);
+    first.rounds.revise("open");
+    await first.asked();
+    expect(getStartedProgress.get().done).not.toContain("agent");
+
+    const second = roundsWith([annotationOn(1, 1, "shorten")]);
+    second.rounds.revise("open");
+    await second.asked();
+    expect(getStartedProgress.get().done).toContain("agent");
+    localStorage.clear();
   });
 
   it("revises every open annotation from the panel's Revise", async () => {

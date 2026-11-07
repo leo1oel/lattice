@@ -28,9 +28,9 @@ lands in the Paper file and in the app, through the review loop in
   `--display-font` (Timeless Serif, or Instrument Serif without the private
   fonts) at regular weight. Chinese falls through to Songti SC, the macOS
   system serif, so a title stays a serif in either language. It is used for
-  titles only: the welcome title, dialog and Settings page titles, the guided
-  tour's card, a workspace with every panel closed, the error page, and the
-  verdicts that open the submission checklist and the Build button's card.
+  titles only: the welcome title, dialog and Settings page titles, a
+  workspace with every panel closed, the error page, and the verdicts that
+  open the submission and Get started checklists and the Build button's card.
 - The product accent is neutral by default (Graphite). Settings → Appearance
   offers six accent presets and a custom color; each reads at 4.6:1 as text on
   every surface of every tint, and a custom pick is fitted to that floor.
@@ -316,7 +316,7 @@ role's leading (or on `normal`) is a missing role, not a choice.
 | Role | Chrome | Settings | Weight | Family | Typical use |
 | --- | --- | --- | --- | --- | --- |
 | Display | 30 / 36 | 30 / 36 | 400 | serif | the one title on a page that has only one: the welcome screen, a paper's title, the error page |
-| Title | 18 / 24 | 24 / 30 | 400 | serif | dialog and Settings page titles; the guided tour's card; a workspace with every panel closed |
+| Title | 18 / 24 | 24 / 30 | 400 | serif | dialog and Settings page titles; the verdict lines of the Submission and Get started checklists; a workspace with every panel closed |
 | Subtitle | 13 / 18 | 14 / 20 | 600 | interface | panel, drawer, sheet and group headings; the project switcher |
 | Body | 13 / 20 | 14 / 22 | 400 | interface | menus, popovers, copy, the Agent's messages and composer |
 | Caption | 12 / 16 | 12 / 18 | 400 | interface | metadata, paths, descriptions, helper text, menu group labels |
@@ -363,14 +363,15 @@ Reading to typeset; Compact title (13/16) and Title (14/18) to subtitle; Large
 title (16/20) and Heading to title; Display to display; Project tree, Diff code
 and Diff metadata to the aliases above.
 
-Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
+Compact interface copy — titles, setting descriptions, dialog subtitles, empty states, and helper text — does not end in a full stop.
 Punctuation inside multi-sentence copy remains.
 A description, subtitle, or explainer paragraph appears only when it says something the label or control does not.
 Structural section headings stay: on a page, panel or sidebar with three or more groups, each group carries a short noun title (a settings group, a sidebar cluster, a drawer section), a one-item group included, so the surface scans by its headings. A page's leading group may go untitled, since the page title names it. A heading titles its group and never explains it, so no sentence sits under it.
 The interface carries no taglines, and labels do the explaining: a row, option or button whose label needs a sentence under it gets a better label, not the sentence.
 What stays as secondary copy is what the writer would otherwise miss: why a control is disabled or has no effect, a warning before something irreversible, overwritten or shared (what an export contains, what leaves the Mac), an error and its way out, and credits a licence requires.
 A shortcut or gesture that only a hint line taught moves into its control's tooltip (`Tip`'s `shortcut`, or the hover card a control already has); a list picker draws no ↑↓/↵/Esc legend.
-A status line beside a loading indicator goes to assistive technology instead (see the loading rule below), and a step position the progress dots already show (the guided tour's) is read out, not printed.
+A status line beside a loading indicator goes to assistive technology instead (see the loading rule below), and a count a progress track already shows is read out, not printed.
+Onboarding is the one exception: each Get started step (`src/onboarding/get-started-steps.ts`) carries one sentence of why under its title, because a first-time writer cannot yet tell what a label stands for. Nothing else borrows it, and a step never gets a second sentence: the only extras are the Agent step's connect instructions, folded under a closed disclosure so a writer already connected is not told to install, and the cite step's paper-tools aside, shown only while the paper tools are missing.
 
 ## Geometry
 
@@ -489,7 +490,7 @@ takes a level from `foundations.css`.
 | Raised | `--elevation-raised` | `--surface-elevated` | ring and a contact shadow | a plate lifted inside a surface: the chosen segment, zoom controls over a figure, a resize handle |
 | Popover | `--elevation-popover` | `--surface-elevated` | ring and shadow | menus, selects, popovers, tooltips, hover cards, the editor's tooltips and selection toolbar, the PDF preview's loading status and notices |
 | Floating | `--elevation-floating` | `--surface-elevated` | ring and a deeper shadow | floating panels, drawers, toasts, the build's diagnostics card, a dragged item |
-| Dialog | `--elevation-dialog` | `--surface-elevated` | ring and the deepest shadow | modal dialogs, Settings, the guided tour's card |
+| Dialog | `--elevation-dialog` | `--surface-elevated` | ring and the deepest shadow | modal dialogs, Settings, Get started's "Show me" hint |
 
 - The ring (`--elevation-ring`) is the edge; a floating surface does not add a
   border on top of it.
@@ -741,7 +742,7 @@ moves, the slower the tier.
 | --- | --- | --- | --- |
 | fast | 80ms spring, no bounce | 60ms tween | hover, focus, fades, tooltips, selection marks |
 | moderate | 160ms spring, no bounce | 120ms tween | travel and small expansion: tab indicators, switches, rows, a view switch's fade |
-| slow | 240ms spring, bounce 0.12 | 160ms tween | large surfaces: dialogs, drawers, split panes, the guided tour, a theme switch, the Polish card unrolling |
+| slow | 240ms spring, bounce 0.12 | 160ms tween | large surfaces: dialogs, drawers, split panes, a theme switch, the Polish card unrolling |
 | pop | 220ms spring, bounce 0.2 | 120ms tween | a popup springing from what opened it (`.popup-motion`): menus, selects, popovers, the selection toolbar, completions, hover cards; a count rolling to its next value |
 
 - **CSS takes a tier whole:** `transition: opacity var(--motion-fast)`,

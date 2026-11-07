@@ -7,7 +7,7 @@ import { TERMINAL_TOGGLE_KEY } from "../terminal/terminal-layout";
 import type { AppCommand } from "./use-app-commands";
 
 export const SINGLETON_PANELS = [
-  "project", "papers", "agent", "pdf", "terminal", "history", "comments", "literature", "todos", "checklist", "git", "overleaf",
+  "project", "papers", "agent", "pdf", "terminal", "history", "comments", "literature", "todos", "checklist", "git", "overleaf", "start",
 ] as const;
 
 /**

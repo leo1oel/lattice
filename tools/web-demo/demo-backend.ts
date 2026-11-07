@@ -33,7 +33,7 @@ const BUILD_SOURCE = /\.(?:tex|bib|sty|cls)$/;
 export function installDemoBackend(files: ProjectFiles): { tauri: MockTauri; unhandled: Set<string> } {
   const project = new MockProject({ root: DEMO_ROOT, id: "understanding-attention", name: "Understanding Attention", files });
   const compiledFrom = new Map([...files].filter(([path, content]) => BUILD_SOURCE.test(path) && typeof content === "string"));
-  // The build fails on this until the visitor fixes it: the explained error is part of the tour.
+  // The build fails on this until the visitor fixes it: Get started's build step is reading how Lattice explains it.
   stageTypo(project.files);
   const unhandled = new Set<string>();
   let pdf: Promise<ArrayBuffer> | null = null;

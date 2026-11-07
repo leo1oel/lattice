@@ -5,25 +5,26 @@ import type { DoctorReport } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { TexDependencyInstallStatus } from "../build/tex-dependency-installer";
 import {
-  isCompileSetupMissing,
   isOnlyPaperToolsMissing,
   isRequiredSetupMissing,
   texDependencyInstallFailure,
   type TexDependencyInstallProgress,
 } from "../build/tex-setup";
-import { deferPaperTools, hasDeferredPaperTools } from "../settings/app-settings";
 import { logAction, notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useRefState, whenIdle } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { isGetStartedShown } from "../onboarding/get-started-progress";
 
 /**
- * The TeX toolchain check ("doctor"), the setup wizard it opens when a
- * required tool is missing, and on-demand installs of single LaTeX packages a
- * build reported missing. `rebuild` runs after a package install succeeds.
+ * The TeX toolchain check ("doctor"), the setup wizard, and on-demand installs
+ * of single LaTeX packages a build reported missing. `rebuild` runs after a
+ * package install succeeds.
  *
- * Missing TeX or conference fonts hold the app in the wizard: nothing compiles
- * without them. Missing paper tools alone do not: launch asks once, "Install
- * later" is remembered, and the first paper feature that needs them reopens it.
+ * The wizard opens when asked for (Get started's first step, the welcome
+ * screen, the palette, Settings), when a build cannot start for missing TeX,
+ * and when a paper feature needs the paper tools. Missing TeX or conference
+ * fonts hold the app in it: nothing compiles without them. Missing paper tools
+ * alone can be put off with "Install later".
  */
 export function useTexSetup(rebuild: () => void) {
   const { t } = useLingui();
@@ -39,21 +40,18 @@ export function useTexSetup(rebuild: () => void) {
   const rebuildRef = useLatestRef(rebuild);
 
   // Idle-deferred: run_doctor shells out to probe the TeX toolchain, and
-  // nothing needs its report during first paint. The timeout keeps the setup
-  // wizard appearing within a few seconds on a missing toolchain.
+  // nothing needs its report during first paint. Launch only reads it: what
+  // is missing is Get started's first step (onboarding/get-started-panel.tsx),
+  // a build that cannot start opens setup, and a paper feature asks for the
+  // paper tools when it needs them. No dialog lands on a window just opened.
   useEffect(() => {
-    // A perf-lab run measures the editor, not the toolchain probe and the
-    // setup wizard it may open over the window.
+    // A perf-lab run measures the editor, not the toolchain probe.
     if (import.meta.env.VITE_PERF_LAB === "1" && window.__latticeLab) return;
     const cancel = whenIdle(() => {
       const generation = ++doctorGenerationRef.current;
       void invoke<DoctorReport>("run_doctor")
         .then((report) => {
-          if (generation !== doctorGenerationRef.current) return;
-          setDoctorReport(report);
-          if (isCompileSetupMissing(report) || (isOnlyPaperToolsMissing(report) && !hasDeferredPaperTools())) {
-            setWizardOpen(true);
-          }
+          if (generation === doctorGenerationRef.current) setDoctorReport(report);
         })
         .catch(() => {
           // Tests and incomplete environments may not expose doctor.
@@ -114,21 +112,23 @@ export function useTexSetup(rebuild: () => void) {
     }
   }, [doctorReport, runDoctor, t]);
 
-  // Closing over missing paper tools alone is "Install later": launch stops
-  // asking. Closing after an install, or over anything else, is not.
   const closeWizard = useCallback(() => {
-    if (isOnlyPaperToolsMissing(doctorReport)) deferPaperTools();
     setWizardOpen(false);
     setPaperToolsNeeded(false);
-  }, [doctorReport]);
+  }, []);
 
-  /** A build found no TeX toolchain: drop the stale report and show setup. */
+  /**
+   * A build found no TeX toolchain: drop the stale report and show setup. With
+   * Get started shown, its first step reports it instead, from a fresh check,
+   * and offers the install, so the dialog never lands on the checklist.
+   */
   const openForMissingTex = useCallback(() => {
     doctorGenerationRef.current += 1;
     setDoctorReport(null);
     setDoctorBusy(false);
-    setWizardOpen(true);
-  }, []);
+    if (isGetStartedShown()) void runDoctor();
+    else setWizardOpen(true);
+  }, [runDoctor]);
 
   const installDependency = useCallback((missingFile: string) => {
     if (installRef.current?.installing) return;

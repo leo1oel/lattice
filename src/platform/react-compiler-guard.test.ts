@@ -123,7 +123,6 @@ const BASELINE: Record<string, number> = {
   "src/history/conflict-resolver.tsx": 1,
   "src/history/history-drawer.tsx": 1,
   "src/history/use-git-versions.ts": 2,
-  "src/onboarding/guided-tour.tsx": 1,
   "src/overleaf/overleaf-connect.tsx": 1,
   "src/overleaf/overleaf-review.tsx": 1,
   "src/overleaf/use-overleaf-chat.ts": 1,

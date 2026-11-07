@@ -298,19 +298,29 @@ fn create_skeleton(root: &Path) -> Result<(), String> {
     fs::write(root.join(".gitignore"), ignore).map_err(err)
 }
 
-/// Recreate the stable sample project used by the in-app tutorial.
-/// The managed tutorial is disposable: every launch starts from the bundled baseline.
+/// The sample's version, in its `.research/tutorial.json`: a copy at another
+/// version was made from another build's sample, and is made again.
+const TUTORIAL_VERSION: u64 = 9;
+
+/// The sample project the in-app tutorial opens, made from the bundled
+/// baseline when it is missing or another build's. A copy this build made
+/// opens as the writer left it, edits and all: Get started picks up where it
+/// was, and a writer who changed the title keeps that step. A folder of the
+/// same name that Lattice does not manage is never touched.
 pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     let root = parent.join(TUTORIAL_PROJECT_NAME);
     if root.exists() {
-        let managed = fs::read(root.join(".research/tutorial.json"))
+        let marker = fs::read(root.join(".research/tutorial.json"))
             .ok()
             .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
-            .is_some_and(|marker| marker["id"] == "understanding-attention");
-        if !managed {
+            .filter(|marker| marker["id"] == "understanding-attention");
+        let Some(marker) = marker else {
             return Err(format!(
                 "A folder named “{TUTORIAL_PROJECT_NAME}” already exists in Lattice Tutorials. Move it, then try again."
             ));
+        };
+        if marker["version"].as_u64() == Some(TUTORIAL_VERSION) {
+            return Ok(root);
         }
         fs::remove_dir_all(&root).map_err(err)?;
     }
@@ -327,7 +337,9 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
         "\\ProvidesPackage{neurips}",
         1,
     );
-    let marker = "{\n  \"id\": \"understanding-attention\",\n  \"version\": 9\n}\n";
+    let marker = format!(
+        "{{\n  \"id\": \"understanding-attention\",\n  \"version\": {TUTORIAL_VERSION}\n}}\n"
+    );
     for (relative, contents) in [(".research/brief.md", TUTORIAL_BRIEF.as_bytes())]
         .into_iter()
         .chain([(".research/tutorial.json", marker.as_bytes())])
@@ -407,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn tutorial_project_is_complete_and_resets_on_reopen() {
+    fn tutorial_project_is_complete_and_kept_until_another_build_replaces_it() {
         let parent = Fixture::empty("tutorial-project");
         let root = create_tutorial(&parent.root).unwrap();
         for (relative, contents) in TUTORIAL_FILES {
@@ -445,12 +457,24 @@ mod tests {
             .unwrap()
             .starts_with(b"%PDF-1.3"));
 
+        // Opened again, the writer's copy is kept as they left it.
         let notes = read(&root, "notes.md");
         fs::write(root.join("notes.md"), "learner edit\n").unwrap();
-        fs::write(root.join("learner-file.txt"), "temporary\n").unwrap();
+        fs::write(root.join("learner-file.txt"), "kept\n").unwrap();
+        assert_eq!(create_tutorial(&parent.root).unwrap(), root);
+        assert_eq!(read(&root, "notes.md"), "learner edit\n");
+        assert_eq!(read(&root, "learner-file.txt"), "kept\n");
+
+        // Another build's copy is made again from this build's sample.
+        fs::write(
+            root.join(".research/tutorial.json"),
+            "{\"id\":\"understanding-attention\",\"version\":8}",
+        )
+        .unwrap();
         assert_eq!(create_tutorial(&parent.root).unwrap(), root);
         assert_eq!(read(&root, "notes.md"), notes);
         assert!(!root.join("learner-file.txt").exists());
+        assert_eq!(json(".research/tutorial.json")["version"], 9);
 
         // A folder of the same name that Lattice does not manage is never deleted.
         fs::write(root.join(".research/tutorial.json"), "{\"id\":\"someone-else\"}").unwrap();

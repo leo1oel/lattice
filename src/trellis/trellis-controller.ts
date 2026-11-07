@@ -1,12 +1,11 @@
 /**
  * The seam between App and the Trellis workspace.
  *
- * App keeps owning every document, buffer and panel's React tree exactly as in
- * the fixed layout. Trellis only owns *where* things are. Each panel's content
- * is rendered by App through a portal into a stable host element, and the
- * matching Trellis view just adopts that host into its content element. So
- * App's state flow (and every cross-panel interaction built on it) is the same
- * in both layouts, and Trellis never sees App re-render.
+ * App owns every document, buffer and panel's React tree; Trellis only owns
+ * *where* things are. Each panel's content is rendered by App through a
+ * portal into a stable host element, which the matching Trellis view adopts
+ * into its content element. So App's state flow (and every cross-panel
+ * interaction built on it) stays App's, and Trellis never sees App re-render.
  *
  * This module is eager and must stay tiny: it imports nothing from Trellis.
  */
@@ -24,7 +23,7 @@ import { terminalHome } from "../terminal/terminal-layout";
 import type { SwitchState } from "../canvas/after-switch";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
-export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist"] as const;
+export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist", "start"] as const;
 export type TrellisToolKind = typeof TOOL_KINDS[number];
 
 /** Which drawer (by the class it passes to ResizableDrawer) docks as which tool panel. */
@@ -37,6 +36,7 @@ const DRAWER_TOOL_CLASSES: Array<[string, TrellisToolKind]> = [
   ["literature-drawer", "literature"],
   ["todo-drawer", "todos"],
   ["checklist-drawer", "checklist"],
+  ["get-started-drawer", "start"],
 ];
 
 /** Frames an editor stays on screen before focus may land in it (see `focusDocument`). */
@@ -822,10 +822,10 @@ export class TrellisController {
     const anchor = views.some((view) => view.panelId === this.pointerPanel && view.placement !== "hidden")
       ? this.pointerPanel : this.documentPanel();
     const existing = views.find((view) => view.type === kind);
-    // Annotations stand beside the document they annotate, never in its place
-    // as a tab of its panel: with the PDF, else right of the documents. Once
-    // placed, they stay where the writer moved them.
-    if (kind === "comments") {
+    // Annotations and Get started stand beside the document, not as tabs of
+    // its panel: with the PDF and with Project, else beside the documents.
+    // Once placed, they stay where the writer puts them.
+    if (kind === "comments" || kind === "start") {
       if (existing) ws.focus(existing.id);
       else ws.open(kind, { id: kind, placement: this.homeOf(kind) });
       return;

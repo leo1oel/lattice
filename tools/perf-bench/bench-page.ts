@@ -139,7 +139,7 @@ const olderText = (text: string) => OLDER_SENTENCES.reduce((older, [now, before]
 /**
  * The project the page has open: the fixture, until the Guided tutorial entry
  * opens the bundled sample (src-tauri/templates/tutorial), as the backend's
- * `open_tutorial_project` does, so the tour can be looked at here.
+ * `open_tutorial_project` does, so Get started can be seen here.
  */
 const TUTORIAL_ROOT = "/bench/Lattice Tutorials/Understanding Attention";
 const tutorialText = import.meta.glob<string>(
@@ -266,7 +266,10 @@ function snapshot() {
     rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
     primaryBibliography: "references.bib",
     trusted: true,
-    venue: "neurips",
+    // The sample carries the venue `create_tutorial` gives it
+    // (src-tauri/src/project/create.rs): Get started tells it from a project
+    // of the writer's own by that.
+    venue: current.root === TUTORIAL_ROOT ? "tutorial" : "neurips",
     deadline: benchDeadline,
     submissionItems: benchItems,
   });

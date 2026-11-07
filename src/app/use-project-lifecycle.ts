@@ -19,6 +19,7 @@ import type { OpenDocuments } from "./use-open-documents";
 import { requestBibliographyIndex, type useProjectLibrary } from "./use-project-library";
 import type { ProjectState } from "./use-project-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { markGetStartedStep, TUTORIAL_VENUE } from "../onboarding/get-started-progress";
 
 /** How long launch shows an empty window while it reopens a project, before the welcome screen. */
 const LAUNCH_EMPTY_WINDOW_MS = 1_000;
@@ -55,8 +56,8 @@ export type ProjectLifecycleDeps = {
   resetProjectUi: () => void;
   /** The project's own scans, which run after its tabs are restored and before its Paper or asset surface opens. */
   scanProject: () => Promise<void>;
-  /** Begin the guided tour, once the tutorial's sample project is open. */
-  startTour: () => void;
+  /** Show the Get started checklist, once the tutorial's sample project is open. */
+  showGetStarted: () => void;
   shellRef: RefObject<HTMLDivElement | null>;
   browserHosted: boolean;
 };
@@ -179,6 +180,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     setProjectMenuOpen(false);
     depsRef.current.resetProjectUi();
     resetForProject(snapshot.root);
+    // A project of the writer's own is Get started's last step, however it was opened.
+    if (!import.meta.env.LATTICE_WEB_DEMO && snapshot.manifest.venue !== TUTORIAL_VENUE) markGetStartedStep("own");
     // The startup reopen defers this build and starts its own once the
     // project is fully entered (see the recent-project auto-reopen below).
     if (!options?.deferInitialBuild) {
@@ -310,17 +313,20 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     return (async () => {
       if (!(await save()) || !await startProjectTransition()) return failed();
       const snapshot = await invoke<ProjectSnapshot>("open_tutorial_project");
-      await enterProject(snapshot);
+      // Get started is shown before the sample's first build, which may find
+      // no TeX: that is the checklist's first step to report.
+      await enterProject(snapshot, { deferInitialBuild: true });
       chooseMode("source");
       markTutorialSeen();
-      depsRef.current.startTour();
+      depsRef.current.showGetStarted();
+      void runBuild(false, { immediatePreview: true });
       return true;
     })().catch((reason: unknown) => {
       cancelProjectTransition();
       showError(toMessage(reason));
       return failed();
     }).finally(() => setBusyLabel(null));
-  }, [cancelProjectTransition, chooseMode, depsRef, enterProject, save, startProjectTransition, t]);
+  }, [cancelProjectTransition, chooseMode, depsRef, enterProject, runBuild, save, startProjectTransition, t]);
 
   // On launch, honor a project explicitly assigned to this window, otherwise
   // reopen the project the writer used last. A genuinely empty first launch
@@ -394,6 +400,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         initialProjectProbe.resolve(snapshot ? "project" : "empty");
         if (!active || !snapshot) return;
         await enterProjectRef.current(snapshot);
+        // The website's demo opens on the tutorial: its visitors start with the checklist.
+        if (import.meta.env.LATTICE_WEB_DEMO && active) depsRef.current.showGetStarted();
       })
       .catch((reason) => {
         initialProjectProbe.resolve("failed");
@@ -402,9 +410,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     return () => {
       active = false;
     };
-    // Both are stable (a useState value and a ref) — listed to satisfy the
+    // All three are stable (a useState value and refs) — listed to satisfy the
     // lint without changing the boot-once behavior.
-  }, [enterProjectRef, initialProjectProbe]);
+  }, [depsRef, enterProjectRef, initialProjectProbe]);
 
   const importOverleafZip = useCallback(async () => {
     const zipPath = await open({

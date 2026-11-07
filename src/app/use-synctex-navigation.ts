@@ -9,6 +9,7 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { showError, showWarning, showingErrors } from "./notify";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
+import { markGetStartedStep } from "../onboarding/get-started-progress";
 
 export type SyncTexNavigationDeps = {
   documents: Pick<OpenDocuments,
@@ -98,6 +99,7 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
       }
       setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
       reveal("pdf");
+      markGetStartedStep("jump");
     };
     await locate().catch((reason: unknown) => {
       if (!isCurrentRequest()) return;
@@ -174,6 +176,7 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     // the file it opened decide whether the editor comes forward.
     if (inverseSyncGenerationRef.current !== requestGeneration || !ownsProject() || activeFileRef.current !== target.path) return;
     reveal("editor");
+    markGetStartedStep("jump");
   }, [activeFileRef, captureProjectScope, openFile, pdfUrlRef, reveal, scope]);
 
   // A forward search needs the PDF panel on screen: reopen or reveal it.
