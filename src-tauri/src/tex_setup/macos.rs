@@ -5,13 +5,14 @@
 use super::installer::{
     basic_tex_script, dependency_install_error, dependency_script, extract_uv_archive,
     install_error, installer_stage_progress, privileged_command, tex_live_package_for_file,
-    tex_live_year, valid_tex_dependency_name, PinnedDownload, BASIC_TEX, BASIC_TEX_YEAR,
-    REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
+    tex_live_year, valid_tex_dependency_name, BASIC_TEX, BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES,
+    REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
 };
 use super::{TexInstallMode, TexInstallProgress};
 use crate::commands;
 use crate::util::{swap_in_dir, DirSwapError};
 use std::fs;
+use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
