@@ -191,11 +191,26 @@ pub(super) fn foreground_job(master: &OwnedFd, shell: u32) -> Option<i32> {
 
 /// A process's name ("latexmk"), when it still exists.
 pub(super) fn process_name(pid: i32) -> Option<String> {
-    let mut buffer = [0u8; 256];
-    // SAFETY: proc_name writes at most the buffer's length.
-    let length = unsafe { libc::proc_name(pid, buffer.as_mut_ptr().cast(), buffer.len() as u32) };
-    let length = usize::try_from(length).ok().filter(|length| *length > 0)?;
-    Some(String::from_utf8_lossy(&buffer[..length]).into_owned())
+    #[cfg(target_os = "macos")]
+    {
+        let mut buffer = [0u8; 256];
+        // SAFETY: proc_name writes at most the buffer's length.
+        let length =
+            unsafe { libc::proc_name(pid, buffer.as_mut_ptr().cast(), buffer.len() as u32) };
+        let length = usize::try_from(length).ok().filter(|length| *length > 0)?;
+        Some(String::from_utf8_lossy(&buffer[..length]).into_owned())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let name = std::fs::read(format!("/proc/{pid}/comm")).ok()?;
+        let name = String::from_utf8_lossy(&name).trim().to_owned();
+        (!name.is_empty()).then_some(name)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        let _ = pid;
+        None
+    }
 }
 
 /// Send `signal` to process group `group`. Lattice's own group is never one

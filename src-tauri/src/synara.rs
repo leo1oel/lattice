@@ -10,6 +10,10 @@
 
 mod environment;
 mod preferences;
+#[cfg(target_os = "macos")]
+mod proxy;
+#[cfg(not(target_os = "macos"))]
+#[path = "synara/proxy_stub.rs"]
 mod proxy;
 pub(crate) mod restart;
 mod shell_env;
@@ -239,15 +243,28 @@ impl SynaraRuntime {
             .map_err(|error| format!("Could not locate the app executable: {error}"))?;
         let inspector = crate::process_inspector::install_launcher(&self.home_dir, &executable)?;
         crate::process_inspector::verify_launcher(&inspector)?;
-        let mut command = Command::new("/usr/bin/sandbox-exec");
-        command
-            .arg("-p")
-            .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
-            .arg(&self.node.executable)
-            // Children inherit this profile. A second sandbox-exec can fail
-            // sandbox_apply on older macOS before Codex even starts.
-            .env("LATTICE_BIBLIOGRAPHY_SANDBOX", "1")
-            .env("SYNARA_PROCESS_PS_PATH", inspector);
+        // On macOS the sidecar runs under Seatbelt so .bib writes are denied in
+        // process. Linux has no Seatbelt; start Node directly and keep the
+        // process-inspector launcher on PATH for Synara's `ps` calls.
+        #[cfg(target_os = "macos")]
+        let mut command = {
+            let mut command = Command::new("/usr/bin/sandbox-exec");
+            command
+                .arg("-p")
+                .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
+                .arg(&self.node.executable)
+                // Children inherit this profile. A second sandbox-exec can fail
+                // sandbox_apply on older macOS before Codex even starts.
+                .env("LATTICE_BIBLIOGRAPHY_SANDBOX", "1")
+                .env("SYNARA_PROCESS_PS_PATH", &inspector);
+            command
+        };
+        #[cfg(not(target_os = "macos"))]
+        let mut command = {
+            let mut command = Command::new(&self.node.executable);
+            command.env("SYNARA_PROCESS_PS_PATH", &inspector);
+            command
+        };
         self.node.configure(&mut command);
         command.arg(&self.server_entry);
         // Web storage is scoped to the complete iframe origin, including its
@@ -605,6 +622,7 @@ mod tests {
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&requests[5].1).unwrap(), text_task);
     }
 
+    #[cfg(target_os = "macos")]
     fn run_bibliography_sandbox(script: &str, args: &[&PathBuf]) -> bool {
         Command::new("/usr/bin/sandbox-exec")
             .args(["-p", BIBLIOGRAPHY_SANDBOX_PROFILE, "/bin/sh", "-c", script, "sandbox-test"])
@@ -615,6 +633,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn bibliography_sandbox_blocks_direct_and_indirect_bib_writes() {
         let root = TempDir::new("bib-sandbox");
         let path = |name: &str| root.join(name);

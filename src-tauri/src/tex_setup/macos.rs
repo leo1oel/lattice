@@ -3,17 +3,15 @@
 //! signed-in user, who is the one Lattice runs its tools as.
 
 use super::installer::{
-    basic_tex_script, create_private_file, dependency_install_error, dependency_script,
-    extract_uv_archive, install_error, installer_stage_progress, privileged_command,
-    tex_live_package_for_file, tex_live_year, valid_tex_dependency_name, PinnedDownload, BASIC_TEX,
-    BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
+    basic_tex_script, dependency_install_error, dependency_script, extract_uv_archive,
+    install_error, installer_stage_progress, privileged_command, tex_live_package_for_file,
+    tex_live_year, valid_tex_dependency_name, PinnedDownload, BASIC_TEX, BASIC_TEX_YEAR,
+    REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
 };
 use super::{TexInstallMode, TexInstallProgress};
 use crate::commands;
 use crate::util::{swap_in_dir, DirSwapError};
-use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -161,48 +159,7 @@ fn privileged_root(prefix: &str) -> PathBuf {
     PathBuf::from("/private/var/tmp").join(format!("{prefix}-{}", uuid::Uuid::new_v4().simple()))
 }
 
-/// Stream `pinned` into a new private file at `path`, checking its SHA-256.
-/// `on_bytes(downloaded, total)` follows along when the size is known.
-pub(crate) fn download(
-    pinned: &PinnedDownload, path: &Path, mut on_bytes: impl FnMut(u64, u64),
-) -> Result<(), String> {
-    let name = pinned.name;
-    let user_agent = format!("Lattice/{}", env!("CARGO_PKG_VERSION"));
-    let client = crate::http::blocking_as(&user_agent, pinned.timeout)
-        .connect_timeout(Duration::from_secs(20))
-        .build()
-        .map_err(|error| format!("Could not initialize the {name} download: {error}"))?;
-    let mut response = client
-        .get(pinned.url)
-        .send()
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .map_err(|error| format!("Could not download {}: {error}", pinned.source))?;
-    let total = response.content_length().filter(|total| *total > 0);
-    let mut file = create_private_file(path)?;
-    let mut hasher = Sha256::new();
-    let mut downloaded = 0_u64;
-    let mut buffer = [0_u8; 64 * 1024];
-    loop {
-        let read = response
-            .read(&mut buffer)
-            .map_err(|error| format!("The {name} download was interrupted: {error}"))?;
-        if read == 0 {
-            break;
-        }
-        file.write_all(&buffer[..read])
-            .map_err(|error| format!("Could not save the {name} download: {error}"))?;
-        hasher.update(&buffer[..read]);
-        downloaded += read as u64;
-        if let Some(total) = total {
-            on_bytes(downloaded, total);
-        }
-    }
-    file.flush().map_err(|error| format!("Could not finish saving {name}: {error}"))?;
-    if format!("{:x}", hasher.finalize()) != pinned.sha256 {
-        return Err(format!("The downloaded {} failed its security check.", pinned.artifact));
-    }
-    Ok(())
-}
+pub(crate) use super::fetch::download;
 
 /// Install the managed uv pair unless it already verifies, reporting
 /// progress between `progress_start` and `progress_end`.

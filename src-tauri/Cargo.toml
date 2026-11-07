@@ -71,7 +71,10 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-log = "2"
-rfd = "0.16"
+# Match tauri-plugin-dialog's gtk3 backend. rfd's default (xdg-portal) cannot
+# be enabled at the same time as gtk3, and Cargo feature unification would
+# turn both on if this crate kept the defaults.
+rfd = { version = "0.16", default-features = false, features = ["gtk3"] }
 log = "0.4"
 # Operation spans that become one wide log event each (src/wide_event.rs).
 # Output still goes through `log` and tauri-plugin-log; no formatter is needed.
@@ -90,7 +93,9 @@ tokio-tungstenite = { version = "0.29.0", default-features = false, features = [
 futures-util = { version = "0.3.33", default-features = false, features = ["std", "sink"] }
 tokio = { version = "1", features = ["sync", "net", "time"] }
 axum = { version = "0.8", features = ["ws"] }
-keyring = { version = "3", features = ["apple-native"] }
+# apple-native on macOS; linux-native uses libsecret without an async runtime
+# feature fight (linux-native-async-persistent needs secret-service rt-*).
+keyring = { version = "3", default-features = false, features = ["apple-native", "linux-native"] }
 rustix = { version = "1", features = ["fs"] }
 # 0.2.4 aborts the whole conversion when even one page is classified as
 # needing OCR (including arXiv 2605.30170); keep the tested 0.1 line until the
