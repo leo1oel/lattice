@@ -12,7 +12,8 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
 import { ModalDialog } from "../components/ui/modal-dialog";
-import { updatesItself, useUpdater, type UpdaterApi } from "../telemetry/app-updater";
+import { useUpdater, type UpdaterApi } from "../telemetry/app-updater";
+import { updatesItself } from "../telemetry/updates-itself";
 import {
   type Theme,
   type ThemePreference,

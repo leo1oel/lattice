@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { SettingsTab } from "../app-types";
 import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { TIMELESS } from "./interface-font-credit";
-import { updatesItself } from "../telemetry/app-updater";
+import { updatesItself } from "../telemetry/updates-itself";
 
 /**
  * One searchable setting. `id` is the `data-setting` of the row it reveals;
