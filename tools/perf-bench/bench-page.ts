@@ -266,7 +266,10 @@ function snapshot() {
     rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
     primaryBibliography: "references.bib",
     trusted: true,
-    venue: "neurips",
+    // The sample carries the venue `create_tutorial` gives it
+    // (src-tauri/src/project/create.rs): Get started tells it from a project
+    // of the writer's own by that.
+    venue: current.root === TUTORIAL_ROOT ? "tutorial" : "neurips",
     deadline: benchDeadline,
     submissionItems: benchItems,
   });

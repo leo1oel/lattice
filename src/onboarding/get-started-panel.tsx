@@ -196,22 +196,22 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
   const stopShowing = () => update({ showing: null });
   // A restart makes the agent look for the provider CLIs again, as it does
   // when it starts. It would stop every window's running turns, so while one
-  // runs (src-tauri/src/app_restart.rs counts them) it waits.
+  // runs (src-tauri/src/app_restart.rs counts them) it waits. (No `finally`:
+  // the React Compiler bails out on one, react-compiler-guard.test.ts.)
   const recheck = async () => {
     update({ rechecking: true });
     try {
       const { agentTurns } = await invoke<{ agentTurns: number }>("restart_impact");
       if (agentTurns) {
         showWarning(t`Recheck restarts the agent, which would stop the turn running now. Recheck once it ends.`, t`Agent`);
-        return;
+      } else {
+        await restartAgentRuntime();
+        controller.showPanel("agent", { focus: false });
       }
-      await restartAgentRuntime();
-      controller.showPanel("agent", { focus: false });
     } catch (reason) {
       showError(toMessage(reason));
-    } finally {
-      update({ rechecking: false });
     }
+    update({ rechecking: false });
   };
 
   const valueOf = (id: GetStartedStepId): ReactNode => {
