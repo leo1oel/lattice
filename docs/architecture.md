@@ -183,8 +183,12 @@ it emits **no** Tauri events, only three commands (`synara_ensure_ready`,
   `synara-runtime/bin/node`, in development and release builds alike
   (`sidecar::NodeRuntime`) — against
   `synara-runtime/server/dist/index.mjs`, on the previous port when it is still
-  free and otherwise with `--dynamic-port`, and `SYNARA_HOST=127.0.0.1`. On
-  macOS the whole process tree runs inside `BIBLIOGRAPHY_SANDBOX_PROFILE`.
+  free and otherwise with `--dynamic-port`, and `SYNARA_HOST=127.0.0.1`. The
+  whole process tree runs inside `BIBLIOGRAPHY_SANDBOX_PROFILE`
+  (`synara/bibliography_guard.rs`), a Seatbelt profile only macOS has. Linux
+  builds have no such guard, so there `synara_ensure_ready` answers the
+  `unsupported` state without starting anything, and the agent surfaces say
+  why (`SynaraLoadingSurface`).
 - Port discovery is out-of-band: Node writes
   `<SYNARA_HOME>/userdata/server-runtime.json` containing `{pid, origin}`
   (`RUNTIME_STATE_RELATIVE_PATH`). `wait_until_ready` polls that file every
@@ -596,7 +600,9 @@ CI (`.github/workflows/ci.yml`) covers the same ground across five jobs:
 pruned runtime, which serves the editor from it),
 `lint-and-build` (`pnpm lint`, `pnpm knip`, `pnpm build` and `pnpm notices:check`
 as parallel steps, then `pnpm i18n:check`) and `rust`
-(`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`). `test` is three
+(`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`), with
+`rust-linux` running the same clippy and tests on Ubuntu 22.04 so the Linux
+build keeps compiling. `test` is three
 shards, split by estimated cost (`scripts/vitest-balanced-shards.ts`). A sixth job,
 `perf-bench`, runs the interaction benchmark and its browser layout checks
 (`pnpm perf:bench --check --layout`), and a seventh, `perf-bench-webkit`, runs
