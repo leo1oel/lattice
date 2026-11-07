@@ -93,9 +93,11 @@ tokio-tungstenite = { version = "0.29.0", default-features = false, features = [
 futures-util = { version = "0.3.33", default-features = false, features = ["std", "sink"] }
 tokio = { version = "1", features = ["sync", "net", "time"] }
 axum = { version = "0.8", features = ["ws"] }
-# apple-native on macOS; linux-native uses libsecret without an async runtime
-# feature fight (linux-native-async-persistent needs secret-service rt-*).
-keyring = { version = "3", default-features = false, features = ["apple-native", "linux-native"] }
+# The macOS Keychain, and on Linux the Secret Service (GNOME Keyring, KWallet)
+# over D-Bus, so saved keys survive a reboot: `linux-native` alone is the
+# kernel keyutils store, which keeps them in memory only. The sync client
+# avoids picking an async runtime; crypto-rust avoids linking OpenSSL.
+keyring = { version = "3", features = ["apple-native", "sync-secret-service", "crypto-rust"] }
 rustix = { version = "1", features = ["fs"] }
 # 0.2.4 aborts the whole conversion when even one page is classified as
 # needing OCR (including arXiv 2605.30170); keep the tested 0.1 line until the
