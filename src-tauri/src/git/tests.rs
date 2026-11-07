@@ -405,8 +405,10 @@ fn reading_a_repository_never_runs_programs_its_config_names() {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
         path.display().to_string()
     };
-    // Signs well enough for git to record the signature.
-    let sign = "echo '[GNUPG:] SIG_CREATED ' >&2\n\
+    // Signs well enough for git to record the signature. Older git (2.34,
+    // Ubuntu 22.04) finds SIG_CREATED only after a newline, so a line leads.
+    let sign = "echo '[GNUPG:] BEGIN_SIGNING' >&2\n\
+                echo '[GNUPG:] SIG_CREATED ' >&2\n\
                 printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nx\\n-----END PGP SIGNATURE-----\\n'";
     let first = commit(&root, &[("main.tex", "one\n")], "first");
     git(&root, &["config", "gpg.program", &program("gpg", sign)]);

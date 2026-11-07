@@ -10,8 +10,6 @@ static PDF_COPY_TEXT: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static FOCUSED_WINDOW_LABEL: Mutex<Option<String>> = Mutex::new(None);
 
-const LIGHT_WINDOW_BACKGROUND: (f64, f64, f64) = (247.0, 247.0, 246.0);
-
 pub fn install_magnify_monitor(_app: tauri::AppHandle) {}
 
 #[tauri::command]
@@ -44,42 +42,24 @@ pub fn set_window_focused(window_label: &str, is_focused: bool) {
 
 pub fn install_copy_shortcut_monitor(_app: tauri::AppHandle) {}
 
-pub(crate) fn ns_window_address(_window: &tauri::WebviewWindow) -> Option<usize> {
-    None
-}
-
-#[derive(Clone, Copy, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum WindowAppearance {
-    Light,
-    Dark,
-}
-
+/// The page's requested window material. No native material is drawn here,
+/// so the request's fields (appearance, background, translucent) are
+/// accepted and ignored: the webview paints its own background.
 #[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WindowMaterial {
-    pub appearance: Option<WindowAppearance>,
-    pub background: String,
-    pub translucent: bool,
-}
+pub struct WindowMaterial {}
 
 impl WindowMaterial {
     pub fn at_launch() -> Self {
-        let (red, green, blue) = LIGHT_WINDOW_BACKGROUND;
-        Self {
-            appearance: None,
-            background: rgb_hex(red / 255.0, green / 255.0, blue / 255.0),
-            translucent: false,
-        }
+        Self {}
     }
 }
 
+/// What `apply_window_material` reports to the page: always an opaque
+/// window, since there is no vibrancy to fall back from.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WindowBacking {
-    Translucent,
     Opaque,
-    ReducedTransparency,
 }
 
 pub fn apply_window_material(
@@ -109,17 +89,17 @@ pub async fn choose_files_and_folders(
 
 pub fn clear_launch_quarantine() {}
 
-fn rgb_hex(red: f64, green: f64, blue: f64) -> String {
-    let channel = |value: f64| ((value.clamp(0.0, 1.0) * 255.0).round() as u8);
-    format!("#{:02X}{:02X}{:02X}", channel(red), channel(green), channel(blue))
-}
-
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn launch_material_is_opaque_on_linux() {
-        let material = super::WindowMaterial::at_launch();
-        assert!(!material.translucent);
-        assert_eq!(material.background, "#F7F7F6");
+    fn any_requested_material_leaves_the_window_opaque() {
+        let material: WindowMaterial = serde_json::from_value(serde_json::json!({
+            "appearance": "dark", "background": "#1E1E1E", "translucent": true,
+        }))
+        .unwrap();
+        let _ = (material, WindowMaterial::at_launch());
+        assert_eq!(serde_json::to_value(WindowBacking::Opaque).unwrap(), "opaque");
     }
 }

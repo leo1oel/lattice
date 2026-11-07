@@ -199,7 +199,8 @@ mod tests {
         // Let the stream attach and anything from creating the fixture pass.
         std::thread::sleep(Duration::from_millis(500));
         while reports.recv_timeout(DEBOUNCE * 2).is_ok() {}
-        let reported = |path: &str| {
+        // A report naming any of `paths`.
+        let reported = |paths: &[&str]| {
             let deadline = Instant::now() + Duration::from_secs(10);
             while let Ok(report) =
                 reports.recv_timeout(deadline.saturating_duration_since(Instant::now()))
@@ -207,7 +208,7 @@ mod tests {
                 assert_eq!(report["root"], root.to_string_lossy().as_ref());
                 // No paths (FSEvents asked for a rescan) covers every one.
                 let Some(names) = report["paths"].as_array() else { return true };
-                if names.iter().any(|name| name == path) {
+                if names.iter().any(|name| paths.iter().any(|path| name == path)) {
                     return true;
                 }
             }
@@ -223,11 +224,19 @@ mod tests {
             .status()
             .unwrap();
         assert!(copied.success());
-        assert!(reported("figures/plots/loss.png"), "a copied folder went unreported");
+        // FSEvents names every file the copy wrote. inotify watches a new
+        // folder only once it is reported, so a copy that fills it first can
+        // arrive as the folder alone, which still rescans the tree.
+        let copied: &[&str] = if cfg!(target_os = "macos") {
+            &["figures/plots/loss.png"]
+        } else {
+            &["figures/plots/loss.png", "figures/plots", "figures"]
+        };
+        assert!(reported(copied), "a copied folder went unreported");
 
         outside.write("appendix/proofs.tex", "proof");
         std::fs::rename(outside.join("appendix"), root.join("appendix")).unwrap();
-        assert!(reported("appendix"), "a moved-in folder went unreported");
+        assert!(reported(&["appendix"]), "a moved-in folder went unreported");
     }
 
     fn event_for(paths: Vec<PathBuf>) -> Event {

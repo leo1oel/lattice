@@ -143,7 +143,9 @@ impl SaveBeforeClose {
     }
 
     /// AppKit asks whether Lattice may terminate. Unless it can go at once,
-    /// it waits for the reply this records as owed.
+    /// it waits for the reply this records as owed. Only macOS has that
+    /// request (`terminate`); its bookkeeping is tested everywhere.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn request_terminate(&self) -> Decision {
         self.with(|requests| {
             let decision = requests.end_lattice(Action::Quit);
@@ -313,6 +315,7 @@ pub fn quit<R: Runtime>(app: &AppHandle<R>) {
 /// AppKit's `terminate:` (Dock ▸ Quit, logging out, shutting down): returns
 /// whether Lattice may end now; otherwise every window saves first and
 /// `app_terminate::reply` answers AppKit once they have.
+#[cfg(target_os = "macos")]
 pub fn terminate<R: Runtime>(app: &AppHandle<R>) -> bool {
     match app.state::<SaveBeforeClose>().request_terminate() {
         Decision::Proceed => true,

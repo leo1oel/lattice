@@ -13,6 +13,9 @@
 use serde::{Deserialize, Serialize};
 
 mod fetch;
+// Only `macos` runs the installers, but their scripts and parsers are plain
+// functions tested on every platform.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod installer;
 #[cfg(target_os = "macos")]
 mod macos;

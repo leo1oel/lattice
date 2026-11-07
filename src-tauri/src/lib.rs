@@ -298,6 +298,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Dock click with no window showing: bring back whichever surface this
 /// launch uses — the browser entry or the desktop window.
+#[cfg(target_os = "macos")]
 fn reopen(app: &AppHandle) {
     let browser = app.state::<browser_host::BrowserHost>();
     match browser.reopen_entry(app) {

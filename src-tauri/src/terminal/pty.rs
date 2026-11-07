@@ -80,7 +80,9 @@ fn open(cols: u16, rows: u16) -> io::Result<(OwnedFd, OwnedFd)> {
             &mut slave,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
-            &mut size,
+            // A raw pointer, as both signatures accept: macOS declares the
+            // size `*mut`, Linux `*const`, where `&mut` trips clippy.
+            &raw mut size,
         )
     };
     if status < 0 {

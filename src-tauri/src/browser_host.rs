@@ -261,6 +261,7 @@ impl BrowserHost {
     /// Reopen the workspace owned by the fixed entry in the default browser,
     /// if one is still alive. This is the macOS reopen behavior of a
     /// background browser host, which has no window of its own.
+    #[cfg(target_os = "macos")]
     pub(crate) fn reopen_entry(&self, app: &tauri::AppHandle) -> Result<bool, String> {
         let Some(server) = self.server()? else {
             return Ok(false);
