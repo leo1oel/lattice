@@ -28,6 +28,7 @@ import {
 } from "../overleaf/overleaf-realtime-model";
 import { METADATA_INCOMPLETE, PREPRINT_INCOMPLETE } from "../papers/audit-messages";
 import { NO_SUCH_FILE, NOT_A_FOLDER } from "../project/project-dialogs";
+import { OPEN_IN_ANOTHER_WINDOW } from "../app/use-project-lifecycle";
 import { mentionsAny } from "./ipc-error-phrases";
 
 /** Each matched phrase and the file under src-tauri/src that writes it. */
@@ -44,6 +45,7 @@ const PHRASES: [phrase: string, rustSource: string][] = [
   [NEWER_OVERLEAF_CONNECTION, "ipc/overleaf_realtime.rs"],
   [NO_SUCH_FILE, "project/manifest.rs"],
   [NOT_A_FOLDER, "project/manifest.rs"],
+  [OPEN_IN_ANOTHER_WINDOW, "ipc/workspace.rs"],
   [PAPER_TOOLS_MISSING, "commands/python_tools.rs"],
   [LATEXMK_NOT_STARTED, "latex/build.rs"],
   [INSTALL_TEX, "latex/build.rs"],

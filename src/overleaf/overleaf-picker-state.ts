@@ -3,7 +3,7 @@
  * the account's connection, its project list, what the user has typed and
  * chosen, and the download or upload in flight.
  */
-import type { OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
+import type { LocalCopy, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
 
 export type PickerState = {
   status: OverleafStatus | null;
@@ -14,6 +14,8 @@ export type PickerState = {
   projectsError: string | null;
   /** An invitation was opened in the browser, so the list may be out of date. */
   invitationOpened: boolean;
+  /** The folder on this Mac already linked to a listed project, by project id. */
+  localCopies: Record<string, LocalCopy>;
   search: string;
   showArchived: boolean;
   selected: string | null;
@@ -38,6 +40,7 @@ export type PickerAction =
   /** The session expired: no list, and no error, as the reconnect state takes over. */
   | { type: "projectsCleared" }
   | { type: "invitationOpened" }
+  | { type: "localCopies"; copies: Record<string, LocalCopy> }
   | { type: "search"; search: string }
   | { type: "showArchived"; showArchived: boolean }
   | { type: "select"; id: string }
@@ -52,7 +55,7 @@ export type PickerAction =
 export function initialPickerState(publishName: string): PickerState {
   return {
     status: null, statusLoading: false, statusError: null,
-    list: null, projectsLoading: false, projectsError: null, invitationOpened: false,
+    list: null, projectsLoading: false, projectsError: null, invitationOpened: false, localCopies: {},
     search: "", showArchived: false, selected: null,
     cloning: null, downloaded: null, publishing: false, transferError: null, publishName,
   };
@@ -68,6 +71,7 @@ export function reducePicker(state: PickerState, action: PickerAction): PickerSt
     case "projectsFailed": return { ...state, projectsError: action.error, projectsLoading: false };
     case "projectsCleared": return { ...state, list: null, projectsError: null, projectsLoading: false };
     case "invitationOpened": return { ...state, invitationOpened: true };
+    case "localCopies": return { ...state, localCopies: action.copies };
     case "search": return { ...state, search: action.search };
     case "showArchived": return { ...state, showArchived: action.showArchived };
     case "select": return { ...state, selected: action.id };

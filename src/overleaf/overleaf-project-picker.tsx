@@ -2,12 +2,13 @@
  * The "Open from Overleaf" picker: connect if needed, browse every project
  * the account can open in Overleaf's own order, see invitations still
  * waiting on Overleaf, or paste a project or share link, then download one
- * as a local Lattice project.
+ * as a local Lattice project — or, for a project already linked to a folder
+ * on this Mac, open that folder rather than download a second copy.
  */
 import { useCallback, useEffect, useReducer, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Cloud, CloudAlert, CloudOff, ExternalLink, FileText, MailOpen, SearchX, UploadCloud } from "lucide-react";
+import { Cloud, CloudAlert, CloudOff, ExternalLink, FileText, HardDrive, MailOpen, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Badge } from "../components/ui/badge";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
@@ -24,7 +25,7 @@ import { MotionButton } from "../components/ui/motion";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
-import type { CloneTarget, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
+import type { CloneTarget, LocalCopy, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
 import { confirmAction, formatSize, relativeTime, toMessage } from "../app-utils";
 import { subscribeTauriEvent } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
@@ -49,6 +50,16 @@ type PickerProps = {
   /** Restore the old project identity when the root-changing request fails. */
   onCloneCancelled?: () => void;
   onCloned: (root: string) => void;
+  /**
+   * Open a folder already linked to the chosen project, raising its window
+   * when one shows it. Without it, every project downloads.
+   */
+  onOpenLocalCopy?: (root: string) => void;
+  /**
+   * Folders the app knows of (its recent projects), checked for a link first.
+   * Kept as the caller's list, not mapped, so the lookup reruns only when it changes.
+   */
+  knownFolders?: readonly { path: string }[];
   /** The open, unlinked local project that can become a new Overleaf project. */
   currentProject?: { name: string } | null;
   /** Saves, uploads and links the current project. False means saving was cancelled. */
@@ -70,14 +81,14 @@ export function OverleafPickerDialog(props: PickerProps) {
 function OverleafPicker(props: PickerProps) {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(reducePicker, props.currentProject?.name ?? "", initialPickerState);
-  const { status, statusLoading, statusError, list, projectsLoading, projectsError, invitationOpened } = state;
+  const { status, statusLoading, statusError, list, projectsLoading, projectsError, invitationOpened, localCopies } = state;
   const { search, showArchived, selected, cloning, downloaded, publishing, transferError, publishName } = state;
   const { compositionProps, isComposing } = useCompositionGuard();
   const login = useOverleafLogin((session) => {
     dispatch({ type: "status", status: session });
     props.onConnectionChanged?.();
   });
-  const { onClose, onConnectionChanged } = props;
+  const { onClose, onConnectionChanged, knownFolders, onOpenLocalCopy } = props;
 
   const loadStatus = useCallback(async () => {
     dispatch({ type: "statusLoading" });
@@ -137,8 +148,12 @@ Lattice will create a new Overleaf project from the files that normally sync. La
     dispatch({ type: "publishing", publishing: false });
   };
 
-  /** Download `project` into its folder, or answer null when the user backed out first. */
-  const download = async (project: OverleafProject) => {
+  /**
+   * Download `project` into its folder, or answer null when the user backed
+   * out first. `separate` is "Download a new copy": a fresh folder even when
+   * one is already linked to the project.
+   */
+  const download = async (project: OverleafProject, separate: boolean) => {
     // A folder of this name already holding files, with no link to any
     // Overleaf project, is what Stop syncing leaves behind. Downloading a
     // second copy beside it strands whatever was written in the meantime in
@@ -147,7 +162,8 @@ Lattice will create a new Overleaf project from the files that normally sync. La
       .catch(() => null);
     // Named buttons say what each choice does, so the question stays short.
     // Declining downloads a separate copy, as it always has.
-    const adopt = target?.kind === "occupied" && await confirmAction({
+    // Asking for a new copy already answered this.
+    const adopt = !separate && target?.kind === "occupied" && await confirmAction({
       message: t`“${target.folder}” already has files and isn’t linked to Overleaf
 
 Files that differ are kept side by side. Nothing is overwritten`,
@@ -160,14 +176,15 @@ Files that differ are kept side by side. Nothing is overwritten`,
       name: project.name,
       accessLevel: project.accessLevel,
       adopt,
+      separate,
     });
   };
 
-  const clone = async (project: OverleafProject) => {
+  const clone = async (project: OverleafProject, separate = false) => {
     if (cloning || publishing) return;
     dispatch({ type: "cloning", project });
     try {
-      const root = await download(project);
+      const root = await download(project, separate);
       dispatch({ type: "cloning", project: null });
       if (root === null) return;
       props.onCloned(root);
@@ -182,6 +199,19 @@ Files that differ are kept side by side. Nothing is overwritten`,
     }
   };
 
+  /**
+   * Open `project`: the folder on this Mac already linked to it when there is
+   * one — a second copy would sync too, drift apart from the first and leave
+   * the writer guessing which holds their work — or else a download.
+   */
+  const openProject = (project: OverleafProject) => {
+    const copy = localCopies[project.id];
+    if (!copy || !props.onOpenLocalCopy) return void clone(project);
+    if (cloning || publishing) return;
+    props.onOpenLocalCopy(copy.path);
+    onClose();
+  };
+
   /** The account's connection, once it has been read without error. */
   const known = !statusLoading && !statusError ? status : null;
   const projects = list?.projects ?? null;
@@ -189,6 +219,23 @@ Files that differ are kept side by side. Nothing is overwritten`,
   const link = known?.connected && looksLikeOverleafLink(search) ? search.trim() : null;
   const pasted = usePastedLink(link, handleFailure);
   const linked = pasted.answer?.kind === "project" ? pasted.answer.project : null;
+
+  // Which listed projects already have a folder on this Mac. Each answer is
+  // read from that folder's own link, so a folder deleted or unlinked since
+  // simply does not answer and its project downloads as before.
+  useEffect(() => {
+    const listed = [...(list?.projects ?? []), ...(linked ? [linked] : [])];
+    if (!onOpenLocalCopy || !listed.length) return;
+    let disposed = false;
+    invoke<Record<string, LocalCopy>>("overleaf_local_copies", {
+      names: listed.map((project) => project.name),
+      folders: (knownFolders ?? []).map((folder) => folder.path),
+    })
+      .then((copies) => { if (!disposed) dispatch({ type: "localCopies", copies }); })
+      // Without an answer every project downloads, which is what it did before.
+      .catch(() => undefined);
+    return () => { disposed = true; };
+  }, [list, linked, knownFolders, onOpenLocalCopy]);
   const query = link ? "" : search.trim().toLowerCase();
   const matches = (...values: (string | null)[]) => !query || values.some((value) => value?.toLowerCase().includes(query));
   const visible = (projects ?? [])
@@ -226,7 +273,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
     const current = row ? row.dataset.projectId : linked?.id ?? selected;
     const index = ordered.findIndex((project) => project.id === current);
     if (event.key === "Enter") {
-      if (index >= 0) { event.preventDefault(); void clone(ordered[index]); }
+      if (index >= 0) { event.preventDefault(); openProject(ordered[index]); }
       return;
     }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") return;
@@ -243,9 +290,11 @@ Files that differ are kept side by side. Nothing is overwritten`,
     button?.scrollIntoView?.({ block: "nearest" });
   };
 
-  const renderProject = (project: OverleafProject, chosen: boolean) => (
+  const renderProject = (project: OverleafProject, chosen: boolean) => {
+    const copy = props.onOpenLocalCopy ? localCopies[project.id] : undefined;
+    return (
     <li key={project.id} className={rowClassName("store", `overleaf-project-row${chosen ? " selected" : ""}`)}>
-      <button type="button" className="overleaf-project-main" data-project-id={project.id} aria-pressed={chosen} disabled={working} onClick={() => dispatch({ type: "select", id: project.id })}>
+      <button type="button" className="overleaf-project-main" data-project-id={project.id} data-local={copy ? "" : undefined} aria-pressed={chosen} disabled={working} onClick={() => dispatch({ type: "select", id: project.id })}>
         <span className="overleaf-project-icon" aria-hidden="true"><FileText size={15} /></span>
         <span className="overleaf-project-name">
           {project.name}
@@ -257,19 +306,31 @@ Files that differ are kept side by side. Nothing is overwritten`,
           {joinPhrases([project.ownerName || project.ownerEmail || t`Unknown owner`,
             project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`])}
         </span>
+        {copy && (
+          <span className="overleaf-project-local" title={copy.path}>
+            <HardDrive size={11} aria-hidden="true" />
+            <span>{t`Opens your local copy at ${copy.display}`}</span>
+          </span>
+        )}
       </button>
       {/* A download in progress is said once, by the progress line under the list. */}
+      {chosen && cloning?.id !== project.id && copy && (
+        <Button size="compact" variant="ghost" className="overleaf-open-button" disabled={working} onClick={() => void clone(project, true)}>
+          {t`Download a new copy`}
+        </Button>
+      )}
       {chosen && cloning?.id !== project.id && (
         <MotionButton
           className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}
           disabled={working}
-          onClick={() => void clone(project)}
+          onClick={() => openProject(project)}
         >
           {t`Open`}
         </MotionButton>
       )}
     </li>
-  );
+    );
+  };
 
   const openInvitation = (invite: OverleafInvite) => {
     dispatch({ type: "invitationOpened" });

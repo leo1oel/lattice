@@ -13,6 +13,7 @@ use super::files::{
     excluded_in, has_conflict_markers, is_latex_save_error_path, is_transient_pdf_render_path,
     read_local_files, sha256_hex, write_base_copy, write_local_file, LocalFiles,
 };
+use super::local_copies::remember_local_copy;
 use super::review::HistoryFrom;
 use crate::overleaf_rt::Permission;
 use crate::project_fs::ProjectDir;
@@ -306,6 +307,11 @@ pub fn clone_target(
     Ok(CloneTarget { kind, path: root.to_string_lossy().into_owned(), folder })
 }
 
+/// The folder a project named `project_name` downloads into first.
+pub fn download_folder(dest_parent: &Path, project_name: &str) -> Result<PathBuf, String> {
+    Ok(dest_parent.join(sanitize_project_name(project_name)?))
+}
+
 /// Fold a project name into a safe folder name, mirroring
 /// `project::validate_new_project_name` (no separators) and stripping
 /// characters macOS cannot store.
@@ -342,6 +348,7 @@ pub fn adopt_project(
         return Err(format!("{} is not a folder.", root.display()));
     }
     save_state(root, &SyncState::linked(session.host, project_id, project_name, access_level))?;
+    remember_local_copy(config_dir, root);
     Ok(root.to_path_buf())
 }
 
@@ -354,9 +361,13 @@ pub fn adopt_project(
 /// the same name holding something else does not block the download either;
 /// the copy lands beside it under a numbered name, the way a second download of
 /// the same file would.
+///
+/// `separate` is the writer asking for a second copy anyway ("Download a new
+/// copy"): copies already linked to the project are passed over like any other
+/// occupied folder, so the download always lands in a folder of its own.
 pub fn clone_project(
     config_dir: &Path, project_id: &str, project_name: &str, dest_parent: &Path,
-    access_level: Option<&str>, progress: DownloadProgress,
+    access_level: Option<&str>, separate: bool, progress: DownloadProgress,
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
     let folder_name = sanitize_project_name(project_name)?;
@@ -370,7 +381,7 @@ pub fn clone_project(
                 root = candidate;
                 break;
             }
-            "open" => {
+            "open" if !separate => {
                 // The one thing that can have changed while it sat there: what
                 // this account is now allowed to do with the project. A
                 // missing dashboard role clears an old writable role: unknown
@@ -380,6 +391,7 @@ pub fn clone_project(
                     state.permission = access_level.map(str::to_string);
                     save_state(&candidate, &state)?;
                 }
+                remember_local_copy(config_dir, &candidate);
                 return Ok(candidate);
             }
             _ => {}
@@ -422,6 +434,7 @@ pub fn clone_project(
         ..SyncState::linked(session.host, project_id, project_name, access_level)
     };
     save_state(&root, &state)?;
+    remember_local_copy(config_dir, &root);
     Ok(root)
 }
 
@@ -524,6 +537,7 @@ pub fn publish_project(
             session.host
         ));
     }
+    remember_local_copy(config_dir, root);
     Ok(state.link())
 }
 

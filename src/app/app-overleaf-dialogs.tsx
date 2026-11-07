@@ -28,7 +28,10 @@ type OverleafDialogsProps = {
     | "setConflictPath" | "overleafProjectLinked" | "publishProjectToOverleaf" | "refreshOverleafLink" | "runOverleafSync"
     | "setOverleafRemoteChanges"
   >;
-  lifecycle: Pick<ReturnType<typeof useProjectLifecycle>, "startProjectTransition" | "cancelProjectTransition" | "revealNewProject">;
+  lifecycle: Pick<
+    ReturnType<typeof useProjectLifecycle>,
+    "startProjectTransition" | "cancelProjectTransition" | "revealNewProject" | "openExistingProject" | "recentProjects"
+  >;
   project: ProjectSnapshot | null;
   activeFile: string;
   loadFile: (path: string) => Promise<unknown>;
@@ -59,6 +62,11 @@ export const AppOverleafDialogs = memo(function AppOverleafDialogs({
           setOverleafPickerOpen(false);
           void lifecycle.revealNewProject(t`Opening the Overleaf project…`, async () => root);
         }}
+        onOpenLocalCopy={(root) => {
+          setOverleafPickerOpen(false);
+          void lifecycle.openExistingProject(root);
+        }}
+        knownFolders={lifecycle.recentProjects}
         currentProject={!overleaf.overleafProjectLinked && project ? { name: project.manifest.name } : null}
         onPublish={overleaf.publishProjectToOverleaf}
         onConnectionChanged={overleaf.refreshOverleafLink}

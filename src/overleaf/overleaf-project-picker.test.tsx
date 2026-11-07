@@ -56,7 +56,7 @@ function renderPicker(props: Partial<Parameters<typeof OverleafPickerDialog>[0]>
 
 /** What `overleaf_clone_project` is sent for the Attention Paper row. */
 const cloneArgs = (overrides: Record<string, unknown> = {}) => ({
-  projectId: "p1", name: "Attention Paper", accessLevel: "owner", adopt: false, ...overrides,
+  projectId: "p1", name: "Attention Paper", accessLevel: "owner", adopt: false, separate: false, ...overrides,
 });
 
 /** Select the Attention Paper row and press Open. */
@@ -204,6 +204,56 @@ describe("Overleaf picker dialog", () => {
     await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
     expect(onClose).toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  // The captain's case: a folder linked to the project already sits on this
+  // Mac, outside the download folder. Opening the project from Overleaf used
+  // to download a second copy that synced too and drifted from the first.
+  const nativeVlm = { path: "/Users/me/Papers/Native VLM", display: "~/Papers/Native VLM" };
+  it("opens the folder already linked to a project instead of downloading a second copy", async () => {
+    mockConnectedPicker({ overleaf_local_copies: { p1: nativeVlm } });
+    const onOpenLocalCopy = vi.fn();
+    const { onClose, onBeforeClone, onCloned } = renderPicker({ onOpenLocalCopy, knownFolders: [{ path: nativeVlm.path }] });
+    expect(await screen.findByText("Opens your local copy at ~/Papers/Native VLM")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", {
+      names: ["Attention Paper", "Thesis Draft", "Old Notes"], folders: [nativeVlm.path],
+    });
+    // Only the project that has a folder here says so.
+    const thesis = screen.getByRole("button", { name: /Thesis Draft/ });
+    expect(within(thesis).queryByText(/Opens your local copy/)).not.toBeInTheDocument();
+
+    await openFirstProject();
+    expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path);
+    expect(onClose).toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
+    expect(onBeforeClone).not.toHaveBeenCalled();
+    expect(onCloned).not.toHaveBeenCalled();
+  });
+
+  it("still downloads a separate copy when asked, without offering to link the folder", async () => {
+    mockConnectedPicker({
+      overleaf_local_copies: { p1: nativeVlm },
+      overleaf_clone_target: { kind: "occupied", path: "/tmp/Overleaf Projects/Attention Paper", folder: "Attention Paper" },
+      overleaf_clone_project: "/tmp/Overleaf Projects/Attention Paper (2)",
+    });
+    const onOpenLocalCopy = vi.fn();
+    const { onCloned } = renderPicker({ onOpenLocalCopy });
+    fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Download a new copy" }));
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/Overleaf Projects/Attention Paper (2)"));
+    expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs({ separate: true }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(onOpenLocalCopy).not.toHaveBeenCalled();
+  });
+
+  it("downloads as before when no folder here is linked to the project", async () => {
+    mockConnectedPicker({ overleaf_local_copies: {} });
+    const onOpenLocalCopy = vi.fn();
+    const { onCloned } = renderPicker({ onOpenLocalCopy });
+    await openFirstProject();
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
+    expect(screen.queryByRole("button", { name: "Download a new copy" })).not.toBeInTheDocument();
+    expect(onOpenLocalCopy).not.toHaveBeenCalled();
   });
 
   it("does not change roots when the current project is still syncing", async () => {
@@ -356,7 +406,7 @@ describe("Overleaf picker dialog", () => {
     expect(invoke).toHaveBeenCalledWith("overleaf_resolve_link", { link });
     fireEvent.keyDown(search, { key: "Enter" });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", {
-      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite", adopt: false,
+      projectId: shared.id, name: "Shared Paper", accessLevel: "readWrite", adopt: false, separate: false,
     }));
   });
 
