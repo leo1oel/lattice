@@ -637,36 +637,43 @@ fn record_result(result: &OverleafSyncResult) {
     wide_event::record("read_only", result.read_only);
 }
 
-/// A sync with nothing read ahead: the app always prefetches, the tests
-/// mostly do not need to.
+/// A whole sync as the app runs one, without the lease: read ahead, then
+/// sync, and read ahead again for as long as the sync turns the read down.
 #[cfg(test)]
 pub(super) fn sync(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
 ) -> Result<OverleafSyncResult, String> {
-    sync_prefetched(config_dir, root, live, observed_remote_version, None)
+    loop {
+        let prefetched = prefetch(config_dir, root, live, observed_remote_version, &|_, _| {})?;
+        if let Some(result) =
+            sync_prefetched(config_dir, root, live, observed_remote_version, prefetched)?
+        {
+            return Ok(result);
+        }
+    }
 }
 
-/// [`sync`], starting from what [`prefetch`] read ahead of the lease.
+/// The sync, under the project's exclusive lease, starting from what
+/// [`prefetch`] read ahead of it. Never downloads: that would hold every file
+/// write here for the download's minutes, and skip the account-wide gap
+/// between downloads. `None` when the sync needs Overleaf's copy and nothing
+/// read ahead still fits; the caller lets go of the lease and reads ahead
+/// again.
 pub fn sync_prefetched(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
     prefetched: Option<Prefetched>,
-) -> Result<OverleafSyncResult, String> {
+) -> Result<Option<OverleafSyncResult>, String> {
     let result = sync_files(config_dir, root, live, observed_remote_version, prefetched)?;
-    record_result(&result);
+    if let Some(result) = &result {
+        record_result(result);
+    }
     Ok(result)
-}
-
-fn record_download(downloaded: &RemoteFiles, how: &'static str) {
-    wide_event::record("download", how);
-    let bytes: usize = downloaded.files.values().map(Vec::len).sum();
-    wide_event::record("remote_files", downloaded.files.len());
-    wide_event::record("remote_bytes", bytes);
 }
 
 fn sync_files(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
     prefetched: Option<Prefetched>,
-) -> Result<OverleafSyncResult, String> {
+) -> Result<Option<OverleafSyncResult>, String> {
     let linked = Remote::open_for_sync(config_dir, root)?;
     let client = sync_client()?;
     let prefetched = prefetched.filter(|prefetched| prefetched.fits(&linked.state, live));
@@ -684,10 +691,7 @@ fn sync_files(
         match prefetched {
             // Read here only now, under the lease: whatever changed while the
             // download ran is part of this sync rather than left for the next.
-            Some(Prefetched { downloaded, .. }) => {
-                record_download(&downloaded, "prefetched");
-                (read_local_files(root)?, downloaded)
-            }
+            Some(Prefetched { downloaded, .. }) => (read_local_files(root)?, downloaded),
             None => {
                 let read = read_local_files(root)?;
                 match agreed_remote_files(&linked, &client, root, version, &read.files, live) {
@@ -695,14 +699,7 @@ fn sync_files(
                         wide_event::record("download", "skipped");
                         (read, agreed)
                     }
-                    None => {
-                        let step = wide_event::step("download");
-                        let downloaded = fetch_remote_files(&linked, &client, &|_, _| {})?;
-                        drop(step);
-                        record_download(&downloaded, "full");
-                        // Read again after the download, as above.
-                        (read_local_files(root)?, downloaded)
-                    }
+                    None => return Ok(None),
                 }
             }
         };
@@ -922,7 +919,7 @@ fn sync_files(
     state.agreed_version = remote_version_before;
     save_state(root, &state)?;
     // Every list is already in path order: the plan walks paths sorted.
-    Ok(result)
+    Ok(Some(result))
 }
 
 // ---- Probe ---------------------------------------------------------------------

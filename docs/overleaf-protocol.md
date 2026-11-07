@@ -227,10 +227,12 @@ purpose.
   (`agreed_remote_files` in `src-tauri/src/overleaf/sync.rs`).
 - A full sync downloads before it takes the project's exclusive lease, so
   creating, deleting and saving files do not wait out the download
-  (`prefetch` in `src-tauri/src/overleaf/sync.rs`). Under the lease the
-  download is used only if the sync state still agrees with the one it was
-  taken against, apart from live documents; otherwise the sync downloads
-  again (`Prefetched::fits`).
+  (`prefetch` in `src-tauri/src/overleaf/sync/prefetch.rs`). Under the lease
+  the download is used only if the sync state still agrees with the one it
+  was taken against, apart from live documents (`Prefetched::fits`). The sync
+  never downloads under the lease: when it needs Overleaf's copy and nothing
+  read ahead fits, it lets go of the lease and reads ahead again, behind the
+  same account-wide gap between downloads.
 - Uploads run a few at a time, except that a file into a folder Overleaf may
   not have yet goes first and alone, so two uploads never race to create the
   same folder.

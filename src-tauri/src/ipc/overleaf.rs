@@ -659,41 +659,51 @@ pub async fn overleaf_sync(
             let config = overleaf_config_dir(&app)?;
             let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
             wide_event::project(&root);
-            let ahead = {
-                let (config, root, hint) = (config.clone(), root.clone(), live_paths(live.clone()));
-                async {
-                    let read = run_quietly("The Overleaf download", move || {
-                        overleaf::prefetch(
-                            &config,
-                            &root,
-                            &hint,
-                            observed_remote_version,
-                            &|_, _| {},
-                        )
-                    });
-                    settled(&app, read.await).await
+            // Round again, behind the gap between downloads, whenever the
+            // link moved past what was read ahead while the lease was free.
+            loop {
+                let ahead = {
+                    let (config, root) = (config.clone(), root.clone());
+                    let hint = live_paths(live.clone());
+                    async {
+                        let read = run_quietly("The Overleaf download", move || {
+                            overleaf::prefetch(
+                                &config,
+                                &root,
+                                &hint,
+                                observed_remote_version,
+                                &|_, _| {},
+                            )
+                        });
+                        settled(&app, read.await).await
+                    }
+                };
+                let (prefetched, lease) = ahead_of_full_sync(&state, &project_root, ahead).await?;
+                // The window may have moved to another project meanwhile.
+                let root =
+                    pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
+                let live = with_joined_paths(&lease, &root, live.clone());
+                wide_event::record("live_documents", live.len());
+                let entities = realtime_client(&state, &window)
+                    .ok()
+                    .and_then(|client| client.current_entities());
+                let config = config.clone();
+                // Quietly: the operation's event already carries any failure.
+                let synced = run_quietly("The Overleaf sync", move || {
+                    overleaf::sync_relocations(&config, &root, entities)?;
+                    overleaf::sync_prefetched(
+                        &config,
+                        &root,
+                        &live,
+                        observed_remote_version,
+                        prefetched,
+                    )
+                })
+                .await;
+                if let Some(result) = settled(&app, synced).await? {
+                    return Ok(result);
                 }
-            };
-            let (prefetched, lease) = ahead_of_full_sync(&state, &project_root, ahead).await?;
-            // The window may have moved to another project meanwhile.
-            let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
-            let live = with_joined_paths(&lease, &root, live);
-            wide_event::record("live_documents", live.len());
-            let entities =
-                realtime_client(&state, &window).ok().and_then(|client| client.current_entities());
-            // Quietly: the operation's event already carries any failure.
-            let synced = run_quietly("The Overleaf sync", move || {
-                overleaf::sync_relocations(&config, &root, entities)?;
-                overleaf::sync_prefetched(
-                    &config,
-                    &root,
-                    &live,
-                    observed_remote_version,
-                    prefetched,
-                )
-            })
-            .await;
-            settled(&app, synced).await
+            }
         }))
         .await
 }

@@ -6,6 +6,7 @@ use super::{agreed_remote_files, fetch_remote_files, sync_client, RemoteFiles};
 use crate::overleaf::api::{DownloadProgress, Remote};
 use crate::overleaf::files::read_local_files;
 use crate::overleaf::link::SyncState;
+use crate::wide_event;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
@@ -39,9 +40,10 @@ impl Prefetched {
 /// download when the sync will need one. Run before the sync takes the
 /// project's exclusive lease, so creating, deleting and saving files here are
 /// not held for the minutes a large project's download can take; the sync
-/// then uses the download if it still fits (see [`Prefetched::fits`]) and
-/// downloads again under the lease if not. `None` when there is nothing to
-/// fetch ahead: the agreed copy stands, or a move must be replayed first.
+/// then uses the download if it still fits (see [`Prefetched::fits`]), and
+/// turns it down if not, for this to run again once the lease is let go.
+/// `None` when there is nothing to fetch ahead: the agreed copy stands, or a
+/// move must be replayed first.
 ///
 /// `live` is the editor's view of the live documents; the sync recomputes it
 /// under the lease, so a stale one costs at most a redundant download.
@@ -59,6 +61,12 @@ pub fn prefetch(
     if agreed_remote_files(&linked, &client, root, version, &local, live).is_some() {
         return Ok(None);
     }
+    let step = wide_event::step("download");
     let downloaded = fetch_remote_files(&linked, &client, progress)?;
+    drop(step);
+    wide_event::record("download", "full");
+    let bytes: usize = downloaded.files.values().map(Vec::len).sum();
+    wide_event::record("remote_files", downloaded.files.len());
+    wide_event::record("remote_bytes", bytes);
     Ok(Some(Prefetched { version, files: linked.state.files, downloaded }))
 }
