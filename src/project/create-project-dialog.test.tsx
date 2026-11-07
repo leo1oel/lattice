@@ -31,12 +31,19 @@ it("offers every bundled template with its edition and starting mode", () => {
     "ICLR 2026",
     "ACL / ARR (preprint)",
     "CVPR 2027",
+    "CVPR 2027 Rebuttal",
     "AAAI 2027 (preprint)",
     "Tsinghua University thesis (ThuThesis)",
     "USTC thesis (ustcthesis)",
   ]);
   fireEvent.click(list.getByRole("option", { name: "Tsinghua University thesis (ThuThesis)" }));
   expect(onVenue).toHaveBeenCalledWith("thuthesis");
+});
+
+it("offers the CVPR rebuttal as its own template", () => {
+  const onVenue = vi.fn();
+  fireEvent.click(openVenues(onVenue).getByRole("option", { name: "CVPR 2027 Rebuttal" }));
+  expect(onVenue).toHaveBeenCalledWith("cvpr-rebuttal");
 });
 
 it("offers the Chinese article beside the blank one", () => {
@@ -51,5 +58,6 @@ it("names the thesis templates by their universities in Chinese", async () => {
   expect(list.getByRole("option", { name: "清华大学学位论文（ThuThesis）" })).toBeInTheDocument();
   expect(list.getByRole("option", { name: "中国科学技术大学学位论文（ustcthesis）" })).toBeInTheDocument();
   expect(list.getByRole("option", { name: "AAAI 2027（预印本）" })).toBeInTheDocument();
+  expect(list.getByRole("option", { name: "CVPR 2027 作者回复（Rebuttal）" })).toBeInTheDocument();
   expect(list.getByRole("option", { name: "中文文章（ctexart）" })).toBeInTheDocument();
 });

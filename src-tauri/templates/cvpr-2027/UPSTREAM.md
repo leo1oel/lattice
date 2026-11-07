@@ -4,7 +4,7 @@
 
 https://github.com/cvpr-org/author-kit
 
-Release `CVPR2027-v1` (2026-10-28), fetched 2026-11-01.
+Release `CVPR2027-v1` (2026-10-28, commit `a2369342011145be8c85e5ad21a9b61f9fa53473`), fetched 2026-11-01 and checked again against the release on 2026-11-07.
 `cvpr.sty` SHA-256: `ae8e51adc7270b118833b2092310ca1151a19fab0c09b1ab35a485ac4004ac0f`
 `ieeenat_fullname.bst` SHA-256: `e38e6166bd7b1e6d23a1b79dcdb55c656e4fcdbe91bdf6b50d827e6b5d1aacfc`
 The repository has no license file.
@@ -12,3 +12,4 @@ The `.bst` file carries its own license grant in its header: it is a modificatio
 The `.sty` file carries no license grant.
 Both files ship unmodified, so every notice and credit in them reaches users intact; do not edit or strip their header comments.
 Lattice's `main.tex` is a short project skeleton that uses the official package API; it is not the conference example paper.
+The author-response template from the same release is `../cvpr-2027-rebuttal/`.
