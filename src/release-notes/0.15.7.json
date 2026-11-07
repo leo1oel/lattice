@@ -1,0 +1,32 @@
+{
+  "version": "0.15.7",
+  "date": "2026-11-07",
+  "highlights": [
+    {
+      "title": {
+        "en": "A Get started checklist replaces the guided tour",
+        "zh": "“上手”清单取代引导教程"
+      },
+      "body": {
+        "en": "Six steps walk you through Lattice: install LaTeX, build the sample paper, jump between the PDF and the source, cite a paper, let the AI assistant revise a paragraph, and start your own paper. Each step says in one sentence why it matters and has Show me and Skip, and your progress is kept. Setting up LaTeX is now one of the steps instead of a popup. The checklist opens on first launch and in the web demo.",
+        "zh": "六个步骤带你熟悉 Lattice：安装 LaTeX、编译示例论文、在 PDF 和源码间跳转、引用一篇论文、让 AI 助手改一段文字，以及开始写你自己的论文。每一步都用一句话说明为什么要做，并提供“指给我看”和“跳过”，进度会自动保存。安装 LaTeX 现在是清单中的一步，不再弹窗提示。首次启动和网页演示中都会自动打开这份清单。"
+      }
+    },
+    {
+      "title": {
+        "en": "The AI assistant finds Claude Code and Codex more reliably",
+        "zh": "AI 助手更容易找到 Claude Code 和 Codex"
+      },
+      "body": {
+        "en": "It looks in their usual install folders even when your shell's PATH misses them, and checks again without a restart. When it finds neither, it says which agents are supported and how to install one and sign in, with Set path… and Check again.",
+        "zh": "即使终端的 PATH 里没有它们，AI 助手也会到常见的安装位置查找，并且无需重启就能重新检测。如果一个都没找到，它会说明支持哪些工具、如何安装并登录，并提供“设置路径…”和“重新检查”。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "The app icon follows Apple's macOS icon grid, so it is the same size as the other apps in the Dock.",
+      "zh": "应用图标改用 Apple 的 macOS 图标网格绘制，在程序坞里和其他应用一样大。"
+    }
+  ]
+}
