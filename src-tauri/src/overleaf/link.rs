@@ -13,6 +13,7 @@ use super::files::{
     excluded_in, has_conflict_markers, is_latex_save_error_path, is_transient_pdf_render_path,
     read_local_files, sha256_hex, write_base_copy, write_local_file, LocalFiles,
 };
+use super::local_copies::remember_local_copy;
 use super::review::HistoryFrom;
 use crate::overleaf_rt::Permission;
 use crate::project_fs::ProjectDir;
@@ -306,6 +307,31 @@ pub fn clone_target(
     Ok(CloneTarget { kind, path: root.to_string_lossy().into_owned(), folder })
 }
 
+/// Ready a folder already linked to `project_id` to open again, recording the
+/// role the dashboard now reports. That role is the one thing that can have
+/// changed while the folder sat there. A missing dashboard role clears an old
+/// writable role: unknown must fail closed until realtime supplies fresh
+/// evidence.
+pub fn reopen_local_copy(
+    config_dir: &Path, root: &Path, project_id: &str, access_level: Option<&str>,
+) -> Result<(), String> {
+    let mut state = load_state(root)?;
+    if state.project_id != project_id {
+        return Err(format!("{} is no longer linked to this Overleaf project.", root.display()));
+    }
+    if state.permission.as_deref() != access_level {
+        state.permission = access_level.map(str::to_string);
+        save_state(root, &state)?;
+    }
+    remember_local_copy(config_dir, root);
+    Ok(())
+}
+
+/// The folder a project named `project_name` downloads into first.
+pub fn download_folder(dest_parent: &Path, project_name: &str) -> Result<PathBuf, String> {
+    Ok(dest_parent.join(sanitize_project_name(project_name)?))
+}
+
 /// Fold a project name into a safe folder name, mirroring
 /// `project::validate_new_project_name` (no separators) and stripping
 /// characters macOS cannot store.
@@ -342,6 +368,7 @@ pub fn adopt_project(
         return Err(format!("{} is not a folder.", root.display()));
     }
     save_state(root, &SyncState::linked(session.host, project_id, project_name, access_level))?;
+    remember_local_copy(config_dir, root);
     Ok(root.to_path_buf())
 }
 
@@ -371,15 +398,7 @@ pub fn clone_project(
                 break;
             }
             "open" => {
-                // The one thing that can have changed while it sat there: what
-                // this account is now allowed to do with the project. A
-                // missing dashboard role clears an old writable role: unknown
-                // must fail closed until realtime supplies fresh evidence.
-                let mut state = load_state(&candidate)?;
-                if state.permission.as_deref() != access_level {
-                    state.permission = access_level.map(str::to_string);
-                    save_state(&candidate, &state)?;
-                }
+                reopen_local_copy(config_dir, &candidate, project_id, access_level)?;
                 return Ok(candidate);
             }
             _ => {}
@@ -422,6 +441,7 @@ pub fn clone_project(
         ..SyncState::linked(session.host, project_id, project_name, access_level)
     };
     save_state(&root, &state)?;
+    remember_local_copy(config_dir, &root);
     Ok(root)
 }
 
@@ -524,6 +544,7 @@ pub fn publish_project(
             session.host
         ));
     }
+    remember_local_copy(config_dir, root);
     Ok(state.link())
 }
 

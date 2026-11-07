@@ -5072,7 +5072,7 @@ msgstr "下载 {url}"
 
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Download a new copy"
-msgstr "重新下载"
+msgstr "下载新副本"
 
 #: src/papers/bib-entry-detail.tsx
 msgid "Download and open"
@@ -10113,6 +10113,7 @@ msgid "Opened {opened}"
 msgstr "{opened}打开"
 
 #: src/app/opening-overlay.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/trellis/trellis-text-snapshot.tsx
 msgid "Opening {name}…"
 msgstr "正在打开{name}…"
@@ -10128,6 +10129,11 @@ msgstr "正在打开 Overleaf…"
 #: src/app/use-project-lifecycle.ts
 msgid "Opening window…"
 msgstr "正在打开窗口…"
+
+#. placeholder {0}: copy.display
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Opens your local copy at {0}"
+msgstr "将打开本机副本：{0}"
 
 #: src/telemetry/app-log.tsx
 msgid "Operation metadata"

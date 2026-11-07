@@ -31,7 +31,8 @@
 //!
 //! Layout: `account` is the signed-in session, `projects` what it can open
 //! (the project list, pending invitations, a pasted link), `link` the persisted link
-//! between a folder and a project (and how one is made), `files` the local
+//! between a folder and a project (and how one is made), `local_copies` which
+//! folders on this Mac hold one, `files` the local
 //! side of sync and its merge bases, `sync` the ZIP-based sync, preview and
 //! probe, `review` chat, comments, history and tracked changes, and `api` the
 //! HTTP plumbing all of them share.
@@ -44,6 +45,7 @@ mod case_collisions;
 mod doc_push;
 mod files;
 mod link;
+mod local_copies;
 mod projects;
 mod review;
 mod root_document;
@@ -59,10 +61,11 @@ pub use account::{
 };
 pub use files::{checkpoint_realtime_text, is_conflict_copy, RealtimeCheckpoint};
 pub use link::{
-    adopt_project, clone_project, clone_target, project_link, publish_project, realtime_config,
-    record_relocation, set_paused, set_permission, set_realtime_metadata, CloneTarget,
-    OverleafLink,
+    adopt_project, clone_project, clone_target, download_folder, project_link, publish_project,
+    realtime_config, record_relocation, reopen_local_copy, set_paused, set_permission,
+    set_realtime_metadata, CloneTarget, OverleafLink,
 };
+pub use local_copies::{local_copies, remember_local_copy, LocalCopy};
 pub use projects::{list_projects, resolve_link, OverleafProjectList, PastedLink};
 pub use review::{
     accept_changes, change_authors, chat_messages, comment_anchors, delete_entity, delete_message,

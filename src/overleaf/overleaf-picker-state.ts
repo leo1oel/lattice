@@ -3,7 +3,7 @@
  * the account's connection, its project list, what the user has typed and
  * chosen, and the download or upload in flight.
  */
-import type { OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
+import type { LocalCopy, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
 
 export type PickerState = {
   status: OverleafStatus | null;
@@ -14,9 +14,13 @@ export type PickerState = {
   projectsError: string | null;
   /** An invitation was opened in the browser, so the list may be out of date. */
   invitationOpened: boolean;
+  /** The folder on this Mac already linked to a listed project, by project id. */
+  localCopies: Record<string, LocalCopy>;
   search: string;
   showArchived: boolean;
   selected: string | null;
+  /** Opening a project, until it is known whether it opens a local copy or downloads. */
+  opening: OverleafProject | null;
   cloning: OverleafProject | null;
   /** How much of the download has arrived, once Overleaf starts sending it. */
   downloaded: DownloadProgress | null;
@@ -38,11 +42,13 @@ export type PickerAction =
   /** The session expired: no list, and no error, as the reconnect state takes over. */
   | { type: "projectsCleared" }
   | { type: "invitationOpened" }
+  | { type: "localCopies"; copies: Record<string, LocalCopy> }
   | { type: "search"; search: string }
   | { type: "showArchived"; showArchived: boolean }
   | { type: "select"; id: string }
   | { type: "publishName"; name: string }
   /** A download starts (clearing the last transfer's error) or ends. */
+  | { type: "opening"; project: OverleafProject | null }
   | { type: "cloning"; project: OverleafProject | null }
   | { type: "downloaded"; progress: DownloadProgress }
   /** An upload starts (clearing the last transfer's error) or ends. */
@@ -52,9 +58,9 @@ export type PickerAction =
 export function initialPickerState(publishName: string): PickerState {
   return {
     status: null, statusLoading: false, statusError: null,
-    list: null, projectsLoading: false, projectsError: null, invitationOpened: false,
+    list: null, projectsLoading: false, projectsError: null, invitationOpened: false, localCopies: {},
     search: "", showArchived: false, selected: null,
-    cloning: null, downloaded: null, publishing: false, transferError: null, publishName,
+    opening: null, cloning: null, downloaded: null, publishing: false, transferError: null, publishName,
   };
 }
 
@@ -68,10 +74,13 @@ export function reducePicker(state: PickerState, action: PickerAction): PickerSt
     case "projectsFailed": return { ...state, projectsError: action.error, projectsLoading: false };
     case "projectsCleared": return { ...state, list: null, projectsError: null, projectsLoading: false };
     case "invitationOpened": return { ...state, invitationOpened: true };
+    case "localCopies": return { ...state, localCopies: action.copies };
     case "search": return { ...state, search: action.search };
     case "showArchived": return { ...state, showArchived: action.showArchived };
     case "select": return { ...state, selected: action.id };
     case "publishName": return { ...state, publishName: action.name };
+    case "opening":
+      return { ...state, opening: action.project, transferError: action.project ? null : state.transferError };
     case "cloning":
       return {
         ...state, cloning: action.project, downloaded: null, transferError: action.project ? null : state.transferError,

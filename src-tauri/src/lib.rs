@@ -85,6 +85,8 @@ mod traffic_lights;
 mod util;
 mod web_metadata;
 mod wide_event;
+#[cfg(target_os = "linux")]
+mod xlib_threads;
 
 use app_state::AppState;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
@@ -344,29 +346,10 @@ fn log_level(setting: Option<&str>) -> log::LevelFilter {
     setting.and_then(|value| value.trim().parse().ok()).unwrap_or(default)
 }
 
-/// Make Xlib safe to call from more than one thread, before anything opens a
-/// display. Under an X11 session Xlib is reached from more than one thread
-/// (the GTK/WebKitGTK stack and the crates beside it), and without this the
-/// app aborted during the tutorial's first build with "[xcb] Unknown sequence number while processing queue …
-/// XInitThreads has not been called" (caught by scripts/linux-e2e.mjs under
-/// Xvfb). Harmless under Wayland, where GTK does not use Xlib.
-#[cfg(target_os = "linux")]
-fn init_xlib_threads() {
-    #[link(name = "X11")]
-    extern "C" {
-        fn XInitThreads() -> std::os::raw::c_int;
-    }
-    // SAFETY: XInitThreads takes no arguments and must only precede every
-    // other Xlib call, which holds here: it is the first thing `run` does.
-    unsafe {
-        XInitThreads();
-    }
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
-    init_xlib_threads();
+    xlib_threads::init();
     let context = tauri::generate_context!();
     // The process inspector is a bare helper with no identity of its own, so it
     // runs even from a binary whose flavor and config disagree (`cargo test`
@@ -624,6 +607,8 @@ pub fn run() {
             ipc::overleaf::overleaf_list_projects,
             ipc::overleaf::overleaf_resolve_link,
             ipc::overleaf::overleaf_clone_target,
+            ipc::overleaf::overleaf_local_copies,
+            ipc::overleaf::overleaf_reopen_local_copy,
             ipc::overleaf::overleaf_clone_project,
             ipc::overleaf::overleaf_publish_project,
             ipc::overleaf::overleaf_link,

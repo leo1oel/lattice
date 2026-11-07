@@ -6,6 +6,7 @@ import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type { ProjectSnapshot } from "../app-types";
 import { hostErrorMessage, toMessage } from "../app-utils";
 import { browserRuntimeDetached } from "../platform/browser-runtime";
+import { mentionsAny } from "../platform/ipc-error-phrases";
 import {
   forgetRecentProject, hasSeenTutorial, loadRecentProjects, markTutorialSeen, rememberRecentProject, type RecentProject,
 } from "../settings/app-settings";
@@ -28,6 +29,9 @@ const LAUNCH_EMPTY_WINDOW_MS = 1_000;
 // failure. Everything else it can fail with is the project itself.
 // eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
+/** What `open_project` answers when another window already shows the project. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
+const OPEN_IN_ANOTHER_WINDOW = "already open in another Lattice window";
 
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
@@ -268,6 +272,31 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     }).finally(() => setBusyLabel(null));
   }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
 
+  /// Open a folder that is already on disk — the local copy of an Overleaf
+  /// project — wherever the writer will find it: the window showing it is
+  /// raised; a window in use keeps its project and this one gets its own; an
+  /// empty window takes it in place, unless another window already has it.
+  const openExistingProject = useCallback(async (path: string) => {
+    if (path === project?.root) return;
+    if (project?.root) {
+      await openProjectWindow(path);
+      return;
+    }
+    setBusyLabel(t`Opening project…`);
+    const shownElsewhere = await (async () => {
+      if (!await startProjectTransition()) return false;
+      await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
+      return false;
+    })().catch((reason: unknown) => {
+      cancelProjectTransition();
+      if (mentionsAny(toMessage(reason), [OPEN_IN_ANOTHER_WINDOW])) return true;
+      showError(toMessage(reason));
+      return false;
+    }).finally(() => setBusyLabel(null));
+    // `open_project_window` raises the window that has it.
+    if (shownElsewhere) await openProjectWindow(path);
+  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition, t]);
+
   /// Replace this window's project with the one at `path`: save, claim the
   /// switch, enter; roll the claim back on failure.
   const switchProject = useCallback(async (label: string, path: string, onError?: () => void) => {
@@ -506,7 +535,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 
   return {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
-    startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
+    startProjectTransition, cancelProjectTransition, revealNewProject, openExistingProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
     movingWorkspace,
   };

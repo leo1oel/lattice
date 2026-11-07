@@ -9,7 +9,7 @@ import { OverleafPickerDialog } from "./overleaf-project-picker";
 import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs } from "../telemetry/app-log-store";
 import type { OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
-import { mockInvoke, mockListen, type CommandTable } from "../platform/tauri-test-mocks";
+import { invokeCalls, mockInvoke, mockListen, type CommandTable } from "../platform/tauri-test-mocks";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
@@ -204,6 +204,126 @@ describe("Overleaf picker dialog", () => {
     await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
     expect(onClose).toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  // The captain's case: a folder linked to the project already sits on this
+  // Mac, outside the download folder. Opening the project from Overleaf used
+  // to download a second copy that synced too and drifted from the first.
+  const nativeVlm = { path: "/Users/me/Papers/Native VLM", display: "~/Papers/Native VLM" };
+  it("opens the folder already linked to a project instead of downloading a second copy", async () => {
+    mockConnectedPicker({ overleaf_local_copies: { p1: nativeVlm }, overleaf_reopen_local_copy: undefined });
+    const onOpenLocalCopy = vi.fn();
+    const { onClose, onBeforeClone, onCloned } = renderPicker({ onOpenLocalCopy, knownFolders: [{ path: nativeVlm.path }] });
+    expect(await screen.findByText("Opens your local copy at ~/Papers/Native VLM")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", {
+      names: ["Attention Paper", "Thesis Draft", "Old Notes"], folders: [nativeVlm.path],
+    });
+    // Only the project that has a folder here says so.
+    const thesis = screen.getByRole("button", { name: /Thesis Draft/ });
+    expect(within(thesis).queryByText(/Opens your local copy/)).not.toBeInTheDocument();
+
+    // There is no way to download a second copy beside it.
+    fireEvent.click(screen.getByRole("button", { name: /Attention Paper/ }));
+    expect(screen.queryByRole("button", { name: "Download a new copy" })).not.toBeInTheDocument();
+    await openFirstProject();
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    expect(onClose).toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
+    expect(onBeforeClone).not.toHaveBeenCalled();
+    expect(onCloned).not.toHaveBeenCalled();
+  });
+
+  // A slow drive among the folders checked can hold the lookup back; Open
+  // pressed meanwhile must not download a second copy of a linked folder.
+  it("waits for the local-copy lookup before choosing to download", async () => {
+    let answer: (copies: unknown) => void = () => undefined;
+    mockConnectedPicker({
+      overleaf_local_copies: () => new Promise((resolve) => { answer = resolve; }),
+      overleaf_reopen_local_copy: undefined,
+    });
+    const onOpenLocalCopy = vi.fn();
+    const { onCloned } = renderPicker({ onOpenLocalCopy });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", expect.anything()));
+    await openFirstProject();
+    // Busy meanwhile: a second Open cannot start another open or download.
+    expect(await screen.findByText(/Opening Attention Paper…/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open" })).toBeDisabled();
+    // A lookup stuck on an unresponsive drive must not trap the writer here.
+    expect(screen.getByRole("button", { name: "Close Open from Overleaf" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    answer({ p1: nativeVlm });
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    expect(onOpenLocalCopy).toHaveBeenCalledOnce();
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
+    expect(onCloned).not.toHaveBeenCalled();
+  });
+
+  it("looks up local copies once, not again for each new callback from a re-rendering parent", async () => {
+    mockConnectedPicker({ overleaf_local_copies: { p1: nativeVlm } });
+    const knownFolders = [{ path: nativeVlm.path }];
+    const props = { onClose: vi.fn(), onCloned: vi.fn(), knownFolders };
+    const { rerender } = render(<OverleafPickerDialog open {...props} onOpenLocalCopy={() => undefined} />);
+    await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
+    rerender(<OverleafPickerDialog open {...props} onOpenLocalCopy={() => undefined} />);
+    rerender(<OverleafPickerDialog open {...props} onOpenLocalCopy={() => undefined} />);
+    expect(invokeCalls("overleaf_local_copies")).toHaveLength(1);
+  });
+
+  it("drops an open whose picker closed before the lookup answered", async () => {
+    let answer: (copies: unknown) => void = () => undefined;
+    mockConnectedPicker({ overleaf_local_copies: () => new Promise((resolve) => { answer = resolve; }) });
+    const onOpenLocalCopy = vi.fn();
+    const { onBeforeClone, onCloned } = renderPicker({ onOpenLocalCopy });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", expect.anything()));
+    await openFirstProject();
+    cleanup();
+    answer({});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_target", expect.anything());
+    expect(onBeforeClone).not.toHaveBeenCalled();
+    expect(onCloned).not.toHaveBeenCalled();
+  });
+
+  // The role the dashboard reports now is what the copy syncs with: a viewer
+  // promoted to editor since the last visit can write at once.
+  it.each(["readAndWrite", null] as const)("gives the local copy the %s role Overleaf reports before opening it", async (accessLevel) => {
+    mockConnectedPicker({
+      overleaf_list_projects: listed([{ ...projects[0]!, accessLevel }]),
+      overleaf_local_copies: { p1: nativeVlm },
+      overleaf_reopen_local_copy: undefined,
+    });
+    const onOpenLocalCopy = vi.fn();
+    renderPicker({ onOpenLocalCopy });
+    await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
+    await openFirstProject();
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    expect(invoke).toHaveBeenCalledWith("overleaf_reopen_local_copy", { path: nativeVlm.path, projectId: "p1", accessLevel });
+    const reopen = vi.mocked(invoke).mock.calls.findIndex(([command]) => command === "overleaf_reopen_local_copy");
+    expect(vi.mocked(invoke).mock.invocationCallOrder[reopen]).toBeLessThan(onOpenLocalCopy.mock.invocationCallOrder[0]!);
+  });
+
+  it("reports a local copy it could not ready and keeps the dialog open", async () => {
+    mockConnectedPicker({
+      overleaf_local_copies: { p1: nativeVlm },
+      overleaf_reopen_local_copy: () => { throw new Error("/Users/me/Papers/Native VLM is no longer linked to this Overleaf project."); },
+    });
+    const onOpenLocalCopy = vi.fn();
+    const { onClose } = renderPicker({ onOpenLocalCopy });
+    await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
+    await openFirstProject();
+    await waitFor(() => expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent(/no longer linked/));
+    expect(onOpenLocalCopy).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("downloads as before when no folder here is linked to the project", async () => {
+    mockConnectedPicker({ overleaf_local_copies: {} });
+    const onOpenLocalCopy = vi.fn();
+    const { onCloned } = renderPicker({ onOpenLocalCopy });
+    await openFirstProject();
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
+    expect(screen.queryByRole("button", { name: "Download a new copy" })).not.toBeInTheDocument();
+    expect(onOpenLocalCopy).not.toHaveBeenCalled();
   });
 
   it("does not change roots when the current project is still syncing", async () => {

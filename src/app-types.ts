@@ -437,6 +437,12 @@ export type CloneTarget = {
   path: string;
   folder: string;
 };
+/** A folder on this Mac already linked to an Overleaf project (`overleaf_local_copies`). */
+export type LocalCopy = {
+  path: string;
+  /** The path for people to read, with the home folder as `~`. */
+  display: string;
+};
 export type OverleafLink = {
   projectId: string;
   projectName: string;

@@ -2,12 +2,13 @@
  * The "Open from Overleaf" picker: connect if needed, browse every project
  * the account can open in Overleaf's own order, see invitations still
  * waiting on Overleaf, or paste a project or share link, then download one
- * as a local Lattice project.
+ * as a local Lattice project — or, for a project already linked to a folder
+ * on this Mac, open that folder rather than download a second copy.
  */
-import { useCallback, useEffect, useReducer, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useReducer, useRef, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Cloud, CloudAlert, CloudOff, ExternalLink, FileText, MailOpen, SearchX, UploadCloud } from "lucide-react";
+import { Cloud, CloudAlert, CloudOff, ExternalLink, FileText, HardDrive, MailOpen, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Badge } from "../components/ui/badge";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
@@ -24,7 +25,7 @@ import { MotionButton } from "../components/ui/motion";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
-import type { CloneTarget, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
+import type { CloneTarget, LocalCopy, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
 import { confirmAction, formatSize, relativeTime, toMessage } from "../app-utils";
 import { subscribeTauriEvent } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
@@ -49,6 +50,16 @@ type PickerProps = {
   /** Restore the old project identity when the root-changing request fails. */
   onCloneCancelled?: () => void;
   onCloned: (root: string) => void;
+  /**
+   * Open a folder already linked to the chosen project, raising its window
+   * when one shows it. Without it, every project downloads.
+   */
+  onOpenLocalCopy?: (root: string) => void;
+  /**
+   * Folders the app knows of (its recent projects), checked for a link first.
+   * Kept as the caller's list, not mapped, so the lookup reruns only when it changes.
+   */
+  knownFolders?: readonly { path: string }[];
   /** The open, unlinked local project that can become a new Overleaf project. */
   currentProject?: { name: string } | null;
   /** Saves, uploads and links the current project. False means saving was cancelled. */
@@ -70,14 +81,21 @@ export function OverleafPickerDialog(props: PickerProps) {
 function OverleafPicker(props: PickerProps) {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(reducePicker, props.currentProject?.name ?? "", initialPickerState);
-  const { status, statusLoading, statusError, list, projectsLoading, projectsError, invitationOpened } = state;
-  const { search, showArchived, selected, cloning, downloaded, publishing, transferError, publishName } = state;
+  const { status, statusLoading, statusError, list, projectsLoading, projectsError, invitationOpened, localCopies } = state;
+  const { search, showArchived, selected, opening, cloning, downloaded, publishing, transferError, publishName } = state;
   const { compositionProps, isComposing } = useCompositionGuard();
   const login = useOverleafLogin((session) => {
     dispatch({ type: "status", status: session });
     props.onConnectionChanged?.();
   });
-  const { onClose, onConnectionChanged } = props;
+  const { onClose, onConnectionChanged, knownFolders } = props;
+  const canOpenLocal = Boolean(props.onOpenLocalCopy);
+  const lookup = useRef<Promise<Record<string, LocalCopy>>>(Promise.resolve({}));
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const loadStatus = useCallback(async () => {
     dispatch({ type: "statusLoading" });
@@ -116,7 +134,7 @@ function OverleafPicker(props: PickerProps) {
 
   const publish = async () => {
     const name = publishName.trim();
-    if (!name || !props.currentProject || !props.onPublish || publishing || cloning) return;
+    if (!name || !props.currentProject || !props.onPublish || publishing || cloning || opening) return;
     if (!await confirmAction(
       t`Upload “${name}” to Overleaf and connect this folder?
 
@@ -164,7 +182,6 @@ Files that differ are kept side by side. Nothing is overwritten`,
   };
 
   const clone = async (project: OverleafProject) => {
-    if (cloning || publishing) return;
     dispatch({ type: "cloning", project });
     try {
       const root = await download(project);
@@ -182,6 +199,38 @@ Files that differ are kept side by side. Nothing is overwritten`,
     }
   };
 
+  /**
+   * Open `project`: the folder on this Mac already linked to it when there is
+   * one — a second copy would sync too, drift apart from the first and leave
+   * the writer guessing which holds their work — or else a download. The
+   * copy first takes the role the dashboard reports now, as a reopened
+   * download does. The lookup is awaited, so an Open pressed before it answers
+   * still finds the copy.
+   */
+  const openProject = async (project: OverleafProject) => {
+    if (opening || cloning || publishing) return;
+    dispatch({ type: "opening", project });
+    const copy = props.onOpenLocalCopy ? (await lookup.current)[project.id] : undefined;
+    if (!mounted.current) return;
+    if (!copy || !props.onOpenLocalCopy) {
+      dispatch({ type: "opening", project: null });
+      return clone(project);
+    }
+    try {
+      await invoke("overleaf_reopen_local_copy", { path: copy.path, projectId: project.id, accessLevel: project.accessLevel });
+    } catch (reason) {
+      const detail = toMessage(reason);
+      dispatch({ type: "opening", project: null });
+      dispatch({ type: "transferFailed", error: detail });
+      notifyError(OVERLEAF_SOURCE, t`Could not open the Overleaf project`, { detail });
+      return;
+    }
+    if (!mounted.current) return;
+    dispatch({ type: "opening", project: null });
+    props.onOpenLocalCopy(copy.path);
+    onClose();
+  };
+
   /** The account's connection, once it has been read without error. */
   const known = !statusLoading && !statusError ? status : null;
   const projects = list?.projects ?? null;
@@ -189,13 +238,32 @@ Files that differ are kept side by side. Nothing is overwritten`,
   const link = known?.connected && looksLikeOverleafLink(search) ? search.trim() : null;
   const pasted = usePastedLink(link, handleFailure);
   const linked = pasted.answer?.kind === "project" ? pasted.answer.project : null;
+
+  // Which listed projects already have a folder on this Mac. Each answer is
+  // read from that folder's own link, so a folder deleted or unlinked since
+  // simply does not answer and its project downloads as before.
+  useEffect(() => {
+    const listed = [...(list?.projects ?? []), ...(linked ? [linked] : [])];
+    if (!canOpenLocal || !listed.length) return;
+    let disposed = false;
+    lookup.current = invoke<Record<string, LocalCopy>>("overleaf_local_copies", {
+      names: listed.map((project) => project.name),
+      folders: (knownFolders ?? []).map((folder) => folder.path),
+    })
+      // Without an answer every project downloads, which is what it did before.
+      .catch(() => ({}));
+    void lookup.current.then((copies) => { if (!disposed) dispatch({ type: "localCopies", copies }); });
+    return () => { disposed = true; };
+  }, [list, linked, knownFolders, canOpenLocal]);
   const query = link ? "" : search.trim().toLowerCase();
   const matches = (...values: (string | null)[]) => !query || values.some((value) => value?.toLowerCase().includes(query));
   const visible = (projects ?? [])
     .filter((project) => showArchived || (!project.archived && !project.trashed))
     .filter((project) => matches(project.name, project.ownerName, project.ownerEmail));
   const invites = (list?.invites ?? []).filter((invite) => matches(invite.projectName, invite.inviterName));
-  const working = Boolean(cloning) || publishing;
+  const transferring = Boolean(cloning) || publishing;
+  const working = Boolean(opening) || transferring;
+  const openingText = (name: string) => t`Opening ${name}…`;
   // A project with large figures takes minutes to arrive over a slow link:
   // say how much has, so a long download reads as moving, not stuck.
   const cloningId = cloning?.id ?? null;
@@ -226,7 +294,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
     const current = row ? row.dataset.projectId : linked?.id ?? selected;
     const index = ordered.findIndex((project) => project.id === current);
     if (event.key === "Enter") {
-      if (index >= 0) { event.preventDefault(); void clone(ordered[index]); }
+      if (index >= 0) { event.preventDefault(); void openProject(ordered[index]); }
       return;
     }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") return;
@@ -243,9 +311,11 @@ Files that differ are kept side by side. Nothing is overwritten`,
     button?.scrollIntoView?.({ block: "nearest" });
   };
 
-  const renderProject = (project: OverleafProject, chosen: boolean) => (
+  const renderProject = (project: OverleafProject, chosen: boolean) => {
+    const copy = props.onOpenLocalCopy ? localCopies[project.id] : undefined;
+    return (
     <li key={project.id} className={rowClassName("store", `overleaf-project-row${chosen ? " selected" : ""}`)}>
-      <button type="button" className="overleaf-project-main" data-project-id={project.id} aria-pressed={chosen} disabled={working} onClick={() => dispatch({ type: "select", id: project.id })}>
+      <button type="button" className="overleaf-project-main" data-project-id={project.id} data-local={copy ? "" : undefined} aria-pressed={chosen} disabled={working} onClick={() => dispatch({ type: "select", id: project.id })}>
         <span className="overleaf-project-icon" aria-hidden="true"><FileText size={15} /></span>
         <span className="overleaf-project-name">
           {project.name}
@@ -257,19 +327,26 @@ Files that differ are kept side by side. Nothing is overwritten`,
           {joinPhrases([project.ownerName || project.ownerEmail || t`Unknown owner`,
             project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`])}
         </span>
+        {copy && (
+          <span className="overleaf-project-local" title={copy.path}>
+            <HardDrive size={11} aria-hidden="true" />
+            <span>{t`Opens your local copy at ${copy.display}`}</span>
+          </span>
+        )}
       </button>
       {/* A download in progress is said once, by the progress line under the list. */}
       {chosen && cloning?.id !== project.id && (
         <MotionButton
           className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}
           disabled={working}
-          onClick={() => void clone(project)}
+          onClick={() => void openProject(project)}
         >
           {t`Open`}
         </MotionButton>
       )}
     </li>
-  );
+    );
+  };
 
   const openInvitation = (invite: OverleafInvite) => {
     dispatch({ type: "invitationOpened" });
@@ -328,7 +405,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
   return (
     <ModalDialog
       label={t`Open from Overleaf`}
-      closeDisabled={working}
+      closeDisabled={transferring}
       onClose={onClose}
     >
       <div className="modal modal-large overleaf-picker-modal" onKeyDown={navigateProjects}>
@@ -336,8 +413,8 @@ Files that differ are kept side by side. Nothing is overwritten`,
         className="overleaf-picker-header"
         icon={<Cloud size={22} />}
         title={t`Open from Overleaf`}
-        closeDisabled={working}
-        closeTooltip={working ? t`You can close this once the transfer finishes` : undefined}
+        closeDisabled={transferring}
+        closeTooltip={transferring ? t`You can close this once the transfer finishes` : undefined}
         onClose={onClose}
       />
       {known?.connected && (
@@ -463,7 +540,10 @@ Files that differ are kept side by side. Nothing is overwritten`,
             {working && (
               <Progress
                 className="overleaf-progress"
-                text={cloning ? downloadText : t`Uploading ${publishName.trim()}…`}
+                text={cloning
+                  ? downloadText
+                  : opening ? openingText(opening.name)
+                  : t`Uploading ${publishName.trim()}…`}
               />
             )}
           </>

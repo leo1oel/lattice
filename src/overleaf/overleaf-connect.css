@@ -322,6 +322,19 @@
   white-space: nowrap;
 }
 .overleaf-open-button { animation: overleaf-settle var(--motion-moderate); }
+/* A project already linked to a folder here: where Open takes the writer. */
+.overleaf-project-main[data-local] .overleaf-project-icon { grid-row: span 3; }
+.overleaf-project-local {
+  grid-column: 2;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  color: var(--text-secondary);
+  font-size: var(--type-micro-size);
+}
+.overleaf-project-local > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overleaf-project-local svg { flex: none; }
 
 
 .overleaf-publish-card { margin-top: var(--space-8); flex: none; display: grid; gap: var(--space-6); }

@@ -83,7 +83,7 @@ fn session_path(config_dir: &Path) -> PathBuf {
 }
 
 /// The stored session, whether or not Overleaf still accepts it.
-fn read_session(config_dir: &Path) -> Result<SessionFile, String> {
+pub(super) fn read_session(config_dir: &Path) -> Result<SessionFile, String> {
     let raw =
         fs::read_to_string(session_path(config_dir)).map_err(|_| NOT_CONNECTED.to_string())?;
     serde_json::from_str(&raw).map_err(|_| NOT_CONNECTED.to_string())

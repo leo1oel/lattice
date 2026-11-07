@@ -7,7 +7,7 @@ use super::workspace::documents_folder;
 use super::{current_root, in_project, pinned_root, run_blocking, run_quietly, scoped_root};
 use crate::app_state::{AppState, Lease, ProjectLease};
 use crate::{command_diagnostics, git, overleaf, wide_event};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -382,11 +382,55 @@ pub async fn overleaf_publish_project(
     .await
 }
 
+/// The folders on this Mac already linked to the listed projects, by project
+/// id, so the picker opens those instead of downloading again. `names` are the
+/// listed projects' names (each one's download folder is a candidate);
+/// `folders` are others the app knows of, such as its recent projects.
+#[tauri::command]
+pub async fn overleaf_local_copies(
+    app: AppHandle, names: Vec<String>, folders: Vec<String>,
+) -> Result<BTreeMap<String, overleaf::LocalCopy>, String> {
+    let config = overleaf_config_dir(&app)?;
+    let parent = overleaf_projects_dir(&app)?;
+    run_blocking("Overleaf local copies", move || {
+        let downloads =
+            names.iter().filter_map(|name| overleaf::download_folder(&parent, name).ok());
+        let candidates: Vec<PathBuf> = folders.iter().map(PathBuf::from).chain(downloads).collect();
+        Ok(overleaf::local_copies(&config, &candidates))
+    })
+    .await
+}
+
+/// Ready the folder `overleaf_local_copies` found for `project_id` to open,
+/// recording the role the dashboard reports now, as reopening a download does.
+#[tauri::command]
+pub async fn overleaf_reopen_local_copy(
+    app: AppHandle, state: State<'_, AppState>, path: String, project_id: String,
+    access_level: Option<String>,
+) -> Result<(), String> {
+    let config = overleaf_config_dir(&app)?;
+    let _lease = state.lease(&path, Lease::Shared).await;
+    run_blocking("Overleaf local copy", move || {
+        overleaf::reopen_local_copy(&config, Path::new(&path), &project_id, access_level.as_deref())
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn overleaf_link(
-    state: State<'_, AppState>, window: Window,
+    app: AppHandle, state: State<'_, AppState>, window: Window,
 ) -> Result<Option<overleaf::OverleafLink>, String> {
-    in_project(&state, &window, "Overleaf project link", overleaf::project_link).await
+    let config = overleaf_config_dir(&app)?;
+    in_project(&state, &window, "Overleaf project link", move |root| {
+        let link = overleaf::project_link(root)?;
+        // Every open of a linked project is remembered, so a folder linked
+        // before Lattice kept this list, or moved since, is found again.
+        if link.is_some() {
+            overleaf::remember_local_copy(&config, root);
+        }
+        Ok(link)
+    })
+    .await
 }
 
 #[tauri::command]

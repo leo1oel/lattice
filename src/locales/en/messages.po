@@ -10113,6 +10113,7 @@ msgid "Opened {opened}"
 msgstr "Opened {opened}"
 
 #: src/app/opening-overlay.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/trellis/trellis-text-snapshot.tsx
 msgid "Opening {name}…"
 msgstr "Opening {name}…"
@@ -10128,6 +10129,11 @@ msgstr "Opening the Overleaf project…"
 #: src/app/use-project-lifecycle.ts
 msgid "Opening window…"
 msgstr "Opening window…"
+
+#. placeholder {0}: copy.display
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Opens your local copy at {0}"
+msgstr "Opens your local copy at {0}"
 
 #: src/telemetry/app-log.tsx
 msgid "Operation metadata"
