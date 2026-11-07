@@ -28,9 +28,9 @@ lands in the Paper file and in the app, through the review loop in
   `--display-font` (Timeless Serif, or Instrument Serif without the private
   fonts) at regular weight. Chinese falls through to Songti SC, the macOS
   system serif, so a title stays a serif in either language. It is used for
-  titles only: the welcome title, dialog and Settings page titles, the guided
-  tour's card, a workspace with every panel closed, the error page, and the
-  verdicts that open the submission checklist and the Build button's card.
+  titles only: the welcome title, dialog and Settings page titles, a
+  workspace with every panel closed, the error page, and the verdicts that
+  open the submission and Get started checklists and the Build button's card.
 - The product accent is neutral by default (Graphite). Settings → Appearance
   offers six accent presets and a custom color; each reads at 4.6:1 as text on
   every surface of every tint, and a custom pick is fitted to that floor.
@@ -363,7 +363,7 @@ Reading to typeset; Compact title (13/16) and Title (14/18) to subtitle; Large
 title (16/20) and Heading to title; Display to display; Project tree, Diff code
 and Diff metadata to the aliases above.
 
-Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
+Compact interface copy — titles, setting descriptions, dialog subtitles, empty states, and helper text — does not end in a full stop.
 Punctuation inside multi-sentence copy remains.
 A description, subtitle, or explainer paragraph appears only when it says something the label or control does not.
 Structural section headings stay: on a page, panel or sidebar with three or more groups, each group carries a short noun title (a settings group, a sidebar cluster, a drawer section), a one-item group included, so the surface scans by its headings. A page's leading group may go untitled, since the page title names it. A heading titles its group and never explains it, so no sentence sits under it.
