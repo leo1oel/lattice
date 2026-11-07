@@ -1,0 +1,354 @@
+name: Linux AppImage
+
+# The experimental x86_64 Linux AppImage: built on Ubuntu 22.04 (its glibc is
+# the oldest the AppImage runs on), checked, and attached to a release that
+# the macOS Release workflow has already published.
+#
+# Linux never holds up the macOS release. release.yml does not know this
+# workflow exists: it builds, notarizes and publishes the Mac release exactly
+# as before, and only once it has succeeded does this workflow start, from its
+# workflow_run event. A Linux failure therefore leaves the published release
+# without an AppImage and nothing else; it cannot keep a release a draft, and
+# it cannot fail the Release run that web-demo.yml waits on. The AppImage is
+# attached only when every check below passed:
+#
+# - build: the AppImage from the release's commit, with the same secrets the
+#   Mac build bakes in, and its contents checked for loose fonts;
+# - smoke: extracted on Ubuntu 22.04 and 24.04 and Fedora 41, every bundled
+#   ELF resolves its libraries, and it launches and stays up under Xvfb;
+# - e2e: tauri-driver drives the AppImage itself under Xvfb: it opens the
+#   tutorial, builds it, draws the PDF, rebuilds on Build, and the Agent panel
+#   says the Agent is not available on Linux yet (scripts/linux-e2e.mjs).
+#
+# Linux copies do not update themselves: the build turns
+# bundle.createUpdaterArtifacts off, so there is no updater archive to sign,
+# and latest.json keeps only darwin-aarch64. Linux users download each
+# release by hand.
+#
+# A pull request that changes this packaging, or a run by hand, runs the same
+# build and checks with the open-licensed fonts and no baked-in keys, and
+# publishes nothing.
+#
+# The AppImage build and the smoke script started from Stefan Bringuier's
+# https://github.com/leo1oel/lattice/pull/667.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  pull_request:
+    paths:
+      - ".github/workflows/linux-appimage.yml"
+      - ".github/scripts/smoke-appimage.sh"
+      - "scripts/linux-e2e.mjs"
+      - "scripts/check-font-leaks.mjs"
+      - "scripts/lib/runtime-prune.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per release tag or pull request, so two attempts never attach to
+# the same release at once; a newer push to a pull request replaces its run.
+concurrency:
+  group: linux-appimage-${{ github.event.workflow_run.head_branch || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # A Release run for a tag push: the one case that bakes in the release's
+  # secrets and attaches the result. Tags are the only pushes Release runs on.
+  IS_RELEASE: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+
+jobs:
+  build:
+    # A Release run that failed published nothing to attach to.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-22.04
+    outputs:
+      appimage: ${{ steps.appimage.outputs.name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # workflow_run runs this file from main; build the release's own commit.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Tauri's WebKitGTK stack and D-Bus for the Secret Service keyring, as
+      # ci.yml's rust-linux job installs them; then what the AppImage bundler
+      # runs: linuxdeploy is itself an AppImage (FUSE 2), it patches RPATHs
+      # with patchelf, sniffs files with `file`, and copies the host's xdg-open.
+      - name: Install the Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libayatana-appindicator3-dev libdbus-1-dev \
+            librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config \
+            file libfuse2 patchelf xdg-utils
+
+      - uses: ./.github/actions/setup-pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - run: rustup toolchain install
+
+      # Release builds run in main's cache scope (workflow_run), so they save
+      # for the next release and for pull requests to restore.
+      # rust-cache drops the workspace crate before saving, so the baked-in
+      # keys never reach the cache.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: x86_64-unknown-linux-gnu-appimage
+          save-if: ${{ env.IS_RELEASE == 'true' }}
+
+      - name: Prepare pinned Synara source
+        run: |
+          synara_repository="$(
+            node -p "require('./scripts/synara-runtime.json').repository"
+          )"
+          synara_revision="$(
+            node -p "require('./scripts/synara-runtime.json').revision"
+          )"
+          synara_source="$RUNNER_TEMP/lattice-synara"
+
+          git init "$synara_source"
+          git -C "$synara_source" remote add origin "$synara_repository"
+          git -C "$synara_source" fetch --depth=1 origin "$synara_revision"
+          git -C "$synara_source" checkout --detach FETCH_HEAD
+          test "$(git -C "$synara_source" rev-parse HEAD)" = "$synara_revision"
+
+          echo "BUN_BIN=$(command -v bun)" >> "$GITHUB_ENV"
+          echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
+
+      - name: Install pinned Synara dependencies
+        run: bun install --cwd "$SYNARA_SOURCE_DIR" --frozen-lockfile
+
+      # As release.yml fetches them, and for a release only: a pull request's
+      # artifact is not a release and keeps the open-licensed fonts.
+      - name: Fetch the licensed interface fonts
+        if: env.IS_RELEASE == 'true'
+        env:
+          LATTICE_FONTS_DEPLOY_KEY: ${{ secrets.LATTICE_FONTS_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$LATTICE_FONTS_DEPLOY_KEY" ]]; then
+            echo "No fonts deploy key: building with the open-licensed interface fonts."
+            exit 0
+          fi
+
+          ssh_dir="$(mktemp -d "$RUNNER_TEMP/lattice-fonts-ssh.XXXXXX")"
+          trap 'rm -rf "$ssh_dir"' EXIT
+          (umask 077 && printf '%s\n' "$LATTICE_FONTS_DEPLOY_KEY" > "$ssh_dir/deploy-key")
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
+            > "$ssh_dir/known_hosts"
+
+          fonts_checkout="$RUNNER_TEMP/lattice-fonts"
+          GIT_SSH_COMMAND="ssh -i $ssh_dir/deploy-key -o IdentitiesOnly=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes" \
+            git clone --quiet --depth=1 git@github.com:leo1oel/lattice-fonts.git "$fonts_checkout"
+
+          echo "LATTICE_PRIVATE_FONTS_DIR=$fonts_checkout/Timeless-Type-Family-1.094" >> "$GITHUB_ENV"
+          echo "LATTICE_PRIVATE_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
+
+      # No updater artifacts: tauri.conf.json turns them on for the Mac
+      # updater, and on Linux they would be an AppImage signature nobody
+      # reads, since latest.json offers no linux-x86_64 entry.
+      - name: Build the AppImage
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          LATTICE_FIRECRAWL_KEY: ${{ env.IS_RELEASE == 'true' && secrets.LATTICE_FIRECRAWL_KEY || '' }}
+          VITE_TLDRAW_LICENSE_KEY: ${{ env.IS_RELEASE == 'true' && secrets.VITE_TLDRAW_LICENSE_KEY || '' }}
+        run: pnpm tauri build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Locate the AppImage
+        id: appimage
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          found=(src-tauri/target/release/bundle/appimage/*.AppImage)
+          if ((${#found[@]} != 1)); then
+            echo "::error::Expected one AppImage, found ${#found[@]}: ${found[*]}"
+            exit 1
+          fi
+          echo "path=${found[0]}" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "${found[0]}")" >> "$GITHUB_OUTPUT"
+          ls -la "${found[0]}"
+
+      # The AppImage is a release asset, so it passes the release's own asset
+      # check (its name is an allowed one and it is not a font), and its
+      # contents pass the built-app check the Mac bundle does.
+      - name: Check the AppImage for loose font files
+        env:
+          APPIMAGE: ${{ steps.appimage.outputs.path }}
+        run: |
+          set -euo pipefail
+          assets_dir="$(mktemp -d "$RUNNER_TEMP/lattice-assets.XXXXXX")"
+          cp "$APPIMAGE" "$assets_dir/"
+          node scripts/check-font-leaks.mjs assets "$assets_dir"
+          extract_dir="$(mktemp -d "$RUNNER_TEMP/lattice-appdir.XXXXXX")"
+          (cd "$extract_dir" && "$GITHUB_WORKSPACE/$APPIMAGE" --appimage-extract >/dev/null)
+          node scripts/check-font-leaks.mjs appdir "$extract_dir/squashfs-root"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lattice-appimage
+          path: ${{ steps.appimage.outputs.path }}
+          if-no-files-found: error
+          retention-days: 3
+
+  # The same AppImage on each distribution users are most likely to run it on,
+  # oldest glibc first. The guests get a desktop's libraries (GTK 3, Mesa) and
+  # Xvfb, which linuxdeploy expects the host to have; see smoke-appimage.sh.
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:22.04", "ubuntu:24.04", "fedora:41"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: lattice-appimage
+          path: ${{ runner.temp }}/appimage
+      - name: Smoke on ${{ matrix.image }}
+        env:
+          APPIMAGE: ${{ runner.temp }}/appimage/${{ needs.build.outputs.appimage }}
+        run: |
+          docker run --rm \
+            -v "$APPIMAGE:/artifact.AppImage:ro" \
+            -v "$GITHUB_WORKSPACE/.github/scripts/smoke-appimage.sh:/smoke.sh:ro" \
+            "${{ matrix.image }}" \
+            bash -c '
+              set -euo pipefail
+              if command -v apt-get >/dev/null; then
+                apt-get update -qq
+                DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+                  file findutils libgtk-3-0 libegl1 libgl1 libgles2 libgbm1 xauth xvfb >/dev/null
+              else
+                dnf install -y -q file findutils gtk3 mesa-libEGL mesa-libGL mesa-libgbm xorg-x11-xauth /usr/bin/xvfb-run >/dev/null
+              fi
+              bash /smoke.sh /artifact.AppImage
+            '
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          name: lattice-appimage
+          path: ${{ runner.temp }}/appimage
+      # WebKitWebDriver (webkit2gtk-driver) is the driver tauri-driver runs
+      # the app under; it comes from the same Ubuntu release as the WebKitGTK
+      # the AppImage bundles. TeX Live builds the tutorial, which uses natbib,
+      # lineno, microtype and booktabs.
+      - name: Install the test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            webkit2gtk-driver xvfb libfuse2 dbus-x11 \
+            latexmk texlive-latex-extra texlive-fonts-recommended
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+      # A first launch in a fresh home opens the tutorial and builds it. The
+      # tutorial goes in the XDG Documents folder, which a runner's home does
+      # not name.
+      - name: Drive the AppImage with tauri-driver
+        env:
+          APPIMAGE: ${{ runner.temp }}/appimage/${{ needs.build.outputs.appimage }}
+        run: |
+          set -euo pipefail
+          chmod +x "$APPIMAGE"
+          export HOME="$RUNNER_TEMP/e2e-home"
+          mkdir -p "$HOME/.config" "$HOME/Documents"
+          # user-dirs.dirs spells $HOME itself; the reader expands it.
+          # shellcheck disable=SC2016
+          echo 'XDG_DOCUMENTS_DIR="$HOME/Documents"' > "$HOME/.config/user-dirs.dirs"
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1440x900x24 &
+          tauri-driver --port 4444 > "$RUNNER_TEMP/tauri-driver.log" 2>&1 &
+          for _ in $(seq 50); do
+            curl -fs http://127.0.0.1:4444/status >/dev/null && break
+            sleep 0.2
+          done
+          dbus-run-session -- node scripts/linux-e2e.mjs --app "$APPIMAGE" --artifacts "$RUNNER_TEMP/e2e-evidence"
+      - name: Keep the failure's evidence
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/e2e-evidence"
+          cp "$RUNNER_TEMP/tauri-driver.log" "$RUNNER_TEMP/e2e-evidence/" || true
+          # The app's own logs (Tauri's app log directory under the fresh home).
+          cp -r "$RUNNER_TEMP/e2e-home/.local/share/app.leo1oel.researchwriter/logs" "$RUNNER_TEMP/e2e-evidence/app-logs" || true
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: linux-e2e-evidence
+          path: ${{ runner.temp }}/e2e-evidence
+          if-no-files-found: ignore
+
+  # Only after every check, and only for a release. The release is already
+  # public (the Release run succeeded), so this adds one asset and the Linux
+  # install notes; it never touches the Mac assets or latest.json. --clobber
+  # makes a re-run replace the AppImage instead of failing or adding a
+  # second copy.
+  attach:
+    needs: [build, smoke, e2e]
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.event.workflow_run.head_branch }}
+      NAME: ${{ needs.build.outputs.appimage }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: lattice-appimage
+          path: ${{ runner.temp }}/appimage
+      - name: Attach the AppImage to the release
+        run: |
+          set -euo pipefail
+          if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "false" ]]; then
+            echo "::error::$TAG is not a published release; the AppImage attaches only to one."
+            exit 1
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/appimage/$NAME" --clobber
+          count="$(gh release view "$TAG" --json assets --jq '[.assets[].name | select(endswith(".AppImage"))] | length')"
+          if [[ "$count" != "1" ]]; then
+            echo "::error::$TAG has $count AppImage assets, expected exactly one."
+            exit 1
+          fi
+      # Appended once: a re-run finds the heading and leaves the notes alone.
+      - name: Add the Linux install notes
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/notes.md"
+          gh release view "$TAG" --json body --jq .body > "$notes"
+          if grep -qF '## Install (Linux, experimental)' "$notes"; then exit 0; fi
+          cat >> "$notes" <<'EOF'
+
+          ## Install (Linux, experimental)
+
+          Download the **.AppImage** below, make it executable
+          (`chmod +x Lattice_*.AppImage`), and run it. It needs an x86_64
+          distribution at least as new as Ubuntu 22.04 (tested on Ubuntu
+          22.04 and 24.04 and Fedora 41), and your own TeX Live from the
+          distribution's packages. If FUSE 2 is missing, run it with
+          `--appimage-extract-and-run`.
+
+          On Linux, Lattice does not update itself — download each new release
+          here — and the built-in Agent is not available yet.
+          EOF
+          gh release edit "$TAG" --notes-file "$notes"

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkApp, checkAssets, checkSite, timelessFontHashes } from "./check-font-leaks.mjs";
+import { checkAssets, checkBundle, checkSite, timelessFontHashes } from "./check-font-leaks.mjs";
 
 // Stand-in fonts: a container signature and some bytes. No real Timeless file
 // may enter the repository.
@@ -30,11 +30,14 @@ describe("release asset check", () => {
     write(root, "Lattice.app.tar.gz", "archive");
     write(root, "Lattice.app.tar.gz.sig", "signature");
     write(root, "latest.json", "{\"timeless\": true}");
+    write(root, "Lattice_0.1.0_amd64.AppImage", "AppImage");
+    write(root, "Lattice_0.1.0_amd64.AppImage.tar.gz", "an updater archive Linux does not publish");
     write(root, "notes.txt", "release notes");
     write(root, "Sans.woff2", "not even a font inside");
     write(root, "renamed.bin", font("\0\x01\0\0", "glyphs"));
     write(root, "renamed.dmg", font("OTTO", "glyphs"));
     expect(checkAssets(root).sort()).toEqual([
+      "Lattice_0.1.0_amd64.AppImage.tar.gz is not a signed release artifact",
       "Sans.woff2 is a font offered for download on its own",
       "Sans.woff2 is not a signed release artifact",
       "notes.txt is not a signed release artifact",
@@ -66,7 +69,7 @@ describe("built app check", () => {
     write(app, "Contents/Resources/renamed.dat", emitted);
     write(app, "Contents/Resources/Inter.woff2", font("wOF2", "inter"));
     write(app, "Contents/Resources/unnamed.bin", font("ttcf", "collection"));
-    expect(checkApp(app, hashes).sort()).toEqual([
+    expect(checkBundle(app, hashes, "app").sort()).toEqual([
       "Lattice.app/Contents/Resources/Inter.woff2 is a font outside the app's web assets and bundled runtimes",
       "Lattice.app/Contents/Resources/presentation-runtime/TimelessNotes.txt is named for Timeless",
       "Lattice.app/Contents/Resources/renamed.dat is a copy of a Timeless font",
@@ -82,7 +85,26 @@ describe("built app check", () => {
     const app = path.join(root, "Lattice.app");
     write(app, "Contents/MacOS/lattice", "binary");
     write(app, "Contents/Resources/synara-runtime/fonts/KaTeX_Main-Regular.woff2", font("wOF2", "katex"));
-    expect(checkApp(app, hashes)).toEqual([]);
+    expect(checkBundle(app, hashes, "app")).toEqual([]);
+  });
+
+  it("applies the same rules to an extracted AppImage, with the runtimes under usr/lib/Lattice", () => {
+    const root = scratchDirectory();
+    const original = font("wOF2", "the sans face");
+    write(root, "fonts/Sans/SansVF.woff2", original);
+    const hashes = timelessFontHashes({ fontsDirectory: path.join(root, "fonts"), emittedDirectory: path.join(root, "dist/assets") });
+    const appdir = path.join(root, "squashfs-root");
+    write(appdir, "usr/bin/research-writer", "binary");
+    write(appdir, "usr/lib/Lattice/synara-runtime/node_modules/katex/fonts/KaTeX_Main-Regular.woff2", font("wOF2", "katex"));
+    write(appdir, "usr/lib/Lattice/presentation-runtime/fonts/Inter.ttf", font("true", "inter"));
+    write(appdir, "usr/lib/Lattice/synara-runtime/vendor/copied.woff2", original);
+    write(appdir, "usr/share/fonts/Inter.ttf", font("true", "inter"));
+    write(appdir, "Contents/Resources/synara-runtime/Inter.ttf", font("true", "a macOS path means nothing here"));
+    expect(checkBundle(appdir, hashes, "appdir").sort()).toEqual([
+      "squashfs-root/Contents/Resources/synara-runtime/Inter.ttf is a font outside the app's web assets and bundled runtimes",
+      "squashfs-root/usr/lib/Lattice/synara-runtime/vendor/copied.woff2 is a copy of a Timeless font",
+      "squashfs-root/usr/share/fonts/Inter.ttf is a font outside the app's web assets and bundled runtimes",
+    ]);
   });
 
   it("fails with an I/O error, not a clean result, when the path is not a built app", () => {
@@ -98,6 +120,12 @@ describe("built app check", () => {
       expect(result.stdout, target).toBe("");
       expect(result.stderr, target).toContain("is not a built .app");
     }
+    const appdir = spawnSync(process.execPath, [path.join(__dirname, "check-font-leaks.mjs"), "appdir", path.join(root, "Empty.app")], {
+      encoding: "utf8",
+      env: { ...process.env, LATTICE_PRIVATE_FONTS_DIR: "" },
+    });
+    expect(appdir.status).toBe(2);
+    expect(appdir.stderr).toContain("is not an extracted AppImage");
   });
 });
 

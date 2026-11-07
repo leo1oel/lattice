@@ -177,12 +177,15 @@ const EAGER_JS_BUDGET_BYTES = Math.floor(1.355 * 1024 * 1024);
 const PERF_LAB_EAGER_JS_ALLOWANCE_BYTES = 2 * 1024;
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
-const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;
+// The Open Slide runtime is staged for the host it is built on. Its Linux
+// copy carries the larger ELF builds of rolldown, lightningcss and Tailwind's
+// oxide: 70,781,079 bytes against macOS's 67,427,917 on 2026-11-07.
+const PRESENTATION_RUNTIME_BUDGET_BYTES = { darwin: 66 * 1024 * 1024, linux: 69 * 1024 * 1024 };
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
   report = null,
-  { lab = process.env.VITE_PERF_LAB === "1" } = {},
+  { lab = process.env.VITE_PERF_LAB === "1", platform = process.platform } = {},
 ) {
   const measuredReport = report ?? await createAppSizeReport(workspace);
   const dist = path.resolve(workspace, "dist");
@@ -248,9 +251,10 @@ export async function checkAppSizeBudgets(
   if (measuredReport.synaraNodeRuntime !== null && measuredReport.bundledNodeBytes === null) {
     throw new Error("The staged Synara runtime must bundle its standalone Node binary");
   }
-  if (measuredReport.presentationRuntimeBytes > PRESENTATION_RUNTIME_BUDGET_BYTES) {
+  const presentationRuntimeBudgetBytes = PRESENTATION_RUNTIME_BUDGET_BYTES[platform] ?? PRESENTATION_RUNTIME_BUDGET_BYTES.darwin;
+  if (measuredReport.presentationRuntimeBytes > presentationRuntimeBudgetBytes) {
     throw new Error(
-      `Presentation runtime is ${measuredReport.presentationRuntimeBytes} bytes; budget is ${PRESENTATION_RUNTIME_BUDGET_BYTES}`,
+      `Presentation runtime is ${measuredReport.presentationRuntimeBytes} bytes; budget is ${presentationRuntimeBudgetBytes}`,
     );
   }
   return {
@@ -260,7 +264,7 @@ export async function checkAppSizeBudgets(
     rolldownRuntimeBytes: runtimeBytes,
     rolldownRuntimeBudgetBytes: ROLLDOWN_RUNTIME_BUDGET_BYTES,
     claudePathLauncherBudgetBytes: CLAUDE_PATH_LAUNCHER_BUDGET_BYTES,
-    presentationRuntimeBudgetBytes: PRESENTATION_RUNTIME_BUDGET_BYTES,
+    presentationRuntimeBudgetBytes,
   };
 }
 

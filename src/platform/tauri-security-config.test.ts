@@ -164,7 +164,7 @@ describe("Tauri security boundary", () => {
       bundle: { createUpdaterArtifacts: false },
     });
     expect(config.productName).toBe("Lattice");
-    for (const workflow of ["release.yml", "release-cache.yml"]) {
+    for (const workflow of ["release.yml", "release-cache.yml", "linux-appimage.yml"]) {
       const source = readFileSync(`.github/workflows/${workflow}`, "utf8");
       expect(source).not.toContain("LATTICE_FLAVOR");
       expect(source).not.toContain("tauri.beta.conf.json");
