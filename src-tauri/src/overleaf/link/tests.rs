@@ -150,7 +150,7 @@ fn overleaf_clone_project_extracts_and_writes_state() {
     .serve();
     let (config, parent) = (signed_in(&server.base), TempDir::new("clone-parent"));
     let clone = |project_id: &str, role| {
-        clone_project(&config, project_id, "Test: Project", &parent, role).unwrap()
+        clone_project(&config, project_id, "Test: Project", &parent, role, &|_, _| {}).unwrap()
     };
 
     let root = clone("proj-1", Some("owner"));
@@ -194,7 +194,7 @@ fn overleaf_clone_project_extracts_and_writes_state() {
 fn overleaf_clone_project_rejects_zip_slip() {
     let server = Mock { zip: build_malicious_zip(), ..Default::default() }.serve();
     let (config, parent) = (signed_in(&server.base), TempDir::new("slip-parent"));
-    let message = clone_project(&config, "proj-1", "Evil", &parent, None).unwrap_err();
+    let message = clone_project(&config, "proj-1", "Evil", &parent, None, &|_, _| {}).unwrap_err();
     assert!(message.contains("unsafe path"), "got: {message}");
     assert!(!parent.join("evil.tex").exists());
     assert!(!parent.parent().unwrap().join("evil.tex").exists());
@@ -214,6 +214,7 @@ fn opening_an_already_downloaded_project_opens_it() {
         &state.project_name,
         parent,
         Some("readAndWrite"),
+        &|_, _| {},
     )
     .expect("opening an already-downloaded project should succeed");
     assert_eq!(opened, existing, "it should be the copy already on disk");

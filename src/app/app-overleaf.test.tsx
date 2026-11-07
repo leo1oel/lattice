@@ -1,4 +1,4 @@
-import { fileNodes, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, projectSnapshot, MAIN_DOCUMENT, setInterfaceLanguage, expectNotification, expectInvoked, invokeCalls, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, findOverleafSyncButton } from "./app-test-utils";
+import { fileNodes, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, projectSnapshot, MAIN_DOCUMENT, setInterfaceLanguage, expectNotification, expectInvoked, invokeCalls, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, findOverleafSyncButton, deferred, findProjectTreeRenameInput } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
@@ -139,6 +139,32 @@ describe("Overleaf sync", () => {
     expect(screen.queryByText("Upload this project to Overleaf")).not.toBeInTheDocument();
     expect(await screen.findByText("No projects in this account yet"))
       .toBeInTheDocument();
+  });
+
+  it("opens a new file at once while the sync that uploads it downloads the project (#670)", async () => {
+    // A sync downloads the whole project before it uploads anything, minutes
+    // for one with large figures; the new file used to wait for all of it.
+    const download = deferred();
+    let syncs = 0;
+    await import("../project/project-file-tree");
+    renderOverleafPaper({
+      create_project_entry: (args) => `${argPath(args)}.tex`,
+      overleaf_sync: async () => {
+        syncs += 1;
+        await download.promise;
+        return overleafSyncResult({ pushed: ["method.tex"] });
+      },
+    }, { syncMode: "live" });
+    await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
+    expect(syncs).toBe(0);
+    fireEvent.contextMenu(await screen.findByLabelText("Project files"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "New file" }));
+    const name = await findProjectTreeRenameInput();
+    fireEvent.input(name, { target: { value: "method" } });
+    fireEvent.keyDown(name, { key: "Enter" });
+    await waitFor(() => expect(syncs).toBe(1), { timeout: 15_000 });
+    expect(await screen.findByRole("tab", { name: /method\.tex/ }, { timeout: 15_000 })).toBeInTheDocument();
+    download.resolve();
   });
 
   it("localizes confirmation and completion when removing a locally deleted Overleaf file", async () => {

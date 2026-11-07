@@ -6,7 +6,7 @@
 use super::account::{ensure_user_id, load_session};
 use super::api::{
     csrf_token, download_project_zip, fetch_remote_version, http_client, read_zip_entries, send_as,
-    sync_host, JSON,
+    sync_host, DownloadProgress, JSON,
 };
 use super::case_collisions::set_aside;
 use super::files::{
@@ -356,7 +356,7 @@ pub fn adopt_project(
 /// the same file would.
 pub fn clone_project(
     config_dir: &Path, project_id: &str, project_name: &str, dest_parent: &Path,
-    access_level: Option<&str>,
+    access_level: Option<&str>, progress: DownloadProgress,
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
     let folder_name = sanitize_project_name(project_name)?;
@@ -390,7 +390,8 @@ pub fn clone_project(
     // newer version fetched afterwards could claim that edits made while the
     // zip was in flight are already present on disk.
     let remote_version = fetch_remote_version(&client, &session.host, &session.cookie, project_id);
-    let zip_bytes = download_project_zip(&client, &session.host, &session.cookie, project_id)?;
+    let zip_bytes =
+        download_project_zip(&client, &session.host, &session.cookie, project_id, progress)?;
     let mut entries = read_zip_entries(&zip_bytes)?;
     // Paths only letter case tells apart would land on one file here. One of
     // each is written; the version stays unknown so the first probe syncs, and

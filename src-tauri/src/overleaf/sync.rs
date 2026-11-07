@@ -9,7 +9,7 @@
 
 use super::api::{
     csrf_token, download_project_zip, expect_success, folders_above, http_client,
-    latest_update_version, read_zip_entries, Remote,
+    latest_update_version, read_zip_entries, DownloadProgress, Remote,
 };
 use super::case_collisions::{self, CaseCollision};
 use super::files::*;
@@ -80,29 +80,6 @@ pub struct OverleafSyncResult {
     /// one is renamed.
     #[serde(default)]
     pub case_collisions: Vec<CaseCollision>,
-}
-
-/// What a pending sync would do to one file, computed without touching disk.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OverleafChange {
-    pub path: String,
-    /// "incoming" | "outgoing" | "merge" | "conflict" | "deleteLocal" | "skippedRemoteDelete"
-    /// | "refusedIncoming"
-    pub kind: String,
-    /// The file as it stands locally right now; None when absent locally.
-    pub before: Option<String>,
-    /// What it becomes if applied; None when it would be deleted.
-    pub after: Option<String>,
-    pub binary: bool,
-}
-
-/// A dry run of `sync`: everything it would do, nothing it did.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OverleafPreview {
-    pub changes: Vec<OverleafChange>,
-    pub remote_version: Option<i64>,
 }
 
 /// Result of the cheap remote-change check that live mode polls.
@@ -372,9 +349,12 @@ pub(super) struct RemoteFiles {
     pub unsettled: BTreeSet<String>,
 }
 
-pub(super) fn fetch_remote_files(remote: &Remote, client: &Client) -> Result<RemoteFiles, String> {
+pub(super) fn fetch_remote_files(
+    remote: &Remote, client: &Client, progress: DownloadProgress,
+) -> Result<RemoteFiles, String> {
     let Remote { host, session, state } = remote;
-    let zip_bytes = download_project_zip(client, host, &session.cookie, &state.project_id)?;
+    let zip_bytes =
+        download_project_zip(client, host, &session.cookie, &state.project_id, progress)?;
     let entries = read_zip_entries(&zip_bytes)?;
     // The realtime tree owns entity ids, so the sync cannot delete these
     // itself. Return app-owned leftovers for the frontend to remove; collapse
@@ -593,8 +573,8 @@ fn since_read(root: &Path, path: &str, read: Option<&Vec<u8>>) -> SinceRead {
 
 /// One sync's HTTP client. Every request of the sync goes through it, so they
 /// share one connection instead of each paying for its own TLS handshake —
-/// several round trips apiece over a slow or proxied link. The deadline is the
-/// project download's; quicker reads set their own.
+/// several round trips apiece over a slow or proxied link. The deadline is
+/// what the project download allows a stall; quicker reads set their own.
 fn sync_client() -> Result<Client, String> {
     http_client(120)
 }
@@ -657,47 +637,75 @@ fn record_result(result: &OverleafSyncResult) {
     wide_event::record("read_only", result.read_only);
 }
 
-pub fn sync(
+/// A sync with nothing read ahead: the app always prefetches, the tests
+/// mostly do not need to.
+#[cfg(test)]
+pub(super) fn sync(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
 ) -> Result<OverleafSyncResult, String> {
-    let result = sync_files(config_dir, root, live, observed_remote_version)?;
+    sync_prefetched(config_dir, root, live, observed_remote_version, None)
+}
+
+/// [`sync`], starting from what [`prefetch`] read ahead of the lease.
+pub fn sync_prefetched(
+    config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
+    prefetched: Option<Prefetched>,
+) -> Result<OverleafSyncResult, String> {
+    let result = sync_files(config_dir, root, live, observed_remote_version, prefetched)?;
     record_result(&result);
     Ok(result)
 }
 
+fn record_download(downloaded: &RemoteFiles, how: &'static str) {
+    wide_event::record("download", how);
+    let bytes: usize = downloaded.files.values().map(Vec::len).sum();
+    wide_event::record("remote_files", downloaded.files.len());
+    wide_event::record("remote_bytes", bytes);
+}
+
 fn sync_files(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
+    prefetched: Option<Prefetched>,
 ) -> Result<OverleafSyncResult, String> {
     let linked = Remote::open_for_sync(config_dir, root)?;
     let client = sync_client()?;
+    let prefetched = prefetched.filter(|prefetched| prefetched.fits(&linked.state, live));
 
     // Where Overleaf's history stood when we took our copy. Comparing it again
     // just before uploading tells us whether anyone edited in the meantime.
     // The cheap probe that requested this sync is an observed lower bound for
     // the snapshot: preserve it when the best-effort repeat is rate-limited.
-    let version = linked.version(&client).or(observed_remote_version);
-    let remote_version_before = version.or(linked.state.remote_version);
-    let mut read = read_local_files(root)?;
-    let agreed = agreed_remote_files(&linked, &client, root, version, &read.files, live);
-    let RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled } = match agreed {
-        Some(agreed) => {
-            wide_event::record("download", "skipped");
-            agreed
-        }
-        None => {
-            let step = wide_event::step("download");
-            let downloaded = fetch_remote_files(&linked, &client)?;
-            drop(step);
-            wide_event::record("download", "full");
-            let bytes: usize = downloaded.files.values().map(Vec::len).sum();
-            wide_event::record("remote_files", downloaded.files.len());
-            wide_event::record("remote_bytes", bytes);
-            // Read again after the download, so whatever changed here while it
-            // ran is part of this sync rather than left for the next.
-            read = read_local_files(root)?;
-            downloaded
-        }
+    let version = match &prefetched {
+        Some(prefetched) => prefetched.version,
+        None => linked.version(&client).or(observed_remote_version),
     };
+    let remote_version_before = version.or(linked.state.remote_version);
+    let (read, RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled }) =
+        match prefetched {
+            // Read here only now, under the lease: whatever changed while the
+            // download ran is part of this sync rather than left for the next.
+            Some(Prefetched { downloaded, .. }) => {
+                record_download(&downloaded, "prefetched");
+                (read_local_files(root)?, downloaded)
+            }
+            None => {
+                let read = read_local_files(root)?;
+                match agreed_remote_files(&linked, &client, root, version, &read.files, live) {
+                    Some(agreed) => {
+                        wide_event::record("download", "skipped");
+                        (read, agreed)
+                    }
+                    None => {
+                        let step = wide_event::step("download");
+                        let downloaded = fetch_remote_files(&linked, &client, &|_, _| {})?;
+                        drop(step);
+                        record_download(&downloaded, "full");
+                        // Read again after the download, as above.
+                        (read_local_files(root)?, downloaded)
+                    }
+                }
+            }
+        };
     let LocalFiles { files: mut local, oversized } = read;
     wide_event::record("local_files", local.len());
     // The table can never agree with Overleaf on a path set aside, so later
@@ -917,90 +925,6 @@ fn sync_files(
     Ok(result)
 }
 
-// ---- Preview -------------------------------------------------------------------
-
-/// Text we can show in a diff view. Anything else is treated as binary: the UI
-/// gets a marker instead of the bytes.
-pub(super) fn displayable_text(bytes: &[u8]) -> Option<String> {
-    if bytes.contains(&0) {
-        return None;
-    }
-    std::str::from_utf8(bytes).ok().map(str::to_string)
-}
-
-/// Build one preview row. A side that exists but cannot be rendered as text
-/// makes the whole change binary, and then neither side is shipped to the UI.
-fn preview_change(
-    path: &str, kind: &str, before: Option<&[u8]>, after: Option<&[u8]>,
-) -> OverleafChange {
-    let before_text = before.map(displayable_text);
-    let after_text = after.map(displayable_text);
-    let binary = matches!(before_text, Some(None)) || matches!(after_text, Some(None));
-    OverleafChange {
-        path: path.to_string(),
-        kind: kind.to_string(),
-        before: if binary { None } else { before_text.flatten() },
-        after: if binary { None } else { after_text.flatten() },
-        binary,
-    }
-}
-
-/// Dry run: what `sync` would do to this project, without doing any of it.
-///
-/// Same fetch and the same classification as `sync`, so what the user approves
-/// is exactly what runs. Nothing here writes to disk or uploads: the CSRF token
-/// a real sync needs for uploads is not even fetched.
-pub fn preview(
-    config_dir: &Path, root: &Path, live: &BTreeSet<String>,
-) -> Result<OverleafPreview, String> {
-    let mut linked = Remote::open(config_dir, root)?;
-    linked.state.files.retain(|path, _| !is_excluded(path));
-    let client = sync_client()?;
-    let mut remote = fetch_remote_files(&linked, &client)?.files;
-    let mut local = read_local_files(root)?.files;
-    case_collisions::set_aside(&mut remote, &mut local, &linked.state.files);
-    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
-    let refused = settle_destructive(&linked, &client, &mut plan);
-
-    let local_bytes = |path: &str| local.get(path).map(Vec::as_slice);
-    // Conflicts first — they are the only rows that need a decision — then
-    // the rest in the order the user reads them.
-    let mut changes: Vec<OverleafChange> = (plan.conflict.iter())
-        .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved)))
-        .collect();
-    for path in refused.keys() {
-        let after = remote.get(path).map(Vec::as_slice);
-        changes.push(preview_change(path, "refusedIncoming", local_bytes(path), after));
-    }
-    let pulled = plan.pull.iter().map(|(path, bytes)| (path, "incoming", Some(bytes.as_slice())));
-    let merged = plan.merge.iter().map(|(path, bytes)| (path, "merge", Some(bytes.as_slice())));
-    for (path, kind, after) in pulled.chain(merged) {
-        changes.push(preview_change(path, kind, local_bytes(path), after));
-    }
-    for path in &plan.push {
-        // The base copy is the last version Overleaf saw, so it is the honest
-        // "before" for an upload — when we kept one.
-        let base = read_base_copy(root, path);
-        changes.push(preview_change(
-            path,
-            "outgoing",
-            base.as_deref().map(str::as_bytes),
-            local_bytes(path),
-        ));
-    }
-    for path in &plan.delete_local {
-        changes.push(preview_change(path, "deleteLocal", local_bytes(path), None));
-    }
-    for path in &plan.skipped_remote_deletes {
-        changes.push(preview_change(path, "skippedRemoteDelete", None, None));
-    }
-    let rank = ["conflict", "refusedIncoming", "incoming", "merge", "outgoing", "deleteLocal"];
-    let rank = |kind: &str| rank.iter().position(|k| *k == kind).unwrap_or(rank.len());
-    changes.sort_by(|a, b| rank(&a.kind).cmp(&rank(&b.kind)).then_with(|| a.path.cmp(&b.path)));
-
-    Ok(OverleafPreview { changes, remote_version: linked.version(&client) })
-}
-
 // ---- Probe ---------------------------------------------------------------------
 
 /// Cheap "did anything change over there?" check.
@@ -1038,7 +962,11 @@ pub fn probe(
     })
 }
 
+mod prefetch;
+mod preview;
 mod relocations;
+pub use prefetch::{prefetch, Prefetched};
+pub use preview::{preview, OverleafPreview};
 pub use relocations::sync_relocations;
 
 #[cfg(test)]

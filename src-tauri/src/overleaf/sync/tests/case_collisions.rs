@@ -114,7 +114,8 @@ fn a_clone_writes_one_spelling_and_its_first_sync_names_the_other() {
     let remote: Files = &[("fig/Plot.png", PLOT), ("fig/plot.png", OTHER), ("main.tex", b"x")];
     let server = Mock { versions: vec![11], ..Mock::project(remote) }.serve();
     let (config, parent) = (signed_in(&server.base), TempDir::new("clone-parent"));
-    let root = clone_project(&config, "proj-1", "Clash", &parent, Some("owner")).unwrap();
+    let root =
+        clone_project(&config, "proj-1", "Clash", &parent, Some("owner"), &|_, _| {}).unwrap();
     assert_eq!(read_local(&root, "fig/Plot.png").as_deref(), Some(PLOT));
     assert_eq!(fs::read_dir(root.join("fig")).unwrap().count(), 1);
     assert!(!state_files(&root).contains_key("fig/plot.png"));

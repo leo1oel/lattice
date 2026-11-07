@@ -5124,6 +5124,16 @@ msgstr "Downloaded paper files will be kept."
 msgid "Downloading {0}…"
 msgstr "Downloading {0}…"
 
+#. placeholder {0}: cloning.name
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Downloading {0}… {received}"
+msgstr "Downloading {0}… {received}"
+
+#. placeholder {0}: cloning.name
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Downloading {0}… {received} of {total}"
+msgstr "Downloading {0}… {received} of {total}"
+
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
 msgstr "Downloading BasicTeX…"

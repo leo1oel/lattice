@@ -18,10 +18,15 @@ export type PickerState = {
   showArchived: boolean;
   selected: string | null;
   cloning: OverleafProject | null;
+  /** How much of the download has arrived, once Overleaf starts sending it. */
+  downloaded: DownloadProgress | null;
   publishing: boolean;
   transferError: string | null;
   publishName: string;
 };
+
+/** `overleaf-download-progress`: bytes so far, and the size when Overleaf says it up front. */
+export type DownloadProgress = { received: number; total: number | null };
 
 export type PickerAction =
   | { type: "statusLoading" }
@@ -39,6 +44,7 @@ export type PickerAction =
   | { type: "publishName"; name: string }
   /** A download starts (clearing the last transfer's error) or ends. */
   | { type: "cloning"; project: OverleafProject | null }
+  | { type: "downloaded"; progress: DownloadProgress }
   /** An upload starts (clearing the last transfer's error) or ends. */
   | { type: "publishing"; publishing: boolean }
   | { type: "transferFailed"; error: string };
@@ -48,7 +54,7 @@ export function initialPickerState(publishName: string): PickerState {
     status: null, statusLoading: false, statusError: null,
     list: null, projectsLoading: false, projectsError: null, invitationOpened: false,
     search: "", showArchived: false, selected: null,
-    cloning: null, publishing: false, transferError: null, publishName,
+    cloning: null, downloaded: null, publishing: false, transferError: null, publishName,
   };
 }
 
@@ -67,7 +73,11 @@ export function reducePicker(state: PickerState, action: PickerAction): PickerSt
     case "select": return { ...state, selected: action.id };
     case "publishName": return { ...state, publishName: action.name };
     case "cloning":
-      return { ...state, cloning: action.project, transferError: action.project ? null : state.transferError };
+      return {
+        ...state, cloning: action.project, downloaded: null, transferError: action.project ? null : state.transferError,
+      };
+    // Late progress from a download that has already ended is dropped.
+    case "downloaded": return state.cloning ? { ...state, downloaded: action.progress } : state;
     case "publishing":
       return { ...state, publishing: action.publishing, transferError: action.publishing ? null : state.transferError };
     case "transferFailed": return { ...state, transferError: action.error };

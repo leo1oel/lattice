@@ -66,8 +66,9 @@ pub(crate) enum Lease {
     /// File writes and Overleaf traffic: they wait out a full sync, a document
     /// join or a project switch, but run beside each other.
     Shared,
-    /// Full syncs, document joins and leaves, publishing, pausing, renames:
-    /// nothing else that touches the project runs meanwhile.
+    /// Full syncs (once their download is in), document joins and leaves,
+    /// publishing, pausing, renames: nothing else that touches the project
+    /// runs meanwhile.
     Exclusive,
 }
 

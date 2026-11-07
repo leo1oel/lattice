@@ -8,6 +8,7 @@ use super::{current_root, in_project, pinned_root, run_blocking, run_quietly, sc
 use crate::app_state::{AppState, Lease, ProjectLease};
 use crate::{command_diagnostics, git, overleaf, wide_event};
 use std::collections::BTreeSet;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,6 +27,38 @@ const SESSION_EVENT: &str = "overleaf-session";
 
 /// At most one full project download per this interval, across every window.
 const FULL_SYNC_MIN_GAP: Duration = Duration::from_secs(7);
+/// How far a project download has got, told to the window downloading it.
+const DOWNLOAD_PROGRESS_EVENT: &str = "overleaf-download-progress";
+/// The quickest a download repeats its progress.
+const DOWNLOAD_PROGRESS_INTERVAL: Duration = Duration::from_millis(250);
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgress {
+    received: u64,
+    total: Option<u64>,
+}
+
+/// Tell `window`, and only it, how far its download has got: each attempt's
+/// start (so a retry visibly starts over), its end, and no more than one step
+/// per [`DOWNLOAD_PROGRESS_INTERVAL`] between.
+fn report_download(window: Window) -> impl Fn(u64, Option<u64>) + Sync {
+    let reported = std::sync::Mutex::new(None::<std::time::Instant>);
+    move |received, total| {
+        let mut last = reported.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let now = std::time::Instant::now();
+        let recent = last.is_some_and(|at| now - at < DOWNLOAD_PROGRESS_INTERVAL);
+        if received > 0 && recent && Some(received) != total {
+            return;
+        }
+        *last = Some(now);
+        let _ = window.emit_to(
+            window.label(),
+            DOWNLOAD_PROGRESS_EVENT,
+            DownloadProgress { received, total },
+        );
+    }
+}
 
 pub(crate) fn overleaf_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
@@ -99,20 +132,30 @@ fn full_sync_delay(previous: Option<Instant>, now: Instant) -> Duration {
         .unwrap_or_default()
 }
 
-/// The exclusive lease for a full project download, taken only once the
-/// account-wide cooldown since the previous download has passed.
-async fn full_sync_lease(state: &AppState, project_root: &str) -> ProjectLease {
-    // Hold this guard until the write lease is ours. That admits only one
-    // waiter at a time while document-level realtime work continues during
-    // the cooldown, then records the actual full-download start.
-    let mut previous_sync = state.overleaf_sync_started.lock().await;
-    let delay = full_sync_delay(*previous_sync, Instant::now());
-    if !delay.is_zero() {
-        tokio::time::sleep(delay).await;
+/// A full sync's start: once the account-wide cooldown since the previous
+/// one has passed, run `ahead` (its download), and only then take the
+/// project's exclusive lease for the rest.
+///
+/// The download is most of a sync's time: minutes, for a project with large
+/// figures over a slow link. It only reads, so it needs no lease. Holding the
+/// exclusive lease through it kept every file write here (creating,
+/// deleting, saving: all shared-lease commands) waiting until the whole sync
+/// was done, and the dialogs that follow them with it.
+async fn ahead_of_full_sync<T>(
+    state: &AppState, project_root: &str, ahead: impl Future<Output = Result<T, String>>,
+) -> Result<(T, ProjectLease), String> {
+    {
+        // The guard admits one waiter at a time, so syncs queued behind the
+        // cooldown start their downloads one interval apart.
+        let mut previous_sync = state.overleaf_sync_started.lock().await;
+        let delay = full_sync_delay(*previous_sync, Instant::now());
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+        }
+        *previous_sync = Some(Instant::now());
     }
-    let lease = state.lease(project_root, Lease::Exclusive).await;
-    *previous_sync = Some(Instant::now());
-    lease
+    let ahead = ahead.await?;
+    Ok((ahead, state.lease(project_root, Lease::Exclusive).await))
 }
 
 #[tauri::command]
@@ -273,6 +316,7 @@ pub async fn overleaf_clone_target(
 #[tauri::command]
 pub async fn overleaf_clone_project(
     app: AppHandle,
+    window: Window,
     project_id: String,
     name: String,
     access_level: Option<String>,
@@ -285,6 +329,7 @@ pub async fn overleaf_clone_project(
     let parent = overleaf_projects_dir(&app)?;
     let downloaded = run_blocking("The Overleaf download", move || {
         let access_level = access_level.as_deref();
+        let progress = report_download(window);
         if adopt.unwrap_or(false) {
             let target = overleaf::clone_target(&project_id, &name, &parent)?;
             if target.kind == "occupied" {
@@ -298,7 +343,7 @@ pub async fn overleaf_clone_project(
                 );
             }
         }
-        overleaf::clone_project(&config, &project_id, &name, &parent, access_level)
+        overleaf::clone_project(&config, &project_id, &name, &parent, access_level, &progress)
     })
     .await;
     let root = settled(&app, downloaded).await?;
@@ -611,10 +656,27 @@ pub async fn overleaf_sync(
     let operation = wide_event::Operation::start("overleaf.sync", overleaf::classify_sync_error);
     operation
         .run(command_diagnostics::traced(diagnostic_context, async {
-            let lease = full_sync_lease(&state, &project_root).await;
             let config = overleaf_config_dir(&app)?;
             let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
             wide_event::project(&root);
+            let ahead = {
+                let (config, root, hint) = (config.clone(), root.clone(), live_paths(live.clone()));
+                async {
+                    let read = run_quietly("The Overleaf download", move || {
+                        overleaf::prefetch(
+                            &config,
+                            &root,
+                            &hint,
+                            observed_remote_version,
+                            &|_, _| {},
+                        )
+                    });
+                    settled(&app, read.await).await
+                }
+            };
+            let (prefetched, lease) = ahead_of_full_sync(&state, &project_root, ahead).await?;
+            // The window may have moved to another project meanwhile.
+            let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
             let live = with_joined_paths(&lease, &root, live);
             wide_event::record("live_documents", live.len());
             let entities =
@@ -622,7 +684,13 @@ pub async fn overleaf_sync(
             // Quietly: the operation's event already carries any failure.
             let synced = run_quietly("The Overleaf sync", move || {
                 overleaf::sync_relocations(&config, &root, entities)?;
-                overleaf::sync(&config, &root, &live, observed_remote_version)
+                overleaf::sync_prefetched(
+                    &config,
+                    &root,
+                    &live,
+                    observed_remote_version,
+                    prefetched,
+                )
             })
             .await;
             settled(&app, synced).await
@@ -644,6 +712,29 @@ mod tests {
             Duration::from_secs(4)
         );
         assert!(full_sync_delay(Some(now - Duration::from_secs(7)), now).is_zero());
+    }
+
+    /// #670: deleting or creating a file waited behind a sync's whole
+    /// download for the project lease, minutes for a large project, and the
+    /// Overleaf delete dialog after it.
+    #[test]
+    fn file_writes_go_ahead_while_a_full_sync_downloads() {
+        let state = AppState::from_environment();
+        let root = "/project/a";
+        tauri::async_runtime::block_on(async {
+            let download = async {
+                // What `delete_project_entry` and `create_project_entry` take.
+                let write = state.structural_lease(root, Lease::Shared);
+                tokio::time::timeout(Duration::from_secs(5), write)
+                    .await
+                    .map(drop)
+                    .map_err(|_| "a file write waited for the download".to_string())
+            };
+            let ((), _lease) = ahead_of_full_sync(&state, root, download).await.unwrap();
+            // The rest of the sync still keeps file writes out.
+            let write = state.lease(root, Lease::Shared);
+            assert!(tokio::time::timeout(Duration::from_millis(100), write).await.is_err());
+        });
     }
 
     #[test]
