@@ -610,7 +610,7 @@ export function PdfPreview({
   const foldedReveal = searchFold ? onForwardSync : undefined;
 
   return (
-    // Pinch and Ctrl-wheel zoom the PDF, never the workspace around it. The
+    // Pinch and ⌘-wheel zoom the PDF, never the workspace around it. The
     // compiled-preview host is marked already, but a PDF opened as a document
     // sits in the editor host, which is marked only for heavy documents.
     <div
