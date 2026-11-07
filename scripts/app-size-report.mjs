@@ -285,10 +285,11 @@ export async function checkAppSizeBudgets(
 // v0.11.8 raised it from 320 MiB: Synara 1.0.8 with Open Slide 2.3.1 built
 // at 320.1 MiB on disk. v0.15.0 raised it from 330 MiB: Synara 1.1.0 grew the
 // sidecar about 1.9 MB and the release built at 330.8 MiB on disk.
-// The Intel Mac app (macos-intel.yml), built on an Intel host, carries x86_64
-// builds of the app, Node and the runtimes' native packages, all larger.
 const INSTALLED_APP_BUDGET_BYTES = 333 * 1024 * 1024;
-const INSTALLED_INTEL_APP_BUDGET_BYTES = 360 * 1024 * 1024;
+// The Intel Mac app (macos-intel.yml), built on an Intel host, carries x86_64
+// builds of the app, Node and the runtimes' native packages, all larger: the
+// first one built at 335.8 MiB on disk on 2026-11-07.
+const INSTALLED_INTEL_APP_BUDGET_BYTES = 340 * 1024 * 1024;
 /** The installed-size budget for an app built on a host with `arch`. */
 export const installedAppBudgetBytes = (arch = process.arch) =>
   (arch === "x64" ? INSTALLED_INTEL_APP_BUDGET_BYTES : INSTALLED_APP_BUDGET_BYTES);
