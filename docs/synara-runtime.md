@@ -303,7 +303,7 @@ went stale before.
 - Tauri's documented `TAURI_ENV_DEBUG` hook signal selects the package staging profile through `scripts/prepare-build.mjs`.
 - Synara and Open Slide run on that standalone Node in every build (`src-tauri/src/sidecar.rs`).
 - Claude sessions use the external `claude` executable selected in Provider settings (or found on
-  the login-shell PATH). The SDK's otherwise bundled platform executable is replaced by a tiny PATH
+  the login-shell PATH, or in the usual install folders the fork appends after it; see the ledger). The SDK's otherwise bundled platform executable is replaced by a tiny PATH
   launcher so account probing follows the same installation without shipping a redundant copy.
 - Tauri includes that directory through `bundle.resources`.
 

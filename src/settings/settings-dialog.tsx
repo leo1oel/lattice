@@ -29,6 +29,7 @@ import { LiteratureSettings } from "./literature-settings";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
+import type { SynaraSettingsTarget } from "../app/use-synara-host";
 import { AgentEnvironmentSettings } from "./agent-environment-settings";
 import { SelectRow, SliderRow } from "./settings-controls";
 import { SegmentedControl } from "../components/ui/segmented-control";
@@ -104,6 +105,8 @@ export type SettingsDialogProps = DoctorSettingsProps & {
   returnFocus?: HTMLElement | null;
   /** A row to open on, found by the command palette: revealed and focused as Settings opens. */
   reveal?: SettingsSearchEntry | null;
+  /** A place on the Agent pages the agent panel asked for ("Set path…"), revealed by the frame. */
+  synaraTarget?: { target: SynaraSettingsTarget } | null;
   onClose: () => void;
 };
 
@@ -343,6 +346,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
                 translucency: props.appearance.translucency,
                 translucent: props.windowBacking === "translucent",
               }}
+              target={synaraSettingsSection ? (props.synaraTarget ?? null) : null}
               onRetry={props.onRetrySynaraRuntime}
             />
             {panes[props.tab]}

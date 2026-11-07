@@ -69,7 +69,8 @@ function loadAgentEditorComments() {
 
 /** What the embedded agent can reach in the host; read at message time. */
 type SynaraHostBridge = {
-  openProviderSettings: () => void;
+  /** `target` names a place on the Providers page to open (`SYNARA_SETTINGS_TARGETS`). */
+  openProviderSettings: (target?: SynaraSettingsTarget) => void;
   /** Open a project file the agent named, in the host's own surfaces. */
   openProjectPath: (path: string) => void;
   /** Open source control, pinned to one turn's checkpoint diff when given. */
@@ -124,6 +125,15 @@ const TOOL_ROUTES: Array<(
 ];
 
 const stringField = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+/**
+ * The places on Synara's settings pages the agent panel may open Settings on: the
+ * no-agent notice's "Set path…" opens Claude Code's and Codex's binary path fields.
+ */
+const SYNARA_SETTINGS_TARGETS = ["provider-binary-paths"] as const;
+export type SynaraSettingsTarget = (typeof SYNARA_SETTINGS_TARGETS)[number];
+const synaraSettingsTarget = (value: unknown): SynaraSettingsTarget | undefined =>
+  SYNARA_SETTINGS_TARGETS.find((target) => target === value);
 
 /**
  * The embedded Synara agent: its runtime, its iframes (the agent panel and
@@ -294,7 +304,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
       "synara:open-settings": (data, host) => {
         if (data.section !== "providers") return;
         setRuntimeRequested(true);
-        host.bridge.openProviderSettings();
+        host.bridge.openProviderSettings(synaraSettingsTarget(data.target));
       },
       "synara:open-file": openNamedFile,
       "synara:open-external": (data) => {

@@ -17,8 +17,11 @@ import {
   normalizeSynaraSettingsHeight,
 } from "../agent/synara-settings-layout";
 import { mediaQueryStore } from "../lib/media-query-store";
+import { prefersReducedMotion } from "../lib/reduced-motion";
 
 const DEFAULT_FRAME_HEIGHT = 470;
+/** Room left above a revealed place, so its section heading stays in view. */
+const SETTINGS_REVEAL_MARGIN = 16;
 /** Where Settings narrows its nav and page insets (adaptive-feedback.css). */
 const COMPACT_SETTINGS_QUERY = "(max-width: 680px)";
 const SETTINGS_LAYOUT = "lattice:settings-layout";
@@ -75,9 +78,16 @@ export function SynaraSettingsPane(props: {
   viewportRef: RefObject<HTMLDivElement | null>;
   /** The page paints with the host's palette, as the agent panel does. */
   appearance: Parameters<typeof readAgentHostTheme>[0];
+  /**
+   * A place on the page to open and reveal ("Set path…" from the agent panel): sent with
+   * the section request, and the frame answers `synara:settings-reveal` once it is laid
+   * out. A fresh object per request, so the same place can be asked for again.
+   */
+  target?: { target: string } | null;
   onRetry: () => void;
 }) {
   const { runtime, section, url, viewportRef } = props;
+  const target = props.target ?? null;
   const { t } = useLingui();
   const embedRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -90,6 +100,7 @@ export function SynaraSettingsPane(props: {
   const bottomPinFrameRef = useRef<number | null>(null);
   const navigationFrameRef = useRef<number | null>(null);
   const requestIdRef = useRef(0);
+  const sentTargetRef = useRef<{ target: string } | null>(null);
   const origin = runtime.state === "ready" && runtime.origin ? new URL(runtime.origin).origin : null;
 
   // The Synara page last visited, which the frame keeps showing on other tabs.
@@ -120,19 +131,22 @@ export function SynaraSettingsPane(props: {
   useSynaraPopupDismissalBridge({ frameRef, origin });
 
   // Ask for the tab's section once the page listens; the page it already shows
-  // needs no request.
+  // needs no request, unless a new place on it was asked for.
   useEffect(() => {
-    if (!origin || !src || embedReadySrc !== src || !section || currentRequest?.section === section) return;
+    if (!origin || !src || embedReadySrc !== src || !section) return;
+    const sendTarget = section === "providers" && target !== sentTargetRef.current ? target : null;
+    if (currentRequest?.section === section && !sendTarget) return;
     requestIdRef.current += 1;
     const next = { src, id: requestIdRef.current, section };
+    if (sendTarget) sentTargetRef.current = sendTarget;
     // Its list and detail views are the section's own, not the previous one's.
     detailKeysRef.current.clear();
     setRequest(next);
     frameRef.current?.contentWindow?.postMessage(
-      { type: "lattice:set-settings-section", section, request: next.id },
+      { type: "lattice:set-settings-section", section, request: next.id, ...(sendTarget ? { target: sendTarget.target } : {}) },
       origin,
     );
-  }, [currentRequest, embedReadySrc, origin, section, src]);
+  }, [currentRequest, embedReadySrc, origin, section, src, target]);
 
   // The page's insets live in the frame, which cannot see this window's
   // width: its own is the dialog's content column, and the same column width
@@ -239,6 +253,23 @@ export function SynaraSettingsPane(props: {
             scheduleFrame(navigationFrameRef, () => restoreListScroll(top));
           }
           viewport.scrollTop = 0;
+          return;
+        }
+        case "synara:settings-reveal": {
+          // The place a section request named, `top` pixels down the frame's page.
+          if (!key || data.section !== section || !isFiniteNumber(data.top) || !viewport || !frameRef.current) return;
+          if (isFiniteNumber(data.contentHeight)) {
+            const height = normalizeSynaraSettingsHeight(data.contentHeight);
+            heightsRef.current[key] = height;
+            showHeight(height);
+          }
+          cancelFrame(bottomPinFrameRef);
+          pendingRestoreRef.current = null;
+          const frameTop = frameRef.current.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop;
+          viewport.scrollTo({
+            top: Math.max(0, frameTop + data.top - SETTINGS_REVEAL_MARGIN),
+            behavior: prefersReducedMotion() ? "auto" : "smooth",
+          });
           return;
         }
         case "synara:embed-ready":

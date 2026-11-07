@@ -278,15 +278,13 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       translucent: windowBacking === "translucent",
     },
     bridge: {
-      openProviderSettings: () => settingsWindow.openProviderSettings(),
+      openProviderSettings: (target) => settingsWindow.openProviderSettings(target),
       openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
       openReview: (turn) => {
         tools.open("git", turn ? { turnReview: { ...turn, filePath: null } } : { gitView: "changes" });
       },
       clearSelection: () => agentContext.dismissSelection(),
-      flushVisualMarkdown: () => {
-        flush();
-      },
+      flushVisualMarkdown: () => void flush(),
       agentCommentsOptions: () => agentCommentsOptionsRef.current?.() ?? null,
       annotationTools: () => projectRootRef.current ? annotationRounds.toolHost : null,
       projectDocumentCreator: () => agentProjectDocumentCreatorRef.current,
