@@ -125,11 +125,13 @@ pub async fn export_changes_pdf(
     state: State<'_, AppState>, window: Window, project_root: String, from: String,
     to: Option<String>, options: latex::ChangesPdfOptions,
 ) -> Result<latex::ChangesPdf, String> {
-    let _lease = lease_if_pinned(&state, Some(&project_root)).await;
     let root = pinned_root(&state, &window, &project_root, "the PDF could be exported")?;
     let exports = Arc::clone(&state.project(&root).changes_exports);
+    let export = exports.begin();
+    let _lease = lease_if_pinned(&state, Some(&project_root)).await;
+    let root = pinned_root(&state, &window, &project_root, "the PDF could be exported")?;
     run_blocking("PDF with changes marked", move || {
-        latex::export_changes_pdf(&root, &from, to.as_deref(), options, &exports)
+        latex::export_changes_pdf(&root, &from, to.as_deref(), options, &exports, export)
     })
     .await
 }

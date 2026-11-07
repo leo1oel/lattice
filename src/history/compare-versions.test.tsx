@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { activateAppLocale } from "../i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryDrawer } from "./history-drawer";
 import { clearAppLogs, formatAppLogs } from "../telemetry/app-log-store";
@@ -263,16 +264,24 @@ describe("CompareVersions", () => {
     expect(invokeCalls("cancel_changes_pdf")).toHaveLength(2);
   });
 
-  it("says why a runaway latexdiff was stopped, and what to try", async () => {
+  // The host's memory stop (latex/changes.rs `stopped`), shown in the writer's language.
+  it("says in Chinese why a runaway latexdiff was stopped, and what to try", async () => {
     const stopped = "latexdiff was stopped when it used 4.0 GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again.";
-    mockRepository({ export_changes_pdf: () => Promise.reject(new Error(stopped)) });
+    let reject: (reason: Error) => void = () => undefined;
+    mockRepository({ export_changes_pdf: () => new Promise((_, fail) => { reject = fail; }) });
     renderCompare();
     await openCompare();
     fireEvent.click(await screen.findByRole("button", { name: "Export PDF with changes…" }));
     const sheet = screen.getByRole("dialog");
     fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));
-    expect(await within(sheet).findByText(stopped)).toBeInTheDocument();
-    expect(within(sheet).getByRole("button", { name: "Export PDF" })).toBeEnabled();
+    await within(sheet).findByRole("button", { name: "Exporting…" });
+    try {
+      await act(() => activateAppLocale("zh-CN"));
+      await act(async () => reject(new Error(stopped)));
+      expect(await within(sheet).findByText("latexdiff 占用了 4.0 GB 内存，已被停止。请比较两个更接近的版本，或把用 \\input 读入的超大生成文件（数据表、长代码清单）移出，然后再导出。")).toBeInTheDocument();
+    } finally {
+      await act(() => activateAppLocale("en"));
+    }
   });
 
   it("keeps the sheet open with the reason when the export fails", async () => {

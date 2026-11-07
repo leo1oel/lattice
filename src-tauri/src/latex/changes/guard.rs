@@ -80,7 +80,7 @@ impl ChangesExports {
     }
 
     /// Stop any export under way and number a new one.
-    pub(super) fn begin(&self) -> u64 {
+    pub fn begin(&self) -> u64 {
         Self::supersede(&mut self.lock())
     }
 
