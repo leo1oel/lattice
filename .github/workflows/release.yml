@@ -1,8 +1,9 @@
 name: Release
 
 # Push a version tag (e.g. v0.1.38) to build, sign, and publish a GitHub
-# Release for Apple Silicon macOS. tauri-action also generates latest.json,
-# which the in-app updater reads to offer updates to installed copies.
+# Release for Apple Silicon macOS and a Linux AppImage (ubuntu-22.04 glibc
+# floor). tauri-action also generates latest.json, which the in-app updater
+# reads to offer updates to installed copies.
 on:
   push:
     tags:
@@ -83,6 +84,13 @@ jobs:
 
           Already running Lattice? It updates itself automatically — no need to
           re-download.
+
+          ## Install (Linux)
+
+          Download the **.AppImage** below, mark it executable (`chmod +x`), and
+          run it. The AppImage is built on Ubuntu 22.04 so it runs on recent
+          glibc distros. If FUSE is unavailable, run with
+          `APPIMAGE_EXTRACT_AND_RUN=1`.
           EOF
 
           if [[ -n "$previous_tag" ]]; then
@@ -351,6 +359,169 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$manifest_dir/release.json"
           node scripts/normalize-updater-manifest.mjs "$manifest_dir/latest.json" "$manifest_dir/release.json"
           gh release upload "$GITHUB_REF_NAME" "$manifest_dir/latest.json" --clobber
+
+  # Linux AppImage on Ubuntu 22.04 so the binary's glibc floor covers recent
+  # distros (22.04+, 24.04+, current Fedora). Runs beside the macOS job; both
+  # leave the release a draft until publish-release verifies assets.
+  release-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: x86_64-unknown-linux-gnu-release
+          save-if: false
+
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            patchelf \
+            pkg-config \
+            wget \
+            xz-utils \
+            zip \
+            libfuse2 \
+            xvfb
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prepare pinned Synara source
+        run: |
+          synara_repository="$(
+            node -p "require('./scripts/synara-runtime.json').repository"
+          )"
+          synara_revision="$(
+            node -p "require('./scripts/synara-runtime.json').revision"
+          )"
+          synara_source="$RUNNER_TEMP/lattice-synara"
+
+          git init "$synara_source"
+          git -C "$synara_source" remote add origin "$synara_repository"
+          git -C "$synara_source" fetch --depth=1 origin "$synara_revision"
+          git -C "$synara_source" checkout --detach FETCH_HEAD
+          test "$(git -C "$synara_source" rev-parse HEAD)" = "$synara_revision"
+
+          echo "BUN_BIN=$(command -v bun)" >> "$GITHUB_ENV"
+          echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
+
+      - name: Install pinned Synara dependencies
+        run: bun install --cwd "$SYNARA_SOURCE_DIR" --frozen-lockfile
+
+      - name: Build Linux AppImage
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max-old-space-size=4096
+          LATTICE_FIRECRAWL_KEY: ${{ secrets.LATTICE_FIRECRAWL_KEY }}
+          VITE_TLDRAW_LICENSE_KEY: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Lattice ${{ github.ref_name }}"
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: false
+          args: --bundles appimage
+
+      - name: Locate AppImage
+        id: appimage
+        run: |
+          set -euo pipefail
+          appimage="$(
+            find src-tauri/target -type f -name '*.AppImage' -print -quit
+          )"
+          test -n "$appimage"
+          echo "path=$appimage" >> "$GITHUB_OUTPUT"
+          cp "$appimage" "$RUNNER_TEMP/Lattice.AppImage"
+
+      - name: Smoke-extract the AppImage
+        run: |
+          set -euo pipefail
+          chmod +x "$RUNNER_TEMP/Lattice.AppImage"
+          workdir="$(mktemp -d)"
+          cp "$RUNNER_TEMP/Lattice.AppImage" "$workdir/app.AppImage"
+          (cd "$workdir" && ./app.AppImage --appimage-extract >/dev/null)
+          inner="$(find "$workdir/squashfs-root" -type f \( -name Lattice -o -name research-writer \) | head -n1)"
+          test -n "$inner"
+          if ldd "$inner" 2>&1 | grep -F 'not found'; then
+            echo "AppImage binary is missing shared libraries" >&2
+            ldd "$inner" || true
+            exit 1
+          fi
+
+      - name: Upload AppImage to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/Lattice.AppImage" --clobber
+
+  # Guest smokes prove the 22.04-built AppImage starts on newer glibc hosts.
+  appimage-smoke:
+    needs: release-linux
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [ubuntu:22.04, ubuntu:24.04, fedora:41]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download AppImage from the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release download "$GITHUB_REF_NAME" --pattern '*.AppImage' --dir "$RUNNER_TEMP"
+          ls -la "$RUNNER_TEMP"/*.AppImage
+      - name: Smoke on ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          appimage="$(ls -1 "$RUNNER_TEMP"/*.AppImage | head -n1)"
+          docker run --rm \
+            -v "$appimage:/artifact.AppImage:ro" \
+            -v "$GITHUB_WORKSPACE/.github/scripts/smoke-appimage.sh:/smoke.sh:ro" \
+            "${{ matrix.image }}" \
+            bash -lc '
+              set -euo pipefail
+              if command -v apt-get >/dev/null; then
+                apt-get update -qq
+                DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libfuse2 file findutils >/dev/null
+              else
+                dnf install -y -q fuse-libs file findutils which >/dev/null
+              fi
+              bash /smoke.sh /artifact.AppImage
+            '
+
+  publish-release:
+    needs: [release, release-linux, appimage-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
 
       # Check what the release actually offers for download: only the signed
       # artifacts, none of them a font. Failing here leaves the release a draft.

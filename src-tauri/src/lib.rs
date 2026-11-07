@@ -12,6 +12,10 @@ mod alphaxiv;
 mod app_identity;
 mod app_restart;
 mod app_state;
+#[cfg(target_os = "macos")]
+mod app_terminate;
+#[cfg(not(target_os = "macos"))]
+#[path = "app_terminate_stub.rs"]
 mod app_terminate;
 mod browser_host;
 mod citation_audit;
@@ -36,6 +40,10 @@ mod literature;
 mod literature_credentials;
 mod literature_service;
 mod live_preview;
+#[cfg(target_os = "macos")]
+mod macos_window;
+#[cfg(not(target_os = "macos"))]
+#[path = "macos_window_stub.rs"]
 mod macos_window;
 mod models;
 mod native_locale;
@@ -63,7 +71,15 @@ mod test_support;
 mod tex_setup;
 mod texcount;
 mod texlab;
+#[cfg(target_os = "macos")]
 mod title_bar;
+#[cfg(not(target_os = "macos"))]
+#[path = "title_bar_stub.rs"]
+mod title_bar;
+#[cfg(target_os = "macos")]
+mod traffic_lights;
+#[cfg(not(target_os = "macos"))]
+#[path = "traffic_lights_stub.rs"]
 mod traffic_lights;
 mod util;
 mod web_metadata;
@@ -119,10 +135,17 @@ fn is_open_slide_presenter_url(url: &tauri::Url) -> bool {
 fn overlay_title_bar<'a, R: Runtime, M: Manager<R>>(
     builder: WebviewWindowBuilder<'a, R, M>,
 ) -> WebviewWindowBuilder<'a, R, M> {
-    builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true)
-        .accept_first_mouse(true)
+    #[cfg(target_os = "macos")]
+    {
+        builder
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true)
+            .accept_first_mouse(true)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder
+    }
 }
 
 /// A desktop workspace window: the launch window (`center`) or a project
@@ -153,6 +176,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
 }
 
 fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Regular)
         .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
     let window = match app.get_webview_window(MAIN_WINDOW_LABEL) {
@@ -263,6 +287,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // The main window is `create: false` in tauri.conf.json, so no window
     // exists yet: a desktop launch builds it through `workspace_window`.
     if background {
+        #[cfg(target_os = "macos")]
         app.handle().set_activation_policy(tauri::ActivationPolicy::Accessory)?;
     } else {
         show_desktop_window(app.handle()).map_err(std::io::Error::other)?;
@@ -637,6 +662,7 @@ pub fn run() {
         .expect("error while running tauri application");
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),
+        #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { has_visible_windows: false, .. } => reopen(app_handle),
         // `code` is None only when the last window closed; ⌘Q and a restart
         // exit with a code.

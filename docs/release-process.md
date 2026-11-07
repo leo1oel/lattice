@@ -5,8 +5,11 @@ How a Lattice release is actually cut today. Everything below is derived from
 `.github/workflows/release-cache.yml`, and `src-tauri/tauri.conf.json`; if you
 change one of those, change this document with it.
 
-Releases target **Apple Silicon macOS only** (`--target aarch64-apple-darwin`,
-`minimumSystemVersion: 14.0`).
+Releases target **Apple Silicon macOS** (`--target aarch64-apple-darwin`,
+`minimumSystemVersion: 14.0`) and a **Linux AppImage** built on
+`ubuntu-22.04` (glibc floor for recent distros). The macOS job stays the
+notarized `.dmg` path; the Linux job uploads the AppImage and a matrix smoke
+checks it on newer guest images before the release is undrafted.
 
 ## Cut a release
 
