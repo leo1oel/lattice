@@ -1,7 +1,7 @@
 import { projectCommands, findFrame, findSettingsDialog, nextFrames, openAgentFrame, postWindowMessage } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { settingsDialog } from "./app-test-settings";
-import { act, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 const { renderApp } = appHarness({ settingsDialog });
@@ -38,12 +38,24 @@ it("opens Providers on the binary paths the Agent panel asks for, and scrolls to
     HTMLElement.prototype.scrollTo = original;
   }
 
+  // The place goes with the request that asked for it, not with later switches:
+  // MCP has no such place, and back on Providers nothing asked for it again.
+  const nav = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
+  nav("MCP");
+  await waitFor(() => expect(requests()).toHaveLength(2));
+  expect(requests()[1]).toEqual(expect.objectContaining({ section: "integrations" }));
+  expect(requests()[1]).not.toHaveProperty("target");
+  nav("Providers");
+  await waitFor(() => expect(requests()).toHaveLength(3));
+  expect(requests()[2]).toEqual(expect.objectContaining({ section: "providers" }));
+  expect(requests()[2]).not.toHaveProperty("target");
+
   // Asking again for the same page, already shown, sends the place again.
   postWindowMessage(agentFrame.contentWindow, { type: "synara:open-settings", section: "providers", target: "provider-binary-paths" });
-  await waitFor(() => expect(requests()).toHaveLength(2));
-  expect(requests()[1]).toMatchObject({ section: "providers", target: "provider-binary-paths" });
+  await waitFor(() => expect(requests()).toHaveLength(4));
+  expect(requests()[3]).toMatchObject({ section: "providers", target: "provider-binary-paths" });
   // A place Lattice does not know opens the page's top.
   postWindowMessage(agentFrame.contentWindow, { type: "synara:open-settings", section: "providers", target: "anything-else" });
   await act(() => nextFrames(2));
-  expect(requests()).toHaveLength(2);
+  expect(requests()).toHaveLength(4);
 });

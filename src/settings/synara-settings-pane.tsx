@@ -100,6 +100,7 @@ export function SynaraSettingsPane(props: {
   const bottomPinFrameRef = useRef<number | null>(null);
   const navigationFrameRef = useRef<number | null>(null);
   const requestIdRef = useRef(0);
+  const sentTargetRef = useRef<{ target: string } | null>(null);
   const origin = runtime.state === "ready" && runtime.origin ? new URL(runtime.origin).origin : null;
 
   // The Synara page last visited, which the frame keeps showing on other tabs.
@@ -117,9 +118,7 @@ export function SynaraSettingsPane(props: {
   const src = frame?.src ?? null;
   // Each is tagged with the document it belongs to, so a reload resets them all.
   const [embedReadySrc, setEmbedReadySrc] = useState<string | null>(null);
-  const [request, setRequest] = useState<
-    { src: string; id: number; section: string; target: { target: string } | null } | null
-  >(null);
+  const [request, setRequest] = useState<{ src: string; id: number; section: string } | null>(null);
   const [answer, setAnswer] = useState<{ src: string; id: number; section: string } | null>(null);
   const currentRequest = request?.src === src ? request : null;
   const ready = Boolean(
@@ -135,14 +134,16 @@ export function SynaraSettingsPane(props: {
   // needs no request, unless a new place on it was asked for.
   useEffect(() => {
     if (!origin || !src || embedReadySrc !== src || !section) return;
-    if (currentRequest?.section === section && (!target || currentRequest.target === target)) return;
+    const sendTarget = section === "providers" && target !== sentTargetRef.current ? target : null;
+    if (currentRequest?.section === section && !sendTarget) return;
     requestIdRef.current += 1;
-    const next = { src, id: requestIdRef.current, section, target };
+    const next = { src, id: requestIdRef.current, section };
+    if (sendTarget) sentTargetRef.current = sendTarget;
     // Its list and detail views are the section's own, not the previous one's.
     detailKeysRef.current.clear();
     setRequest(next);
     frameRef.current?.contentWindow?.postMessage(
-      { type: "lattice:set-settings-section", section, request: next.id, ...(target ? { target: target.target } : {}) },
+      { type: "lattice:set-settings-section", section, request: next.id, ...(sendTarget ? { target: sendTarget.target } : {}) },
       origin,
     );
   }, [currentRequest, embedReadySrc, origin, section, src, target]);
