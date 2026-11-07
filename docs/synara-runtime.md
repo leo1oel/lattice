@@ -350,6 +350,11 @@ Keep the previous checkout available until the upgrade audit passes.
    ```sh
    bun run --cwd apps/web test:browser -- src/components/ChatMarkdown.latticeIntegration.browser.tsx src/components/ChatMarkdown.tableLayout.browser.tsx src/components/chat/ComposerLatticeContextBar.browser.tsx src/components/chat/MessageTrail.browser.tsx
    ```
+   Then run the browser and unit regressions that keep a long draft's composer inside a short Agent panel:
+   ```sh
+   bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "short chat column"
+   bun run --cwd apps/web test -- src/components/chat/composerEditorRoom.test.ts
+   ```
    Then run the server regressions for the embedded panel. The first two check that a pre-warmed new chat's first turn still lists the `lattice` tools; the third checks Claude's harness policy:
    ```sh
    bun run --cwd apps/server test -- src/agentGateway/mcpTransport.test.ts src/orchestration/Layers/ProviderCommandReactor.test.ts src/provider/Layers/ClaudeAdapter.test.ts -t "pre-warmed draft|panel prewarm|Claude Synara harness policy"
