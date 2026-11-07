@@ -179,13 +179,20 @@ const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 // The Open Slide runtime is staged for the host it is built on. Its Linux
 // copy carries the larger ELF builds of rolldown, lightningcss and Tailwind's
-// oxide: 70,781,079 bytes against macOS's 67,427,917 on 2026-11-07.
-const PRESENTATION_RUNTIME_BUDGET_BYTES = { darwin: 66 * 1024 * 1024, linux: 69 * 1024 * 1024 };
+// oxide: 70,781,079 bytes against macOS's 67,427,917 on 2026-11-07. The
+// Intel Mac copy's x86_64 builds of the same packages are larger too:
+// 69,915,321 bytes on 2026-11-07. Keys are `${platform}-${arch}` or a
+// platform alone.
+const PRESENTATION_RUNTIME_BUDGET_BYTES = {
+  darwin: 66 * 1024 * 1024,
+  "darwin-x64": 68 * 1024 * 1024,
+  linux: 69 * 1024 * 1024,
+};
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
   report = null,
-  { lab = process.env.VITE_PERF_LAB === "1", platform = process.platform } = {},
+  { lab = process.env.VITE_PERF_LAB === "1", platform = process.platform, arch = process.arch } = {},
 ) {
   const measuredReport = report ?? await createAppSizeReport(workspace);
   const dist = path.resolve(workspace, "dist");
@@ -251,7 +258,9 @@ export async function checkAppSizeBudgets(
   if (measuredReport.synaraNodeRuntime !== null && measuredReport.bundledNodeBytes === null) {
     throw new Error("The staged Synara runtime must bundle its standalone Node binary");
   }
-  const presentationRuntimeBudgetBytes = PRESENTATION_RUNTIME_BUDGET_BYTES[platform] ?? PRESENTATION_RUNTIME_BUDGET_BYTES.darwin;
+  const presentationRuntimeBudgetBytes = PRESENTATION_RUNTIME_BUDGET_BYTES[`${platform}-${arch}`]
+    ?? PRESENTATION_RUNTIME_BUDGET_BYTES[platform]
+    ?? PRESENTATION_RUNTIME_BUDGET_BYTES.darwin;
   if (measuredReport.presentationRuntimeBytes > presentationRuntimeBudgetBytes) {
     throw new Error(
       `Presentation runtime is ${measuredReport.presentationRuntimeBytes} bytes; budget is ${presentationRuntimeBudgetBytes}`,
@@ -276,7 +285,13 @@ export async function checkAppSizeBudgets(
 // v0.11.8 raised it from 320 MiB: Synara 1.0.8 with Open Slide 2.3.1 built
 // at 320.1 MiB on disk. v0.15.0 raised it from 330 MiB: Synara 1.1.0 grew the
 // sidecar about 1.9 MB and the release built at 330.8 MiB on disk.
+// The Intel Mac app (macos-intel.yml), built on an Intel host, carries x86_64
+// builds of the app, Node and the runtimes' native packages, all larger.
 const INSTALLED_APP_BUDGET_BYTES = 333 * 1024 * 1024;
+const INSTALLED_INTEL_APP_BUDGET_BYTES = 360 * 1024 * 1024;
+/** The installed-size budget for an app built on a host with `arch`. */
+export const installedAppBudgetBytes = (arch = process.arch) =>
+  (arch === "x64" ? INSTALLED_INTEL_APP_BUDGET_BYTES : INSTALLED_APP_BUDGET_BYTES);
 
 // Each file counts toward the longest of these prefixes it sits under; the
 // runtimes are split where their size is decided.
@@ -375,8 +390,8 @@ async function main() {
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
   if (args[0] === "--app" && args.length === 2) {
     const report = await createInstalledAppReport(args[1]);
-    console.log(formatInstalledAppReport(report));
-    checkInstalledAppBudget(report);
+    console.log(formatInstalledAppReport(report, installedAppBudgetBytes()));
+    checkInstalledAppBudget(report, installedAppBudgetBytes());
     return;
   }
   if (args.some((arg) => arg !== "--check")) {
