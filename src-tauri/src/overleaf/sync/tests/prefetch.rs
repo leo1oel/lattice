@@ -1,6 +1,7 @@
 //! A sync that downloads before it takes the project's lease (#670): the
 //! download is used when it still fits the link, and when not, the sync
-//! turns it down without downloading under the lease, to be read again.
+//! turns it down without downloading under the lease, to be read again, up
+//! to a bound.
 
 use super::*;
 use crate::overleaf::link::record_relocation;
@@ -45,7 +46,8 @@ fn files_created_and_deleted_during_the_download_are_part_of_the_sync() {
     fs::remove_file(disk_path(&root, "sections/s07.tex")).unwrap();
     fs::write(disk_path(&root, "sections/new.tex"), "\\section{New}").unwrap();
 
-    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched).unwrap().unwrap();
+    let result =
+        sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap().unwrap();
     assert_eq!(result.pushed, vec!["sections/new.tex"]);
     // The question about Overleaf's copy comes from this very sync.
     assert_eq!(result.skipped_remote_deletes, vec!["sections/s07.tex"]);
@@ -54,7 +56,7 @@ fn files_created_and_deleted_during_the_download_are_part_of_the_sync() {
 }
 
 #[test]
-fn a_download_the_link_moved_past_meanwhile_is_taken_again() {
+fn a_document_left_during_the_download_waits_for_the_next_sync() {
     let files = project();
     let files = as_files(&files);
     // A document typed in over the live channel and then left: Overleaf has
@@ -63,7 +65,7 @@ fn a_download_the_link_moved_past_meanwhile_is_taken_again() {
     let mut after: Vec<(&str, &[u8])> = files.clone();
     after[0].1 = newer;
     let later_zip = Some(build_zip(&after));
-    let server = Mock { later_zip, ..Mock::project(&files) }.serve();
+    let server = Mock { versions: vec![7], later_zip, ..Mock::project(&files) }.serve();
     let (config, root) = linked(&server, &files, &files);
     let prefetched = prefetch(&config, &root, NO_LIVE, None, &|_, _| {}).unwrap();
     fs::write(disk_path(&root, "sections/s01.tex"), newer).unwrap();
@@ -71,21 +73,43 @@ fn a_download_the_link_moved_past_meanwhile_is_taken_again() {
         state.files.insert("sections/s01.tex".into(), sha256_hex(newer));
     });
 
-    let state_before = fs::read(state_path(&root)).unwrap();
-
     // Compared against the table, the download read ahead has Overleaf
-    // putting the old text back, and the sync would have pulled it.
-    let turned_down = sync_prefetched(&config, &root, NO_LIVE, None, prefetched).unwrap();
-    assert!(turned_down.is_none(), "{turned_down:?}");
-    assert_eq!(downloads(&server), 1, "no download while the lease is held");
-    assert_eq!(fs::read(state_path(&root)).unwrap(), state_before);
+    // putting the old text back; the sync leaves that document alone.
+    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap();
+    let result = result.expect("the rest of the download still fits");
+    assert_eq!(downloads(&server), 1);
+    assert!(result.pulled.is_empty() && result.pushed.is_empty(), "{result:?}");
+    assert_eq!(read_local(&root, "sections/s01.tex").unwrap(), newer);
 
-    // Read ahead again, as the app does once it has let go of the lease.
-    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|_, _| {}).unwrap();
-    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched).unwrap().unwrap();
+    // The history has not moved, but the copy it vouches for is not the
+    // table's for that document: the next sync downloads to see it.
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
     assert_eq!(downloads(&server), 2);
     assert!(result.pulled.is_empty() && result.pushed.is_empty(), "{result:?}");
     assert_eq!(read_local(&root, "sections/s01.tex").unwrap(), newer);
+}
+
+#[test]
+fn a_link_that_keeps_moving_costs_a_sync_three_downloads_at_most() {
+    let files = project();
+    let files = as_files(&files);
+    let server = Mock::project(&files).serve();
+    let (config, root) = linked(&server, &files, &files);
+    // A file deleted here and on Overleaf during every download, which the
+    // download read ahead still has.
+    let mut rounds = 0;
+    let meanwhile = || {
+        rounds += 1;
+        let path = format!("sections/s{rounds:02}.tex");
+        fs::remove_file(disk_path(&root, &path)).unwrap();
+        edit_state(&root, |state| {
+            state.files.remove(&path);
+        });
+    };
+
+    sync_meanwhile(&config, &root, NO_LIVE, None, meanwhile).unwrap();
+    assert_eq!(rounds, READ_AHEAD_ROUNDS + 1);
+    assert_eq!(downloads(&server), 3, "two reads ahead, then one under the lease");
 }
 
 #[test]
@@ -110,12 +134,13 @@ fn a_move_replayed_after_the_download_is_not_followed_by_a_download_under_the_le
     }];
     sync_relocations(&config, &root, Some(tree)).unwrap();
 
-    let turned_down = sync_prefetched(&config, &root, NO_LIVE, None, prefetched).unwrap();
+    let turned_down = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap();
     assert!(turned_down.is_none(), "{turned_down:?}");
     assert_eq!(downloads(&server), 1, "no download while the lease is held");
 
     let prefetched = prefetch(&config, &root, NO_LIVE, None, &|_, _| {}).unwrap();
-    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched).unwrap().unwrap();
+    let result =
+        sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap().unwrap();
     assert_eq!(downloads(&server), 2);
     assert!(result.skipped_remote_deletes.is_empty(), "{result:?}");
     assert!(result.pushed.is_empty() && result.pulled.is_empty(), "{result:?}");
@@ -134,7 +159,7 @@ fn a_live_document_moving_on_meanwhile_keeps_the_download() {
         state.files.insert("main.tex".into(), sha256_hex(b"typed over the live channel"));
     });
 
-    let result = sync_prefetched(&config, &root, &live, None, prefetched).unwrap().unwrap();
+    let result = sync_prefetched(&config, &root, &live, None, prefetched, false).unwrap().unwrap();
     assert_eq!(downloads(&server), 1);
     assert!(result.pushed.is_empty() && result.pulled.is_empty());
 }

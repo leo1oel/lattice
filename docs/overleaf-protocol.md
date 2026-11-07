@@ -229,10 +229,13 @@ purpose.
   creating, deleting and saving files do not wait out the download
   (`prefetch` in `src-tauri/src/overleaf/sync/prefetch.rs`). Under the lease
   the download is used only if the sync state still agrees with the one it
-  was taken against, apart from live documents (`Prefetched::fits`). The sync
-  never downloads under the lease: when it needs Overleaf's copy and nothing
-  read ahead fits, it lets go of the lease and reads ahead again, behind the
-  same account-wide gap between downloads.
+  was taken against, apart from live documents and files only whose agreed
+  hash moved on, which the sync leaves alone for the next one
+  (`Prefetched::fits`). When nothing read ahead fits, the sync lets go of the
+  lease and reads ahead again, behind the same account-wide gap between
+  downloads; after `READ_AHEAD_ROUNDS` such reads it downloads under the lease
+  instead, so a sync always finishes. A read ahead that downloaded nothing
+  does not count towards that gap.
 - Uploads run a few at a time, except that a file into a folder Overleaf may
   not have yet goes first and alone, so two uploads never race to create the
   same folder.

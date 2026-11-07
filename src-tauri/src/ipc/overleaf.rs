@@ -133,8 +133,9 @@ fn full_sync_delay(previous: Option<Instant>, now: Instant) -> Duration {
 }
 
 /// A full sync's start: once the account-wide cooldown since the previous
-/// one has passed, run `ahead` (its download), and only then take the
-/// project's exclusive lease for the rest.
+/// download has passed, run `ahead` (its download), and only then take the
+/// project's exclusive lease for the rest. `ahead` also says whether it
+/// downloaded; a turn that did not leaves the cooldown as it found it.
 ///
 /// The download is most of a sync's time: minutes, for a project with large
 /// figures over a slow link. It only reads, so it needs no lease. Holding the
@@ -142,19 +143,28 @@ fn full_sync_delay(previous: Option<Instant>, now: Instant) -> Duration {
 /// deleting, saving: all shared-lease commands) waiting until the whole sync
 /// was done, and the dialogs that follow them with it.
 async fn ahead_of_full_sync<T>(
-    state: &AppState, project_root: &str, ahead: impl Future<Output = Result<T, String>>,
+    state: &AppState, project_root: &str, ahead: impl Future<Output = Result<(T, bool), String>>,
 ) -> Result<(T, ProjectLease), String> {
-    {
+    let (started, before) = {
         // The guard admits one waiter at a time, so syncs queued behind the
         // cooldown start their downloads one interval apart.
         let mut previous_sync = state.overleaf_sync_started.lock().await;
-        let delay = full_sync_delay(*previous_sync, Instant::now());
+        let before = *previous_sync;
+        let delay = full_sync_delay(before, Instant::now());
         if !delay.is_zero() {
             tokio::time::sleep(delay).await;
         }
-        *previous_sync = Some(Instant::now());
+        let started = Instant::now();
+        *previous_sync = Some(started);
+        (started, before)
+    };
+    let (ahead, downloaded) = ahead.await?;
+    if !downloaded {
+        let mut previous_sync = state.overleaf_sync_started.lock().await;
+        if *previous_sync == Some(started) {
+            *previous_sync = before;
+        }
     }
-    let ahead = ahead.await?;
     Ok((ahead, state.lease(project_root, Lease::Exclusive).await))
 }
 
@@ -660,12 +670,19 @@ pub async fn overleaf_sync(
             let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
             wide_event::project(&root);
             // Round again, behind the gap between downloads, whenever the
-            // link moved past what was read ahead while the lease was free.
+            // link moved past what was read ahead while the lease was free;
+            // past `READ_AHEAD_ROUNDS`, download under the lease instead.
+            let mut round = 0;
             loop {
+                round += 1;
+                let read_ahead = round <= overleaf::READ_AHEAD_ROUNDS;
                 let ahead = {
                     let (config, root) = (config.clone(), root.clone());
                     let hint = live_paths(live.clone());
                     async {
+                        if !read_ahead {
+                            return Ok((None, true));
+                        }
                         let read = run_quietly("The Overleaf download", move || {
                             overleaf::prefetch(
                                 &config,
@@ -675,7 +692,9 @@ pub async fn overleaf_sync(
                                 &|_, _| {},
                             )
                         });
-                        settled(&app, read.await).await
+                        let prefetched = settled(&app, read.await).await?;
+                        let downloaded = prefetched.is_some();
+                        Ok((prefetched, downloaded))
                     }
                 };
                 let (prefetched, lease) = ahead_of_full_sync(&state, &project_root, ahead).await?;
@@ -697,6 +716,7 @@ pub async fn overleaf_sync(
                         &live,
                         observed_remote_version,
                         prefetched,
+                        !read_ahead,
                     )
                 })
                 .await;
@@ -737,13 +757,31 @@ mod tests {
                 let write = state.structural_lease(root, Lease::Shared);
                 tokio::time::timeout(Duration::from_secs(5), write)
                     .await
-                    .map(drop)
+                    .map(|lease| (drop(lease), true))
                     .map_err(|_| "a file write waited for the download".to_string())
             };
             let ((), _lease) = ahead_of_full_sync(&state, root, download).await.unwrap();
             // The rest of the sync still keeps file writes out.
             let write = state.lease(root, Lease::Shared);
             assert!(tokio::time::timeout(Duration::from_millis(100), write).await.is_err());
+        });
+    }
+
+    /// A turn of a sync that read ahead without downloading (the agreed copy
+    /// stood, or a move had to be replayed first) does not hold the next one
+    /// to the gap between downloads; a turn that downloaded does.
+    #[test]
+    fn only_a_turn_that_downloaded_holds_the_next_to_the_gap() {
+        let state = AppState::from_environment();
+        let root = "/project/a";
+        let turn = |downloaded: bool| {
+            let ahead = async move { Ok(((), downloaded)) };
+            tokio::time::timeout(Duration::from_secs(1), ahead_of_full_sync(&state, root, ahead))
+        };
+        tauri::async_runtime::block_on(async {
+            drop(turn(false).await.expect("no gap to wait out").unwrap());
+            drop(turn(true).await.expect("no download before this one").unwrap());
+            assert!(turn(true).await.is_err(), "the gap after a download is waited out");
         });
     }
 

@@ -637,46 +637,96 @@ fn record_result(result: &OverleafSyncResult) {
     wide_event::record("read_only", result.read_only);
 }
 
-/// A whole sync as the app runs one, without the lease: read ahead, then
-/// sync, and read ahead again for as long as the sync turns the read down.
+/// Lease-free reads ahead a sync makes before its last round, which takes
+/// the lease and downloads under it if it must, so a link that keeps moving
+/// during each download cannot keep a sync from finishing.
+pub const READ_AHEAD_ROUNDS: usize = 2;
+
+/// A whole sync as the app runs one, without the lease.
 #[cfg(test)]
 pub(super) fn sync(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
 ) -> Result<OverleafSyncResult, String> {
+    sync_meanwhile(config_dir, root, live, observed_remote_version, || {})
+}
+
+/// [`sync`], with `meanwhile` run between each read ahead and the rest of
+/// its round, where the app lets file writes and live documents go on.
+#[cfg(test)]
+pub(super) fn sync_meanwhile(
+    config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
+    mut meanwhile: impl FnMut(),
+) -> Result<OverleafSyncResult, String> {
+    let mut round = 0;
     loop {
-        let prefetched = prefetch(config_dir, root, live, observed_remote_version, &|_, _| {})?;
-        if let Some(result) =
-            sync_prefetched(config_dir, root, live, observed_remote_version, prefetched)?
-        {
+        round += 1;
+        let read_ahead = round <= READ_AHEAD_ROUNDS;
+        let prefetched = if read_ahead {
+            prefetch(config_dir, root, live, observed_remote_version, &|_, _| {})?
+        } else {
+            None
+        };
+        meanwhile();
+        if let Some(result) = sync_prefetched(
+            config_dir,
+            root,
+            live,
+            observed_remote_version,
+            prefetched,
+            !read_ahead,
+        )? {
             return Ok(result);
         }
     }
 }
 
 /// The sync, under the project's exclusive lease, starting from what
-/// [`prefetch`] read ahead of it. Never downloads: that would hold every file
-/// write here for the download's minutes, and skip the account-wide gap
-/// between downloads. `None` when the sync needs Overleaf's copy and nothing
-/// read ahead still fits; the caller lets go of the lease and reads ahead
-/// again.
+/// [`prefetch`] read ahead of it. Downloads only when `may_download`: that
+/// holds every file write here for the download's minutes, so only a sync's
+/// last round may. Otherwise `None` when the sync needs Overleaf's copy and
+/// nothing read ahead still fits; the caller lets go of the lease and reads
+/// ahead again.
 pub fn sync_prefetched(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
-    prefetched: Option<Prefetched>,
+    prefetched: Option<Prefetched>, may_download: bool,
 ) -> Result<Option<OverleafSyncResult>, String> {
-    let result = sync_files(config_dir, root, live, observed_remote_version, prefetched)?;
+    let result =
+        sync_files(config_dir, root, live, observed_remote_version, prefetched, may_download)?;
     if let Some(result) = &result {
         record_result(result);
     }
     Ok(result)
 }
 
+/// The project download, timed and counted on the sync's wide event.
+pub(super) fn download(
+    remote: &Remote, client: &Client, progress: DownloadProgress,
+) -> Result<RemoteFiles, String> {
+    let step = wide_event::step("download");
+    let downloaded = fetch_remote_files(remote, client, progress)?;
+    drop(step);
+    wide_event::record("download", "full");
+    let bytes: usize = downloaded.files.values().map(Vec::len).sum();
+    wide_event::record("remote_files", downloaded.files.len());
+    wide_event::record("remote_bytes", bytes);
+    Ok(downloaded)
+}
+
 fn sync_files(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
-    prefetched: Option<Prefetched>,
+    prefetched: Option<Prefetched>, may_download: bool,
 ) -> Result<Option<OverleafSyncResult>, String> {
     let linked = Remote::open_for_sync(config_dir, root)?;
     let client = sync_client()?;
-    let prefetched = prefetched.filter(|prefetched| prefetched.fits(&linked.state, live));
+    // Read here only now, under the lease: whatever changed while the
+    // download ran is part of this sync rather than left for the next.
+    let read = read_local_files(root)?;
+    let mut live = live.clone();
+    let prefetched = prefetched.and_then(|prefetched| {
+        live.extend(prefetched.fits(&linked.state, &live, &read.files)?);
+        Some(prefetched)
+    });
+    let live = &live;
 
     // Where Overleaf's history stood when we took our copy. Comparing it again
     // just before uploading tells us whether anyone edited in the meantime.
@@ -689,19 +739,19 @@ fn sync_files(
     let remote_version_before = version.or(linked.state.remote_version);
     let (read, RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled }) =
         match prefetched {
-            // Read here only now, under the lease: whatever changed while the
-            // download ran is part of this sync rather than left for the next.
-            Some(Prefetched { downloaded, .. }) => (read_local_files(root)?, downloaded),
-            None => {
-                let read = read_local_files(root)?;
-                match agreed_remote_files(&linked, &client, root, version, &read.files, live) {
-                    Some(agreed) => {
-                        wide_event::record("download", "skipped");
-                        (read, agreed)
-                    }
-                    None => return Ok(None),
+            Some(Prefetched { downloaded, .. }) => (read, downloaded),
+            None => match agreed_remote_files(&linked, &client, root, version, &read.files, live) {
+                Some(agreed) => {
+                    wide_event::record("download", "skipped");
+                    (read, agreed)
                 }
-            }
+                None if may_download => {
+                    let downloaded = download(&linked, &client, &|_, _| {})?;
+                    // Read again after the download, as above.
+                    (read_local_files(root)?, downloaded)
+                }
+                None => return Ok(None),
+            },
         };
     let LocalFiles { files: mut local, oversized } = read;
     wide_event::record("local_files", local.len());

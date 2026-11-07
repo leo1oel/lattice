@@ -74,5 +74,5 @@ pub use review::{
 pub use root_document::{record_root_document, reported_root_document};
 pub use sync::{
     classify_sync_error, prefetch, preview, probe, sync_prefetched, sync_relocations,
-    OverleafPreview, OverleafProbe, OverleafSyncResult,
+    OverleafPreview, OverleafProbe, OverleafSyncResult, READ_AHEAD_ROUNDS,
 };
