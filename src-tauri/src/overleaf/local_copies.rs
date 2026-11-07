@@ -106,8 +106,10 @@ fn display_path(path: &Path) -> String {
 /// such as on a drive that is not mounted, stays for when it is back.
 pub fn local_copies(config_dir: &Path, candidates: &[PathBuf]) -> BTreeMap<String, LocalCopy> {
     let session = read_session(config_dir).ok();
-    let _lock = lock_index();
-    let index = read_index(config_dir);
+    let index = {
+        let _lock = lock_index();
+        read_index(config_dir)
+    };
     let mut found = BTreeMap::new();
     let mut seen = Vec::new();
     let mut stale = Vec::new();
@@ -140,7 +142,8 @@ pub fn local_copies(config_dir: &Path, candidates: &[PathBuf]) -> BTreeMap<Strin
         });
     }
     if !stale.is_empty() {
-        let mut index = index;
+        let _lock = lock_index();
+        let mut index = read_index(config_dir);
         index.folders.retain(|folder| !stale.contains(folder));
         if let Err(error) = write_index(config_dir, &index) {
             log::warn!("Could not tidy the linked Overleaf folders: {error}");
