@@ -32,7 +32,7 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
   const percent = state.kind === "downloading" ? Math.round(state.progress * 100) : 0;
   const message = state.kind === "failed" || state.kind === "download-failed" ? state.message : "";
   const unavailable = install?.supported === false
-    ? t`Live preview needs a Mac with Apple silicon`
+    ? t`Live preview needs a Mac`
     : install?.lualatex === false
       ? t`Live preview needs LuaLaTeX, and Lattice could not run it. Install TeX Live or BasicTeX, then open the project again`
       : null;

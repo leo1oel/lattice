@@ -20,7 +20,7 @@ function settings(state: LivePreviewState, overrides: Partial<LivePreview> = {})
 }
 
 it.each([
-  [{ supported: false, lualatex: false }, "Live preview needs a Mac with Apple silicon"],
+  [{ supported: false, lualatex: false }, "Live preview needs a Mac"],
   [{ supported: true, lualatex: false }, /Live preview needs LuaLaTeX, and Lattice could not run it/],
 ])("says why a Mac that cannot run it shows the switch off and disabled", async (host, reason) => {
   vi.mocked(invoke).mockResolvedValue({ ...READY, ...host });

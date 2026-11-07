@@ -36,7 +36,7 @@ export type LivePreviewState =
   | { kind: "starting" }
   | { kind: "running"; session: LivePreviewSession }
   | { kind: "failed"; message: string }
-  /** This Mac has no Apple silicon or no working LuaLaTeX: nothing downloaded. */
+  /** Not a Mac, or no working LuaLaTeX: nothing downloaded. */
   | { kind: "unavailable" }
   /** rtex could not be downloaded (offline, say); builds go on as usual. */
   | { kind: "download-failed"; message: string };

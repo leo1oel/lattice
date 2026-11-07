@@ -40,7 +40,9 @@ const BASIC_SCRIPT: &str =
 const DEPENDENCY_SCRIPT: &str =
     concat!(include_str!("installer-prelude.sh"), "\n", include_str!("dependency.sh"));
 
-/// The managed uv release for Apple Silicon, the only Macs Lattice runs on.
+/// The managed uv release for the Mac this build runs on: Lattice ships one
+/// app for Apple silicon and one for Intel, each downloading its own uv.
+#[cfg(target_arch = "aarch64")]
 pub(super) const UV: PinnedDownload = PinnedDownload {
     url: "https://github.com/astral-sh/uv/releases/download/0.12.3/uv-aarch64-apple-darwin.tar.gz",
     sha256: "546f7f8a6c70ff13a3a9d2bc958db3427298cebf3e0cb756f9177133b7068843",
@@ -49,8 +51,20 @@ pub(super) const UV: PinnedDownload = PinnedDownload {
     source: "the required uv tool",
     artifact: "uv archive",
 };
+#[cfg(not(target_arch = "aarch64"))]
+pub(super) const UV: PinnedDownload = PinnedDownload {
+    url: "https://github.com/astral-sh/uv/releases/download/0.12.3/uv-x86_64-apple-darwin.tar.gz",
+    sha256: "4c9f52262a14da336e4a42ed24992d12d0c956acde87619e4611d321dffa602b",
+    timeout: Duration::from_secs(10 * 60),
+    name: "uv",
+    source: "the required uv tool",
+    artifact: "uv archive",
+};
 /// The directory the uv archive unpacks into.
+#[cfg(target_arch = "aarch64")]
 pub(super) const UV_ARCHIVE_ROOT: &str = "uv-aarch64-apple-darwin";
+#[cfg(not(target_arch = "aarch64"))]
+pub(super) const UV_ARCHIVE_ROOT: &str = "uv-x86_64-apple-darwin";
 
 /// `/bin/bash -c <script>` for `do shell script … with administrator privileges`.
 pub(super) fn privileged_command(script: &str) -> String {

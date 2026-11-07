@@ -1,0 +1,442 @@
+name: macOS Intel
+
+# The Intel Mac (x86_64) build of Lattice: built natively on an Intel runner,
+# signed and notarized like the Apple silicon release, launched from its disk
+# image on a second, fresh Intel runner, and then attached to the release the
+# Release workflow has already published, with its updater entries merged into
+# that release's latest.json.
+#
+# Intel never holds up the Apple silicon release. release.yml does not know
+# this workflow exists: it builds, notarizes and publishes the Apple silicon
+# release exactly as before, and only once it has succeeded does this
+# workflow start, from its workflow_run event (as linux-appimage.yml does). An
+# Intel failure leaves the published release without its _x64 assets and
+# latest.json without darwin-x86_64, nothing else: Intel copies then keep
+# their version until a release whose Intel build passes, while Apple silicon
+# copies update as before.
+#
+# - build: on macos-15-intel, so every Mach-O in the bundle is built for the
+#   host (prepare-synara-sidecar.mjs stages Node for rustc's host triple, the
+#   presentation runtime keeps the host's native packages); checked for loose
+#   fonts, size and that every Mach-O file contains x86_64; the app and DMG
+#   notarized and verified;
+# - smoke: the DMG installed and launched on a fresh Intel runner
+#   (.github/scripts/smoke-macos-dmg.sh): it must show its window and its
+#   frontend must log;
+# - attach: the DMG and the signed updater archive uploaded, then
+#   darwin-x86_64 added to latest.json (scripts/add-updater-platform.mjs
+#   verifies the archive's signature against the app's updater key first).
+#
+# A pull request that changes this packaging, or a run by hand, runs the same
+# build, signing, notarization and smoke with the open-licensed fonts and no
+# baked-in keys, and publishes nothing. Without the signing secrets (a fork)
+# it builds ad hoc signed and skips notarization.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  pull_request:
+    paths:
+      - ".github/workflows/macos-intel.yml"
+      - ".github/scripts/check-macos-arch.sh"
+      - ".github/scripts/smoke-macos-dmg.sh"
+      - "scripts/add-updater-platform.mjs"
+      - "scripts/prepare-synara-sidecar.mjs"
+      - "scripts/check-font-leaks.mjs"
+      - "scripts/app-size-report.mjs"
+      - "scripts/lib/runtime-prune.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per release tag or pull request, so two attempts never attach to
+# the same release at once; a newer push to a pull request replaces its run.
+concurrency:
+  group: macos-intel-${{ github.event.workflow_run.head_branch || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # A Release run for a tag push: the one case that bakes in the release's
+  # secrets and attaches the result. Tags are the only pushes Release runs on.
+  IS_RELEASE: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+  TARGET: x86_64-apple-darwin
+
+jobs:
+  build:
+    # A Release run that failed published nothing to attach to.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: macos-15-intel
+    outputs:
+      dmg: ${{ steps.artifacts.outputs.dmg }}
+      archive: ${{ steps.artifacts.outputs.archive }}
+      signed: ${{ steps.signing.outputs.signed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # workflow_run runs this file from main; build the release's own commit.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Check the release's version
+        if: env.IS_RELEASE == 'true'
+        env:
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [[ "v$version" != "$TAG" ]]; then
+            echo "::error::$TAG builds version $version."
+            exit 1
+          fi
+
+      - name: Read the minimum macOS version
+        id: macos-version
+        run: |
+          echo "value=$(node -p "require('./src-tauri/tauri.conf.json').bundle.macOS.minimumSystemVersion")" \
+            >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup-pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      # The pinned Rust release; on this host its default target is x86_64-apple-darwin.
+      - run: rustup toolchain install
+
+      # Release builds run in main's cache scope (workflow_run), so they save
+      # for the next release and for pull requests to restore. rust-cache drops
+      # the workspace crate before saving, so the baked-in keys never reach the
+      # cache. The key includes the deployment target for the reason
+      # release.yml gives.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: x86_64-apple-darwin-release-macos${{ steps.macos-version.outputs.value }}
+          save-if: ${{ env.IS_RELEASE == 'true' }}
+
+      - name: Prepare pinned Synara source
+        run: |
+          synara_repository="$(
+            node -p "require('./scripts/synara-runtime.json').repository"
+          )"
+          synara_revision="$(
+            node -p "require('./scripts/synara-runtime.json').revision"
+          )"
+          synara_source="$RUNNER_TEMP/lattice-synara"
+
+          git init "$synara_source"
+          git -C "$synara_source" remote add origin "$synara_repository"
+          git -C "$synara_source" fetch --depth=1 origin "$synara_revision"
+          git -C "$synara_source" checkout --detach FETCH_HEAD
+          test "$(git -C "$synara_source" rev-parse HEAD)" = "$synara_revision"
+
+          echo "BUN_BIN=$(command -v bun)" >> "$GITHUB_ENV"
+          echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
+
+      # No prepared-runtime cache: release-cache.yml prepares only the Apple
+      # silicon runtime, and this build is not the one a release waits on.
+      - name: Install pinned Synara dependencies
+        run: bun install --cwd "$SYNARA_SOURCE_DIR" --frozen-lockfile
+
+      # As release.yml fetches them, and for a release only: a pull request's
+      # build is not a release and keeps the open-licensed fonts.
+      - name: Fetch the licensed interface fonts
+        if: env.IS_RELEASE == 'true'
+        env:
+          LATTICE_FONTS_DEPLOY_KEY: ${{ secrets.LATTICE_FONTS_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$LATTICE_FONTS_DEPLOY_KEY" ]]; then
+            echo "No fonts deploy key: building with the open-licensed interface fonts."
+            exit 0
+          fi
+
+          ssh_dir="$(mktemp -d "$RUNNER_TEMP/lattice-fonts-ssh.XXXXXX")"
+          trap 'rm -rf "$ssh_dir"' EXIT
+          (umask 077 && printf '%s\n' "$LATTICE_FONTS_DEPLOY_KEY" > "$ssh_dir/deploy-key")
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
+            > "$ssh_dir/known_hosts"
+
+          fonts_checkout="$RUNNER_TEMP/lattice-fonts"
+          GIT_SSH_COMMAND="ssh -i $ssh_dir/deploy-key -o IdentitiesOnly=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes" \
+            git clone --quiet --depth=1 git@github.com:leo1oel/lattice-fonts.git "$fonts_checkout"
+
+          echo "LATTICE_PRIVATE_FONTS_DIR=$fonts_checkout/Timeless-Type-Family-1.094" >> "$GITHUB_ENV"
+          echo "LATTICE_PRIVATE_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
+
+      # The same Developer ID, App Store Connect key and updater key as
+      # release.yml. A release must have them; a run without them (a fork's
+      # pull request) builds ad hoc signed, with no updater archive, and
+      # skips notarization.
+      - name: Import Apple Developer ID certificate
+        id: signing
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$APPLE_CERTIFICATE" || -z "$APPLE_API_KEY" ]]; then
+            if [[ "$IS_RELEASE" == "true" ]]; then
+              echo "::error::A release needs the Apple signing secrets."
+              exit 1
+            fi
+            echo "No signing secrets: building ad hoc signed, without notarization."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          certificate_path="$RUNNER_TEMP/apple-developer-certificate.p12"
+          keychain_path="$RUNNER_TEMP/lattice-signing.keychain-db"
+
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          signing_identity="$(
+            security find-identity -v -p codesigning "$keychain_path" |
+              awk -F '"' '/Developer ID Application/ { print $2; exit }'
+          )"
+          test -n "$signing_identity"
+          echo "APPLE_SIGNING_IDENTITY=$signing_identity" >> "$GITHUB_ENV"
+
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$api_key_path"
+          echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      # What tauri-action runs in release.yml: `tauri build` signs the app with
+      # APPLE_SIGNING_IDENTITY, notarizes it with the App Store Connect key,
+      # and signs the updater archive with the updater key. Tauri treats a
+      # set-but-empty variable as set, so the ones a fork lacks are unset.
+      - name: Build and sign the Intel app
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          SIGNED: ${{ steps.signing.outputs.signed }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          LATTICE_FIRECRAWL_KEY: ${{ env.IS_RELEASE == 'true' && secrets.LATTICE_FIRECRAWL_KEY || '' }}
+          VITE_TLDRAW_LICENSE_KEY: ${{ env.IS_RELEASE == 'true' && secrets.VITE_TLDRAW_LICENSE_KEY || '' }}
+        run: |
+          set -euo pipefail
+          args=(--target "$TARGET" --bundles "app,dmg")
+          if [[ "$SIGNED" != "true" ]]; then
+            unset APPLE_API_ISSUER APPLE_API_KEY
+          fi
+          if [[ -z "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
+            if [[ "$IS_RELEASE" == "true" ]]; then
+              echo "::error::A release needs the updater signing key."
+              exit 1
+            fi
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            args+=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
+          fi
+          pnpm tauri build "${args[@]}"
+
+      - name: Check the built app for loose font files
+        run: node scripts/check-font-leaks.mjs app "src-tauri/target/$TARGET/release/bundle/macos/Lattice.app"
+
+      - name: Check the installed app size
+        run: node scripts/app-size-report.mjs --app "src-tauri/target/$TARGET/release/bundle/macos/Lattice.app"
+
+      - name: Check that every binary is built for Intel
+        run: .github/scripts/check-macos-arch.sh "src-tauri/target/$TARGET/release/bundle/macos/Lattice.app" x86_64
+
+      - name: Notarize the distributable disk image
+        if: steps.signing.outputs.signed == 'true'
+        env:
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          dmg_path="$(
+            find "src-tauri/target/$TARGET/release/bundle/dmg" \
+              -maxdepth 1 -name '*.dmg' -print -quit
+          )"
+
+          test -n "$dmg_path"
+          xcrun notarytool submit "$dmg_path" \
+            --key "$APPLE_API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+          xcrun stapler staple "$dmg_path"
+
+      - name: Verify signed and notarized artifacts
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          dmg_path="$(find "src-tauri/target/$TARGET/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
+          codesign --verify --strict --verbose=2 "$dmg_path"
+          spctl --assess \
+            --type open \
+            --context context:primary-signature \
+            --verbose=4 \
+            "$dmg_path"
+          xcrun stapler validate "$dmg_path"
+
+          mount_path="$(mktemp -d "$RUNNER_TEMP/lattice-dmg.XXXXXX")"
+          hdiutil attach "$dmg_path" \
+            -nobrowse \
+            -readonly \
+            -mountpoint "$mount_path"
+          trap 'hdiutil detach "$mount_path"' EXIT
+
+          app_path="$(find "$mount_path" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+
+          spctl --assess --type execute --verbose=4 "$app_path"
+          xcrun stapler validate "$app_path"
+
+      # Release asset names: Tauri already names the DMG Lattice_<version>_x64.dmg;
+      # the updater archive gets the same suffix, next to tauri-action's
+      # Lattice_<version>_aarch64.app.tar.gz. Renaming leaves its signature
+      # valid: it covers the bytes, not the name.
+      - name: Name the release assets
+        id: artifacts
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          out="$RUNNER_TEMP/intel-assets"
+          mkdir -p "$out"
+          dmgs=("src-tauri/target/$TARGET/release/bundle/dmg/"*.dmg)
+          if ((${#dmgs[@]} != 1)) || [[ "$(basename "${dmgs[0]}")" != "Lattice_${version}_x64.dmg" ]]; then
+            echo "::error::Expected Lattice_${version}_x64.dmg, found: ${dmgs[*]}"
+            exit 1
+          fi
+          cp "${dmgs[0]}" "$out/"
+          echo "dmg=Lattice_${version}_x64.dmg" >> "$GITHUB_OUTPUT"
+          archive="src-tauri/target/$TARGET/release/bundle/macos/Lattice.app.tar.gz"
+          if [[ -f "$archive.sig" ]]; then
+            cp "$archive" "$out/Lattice_${version}_x64.app.tar.gz"
+            cp "$archive.sig" "$out/Lattice_${version}_x64.app.tar.gz.sig"
+            echo "archive=Lattice_${version}_x64.app.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+          node scripts/check-font-leaks.mjs assets "$out"
+          ls -la "$out"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lattice-macos-intel
+          path: ${{ runner.temp }}/intel-assets
+          if-no-files-found: error
+          retention-days: 3
+
+  # The DMG on a fresh Intel runner, as a user installs it: nothing from the
+  # build machine (its keychain, Rust, Node, the staged runtimes) is there.
+  smoke:
+    needs: build
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@v8
+        with:
+          name: lattice-macos-intel
+          path: ${{ runner.temp }}/intel-assets
+      - name: Install and launch the DMG
+        env:
+          DMG: ${{ runner.temp }}/intel-assets/${{ needs.build.outputs.dmg }}
+          SIGNED: ${{ needs.build.outputs.signed }}
+        run: .github/scripts/smoke-macos-dmg.sh "$DMG" "$RUNNER_TEMP/smoke-evidence" "$SIGNED"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: macos-intel-smoke-evidence
+          path: ${{ runner.temp }}/smoke-evidence
+          if-no-files-found: ignore
+
+  # Only after every check, and only for a release. The release is already
+  # public (the Release run succeeded), so this adds the Intel assets, the
+  # darwin-x86_64 updater entries and the Intel install notes; the Apple
+  # silicon assets and latest.json entries stay as they are. --clobber makes a
+  # re-run replace the Intel assets instead of failing or adding a second copy.
+  attach:
+    needs: [build, smoke]
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.event.workflow_run.head_branch }}
+      DMG: ${{ needs.build.outputs.dmg }}
+      ARCHIVE: ${{ needs.build.outputs.archive }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          sparse-checkout: |
+            scripts
+            src-tauri/tauri.conf.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: lattice-macos-intel
+          path: ${{ runner.temp }}/intel-assets
+      - name: Attach the Intel assets to the release
+        run: |
+          set -euo pipefail
+          if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "false" ]]; then
+            echo "::error::$TAG is not a published release; the Intel assets attach only to one."
+            exit 1
+          fi
+          if [[ -z "$ARCHIVE" ]]; then
+            echo "::error::The build made no signed updater archive."
+            exit 1
+          fi
+          assets="$RUNNER_TEMP/intel-assets"
+          gh release upload "$TAG" "$assets/$DMG" "$assets/$ARCHIVE" "$assets/$ARCHIVE.sig" --clobber
+      # The updater entries go in after the assets they point to are uploaded.
+      # A re-run adds the same entries again.
+      - name: Add darwin-x86_64 to the updater manifest
+        run: |
+          set -euo pipefail
+          manifest_dir="$(mktemp -d "$RUNNER_TEMP/lattice-updater.XXXXXX")"
+          gh release download "$TAG" --pattern latest.json --dir "$manifest_dir"
+          gh api "repos/$GH_REPO/releases/tags/$TAG" > "$manifest_dir/release.json"
+          node scripts/add-updater-platform.mjs \
+            "$manifest_dir/latest.json" "$manifest_dir/release.json" \
+            "$RUNNER_TEMP/intel-assets/$ARCHIVE" "$RUNNER_TEMP/intel-assets/$ARCHIVE.sig" \
+            "$ARCHIVE" darwin-x86_64 darwin-x86_64-app
+          gh release upload "$TAG" "$manifest_dir/latest.json" --clobber
+          # What the updater now reads: both Macs listed.
+          gh release download "$TAG" --pattern latest.json --output - |
+            jq -e '.platforms | has("darwin-aarch64") and has("darwin-x86_64") and has("darwin-x86_64-app")'
+      # Appended once: a re-run finds the heading and leaves the notes alone.
+      - name: Add the Intel install notes
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/notes.md"
+          gh release view "$TAG" --json body --jq .body > "$notes"
+          if grep -qF '## Install (Intel Mac)' "$notes"; then exit 0; fi
+          cat >> "$notes" <<EOF
+
+          ## Install (Intel Mac)
+
+          On a Mac with an Intel processor, download **$DMG** below instead,
+          open it, and drag Lattice to Applications. It needs macOS 14 or
+          later, is signed and notarized like the Apple silicon download, and
+          updates itself the same way.
+          EOF
+          gh release edit "$TAG" --notes-file "$notes"
