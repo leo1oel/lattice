@@ -2,11 +2,14 @@
 
 How a Lattice release is actually cut today. Everything below is derived from
 `scripts/bump-version.mjs`, `.github/workflows/release.yml`,
-`.github/workflows/release-cache.yml`, and `src-tauri/tauri.conf.json`; if you
-change one of those, change this document with it.
+`.github/workflows/linux-appimage.yml`, `.github/workflows/release-cache.yml`,
+and `src-tauri/tauri.conf.json`; if you change one of those, change this
+document with it.
 
-Releases target **Apple Silicon macOS only** (`--target aarch64-apple-darwin`,
-`minimumSystemVersion: 14.0`).
+Releases target **Apple Silicon macOS** (`--target aarch64-apple-darwin`,
+`minimumSystemVersion: 14.0`). An **experimental x86_64 Linux AppImage** is
+added to the release afterwards, only when its own checks pass
+([below](#linux-appimageyml)); it never delays or blocks the Mac release.
 
 ## Cut a release
 
@@ -132,6 +135,64 @@ create the Release and upload assets.
 
 If any verification step fails, the Release simply stays a draft and nothing
 reaches users.
+
+### `linux-appimage.yml`
+
+The Linux AppImage is built after the Mac release, not beside it, so it cannot
+change what Mac users get: `release.yml` does not mention Linux, and this
+workflow starts from its `workflow_run` event only once a tag's Release run
+has **succeeded**, that is, once the Mac release is published. A Release run
+that fails starts nothing here; a Linux failure leaves the published release
+as it is, without an AppImage, and keeps the Release run (which `web-demo.yml`
+waits on) green.
+
+From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
+
+1. **build** (`ubuntu-22.04`, so the AppImage's glibc floor is 22.04's):
+   `pnpm tauri build --bundles appimage` with the same pinned Synara source,
+   licensed fonts, Firecrawl key and tldraw key as the Mac build, then
+   `check-font-leaks.mjs assets` on the AppImage alone (an allowed asset name,
+   not a font) and `check-font-leaks.mjs appdir` on its extracted contents
+   (no Timeless file outside the binary, no font outside the bundled
+   runtimes under `usr/lib/Lattice/`).
+2. **smoke** (Docker guests `ubuntu:22.04`, `ubuntu:24.04`, `fedora:45`,
+   with GTK 3, Mesa and Xvfb): `.github/scripts/smoke-appimage.sh` extracts
+   the AppImage, requires every bundled ELF to resolve its libraries and its
+   glibc/libstdc++ versions, and requires the app to still be running 20 s
+   after launch under Xvfb.
+3. **e2e** (`ubuntu-22.04`, TeX Live from apt): `tauri-driver` with
+   WebKitGTK's `WebKitWebDriver` launches the AppImage itself under Xvfb, and
+   `scripts/linux-e2e.mjs` checks that the first launch opens the tutorial,
+   its build succeeds and the PDF draws page 1, **Build** rebuilds it, and
+   the Agent panel shows "Agent isn't available on Linux yet". A failure
+   uploads a screenshot and the page text as `linux-e2e-evidence`.
+4. **attach**, only after all three: `gh release upload --clobber` of the one
+   `Lattice_<version>_amd64.AppImage` (a re-run replaces it; the job fails if
+   the release then holds anything but exactly one AppImage), then appends an
+   "Install (Linux, experimental)" section to the release notes once.
+
+**Linux copies do not update themselves.** The build passes
+`--config '{"bundle":{"createUpdaterArtifacts":false}}'`, so no updater
+artifact is made or signed for Linux, and `latest.json` keeps only its
+`darwin-aarch64` entry; the release notes tell Linux users to download each
+release. The app agrees: on Linux it does not register the updater plugin
+(`src-tauri/src/lib.rs`) or check for updates, and Settings → App updates
+says so and links to the latest release instead. Offering in-app updates on
+Linux would mean signing the AppImage
+with `TAURI_SIGNING_PRIVATE_KEY` and merging a `linux-x86_64` entry into the
+Mac job's `latest.json`.
+
+When a release's Linux checks fail, re-running the failed jobs of that tag's
+Linux AppImage run only retries a transient failure (a runner, the network, an
+apt mirror). A re-run keeps the workflow file the original run started from
+and checks out the tag's commit for the scripts it runs, so a fix to the
+workflow or to the code, merged on `main`, takes effect at the next tagged
+release; until then that release has no AppImage.
+A pull request that changes the packaging (the workflow, the smoke script,
+`scripts/linux-e2e.mjs`, `scripts/check-font-leaks.mjs` or the runtime pruning
+in `scripts/lib/runtime-prune.mjs`) runs steps 1–3
+with the open-licensed fonts and no baked-in keys, and attaches nothing; so
+does a manual `workflow_dispatch` run.
 
 ### `web-demo.yml`
 

@@ -135,7 +135,12 @@ for (const [overrides, error] of [
   [{ synaraNodeRuntime: null, bundledNodeBytes: null }, null],
   [{ presentationRuntimeBytes: 66 * MiB + 1 }, /Presentation runtime.*budget/],
 ]) {
-  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides });
+  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides }, { platform: "darwin" });
+  await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
+}
+// Linux stages larger ELF builds of the same runtime, under a budget of its own.
+for (const [presentationRuntimeBytes, error] of [[69 * MiB, null], [69 * MiB + 1, /Presentation runtime is \d+ bytes; budget is 72351744$/]]) {
+  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], presentationRuntimeBytes }, { platform: "linux" });
   await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
 }
 

@@ -10,10 +10,23 @@ use tauri::{AppHandle, Manager, State, Window};
 
 /// `name` under the user's Documents folder, created on demand; `what` names it
 /// in the error when it cannot be.
+///
+/// On Linux the Documents folder is whatever `XDG_DOCUMENTS_DIR` in
+/// ~/.config/user-dirs.dirs names, and a system without xdg-user-dirs (a
+/// minimal desktop, a fresh CI home) names none, so Tauri reports an unknown
+/// path and the tutorial could not open. `~/Documents` is the XDG default for
+/// that folder, so it stands in.
 pub(crate) fn documents_folder(app: &AppHandle, name: &str, what: &str) -> Result<PathBuf, String> {
-    let folder = app
-        .path()
+    let paths = app.path();
+    let folder = paths
         .document_dir()
+        .or_else(|error| {
+            if cfg!(target_os = "linux") {
+                paths.home_dir().map(|home| home.join("Documents"))
+            } else {
+                Err(error)
+            }
+        })
         .map_err(|error| format!("Could not resolve Documents folder: {error}"))?
         .join(name);
     std::fs::create_dir_all(&folder)

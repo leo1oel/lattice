@@ -74,11 +74,12 @@ export function SynaraLoadingSurface(props: {
  * The Agent where Lattice cannot yet stop it from editing .bib files itself:
  * it stays off and says why. There is nothing to retry or diagnose, so no
  * Retry, logs or Details; the runtime's English message says the same.
+ * scripts/linux-e2e.mjs finds it by its `synara-unsupported-notice` class.
  */
 function SynaraUnsupportedNotice() {
   const { t } = useLingui();
   return (
-    <div className="synara-loading-surface" role="status">
+    <div className="synara-loading-surface synara-unsupported-notice" role="status">
       <span className="synara-loading-mark" aria-hidden="true">
         <ShieldOff size={17} />
       </span>

@@ -22,12 +22,16 @@
  *                     build emitted into dist/assets). Outside the bundled
  *                     open-licensed runtimes, which ship their own KaTeX, Inter
  *                     and other fonts, no file may be a font at all.
+ *   appdir DIRECTORY  the Linux AppImage's contents, extracted with
+ *                     `--appimage-extract` (squashfs-root): the same rules as
+ *                     an .app, with the runtimes where Tauri puts resources on
+ *                     Linux (usr/lib/Lattice/).
  *
  * A font is recognized by its extension or its signature, so a renamed copy
  * is caught too. Output names paths only; it never prints file contents.
  * The repository itself is checked by src/platform/font-license-guard.test.ts.
  *
- * Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP
+ * Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP | appdir DIRECTORY
  * Exit codes: 0 clean · 1 a finding · 2 usage or I/O error.
  */
 
@@ -35,12 +39,31 @@ import { closeSync, openSync, readFileSync, readSync, readdirSync, statSync } fr
 import path from "node:path";
 import { isMain, projectRoot, sha256, walkFiles } from "./lib/util.mjs";
 
-/** The files a release may publish: what tauri-action uploads plus the stapled image. */
-const RELEASE_ASSETS = [/\.dmg$/, /\.app\.tar\.gz$/, /\.app\.tar\.gz\.sig$/, /^latest\.json$/];
+/**
+ * The files a release may publish: what tauri-action uploads plus the stapled
+ * image, and the Linux AppImage linux-appimage.yml attaches once its own checks pass
+ * (it has no updater archive or signature: Linux copies update by hand).
+ */
+const RELEASE_ASSETS = [/\.dmg$/, /\.app\.tar\.gz$/, /\.app\.tar\.gz\.sig$/, /^latest\.json$/, /_amd64\.AppImage$/];
 const FONT_EXTENSION = /\.(?:woff2?|[ot]tf|ttc|eot|dfont|pfb|pfa)$/i;
 const FONT_SIGNATURES = new Set(["wOF2", "wOFF", "OTTO", "true", "typ1", "ttcf", "\0\x01\0\0"]);
-/** The bundled runtimes, relative to the .app, whose open-licensed fonts may ship. */
-const OPEN_RUNTIMES = ["Contents/Resources/presentation-runtime/", "Contents/Resources/synara-runtime/"];
+/**
+ * Where each kind of built bundle keeps its executable (checked to exist, so
+ * a mistyped path is not reported clean) and the bundled runtimes whose
+ * open-licensed fonts may ship. Tauri puts Linux resources in usr/lib/<productName>/.
+ */
+const BUNDLES = {
+  app: {
+    what: "a built .app (no Contents/MacOS directory)",
+    executable: "Contents/MacOS",
+    openRuntimes: ["Contents/Resources/presentation-runtime/", "Contents/Resources/synara-runtime/"],
+  },
+  appdir: {
+    what: "an extracted AppImage (no usr/bin directory)",
+    executable: "usr/bin",
+    openRuntimes: ["usr/lib/Lattice/presentation-runtime/", "usr/lib/Lattice/synara-runtime/"],
+  },
+};
 const EMITTED_TIMELESS = /^Timeless.*\.woff2$/;
 
 function signature(file) {
@@ -76,31 +99,33 @@ export function timelessFontHashes({ fontsDirectory, emittedDirectory }) {
 }
 
 /**
- * Findings for every file inside a built .app. Throws when `app` is not one:
- * walkFiles treats a missing root as empty, and an empty walk would otherwise
- * pass a mistyped release path as clean.
+ * Findings for every file inside a built bundle: an .app (`kind` "app") or an
+ * extracted AppImage ("appdir"). Throws when `root` is not one: walkFiles
+ * treats a missing root as empty, and an empty walk would otherwise pass a
+ * mistyped release path as clean.
  */
-export function checkApp(app, timelessHashes) {
-  const macos = path.join(app, "Contents", "MacOS");
-  if (!statSync(app, { throwIfNoEntry: false })?.isDirectory() || !statSync(macos, { throwIfNoEntry: false })?.isDirectory()) {
-    throw new Error(`${app} is not a built .app (no Contents/MacOS directory)`);
+export function checkBundle(root, timelessHashes, kind) {
+  const { what, executable, openRuntimes } = BUNDLES[kind];
+  if (!statSync(root, { throwIfNoEntry: false })?.isDirectory() || !statSync(path.join(root, executable), { throwIfNoEntry: false })?.isDirectory()) {
+    throw new Error(`${root} is not ${what}`);
   }
   const findings = [];
-  for (const file of walkFiles(app)) {
-    const relative = path.relative(app, file).split(path.sep).join("/");
-    const label = `${path.basename(app)}/${relative}`;
+  for (const file of walkFiles(root)) {
+    const relative = path.relative(root, file).split(path.sep).join("/");
+    const label = `${path.basename(root)}/${relative}`;
     if (/timeless/i.test(path.basename(file))) findings.push(`${label} is named for Timeless`);
     else if (timelessHashes.size > 0 && timelessHashes.has(sha256(readFileSync(file)))) findings.push(`${label} is a copy of a Timeless font`);
-    else if (!OPEN_RUNTIMES.some((runtime) => relative.startsWith(runtime)) && isFont(file)) {
+    else if (!openRuntimes.some((runtime) => relative.startsWith(runtime)) && isFont(file)) {
       findings.push(`${label} is a font outside the app's web assets and bundled runtimes`);
     }
   }
   return findings;
 }
 
+
 /**
  * Findings for every file of a static site build. Throws when `site` is not a
- * folder, for the reason checkApp does.
+ * folder, for the reason checkBundle does.
  */
 export function checkSite(site, timelessHashes) {
   if (!statSync(site, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${site} is not a folder`);
@@ -114,8 +139,8 @@ export function checkSite(site, timelessHashes) {
 }
 
 function main([mode, target, ...rest]) {
-  if (!target || rest.length > 0 || !["assets", "site", "app"].includes(mode)) {
-    process.stderr.write("Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP\n");
+  if (!target || rest.length > 0 || !["assets", "site", "app", "appdir"].includes(mode)) {
+    process.stderr.write("Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP | appdir DIRECTORY\n");
     return 2;
   }
   const fontsDirectory = process.env.LATTICE_PRIVATE_FONTS_DIR || null;
@@ -123,10 +148,10 @@ function main([mode, target, ...rest]) {
     ? checkAssets(target)
     : mode === "site"
       ? checkSite(target, timelessFontHashes({ fontsDirectory, emittedDirectory: target }))
-      : checkApp(target, timelessFontHashes({
+      : checkBundle(target, timelessFontHashes({
       fontsDirectory,
       emittedDirectory: path.join(projectRoot, "dist", "assets"),
-    }));
+    }), mode);
   for (const finding of findings) process.stderr.write(`font leak: ${finding}\n`);
   if (findings.length > 0) return 1;
   process.stdout.write(`No font leaks in ${target}.\n`);

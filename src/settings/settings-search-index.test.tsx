@@ -83,6 +83,17 @@ describe("settings search", () => {
     expect(find("实时预览", true)).toEqual(["live-preview"]);
   });
 
+  it("finds Automatic updates only where Lattice updates itself, which Linux does not", () => {
+    expect(search("automatic updates")).toEqual(["auto-updates"]);
+    const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko)");
+    try {
+      expect(search("automatic updates")).toEqual([]);
+      expect(search("check for updates")).toEqual(["version"]);
+    } finally {
+      userAgent.mockRestore();
+    }
+  });
+
   it("finds Your name by the name its comments are signed with", () => {
     expect(search("lovelace", true, "Ada Lovelace")).toEqual(["author-name"]);
   });

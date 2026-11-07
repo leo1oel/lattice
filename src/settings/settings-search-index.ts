@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { SettingsTab } from "../app-types";
 import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { TIMELESS } from "./interface-font-credit";
+import { updatesItself } from "../telemetry/updates-itself";
 
 /**
  * One searchable setting. `id` is the `data-setting` of the row it reveals;
@@ -71,7 +72,9 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     ...(hasProject && livePreview ? [
       { tab: "editor", place: editor, id: "live-preview", label: t`Live preview`, terms: `${builds} LuaLaTeX rtex ${t({ message: "realtime instant", comment: "Search words for the Live preview setting, space-separated" })}` },
     ] satisfies SettingsSearchEntry[] : []),
-    { tab: "editor", place: editor, id: "auto-updates", label: t`Automatic updates` },
+    ...(updatesItself() ? [
+      { tab: "editor", place: editor, id: "auto-updates", label: t`Automatic updates` },
+    ] satisfies SettingsSearchEntry[] : []),
     { tab: "editor", place: editor, id: "version", label: t`Version`, terms: t`Check for updates` },
     // The Providers page also holds Default provider, the provider new chats start on.
     { tab: "agent", label: t`Providers`, place: t`Agent`, terms: t`Default provider` },

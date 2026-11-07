@@ -91,8 +91,9 @@ export function Welcome(props: {
             <MorphIcon size={17} idle={<Folder size={17} />} hover={<FolderOpen size={17} />} />
             {t`Open folder`}
           </MotionButton>
+          {/* welcome-tutorial: what scripts/linux-e2e.mjs presses to open the sample. */}
           <MotionButton
-            className={buttonClassName({ variant: "ghost" })}
+            className={buttonClassName({ variant: "ghost", className: "welcome-tutorial" })}
             disabled={Boolean(props.busyLabel)}
             onClick={props.onOpenTutorial}
           >

@@ -241,6 +241,29 @@ describe("useUpdater / check", () => {
   });
 });
 
+describe("useUpdater on Linux", () => {
+  // The Linux AppImage's WebKitGTK window. Its release carries no updater
+  // archive and latest.json has no Linux entry (docs/release-process.md), so
+  // asking the updater plugin could only fail.
+  const linux = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko)";
+
+  it("never asks the updater plugin, neither on its timer nor when asked out loud", async () => {
+    const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(linux);
+    try {
+      offerUpdate();
+      const result = renderUpdater({ autoCheck: true, intervalMs: 10 });
+      await run(() => result.current.check(false));
+      await run(() => new Promise((resolve) => setTimeout(resolve, 30)));
+
+      expect(plugins.check).not.toHaveBeenCalled();
+      expect(result.current.phase).toBe("idle");
+      expect(addAppLog).not.toHaveBeenCalled();
+    } finally {
+      userAgent.mockRestore();
+    }
+  });
+});
+
 describe("useUpdater / install", () => {
   it("walks download → install → ready and restarts through the native app", async () => {
     const { download, result } = await startPausedInstall();

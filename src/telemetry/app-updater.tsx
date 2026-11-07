@@ -30,6 +30,7 @@ import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
+import { updatesItself } from "./updates-itself";
 import { loadChoice } from "../settings/app-settings";
 import { sharedSetting, useSharedSetting } from "../settings/shared-setting";
 import {
@@ -347,7 +348,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     // but only while it is still installable. Once its install has failed the
     // toast is a failure, and holding the check hostage to it means
     // the next release is never noticed for the rest of the session.
-    if (installingRef.current || installedRef.current) return;
+    if (!updatesItself() || installingRef.current || installedRef.current) return;
     if (pendingRef.current && !installFailedRef.current) return;
     try {
       const checkForUpdate = await loadUpdateCheck();
