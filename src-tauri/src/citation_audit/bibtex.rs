@@ -151,6 +151,19 @@ pub(super) fn entry_type(entry: &str) -> String {
     entry.trim_start_matches('@').split(['{', '(']).next().unwrap_or("").trim().to_lowercase()
 }
 
+/// What an entry says rather than how it is written: its type and field
+/// values, whatever the field order, spacing, value delimiters or case of
+/// field names. A reformat (bibcite's field sort, an editor's alignment)
+/// keeps it, so Check references keeps that entry's result; a changed value
+/// does not.
+pub(super) fn content_fingerprint(entry: &str) -> String {
+    let mut canonical = entry_type(entry);
+    for (name, value) in fields(entry) {
+        canonical.push_str(&format!("\0{name}={}", crate::util::collapse_whitespace(&value)));
+    }
+    crate::util::sha256_hex(canonical.as_bytes())
+}
+
 /// The key of `text` when it is exactly one complete entry and nothing else.
 pub(crate) fn single_entry_key(text: &str) -> Option<String> {
     let mut spans = project::bibliography_entry_spans(text);
@@ -205,6 +218,25 @@ mod tests {
         assert_eq!(normalize_doi("arxiv:1"), None);
         assert!(!complete_entry("@article{a,title={Broken}"));
         assert!(complete_entry("@article{a,title={Complete}}"));
+    }
+
+    /// bibcite's `remove` rewrote untouched entries this way; their checks
+    /// must survive it, and only a changed value may invalidate one.
+    #[test]
+    fn content_fingerprint_ignores_formatting_but_not_values() {
+        let written = "@InProceedings{he2016deep,\n  title={Deep Residual  Learning},\n  Year = 2016,\n  pages={770--778}\n}";
+        let fingerprint = content_fingerprint(written);
+        let reformatted = "@inproceedings{he2016deep,\n  pages         = {770--778},\n  title         = {Deep Residual Learning},\n  year          = {2016},\n}";
+        assert_eq!(content_fingerprint(reformatted), fingerprint);
+        for changed in [
+            written.replace("2016,", "2017,"),
+            written.replace("770--778", "770--779"),
+            written.replace("  pages={770--778}\n", ""),
+            written.replace("@InProceedings", "@article"),
+            written.replace("{Deep Residual", "{{Deep} Residual"),
+        ] {
+            assert_ne!(content_fingerprint(&changed), fingerprint, "{changed}");
+        }
     }
 
     #[test]

@@ -297,6 +297,7 @@ mod tests {
             issues: vec![],
             inline: None,
             line: None,
+            fingerprint: String::new(),
         };
         let checked =
             check_entry(root, entry("ranzinger2024amradio", "AM-RADIO", before), None).unwrap();

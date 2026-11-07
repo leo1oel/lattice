@@ -216,6 +216,11 @@ msgstr "{0} 人正在 Overleaf 上"
 msgid "{0} records match"
 msgstr "{0} 条记录匹配"
 
+#. placeholder {0}: outdated.length
+#: src/papers/bibliography-audit.tsx
+msgid "{0} references are new or changed since the last check. The others keep their results."
+msgstr "上次检查后有 {0} 条文献是新加的或改过，其余保留原结果。"
+
 #. placeholder {0}: selected.size
 #: src/papers/bibliography-audit.tsx
 msgid "{0} selected"
@@ -1141,6 +1146,10 @@ msgstr "1 篇论文"
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 人正在 Overleaf 上"
+
+#: src/papers/bibliography-audit.tsx
+msgid "1 reference is new or changed since the last check. The others keep their results."
+msgstr "上次检查后有 1 条文献是新加的或改过，其余保留原结果。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 reference, not checked yet"
@@ -3002,6 +3011,15 @@ msgstr "聊天"
 #: src/settings/grammar-settings.tsx
 msgid "Check {0} again"
 msgstr "重新检查“{0}”"
+
+#. placeholder {0}: outdated.length
+#: src/papers/bibliography-audit.tsx
+msgid "Check {0} references"
+msgstr "检查这 {0} 条"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check 1 reference"
+msgstr "检查这 1 条"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Check accent example"
@@ -5058,6 +5076,7 @@ msgstr "下载论文"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
+#: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文会保留"
@@ -7378,6 +7397,10 @@ msgstr "保留引用"
 #: src/history/export-changes-dialog.tsx
 msgid "Keep deleted text, struck through"
 msgstr "保留删除的文字，并加删除线"
+
+#: src/agent/agent-reference-removal.ts
+msgid "Keep entry"
+msgstr "保留文献"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
@@ -11417,6 +11440,10 @@ msgstr "从文献中删除“{title}”？"
 msgid "Remove {0} files from the Overleaf project?"
 msgstr "从 Overleaf 删除 {0} 个文件？"
 
+#: src/agent/agent-reference-removal.ts
+msgid "Remove {key} from the bibliography?"
+msgstr "从文献中删除 {key}？"
+
 #: src/project/paper-row.tsx
 msgid "Remove {title}"
 msgstr "移除 {title}"
@@ -11433,6 +11460,7 @@ msgstr "移除 % 注释"
 msgid "Remove citations too"
 msgstr "引用也删"
 
+#: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Remove entry"
 msgstr "删除文献"
@@ -13931,6 +13959,10 @@ msgstr "确认超时"
 msgid "The Agent"
 msgstr "AI 助手"
 
+#: src/agent/agent-reference-removal.ts
+msgid "The agent asked to delete this entry. Nothing in the paper cites it now, and an entry nobody cites is harmless: BibTeX lists only cited entries."
+msgstr "AI 助手请求删除这条文献。论文里已没有地方引用它，而没被引用的文献并无影响：BibTeX 只列出被引用的条目。"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "The agent asks"
 msgstr "AI 助手问"
@@ -14391,6 +14423,10 @@ msgstr "该网页几乎没有抓取到内容（可能需要登录，或禁止抓
 #: src/platform/host-errors-workspace.ts
 msgid "The paper changed after it was checked. Check it again, then export."
 msgstr "检查之后论文已被修改，请重新检查后再导出"
+
+#: src/agent/agent-reference-removal.ts
+msgid "The paper cites {key} again, so its entry was kept."
+msgstr "论文又引用了 {key}，因此保留了这条文献。"
 
 #: src/project/arxiv-export.ts
 msgid "The paper has no figures"

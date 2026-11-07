@@ -88,12 +88,16 @@ type SynaraHostBridge = {
 type MessageData = Record<string, unknown> & { type?: unknown };
 
 /** Tool calls the agent makes against host documents: parse, run, and answer. */
-const TOOL_ROUTES: Array<(data: unknown, bridge: SynaraHostBridge, projectRoot: string | null) => Promise<object> | null> = [
-  (data, _bridge, projectRoot) => {
+/** `projectRoot` is the open project's root when the request arrived; `currentProjectRoot` reads it again later. */
+const TOOL_ROUTES: Array<(
+  data: unknown, bridge: SynaraHostBridge, projectRoot: string | null, currentProjectRoot: () => string | null,
+) => Promise<object> | null> = [
+  (data, _bridge, _projectRoot, currentProjectRoot) => {
     const request = parseAgentBibliographyToolRequest(data);
-    // The citation index re-reads at once (use-project-library.ts); a dry run wrote nothing.
-    return request && executeAgentBibliographyToolRequest(request, projectRoot).then((response) => {
-      if (response.ok && request.params.dryRun !== true) announceBibliographyWrite(request.workspaceRoot);
+    // The citation index re-reads at once (use-project-library.ts); a dry run
+    // wrote nothing, and a removal waits for the writer (it announces its own).
+    return request && executeAgentBibliographyToolRequest(request, currentProjectRoot).then((response) => {
+      if (response.ok && request.params.dryRun !== true && request.action !== "remove_reference") announceBibliographyWrite(request.workspaceRoot);
       return response;
     });
   },
@@ -415,7 +419,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
         return;
       }
       for (const route of TOOL_ROUTES) {
-        const response = route(data, host.bridge, projectRootRef.current);
+        const response = route(data, host.bridge, projectRootRef.current, () => projectRootRef.current);
         if (response) {
           void response.then(post);
           return;

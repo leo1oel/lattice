@@ -3,12 +3,17 @@
 //!
 //! The agent runs in a sidecar process and cannot call into the app, so the
 //! app offers a private JSON dispatcher through its own executable. Keeping
-//! search, fetch, cite, upgrade, removal, and the library listing here avoids
-//! a second TypeScript implementation drifting from the UI. The agent's
-//! bibliography mutations inside the app go through the same dispatcher.
+//! search, fetch, cite, upgrade, and the library listing here avoids a second
+//! TypeScript implementation drifting from the UI. The agent's bibliography
+//! mutations inside the app go through the same dispatcher.
+//!
+//! Neither path deletes a bibliography entry. The agent's `remove_reference`
+//! only asks: the app shows the writer its own removal confirmation
+//! (`src/agent/agent-reference-removal.ts`), and the deletion is the
+//! interface's `remove_reference` command, run once they agree.
 
 use crate::{literature, papers};
-use papers::{CitationRemovalMode, HistoryMode};
+use papers::HistoryMode;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
@@ -42,15 +47,12 @@ pub(crate) enum LiteratureRequest {
         #[serde(rename = "dryRun", default)]
         dry_run: bool,
     },
-    RemoveReference {
-        key: String,
-    },
 }
 
 /// The only path from a sandboxed agent process to a bibliography mutation.
-/// Keep this protocol closed over the three domain operations that validate
-/// and resolve references; it must never accept an executable, file path, or
-/// arbitrary literature request.
+/// Keep this protocol closed over the two domain operations that validate
+/// and resolve references; it must never accept an executable, file path,
+/// arbitrary literature request, or a deletion.
 #[derive(serde::Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub(crate) enum AgentBibliographyMutation {
@@ -60,9 +62,6 @@ pub(crate) enum AgentBibliographyMutation {
     UpgradeBibliography {
         #[serde(rename = "dryRun", default)]
         dry_run: bool,
-    },
-    RemoveReference {
-        key: String,
     },
 }
 
@@ -76,9 +75,6 @@ impl AgentBibliographyMutation {
             }
             Self::UpgradeBibliography { dry_run } => {
                 LiteratureRequest::UpgradeBibliography { dry_run }
-            }
-            Self::RemoveReference { key } => {
-                LiteratureRequest::RemoveReference { key: bounded_value(key, "Citation key", 512)? }
             }
         })
     }
@@ -128,12 +124,6 @@ impl LiteratureRequest {
             Self::UpgradeBibliography { dry_run } => {
                 to_json(papers::upgrade_bibliography(root, dry_run))
             }
-            Self::RemoveReference { key } => to_json(papers::remove_reference(
-                root,
-                &key,
-                HistoryMode::Defer,
-                CitationRemovalMode::Block,
-            )),
         }
     }
 }
@@ -193,8 +183,9 @@ mod tests {
         let parse = serde_json::from_str::<AgentBibliographyMutation>;
         assert!(parse(r#"{"action":"cite","query":"Attention Is All You Need"}"#).is_ok());
         assert!(parse(r#"{"action":"write_file","path":"references.bib"}"#).is_err());
-        assert!(parse(r#"{"action":"remove_reference","key":"bad2024","path":"references.bib"}"#)
-            .is_err());
+        // Deleting an entry takes the writer's confirmation in the app; the
+        // agent's protocol cannot express it.
+        assert!(parse(r#"{"action":"remove_reference","key":"bad2024"}"#).is_err());
         // Agent-controlled strings are trimmed and bounded.
         assert_eq!(bounded_value("  key2024  ".to_string(), "key", 512).unwrap(), "key2024");
         assert!(bounded_value("   ".to_string(), "key", 512).is_err());

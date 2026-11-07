@@ -11,6 +11,7 @@ import {
   toolError,
   type AgentToolResult,
 } from "./agent-protocol";
+import { requestAgentReferenceRemoval } from "./agent-reference-removal";
 
 const SYNARA_BIBLIOGRAPHY_TOOL_REQUEST = "synara:bibliography-tool-request";
 const LATTICE_BIBLIOGRAPHY_TOOL_RESULT = "lattice:bibliography-tool-result";
@@ -53,16 +54,25 @@ export function parseAgentBibliographyToolRequest(
   return request as AgentBibliographyToolRequest;
 }
 
+/**
+ * `projectRoot` reads the open project's root now: a removal the writer
+ * confirms later is abandoned once the window shows another project.
+ */
 export function executeAgentBibliographyToolRequest(
   request: AgentBibliographyToolRequest,
-  currentProjectRoot: string | null,
+  projectRoot: () => string | null,
 ): Promise<AgentBibliographyToolResult> {
   return runAgentTool(LATTICE_BIBLIOGRAPHY_TOOL_RESULT, request.id, "bibliography_tool_failed", async () => {
     if (request.expiresAt <= Date.now()) {
       throw toolError("The bibliography request expired before execution.", "bibliography_tool_expired");
     }
-    if (!currentProjectRoot || request.workspaceRoot !== currentProjectRoot) {
+    const current = () => projectRoot() === request.workspaceRoot;
+    if (!current()) {
       throw toolError("The project changed before the bibliography request could start.", "bibliography_project_changed");
+    }
+    // Never a native mutation: the writer confirms every deletion.
+    if (request.action === "remove_reference") {
+      return requestAgentReferenceRemoval(request.params.key as string, request.workspaceRoot, current);
     }
     const result = await invoke<unknown>("agent_bibliography_mutation", {
       projectRoot: request.workspaceRoot,

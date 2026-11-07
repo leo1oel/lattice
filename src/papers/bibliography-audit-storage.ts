@@ -3,8 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import type { AuditResult } from "./bibliography-audit";
 
-/** `kept`: the writer read an unverified candidate and kept their own entry. */
-export type SavedAudit = { snapshot: string; result: AuditResult; applied: boolean; kept?: boolean };
+/**
+ * `kept`: the writer read an unverified candidate and kept their own entry.
+ * `fingerprint`: the entry's content when checked, apart from formatting.
+ */
+export type SavedAudit = { snapshot: string; fingerprint?: string; result: AuditResult; applied: boolean; kept?: boolean };
 export type AuditReport = [string, SavedAudit][];
 const pendingWrites = new Map<string, Promise<void>>();
 
@@ -18,6 +21,7 @@ function validRecord(record: unknown): record is [string, SavedAudit] {
   const result = value?.result;
   return typeof key === "string"
     && typeof value?.snapshot === "string" && typeof value.applied === "boolean"
+    && (value.fingerprint === undefined || typeof value.fingerprint === "string")
     && (value.kept === undefined || typeof value.kept === "boolean")
     && typeof result?.before === "string" && typeof result.message === "string"
     && ["checked", "update", "unavailable", "skipped", "conflict"].includes(result.status)
