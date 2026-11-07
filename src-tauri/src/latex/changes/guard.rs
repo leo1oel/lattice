@@ -228,31 +228,66 @@ fn kill(child: &mut Child) {
 
 /// The physical footprint of every process in `group`, in bytes.
 fn group_footprint(group: u32) -> u64 {
-    let Ok(group) = i32::try_from(group) else { return 0 };
-    let mut pids = [0 as libc::pid_t; 256];
-    let size = i32::try_from(std::mem::size_of_val(&pids)).unwrap_or(i32::MAX);
-    // SAFETY: the buffer is `size` bytes long and outlives the call.
-    let filled = unsafe { libc::proc_listpgrppids(group, pids.as_mut_ptr().cast(), size) };
-    // The pids written (a byte count on some releases: the zeroed tail
-    // makes either reading safe).
-    let count = usize::try_from(filled).unwrap_or(0).min(pids.len());
-    let members: Vec<libc::pid_t> = pids[..count].iter().copied().filter(|pid| *pid > 0).collect();
-    // The leader is counted even when the listing comes back empty.
-    let leader = (!members.contains(&group)).then_some(group);
-    members.into_iter().chain(leader).map(footprint).sum()
+    #[cfg(target_os = "macos")]
+    {
+        let Ok(group) = i32::try_from(group) else { return 0 };
+        let mut pids = [0 as libc::pid_t; 256];
+        let size = i32::try_from(std::mem::size_of_val(&pids)).unwrap_or(i32::MAX);
+        // SAFETY: the buffer is `size` bytes long and outlives the call.
+        let filled = unsafe { libc::proc_listpgrppids(group, pids.as_mut_ptr().cast(), size) };
+        // The pids written (a byte count on some releases: the zeroed tail
+        // makes either reading safe).
+        let count = usize::try_from(filled).unwrap_or(0).min(pids.len());
+        let members: Vec<libc::pid_t> =
+            pids[..count].iter().copied().filter(|pid| *pid > 0).collect();
+        // The leader is counted even when the listing comes back empty.
+        let leader = (!members.contains(&group)).then_some(group);
+        members.into_iter().chain(leader).map(footprint).sum()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // Approximate: sum RSS of processes whose PGID matches.
+        let Ok(entries) = std::fs::read_dir("/proc") else { return 0 };
+        entries
+            .flatten()
+            .filter_map(|entry| entry.file_name().to_str()?.parse::<libc::pid_t>().ok())
+            // SAFETY: getpgid only reads the target's group; a pid that has
+            // exited returns -1, which no group id matches.
+            .filter(|&pid| unsafe { libc::getpgid(pid) } == group as libc::pid_t)
+            .map(footprint)
+            .sum()
+    }
 }
 
 fn footprint(pid: libc::pid_t) -> u64 {
-    let mut info = std::mem::MaybeUninit::<libc::rusage_info_v2>::zeroed();
-    // SAFETY: `RUSAGE_INFO_V2` asks for exactly a `rusage_info_v2`, which
-    // `info` holds; a process that has exited leaves it untouched.
-    let read =
-        unsafe { libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, info.as_mut_ptr().cast()) };
-    if read != 0 {
-        return 0;
+    #[cfg(target_os = "macos")]
+    {
+        let mut info = std::mem::MaybeUninit::<libc::rusage_info_v2>::zeroed();
+        // SAFETY: `RUSAGE_INFO_V2` asks for exactly a `rusage_info_v2`, which
+        // `info` holds; a process that has exited leaves it untouched.
+        let read =
+            unsafe { libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, info.as_mut_ptr().cast()) };
+        if read != 0 {
+            return 0;
+        }
+        // SAFETY: zeroed, then filled by the kernel on success.
+        unsafe { info.assume_init() }.ri_phys_footprint
     }
-    // SAFETY: zeroed, then filled by the kernel on success.
-    unsafe { info.assume_init() }.ri_phys_footprint
+    #[cfg(target_os = "linux")]
+    {
+        // /proc/<pid>/statm field 1 is resident pages.
+        let Ok(statm) = std::fs::read_to_string(format!("/proc/{pid}/statm")) else { return 0 };
+        let pages: u64 =
+            statm.split_whitespace().nth(1).and_then(|value| value.parse().ok()).unwrap_or(0);
+        pages.saturating_mul(page_size())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn page_size() -> u64 {
+    // SAFETY: sysconf(_SC_PAGESIZE) is always available on Linux.
+    let size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    u64::try_from(size).unwrap_or(4096)
 }
 
 #[cfg(test)]

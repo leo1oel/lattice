@@ -1,28 +1,36 @@
 //! Supervisor for the bundled Synara agent sidecar.
 //!
 //! The sidecar is a loopback Node service started on demand by
-//! [`SynaraRuntime::ensure_ready`]. On macOS it runs inside the bibliography
-//! sandbox with Lattice's own `ps` replacement (`process_inspector`); the
+//! [`SynaraRuntime::ensure_ready`]. It runs inside the macOS bibliography
+//! sandbox with Lattice's own `ps` replacement (`process_inspector`), and
+//! does not start at all where no such guard exists (`bibliography_guard`); the
 //! provider CLIs it spawns inherit the writer's proxy and provider settings
 //! (`environment`, from the login shell and the system proxy), which a
 //! restart picks up again (`restart`), and a default-off research-writing
 //! skill (`preferences`).
 
+mod bibliography_guard;
 mod environment;
 mod preferences;
+#[cfg(target_os = "macos")]
+mod proxy;
+#[cfg(not(target_os = "macos"))]
+#[path = "synara/proxy_stub.rs"]
 mod proxy;
 pub(crate) mod restart;
 mod shell_env;
 
 use crate::sidecar::{terminate_process_group, NodeRuntime};
 use crate::wide_event::{self, Failure};
+#[cfg(target_os = "macos")]
+pub(crate) use bibliography_guard::BIBLIOGRAPHY_SANDBOX_PROFILE;
 use reqwest::blocking::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom};
 use std::net::{Ipv4Addr, TcpListener};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -36,11 +44,6 @@ const UNAVAILABLE: &str = "The built-in agent service is unavailable.";
 /// Under the agent home: the sidecar's stdout and stderr, which startup
 /// failures quote from and the support bundle collects.
 const SIDECAR_LOG_DIR: &str = "lattice-logs";
-pub(crate) const BIBLIOGRAPHY_SANDBOX_PROFILE: &str = concat!(
-    "(version 1)\n",
-    "(allow default)\n",
-    "(deny file-write* (regex #\".*[.][bB][iI][bB]$\"))",
-);
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -158,8 +161,21 @@ impl SynaraRuntime {
     }
 
     pub fn ensure_ready(&self) -> Result<SynaraRuntimeInfo, String> {
+        // A development origin (debug builds only) is a sidecar the developer
+        // started themselves, outside the guard on every platform.
         if let Some(origin) = &self.external_origin {
             return Ok(self.ready_info(origin, None, 0));
+        }
+        if !bibliography_guard::AVAILABLE {
+            return Ok(SynaraRuntimeInfo {
+                state: "unsupported".to_string(),
+                origin: None,
+                auth_token: None,
+                message: Some(bibliography_guard::MISSING.to_string()),
+                startup_ms: None,
+                version: self.version.clone(),
+                revision: self.revision.clone(),
+            });
         }
         let mut running = self.running.lock().map_err(|_| UNAVAILABLE.to_string())?;
         let mut reason = "start";
@@ -229,25 +245,10 @@ impl SynaraRuntime {
         let token = || format!("{}{}", uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
         let (auth_token, shutdown_token) = (token(), token());
 
-        // The prompt tells providers to use Lattice's bibliography tools, but
-        // prompt text is not an authorization boundary. On macOS, put the
-        // complete sidecar inside one Seatbelt profile so in-process agents,
-        // provider CLIs, scripts, and delayed descendants all inherit the same
-        // .bib write denial. The trusted parent app brokers the three allowed
-        // bibliography mutations.
         let executable = std::env::current_exe()
             .map_err(|error| format!("Could not locate the app executable: {error}"))?;
-        let inspector = crate::process_inspector::install_launcher(&self.home_dir, &executable)?;
-        crate::process_inspector::verify_launcher(&inspector)?;
-        let mut command = Command::new("/usr/bin/sandbox-exec");
-        command
-            .arg("-p")
-            .arg(BIBLIOGRAPHY_SANDBOX_PROFILE)
-            .arg(&self.node.executable)
-            // Children inherit this profile. A second sandbox-exec can fail
-            // sandbox_apply on older macOS before Codex even starts.
-            .env("LATTICE_BIBLIOGRAPHY_SANDBOX", "1")
-            .env("SYNARA_PROCESS_PS_PATH", inspector);
+        let mut command =
+            bibliography_guard::command(&self.node.executable, &self.home_dir, &executable)?;
         self.node.configure(&mut command);
         command.arg(&self.server_entry);
         // Web storage is scoped to the complete iframe origin, including its
@@ -368,7 +369,10 @@ pub fn task_relay_request(
     payload: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let info = runtime.ensure_ready()?;
-    let origin = info.origin.ok_or("The agent service is unavailable.")?;
+    // Where the agent is off (`bibliography_guard`), say why.
+    let origin = info.origin.ok_or_else(|| {
+        info.message.clone().unwrap_or_else(|| "The agent service is unavailable.".to_string())
+    })?;
     let mut url = reqwest::Url::parse(&origin).map_err(|error| error.to_string())?;
     let mut segments = url.path_segments_mut().map_err(|_| "Invalid agent address.")?;
     segments.clear().extend(["api", "lattice", route]);
@@ -605,59 +609,23 @@ mod tests {
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&requests[5].1).unwrap(), text_task);
     }
 
-    fn run_bibliography_sandbox(script: &str, args: &[&PathBuf]) -> bool {
-        Command::new("/usr/bin/sandbox-exec")
-            .args(["-p", BIBLIOGRAPHY_SANDBOX_PROFILE, "/bin/sh", "-c", script, "sandbox-test"])
-            .args(args)
-            .status()
-            .expect("run sandboxed command")
-            .success()
-    }
-
     #[test]
-    fn bibliography_sandbox_blocks_direct_and_indirect_bib_writes() {
-        let root = TempDir::new("bib-sandbox");
-        let path = |name: &str| root.join(name);
-        let (bibliography, uppercase, ordinary) = (
-            root.write("references.bib", "original"),
-            root.write("OTHER.BIB", "uppercase"),
-            root.write("ordinary.txt", "ordinary"),
-        );
-        let (replacement, renamed, alias) =
-            (path("replacement.tmp"), path("renamed.tmp"), path("alias.txt"));
-        let (bib_alias, hardlink_alias) = (path("alias.bib"), path("hardlink.txt"));
-        std::os::unix::fs::symlink(&bibliography, &alias).expect("symlink to bibliography");
-
-        let attempts: [(&str, &[&PathBuf]); 9] = [
-            ("printf changed >> \"$1\"", &[&bibliography]),
-            ("printf changed > \"$1\"", &[&bibliography]),
-            ("rm \"$1\"", &[&bibliography]),
-            ("printf replacement > \"$1\" && mv -f \"$1\" \"$2\"", &[&replacement, &bibliography]),
-            (
-                "mv \"$1\" \"$2\" && printf changed > \"$2\" && mv \"$2\" \"$1\"",
-                &[&bibliography, &renamed],
-            ),
-            ("printf changed > \"$1\"", &[&uppercase]),
-            ("ln \"$1\" \"$2\" && printf changed > \"$2\"", &[&bibliography, &hardlink_alias]),
-            ("printf changed > \"$1\"", &[&alias]),
-            ("ln -s \"$1\" \"$2\" && printf changed > \"$2\"", &[&ordinary, &bib_alias]),
-        ];
-        for (script, args) in attempts {
-            assert!(!run_bibliography_sandbox(script, args), "sandbox allowed: {script}");
-        }
-
-        assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
-        assert_eq!(fs::read_to_string(&uppercase).unwrap(), "uppercase");
-        assert!(run_bibliography_sandbox("printf changed > \"$1\"", &[&ordinary]));
-        assert_eq!(fs::read_to_string(&ordinary).unwrap(), "changed");
-
-        // Background descendants that outlive the sandboxed shell inherit it.
-        assert!(run_bibliography_sandbox(
-            "(sleep 0.05; printf changed > \"$1\") >/dev/null 2>&1 &",
-            &[&bibliography],
-        ));
-        thread::sleep(Duration::from_millis(150));
-        assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
+    #[cfg(not(target_os = "macos"))]
+    fn stays_off_without_a_bibliography_guard() {
+        let root = TempDir::new("synara-unguarded");
+        let mut runtime = SynaraRuntime::default();
+        runtime.home_dir = root.join("synara");
+        let info = runtime.ensure_ready().unwrap();
+        assert_eq!(info.state, "unsupported");
+        assert_eq!(info.message.as_deref(), Some(bibliography_guard::MISSING));
+        assert!(info.origin.is_none() && info.auth_token.is_none());
+        // Nothing was started, nor its home prepared.
+        assert!(runtime.running.lock().unwrap().is_none());
+        assert!(!runtime.home_dir.exists());
+        let error =
+            task_relay_request(&runtime, TEXT_TASK_ROUTE, "start", None, serde_json::Value::Null)
+                .unwrap_err();
+        assert_eq!(error, bibliography_guard::MISSING);
     }
 
     #[test]

@@ -88,8 +88,13 @@ pub(crate) enum DirSwapError {
     /// The existing `destination` could not be moved aside.
     Backup(io::Error),
     /// `staged` could not be moved into place; `restore` is the error from
-    /// putting the previous copy back, if there was one and that failed too.
-    Activate { error: io::Error, restore: Option<io::Error> },
+    /// putting the previous copy back, if there was one and that failed too
+    /// (worded only by the macOS tool installer, `tex_setup/macos.rs`).
+    Activate {
+        error: io::Error,
+        #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+        restore: Option<io::Error>,
+    },
     /// The new copy is in place, but the previous one could not be deleted.
     RemoveBackup(io::Error),
 }

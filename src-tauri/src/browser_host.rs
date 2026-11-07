@@ -230,6 +230,7 @@ impl BrowserHost {
             let browser_only =
                 !windows.is_empty() && windows.keys().all(|label| label.starts_with("browser-"));
             if has_session && browser_only {
+                #[cfg(target_os = "macos")]
                 if let Err(error) = app.set_activation_policy(tauri::ActivationPolicy::Accessory) {
                     log::warn!(
                         target: "lattice::browser",
@@ -260,6 +261,7 @@ impl BrowserHost {
     /// Reopen the workspace owned by the fixed entry in the default browser,
     /// if one is still alive. This is the macOS reopen behavior of a
     /// background browser host, which has no window of its own.
+    #[cfg(target_os = "macos")]
     pub(crate) fn reopen_entry(&self, app: &tauri::AppHandle) -> Result<bool, String> {
         let Some(server) = self.server()? else {
             return Ok(false);
@@ -415,6 +417,7 @@ fn destroy_window(app: &tauri::AppHandle, label: &str) {
 fn reopen_in_native_window(
     app: &tauri::AppHandle, state: &AppState, root: PathBuf,
 ) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Regular)
         .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
     let (_, window) = crate::ipc::windows::open_desktop_window(app, state, root)?;

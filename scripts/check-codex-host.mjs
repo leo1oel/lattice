@@ -20,7 +20,7 @@ if (!inside) {
   try {
     mkdirSync(join(fixture, "codex-home"));
     writeFileSync(join(fixture, "references.bib"), "original bibliography\n");
-    const rust = readFileSync(join(root, "src-tauri/src/synara.rs"), "utf8");
+    const rust = readFileSync(join(root, "src-tauri/src/synara/bibliography_guard.rs"), "utf8");
     const profileSource = rust.match(/const BIBLIOGRAPHY_SANDBOX_PROFILE: &str = concat!\(([\s\S]*?)\n\);/)?.[1];
     assert.ok(profileSource, "Could not locate the host sandbox profile");
     const profile = [...profileSource.matchAll(/^\s*("(?:[^"\\]|\\.)*")/gm)].map((match) => JSON.parse(match[1])).join("");

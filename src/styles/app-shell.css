@@ -736,6 +736,13 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   line-height: var(--type-body-compact-line-height);
   font-weight: var(--weight-semibold);
 }
+/* Why the Agent is off (the unsupported notice), as EmptyState sets its description. */
+.synara-loading-copy p {
+  margin: 0;
+  text-wrap: pretty;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
 .synara-slow {
   margin-block: auto;
   display: grid;

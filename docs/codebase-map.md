@@ -212,8 +212,8 @@ rather than a fact:
 | `overleaf.rs` + `overleaf/` | The Overleaf sync bridge: session, linking, REST, review, the three-way merge. |
 | `overleaf_rt.rs` + `overleaf_rt/` | The hand-written Socket.IO 0.9 client for Overleaf's realtime channel. |
 | `sidecar.rs` | The JavaScript runtime and process lifetime the Synara and Open Slide sidecars share. |
-| `synara.rs` + `synara/` | Supervisor for the bundled Synara agent sidecar; `synara/` seeds its skill preferences and hands its provider CLIs the writer's proxy and provider settings (`environment.rs`: the login shell's, read by `shell_env.rs`, then the system proxy), and restarts the sidecar to pick up a change (`restart.rs`; Settings › Agent › Environment is `src/settings/agent-environment-settings.tsx`). |
-| `process_inspector.rs` + `process_inspector.c` | An unprivileged `ps` replacement for the Synara sidecar. |
+| `synara.rs` + `synara/` | Supervisor for the bundled Synara agent sidecar; `synara/` holds the `.bib` write guard it runs inside, and keeps the agent off where there is none (`bibliography_guard.rs`), seeds its skill preferences and hands its provider CLIs the writer's proxy and provider settings (`environment.rs`: the login shell's, read by `shell_env.rs`, then the system proxy), and restarts the sidecar to pick up a change (`restart.rs`; Settings › Agent › Environment is `src/settings/agent-environment-settings.tsx`). |
+| `process_inspector.rs` + `process_inspector.c` | An unprivileged `ps` replacement for the Synara sidecar (macOS only). |
 | `presentation.rs` | Supervisor for the embedded Open Slide presentation runtime. |
 | `browser_host.rs` + `browser_host/` | The loopback browser host that serves the app to a browser on a fixed local port. |
 | `macos_window.rs` | macOS window chrome: backing colours, AppKit event monitors, the colour sampler, the import panel. |
@@ -222,6 +222,7 @@ rather than a fact:
 | `save_before_close.rs` | Holding a window's close, quitting and restarting Lattice until each window's page has saved its open edits (or a few seconds pass). |
 | `app_terminate.rs` | AppKit's `terminate:` (Dock ▸ Quit, logging out, shutting down) waiting for `save_before_close`. |
 | `app_restart.rs` | Restarting into an update: which window installs it, and what a restart would stop. |
+| `*_stub.rs` | Linux stand-ins for the macOS-only modules (`macos_window`, `traffic_lights`, `title_bar`, `app_terminate`, `synara/proxy`, `tex_setup/stub.rs`): the same names, doing nothing or refusing, so the commands and the frontend stay the same. |
 | `perf_lab.rs` | The real-app measurement lab's native half, built only with the `perf-lab` feature (see [`driving-the-app.md`](driving-the-app.md)). |
 | `test_support.rs` | Fixtures shared by the crate's unit tests. |
 

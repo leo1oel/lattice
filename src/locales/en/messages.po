@@ -1667,6 +1667,10 @@ msgstr "Agent"
 msgid "Agent is revising, {0} of {1} answered"
 msgstr "Agent is revising, {0} of {1} answered"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent isn’t available on Linux yet"
+msgstr "Agent isn’t available on Linux yet"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
@@ -9713,6 +9717,10 @@ msgstr "On “{0}”"
 msgid "on line"
 msgstr "on line"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming."
+msgstr "On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming."
+
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
 msgstr "On this Mac"
@@ -9720,6 +9728,14 @@ msgstr "On this Mac"
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
 msgstr "One record matches"
+
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX install is not available on Linux yet."
+msgstr "One-click TeX install is not available on Linux yet."
+
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX package install is not available on Linux yet."
+msgstr "One-click TeX package install is not available on Linux yet."
 
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can be exported with its changes marked."
@@ -14242,6 +14258,11 @@ msgstr "The bibliography has no .bbl"
 #: src/platform/host-errors-setup.ts
 msgid "The built-in agent did not become ready within {seconds} seconds."
 msgstr "The built-in agent did not become ready within {seconds} seconds."
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly."
+msgstr "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly."
 
 #: src/platform/host-errors-setup.ts
 msgid "The built-in agent stopped during startup with status {status}."

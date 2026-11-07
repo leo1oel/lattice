@@ -15,8 +15,12 @@ use tauri::{AppHandle, Runtime};
 
 /// Translated titles for the app menu. Predefined items keep their native
 /// actions and shortcuts; only their titles come from here.
+///
+/// Only the macOS menu bar reads them (`set_native_locale`); elsewhere the
+/// page still sends them, and they are checked and dropped.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) struct MenuLabels {
     about: String,
     services: String,
@@ -74,6 +78,7 @@ pub(crate) struct MenuLabels {
 /// One File ▸ Open Recent entry.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) struct RecentProjectItem {
     name: String,
     path: String,
@@ -82,6 +87,7 @@ pub(crate) struct RecentProjectItem {
 /// The margin review switch's titles and the sending window's choice.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) struct MarginReviewLabels {
     title: String,
     auto: String,
@@ -156,12 +162,14 @@ fn close_action(id: &str, label: &str) -> Option<CloseAction> {
 }
 
 /// The attribution Trellis's license asks shipped apps to show.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) const TRELLIS_ATTRIBUTION: &str =
     "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
 
 /// Tauri's default macOS menu (`Menu::default`), with translated titles. The
 /// Window and Help submenus keep Tauri's ids so they stay registered as
 /// NSApp's windows and help menus.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn build_menu<R: Runtime>(
     app: &AppHandle<R>, labels: &MenuLabels,
 ) -> tauri::Result<Menu<R>> {

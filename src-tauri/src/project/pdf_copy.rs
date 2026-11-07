@@ -214,8 +214,12 @@ mod tests {
         let untouched = (vec!["paper.pdf".to_string()], previous.to_vec());
 
         // Rewritten in place, as pdfTeX does, while the copy runs: the same
-        // length, so only the version check after copying can tell.
+        // length, so only the version check after copying can tell. Linux
+        // stamps mtime from a coarse clock (a scheduler tick), so a rewrite
+        // within the same tick as the check would carry its version; a real
+        // build comes long after the preview checked the file.
         let rewritten = save(&|source_file, output| {
+            std::thread::sleep(std::time::Duration::from_millis(20));
             fs::write(&source, b"%PDF-1.4 the changed version").unwrap();
             io::copy(source_file, output)
         });

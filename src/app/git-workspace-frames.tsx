@@ -109,7 +109,7 @@ export function GitWorkspaceFrames({ frame, view, turnReview, runtime, onRetryRu
     return () => window.clearTimeout(timer);
   }, [active, activeReady, activeSrc, attempt]);
 
-  if (runtime.state === "stopped") return <SynaraLoadingSurface runtime={runtime} onRetry={onRetryRuntime} />;
+  if (runtime.state === "stopped" || runtime.state === "unsupported") return <SynaraLoadingSurface runtime={runtime} onRetry={onRetryRuntime} />;
 
   const titles: Record<GitWorkspaceFrameKey, string> = {
     // Git's working-tree changes (更改): its own word, so 修订 means only Overleaf's suggestions.

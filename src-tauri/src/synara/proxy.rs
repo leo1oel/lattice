@@ -6,6 +6,7 @@
 //! (`environment`). The sidecar reads it once, as it starts, so a change is
 //! watched for and offered as a restart.
 
+use super::environment::SystemProxy;
 use std::collections::BTreeSet;
 use system_configuration::core_foundation::array::CFArray;
 use system_configuration::core_foundation::base::{CFType, CFTypeRef, TCFType};
@@ -24,37 +25,6 @@ use system_configuration::sys::schema_definitions::{
 
 /// Where configd publishes the proxy settings of the active network service.
 const PROXIES_KEY: &str = "State:/Network/Global/Proxies";
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct SystemProxy {
-    pub(super) http_proxy: Option<String>,
-    pub(super) https_proxy: Option<String>,
-    pub(super) no_proxy: String,
-}
-
-/// The variables `proxy` sets, skipping any `is_set` reports in either
-/// spelling, and all of them when `ALL_PROXY` is set.
-pub(super) fn system_proxy_variables(
-    proxy: &SystemProxy, is_set: impl Fn(&str) -> bool,
-) -> Vec<(&'static str, String)> {
-    let is_set = |keys: [&str; 2]| keys.into_iter().any(&is_set);
-    let mut variables = Vec::new();
-    if is_set(["ALL_PROXY", "all_proxy"]) {
-        return variables;
-    }
-    for (key, lowercase, value) in [
-        ("HTTP_PROXY", "http_proxy", &proxy.http_proxy),
-        ("HTTPS_PROXY", "https_proxy", &proxy.https_proxy),
-    ] {
-        if let Some(value) = value.as_ref().filter(|_| !is_set([key, lowercase])) {
-            variables.push((key, value.clone()));
-        }
-    }
-    if !variables.is_empty() && !is_set(["NO_PROXY", "no_proxy"]) {
-        variables.push(("NO_PROXY", proxy.no_proxy.clone()));
-    }
-    variables
-}
 
 /// Call `on_change` on a thread of its own whenever the system proxy
 /// settings change, for as long as Lattice runs.
@@ -161,23 +131,6 @@ fn proxy_url(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn applies_system_proxy_without_overriding_explicit_environment() {
-        let proxy = SystemProxy {
-            http_proxy: Some("http://127.0.0.1:7897".to_string()),
-            https_proxy: Some("http://127.0.0.1:7897".to_string()),
-            no_proxy: "localhost,127.0.0.1,::1".to_string(),
-        };
-        assert_eq!(
-            system_proxy_variables(&proxy, |key| key == "http_proxy"),
-            [
-                ("HTTPS_PROXY", "http://127.0.0.1:7897".to_string()),
-                ("NO_PROXY", "localhost,127.0.0.1,::1".to_string()),
-            ]
-        );
-        assert!(system_proxy_variables(&proxy, |key| key == "ALL_PROXY").is_empty());
-    }
 
     #[test]
     fn normalizes_system_proxy_bypass_entries_for_cli_children() {

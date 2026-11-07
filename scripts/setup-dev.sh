@@ -67,6 +67,7 @@ packages=(
   git
   latexmk
   libayatana-appindicator3-dev
+  libdbus-1-dev
   librsvg2-dev
   libssl-dev
   libwebkit2gtk-4.1-dev
