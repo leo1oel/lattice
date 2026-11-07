@@ -178,29 +178,38 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
     if (event.deltaY) stepZoom(event.deltaY < 0 ? 1 : -1);
   });
 
-  // Ctrl-wheel (Chromium also reports trackpad pinches this way) and WebKit
-  // gesture events zoom around the pointer.
+  // ⌘-wheel and Ctrl-wheel (Chromium also reports trackpad pinches this way)
+  // and WebKit gesture events zoom around the pointer. ⌘-wheel is the one to
+  // reach for on a Mac, as in Overleaf and Preview: Ctrl-scroll is macOS's own
+  // screen zoom shortcut when Accessibility Zoom is on, which magnifies the
+  // whole screen before the page sees the wheel.
   useEffect(() => {
     const area = recordRef.current?.root;
     if (!hasViewer || !area) return;
     let gestureStartScale = currentScale();
+    // The workspace zooms on gesture events at its root too (Trellis), so a
+    // pinch the PDF takes stops here.
+    const claim = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
     return addListeners(area, {
       wheel: (event: WheelEvent) => {
-        if (!event.ctrlKey) return;
+        if (!event.ctrlKey && !event.metaKey) return;
         event.preventDefault();
         previewZoom(currentScale() * Math.exp(-event.deltaY * 0.01), event.clientX, event.clientY);
       },
       // Kept as a browser fallback for engines that expose WebKit gesture events.
       gesturestart: (event: Event) => {
-        event.preventDefault();
+        claim(event);
         gestureStartScale = currentScale();
       },
       gesturechange: (event: GestureEvent) => {
-        event.preventDefault();
+        claim(event);
         if (typeof event.scale !== "number") return;
         previewZoom(gestureStartScale * event.scale, event.clientX, event.clientY);
       },
-      gestureend: (event: Event) => event.preventDefault(),
+      gestureend: claim,
     }, { passive: false });
   }, [currentScale, generation, hasViewer, previewZoom, recordRef]);
 
