@@ -1667,6 +1667,10 @@ msgstr "AI 助手"
 msgid "Agent is revising, {0} of {1} answered"
 msgstr "AI 助手正在修改，已答复 {0}/{1}"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent isn’t available on Linux yet"
+msgstr "Linux 版暂不支持 AI 助手"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "AI 权限：{label}"
@@ -9713,6 +9717,10 @@ msgstr "针对“{0}”"
 msgid "on line"
 msgstr "位于行"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming."
+msgstr "在 macOS 上，Lattice 会阻止 AI 助手直接编辑 .bib 文件，它添加的每条参考文献都会先经过核查。Linux 上暂时还没有这层保护，因此 AI 助手在这里保持关闭，而不是在没有保护的情况下运行。Linux 版 AI 助手支持即将推出。"
+
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
 msgstr "这台 Mac"
@@ -14242,6 +14250,11 @@ msgstr "参考文献缺少 .bbl"
 #: src/platform/host-errors-setup.ts
 msgid "The built-in agent did not become ready within {seconds} seconds."
 msgstr "内置 AI 助手在 {seconds} 秒内未能就绪"
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly."
+msgstr "在此平台上，内置 AI 助手会保持关闭，直到 Lattice 能阻止它直接编辑参考文献（.bib）文件"
 
 #: src/platform/host-errors-setup.ts
 msgid "The built-in agent stopped during startup with status {status}."

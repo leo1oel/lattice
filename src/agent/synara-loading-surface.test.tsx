@@ -39,6 +39,20 @@ describe("SynaraLoadingSurface", () => {
     expect(copied).not.toContain("abc123");
   });
 
+  it("says why the Agent is off where the .bib guard is missing, with nothing to retry", () => {
+    const runtime: SynaraRuntimeInfo = { ...EMPTY_SYNARA_RUNTIME, state: "unsupported", message: "The built-in agent is off on this platform." };
+    // The agent panel's thread shape too: no skeleton waiting on a start that never comes.
+    for (const thread of [false, true]) {
+      const { unmount } = render(<SynaraLoadingSurface runtime={runtime} thread={thread} onRetry={vi.fn()} />);
+      const notice = screen.getByRole("status");
+      expect(notice).toHaveTextContent("Agent isn’t available on Linux yet");
+      expect(notice).toHaveTextContent("stops the Agent from editing .bib files directly");
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(notice.querySelector("details")).toBeNull();
+      unmount();
+    }
+  });
+
   it("opens the sidecar logs through the backend and says so when there are none", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     render(<SynaraLoadingSurface runtime={stopped("Synara did not start.")} onRetry={vi.fn()} />);

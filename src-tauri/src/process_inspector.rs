@@ -8,15 +8,11 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-#[cfg(target_os = "macos")]
-use std::process::Stdio;
-#[cfg(target_os = "macos")]
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 pub(crate) const FLAG: &str = "--lattice-process-snapshot";
 
-#[cfg(target_os = "macos")]
 unsafe extern "C" {
     fn lattice_process_snapshot(with_parent: i32, pids: *const i32, pid_count: usize) -> i32;
 }
@@ -41,28 +37,19 @@ pub(crate) fn run_if_requested() {
     if args.next().as_deref() != Some(FLAG) {
         return;
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = args;
-        eprintln!("Process snapshot is only available on macOS");
+    let (with_parent, pids) = query(&args.collect::<Vec<_>>()).unwrap_or_else(|error| {
+        eprintln!("{error}");
         std::process::exit(2);
+    });
+    // SAFETY: the native function reads exactly pid_count entries, borrows the
+    // slice only for this call, and uses SDK definitions for the kernel ABI.
+    let error =
+        unsafe { lattice_process_snapshot(i32::from(with_parent), pids.as_ptr(), pids.len()) };
+    if error != 0 {
+        eprintln!("Process snapshot failed: {}", std::io::Error::from_raw_os_error(error));
+        std::process::exit(1);
     }
-    #[cfg(target_os = "macos")]
-    {
-        let (with_parent, pids) = query(&args.collect::<Vec<_>>()).unwrap_or_else(|error| {
-            eprintln!("{error}");
-            std::process::exit(2);
-        });
-        // SAFETY: the native function reads exactly pid_count entries, borrows the
-        // slice only for this call, and uses SDK definitions for the kernel ABI.
-        let error =
-            unsafe { lattice_process_snapshot(i32::from(with_parent), pids.as_ptr(), pids.len()) };
-        if error != 0 {
-            eprintln!("Process snapshot failed: {}", std::io::Error::from_raw_os_error(error));
-            std::process::exit(1);
-        }
-        std::process::exit(0);
-    }
+    std::process::exit(0);
 }
 
 /// Install `<home>/process-tools/ps`, a launcher that re-enters `executable`
@@ -98,7 +85,6 @@ pub(crate) fn install_launcher(home: &Path, executable: &Path) -> Result<PathBuf
 
 /// Check actual execution under the provider sandbox, not just signatures.
 /// Fail at startup with an actionable error, before a chat is quarantined.
-#[cfg(target_os = "macos")]
 pub(crate) fn verify_launcher(launcher: &Path) -> Result<(), String> {
     let mut child = Command::new("/usr/bin/sandbox-exec")
         .args(["-p", crate::synara::BIBLIOGRAPHY_SANDBOX_PROFILE])
@@ -133,12 +119,6 @@ pub(crate) fn verify_launcher(launcher: &Path) -> Result<(), String> {
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
-    Ok(())
-}
-
-/// Seatbelt is macOS-only; on Linux the launcher script is enough for Synara's `ps`.
-#[cfg(not(target_os = "macos"))]
-pub(crate) fn verify_launcher(_launcher: &Path) -> Result<(), String> {
     Ok(())
 }
 
@@ -177,12 +157,8 @@ mod tests {
             String::from_utf8(output.stdout).unwrap(),
             "--lattice-process-snapshot\n-eo\npid=,ppid=,command=\n"
         );
-        // A non-query executable must fail preflight on macOS Seatbelt, even if
-        // it exits zero. Linux skips Seatbelt and accepts the launcher script.
-        #[cfg(target_os = "macos")]
+        // A non-query executable must fail preflight, even if it exits zero.
         assert!(verify_launcher(&launcher).is_err());
-        #[cfg(not(target_os = "macos"))]
-        assert!(verify_launcher(&launcher).is_ok());
         assert_eq!(install_launcher(&home, &executable).unwrap(), launcher);
     }
 }

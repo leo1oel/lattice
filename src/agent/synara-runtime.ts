@@ -1,7 +1,11 @@
 import { isRecord } from "../app-utils";
 import { hasOnlyKeys, isWorkspaceRelativePath } from "./agent-protocol";
 
-type SynaraRuntimeState = "starting" | "ready" | "stopped";
+/**
+ * `unsupported`: this platform cannot keep the Agent from writing .bib files
+ * itself (synara/bibliography_guard.rs), so it never starts there.
+ */
+type SynaraRuntimeState = "starting" | "ready" | "stopped" | "unsupported";
 
 export interface SynaraRuntimeInfo {
   state: SynaraRuntimeState;

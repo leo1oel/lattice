@@ -10,6 +10,7 @@ const RELAY_MESSAGES: Record<string, MessageDescriptor> = {
   "Cancellation requested; waiting for the provider to stop.": msg`Cancellation requested; waiting for the provider to stop.`,
   "Repair has no active turn.": msg`Repair has no active turn.`,
   "The agent service is unavailable.": msg`The agent service is unavailable.`,
+  "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.": msg`The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.`,
   "The repair request failed.": msg`The repair request failed.`,
 };
 

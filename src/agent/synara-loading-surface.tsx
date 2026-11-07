@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, CircleAlert, FolderOpen } from "lucide-react";
+import { ChevronRight, CircleAlert, FolderOpen, ShieldOff } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { SynaraRuntimeInfo } from "./synara-runtime";
@@ -33,6 +33,7 @@ export function SynaraLoadingSurface(props: {
   waiting?: boolean;
 }) {
   const { t } = useLingui();
+  if (props.runtime.state === "unsupported") return <SynaraUnsupportedNotice />;
   const failed = props.runtime.state === "stopped";
   if (props.thread && !failed) {
     return (
@@ -65,6 +66,26 @@ export function SynaraLoadingSurface(props: {
             and are not a diagnosis this surface can vouch for. */}
       </div>
       {failed && <SynaraFailureActions runtime={props.runtime} onRetry={props.onRetry} />}
+    </div>
+  );
+}
+
+/**
+ * The Agent where Lattice cannot yet stop it from editing .bib files itself:
+ * it stays off and says why. There is nothing to retry or diagnose, so no
+ * Retry, logs or Details; the runtime's English message says the same.
+ */
+function SynaraUnsupportedNotice() {
+  const { t } = useLingui();
+  return (
+    <div className="synara-loading-surface" role="status">
+      <span className="synara-loading-mark" aria-hidden="true">
+        <ShieldOff size={17} />
+      </span>
+      <div className="synara-loading-copy">
+        <strong>{t`Agent isn’t available on Linux yet`}</strong>
+        <p>{t`On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming.`}</p>
+      </div>
     </div>
   );
 }
