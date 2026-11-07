@@ -1,0 +1,1 @@
+import{t as e}from"./app-DT5BgyrG.js";await e();
