@@ -245,9 +245,29 @@ describe("Overleaf picker dialog", () => {
     const { onCloned } = renderPicker({ onOpenLocalCopy });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", expect.anything()));
     await openFirstProject();
+    // Busy meanwhile: a second Open cannot start another open or download.
+    expect(await screen.findByText(/Opening Attention Paper…/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
     answer({ p1: nativeVlm });
     await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    expect(onOpenLocalCopy).toHaveBeenCalledOnce();
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
+    expect(onCloned).not.toHaveBeenCalled();
+  });
+
+  it("drops an open whose picker closed before the lookup answered", async () => {
+    let answer: (copies: unknown) => void = () => undefined;
+    mockConnectedPicker({ overleaf_local_copies: () => new Promise((resolve) => { answer = resolve; }) });
+    const onOpenLocalCopy = vi.fn();
+    const { onBeforeClone, onCloned } = renderPicker({ onOpenLocalCopy });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", expect.anything()));
+    await openFirstProject();
+    cleanup();
+    answer({});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_target", expect.anything());
+    expect(onBeforeClone).not.toHaveBeenCalled();
     expect(onCloned).not.toHaveBeenCalled();
   });
 

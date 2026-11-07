@@ -19,6 +19,8 @@ export type PickerState = {
   search: string;
   showArchived: boolean;
   selected: string | null;
+  /** Opening a project, until it is known whether it opens a local copy or downloads. */
+  opening: OverleafProject | null;
   cloning: OverleafProject | null;
   /** How much of the download has arrived, once Overleaf starts sending it. */
   downloaded: DownloadProgress | null;
@@ -46,6 +48,7 @@ export type PickerAction =
   | { type: "select"; id: string }
   | { type: "publishName"; name: string }
   /** A download starts (clearing the last transfer's error) or ends. */
+  | { type: "opening"; project: OverleafProject | null }
   | { type: "cloning"; project: OverleafProject | null }
   | { type: "downloaded"; progress: DownloadProgress }
   /** An upload starts (clearing the last transfer's error) or ends. */
@@ -57,7 +60,7 @@ export function initialPickerState(publishName: string): PickerState {
     status: null, statusLoading: false, statusError: null,
     list: null, projectsLoading: false, projectsError: null, invitationOpened: false, localCopies: {},
     search: "", showArchived: false, selected: null,
-    cloning: null, downloaded: null, publishing: false, transferError: null, publishName,
+    opening: null, cloning: null, downloaded: null, publishing: false, transferError: null, publishName,
   };
 }
 
@@ -76,6 +79,8 @@ export function reducePicker(state: PickerState, action: PickerAction): PickerSt
     case "showArchived": return { ...state, showArchived: action.showArchived };
     case "select": return { ...state, selected: action.id };
     case "publishName": return { ...state, publishName: action.name };
+    case "opening":
+      return { ...state, opening: action.project, transferError: action.project ? null : state.transferError };
     case "cloning":
       return {
         ...state, cloning: action.project, downloaded: null, transferError: action.project ? null : state.transferError,

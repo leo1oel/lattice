@@ -82,7 +82,7 @@ function OverleafPicker(props: PickerProps) {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(reducePicker, props.currentProject?.name ?? "", initialPickerState);
   const { status, statusLoading, statusError, list, projectsLoading, projectsError, invitationOpened, localCopies } = state;
-  const { search, showArchived, selected, cloning, downloaded, publishing, transferError, publishName } = state;
+  const { search, showArchived, selected, opening, cloning, downloaded, publishing, transferError, publishName } = state;
   const { compositionProps, isComposing } = useCompositionGuard();
   const login = useOverleafLogin((session) => {
     dispatch({ type: "status", status: session });
@@ -90,6 +90,11 @@ function OverleafPicker(props: PickerProps) {
   });
   const { onClose, onConnectionChanged, knownFolders, onOpenLocalCopy } = props;
   const lookup = useRef<Promise<Record<string, LocalCopy>>>(Promise.resolve({}));
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const loadStatus = useCallback(async () => {
     dispatch({ type: "statusLoading" });
@@ -128,7 +133,7 @@ function OverleafPicker(props: PickerProps) {
 
   const publish = async () => {
     const name = publishName.trim();
-    if (!name || !props.currentProject || !props.onPublish || publishing || cloning) return;
+    if (!name || !props.currentProject || !props.onPublish || publishing || cloning || opening) return;
     if (!await confirmAction(
       t`Upload “${name}” to Overleaf and connect this folder?
 
@@ -176,7 +181,6 @@ Files that differ are kept side by side. Nothing is overwritten`,
   };
 
   const clone = async (project: OverleafProject) => {
-    if (cloning || publishing) return;
     dispatch({ type: "cloning", project });
     try {
       const root = await download(project);
@@ -203,17 +207,25 @@ Files that differ are kept side by side. Nothing is overwritten`,
    * still finds the copy.
    */
   const openProject = async (project: OverleafProject) => {
-    if (cloning || publishing) return;
+    if (opening || cloning || publishing) return;
+    dispatch({ type: "opening", project });
     const copy = props.onOpenLocalCopy ? (await lookup.current)[project.id] : undefined;
-    if (!copy || !props.onOpenLocalCopy) return clone(project);
+    if (!mounted.current) return;
+    if (!copy || !props.onOpenLocalCopy) {
+      dispatch({ type: "opening", project: null });
+      return clone(project);
+    }
     try {
       await invoke("overleaf_reopen_local_copy", { path: copy.path, projectId: project.id, accessLevel: project.accessLevel });
     } catch (reason) {
       const detail = toMessage(reason);
+      dispatch({ type: "opening", project: null });
       dispatch({ type: "transferFailed", error: detail });
       notifyError(OVERLEAF_SOURCE, t`Could not open the Overleaf project`, { detail });
       return;
     }
+    if (!mounted.current) return;
+    dispatch({ type: "opening", project: null });
     props.onOpenLocalCopy(copy.path);
     onClose();
   };
@@ -248,7 +260,8 @@ Files that differ are kept side by side. Nothing is overwritten`,
     .filter((project) => showArchived || (!project.archived && !project.trashed))
     .filter((project) => matches(project.name, project.ownerName, project.ownerEmail));
   const invites = (list?.invites ?? []).filter((invite) => matches(invite.projectName, invite.inviterName));
-  const working = Boolean(cloning) || publishing;
+  const working = Boolean(opening || cloning) || publishing;
+  const openingText = (name: string) => t`Opening ${name}…`;
   // A project with large figures takes minutes to arrive over a slow link:
   // say how much has, so a long download reads as moving, not stuck.
   const cloningId = cloning?.id ?? null;
@@ -525,7 +538,10 @@ Files that differ are kept side by side. Nothing is overwritten`,
             {working && (
               <Progress
                 className="overleaf-progress"
-                text={cloning ? downloadText : t`Uploading ${publishName.trim()}…`}
+                text={cloning
+                  ? downloadText
+                  : opening ? openingText(opening.name)
+                  : t`Uploading ${publishName.trim()}…`}
               />
             )}
           </>

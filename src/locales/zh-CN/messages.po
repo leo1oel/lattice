@@ -10113,6 +10113,7 @@ msgid "Opened {opened}"
 msgstr "{opened}打开"
 
 #: src/app/opening-overlay.tsx
+#: src/overleaf/overleaf-project-picker.tsx
 #: src/trellis/trellis-text-snapshot.tsx
 msgid "Opening {name}…"
 msgstr "正在打开{name}…"
