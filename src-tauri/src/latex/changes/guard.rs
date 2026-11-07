@@ -250,22 +250,13 @@ fn group_footprint(group: u32) -> u64 {
         let Ok(entries) = std::fs::read_dir("/proc") else { return 0 };
         entries
             .flatten()
-            .filter_map(|entry| entry.file_name().to_str()?.parse::<i32>().ok())
-            .filter(|&pid| process_group(pid) == Some(group as i32))
+            .filter_map(|entry| entry.file_name().to_str()?.parse::<libc::pid_t>().ok())
+            // SAFETY: getpgid only reads the target's group; a pid that has
+            // exited returns -1, which no group id matches.
+            .filter(|&pid| unsafe { libc::getpgid(pid) } == group as libc::pid_t)
             .map(footprint)
             .sum()
     }
-}
-
-#[cfg(target_os = "linux")]
-fn process_group(pid: i32) -> Option<i32> {
-    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
-    for line in status.lines() {
-        if let Some(rest) = line.strip_prefix("NSpgid:") {
-            return rest.trim().parse().ok();
-        }
-    }
-    None
 }
 
 fn footprint(pid: libc::pid_t) -> u64 {
