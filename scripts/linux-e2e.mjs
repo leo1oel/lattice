@@ -104,6 +104,17 @@ async function waitFor(session, what, script, timeoutMs = 60_000) {
 }
 
 const present = (selector) => `return Boolean(document.querySelector(${JSON.stringify(selector)}));`;
+
+/** Whether `selector` stays on the page for all of `ms`; false as soon as it goes. */
+async function stillPresent(session, selector, ms) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    // A failed poll is a navigation in progress, which is not the element going.
+    if (!(await session.run(present(selector)).catch(() => true))) return false;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return true;
+}
 const buildState = `
   const button = document.querySelector(${JSON.stringify(BUILD_BUTTON)});
   if (!button) return null;
@@ -129,7 +140,11 @@ export async function runChecks(session, log = console.log) {
     `return ${editorReady} ? "editor" : document.querySelector(${JSON.stringify(WELCOME_TUTORIAL)}) ? "welcome" : null;`,
     60_000,
   );
-  if (first === "welcome") {
+  // A first launch opens the tutorial by itself, but the welcome screen can show
+  // for a moment before it does: run 42393985323 (v0.15.8) saw the button, then
+  // pressed it after it had gone. Press Guided tutorial only when the welcome
+  // screen is still up a few seconds later.
+  if (first === "welcome" && (await stillPresent(session, WELCOME_TUTORIAL, 5_000))) {
     // A first launch should have opened the tutorial; say what the screen said instead.
     const text = String(await session.run("return document.body.innerText;")).replace(/\s+/g, " ").slice(0, 600);
     log(`note: the app started on the welcome screen (${text}); pressing Guided tutorial`);
