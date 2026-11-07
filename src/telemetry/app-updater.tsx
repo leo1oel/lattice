@@ -75,6 +75,16 @@ export type DownloadEvent =
   | { event: "Progress"; data: { chunkLength: number } }
   | { event: "Finished" };
 
+/**
+ * False on Linux, where Lattice ships as an AppImage that updates by hand: its
+ * release has no updater archive, latest.json has no Linux entry, and the
+ * backend does not register the updater plugin there (lib.rs). The WebKitGTK
+ * window names Linux in its user agent; jsdom's spells it in lower case.
+ */
+export function updatesItself(): boolean {
+  return !/\bLinux\b/.test(navigator.userAgent);
+}
+
 /** Lazy-load the updater plugin so a browser/dev build doesn't crash on import. */
 async function loadUpdateCheck() {
   return (await import("@tauri-apps/plugin-updater")).check;
@@ -347,7 +357,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     // but only while it is still installable. Once its install has failed the
     // toast is a failure, and holding the check hostage to it means
     // the next release is never noticed for the rest of the session.
-    if (installingRef.current || installedRef.current) return;
+    if (!updatesItself() || installingRef.current || installedRef.current) return;
     if (pendingRef.current && !installFailedRef.current) return;
     try {
       const checkForUpdate = await loadUpdateCheck();

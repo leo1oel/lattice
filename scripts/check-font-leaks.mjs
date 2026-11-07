@@ -41,7 +41,7 @@ import { isMain, projectRoot, sha256, walkFiles } from "./lib/util.mjs";
 
 /**
  * The files a release may publish: what tauri-action uploads plus the stapled
- * image, and the Linux AppImage release.yml attaches once its own checks pass
+ * image, and the Linux AppImage linux-appimage.yml attaches once its own checks pass
  * (it has no updater archive or signature: Linux copies update by hand).
  */
 const RELEASE_ASSETS = [/\.dmg$/, /\.app\.tar\.gz$/, /\.app\.tar\.gz\.sig$/, /^latest\.json$/, /_amd64\.AppImage$/];

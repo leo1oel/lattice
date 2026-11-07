@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ReloadButton } from "../components/ui/activity-icons";
@@ -11,7 +12,7 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
 import { ModalDialog } from "../components/ui/modal-dialog";
-import { useUpdater, type UpdaterApi } from "../telemetry/app-updater";
+import { updatesItself, useUpdater, type UpdaterApi } from "../telemetry/app-updater";
 import {
   type Theme,
   type ThemePreference,
@@ -109,6 +110,9 @@ export type SettingsDialogProps = DoctorSettingsProps & {
   synaraTarget?: { target: SynaraSettingsTarget } | null;
   onClose: () => void;
 };
+
+/** Where Linux copies, which do not update themselves, get each new release. */
+const LATEST_RELEASE_URL = "https://github.com/leo1oel/lattice/releases/latest";
 
 /** Below this dialog width the sections and the page take turns (dialogs.css holds the same number). */
 const NARROW_SETTINGS_WIDTH = 560;
@@ -610,23 +614,37 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
         )}
       </SettingsGroup>
       <SettingsGroup title={t`App updates`}>
-        <SelectRow
-          data-setting="auto-updates"
-          label={t`Automatic updates`}
-          description={updateStatus.detail}
-          value={updater.mode}
-          options={{ manual: t`Notify me`, auto: t`Install automatically` }}
-          onChange={updater.setMode}
-        />
-        <SettingsRow data-setting="version" label={t`Version`} description={updateStatus.title}>
-          {updater.phase === "ready" ? (
-            <Button size="compact" onClick={() => void updater.restart()}>{t`Restart now`}</Button>
-          ) : (
-            <ReloadButton size="compact" busy={updateBusy} disabled={updateBusy} onClick={() => void updater.check(false)}>
-              {updater.phase === "checking" ? t`Checking…` : t`Check for updates`}
-            </ReloadButton>
-          )}
-        </SettingsRow>
+        {updatesItself() ? (
+          <>
+            <SelectRow
+              data-setting="auto-updates"
+              label={t`Automatic updates`}
+              description={updateStatus.detail}
+              value={updater.mode}
+              options={{ manual: t`Notify me`, auto: t`Install automatically` }}
+              onChange={updater.setMode}
+            />
+            <SettingsRow data-setting="version" label={t`Version`} description={updateStatus.title}>
+              {updater.phase === "ready" ? (
+                <Button size="compact" onClick={() => void updater.restart()}>{t`Restart now`}</Button>
+              ) : (
+                <ReloadButton size="compact" busy={updateBusy} disabled={updateBusy} onClick={() => void updater.check(false)}>
+                  {updater.phase === "checking" ? t`Checking…` : t`Check for updates`}
+                </ReloadButton>
+              )}
+            </SettingsRow>
+          </>
+        ) : (
+          <SettingsRow
+            data-setting="version"
+            label={t`Version`}
+            description={t`Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases.`}
+          >
+            <Button variant="ghost" size="compact" onClick={() => void openUrl(LATEST_RELEASE_URL)}>
+              {t`GitHub Releases`} <ExternalLink size={12} />
+            </Button>
+          </SettingsRow>
+        )}
       </SettingsGroup>
     </div>
   );

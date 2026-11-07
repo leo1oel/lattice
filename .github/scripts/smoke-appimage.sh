@@ -58,7 +58,7 @@ while IFS= read -r -d '' file; do
     grep -E 'not found|GLIBC_|GLIBCXX_|CXXABI_' <<<"$report" >&2
     missing=1
   fi
-done < <(find "$root" -type f \( -perm -u+x -o -name '*.so' -o -name '*.so.*' \) -print0)
+done < <(find "$root" -type f \( -perm -u+x -o -name '*.so' -o -name '*.so.*' -o -name '*.node' \) -print0)
 if ((missing)); then exit 1; fi
 echo "ldd: every bundled ELF resolves its libraries"
 

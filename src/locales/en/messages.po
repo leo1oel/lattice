@@ -6330,6 +6330,10 @@ msgstr "Git workspace"
 msgid "Git workspace didn’t load"
 msgstr "Git workspace didn’t load"
 
+#: src/settings/settings-dialog.tsx
+msgid "GitHub Releases"
+msgstr "GitHub Releases"
+
 #: src/platform/host-errors-project.ts
 msgid "Give the checked date as a day."
 msgstr "Give the checked date as a day."
@@ -7809,6 +7813,10 @@ msgstr "Lattice couldn’t write {file}"
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 msgstr "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
+
+#: src/settings/settings-dialog.tsx
+msgid "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
+msgstr "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 
 #: src/overleaf/overleaf-collab.tsx
 msgctxt "comment source"

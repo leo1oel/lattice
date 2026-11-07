@@ -259,10 +259,8 @@ jobs:
             webkit2gtk-driver xvfb libfuse2 dbus-x11 \
             latexmk texlive-latex-extra texlive-fonts-recommended
       - name: Install tauri-driver
-        run: cargo install tauri-driver --locked
-      # A first launch in a fresh home opens the tutorial and builds it. The
-      # tutorial goes in the XDG Documents folder, which a runner's home does
-      # not name.
+        run: cargo install tauri-driver --version 2.1.0 --locked
+      # A first launch in a fresh home opens the tutorial and builds it.
       - name: Drive the AppImage with tauri-driver
         env:
           APPIMAGE: ${{ runner.temp }}/appimage/${{ needs.build.outputs.appimage }}
@@ -270,10 +268,7 @@ jobs:
           set -euo pipefail
           chmod +x "$APPIMAGE"
           export HOME="$RUNNER_TEMP/e2e-home"
-          mkdir -p "$HOME/.config" "$HOME/Documents"
-          # user-dirs.dirs spells $HOME itself; the reader expands it.
-          # shellcheck disable=SC2016
-          echo 'XDG_DOCUMENTS_DIR="$HOME/Documents"' > "$HOME/.config/user-dirs.dirs"
+          mkdir -p "$HOME"
           export DISPLAY=:99
           Xvfb :99 -screen 0 1440x900x24 &
           tauri-driver --port 4444 > "$RUNNER_TEMP/tauri-driver.log" 2>&1 &

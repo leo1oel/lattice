@@ -406,14 +406,19 @@ pub fn run() {
             log_plugin = log_plugin.level_for(*chatty, level.min(log::LevelFilter::Info));
         }
     }
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // Registered first so init-time logs from the other plugins are captured.
         .plugin(log_plugin.build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_opener::init())
-        // In-app auto-update (checks GitHub Releases, verifies with the updater key).
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init());
+    // In-app auto-update (checks GitHub Releases, verifies with the updater
+    // key). Not on Linux: the AppImage is released without an updater archive
+    // and latest.json has no Linux entry, so Linux copies update by hand
+    // (docs/release-process.md) and the frontend never checks there.
+    #[cfg(not(target_os = "linux"))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    let app = builder
         .plugin(tauri_plugin_process::init())
         // Remember the window's size + position across launches.
         // The browser bridge is deliberately hidden. The plugin's default
