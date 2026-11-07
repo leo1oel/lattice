@@ -5,7 +5,7 @@ import { i18n } from "../i18n";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { invokeCalls, mockInvoke } from "../platform/tauri-test-mocks";
 import { APPEARANCE_KEY, type AppearanceSettings, loadAppearance } from "../settings/app-settings";
-import { bundleLanguage, installNativeLocaleSync, nativeMenuLabels, syncNativeLocale, syncNativeLocaleIfChanged } from "./native-locale";
+import { bundleLanguage, installNativeLocaleSync, nativeMenuLabels, setNativeFileMenu, syncNativeLocale, syncNativeLocaleIfChanged } from "./native-locale";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({
@@ -103,5 +103,18 @@ describe("native locale", () => {
     expect(invokeCalls("set_native_locale")).toHaveLength(2);
     stop();
     persistAppearance(original);
+  });
+
+  it("puts this window's project and recent projects in the File menu, and resends when they change", () => {
+    mockInvoke({ set_native_locale: null });
+    const stop = installNativeLocaleSync();
+    const paper = { name: "Paper", path: "/tmp/paper" };
+    setNativeFileMenu({ projectOpen: true, recentProjects: [paper] });
+    setNativeFileMenu({ projectOpen: true, recentProjects: [{ ...paper }] });
+    const calls = invokeCalls("set_native_locale");
+    expect(calls).toHaveLength(2);
+    expect(calls[1].menu).toMatchObject({ projectOpen: true, recentProjects: [paper], newProject: "New Project…" });
+    stop();
+    setNativeFileMenu({ projectOpen: false, recentProjects: [] });
   });
 });

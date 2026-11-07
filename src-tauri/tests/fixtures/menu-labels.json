@@ -6,6 +6,20 @@
   "showAll": "全部显示",
   "quit": "退出 Lattice",
   "file": "文件",
+  "newProject": "新建项目…",
+  "openFolder": "打开…",
+  "openRecent": "打开最近使用",
+  "openFromOverleaf": "从 Overleaf 打开…",
+  "importZip": "导入 Overleaf ZIP…",
+  "exportZip": "导出 ZIP…",
+  "exportArxiv": "导出 arXiv 提交包…",
+  "recentProjects": [
+    {
+      "name": "论文初稿",
+      "path": "/Users/me/论文初稿"
+    }
+  ],
+  "projectOpen": true,
   "edit": "编辑",
   "undo": "撤销",
   "redo": "重做",

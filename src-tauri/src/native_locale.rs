@@ -25,6 +25,21 @@ pub(crate) struct MenuLabels {
     show_all: String,
     quit: String,
     file: String,
+    /// File ▸ New Project, Open, Open Recent, Open from Overleaf, Import
+    /// Overleaf ZIP, Export ZIP and Export for arXiv: the project title
+    /// menu's actions, which the page runs as its own commands
+    /// (src/app/use-command-table.ts).
+    new_project: String,
+    open_folder: String,
+    open_recent: String,
+    open_from_overleaf: String,
+    import_zip: String,
+    export_zip: String,
+    export_arxiv: String,
+    /// The other projects the sending window's switcher offers, newest first.
+    recent_projects: Vec<RecentProjectItem>,
+    /// Whether the sending window has a project open, which the exports need.
+    project_open: bool,
     edit: String,
     undo: String,
     redo: String,
@@ -54,6 +69,14 @@ pub(crate) struct MenuLabels {
     /// Overleaf project's source (src/overleaf/margin-review-mode.ts).
     #[serde(default)]
     margin_review: Option<MarginReviewLabels>,
+}
+
+/// One File ▸ Open Recent entry.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RecentProjectItem {
+    name: String,
+    path: String,
 }
 
 /// The margin review switch's titles and the sending window's choice.
@@ -86,6 +109,18 @@ const INTERFACE_ZOOM_PREFIX: &str = "interface-zoom:";
 /// The event a size change sends to the focused window, which steps its
 /// interface size as ⌘+, ⌘− or ⌘0 would.
 const INTERFACE_ZOOM_EVENT: &str = "interface-zoom";
+
+/// Menu ids of File's project items; the part after the prefix is the id of
+/// the command-table command the page runs for it.
+const FILE_COMMAND_PREFIX: &str = "file-command:";
+/// The event a project item sends to the focused workspace window.
+const FILE_COMMAND_EVENT: &str = "file-command";
+/// Menu ids of File ▸ Open Recent's entries; the part after the prefix is the
+/// project's path.
+const OPEN_RECENT_PREFIX: &str = "open-recent:";
+/// The event an Open Recent entry sends to the focused workspace window,
+/// which opens the project as the switcher would.
+const OPEN_RECENT_EVENT: &str = "open-recent";
 
 /// The menu id of Help ▸ What's New, and the event it sends to the focused
 /// window, which opens its release notes sheet.
@@ -167,11 +202,50 @@ pub(crate) fn build_menu<R: Runtime>(
     let close_window = || {
         MenuItem::with_id(app, CLOSE_WINDOW, &labels.close_window, true, Some("CmdOrCtrl+Shift+W"))
     };
+    // The project title menu's actions, where a Mac user looks for them
+    // first. The page binds ⇧⌘N and ⌘O too and sees them first, as with ⌘W.
+    let file_command = |command: &str, title: &str, enabled: bool, accelerator: Option<&str>| {
+        MenuItem::with_id(
+            app,
+            format!("{FILE_COMMAND_PREFIX}{command}"),
+            title,
+            enabled,
+            accelerator,
+        )
+    };
+    let recents = labels
+        .recent_projects
+        .iter()
+        .map(|recent| {
+            MenuItem::with_id(
+                app,
+                format!("{OPEN_RECENT_PREFIX}{}", recent.path),
+                &recent.name,
+                true,
+                None::<&str>,
+            )
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let recent_items: Vec<&dyn tauri::menu::IsMenuItem<R>> =
+        recents.iter().map(|item| item as &dyn tauri::menu::IsMenuItem<R>).collect();
+    // With no other project to offer, Open Recent stays in its place, dimmed.
+    let open_recent =
+        Submenu::with_items(app, &labels.open_recent, !recents.is_empty(), &recent_items)?;
     let file_menu = Submenu::with_items(
         app,
         &labels.file,
         true,
         &[
+            &file_command("new-project", &labels.new_project, true, Some("CmdOrCtrl+Shift+N"))?,
+            &file_command("open-folder", &labels.open_folder, true, Some("CmdOrCtrl+O"))?,
+            &open_recent,
+            &PredefinedMenuItem::separator(app)?,
+            &file_command("overleaf-open", &labels.open_from_overleaf, true, None)?,
+            &file_command("import-zip", &labels.import_zip, true, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &file_command("export-zip", &labels.export_zip, labels.project_open, None)?,
+            &file_command("export-arxiv", &labels.export_arxiv, labels.project_open, None)?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, CLOSE_TAB, &labels.close_tab, true, Some("CmdOrCtrl+W"))?,
             &close_window()?,
         ],
@@ -301,6 +375,15 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         }
         return;
     }
+    if let Some((name, payload)) = file_menu_event(id) {
+        // Only a window with Lattice's page runs commands; the Overleaf
+        // sign-in in front has none.
+        let Some(label) = crate::macos_window::focused_window_label() else { return };
+        if crate::is_workspace_window(&label) {
+            let _ = app.emit_to(tauri::EventTarget::webview_window(label), name, payload);
+        }
+        return;
+    }
     let (name, payload) = if let Some(mode) = id.strip_prefix(MARGIN_REVIEW_PREFIX) {
         (MARGIN_REVIEW_EVENT, mode)
     } else if let Some(direction) = id.strip_prefix(EDIT_HISTORY_PREFIX) {
@@ -318,6 +401,15 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         return;
     }
     let _ = app.emit_to(tauri::EventTarget::webview_window(label), name, payload);
+}
+
+/// The event and payload a File ▸ project item or Open Recent entry sends.
+fn file_menu_event(id: &str) -> Option<(&'static str, &str)> {
+    if let Some(command) = id.strip_prefix(FILE_COMMAND_PREFIX) {
+        Some((FILE_COMMAND_EVENT, command))
+    } else {
+        id.strip_prefix(OPEN_RECENT_PREFIX).map(|path| (OPEN_RECENT_EVENT, path))
+    }
 }
 
 /// Whether Undo or Redo in the window labelled `label` goes to its page,
@@ -420,6 +512,8 @@ mod tests {
                 .expect("fixture");
         let labels: MenuLabels = serde_json::from_value(complete.clone()).expect("labels");
         assert_eq!(labels.copy, "拷贝");
+        assert_eq!(labels.recent_projects[0].path, "/Users/me/论文初稿");
+        assert!(labels.project_open);
         let mut missing = complete.clone();
         missing.as_object_mut().unwrap().remove("copy");
         assert!(serde_json::from_value::<MenuLabels>(missing).is_err());
@@ -457,6 +551,20 @@ mod tests {
         assert_eq!(close_action(CLOSE_TAB, "overleaf-login"), Some(CloseAction::Window));
         assert_eq!(close_action(CLOSE_WINDOW, "project-2"), Some(CloseAction::Window));
         assert_eq!(close_action(QUIT, "main"), None);
+    }
+
+    #[test]
+    fn file_menu_items_name_the_command_or_the_project_path() {
+        assert_eq!(
+            file_menu_event("file-command:new-project"),
+            Some(("file-command", "new-project"))
+        );
+        assert_eq!(
+            file_menu_event("open-recent:/Users/me/Paper: draft"),
+            Some(("open-recent", "/Users/me/Paper: draft"))
+        );
+        assert_eq!(file_menu_event(CLOSE_TAB), None);
+        assert_eq!(file_menu_event(WHATS_NEW), None);
     }
 
     #[test]
