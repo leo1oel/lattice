@@ -9729,6 +9729,14 @@ msgstr "这台 Mac"
 msgid "One record matches"
 msgstr "1 条记录匹配"
 
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX install is not available on Linux yet."
+msgstr "Linux 版暂不支持一键安装 TeX"
+
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX package install is not available on Linux yet."
+msgstr "Linux 版暂不支持一键安装 TeX 宏包"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "只有 LaTeX 文档能导出标注修改的版本"

@@ -32,7 +32,8 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["tex_setup/macos.rs", "Could not verify {missing_file}: {error}", ([file, error]) => t`Could not verify ${file}: ${error}`],
   ["tex_setup/macos.rs", "Required setup is already running in another Lattice window.", () => t`Required setup is already running in another Lattice window.`],
 
-  // Installing BasicTeX and the paper tools (tex_setup/macos.rs, tex_setup/installer.rs)
+  // Installing BasicTeX and the paper tools (tex_setup/macos.rs, tex_setup/installer.rs,
+  // and tex_setup/fetch.rs for the pinned downloads)
   ["tex_setup/macos.rs", "This Lattice version includes BasicTeX {BASIC_TEX_YEAR}. Update Lattice to install the current BasicTeX release.", ([year]) => t`This Lattice version includes BasicTeX ${year}. Update Lattice to install the current BasicTeX release.`],
   ["tex_setup/installer.rs", "BasicTeX installation failed. Please try again.", () => t`BasicTeX installation failed. Please try again.`],
   ["tex_setup/installer.rs", "BasicTeX installation failed.\n{detail}", ([detail]) => t`BasicTeX installation failed.\n${detail}`],
@@ -41,9 +42,12 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["tex_setup/macos.rs", "BasicTeX was installed, but Lattice could not look up required file {required_file}.\n{error}", ([file, error]) => t`BasicTeX was installed, but Lattice could not look up required file ${file}.\n${error}`],
   ["tex_setup/macos.rs", "No supported LaTeX engine could be run as your macOS user.", () => t`No supported LaTeX engine could be run as your macOS user.`],
   ["tex_setup/macos.rs", "Lattice's managed {tool} failed user-level verification.\n{error}", ([tool, error]) => t`Lattice's managed ${tool} failed user-level verification.\n${error}`],
-  ["tex_setup/macos.rs", "Could not download {}: {error}", ([what, error]) => t`Could not download ${what}: ${error}`],
-  ["tex_setup/macos.rs", "The {name} download was interrupted: {error}", ([what, error]) => t`The ${what} download was interrupted: ${error}`],
-  ["tex_setup/macos.rs", "The downloaded {} failed its security check.", ([what]) => t`The downloaded ${what} failed its security check.`],
+  ["tex_setup/fetch.rs", "Could not download {}: {error}", ([what, error]) => t`Could not download ${what}: ${error}`],
+  ["tex_setup/fetch.rs", "The {name} download was interrupted: {error}", ([what, error]) => t`The ${what} download was interrupted: ${error}`],
+  ["tex_setup/fetch.rs", "The downloaded {} failed its security check.", ([what]) => t`The downloaded ${what} failed its security check.`],
+  // Elsewhere one-click install is not built yet (tex_setup/stub.rs).
+  ["tex_setup/stub.rs", "One-click TeX install is not available on Linux yet.", () => t`One-click TeX install is not available on Linux yet.`],
+  ["tex_setup/stub.rs", "One-click TeX package install is not available on Linux yet.", () => t`One-click TeX package install is not available on Linux yet.`],
   ["tex_setup/macos.rs", "Could not request permission to install {name}: {error}", ([what, error]) => t`Could not request permission to install ${what}: ${error}`],
   ["tex_setup/macos.rs", "Could not locate your macOS Application Support folder.", () => t`Could not locate your macOS Application Support folder.`],
   ["tex_setup/macos.rs", "Automatic uv installation is not available for this Mac architecture ({}).", ([arch]) => t`Automatic uv installation is not available for this Mac architecture (${arch}).`],

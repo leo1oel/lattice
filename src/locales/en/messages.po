@@ -9729,6 +9729,14 @@ msgstr "On this Mac"
 msgid "One record matches"
 msgstr "One record matches"
 
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX install is not available on Linux yet."
+msgstr "One-click TeX install is not available on Linux yet."
+
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX package install is not available on Linux yet."
+msgstr "One-click TeX package install is not available on Linux yet."
+
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "Only a LaTeX document can be exported with its changes marked."
