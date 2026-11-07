@@ -80,6 +80,10 @@ pub struct OverleafSyncResult {
     /// one is renamed.
     #[serde(default)]
     pub case_collisions: Vec<CaseCollision>,
+    /// Whether this sync downloaded the project under the lease, which the
+    /// app counts towards the gap between downloads once the sync is done.
+    #[serde(skip)]
+    pub downloaded_under_lease: bool,
 }
 
 /// Result of the cheap remote-change check that live mode polls.
@@ -737,6 +741,7 @@ fn sync_files(
         None => linked.version(&client).or(observed_remote_version),
     };
     let remote_version_before = version.or(linked.state.remote_version);
+    let mut downloaded_under_lease = false;
     let (read, RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled }) =
         match prefetched {
             Some(Prefetched { downloaded, .. }) => (read, downloaded),
@@ -746,6 +751,7 @@ fn sync_files(
                     (read, agreed)
                 }
                 None if may_download => {
+                    downloaded_under_lease = true;
                     let downloaded = download(&linked, &client, &|_, _| {})?;
                     // Read again after the download, as above.
                     (read_local_files(root)?, downloaded)
@@ -791,6 +797,7 @@ fn sync_files(
         automatic_remote_deletes,
         skipped_remote_deletes: plan.skipped_remote_deletes,
         case_collisions,
+        downloaded_under_lease,
         ..Default::default()
     };
     let mut new_files = plan.files;
