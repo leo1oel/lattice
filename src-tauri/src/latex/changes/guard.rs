@@ -255,22 +255,13 @@ fn group_footprint(group: u32) -> u64 {
             .map(footprint)
             .sum()
     }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    {
-        let _ = group;
-        0
-    }
 }
 
 #[cfg(target_os = "linux")]
 fn process_group(pid: i32) -> Option<i32> {
     let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
     for line in status.lines() {
-        if let Some(rest) = line.strip_prefix("NSpgid:\t").or_else(|| line.strip_prefix("NSpgid:"))
-        {
-            return rest.trim().parse().ok();
-        }
-        if let Some(rest) = line.strip_prefix("PGrp:\t").or_else(|| line.strip_prefix("PGrp:")) {
+        if let Some(rest) = line.strip_prefix("NSpgid:") {
             return rest.trim().parse().ok();
         }
     }
@@ -298,11 +289,6 @@ fn footprint(pid: libc::pid_t) -> u64 {
         let pages: u64 =
             statm.split_whitespace().nth(1).and_then(|value| value.parse().ok()).unwrap_or(0);
         pages.saturating_mul(page_size())
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    {
-        let _ = pid;
-        0
     }
 }
 

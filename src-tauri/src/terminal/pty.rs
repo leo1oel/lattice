@@ -208,11 +208,6 @@ pub(super) fn process_name(pid: i32) -> Option<String> {
         let name = String::from_utf8_lossy(&name).trim().to_owned();
         (!name.is_empty()).then_some(name)
     }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    {
-        let _ = pid;
-        None
-    }
 }
 
 /// Send `signal` to process group `group`. Lattice's own group is never one

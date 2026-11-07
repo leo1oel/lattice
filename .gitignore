@@ -26,7 +26,6 @@ skills-lock.json
 # Local AI-assistant state. Never commit: these hold machine-specific paths,
 # private compute specs, and session transcripts.
 .claude/
-.cursor/
 .amp/
 
 # Editor directories and files

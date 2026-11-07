@@ -3,27 +3,16 @@
 //! Keeps the same IPC surface so the frontend compiles; vibrancy, quarantine,
 //! and AppKit monitors are no-ops until Linux window chrome is implemented.
 
-use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex, PoisonError};
+use std::sync::{Mutex, PoisonError};
 
-static PDF_COPY_TEXT: LazyLock<Mutex<HashMap<String, String>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
 static FOCUSED_WINDOW_LABEL: Mutex<Option<String>> = Mutex::new(None);
 
 pub fn install_magnify_monitor(_app: tauri::AppHandle) {}
 
 #[tauri::command]
-pub fn set_pdf_copy_text(window: tauri::WebviewWindow, text: Option<String>) {
-    let mut selections = PDF_COPY_TEXT.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(text) = text.filter(|text| !text.is_empty()) {
-        selections.insert(window.label().to_string(), text);
-    } else {
-        selections.remove(window.label());
-    }
-}
+pub fn set_pdf_copy_text(_window: tauri::WebviewWindow, _text: Option<String>) {}
 
 pub fn clear_pdf_copy_text(window_label: &str) {
-    PDF_COPY_TEXT.lock().unwrap_or_else(PoisonError::into_inner).remove(window_label);
     set_window_focused(window_label, false);
 }
 

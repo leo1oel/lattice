@@ -594,7 +594,7 @@ skipped when its declared `sources` have not changed (`[tasks.check]`):
 `i18n-check`, `lint`, `test`, `build`, `literature-worker`,
 `open-slide-runtime`, `cargo-fmt`, `cargo-test`, `clippy`, `notices`. It needs [mise](https://mise.jdx.dev).
 
-CI (`.github/workflows/ci.yml`) covers the same ground across five jobs:
+CI (`.github/workflows/ci.yml`) covers the same ground in these jobs:
 `test`, `literature-worker` (`typecheck` + `test` in that sub-project),
 `open-slide-runtime` (`test` in `tools/open-slide-runtime`, then staging the
 pruned runtime, which serves the editor from it),
@@ -603,9 +603,9 @@ as parallel steps, then `pnpm i18n:check`) and `rust`
 (`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`), with
 `rust-linux` running the same clippy and tests on Ubuntu 22.04 so the Linux
 build keeps compiling. `test` is three
-shards, split by estimated cost (`scripts/vitest-balanced-shards.ts`). A sixth job,
-`perf-bench`, runs the interaction benchmark and its browser layout checks
-(`pnpm perf:bench --check --layout`), and a seventh, `perf-bench-webkit`, runs
+shards, split by estimated cost (`scripts/vitest-balanced-shards.ts`).
+`perf-bench` runs the interaction benchmark and its browser layout checks
+(`pnpm perf:bench --check --layout`), and `perf-bench-webkit` runs
 both in WebKit (`--engine webkit`); each reports the result of its engine's
 `--shard` jobs (`perf-bench (k/2)`, `perf-bench-webkit (k/2)`). Both are
 `mise run perf-bench` locally, which `check` leaves out; see
