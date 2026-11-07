@@ -292,7 +292,7 @@ Practical consequence: to find what a button does, grep the command name in
 
 | `ipc` module | Commands | Examples |
 | --- | --- | --- |
-| `overleaf` + `overleaf_realtime` | 43 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
+| `overleaf` + `overleaf_realtime` | 47 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
 | `files` | 29 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
 | `build` | 27 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
@@ -347,6 +347,8 @@ that header before changing anything under `overleaf_rt/`.
 
 `overleaf` handles the non-realtime side: login/session (`overleaf/account.rs`,
 `overleaf-session.json` in app data), linking and clone (`overleaf/link.rs`),
+which folders already hold a linked copy, so Open from Overleaf reopens one
+instead of downloading a second (`overleaf/local_copies.rs`),
 the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`), history and review (`overleaf/review.rs`),
 and a real three-way merge (`overleaf/sync.rs`). The merge keeps a pristine copy of every text file as of
 the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
@@ -389,7 +391,10 @@ creates it.
 | `.research/omp-*` | agent runtime | agent runtime scratch; excluded from export and from agent reads |
 
 The Overleaf session cookie is **not** in the project — it lives in app data
-(`overleaf-session.json`, `overleaf/account.rs`).
+(`overleaf-session.json`, `overleaf/account.rs`), as does the list of folders
+known to hold a linked copy (`overleaf-local-copies.json`,
+`overleaf/local_copies.rs`); each entry is checked against the folder's own
+`.research/overleaf.json` before use.
 
 Two gitignore files are written at project creation (`project/create.rs`):
 `.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/`
