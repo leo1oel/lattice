@@ -191,6 +191,16 @@ impl AppState {
         }
     }
 
+    /// Stop the named project's export with changes marked, if it has one.
+    /// It changes no files, so it needs no window still showing the project:
+    /// the comparison may close after its window switched to another.
+    pub(crate) fn cancel_changes_export(&self, root: &Path) {
+        let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(project) = projects.get(root) {
+            project.changes_exports.cancel();
+        }
+    }
+
     /// Stop every project's export with changes marked: the app is exiting,
     /// and its latexdiff would otherwise run on with nobody waiting for it.
     pub(crate) fn cancel_all_changes_exports(&self) {
@@ -418,6 +428,26 @@ mod tests {
         state.cancel_all_changes_exports();
         assert!(gone(quitting_pid), "latexdiff outlived Lattice");
         assert!(quitting.join().unwrap());
+    }
+
+    /// The comparison closing after its window switched projects still
+    /// stops the export it left; naming a project nobody has creates nothing.
+    #[test]
+    fn cancelling_an_export_needs_no_window_on_its_project() {
+        let folder = crate::test_support::TempDir::new("changes-export-cancel");
+        let state = AppState::from_environment();
+        let (left, other) = (PathBuf::from("/project/left"), PathBuf::from("/project/other"));
+        state.bind_window("project-1", left.clone()).unwrap();
+        state.bind_window("project-2", left.clone()).unwrap();
+        let export = state.project(&left).changes_exports.sleep_for_test(&folder);
+        state.bind_window("project-1", other).unwrap();
+
+        state.cancel_changes_export(&left);
+        assert!(export.join().unwrap(), "the export outlived the comparison that started it");
+
+        let unknown = Path::new("/project/unknown");
+        state.cancel_changes_export(unknown);
+        assert!(!state.projects.lock().unwrap().contains_key(unknown));
     }
 
     #[test]

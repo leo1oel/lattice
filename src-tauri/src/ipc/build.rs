@@ -139,12 +139,8 @@ pub async fn export_changes_pdf(
 /// Stop the export with changes marked: Cancel in its sheet, or the
 /// comparison it belongs to closed. latexdiff and the build are killed now.
 #[tauri::command]
-pub fn cancel_changes_pdf(
-    state: State<'_, AppState>, window: Window, project_root: String,
-) -> Result<(), String> {
-    let root = pinned_root(&state, &window, &project_root, "its export could stop")?;
-    state.project(&root).changes_exports.cancel();
-    Ok(())
+pub fn cancel_changes_pdf(state: State<'_, AppState>, project_root: String) {
+    state.cancel_changes_export(Path::new(&project_root));
 }
 
 /// Typeset one figure alone, for the agent to look at before inserting it.

@@ -86,7 +86,7 @@ impl Walk<'_> {
 }
 
 /// The existing files `text` pastes in, outside comments; `root` is the
-/// version's folder, where latexdiff runs.
+/// version's own folder, standing in for latexdiff's working folder.
 fn includes(text: &str, base: &Path, root: &Path) -> Vec<Read> {
     let mut found = Vec::new();
     for line in text.lines() {
@@ -104,8 +104,9 @@ fn includes(text: &str, base: &Path, root: &Path) -> Vec<Read> {
             } else {
                 let (folder, name) = (capture[4].trim(), capture[5].trim());
                 // `\subimport` is relative to the current folder, `\import` to
-                // where latexdiff runs: the version's own folder, so each
-                // version's tree is walked. An absolute folder stays as written.
+                // latexdiff's working folder; each version's is resolved in that
+                // version's own folder, so its own tree is walked. An absolute
+                // folder stays as written.
                 let folder = if capture.get(3).is_some() {
                     base.join(folder)
                 } else {
