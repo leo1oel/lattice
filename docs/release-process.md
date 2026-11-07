@@ -2,14 +2,17 @@
 
 How a Lattice release is actually cut today. Everything below is derived from
 `scripts/bump-version.mjs`, `.github/workflows/release.yml`,
-`.github/workflows/linux-appimage.yml`, `.github/workflows/release-cache.yml`,
+`.github/workflows/linux-appimage.yml`, `.github/workflows/macos-intel.yml`,
+`.github/workflows/release-cache.yml`,
 and `src-tauri/tauri.conf.json`; if you change one of those, change this
 document with it.
 
 Releases target **Apple Silicon macOS** (`--target aarch64-apple-darwin`,
-`minimumSystemVersion: 14.0`). An **experimental x86_64 Linux AppImage** is
-added to the release afterwards, only when its own checks pass
-([below](#linux-appimageyml)); it never delays or blocks the Mac release.
+`minimumSystemVersion: 14.0`). An **Intel Mac** build (`x86_64-apple-darwin`,
+[below](#macos-intelyml)) and an **experimental x86_64 Linux AppImage**
+([below](#linux-appimageyml)) are added to the release afterwards, each only
+when its own checks pass; neither ever delays or blocks the Apple silicon
+release.
 
 ## Cut a release
 
@@ -173,14 +176,14 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
 
 **Linux copies do not update themselves.** The build passes
 `--config '{"bundle":{"createUpdaterArtifacts":false}}'`, so no updater
-artifact is made or signed for Linux, and `latest.json` keeps only its
-`darwin-aarch64` entry; the release notes tell Linux users to download each
+artifact is made or signed for Linux, and `latest.json` has no Linux
+entry; the release notes tell Linux users to download each
 release. The app agrees: on Linux it does not register the updater plugin
 (`src-tauri/src/lib.rs`) or check for updates, and Settings → App updates
 says so and links to the latest release instead. Offering in-app updates on
 Linux would mean signing the AppImage
-with `TAURI_SIGNING_PRIVATE_KEY` and merging a `linux-x86_64` entry into the
-Mac job's `latest.json`.
+with `TAURI_SIGNING_PRIVATE_KEY` and merging a `linux-x86_64` entry into
+`latest.json`, as `macos-intel.yml` does for `darwin-x86_64`.
 
 When a release's Linux checks fail, re-running the failed jobs of that tag's
 Linux AppImage run only retries a transient failure (a runner, the network, an
@@ -193,6 +196,54 @@ A pull request that changes the packaging (the workflow, the smoke script,
 in `scripts/lib/runtime-prune.mjs`) runs steps 1–3
 with the open-licensed fonts and no baked-in keys, and attaches nothing; so
 does a manual `workflow_dispatch` run.
+
+### `macos-intel.yml`
+
+The Intel Mac build follows the Linux AppImage's pattern: `release.yml` does
+not mention it, and it starts from Release's `workflow_run` event only once a
+tag's Release run has **succeeded**. An Intel failure leaves the published
+release without its `_x64` assets and `latest.json` without `darwin-x86_64`:
+Intel copies stay on their version until a release whose Intel build passes,
+and nothing changes for Apple silicon. It is a separate app rather than a
+universal binary, which would double the Apple silicon download.
+
+From the release's commit, on GitHub's runners:
+
+1. **build** (`macos-15-intel`): the native host is what makes the bundle
+   x86_64 throughout — `prepare-synara-sidecar.mjs` stages the Node release
+   for rustc's host triple, and the presentation runtime keeps the host's
+   native packages. `pnpm tauri build --target x86_64-apple-darwin --bundles app,dmg`
+   with the Developer ID, App Store Connect key and updater key that
+   `release.yml` uses (so the app is signed and notarized and its updater
+   archive signed), the licensed fonts and the Firecrawl and tldraw keys. Then
+   `check-font-leaks.mjs app`, `app-size-report.mjs`,
+   `.github/scripts/check-macos-arch.sh` (every Mach-O file in the bundle
+   must contain x86_64), DMG notarization and stapling, and the same
+   `codesign`/`spctl`/`stapler` verification as the Apple silicon release.
+   The app's own downloads follow its architecture: the managed `uv`
+   (`src-tauri/src/tex_setup/installer.rs`) and rtex for live preview
+   (`src-tauri/src/live_preview/install.rs`) pin one archive per CPU.
+2. **smoke** (a fresh `macos-15-intel`): `.github/scripts/smoke-macos-dmg.sh`
+   installs the app from the DMG, runs the bundled Node (which must report
+   `x64`), checks Gatekeeper accepts the app, launches it, and requires a
+   Lattice window on screen and the frontend's events in `lattice.log`. Its
+   screenshot and log are uploaded as `macos-intel-smoke-evidence`.
+3. **attach**, only after both: uploads `Lattice_<version>_x64.dmg`,
+   `Lattice_<version>_x64.app.tar.gz` and its `.sig` with `--clobber`, then
+   `scripts/add-updater-platform.mjs` verifies the archive's signature against
+   `plugins.updater.pubkey` and adds `darwin-x86_64` and `darwin-x86_64-app`
+   to the release's `latest.json`, leaving the `darwin-aarch64` entries as
+   they were; finally it appends an "Install (Intel Mac)" section to the
+   release notes once.
+
+The Apple silicon asset names are unchanged, so the website's main Download
+and the `darwin-aarch64` updater URLs keep working; the website links the
+`_x64.dmg` separately. As with Linux, a re-run uses the original workflow file
+and the tag's code, so a fix merged on `main` takes effect at the next release.
+A pull request that changes this packaging, or a manual `workflow_dispatch`
+run, runs build and smoke with the open-licensed fonts and no baked-in keys —
+signed and notarized when the repository's secrets are available — and
+attaches nothing.
 
 ### `web-demo.yml`
 

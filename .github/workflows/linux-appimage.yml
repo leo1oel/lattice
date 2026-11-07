@@ -22,7 +22,7 @@ name: Linux AppImage
 #
 # Linux copies do not update themselves: the build turns
 # bundle.createUpdaterArtifacts off, so there is no updater archive to sign,
-# and latest.json keeps only darwin-aarch64. Linux users download each
+# and latest.json has no Linux entry. Linux users download each
 # release by hand.
 #
 # A pull request that changes this packaging, or a run by hand, runs the same
