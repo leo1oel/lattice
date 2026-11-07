@@ -127,10 +127,22 @@ pub async fn export_changes_pdf(
 ) -> Result<latex::ChangesPdf, String> {
     let _lease = lease_if_pinned(&state, Some(&project_root)).await;
     let root = pinned_root(&state, &window, &project_root, "the PDF could be exported")?;
+    let exports = Arc::clone(&state.project(&root).changes_exports);
     run_blocking("PDF with changes marked", move || {
-        latex::export_changes_pdf(&root, &from, to.as_deref(), options)
+        latex::export_changes_pdf(&root, &from, to.as_deref(), options, &exports)
     })
     .await
+}
+
+/// Stop the export with changes marked: Cancel in its sheet, or the
+/// comparison it belongs to closed. latexdiff and the build are killed now.
+#[tauri::command]
+pub fn cancel_changes_pdf(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "its export could stop")?;
+    state.project(&root).changes_exports.cancel();
+    Ok(())
 }
 
 /// Typeset one figure alone, for the agent to look at before inserting it.

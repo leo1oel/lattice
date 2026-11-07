@@ -171,6 +171,7 @@ fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
     app.state::<synara::SynaraRuntime>().shutdown();
     app.state::<presentation::PresentationRuntime>().shutdown();
     app.state::<AppState>().stop_all_live_previews();
+    app.state::<AppState>().cancel_all_changes_exports();
     app.state::<AppState>().terminals.close_all_and_wait();
 }
 
@@ -515,6 +516,7 @@ pub fn run() {
             ipc::build::compile_repair,
             ipc::build::agent_text_task,
             ipc::build::export_changes_pdf,
+            ipc::build::cancel_changes_pdf,
             ipc::build::preview_latex_figure,
             ipc::build::abort_build,
             ipc::build::clean_project,

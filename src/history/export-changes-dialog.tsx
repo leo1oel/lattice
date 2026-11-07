@@ -8,7 +8,7 @@
  * The preview is the comparison's own first changes, drawn the way latexdiff
  * draws them, not the typeset page: building one takes as long as the export.
  */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -21,7 +21,7 @@ import { SegmentedControl } from "../components/ui/segmented-control";
 import { SwitchField } from "../components/ui/switch-field";
 import { inlineEditSpans } from "../components/ui/inline-edit-spans";
 import { projectItemPath, toMessage } from "../app-utils";
-import { logAction } from "../telemetry/app-notify";
+import { logAction, type ActionLog } from "../telemetry/app-notify";
 import type { GitFileDiff } from "../app-types";
 import { joinedPassage, prosePassages, type ProsePassage } from "./version-prose";
 import { useLatestLoad } from "./use-latest-load";
@@ -37,6 +37,13 @@ type ChangesPdf = { path: string; simplified: boolean };
 
 /** The last choices, for the next export this session. */
 let lastOptions: ChangesPdfOptions = { colour: true, keepDeleted: true, marginBars: true, onlyChangedPages: false };
+
+/** What the host answers when the export was stopped (latex/changes.rs). */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the host's English
+const CANCELLED = "The export with changes marked was cancelled.";
+
+/** Kill the export's latexdiff or build at once (#658): it could otherwise run for an hour. */
+const cancelExport = (projectRoot: string) => invoke("cancel_changes_pdf", { projectRoot }).catch(() => undefined);
 
 /** How many changed passages the page preview draws. */
 const PREVIEW_PASSAGES = 3;
@@ -87,6 +94,8 @@ export function ExportChangesDialog(props: {
   const { t } = useLingui();
   const [options, setOptions] = useState(lastOptions);
   const [running, setRunning] = useState(false);
+  // Read by the unmount cleanup, which outlives the render that set it.
+  const runningRef = useRef(false);
   const [error, setError] = useState("");
   const set = (change: Partial<ChangesPdfOptions>) => {
     const next = { ...options, ...change };
@@ -107,6 +116,19 @@ export function ExportChangesDialog(props: {
   }, [changed, from, loadPreview, read, rootDocument, to]);
   const shown = preview.value ?? [];
 
+  // The comparison closing takes the sheet with it; latexdiff must not run on.
+  const { projectRoot } = props;
+  useEffect(() => () => {
+    if (runningRef.current) void cancelExport(projectRoot);
+  }, [projectRoot]);
+  const close = () => {
+    if (runningRef.current) {
+      runningRef.current = false;
+      void cancelExport(props.projectRoot);
+    }
+    props.onClose();
+  };
+
   // Worded outside the try: the compiler cannot compile a conditional inside one.
   const savedNotice = (result: ChangesPdf) => ({
     detail: result.simplified
@@ -122,7 +144,16 @@ export function ExportChangesDialog(props: {
     ? t`latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again.`
     : message;
 
+  // Outside the try: the compiler cannot compile a conditional inside one.
+  const settleFailure = (trace: ActionLog, message: string) => {
+    if (message === CANCELLED) trace.finish("cancelled");
+    // Said in the sheet, where the choices that may fix it are.
+    else trace.fail(message, { toast: false });
+    setError(failure(message));
+  };
+
   const exportPdf = async () => {
+    runningRef.current = true;
     setRunning(true);
     setError("");
     const trace = logAction(t`History`, t`Export PDF with changes marked`, `${props.fromName} → ${props.toName}`);
@@ -133,18 +164,18 @@ export function ExportChangesDialog(props: {
         to: props.to,
         options,
       });
+      runningRef.current = false;
       trace.ok(t`Saved ${result.path}`, savedNotice(result));
       props.onClose();
     } catch (reason) {
-      // Said in the sheet, where the choices that may fix it are.
-      trace.fail(reason, { toast: false });
-      setError(failure(toMessage(reason)));
+      runningRef.current = false;
+      settleFailure(trace, toMessage(reason));
       setRunning(false);
     }
   };
 
   return (
-    <ModalDialog label={t`Export PDF with changes marked`} closeDisabled={running} keepOnOutsideClick={running} onClose={props.onClose}>
+    <ModalDialog label={t`Export PDF with changes marked`} keepOnOutsideClick={running} onClose={close}>
       <div className="modal export-changes-modal" data-preview={shown.length > 0 || undefined}>
         <div className="export-changes-form">
           <h2>{t`PDF with changes marked`}</h2>
@@ -183,7 +214,7 @@ export function ExportChangesDialog(props: {
           <p className="export-changes-note">{t`Saves ${saved} beside ${pdf}`}</p>
           {error && <InlineMessage level="error">{error}</InlineMessage>}
           <div className="modal-actions">
-            <Button variant="ghost" disabled={running} onClick={props.onClose}>{t`Cancel`}</Button>
+            <Button variant="ghost" onClick={close}>{t`Cancel`}</Button>
             <Button variant="primary" autoFocus disabled={running} onClick={() => void exportPdf()}>
               {running ? <InfinityLoader size={14} /> : <FileDown size={14} aria-hidden="true" />}
               {running ? t`Exporting…` : t`Export PDF`}

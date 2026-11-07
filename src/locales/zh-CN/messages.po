@@ -6859,6 +6859,14 @@ msgstr "会议论文"
 msgid "In progress"
 msgstr "进行中"
 
+#: src/platform/host-errors-workspace.ts
+msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
+msgstr "较新的版本里，{chain} 用 \\input 互相读入，latexdiff 会永远停不下来。请删掉让它们绕成一圈的那个 \\input，然后再导出。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "In the older version, {chain} read each other with \\input, so latexdiff would never finish. Compare from a version after the loop was removed."
+msgstr "较旧的版本里，{chain} 用 \\input 互相读入，latexdiff 会永远停不下来。请改为从去掉这个循环之后的版本开始比较。"
+
 #: src/app/app-command-overlays.tsx
 #: src/editor/latex/highlight-palette.tsx
 msgid "In this document"
@@ -7631,6 +7639,14 @@ msgstr "LaTeX 设置"
 #: src/history/export-changes-dialog.tsx
 msgid "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
 msgstr "没有安装 latexdiff。MacTeX 自带它；用 BasicTeX 的话，请在“终端”里运行“sudo tlmgr install latexdiff”，然后再导出。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "latexdiff was stopped after {minutes} minutes without finishing. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
+msgstr "latexdiff 运行了 {minutes} 分钟仍未完成，已被停止。请比较两个更接近的版本，或把用 \\input 读入的超大生成文件（数据表、长代码清单）移出，然后再导出。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "latexdiff was stopped when it used {gigabytes} GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
+msgstr "latexdiff 占用了 {gigabytes} GB 内存，已被停止。请比较两个更接近的版本，或把用 \\input 读入的超大生成文件（数据表、长代码清单）移出，然后再导出。"
 
 #: src/build/build-log-messages.ts
 msgid "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
@@ -14227,6 +14243,10 @@ msgid "The Excel workbook is too large to export."
 msgstr "Excel 工作簿太大，无法导出"
 
 #: src/platform/host-errors-workspace.ts
+msgid "The export with changes marked was cancelled."
+msgstr "已取消导出标出修改的 PDF。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "The exported data is not a valid Excel workbook."
 msgstr "导出的数据不是有效的 Excel 工作簿"
 
@@ -14476,6 +14496,14 @@ msgstr "标注修改的 PDF 编译失败：{detail}"
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build."
 msgstr "标注修改的 PDF 编译失败"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked was stopped after {minutes} minutes without finishing its build. Build the paper itself to check that it finishes, then export again."
+msgstr "标出修改的 PDF 编译了 {minutes} 分钟仍未完成，已被停止。请先编译论文本身，确认它能编译完成，然后再导出。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked was stopped when its build used {gigabytes} GB of memory. Build the paper itself to check that it finishes, then export again."
+msgstr "标出修改的 PDF 编译时占用了 {gigabytes} GB 内存，已被停止。请先编译论文本身，确认它能编译完成，然后再导出。"
 
 #: src/platform/host-errors-setup.ts
 msgid "The presentation project must be a directory."

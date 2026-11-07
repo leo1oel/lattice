@@ -241,6 +241,40 @@ describe("CompareVersions", () => {
     expect(pages[1]).toContain("[2]");
   });
 
+  // #658: latexdiff ran for half an hour with nothing left to stop it.
+  it("stops the export's latexdiff when the writer cancels or the comparison closes", async () => {
+    mockRepository({ export_changes_pdf: () => new Promise(() => undefined), cancel_changes_pdf: null });
+    renderCompare();
+    await openCompare();
+    fireEvent.click(await screen.findByRole("button", { name: "Export PDF with changes…" }));
+    let sheet = screen.getByRole("dialog", { name: "Export PDF with changes marked" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));
+    await within(sheet).findByRole("button", { name: "Exporting…" });
+
+    fireEvent.click(within(sheet).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(invokeCalls("cancel_changes_pdf")).toEqual([{ projectRoot: "/papers/attention" }]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Export PDF with changes…" }));
+    sheet = screen.getByRole("dialog", { name: "Export PDF with changes marked" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));
+    await within(sheet).findByRole("button", { name: "Exporting…" });
+    cleanup();
+    expect(invokeCalls("cancel_changes_pdf")).toHaveLength(2);
+  });
+
+  it("says why a runaway latexdiff was stopped, and what to try", async () => {
+    const stopped = "latexdiff was stopped when it used 4.0 GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again.";
+    mockRepository({ export_changes_pdf: () => Promise.reject(new Error(stopped)) });
+    renderCompare();
+    await openCompare();
+    fireEvent.click(await screen.findByRole("button", { name: "Export PDF with changes…" }));
+    const sheet = screen.getByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));
+    expect(await within(sheet).findByText(stopped)).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Export PDF" })).toBeEnabled();
+  });
+
   it("keeps the sheet open with the reason when the export fails", async () => {
     mockRepository({ export_changes_pdf: () => Promise.reject(new Error("The PDF with changes marked did not build: Undefined control sequence.")) });
     renderCompare();

@@ -6859,6 +6859,14 @@ msgstr "In proceedings"
 msgid "In progress"
 msgstr "In progress"
 
+#: src/platform/host-errors-workspace.ts
+msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
+msgstr "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "In the older version, {chain} read each other with \\input, so latexdiff would never finish. Compare from a version after the loop was removed."
+msgstr "In the older version, {chain} read each other with \\input, so latexdiff would never finish. Compare from a version after the loop was removed."
+
 #: src/app/app-command-overlays.tsx
 #: src/editor/latex/highlight-palette.tsx
 msgid "In this document"
@@ -7631,6 +7639,14 @@ msgstr "LaTeX setup"
 #: src/history/export-changes-dialog.tsx
 msgid "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
 msgstr "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "latexdiff was stopped after {minutes} minutes without finishing. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
+msgstr "latexdiff was stopped after {minutes} minutes without finishing. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "latexdiff was stopped when it used {gigabytes} GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
+msgstr "latexdiff was stopped when it used {gigabytes} GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again."
 
 #: src/build/build-log-messages.ts
 msgid "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
@@ -14227,6 +14243,10 @@ msgid "The Excel workbook is too large to export."
 msgstr "The Excel workbook is too large to export."
 
 #: src/platform/host-errors-workspace.ts
+msgid "The export with changes marked was cancelled."
+msgstr "The export with changes marked was cancelled."
+
+#: src/platform/host-errors-workspace.ts
 msgid "The exported data is not a valid Excel workbook."
 msgstr "The exported data is not a valid Excel workbook."
 
@@ -14476,6 +14496,14 @@ msgstr "The PDF with changes marked did not build: {detail}"
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build."
 msgstr "The PDF with changes marked did not build."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked was stopped after {minutes} minutes without finishing its build. Build the paper itself to check that it finishes, then export again."
+msgstr "The PDF with changes marked was stopped after {minutes} minutes without finishing its build. Build the paper itself to check that it finishes, then export again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked was stopped when its build used {gigabytes} GB of memory. Build the paper itself to check that it finishes, then export again."
+msgstr "The PDF with changes marked was stopped when its build used {gigabytes} GB of memory. Build the paper itself to check that it finishes, then export again."
 
 #: src/platform/host-errors-setup.ts
 msgid "The presentation project must be a directory."

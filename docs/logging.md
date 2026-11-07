@@ -41,6 +41,9 @@ paths. Paths are project-relative; the project is a short hash (`project`).
 - Grep for the operation: `grep 'lattice::event' lattice.log | grep latex.compile`.
 - Look for `"outcome":"error"` first; `error_kind` and `error_fix` say what broke.
 - Plain lines around an event, and `WARN`/`ERROR` lines, are the detail.
+- Export PDF with changes marked logs each latexdiff and latexmk command line
+  it runs (paths and options, never file contents), how long it ran and how it
+  ended, under `lattice::changes_pdf`.
 
 ## More detail
 
