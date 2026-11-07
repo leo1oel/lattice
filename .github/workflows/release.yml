@@ -1,7 +1,7 @@
 name: Release
 
 # Push a version tag (e.g. v0.1.38) to build, sign, and publish a GitHub
-# Release for Apple Silicon macOS and a Linux AppImage (ubuntu-22.04 glibc
+# Release for Apple Silicon macOS and a Linux AppImage (ubuntu-24.04 glibc
 # floor). tauri-action also generates latest.json, which the in-app updater
 # reads to offer updates to installed copies.
 on:
@@ -88,8 +88,8 @@ jobs:
           ## Install (Linux)
 
           Download the **.AppImage** below, mark it executable (`chmod +x`), and
-          run it. The AppImage is built on Ubuntu 22.04 so it runs on recent
-          glibc distros. If FUSE is unavailable, run with
+          run it. The AppImage is built on Ubuntu 24.04 so it runs on recent
+          glibc distros (24.04+, 26.04, Fedora, Arch/Omarchy-class). If FUSE is unavailable, run with
           `APPIMAGE_EXTRACT_AND_RUN=1`.
           EOF
 
@@ -360,11 +360,13 @@ jobs:
           node scripts/normalize-updater-manifest.mjs "$manifest_dir/latest.json" "$manifest_dir/release.json"
           gh release upload "$GITHUB_REF_NAME" "$manifest_dir/latest.json" --clobber
 
-  # Linux AppImage on Ubuntu 22.04 so the binary's glibc floor covers recent
-  # distros (22.04+, 24.04+, current Fedora). Runs beside the macOS job; both
-  # leave the release a draft until publish-release verifies assets.
+  # Linux AppImage on Ubuntu 24.04 (glibc floor for ~last-2-years + current
+  # Fedora/Arch). Do not build the shipping artifact on 26.04 — that only
+  # raises the floor. Smoke covers Ubuntu 24.04/26.04, Fedora, and Arch
+  # (Omarchy-class). Runs beside the macOS job; both leave the release a
+  # draft until publish-release verifies assets.
   release-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -408,7 +410,7 @@ jobs:
             wget \
             xz-utils \
             zip \
-            libfuse2 \
+            libfuse2t64 \
             xvfb
 
       - run: pnpm install --frozen-lockfile
@@ -481,14 +483,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/Lattice.AppImage" --clobber
 
-  # Guest smokes prove the 22.04-built AppImage starts on newer glibc hosts.
+  # Guest smokes: same AppImage on Ubuntu 24.04/26.04, Fedora, and Arch
+  # (covers Omarchy and similar Arch-based desktops).
   appimage-smoke:
     needs: release-linux
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        image: [ubuntu:22.04, ubuntu:24.04, fedora:41]
+        image: [ubuntu:24.04, ubuntu:26.04, fedora:41, archlinux:latest]
     steps:
       - uses: actions/checkout@v7
       - name: Download AppImage from the draft release
@@ -510,9 +513,12 @@ jobs:
               set -euo pipefail
               if command -v apt-get >/dev/null; then
                 apt-get update -qq
-                DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libfuse2 file findutils >/dev/null
-              else
+                DEBIAN_FRONTEND=noninteractive apt-get install -y -qq file findutils >/dev/null
+                apt-get install -y -qq libfuse2t64 >/dev/null 2>&1 || apt-get install -y -qq libfuse2 >/dev/null
+              elif command -v dnf >/dev/null; then
                 dnf install -y -q fuse-libs file findutils which >/dev/null
+              elif command -v pacman >/dev/null; then
+                pacman -Sy --noconfirm fuse2 file findutils >/dev/null
               fi
               bash /smoke.sh /artifact.AppImage
             '

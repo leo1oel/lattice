@@ -7,9 +7,11 @@ change one of those, change this document with it.
 
 Releases target **Apple Silicon macOS** (`--target aarch64-apple-darwin`,
 `minimumSystemVersion: 14.0`) and a **Linux AppImage** built on
-`ubuntu-22.04` (glibc floor for recent distros). The macOS job stays the
-notarized `.dmg` path; the Linux job uploads the AppImage and a matrix smoke
-checks it on newer guest images before the release is undrafted.
+`ubuntu-24.04` (glibc floor for recent Ubuntu, Fedora, and Arch/Omarchy-class
+hosts). The shipping artifact is not built on 26.04 — that would only raise
+the floor. The macOS job stays the notarized `.dmg` path; the Linux job
+uploads the AppImage and a matrix smoke checks it on Ubuntu 24.04/26.04,
+Fedora, and Arch before the release is undrafted.
 
 ## Cut a release
 
