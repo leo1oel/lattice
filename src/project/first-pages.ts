@@ -35,6 +35,20 @@ export function welcomeDeskProjects(recents: readonly RecentProject[], unopenedP
   return recents.filter((item) => item.path !== unopenedPath).slice(0, WELCOME_DESK_SIZE);
 }
 
+/** How many other recent projects the title's switcher offers before it stops. */
+const MAX_SWITCHER_PROJECTS = 5;
+
+/**
+ * The other projects the title's switcher offers, which File ▸ Open Recent
+ * lists too. The stored list runs deeper (share recovery resolves a prior
+ * root against it), but a switcher is for the few projects you move between:
+ * past five the menu turns into a scroll and "Open another folder" is the
+ * better path.
+ */
+export function switcherProjects(recents: readonly RecentProject[], currentPath: string | undefined) {
+  return recents.filter((item) => item.path !== currentPath).slice(0, MAX_SWITCHER_PROJECTS);
+}
+
 const DATABASE = "lattice.first-pages";
 const STORE = "pages";
 /** Twice the desk card's width, so the page stays sharp on a Retina screen. */

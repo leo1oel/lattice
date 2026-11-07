@@ -9,7 +9,7 @@ import { useLingui } from "@lingui/react/macro";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BROWSER_ENTRY_PORT } from "../platform/flavor";
 import { requestMarginReviewHere, setMarginReviewMode } from "../overleaf/margin-review-mode";
-import { welcomeDeskProjects } from "../project/first-pages";
+import { switcherProjects, welcomeDeskProjects } from "../project/first-pages";
 import type { NewEntryType } from "../project/project-new-entries";
 import { loadRecentCommands, rememberRecentCommand, type ThemePreference } from "../settings/app-settings";
 import type { SettingsSearchEntry } from "../settings/settings-search-index";
@@ -31,6 +31,7 @@ import type { SearchDialog } from "./app-search-dialogs";
 import { collectFilePaths } from "./workspace-restore";
 import { subscribeTauriEvent } from "./effect-helpers";
 import { listenInThisWindow } from "./window-events";
+import { setNativeFileMenu, type NativeFileMenu } from "./native-locale";
 import { RUNNING_VERSION } from "./whats-new";
 import { commandCombo, commandShortcutText, useAppCommands, type AppCommand } from "./use-app-commands";
 import type { useAgentContext } from "./use-agent-context";
@@ -52,6 +53,10 @@ const loadFormatDocument = () => import("./format-document");
 
 /** What File ▸ Close Tab (⌘W) sends the window it was used in (native_locale.rs). */
 const CLOSE_TAB_EVENT = "close-tab";
+/** What File's project items send: the id of the command here to run. */
+const FILE_COMMAND_EVENT = "file-command";
+/** What File ▸ Open Recent sends: the project's path. */
+const OPEN_RECENT_EVENT = "open-recent";
 
 /** No revision in flight, for counting what the palette's Revise would ask about. */
 const NO_RUNNING_REVISIONS: ReadonlySet<string> = new Set();
@@ -294,7 +299,7 @@ export function useCommandTable({
     { id: "history", when: inProject, label: t`Open project history`, group: "project", run: () => tools.open("history") },
     { id: "export-zip", when: inProject, label: t`Export project ZIP`, keywords: t`Overleaf source pack`, group: "project", run: () => void exportProjectZip() },
     { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, group: "project", run: () => setArxivExportOpen(true) },
-    { id: "new-project", label: t`New project`, group: "project", run: () => updateCreateForm({ open: true }) },
+    { id: "new-project", label: t`New project`, group: "project", key: "n", shift: true, run: () => updateCreateForm({ open: true }) },
     { id: "open-folder", label: t`Open another folder`, group: "project", key: "o", run: () => void chooseExisting() },
     ...otherRecentProjects.map(({ name, path }, index): AppCommand => ({
       id: `recent-project-${index}`, label: spaceMixedScript(t`Open ${name}`), detail: path, group: "project",
@@ -348,6 +353,24 @@ export function useCommandTable({
     (handler) => listenInThisWindow(CLOSE_TAB_EVENT, handler),
     () => runCommandRef.current("close-tab"),
   ), [runCommandRef]);
+  // File's project items (native_locale.rs) run the commands above, so the
+  // menu, the palette and the keys do one thing; Open Recent opens a project
+  // as the title's switcher does, and lists the same ones.
+  useEffect(() => subscribeTauriEvent<string>(
+    (handler) => listenInThisWindow(FILE_COMMAND_EVENT, handler),
+    (command) => runCommandRef.current(command),
+  ), [runCommandRef]);
+  const chooseRecentProjectRef = useLatestRef(chooseRecentProject);
+  useEffect(() => subscribeTauriEvent<string>(
+    (handler) => listenInThisWindow(OPEN_RECENT_EVENT, handler),
+    (path) => void chooseRecentProjectRef.current(path),
+  ), [chooseRecentProjectRef]);
+  // Keyed by what the menu shows: the table is rebuilt at every render.
+  const fileMenuKey = JSON.stringify({
+    projectOpen: inProject,
+    recentProjects: switcherProjects(recentProjects, project?.root).map(({ name, path }) => ({ name, path })),
+  });
+  useEffect(() => setNativeFileMenu(JSON.parse(fileMenuKey) as NativeFileMenu), [fileMenuKey]);
   // The titlebar's search field is the palette's visible home. The titlebar
   // only re-renders with the workspace, so it gets one stable opener.
   const openCommandPaletteRef = useLatestRef(openCommandPalette);

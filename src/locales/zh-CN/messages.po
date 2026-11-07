@@ -5658,6 +5658,11 @@ msgstr "导出 arXiv 提交包"
 msgid "Export for arXiv…"
 msgstr "导出 arXiv 提交包…"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Export for arXiv…"
+msgstr "导出 arXiv 提交包…"
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Export notes…"
 msgstr "导出批注…"
@@ -5696,6 +5701,11 @@ msgstr "导出评阅 PDF…"
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "导出 ZIP"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Export ZIP…"
+msgstr "导出 ZIP…"
 
 #: src/telemetry/app-log.tsx
 msgid "Export…"
@@ -6760,6 +6770,11 @@ msgstr "导入图片"
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "导入 ZIP"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Import Overleaf ZIP…"
+msgstr "导入 Overleaf ZIP…"
 
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
@@ -8828,6 +8843,11 @@ msgstr "新建幻灯片"
 msgid "New project"
 msgstr "新建项目"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "New Project…"
+msgstr "新建项目…"
+
 #: src/trellis/trellis-labels.ts
 msgid "New split below"
 msgstr "向下分屏"
@@ -9775,6 +9795,11 @@ msgstr "打开文件夹"
 msgid "Open from Overleaf"
 msgstr "从 Overleaf 打开"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Open from Overleaf…"
+msgstr "从 Overleaf 打开…"
+
 #: src/app/use-command-table.ts
 msgid "Open guided tutorial"
 msgstr "新手教程"
@@ -9850,6 +9875,11 @@ msgstr "浏览器看 PDF"
 #: src/app/use-command-table.ts
 msgid "Open project history"
 msgstr "项目历史"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Open Recent"
+msgstr "打开最近使用"
 
 #: src/app/use-command-table.ts
 msgid "Open settings"
@@ -9945,6 +9975,11 @@ msgstr "在 Overleaf 打开"
 #: src/app/app-history-drawers.tsx
 msgid "Open this repository on GitHub"
 msgstr "在 GitHub 打开"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Open…"
+msgstr "打开…"
 
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx

@@ -18,7 +18,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { ChunkGate } from "../components/chunk-gate";
 import { chunk, lazyChunk } from "../lib/lazy-chunk";
 import { WelcomeLattice } from "./welcome-lattice";
-import { welcomeDeskProjects } from "./first-pages";
+import { switcherProjects, welcomeDeskProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
 import { PROJECT_VENUES } from "./project-venues";
 
@@ -265,9 +265,6 @@ export function RenameDialog(props: {
   );
 }
 
-/** How many other recent projects the switcher offers before it stops. */
-const MAX_RECENT_PROJECT_ITEMS = 5;
-
 export function ProjectMenu(props: {
   currentPath: string;
   recentProjects: RecentProject[];
@@ -282,12 +279,7 @@ export function ProjectMenu(props: {
   onSettings: () => void;
 }) {
   const { t } = useLingui();
-  // The stored list runs deeper (share recovery resolves a prior root against
-  // it), but a switcher is for the few projects you move between — past five
-  // the menu turns into a scroll and "Open another folder" is the better path.
-  const alternatives = props.recentProjects
-    .filter((item) => item.path !== props.currentPath)
-    .slice(0, MAX_RECENT_PROJECT_ITEMS);
+  const alternatives = switcherProjects(props.recentProjects, props.currentPath);
   const busy = Boolean(props.busyLabel);
   // Settings opens as a transition and puts focus in its search field, which
   // can land before the closing menu returns focus to its trigger.

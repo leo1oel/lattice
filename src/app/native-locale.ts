@@ -16,6 +16,18 @@ export type NativeMenuLabels = {
   showAll: string;
   quit: string;
   file: string;
+  /** File's project items: the project title menu's actions, run as this window's commands (use-command-table.ts). */
+  newProject: string;
+  openFolder: string;
+  openRecent: string;
+  openFromOverleaf: string;
+  importZip: string;
+  exportZip: string;
+  exportArxiv: string;
+  /** File ▸ Open Recent: the other projects this window's switcher offers. */
+  recentProjects: { name: string; path: string }[];
+  /** Whether this window has a project, which the exports need. */
+  projectOpen: boolean;
   edit: string;
   undo: string;
   redo: string;
@@ -40,6 +52,20 @@ export type NativeMenuLabels = {
   marginReview?: { title: string; auto: string; markers: string; off: string; mode: MarginReviewMode };
 };
 
+/** What File's project items depend on in this window. */
+export type NativeFileMenu = Pick<NativeMenuLabels, "recentProjects" | "projectOpen">;
+
+let fileMenu: NativeFileMenu = { recentProjects: [], projectOpen: false };
+
+/**
+ * Put this window's project and recent projects in File's items. The menu
+ * resends only when they changed, and only from the focused window.
+ */
+export function setNativeFileMenu(next: NativeFileMenu): void {
+  fileMenu = next;
+  syncNativeLocaleIfChanged();
+}
+
 // The menu keeps Apple's own wording (which can differ from the same English
 // word inside the app), so each title has its own catalog context. The context
 // must be a literal: Lingui extracts it statically.
@@ -55,6 +81,15 @@ export function nativeMenuLabels(): NativeMenuLabels {
     showAll: i18n._(msg({ context: "macOS menu bar", message: "Show All" })),
     quit: i18n._(msg({ context: "macOS menu bar", message: `Quit ${name}` })),
     file: i18n._(msg({ context: "macOS menu bar", message: "File" })),
+    newProject: i18n._(msg({ context: "macOS menu bar", message: "New Project…" })),
+    openFolder: i18n._(msg({ context: "macOS menu bar", message: "Open…" })),
+    openRecent: i18n._(msg({ context: "macOS menu bar", message: "Open Recent" })),
+    openFromOverleaf: i18n._(msg({ context: "macOS menu bar", message: "Open from Overleaf…" })),
+    importZip: i18n._(msg({ context: "macOS menu bar", message: "Import Overleaf ZIP…" })),
+    exportZip: i18n._(msg({ context: "macOS menu bar", message: "Export ZIP…" })),
+    exportArxiv: i18n._(msg({ context: "macOS menu bar", message: "Export for arXiv…" })),
+    recentProjects: fileMenu.recentProjects,
+    projectOpen: fileMenu.projectOpen,
     edit: i18n._(msg({ context: "macOS menu bar", message: "Edit" })),
     undo: i18n._(msg({ context: "macOS menu bar", message: "Undo" })),
     redo: i18n._(msg({ context: "macOS menu bar", message: "Redo" })),
@@ -119,13 +154,14 @@ function syncQuietly(): void {
 }
 
 // The margin review switch rides along: it is in the menu only while this
-// window shows margin review, and checked as this window has it.
+// window shows margin review, and checked as this window has it. So do
+// File's project items, which follow this window's project.
 const currentLocaleKey = () =>
-  `${i18n.locale}|${loadAppearance().interfaceLanguage}|${marginReviewAvailable() ? marginReviewMode() : ""}`;
+  `${i18n.locale}|${loadAppearance().interfaceLanguage}|${marginReviewAvailable() ? marginReviewMode() : ""}|${JSON.stringify(fileMenu)}`;
 
 /**
- * Resend when the locale, the saved preference or this window's margin review
- * switch moved since the last send.
+ * Resend when the locale, the saved preference, this window's margin review
+ * switch or File's project items moved since the last send.
  * Switching between "system" and an explicit language that resolves to the
  * same locale changes only the preference, so no catalog change reports it.
  * A language chosen in another window reaches this one too (settings are

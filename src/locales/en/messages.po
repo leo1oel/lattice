@@ -5658,6 +5658,11 @@ msgstr "Export for arXiv"
 msgid "Export for arXiv…"
 msgstr "Export for arXiv…"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Export for arXiv…"
+msgstr "Export for arXiv…"
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Export notes…"
 msgstr "Export notes…"
@@ -5696,6 +5701,11 @@ msgstr "Export review PDF…"
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "Export ZIP"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Export ZIP…"
+msgstr "Export ZIP…"
 
 #: src/telemetry/app-log.tsx
 msgid "Export…"
@@ -6760,6 +6770,11 @@ msgstr "Import images here"
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Import Overleaf ZIP…"
+msgstr "Import Overleaf ZIP…"
 
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
@@ -8828,6 +8843,11 @@ msgstr "New presentation"
 msgid "New project"
 msgstr "New project"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "New Project…"
+msgstr "New Project…"
+
 #: src/trellis/trellis-labels.ts
 msgid "New split below"
 msgstr "New split below"
@@ -9775,6 +9795,11 @@ msgstr "Open folder"
 msgid "Open from Overleaf"
 msgstr "Open from Overleaf"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Open from Overleaf…"
+msgstr "Open from Overleaf…"
+
 #: src/app/use-command-table.ts
 msgid "Open guided tutorial"
 msgstr "Open guided tutorial"
@@ -9850,6 +9875,11 @@ msgstr "Open PDF in browser"
 #: src/app/use-command-table.ts
 msgid "Open project history"
 msgstr "Open project history"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Open Recent"
+msgstr "Open Recent"
 
 #: src/app/use-command-table.ts
 msgid "Open settings"
@@ -9945,6 +9975,11 @@ msgstr "Open this project on Overleaf"
 #: src/app/app-history-drawers.tsx
 msgid "Open this repository on GitHub"
 msgstr "Open this repository on GitHub"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Open…"
+msgstr "Open…"
 
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
