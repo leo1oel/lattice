@@ -102,6 +102,7 @@
 
 .get-started-aside .get-started-actions { margin-top: var(--space-4); }
 .get-started-step-body .get-started-aside-title { color: var(--text-primary); font-weight: var(--weight-medium); }
+.get-started-connect summary { cursor: pointer; }
 
 .get-started-setup {
   display: grid;

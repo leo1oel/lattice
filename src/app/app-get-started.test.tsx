@@ -1,4 +1,4 @@
-import { projectCommands, projectSnapshot, invokeCalls, failedBuild, fileNode } from "./app-test-utils";
+import { buildButton, buildResult, projectCommands, waitForBuildIdle, projectSnapshot, invokeCalls, failedBuild, fileNode } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { settingsDialog } from "./app-test-settings";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -40,6 +40,18 @@ describe("Get started", () => {
     // Asked for from the step, setup opens.
     fireEvent.click(within(latex).getByRole("button", { name: "Install LaTeX" }));
     expect(await screen.findByRole("dialog", { name: "Install LaTeX tools" })).toBeInTheDocument();
+  });
+
+  it("counts the sample built under a title of the writer's own, with the checklist closed", async () => {
+    // The title the sample ships with (src-tauri/templates/tutorial/main.tex), changed.
+    const edited = "\\documentclass{article}\n\\title{My attention paper}\n\\begin{document}\nHi.\n\\end{document}\n";
+    renderApp({ ...projectCommands(tutorial, edited), build_project: buildResult({ durationMs: 5, rootDocument: "main.tex" }) });
+    await waitFor(() => expect(invokeCalls("build_project")).not.toHaveLength(0));
+    await waitForBuildIdle();
+    fireEvent.click(buildButton());
+    await waitFor(() => expect(invokeCalls("build_project").length).toBeGreaterThan(1));
+    await waitFor(() => expect(progress()?.done).toContain("build"));
+    expect(screen.queryByRole("complementary", { name: "Get started" })).not.toBeInTheDocument();
   });
 
   it("counts a project of the writer's own as the last step", async () => {

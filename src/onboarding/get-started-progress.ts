@@ -4,12 +4,13 @@
  * project share it) so the checklist picks up where it was left.
  *
  * Small and eager on purpose. The places where a step really happens (a
- * citation inserted, a SyncTeX jump landing, an Agent turn starting or an
- * annotation answered, another project entered) mark it here as they happen,
- * whether or not the checklist panel is open; the panel itself loads only
- * when shown.
+ * sample build with a title of the writer's own, a citation inserted, a
+ * SyncTeX jump landing, an Agent turn starting or an annotation answered,
+ * another project entered) mark it here as they happen, whether or not the
+ * checklist panel is open; the panel itself loads only when shown.
  */
 import { sharedSetting } from "../settings/shared-setting";
+import type { TrellisController } from "../trellis/trellis-controller";
 
 export const GET_STARTED_STEPS = ["latex", "build", "jump", "cite", "agent", "own"] as const;
 export type GetStartedStepId = (typeof GET_STARTED_STEPS)[number];
@@ -46,6 +47,41 @@ export function markGetStartedStep(step: GetStartedStepId) {
 
 export function skipGetStartedStep(step: GetStartedStepId) {
   getStartedProgress.set((progress) => ({ ...progress, skipped: stepsIn([...progress.skipped, step]) }));
+}
+
+/** The sample's manuscript (src-tauri/templates/tutorial/main.tex), and the \title line it ships with. */
+export const SAMPLE_MANUSCRIPT = "main.tex";
+export const SAMPLE_TITLE = "\\title{Understanding Attention: A Worked Guide to Transformer Reasoning}";
+
+export const isTitle = (line: string) => line.trimStart().startsWith("\\title{");
+
+/** The manuscript's \title line as it reads now, once its text is known. */
+export function sampleTitle(controller: TrellisController): string | null {
+  return controller.texts.get(SAMPLE_MANUSCRIPT)?.split("\n").find(isTitle) ?? null;
+}
+
+/**
+ * The build step, watched for the window's life, checklist shown or not; a
+ * build counts only while `sampleOpen` says the sample is the project. A build under the title the sample ships with proves nothing was tried: the
+ * step waits for a build that succeeds with a title of the writer's own,
+ * whenever it was written. The demo's copy fails on a typo it ships with on
+ * the first Build asked for, so there the step is a success after a failure:
+ * the error read and fixed.
+ */
+export function watchGetStartedBuild(controller: TrellisController, sampleOpen: () => boolean): () => void {
+  let last = controller.docTools.get().lastBuild;
+  let failed = false;
+  return controller.docTools.subscribe(() => {
+    const build = controller.docTools.get().lastBuild;
+    if (build === last || !build) return;
+    last = build;
+    if (!sampleOpen()) return;
+    if (build.status === "failed") failed = true;
+    if (build.status !== "succeeded") return;
+    const title = sampleTitle(controller);
+    const tried = import.meta.env.LATTICE_WEB_DEMO ? failed : title !== null && title.trim() !== SAMPLE_TITLE;
+    if (tried) markGetStartedStep("build");
+  });
 }
 
 // Whether this window shows the checklist, kept where the app opens and

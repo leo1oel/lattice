@@ -3079,6 +3079,10 @@ msgstr "Check selected"
 msgid "Check spelling in prose"
 msgstr "Check spelling in prose"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Check that an agent is connected"
+msgstr "Check that an agent is connected"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Check this reference"
 msgstr "Check this reference"
@@ -3947,10 +3951,6 @@ msgstr "Conflicts"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "Congruent"
-
-#: src/onboarding/get-started-panel.tsx
-msgid "Connect Claude Code or Codex"
-msgstr "Connect Claude Code or Codex"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
@@ -6677,6 +6677,10 @@ msgstr "Horizontal space"
 #: src/papers/bib-entry-dialog.tsx
 msgid "How the entry reads"
 msgstr "How the entry reads"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "How to connect Claude Code or Codex"
+msgstr "How to connect Claude Code or Codex"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
@@ -12846,10 +12850,6 @@ msgstr "Select {0}"
 #: src/onboarding/get-started-steps.ts
 msgid "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
 msgstr "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
-
-#: src/onboarding/get-started-steps.ts
-msgid "Select a paragraph, then choose Annotate"
-msgstr "Select a paragraph, then choose Annotate"
 
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx

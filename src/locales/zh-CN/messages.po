@@ -3079,6 +3079,10 @@ msgstr "检查所选"
 msgid "Check spelling in prose"
 msgstr "检查正文拼写"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Check that an agent is connected"
+msgstr "看看 AI 助手连上了没有"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Check this reference"
 msgstr "检查这条"
@@ -3947,10 +3951,6 @@ msgstr "冲突"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "全等"
-
-#: src/onboarding/get-started-panel.tsx
-msgid "Connect Claude Code or Codex"
-msgstr "连接 Claude Code 或 Codex"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
@@ -6677,6 +6677,10 @@ msgstr "水平间距"
 #: src/papers/bib-entry-dialog.tsx
 msgid "How the entry reads"
 msgstr "条目排版预览"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "How to connect Claude Code or Codex"
+msgstr "怎样连接 Claude Code 或 Codex"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
@@ -12846,10 +12850,6 @@ msgstr "选择 {0}"
 #: src/onboarding/get-started-steps.ts
 msgid "Select a paragraph, choose Annotate, write what should change, then Save and revise now."
 msgstr "选中一段，点「批注」，写下要改什么，再点「保存并立即修改」。"
-
-#: src/onboarding/get-started-steps.ts
-msgid "Select a paragraph, then choose Annotate"
-msgstr "选中一段，再点「批注」"
 
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx

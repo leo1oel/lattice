@@ -74,7 +74,7 @@ import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import type { OpenSlideContext } from "./editor/presentation/open-slide-bridge";
 import { ChunkGate } from "./components/chunk-gate";
 import { LazyMount } from "./components/lazy-mount";
-import { markGetStartedStep } from "./onboarding/get-started-progress";
+import { markGetStartedStep, TUTORIAL_VENUE, watchGetStartedBuild } from "./onboarding/get-started-progress";
 import { lazyChunk } from "./lib/lazy-chunk";
 import { loadTrellisWorkspace } from "./app/workspace-chunks";
 import type { AppSurfaces } from "./app/app-surfaces";
@@ -143,6 +143,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     captureProjectScope,
   } = projectState;
   const library = useProjectLibrary(projectState);
+  useEffect(() => watchGetStartedBuild(
+    trellis, () => import.meta.env.LATTICE_WEB_DEMO || projectRef.current?.manifest.venue === TUTORIAL_VENUE,
+  ), [projectRef, trellis]);
   const {
     papers, citationKeys, citations, references,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,

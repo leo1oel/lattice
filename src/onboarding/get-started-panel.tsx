@@ -10,8 +10,9 @@
  *   closing the panel loses nothing;
  * - setup is a step, not a dialog that lands on top of the tour: installing
  *   LaTeX is the first step's action, the paper tools are offered where
- *   citing needs them, and the Agent step says how to connect Claude Code or
- *   Codex.
+ *   citing needs them, and the Agent step points at the Agent panel, which
+ *   shows whether Claude Code or Codex is connected, with how to connect one
+ *   folded beneath it.
  *
  * Loaded lazily with its stylesheet: only a window that shows it needs it.
  */
@@ -32,11 +33,10 @@ import { useSharedSetting } from "../settings/shared-setting";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isCompileSetupMissing, missingPaperToolNames } from "../build/tex-setup";
 import type { TexSetup } from "../app/use-tex-setup";
-import type { TrellisController } from "../trellis/trellis-controller";
 import {
   GET_STARTED_STEPS, getStartedProgress, markGetStartedStep, skipGetStartedStep, type GetStartedStepId,
 } from "./get-started-progress";
-import { GET_STARTED, SAMPLE_TITLE, sampleTitle, type GetStartedStep, type ShowMeContext } from "./get-started-steps";
+import { GET_STARTED, type GetStartedStep, type ShowMeContext } from "./get-started-steps";
 import "./get-started.css";
 
 const CLAUDE_CODE_URL = "https://github.com/anthropics/claude-code";
@@ -129,29 +129,6 @@ function ShowMeRing({ target, hint, onDone }: { target: () => DOMRect | null; hi
   );
 }
 
-function useBuildStep(controller: TrellisController) {
-  // A build of the sample under the title it ships with proves nothing was
-  // tried: the step waits for a build that succeeds, after the checklist came
-  // up, with a title of the writer's own, whenever it was written.
-  // The demo's copy fails on a typo it ships with on the first Build asked
-  // for, so there the step is a success after a failure: the error read and
-  // fixed.
-  useEffect(() => {
-    let last = controller.docTools.get().lastBuild;
-    let failed = false;
-    return controller.docTools.subscribe(() => {
-      const build = controller.docTools.get().lastBuild;
-      if (build === last || !build) return;
-      last = build;
-      if (build.status === "failed") failed = true;
-      if (build.status !== "succeeded") return;
-      const title = sampleTitle(controller);
-      const tried = import.meta.env.LATTICE_WEB_DEMO ? failed : title !== null && title.trim() !== SAMPLE_TITLE;
-      if (tried) markGetStartedStep("build");
-    });
-  }, [controller]);
-}
-
 type PanelView = {
   /** The row opened by hand (null: the open one closed), and how many steps were done then: it stays so until another gets done. */
   open: { step: GetStartedStepId | null; seen: number } | null;
@@ -169,7 +146,6 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
   const { open, showing, rechecking } = view;
   const { controller, texSetup } = props;
   const { doctorReport: report, doctorBusy: checking, runDoctor } = texSetup;
-  useBuildStep(controller);
   // Opened, the checklist comes to the front of its panel, without taking the
   // keyboard from the writer's document. Opened with the project it belongs
   // to (the demo's first load, a first launch), it may come before that
@@ -288,8 +264,8 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
     }
     if (step.id === "agent" && !import.meta.env.LATTICE_WEB_DEMO) {
       return (
-        <div className="get-started-aside">
-          <p className="get-started-aside-title">{t`Connect Claude Code or Codex`}</p>
+        <details className="get-started-aside get-started-connect">
+          <summary className="get-started-aside-title">{t`How to connect Claude Code or Codex`}</summary>
           <ol className="get-started-setup">
             <li>
               <span>{t`Install one of them.`}</span>
@@ -307,7 +283,7 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
               {rechecking ? t`Rechecking…` : t`Recheck`}
             </Button>
           </div>
-        </div>
+        </details>
       );
     }
     return null;

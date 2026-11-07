@@ -14,10 +14,7 @@
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import type { TrellisController, TrellisSingleton } from "../trellis/trellis-controller";
-import type { GetStartedStepId } from "./get-started-progress";
-
-/** The sample's manuscript (src-tauri/templates/tutorial/main.tex). */
-export const SAMPLE_MANUSCRIPT = "main.tex";
+import { isTitle, SAMPLE_MANUSCRIPT, type GetStartedStepId } from "./get-started-progress";
 
 export type ShowMeContext = {
   controller: TrellisController;
@@ -52,16 +49,6 @@ function manuscriptPanel(controller: TrellisController): DOMRect | null {
   const view = controller.ws?.views({ type: "file" }).find((item) => item.params.key === SAMPLE_MANUSCRIPT);
   if (!view || view.placement === "hidden" || !view.selected) return null;
   return visibleRect(controller.panelRect(view.id));
-}
-
-const isTitle = (line: string) => line.trimStart().startsWith("\\title{");
-
-/** The \title line the sample ships with (src-tauri/templates/tutorial/main.tex). */
-export const SAMPLE_TITLE = "\\title{Understanding Attention: A Worked Guide to Transformer Reasoning}";
-
-/** The manuscript's \title line as it reads now, once its text is known. */
-export function sampleTitle(controller: TrellisController): string | null {
-  return controller.texts.get(SAMPLE_MANUSCRIPT)?.split("\n").find(isTitle) ?? null;
 }
 
 /** The manuscript's \title line, 1-based, once its text is known. */
@@ -114,9 +101,9 @@ export const GET_STARTED: readonly GetStartedStep[] = [
     why: import.meta.env.LATTICE_WEB_DEMO
       ? msg`Download Lattice to try the Agent, which runs on your Mac with Claude Code or Codex.`
       : msg`Select a paragraph, choose Annotate, write what should change, then Save and revise now.`,
-    hint: msg`Select a paragraph, then choose Annotate`,
-    reveal: (context) => showManuscript(context),
-    target: ({ controller }) => manuscriptPanel(controller),
+    hint: msg`Check that an agent is connected`,
+    reveal: ({ controller }) => controller.showPanel("agent", { focus: false }),
+    target: ({ controller }) => panelOf(controller, "agent"),
   },
   {
     id: "own",

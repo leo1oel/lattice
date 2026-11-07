@@ -5,8 +5,9 @@ import { SmallStore } from "../trellis/trellis-small-store";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { TrellisController, TrellisDocToolsState } from "../trellis/trellis-controller";
 import GetStartedPanel, { type GetStartedPanelProps } from "./get-started-panel";
-import { GET_STARTED_KEY, markGetStartedStep, skipGetStartedStep } from "./get-started-progress";
-import { SAMPLE_MANUSCRIPT } from "./get-started-steps";
+import {
+  GET_STARTED_KEY, markGetStartedStep, SAMPLE_MANUSCRIPT, skipGetStartedStep, watchGetStartedBuild,
+} from "./get-started-progress";
 
 const running = vi.hoisted(() => ({ agentTurns: 0 }));
 vi.mock("@tauri-apps/api/core", () => ({
@@ -29,12 +30,13 @@ function fakeController() {
   const docTools = new SmallStore<Pick<TrellisDocToolsState, "lastBuild">>({ lastBuild: null });
   const texts = new Map([[SAMPLE_MANUSCRIPT, MANUSCRIPT]]);
   const pdf = { id: "pdf", type: "pdf", placement: "docked", visible: true, selected: true, params: {}, panelId: "panel-pdf" };
+  const agent = { id: "agent", type: "agent", placement: "docked", visible: true, selected: true, params: {}, panelId: "panel-agent" };
   const manuscript = { id: "file-main", type: "file", placement: "docked", visible: true, selected: true, params: { key: SAMPLE_MANUSCRIPT }, panelId: "panel-main" };
   const controller = {
     docTools,
     texts,
     app: { get: () => ({ activeKey: SAMPLE_MANUSCRIPT }) },
-    ws: { view: (kind: string) => (kind === "pdf" ? pdf : undefined), views: () => [manuscript], select: vi.fn() },
+    ws: { view: (kind: string) => ({ pdf, agent } as Record<string, unknown>)[kind], views: () => [manuscript], select: vi.fn() },
     panelRect: vi.fn(() => new DOMRect(600, 40, 400, 700)),
     showPanel: vi.fn(),
     revealTool: vi.fn(),
@@ -50,8 +52,9 @@ function succeeded(finishedAt: number): BuildOutcome {
   };
 }
 
-function renderPanel(overrides: Partial<GetStartedPanelProps> = {}, report: ReturnType<typeof doctor> | null = doctor()) {
-  const fake = fakeController();
+function renderPanel(
+  overrides: Partial<GetStartedPanelProps> = {}, report: ReturnType<typeof doctor> | null = doctor(), fake = fakeController(),
+) {
   const texSetup = {
     doctorReport: report,
     doctorBusy: false,
@@ -108,7 +111,8 @@ describe("GetStartedPanel", () => {
   });
 
   it("ticks the build step only once a build of a title the writer changed succeeds", () => {
-    const { docTools, texts } = renderPanel();
+    const { controller, docTools, texts } = renderPanel();
+    const stop = watchGetStartedBuild(controller, () => true);
     // The sample building with its own title proves nothing was tried.
     act(() => docTools.set({ lastBuild: succeeded(1) }));
     expect(step("build")).toHaveAttribute("data-state", "current");
@@ -120,14 +124,28 @@ describe("GetStartedPanel", () => {
     expect(step("build")).toHaveAttribute("data-state", "done");
     expect(step("jump")).toHaveAttribute("data-state", "current");
     expect(stored()?.done).toEqual(["latex", "build"]);
+    stop();
   });
 
-  it("ticks the build step for a title edited before the checklist came up, as the sample is kept across launches", () => {
-    const { docTools, texts } = renderPanel();
+  it("ticks the build step for a title edited on an earlier launch, as the sample is kept across launches", () => {
+    const { controller, docTools, texts } = renderPanel();
+    const stop = watchGetStartedBuild(controller, () => true);
     // Edited on an earlier launch, whose builds all failed without TeX.
     texts.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
     act(() => docTools.set({ lastBuild: succeeded(1) }));
     expect(step("build")).toHaveAttribute("data-state", "done");
+    stop();
+  });
+
+  it("ticks the build step for a build that succeeded while the checklist was closed", () => {
+    const fake = fakeController();
+    const stop = watchGetStartedBuild(fake.controller, () => true);
+    fake.texts.set(SAMPLE_MANUSCRIPT, MANUSCRIPT.replace(SAMPLE_TITLE, "\\title{My attention paper}"));
+    fake.docTools.set({ lastBuild: succeeded(1) });
+    stop();
+    renderPanel({}, doctor(), fake);
+    expect(step("build")).toHaveAttribute("data-state", "done");
+    expect(step("jump")).toHaveAttribute("data-state", "current");
   });
 
   it("brings LaTeX back as the current step when the check finds it missing again", () => {
@@ -151,13 +169,15 @@ describe("GetStartedPanel", () => {
     expect(head).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("points the Agent step at the editor, where Annotate is", async () => {
+  it("shows the Agent panel, where an agent's connection is, from the Agent step", async () => {
     const { props, showPanel } = renderPanel();
     fireEvent.click(within(step("agent")).getByRole("button", { name: /Ask the Agent to revise/ }));
     fireEvent.click(within(step("agent")).getByRole("button", { name: "Show me" }));
-    expect(await screen.findByText("Select a paragraph, then choose Annotate")).toBeInTheDocument();
-    expect(showPanel).not.toHaveBeenCalledWith("agent", expect.anything());
+    expect(showPanel).toHaveBeenCalledWith("agent", { focus: false });
+    expect(await screen.findByText("Check that an agent is connected")).toBeInTheDocument();
     expect(props.openFile).not.toHaveBeenCalled();
+    // Done or skipped, nothing else: the panel, not the row, says whether an agent is connected.
+    expect(within(step("agent")).getByRole("button", { name: /Ask the Agent to revise/ })).toHaveTextContent(/^\d?Ask the Agent to revise$/);
   });
 
   it("shows steps marked where they happened, and keeps skipped ones aside", () => {
@@ -204,7 +224,11 @@ describe("GetStartedPanel", () => {
     fireEvent.click(within(step("agent")).getByRole("button", { name: /Ask the Agent to revise/ }));
     const agent = step("agent");
     expect(within(agent).getByText(/choose Annotate, write what should change, then Save and revise now/)).toBeInTheDocument();
-    expect(within(agent).getByText("Connect Claude Code or Codex")).toBeInTheDocument();
+    // Folded away, so a writer already connected is not told to install.
+    const connect = within(agent).getByText("How to connect Claude Code or Codex").closest("details")!;
+    expect(connect.open).toBe(false);
+    fireEvent.click(within(agent).getByText("How to connect Claude Code or Codex"));
+    expect(connect.open).toBe(true);
     expect(within(agent).getByRole("button", { name: /Claude Code/ })).toBeInTheDocument();
     expect(within(agent).getByRole("button", { name: /Codex/ })).toBeInTheDocument();
     expect(within(agent).getByText(/Set its path in Settings › Providers/)).toBeInTheDocument();
