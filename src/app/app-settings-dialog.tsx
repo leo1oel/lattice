@@ -63,6 +63,7 @@ export const AppSettingsDialog = memo(function AppSettingsDialog({
       {open && <Dialog
         covered={late}
         reveal={entry.reveal}
+        synaraTarget={entry.synaraTarget}
         openOnPage={entry.page}
         synaraRuntime={synara.runtime}
         synaraWorkspaceRoot={project?.root}
