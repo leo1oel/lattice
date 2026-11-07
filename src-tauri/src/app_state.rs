@@ -43,6 +43,8 @@ pub(crate) struct ProjectResources {
     pub(crate) active_build: latex::ActiveBuild,
     /// The Export for arXiv sheet's checks, whose test build is its own.
     pub(crate) arxiv_checks: latex::ArxivChecks,
+    /// The PDF with changes marked, while its latexdiff or build runs.
+    pub(crate) changes_exports: Arc<latex::ChangesExports>,
     pub(crate) texlab: Arc<Mutex<texlab::TexlabPool>>,
     /// Live connection to Overleaf's editing channel, when one is open.
     pub(crate) realtime: Arc<Mutex<OverleafRealtimeState>>,
@@ -160,6 +162,7 @@ impl AppState {
             // left watching for it to finish or holding a handle to stop it.
             let _ = latex::abort(&resources.active_build);
             resources.arxiv_checks.cancel();
+            resources.changes_exports.cancel();
             if let Ok(mut pool) = resources.texlab.lock() {
                 pool.reset();
             }
@@ -185,6 +188,25 @@ impl AppState {
             if let Some(session) = session {
                 session.stop_and_wait();
             }
+        }
+    }
+
+    /// Stop the named project's export with changes marked, if it has one.
+    /// It changes no files, so it needs no window still showing the project:
+    /// the comparison may close after its window switched to another.
+    pub(crate) fn cancel_changes_export(&self, root: &Path) {
+        let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(project) = projects.get(root) {
+            project.changes_exports.cancel();
+        }
+    }
+
+    /// Stop every project's export with changes marked: the app is exiting,
+    /// and its latexdiff would otherwise run on with nobody waiting for it.
+    pub(crate) fn cancel_all_changes_exports(&self) {
+        let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        for project in projects.values() {
+            project.changes_exports.cancel();
         }
     }
 
@@ -360,6 +382,72 @@ mod tests {
         }
         // The surviving window keeps the very same resources, not a rebuilt set.
         assert!(Arc::ptr_eq(&state.project(b), &kept));
+    }
+
+    /// #658: latexdiff ran on for half an hour after its export was left.
+    /// Closing the project, or quitting, kills it.
+    #[test]
+    fn closing_the_project_or_quitting_stops_its_export_with_changes_marked() {
+        let folder = crate::test_support::TempDir::new("changes-export-close");
+        let pid = |name: &str| -> u32 {
+            let path = folder.join(name).join("pid");
+            for _ in 0..200 {
+                if let Some(pid) =
+                    std::fs::read_to_string(&path).ok().and_then(|s| s.trim().parse().ok())
+                {
+                    return pid;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            panic!("the stand-in latexdiff never started");
+        };
+        let state = AppState::from_environment();
+        let (closed, open) = (PathBuf::from("/project/closed"), PathBuf::from("/project/open"));
+        state.bind_window("project-1", closed.clone()).unwrap();
+        state.bind_window("project-2", open.clone()).unwrap();
+        for name in ["closed", "open"] {
+            std::fs::create_dir_all(folder.join(name)).unwrap();
+        }
+        let closing = state.project(&closed).changes_exports.sleep_for_test(&folder.join("closed"));
+        let quitting = state.project(&open).changes_exports.sleep_for_test(&folder.join("open"));
+        let (closing_pid, quitting_pid) = (pid("closed"), pid("open"));
+        let gone = |pid: u32| {
+            (0..100).any(|_| {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+                unsafe { libc::kill(pid as i32, 0) != 0 }
+            })
+        };
+
+        state.release_window("project-1");
+        state.retire_unused_projects();
+        assert!(gone(closing_pid), "latexdiff outlived the project it compared");
+        assert!(closing.join().unwrap());
+        // The other window's export is its own, and keeps running.
+        assert!(!gone(quitting_pid));
+
+        state.cancel_all_changes_exports();
+        assert!(gone(quitting_pid), "latexdiff outlived Lattice");
+        assert!(quitting.join().unwrap());
+    }
+
+    /// The comparison closing after its window switched projects still
+    /// stops the export it left; naming a project nobody has creates nothing.
+    #[test]
+    fn cancelling_an_export_needs_no_window_on_its_project() {
+        let folder = crate::test_support::TempDir::new("changes-export-cancel");
+        let state = AppState::from_environment();
+        let (left, other) = (PathBuf::from("/project/left"), PathBuf::from("/project/other"));
+        state.bind_window("project-1", left.clone()).unwrap();
+        state.bind_window("project-2", left.clone()).unwrap();
+        let export = state.project(&left).changes_exports.sleep_for_test(&folder);
+        state.bind_window("project-1", other).unwrap();
+
+        state.cancel_changes_export(&left);
+        assert!(export.join().unwrap(), "the export outlived the comparison that started it");
+
+        let unknown = Path::new("/project/unknown");
+        state.cancel_changes_export(unknown);
+        assert!(!state.projects.lock().unwrap().contains_key(unknown));
     }
 
     #[test]

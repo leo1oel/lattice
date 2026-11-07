@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { activateAppLocale } from "../i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryDrawer } from "./history-drawer";
 import { clearAppLogs, formatAppLogs } from "../telemetry/app-log-store";
@@ -239,6 +240,48 @@ describe("CompareVersions", () => {
     const pages = [...sheet.querySelectorAll(".export-changes-page p")].map((page) => page.textContent);
     expect(pages[0]).toContain("[1]");
     expect(pages[1]).toContain("[2]");
+  });
+
+  // #658: latexdiff ran for half an hour with nothing left to stop it.
+  it("stops the export's latexdiff when the writer cancels or the comparison closes", async () => {
+    mockRepository({ export_changes_pdf: () => new Promise(() => undefined), cancel_changes_pdf: null });
+    renderCompare();
+    await openCompare();
+    fireEvent.click(await screen.findByRole("button", { name: "Export PDF with changes…" }));
+    let sheet = screen.getByRole("dialog", { name: "Export PDF with changes marked" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));
+    await within(sheet).findByRole("button", { name: "Exporting…" });
+
+    fireEvent.click(within(sheet).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(invokeCalls("cancel_changes_pdf")).toEqual([{ projectRoot: "/papers/attention" }]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Export PDF with changes…" }));
+    sheet = screen.getByRole("dialog", { name: "Export PDF with changes marked" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));
+    await within(sheet).findByRole("button", { name: "Exporting…" });
+    cleanup();
+    expect(invokeCalls("cancel_changes_pdf")).toHaveLength(2);
+  });
+
+  // The host's memory stop (latex/changes.rs `stopped`), shown in the writer's language.
+  it("says in Chinese why a runaway latexdiff was stopped, and what to try", async () => {
+    const stopped = "latexdiff was stopped when it used 4.0 GB of memory. Compare two versions closer together, or move a very large generated file (a data table, a long listing) out of an \\input, then export again.";
+    let reject: (reason: Error) => void = () => undefined;
+    mockRepository({ export_changes_pdf: () => new Promise((_, fail) => { reject = fail; }) });
+    renderCompare();
+    await openCompare();
+    fireEvent.click(await screen.findByRole("button", { name: "Export PDF with changes…" }));
+    const sheet = screen.getByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));
+    await within(sheet).findByRole("button", { name: "Exporting…" });
+    try {
+      await act(() => activateAppLocale("zh-CN"));
+      await act(async () => reject(new Error(stopped)));
+      expect(await within(sheet).findByText("latexdiff 占用了 4.0 GB 内存，已被停止。请比较两个更接近的版本，或把用 \\input 读入的超大生成文件（数据表、长代码清单）移出，然后再导出。")).toBeInTheDocument();
+    } finally {
+      await act(() => activateAppLocale("en"));
+    }
   });
 
   it("keeps the sheet open with the reason when the export fails", async () => {
