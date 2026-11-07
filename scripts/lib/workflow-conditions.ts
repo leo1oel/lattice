@@ -3,8 +3,8 @@
 // cannot be exercised by a pull request, so their tests run the workflow's own
 // conditions against the events GitHub sends it and check which jobs and steps
 // would run.
-export type Step = { name?: string; uses?: string; run?: string; if?: string; env?: Record<string, string> };
-export type Job = { needs?: string | string[]; if?: string; permissions?: Record<string, string>; env?: Record<string, string>; steps?: Step[] };
+type Step = { name?: string; uses?: string; run?: string; if?: string; env?: Record<string, string> };
+type Job = { needs?: string | string[]; if?: string; permissions?: Record<string, string>; env?: Record<string, string>; steps?: Step[] };
 export type Workflow = { name: string; on: Record<string, { workflows?: string[]; types?: string[] } | null>; permissions?: Record<string, string>; env?: Record<string, string>; jobs: Record<string, Job> };
 
 export type Value = string | number | boolean | null | { [key: string]: Value };
@@ -15,7 +15,7 @@ export type Value = string | number | boolean | null | { [key: string]: Value };
  * `startsWith`. As GitHub documents it, `&&` and `||` yield an operand, a
  * missing property is null, and strings compare ignoring case.
  */
-export function evaluate(source: string, context: Record<string, Value>): Value {
+function evaluate(source: string, context: Record<string, Value>): Value {
   const tokens = source.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, "$1")
     .match(/'(?:[^']|'')*'|&&|\|\||==|!=|[()!,]|[\w.-]+/g) ?? [];
   let at = 0;
@@ -80,7 +80,7 @@ export function evaluate(source: string, context: Record<string, Value>): Value 
 }
 
 /** An `env` value: an expression interpolated into a string, as GitHub writes one. */
-export const interpolate = (value: string, context: Record<string, Value>) =>
+const interpolate = (value: string, context: Record<string, Value>) =>
   value.includes("${{") ? String(evaluate(value, context)) : value;
 
 /**
