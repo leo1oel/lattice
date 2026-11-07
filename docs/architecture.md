@@ -120,7 +120,9 @@ application, loaded into a cross-origin `<iframe>`:
   `src/settings/synara-settings-pane.tsx` (one `<iframe>` for Providers, MCP,
   Skills and Usage & limits, opened on the first of them visited with a `section` param and
   kept loaded under the native tabs; a switch hides it until the frame answers
-  that `lattice:set-settings-section` request with `synara:settings-section-ready`).
+  that `lattice:set-settings-section` request with `synara:settings-section-ready`;
+  a request carrying a `target`, as the Agent panel's "Set path…" asks for, is
+  answered with `synara:settings-reveal` and the pane scrolls there).
   The first two get their URLs from
   `src/app/app-synara-embed.ts`. All of them use
   `sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"`.
