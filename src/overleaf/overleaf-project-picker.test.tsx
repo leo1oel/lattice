@@ -9,7 +9,7 @@ import { OverleafPickerDialog } from "./overleaf-project-picker";
 import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs } from "../telemetry/app-log-store";
 import type { OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
-import { mockInvoke, mockListen, type CommandTable } from "../platform/tauri-test-mocks";
+import { invokeCalls, mockInvoke, mockListen, type CommandTable } from "../platform/tauri-test-mocks";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
@@ -248,12 +248,25 @@ describe("Overleaf picker dialog", () => {
     // Busy meanwhile: a second Open cannot start another open or download.
     expect(await screen.findByText(/Opening Attention Paper…/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open" })).toBeDisabled();
+    // A lookup stuck on an unresponsive drive must not trap the writer here.
+    expect(screen.getByRole("button", { name: "Close Open from Overleaf" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
     answer({ p1: nativeVlm });
     await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
     expect(onOpenLocalCopy).toHaveBeenCalledOnce();
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
     expect(onCloned).not.toHaveBeenCalled();
+  });
+
+  it("looks up local copies once, not again for each new callback from a re-rendering parent", async () => {
+    mockConnectedPicker({ overleaf_local_copies: { p1: nativeVlm } });
+    const knownFolders = [{ path: nativeVlm.path }];
+    const props = { onClose: vi.fn(), onCloned: vi.fn(), knownFolders };
+    const { rerender } = render(<OverleafPickerDialog open {...props} onOpenLocalCopy={() => undefined} />);
+    await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
+    rerender(<OverleafPickerDialog open {...props} onOpenLocalCopy={() => undefined} />);
+    rerender(<OverleafPickerDialog open {...props} onOpenLocalCopy={() => undefined} />);
+    expect(invokeCalls("overleaf_local_copies")).toHaveLength(1);
   });
 
   it("drops an open whose picker closed before the lookup answered", async () => {

@@ -88,7 +88,8 @@ function OverleafPicker(props: PickerProps) {
     dispatch({ type: "status", status: session });
     props.onConnectionChanged?.();
   });
-  const { onClose, onConnectionChanged, knownFolders, onOpenLocalCopy } = props;
+  const { onClose, onConnectionChanged, knownFolders } = props;
+  const canOpenLocal = Boolean(props.onOpenLocalCopy);
   const lookup = useRef<Promise<Record<string, LocalCopy>>>(Promise.resolve({}));
   const mounted = useRef(true);
   useEffect(() => {
@@ -243,7 +244,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
   // simply does not answer and its project downloads as before.
   useEffect(() => {
     const listed = [...(list?.projects ?? []), ...(linked ? [linked] : [])];
-    if (!onOpenLocalCopy || !listed.length) return;
+    if (!canOpenLocal || !listed.length) return;
     let disposed = false;
     lookup.current = invoke<Record<string, LocalCopy>>("overleaf_local_copies", {
       names: listed.map((project) => project.name),
@@ -253,14 +254,15 @@ Files that differ are kept side by side. Nothing is overwritten`,
       .catch(() => ({}));
     void lookup.current.then((copies) => { if (!disposed) dispatch({ type: "localCopies", copies }); });
     return () => { disposed = true; };
-  }, [list, linked, knownFolders, onOpenLocalCopy]);
+  }, [list, linked, knownFolders, canOpenLocal]);
   const query = link ? "" : search.trim().toLowerCase();
   const matches = (...values: (string | null)[]) => !query || values.some((value) => value?.toLowerCase().includes(query));
   const visible = (projects ?? [])
     .filter((project) => showArchived || (!project.archived && !project.trashed))
     .filter((project) => matches(project.name, project.ownerName, project.ownerEmail));
   const invites = (list?.invites ?? []).filter((invite) => matches(invite.projectName, invite.inviterName));
-  const working = Boolean(opening || cloning) || publishing;
+  const transferring = Boolean(cloning) || publishing;
+  const working = Boolean(opening) || transferring;
   const openingText = (name: string) => t`Opening ${name}…`;
   // A project with large figures takes minutes to arrive over a slow link:
   // say how much has, so a long download reads as moving, not stuck.
@@ -403,7 +405,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
   return (
     <ModalDialog
       label={t`Open from Overleaf`}
-      closeDisabled={working}
+      closeDisabled={transferring}
       onClose={onClose}
     >
       <div className="modal modal-large overleaf-picker-modal" onKeyDown={navigateProjects}>
@@ -411,8 +413,8 @@ Files that differ are kept side by side. Nothing is overwritten`,
         className="overleaf-picker-header"
         icon={<Cloud size={22} />}
         title={t`Open from Overleaf`}
-        closeDisabled={working}
-        closeTooltip={working ? t`You can close this once the transfer finishes` : undefined}
+        closeDisabled={transferring}
+        closeTooltip={transferring ? t`You can close this once the transfer finishes` : undefined}
         onClose={onClose}
       />
       {known?.connected && (
