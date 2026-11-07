@@ -182,9 +182,12 @@ Linux would mean signing the AppImage
 with `TAURI_SIGNING_PRIVATE_KEY` and merging a `linux-x86_64` entry into the
 Mac job's `latest.json`.
 
-To recover a release whose Linux checks failed, fix the cause on `main` and
-re-run the failed jobs of that tag's Linux AppImage run: they rebuild from the
-tag's commit, so a fix that needs new code waits for the next release.
+When a release's Linux checks fail, re-running the failed jobs of that tag's
+Linux AppImage run only retries a transient failure (a runner, the network, an
+apt mirror). A re-run keeps the workflow file the original run started from
+and checks out the tag's commit for the scripts it runs, so a fix to the
+workflow or to the code, merged on `main`, takes effect at the next tagged
+release; until then that release has no AppImage.
 A pull request that changes the packaging (the workflow, the smoke script,
 `scripts/linux-e2e.mjs`, `scripts/check-font-leaks.mjs` or the runtime pruning
 in `scripts/lib/runtime-prune.mjs`) runs steps 1–3

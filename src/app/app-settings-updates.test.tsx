@@ -8,9 +8,11 @@ import { afterEach, expect, it, vi } from "vitest";
 const { renderApp } = appHarness({ settingsDialog });
 
 // The user agents of the windows Lattice ships in: WebKitGTK in the Linux
-// AppImage, WKWebView on macOS.
+// AppImage, WKWebView on macOS. An Android browser, which opens only the web
+// demo, also names Linux.
 const LINUX = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko)";
 const MACOS = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)";
+const ANDROID = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
 
 const userAgents: { mockRestore: () => void }[] = [];
 afterEach(() => {
@@ -36,8 +38,8 @@ it("on Linux, says Lattice updates by hand and links to the releases instead of 
   expect(openUrl).toHaveBeenCalledWith("https://github.com/leo1oel/lattice/releases/latest");
 });
 
-it("on macOS, offers the update mode and Check for updates", async () => {
-  await openAppUpdates(MACOS);
+it.each([["macOS", MACOS], ["Android", ANDROID]])("on %s, offers the update mode and Check for updates", async (_, userAgent) => {
+  await openAppUpdates(userAgent);
   expect(screen.getByRole("button", { name: "Check for updates" })).toBeInTheDocument();
   expect(screen.getByText("Automatic updates")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "GitHub Releases" })).not.toBeInTheDocument();
