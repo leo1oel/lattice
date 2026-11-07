@@ -25,6 +25,15 @@ fetch('https://api.github.com/repos/leo1oel/lattice/releases/latest', {
 }).then(async (response) => {
   if (!response.ok) return;
   const release = await response.json();
+  // The Intel Mac build is attached after the Apple Silicon release, only when its checks pass, so
+  // its link stays hidden until the newest release has one. Browsers cannot reliably tell an Intel
+  // Mac from an Apple Silicon one, so the reader picks.
+  const intel = release.assets?.find((asset) =>
+    /^Lattice_.+_x64\.dmg$/.test(asset.name) && asset.state === 'uploaded');
+  if (intel?.browser_download_url?.startsWith('https://github.com/leo1oel/lattice/releases/download/')) {
+    document.querySelectorAll('[data-download-intel]').forEach((link) => { link.href = intel.browser_download_url; });
+    document.querySelectorAll('[data-intel]').forEach((element) => { element.hidden = false; });
+  }
   const installer = release.assets?.find((asset) =>
     /^Lattice_.+_aarch64\.dmg$/.test(asset.name) && asset.state === 'uploaded');
   if (!installer?.browser_download_url?.startsWith('https://github.com/leo1oel/lattice/releases/download/')) return;
