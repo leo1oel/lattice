@@ -14,8 +14,10 @@ use std::sync::{Mutex, PoisonError, TryLockError};
 use std::time::Duration;
 use tauri::ipc::Channel;
 
-/// The Apple Silicon build of rtex, the only Macs Lattice runs on. The digest
-/// is the one the release's SHA256SUMS lists.
+/// The rtex build for the Mac this build runs on (Lattice ships one app for
+/// Apple silicon and one for Intel). The digests are the ones the release's
+/// SHA256SUMS lists.
+#[cfg(target_arch = "aarch64")]
 const RTEX: PinnedDownload = PinnedDownload {
     url: "https://github.com/HenryXiaoYang/realtime-tex/releases/download/v0.0.6/rtex-aarch64-apple-darwin.tar.gz",
     sha256: "99f56b8cde472de0c4c3b4814f7453e97f789ace9e3114a9d7e9f9df2cb68864",
@@ -24,8 +26,20 @@ const RTEX: PinnedDownload = PinnedDownload {
     source: "the rtex live preview engine",
     artifact: "rtex archive",
 };
+#[cfg(not(target_arch = "aarch64"))]
+const RTEX: PinnedDownload = PinnedDownload {
+    url: "https://github.com/HenryXiaoYang/realtime-tex/releases/download/v0.0.6/rtex-x86_64-apple-darwin.tar.gz",
+    sha256: "d28bf8efcaf479161e3b0049142afca67a004dd547ed699a714e8d51b14afad1",
+    timeout: Duration::from_secs(10 * 60),
+    name: "rtex",
+    source: "the rtex live preview engine",
+    artifact: "rtex archive",
+};
 /// The folder the archive unpacks into.
+#[cfg(target_arch = "aarch64")]
 const ARCHIVE_ROOT: &str = "rtex-0.0.6-aarch64-apple-darwin";
+#[cfg(not(target_arch = "aarch64"))]
+const ARCHIVE_ROOT: &str = "rtex-0.0.6-x86_64-apple-darwin";
 
 /// Where the verified release lives: `bin/rtex`, and `share/rtex/tex` beside
 /// it, where rtex looks for its TeX and Lua support files.
@@ -74,7 +88,7 @@ pub(crate) fn status() -> InstallStatus {
 }
 
 fn platform_supported() -> bool {
-    cfg!(target_os = "macos") && std::env::consts::ARCH == "aarch64"
+    cfg!(target_os = "macos") && matches!(std::env::consts::ARCH, "aarch64" | "x86_64")
 }
 
 /// A `lualatex` on the search path builds use that answers `--version`. Only
@@ -98,7 +112,7 @@ fn lualatex_runs() -> bool {
 /// live preview by default, so the host refuses rather than trusting it to ask.
 fn refusal(supported: bool, lualatex: bool) -> Option<&'static str> {
     if !supported {
-        Some("Live preview needs a Mac with Apple silicon.")
+        Some("Live preview needs a Mac.")
     } else if !lualatex {
         Some("Live preview needs LuaLaTeX, and Lattice could not run it.")
     } else {
@@ -304,16 +318,17 @@ mod tests {
         assert!(RTEX.url.starts_with(&format!(
             "https://github.com/HenryXiaoYang/realtime-tex/releases/download/v{RTEX_VERSION}/"
         )));
-        assert!(RTEX.url.ends_with("/rtex-aarch64-apple-darwin.tar.gz"));
-        assert_eq!(ARCHIVE_ROOT, format!("rtex-{RTEX_VERSION}-aarch64-apple-darwin"));
+        let triple = format!("{}-apple-darwin", std::env::consts::ARCH);
+        assert!(RTEX.url.ends_with(&format!("/rtex-{triple}.tar.gz")));
+        assert_eq!(ARCHIVE_ROOT, format!("rtex-{RTEX_VERSION}-{triple}"));
         assert_eq!(RTEX.sha256.len(), 64);
         assert!(RTEX.sha256.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
     }
 
     #[test]
     fn downloads_only_where_rtex_can_drive_lualatex() {
-        assert!(refusal(false, false).unwrap().contains("Apple silicon"));
-        assert!(refusal(false, true).unwrap().contains("Apple silicon"));
+        assert!(refusal(false, false).unwrap().contains("needs a Mac"));
+        assert!(refusal(false, true).unwrap().contains("needs a Mac"));
         assert!(refusal(true, false).unwrap().contains("LuaLaTeX"));
         assert_eq!(refusal(true, true), None);
     }

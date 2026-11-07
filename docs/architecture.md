@@ -434,10 +434,10 @@ regression is not visible in a dev build.
 | Eager JavaScript (all `<script>` in `index.html`) | `1.355 * 1024 * 1024` = 1,420,820 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
-| Staged Open Slide runtime (file bytes) | 66 MiB on macOS, 69 MiB on Linux (larger ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |
+| Staged Open Slide runtime (file bytes) | 66 MiB on Apple silicon Macs, 68 MiB on Intel Macs, 69 MiB on Linux (larger x86_64 and ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |
 
 The Release workflow adds a fifth on the built bundle: `node scripts/app-size-report.mjs --app <Lattice.app>`
-prints the installed size folder by folder and fails above `INSTALLED_APP_BUDGET_BYTES`, counted in allocated
+prints the installed size folder by folder and fails above `INSTALLED_APP_BUDGET_BYTES` (`INSTALLED_INTEL_APP_BUDGET_BYTES` for the Intel app), counted in allocated
 blocks as `du` reports it.
 
 The check (`checkAppSizeBudgets`) additionally refuses any external (non-local)

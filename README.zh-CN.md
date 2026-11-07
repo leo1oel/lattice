@@ -82,8 +82,8 @@ Lattice 不自带模型，也没有自己的 AI 订阅。
 
 ## 安装
 
-需要 Apple Silicon Mac、macOS 14 或更高版本，以及你自己的 [MacTeX](https://tug.org/mactex/) 或 TeX Live。还没有装 TeX？Lattice 启动时会发现，并提出替你安装 BasicTeX。
-从 [最新版本](https://github.com/leo1oel/lattice/releases/latest) 下载 `.dmg`，把 Lattice 拖入“应用程序”，然后打开一个文件夹、从模板新建，或连接 Overleaf 项目。项目菜单里的 **新手教程** 会打开一篇示例论文。
+需要 macOS 14 或更高版本的 Mac（Apple 芯片或 Intel 处理器均可），以及你自己的 [MacTeX](https://tug.org/mactex/) 或 TeX Live。还没有装 TeX？Lattice 启动时会发现，并提出替你安装 BasicTeX。
+从 [最新版本](https://github.com/leo1oel/lattice/releases/latest) 下载 `.dmg`（Intel 处理器的 Mac 请下载以 `_x64.dmg` 结尾的那个），把 Lattice 拖入“应用程序”，然后打开一个文件夹、从模板新建，或连接 Overleaf 项目。项目菜单里的 **新手教程** 会打开一篇示例论文。
 官方版本经过签名和 Apple 公证，并会自动更新。
 
 ## 致谢与许可
