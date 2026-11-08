@@ -70,6 +70,22 @@ describe("perf bench budgets", () => {
     expect(over.failures).toEqual([{ scenario: "pdf-scroll", key: "hooks", value: 11, ceiling: 10 }]);
   });
 
+  it("gates startup's updates instead of its commits, which follow how React batched them", () => {
+    expect(gatedCounts("startup")).toEqual(["updates", "renders", "hooks"]);
+    expect(gatedCounts("startup", "webkit")).toEqual(["updates", "renders", "hooks"]);
+    expect(gatedCounts("typing")).not.toContain("updates");
+
+    // CI on 2026-11-08: 27 startup commits against a ceiling of 26 on pull
+    // requests that did not touch startup; main's own runs read 25–29.
+    const budgets = { scenarios: { startup: { commits: 26, updates: 168, renders: 2024, hooks: 12910 } } };
+    const result = { ...counts(1), commits: 27, updates: 140, renders: 1650, hooks: 12034 };
+    const outcome = applyBudgets(budgets, [{ name: "startup", result }], "check");
+    expect(outcome.failures).toEqual([]);
+    expect(outcome.budgets.scenarios.startup).toEqual({ updates: 168, renders: 2024, hooks: 12910 });
+    const more = applyBudgets(budgets, [{ name: "startup", result: { ...result, updates: 169 } }], "check");
+    expect(more.failures).toEqual([{ scenario: "startup", key: "updates", value: 169, ceiling: 168 }]);
+  });
+
   it("only reports WebKit's tab-drag commits and hooks, which follow the frames a drag spans there", () => {
     expect(gatedCounts("tab-drag")).toEqual(["commits", "renders", "hooks"]);
     expect(gatedCounts("tab-drag", "webkit")).toEqual(["renders"]);
