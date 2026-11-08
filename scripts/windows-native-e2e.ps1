@@ -125,8 +125,8 @@ try {
   Screenshot 'native-window.png'
   Set-Content -LiteralPath $stop -Value 'stop'
   if (!$monitor.WaitForExit(10000)) { throw 'The console monitor did not stop' }
-  $consoles = @(Get-Content $report -Raw | ConvertFrom-Json | Where-Object { $null -ne $_ })
-  if ($consoles.Count -ne 0) { throw "Visible external consoles were detected: $(Get-Content $report -Raw)" }
+  $consoles = Get-Content $report -Raw | ConvertFrom-Json
+  if ($consoles) { throw "Visible external consoles were detected: $(Get-Content $report -Raw)" }
   Record 'no external console windows appeared during startup, resizing, builds and terminal use'
   $checks | Set-Content (Join-Path $Artifacts 'result.txt') -Encoding utf8
 } catch {
