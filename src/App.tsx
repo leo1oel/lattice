@@ -559,7 +559,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     project, projectRootRef, refreshProject, refreshHistory, onExternalEdits: externalOverleafEditsRef,
     editor: {
       activeFile,
-      source,
       dirty: source !== savedSource,
       save,
       accept,

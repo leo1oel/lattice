@@ -276,7 +276,7 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
       setError(anchored.error ?? "locate");
       return;
     }
-    host.props().onCreateComment?.(anchored.from, anchored.to, text);
+    if (host.props().onCreateComment?.(anchored.from, anchored.to, text) === false) return;
     finish();
   };
   return createPortal(

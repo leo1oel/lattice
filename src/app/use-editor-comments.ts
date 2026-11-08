@@ -75,6 +75,14 @@ export function useEditorComments({
    */
   const stateRef = useRef<AnnotationsState>(EMPTY);
   const loadGenerationRef = useRef(0);
+  /**
+   * Whether `state` holds what the project's file had: null until a load
+   * lands (`reset` clears it for each project entered), else why the file
+   * could not be read, if it could not. A save replaces the whole file, so a
+   * state never read (an entry cut short, a file that would not parse) must
+   * not be saved over what is on disk.
+   */
+  const loadedRef = useRef<{ error: string | null } | null>(null);
   const comments = state.annotations;
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -92,19 +100,31 @@ export function useEditorComments({
    * project it belongs to, which the backend refuses once another is open,
    * and its place in this session's order, so a save that finishes after a
    * newer one is dropped there rather than writing older state over it.
+   * Refused, saying why, until this project's annotations have been read.
+   * Returns whether the change was made.
    */
-  const commit = useCallback((change: (current: AnnotationsState) => AnnotationsState) => {
+  const commit = useCallback((change: (current: AnnotationsState) => AnnotationsState): boolean => {
     const projectRoot = projectRootRef.current;
+    if (!projectRoot) return false;
+    const loaded = loadedRef.current;
+    if (loaded?.error !== null) {
+      const error = loaded?.error ?? null;
+      showError(error === null
+        ? t`This project's annotations are still being read. Try again in a moment.`
+        : t`This project's annotations could not be read, so changes to them are not saved: ${error}`);
+      return false;
+    }
     const current = stateRef.current;
     const next = change(current);
-    if (!projectRoot || next === current) return;
+    if (next === current) return false;
     stateRef.current = next;
     setState(next);
     annotationSaves.sent += 1;
     const save = annotationSaves.sent;
     void invoke<void>("save_annotations", { projectRoot, annotations: next.annotations, rounds: next.rounds, save })
       .catch((reason: unknown) => showError(toMessage(reason)));
-  }, [projectRootRef]);
+    return true;
+  }, [projectRootRef, t]);
 
 
   /**
@@ -194,8 +214,9 @@ export function useEditorComments({
   /**
    * Add a note the editor or the PDF composed; see the module note for which
    * kind it becomes. A local annotation takes the next pin number. Resolves
-   * to the annotation as saved, or null when it became an Overleaf thread or
-   * could not be made.
+   * to the annotation as saved, "overleaf" when it was sent as an Overleaf
+   * thread, or null when it was refused (saying why), so the composer keeps
+   * what was typed.
    */
   const docIdOf = useCallback((path: string) => (
     [...overleafDocPaths.entries()].find(([, docPath]) => docPath === path)?.[0] ?? null
@@ -213,11 +234,11 @@ export function useEditorComments({
     return overleafRealtime.status === "live" ? "other-file" : "offline";
   }, [docIdOf, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, overleafRealtime.status, project]);
 
-  const create = useCallback((comment: EditorComment): EditorComment | null => {
+  const create = useCallback((comment: EditorComment): EditorComment | "overleaf" | null => {
     const docId = docIdOf(comment.path);
     if (!overleafLink || !docId || !project) {
       const annotation = { ...comment, number: nextAnnotationNumber(stateRef.current.annotations) };
-      commit(withAnnotations((current) => [...current, annotation]));
+      if (!commit(withAnnotations((current) => [...current, annotation]))) return null;
       setActiveId(annotation.id);
       return annotation;
     }
@@ -228,7 +249,7 @@ export function useEditorComments({
     void overleafComments
       .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
       .catch((reason) => showError(toMessage(reason)));
-    return null;
+    return "overleaf";
   }, [docIdOf, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, commit, t]);
 
   const openPanel = useCallback(() => {
@@ -273,20 +294,36 @@ export function useEditorComments({
   /** Drop the outgoing project's annotations; `load` reads the incoming one's. */
   const reset = useCallback(() => {
     loadGenerationRef.current += 1;
+    loadedRef.current = null;
     stateRef.current = EMPTY;
     setState(EMPTY);
     setPanelOpen(false);
     setActiveId(null);
     setPanelFocus(null);
   }, []);
+  /**
+   * Read the project's annotations. A file that cannot be read (bad JSON, a
+   * merge's conflict markers) says so and keeps them unsaved, rather than
+   * reading as none and being replaced by the next one made.
+   */
   const load = useCallback(async () => {
+    // `reset` moves the generation on whenever another project is entered.
     const generation = ++loadGenerationRef.current;
-    const loaded = await invoke<AnnotationsState>("list_annotations").catch(() => EMPTY);
+    const loaded = await invoke<AnnotationsState>("list_annotations").then(
+      (value) => ({ value, error: null }),
+      (reason: unknown) => ({ value: null, error: toMessage(reason) }),
+    );
     if (loadGenerationRef.current !== generation) return;
-    const next = { annotations: loaded?.annotations ?? [], rounds: loaded?.rounds ?? [] };
+    const { error } = loaded;
+    loadedRef.current = { error };
+    if (error !== null) {
+      showError(t`This project's annotations could not be read, so changes to them are not saved: ${error}`);
+      return;
+    }
+    const next = { annotations: loaded.value?.annotations ?? [], rounds: loaded.value?.rounds ?? [] };
     stateRef.current = next;
     setState(next);
-  }, []);
+  }, [t]);
 
   /** Both kinds of comment, as the editor and the panel want them. */
   const all = useMemo(() => [...comments, ...overleafEditorComments], [comments, overleafEditorComments]);

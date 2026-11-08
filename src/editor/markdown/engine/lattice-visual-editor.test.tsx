@@ -1,5 +1,6 @@
 /** Clean implementation for Lattice; spec: docs/visual-editor-spec.md */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
@@ -147,6 +148,24 @@ describe("Lattice visual Markdown editor", () => {
     view.rerender({ text: "Prefix Alpha middle Omega\n" });
     await waitFor(() => expect(onChangeMarkdown).toHaveBeenLastCalledWith("Prefix Alpha middle Omega tail\n", "Prefix Alpha middle Omega\n"));
     expect(surface().textContent).toBe("Prefix Alpha middle Omega tail");
+  });
+
+  // A note the host refused (its annotations not read yet) must stay in the
+  // composer, or the typed text is lost while the host says to try again.
+  it("keeps the comment composer and its text when the host refuses the note", async () => {
+    const onCreateComment = vi.fn(() => false);
+    const { editor } = renderEditor({ text: "Hello\n", onCreateComment });
+    act(() => {
+      editor.view.focus();
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Clarify." } });
+    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    expect(onCreateComment).toHaveBeenCalledWith(0, 5, "Clarify.");
+    expect(screen.getByRole("dialog", { name: "Add comment" })).toBeInTheDocument();
+    expect(within(composer).getByRole("textbox", { name: "Comment" })).toHaveValue("Clarify.");
   });
 
   it("keeps a read-only document read-only", () => {
