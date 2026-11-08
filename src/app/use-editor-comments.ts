@@ -176,6 +176,9 @@ export function useEditorComments({
   /**
    * Store where citation reasons now sit, as the editor found them after an
    * edit; the reason itself did not change, so neither does its updatedAt.
+   * An editor torn down after a project switch still flushes its last save
+   * here, into a store that was reset or holds another project: that save is
+   * dropped silently, before `commit` would toast "still being read".
    */
   const reanchorCitationReasons = useCallback((moves: ReadonlyMap<string, Pick<EditorComment, "from" | "to" | "quote" | "prefix" | "suffix">>) => {
     if (!stateRef.current.annotations.some((item) => moves.has(item.id))) return;

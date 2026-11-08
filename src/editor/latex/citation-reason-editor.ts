@@ -255,6 +255,9 @@ export function citationReasons(live: () => LatexEditorLiveData, path: string): 
       const doc = view.state.doc.toString();
       if (doc.slice(target.from, target.to).toLocaleLowerCase() !== target.key.toLocaleLowerCase()) return close(view);
       const body = input.value.trim();
+      // Start from the stored reason, not the one read when the popover
+      // opened: the write-back may have saved a newer anchor meanwhile, and
+      // saving replaces the whole annotation.
       const latest = existing && (current.citationReasons?.find((item) => item.id === existing.id) ?? existing);
       const reason = latest
         ? { ...latest, ...reanchoredReason(doc, latest, { ...target, line: 0 }), body, citation: { key: target.key, role } }
