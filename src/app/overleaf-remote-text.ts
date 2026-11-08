@@ -45,10 +45,10 @@ export async function applyOverleafRemoteText(
     if (!isCurrent()) return false;
     const current = deps.sourceRef.current;
     const saved = deps.savedSourceRef.current;
-    // A joined snapshot the buffer already shows needs nothing merged.
-    const merged = current === baseContent ? text
-      : !carryTyping ? (current === text ? text : null)
-      : rebaseOnto(baseContent, current, ops, text);
+    // A buffer already showing the new text, or still the text it was made
+    // from, takes it as it is: merging it again would add its edits twice.
+    const merged = current === baseContent || current === text ? text
+      : carryTyping ? rebaseOnto(baseContent, current, ops, text) : null;
     if (merged === null) return false;
     if (merged === current && saved !== current && !carryTyping) return false;
     try {

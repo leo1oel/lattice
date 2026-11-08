@@ -267,12 +267,15 @@ purpose.
   update arriving before then is transformed against it rather than handing the
   file to regular sync. Typing done while a remote update is being written to
   disk is carried onto the new text and sent after it.
-- **A rejoin merges from a known common ancestor.** The writer's work since is
-  carried onto the joined snapshot from a text both are known to descend from
-  (the held document's last shared text, else the copy the last sync agreed on).
-  Overleaf transforms that work as OT would, so neither side's typing during a
-  sync sends the file back to regular sync. With no such text, the snapshot is
-  taken only when the buffer already shows it.
+- **A rejoin merges only from the last shared text.** When the document is
+  still held and its last shared text is the one at its version, the writer's
+  work since is carried onto the joined snapshot as OT would place it and goes
+  out as operations. The copy the last sync agreed on is not a merge ancestor:
+  an edit can have reached both sides after it, and merging from it would add
+  that edit twice. It only decides the cases where one side alone moved on (a
+  buffer still holding it takes the snapshot; a snapshot still equal to it
+  takes the buffer's work as operations). A buffer already showing the
+  snapshot takes it as it is; anything else is left to regular sync.
 - **A timeout is not proof of rejection.** A document whose send outcome is
   unknown stays owned by OT until a late ack or a rejoin/catch-up proves what
   happened. Ordinary file sync must not resend it blindly.

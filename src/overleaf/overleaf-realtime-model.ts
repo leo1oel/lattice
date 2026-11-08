@@ -70,9 +70,9 @@ export type OverleafRemoteTextContext = {
    * Whether the buffer may already hold the writer's typing on top of
    * `baseContent`, to be carried onto the new text the way the server will
    * place it. True for a co-author's operation, which OT built on the text
-   * this side last sent, and for a joined snapshot made from a text the
-   * buffer is known to descend from; false for any other joined snapshot,
-   * which the buffer has to match (or already show) before anything is taken.
+   * this side last sent, and for a joined snapshot made from the held
+   * document's last shared text; false for any other joined snapshot, which
+   * the buffer has to match (or already show) before anything is taken.
    */
   carryTyping: boolean;
   isCurrent: () => boolean;
