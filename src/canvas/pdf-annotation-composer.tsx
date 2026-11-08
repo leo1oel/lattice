@@ -69,6 +69,8 @@ export function PdfAnnotationComposer(props: {
   // Under the selection on its page, kept there as the PDF scrolls or zooms.
   usePdfAnchoredPopup(popupRef, selection, COMPOSER_PLACE);
   // A click outside closes it (and still selects, or presses, where it lands).
+  // Not while Overleaf is taking the comment: the request cannot be called
+  // back, so "Note discarded" would be untrue and its Undo would post twice.
   const dismiss = () => {
     if (!saving) props.onDismiss({ body, intent });
   };
