@@ -471,9 +471,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     projectRef, activeFileRef, accept, recordSavedPaths, refreshProject, refreshHistory, loadFile, clearEditor,
   });
 
-  const openSources = useCallback(() => new Map([
-    [activeFileRef.current, sourceRef.current],
-  ]), [activeFileRef, sourceRef]);
+  const openSources = useCallback(() => new Map([[activeFileRef.current, sourceRef.current]]), [activeFileRef, sourceRef]);
   const editorComments = useEditorComments({
     project, projectRootRef, activeFileRef, openProjectFile: openFile, overleaf,
     author: { id: editorCommentAuthorId, name: authorName },
@@ -631,7 +629,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   });
 
   const sourceNavigation = useSourceNavigation({
-    project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree,
+    project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree, editorComments,
     openProjectPathRef: openMarkdownProjectPathRef,
   });
   const {
@@ -645,10 +643,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     ));
   }, [editorPositionRef, setEditorPosition]);
 
-
-
   useLayoutEffect(() => { openOverleafSettingsRef.current = () => openSettings("overleaf"); }, [openSettings]);
-
 
   const settingsDialog = (
     <AppSettingsDialog
@@ -868,9 +863,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         </LazyMount>
       </main>
 
-
       <TexSetupDialogs setup={texSetup} />
-
 
       <AppHistoryDrawers
         tools={tools}
@@ -904,7 +897,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
           <AppOverleafCollabDrawer
             key={`${project.root}:${editorComments.panelFocusId ? editorComments.panelFocus?.nonce : "comments"}`}
             localComments={localComments}
-            localCommentCount={editorComments.comments.filter((comment) => !comment.resolved).length}
+            localCommentCount={editorComments.comments.filter((item) => !item.resolved).length}
             hasLocalComments={editorComments.comments.length > 0}
             focusLocalComments={!!editorComments.panelFocusId && !overleafThreadOf(editorComments.panelFocusId)}
             focusThreadId={editorComments.panelFocusId ? overleafThreadOf(editorComments.panelFocusId) : null}

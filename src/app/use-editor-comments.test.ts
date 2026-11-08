@@ -5,6 +5,7 @@ import type { ProjectSnapshot } from "../app-types";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { notifyInfo } from "../telemetry/app-notify";
 import { showError } from "./notify";
+import { anchorCitationReasons, createCitationReason } from "../editor/latex/citation-reasons";
 import { useEditorComments } from "./use-editor-comments";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -221,4 +222,27 @@ it("drops a read that lands after another project opened", async () => {
   });
   expect(saved()).toEqual([]);
   expect(view.result.current.comments).toEqual([]);
+});
+
+it("moves the reasons on a renamed citation key to the new key, keeping where they sit", async () => {
+  const source = "Holds \\cite{Smith2020}; see \\cite{jones2019}.";
+  const reasonOn = (key: string, from: number) => createCitationReason({
+    path: "main.tex", source, site: { from, to: from + key.length, key }, role: "supporting", body: "",
+    authorId: "me", authorName: "Me",
+  })!;
+  const smith = reasonOn("Smith2020", 12);
+  const jones = reasonOn("jones2019", 34);
+  const { view } = await renderComments([comment("plain"), smith, jones]);
+  act(() => view.result.current.renameCitationKey("smith2020", "smith2020a"));
+
+  const after = view.result.current.citationReasons;
+  const renamed = after.find((item) => item.id === smith.id)!;
+  expect(renamed.citation).toEqual({ key: "smith2020a", role: "supporting" });
+  expect(renamed).toMatchObject({ from: smith.from, to: smith.to, prefix: smith.prefix, suffix: smith.suffix });
+  expect(after.find((item) => item.id === jones.id)).toEqual(jones);
+  expect(view.result.current.comments.map((item) => item.id)).toEqual(["plain"]);
+  // The renamed file still places it on its cite, rather than orphaning it.
+  const renamedSource = source.replace("Smith2020", "smith2020a");
+  expect(anchorCitationReasons(renamedSource, "main.tex", after).get(smith.id)?.key).toBe("smith2020a");
+  expect(saved().at(-1)).toEqual(["plain", smith.id, jones.id]);
 });

@@ -186,6 +186,19 @@ export function useEditorComments({
     )));
   }, [commit]);
 
+  /**
+   * The project's citation key `from` was renamed to `to`: its reasons
+   * follow, letter case aside as citation keys match, and keep their anchors.
+   */
+  const renameCitationKey = useCallback((from: string, to: string) => {
+    const renamed = (item: EditorComment) => item.citation?.key.toLocaleLowerCase() === from.toLocaleLowerCase();
+    commit(withAnnotations((current) => (
+      current.some(renamed)
+        ? current.map((item) => (renamed(item) ? { ...item, citation: { ...item.citation!, key: to } } : item))
+        : current
+    )));
+  }, [commit]);
+
   const setResolved = useCallback((id: string, resolved: boolean) => {
     const threadId = overleafThreadOf(id);
     if (!threadId) {
@@ -379,7 +392,7 @@ export function useEditorComments({
   }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, citationReasons, saveCitationReason, reanchorCitationReasons, rounds: state.rounds, stateRef, commit, all, unresolved, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
+    comments, citationReasons, saveCitationReason, reanchorCitationReasons, renameCitationKey, rounds: state.rounds, stateRef, commit, all, unresolved, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
     deleteComment, panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
     activeId, setActiveId, focusRequest, focusHandled,
   };

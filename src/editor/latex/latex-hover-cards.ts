@@ -19,6 +19,7 @@ import type { CitationReasonsApi } from "./citation-reason-editor";
 import { compiledLabels } from "./compiled-labels";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationHoverTarget, graphicsHoverTarget, referenceHoverTarget, resolveProjectPath } from "./latex-symbols";
+import { visibleLatexSource } from "./latex-visible-source";
 import { referenceKindLabel, type CitationInfo, type DefinitionTarget, type ReferenceInfo } from "./latex-text";
 import { mathRegionAt } from "./math-region";
 
@@ -165,7 +166,8 @@ function citationCard(
     },
   }));
 
-  const whyCited: CardAction | undefined = reasons && data.onSaveCitationReason
+  const read = citationHoverTarget(visibleLatexSource(view.state.doc.toString()), host.target.from);
+  const whyCited: CardAction | undefined = reasons && data.onSaveCitationReason && read
     ? {
       label: i18n._(msg`Why cited`),
       run: () => {

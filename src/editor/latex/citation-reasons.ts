@@ -15,6 +15,7 @@ import {
   createEditorComment, resolveCommentAnchor, type CitationReason, type CitationRole, type EditorComment,
 } from "../comments/editor-comment-data";
 import { argumentsOf, CITATION, citationNotePage, keySpans } from "./latex-symbols";
+import { visibleLatexSource } from "./latex-visible-source";
 
 /** One key of one citation command: its span, its line and the page its note names (`\cite[p.~5]{key}`). */
 export type CitationSite = { key: string; from: number; to: number; line: number; page?: number };
@@ -31,13 +32,18 @@ const CONTEXT = 32;
  */
 const MIN_SCORE = 16;
 
-/** Every citation key in `source`, in reading order. */
+/**
+ * Every citation key in `source` that TeX reads, in reading order: a cite in
+ * a comment or a verbatim-like environment is text, as the manuscript scan
+ * (`list_citation_usages`) reads it too.
+ */
 export function citationSites(source: string): CitationSite[] {
   const sites: CitationSite[] = [];
+  const visible = visibleLatexSource(source);
   let line = 1;
   let counted = 0;
-  for (const command of argumentsOf(source, CITATION)) {
-    const options = [...source.slice(command.start, command.from - 1).matchAll(/\[([^\]]*)\]/g)];
+  for (const command of argumentsOf(visible, CITATION)) {
+    const options = [...visible.slice(command.start, command.from - 1).matchAll(/\[([^\]]*)\]/g)];
     const page = options.length ? citationNotePage(options.at(-1)![1]) : undefined;
     for (const span of keySpans(command.content, command.from)) {
       for (let at = source.indexOf("\n", counted); at >= 0 && at < span.from; at = source.indexOf("\n", at + 1)) line += 1;
@@ -182,18 +188,20 @@ export type CitationReasonData = {
 
 /**
  * The citation reasons the Annotations panel lists: those whose cite is
- * gone from a file whose text it can read (orphaned), and those resolved
- * there. An anchored reason belongs to its citation card, not the panel.
+ * gone from their file (orphaned), and those resolved there. An anchored
+ * reason belongs to its citation card, not the panel. `sourceFor` gives a
+ * file's text, null for a file that is gone, and undefined while unread.
  */
 export function panelCitationReasons(
   reasons: readonly EditorComment[],
-  sourceFor: (path: string) => string | undefined,
+  sourceFor: (path: string) => string | null | undefined,
 ): EditorComment[] {
   const placed = new Map<string, Map<string, CitationSite>>();
   return reasons.filter((reason) => {
     if (reason.resolved) return true;
     const source = sourceFor(reason.path);
     if (source === undefined) return false;
+    if (source === null) return true;
     let sites = placed.get(reason.path);
     if (!sites) {
       sites = anchorCitationReasons(source, reason.path, reasons.filter((item) => !item.resolved));

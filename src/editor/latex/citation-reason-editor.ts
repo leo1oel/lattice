@@ -18,6 +18,7 @@ import {
 import { citationRoleLabel } from "./citation-roles";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationHoverTarget } from "./latex-symbols";
+import { visibleLatexSource } from "./latex-visible-source";
 
 type Placed = {
   reasons: readonly EditorComment[];
@@ -318,7 +319,7 @@ export function citationReasons(live: () => LatexEditorLiveData, path: string): 
     contextmenu(event, view) {
       if (!live().onSaveCitationReason) return false;
       const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
-      const target = position === null ? null : citationHoverTarget(view.state.doc.toString(), position);
+      const target = position === null ? null : citationHoverTarget(visibleLatexSource(view.state.doc.toString()), position);
       if (!target) return false;
       event.preventDefault();
       edit(view, target);

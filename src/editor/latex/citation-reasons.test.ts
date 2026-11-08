@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CitationRole, EditorComment } from "../comments/editor-comment-data";
-import { anchorCitationReasons, annotationAnchor, citationSites, createCitationReason, reanchoredReason } from "./citation-reasons";
+import { anchorCitationReasons, annotationAnchor, citationSites, createCitationReason, panelCitationReasons, reanchoredReason } from "./citation-reasons";
 
 const SOURCE = [
   "\\section{Results}",
@@ -33,6 +33,29 @@ describe("citationSites", () => {
       { key: "jones2019", line: 5, page: 5 },
       { key: "smith2020", line: 5, page: 5 },
     ]);
+  });
+
+  it("skips cites TeX never reads: in a comment, a verbatim environment or \\verb", () => {
+    const source = [
+      "% \\cite{smith2020} (old draft)",
+      "Shown 100\\% here \\cite{smith2020}. % not \\cite{jones2019}",
+      "\\begin{verbatim}",
+      "\\cite{smith2020}",
+      "\\end{verbatim}",
+      "Write \\verb|\\cite{jones2019}| for that.",
+    ].join("\n");
+    expect(citationSites(source).map(({ key, line }) => `${key}@${line}`)).toEqual(["smith2020@2"]);
+  });
+});
+
+describe("panelCitationReasons", () => {
+  it("lists a reason whose cite is gone or whose file is gone, and waits for a file not read yet", () => {
+    const supporting = reason(SOURCE, 0, "smith2020", "supporting");
+    const deleted = SOURCE.replace(" \\cite{smith2020}", "");
+    expect(panelCitationReasons([supporting], () => SOURCE)).toEqual([]);
+    expect(panelCitationReasons([supporting], () => deleted)).toEqual([supporting]);
+    expect(panelCitationReasons([supporting], () => null)).toEqual([supporting]);
+    expect(panelCitationReasons([supporting], () => undefined)).toEqual([]);
   });
 });
 

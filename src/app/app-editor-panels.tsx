@@ -28,6 +28,7 @@ import type { AnnotationRound, EditorComment } from "../editor/comments/editor-c
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
 import { panelCitationReasons } from "../editor/latex/citation-reasons";
+import { useCitationReasonSources } from "./use-citation-reason-sources";
 import type {
   BodyBoundary,
   BuildResult,
@@ -160,7 +161,8 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const writingFile = props.activeFile && props.openTabs.includes(props.activeFile)
     && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
   // A citation reason joins the notes once its cite is gone (or it was resolved there).
-  const orphaned = comments.citationReasons.length ? panelCitationReasons(comments.citationReasons, sourceFor) : [];
+  const reasonSourceFor = useCitationReasonSources(project.root, comments.citationReasons, sourceFor, annotationRounds.readSource, project.files);
+  const orphaned = comments.citationReasons.length ? panelCitationReasons(comments.citationReasons, reasonSourceFor) : [];
   const panelComments = orphaned.length ? [...comments.comments, ...orphaned] : comments.comments;
   const commentsPanel = (
     <EditorCommentsPanel

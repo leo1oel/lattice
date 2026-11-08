@@ -114,8 +114,8 @@ export function PaperInspector(props: PaperInspectorProps) {
   const usesId = useId();
   const abstract = usePaperAbstract(props.projectKey, paper);
   const reasons = props.citationReasons ?? NO_REASONS;
-  const sources = useCitationUseSources(props.projectKey, reasons.length ? props.usages : null, props.usageRevision);
-  const details = props.usages && reasons.length ? citationUseDetails(props.usages, sources, reasons) : [];
+  const sources = useCitationUseSources(props.projectKey, props.usages, props.usageRevision);
+  const details = props.usages ? citationUseDetails(props.usages, sources, reasons) : [];
   const year = paper.year?.trim();
   const kicker = [props.venue, year].filter(Boolean).join(", ");
   const names = paperAuthorNames(paper);
