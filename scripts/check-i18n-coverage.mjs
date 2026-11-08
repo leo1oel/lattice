@@ -15,7 +15,7 @@ const failures = [];
 // silently let English back into the zh-CN interface. Oxlint prints its
 // resolved config but not per file, so this applies the overrides in order,
 // as Oxlint does: a later matching override replaces an earlier setting.
-const config = JSON.parse(execFileSync(path.join(root, "node_modules/.bin/oxlint"), ["--print-config"], {
+const config = JSON.parse(execFileSync(process.execPath, [path.join(root, "node_modules/oxlint/bin/oxlint"), "--print-config"], {
   cwd: root,
   encoding: "utf8",
 }));
