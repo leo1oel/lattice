@@ -23,6 +23,9 @@ The **Changes** view is a merged, semantic timeline. It does not introduce a thi
 - Agent checkpoints remain the source of truth for Agent-turn file recovery.
 - The embedded Agent surface sends checkpoint summaries to the host. Lattice presents them alongside
   local transactions and sends restore requests back to the Agent checkpoint engine.
+- Agent restores reverse only the agent's own turn diffs onto the current text. Newer edits by the
+  writer or a co-author are kept, an overlap becomes conflict markers for just that spot, and a file
+  the host wrote during the turn is refused rather than reversed (see `synara-runtime.md`).
 - Local restores are forward-only: restoring creates a new transaction linked by `undoOf`; it never
   deletes the source transaction.
 - A local restore fails closed if a target file no longer matches the state produced by the selected

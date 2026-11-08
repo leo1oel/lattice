@@ -43,6 +43,7 @@ import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { i18n } from "../i18n";
 import { showError, showWarning } from "./notify";
+import { setHostFileWritesSink } from "../agent/agent-host-writes";
 
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
@@ -240,6 +241,15 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     if (message.mode === "draft") frameRef.current?.focus();
     void postMessage(message);
   }, [composerPromptRequest, frameReady, postMessage, projectRootRef]);
+  // Files Lattice writes itself go to the ready panel, which records them on
+  // any turn running in this project so its Undo keeps them (agent-host-writes.ts).
+  useEffect(() => {
+    if (!frameReady) return;
+    setHostFileWritesSink((message) => {
+      if (message.workspaceRoot === projectRootRef.current) void postMessage(message);
+    });
+    return () => setHostFileWritesSink(null);
+  }, [frameReady, postMessage, projectRootRef]);
   // The decks light up only for this frame's turn: a frame that is replaced,
   // retried or gone reports nothing more, so its last turn must not linger.
   useEffect(() => () => publishAgentDeckPresence(null), [frameAttempt, frameKey]);

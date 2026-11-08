@@ -163,6 +163,37 @@ describe("ConflictResolverDialog", () => {
     expect(disk).toBe("before\nco-author line\nlocal\nafter");
   });
 
+  it("names an Agent Undo's sides and keeps the text from before the agent", async () => {
+    // The exact file Synara's reverse three-way patch writes when a co-author
+    // added a sentence to the paragraph the agent rewrote (scenario S2).
+    const undo = [
+      "\\section{Intro}",
+      "",
+      "<<<<<<< ours",
+      "P: The agent rewrote the opening paragraph completely. Co-author sentence.",
+      "||||||| base",
+      "P: The agent rewrote the opening paragraph completely.",
+      "=======",
+      "P: The old opening paragraph says one thing.",
+      ">>>>>>> theirs",
+      "",
+      "End.",
+      "",
+    ].join("\n");
+    vi.mocked(invoke).mockImplementation(async (command) => (command === "read_project_file" ? undo : undefined));
+    render(
+      <ConflictResolverDialog open sides="agent-undo" path="main.tex" projectRoot="/tmp/paper" onClose={vi.fn()} onResolved={vi.fn()} />,
+    );
+    const current = await screen.findByRole("radio", { name: "Keep the current text" });
+    expect(current).toHaveTextContent("Co-author sentence.");
+    expect(screen.queryByRole("radio", { name: "Keep Overleaf's version" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Keep the text from before the agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and upload" }));
+    await waitFor(() => expect(written()).toEqual([
+      "\\section{Intro}\n\nP: The old opening paragraph says one thing.\n\nEnd.\n",
+    ]));
+  });
+
   it("lets the user change a choice before saving", async () => {
     renderDialog(conflict, "main.tex");
     fireEvent.click(await screen.findByRole("radio", { name: "Keep this computer's version" }));
