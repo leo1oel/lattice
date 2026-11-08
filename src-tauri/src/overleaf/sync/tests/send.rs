@@ -304,10 +304,46 @@ fn text_overleaf_keeps_as_a_file_goes_up_beside_a_document_without_a_false_repor
     let local: Files =
         &[("fig.eps", b"%!PS-Adobe-3.0 EPSF-3.0\n%regenerated\n"), ("main.tex", OURS.as_bytes())];
     let moves = |name: &str| if name == "fig.eps" { 2 } else { 1 };
-    let mock = Mock { versions: vec![11], upload_moves: Some(moves), ..Mock::project(base) };
+    let mock = Mock {
+        versions: vec![11],
+        upload_moves: Some(moves),
+        file_entities: vec!["fig.eps"],
+        ..Mock::project(base)
+    };
     let (server, root, result) = run_sync(mock, local, base);
     assert_eq!(result.pushed, ["fig.eps", "main.tex"]);
     assert!(result.uploaded_over_edits.is_empty(), "{:?}", result.uploaded_over_edits);
     assert_eq!(server.uploads().len(), 2);
     assert_eq!(state_files(&root)["main.tex"], sha256_hex(OURS.as_bytes()));
+}
+
+#[test]
+fn a_bibliography_overleaf_keeps_as_a_file_goes_up_beside_a_document_without_a_false_report() {
+    // Text past Overleaf's size limit for a document is kept as a file
+    // entity, whatever its extension, and its upload says it landed as one.
+    // Replacing it is two history updates (a fresh entity added, the old one
+    // renamed away), a document's upload one. Nobody else edits, so every
+    // file goes up in this sync and nothing is reported, whether the
+    // bibliography goes up before the document or after it.
+    let entry = "@misc{key,\n  title = {A title long enough to fill the line},\n}\n\n";
+    let held = entry.repeat(1_500_000 / entry.len());
+    let ours = format!("{held}@misc{{new,\n  title = {{Added here}},\n}}\n");
+    for bib in ["bib/refs.bib", "refs.bib"] {
+        let base: Files = &[(bib, held.as_bytes()), ("main.tex", BASE.as_bytes())];
+        let local: Files = &[(bib, ours.as_bytes()), ("main.tex", OURS.as_bytes())];
+        let moves = |name: &str| if name == "refs.bib" { 2 } else { 1 };
+        let mock = Mock {
+            versions: vec![11],
+            upload_moves: Some(moves),
+            file_entities: vec!["refs.bib"],
+            ..Mock::project(base)
+        };
+        let (server, root, result) = run_sync(mock, local, base);
+        let mut expected = vec![bib, "main.tex"];
+        expected.sort();
+        assert_eq!(result.pushed, expected, "{bib}");
+        assert!(result.uploaded_over_edits.is_empty(), "{bib}: {:?}", result.uploaded_over_edits);
+        assert_eq!(server.uploads().len(), 2, "{bib}");
+        assert_eq!(state_files(&root)[bib], sha256_hex(ours.as_bytes()), "{bib}");
+    }
 }

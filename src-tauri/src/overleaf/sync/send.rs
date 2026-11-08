@@ -63,7 +63,7 @@ pub(super) fn send(
     let (documents, mut uploads): (BTreeMap<_, _>, BTreeMap<_, _>) =
         uploads.into_iter().partition(|(path, bytes)| is_document(held, path, bytes));
 
-    let mut history = History { linked, client, base: version_before, own: 0 };
+    let mut history = History { linked, client, base: version_before, own: Some(0) };
     if !documents.is_empty() {
         let csrf = csrf.ok_or("Overleaf's upload token was not fetched.")?;
         let uploader = linked.uploader(client, csrf)?;
@@ -103,9 +103,9 @@ pub(super) fn send(
     Ok(outcome)
 }
 
-/// Whether `path` is text Overleaf holds already and keeps as a document
-/// when uploaded, so a co-author may be typing in it in the web editor while
-/// it goes up, and its upload moves the version by one.
+/// Whether `path` is text Overleaf holds already, by its name one an upload
+/// keeps as a document, so a co-author may be typing in it in the web editor
+/// while it goes up. Overleaf's answer to the upload says whether it did.
 fn is_document(held: &BTreeMap<String, Vec<u8>>, path: &str, bytes: &[u8]) -> bool {
     let text = |bytes: &[u8]| std::str::from_utf8(bytes).is_ok();
     !may_become_a_file(path) && text(bytes) && held.get(path).is_some_and(|theirs| text(theirs))
@@ -118,8 +118,10 @@ struct History<'a> {
     client: &'a Client,
     /// The version of the copy the sync planned against.
     base: Option<i64>,
-    /// Uploads this sync has made so far.
-    own: i64,
+    /// Uploads this sync has made so far, while each landed as a document;
+    /// `None` once one landed as anything else, a file entity whose upload
+    /// Overleaf records as more than one change.
+    own: Option<i64>,
 }
 
 impl History<'_> {
@@ -130,14 +132,16 @@ impl History<'_> {
     /// a little late, so seeing fewer of our uploads than we made is fine;
     /// seeing more than we made is someone else's edit. A timestamp moves
     /// for our upload as for anyone's, so it tells only until our first
-    /// upload; after that it holds, as no read can say otherwise. An
-    /// unreadable version tells nothing, so it never counts as holding still.
+    /// upload; after that it holds, as no read can say otherwise. So it does
+    /// once an upload landed as other than a document. An unreadable version
+    /// tells nothing, so it never counts as holding still.
     fn holds_at(&self, seen: Option<HistoryVersion>) -> bool {
-        match (self.base, seen) {
-            (Some(base), Some(HistoryVersion::Counted(seen))) => {
-                (base..=base + self.own).contains(&seen)
+        match (self.base, seen, self.own) {
+            (Some(_), Some(_), None) => true,
+            (Some(base), Some(HistoryVersion::Counted(seen)), Some(own)) => {
+                (base..=base + own).contains(&seen)
             }
-            (Some(base), Some(HistoryVersion::Stamped(seen))) => self.own > 0 || seen == base,
+            (Some(base), Some(HistoryVersion::Stamped(seen)), Some(own)) => own > 0 || seen == base,
             _ => false,
         }
     }
@@ -174,8 +178,8 @@ impl History<'_> {
                 outcome.stood_down.insert(path);
                 break;
             }
-            uploader.upload(&path, bytes.clone())?;
-            self.own += 1;
+            let landed_as_document = uploader.upload(&path, bytes.clone())?;
+            self.own = self.own.filter(|_| landed_as_document).map(|own| own + 1);
             seen = self.linked.history_version(self.client);
             if self.base.is_some() && seen.is_some() && !self.holds_at(seen) {
                 outcome.over_edits.push(path.clone());

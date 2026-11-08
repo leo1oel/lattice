@@ -82,6 +82,9 @@ pub(super) struct Mock {
     /// How far each upload moves the version served after it, by the
     /// uploaded file's name; unset, only `versions` moves it.
     pub upload_moves: Option<fn(&str) -> i64>,
+    /// The names Overleaf keeps as file entities: an upload of one answers
+    /// that it landed as a file, any other that it landed as a document.
+    pub file_entities: Vec<&'static str>,
     /// The project history, newest first, served whole to every other
     /// `/updates` request: the page reads that confirm a destructive pull.
     pub history: Vec<serde_json::Value>,
@@ -185,17 +188,18 @@ impl Mock {
                         let (status, body) = self.upload_failure.unwrap_or((500, "upload failed"));
                         (status, JSON, body.into())
                     } else {
+                        let body = String::from_utf8_lossy(&body);
+                        let name = body.split("filename=\"").nth(1);
+                        let name = name.and_then(|rest| rest.split('"').next()).unwrap_or_default();
                         if let Some(moves) = self.upload_moves {
-                            let body = String::from_utf8_lossy(&body);
-                            let name = body
-                                .split("filename=\"")
-                                .nth(1)
-                                .and_then(|rest| rest.split('"').next());
-                            moved += moves(name.unwrap_or_default());
+                            moved += moves(name);
                         }
-                        let body =
-                            "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
-                        (200, JSON, body.into())
+                        let landed =
+                            if self.file_entities.contains(&name) { "file" } else { "doc" };
+                        let body = serde_json::json!({
+                            "success": true, "entity_id": "e1", "entity_type": landed
+                        });
+                        (200, JSON, body.to_string().into_bytes())
                     }
                 }
                 ("POST", p) if p.ends_with("/folder") => {
