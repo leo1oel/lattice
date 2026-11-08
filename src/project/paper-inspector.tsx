@@ -15,6 +15,9 @@ import { paperPdfUrl } from "../papers/paper-source";
 import { citationHealthParts, citationHealthTitle } from "./citation-health";
 import { paperReadingState } from "./paper-library-view";
 import type { SymbolOccurrence } from "./references-panel";
+import type { EditorComment } from "../editor/comments/editor-comment-data";
+import { citationRoleLabel } from "../editor/latex/citation-roles";
+import { citationUseDetails, useCitationUseSources } from "./citation-use-details";
 import "./paper-inspector.css";
 
 export type PaperInspectorProps = {
@@ -30,6 +33,10 @@ export type PaperInspectorProps = {
   onOpenLink?: () => void;
   onOpenUse: (usage: SymbolOccurrence) => void;
   onClose: () => void;
+  /** The project's citation reasons: each use says why it cites the paper. */
+  citationReasons?: readonly EditorComment[];
+  /** The scan `usages` came from, so the files they sit in are read again with it. */
+  usageRevision?: unknown;
 };
 
 /**
@@ -92,10 +99,12 @@ function citeContext(snippet: string, key: string): string {
   return `…${text.slice(space >= 0 && space < anchor ? space + 1 : anchor - lead)}`;
 }
 
+const NO_REASONS: readonly EditorComment[] = [];
+
 /**
  * A wide library's detail pane for the selected paper: where it appeared and
  * when, its title and authors, what can be done with it, every place the
- * manuscript cites it (each a jump to that line), its abstract and its
+ * manuscript cites it (each a jump to that line, with why it cites it), its abstract and its
  * record.
  */
 export function PaperInspector(props: PaperInspectorProps) {
@@ -104,6 +113,9 @@ export function PaperInspector(props: PaperInspectorProps) {
   const titleId = useId();
   const usesId = useId();
   const abstract = usePaperAbstract(props.projectKey, paper);
+  const reasons = props.citationReasons ?? NO_REASONS;
+  const sources = useCitationUseSources(props.projectKey, reasons.length ? props.usages : null, props.usageRevision);
+  const details = props.usages && reasons.length ? citationUseDetails(props.usages, sources, reasons) : [];
   const year = paper.year?.trim();
   const kicker = [props.venue, year].filter(Boolean).join(", ");
   const names = paperAuthorNames(paper);
@@ -165,18 +177,28 @@ export function PaperInspector(props: PaperInspectorProps) {
           </h3>
           {props.usages.length ? (
             <ul className="paper-inspector-uses">
-              {props.usages.map((usage) => (
-                <li key={`${usage.path}:${usage.line}:${usage.snippet}`}>
-                  <button
-                    type="button"
-                    title={usage.snippet.trim()}
-                    onClick={() => props.onOpenUse(usage)}
-                  >
-                    <code>{usage.path}:{usage.line}</code>
-                    <span>{citeContext(usage.snippet, citeKey ?? "")}</span>
-                  </button>
-                </li>
-              ))}
+              {props.usages.map((usage, index) => {
+                const { reason, page } = details[index] ?? {};
+                const role = reason?.citation?.role;
+                return (
+                  <li key={`${usage.path}:${usage.line}:${index}`}>
+                    <button
+                      type="button"
+                      title={usage.snippet.trim()}
+                      onClick={() => props.onOpenUse(usage)}
+                    >
+                      <code>{usage.path}:{usage.line}{page ? ` · ${t`p. ${page}`}` : ""}</code>
+                      <span>{citeContext(usage.snippet, citeKey ?? "")}</span>
+                      {role && (
+                        <span className="paper-inspector-why">
+                          <span className="paper-inspector-role" data-role={role}>{citationRoleLabel(role)}</span>
+                          {reason.body && <span className="paper-inspector-reason">{reason.body}</span>}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="paper-inspector-none">{t`Not cited in this paper yet`}</p>

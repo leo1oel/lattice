@@ -18,6 +18,7 @@ import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import { paperImportStageLabel } from "../papers/paper-import-progress";
 import type { NewEntryRequest, NewEntryType } from "../project/project-new-entries";
 import type { SymbolOccurrence } from "../project/references-panel";
+import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
@@ -45,7 +46,7 @@ const PAPERS_LOADING = { status: "loading" } as const;
 export function usePanelPortals({
   project, documents, trellis, agentPresent, theme, appLocale, tree, prewarm, projectSearch, newEntry, gitFiles,
   rootDocumentPath, library, overleafSyncing, paperActions, referenceImport, openSymbolOccurrence, synara, tools,
-  checkReferences,
+  checkReferences, citationReasons,
 }: {
   project: ProjectSnapshot | null;
   documents: OpenDocuments;
@@ -67,6 +68,8 @@ export function usePanelPortals({
   synara: SynaraHost;
   tools: Pick<ToolDrawers, "open">;
   checkReferences: () => void;
+  /** The project's citation reasons, which a paper's uses show in Papers. */
+  citationReasons: readonly EditorComment[];
 }) {
   const { file: activeFile, paper: activePaper, asset: activeAsset, openPaper } = documents;
   const { papers, paperLoad, citations, unusedSymbols } = library;
@@ -192,6 +195,7 @@ export function usePanelPortals({
             citations={citations}
             // Refreshed after every save, so the counts follow the manuscript.
             citationUsageRevision={unusedSymbols}
+            citationReasons={citationReasons}
             activePaper={activePaper}
             paperFetchStates={paperActions.paperFetchStates}
             importInput={referenceImport.input}

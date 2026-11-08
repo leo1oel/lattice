@@ -481,7 +481,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     agentOptionsRef: agentCommentsOptionsRef,
   });
   const { reset: resetEditorComments, load: loadEditorComments } = editorComments;
-  const unresolvedComments = editorComments.all.filter((comment) => !comment.resolved).length;
 
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
@@ -720,6 +719,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const panelPortals = usePanelPortals({
     project, documents, trellis, agentPresent, theme, appLocale, tree, library, overleafSyncing, paperActions,
     referenceImport, openSymbolOccurrence, synara, tools, checkReferences, rootDocumentPath, gitFiles: projectGit.gitFiles,
+    citationReasons: editorComments.citationReasons,
     prewarm: { prewarmLikelyProjectFile, prewarmLikelyPaper },
     projectSearch: { open: projectSearchOpen, setOpen: setProjectSearchOpen, openFind: openProjectFind },
     newEntry: { request: newEntryRequest, requestNew: requestNewEntry },
@@ -746,7 +746,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     pdfPage: { setCount: setPdfPageCount, setNumber: setPdfPageNumber },
   });
   const canvasToolbar = useCanvasToolbar({
-    documents, tools, commentCount: unresolvedComments, comments: editorComments, inBrowserTab: browserHosted,
+    documents, tools, commentCount: editorComments.unresolved, comments: editorComments, inBrowserTab: browserHosted,
     onMoveWorkspace: moveWorkspace, hiddenTools: appearance.hiddenTitlebarTools, overleaf,
     onOverleafSync: syncOverleaf,
   });

@@ -83,7 +83,10 @@ export function useEditorComments({
    * not be saved over what is on disk.
    */
   const loadedRef = useRef<{ error: string | null } | null>(null);
-  const comments = state.annotations;
+  // Citation reasons share the store but not the review: they take no pin,
+  // draw no mark, and the agent never revises from them (citation-reasons.ts).
+  const comments = useMemo(() => state.annotations.filter((item) => !item.citation), [state.annotations]);
+  const citationReasons = useMemo(() => state.annotations.filter((item) => item.citation), [state.annotations]);
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [panelFocus, setPanelFocus] = useState<{ id: string; projectRoot: string; nonce: string } | null>(null);
@@ -159,6 +162,28 @@ export function useEditorComments({
     commit(withAnnotations((current) => current.map((item) => (
       item.id === id ? { ...item, ...change(item), updatedAt: new Date().toISOString() } : item
     ))));
+  }, [commit]);
+
+  /** Add a citation reason, or replace the one with its id; always a local annotation, never an Overleaf thread. */
+  const saveCitationReason = useCallback((reason: EditorComment) => {
+    commit(withAnnotations((current) => current.some((item) => item.id === reason.id)
+      ? current.map((item) => (item.id === reason.id ? { ...reason, updatedAt: new Date().toISOString() } : item))
+      : [...current, reason]));
+  }, [commit]);
+
+  /**
+   * Store where citation reasons now sit, as the editor found them after an
+   * edit; the reason itself did not change, so neither does its updatedAt.
+   */
+  const reanchorCitationReasons = useCallback((moves: ReadonlyMap<string, Pick<EditorComment, "from" | "to" | "quote" | "prefix" | "suffix">>) => {
+    commit(withAnnotations((current) => (
+      current.some((item) => moves.has(item.id))
+        ? current.map((item) => {
+          const move = moves.get(item.id);
+          return move && item.citation ? { ...item, ...move } : item;
+        })
+        : current
+    )));
   }, [commit]);
 
   const setResolved = useCallback((id: string, resolved: boolean) => {
@@ -327,6 +352,8 @@ export function useEditorComments({
 
   /** Both kinds of comment, as the editor and the panel want them. */
   const all = useMemo(() => [...comments, ...overleafEditorComments], [comments, overleafEditorComments]);
+  /** How many of them are still open, as the toolbar's comments button counts them. */
+  const unresolved = all.filter((comment) => !comment.resolved).length;
 
   // The files that open with Overleaf's threads beside their source, which
   // their skeleton is drawn for before they are read (margin-review-files.ts).
@@ -340,7 +367,7 @@ export function useEditorComments({
       if (!project || projectRootRef.current !== project.root) return null;
       return {
         workspaceRoot: project.root,
-        localComments: stateRef.current.annotations,
+        localComments: stateRef.current.annotations.filter((item) => !item.citation),
         overleafThreads: overleafComments.threads,
         overleafAnchors: [...overleafComments.anchors.values()],
         docPaths: overleafDocPaths,
@@ -352,7 +379,7 @@ export function useEditorComments({
   }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, rounds: state.rounds, stateRef, commit, all, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
+    comments, citationReasons, saveCitationReason, reanchorCitationReasons, rounds: state.rounds, stateRef, commit, all, unresolved, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
     deleteComment, panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
     activeId, setActiveId, focusRequest, focusHandled,
   };

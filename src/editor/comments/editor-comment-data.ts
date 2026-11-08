@@ -20,6 +20,22 @@ export type EditorCommentReply = {
 export const ANNOTATION_INTENTS = ["rewrite", "shorten", "clarify", "cite", "fix"] as const;
 export type AnnotationIntent = (typeof ANNOTATION_INTENTS)[number];
 
+/**
+ * Why a passage cites a paper, as the writer files it: the paper supports
+ * the claim, is its counterexample, is where the method comes from, is what
+ * it is compared with, or is background. Stored as these words.
+ */
+export const CITATION_ROLES = ["supporting", "counterexample", "method", "comparison", "background"] as const;
+export type CitationRole = (typeof CITATION_ROLES)[number];
+
+/**
+ * A citation reason: the annotation is anchored on one key of one `\cite`
+ * (its quote is that key), and says why that occurrence cites the paper.
+ * Its body is the optional line beside the role. It never takes a pin or
+ * goes to the agent, and nothing of it is written into the source.
+ */
+export type CitationReason = { key: string; role: CitationRole };
+
 /** A box on a PDF page, as fractions of the page's width and height from its top left. */
 export type PdfRect = { x: number; y: number; width: number; height: number };
 
@@ -63,6 +79,8 @@ export type EditorComment = {
   intent?: AnnotationIntent;
   pdf?: PdfAnchor;
   revision?: AnnotationRevision;
+  /** Set on a citation reason (see `CitationReason`). */
+  citation?: CitationReason;
   authorId: string;
   authorName: string;
   /** As on a reply: an Overleaf thread's author colour. */

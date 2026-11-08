@@ -22,6 +22,7 @@ import type { AppLocale, Theme } from "../settings/app-settings";
 import type { SwitchState } from "./after-switch";
 import type { DeckHosts } from "./open-slide-deck-pool";
 import type { SaveSlot } from "./save-slot";
+import type { CitationReasonData } from "../editor/latex/citation-reasons";
 
 /**
  * What App hands DocumentCanvas, one model per domain. Grouping names who
@@ -99,7 +100,7 @@ type CanvasPreferences = Readonly<{
 }>;
 
 /** The project's citation, label, macro and path index, and the paper library behind it. */
-type CanvasBibliography = Readonly<{
+type CanvasBibliography = Readonly<CitationReasonData & {
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
   /** A .bib reference's paper, opened from the reference list: downloaded first when only cited. */

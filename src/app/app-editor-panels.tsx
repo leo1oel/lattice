@@ -27,6 +27,7 @@ import type { AnnotationRounds } from "./annotation-rounds";
 import type { AnnotationRound, EditorComment } from "../editor/comments/editor-comment-data";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
+import { panelCitationReasons } from "../editor/latex/citation-reasons";
 import type {
   BodyBoundary,
   BuildResult,
@@ -158,11 +159,14 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   // has no text to annotate either.
   const writingFile = props.activeFile && props.openTabs.includes(props.activeFile)
     && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
+  // A citation reason joins the notes once its cite is gone (or it was resolved there).
+  const orphaned = comments.citationReasons.length ? panelCitationReasons(comments.citationReasons, sourceFor) : [];
+  const panelComments = orphaned.length ? [...comments.comments, ...orphaned] : comments.comments;
   const commentsPanel = (
     <EditorCommentsPanel
       key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}
       embedded={!!renderCommentsSurface}
-      comments={comments.comments}
+      comments={panelComments}
       activePath={props.activeFile}
       onOpenFile={writingFile ? undefined : () => trellis?.bridge?.quickOpen()}
       currentAuthorId={props.editorCommentAuthorId}
