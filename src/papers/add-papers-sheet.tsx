@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { BookMarked, Check, CircleAlert, CircleDot, Link2, PenLine, Plus } from "lucide-react";
+import { BookMarked, Check, CircleAlert, CircleDot, Library, Link2, PenLine, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { addQueueRunning, clearAddQueue, getAddQueue, subscribeAddQueue, type PaperAddItem } from "./add-papers-queue";
 import { Button } from "../components/ui/button";
@@ -27,6 +27,8 @@ import {
   type PastedReference, type ReferenceKind,
 } from "./paper-add";
 import { paperShortAuthors } from "./paper-identity";
+import type { ZoteroItem } from "./zotero";
+import { ZoteroCollections } from "./zotero-collections";
 import "./add-papers-sheet.css";
 import { joinPhrases } from "../i18n";
 
@@ -64,7 +66,7 @@ export function AddPapersSheet(props: {
   /** An import holds the pipeline: the Papers box's, Find literature's, or this sheet's batch. */
   importing: boolean;
   onResolve: (query: string) => Promise<ResolvedCitationDraft>;
-  onAdd: (items: Array<Pick<PaperAddItem, "id" | "input" | "label">>) => void;
+  onAdd: (items: Array<Pick<PaperAddItem, "id" | "input" | "label" | "pdf">>) => void;
   onStop: () => void;
   onEnterManually: () => void;
   /** Open the linked library: a reference manager's .bib, whose changes come in on request. */
@@ -88,6 +90,21 @@ export function AddPapersSheet(props: {
     return () => window.clearTimeout(timer);
   }, [settled, text]);
   const references = useMemo(() => parsePastedReferences(settled), [settled]);
+  // Choosing a Zotero collection, in place of the paste box; what it brings
+  // lands in the box as BibTeX, with each entry's PDF attachment by key.
+  const [zotero, setZotero] = useState(false);
+  const [zoteroPdfs, setZoteroPdfs] = useState<Record<string, string>>({});
+  const pickZotero = (items: ZoteroItem[]) => {
+    const bibtex = items.map((item) => item.bibtex).join("\n\n");
+    const next = text.trim() ? `${text.trimEnd()}\n\n${bibtex}` : bibtex;
+    setText(next);
+    setSettled(next);
+    setZoteroPdfs((current) => ({
+      ...current,
+      ...Object.fromEntries(items.flatMap((item) => (item.pdf ? [[item.citationKey, item.pdf]] : []))),
+    }));
+    setZotero(false);
+  };
   const [lookups, setLookups] = useState<Record<string, Lookup>>({});
   // Lookups sent and not yet answered; their rows read as looking up meanwhile.
   const pendingRef = useRef(new Set<string>());
@@ -181,7 +198,12 @@ export function AddPapersSheet(props: {
   const add = () => {
     if (!addable.length || adding || importingElsewhere) return;
     setAddedFrom(addable);
-    props.onAdd(addable.map((row) => ({ id: row.reference.id, input: row.importInput ?? row.reference.input, label: row.title })));
+    props.onAdd(addable.map((row) => ({
+      id: row.reference.id,
+      input: row.importInput ?? row.reference.input,
+      label: row.title,
+      pdf: row.reference.kind === "bibtex" ? zoteroPdfs[row.reference.label] : undefined,
+    })));
   };
   const moveTab = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowRight: 1, ArrowLeft: -1, Home: -Infinity, End: Infinity }[event.key];
@@ -268,7 +290,8 @@ export function AddPapersSheet(props: {
     <SheetDialog className="add-papers-sheet" label={t`Add papers`} dirty={Boolean(text.trim()) && !queued} onClose={onClose}>
       <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={t`Add papers`} onClose={onClose} />
       <div className="add-papers-body">
-        {!batch && (
+        {zotero && !batch && <ZoteroCollections onPick={pickZotero} />}
+        {!zotero && !batch && (
           <label className="add-papers-paste">
             <span>{t`Paste references`}</span>
             <textarea
@@ -292,7 +315,7 @@ export function AddPapersSheet(props: {
             />
           </label>
         )}
-        {!batch && (
+        {!zotero && !batch && (
           <div className="add-papers-manual">
             <Button variant="ghost" size="compact" onClick={props.onEnterManually}>
               <PenLine size={13} aria-hidden="true" />
@@ -302,9 +325,13 @@ export function AddPapersSheet(props: {
               <Link2 size={13} aria-hidden="true" />
               {t`Linked library…`}
             </Button>
+            <Button variant="ghost" size="compact" onClick={() => setZotero(true)}>
+              <Library size={13} aria-hidden="true" />
+              {t`Zotero…`}
+            </Button>
           </div>
         )}
-        {!listed.length ? (
+        {zotero && !batch ? null : !listed.length ? (
           <div className="add-papers-empty">
             <ResearchArt drawing={CATALOGUE_DRAWER} />
           </div>
@@ -387,6 +414,8 @@ export function AddPapersSheet(props: {
           </>
         ) : queued ? (
           <Button variant="primary" onClick={onClose}>{t`Done`}</Button>
+        ) : zotero ? (
+          <Button variant="ghost" onClick={() => setZotero(false)}>{t`Back`}</Button>
         ) : (
           <>
             <Button variant="ghost" onClick={onClose}>{t`Cancel`}</Button>

@@ -2332,6 +2332,7 @@ msgid "Azure"
 msgstr "Azure"
 
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/papers/add-papers-sheet.tsx
 msgid "Back"
 msgstr "Back"
 
@@ -7210,6 +7211,10 @@ msgctxt "margin review"
 msgid "In view"
 msgstr "In view"
 
+#: src/papers/zotero-collections.tsx
+msgid "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
+msgstr "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "Include another TeX file"
@@ -9044,6 +9049,10 @@ msgstr "Multiple existing citations match this paper. Resolve the duplicates bef
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Multiset union"
 msgstr "Multiset union"
+
+#: src/papers/zotero-collections.tsx
+msgid "My Library"
+msgstr "My Library"
 
 #: src/project/local-templates.tsx
 msgid "My templates"
@@ -15977,6 +15986,7 @@ msgstr "Try"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/papers/zotero-collections.tsx
 #: src/project/paper-library-status.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
@@ -17080,3 +17090,15 @@ msgstr "Zoom out"
 #: src/settings/settings-search-index.ts
 msgid "zoom scale bigger smaller"
 msgstr "zoom scale bigger smaller"
+
+#: src/papers/zotero-collections.tsx
+msgid "Zotero collections"
+msgstr "Zotero collections"
+
+#: src/papers/zotero-collections.tsx
+msgid "Zotero isn't running. Open Zotero, then try again."
+msgstr "Zotero isn't running. Open Zotero, then try again."
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Zotero…"
+msgstr "Zotero…"

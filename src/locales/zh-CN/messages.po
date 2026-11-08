@@ -2332,6 +2332,7 @@ msgid "Azure"
 msgstr "天蓝色"
 
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/papers/add-papers-sheet.tsx
 msgid "Back"
 msgstr "上一步"
 
@@ -7210,6 +7211,10 @@ msgctxt "margin review"
 msgid "In view"
 msgstr "当前可见"
 
+#: src/papers/zotero-collections.tsx
+msgid "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
+msgstr "在 Zotero 中打开 设置 › 高级 › “允许此计算机上的其他应用程序与 Zotero 通信”。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "引入另一个 TeX 文件"
@@ -9044,6 +9049,10 @@ msgstr "已有多条引用对应这篇论文，请先处理重复项再导入"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Multiset union"
 msgstr "多重集并"
+
+#: src/papers/zotero-collections.tsx
+msgid "My Library"
+msgstr "我的文库"
 
 #: src/project/local-templates.tsx
 msgid "My templates"
@@ -15977,6 +15986,7 @@ msgstr "试试"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/papers/zotero-collections.tsx
 #: src/project/paper-library-status.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
@@ -17080,3 +17090,15 @@ msgstr "缩小"
 #: src/settings/settings-search-index.ts
 msgid "zoom scale bigger smaller"
 msgstr "缩放 放大 缩小 界面 字号 zoom scale"
+
+#: src/papers/zotero-collections.tsx
+msgid "Zotero collections"
+msgstr "Zotero 分类"
+
+#: src/papers/zotero-collections.tsx
+msgid "Zotero isn't running. Open Zotero, then try again."
+msgstr "Zotero 没有运行。打开 Zotero 后再试一次。"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Zotero…"
+msgstr "从 Zotero 导入…"
