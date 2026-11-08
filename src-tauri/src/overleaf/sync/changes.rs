@@ -18,7 +18,12 @@
 //! or version, a table that was not exact at the last sync
 //! (`SyncState::unsettled`), a held hollow copy, a history that does not
 //! reach the version just read, a file leaving the tree with no update to say
-//! so, and any fetch that fails or does not match its hash.
+//! so, more files to fetch than the project's size pays for (`MOST_FETCHES`),
+//! and any fetch that fails or does not match its hash. A folder operation
+//! names only the folder, so every agreed path in a folder the history names
+//! is fetched, live or not. Only the download counts towards the gap between
+//! downloads (`RemoteFiles::whole`): fetching what changed is the same
+//! traffic Overleaf's own editor makes.
 
 use super::super::api::{expect_success, send, Remote};
 use super::super::files::*;
@@ -35,8 +40,14 @@ use std::path::Path;
 use tauri::async_runtime as rt;
 
 /// The most documents and files a sync fetches one by one before it takes
-/// the project download instead.
+/// the project download instead: one per `BYTES_PER_FETCH` of the agreed
+/// copy, a stand-in for the download's size, never fewer than
+/// `FEWEST_FETCHES`.
 const MOST_FETCHES: usize = 40;
+const FEWEST_FETCHES: usize = 8;
+/// Roughly what the download carries in one round trip on the audit's link
+/// (29.6 MB in 22 s, 250 ms round trips): each fetch costs a round trip.
+const BYTES_PER_FETCH: usize = 320 * 1024;
 
 /// Where Overleaf's copy for a sync comes from.
 pub(super) enum RemoteCopy {
@@ -62,6 +73,9 @@ pub(super) struct Changes {
     tree_paths: BTreeSet<String>,
     /// See `RemoteFiles::unsettled`.
     unsettled: BTreeSet<String>,
+    /// How many documents and files may be fetched before the download is
+    /// the quicker way (see `MOST_FETCHES`).
+    most_fetches: usize,
 }
 
 /// Work out where Overleaf's copy for this sync must come from, reading at
@@ -153,8 +167,14 @@ pub(super) fn remote_copy(
             whole: false,
         });
     }
+    let agreed_bytes: usize = agreed.values().map(Vec::len).sum();
+    let most_fetches = (agreed_bytes / BYTES_PER_FETCH).clamp(FEWEST_FETCHES, MOST_FETCHES);
+    if fetch.iter().filter(|path| state.files.contains_key(*path)).count() > most_fetches {
+        return RemoteCopy::Download;
+    }
     let table = state.files.keys().cloned().collect();
-    RemoteCopy::Changed(Changes { agreed, fetch, table, tree_paths, unsettled: still_live })
+    let unsettled = still_live;
+    RemoteCopy::Changed(Changes { agreed, fetch, table, tree_paths, unsettled, most_fetches })
 }
 
 /// Overleaf's copy as `copy` says to get it: fetching only what changed where
@@ -245,9 +265,9 @@ fn fetch_with(
             None => missing.push((path, entity, hash)),
         }
     }
-    // Each fetch is a round trip or two of its own, so past this many the
-    // one download is the quicker way to the same copy.
-    if missing.len() > MOST_FETCHES {
+    // Each fetch is a round trip of its own, so past this many the one
+    // download is the quicker way to the same copy.
+    if missing.len() > changes.most_fetches {
         return Err("too much changed to fetch file by file");
     }
     let mut fetched_bytes = 0usize;
@@ -275,11 +295,11 @@ fn within(path: &str, changed: &str) -> bool {
     path.strip_prefix(changed).is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
 }
 
-/// A document's text as Overleaf holds it now: joined, read, and left.
+/// A document's text as Overleaf holds it now. It stays joined until the
+/// channel closes, which leaves every document at once.
 fn fetch_doc(channel: &RealtimeClient, id: &str) -> Result<Vec<u8>, &'static str> {
     let joined =
         rt::block_on(channel.join_doc(id, None)).map_err(|_| "a document would not join")?;
-    rt::block_on(channel.leave_doc(id)).map_err(|_| "a document would not leave")?;
     Ok(joined.text.into_bytes())
 }
 

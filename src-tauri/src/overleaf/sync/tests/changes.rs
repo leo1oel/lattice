@@ -407,32 +407,43 @@ fn a_folder_replaced_by_another_brings_the_new_folders_documents() {
     lab.assert_matches_overleaf();
 }
 
-/// Each fetch is a round trip or two of its own, so a change touching more
-/// files than a sync fetches one by one takes the one download instead.
+/// Each fetch is a round trip of its own, where the download is one round
+/// trip and the project's bytes, so a change touching more files than the
+/// project's size pays for takes the one download instead: one fetch per
+/// 320 KiB of the agreed copy, never fewer than 8 nor more than 40.
 #[test]
-fn a_change_too_wide_to_fetch_file_by_file_takes_the_download() {
-    let chapters: Vec<String> = (0..45).map(|n| format!("chapters/c{n}.tex")).collect();
-    let mut files = paper();
-    files.extend(chapters.iter().map(|path| (path.clone(), format!("{path}\n").into_bytes())));
-    let lab = lab_with(&files, |_| {});
-    let named: Vec<&str> = chapters.iter().map(String::as_str).collect();
-    lab.co_author(
-        |files| {
-            for path in &chapters {
-                files.insert(path.clone(), b"Rewritten on Overleaf.\n".to_vec());
-            }
-        },
-        &named,
-        json!([]),
-    );
+fn a_change_too_wide_for_the_projects_size_takes_the_download() {
+    let mib = 1024 * 1024;
+    // (case, bytes of figure added to the paper, chapters edited, downloaded)
+    let cases = [
+        ("a small project, more than 8 changed", 0, 10, true),
+        ("a 4 MiB project pays for 12", 4 * mib, 10, false),
+        ("never more than 40", 16 * mib, 45, true),
+    ];
+    for (case, figure, edited, downloaded) in cases {
+        let chapters: Vec<String> = (0..edited).map(|n| format!("chapters/c{n:02}.tex")).collect();
+        let mut files = paper();
+        files.push(("figures/big.png".into(), vec![7; figure]));
+        files.extend(chapters.iter().map(|path| (path.clone(), format!("{path}\n").into_bytes())));
+        let lab = lab_with(&files, |_| {});
+        let named: Vec<&str> = chapters.iter().map(String::as_str).collect();
+        lab.co_author(
+            |files| {
+                for path in &chapters {
+                    files.insert(path.clone(), b"Rewritten on Overleaf.\n".to_vec());
+                }
+            },
+            &named,
+            json!([]),
+        );
 
-    let result = lab.sync();
-    assert_eq!(lab.downloads(), 1);
-    assert!(lab.docs_joined().is_empty(), "nothing fetched one by one");
-    let mut pulled = chapters.clone();
-    pulled.sort();
-    assert_eq!(result.pulled, pulled);
-    lab.assert_matches_overleaf();
+        let result = lab.sync();
+        assert_eq!(lab.downloads(), usize::from(downloaded), "{case}");
+        let joined = if downloaded { 0 } else { edited };
+        assert_eq!(lab.docs_joined().len(), joined, "{case}");
+        assert_eq!(result.pulled, chapters, "{case}");
+        lab.assert_matches_overleaf();
+    }
 }
 
 /// Only the project download holds the next sync to the gap between

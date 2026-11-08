@@ -136,8 +136,8 @@ fn full_sync_delay(previous: Option<Instant>, now: Instant) -> Duration {
 /// A full sync's start: once the account-wide cooldown since the previous
 /// download has passed, run `ahead` (its download), and only then take the
 /// project's exclusive lease for the rest. `ahead` also says whether it
-/// downloaded; a turn that did not leaves the cooldown as it found it, unless
-/// another sync is already waiting on it.
+/// downloaded; a turn that did not leaves the cooldown as it found it, and
+/// any sync waiting on it goes ahead.
 ///
 /// The download is most of a sync's time: minutes, for a project with large
 /// figures over a slow link. It only reads, so it needs no lease. Holding the
@@ -147,26 +147,38 @@ fn full_sync_delay(previous: Option<Instant>, now: Instant) -> Duration {
 async fn ahead_of_full_sync<T>(
     state: &AppState, project_root: &str, ahead: impl Future<Output = Result<(T, bool), String>>,
 ) -> Result<(T, ProjectLease), String> {
-    let (started, before) = {
-        // The guard admits one waiter at a time, so syncs queued behind the
-        // cooldown start their downloads one interval apart.
-        let mut previous_sync = state.overleaf_sync_started.lock().await;
-        let before = *previous_sync;
-        let delay = full_sync_delay(before, Instant::now());
-        if !delay.is_zero() {
-            tokio::time::sleep(delay).await;
+    let gap = &state.overleaf_sync_started;
+    let mut stamps = gap.subscribe();
+    let (started, before) = loop {
+        // Only one waiter takes the stamp once the cooldown is over, so
+        // syncs queued behind it start their downloads one interval apart.
+        let mut admitted = None;
+        gap.send_if_modified(|previous_sync| {
+            let now = Instant::now();
+            if !full_sync_delay(*previous_sync, now).is_zero() {
+                return false;
+            }
+            admitted = Some((now, previous_sync.replace(now)));
+            true
+        });
+        if let Some(admitted) = admitted {
+            break admitted;
         }
-        let started = Instant::now();
-        *previous_sync = Some(started);
-        (started, before)
+        let delay = full_sync_delay(*stamps.borrow_and_update(), Instant::now());
+        tokio::select! {
+            () = tokio::time::sleep(delay) => {}
+            _ = stamps.changed() => {}
+        }
     };
     let (ahead, downloaded) = ahead.await?;
     if !downloaded {
-        if let Ok(mut previous_sync) = state.overleaf_sync_started.try_lock() {
-            if *previous_sync == Some(started) {
+        gap.send_if_modified(|previous_sync| {
+            let handed_back = *previous_sync == Some(started);
+            if handed_back {
                 *previous_sync = before;
             }
-        }
+            handed_back
+        });
     }
     Ok((ahead, state.lease(project_root, Lease::Exclusive).await))
 }
@@ -699,9 +711,7 @@ pub async fn overleaf_sync(
                 .await;
                 if let Some(result) = settled(&app, synced).await? {
                     if result.downloaded_under_lease {
-                        if let Ok(mut previous_sync) = state.overleaf_sync_started.try_lock() {
-                            *previous_sync = Some(Instant::now());
-                        }
+                        state.overleaf_sync_started.send_replace(Some(Instant::now()));
                     }
                     return Ok(result);
                 }
@@ -788,6 +798,35 @@ mod tests {
                 },
             );
             assert!(a.is_ok(), "the turn waited behind the other sync's gap");
+        });
+    }
+
+    /// A sync waiting out the gap another sync's turn set goes ahead as soon
+    /// as that turn ends without downloading, rather than at the end of the
+    /// gap: fetching only what changed is not held to it.
+    #[test]
+    fn a_sync_waiting_on_a_turn_that_downloaded_nothing_goes_ahead_when_it_ends() {
+        let state = AppState::from_environment();
+        tauri::async_runtime::block_on(async {
+            let (go, read) = tokio::sync::oneshot::channel::<()>();
+            let a = ahead_of_full_sync(&state, "/project/a", async {
+                read.await.unwrap();
+                Ok(((), false))
+            });
+            let b = async {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                ahead_of_full_sync(&state, "/project/b", async { Ok(((), true)) }).await
+            };
+            let (a, b, ()) = tokio::join!(
+                tokio::time::timeout(Duration::from_secs(1), a),
+                tokio::time::timeout(Duration::from_secs(2), b),
+                async {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    go.send(()).unwrap();
+                },
+            );
+            assert!(a.is_ok());
+            assert!(b.is_ok(), "the sync waited out a gap no download set");
         });
     }
 

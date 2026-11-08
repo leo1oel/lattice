@@ -225,18 +225,23 @@ purpose.
   files and base copies whose hashes match it; when the version has not moved,
   or every update since only edited documents the realtime channel holds, that
   is the whole of Overleaf's copy and nothing is fetched. Otherwise every path
-  the history names, and any agreed file that cannot be rebuilt, is fetched on
-  its own: a document over the realtime channel (`joinDoc`, then `leaveDoc`),
-  a binary file with `GET /project/{id}/file/{file_id}`, both by the ids from
-  `joinProject`. A file's `fileRefs[].hash` is git's blob SHA-1 of its bytes,
+  the history names, every agreed path in a folder a tree update names (a
+  folder operation names only the folder, so this holds for live documents
+  too), and any agreed file that cannot be rebuilt, is fetched on its own: a
+  document over the realtime channel (`joinDoc`; closing the channel leaves
+  it), a binary file with `GET /project/{id}/file/{file_id}`, both by the ids
+  from `joinProject`. A file's `fileRefs[].hash` is git's blob SHA-1 of its bytes,
   so a fetched figure is checked against it, and an agreed figure whose hash
   no longer matches is fetched even when the history missed it. The ZIP stays
   for no agreed version or copy, a table that was not exact at the last sync
   (`SyncState::unsettled`), a held hollow download, a history that does not
   reach the version just read or names nothing for an update, a file gone
   from the tree with no tree update naming it or a folder above it, an
-  unreachable realtime channel, and any fetch that fails or mismatches its
-  hash (`remote_copy` and `fetch` in `src-tauri/src/overleaf/sync/changes.rs`).
+  unreachable realtime channel, more files to fetch than the project's size
+  pays for (one per 320 KiB of the agreed copy, from 8 up to 40: each fetch
+  costs a round trip, the ZIP one round trip and the project's bytes), and
+  any fetch that fails or mismatches its hash (`remote_copy` and `fetch` in
+  `src-tauri/src/overleaf/sync/changes.rs`).
   What went up in a sync differs from the agreed copy only by Lattice's own
   write, which the history names, so an upload no longer forces the next sync
   to download.
@@ -249,8 +254,10 @@ purpose.
   (`Prefetched::fits`). When nothing read ahead fits, the sync lets go of the
   lease and reads ahead again, behind the same account-wide gap between
   downloads; after `READ_AHEAD_ROUNDS` such reads it downloads under the lease
-  instead, so a sync always finishes. A read ahead that downloaded nothing
-  does not count towards that gap.
+  instead, so a sync always finishes. Only a ZIP download counts towards that
+  gap (`RemoteFiles::whole`): a read ahead that fetched only what changed, or
+  nothing, makes the same requests Overleaf's own editor does, and a sync
+  waiting out the gap goes ahead as soon as such a read hands it back.
 - Uploads run a few at a time, except that a file into a folder Overleaf may
   not have yet goes first and alone, so two uploads never race to create the
   same folder.
