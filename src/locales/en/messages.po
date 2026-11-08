@@ -2042,6 +2042,7 @@ msgid "App"
 msgstr "App"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "App updater"
 msgstr "App updater"
 
@@ -6447,6 +6448,7 @@ msgid "Git workspace didn’t load"
 msgstr "Git workspace didn’t load"
 
 #: src/settings/settings-dialog.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"
 msgstr "GitHub Releases"
 
@@ -7931,6 +7933,7 @@ msgid "Lattice is signed in to {0}. To open projects from another Overleaf serve
 msgstr "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 
 #: src/settings/settings-dialog.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 msgstr "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 
@@ -9090,6 +9093,7 @@ msgid "New terminal"
 msgstr "New terminal"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "New version {version}"
 msgstr "New version {version}"
 

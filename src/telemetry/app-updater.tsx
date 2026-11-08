@@ -31,6 +31,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { updatesItself } from "./updates-itself";
+import { useLinuxReleaseNotice } from "./linux-release-notice";
 import { loadChoice } from "../settings/app-settings";
 import { sharedSetting, useSharedSetting } from "../settings/shared-setting";
 import {
@@ -184,6 +185,7 @@ function showRestartOffer(version: string, restart: () => void) {
 }
 
 function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true): UpdaterApi {
+  useLinuxReleaseNotice(intervalMs, autoCheck);
   const [mode] = useSharedSetting(updateModeSetting);
   const [state, setState] = useState<UpdaterState>(IDLE);
   const pendingRef = useRef<TauriUpdate | null>(null);

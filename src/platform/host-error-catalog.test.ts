@@ -92,6 +92,7 @@ describe("host error catalog", () => {
  */
 const UNTRANSLATED: Record<string, string> = {
   "latex/figure_preview.rs": "answers the agent's figure-preview tool, which reads and acts on it",
+  "linux_release_notice.rs": "background release checks discard errors and retry silently",
   "research_env.rs": "the research environment answers the agent, never the interface",
   "research_env/": "the research environment answers the agent, never the interface",
   "process_inspector.rs": "Synara's `ps` replacement prints it to the sidecar, not the interface",
