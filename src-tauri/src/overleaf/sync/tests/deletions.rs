@@ -113,6 +113,25 @@ fn a_deletion_carried_to_overleaf_spares_a_file_a_co_author_edited_meanwhile() {
 }
 
 #[test]
+fn a_deletion_carried_to_overleaf_spares_a_co_author_edit_made_just_after_lattice_left_the_file() {
+    // Live mode: closing dropped.tex checkpointed it as Lattice's own write,
+    // stamped with the time only. A co-author's edit three minutes later is
+    // still theirs, not Lattice's, and must keep the file on Overleaf.
+    let left = chrono::Utc::now().timestamp_millis();
+    let edited = json!({
+        "fromV": 43, "toV": 44, "pathnames": ["dropped.tex"],
+        "meta": { "end_ts": left + 3 * 60 * 1000 },
+    });
+    let (server, config, root) = deleted_here(vec![edited]);
+    edit_state(&root, |state| {
+        state.own_writes.insert("dropped.tex".into(), HistoryFrom::Time(left));
+    });
+    let outcome = delete_unchanged(&config, &root, "dropped.tex", "doc", "doc-1").unwrap();
+    assert_eq!(outcome, RemoteDelete::ChangedOnOverleaf);
+    assert!(server.with_method("DELETE").is_empty());
+}
+
+#[test]
 fn a_deletion_carried_to_overleaf_goes_ahead_when_only_older_or_other_edits_exist() {
     // An edit to dropped.tex the sync already had (40 → 41, before 42), and a
     // later edit to another file, leave nothing of anyone's to lose.
