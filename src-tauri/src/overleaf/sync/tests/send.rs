@@ -293,3 +293,21 @@ fn a_history_of_timestamps_still_stands_down_when_overleaf_moved_before_the_uplo
     assert!(server.uploads().is_empty());
     assert_eq!(state_files(&root)["a.tex"], sha256_hex(BASE.as_bytes()));
 }
+
+#[test]
+fn text_overleaf_keeps_as_a_file_goes_up_beside_a_document_without_a_false_report() {
+    // Overleaf replaces a file entity by adding a fresh one and renaming the
+    // old one away, two history updates for one upload; a document's
+    // upload is one. Nobody else edits, so nothing may be reported.
+    let fig = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\n".as_slice();
+    let base: Files = &[("fig.eps", fig), ("main.tex", BASE.as_bytes())];
+    let local: Files =
+        &[("fig.eps", b"%!PS-Adobe-3.0 EPSF-3.0\n%regenerated\n"), ("main.tex", OURS.as_bytes())];
+    let moves = |name: &str| if name == "fig.eps" { 2 } else { 1 };
+    let mock = Mock { versions: vec![11], upload_moves: Some(moves), ..Mock::project(base) };
+    let (server, root, result) = run_sync(mock, local, base);
+    assert_eq!(result.pushed, ["fig.eps", "main.tex"]);
+    assert!(result.uploaded_over_edits.is_empty(), "{:?}", result.uploaded_over_edits);
+    assert_eq!(server.uploads().len(), 2);
+    assert_eq!(state_files(&root)["main.tex"], sha256_hex(OURS.as_bytes()));
+}

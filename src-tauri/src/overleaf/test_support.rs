@@ -79,6 +79,9 @@ pub(super) struct Mock {
     /// Serve each of `versions` as the newest edit's timestamp, with no
     /// history version, as a history that keeps versions per document does.
     pub stamped: bool,
+    /// How far each upload moves the version served after it, by the
+    /// uploaded file's name; unset, only `versions` moves it.
+    pub upload_moves: Option<fn(&str) -> i64>,
     /// The project history, newest first, served whole to every other
     /// `/updates` request: the page reads that confirm a destructive pull.
     pub history: Vec<serde_json::Value>,
@@ -107,6 +110,7 @@ impl Mock {
         let mut versions: VecDeque<i64> = self.versions.iter().copied().collect();
         let mut uploads = 0usize;
         let mut downloads = 0usize;
+        let mut moved = 0i64;
         let html = self.dashboard.take().unwrap_or_else(projects_page_html);
         let routes = std::mem::take(&mut self.routes);
         let realtime = self.realtime.take();
@@ -130,7 +134,7 @@ impl Mock {
                 url: url.clone(),
                 csrf_header: header("X-Csrf-Token"),
                 cookie_header: header("Cookie"),
-                body,
+                body: body.clone(),
             });
             if let Some(hook) = self.on_request.as_mut() {
                 hook(&method, &url);
@@ -153,6 +157,7 @@ impl Mock {
                 ("GET", p) if p.ends_with("/updates") => match versions.front().copied() {
                     None => (404, None, Vec::new()),
                     Some(version) => {
+                        let version = version + moved;
                         if versions.len() > 1 {
                             versions.pop_front();
                         }
@@ -180,6 +185,14 @@ impl Mock {
                         let (status, body) = self.upload_failure.unwrap_or((500, "upload failed"));
                         (status, JSON, body.into())
                     } else {
+                        if let Some(moves) = self.upload_moves {
+                            let body = String::from_utf8_lossy(&body);
+                            let name = body
+                                .split("filename=\"")
+                                .nth(1)
+                                .and_then(|rest| rest.split('"').next());
+                            moved += moves(name.unwrap_or_default());
+                        }
                         let body =
                             "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
                         (200, JSON, body.into())

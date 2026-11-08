@@ -6,7 +6,7 @@
 //! files, and everything when the live channel cannot be reached.
 
 use super::super::api::{folders_above, HistoryVersion, Remote};
-use super::super::doc_push::{LiveDocs, LivePush};
+use super::super::doc_push::{may_become_a_file, LiveDocs, LivePush};
 use super::super::upload::Uploader;
 use crate::util::sha256_hex;
 use crate::wide_event;
@@ -70,9 +70,10 @@ pub(super) fn send(
         history.upload_each(&uploader, documents, &mut outcome)?;
     }
 
-    // A new or binary file nobody can be typing in, but the project's
-    // history version is all there is to tell by whether Overleaf moved past
-    // the copy we planned against, and anyone's edit anywhere moves it; so
+    // A new or binary file nobody can be typing in, or text Overleaf may
+    // keep as one, whose upload moves the version by no telling how much.
+    // The project's history version is all there is to tell by whether
+    // Overleaf moved past the copy we planned against, and anyone's edit anywhere moves it; so
     // these too go only while it holds still. A document going over the live
     // channel needs none of this: it is checked against the copy planned
     // against on its own, and what lands after that is transformed, not
@@ -102,11 +103,12 @@ pub(super) fn send(
     Ok(outcome)
 }
 
-/// Whether `path` is text Overleaf holds already, so a co-author may be
-/// typing in it in the web editor while it goes up.
+/// Whether `path` is text Overleaf holds already and keeps as a document
+/// when uploaded, so a co-author may be typing in it in the web editor while
+/// it goes up, and its upload moves the version by one.
 fn is_document(held: &BTreeMap<String, Vec<u8>>, path: &str, bytes: &[u8]) -> bool {
     let text = |bytes: &[u8]| std::str::from_utf8(bytes).is_ok();
-    text(bytes) && held.get(path).is_some_and(|theirs| text(theirs))
+    !may_become_a_file(path) && text(bytes) && held.get(path).is_some_and(|theirs| text(theirs))
 }
 
 /// Where the project's history version may stand while only this sync
