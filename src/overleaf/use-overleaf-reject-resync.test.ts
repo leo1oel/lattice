@@ -77,12 +77,17 @@ function serveOverleaf() {
       publicId: "me", docs: [{ id: DOC_A, path: "a.tex" }], entities: [],
       permission: "readAndWrite", trackChanges: false, userId: "me-user", ownHue: 210,
     },
-    overleaf_rt_join_doc: () => {
+    overleaf_rt_join_doc: ({ fromVersion }: { fromVersion: number | null }) => {
       if (joinFailures > 0) {
         joinFailures -= 1;
         throw new Error("the connection is closing");
       }
-      return { text: server.text, version: server.version, comments: [], changes: server.changes, caughtUp: [], resumed: false };
+      // Asked to resume, Overleaf replays what landed since; every update in these tests is this client's.
+      const resumed = fromVersion !== null && fromVersion >= server.from && fromVersion <= server.version;
+      const caughtUp = resumed
+        ? server.history.slice(fromVersion - server.from).map((ops, index) => ({ version: fromVersion + index, ops, source: "me" }))
+        : [];
+      return { text: server.text, version: server.version, comments: [], changes: server.changes, caughtUp, resumed };
     },
     // Answers once Overleaf has queued the update, not once it is applied (docs/overleaf-protocol.md).
     overleaf_rt_send_ops: async ({ ops, version, hash }: { ops: OtOp[]; version: number; hash?: string }) => answer(ops, version, hash),
@@ -208,6 +213,27 @@ describe("rejecting a suggestion live", () => {
     await waitFor(() => expect(editor).toBe("Hello world"));
     expect(joinsOf(DOC_A)).toHaveLength(4);
     await waitFor(() => expect(result.current.realtime.changes).toEqual([]));
+  });
+
+  it("does not leave the file blocked when the reject's answer is lost in a reconnect", async () => {
+    const result = await mountLive();
+    await act(() => result.current.review.reject([INSERTION]));
+    // The connection drops before the answer arrives; the reconnect's resumed join replays the reject instead.
+    owed.splice(0);
+    emit({ type: "disconnected", reason: "network changed" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    await waitFor(() => expect(joinsOf(DOC_A)).toEqual([
+      { docId: DOC_A, fromVersion: null }, { docId: DOC_A, fromVersion: 10 }, { docId: DOC_A, fromVersion: null },
+    ]));
+    // The stale copy was let go before the re-read, so the editor's text goes to regular sync's merge.
+    await waitFor(() => expect(onNeedsSync).toHaveBeenCalledWith(["a.tex"]));
+    expect(result.current.realtime.unacknowledged).toBe(false);
+    expect(result.current.realtime.changes).toEqual([]);
+    expect(sends()).toEqual([]);
+    expect(server.text).toBe("Hello world");
   });
 
   it("refuses a second Reject of a suggestion until the first is re-read", async () => {
