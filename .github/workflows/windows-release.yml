@@ -9,6 +9,18 @@ on:
         description: Successful Windows build run containing the installer
         required: true
         type: string
+      release_tag:
+        description: Existing release tag receiving the installer
+        required: true
+        type: string
+      asset_name:
+        description: Published installer filename ending in .exe
+        required: true
+        type: string
+      sha256:
+        description: Expected SHA-256 of the installer
+        required: true
+        type: string
 permissions:
   actions: read
   contents: write
@@ -27,8 +39,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ASSET_NAME: ${{ inputs.asset_name }}
+          EXPECTED_SHA256: ${{ inputs.sha256 }}
         run: |
-          mv installer/Lattice_0.15.8_x64-setup.exe Lattice-Windows-0.15.8-r2-setup.exe
-          echo 'd403a9b7e126cd052a67d129652e69edc96298e41aa3395af921afa5be91a870  Lattice-Windows-0.15.8-r2-setup.exe' > SHA256SUMS.txt
+          [[ "$ASSET_NAME" =~ ^[A-Za-z0-9._-]+\.exe$ ]]
+          [[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          mv installer/Lattice_0.15.8_x64-setup.exe "$ASSET_NAME"
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$ASSET_NAME" > SHA256SUMS.txt
           sha256sum --check SHA256SUMS.txt
-          gh release upload windows-v0.15.8-r2 Lattice-Windows-0.15.8-r2-setup.exe SHA256SUMS.txt --clobber
+          gh release upload "$RELEASE_TAG" "$ASSET_NAME" SHA256SUMS.txt --clobber

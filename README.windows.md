@@ -26,6 +26,12 @@ Le binaire communautaire n’est pas signé par un certificat Windows. Les mises
 - Node, uv/uvx et bibtex-tidy inclus ; moteur Open Slide préparé pour Windows.
 - Secrets enregistrés via le Gestionnaire d’identification Windows.
 
+## Export Word éditable
+
+Dans la palette de commandes (Ctrl+K), chercher **Export Word…**, puis choisir un fichier `.docx`. Les modifications ouvertes sont sauvegardées avant la conversion du document LaTeX principal du projet. Pandoc est inclus dans l’installateur Windows ; sur les autres plateformes, installer Pandoc séparément.
+
+Le DOCX contient du texte éditable, des titres, des équations Word, les images compatibles et les citations/bibliographies que Pandoc peut convertir. Il convient aux commentaires et au suivi des modifications des encadrants dans Word. Vérifier le document face au PDF avant envoi : pagination, polices, macros personnalisées, références croisées, TikZ, figures PDF et mises en page complexes peuvent différer ou être omis. Les avertissements du convertisseur sont affichés. Les modifications et commentaires ajoutés dans Word ne sont pas réimportés dans LaTeX.
+
 ## Limites connues
 
 L’agent Synara intégré reste désactivé. Le projet original exige un bac à sable macOS empêchant l’agent de modifier directement les bibliographies `.bib`. Cette garantie n’a pas encore d’équivalent dans ce portage. Les fonctions de relecture et de révision qui dépendent de cet agent sont donc indisponibles. Claude Code, Codex et d’autres CLI peuvent être lancés normalement dans le panneau Terminal, avec leurs propres installations et connexions.

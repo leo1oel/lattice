@@ -57,7 +57,10 @@ Evidence \cite{lovelace1843}.
     ] {
         assert!(xml.contains(expected), "Missing {expected}: {}", result.warnings);
     }
-    assert!(archive.file_names().any(|name| name.starts_with("word/media/")));
+    assert!(archive
+        .file_names()
+        .filter_map(Result::ok)
+        .any(|name| name.starts_with("word/media/")));
 }
 
 #[test]

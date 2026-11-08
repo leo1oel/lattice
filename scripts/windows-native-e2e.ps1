@@ -92,6 +92,31 @@ try {
   $proof = Join-Path $source.DirectoryName 'terminal-proof.txt'
   Wait-Check { (Test-Path $proof) -and (Get-Content $proof -Raw) -eq 'ConPTY works' } 'PowerShell executing inside the project'
   Record 'the integrated ConPTY terminal executes PowerShell in the project folder'
+  Focus-App
+  [System.Windows.Forms.SendKeys]::SendWait('^k')
+  Start-Sleep -Milliseconds 500
+  [System.Windows.Forms.SendKeys]::SendWait('Export Word')
+  Start-Sleep -Milliseconds 500
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  Wait-Check { @([LatticeWindows]::Visible() | Where-Object { $_.Title -eq 'Export Word' }).Count -gt 0 } 'Word export information dialog'
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  Wait-Check { @([LatticeWindows]::Visible() | Where-Object { $_.Title -eq 'Export editable Word document' }).Count -gt 0 } 'Word destination dialog'
+  $wordPath = Join-Path $Artifacts 'tutorial-review.docx'
+  [System.Windows.Forms.Clipboard]::SetText($wordPath)
+  [System.Windows.Forms.SendKeys]::SendWait('^a')
+  [System.Windows.Forms.SendKeys]::SendWait('^v')
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  Wait-Check { (Test-Path $wordPath) -and (Get-Item $wordPath).Length -gt 1000 } 'Word document exported from the command palette' 120
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $word = [IO.Compression.ZipFile]::OpenRead($wordPath)
+  try {
+    $entry = $word.GetEntry('word/document.xml')
+    if (!$entry) { throw 'The exported Word package has no document' }
+    $reader = [IO.StreamReader]::new($entry.Open())
+    try { $xml = $reader.ReadToEnd() } finally { $reader.Dispose() }
+    if ($xml -notmatch 'Understanding Attention' -or $xml -notmatch 'oMath') { throw 'The exported Word document is missing editable text or equations' }
+  } finally { $word.Dispose() }
+  Record 'the command palette exports a DOCX with editable tutorial text and equations'
   Screenshot 'native-window.png'
   Set-Content -LiteralPath $stop -Value 'stop'
   if (!$monitor.WaitForExit(10000)) { throw 'The console monitor did not stop' }
