@@ -9,7 +9,7 @@ Portage communautaire de [leo1oel/lattice](https://github.com/leo1oel/lattice), 
 3. Pour compiler les documents, installer [TeX Live pour Windows](https://tug.org/texlive/windows.html), avec `latexmk`, puis redémarrer Lattice. Une installation MiKTeX avec `latexmk` et Perl fonctionne également, mais TeX Live est la distribution utilisée pour la validation.
 4. Ouvrir un dossier ou le tutoriel intégré, puis compiler.
 
-Windows x64, à partir de Windows 10 version 1809 ; Windows 11 recommandé. Les premières utilisations des outils bibliographiques peuvent télécharger leurs environnements Python avec le `uv` inclus. Les fonctions Git nécessitent Git pour Windows. L’application ne contient aucun abonnement ni modèle IA.
+Windows x64, à partir de Windows 10 version 1809 ; Windows 11 recommandé. Les premières utilisations des outils bibliographiques peuvent télécharger leurs environnements Python avec le `uv` inclus. Les fonctions Git et certains outils de conversion des articles nécessitent Git pour Windows. L’application ne contient aucun abonnement ni modèle IA.
 
 Le binaire communautaire n’est pas signé par un certificat Windows. Les mises à jour se téléchargent manuellement depuis ce dépôt.
 

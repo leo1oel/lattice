@@ -74,7 +74,7 @@ jobs:
       - name: Install tutorial TeX packages
         shell: pwsh
         run: |
-          tlmgr install latexmk natbib lineno microtype booktabs mylatexformat
+          tlmgr install latexmk natbib lineno microtype booktabs mylatexformat times helvetic psnfss
           if ($LASTEXITCODE -ne 0) { throw 'TeX package install failed' }
       - name: Install app and WebView2 driver
         shell: pwsh
