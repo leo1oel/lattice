@@ -41,7 +41,6 @@ function remoteFixture() {
       deps.sourceRef.current = deps.savedSourceRef.current = content;
       return true;
     }),
-    compile: vi.fn(async () => {}),
   };
   const context = { projectRoot: "/project", path: "section.tex", baseContent: "old caption", isCurrent: () => true };
   return { deps, context };
@@ -78,17 +77,15 @@ describe("safe Overleaf remote text delivery", () => {
     });
     expect(deps.sourceRef.current).toBe("old caption");
     expect(deps.accept).not.toHaveBeenCalled();
-    expect(deps.compile).not.toHaveBeenCalled();
   });
 
-  it("updates both editor baselines and rebuilds only after a successful guarded write", async () => {
+  it("updates both editor baselines after a successful guarded write", async () => {
     const { deps, context } = remoteFixture();
     vi.mocked(invoke).mockResolvedValue(undefined);
     expect(await applyOverleafRemoteText(deps, "remote caption", context)).toBe(true);
     expect(deps.accept).toHaveBeenCalledWith("section.tex", "remote caption", { text: "old caption", saved: "old caption" });
     expect(deps.sourceRef.current).toBe("remote caption");
     expect(deps.savedSourceRef.current).toBe("remote caption");
-    expect(deps.compile).toHaveBeenCalledOnce();
   });
 
   it.each(["typing", "navigation", "project generation"])("does not apply a late response after %s", async (change) => {
@@ -103,7 +100,6 @@ describe("safe Overleaf remote text delivery", () => {
     expect(await pending).toBe(false);
     expect(deps.sourceRef.current).toBe(change === "typing" ? "my unfinished edit" : "old caption");
     expect(deps.savedSourceRef.current).toBe("old caption");
-    expect(deps.compile).not.toHaveBeenCalled();
   });
 });
 
@@ -126,7 +122,7 @@ function syncFixture() {
     activePaper: null, activeAsset: null,
     editorPosition: null, editorPositionRef: { current: null }, build: null,
     saveGeneration: 0, savedPathsRef: { current: new Set() },
-    wholeFileEditingPaths: [], wholeFileDraftPaths: [], save: vi.fn(async () => true),
+    wholeFileEditingPaths: [], wholeFileDraftPaths: [], save: vi.fn(async () => true), compile: vi.fn(async () => {}),
     loadFile: vi.fn(async (_path, options) => {
       if (options?.canCommit?.() === false) return false;
       remote.sourceRef.current = remote.savedSourceRef.current = deps.source = disk;

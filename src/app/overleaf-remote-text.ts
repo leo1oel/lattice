@@ -19,7 +19,7 @@ import type { OverleafWorkspaceDeps } from "./use-overleaf-workspace";
 export async function applyOverleafRemoteText(
   deps: Pick<OverleafWorkspaceDeps,
     "projectRef" | "projectOperationGenerationRef" | "activeFileRef" | "sourceRef" | "savedSourceRef"
-    | "accept" | "compile">,
+    | "accept">,
   text: string,
   context: OverleafRemoteTextContext,
 ): Promise<boolean> {
@@ -40,7 +40,10 @@ export async function applyOverleafRemoteText(
   // ordinary editor save can merge it with the remote bytes now on disk.
   // A co-author's text is not the writer's tracked change: it moves review mode's base.
   reviewMode.noteCoauthorText(path, text);
-  if (!isCurrent() || !deps.accept(path, text, { text: baseContent, saved })) return false;
-  if (text !== saved) void deps.compile();
-  return true;
+  // No build from here: the write above is not the app's own save, so the
+  // project watcher reports it and watched-builds.ts decides, like any edit
+  // made outside the editor. That honours manual builds and lets a co-author's
+  // burst of keystrokes build once when it pauses; a requested build per
+  // operation compiled and reloaded the PDF on every key they pressed.
+  return isCurrent() && deps.accept(path, text, { text: baseContent, saved });
 }
