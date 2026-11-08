@@ -5,7 +5,7 @@ import "./empty-illustration.css";
 /*
  * Small line drawings for places with nothing in them yet. They share the
  * Lattice mark's vocabulary: neutral line work in the empty state's own
- * color, and one weft (blue) or warp (teal) thread that marks what will
+ * color, and one weft (olive) or warp (sage) thread that marks what will
  * arrive. Each draws itself in once when it appears and moves a little while
  * its empty state is hovered; nothing loops. Decorative only: the empty
  * state's text says what it means.

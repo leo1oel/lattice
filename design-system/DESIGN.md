@@ -58,7 +58,7 @@ Surfaces, two inks, one accent, four statuses.
 - Status colours mean success, warning, danger and info. They are never substitutes for the accent.
 - Never put a fixed light-theme hex in a reusable component; take the semantic token so dark follows.
 - **[Lattice]** Tints (Paper, Sage, Mist, Dusk) move only the neutral surfaces to one hue: chrome takes the full tint, panels 70%. Text and lines stay neutral.
-- **[Lattice]** The mark’s weft (blue) and warp (teal) are identity: the logo and one accent stroke of an illustration, never a control.
+- **[Lattice]** The mark’s weft (olive) and warp (sage) are identity: the logo and one accent stroke of an illustration, never a control.
 
 ### Typography
 
@@ -166,7 +166,7 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 | `--color-line` | `rgb(28 28 31 / 9%)` | `rgb(255 255 255 / 7.5%)` | Hairline: dividers, card edges, segmented track |
 | `--color-line-strong` | `rgb(28 28 31 / 14%)` | `rgb(255 255 255 / 12%)` | Stronger line: secondary Button edge, switch off track |
 | `--color-accent` | `#303033` | `#E7E7E4` | Interaction accent (Graphite = neutral); checkbox and switch on |
-| `--color-focus` | `#3B5BD6` | `#7F97FF` | Keyboard focus ring (weft blue under Graphite; the accent under a preset) |
+| `--color-focus` | `#3B5BD6` | `#7F97FF` | Keyboard focus ring (blue under Graphite; the accent under a preset) |
 | `--color-hover` | `rgb(36 36 38 / 5%)` | `rgb(233 233 231 / 5%)` | Control hover, 5% of the ink |
 | `--color-pressed` | `rgb(36 36 38 / 8%)` | `rgb(233 233 231 / 8%)` | Control press, 8% of the ink |
 | `--color-chrome-hover` | `rgb(36 36 38 / 6%)` | `rgb(233 233 231 / 6%)` | Hover on the darker chrome, 6% of the ink |
@@ -178,8 +178,8 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 | `--color-warning` | `#8D6400` | `#D7A62B` | Warning status |
 | `--color-info` | `#6488C5` | `#8FABD8` | Info status |
 | `--color-annotation` | `#9A5C00` | `#F2B65E` | Open local note |
-| `--color-brand-weft` | `#4568F6` | `#7F97FF` | Mark weft thread; identity only, never a control |
-| `--color-brand-warp` | `#25B4BB` | `#4FD2C6` | Mark warp thread; identity only, never a control |
+| `--color-brand-weft` | `#4E5C1D` | `#8A9C3E` | Mark weft thread; identity only, never a control |
+| `--color-brand-warp` | `#909E42` | `#C5CE80` | Mark warp thread; identity only, never a control |
 | `--color-toolbar-active` | `rgb(48 48 51 / 14%)` | `rgb(231 231 228 / 14%)` | Toolbar icon that is on, accent 14% |
 | `--color-field-border` | `#E0E0E1` | `#37373A` | Field, select and search border at rest: ink 12% over the input surface |
 | `--color-field-border-hover` | `#C7C7C7` | `#4F4F51` | Field border on hover and focus: ink 24% over the input surface |
