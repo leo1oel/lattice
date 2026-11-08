@@ -56,6 +56,7 @@ mod pdf_fonts;
 mod pdf_pages;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
+mod plugins;
 mod presentation;
 #[cfg(target_os = "macos")]
 mod process_inspector;
@@ -446,6 +447,11 @@ pub fn run() {
             perf_lab::perf_wheel,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_mouse,
+            ipc::plugins::list_plugins,
+            ipc::plugins::install_plugin,
+            ipc::plugins::set_plugin_enabled,
+            ipc::plugins::remove_plugin,
+            ipc::plugins::run_plugin_command,
             ipc::workspace::create_project,
             ipc::workspace::list_local_templates,
             ipc::workspace::inspect_template_source,

@@ -1,0 +1,9 @@
+{
+  "id": "example.hello",
+  "name": "Hello from a plugin",
+  "version": "1.0.0",
+  "api_version": 1,
+  "commands": [
+    { "id": "hello", "title": "Show plugin context", "executable": "hello.sh" }
+  ]
+}

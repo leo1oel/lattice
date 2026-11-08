@@ -14,6 +14,7 @@ pub(crate) mod live_preview;
 pub(crate) mod overleaf;
 pub(crate) mod overleaf_realtime;
 pub(crate) mod papers;
+pub(crate) mod plugins;
 pub(crate) mod search;
 pub(crate) mod terminal;
 pub(crate) mod windows;
