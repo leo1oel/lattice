@@ -17032,6 +17032,14 @@ msgstr "Your invitation to “{0}” is waiting on Overleaf"
 msgid "Your name"
 msgstr "Your name"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: {message}"
+msgstr "Your note on {name} did not reach Overleaf: {message}"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there."
+msgstr "Your note on {name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "your Overleaf account"

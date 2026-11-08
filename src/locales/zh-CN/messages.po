@@ -17032,6 +17032,14 @@ msgstr "“{0}”的邀请还在 Overleaf 上等你接受"
 msgid "Your name"
 msgstr "你的名字"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: {message}"
+msgstr "你在 {name} 上的批注没有发到 Overleaf：{message}"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there."
+msgstr "你在 {name} 上的批注没有发到 Overleaf：Overleaf 上的这份文件这里和本地不一样，已在 PDF 旁打开它。请在那里对这段文字重新评论。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "你的 Overleaf 账户"

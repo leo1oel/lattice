@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { hostErrorMessage } from "../app-utils";
+import { showError } from "../app/notify";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
 import type { CommentDestination } from "../app/use-editor-comments";
 import { useExitPicture } from "../components/ui/exit-picture";
@@ -45,8 +46,9 @@ export function PdfAnnotationComposer(props: {
   const { rounds } = props;
   // Overleaf is taking a comment on a file not open; Save waits for it.
   const [saving, setSaving] = useState(false);
-  // An answer arriving after the note closed must not act for it (`onDone`
-  // would close whatever note is open by then).
+  // An answer arriving after the note closed (a new note replaced it) must
+  // not act for it (`onDone` would close whatever note is open by then); one
+  // that did not land says so in a toast instead.
   const closedRef = useRef(false);
   useEffect(() => {
     closedRef.current = false;
@@ -97,19 +99,26 @@ export function PdfAnnotationComposer(props: {
     setError(null);
     rounds.commentInDocumentFromPdf(selection, place, body).then(
       (placement) => {
-        if (closedRef.current) return;
         if (placement === "placed") {
-          props.onDone();
+          if (!closedRef.current) props.onDone();
           return;
         }
         rounds.openPdfSource(place);
+        if (closedRef.current) {
+          showError(t`Your note on ${name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there.`);
+          return;
+        }
         setSaving(false);
         setError(t`Overleaf's copy of ${name} reads differently here, so it is open beside the PDF now. Check the passage there, then save again.`);
       },
       (reason: unknown) => {
-        if (closedRef.current) return;
+        const message = hostErrorMessage(reason);
+        if (closedRef.current) {
+          showError(t`Your note on ${name} did not reach Overleaf: ${message}`);
+          return;
+        }
         setSaving(false);
-        setError(hostErrorMessage(reason));
+        setError(message);
       },
     );
   };
