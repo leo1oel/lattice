@@ -752,8 +752,22 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   box-shadow: none;
 }
 /* Keep the hover arrow outside the host, but scroll the card within the
-   available height CodeMirror measures above or below the anchor. */
-.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) { overflow: visible; }
+   available height CodeMirror measures above or below the anchor. Another
+   hover card over a commented passage (a citation, a diagnostic) stands as its
+   own card beside the comment's, apart by a gap rather than under
+   CodeMirror's section rule; the gap is inside the popover, so the pointer
+   crossing it still counts as over it. */
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) {
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) > .cm-tooltip-section {
+  min-height: 0;
+  flex: 0 1 auto;
+  border-top: 0;
+}
 /* `--comment-card-room` is the editor's width less its margins, set as the card opens. */
 .cm-editor-comment-card-host { --comment-card-room: 320px; display: flex; flex-direction: column; max-height: 100%; }
 .cm-editor-comment-card-host > .comment-card {
