@@ -5,7 +5,7 @@ use super::account::{save_session, SessionFile};
 use super::files::{disk_path, sha256_hex, write_base_copy};
 use super::link::{load_state, save_state, SyncState};
 use super::sync::{sync, OverleafSyncResult};
-use crate::overleaf_rt::mock_server::serve_http;
+use crate::overleaf_rt::mock_server::{answer_realtime, serve_http, MockState};
 pub(super) use crate::test_support::TempDir;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
@@ -88,6 +88,9 @@ pub(super) struct Mock {
     /// Runs as each request arrives, before it is answered, with its method
     /// and URL: the moment to change something while a sync waits on Overleaf.
     pub on_request: Option<OnRequest>,
+    /// The live channel, kept as `overleaf_rt::mock_server` keeps it; without
+    /// it the channel's handshake is refused, as when it cannot be reached.
+    pub realtime: Option<Arc<Mutex<MockState>>>,
 }
 
 impl Mock {
@@ -103,7 +106,13 @@ impl Mock {
         let mut downloads = 0usize;
         let html = self.dashboard.take().unwrap_or_else(projects_page_html);
         let routes = std::mem::take(&mut self.routes);
+        let realtime = self.realtime.take();
         let base = serve_http(move |mut request| {
+            if let Some(realtime) =
+                realtime.as_ref().filter(|_| request.url().starts_with("/socket.io/"))
+            {
+                return answer_realtime(request, realtime, 60);
+            }
             let mut body = Vec::new();
             let _ = request.as_reader().read_to_end(&mut body);
             let method = request.method().as_str().to_string();

@@ -1,12 +1,18 @@
 //! A mock Overleaf for the realtime tests: a local HTTP server, and on it a
 //! socket.io 0.9 endpoint that joins one project and one document, answers
 //! updates, and records every frame it is sent.
+//!
+//! [`start_mock_serving`] goes further and keeps every document as Overleaf
+//! does (see `mock_ot`): updates are transformed against what landed first,
+//! applied, and confirmed or refused the way the real server does it.
 
 use super::client::lock;
 use super::codec::*;
+use super::mock_ot::{MockDoc, Refused};
 use super::tests::project_tree;
-use super::RealtimeConfig;
+use super::{OtOp, RealtimeConfig};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use tiny_http::Response;
@@ -46,17 +52,67 @@ pub(crate) struct MockState {
     /// default ones.
     project: Option<Value>,
     lines: Option<Value>,
+    /// Every document by id, kept as Overleaf keeps it; empty for the
+    /// canned answers.
+    docs: HashMap<String, MockDoc>,
+    /// Edits a collaborator makes to a document just after we join it,
+    /// before anything we send can land.
+    typed_after_join: Vec<(String, Vec<OtOp>)>,
+    /// Every update is refused once queued, as a document updater that
+    /// failed to apply it would.
+    refuse_updates: bool,
 }
 
-/// A mock serving `project`, where every document reads `lines`.
+/// A mock serving `project`, where every document starts out reading
+/// `lines`, at version 42.
 pub(crate) fn start_mock_serving(
     project: Value, lines: &[&str],
 ) -> (String, Arc<Mutex<MockState>>) {
-    let (host, state) = start_mock(false);
-    let mut serving = lock(&state);
-    (serving.project, serving.lines) = (Some(project), Some(json!(lines)));
-    drop(serving);
+    let state = realtime_state(project, lines);
+    let seen = state.clone();
+    let host = serve_http(move |request| answer_realtime(request, &seen, 60));
     (host, state)
+}
+
+/// What [`start_mock_serving`] serves, for a mock of the rest of Overleaf to
+/// hand its realtime requests to [`answer_realtime`].
+pub(crate) fn realtime_state(project: Value, lines: &[&str]) -> Arc<Mutex<MockState>> {
+    fn doc_ids(folder: &Value, into: &mut Vec<String>) {
+        let ids = folder["docs"].as_array().into_iter().flatten();
+        into.extend(ids.filter_map(|doc| Some(doc["_id"].as_str()?.to_string())));
+        (folder["folders"].as_array().into_iter().flatten()).for_each(|sub| doc_ids(sub, into));
+    }
+    let mut ids = Vec::new();
+    doc_ids(&project["rootFolder"][0], &mut ids);
+    let docs = (ids.into_iter()).map(|id| (id, MockDoc::new(&lines.join("\n"), 42))).collect();
+    let state = MockState {
+        project: Some(project),
+        lines: Some(json!(lines)),
+        docs,
+        ..MockState::default()
+    };
+    Arc::new(Mutex::new(state))
+}
+
+/// Document `id` now reads `text`, at version 42.
+pub(crate) fn set_doc(state: &Arc<Mutex<MockState>>, id: &str, text: &str) {
+    lock(state).docs.insert(id.to_string(), MockDoc::new(text, 42));
+}
+
+/// What document `id` reads now, and its version.
+pub(crate) fn doc_text(state: &Arc<Mutex<MockState>>, id: &str) -> (String, i64) {
+    let doc = &lock(state).docs[id];
+    (doc.text(), doc.version())
+}
+
+/// Refuse every update from now on, after acknowledging it was queued.
+pub(crate) fn refuse_updates(state: &Arc<Mutex<MockState>>) {
+    lock(state).refuse_updates = true;
+}
+
+/// A collaborator makes `ops` to document `id` right after we next join it.
+pub(crate) fn type_after_join(state: &Arc<Mutex<MockState>>, id: &str, ops: Vec<OtOp>) {
+    lock(state).typed_after_join.push((id.to_string(), ops));
 }
 
 /// The updates the mock was sent (`applyOtUpdate`'s payloads), in order.
@@ -81,38 +137,43 @@ pub(crate) fn start_mock(push_join: bool) -> (String, Arc<Mutex<MockState>>) {
 pub(crate) fn start_mock_with(push_join: bool, heartbeat: u64) -> (String, Arc<Mutex<MockState>>) {
     let state = Arc::new(Mutex::new(MockState { push_join, ..MockState::default() }));
     let seen = state.clone();
-    let host = serve_http(move |request| {
-        let url = request.url().to_string();
-        let upgrade = url.contains("/socket.io/1/websocket/");
-        let (cookie, origin) = (header(&request, "Cookie"), header(&request, "Origin"));
-        lock(&seen).requests.push((url.clone(), cookie, origin));
-        if url == "/project" {
-            // The dashboard, where a session stored before the account id
-            // was recorded looks it up.
-            let page = Response::from_string(format!(
-                "<meta name=\"ol-user_id\" content=\"{MOCK_USER_ID}\">"
-            ));
-            let _ = request.respond(with_header(page, "Content-Type: text/html"));
-            return;
-        }
-        if !upgrade {
-            // Load balancers pin the realtime session with a cookie of their
-            // own; the upgrade has to carry it back or it lands on another
-            // instance.
-            let body = Response::from_string(format!("testsid:{heartbeat}:60:websocket"));
-            let body = with_header(body, "Set-Cookie: ol-affinity=instance-7; Path=/; HttpOnly");
-            let _ = request.respond(with_header(body, "Content-Type: text/plain"));
-            return;
-        }
-        let Some(key) = header(&request, "Sec-WebSocket-Key") else { return };
-        let accept = format!("Sec-WebSocket-Accept: {}", derive_accept_key(key.as_bytes()));
-        let stream = request.upgrade("websocket", with_header(Response::empty(101), &accept));
-        let seen = seen.clone();
-        std::thread::spawn(move || {
-            serve_websocket(WebSocket::from_raw_socket(stream, Role::Server, None), seen)
-        });
-    });
+    let host = serve_http(move |request| answer_realtime(request, &seen, heartbeat));
     (host, state)
+}
+
+/// Answer one request the way the mock's realtime server does: the account
+/// page, the socket.io handshake, and the websocket upgrade.
+pub(crate) fn answer_realtime(
+    request: tiny_http::Request, seen: &Arc<Mutex<MockState>>, heartbeat: u64,
+) {
+    let url = request.url().to_string();
+    let upgrade = url.contains("/socket.io/1/websocket/");
+    let (cookie, origin) = (header(&request, "Cookie"), header(&request, "Origin"));
+    lock(seen).requests.push((url.clone(), cookie, origin));
+    if url == "/project" {
+        // The dashboard, where a session stored before the account id
+        // was recorded looks it up.
+        let page =
+            Response::from_string(format!("<meta name=\"ol-user_id\" content=\"{MOCK_USER_ID}\">"));
+        let _ = request.respond(with_header(page, "Content-Type: text/html"));
+        return;
+    }
+    if !upgrade {
+        // Load balancers pin the realtime session with a cookie of their
+        // own; the upgrade has to carry it back or it lands on another
+        // instance.
+        let body = Response::from_string(format!("testsid:{heartbeat}:60:websocket"));
+        let body = with_header(body, "Set-Cookie: ol-affinity=instance-7; Path=/; HttpOnly");
+        let _ = request.respond(with_header(body, "Content-Type: text/plain"));
+        return;
+    }
+    let Some(key) = header(&request, "Sec-WebSocket-Key") else { return };
+    let accept = format!("Sec-WebSocket-Accept: {}", derive_accept_key(key.as_bytes()));
+    let stream = request.upgrade("websocket", with_header(Response::empty(101), &accept));
+    let seen = seen.clone();
+    std::thread::spawn(move || {
+        serve_websocket(WebSocket::from_raw_socket(stream, Role::Server, None), seen)
+    });
 }
 
 pub(crate) fn mock_config(host: &str, cookie: &str) -> RealtimeConfig {
@@ -160,6 +221,12 @@ fn serve_websocket<S: Read + Write>(mut ws: WebSocket<S>, state: Arc<Mutex<MockS
             // which is exactly the case the client has to survive.
             "joinProject" if push_join => Ok(()),
             "joinProject" => send(&mut ws, ack_frame(&id, json!([null, project, "owner", 2]))),
+            "joinDoc" if !lock(&state).docs.is_empty() => {
+                join_kept_doc(&mut ws, &state, &id, &frame.data)
+            }
+            "applyOtUpdate" if !lock(&state).docs.is_empty() => {
+                apply_to_kept_doc(&mut ws, &state, &id, &frame.data)
+            }
             "joinDoc" => {
                 let ranges = json!({"comments": [{"id": "change-1", "op": {"p": 4, "c": "one", "t": "thread-1"}}],
                                     "changes": []});
@@ -179,4 +246,64 @@ fn serve_websocket<S: Read + Write>(mut ws: WebSocket<S>, state: Arc<Mutex<MockS
             break;
         }
     }
+}
+
+/// `joinDoc` on a document the mock keeps: its text and version, then
+/// whatever a collaborator was set to type straight after.
+fn join_kept_doc<S: Read + Write>(
+    ws: &mut WebSocket<S>, state: &Arc<Mutex<MockState>>, ack: &str, data: &str,
+) -> tokio_tungstenite::tungstenite::Result<()> {
+    let args = parse_event(data).map(|(_, args)| args).unwrap_or_default();
+    let doc_id = args.first().and_then(Value::as_str).unwrap_or_default().to_string();
+    let mut state = lock(state);
+    let Some(doc) = state.docs.get(&doc_id) else {
+        return ws.send(Message::text(ack_frame(ack, json!(["doc not found"]))));
+    };
+    // Packed the way Overleaf sends lines: each UTF-8 byte as a character.
+    let pack = |line: &str| line.bytes().map(char::from).collect::<String>();
+    let lines: Vec<String> = doc.text().split('\n').map(pack).collect();
+    let answer = json!([null, lines, doc.version(), [], {"comments": [], "changes": []}]);
+    ws.send(Message::text(ack_frame(ack, answer)))?;
+    let typed: Vec<Vec<OtOp>> = (state.typed_after_join.iter())
+        .filter(|(id, _)| *id == doc_id)
+        .map(|(_, ops)| ops.clone())
+        .collect();
+    state.typed_after_join.retain(|(id, _)| *id != doc_id);
+    for ops in typed {
+        let doc = state.docs.get_mut(&doc_id).expect("looked up above");
+        let version = doc.submit(doc.version(), &ops, None).expect("a collaborator's edit fits");
+        let update =
+            json!([{"doc": doc_id, "v": version, "op": ops, "meta": {"source": "someone-else"}}]);
+        ws.send(Message::text(event_frame("otUpdateApplied", update)))?;
+    }
+    Ok(())
+}
+
+/// `applyOtUpdate` on a document the mock keeps, answered as Overleaf does:
+/// the ack says only that the update was queued, and then the sender alone
+/// hears `{doc, v}` once it applied, or `otUpdateError` if it was refused.
+fn apply_to_kept_doc<S: Read + Write>(
+    ws: &mut WebSocket<S>, state: &Arc<Mutex<MockState>>, ack: &str, data: &str,
+) -> tokio_tungstenite::tungstenite::Result<()> {
+    let args = parse_event(data).map(|(_, args)| args).unwrap_or_default();
+    let update = args.get(1).cloned().unwrap_or_default();
+    let doc_id = update["doc"].as_str().unwrap_or_default().to_string();
+    let ops: Vec<OtOp> = serde_json::from_value(update["op"].clone()).unwrap_or_default();
+    let at = update["v"].as_i64().unwrap_or(-1);
+    let mut state = lock(state);
+    let refuse = state.refuse_updates;
+    let outcome = match state.docs.get_mut(&doc_id) {
+        Some(_) if refuse => Err(Refused::Mismatch),
+        Some(doc) => doc.submit(at, &ops, update["hash"].as_str()),
+        None => Err(Refused::Version),
+    };
+    drop(state);
+    ws.send(Message::text(ack_frame(ack, json!([null]))))?;
+    let answer = match outcome {
+        Ok(version) => event_frame("otUpdateApplied", json!([{"doc": doc_id, "v": version}])),
+        Err(refused) => {
+            event_frame("otUpdateError", json!([format!("{refused:?}"), {"doc_id": doc_id}]))
+        }
+    };
+    ws.send(Message::text(answer))
 }
