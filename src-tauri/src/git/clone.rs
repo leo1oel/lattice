@@ -133,12 +133,13 @@ pub fn clone(
     // Everything git said that was not progress, for telling a failure.
     let mut said = Vec::new();
     if let Some(stderr) = child.stderr.take() {
-        read_progress(stderr, |line| {
-            if let Some(progress) = parse_progress(line) {
-                on_progress(progress);
-            } else if !line.trim().is_empty() && !line.starts_with("Cloning into") {
+        read_progress(stderr, |line| match parse_progress(line) {
+            Some(Some(progress)) => on_progress(progress),
+            Some(None) => {}
+            None if !line.trim().is_empty() && !line.starts_with("Cloning into") => {
                 said.push(line.trim().to_string());
             }
+            None => {}
         });
     }
     let status = child.wait();
@@ -220,8 +221,10 @@ fn read_progress(stream: impl Read, mut line: impl FnMut(&str)) {
 
 /// The share done that one of git's progress lines reports, e.g.
 /// `Receiving objects:  45% (450/1000), 1.2 MiB | 1.1 MiB/s`. Receiving is
-/// most of the wait, so it fills most of the bar.
-fn parse_progress(line: &str) -> Option<CloneProgress> {
+/// most of the wait, so it fills most of the bar. `Some(None)` is progress
+/// in a phase that does not move the bar, such as Git LFS's
+/// `Filtering content` after checkout.
+fn parse_progress(line: &str) -> Option<Option<CloneProgress>> {
     let line = line.trim().trim_start_matches("remote:").trim();
     let (phase, rest) = line.split_once(':')?;
     let percent: f64 = rest.trim_start().split('%').next()?.trim().parse().ok()?;
@@ -231,9 +234,12 @@ fn parse_progress(line: &str) -> Option<CloneProgress> {
         "Resolving deltas" => ("resolving", 0.8, 0.15),
         "Updating files" | "Checking out files" => ("checkout", 0.95, 0.05),
         // The host counting and compressing: before anything arrives.
-        _ => ("connecting", 0.0, 0.0),
+        "Enumerating objects" | "Counting objects" | "Compressing objects" => {
+            ("connecting", 0.0, 0.0)
+        }
+        _ => return Some(None),
     };
-    Some(CloneProgress { stage, progress: from + span * share })
+    Some(Some(CloneProgress { stage, progress: from + span * share }))
 }
 
 /// What went wrong, from the lines git printed. The first that is not the
@@ -246,8 +252,10 @@ fn classify_failure(said: &[String]) -> CloneError {
     let says = |phrases: &[&str]| phrases.iter().any(|phrase| lower.contains(phrase));
     let chatter = |line: &&String| {
         let line = line.to_ascii_lowercase();
-        let host_error = ["remote: error:", "remote: fatal:"].iter().any(|prefix| line.starts_with(prefix));
-        !host_error && ["remote:", "warning:", "hint:"].iter().any(|prefix| line.starts_with(prefix))
+        let host_error =
+            ["remote: error:", "remote: fatal:"].iter().any(|prefix| line.starts_with(prefix));
+        !host_error
+            && ["remote:", "warning:", "hint:"].iter().any(|prefix| line.starts_with(prefix))
     };
     let first = said
         .iter()

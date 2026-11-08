@@ -42,16 +42,19 @@ fn accepts_the_urls_git_clones_and_nothing_else() {
 #[test]
 fn reads_progress_from_what_git_prints() {
     let at = |line| {
-        parse_progress(line).map(|progress| (progress.stage, (progress.progress * 100.0).round()))
+        parse_progress(line)
+            .map(|progress| progress.map(|p| (p.stage, (p.progress * 100.0).round())))
     };
     assert_eq!(
         at("Receiving objects:  45% (450/1000), 1.20 MiB | 1.10 MiB/s"),
-        Some(("receiving", 36.0))
+        Some(Some(("receiving", 36.0)))
     );
-    assert_eq!(at("Receiving objects: 100% (1000/1000), done."), Some(("receiving", 80.0)));
-    assert_eq!(at("Resolving deltas:  50% (5/10)"), Some(("resolving", 88.0)));
-    assert_eq!(at("Updating files: 100% (12/12), done."), Some(("checkout", 100.0)));
-    assert_eq!(at("remote: Counting objects:  10% (1/10)"), Some(("connecting", 0.0)));
+    assert_eq!(at("Receiving objects: 100% (1000/1000), done."), Some(Some(("receiving", 80.0))));
+    assert_eq!(at("Resolving deltas:  50% (5/10)"), Some(Some(("resolving", 88.0))));
+    assert_eq!(at("Updating files: 100% (12/12), done."), Some(Some(("checkout", 100.0))));
+    assert_eq!(at("remote: Counting objects:  10% (1/10)"), Some(Some(("connecting", 0.0))));
+    // A phase that does not move the bar leaves it where it was.
+    assert_eq!(at("Filtering content:  50% (1/2), 1.20 MiB | 1.10 MiB/s"), Some(None));
     assert_eq!(at("remote: Enumerating objects: 10, done."), None);
     assert_eq!(at("Cloning into 'paper'..."), None);
 }
@@ -143,7 +146,9 @@ fn names_the_host_s_own_error_over_git_s_advice() {
 #[test]
 fn a_folder_git_may_not_write_to_is_not_a_sign_in_failure() {
     assert_eq!(
-        classify_failure(&lines("fatal: could not create work tree dir 'paper': Permission denied")),
+        classify_failure(&lines(
+            "fatal: could not create work tree dir 'paper': Permission denied"
+        )),
         CloneError::Failed("could not create work tree dir 'paper': Permission denied".to_string()),
     );
 }
