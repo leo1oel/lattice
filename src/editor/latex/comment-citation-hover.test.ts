@@ -107,9 +107,8 @@ function openEditor() {
 function pointAt(view: EditorView, x: number, y: number) {
   const target = view.contentDOM.querySelector(".cm-line") ?? view.contentDOM;
   target.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: x, clientY: y }));
+  // Past the hover delay, and the animation frame in which CodeMirror places the popover.
   vi.advanceTimersByTime(500);
-  // Run the measuring CodeMirror would do on the next frame, which places the popover.
-  view.measure();
 }
 
 const popover = () => document.querySelector<HTMLElement>(".cm-tooltip-hover");
