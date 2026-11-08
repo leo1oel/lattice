@@ -10279,6 +10279,10 @@ msgid "Overleaf did not report that document in this project."
 msgstr "Overleaf did not report that document in this project."
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf did not say whether the edit applied."
+msgstr "Overleaf did not say whether the edit applied."
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf disconnected this session."
 
