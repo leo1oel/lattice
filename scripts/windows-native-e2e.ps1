@@ -95,8 +95,11 @@ try {
   Focus-App
   [System.Windows.Forms.SendKeys]::SendWait('^`')
   Start-Sleep -Milliseconds 400
-  [System.Windows.Forms.SendKeys]::SendWait('^k')
+  $rect = [LatticeWindows+Rect]::new()
+  [LatticeWindows]::GetWindowRect($app.MainWindowHandle, [ref]$rect) | Out-Null
+  [LatticeWindows]::Click(($rect.Left + [int](($rect.Right - $rect.Left) * 0.62)), ($rect.Top + 51))
   Start-Sleep -Milliseconds 500
+  Screenshot 'command-palette.png'
   [System.Windows.Forms.SendKeys]::SendWait('Export Word')
   Start-Sleep -Milliseconds 500
   [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')

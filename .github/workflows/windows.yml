@@ -96,7 +96,7 @@ jobs:
           tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet
           tlmgr update --self
           if ($LASTEXITCODE -ne 0) { throw 'TeX manager update failed' }
-          tlmgr install collection-latexextra collection-fontsrecommended latexmk mylatexformat latexindent natbib lineno microtype booktabs environ
+          tlmgr install geometry collection-fontsrecommended latexmk mylatexformat latexindent natbib lineno microtype booktabs environ
           if ($LASTEXITCODE -ne 0) { throw 'TeX package install failed' }
           if (!(kpsewhich environ.sty)) { throw 'The tutorial dependency environ.sty is still missing' }
       - name: Scan installer with Windows Defender when available
