@@ -14,6 +14,7 @@ use std::fs;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex, PoisonError};
 
 /// Why a clone did not produce a project. The page words each kind itself;
@@ -48,9 +49,13 @@ pub struct CloneProgress {
     pub progress: f64,
 }
 
-/// The clone running for each window, by label: its process group and
-/// whether it was asked to stop.
-static CLONES: LazyLock<Mutex<HashMap<String, (u32, bool)>>> = LazyLock::new(Default::default);
+type RunningClone = (u64, u32, bool);
+
+/// The clone running for each window, by label: which clone it is, its
+/// process group and whether it was asked to stop. A page that reloads
+/// keeps its label, so a clone only ever touches its own entry.
+static CLONES: LazyLock<Mutex<HashMap<String, RunningClone>>> = LazyLock::new(Default::default);
+static NEXT_CLONE: AtomicU64 = AtomicU64::new(0);
 
 /// Whether git would clone `url`. Bare local paths are left out: a folder on
 /// this Mac is opened, not cloned.
@@ -99,7 +104,11 @@ pub fn clone(
         return Err(CloneError::GitMissing);
     }
     // Registered before git starts, so a cancel that comes first still counts.
-    CLONES.lock().unwrap_or_else(PoisonError::into_inner).insert(window.to_string(), (0, false));
+    let id = NEXT_CLONE.fetch_add(1, Ordering::Relaxed);
+    CLONES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(window.to_string(), (id, 0, false));
     on_progress(CloneProgress { stage: "connecting", progress: 0.0 });
     let mut command = commands::command("git");
     command
@@ -118,12 +127,15 @@ pub fn clone(
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(_) => {
-            CLONES.lock().unwrap_or_else(PoisonError::into_inner).remove(window);
+            forget(window, id);
             return Err(CloneError::GitMissing);
         }
     };
-    if let Some((pid, cancelled)) =
-        CLONES.lock().unwrap_or_else(PoisonError::into_inner).get_mut(window)
+    if let Some((_, pid, cancelled)) = CLONES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get_mut(window)
+        .filter(|(owner, ..)| *owner == id)
     {
         *pid = child.id();
         if *cancelled {
@@ -143,8 +155,7 @@ pub fn clone(
         });
     }
     let status = child.wait();
-    let (_, cancelled) =
-        CLONES.lock().unwrap_or_else(PoisonError::into_inner).remove(window).unwrap_or((0, false));
+    let cancelled = forget(window, id);
     if status.as_ref().is_ok_and(|status| status.success()) && !cancelled {
         return Ok(());
     }
@@ -157,10 +168,31 @@ pub fn clone(
     Err(classify_failure(&said))
 }
 
+/// Drop clone `id`'s entry for `window`, if a newer clone has not taken
+/// its place, and say whether it was asked to stop. One that was replaced
+/// was: only a reload, which stops it, lets another clone start there.
+fn forget(window: &str, id: u64) -> bool {
+    let mut clones = CLONES.lock().unwrap_or_else(PoisonError::into_inner);
+    match clones.get(window) {
+        Some(&(owner, _, cancelled)) if owner == id => {
+            clones.remove(window);
+            cancelled
+        }
+        _ => true,
+    }
+}
+
+/// Stop every clone running, as Lattice quits.
+pub fn cancel_all() {
+    let windows: Vec<String> =
+        CLONES.lock().unwrap_or_else(PoisonError::into_inner).keys().cloned().collect();
+    windows.iter().for_each(|window| cancel(window));
+}
+
 /// Stop the clone `window` started, if one is running.
 pub fn cancel(window: &str) {
     let mut clones = CLONES.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some((pid, cancelled)) = clones.get_mut(window) {
+    if let Some((_, pid, cancelled)) = clones.get_mut(window) {
         *cancelled = true;
         // The whole session: git's transport helper and ssh run under it.
         // Before git has started there is nothing to signal; it is stopped
@@ -222,12 +254,17 @@ fn read_progress(stream: impl Read, mut line: impl FnMut(&str)) {
 /// The share done that one of git's progress lines reports, e.g.
 /// `Receiving objects:  45% (450/1000), 1.2 MiB | 1.1 MiB/s`. Receiving is
 /// most of the wait, so it fills most of the bar. `Some(None)` is progress
-/// in a phase that does not move the bar, such as Git LFS's
+/// that does not move the bar: a bare count, or a phase such as Git LFS's
 /// `Filtering content` after checkout.
 fn parse_progress(line: &str) -> Option<Option<CloneProgress>> {
     let line = line.trim().trim_start_matches("remote:").trim();
     let (phase, rest) = line.split_once(':')?;
-    let percent: f64 = rest.trim_start().split('%').next()?.trim().parse().ok()?;
+    let rest = rest.trim();
+    // A count with no total, e.g. `Checking connectivity: 5123, done.`.
+    if rest.trim_end_matches(", done.").parse::<u64>().is_ok() {
+        return Some(None);
+    }
+    let percent: f64 = rest.split('%').next()?.trim().parse().ok()?;
     let share = (percent / 100.0).clamp(0.0, 1.0);
     let (stage, from, span) = match phase {
         "Receiving objects" => ("receiving", 0.0, 0.8),

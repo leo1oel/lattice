@@ -82,7 +82,8 @@ export function CloneRepositoryDialog({ recentProjectPath, onClose, onCloned }: 
     };
   }, [parent]);
 
-  // A clone still running when the dialog goes (the window closing) stops.
+  // A clone still running when the dialog goes stops; a window that closes
+  // or reloads never runs this, and the backend stops its clone instead.
   const cloningRef = useRef(false);
   useEffect(() => () => {
     if (cloningRef.current) void invoke("cancel_clone").catch(() => {});

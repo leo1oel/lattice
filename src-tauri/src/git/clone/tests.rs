@@ -55,7 +55,11 @@ fn reads_progress_from_what_git_prints() {
     assert_eq!(at("remote: Counting objects:  10% (1/10)"), Some(Some(("connecting", 0.0))));
     // A phase that does not move the bar leaves it where it was.
     assert_eq!(at("Filtering content:  50% (1/2), 1.20 MiB | 1.10 MiB/s"), Some(None));
-    assert_eq!(at("remote: Enumerating objects: 10, done."), None);
+    // Counts with no total move nothing, and are not something git said.
+    assert_eq!(at("remote: Enumerating objects: 10, done."), Some(None));
+    assert_eq!(at("Checking connectivity: 5123, done."), Some(None));
+    assert_eq!(at("Checking connectivity: 5123"), Some(None));
+    assert_eq!(at("fatal: unable to checkout working tree"), None);
     assert_eq!(at("Cloning into 'paper'..."), None);
 }
 
@@ -280,4 +284,17 @@ fn a_cancel_before_git_starts_stops_the_clone_and_cleans_up() {
     assert!(!dest.exists());
     // Nothing is left registered for the window.
     assert!(!CLONES.lock().unwrap().contains_key("clone-cancel"));
+}
+
+#[test]
+fn an_older_clone_finishing_leaves_a_newer_one_cancellable() {
+    // A reload started a second clone in the same window while the first
+    // was still finishing.
+    CLONES.lock().unwrap().insert("clone-reloaded".to_string(), (u64::MAX, 0, false));
+    assert!(forget("clone-reloaded", 0), "the replaced clone counts as stopped");
+    assert!(CLONES.lock().unwrap().contains_key("clone-reloaded"));
+    cancel("clone-reloaded");
+    assert_eq!(CLONES.lock().unwrap().get("clone-reloaded"), Some(&(u64::MAX, 0, true)));
+    assert!(forget("clone-reloaded", u64::MAX));
+    assert!(!CLONES.lock().unwrap().contains_key("clone-reloaded"));
 }
