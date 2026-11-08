@@ -60,6 +60,8 @@ export const DESIGN_CREDITS: readonly Credit[] = [
   { name: "Inter", role: msg`By Rasmus Andersson`, url: "https://rsms.me/inter/", pkg: { closure: "npm", name: "@fontsource-variable/inter" } },
   { name: "Instrument Serif", url: "https://github.com/Instrument/instrument-serif", pkg: { closure: "npm", name: "@fontsource/instrument-serif" } },
   { name: "Ioskeley Mono", role: msg`By Ahmed Hatem, built on Iosevka by Renzhi Li`, url: "https://github.com/ahatem/IoskeleyMono", license: "OFL-1.1", version: "2.0.0" },
+  { name: "Atkinson Hyperlegible", role: msg`By the Braille Institute`, url: "https://www.brailleinstitute.org/freefont/", pkg: { closure: "npm", name: "@fontsource/atkinson-hyperlegible" } },
+  { name: "OpenDyslexic", role: msg`By Abbie Gonzalez`, url: "https://opendyslexic.org", pkg: { closure: "npm", name: "@fontsource/opendyslexic" } },
   { name: "IBM Plex and Shantell Sans", url: "https://github.com/IBM/plex", license: "OFL-1.1" },
   { name: "Lucide", url: "https://lucide.dev", pkg: { closure: "npm", name: "lucide-react" } },
   { name: "Phosphor Icons", role: msg`Redrawn from Phosphor glyphs`, url: "https://phosphoricons.com", license: "MIT" },
