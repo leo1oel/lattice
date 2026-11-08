@@ -23,6 +23,8 @@ pub struct ZoteroCollection {
     /// The items importing it brings in: those directly in it (not in its
     /// subcollections), as `items` reads them.
     pub items: u64,
+    /// Items in it or in any collection below it, each counted once.
+    pub total: u64,
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -87,11 +89,23 @@ pub(super) fn collections(db: &Connection) -> Result<Vec<ZoteroCollection>, Stri
     let deleted = table_exists(db, "deletedCollections");
     let mut statement = db
         .prepare(&format!(
-            "SELECT c.key, c.collectionName, p.key,
-                    (SELECT count(*) FROM collectionItems ci
-                     JOIN items i ON i.itemID = ci.itemID
-                     JOIN itemTypesCombined t ON t.itemTypeID = i.itemTypeID
-                     WHERE ci.collectionID = c.collectionID AND {IMPORTABLE})
+            "WITH RECURSIVE tree(rootID, collectionID) AS (
+                 SELECT collectionID, collectionID FROM collections WHERE libraryID = ?1
+                 UNION
+                 SELECT tree.rootID, c.collectionID FROM collections c
+                 JOIN tree ON c.parentCollectionID = tree.collectionID
+             ),
+             importable(collectionID, itemID) AS (
+                 SELECT ci.collectionID, ci.itemID FROM collectionItems ci
+                 JOIN items i ON i.itemID = ci.itemID
+                 JOIN itemTypesCombined t ON t.itemTypeID = i.itemTypeID
+                 WHERE {IMPORTABLE}
+             )
+             SELECT c.key, c.collectionName, p.key,
+                    (SELECT count(*) FROM importable WHERE importable.collectionID = c.collectionID),
+                    (SELECT count(DISTINCT importable.itemID) FROM tree
+                     JOIN importable ON importable.collectionID = tree.collectionID
+                     WHERE tree.rootID = c.collectionID {deleted_tree})
              FROM collections c LEFT JOIN collections p ON p.collectionID = c.parentCollectionID
              WHERE c.libraryID = ?1 {}
              ORDER BY lower(c.collectionName)",
@@ -99,7 +113,12 @@ pub(super) fn collections(db: &Connection) -> Result<Vec<ZoteroCollection>, Stri
                 "AND c.collectionID NOT IN (SELECT collectionID FROM deletedCollections)"
             } else {
                 ""
-            }
+            },
+            deleted_tree = if deleted {
+                "AND tree.collectionID NOT IN (SELECT collectionID FROM deletedCollections)"
+            } else {
+                ""
+            },
         ))
         .map_err(|e| e.to_string())?;
     let rows = statement
@@ -109,6 +128,7 @@ pub(super) fn collections(db: &Connection) -> Result<Vec<ZoteroCollection>, Stri
                 name: row.get(1)?,
                 parent: row.get(2)?,
                 items: row.get::<_, i64>(3)?.max(0) as u64,
+                total: row.get::<_, i64>(4)?.max(0) as u64,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -134,7 +154,7 @@ fn table_exists(db: &Connection, table: &str) -> bool {
 /// generated keys go out in itemID order.
 pub(super) fn items(
     db: &Connection, better_bibtex: Option<&Connection>, data_dir: &Path, base: Option<&Path>,
-    collection: Option<&str>,
+    collection: Option<&str>, include_subfolders: bool,
 ) -> Result<Vec<(ZoteroItem, Option<PathBuf>)>, String> {
     check_schema(db)?;
     let listed: Vec<(i64, String, String)> = db
@@ -152,13 +172,23 @@ pub(super) fn items(
     let chosen: Option<HashSet<i64>> = match collection {
         None => None,
         Some(collection) => Some(
-            db.prepare(
-                "SELECT ci.itemID FROM collectionItems ci
-                 JOIN collections c ON c.collectionID = ci.collectionID
-                 WHERE c.key = ?2 AND c.libraryID = ?1",
-            )
+            db.prepare(&format!(
+                "WITH RECURSIVE tree(collectionID, depth) AS (
+                     SELECT collectionID, 0 FROM collections WHERE key = ?2 AND libraryID = ?1
+                     UNION
+                     SELECT c.collectionID, tree.depth + 1 FROM collections c
+                     JOIN tree ON c.parentCollectionID = tree.collectionID
+                     WHERE ?3 {}
+                 )
+                 SELECT ci.itemID FROM collectionItems ci JOIN tree USING (collectionID)",
+                if table_exists(db, "deletedCollections") {
+                    "AND c.collectionID NOT IN (SELECT collectionID FROM deletedCollections)"
+                } else {
+                    ""
+                }
+            ))
             .map_err(|e| e.to_string())?
-            .query_map(params![USER_LIBRARY, collection], |row| row.get(0))
+            .query_map(params![USER_LIBRARY, collection, include_subfolders], |row| row.get(0))
             .map_err(|e| e.to_string())?
             .collect::<Result<_, _>>()
             .map_err(|e| e.to_string())?,

@@ -27,8 +27,7 @@ import {
   type PastedReference, type ReferenceKind,
 } from "./paper-add";
 import { paperShortAuthors } from "./paper-identity";
-import type { ZoteroItem } from "./zotero";
-import { ZoteroCollections } from "./zotero-collections";
+import { ZoteroBrowser, type ZoteroBrowserHandle, type ZoteroPaper } from "./zotero-browser";
 import "./add-papers-sheet.css";
 import { joinPhrases } from "../i18n";
 
@@ -90,21 +89,9 @@ export function AddPapersSheet(props: {
     return () => window.clearTimeout(timer);
   }, [settled, text]);
   const references = useMemo(() => parsePastedReferences(settled), [settled]);
-  // Choosing a Zotero collection, in place of the paste box; what it brings
-  // lands in the box as BibTeX, with each entry's PDF attachment by key.
+  // The Zotero library, browsed in place of the paste box (zotero-browser.tsx).
   const [zotero, setZotero] = useState(false);
-  const [zoteroPdfs, setZoteroPdfs] = useState<Record<string, string>>({});
-  const pickZotero = (items: ZoteroItem[]) => {
-    const bibtex = items.map((item) => item.bibtex).join("\n\n");
-    const withZotero = (current: string) => (current.trim() ? `${current.trimEnd()}\n\n${bibtex}` : bibtex);
-    setText(withZotero);
-    setSettled(withZotero);
-    setZoteroPdfs((current) => ({
-      ...current,
-      ...Object.fromEntries(items.flatMap((item) => (item.pdf ? [[item.citationKey, item.pdf]] : []))),
-    }));
-    setZotero(false);
-  };
+  const zoteroRef = useRef<ZoteroBrowserHandle>(null);
   const [lookups, setLookups] = useState<Record<string, Lookup>>({});
   // Lookups sent and not yet answered; their rows read as looking up meanwhile.
   const pendingRef = useRef(new Set<string>());
@@ -192,7 +179,9 @@ export function AddPapersSheet(props: {
   const failed = count("failed");
   const addable = rows.filter((row) => row.state === "new" && row.importInput);
   const shown = tab === "all" ? rows : rows.filter((row) => row.state === tab);
-  const tabs: Array<[Tab, string]> = [["all", t`All`], ["new", t`New`], ["duplicate", t`Already in Papers`], ["choose", t`Choose one`]];
+  // A tab with nothing in it is left out (All aside, and the one in view).
+  const tabs: Array<[Tab, string]> = ([["all", t`All`], ["new", t`New`], ["duplicate", t`Already in Papers`], ["choose", t`Several matches`]] as Array<[Tab, string]>)
+    .filter(([id]) => id === "all" || id === tab || counts[id] > 0);
   const kindLabels: Record<ReferenceKind, string> = { arxiv: "arXiv", doi: "DOI", url: t`Link`, bibtex: "BibTeX", title: t`Title` };
 
   const add = () => {
@@ -202,8 +191,19 @@ export function AddPapersSheet(props: {
       id: row.reference.id,
       input: row.importInput ?? row.reference.input,
       label: row.title,
-      pdf: row.reference.kind === "bibtex" ? zoteroPdfs[row.reference.label] : undefined,
     })));
+  };
+  // Ticked Zotero papers go to the same queue, each with its PDF attachment;
+  // the sheet then shows them being added.
+  const addFromZotero = (papers: ZoteroPaper[]) => {
+    if (!papers.length || adding || importingElsewhere) return;
+    const id = (paper: ZoteroPaper) => `zotero:${paper.item.citationKey}`;
+    setAddedFrom(papers.map((paper): Row => ({
+      reference: { id: id(paper), kind: "bibtex", input: paper.item.bibtex, label: paper.item.citationKey },
+      state: "new", title: paper.title, byline: paper.byline,
+    })));
+    props.onAdd(papers.map((paper) => ({ id: id(paper), input: paper.item.bibtex, label: paper.title, pdf: paper.item.pdf ?? undefined })));
+    setZotero(false);
   };
   const moveTab = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowRight: 1, ArrowLeft: -1, Home: -Infinity, End: Infinity }[event.key];
@@ -287,11 +287,24 @@ export function AddPapersSheet(props: {
   };
 
   return (
-    <SheetDialog className="add-papers-sheet" label={t`Add papers`} dirty={Boolean(text.trim()) && !queued} onClose={onClose}>
+    <SheetDialog
+      className="add-papers-sheet"
+      label={t`Add papers`}
+      dirty={Boolean(text.trim()) && !queued}
+      onClose={onClose}
+      onEscapeKeyDown={(event) => {
+        // Escape steps back inside the Zotero browser before it closes the sheet.
+        if (!zotero || batch) return;
+        event.preventDefault();
+        if (!zoteroRef.current?.escape()) setZotero(false);
+      }}
+    >
       <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={t`Add papers`} onClose={onClose} />
+      {zotero && !batch ? (
+        <ZoteroBrowser handle={zoteroRef} papers={props.papers} busy={importingElsewhere || adding} onAdd={addFromZotero} onBack={() => setZotero(false)} />
+      ) : (<>
       <div className="add-papers-body">
-        {zotero && !batch && <ZoteroCollections onPick={pickZotero} />}
-        {!zotero && !batch && (
+        {!batch && (
           <label className="add-papers-paste">
             <span>{t`Paste references`}</span>
             <textarea
@@ -315,7 +328,7 @@ export function AddPapersSheet(props: {
             />
           </label>
         )}
-        {!zotero && !batch && (
+        {!batch && (
           <div className="add-papers-manual">
             <Button variant="ghost" size="compact" onClick={props.onEnterManually}>
               <PenLine size={13} aria-hidden="true" />
@@ -331,7 +344,7 @@ export function AddPapersSheet(props: {
             </Button>
           </div>
         )}
-        {zotero && !batch ? null : !listed.length ? (
+        {!(batch ?? rows).length ? (
           <div className="add-papers-empty">
             <ResearchArt drawing={CATALOGUE_DRAWER} />
           </div>
@@ -414,8 +427,6 @@ export function AddPapersSheet(props: {
           </>
         ) : queued ? (
           <Button variant="primary" onClick={onClose}>{t`Done`}</Button>
-        ) : zotero ? (
-          <Button variant="ghost" onClick={() => setZotero(false)}>{t`Back`}</Button>
         ) : (
           <>
             <Button variant="ghost" onClick={onClose}>{t`Cancel`}</Button>
@@ -431,6 +442,7 @@ export function AddPapersSheet(props: {
           </>
         )}
       </div>
+      </>)}
     </SheetDialog>
   );
 }

@@ -191,7 +191,9 @@ pub fn library(chosen: Option<&str>) -> Result<ZoteroLibrary, String> {
 
 /// The top-level items of the collection `collection` (by its Zotero key; the
 /// whole library when None), each as BibTeX under its citation key.
-pub fn items(chosen: Option<&str>, collection: Option<&str>) -> Result<Vec<ZoteroItem>, String> {
+pub fn items(
+    chosen: Option<&str>, collection: Option<&str>, include_subfolders: bool,
+) -> Result<Vec<ZoteroItem>, String> {
     let data_dir = data_dir(chosen)?;
     let snapshot = Snapshot::take(&data_dir, "zotero.sqlite")?;
     // Better BibTeX keeps its keys in a database of its own beside Zotero's.
@@ -206,6 +208,7 @@ pub fn items(chosen: Option<&str>, collection: Option<&str>) -> Result<Vec<Zoter
         &data_dir,
         support_dir().and_then(|support| attachment_base(&support)).as_deref(),
         collection,
+        include_subfolders,
     )
     .map_err(unreadable)?;
     let mut pdfs = known_pdfs().lock().unwrap_or_else(|poisoned| poisoned.into_inner());

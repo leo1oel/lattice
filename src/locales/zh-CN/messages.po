@@ -229,6 +229,11 @@ msgstr "{0} 个软件包"
 msgid "{0} pages"
 msgstr "{0} 页"
 
+#. placeholder {0}: ticked.length
+#: src/papers/zotero-browser.tsx
+msgid "{0} papers selected"
+msgstr "已选 {0} 篇"
+
 #. placeholder {0}: peers.length
 #: src/overleaf/overleaf-presence.tsx
 msgid "{0} people on Overleaf now"
@@ -1198,6 +1203,10 @@ msgstr "还剩 1 页"
 msgid "1 paper"
 msgstr "1 篇论文"
 
+#: src/papers/zotero-browser.tsx
+msgid "1 paper selected"
+msgstr "已选 1 篇"
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 人正在 Overleaf 上"
@@ -1548,7 +1557,9 @@ msgid "Add “{projectWord}” to project dictionary"
 msgstr "把“{projectWord}”加入项目词库"
 
 #. placeholder {0}: addable.length
+#. placeholder {0}: ticked.length
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add {0} papers"
 msgstr "添加 {0} 篇论文"
 
@@ -1557,6 +1568,7 @@ msgid "Add {title} to Papers"
 msgstr "把 {title} 加入论文库"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add 1 paper"
 msgstr "添加 1 篇论文"
 
@@ -1619,6 +1631,7 @@ msgstr "加链接"
 #: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Add papers"
 msgstr "添加论文"
@@ -2079,6 +2092,7 @@ msgid "Another package or the template already loads {name}. Pass your options w
 msgstr "别的宏包或模板已经加载了 {name}。请在 \\documentclass 之前用 \\PassOptionsToPackage 传入你的选项，或删掉第二个 \\usepackage。"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Another paper is being added"
 msgstr "另一篇论文正在添加"
 
@@ -2336,7 +2350,7 @@ msgid "Azure"
 msgstr "天蓝色"
 
 #: src/editor/insert/table-generator-dialog.tsx
-#: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Back"
 msgstr "上一步"
 
@@ -3302,6 +3316,10 @@ msgstr "请选择要移动的文件或文件夹"
 msgid "Choose a file to save the PDF to."
 msgstr "请选择 PDF 的保存位置"
 
+#: src/papers/zotero-browser.tsx
+msgid "Choose a folder"
+msgstr "选择一个分类"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "请选择包含 LaTeX 源文件的文件夹或 ZIP"
@@ -3395,10 +3413,6 @@ msgstr "选择图片"
 msgid "Choose location"
 msgstr "选择位置"
 
-#: src/papers/add-papers-sheet.tsx
-msgid "Choose one"
-msgstr "需要选择"
-
 #: src/platform/host-errors-project.ts
 msgid "Choose pdf, xelatex, or lualatex."
 msgstr "请选择 pdf、xelatex 或 lualatex"
@@ -3455,7 +3469,7 @@ msgstr "请选择保留还是删除正文中的引用"
 msgid "Choose your library's .bib file"
 msgstr "选择文献库的 .bib 文件"
 
-#: src/papers/zotero-collections.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Choose Zotero folder…"
 msgstr "选择 Zotero 文件夹…"
 
@@ -3846,6 +3860,10 @@ msgstr "标题"
 #: src/settings/settings-search-index.ts
 msgid "Code theme"
 msgstr "代码主题"
+
+#: src/papers/zotero-browser.tsx
+msgid "Collapse {name}"
+msgstr "收起 {name}"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
@@ -5867,6 +5885,10 @@ msgstr "已导出 Excel"
 msgid "Exit focus"
 msgstr "退出专注"
 
+#: src/papers/zotero-browser.tsx
+msgid "Expand {name}"
+msgstr "展开 {name}"
+
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
 msgstr "放大"
@@ -6337,6 +6359,10 @@ msgstr "已折叠的代码"
 #: src/editor/codemirror-host.tsx
 msgid "Folded lines"
 msgstr "已折叠行"
+
+#: src/papers/zotero-browser.tsx
+msgid "Folders"
+msgstr "分类"
 
 #: src/settings/editor-font-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -7169,6 +7195,7 @@ msgid "In Lattice, this panel shows the project's Git changes and pull requests,
 msgstr "在 Lattice 里，这个面板显示项目的 Git 更改和 PR，以及 AI 助手每一轮改了什么。"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/papers/zotero-browser.tsx
 msgid "In Papers"
 msgstr "已在论文库"
 
@@ -7234,6 +7261,10 @@ msgstr "包含完整诊断内容"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Include replies"
 msgstr "包含回复"
+
+#: src/papers/zotero-browser.tsx
+msgid "Include subfolders"
+msgstr "包含子分类"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -9062,7 +9093,7 @@ msgstr "已有多条引用对应这篇论文，请先处理重复项再导入"
 msgid "Multiset union"
 msgstr "多重集并"
 
-#: src/papers/zotero-collections.tsx
+#: src/papers/zotero-browser.tsx
 msgid "My Library"
 msgstr "我的文库"
 
@@ -9516,6 +9547,10 @@ msgstr "没找到"
 msgid "No matching files"
 msgstr "没有这个文件"
 
+#: src/papers/zotero-browser.tsx
+msgid "No matching folders"
+msgstr "没有匹配的分类"
+
 #: src/telemetry/app-log.tsx
 msgid "No matching logs"
 msgstr "没有匹配的日志"
@@ -9525,6 +9560,7 @@ msgid "No matching pages"
 msgstr "没有匹配的页面"
 
 #: src/editor/markdown/engine/chrome/references.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
 msgstr "没有匹配的论文"
@@ -9592,6 +9628,10 @@ msgstr "还没有设置 Overleaf 地址"
 #: src/platform/host-errors-overleaf.ts
 msgid "No Overleaf project selected."
 msgstr "没有选择 Overleaf 项目"
+
+#: src/papers/zotero-browser.tsx
+msgid "No papers in this folder"
+msgstr "这个分类里没有论文"
 
 #: src/project/project-find-dialog.tsx
 msgid "No papers match “{trimmedQuery}”"
@@ -10896,6 +10936,7 @@ msgstr "纸面色"
 #: src/app/command-palette.tsx
 #: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -13185,6 +13226,10 @@ msgstr "搜索文件和论文…"
 msgid "Search files, papers and commands"
 msgstr "搜索文件、论文、命令"
 
+#: src/papers/zotero-browser.tsx
+msgid "Search folders"
+msgstr "搜索分类"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "搜索论文"
@@ -13208,6 +13253,10 @@ msgstr "搜索或导入论文"
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search Overleaf projects"
 msgstr "搜索项目"
+
+#: src/papers/zotero-browser.tsx
+msgid "Search papers"
+msgstr "搜索论文"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
@@ -13282,6 +13331,7 @@ msgstr "选中一段，点「批注」，写下要改什么，再点「保存并
 
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Select all"
 msgstr "全选"
 
@@ -13447,6 +13497,10 @@ msgstr "设置"
 #: src/settings/settings-dialog.tsx
 msgid "Settings sections"
 msgstr "设置分区"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Several matches"
+msgstr "有多条匹配"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
@@ -16010,7 +16064,7 @@ msgstr "试试"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
-#: src/papers/zotero-collections.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library-status.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
@@ -17115,8 +17169,8 @@ msgstr "缩小"
 msgid "zoom scale bigger smaller"
 msgstr "缩放 放大 缩小 界面 字号 zoom scale"
 
-#: src/papers/zotero-collections.tsx
-msgid "Zotero collections"
+#: src/papers/zotero-browser.tsx
+msgid "Zotero folders"
 msgstr "Zotero 分类"
 
 #: src/platform/host-errors-papers.ts

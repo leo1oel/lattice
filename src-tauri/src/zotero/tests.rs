@@ -170,13 +170,15 @@ fn collections_come_from_a_copy_while_zotero_holds_the_database() {
                 key: "CHAP0003".into(),
                 name: "Chapter 3".into(),
                 parent: Some("THESIS01".into()),
-                items: 2
+                items: 2,
+                total: 2,
             },
             ZoteroCollection {
                 key: "THESIS01".into(),
                 name: "Thesis".into(),
                 parent: None,
-                items: 1
+                items: 1,
+                total: 3,
             },
         ]
     );
@@ -190,7 +192,7 @@ fn collections_come_from_a_copy_while_zotero_holds_the_database() {
 #[test]
 fn a_collection_reads_as_bibtex_under_the_keys_the_writer_cites() {
     let library = library();
-    let items = super::items(library.path(), Some("CHAP0003")).unwrap();
+    let items = super::items(library.path(), Some("CHAP0003"), false).unwrap();
     let keys: Vec<&str> = items.iter().map(|item| item.citation_key.as_str()).collect();
     // The trashed item is left out; a key pinned in Extra is kept.
     assert_eq!(keys, ["jumper_highly_2021", "devlin2019bert"]);
@@ -212,7 +214,7 @@ fn a_collection_reads_as_bibtex_under_the_keys_the_writer_cites() {
 #[test]
 fn the_whole_library_carries_arxiv_ids_and_zoteros_citation_key_field() {
     let library = library();
-    let items = super::items(library.path(), None).unwrap();
+    let items = super::items(library.path(), None, false).unwrap();
     let by_key: HashMap<&str, &ZoteroItem> =
         items.iter().map(|item| (item.citation_key.as_str(), item)).collect();
     assert_eq!(items.len(), 4, "{:?}", by_key.keys());
@@ -234,7 +236,7 @@ fn better_bibtex_keys_come_first() {
         CREATE TABLE citationkey (itemID INT, itemKey TEXT, libraryID INT, citationKey TEXT, pinned INT);
         INSERT INTO citationkey VALUES (10, 'ALPHA001', 1, 'Jumper2021AlphaFold', 0), (12, 'RESNET01', 1, 'HeResNet', 1);
     ").unwrap();
-    let keys: Vec<String> = super::items(library.path(), None)
+    let keys: Vec<String> = super::items(library.path(), None, false)
         .unwrap()
         .into_iter()
         .map(|item| item.citation_key)
@@ -249,7 +251,7 @@ fn a_write_still_in_zoteros_log_is_read() {
     library.live.execute("INSERT INTO collectionItems VALUES (1, 20, 1)", []).unwrap();
     let wal = std::fs::metadata(library.dir.join("zotero.sqlite-wal")).unwrap().len();
     assert!(wal > 0);
-    let items = super::items(library.path(), Some("THESIS01")).unwrap();
+    let items = super::items(library.path(), Some("THESIS01"), false).unwrap();
     assert!(items.iter().any(|item| item.citation_key == "lee_just"), "{items:?}");
 }
 
@@ -270,7 +272,7 @@ fn a_collections_count_is_what_importing_it_brings_in() {
     library.dir.write("storage/LOOSEPDF/loose.pdf", b"%PDF-1.4");
     let collections = super::library(library.path()).unwrap().collections;
     let chapter = collections.iter().find(|collection| collection.key == "CHAP0003").unwrap();
-    let imported = super::items(library.path(), Some("CHAP0003")).unwrap();
+    let imported = super::items(library.path(), Some("CHAP0003"), false).unwrap();
     assert_eq!(imported.len(), 2);
     assert_eq!(chapter.items, imported.len() as u64);
 }
@@ -301,7 +303,7 @@ fn an_items_key_is_the_same_whichever_collection_it_is_read_from() {
         )
         .unwrap();
     let keys = |collection: Option<&str>| -> HashMap<String, String> {
-        super::items(library.path(), collection)
+        super::items(library.path(), collection, false)
             .unwrap()
             .into_iter()
             .map(|item| {
@@ -339,7 +341,7 @@ fn zoteros_rich_text_becomes_latex() {
         ],
         &[("Min", "Kim")],
     );
-    let items = super::items(library.path(), None).unwrap();
+    let items = super::items(library.path(), None, false).unwrap();
     let item = items.iter().find(|item| item.citation_key == "kim_drosophila_2020").unwrap();
     assert!(
         item.bibtex.contains(
@@ -397,7 +399,7 @@ fn real_library() {
     let chosen = std::env::var("ZOTERO_DATA_DIR").ok();
     let read = super::library(chosen.as_deref()).unwrap();
     println!("data dir: {}, {} collections", read.data_dir, read.collections.len());
-    let items = super::items(chosen.as_deref(), None).unwrap();
+    let items = super::items(chosen.as_deref(), None, false).unwrap();
     println!(
         "{} items, {} with a PDF on this Mac",
         items.len(),
@@ -414,4 +416,29 @@ fn real_library() {
             item.bibtex
         );
     }
+}
+
+#[test]
+fn a_folder_can_bring_in_its_subfolders_too() {
+    let library = library();
+    let direct: Vec<String> = super::items(library.path(), Some("THESIS01"), false)
+        .unwrap()
+        .into_iter()
+        .map(|item| item.citation_key)
+        .collect();
+    assert_eq!(direct, ["gu_mamba_2023"]);
+    let nested: Vec<String> = super::items(library.path(), Some("THESIS01"), true)
+        .unwrap()
+        .into_iter()
+        .map(|item| item.citation_key)
+        .collect();
+    // Its own item and Chapter 3's, trash aside, as many as the folder's total.
+    assert_eq!(nested, ["jumper_highly_2021", "gu_mamba_2023", "devlin2019bert"]);
+    let thesis = super::library(library.path())
+        .unwrap()
+        .collections
+        .into_iter()
+        .find(|c| c.key == "THESIS01")
+        .unwrap();
+    assert_eq!(thesis.total as usize, nested.len());
 }

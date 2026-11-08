@@ -207,14 +207,20 @@ pub async fn zotero_library(data_dir: Option<String>) -> Result<ZoteroLibrary, S
     run_blocking("Zotero library", move || zotero::library(data_dir.as_deref())).await
 }
 
-/// The items of one Zotero collection, or of the whole library, as BibTeX
-/// for the Add papers sheet.
+/// The items of one Zotero collection (with its subfolders' when asked), or
+/// of the whole library, as BibTeX for the Add papers sheet.
 #[tauri::command]
 pub async fn zotero_items(
-    data_dir: Option<String>, collection: Option<String>,
+    data_dir: Option<String>, collection: Option<String>, include_subfolders: Option<bool>,
 ) -> Result<Vec<ZoteroItem>, String> {
-    run_blocking("Zotero items", move || zotero::items(data_dir.as_deref(), collection.as_deref()))
-        .await
+    run_blocking("Zotero items", move || {
+        zotero::items(
+            data_dir.as_deref(),
+            collection.as_deref(),
+            include_subfolders.unwrap_or(false),
+        )
+    })
+    .await
 }
 
 /// Make the Zotero attachment `attachment`'s PDF the text of the citation
