@@ -61,9 +61,13 @@ pub enum UpdateClaim {
 #[serde(tag = "event", content = "data")]
 pub enum DownloadEvent {
     #[serde(rename_all = "camelCase")]
-    Started { content_length: Option<u64> },
+    Started {
+        content_length: Option<u64>,
+    },
     #[serde(rename_all = "camelCase")]
-    Progress { chunk_length: usize },
+    Progress {
+        chunk_length: usize,
+    },
     Finished,
 }
 
@@ -106,7 +110,8 @@ impl AppRestart {
         let mut install = self.install.lock().unwrap_or_else(PoisonError::into_inner);
         if let Install::Installing { version, id: under_way, .. } = &*install {
             if *under_way == id {
-                *install = if installed { Install::Installed(version.clone()) } else { Install::Idle };
+                *install =
+                    if installed { Install::Installed(version.clone()) } else { Install::Idle };
             }
         }
     }
