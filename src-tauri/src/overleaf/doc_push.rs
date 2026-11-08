@@ -229,17 +229,7 @@ impl LiveDocs {
         if candidates.is_empty() {
             return None;
         }
-        let config = RealtimeConfig {
-            user_id: remote.session.user_id.clone(),
-            host: remote.host.clone(),
-            cookie: remote.session.cookie.clone(),
-            project_id: remote.state.project_id.clone(),
-        };
-        let (tell, events) = channel();
-        let connected = rt::block_on(RealtimeClient::connect(config, move |event| {
-            let _ = tell.send(event);
-        }));
-        let Ok(client) = connected else {
+        let Ok((client, events)) = connect_channel(remote) else {
             wide_event::record("doc_push_unreachable", true);
             return None;
         };
@@ -283,7 +273,7 @@ impl LiveDocs {
                     let submission = Submission { hash: hash.as_deref(), ..Submission::default() };
                     let sent = self.client.send_ops(id, joined.version, ops, tracked, submission);
                     rt::block_on(sent).map_err(failed)?;
-                    self.applied(id).map_err(failed)?;
+                    await_applied(&self.events, id).map_err(failed)?;
                 }
                 pushed.sent.insert(path.clone());
             } else {
@@ -297,25 +287,43 @@ impl LiveDocs {
         }
         Ok(pushed)
     }
+}
 
-    /// Wait for Overleaf to say the edit just sent to document `id` applied.
-    fn applied(&self, id: &str) -> Result<(), String> {
-        let deadline = Instant::now() + APPLY_TIMEOUT;
-        loop {
-            let left = deadline.saturating_duration_since(Instant::now());
-            match self.events.recv_timeout(left) {
-                Ok(RealtimeEvent::DocAck { doc_id, .. }) if doc_id == id => return Ok(()),
-                // Its shape is undocumented, so one naming no document is
-                // taken to be about the only edit in flight.
-                Ok(RealtimeEvent::OtError { doc_id, message })
-                    if doc_id == id || doc_id.is_empty() =>
-                {
-                    return Err(message)
-                }
-                Ok(RealtimeEvent::Disconnected { reason }) => return Err(reason),
-                Ok(_) => {}
-                Err(_) => return Err("Overleaf did not say whether the edit applied.".into()),
+/// A live connection of our own to `remote`'s project, apart from the one the
+/// editor holds, with its events to read in order.
+pub(super) fn connect_channel(
+    remote: &Remote,
+) -> Result<(RealtimeClient, Receiver<RealtimeEvent>), String> {
+    let config = RealtimeConfig {
+        user_id: remote.session.user_id.clone(),
+        host: remote.host.clone(),
+        cookie: remote.session.cookie.clone(),
+        project_id: remote.state.project_id.clone(),
+    };
+    let (tell, events) = channel();
+    let client = rt::block_on(RealtimeClient::connect(config, move |event| {
+        let _ = tell.send(event);
+    }))?;
+    Ok((client, events))
+}
+
+/// Wait for Overleaf to say the update just sent to document `id` applied,
+/// reading the channel's `events`. Also how a comment anchored in the
+/// background (`doc_comment`) knows it landed.
+pub(super) fn await_applied(events: &Receiver<RealtimeEvent>, id: &str) -> Result<(), String> {
+    let deadline = Instant::now() + APPLY_TIMEOUT;
+    loop {
+        let left = deadline.saturating_duration_since(Instant::now());
+        match events.recv_timeout(left) {
+            Ok(RealtimeEvent::DocAck { doc_id, .. }) if doc_id == id => return Ok(()),
+            // Its shape is undocumented, so one naming no document is
+            // taken to be about the only edit in flight.
+            Ok(RealtimeEvent::OtError { doc_id, message }) if doc_id == id || doc_id.is_empty() => {
+                return Err(message)
             }
+            Ok(RealtimeEvent::Disconnected { reason }) => return Err(reason),
+            Ok(_) => {}
+            Err(_) => return Err("Overleaf did not say whether the edit applied.".into()),
         }
     }
 }

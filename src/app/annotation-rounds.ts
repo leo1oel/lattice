@@ -77,7 +77,7 @@ const lineAt = (source: string, offset: number) => source.slice(0, offset).split
 
 /** What the rounds read and do in the app, attached by App once it has them. */
 export type AnnotationRoundsDeps = {
-  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "destination" | "setActiveId" | "openComment" | "resolve" | "reply">;
+  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "docIdOf" | "createInDocument" | "destination" | "setActiveId" | "openComment" | "resolve" | "reply">;
   projectRootRef: Ref<string | null>;
   activeFileRef: Ref<string>;
   /** The active file's live text. */
@@ -588,6 +588,14 @@ export class AnnotationRounds {
     if (created !== "overleaf" && revise) this.revise([created.id]);
     return "saved";
   };
+
+  /**
+   * The app's deps and the project's generation, for a PDF note on a file the
+   * editor does not have open, which the lazily loaded composer saves itself
+   * (kept out of this eagerly loaded module). A later call answering another
+   * generation means the project changed meanwhile.
+   */
+  pdfNoteSession = () => this.deps && { deps: this.deps, generation: this.generation };
 
   /** Stop every question in flight: the project is closing or changing. */
   reset = () => {

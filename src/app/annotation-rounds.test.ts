@@ -44,6 +44,7 @@ function roundsWith(annotations: EditorComment[]) {
       state.current = { ...state.current, annotations: [...state.current.annotations, created] };
       return created;
     },
+    docIdOf: () => null, createInDocument: vi.fn(async () => "placed" as const),
     destination: () => "annotation", setActiveId: vi.fn(), openComment: vi.fn(), resolve: vi.fn(), reply: vi.fn(),
   };
   const rounds = new AnnotationRounds();
@@ -98,6 +99,34 @@ describe("AnnotationRounds / PDF notes posted to Overleaf", () => {
     const { saved, create } = overleafNote(SOURCE.replace("deliberately simple", "simple"));
     expect(saved).toBe("stale");
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe("AnnotationRounds / PDF notes on a file the editor does not have open", () => {
+  const ABSTRACT = "\\begin{abstract}\nWe show that it works.\nWe show that it scales.\n\\end{abstract}\n";
+
+  it("maps the selection into that file, at the exact span, without opening it", async () => {
+    const { rounds } = roundsWith([]);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "synctex_edit") return { path: "abstract.tex", line: 3 };
+      if (command === "read_project_file") return (args as { path: string }).path === "abstract.tex" ? ABSTRACT : null;
+      return null;
+    });
+    const selection = { page: 1, rects: [], text: "We show that it", point: { x: 0, y: 0 } };
+    const mapped = await rounds.mapPdfSelection(selection);
+    // The words are on lines 2 and 3; SyncTeX named line 3, so it is that one.
+    const from = ABSTRACT.lastIndexOf("We show that it");
+    expect(from).toBeGreaterThan(ABSTRACT.indexOf("We show that it"));
+    expect(mapped).toEqual({ path: "abstract.tex", line: 3, from, to: from + "We show that it".length, source: ABSTRACT });
+    expect((rounds as unknown as { deps: AnnotationRoundsDeps }).deps.openProjectFile).not.toHaveBeenCalled();
+  });
+
+  it("tells a note saved before the project changed that it belongs to an earlier project", () => {
+    const { rounds } = roundsWith([]);
+    const before = rounds.pdfNoteSession()!;
+    expect(rounds.pdfNoteSession()!.generation).toBe(before.generation);
+    rounds.reset();
+    expect(rounds.pdfNoteSession()!.generation).not.toBe(before.generation);
   });
 });
 

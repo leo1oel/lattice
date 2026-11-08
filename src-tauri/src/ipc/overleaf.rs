@@ -21,7 +21,6 @@ use tauri::{AppHandle, Emitter, Manager, State, Window};
 const LOGIN_WINDOW: &str = "overleaf-login";
 const TASK: &str = "The Overleaf task";
 const CHAT: &str = "The Overleaf chat task";
-const COMMENTS: &str = "The Overleaf comment task";
 const COMPARISON: &str = "The Overleaf comparison";
 /// Told to every window when Overleaf turns the stored session away, so
 /// Settings, sync and live editing re-read the one account state together.
@@ -515,76 +514,6 @@ pub async fn overleaf_delete_entity(
     })
     .await;
     settled(&app, deleted).await
-}
-
-#[tauri::command]
-pub async fn overleaf_threads(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-) -> Result<Vec<overleaf::OverleafThread>, String> {
-    rest_call(&app, &state, &window, &project_root, COMMENTS, overleaf::threads).await
-}
-
-/// Where every comment in the project is anchored, whatever file it is in.
-#[tauri::command]
-pub async fn overleaf_comment_anchors(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-) -> Result<Vec<overleaf::OverleafCommentAnchor>, String> {
-    rest_call(&app, &state, &window, &project_root, COMMENTS, overleaf::comment_anchors).await
-}
-
-#[tauri::command]
-pub async fn overleaf_edit_message(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    thread_id: String, message_id: String, content: String,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, COMMENTS, move |config, root| {
-        overleaf::edit_message(config, root, &thread_id, &message_id, &content)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_delete_message(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    thread_id: String, message_id: String,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, COMMENTS, move |config, root| {
-        overleaf::delete_message(config, root, &thread_id, &message_id)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_reply_to_thread(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    thread_id: String, content: String,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, COMMENTS, move |config, root| {
-        overleaf::reply_to_thread(config, root, &thread_id, &content)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_resolve_thread(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    doc_id: String, thread_id: String, resolved: bool,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, COMMENTS, move |config, root| {
-        overleaf::resolve_thread(config, root, &doc_id, &thread_id, resolved)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_delete_thread(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    doc_id: String, thread_id: String,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, COMMENTS, move |config, root| {
-        overleaf::delete_thread(config, root, &doc_id, &thread_id)
-    })
-    .await
 }
 
 /// Dry run: what a sync would change, without writing or uploading anything.

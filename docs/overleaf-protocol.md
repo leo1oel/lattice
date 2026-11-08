@@ -441,6 +441,14 @@ purpose.
   project's history version has not moved since the snapshot. So does such a
   document when the history gives timestamps rather than versions, or when
   Overleaf holds it as a file entity. Otherwise these stand down the same way.
+- A comment on a document the editor does not have open (a note made on the
+  PDF, on a passage from another file) is anchored the same way
+  (`overleaf/doc_comment.rs`): `applyOtUpdate` applies only to a document the
+  connection joined, so it joins the document on a connection of its own,
+  places the passage in Overleaf's copy through the difference from Lattice's,
+  posts the thread's message, sends the anchor at the joined version, waits for
+  the `{doc, v}` echo and leaves. A passage Overleaf's copy holds nowhere it can
+  tell posts nothing; the app opens the file so the writer can place it.
 - A failure partway through a multi-file sync must not mark unconfirmed files or
   versions as synchronized.
 

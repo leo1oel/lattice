@@ -3946,6 +3946,10 @@ msgstr "评论来源"
 msgid "Comment visibility"
 msgstr "评论筛选"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Commenting on {name} on Overleaf…"
+msgstr "正在把评论发到 Overleaf 上的 {name}…"
+
 #: src/canvas/proofread-card.tsx
 msgid "comments"
 msgstr "注释"
@@ -10682,10 +10686,6 @@ msgstr "Overleaf 还在同步，请稍后再切换"
 msgid "Overleaf sync paused"
 msgstr "同步已暂停"
 
-#: src/canvas/pdf-annotation-composer.tsx
-msgid "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
-msgstr "Overleaf 只接受编辑器中打开的文件上的评论，而这段文字在 {name} 里。双击它打开 {name}，再重新选中。"
-
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf turned this request away, though the session is still valid."
 msgstr "会话仍然有效，但 Overleaf 拒绝了这次请求"
@@ -10709,6 +10709,10 @@ msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个"
 #: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: waiting on conflict resolution in {files}."
 msgstr "Overleaf：等你处理 {files} 的冲突"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Overleaf's copy of {name} reads differently here, so it is open beside the PDF now. Check the passage there, then save again."
+msgstr "Overleaf 上的 {name} 这里和本地不一样，已在 PDF 旁打开它。确认这段文字后再保存一次。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's full history needs a paid plan on this project."
@@ -15127,6 +15131,10 @@ msgstr "Overleaf 连接完成前项目已切换"
 msgid "The project changed before the action could start."
 msgstr "项目已切换，操作没有执行"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "The project closed before the comment was saved."
+msgstr "项目已关闭，评论没保存"
+
 #: src/app/use-apply-open-slide-mutation.ts
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "项目已关闭，Open Slide 的修改没保存"
@@ -15408,6 +15416,10 @@ msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
 msgid "There exists"
 msgstr "存在"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "There is no text to comment on in this selection."
+msgstr "选中的内容里没有可评论的文字"
+
 #: src/build/tex-setup.ts
 msgid "There is not enough disk space to install the package. Free up some space, then try again."
 msgstr "磁盘空间不足，无法安装此组件。请释放一些空间后重试。"
@@ -15559,6 +15571,7 @@ msgid "This file is not a PDF."
 msgstr "此文件不是 PDF"
 
 #: src/app/use-editor-comments.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "此文件没在实时协作中，请重连后再评论"
 
@@ -17019,6 +17032,14 @@ msgstr "“{0}”的邀请还在 Overleaf 上等你接受"
 #: src/settings/settings-search-index.ts
 msgid "Your name"
 msgstr "你的名字"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: {message}"
+msgstr "你在 {name} 上的批注没有发到 Overleaf：{message}"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there."
+msgstr "你在 {name} 上的批注没有发到 Overleaf：Overleaf 上的这份文件这里和本地不一样，已在 PDF 旁打开它。请在那里对这段文字重新评论。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"

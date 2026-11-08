@@ -20,9 +20,10 @@ type Ref<T> = { readonly current: T };
 
 /**
  * Where a note on a file goes: an annotation of this project's, or a thread on
- * Overleaf. In a linked project it can go nowhere yet: Overleaf takes a
- * comment only on the document the live channel holds, which is the open file
- * ("other-file" while another is), and none while nothing is live ("offline").
+ * Overleaf. A thread is anchored through the live channel: in the open file
+ * when the channel holds it ("overleaf"), or by joining the file's document
+ * in the background ("other-file", `createInDocument`). While nothing is live
+ * ("offline") it can go nowhere yet.
  */
 export type CommentDestination = "annotation" | "overleaf" | "other-file" | "offline";
 
@@ -394,7 +395,10 @@ export function useEditorComments({
   }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, citationReasons, saveCitationReason, reanchorCitationReasons, renameCitationKey, setOpenOrphans, rounds: state.rounds, stateRef, commit, all, unresolved, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
+    comments, citationReasons, saveCitationReason, reanchorCitationReasons, renameCitationKey, setOpenOrphans, rounds: state.rounds, stateRef, commit, all, unresolved, update, create, destination,
+    // A thread on a file the live channel does not hold, which the backend
+    // joins on its own; the PDF composer, loaded with the PDF, addresses it.
+    docIdOf, createInDocument: overleafComments.createInDocument, toggleResolved, resolve, reply, reset, load, openComment,
     deleteComment, panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
     activeId, setActiveId, focusRequest, focusHandled,
   };

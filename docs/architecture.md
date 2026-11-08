@@ -265,14 +265,14 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~700 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **226** commands in
+lifecycle and the child runtimes, and registers **236** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
 
 The command handlers live in `src-tauri/src/ipc/`, one module per area of the
 app (`workspace`, `files`, `history`, `search`, `build`, `git`, `bibliography`,
-`papers`, `overleaf`, `overleaf_realtime`, `windows`). A handler is a thin
+`papers`, `overleaf`, `overleaf_realtime`, `overleaf_comments`, `windows`). A handler is a thin
 shell: resolve the calling window's project (`ipc::current_root`, or
 `pinned_root` / `scoped_root` when the request names the project it was made
 for), take the project lease the operation needs (`AppState::lease`), and run
@@ -293,7 +293,7 @@ Practical consequence: to find what a button does, grep the command name in
 
 | `ipc` module | Commands | Examples |
 | --- | --- | --- |
-| `overleaf` + `overleaf_history` + `overleaf_realtime` | 47 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
+| `overleaf` + `overleaf_history` + `overleaf_realtime` + `overleaf_comments` | 48 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops`, `overleaf_comment_in_document` |
 | `files` | 29 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
 | `build` | 27 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
@@ -351,7 +351,8 @@ that header before changing anything under `overleaf_rt/`.
 which folders already hold a linked copy, so Open from Overleaf reopens one
 instead of downloading a second (`overleaf/local_copies.rs`),
 the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`; a sync's edits to documents go as live
-operations instead, `overleaf/doc_push.rs`), history and review (`overleaf/review.rs`),
+operations instead, `overleaf/doc_push.rs`, and so does a comment on a document the editor does not
+have open, `overleaf/doc_comment.rs`), history and review (`overleaf/review.rs`),
 and a real three-way merge (`overleaf/sync.rs`). The merge keeps a pristine copy of every text file as of
 the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,
