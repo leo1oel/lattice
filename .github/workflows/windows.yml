@@ -76,6 +76,24 @@ jobs:
         run: |
           tlmgr install latexmk natbib lineno microtype booktabs mylatexformat times helvetic psnfss
           if ($LASTEXITCODE -ne 0) { throw 'TeX package install failed' }
+      - name: Scan installer with Windows Defender when available
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          if (!(Get-Command Get-MpComputerStatus -ErrorAction SilentlyContinue)) {
+            Write-Output 'Windows Defender is not installed on this runner; no antivirus scan is claimed.'
+            exit 0
+          }
+          $status = Get-MpComputerStatus -ErrorAction SilentlyContinue
+          if (!$status -or !$status.AMServiceEnabled -or !$status.AntivirusEnabled) {
+            Write-Output 'Windows Defender is unavailable on this runner; no antivirus scan is claimed.'
+            exit 0
+          }
+          $scanner = Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (!$scanner) { throw 'Defender is enabled but its scanner could not be found' }
+          $setup = (Get-ChildItem installer/*.exe | Select-Object -First 1).FullName
+          & $scanner.FullName -Scan -ScanType 3 -File $setup -DisableRemediation
+          if ($LASTEXITCODE -ne 0) { throw "Defender scan did not pass: $LASTEXITCODE" }
       - name: Install app and WebView2 driver
         shell: pwsh
         run: |
@@ -96,7 +114,7 @@ jobs:
       - name: Exercise the installed app
         shell: pwsh
         run: |
-          $driver = Start-Process tauri-driver -ArgumentList @('--native-driver', "$env:RUNNER_TEMP/edgedriver/msedgedriver.exe") -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/driver.log" -RedirectStandardError "$env:RUNNER_TEMP/driver-error.log"
+          $driver = Start-Process tauri-driver -WindowStyle Hidden -ArgumentList @('--native-driver', "$env:RUNNER_TEMP/edgedriver/msedgedriver.exe") -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/driver.log" -RedirectStandardError "$env:RUNNER_TEMP/driver-error.log"
           try {
             for ($attempt = 0; $attempt -lt 100; $attempt++) {
               try { Invoke-RestMethod http://127.0.0.1:4444/status | Out-Null; break } catch { Start-Sleep -Milliseconds 200 }

@@ -1,6 +1,8 @@
 // Drive the installed Windows executable through its real WebView2 IPC.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { resolve, join } from "node:path";
+import { projectRoot } from "./lib/util.mjs";
 import { parseArgs } from "node:util";
 import { webDriver, startSession, runChecks, saveEvidence } from "./linux-e2e.mjs";
 
@@ -10,8 +12,38 @@ const { values } = parseArgs({ options: {
 } });
 if (!values.app) throw new Error("Pass --app with the installed Lattice executable.");
 const driver = webDriver(values.driver);
-const session = await startSession(driver, resolve(values.app));
 const artifacts = resolve(values.artifacts);
+mkdirSync(artifacts, { recursive: true });
+const guard = join(projectRoot, "scripts/windows-console-guard.ps1");
+const readyPath = join(artifacts, "console-monitor.ready");
+const stopPath = join(artifacts, "console-monitor.stop");
+const reportPath = join(artifacts, "console-windows.json");
+const monitor = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", guard, "-Mode", "Monitor", "-Ready", readyPath, "-Stop", stopPath, "-Report", reportPath], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+let monitorLog = "";
+monitor.stdout.on("data", chunk => { monitorLog += chunk; });
+monitor.stderr.on("data", chunk => { monitorLog += chunk; });
+const monitorExited = new Promise(resolve => { monitor.once("exit", resolve); monitor.once("error", error => { monitorLog += error.message; resolve(-1); }); });
+let monitorStopped = false;
+let session;
+async function stopMonitor() {
+  if (monitorStopped) return;
+  monitorStopped = true;
+  writeFileSync(stopPath, "stop");
+  await Promise.race([monitorExited, new Promise(resolve => setTimeout(resolve, 10_000))]);
+  if (monitor.exitCode === null) monitor.kill();
+  writeFileSync(join(artifacts, "console-monitor.log"), monitorLog);
+  if (!existsSync(reportPath)) throw new Error(`Console monitor did not produce its report: ${monitorLog}`);
+}
+async function resizeWindow() {
+  await new Promise((resolve, reject) => {
+    const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", guard, "-Mode", "Resize", "-AppPath", resolvePath(values.app)], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    let errors = "";
+    child.stderr.on("data", chunk => { errors += chunk; });
+    child.once("error", reject);
+    child.once("exit", code => code === 0 ? resolve() : reject(new Error(`Window resize failed: ${errors}`)));
+  });
+}
+function resolvePath(value) { return resolve(value); }
 async function invoke(command, args = {}) {
   const result = await driver.call("POST", `/session/${session.id}/execute/async`, {
     script: "const [command, args, done] = arguments; window.__TAURI_INTERNALS__.invoke(command, args).then(value => done({value}), error => done({error: String(error)}));",
@@ -31,7 +63,17 @@ async function waitFor(label, script, timeout = 30_000) {
 }
 
 try {
+  const monitorDeadline = Date.now() + 30_000;
+  while (!existsSync(readyPath)) {
+    if (monitor.exitCode !== null || Date.now() > monitorDeadline) throw new Error(`Console monitor did not start: ${monitorLog}`);
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  session = await startSession(driver, resolve(values.app));
   await runChecks(session, console.log, "Windows");
+  await resizeWindow();
+  await invoke("run_doctor");
+  await invoke("run_doctor");
+  console.log("ok: maximized and restored Lattice three times and repeated tool checks");
   const project = await invoke("initial_project");
   if (!project?.root) throw new Error("The tutorial project is not bound to the window");
   const projectRoot = project.root;
@@ -69,13 +111,17 @@ try {
     await invoke("terminal_close", { id: terminal.id });
     await session.run("window.__TAURI_INTERNALS__.unregisterCallback(arguments[0]);", [callback]);
   }
-  mkdirSync(artifacts, { recursive: true });
+  await stopMonitor();
+  const consoles = JSON.parse(readFileSync(reportPath, "utf8").replace(/^\uFEFF/, ""));
+  if (consoles.length) throw new Error(`Unexpected visible console windows: ${JSON.stringify(consoles)}`);
+  console.log("ok: no visible console windows during startup, resizing, builds and terminal use");
   writeFileSync(join(artifacts, "windows.png"), Buffer.from(await session.screenshot(), "base64"));
-  writeFileSync(join(artifacts, "result.txt"), "Installed Windows application: tutorial build, PDF rendering, rebuild, Unicode saves, PowerShell ConPTY passed.\n");
+  writeFileSync(join(artifacts, "result.txt"), "Installed Windows application: tutorial build, PDF rendering, rebuild, Unicode saves, PowerShell ConPTY and no external console windows during maximization passed.\n");
   console.log("windows e2e: every check passed");
 } catch (error) {
-  await saveEvidence(session, artifacts);
+  if (session) await saveEvidence(session, artifacts);
   throw error;
 } finally {
-  await session.end().catch(() => {});
+  if (session) await session.end().catch(() => {});
+  await stopMonitor().catch(error => console.error(error.message));
 }

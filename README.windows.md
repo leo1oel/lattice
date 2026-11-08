@@ -44,4 +44,4 @@ pnpm build:windows
 
 La préparation des ressources vérifie les sommes SHA-256 de Node et uv avant extraction. L’installateur se trouve dans `src-tauri/target/release/bundle/nsis/`.
 
-Le workflow `.github/workflows/windows.yml` compile le moteur sur Windows, exécute les tests de fichiers Windows, construit l’interface et l’installateur. Son contrôle de bout en bout installe le `.exe`, ouvre le tutoriel, compile et affiche son PDF, recompile, vérifie les sauvegardes Unicode et exécute une commande PowerShell via ConPTY. Les captures et journaux sont conservés comme artefacts.
+Le workflow `.github/workflows/windows.yml` compile le moteur sur Windows, exécute les tests de fichiers Windows, construit l’interface et l’installateur. Son contrôle de bout en bout installe le `.exe`, ouvre le tutoriel, compile et affiche son PDF, recompile, vérifie les sauvegardes Unicode exécute une commande PowerShell via ConPTY et surveille l’apparition de consoles externes pendant trois agrandissements de la fenêtre. Les captures et journaux sont conservés comme artefacts.

@@ -133,7 +133,7 @@ pub(crate) fn uv_tool_status_at(path: &Path, name: &str) -> Result<(), String> {
     {
         return Err(format!("{} is not a regular executable file.", path.display()));
     }
-    let output = Command::new(path)
+    let output = with_child_path(Command::new(path))
         .arg("--version")
         .output()
         .map_err(|error| format!("{} could not run: {error}", path.display()))?;
