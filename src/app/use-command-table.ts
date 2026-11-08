@@ -16,6 +16,7 @@ import type { SettingsSearchEntry } from "../settings/settings-search-index";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { closeDocumentTab } from "../trellis/close-document-tab";
+import { setVimExRunner } from "../canvas/vim-ex-commands";
 import { WORKSPACE_SHORTCUTS } from "../trellis/trellis-workspaces";
 import { FOCUS_MODE_KEY, FRAME_TOGGLE_KEY } from "../trellis/trellis-keymap";
 import { PANEL_TITLES, spaceMixedScript } from "../trellis/trellis-titles";
@@ -81,7 +82,7 @@ export type CommandTableDeps = {
   lifecycle: Pick<
     ReturnType<typeof useProjectLifecycle>,
     | "recentProjects" | "unopenedProject" | "createForm" | "updateCreateForm" | "busyLabel" | "chooseExisting"
-    | "chooseRecentProject" | "exportProjectZip" | "importOverleafZip" | "openTutorialProject" | "moveWorkspace"
+    | "chooseRecentProject" | "exportProjectZip" | "importOverleafZip" | "openTutorialProject" | "moveWorkspace" | "clone"
   >;
   overleaf: Pick<
     ReturnType<typeof useOverleafWorkspace>,
@@ -127,7 +128,7 @@ export function useCommandTable({
   const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
   const {
     recentProjects, unopenedProject, createForm, updateCreateForm, busyLabel, chooseExisting, chooseRecentProject,
-    exportProjectZip, importOverleafZip, openTutorialProject, moveWorkspace,
+    exportProjectZip, importOverleafZip, openTutorialProject, moveWorkspace, clone,
   } = lifecycle;
   const { overleafLink, overleafSyncing, overleafPickerOpen, setOverleafPickerOpen, openCurrentOverleafProject } = overleaf;
   const { preference: themePreference, setPreference: setThemePreference } = theme;
@@ -202,6 +203,8 @@ export function useCommandTable({
         if (!closeDocumentTab(trellis)) void getCurrentWindow().close();
       },
     },
+    // Vim's :q: the editor's tab, never the window, and in a browser tab too, where ⌘W is the browser's.
+    { id: "vim-quit", when: inProject, palette: false, run: () => void closeDocumentTab(trellis) },
     // ⌘K everywhere, the welcome screen included, and ⌘⇧P where it always was: one row in the sheet.
     { id: "palette", label: t`Command palette`, group: "project", key: "k", palette: false, run: openCommandPalette },
     { id: "palette-shift-p", label: t`Command palette`, group: "project", key: "p", shift: true, palette: false, run: openCommandPalette },
@@ -301,6 +304,7 @@ export function useCommandTable({
     { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, group: "project", run: () => setArxivExportOpen(true) },
     { id: "new-project", label: t`New project`, group: "project", key: "n", shift: true, run: () => updateCreateForm({ open: true }) },
     { id: "open-folder", label: t`Open another folder`, group: "project", key: "o", run: () => void chooseExisting() },
+    { id: "clone-repository", label: t`Clone a Git repository`, keywords: t({ message: "git clone GitHub GitLab", comment: "Search words for the Clone a Git repository command, space-separated" }), group: "project", run: clone.show },
     ...otherRecentProjects.map(({ name, path }, index): AppCommand => ({
       id: `recent-project-${index}`, label: spaceMixedScript(t`Open ${name}`), detail: path, group: "project",
       // Ids by position, so no path is remembered; and never in Recent, where a position may name another project.
@@ -311,7 +315,7 @@ export function useCommandTable({
     // project the same keys switch workspaces, so these are only listed here.
     ...(inProject ? [] : welcomeDeskProjects(recentProjects, unopenedProject?.path).map(({ path }, index): AppCommand => ({
       id: `desk-project-${index + 1}`, label: t`Open a recent project by its place`, group: "project", key: String(index + 1), palette: false,
-      when: !createForm.open && !busyLabel && !settingsOpen && !overleafPickerOpen,
+      when: !createForm.open && !clone.open && !busyLabel && !settingsOpen && !overleafPickerOpen,
       run: () => void chooseRecentProject(path),
     }))),
     { id: "import-zip", label: t`Import Overleaf ZIP`, group: "overleaf", run: () => void importOverleafZip() },
@@ -360,6 +364,8 @@ export function useCommandTable({
     (handler) => listenInThisWindow(FILE_COMMAND_EVENT, handler),
     (command) => runCommandRef.current(command),
   ), [runCommandRef]);
+  // Vim's :w runs Save above, and :q vim-quit (canvas/vim-ex-commands.ts).
+  useEffect(() => setVimExRunner((command) => runCommandRef.current(command === "quit" ? "vim-quit" : command)), [runCommandRef]);
   const chooseRecentProjectRef = useLatestRef(chooseRecentProject);
   useEffect(() => subscribeTauriEvent<string>(
     (handler) => listenInThisWindow(OPEN_RECENT_EVENT, handler),

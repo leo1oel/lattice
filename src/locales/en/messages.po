@@ -44,6 +44,10 @@ msgstr "“{0}” already has files and isn’t linked to Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}” stays linked"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "“{destinationName}” already exists there. Choose another location"
+msgstr "“{destinationName}” already exists there. Choose another location"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
@@ -2813,6 +2817,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/clone-repository-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
 #: src/project/local-templates.tsx
@@ -3136,6 +3141,10 @@ msgstr "checked date"
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "Checking {completed} of {progressTotal}…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Checking out files…"
+msgstr "Checking out files…"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "Checking the connection to {linkedHost}…"
@@ -3325,6 +3334,10 @@ msgstr "Choose the library's .bib file by its full path."
 msgid "Choose to do, to check, or confirmed."
 msgstr "Choose to do, to check, or confirmed."
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Choose where to clone the repository"
+msgstr "Choose where to clone the repository"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "Choose where to create the project"
@@ -3358,6 +3371,7 @@ msgid "Choose your library's .bib file"
 msgstr "Choose your library's .bib file"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
 msgstr "Choose…"
 
@@ -3590,6 +3604,36 @@ msgstr "Clipboard"
 #: src/platform/host-errors-project.ts
 msgid "Clipboard images must be saved as PNG, JPEG, or WebP."
 msgstr "Clipboard images must be saved as PNG, JPEG, or WebP."
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone"
+msgstr "Clone"
+
+#: src/app/use-command-table.ts
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone a Git repository"
+msgstr "Clone a Git repository"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone progress"
+msgstr "Clone progress"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository"
+msgstr "Clone repository"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository…"
+msgstr "Clone repository…"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Clone Repository…"
+msgstr "Clone Repository…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Cloning…"
+msgstr "Cloning…"
 
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
@@ -3993,6 +4037,10 @@ msgstr "Connecting live editing…"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Connecting to Overleaf's live channel…"
 msgstr "Connecting to Overleaf's live channel…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Connecting…"
+msgstr "Connecting…"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
@@ -4495,6 +4543,10 @@ msgstr "Couldn't find a bibliography entry for {citationCommand}."
 msgid "Couldn't find this one"
 msgstr "Couldn't find this one"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t find this repository, or your account can’t access it"
+msgstr "Couldn’t find this repository, or your account can’t access it"
+
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
@@ -4514,6 +4566,10 @@ msgstr "Couldn’t open this spreadsheet"
 #: src/app/use-overleaf-workspace.ts
 msgid "Couldn’t reach Overleaf"
 msgstr "Couldn’t reach Overleaf"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t reach the server"
+msgstr "Couldn’t reach the server"
 
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
@@ -5173,6 +5229,7 @@ msgid "Downloading update…"
 msgstr "Downloading update…"
 
 #: src/papers/bib-entry-detail.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Downloading…"
 msgstr "Downloading…"
 
@@ -6359,9 +6416,22 @@ msgstr "Git (optional project status / commit panel)"
 msgid "git bridge"
 msgstr "git bridge"
 
+#. Search words for the Clone a Git repository command, space-separated
+#: src/app/use-command-table.ts
+msgid "git clone GitHub GitLab"
+msgstr "git clone GitHub GitLab"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git couldn’t sign in to this repository"
+msgstr "Git couldn’t sign in to this repository"
+
 #: src/history/versions-timeline.tsx
 msgid "Git isn’t available on this Mac"
 msgstr "Git isn’t available on this Mac"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
+msgstr "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/settings/settings-dialog.tsx
@@ -8348,6 +8418,10 @@ msgstr "Loading…"
 #: src/papers/linked-library-sheet.tsx
 msgid "Locate the file…"
 msgstr "Locate the file…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Location"
+msgstr "Location"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Log"
@@ -11984,6 +12058,10 @@ msgstr "Reply to {author}"
 msgid "Reply…"
 msgstr "Reply…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Repository URL"
+msgstr "Repository URL"
+
 #: src/papers/audit-messages.ts
 msgid "Request queue busy"
 msgstr "Request queue busy"
@@ -12119,6 +12197,10 @@ msgstr "Resolved by {0}"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved: {note}"
 msgstr "Resolved: {note}"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Resolving changes…"
+msgstr "Resolving changes…"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -14160,6 +14242,10 @@ msgstr "That history entry no longer exists."
 msgid "That is a folder."
 msgstr "That is a folder."
 
+#: src/project/clone-repository-dialog.tsx
+msgid "That isn’t a Git repository URL"
+msgstr "That isn’t a Git repository URL"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "That isn’t an Overleaf project link"
 msgstr "That isn’t an Overleaf project link"
@@ -14387,6 +14473,10 @@ msgstr "The clipboard data is not a valid image."
 msgid "The clipboard image was empty."
 msgstr "The clipboard image was empty."
 
+#: src/project/clone-repository-dialog.tsx
+msgid "The clone didn’t finish"
+msgstr "The clone didn’t finish"
+
 #: src/app/use-command-table.ts
 msgid "the comment or suggestion by the caret"
 msgstr "the comment or suggestion by the caret"
@@ -14507,6 +14597,10 @@ msgstr "The first is at {path}:{line}."
 #: src/platform/host-errors-workspace.ts
 msgid "The folder is not empty."
 msgstr "The folder is not empty."
+
+#: src/project/clone-repository-dialog.tsx
+msgid "The folder to clone into doesn’t exist"
+msgstr "The folder to clone into doesn’t exist"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
