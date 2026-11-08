@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { diagnosticSeverity, type CompileDiagnostic } from "./compile-diagnostics";
 import type { SynaraPermissionMode } from "../app/app-synara-embed";
-import { toMessage } from "../app-utils";
 
 export type CompileRepairState = {
   status: "starting" | "running" | "awaiting-approval" | "compiling" | "completed" | "failed";
@@ -14,7 +13,7 @@ export type CompileRepairState = {
   stopping?: boolean;
 };
 
-type RepairOperation = {
+export type RepairOperation = {
   root: string;
   threadId?: string;
   cancelled: boolean;
@@ -34,12 +33,15 @@ type RepairOperation = {
  * explicit unlock instead.
  */
 const STOP_GRACE_MS = 10_000;
-/** What the Rust relay answers for a path the running service does not have (synara.rs). */
-const ROUTE_UNAVAILABLE = "agent_route_unavailable";
 
-const cancelRepair = (projectRoot: string, threadId: string) =>
+export const cancelRepair = (projectRoot: string, threadId: string) =>
   invoke("compile_repair", { action: "cancel", projectRoot, threadId });
-const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+// Keep import expressions outside the hook: React Compiler cannot lower them.
+// The run itself loads on the first Fix all (compile-repair-run.ts).
+function loadCompileRepairRun() {
+  return import("./compile-repair-run");
+}
 
 /** A user-initiated repair is separate from the visible agent conversation. */
 export function useCompileRepair(options: {
@@ -112,71 +114,15 @@ export function useCompileRepair(options: {
     const owns = () => operationRef.current === operation
       && !operation.cancelled && optionsRef.current.projectRoot === operation.root;
     setState({ status: "starting" });
-    try {
-      if (!(await current.save())) throw new Error(t`Save the project before repairing.`);
-      if (!owns()) return;
-      if (operation.cancelRequested) throw new Error(t`Repair cancelled.`);
-      const result = await invoke<{ threadId: string }>("compile_repair", {
-        action: "start", projectRoot: operation.root,
-        rootDocument: current.rootDocument ?? null,
-        runtimeMode: current.agent.permissionMode,
-        diagnostics: repairable.map(({ level, message, file, line }) => ({
-          level, message, file: file ?? null, line: line ?? null,
-        })),
-      });
-      const threadId = result?.threadId;
-      if (!threadId) throw new Error(t`The repair service did not return a task.`);
-      operation.threadId = threadId;
-      if (!owns()) {
-        await cancelRepair(operation.root, threadId);
-        return;
-      }
-      setState({ status: "running", threadId, ...(operation.stopping && { stopping: true }) });
-      if (operation.cancelRequested) {
-        await cancelRepair(operation.root, threadId).catch((error) => { if (owns()) noteError(error); });
-      }
-      while (owns()) {
-        let progress: CompileRepairState;
-        try {
-          progress = await invoke<CompileRepairState>("compile_repair", {
-            action: "status", projectRoot: operation.root, threadId,
-          });
-        } catch (error) {
-          if (!owns()) return;
-          if (toMessage(error) === ROUTE_UNAVAILABLE) {
-            abandon(operation);
-            return;
-          }
-          noteError(error);
-          await delay(2000);
-          continue;
-        }
-        if (!owns()) return;
-        if (progress.status === "failed") throw new Error(progress.message ?? t`Repair failed.`);
-        if (progress.status === "completed") {
-          operation.taskDone = true;
-          setState({ status: "compiling", threadId });
-          await optionsRef.current.onComplete();
-          if (owns()) setState({ status: "completed", threadId });
-          return;
-        }
-        setState({ ...progress, threadId, ...(operation.stopping && { stopping: true }) });
-        await delay(1000);
-      }
-    } catch (error) {
-      // The relay currently returns plain strings, not structured conflict codes.
-      // Match only a rejected start: a later failure must retain its diagnostics.
-      const detail = toMessage(error);
-      const message = !operation.threadId && detail === "The workspace already has an active writer."
-        ? t`Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again.`
-        : !operation.threadId && detail === "A compile repair is already running."
-          ? t`Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again.`
-          : String(error);
-      if (owns()) setState({ status: "failed", threadId: operation.threadId, message });
-    } finally {
+    await loadCompileRepairRun().then(({ runCompileRepair }) => runCompileRepair({
+      operation, owns, repairable, rootDocument: current.rootDocument, permissionMode: current.agent.permissionMode,
+      save: current.save, onComplete: () => optionsRef.current.onComplete, setState, noteError, abandon,
+    })).catch((error: unknown) => {
+      if (owns()) setState({ status: "failed", message: String(error) });
+    }).finally(() => {
       if (operationRef.current === operation) operationRef.current = null;
-    }
-  }, [abandon, noteError, optionsRef, t]);
+    });
+  }, [abandon, noteError, optionsRef]);
 
   const cancel = useCallback(async () => {
     const operation = operationRef.current;
@@ -206,8 +152,7 @@ export function useCompileRepair(options: {
   }, [abandon]);
 
   const busy = state !== null && !["completed", "failed"].includes(state.status);
-  // Memoized by hand: the React Compiler skips this hook (its try/finally),
-  // and a new object each render rebuilt the diagnostics panel App builds
-  // from it on every keystroke.
+  // One object while its members hold still: a new one each render rebuilt
+  // the diagnostics panel App builds from it on every keystroke.
   return useMemo(() => ({ state, busy, start, cancel, unlock }), [busy, cancel, start, state, unlock]);
 }

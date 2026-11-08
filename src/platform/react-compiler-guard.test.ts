@@ -102,7 +102,6 @@ const CEILINGS: Record<string, number> = {
 const BASELINE: Record<string, number> = {
   "src/app/use-project-state.ts": 2,
   "src/build/tex-setup-wizard.tsx": 3,
-  "src/build/use-compile-repair.ts": 5,
   "src/canvas/codemirror-scrollbar.tsx": 1,
   "src/canvas/use-markdown-mode-handoff.ts": 1,
   "src/canvas/use-markdown-split-scroll.ts": 1,

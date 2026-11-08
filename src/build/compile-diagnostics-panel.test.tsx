@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
@@ -35,7 +35,8 @@ describe("batch repair controls", () => {
     try {
       render(<RepairPanel />);
       await act(async () => { fireEvent.click(screen.getByRole("button", { name: "一键修复" })); });
-      expect(screen.getByRole("status")).toHaveTextContent("AI 助手正忙，请先结束它的任务再点“一键修复”");
+      // The run loads on the first Fix all (compile-repair-run.ts).
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("AI 助手正忙，请先结束它的任务再点“一键修复”"));
       expect(screen.getByRole("button", { name: "一键修复" })).toBeEnabled();
       expect(screen.queryByText("The workspace already has an active writer.")).not.toBeInTheDocument();
     } finally {
