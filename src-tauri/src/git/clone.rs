@@ -244,7 +244,7 @@ fn parse_progress(line: &str) -> Option<Option<CloneProgress>> {
 
 /// What went wrong, from the lines git printed. The first that is not the
 /// host's chatter (`remote: Enumerating objects…`, though the host's own
-/// `remote: ERROR: …` counts) or a warning says it;
+/// `remote: ERROR: …` counts) or a warning (ssh's `** WARNING: …` too) says it;
 /// the lines after it are git's general advice ("Please make sure you have
 /// the correct access rights and the repository exists") whatever the cause.
 fn classify_failure(said: &[String]) -> CloneError {
@@ -255,7 +255,7 @@ fn classify_failure(said: &[String]) -> CloneError {
         let host_error =
             ["remote: error:", "remote: fatal:"].iter().any(|prefix| line.starts_with(prefix));
         !host_error
-            && ["remote:", "warning:", "hint:"].iter().any(|prefix| line.starts_with(prefix))
+            && ["remote:", "warning:", "hint:", "**"].iter().any(|prefix| line.starts_with(prefix))
     };
     let first = said
         .iter()

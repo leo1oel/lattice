@@ -144,6 +144,16 @@ fn names_the_host_s_own_error_over_git_s_advice() {
 }
 
 #[test]
+fn names_ssh_s_error_not_its_post_quantum_warning() {
+    // OpenSSH 10.1+ connecting to an sshd without post-quantum key exchange.
+    let refused = "** WARNING: connection is not using a post-quantum key exchange algorithm.\n** This session may be vulnerable to \"store now, decrypt later\" attacks.\n** The server may need to be upgraded. See https://openssh.com/pq.html\ngit@git.example.com: Permission denied (publickey).\nfatal: Could not read from remote repository.";
+    assert_eq!(
+        classify_failure(&lines(refused)),
+        CloneError::Auth("git@git.example.com: Permission denied (publickey).".to_string()),
+    );
+}
+
+#[test]
 fn a_folder_git_may_not_write_to_is_not_a_sign_in_failure() {
     assert_eq!(
         classify_failure(&lines(
