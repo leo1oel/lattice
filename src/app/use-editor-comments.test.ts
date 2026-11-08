@@ -253,3 +253,18 @@ it("counts the panel's open orphaned citation reasons in the toolbar's open note
   act(() => view.result.current.setOpenOrphans(2));
   expect(view.result.current.unresolved).toBe(3);
 });
+
+it("drops, without an error, an editor's last anchor save that arrives after the project's annotations were let go", async () => {
+  const source = "Holds \\cite{smith2020}.";
+  const reason = createCitationReason({
+    path: "main.tex", source, site: { from: 12, to: 21, key: "smith2020" }, role: "supporting", body: "",
+    authorId: "me", authorName: "Me",
+  })!;
+  const { view } = await renderComments([reason]);
+  const saves = saved().length;
+  // Switching projects lets the old annotations go before the old editor is torn down and flushes.
+  act(() => view.result.current.reset());
+  act(() => view.result.current.reanchorCitationReasons(new Map([[reason.id, { from: 12, to: 21, quote: "smith2020", prefix: "x", suffix: "y" }]])));
+  expect(showError).not.toHaveBeenCalled();
+  expect(saved().length).toBe(saves);
+});

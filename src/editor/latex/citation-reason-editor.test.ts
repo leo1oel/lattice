@@ -56,3 +56,36 @@ it("saves it too when the editor's extensions are rebuilt before it settles, as 
     crashed.mockRestore();
   }
 });
+
+it("keeps the anchor the write-back saved while the popover was open when the popover saves", () => {
+  vi.useFakeTimers();
+  const site = citationSites(SOURCE)[0]!;
+  const reason = createCitationReason({ path: "main.tex", source: SOURCE, site, role: "supporting", body: "", authorId: "me", authorName: "Me" })!;
+  const data = {
+    citations: [],
+    citationReasons: [reason] as EditorComment[],
+    // The store: a write-back replaces the reason's anchor.
+    onReanchorCitationReasons: (moves: ReadonlyMap<string, Partial<EditorComment>>) => {
+      data.citationReasons = data.citationReasons.map((item) => ({ ...item, ...moves.get(item.id) }));
+    },
+    onSaveCitationReason: vi.fn<(saved: EditorComment) => void>(),
+  };
+  const reasons = citationReasons(() => data as unknown as LatexEditorLiveData, "main.tex");
+  const view = new EditorView({ state: EditorState.create({ doc: SOURCE, extensions: reasons.extension }), parent: document.body });
+  try {
+    view.dispatch({ changes: { from: SOURCE.indexOf(" agrees."), to: SOURCE.length, insert: " disagrees strongly." } });
+    reasons.api.edit(view, { from: site.from, to: site.to, key: "smith" });
+    vi.advanceTimersByTime(1500);
+    expect(data.citationReasons[0]!.suffix).toBe("} disagrees strongly.");
+
+    const popover = view.dom.querySelector(".citation-reason-popover")!;
+    (popover.querySelector('[data-role="counterexample"]') as HTMLButtonElement).click();
+    [...popover.querySelectorAll("button")].find((button) => button.textContent === "Save")!.click();
+    expect(data.onSaveCitationReason).toHaveBeenCalledTimes(1);
+    expect(data.onSaveCitationReason.mock.calls[0]![0]).toMatchObject({
+      id: reason.id, from: site.from, to: site.to, suffix: "} disagrees strongly.", citation: { key: "smith", role: "counterexample" },
+    });
+  } finally {
+    view.destroy();
+  }
+});

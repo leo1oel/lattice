@@ -255,8 +255,9 @@ export function citationReasons(live: () => LatexEditorLiveData, path: string): 
       const doc = view.state.doc.toString();
       if (doc.slice(target.from, target.to).toLocaleLowerCase() !== target.key.toLocaleLowerCase()) return close(view);
       const body = input.value.trim();
-      const reason = existing
-        ? { ...existing, body, citation: { key: target.key, role } }
+      const latest = existing && (current.citationReasons?.find((item) => item.id === existing.id) ?? existing);
+      const reason = latest
+        ? { ...latest, ...reanchoredReason(doc, latest, { ...target, line: 0 }), body, citation: { key: target.key, role } }
         : createCitationReason({
           path,
           source: doc,

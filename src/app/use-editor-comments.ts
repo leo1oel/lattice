@@ -178,14 +178,11 @@ export function useEditorComments({
    * edit; the reason itself did not change, so neither does its updatedAt.
    */
   const reanchorCitationReasons = useCallback((moves: ReadonlyMap<string, Pick<EditorComment, "from" | "to" | "quote" | "prefix" | "suffix">>) => {
-    commit(withAnnotations((current) => (
-      current.some((item) => moves.has(item.id))
-        ? current.map((item) => {
-          const move = moves.get(item.id);
-          return move && item.citation ? { ...item, ...move } : item;
-        })
-        : current
-    )));
+    if (!stateRef.current.annotations.some((item) => moves.has(item.id))) return;
+    commit(withAnnotations((current) => current.map((item) => {
+      const move = moves.get(item.id);
+      return move && item.citation ? { ...item, ...move } : item;
+    })));
   }, [commit]);
 
   /**
