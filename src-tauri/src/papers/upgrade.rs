@@ -8,8 +8,7 @@
 //! not change keeps its original bytes, and an upgraded entry keeps its own
 //! text, with the changed values rewritten in place and new fields appended.
 //! No field the writer had is dropped. The ones bibcite would have removed
-//! are reported, so the agent can tell the writer, and Check references
-//! proposes their removal as a reviewed edit.
+//! are reported, so the agent can tell the writer, who decides.
 
 use super::bibliography::{parse_report, run_bibcite, ScratchBibliography};
 use super::citation::validate_resolved_identity;
