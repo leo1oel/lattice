@@ -433,3 +433,40 @@ fn a_bibliography_overleaf_keeps_as_a_file_goes_up_beside_a_document_without_a_f
         assert_eq!(state_files(&root)[bib], sha256_hex(ours.as_bytes()), "{bib}");
     }
 }
+
+#[test]
+fn a_bibliography_overleaf_keeps_as_a_file_replaced_there_meanwhile_waits_and_merges_next_sync() {
+    // A co-author replaced refs.bib, a file entity, on Overleaf after our
+    // snapshot, and we edited it here too. Its history is binary and tells
+    // nothing, so the project's version, moved before anything went up,
+    // holds it back; main.tex, its own history untouched, still goes up.
+    // The next sync merges their replacement with our edit and sends both.
+    let base: Files = &[("main.tex", BASE.as_bytes()), ("refs.bib", BASE.as_bytes())];
+    let local: Files = &[("main.tex", OURS.as_bytes()), ("refs.bib", OURS.as_bytes())];
+    let mock = Mock {
+        versions: vec![11, 12],
+        file_entities: vec!["refs.bib"],
+        later_zip: Some(build_zip(&[
+            ("main.tex", OURS.as_bytes()),
+            ("refs.bib", COAUTHOR.as_bytes()),
+        ])),
+        ..Mock::project(base)
+    };
+    let server = mock.serve();
+    let (config, root) = linked(&server, local, base);
+    let first = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(first.pushed, ["main.tex"]);
+    assert!(first.uploaded_over_edits.is_empty(), "{:?}", first.uploaded_over_edits);
+    assert_eq!(server.uploads().len(), 1);
+    assert_eq!(state_files(&root)["refs.bib"], sha256_hex(BASE.as_bytes()));
+
+    let second = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(second.merged, ["refs.bib"]);
+    assert_eq!(second.pushed, ["refs.bib"]);
+    assert!(second.uploaded_over_edits.is_empty(), "{:?}", second.uploaded_over_edits);
+    let both = "Intro, edited here.\n\nMiddle.\n\nEnd, typed on Overleaf.\n";
+    let uploads = server.uploads();
+    assert_eq!(uploads.len(), 2);
+    assert!(uploads[1].body_text().contains(both), "{}", uploads[1].body_text());
+    assert_eq!(read_local(&root, "refs.bib").unwrap(), both.as_bytes());
+}
