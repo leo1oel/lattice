@@ -10,6 +10,7 @@ import { paperDocumentPath } from "./paper-documents";
 import { UNREAD_DISK_VERSION } from "./read-document";
 import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
 import { isVanished, type DocumentStore } from "./use-document-store";
+import { noteHostFileWrites } from "../agent/agent-host-writes";
 
 /**
  * Write the document in front to disk: the text file's buffer, or both of the
@@ -104,6 +105,8 @@ export function useDocumentSave(store: DocumentStore) {
         writtenPaths.push(path);
       }
       if (!writtenPaths.length) return true;
+      // The writer's typing, landing beside an agent's turn, is not the agent's to undo.
+      noteHostFileWrites(current.root, writtenPaths);
       setSaveStatus({ phase: "saved", at: Date.now(), path: writtenPaths[0]!, root: current.root });
       // Saving must only wait for durable writes. The derived sidebars are
       // useful, but making file switches and builds wait on six independent

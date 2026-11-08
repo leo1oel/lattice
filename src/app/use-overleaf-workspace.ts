@@ -40,7 +40,7 @@ import type {
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
 import { overleafSyncWarnings } from "./overleaf-sync-warnings";
-import { reportSyncConflicts } from "./overleaf-sync-conflicts";
+import { reportSyncOutcome } from "./overleaf-sync-outcome";
 import { overleafSyncSummary } from "./overleaf-sync-summary";
 import { unsettledPaths } from "./overleaf-sync-unsettled";
 
@@ -358,7 +358,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ...[...externalBatch.keys()].filter((path) => !livePaths.includes(path)
           && !result.deletedLocal.includes(path) && !result.skippedRemoteDeletes.includes(path)),
       ]);
-      if (!(await reportSyncConflicts({ result, projectRoot: syncRoot, stillCurrent, openConflict: setConflictPath }))) return;
+      if (!(await reportSyncOutcome({ result, projectRoot: syncRoot, stillCurrent, openConflict: setConflictPath }))) return;
       let reloadBlockedPath: string | null = null;
       if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });

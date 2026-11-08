@@ -1,13 +1,19 @@
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
+import { noteHostFileWrites } from "../agent/agent-host-writes";
 import type { OverleafSyncResult } from "../app-types";
 import { hasConflictMarkers } from "../history/conflict-markers";
 import { i18n } from "../i18n";
 import { showError } from "./notify";
 
 /**
- * Tell the writer what a sync's conflicts left on disk, and open the
- * resolver on the first file that has spots to resolve.
+ * Tell the agent panel which files the sync wrote, and the writer what its
+ * conflicts left on disk, opening the resolver on the first file that has
+ * spots to resolve.
+ *
+ * Overleaf's text is a co-author's: a running agent turn must not count it as
+ * its own change, or the turn's Undo would delete it and upload the deletion
+ * (see agent-host-writes.ts).
  *
  * Only a file with markers has spots to resolve; for a figure or PDF, say
  * plainly that both versions are sitting on disk. A later disk write can
@@ -15,12 +21,15 @@ import { showError } from "./notify";
  * unreadable one goes to the resolver, which reports it. Returns false when
  * the sync stopped being current while files were read.
  */
-export async function reportSyncConflicts({ result, projectRoot, stillCurrent, openConflict }: {
+export async function reportSyncOutcome({ result, projectRoot, stillCurrent, openConflict }: {
   result: OverleafSyncResult;
   projectRoot: string;
   stillCurrent: () => boolean;
   openConflict: (path: string) => void;
 }): Promise<boolean> {
+  noteHostFileWrites(projectRoot, [
+    ...result.pulled, ...result.merged, ...result.conflicts.map((item) => item.path), ...result.deletedLocal,
+  ]);
   if (!result.conflicts.length) return true;
   const marked: OverleafSyncResult["conflicts"] = [];
   for (const item of result.conflicts.filter((conflict) => conflict.markers !== false)) {
