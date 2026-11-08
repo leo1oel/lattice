@@ -867,6 +867,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     // server has not confirmed.
     const reserved = doc.anchor();
     if (!reserved) throw new Error(t`An edit is still on its way to Overleaf. Try again in a moment.`);
+    if (publicId.current) doc.noteSubmitted(publicId.current);
     publishUnacknowledged();
     try {
       await invoke("overleaf_rt_send_comment", {
@@ -925,6 +926,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
       if (typingUnsent() || deliveryPending(doc) || (id && resyncing.current.has(id))) return null;
       const anchor = doc?.anchor();
       if (!id || !doc || !anchor) return null;
+      if (publicId.current) doc.noteSubmitted(publicId.current);
       // Rejection sends real inverse text ops outside OtDocument, although
       // its reservation is empty. Keep the old shared proof but never claim
       // this model is current again until a full reset and guarded delivery.

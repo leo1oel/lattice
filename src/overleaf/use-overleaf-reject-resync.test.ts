@@ -54,6 +54,7 @@ let joinFailures: number;
 /** What the editor shows; remote text lands only over the text it was computed from, as the app's does. */
 let editor: string;
 let onNeedsSync: ReturnType<typeof vi.fn<(paths: readonly string[]) => void>>;
+let connections: number;
 
 /** Overleaf's document updater behind the mocked commands; see OverleafDoc. */
 function serveOverleaf() {
@@ -64,6 +65,7 @@ function serveOverleaf() {
   joinFailures = 0;
   editor = "";
   onNeedsSync = vi.fn<(paths: readonly string[]) => void>();
+  connections = 0;
   const deliver = mockListen();
   emit = (payload) => deliver({ projectRoot: ROOT, ...payload });
   const answer = async (ops: OtOp[], version: number, hash?: string) => {
@@ -73,16 +75,17 @@ function serveOverleaf() {
       : { type: "otError", docId: DOC_A, message: landed });
   };
   mockInvoke({
-    overleaf_rt_connect: {
-      publicId: "me", docs: [{ id: DOC_A, path: "a.tex" }], entities: [],
+    // Overleaf names every connection afresh (docs/overleaf-protocol.md).
+    overleaf_rt_connect: () => ({
+      publicId: connections++ ? `me-${connections}` : "me", docs: [{ id: DOC_A, path: "a.tex" }], entities: [],
       permission: "readAndWrite", trackChanges: false, userId: "me-user", ownHue: 210,
-    },
+    }),
     overleaf_rt_join_doc: ({ fromVersion }: { fromVersion: number | null }) => {
       if (joinFailures > 0) {
         joinFailures -= 1;
         throw new Error("the connection is closing");
       }
-      // Asked to resume, Overleaf replays what landed since; every update in these tests is this client's.
+      // Asked to resume, Overleaf replays what landed since; every update in these tests went out on the first connection.
       const resumed = fromVersion !== null && fromVersion >= server.from && fromVersion <= server.version;
       const caughtUp = resumed
         ? server.history.slice(fromVersion - server.from).map((ops, index) => ({ version: fromVersion + index, ops, source: "me" }))
@@ -220,13 +223,15 @@ describe("rejecting a suggestion live", () => {
     await act(() => result.current.review.reject([INSERTION]));
     // The connection drops before the answer arrives; the reconnect's resumed join replays the reject instead.
     owed.splice(0);
+    // Nothing can be joined on the socket that is going down.
+    joinFailures = 1;
     emit({ type: "disconnected", reason: "network changed" });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
 
     await waitFor(() => expect(joinsOf(DOC_A)).toEqual([
-      { docId: DOC_A, fromVersion: null }, { docId: DOC_A, fromVersion: 10 }, { docId: DOC_A, fromVersion: null },
+      { docId: DOC_A, fromVersion: null }, { docId: DOC_A, fromVersion: 10 }, { docId: DOC_A, fromVersion: 10 }, { docId: DOC_A, fromVersion: null },
     ]));
     // The stale copy was let go before the re-read, so the editor's text goes to regular sync's merge.
     await waitFor(() => expect(onNeedsSync).toHaveBeenCalledWith(["a.tex"]));
