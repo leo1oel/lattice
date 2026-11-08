@@ -21,15 +21,15 @@
 //! so, more files to fetch than the project's size pays for (`MOST_FETCHES`),
 //! and any fetch that fails or does not match its hash. A folder operation
 //! names only the folder, so every agreed path in a folder the history names
-//! is fetched, live or not. Only the download counts towards the gap between
-//! downloads (`RemoteFiles::whole`): fetching what changed is the same
-//! traffic Overleaf's own editor makes.
+//! is fetched, live or not. Only the download passes the gate that holds
+//! downloads to the gap between them (`DownloadGate`): fetching what changed
+//! is the same traffic Overleaf's own editor makes.
 
 use super::super::api::{expect_success, send, Remote};
 use super::super::files::*;
 use super::super::review::history_since;
 use super::{download, RemoteFiles};
-use crate::overleaf::api::DownloadProgress;
+use crate::overleaf::api::{DownloadGate, DownloadProgress};
 use crate::overleaf_rt::{EntityEntry, RealtimeClient, RealtimeConfig};
 use crate::wide_event;
 use reqwest::blocking::Client;
@@ -164,7 +164,6 @@ pub(super) fn remote_copy(
             files: agreed,
             automatic_remote_deletes: Vec::new(),
             unsettled: still_live,
-            whole: false,
         });
     }
     let agreed_bytes: usize = agreed.values().map(Vec::len).sum();
@@ -178,9 +177,10 @@ pub(super) fn remote_copy(
 }
 
 /// Overleaf's copy as `copy` says to get it: fetching only what changed where
-/// that works, and the project download where it does not.
+/// that works, and the project download, past `gate`, where it does not.
 pub(super) fn fetch(
-    remote: &Remote, client: &Client, copy: RemoteCopy, progress: DownloadProgress,
+    remote: &Remote, client: &Client, copy: RemoteCopy, gate: DownloadGate,
+    progress: DownloadProgress,
 ) -> Result<RemoteFiles, String> {
     match copy {
         RemoteCopy::Agreed(files) => Ok(files),
@@ -189,10 +189,10 @@ pub(super) fn fetch(
             Err(reason) => {
                 log::info!(target: "lattice::overleaf", "Downloading the whole project: {reason}");
                 wide_event::record("fetch_fallback", reason);
-                download(remote, client, progress)
+                download(remote, client, gate, progress)
             }
         },
-        RemoteCopy::Download => download(remote, client, progress),
+        RemoteCopy::Download => download(remote, client, gate, progress),
     }
 }
 
@@ -286,7 +286,7 @@ fn fetch_with(
     }
     wide_event::record("fetched_files", missing.len());
     wide_event::record("fetched_bytes", fetched_bytes);
-    Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: changes.unsettled, whole: false })
+    Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: changes.unsettled })
 }
 
 /// Whether `path` is `changed` itself or lies in the folder `changed`: what

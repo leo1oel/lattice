@@ -252,12 +252,13 @@ purpose.
   was taken against, apart from live documents and files only whose agreed
   hash moved on, which the sync leaves alone for the next one
   (`Prefetched::fits`). When nothing read ahead fits, the sync lets go of the
-  lease and reads ahead again, behind the same account-wide gap between
-  downloads; after `READ_AHEAD_ROUNDS` such reads it downloads under the lease
-  instead, so a sync always finishes. Only a ZIP download counts towards that
-  gap (`RemoteFiles::whole`): a read ahead that fetched only what changed, or
-  nothing, makes the same requests Overleaf's own editor does, and a sync
-  waiting out the gap goes ahead as soon as such a read hands it back.
+  lease and reads ahead again; after `READ_AHEAD_ROUNDS` such reads it
+  downloads under the lease instead, so a sync always finishes. Every ZIP
+  download a sync makes, ahead of the lease or under it, first waits out the
+  account-wide gap since the previous one (`DownloadGate`, passed by
+  `wait_for_download_gap` in `src-tauri/src/ipc/overleaf.rs`). Nothing else
+  does: reading the version and history, and fetching only what changed,
+  make the same requests Overleaf's own editor does.
 - Uploads run a few at a time, except that a file into a folder Overleaf may
   not have yet goes first and alone, so two uploads never race to create the
   same folder.

@@ -3,7 +3,7 @@
 //! writes here go on, and checked against the link once the lease is held.
 
 use super::{fetch, remote_copy, sync_client, RemoteCopy, RemoteFiles};
-use crate::overleaf::api::{DownloadProgress, Remote};
+use crate::overleaf::api::{DownloadGate, DownloadProgress, Remote};
 use crate::overleaf::files::read_local_files;
 use crate::overleaf::link::SyncState;
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,13 +20,6 @@ pub struct Prefetched {
 }
 
 impl Prefetched {
-    /// Whether this read took the project download rather than fetching
-    /// only what changed: only then does it count against the gap between
-    /// downloads.
-    pub fn downloaded_project(&self) -> bool {
-        self.downloaded.whole
-    }
-
     /// Whether the download still fits the link as it stands now, under the
     /// lease, and the paths the sync must then leave alone as it does a live
     /// document. Between the two, a live document may have been checkpointed
@@ -74,9 +67,10 @@ impl Prefetched {
 ///
 /// `live` is the editor's view of the live documents; the sync recomputes it
 /// under the lease, so a stale one costs at most a redundant download.
+/// `gate` is passed only on the way to the project download.
 pub fn prefetch(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
-    progress: DownloadProgress,
+    gate: DownloadGate, progress: DownloadProgress,
 ) -> Result<Option<Prefetched>, String> {
     let linked = Remote::open_for_sync(config_dir, root)?;
     if !linked.state.pending_relocations.is_empty() {
@@ -89,6 +83,6 @@ pub fn prefetch(
     if let RemoteCopy::Agreed(_) = copy {
         return Ok(None);
     }
-    let downloaded = fetch(&linked, &client, copy, progress)?;
+    let downloaded = fetch(&linked, &client, copy, gate, progress)?;
     Ok(Some(Prefetched { version, files: linked.state.files, downloaded }))
 }

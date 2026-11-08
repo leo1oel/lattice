@@ -202,6 +202,10 @@ pub(super) fn full_name(user: &Value) -> Option<String> {
 /// usually it does not). Starts again from zero when an attempt is retried.
 pub type DownloadProgress<'a> = &'a (dyn Fn(u64, Option<u64>) + Sync);
 
+/// Passed just before a sync downloads the project ZIP, and only then:
+/// the app holds downloads to the account-wide gap between them here.
+pub type DownloadGate<'a> = &'a (dyn Fn() + Sync);
+
 /// Attempts at a project download in all, for one that breaks off part way.
 const DOWNLOAD_ATTEMPTS: u32 = 3;
 

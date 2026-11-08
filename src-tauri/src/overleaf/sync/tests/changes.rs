@@ -6,6 +6,7 @@
 use super::*;
 use crate::overleaf::sync::changes::blob_hash;
 use crate::overleaf_rt::mock_server::{realtime_state, sent_updates, MockState};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// A small paper: documents in folders, a bibliography and two figures.
@@ -446,31 +447,41 @@ fn a_change_too_wide_for_the_projects_size_takes_the_download() {
     }
 }
 
-/// Only the project download holds the next sync to the gap between
-/// downloads; fetching what changed is the editor's own traffic, so the sync
-/// after it is not held back.
+/// Only the project download passes the gate that holds downloads to the
+/// gap between them; fetching what changed is the editor's own traffic, so a
+/// fetch-only sync right after a download is not held back, ahead of the
+/// lease or under it.
 #[test]
-fn only_the_project_download_counts_against_the_gap_between_downloads() {
+fn only_the_project_download_passes_the_gap_between_downloads() {
     let lab = lab();
+    let gated = AtomicUsize::new(0);
+    let gate = || {
+        gated.fetch_add(1, Ordering::SeqCst);
+    };
     let edit = |body: &'static str| {
         move |files: &mut BTreeMap<String, Vec<u8>>| {
             files.insert("sections/a.tex".into(), body.into());
         }
     };
-    lab.co_author(edit("\\section{A}\nOnce.\n"), &["sections/a.tex"], json!([]));
-    let read = prefetch(&lab.config, &lab.root, NO_LIVE, None, &|_, _| {}).unwrap();
-    assert!(!read.expect("a fetch").downloaded_project());
-    let synced = sync_prefetched(&lab.config, &lab.root, NO_LIVE, None, None, true).unwrap();
-    assert!(!synced.expect("a sync").downloaded_under_lease);
-    assert_eq!(lab.downloads(), 0);
+    let sync_under_lease = || {
+        let synced = sync_prefetched(&lab.config, &lab.root, NO_LIVE, None, None, Some(&gate));
+        synced.unwrap().expect("a sync")
+    };
 
     // A history short of the version: only the download can tell.
-    lab.co_author(edit("\\section{A}\nTwice.\n"), &["sections/a.tex"], json!([]));
+    lab.co_author(edit("\\section{A}\nOnce.\n"), &["sections/a.tex"], json!([]));
     lab.shared.lock().unwrap().version += 1;
-    let read = prefetch(&lab.config, &lab.root, NO_LIVE, None, &|_, _| {}).unwrap();
-    assert!(read.expect("a download").downloaded_project());
-    let synced = sync_prefetched(&lab.config, &lab.root, NO_LIVE, None, None, true).unwrap();
-    assert!(synced.expect("a sync").downloaded_under_lease);
+    let read = prefetch(&lab.config, &lab.root, NO_LIVE, None, &gate, &|_, _| {}).unwrap();
+    assert!(read.is_some());
+    assert_eq!((lab.downloads(), gated.load(Ordering::SeqCst)), (1, 1));
+    sync_under_lease();
+    assert_eq!((lab.downloads(), gated.load(Ordering::SeqCst)), (2, 2));
+
+    lab.co_author(edit("\\section{A}\nTwice.\n"), &["sections/a.tex"], json!([]));
+    let read = prefetch(&lab.config, &lab.root, NO_LIVE, None, &gate, &|_, _| {}).unwrap();
+    assert!(read.is_some());
+    sync_under_lease();
+    assert_eq!((lab.downloads(), gated.load(Ordering::SeqCst)), (2, 2), "fetched, not gated");
     lab.assert_matches_overleaf();
 }
 

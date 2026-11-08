@@ -13,9 +13,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager, State, Window};
-use tokio::time::Instant;
 
 const LOGIN_WINDOW: &str = "overleaf-login";
 const TASK: &str = "The Overleaf task";
@@ -133,11 +134,30 @@ fn full_sync_delay(previous: Option<Instant>, now: Instant) -> Duration {
         .unwrap_or_default()
 }
 
-/// A full sync's start: once the account-wide cooldown since the previous
-/// download has passed, run `ahead` (its download), and only then take the
-/// project's exclusive lease for the rest. `ahead` also says whether it
-/// downloaded; a turn that did not leaves the cooldown as it found it, and
-/// any sync waiting on it goes ahead.
+/// Wait out the account-wide cooldown since the previous project download,
+/// then stamp this one's start: the gate a sync passes just before it
+/// downloads the ZIP, and only then, so fetching only what changed is never
+/// held to it. Blocking, on the sync's own thread. The stamp is not held
+/// while waiting, and only one waiter takes it once the cooldown is over, so
+/// downloads queued behind it start one interval apart.
+fn wait_for_download_gap(started: &Mutex<Option<Instant>>) {
+    loop {
+        let delay = {
+            let mut previous = started.lock().unwrap_or_else(PoisonError::into_inner);
+            let now = Instant::now();
+            let delay = full_sync_delay(*previous, now);
+            if delay.is_zero() {
+                *previous = Some(now);
+                return;
+            }
+            delay
+        };
+        std::thread::sleep(delay);
+    }
+}
+
+/// A full sync's start: run `ahead` (its read ahead: what changed, or the
+/// download), and only then take the project's exclusive lease for the rest.
 ///
 /// The download is most of a sync's time: minutes, for a project with large
 /// figures over a slow link. It only reads, so it needs no lease. Holding the
@@ -145,41 +165,9 @@ fn full_sync_delay(previous: Option<Instant>, now: Instant) -> Duration {
 /// deleting, saving: all shared-lease commands) waiting until the whole sync
 /// was done, and the dialogs that follow them with it.
 async fn ahead_of_full_sync<T>(
-    state: &AppState, project_root: &str, ahead: impl Future<Output = Result<(T, bool), String>>,
+    state: &AppState, project_root: &str, ahead: impl Future<Output = Result<T, String>>,
 ) -> Result<(T, ProjectLease), String> {
-    let gap = &state.overleaf_sync_started;
-    let mut stamps = gap.subscribe();
-    let (started, before) = loop {
-        // Only one waiter takes the stamp once the cooldown is over, so
-        // syncs queued behind it start their downloads one interval apart.
-        let mut admitted = None;
-        gap.send_if_modified(|previous_sync| {
-            let now = Instant::now();
-            if !full_sync_delay(*previous_sync, now).is_zero() {
-                return false;
-            }
-            admitted = Some((now, previous_sync.replace(now)));
-            true
-        });
-        if let Some(admitted) = admitted {
-            break admitted;
-        }
-        let delay = full_sync_delay(*stamps.borrow_and_update(), Instant::now());
-        tokio::select! {
-            () = tokio::time::sleep(delay) => {}
-            _ = stamps.changed() => {}
-        }
-    };
-    let (ahead, downloaded) = ahead.await?;
-    if !downloaded {
-        gap.send_if_modified(|previous_sync| {
-            let handed_back = *previous_sync == Some(started);
-            if handed_back {
-                *previous_sync = before;
-            }
-            handed_back
-        });
-    }
+    let ahead = ahead.await?;
     Ok((ahead, state.lease(project_root, Lease::Exclusive).await))
 }
 
@@ -656,9 +644,10 @@ pub async fn overleaf_sync(
             let config = overleaf_config_dir(&app)?;
             let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
             wide_event::project(&root);
-            // Round again, behind the gap between downloads, whenever the
-            // link moved past what was read ahead while the lease was free;
-            // past `READ_AHEAD_ROUNDS`, download under the lease instead.
+            // Round again whenever the link moved past what was read ahead
+            // while the lease was free; past `READ_AHEAD_ROUNDS`, download
+            // under the lease instead.
+            let gap = Arc::clone(&state.overleaf_download_started);
             let mut round = 0;
             loop {
                 round += 1;
@@ -666,9 +655,10 @@ pub async fn overleaf_sync(
                 let ahead = {
                     let (config, root) = (config.clone(), root.clone());
                     let hint = live_paths(live.clone());
+                    let gap = Arc::clone(&gap);
                     async {
                         if !read_ahead {
-                            return Ok((None, false));
+                            return Ok(None);
                         }
                         let read = run_quietly("The Overleaf download", move || {
                             overleaf::prefetch(
@@ -676,14 +666,11 @@ pub async fn overleaf_sync(
                                 &root,
                                 &hint,
                                 observed_remote_version,
+                                &|| wait_for_download_gap(&gap),
                                 &|_, _| {},
                             )
                         });
-                        let prefetched = settled(&app, read.await).await?;
-                        let downloaded = prefetched
-                            .as_ref()
-                            .is_some_and(overleaf::Prefetched::downloaded_project);
-                        Ok((prefetched, downloaded))
+                        settled(&app, read.await).await
                     }
                 };
                 let (prefetched, lease) = ahead_of_full_sync(&state, &project_root, ahead).await?;
@@ -695,24 +682,22 @@ pub async fn overleaf_sync(
                 let entities = realtime_client(&state, &window)
                     .ok()
                     .and_then(|client| client.current_entities());
-                let config = config.clone();
+                let (config, gap) = (config.clone(), Arc::clone(&gap));
                 // Quietly: the operation's event already carries any failure.
                 let synced = run_quietly("The Overleaf sync", move || {
                     overleaf::sync_relocations(&config, &root, entities)?;
+                    let gate: &(dyn Fn() + Sync) = &|| wait_for_download_gap(&gap);
                     overleaf::sync_prefetched(
                         &config,
                         &root,
                         &live,
                         observed_remote_version,
                         prefetched,
-                        !read_ahead,
+                        (!read_ahead).then_some(gate),
                     )
                 })
                 .await;
                 if let Some(result) = settled(&app, synced).await? {
-                    if result.downloaded_under_lease {
-                        state.overleaf_sync_started.send_replace(Some(Instant::now()));
-                    }
                     return Ok(result);
                 }
             }
@@ -749,7 +734,7 @@ mod tests {
                 let write = state.structural_lease(root, Lease::Shared);
                 tokio::time::timeout(Duration::from_secs(5), write)
                     .await
-                    .map(|lease| (drop(lease), true))
+                    .map(drop)
                     .map_err(|_| "a file write waited for the download".to_string())
             };
             let ((), _lease) = ahead_of_full_sync(&state, root, download).await.unwrap();
@@ -759,75 +744,28 @@ mod tests {
         });
     }
 
-    /// A turn of a sync that read ahead without downloading (the agreed copy
-    /// stood, or a move had to be replayed first) does not hold the next one
-    /// to the gap between downloads; a turn that downloaded does.
+    /// The gate a ZIP download passes: the first goes straight through, one
+    /// within the gap of it waits out the rest, and the stamp is free to
+    /// read meanwhile.
     #[test]
-    fn only_a_turn_that_downloaded_holds_the_next_to_the_gap() {
-        let state = AppState::from_environment();
-        let root = "/project/a";
-        let turn = |downloaded: bool| {
-            let ahead = async move { Ok(((), downloaded)) };
-            tokio::time::timeout(Duration::from_secs(1), ahead_of_full_sync(&state, root, ahead))
-        };
-        tauri::async_runtime::block_on(async {
-            drop(turn(false).await.expect("no gap to wait out").unwrap());
-            drop(turn(true).await.expect("no download before this one").unwrap());
-            assert!(turn(true).await.is_err(), "the gap after a download is waited out");
-        });
-    }
+    fn a_download_waits_out_the_gap_since_the_previous_one() {
+        let started = Mutex::new(None);
+        let at = Instant::now();
+        wait_for_download_gap(&started);
+        assert!(at.elapsed() < Duration::from_secs(1), "no download before this one");
 
-    /// A turn that downloaded nothing goes on to its lease while another
-    /// sync waits out the gap its stamp set, rather than behind that wait.
-    #[test]
-    fn a_turn_that_downloaded_nothing_does_not_wait_behind_another_syncs_gap() {
-        let state = AppState::from_environment();
-        tauri::async_runtime::block_on(async {
-            let (go, read) = tokio::sync::oneshot::channel::<()>();
-            let a = ahead_of_full_sync(&state, "/project/a", async {
-                read.await.unwrap();
-                Ok(((), false))
-            });
-            let b = ahead_of_full_sync(&state, "/project/b", async { Ok(((), true)) });
-            let (a, _b, ()) = tokio::join!(
-                tokio::time::timeout(Duration::from_secs(1), a),
-                tokio::time::timeout(Duration::from_millis(1500), b),
-                async {
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-                    go.send(()).unwrap();
-                },
-            );
-            assert!(a.is_ok(), "the turn waited behind the other sync's gap");
+        // As if the previous download started 6.5 s ago, half a second short
+        // of the 7 s gap.
+        *started.lock().unwrap() = Some(Instant::now() - Duration::from_millis(6500));
+        let at = Instant::now();
+        std::thread::scope(|scope| {
+            let waiting = scope.spawn(|| wait_for_download_gap(&started));
+            std::thread::sleep(Duration::from_millis(100));
+            assert!(!waiting.is_finished(), "the gap is waited out");
+            assert!(started.try_lock().is_ok(), "the stamp is not held while waiting");
         });
-    }
-
-    /// A sync waiting out the gap another sync's turn set goes ahead as soon
-    /// as that turn ends without downloading, rather than at the end of the
-    /// gap: fetching only what changed is not held to it.
-    #[test]
-    fn a_sync_waiting_on_a_turn_that_downloaded_nothing_goes_ahead_when_it_ends() {
-        let state = AppState::from_environment();
-        tauri::async_runtime::block_on(async {
-            let (go, read) = tokio::sync::oneshot::channel::<()>();
-            let a = ahead_of_full_sync(&state, "/project/a", async {
-                read.await.unwrap();
-                Ok(((), false))
-            });
-            let b = async {
-                tokio::time::sleep(Duration::from_millis(20)).await;
-                ahead_of_full_sync(&state, "/project/b", async { Ok(((), true)) }).await
-            };
-            let (a, b, ()) = tokio::join!(
-                tokio::time::timeout(Duration::from_secs(1), a),
-                tokio::time::timeout(Duration::from_secs(2), b),
-                async {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                    go.send(()).unwrap();
-                },
-            );
-            assert!(a.is_ok());
-            assert!(b.is_ok(), "the sync waited out a gap no download set");
-        });
+        assert!(at.elapsed() >= Duration::from_millis(500));
+        assert!(at.elapsed() < Duration::from_secs(3));
     }
 
     #[test]

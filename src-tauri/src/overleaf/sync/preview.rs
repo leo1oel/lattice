@@ -72,7 +72,7 @@ pub fn preview(
     let mut local = read_local_files(root)?.files;
     let version = linked.version(&client);
     let copy = remote_copy(&linked, &client, root, version, &local, live);
-    let mut remote = fetch(&linked, &client, copy, &|_, _| {})?.files;
+    let mut remote = fetch(&linked, &client, copy, &|| {}, &|_, _| {})?.files;
     case_collisions::set_aside(&mut remote, &mut local, &linked.state.files);
     let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
     let refused = settle_destructive(&linked, &client, &mut plan);

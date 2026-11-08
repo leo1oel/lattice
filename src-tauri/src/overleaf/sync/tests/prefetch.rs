@@ -38,7 +38,7 @@ fn files_created_and_deleted_during_the_download_are_part_of_the_sync() {
     let received = AtomicU64::new(0);
     let progress = |bytes: u64, _total: Option<u64>| received.store(bytes, Ordering::Relaxed);
 
-    let prefetched = prefetch(&config, &root, NO_LIVE, None, &progress).unwrap();
+    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|| {}, &progress).unwrap();
     assert!(prefetched.is_some());
     assert_eq!(received.load(Ordering::Relaxed), Mock::project(&files).zip.len() as u64);
     // What the writer does meanwhile, now that it no longer waits for the
@@ -46,8 +46,7 @@ fn files_created_and_deleted_during_the_download_are_part_of_the_sync() {
     fs::remove_file(disk_path(&root, "sections/s07.tex")).unwrap();
     fs::write(disk_path(&root, "sections/new.tex"), "\\section{New}").unwrap();
 
-    let result =
-        sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap().unwrap();
+    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, None).unwrap().unwrap();
     assert_eq!(result.pushed, vec!["sections/new.tex"]);
     // The question about Overleaf's copy comes from this very sync.
     assert_eq!(result.skipped_remote_deletes, vec!["sections/s07.tex"]);
@@ -67,7 +66,7 @@ fn a_document_left_during_the_download_waits_for_the_next_sync() {
     let later_zip = Some(build_zip(&after));
     let server = Mock { versions: vec![7], later_zip, ..Mock::project(&files) }.serve();
     let (config, root) = linked(&server, &files, &files);
-    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|_, _| {}).unwrap();
+    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|| {}, &|_, _| {}).unwrap();
     fs::write(disk_path(&root, "sections/s01.tex"), newer).unwrap();
     edit_state(&root, |state| {
         state.files.insert("sections/s01.tex".into(), sha256_hex(newer));
@@ -75,7 +74,7 @@ fn a_document_left_during_the_download_waits_for_the_next_sync() {
 
     // Compared against the table, the download read ahead has Overleaf
     // putting the old text back; the sync leaves that document alone.
-    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap();
+    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, None).unwrap();
     let result = result.expect("the rest of the download still fits");
     assert_eq!(downloads(&server), 1);
     assert!(result.pulled.is_empty() && result.pushed.is_empty(), "{result:?}");
@@ -121,7 +120,7 @@ fn a_move_replayed_after_the_download_is_not_followed_by_a_download_under_the_le
     let later_zip = Some(build_zip(&moved));
     let server = Mock { later_zip, ..Mock::project(&files) }.serve();
     let (config, root) = linked(&server, &files, &files);
-    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|_, _| {}).unwrap();
+    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|| {}, &|_, _| {}).unwrap();
     assert!(prefetched.is_some());
     // Renamed while the download ran, then replayed once the lease is held.
     fs::rename(disk_path(&root, "sections/s01.tex"), disk_path(&root, "sections/first.tex"))
@@ -134,13 +133,12 @@ fn a_move_replayed_after_the_download_is_not_followed_by_a_download_under_the_le
     }];
     sync_relocations(&config, &root, Some(tree)).unwrap();
 
-    let turned_down = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap();
+    let turned_down = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, None).unwrap();
     assert!(turned_down.is_none(), "{turned_down:?}");
     assert_eq!(downloads(&server), 1, "no download while the lease is held");
 
-    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|_, _| {}).unwrap();
-    let result =
-        sync_prefetched(&config, &root, NO_LIVE, None, prefetched, false).unwrap().unwrap();
+    let prefetched = prefetch(&config, &root, NO_LIVE, None, &|| {}, &|_, _| {}).unwrap();
+    let result = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, None).unwrap().unwrap();
     assert_eq!(downloads(&server), 2);
     assert!(result.skipped_remote_deletes.is_empty(), "{result:?}");
     assert!(result.pushed.is_empty() && result.pulled.is_empty(), "{result:?}");
@@ -154,12 +152,12 @@ fn a_live_document_moving_on_meanwhile_keeps_the_download() {
     let server = Mock::project(&files).serve();
     let (config, root) = linked(&server, &files, &files);
     let live: BTreeSet<String> = ["main.tex".to_string()].into();
-    let prefetched = prefetch(&config, &root, &live, None, &|_, _| {}).unwrap();
+    let prefetched = prefetch(&config, &root, &live, None, &|| {}, &|_, _| {}).unwrap();
     edit_state(&root, |state| {
         state.files.insert("main.tex".into(), sha256_hex(b"typed over the live channel"));
     });
 
-    let result = sync_prefetched(&config, &root, &live, None, prefetched, false).unwrap().unwrap();
+    let result = sync_prefetched(&config, &root, &live, None, prefetched, None).unwrap().unwrap();
     assert_eq!(downloads(&server), 1);
     assert!(result.pushed.is_empty() && result.pulled.is_empty());
 }
