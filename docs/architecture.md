@@ -383,6 +383,7 @@ creates it.
 | `.research/licenses/` | `project/create.rs` | license texts for imported material |
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
+| `.research/review/` | `project/review_mode.rs` (`REVIEW_DIRECTORY`) | review mode, present only while it is on: `review.json` (when it was turned on, the files it left out), `base/` (each `.tex`/`.bib` file's base, mirroring the project's paths) and `build/` (the PDF with the changes marked; `latex/changes/review.rs`); deleted when review mode is turned off |
 | `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
 | `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
 | `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |

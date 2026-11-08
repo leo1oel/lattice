@@ -82,6 +82,7 @@ Slides are React decks powered by [Open Slide](https://github.com/open-slide/ope
 
 One timeline for saved versions, every edit from you or the agent, and Overleaf's history.
 Open any entry to see its diff and restore a file, or **Compare…** any two versions and export the PDF with the changes marked (via `latexdiff` from your TeX Live).
+**Track changes** turns on review mode: your edits since then are marked in the source as you type, the PDF can show them marked too, and you accept or reject each change, or all at once, without an Overleaf plan.
 The Git panel shows changes and pull requests when the project is a repository.
 
 ## Install
