@@ -57,4 +57,15 @@ describe("settling files deleted here but still on Overleaf", () => {
     expect(showNotice).toHaveBeenCalledOnce();
     expect(showNotice).toHaveBeenCalledWith(expect.stringMatching(/^dropped\.tex changed on Overleaf after you were asked, so it was not removed there\./), "Overleaf");
   });
+
+  it("leaves a file a co-author changed when removal needs no question, without claiming the writer was asked", async () => {
+    const run = settle({ current: "always" });
+    vi.mocked(invoke).mockResolvedValue("changedOnOverleaf");
+    await run(["dropped.tex"]);
+    expect(confirmAction).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("overleaf_delete_entity", { projectRoot: "/paper", kind: "doc", entityId: "doc-1", path: "dropped.tex" });
+    expect(showNotice).toHaveBeenCalledOnce();
+    expect(showNotice).toHaveBeenCalledWith(expect.stringMatching(/^dropped\.tex changed on Overleaf since the last sync, so it was not removed there\./), "Overleaf");
+    expect(vi.mocked(showNotice).mock.calls[0][0]).not.toMatch(/asked/);
+  });
 });

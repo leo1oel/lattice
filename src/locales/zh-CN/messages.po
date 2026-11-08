@@ -796,6 +796,14 @@ msgstr "{names} 在询问之后被人在 Overleaf 上改过，所以没有在 Ov
 msgid "{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here."
 msgstr "{names} 在询问之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
 
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here."
+msgstr "{names} 在上次同步之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here."
+msgstr "{names} 在上次同步之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
 #: src/papers/paper-identity.ts
 msgid "{names} et al."
 msgstr "{names} 等"

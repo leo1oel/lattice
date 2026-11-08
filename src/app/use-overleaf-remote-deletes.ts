@@ -77,9 +77,14 @@ export function useOverleafRemoteDeletes(
     if (!stillCurrent() || automatic) return;
     if (kept.length) {
       const names = kept.join(", ");
-      showNotice(kept.length === 1
-        ? t({ message: `${names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here.` })
-        : t({ message: `${names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here.` }), "Overleaf");
+      const single = kept.length === 1;
+      showNotice(asking
+        ? single
+          ? t({ message: `${names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here.` })
+          : t({ message: `${names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here.` })
+        : single
+          ? t({ message: `${names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here.` })
+          : t({ message: `${names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here.` }), "Overleaf");
     }
     if (removed) {
       showNotice(removed === 1

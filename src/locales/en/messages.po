@@ -796,6 +796,14 @@ msgstr "{names} changed on Overleaf after you were asked, so it was not removed 
 msgid "{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here."
 msgstr "{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here."
 
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here."
+msgstr "{names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here."
+
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here."
+msgstr "{names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here."
+
 #: src/papers/paper-identity.ts
 msgid "{names} et al."
 msgstr "{names} et al."
