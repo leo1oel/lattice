@@ -35,8 +35,6 @@ import { hasConflictMarkers } from "../history/conflict-markers";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import { reviewMode } from "../history/review-mode-store";
 import { applyOverleafRemoteText } from "./overleaf-remote-text";
-
-export { applyOverleafRemoteText };
 import type {
   AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject,

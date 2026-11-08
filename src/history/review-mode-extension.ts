@@ -36,8 +36,12 @@ type Review = Readonly<{
   decorations: DecorationSet;
 }>;
 
-/** A new base: `undoable` for the writer's accept (and its undo), not for the store turning review mode on or off. */
-const setBase = StateEffect.define<{ base: string | null; undoable: boolean }>();
+/**
+ * A new base. `session` names the review mode a writer's accept (and its undo)
+ * belongs to: one from a review mode turned off since is not applied. Null for
+ * the store turning review mode on or off, which is no undo step.
+ */
+const setBase = StateEffect.define<{ base: string | null; session: string | null }>();
 
 const OFF: Review = { base: null, hunks: [], changes: [], decorations: Decoration.none };
 
@@ -54,7 +58,9 @@ function reviewField(path: string, store: ReviewModeStore) {
     create: (state) => review(state, store.baseFor(path)),
     update(value, tr) {
       let base = value.base;
-      for (const effect of tr.effects) if (effect.is(setBase)) base = effect.value.base;
+      for (const effect of tr.effects) {
+        if (effect.is(setBase) && (effect.value.session === null || effect.value.session === store.session())) base = effect.value.base;
+      }
       if (base === value.base && !tr.docChanged) return value;
       if (base !== null && base === value.base && isCoauthorEdit(tr, path, store)) {
         const advanced = advancedBase(base, tr.startState.doc.toString(), value.hunks, tr.changes);
@@ -74,14 +80,20 @@ function isCoauthorEdit(tr: Transaction, path: string, store: ReviewModeStore): 
   return store.takeCoauthorText(path, (noted) => noted.length === tr.newDoc.length && noted === (text ??= tr.newDoc.toString()));
 }
 
-/** Each review editor's field: one per file, so the commands look it up by view. */
-const viewFields = new WeakMap<EditorView, StateField<Review>>();
+/** Each review editor's field and store: one per file, so the commands look them up by view. */
+const viewFields = new WeakMap<EditorView, { field: StateField<Review>; store: ReviewModeStore }>();
 
 /** The review in `view`: its base, hunks and changes, or null while review mode is off there. */
 export function reviewOf(view: EditorView): Review | null {
-  const field = viewFields.get(view);
+  const field = viewFields.get(view)?.field;
   const value = field ? view.state.field(field, false) : undefined;
   return value && value.base !== null ? value : null;
+}
+
+/** The writer's accept in `view`: the base becomes `base`, one undo step. */
+function acceptBase(view: EditorView, base: string) {
+  const session = viewFields.get(view)?.store.session() ?? null;
+  if (session !== null) view.dispatch({ effects: setBase.of({ base, session }), userEvent: "review.accept" });
 }
 
 /** The hunk at the caret (touching either end counts), or the first after it; its index, or -1. */
@@ -128,8 +140,7 @@ export function decideHunk(view: EditorView, index: number, accept: boolean, mov
   const hunk = value?.hunks[index];
   if (!value || value.base === null || !hunk) return false;
   if (accept) {
-    const base = acceptedBase(value.base, view.state.doc.toString(), hunk);
-    view.dispatch({ effects: setBase.of({ base, undoable: true }), userEvent: "review.accept" });
+    acceptBase(view, acceptedBase(value.base, view.state.doc.toString(), hunk));
   } else {
     view.dispatch({ changes: rejectEdit(value.base, hunk), userEvent: "review.reject" });
   }
@@ -166,7 +177,7 @@ function describeHunk(base: string, text: string, hunk: ReviewHunk | undefined):
 export function acceptAll(view: EditorView): boolean {
   const value = reviewOf(view);
   if (!value?.hunks.length) return false;
-  view.dispatch({ effects: setBase.of({ base: view.state.doc.toString(), undoable: true }), userEvent: "review.accept" });
+  acceptBase(view, view.state.doc.toString());
   return true;
 }
 
@@ -256,10 +267,10 @@ export function reviewModeExtension(path: string, store: ReviewModeStore = revie
     private readonly unregister: () => void;
 
     constructor(readonly view: EditorView) {
-      viewFields.set(view, field);
+      viewFields.set(view, { field, store });
       // A base the store changed (review mode turned on or off) is not the writer's undo step.
       const apply = (base: string | null) => {
-        if (base !== view.state.field(field).base) view.dispatch({ effects: setBase.of({ base, undoable: false }) });
+        if (base !== view.state.field(field).base) view.dispatch({ effects: setBase.of({ base, session: null }) });
       };
       this.unregister = store.register(path, view, apply);
       // A parked editor comes back with the base it was parked with; the
@@ -319,8 +330,8 @@ export function reviewModeExtension(path: string, store: ReviewModeStore = revie
     field,
     sync,
     hover,
-    invertedEffects.of((tr) => tr.effects.flatMap((effect) => (effect.is(setBase) && effect.value.undoable
-      ? [setBase.of({ base: tr.startState.field(field).base, undoable: true })]
+    invertedEffects.of((tr) => tr.effects.flatMap((effect) => (effect.is(setBase) && effect.value.session !== null
+      ? [setBase.of({ base: tr.startState.field(field).base, session: effect.value.session })]
       : []))),
     showPanel.compute([field], (state) => (state.field(field).base === null ? null : panel)),
   ];

@@ -12,10 +12,12 @@ const BASE = "\\section{Intro}\nAttention lets a decoder look at encoder states.
 /** A store over a fake host, with review mode on and `BASE` as main.tex's base. */
 async function reviewing(files: Record<string, string> = { "main.tex": BASE }) {
   const calls: { command: string; args: Record<string, unknown> }[] = [];
+  let starts = 0;
   const call = vi.fn(async (command: string, args?: Record<string, unknown>) => {
     calls.push({ command, args: args ?? {} });
     if (command === "review_mode_load") return null;
-    if (command === "review_mode_start") return { startedAt: "2026-11-08T00:00:00Z", bases: files };
+    // Each time review mode is turned on is a new one, named by when.
+    if (command === "review_mode_start") return { startedAt: `2026-11-08T00:00:0${starts++}Z`, bases: files };
     return null;
   });
   const store = createReviewModeStore(call as never);
@@ -110,6 +112,36 @@ describe("review mode in the source editor", () => {
     expect(view.state.doc.toString()).toBe(BASE.replace("look at", "retrieve"));
     undo(view);
     expect(texts(view)).toEqual(["+% note\n"]);
+  });
+
+  it("does not bring review mode back when an accept is undone after it was turned off", async () => {
+    const { store } = await reviewing();
+    const view = editor(store, BASE.replace("look at", "retrieve"));
+    decideHunk(view, 0, true);
+    await store.stop();
+    undo(view);
+    expect(reviewOf(view)).toBeNull();
+    expect(view.dom.querySelector(".cm-review-bar")).toBeNull();
+    redo(view);
+    expect(reviewOf(view)).toBeNull();
+    expect(store.get().active).toBe(false);
+  });
+
+  it("keeps an earlier review mode's accept out of the one turned on since", async () => {
+    vi.useFakeTimers();
+    const { store, calls } = await reviewing();
+    const edited = BASE.replace("look at", "retrieve");
+    const view = editor(store, edited);
+    decideHunk(view, 0, true);
+    await store.stop();
+    await store.start({ path: "main.tex", text: edited });
+    expect(texts(view)).toEqual([]);
+    undo(view);
+    // The earlier base is neither shown nor saved as this review mode's.
+    expect(texts(view)).toEqual([]);
+    expect(store.baseFor("main.tex")).toBe(edited);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(calls.filter((entry) => entry.command === "review_mode_save_base").map((entry) => entry.args.base)).not.toContain(BASE);
   });
 
   it("moves the base forward with a co-author's edit instead of marking it as the writer's", async () => {

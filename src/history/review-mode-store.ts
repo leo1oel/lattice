@@ -29,7 +29,7 @@ export type ReviewModeState = Readonly<{
   /** The project these bases belong to. */
   root: string | null;
   active: boolean;
-  /** The PDF panel shows the PDF with the changes marked instead of the paper's own. */
+  /** The PDF panel shows the PDF with the changes marked instead of the paper's own; on when review mode is. */
   marked: boolean;
   /** Something the writer should know: a co-author's edit landed in text they had changed. */
   notice: string | null;
@@ -37,10 +37,10 @@ export type ReviewModeState = Readonly<{
   revision: number;
 }>;
 
-type Loaded = { startedAt: string; bases: Record<string, string> };
+type Loaded = { startedAt: string; bases: Record<string, string>; excluded?: string[] };
 
-/** The files review mode tracks: the paper's LaTeX and its bibliography. */
-const isReviewablePath = (path: string) => /\.(?:tex|bib)$/i.test(path);
+/** The files review mode tracks: the paper's LaTeX and its bibliography, eight folders deep as the host looks. */
+const isReviewablePath = (path: string) => /\.(?:tex|bib)$/i.test(path) && path.split("/").length <= 8;
 
 /** How long a base waits before it is written, so an accept-all or a run of accepts is one write. */
 const SAVE_DELAY_MS = 400;
@@ -55,6 +55,10 @@ export type ReviewModeStore = ReturnType<typeof createReviewModeStore>;
 export function createReviewModeStore(call: typeof invoke = invoke) {
   let state: ReviewModeState = { root: null, active: false, marked: false, notice: null, revision: 0 };
   let bases = new Map<string, string>();
+  /** Files the host left out when review mode was turned on (too big, or not text): never tracked. */
+  let excluded = new Set<string>();
+  /** When this review mode was turned on, naming it apart from an earlier one; null while it is off. */
+  let session: string | null = null;
   let generation = 0;
   const listeners = new Set<() => void>();
   const views = new Map<string, Set<EditorView>>();
@@ -90,8 +94,11 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
   const adopt = (root: string | null, loaded: Loaded | null) => {
     for (const path of [...pendingSaves.keys()]) void flushSave(path);
     bases = new Map(Object.entries(loaded?.bases ?? {}).map(([path, base]) => [path, editorText(base)]));
+    excluded = new Set(loaded?.excluded ?? []);
+    session = loaded?.startedAt ?? null;
     coauthor.clear();
-    set({ root, active: loaded !== null, marked: loaded !== null && state.root === root && state.marked, notice: null });
+    const same = state.active && state.root === root;
+    set({ root, active: loaded !== null, marked: loaded !== null && (!same || state.marked), notice: null });
     push();
   };
 
@@ -120,7 +127,7 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
       const loaded = await call<Loaded>("review_mode_start", { projectRoot: root });
       if (current !== generation) return;
       adopt(root, loaded);
-      if (open && isReviewablePath(open.path)) {
+      if (open && store.baseFor(open.path) !== null) {
         store.setBase(open.path, open.text);
         push(open.path);
       }
@@ -134,6 +141,8 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
       for (const timer of pendingSaves.values()) clearTimeout(timer);
       pendingSaves.clear();
       bases = new Map();
+      excluded = new Set();
+      session = null;
       coauthor.clear();
       set({ active: false, marked: false, notice: null });
       push();
@@ -151,17 +160,19 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
     },
 
     setMarked: (marked: boolean) => set({ marked: marked && state.active }),
+    /** The review mode now on, named by when it was turned on; null while it is off. */
+    session: () => (state.active ? session : null),
     setNotice: (notice: string | null) => set({ notice }),
 
     /** `path`'s base, or null when review mode is off or does not track it. A file made since has an empty base. */
     baseFor(path: string): string | null {
-      if (!state.active || !isReviewablePath(path)) return null;
+      if (!state.active || !isReviewablePath(path) || excluded.has(path)) return null;
       return bases.get(path) ?? "";
     },
 
     /** The editor's base for `path` changed: an accept, an undo of one, or a co-author's edit. */
     setBase(path: string, base: string) {
-      if (!state.active || bases.get(path) === base) return;
+      if (store.baseFor(path) === null || bases.get(path) === base) return;
       bases.set(path, base);
       const timer = pendingSaves.get(path);
       if (timer !== undefined) clearTimeout(timer);
@@ -192,7 +203,7 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
      * the edit instead of tracking it as the writer's; see `takeCoauthorText`.
      */
     noteCoauthorText(path: string, text: string) {
-      if (state.active && isReviewablePath(path)) coauthor.set(path, { text: editorText(text), at: Date.now() });
+      if (store.baseFor(path) !== null) coauthor.set(path, { text: editorText(text), at: Date.now() });
     },
 
     /** Whether `path`'s new text is the co-author's text noted for it; a match takes it. */
@@ -214,7 +225,7 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
      * new text; one that is not open moves its base here.
      */
     async advance(path: string, before: string, after: string) {
-      if (!state.active || !isReviewablePath(path) || before === after) return;
+      if (store.baseFor(path) === null || before === after) return;
       if (views.has(path)) {
         store.noteCoauthorText(path, after);
         return;
@@ -225,25 +236,28 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
       store.setBase(path, baseAfterSync(bases.get(path) ?? "", editorText(before), editorText(after)));
     },
 
-    /** Before an Overleaf sync: the tracked files' text on disk, for `afterSync` to tell what it brought. */
+    /**
+     * Before an Overleaf sync: every reviewable file's text on disk, made
+     * since review mode was turned on or not, for `afterSync` to tell what it brought.
+     */
     async beforeSync(): Promise<Map<string, string> | null> {
       const root = state.root;
       if (!root || !state.active) return null;
-      const before = new Map<string, string>();
-      for (const path of bases.keys()) {
-        const text = await call<string>("read_project_file", { path, projectRoot: root }).catch(() => null);
-        if (text !== null) before.set(path, text);
-      }
-      return before;
+      const files = await call<Record<string, string>>("review_mode_files", { projectRoot: root }).catch(() => null);
+      return files ? new Map(Object.entries(files)) : null;
     },
 
-    /** After it: move the base of every file the sync pulled or merged forward with what came from Overleaf. */
+    /**
+     * After it: move the base of every file the sync pulled or merged forward
+     * with what came from Overleaf. A file that was not here before is the
+     * co-author's whole: it comes in as its base.
+     */
     async afterSync(before: Map<string, string> | null, paths: readonly string[]) {
       const root = state.root;
       if (!before || !root || !state.active) return;
       for (const path of paths) {
-        const was = before.get(path);
-        if (was === undefined) continue;
+        if (store.baseFor(path) === null) continue;
+        const was = before.get(path) ?? "";
         const now = await call<string>("read_project_file", { path, projectRoot: root }).catch(() => null);
         if (now !== null && state.root === root) await store.advance(path, was, now);
       }

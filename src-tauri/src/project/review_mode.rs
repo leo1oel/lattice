@@ -7,9 +7,10 @@
 //! Track Changes on; the bases are copies under `base/`, mirroring the
 //! project's paths. Turning review mode on copies every `.tex` and `.bib` in;
 //! accepting a change rewrites one copy; turning it off deletes the folder
-//! and touches nothing else. `review.json` says review mode is on, and when
-//! it was turned on: a base written after it was turned off (a save still on
-//! its way) is refused rather than turning it back on.
+//! and touches nothing else. `review.json` says review mode is on, when it
+//! was turned on, and which files it left out: a base written after it was
+//! turned off (a save still on its way) is refused rather than turning it back
+//! on.
 
 use super::paths::{relative_to, validate_transaction_path};
 use crate::util::err;
@@ -26,6 +27,8 @@ const BASE_DIRECTORY: &str = ".research/review/base";
 const STATE_PATH: &str = ".research/review/review.json";
 /// A file bigger than this is generated (a data table), not written; it is left out of review.
 const LARGEST_REVIEWED_FILE: u64 = 4 * 1024 * 1024;
+/// How many folders deep (the file counting as one) review mode looks.
+const DEEPEST_REVIEWED_FILE: usize = 8;
 
 const REVIEW_OFF: &str = "Review mode is off in this project.";
 
@@ -33,20 +36,26 @@ const REVIEW_OFF: &str = "Review mode is off in this project.";
 #[serde(rename_all = "camelCase")]
 struct ReviewState {
     started_at: String,
+    #[serde(default)]
+    excluded: Vec<String>,
 }
 
-/// Review mode as a project has it: when it was turned on, and each file's base by path.
+/// Review mode as a project has it: when it was turned on, each file's base
+/// by path, and the reviewable files it left out (too big, or not text),
+/// which are never tracked rather than tracked as made since.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewBases {
     pub started_at: String,
     pub bases: BTreeMap<String, String>,
+    pub excluded: Vec<String>,
 }
 
-/// The files review mode tracks: the paper's LaTeX and its bibliography.
+/// The files review mode tracks: the paper's LaTeX and its bibliography, up to eight folders deep.
 pub fn is_reviewable_path(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
-    lower.ends_with(".tex") || lower.ends_with(".bib")
+    (lower.ends_with(".tex") || lower.ends_with(".bib"))
+        && path.split('/').count() <= DEEPEST_REVIEWED_FILE
 }
 
 /// Where the bases are, mirroring the project's own paths.
@@ -62,56 +71,75 @@ fn read_state(root: &Path) -> Result<Option<ReviewState>, String> {
     }
 }
 
-/// Every reviewable file under `directory` (eight levels deep), by path
-/// relative to it; `skip_research` leaves out Lattice's own folder.
+/// Every reviewable file under `directory`, by path relative to it, and the
+/// ones left out (too big, or not text); `skip_research` leaves out Lattice's
+/// own folder.
 fn reviewable_files(
     directory: &Path, skip_research: bool,
-) -> Result<BTreeMap<String, String>, String> {
+) -> Result<(BTreeMap<String, String>, Vec<String>), String> {
     let mut files = BTreeMap::new();
+    let mut excluded = Vec::new();
     if !directory.is_dir() {
-        return Ok(files);
+        return Ok((files, excluded));
     }
-    let entries = WalkDir::new(directory).max_depth(8).into_iter().filter_entry(|entry| {
-        !(skip_research && entry.depth() == 1 && entry.file_name() == ".research")
-            && !(entry.depth() > 0 && entry.file_type().is_dir() && entry.file_name() == ".git")
-    });
+    let entries = WalkDir::new(directory)
+        .max_depth(DEEPEST_REVIEWED_FILE)
+        .into_iter()
+        .filter_entry(|entry| {
+            !(skip_research && entry.depth() == 1 && entry.file_name() == ".research")
+                && !(entry.depth() > 0 && entry.file_type().is_dir() && entry.file_name() == ".git")
+        });
     for entry in entries.filter_map(Result::ok) {
         if !entry.file_type().is_file() {
             continue;
         }
         let relative = relative_to(directory, entry.path())?;
-        if !is_reviewable_path(&relative)
-            || entry.metadata().map_or(true, |metadata| metadata.len() > LARGEST_REVIEWED_FILE)
-        {
+        if !is_reviewable_path(&relative) {
             continue;
         }
+        let small = entry.metadata().is_ok_and(|metadata| metadata.len() <= LARGEST_REVIEWED_FILE);
         // A file that is not text (a stray binary named .tex) has no changes to show.
-        if let Ok(text) = fs::read_to_string(entry.path()) {
-            files.insert(relative, text);
+        match fs::read_to_string(entry.path()) {
+            Ok(text) if small => {
+                files.insert(relative, text);
+            }
+            _ => excluded.push(relative),
         }
     }
-    Ok(files)
+    excluded.sort();
+    Ok((files, excluded))
 }
 
 /// The project's review mode, or `None` while it is off.
 pub fn load_review(root: &Path) -> Result<Option<ReviewBases>, String> {
     let Some(state) = read_state(root)? else { return Ok(None) };
-    let bases = reviewable_files(&review_base_directory(root), false)?;
-    Ok(Some(ReviewBases { started_at: state.started_at, bases }))
+    let (bases, _) = reviewable_files(&review_base_directory(root), false)?;
+    Ok(Some(ReviewBases { started_at: state.started_at, bases, excluded: state.excluded }))
+}
+
+/// The reviewable files review mode left out when it was turned on; none while it is off.
+pub fn review_excluded(root: &Path) -> Result<Vec<String>, String> {
+    Ok(read_state(root)?.map(|state| state.excluded).unwrap_or_default())
+}
+
+/// Every reviewable file's text in the project now, made since review mode
+/// was turned on or not: what an Overleaf sync is about to change.
+pub fn reviewable_texts(root: &Path) -> Result<BTreeMap<String, String>, String> {
+    Ok(reviewable_files(root, true)?.0)
 }
 
 /// Turn review mode on: every reviewable file as it is on disk becomes its base.
 pub fn start_review(root: &Path) -> Result<ReviewBases, String> {
     stop_review(root)?;
-    let bases = reviewable_files(root, true)?;
+    let (bases, excluded) = reviewable_files(root, true)?;
     let directory = review_base_directory(root);
     for (path, text) in &bases {
         write_file(&directory.join(path), text)?;
     }
-    let state = ReviewState { started_at: Utc::now().to_rfc3339() };
+    let state = ReviewState { started_at: Utc::now().to_rfc3339(), excluded };
     let raw = serde_json::to_string_pretty(&state).map_err(err)?;
     write_file(&root.join(STATE_PATH), &format!("{raw}\n"))?;
-    Ok(ReviewBases { started_at: state.started_at, bases })
+    Ok(ReviewBases { started_at: state.started_at, bases, excluded: state.excluded })
 }
 
 /// Keep `base` as `path`'s base: an accept, or a co-author's edit carried into it.
@@ -173,6 +201,41 @@ mod tests {
         let loaded = load_review(&root).unwrap().unwrap();
         assert_eq!(loaded.started_at, started.started_at);
         assert_eq!(loaded.bases.get("chapters/intro.tex").map(String::as_str), Some("Intro.\n"));
+        assert!(loaded.excluded.is_empty());
+    }
+
+    #[test]
+    fn files_left_out_of_review_are_named_so_they_are_not_tracked_as_new() {
+        let root = TempDir::new("review-excluded");
+        root.write("main.tex", "Hello.\n");
+        root.write("table.tex", "x".repeat(LARGEST_REVIEWED_FILE as usize + 1));
+        root.write("latin1.tex", [0x63, 0x61, 0x66, 0xe9]);
+        let deep = "a/b/c/d/e/f/g/h/deep.tex";
+        root.write(deep, "Deep.\n");
+
+        let started = start_review(&root).unwrap();
+        assert_eq!(started.bases.keys().collect::<Vec<_>>(), ["main.tex"]);
+        assert_eq!(started.excluded, ["latin1.tex", "table.tex"]);
+        // Turned on in another window, or read again after a restart: still left out.
+        assert_eq!(load_review(&root).unwrap().unwrap().excluded, ["latin1.tex", "table.tex"]);
+        assert_eq!(review_excluded(&root).unwrap(), ["latin1.tex", "table.tex"]);
+        // Deeper than review mode looks: not a file it tracks at all.
+        assert!(!is_reviewable_path(deep));
+        assert!(is_reviewable_path("a/b/c/d/e/f/g/main.tex"));
+        assert!(save_review_base(&root, deep, "x").is_err());
+
+        stop_review(&root).unwrap();
+        assert!(review_excluded(&root).unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_texts_before_a_sync_include_files_made_since_review_mode_was_turned_on() {
+        let root = TempDir::new("review-texts");
+        root.write("main.tex", "Hello.\n");
+        start_review(&root).unwrap();
+        root.write("new.tex", "Made since.\n");
+        let texts = reviewable_texts(&root).unwrap();
+        assert_eq!(texts.keys().collect::<Vec<_>>(), ["main.tex", "new.tex"]);
     }
 
     #[test]

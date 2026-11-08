@@ -9,7 +9,11 @@
 //! is kept between builds, so latexmk reruns only what changed: the paper's
 //! LaTeX is copied in, everything else (figures, styles, the bibliography's
 //! style) is linked, so a project's hundreds of megabytes of figures are not
-//! copied on every edit.
+//! copied on every edit. The build's own outputs (`main-changes.*`) are never
+//! linked: the export saves its PDF by that name in the project, and latexmk
+//! writing through a link would overwrite it. The files review mode left out
+//! (too big, or not text) have no base; the project's own copy stands in for
+//! one, so they show no changes.
 //!
 //! The same guards hold as for the export: latexdiff and latexmk under time
 //! and memory limits, `\input` loops named before latexdiff starts, and each
@@ -49,9 +53,18 @@ pub fn review_changes_pdf(
     }
     let build = root.join(project::REVIEW_DIRECTORY).join("build");
     let (older, newer) = (build.join("older"), build.join("newer"));
+    let marked = changes_name(&document, "tex");
+    let outputs = changes_name(document.rsplit('/').next().unwrap_or(&document), "");
     let _ = fs::remove_dir_all(&older);
-    mirror(&bases, &older, false)?;
-    mirror(root, &newer, true)?;
+    mirror(&bases, &older, None)?;
+    for path in project::review_excluded(root)? {
+        let destination = older.join(&path);
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let _ = fs::copy(root.join(&path), destination);
+    }
+    mirror(root, &newer, Some(&outputs))?;
     if !older.join(&document).is_file() {
         return Err(format!("{document} was made after review mode was turned on, so there is nothing to mark its changes against."));
     }
@@ -65,7 +78,6 @@ pub fn review_changes_pdf(
     }
     let latexdiff = commands::resolve("latexdiff");
     let run = Runner { exports, export, capture: &build };
-    let marked = changes_name(&document, "tex");
     let mut first_failure = None;
     for simplified in [false, true] {
         let attempt =
@@ -88,9 +100,10 @@ pub fn review_changes_pdf(
 }
 
 /// Put `source`'s files under `target`: the paper's LaTeX copied (only when it
-/// changed, so latexmk sees what did), anything else linked when `link`. Lattice's
-/// own folder, git's and other hidden folders are left out.
-fn mirror(source: &Path, target: &Path, link: bool) -> Result<(), String> {
+/// changed, so latexmk sees what did), anything else linked when `link` names
+/// the build's outputs (`main-changes.`), which are neither linked nor copied.
+/// Lattice's own folder, git's and other hidden folders are left out.
+fn mirror(source: &Path, target: &Path, link: Option<&str>) -> Result<(), String> {
     let entries = WalkDir::new(source).max_depth(8).into_iter().filter_entry(|entry| {
         entry.depth() == 0
             || !(entry.file_type().is_dir() && entry.file_name().to_string_lossy().starts_with('.'))
@@ -101,10 +114,16 @@ fn mirror(source: &Path, target: &Path, link: bool) -> Result<(), String> {
         }
         let relative = entry.path().strip_prefix(source).map_err(|error| error.to_string())?;
         let destination = target.join(relative);
+        if link.is_some_and(|outputs| entry.file_name().to_string_lossy().starts_with(outputs)) {
+            if fs::symlink_metadata(&destination).is_ok_and(|meta| meta.file_type().is_symlink()) {
+                let _ = fs::remove_file(&destination);
+            }
+            continue;
+        }
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }
-        if project::is_reviewable_path(&relative.to_string_lossy()) || !link {
+        if project::is_reviewable_path(&relative.to_string_lossy()) || link.is_none() {
             let text = fs::read(entry.path()).map_err(|error| error.to_string())?;
             if fs::read(&destination).ok().as_deref() != Some(text.as_slice()) {
                 let _ = fs::remove_file(&destination);
@@ -130,7 +149,7 @@ mod tests {
         root.write("figures/plot.pdf", "%PDF");
         root.write(".research/annotations.json", "{}");
         let target = TempDir::new("review-mirror-target");
-        mirror(&root, &target, true).unwrap();
+        mirror(&root, &target, Some("main-changes.")).unwrap();
         assert!(!fs::symlink_metadata(target.join("main.tex")).unwrap().file_type().is_symlink());
         assert!(fs::symlink_metadata(target.join("figures/plot.pdf"))
             .unwrap()
@@ -140,8 +159,30 @@ mod tests {
 
         // An edit since reaches the copy on the next build.
         root.write("main.tex", "Hello again.\n");
-        mirror(&root, &target, true).unwrap();
+        mirror(&root, &target, Some("main-changes.")).unwrap();
         assert_eq!(fs::read_to_string(target.join("main.tex")).unwrap(), "Hello again.\n");
+    }
+
+    #[test]
+    fn the_build_never_writes_through_to_an_exported_pdf_in_the_project() {
+        let root = TempDir::new("review-outputs");
+        root.write("main.tex", "Hello.\n");
+        // What "Export PDF with changes…" saved beside the paper.
+        root.write("main-changes.pdf", "%PDF exported");
+        root.write("main-changes.log", "exported log");
+        let target = TempDir::new("review-outputs-target");
+        // A link an earlier build left behind is taken away too.
+        std::os::unix::fs::symlink(root.join("main-changes.log"), target.join("main-changes.log"))
+            .unwrap();
+        mirror(&root, &target, Some("main-changes.")).unwrap();
+        assert!(fs::symlink_metadata(target.join("main-changes.pdf")).is_err());
+        assert!(fs::symlink_metadata(target.join("main-changes.log")).is_err());
+
+        // latexmk writes its outputs by name in the build folder.
+        fs::write(target.join("main-changes.pdf"), "%PDF review build").unwrap();
+        fs::write(target.join("main-changes.log"), "review log").unwrap();
+        assert_eq!(fs::read_to_string(root.join("main-changes.pdf")).unwrap(), "%PDF exported");
+        assert_eq!(fs::read_to_string(root.join("main-changes.log")).unwrap(), "exported log");
     }
 
     #[test]

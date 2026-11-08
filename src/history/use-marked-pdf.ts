@@ -1,7 +1,7 @@
 /**
  * The PDF with review mode's changes marked, for the PDF panel to show in
- * place of the paper's own while the writer asks for it (the review bar's
- * Show changes in the PDF).
+ * place of the paper's own while review mode is on, unless the writer asks
+ * for the PDF without changes (the review bar's toggle).
  *
  * It is built after each build of the paper (a new `pdfUrl`: the sources it
  * reads have reached disk) and after each accept (a new base), a moment

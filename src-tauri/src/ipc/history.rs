@@ -4,6 +4,7 @@ use super::{current_root, in_project, maybe_pinned_root, pinned_root, run_blocki
 use crate::app_state::AppState;
 use crate::project;
 use crate::project::{HistoryItem, ReviewBases, TransactionRecord};
+use std::collections::BTreeMap;
 use tauri::{State, Window};
 
 #[tauri::command]
@@ -68,6 +69,15 @@ pub async fn review_mode_start(
 ) -> Result<ReviewBases, String> {
     let root = pinned_root(&state, &window, &project_root, "review mode could be turned on")?;
     run_blocking("Review mode start", move || project::start_review(&root)).await
+}
+
+/// Every `.tex` and `.bib` as it is now, read before an Overleaf sync changes them.
+#[tauri::command]
+pub async fn review_mode_files(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<BTreeMap<String, String>, String> {
+    let root = pinned_root(&state, &window, &project_root, "review mode could be read")?;
+    run_blocking("Review mode read", move || project::reviewable_texts(&root)).await
 }
 
 /// Keep a file's new base: an accept, or a co-author's edit carried into it.

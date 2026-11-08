@@ -106,8 +106,8 @@ pub use pdf_copy::save_asset_copy;
 pub use references::references;
 pub use references::ReferenceIndex;
 pub use review_mode::{
-    is_reviewable_path, load_review, review_base_directory, save_review_base, start_review,
-    stop_review, ReviewBases, REVIEW_DIRECTORY,
+    is_reviewable_path, load_review, review_base_directory, review_excluded, reviewable_texts,
+    save_review_base, start_review, stop_review, ReviewBases, REVIEW_DIRECTORY,
 };
 pub(crate) use search::{
     file_search_result, matches_search, search_terms, searchable_text_lines, searchable_text_path,

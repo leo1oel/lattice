@@ -603,6 +603,7 @@ pub fn run() {
             ipc::history::list_history,
             ipc::history::review_mode_load,
             ipc::history::review_mode_start,
+            ipc::history::review_mode_files,
             ipc::history::review_mode_save_base,
             ipc::history::review_mode_stop,
             ipc::history::get_history_entry,

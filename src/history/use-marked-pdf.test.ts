@@ -33,24 +33,27 @@ const settle = () => act(async () => {
 });
 
 describe("review mode's marked PDF", () => {
-  it("is built only while it is asked for, and after each build of the paper", async () => {
+  it("is built as soon as review mode is on and after each build of the paper, but not while the clean PDF is asked for", async () => {
+    const builds = () => host.mock.calls.filter(([command]) => command === "review_changes_pdf").length;
     const { result, rerender } = renderHook(({ url }) => useMarkedPdf("/project", url), { initialProps: { url: "blob:paper-1" } });
     await settle();
-    expect(result.current.url).toBeNull();
-    expect(host).not.toHaveBeenCalledWith("review_changes_pdf", expect.anything());
-
-    act(() => reviewMode.setMarked(true));
-    await settle();
     expect(result.current).toEqual({ url: "blob:marked", building: false, error: null });
-    expect(host).toHaveBeenCalledTimes(2);
+    expect(builds()).toBe(1);
 
     rerender({ url: "blob:paper-2" });
     await settle();
-    expect(host.mock.calls.filter(([command]) => command === "review_changes_pdf")).toHaveLength(2);
+    expect(builds()).toBe(2);
 
     act(() => reviewMode.setMarked(false));
     await settle();
     expect(result.current.url).toBeNull();
+    rerender({ url: "blob:paper-3" });
+    await settle();
+    expect(builds()).toBe(2);
+
+    act(() => reviewMode.setMarked(true));
+    await settle();
+    expect(result.current.url).toBe("blob:marked");
   });
 
   it("falls back to the paper's own PDF with the reason when latexdiff fails or times out", async () => {
@@ -61,7 +64,6 @@ describe("review mode's marked PDF", () => {
       return null;
     });
     const { result } = renderHook(() => useMarkedPdf("/project", "blob:paper"));
-    act(() => reviewMode.setMarked(true));
     await settle();
     expect(result.current.url).toBeNull();
     expect(result.current.building).toBe(false);
@@ -77,7 +79,6 @@ describe("review mode's marked PDF", () => {
       return builds === 1 ? new Promise((resolve) => { resolveFirst = resolve as never; }) : Promise.resolve(PDF);
     });
     const { result, rerender } = renderHook(({ url }) => useMarkedPdf("/project", url), { initialProps: { url: "blob:1" } });
-    act(() => reviewMode.setMarked(true));
     await settle();
     rerender({ url: "blob:2" });
     await settle();
