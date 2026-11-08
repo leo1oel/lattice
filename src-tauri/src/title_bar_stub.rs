@@ -3,7 +3,9 @@
 pub fn perform_double_click(window: &tauri::WebviewWindow) {
     #[cfg(windows)]
     {
-        if window.is_fullscreen().unwrap_or(false) { return; }
+        if window.is_fullscreen().unwrap_or(false) {
+            return;
+        }
         let result = if window.is_maximized().unwrap_or(false) {
             window.unmaximize()
         } else {
