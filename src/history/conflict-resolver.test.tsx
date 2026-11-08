@@ -123,9 +123,44 @@ describe("ConflictResolverDialog", () => {
       path: "references.bib",
       content: expected,
       projectRoot: "/tmp/paper",
+      expectedContent: wholeFile,
     });
     expect(onResolved).toHaveBeenCalledWith("references.bib");
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("never writes over a file that changed while the dialog was open, and resolves the new text on reload", async () => {
+    // The disk, with the same compare-and-swap the Rust write applies.
+    let disk = conflict;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      const { content, expectedContent } = (args ?? {}) as { content?: string; expectedContent?: string };
+      if (command === "read_project_file") return disk;
+      if (command !== "write_project_file") return undefined;
+      if (expectedContent !== undefined && expectedContent !== disk) throw new Error("main.tex changed");
+      disk = content!;
+      return undefined;
+    });
+    const onClose = vi.fn();
+    const onResolved = vi.fn();
+    render(<ConflictResolverDialog open path="main.tex" projectRoot="/tmp/paper" onClose={onClose} onResolved={onResolved} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Keep this computer's version" }));
+    // While the writer decides, the agent (or a sync merge carrying a
+    // co-author's line) rewrites the file. Saving the stale choice would
+    // replace their text, and the next sync would upload that over Overleaf.
+    const rewritten = conflict.replace("before", "before\nco-author line");
+    disk = rewritten;
+    fireEvent.click(screen.getByRole("button", { name: "Save and upload" }));
+    expect(await screen.findByText(/main\.tex changed while this dialog was open, so nothing was saved/)).toBeInTheDocument();
+    expect(disk).toBe(rewritten);
+    expect(onResolved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Save and upload" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload conflicts" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Keep this computer's version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and upload" }));
+    await waitFor(() => expect(onResolved).toHaveBeenCalledWith("main.tex"));
+    expect(disk).toBe("before\nco-author line\nlocal\nafter");
   });
 
   it("lets the user change a choice before saving", async () => {

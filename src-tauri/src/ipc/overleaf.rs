@@ -1,8 +1,10 @@
 //! Overleaf over its REST interface: the session, cloning and publishing, chat,
-//! comments, tracked changes, Overleaf's own history, and ZIP syncs. The live
-//! editing channel is `overleaf_realtime`.
+//! comments, tracked changes, and ZIP syncs. The live editing channel is
+//! `overleaf_realtime`; Overleaf's own history is `overleaf_history`.
 
 use super::overleaf_realtime::realtime_client;
+// lib.rs registers the history commands under this module's path.
+pub use super::overleaf_history::*;
 use super::workspace::documents_folder;
 use super::{current_root, in_project, pinned_root, run_blocking, run_quietly, scoped_root};
 use crate::app_state::{AppState, Lease, ProjectLease};
@@ -19,7 +21,6 @@ const LOGIN_WINDOW: &str = "overleaf-login";
 const TASK: &str = "The Overleaf task";
 const CHAT: &str = "The Overleaf chat task";
 const COMMENTS: &str = "The Overleaf comment task";
-const HISTORY: &str = "The Overleaf history";
 const COMPARISON: &str = "The Overleaf comparison";
 /// Told to every window when Overleaf turns the stored session away, so
 /// Settings, sync and live editing re-read the one account state together.
@@ -88,7 +89,7 @@ pub(crate) async fn settled<T>(app: &AppHandle, result: Result<T, String>) -> Re
 
 /// Run an Overleaf REST call with the stored session for the window's pinned
 /// project. `call` receives the config folder and the project root.
-async fn rest_call<T: Send + 'static>(
+pub(super) async fn rest_call<T: Send + 'static>(
     app: &AppHandle, state: &AppState, window: &Window, project_root: &str, label: &'static str,
     call: impl FnOnce(&Path, &Path) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
@@ -99,7 +100,7 @@ async fn rest_call<T: Send + 'static>(
 
 /// [`rest_call`] under the project's shared sync lease, so the call cannot
 /// interleave with a full sync.
-async fn leased_rest_call<T: Send + 'static>(
+pub(super) async fn leased_rest_call<T: Send + 'static>(
     app: &AppHandle, state: &AppState, window: &Window, project_root: &str, label: &'static str,
     call: impl FnOnce(&Path, &Path) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
@@ -473,86 +474,6 @@ pub async fn overleaf_set_permission(
         .await
 }
 
-#[tauri::command]
-pub async fn overleaf_history_updates(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    before: Option<i64>, count: Option<u32>,
-) -> Result<serde_json::Value, String> {
-    let (updates, next) =
-        rest_call(&app, &state, &window, &project_root, HISTORY, move |config, root| {
-            overleaf::history_updates(config, root, before, count.unwrap_or(20))
-        })
-        .await?;
-    Ok(serde_json::json!({ "updates": updates, "nextBefore": next }))
-}
-
-#[tauri::command]
-pub async fn overleaf_history_diff(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String, path: String,
-    from: i64, to: i64,
-) -> Result<serde_json::Value, String> {
-    rest_call(&app, &state, &window, &project_root, HISTORY, move |config, root| {
-        overleaf::history_diff(config, root, &path, from, to)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_history_files(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String, from: i64,
-    to: i64,
-) -> Result<serde_json::Value, String> {
-    rest_call(&app, &state, &window, &project_root, HISTORY, move |config, root| {
-        overleaf::history_files(config, root, from, to)
-    })
-    .await
-}
-
-/// Roll one file back, or the whole project when `path` is absent.
-#[tauri::command]
-pub async fn overleaf_history_revert(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String, version: i64,
-    path: Option<String>,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, HISTORY, move |config, root| {
-        overleaf::history_revert(config, root, version, path.as_deref())
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_history_restore_file(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String, version: i64,
-    path: String,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, HISTORY, move |config, root| {
-        overleaf::history_restore_file(config, root, version, &path)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_history_add_label(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String, version: i64,
-    comment: String,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, HISTORY, move |config, root| {
-        overleaf::history_add_label(config, root, version, &comment)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_history_delete_label(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    label_id: String,
-) -> Result<(), String> {
-    leased_rest_call(&app, &state, &window, &project_root, HISTORY, move |config, root| {
-        overleaf::history_delete_label(config, root, &label_id)
-    })
-    .await
-}
-
 /// Accept tracked changes, turning the suggested text into ordinary text.
 #[tauri::command]
 pub async fn overleaf_accept_changes(
@@ -574,17 +495,25 @@ pub async fn overleaf_change_authors(
 }
 
 /// Delete a document, file or folder on Overleaf.
+///
+/// With `path`, it is a deletion made here being carried out there, and goes
+/// ahead only if nobody changed the file on Overleaf meanwhile (see
+/// `overleaf::delete_unchanged`). Without it, the item is app-owned clutter
+/// removed unconditionally.
 #[tauri::command]
 pub async fn overleaf_delete_entity(
     app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String, kind: String,
-    entity_id: String,
-) -> Result<(), String> {
+    entity_id: String, path: Option<String>,
+) -> Result<overleaf::RemoteDelete, String> {
     let _lease = state.lease(&project_root, Lease::Shared).await;
     let config = overleaf_config_dir(&app)?;
     let root = pinned_root(&state, &window, &project_root, "the Overleaf item could be removed")?;
-    let deleted =
-        run_blocking(TASK, move || overleaf::delete_entity(&config, &root, &kind, &entity_id))
-            .await;
+    let deleted = run_blocking(TASK, move || match path {
+        Some(path) => overleaf::delete_unchanged(&config, &root, &path, &kind, &entity_id),
+        None => overleaf::delete_entity(&config, &root, &kind, &entity_id)
+            .map(|()| overleaf::RemoteDelete::Deleted),
+    })
+    .await;
     settled(&app, deleted).await
 }
 

@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => vi.fn()) }))
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 
 /** The history drawer, whose Versions view is the git timeline. */
-function VersionsTimeline(props: { projectRoot?: string; onVersionsChanged?: () => void | Promise<void> }) {
+function VersionsTimeline(props: { projectRoot?: string; onVersionsChanged?: () => void | Promise<void>; overleafLinked?: boolean }) {
   return (
     <HistoryDrawer
       history={[]}
@@ -23,6 +23,7 @@ function VersionsTimeline(props: { projectRoot?: string; onVersionsChanged?: () 
       onDelete={() => undefined}
       overleafProjectRoot={props.projectRoot}
       onVersionsChanged={props.onVersionsChanged}
+      overleafLinked={props.overleafLinked}
     />
   );
 }
@@ -220,5 +221,19 @@ describe("VersionsTimeline", () => {
     await act(async () => finish());
     expect(await screen.findByText("Project restored.")).toBeInTheDocument();
     expect(restore).toBeEnabled();
+  });
+
+  it("warns a linked project that a restore replaces co-authors' newer work on Overleaf", async () => {
+    // Local history keeps this machine's state; Overleaf's current text is
+    // replaced by the next sync, so "Nothing is lost" would be untrue there.
+    mockGitLog();
+    vi.mocked(confirm).mockResolvedValue(false);
+    renderVersions(<VersionsTimeline overleafLinked />);
+    fireEvent.click(within(await expandFirstEntry()).getByRole("button", { name: /Restore project to this version/ }));
+    await waitFor(() => expect(confirm).toHaveBeenCalledOnce());
+    const question = vi.mocked(confirm).mock.calls[0]?.[0];
+    expect(question).not.toMatch(/Nothing is lost/);
+    expect(question).toMatch(/replaces the project on Overleaf too, including co-authors' changes made there since this version/);
+    expect(invoke).not.toHaveBeenCalledWith("git_restore_project", expect.anything());
   });
 });

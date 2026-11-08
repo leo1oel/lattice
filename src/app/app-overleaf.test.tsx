@@ -114,7 +114,7 @@ describe("Overleaf sync", () => {
     fireEvent.click(within(dialog).getByRole("radio", { name: "Keep this computer's version" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Save and upload" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
-      path: "references.bib", content: `${after}\n`, projectRoot: snapshot.root,
+      path: "references.bib", content: `${after}\n`, projectRoot: snapshot.root, expectedContent: conflicted,
     }));
     // Queued like any disk edit, so it respects the live channel's sync gap.
     await waitFor(() => expect(syncCalls()).toHaveLength(2), { timeout: 40_000 });
@@ -172,7 +172,7 @@ describe("Overleaf sync", () => {
     renderOverleafPaper({
       overleaf_sync: () => overleafSyncResult({ skippedRemoteDeletes: ["results.lattice-sheet.bak"] }),
       overleaf_rt_connect: () => overleafSession({ entities: [{ id: "backup-file", path: "results.lattice-sheet.bak", kind: "file" }] }),
-      overleaf_delete_entity: undefined,
+      overleaf_delete_entity: "deleted",
     }, { syncMode: "live", confirmations: true });
     await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
     fireEvent.click(await findOverleafSyncButton());
@@ -181,7 +181,7 @@ describe("Overleaf sync", () => {
       "results.lattice-sheet.bak 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着",
     );
     fireEvent.click(screen.getByRole("button", { name: "Overleaf 上也删" }));
-    await expectInvoked("overleaf_delete_entity", { projectRoot: "/tmp/lattice-overleaf-paper", kind: "file", entityId: "backup-file" });
+    await expectInvoked("overleaf_delete_entity", { projectRoot: "/tmp/lattice-overleaf-paper", kind: "file", entityId: "backup-file", path: "results.lattice-sheet.bak" });
     await expectNotification(/已从 Overleaf 删除 1 个文件/);
   });
 
@@ -215,7 +215,7 @@ describe("Overleaf sync", () => {
         { id: "tmp-folder", path: "tmp", kind: "folder" }, { id: "pdfs-folder", path: "tmp/pdfs", kind: "folder" },
         { id: "save-error-file", path: "lambda_gpu_proposal.bbl-SAVE-ERROR", kind: "file" },
       ] }),
-      overleaf_delete_entity: undefined,
+      overleaf_delete_entity: "deleted",
     });
     await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
     await waitFor(() => expect(syncCount).toBe(1));

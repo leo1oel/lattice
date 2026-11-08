@@ -788,6 +788,14 @@ msgstr "{names} +{more}"
 msgid "{names} and {count} more"
 msgstr "{names} and {count} more"
 
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here."
+msgstr "{names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here."
+
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here."
+msgstr "{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here."
+
 #: src/papers/paper-identity.ts
 msgid "{names} et al."
 msgstr "{names} et al."
@@ -845,6 +853,10 @@ msgstr "{paragraphs} changed paragraphs"
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
 msgstr "{passing} of {0} checks pass"
+
+#: src/history/conflict-resolver.tsx
+msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
+msgstr "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} disappeared during sync"
@@ -11809,6 +11821,10 @@ msgstr "Release to focus"
 msgid "Release to focus {title}"
 msgstr "Release to focus {title}"
 
+#: src/history/conflict-resolver.tsx
+msgid "Reload conflicts"
+msgstr "Reload conflicts"
+
 #. Search words for the Refresh file tree command, space-separated
 #: src/app/project-panel-commands.ts
 msgid "reload files folders sync disk"
@@ -11899,10 +11915,9 @@ msgstr "Remove the {name} field"
 msgid "removed"
 msgstr "removed"
 
-#. placeholder {0}: known.length
 #: src/app/use-overleaf-remote-deletes.ts
-msgid "Removed {0} files from Overleaf"
-msgstr "Removed {0} files from Overleaf"
+msgid "Removed {removed} files from Overleaf"
+msgstr "Removed {removed} files from Overleaf"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Removed from library"
@@ -12371,6 +12386,10 @@ msgid "Restore {name}"
 msgstr "Restore {name}"
 
 #: src/history/use-git-versions.ts
+msgid "Restore {path} to this version? The current state is saved as a local version first. Syncing then replaces the file on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+msgstr "Restore {path} to this version? The current state is saved as a local version first. Syncing then replaces the file on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+
+#: src/history/use-git-versions.ts
 msgid "Restore {path} to this version? The current state is saved as a version first."
 msgstr "Restore {path} to this version? The current state is saved as a version first."
 
@@ -12411,6 +12430,10 @@ msgstr "Restore size"
 msgid "Restore the files the rounds touched to {name}?"
 msgstr "Restore the files the rounds touched to {name}?"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Restore the files the rounds touched to {name}? Syncing then replaces them on Overleaf too, including co-authors' changes made there since; Overleaf's history keeps those."
+msgstr "Restore the files the rounds touched to {name}? Syncing then replaces them on Overleaf too, including co-authors' changes made there since; Overleaf's history keeps those."
+
 #: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore the layout"
@@ -12427,6 +12450,14 @@ msgid "Restore the project to this version?\n"
 msgstr "Restore the project to this version?\n"
 "\n"
 "Nothing is lost: the current state is saved as a version first"
+
+#: src/history/use-git-versions.ts
+msgid "Restore the project to this version?\n"
+"\n"
+"The current state is saved as a local version first. Syncing then replaces the project on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+msgstr "Restore the project to this version?\n"
+"\n"
+"The current state is saved as a local version first. Syncing then replaces the project on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
@@ -14721,6 +14752,10 @@ msgstr "The figure source changed. Refresh and preview again."
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "The file changed while it was saving. Review the latest text and save again."
+
+#: src/history/conflict-resolver.tsx
+msgid "The file changed while the dialog was open. Nothing was saved."
+msgstr "The file changed while the dialog was open. Nothing was saved."
 
 #: src/platform/host-errors-workspace.ts
 msgid "The file name is too long."

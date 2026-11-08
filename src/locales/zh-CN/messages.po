@@ -788,6 +788,14 @@ msgstr "{names} 及另 {more} 人"
 msgid "{names} and {count} more"
 msgstr "{names} 等 {count} 人"
 
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here."
+msgstr "{names} 在询问之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here."
+msgstr "{names} 在询问之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
 #: src/papers/paper-identity.ts
 msgid "{names} et al."
 msgstr "{names} 等"
@@ -845,6 +853,10 @@ msgstr "{paragraphs} 个段落有改动"
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
+
+#: src/history/conflict-resolver.tsx
+msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
+msgstr "对话框打开期间 {path} 被改过，所以什么都没保存。重新载入后按新内容处理；这里做的选择和编辑会清空。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} disappeared during sync"
@@ -11809,6 +11821,10 @@ msgstr "松开即可放大"
 msgid "Release to focus {title}"
 msgstr "松开放大{title}"
 
+#: src/history/conflict-resolver.tsx
+msgid "Reload conflicts"
+msgstr "重新载入冲突"
+
 #. Search words for the Refresh file tree command, space-separated
 #: src/app/project-panel-commands.ts
 msgid "reload files folders sync disk"
@@ -11899,10 +11915,9 @@ msgstr "删除 {name} 字段"
 msgid "removed"
 msgstr "删除"
 
-#. placeholder {0}: known.length
 #: src/app/use-overleaf-remote-deletes.ts
-msgid "Removed {0} files from Overleaf"
-msgstr "已从 Overleaf 删除 {0} 个文件"
+msgid "Removed {removed} files from Overleaf"
+msgstr "已从 Overleaf 删除 {removed} 个文件"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Removed from library"
@@ -12371,6 +12386,10 @@ msgid "Restore {name}"
 msgstr "恢复到{name}"
 
 #: src/history/use-git-versions.ts
+msgid "Restore {path} to this version? The current state is saved as a local version first. Syncing then replaces the file on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+msgstr "把 {path} 恢复到此版本？当前状态会先在本地存为一个版本。之后同步会连同 Overleaf 上的这个文件一起替换，合作者在此版本之后在 Overleaf 上的修改也会被覆盖；这些修改在 Overleaf 的历史里还在。"
+
+#: src/history/use-git-versions.ts
 msgid "Restore {path} to this version? The current state is saved as a version first."
 msgstr "把 {path} 恢复到此版本？当前状态会先存为一个版本。"
 
@@ -12411,6 +12430,10 @@ msgstr "恢复大小"
 msgid "Restore the files the rounds touched to {name}?"
 msgstr "把各轮改动过的文件恢复到{name}？"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Restore the files the rounds touched to {name}? Syncing then replaces them on Overleaf too, including co-authors' changes made there since; Overleaf's history keeps those."
+msgstr "把各轮改动过的文件恢复到{name}？之后同步会连同 Overleaf 上的这些文件一起替换，合作者在那之后在 Overleaf 上的修改也会被覆盖；这些修改在 Overleaf 的历史里还在。"
+
 #: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore the layout"
@@ -12427,6 +12450,14 @@ msgid "Restore the project to this version?\n"
 msgstr "把项目恢复到此版本？\n"
 "\n"
 "什么都不会丢：当前状态会先存为一个版本"
+
+#: src/history/use-git-versions.ts
+msgid "Restore the project to this version?\n"
+"\n"
+"The current state is saved as a local version first. Syncing then replaces the project on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+msgstr "把项目恢复到此版本？\n"
+"\n"
+"当前状态会先在本地存为一个版本。之后同步会连同 Overleaf 上的项目一起替换，合作者在此版本之后在 Overleaf 上的修改也会被覆盖；这些修改在 Overleaf 的历史里还在。"
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
@@ -14721,6 +14752,10 @@ msgstr "插图源文已更改，请刷新后重新预览。"
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "保存时文件变了，请看最新内容再保存"
+
+#: src/history/conflict-resolver.tsx
+msgid "The file changed while the dialog was open. Nothing was saved."
+msgstr "对话框打开期间文件被改过，什么都没保存。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "The file name is too long."

@@ -132,6 +132,8 @@ export function AnnotationRoundsDialog(props: {
   onOpenInHistory: (historyId: string) => void;
   /** Write `files` (path → text) as one restore; resolves once the project is reloaded. */
   onRestore: (label: string, files: Array<{ path: string; text: string }>) => Promise<void>;
+  /** A restore is an ordinary local edit, so syncing carries it to Overleaf. */
+  overleafLinked?: boolean;
   onClose: () => void;
 }) {
   const { i18n, t } = useLingui();
@@ -238,7 +240,10 @@ export function AnnotationRoundsDialog(props: {
   const restore = async () => {
     if (newer.kind === "now") return;
     const name = label(newer);
-    if (!await confirmAction(t`Restore the files the rounds touched to ${name}?`)) return;
+    const question = props.overleafLinked
+      ? t`Restore the files the rounds touched to ${name}? Syncing then replaces them on Overleaf too, including co-authors' changes made there since; Overleaf's history keeps those.`
+      : t`Restore the files the rounds touched to ${name}?`;
+    if (!await confirmAction(question)) return;
     const texts = textAt(newer);
     const files = [...texts].flatMap(([path, text]) => text === null || text === now?.get(path) ? [] : [{ path, text }]);
     if (!files.length) {
