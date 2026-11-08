@@ -76,10 +76,6 @@ pub struct OverleafSyncResult {
     /// one is renamed.
     #[serde(default)]
     pub case_collisions: Vec<CaseCollision>,
-    /// Whether this sync downloaded the project under the lease, which the
-    /// app counts towards the gap between downloads once the sync is done.
-    #[serde(skip)]
-    pub downloaded_under_lease: bool,
 }
 
 /// Of the files this sync holds marked up, those `state` (the last sync's)

@@ -94,6 +94,16 @@ pub(crate) fn realtime_state(project: Value, lines: &[&str]) -> Arc<Mutex<MockSt
     Arc::new(Mutex::new(state))
 }
 
+/// The project now is `project`, its documents reading `texts` by id, each
+/// at version 42: what a collaborator left it as since the last connection.
+pub(crate) fn set_project(
+    state: &Arc<Mutex<MockState>>, project: Value, texts: &[(String, String)],
+) {
+    let mut state = lock(state);
+    state.project = Some(project);
+    state.docs = (texts.iter()).map(|(id, text)| (id.clone(), MockDoc::new(text, 42))).collect();
+}
+
 /// Document `id` now reads `text`, at version 42.
 pub(crate) fn set_doc(state: &Arc<Mutex<MockState>>, id: &str, text: &str) {
     lock(state).docs.insert(id.to_string(), MockDoc::new(text, 42));

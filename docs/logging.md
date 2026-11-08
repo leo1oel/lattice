@@ -18,7 +18,7 @@ Each operation that matters writes **one** line when it finishes, under
 | `event` | Written when |
 | --- | --- |
 | `latex.compile` | a build ends (`failed` means the document has LaTeX errors; `error` means Lattice could not build at all) |
-| `overleaf.sync` | a sync ends: file counts each way, download and upload bytes, HTTP requests and retries; a refused upload adds `upload_status` and, when Overleaf names one, `upload_error` |
+| `overleaf.sync` | a sync ends: file counts each way, download and upload bytes, HTTP requests and retries; `download` is `full` for the project ZIP, `partial` when only what changed was fetched (`fetched_files`, `fetched_bytes`) and `skipped` when nothing was, and `fetch_fallback` says why a partial fetch gave way to the ZIP; a refused upload adds `upload_status` and, when Overleaf names one, `upload_error` |
 | `project.open` | a project opens, at launch or by choice: file count, bytes, scan time |
 | `texlab.start` | the language server starts or restarts, with the reason |
 | `synara.start` | the agent sidecar starts or restarts: port mode, health polls |

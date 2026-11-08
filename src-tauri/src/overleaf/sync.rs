@@ -1,6 +1,8 @@
-//! Sync against the project ZIP: the cheap remote-change probe, the plan that
-//! classifies every file, the sync that carries it out, and the dry-run preview
-//! of it. The replay of local moves that must come first is in `relocations`.
+//! Sync against Overleaf's copy of the project: the cheap remote-change probe,
+//! the plan that classifies every file, the sync that carries it out, and the
+//! dry-run preview of it. Where that copy comes from — the agreed one, only
+//! what changed, or the project ZIP — is in `changes`; the replay of local
+//! moves that must come first is in `relocations`.
 //!
 //! Classification and execution are deliberately separate: the exact same
 //! decisions drive a real sync, the read-only preview the user sees before
@@ -9,12 +11,12 @@
 
 use super::api::{
     csrf_token, download_project_zip, expect_success, http_client, latest_update_version,
-    read_zip_entries, DownloadProgress, Remote,
+    read_zip_entries, DownloadGate, DownloadProgress, Remote,
 };
 use super::case_collisions::{self, CaseCollision};
 use super::files::*;
 use super::link::{now_iso, save_state, Refusal, SyncState, PAUSED};
-use super::review::{history_since, HistoryFrom};
+use super::review::HistoryFrom;
 use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED, SESSION_STILL_VALID};
 use crate::util::err;
 use crate::wide_event::{self, Failure};
@@ -294,13 +296,15 @@ pub(super) fn plan_sync(
     Ok(plan)
 }
 
-/// The remote snapshot a sync or preview works from: the project zip, minus
-/// everything that never syncs, plus the app-owned leftovers to delete.
+/// The remote snapshot a sync or preview works from: Overleaf's copy of every
+/// file (see `changes`), minus everything that never syncs, plus the
+/// app-owned leftovers to delete.
 pub(super) struct RemoteFiles {
     pub files: BTreeMap<String, Vec<u8>>,
     pub automatic_remote_deletes: Vec<String>,
     /// Live documents whose copy in `files` Overleaf has since moved past
-    /// (see `SyncState::unsettled`); a download has none.
+    /// (see `SyncState::unsettled`): a download has none; a fetch carries the
+    /// live documents it did not fetch.
     pub unsettled: BTreeSet<String>,
 }
 
@@ -323,67 +327,6 @@ pub(super) fn fetch_remote_files(
     automatic_remote_deletes.sort();
     let files = syncable(entries);
     Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: BTreeSet::new() })
-}
-
-/// Overleaf's copy of the project without downloading it, when its history
-/// proves the copy the last sync agreed on is still Overleaf's copy of every
-/// file this sync may touch.
-///
-/// The download is most of what a sync costs: Overleaf zips the whole project
-/// on every request, figures and all, and most syncs then find nothing new in
-/// it. They run because an upload or typing in a live document moved the
-/// project's version, not because anyone changed a file. So when the version
-/// has not moved since the agreed copy, or every update since then only edited
-/// documents the realtime channel holds (which a sync leaves alone anyway),
-/// the agreed copy stands — and it is already on disk, each file either
-/// unchanged here or kept as its merge base. It must have been exact when it
-/// was recorded (see `SyncState::unsettled`), with every document it was not
-/// exact for still live. Any file that cannot be rebuilt from disk byte for
-/// byte, any change to the project tree, any update the history cannot place,
-/// and a held hollow copy (re-checked against every download) all mean
-/// downloading after all.
-pub(super) fn agreed_remote_files(
-    remote: &Remote, client: &Client, root: &Path, version: Option<i64>,
-    local: &BTreeMap<String, Vec<u8>>, live: &BTreeSet<String>,
-) -> Option<RemoteFiles> {
-    let state = &remote.state;
-    let (Some(agreed), Some(version)) = (state.remote_version, version) else { return None };
-    // A live document the sync leaves alone: present on both sides, so no
-    // pull, push or deletion can come of it either.
-    let held_live = |path: &String| {
-        live.contains(path) && local.contains_key(path) && state.files.contains_key(path)
-    };
-    let mut unsettled = state.unsettled.clone()?;
-    if version < agreed || !state.refused.is_empty() || !unsettled.iter().all(held_live) {
-        return None;
-    }
-    if version > agreed {
-        // Only live documents can excuse a move, so with none there is
-        // nothing to ask the history.
-        if live.is_empty() {
-            return None;
-        }
-        let history = history_since(remote, client, |update| update.ends_after(agreed)).ok()?;
-        // The history must reach the version just read, or it is missing
-        // updates rather than proving there were none.
-        let reaches = history.first().and_then(|update| update.to_version()) == Some(version);
-        let only_live = (history.iter()).all(|update| {
-            !update.tree && !update.paths.is_empty() && update.paths.iter().all(held_live)
-        });
-        if !reaches || !only_live {
-            return None;
-        }
-        unsettled.extend(history.into_iter().flat_map(|update| update.paths));
-    }
-    let files = (state.files.iter())
-        .map(|(path, hash)| {
-            let agreed = |bytes: &Vec<u8>| sha256_hex(bytes) == *hash;
-            let bytes = (local.get(path).filter(|bytes| agreed(bytes)).cloned())
-                .or_else(|| read_base_copy(root, path).map(String::into_bytes).filter(agreed))?;
-            Some((path.clone(), bytes))
-        })
-        .collect::<Option<_>>()?;
-    Some(RemoteFiles { files, automatic_remote_deletes: Vec::new(), unsettled })
 }
 
 pub(super) fn sync_stamp() -> String {
@@ -532,12 +475,13 @@ pub(super) fn sync_meanwhile(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
     mut meanwhile: impl FnMut(),
 ) -> Result<OverleafSyncResult, String> {
+    let gate: DownloadGate = &|| {};
     let mut round = 0;
     loop {
         round += 1;
         let read_ahead = round <= READ_AHEAD_ROUNDS;
         let prefetched = if read_ahead {
-            prefetch(config_dir, root, live, observed_remote_version, &|_, _| {})?
+            prefetch(config_dir, root, live, observed_remote_version, gate, &|_, _| {})?
         } else {
             None
         };
@@ -548,7 +492,7 @@ pub(super) fn sync_meanwhile(
             live,
             observed_remote_version,
             prefetched,
-            !read_ahead,
+            (!read_ahead).then_some(gate),
         )? {
             return Ok(result);
         }
@@ -556,27 +500,28 @@ pub(super) fn sync_meanwhile(
 }
 
 /// The sync, under the project's exclusive lease, starting from what
-/// [`prefetch`] read ahead of it. Downloads only when `may_download`: that
-/// holds every file write here for the download's minutes, so only a sync's
-/// last round may. Otherwise `None` when the sync needs Overleaf's copy and
-/// nothing read ahead still fits; the caller lets go of the lease and reads
-/// ahead again.
+/// [`prefetch`] read ahead of it. Fetches or downloads only when given
+/// `download`, the gate a download passes first: that holds every file write
+/// here for the download's minutes, so only a sync's last round may.
+/// Otherwise `None` when the sync needs Overleaf's copy and nothing read
+/// ahead still fits; the caller lets go of the lease and reads ahead again.
 pub fn sync_prefetched(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
-    prefetched: Option<Prefetched>, may_download: bool,
+    prefetched: Option<Prefetched>, download: Option<DownloadGate>,
 ) -> Result<Option<OverleafSyncResult>, String> {
-    let result =
-        sync_files(config_dir, root, live, observed_remote_version, prefetched, may_download)?;
+    let result = sync_files(config_dir, root, live, observed_remote_version, prefetched, download)?;
     if let Some(result) = &result {
         record_result(result);
     }
     Ok(result)
 }
 
-/// The project download, timed and counted on the sync's wide event.
+/// The project download, once past `gate`, timed and counted on the sync's
+/// wide event.
 pub(super) fn download(
-    remote: &Remote, client: &Client, progress: DownloadProgress,
+    remote: &Remote, client: &Client, gate: DownloadGate, progress: DownloadProgress,
 ) -> Result<RemoteFiles, String> {
+    gate();
     let step = wide_event::step("download");
     let downloaded = fetch_remote_files(remote, client, progress)?;
     drop(step);
@@ -589,7 +534,7 @@ pub(super) fn download(
 
 fn sync_files(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
-    prefetched: Option<Prefetched>, may_download: bool,
+    prefetched: Option<Prefetched>, download: Option<DownloadGate>,
 ) -> Result<Option<OverleafSyncResult>, String> {
     let linked = Remote::open_for_sync(config_dir, root)?;
     let client = sync_client()?;
@@ -612,22 +557,22 @@ fn sync_files(
         None => linked.version(&client).or(observed_remote_version),
     };
     let remote_version_before = version.or(linked.state.remote_version);
-    let mut downloaded_under_lease = false;
-    let (read, RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled }) =
+    let (read, RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled, .. }) =
         match prefetched {
             Some(Prefetched { downloaded, .. }) => (read, downloaded),
-            None => match agreed_remote_files(&linked, &client, root, version, &read.files, live) {
-                Some(agreed) => {
+            None => match remote_copy(&linked, &client, root, version, &read.files, live) {
+                RemoteCopy::Agreed(agreed) => {
                     wide_event::record("download", "skipped");
                     (read, agreed)
                 }
-                None if may_download => {
-                    downloaded_under_lease = true;
-                    let downloaded = download(&linked, &client, &|_, _| {})?;
+                copy => {
+                    let Some(gate) = download else {
+                        return Ok(None);
+                    };
+                    let downloaded = fetch(&linked, &client, copy, gate, &|_, _| {})?;
                     // Read again after the download, as above.
                     (read_local_files(root)?, downloaded)
                 }
-                None => return Ok(None),
             },
         };
     let LocalFiles { files: mut local, oversized } = read;
@@ -670,7 +615,6 @@ fn sync_files(
         newly_unresolved_conflicts: newly_held(&linked.state, &plan.unresolved_conflicts),
         unresolved_conflicts: plan.unresolved_conflicts,
         case_collisions,
-        downloaded_under_lease,
         ..Default::default()
     };
     let mut new_files = plan.files;
@@ -814,7 +758,10 @@ fn sync_files(
             .filter(|path| new_files.get(*path) != remote.get(*path).map(sha256_hex).as_ref())
             .cloned(),
     );
-    state.unsettled = differs.iter().all(|path| live.contains(path)).then_some(differs);
+    // What went up differs only by what this sync wrote, which Overleaf's
+    // history names after the copy, so the next sync fetches it again.
+    let settles = |path: &String| live.contains(path) || sent.contains_key(path);
+    state.unsettled = differs.iter().all(settles).then_some(differs);
     state.files = new_files;
     own_writes.retain(|path, _| state.files.contains_key(path));
     state.own_writes = own_writes;
@@ -874,6 +821,7 @@ pub fn probe(
     })
 }
 
+mod changes;
 mod history_evidence;
 mod outcome;
 mod prefetch;
@@ -881,6 +829,7 @@ mod preview;
 mod relocations;
 mod remote_delete;
 mod send;
+use changes::{fetch, remote_copy, RemoteCopy};
 use history_evidence::{agreed_copy, settle_destructive};
 use outcome::{newly_held, record_result};
 pub use outcome::{OverleafConflict, OverleafSyncResult};
