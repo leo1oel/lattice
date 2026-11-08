@@ -82,9 +82,11 @@ pub(super) struct Mock {
     /// How far each upload moves the version served after it, by the
     /// uploaded file's name; unset, only `versions` moves it.
     pub upload_moves: Option<fn(&str) -> i64>,
-    /// The names Overleaf keeps as file entities: an upload of one answers
-    /// that it landed as a file, any other that it landed as a document.
+    /// The names Overleaf keeps as file entities, whose diff says binary.
     pub file_entities: Vec<&'static str>,
+    /// `(pathname, from, to, parts)`: what a diff of one file between two
+    /// versions answers. Any other diff of a document shows it unchanged.
+    pub diffs: Vec<(&'static str, i64, i64, serde_json::Value)>,
     /// The project history, newest first, served whole to every other
     /// `/updates` request: the page reads that confirm a destructive pull.
     pub history: Vec<serde_json::Value>,
@@ -172,6 +174,28 @@ impl Mock {
                         (200, JSON, body.to_string().into_bytes())
                     }
                 },
+                ("GET", p) if p.ends_with("/diff") => {
+                    let query = reqwest::Url::parse(&format!("http://mock{url}")).unwrap();
+                    let arg = |key: &str| {
+                        let pairs = query.query_pairs();
+                        pairs.into_iter().find(|(k, _)| k == key).map(|(_, v)| v.into_owned())
+                    };
+                    let (pathname, from, to) = (arg("pathname"), arg("from"), arg("to"));
+                    let pathname = pathname.unwrap_or_default();
+                    let version = |v: Option<String>| v.and_then(|v| v.parse::<i64>().ok());
+                    let (from, to) = (version(from), version(to));
+                    let name = pathname.rsplit('/').next().unwrap_or_default();
+                    let scripted = (self.diffs.iter())
+                        .find(|(p, f, t, _)| *p == pathname && Some(*f) == from && Some(*t) == to);
+                    let diff = match scripted {
+                        Some((.., parts)) => parts.clone(),
+                        None if self.file_entities.contains(&name) => {
+                            serde_json::json!({ "binary": true })
+                        }
+                        None => serde_json::json!([{ "u": "" }]),
+                    };
+                    (200, JSON, serde_json::json!({ "diff": diff }).to_string().into_bytes())
+                }
                 ("GET", "/project") => (200, Some("text/html"), html.clone().into_bytes()),
                 ("GET", p) if p.ends_with("/download/zip") => {
                     downloads += 1;
@@ -194,12 +218,9 @@ impl Mock {
                         if let Some(moves) = self.upload_moves {
                             moved += moves(name);
                         }
-                        let landed =
-                            if self.file_entities.contains(&name) { "file" } else { "doc" };
-                        let body = serde_json::json!({
-                            "success": true, "entity_id": "e1", "entity_type": landed
-                        });
-                        (200, JSON, body.to_string().into_bytes())
+                        let body =
+                            "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
+                        (200, JSON, body.into())
                     }
                 }
                 ("POST", p) if p.ends_with("/folder") => {

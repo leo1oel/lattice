@@ -27,8 +27,7 @@ pub(super) struct Uploader<'a> {
 }
 
 impl Uploader<'_> {
-    /// Upload one file: `true` when Overleaf says it landed as a document.
-    pub fn upload(&self, rel: &str, bytes: Vec<u8>) -> Result<bool, String> {
+    pub fn upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
         self.try_upload(rel, bytes).map_err(|failure| failure.into_error(rel))
     }
 
@@ -85,7 +84,7 @@ impl Uploader<'_> {
         failures.into_values().next().map_or(Ok(()), |(rel, failure)| Err(failure.into_error(rel)))
     }
 
-    fn try_upload(&self, rel: &str, bytes: Vec<u8>) -> Result<bool, UploadFailure> {
+    fn try_upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), UploadFailure> {
         use reqwest::blocking::multipart::{Form, Part};
         let file_name = rel.rsplit('/').next().unwrap_or(rel).to_string();
         let form = Form::new()
@@ -104,7 +103,7 @@ impl Uploader<'_> {
         let body = serde_json::from_str::<Value>(&response.text().unwrap_or_default()).ok();
         let accepted = body.as_ref().and_then(|v| v.get("success")?.as_bool()).unwrap_or(false);
         if status.is_success() && accepted {
-            return Ok(body.as_ref().and_then(|v| v.get("entity_type")?.as_str()) == Some("doc"));
+            return Ok(());
         }
         // The body is the server's arbitrary text and may quote the document,
         // so the failure carries only the status and an error code Overleaf is

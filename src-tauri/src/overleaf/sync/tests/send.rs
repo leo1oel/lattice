@@ -17,7 +17,8 @@ fn overleaf_sync_uploads_only_while_overleaf_holds_still() {
     // edit for the next round; an unchanged version must not block it.
     let base = b"base body".as_slice();
     for (versions, uploaded) in [(vec![11, 12], false), (vec![11], true)] {
-        let mock = Mock { versions, ..Mock::project(&[("main.tex", base)]) };
+        let diffs = vec![("main.tex", 11, 12, inserted(COAUTHOR_ID, "their words"))];
+        let mock = Mock { versions, diffs, ..Mock::project(&[("main.tex", base)]) };
         let (server, root, result) =
             run_sync(mock, &[("main.tex", b"locally edited")], &[("main.tex", base)]);
         let expected: &[&str] = if uploaded { &["main.tex"] } else { &[] };
@@ -190,29 +191,54 @@ fn an_agents_rewrite_of_the_paragraph_a_co_author_is_typing_in_keeps_both() {
 }
 
 // Without the live channel (a network or proxy that blocks WebSockets), a
-// document Overleaf holds goes up whole, so each one goes only while the
-// project's history version still holds, read again just before it and just
-// after. The mock answers one version per read, in the order a sync reads
-// them: the snapshot, then before the first upload and after each one.
+// document Overleaf holds goes up whole, so each one is checked against its
+// own history in Overleaf just before it goes up and just after. The mock
+// answers one project version per read, in the order a sync reads them: the
+// snapshot, once before anything goes up, then before and after each
+// document. A diff it is not given shows the document unchanged.
 
 const COAUTHOR: &str = "Intro.\n\nMiddle.\n\nEnd, typed on Overleaf.\n";
 const OURS: &str = "Intro, edited here.\n\nMiddle.\n\nEnd.\n";
+/// This account, as `signed_in` records it, and a co-author.
+const ME: &str = "user-1";
+const COAUTHOR_ID: &str = "user-2";
+
+/// A diff part changing `text` by `who`, as Overleaf's web layer answers it.
+fn part(kind: &str, who: &str, text: &str) -> Value {
+    let user = json!({ "id": who, "email": format!("{who}@example.edu"),
+        "first_name": who, "last_name": "" });
+    json!({ kind: text, "meta": { "users": [user], "start_ts": 1, "end_ts": 2 } })
+}
+
+fn inserted(who: &str, text: &str) -> Value {
+    json!([{ "u": "Intro.\n\n" }, part("i", who, text)])
+}
+
+fn deleted(who: &str, text: &str) -> Value {
+    json!([{ "u": "Intro.\n\n" }, part("d", who, text)])
+}
 
 #[test]
-fn a_co_author_edit_landing_before_the_upload_stands_it_down_and_the_next_sync_merges_it() {
-    // They typed after our snapshot and before the upload: Overleaf's copy
-    // is no longer the one we planned against, so nothing goes up.
+fn a_co_author_edit_before_the_upload_stands_only_that_document_down_and_the_next_sync_merges_it() {
+    // They typed in main.tex after our snapshot: its history shows it, so it
+    // waits. other.tex, untouched, still goes up in the same sync.
+    let base: Files = &[("main.tex", BASE.as_bytes()), ("other.tex", BASE.as_bytes())];
+    let local: Files = &[("main.tex", OURS.as_bytes()), ("other.tex", OURS.as_bytes())];
     let mock = Mock {
         versions: vec![11, 12],
-        later_zip: Some(build_zip(&[("main.tex", COAUTHOR.as_bytes())])),
-        ..Mock::project(&[("main.tex", BASE.as_bytes())])
+        diffs: vec![("main.tex", 11, 12, inserted(COAUTHOR_ID, ", typed on Overleaf"))],
+        later_zip: Some(build_zip(&[
+            ("main.tex", COAUTHOR.as_bytes()),
+            ("other.tex", OURS.as_bytes()),
+        ])),
+        ..Mock::project(base)
     };
     let server = mock.serve();
-    let (config, root) =
-        linked(&server, &[("main.tex", OURS.as_bytes())], &[("main.tex", BASE.as_bytes())]);
+    let (config, root) = linked(&server, local, base);
     let first = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert!(first.pushed.is_empty() && server.uploads().is_empty());
+    assert_eq!(first.pushed, ["other.tex"]);
     assert!(first.uploaded_over_edits.is_empty());
+    assert_eq!(server.uploads().len(), 1);
     assert_eq!(state_files(&root)["main.tex"], sha256_hex(BASE.as_bytes()));
 
     // The next sync downloads their edit, merges ours into it, and sends both.
@@ -222,35 +248,67 @@ fn a_co_author_edit_landing_before_the_upload_stands_it_down_and_the_next_sync_m
     assert!(second.uploaded_over_edits.is_empty());
     let both = "Intro, edited here.\n\nMiddle.\n\nEnd, typed on Overleaf.\n";
     let uploads = server.uploads();
-    assert_eq!(uploads.len(), 1);
-    assert!(uploads[0].body_text().contains(both), "{}", uploads[0].body_text());
+    assert_eq!(uploads.len(), 2);
+    assert!(uploads[1].body_text().contains(both), "{}", uploads[1].body_text());
     assert_eq!(read_local(&root, "main.tex").unwrap(), both.as_bytes());
 }
 
 #[test]
-fn a_co_author_edit_landing_during_the_upload_is_reported_once_for_the_sync() {
-    // Two documents. Their edit lands while `a.tex` goes up: the version
-    // after it moved by more than our one upload. `a.tex` may have replaced
-    // their words, which is named; `b.tex` waits for the next sync.
+fn a_co_author_edit_during_the_upload_names_that_document_alone() {
+    // a.tex goes up between versions 11 and 13: our upload is one step, and
+    // their typing in it the other. a.tex may have replaced their words, so
+    // it is named; b.tex, read afresh, still goes up and is not.
     let base: Files = &[("a.tex", BASE.as_bytes()), ("b.tex", BASE.as_bytes())];
     let local: Files = &[("a.tex", OURS.as_bytes()), ("b.tex", OURS.as_bytes())];
-    let mock = Mock { versions: vec![11, 11, 13], ..Mock::project(base) };
-    let (server, root, result) = run_sync(mock, local, base);
-    assert_eq!(result.pushed, ["a.tex"]);
+    let mock = Mock {
+        versions: vec![11, 11, 11, 13],
+        diffs: vec![
+            ("a.tex", 11, 12, inserted(COAUTHOR_ID, "their words")),
+            ("a.tex", 12, 13, inserted(ME, "Intro, edited here.")),
+        ],
+        ..Mock::project(base)
+    };
+    let (server, _root, result) = run_sync(mock, local, base);
+    assert_eq!(result.pushed, ["a.tex", "b.tex"]);
     assert_eq!(result.uploaded_over_edits, ["a.tex"]);
-    assert_eq!(server.uploads().len(), 1);
-    assert_eq!(state_files(&root)["b.tex"], sha256_hex(BASE.as_bytes()));
+    assert_eq!(server.uploads().len(), 2);
 }
 
 #[test]
-fn documents_uploaded_while_overleaf_holds_still_report_nothing() {
+fn their_words_our_upload_removed_again_are_still_named() {
+    // They typed, then our upload replaced the document and deleted their
+    // words: a diff across both steps shows nothing, each step on its own
+    // shows them. A diff over the whole range here answers unchanged.
+    let base: Files = &[("a.tex", BASE.as_bytes())];
+    let local: Files = &[("a.tex", OURS.as_bytes())];
+    let mock = Mock {
+        versions: vec![11, 11, 11, 13],
+        diffs: vec![
+            ("a.tex", 11, 12, inserted(COAUTHOR_ID, "their words")),
+            ("a.tex", 12, 13, deleted(ME, "their words")),
+        ],
+        ..Mock::project(base)
+    };
+    let (_server, _root, result) = run_sync(mock, local, base);
+    assert_eq!(result.pushed, ["a.tex"]);
+    assert_eq!(result.uploaded_over_edits, ["a.tex"]);
+}
+
+#[test]
+fn documents_uploaded_while_only_we_edit_report_nothing() {
     let base: Files = &[("a.tex", BASE.as_bytes()), ("b.tex", BASE.as_bytes())];
     let local: Files =
         &[("a.tex", OURS.as_bytes()), ("b.tex", OURS.as_bytes()), ("new.tex", b"New.\n")];
-    // Each of our uploads moves the version by one, or Overleaf reports it
-    // late and the version stays put: neither is anyone else's edit.
-    for versions in [vec![11, 11, 12, 13], vec![11]] {
-        let mock = Mock { versions, ..Mock::project(base) };
+    // Each of our uploads is one step of the project's history, by us; or
+    // Overleaf reports it late and the version stays put.
+    let ours = |path, from| (path, from, from + 1, inserted(ME, "Intro, edited here."));
+    for (versions, moves) in [(vec![11], Some(one_step as fn(&str) -> i64)), (vec![11], None)] {
+        let mock = Mock {
+            versions,
+            upload_moves: moves,
+            diffs: vec![ours("a.tex", 11), ours("b.tex", 12)],
+            ..Mock::project(base)
+        };
         let (server, _root, result) = run_sync(mock, local, base);
         assert_eq!(result.pushed, ["a.tex", "b.tex", "new.tex"]);
         assert!(result.uploaded_over_edits.is_empty(), "{:?}", result.uploaded_over_edits);
@@ -258,10 +316,28 @@ fn documents_uploaded_while_overleaf_holds_still_report_nothing() {
     }
 }
 
+fn one_step(_: &str) -> i64 {
+    1
+}
+
+#[test]
+fn a_project_too_busy_to_walk_names_the_document_without_reading_every_step() {
+    // Nineteen versions passed during one upload: rather than read each, the
+    // document is named so the writer checks it.
+    let base: Files = &[("a.tex", BASE.as_bytes())];
+    let local: Files = &[("a.tex", OURS.as_bytes())];
+    let mock = Mock { versions: vec![11, 11, 11, 30], ..Mock::project(base) };
+    let (server, _root, result) = run_sync(mock, local, base);
+    assert_eq!(result.pushed, ["a.tex"]);
+    assert_eq!(result.uploaded_over_edits, ["a.tex"]);
+    let diffs = server.recorded().iter().filter(|r| r.url.contains("/diff?")).count();
+    assert_eq!(diffs, 0);
+}
+
 // A history that keeps its versions per document reports, for the project,
-// only the newest edit's timestamp in milliseconds. Our own upload moves that
-// as far as anyone's edit would, so it can tell only whether Overleaf moved
-// before the first upload.
+// only the newest edit's timestamp in milliseconds. That names no steps to
+// read a file's history by, so every upload keeps the one check before
+// anything goes up.
 
 /// A moment in milliseconds, as `meta.end_ts` reports it.
 const AT: i64 = 1_700_000_000_000;
@@ -271,8 +347,7 @@ fn a_history_of_timestamps_sends_every_document_in_one_sync_without_a_false_repo
     let base: Files = &[("a.tex", BASE.as_bytes()), ("b.tex", BASE.as_bytes())];
     let local: Files =
         &[("a.tex", OURS.as_bytes()), ("b.tex", OURS.as_bytes()), ("new.tex", b"New.\n")];
-    // The snapshot, before the first upload, and after each: the stamp jumps
-    // by seconds with each of our own uploads.
+    // The stamp jumps by seconds with each of our own uploads.
     let versions = vec![AT, AT, AT + 4_000, AT + 9_000];
     let mock = Mock { versions, stamped: true, ..Mock::project(base) };
     let (server, root, result) = run_sync(mock, local, base);
@@ -320,30 +395,41 @@ fn text_overleaf_keeps_as_a_file_goes_up_beside_a_document_without_a_false_repor
 #[test]
 fn a_bibliography_overleaf_keeps_as_a_file_goes_up_beside_a_document_without_a_false_report() {
     // Text past Overleaf's size limit for a document is kept as a file
-    // entity, whatever its extension, and its upload says it landed as one.
-    // Replacing it is two history updates (a fresh entity added, the old one
-    // renamed away), a document's upload one. Nobody else edits, so every
-    // file goes up in this sync and nothing is reported, whether the
-    // bibliography goes up before the document or after it.
+    // entity, whatever its extension: its history is binary, nobody types in
+    // it, and replacing it is two history updates. Nobody else edits, so
+    // every file goes up in this sync and nothing is reported, whether the
+    // bibliography goes up before the document or after it; and a co-author
+    // typing in the document after the bibliography went up is still named.
     let entry = "@misc{key,\n  title = {A title long enough to fill the line},\n}\n\n";
     let held = entry.repeat(1_500_000 / entry.len());
     let ours = format!("{held}@misc{{new,\n  title = {{Added here}},\n}}\n");
-    for bib in ["bib/refs.bib", "refs.bib"] {
+    for (bib, coauthor) in [("bib/refs.bib", false), ("refs.bib", false), ("bib/refs.bib", true)] {
         let base: Files = &[(bib, held.as_bytes()), ("main.tex", BASE.as_bytes())];
         let local: Files = &[(bib, ours.as_bytes()), ("main.tex", OURS.as_bytes())];
-        let moves = |name: &str| if name == "refs.bib" { 2 } else { 1 };
+        let moves: fn(&str) -> i64 = |name| if name == "refs.bib" { 2 } else { 1 };
+        // With a co-author: bib/refs.bib goes up first, 11 to 13, and their
+        // typing in main.tex makes it 14 before main.tex would go up.
+        let (versions, diffs, moves) = match coauthor {
+            false => (vec![11], vec![], Some(moves)),
+            true => (
+                vec![11, 11, 11, 13, 14],
+                vec![("main.tex", 11, 14, inserted(COAUTHOR_ID, "their words"))],
+                None,
+            ),
+        };
         let mock = Mock {
-            versions: vec![11],
-            upload_moves: Some(moves),
+            versions,
+            diffs,
+            upload_moves: moves,
             file_entities: vec!["refs.bib"],
             ..Mock::project(base)
         };
         let (server, root, result) = run_sync(mock, local, base);
-        let mut expected = vec![bib, "main.tex"];
+        let mut expected = if coauthor { vec![bib] } else { vec![bib, "main.tex"] };
         expected.sort();
         assert_eq!(result.pushed, expected, "{bib}");
         assert!(result.uploaded_over_edits.is_empty(), "{bib}: {:?}", result.uploaded_over_edits);
-        assert_eq!(server.uploads().len(), 2, "{bib}");
+        assert_eq!(server.uploads().len(), expected.len(), "{bib}");
         assert_eq!(state_files(&root)[bib], sha256_hex(ours.as_bytes()), "{bib}");
     }
 }
