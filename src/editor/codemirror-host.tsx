@@ -41,7 +41,7 @@ import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { documentText, textChange } from "./text-change";
 import { i18n } from "../i18n";
-import { diffToOps } from "../overleaf/ot";
+import { diffToOps, overlapping } from "../overleaf/ot";
 
 const hostExternalChange = Annotation.define<boolean>();
 
@@ -52,14 +52,17 @@ const TYPING_QUIET_MS = 200;
  * `waiting`, a value that arrived while the writer was typing, as changes to
  * the document the writer's `update` produced. It was made from what was
  * last emitted, which is what the view held before `update`; null when the
- * view held anything else, as the change then cannot be put next to it.
+ * view held anything else, or when the typing changed text the value changes
+ * too, as the change then cannot be put next to it.
  * The writer's own values are never offered here: they keep losing to their
  * later typing, as they always have.
  */
 function waitingChange(update: ViewUpdate, waiting: string, lastEmitted: string): ChangeSet | null {
   const before = update.startState.doc.toString();
+  const after = documentText(waiting);
   if (documentText(lastEmitted) !== before) return null;
-  return runsChange(before, documentText(waiting)).map(update.changes);
+  if (overlapping(diffToOps(before, update.state.doc.toString()), diffToOps(before, after))) return null;
+  return runsChange(before, after).map(update.changes);
 }
 
 /**
@@ -188,8 +191,10 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
         lastTypedAtRef.current = Date.now();
         const waiting = waitingRef.current;
         waitingRef.current = null;
-        // Only while it is still the newest value, and claims to come from outside.
-        const outside = waiting !== null && waiting === propsRef.current.value && (propsRef.current.isOutsideValue?.(waiting) ?? false)
+        // Only while it is still the newest value, claims to come from outside,
+        // and no composition is open (applyExternalValue waits those out too).
+        const outside = waiting !== null && !update.view.composing && waiting === propsRef.current.value
+          && (propsRef.current.isOutsideValue?.(waiting) ?? false)
           ? waitingChange(update, waiting, lastEmittedRef.current)
           : null;
         let text = update.state.doc.toString();

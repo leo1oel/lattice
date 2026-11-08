@@ -204,3 +204,33 @@ it("keeps the writer's keystroke in place between two outside changes that waite
   expect(view!.state.doc.toString()).toBe(merged);
   expect(view!.state.selection.main.head).toBe(merged.indexOf("L") + 1);
 });
+
+it("never moves a keystroke past an outside change on its own line, leaving the outside text to arrive after the typing", async () => {
+  let view: EditorView | null = null;
+  const emitted: string[] = [];
+  const outside = new Set<string>();
+  const live = (value: string) => (
+    <CodeMirrorHost
+      key="main.tex"
+      label="main.tex — LaTeX source"
+      value={value}
+      extensions={NONE}
+      isOutsideValue={(text) => outside.has(text)}
+      onChange={(text) => emitted.push(text)}
+      onUpdate={() => {}}
+      onCreateEditor={(created) => { view = created; }}
+    />
+  );
+  const page = render(live("AAAA BBBB CCCC"));
+  act(() => { view!.dispatch({ changes: { from: 7, insert: "K" }, selection: { anchor: 8 }, userEvent: "input.type" }); });
+  // Changed at both ends of the line the writer is typing in.
+  const remote = "AAA_ BBKBB _CCC";
+  outside.add(remote);
+  page.rerender(live(remote));
+  act(() => { view!.dispatch({ changes: { from: 8, insert: "L" }, selection: { anchor: 9 }, userEvent: "input.type" }); });
+  // Mapping the line-wide change over the keystroke used to give "AAAL_ BBKBB _CCC".
+  expect(view!.state.doc.toString()).toBe("AAAA BBKLBB CCCC");
+  expect(emitted.at(-1)).toBe("AAAA BBKLBB CCCC");
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 450)); });
+  expect(view!.state.doc.toString()).toBe(remote);
+});

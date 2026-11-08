@@ -113,7 +113,7 @@ export function createOpenDocumentsStore(): OpenDocumentsStore {
       typeFileText: (content, base) => set(({ text }) => {
         if (text === base) return { text: content };
         const merged = rebaseOnto(base, content, diffToOps(base, text), text);
-        return merged === null ? { text: content } : { text: merged, outsideText: merged };
+        return merged === null ? {} : { text: merged, outsideText: merged };
       }),
       showFileText: (path, content) => set({ file: path, text: content, savedText: content, outsideText: content }),
       setPaperBuffers: (markdown, blog) => set({

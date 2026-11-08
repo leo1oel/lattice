@@ -6,6 +6,7 @@ import {
   diffToOps,
   OtDesyncError,
   OtDocument,
+  rebaseOnto,
   transformBoth,
   transformSpan,
   type OtOp,
@@ -123,6 +124,28 @@ describe("transformBoth", () => {
   it("keeps someone else's insert inside our delete, and makes an identical delete a no-op", () => {
     expect(expectConvergence("abcdef", [{ p: 1, d: "bcde" }], [{ p: 3, i: "KEEP" }])).toBe("aKEEPf");
     expect(expectConvergence("abcdefgh", [{ p: 2, d: "cde" }], [{ p: 2, d: "cde" }])).toBe("abfgh");
+  });
+});
+
+// Expected texts are worked out by hand from what each side typed.
+describe("rebaseOnto", () => {
+  const base = "one two three";
+
+  it("refuses typing that encloses a co-author's change on the same line, rather than putting back what they removed", () => {
+    // The writer capitalises both ends; the co-author meanwhile replaces the middle word.
+    // Transforming one line-wide span over theirs used to give "ONE two THREE2".
+    const remoteText = "one 2 three";
+    expect(rebaseOnto(base, "ONE two THREE", diffToOps(base, remoteText), remoteText)).toBeNull();
+    // Their replacement is an operation of its own, not just a diff.
+    expect(rebaseOnto(base, "one t*o three", [{ p: 4, d: "two" }, { p: 4, i: "2" }], remoteText)).toBeNull();
+  });
+
+  it("carries typing elsewhere, or meeting the co-author's change at a point", () => {
+    expect(rebaseOnto(base, "one two three four", [{ p: 0, i: "zero " }], "zero one two three")).toBe("zero one two three four");
+    // The writer deletes "two " where the co-author types "2 " in front of it.
+    expect(rebaseOnto(base, "one three", [{ p: 4, i: "2 " }], "one 2 two three")).toBe("one 2 three");
+    // Both type at one spot: the writer's text goes first, as the server will place it.
+    expect(rebaseOnto(base, "one two! three", [{ p: 7, i: "?" }], "one two? three")).toBe("one two!? three");
   });
 });
 

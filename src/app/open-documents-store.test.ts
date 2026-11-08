@@ -38,6 +38,16 @@ describe("open documents store", () => {
     expect(store.getState().text).toBe("Here we study attention closely!\n");
   });
 
+  it("keeps the co-author's text when a keystroke changed the very text theirs did", () => {
+    const store = createOpenDocumentsStore();
+    const { showFileText, takeOutsideText, typeFileText } = store.getState();
+    showFileText("main.tex", "one two three\n");
+    takeOutsideText("one 2 three\n");
+    // Typed on the old text, over the word the co-author replaced: carrying it would bring "two" back.
+    typeFileText("ONE two THREE\n", "one two three\n");
+    expect(store.getState()).toMatchObject({ text: "one 2 three\n", outsideText: "one 2 three\n" });
+  });
+
   it("takes values or updaters in its field setters, like useState", () => {
     const store = createOpenDocumentsStore();
     const { setTabs, setMode } = store.getState();

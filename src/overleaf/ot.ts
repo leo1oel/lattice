@@ -268,17 +268,52 @@ export function transformBoth(left: OtOp[], right: OtOp[]): [OtOp[], OtOp[]] {
   return [leftOp, newRightOp];
 }
 
+/** Where each component of `op` falls in the text `op` applies to: an insert at a point, a delete over a span. */
+function baseSpans(op: OtOp[]): [number, number][] {
+  return op.map((component, index) => {
+    let from = component.p;
+    let to = component.p + (component.d?.length ?? 0);
+    for (let earlier = index - 1; earlier >= 0; earlier -= 1) {
+      const { p, i, d } = op[earlier]!;
+      if (i != null) {
+        if (from > p) from = Math.max(p, from - i.length);
+        if (to > p) to = Math.max(p, to - i.length);
+      } else if (d != null) {
+        if (from > p) from += d.length;
+        if (to >= p) to += d.length;
+      }
+    }
+    return [from, to];
+  });
+}
+
+/**
+ * Whether two operations on the same text change any of it in common: a
+ * span both delete, or an insert inside a span the other deletes. Meeting
+ * at a point is not overlapping; OT places both sides' text there.
+ */
+export function overlapping(left: OtOp[], right: OtOp[]): boolean {
+  const rightSpans = baseSpans(right);
+  return baseSpans(left).some(([a, b]) => rightSpans.some(([c, d]) => (
+    Math.max(a, c) < Math.min(b, d) || (a === b && c < a && a < d) || (c === d && a < c && c < b)
+  )));
+}
+
 /**
  * `current` is `base` with local typing on top; `remote`, ops on `base`,
  * turned it into `remoteText`. Return `remoteText` with that typing on top,
  * placed the way the server will place it once it arrives there (see
  * `OtDocument.remote` for why local work goes on the left). Null when
- * `current` does not descend from `base` this way — the typing then does not
- * fit, and nothing should be guessed.
+ * `current` does not descend from `base` this way, or when the typing and
+ * `remote` change the same text: a diff spans everything between a line's
+ * first and last change, so transforming one over the other would put back
+ * what the other side removed. Nothing should be guessed then.
  */
 export function rebaseOnto(base: string, current: string, remote: OtOp[], remoteText: string): string | null {
   if (current === base) return remoteText;
-  const [typed] = transformBoth(diffToOps(base, current), remote);
+  const typing = diffToOps(base, current);
+  if (overlapping(typing, remote)) return null;
+  const [typed] = transformBoth(typing, remote);
   return applyOps(remoteText, typed);
 }
 
