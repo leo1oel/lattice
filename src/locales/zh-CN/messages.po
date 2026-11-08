@@ -2739,6 +2739,10 @@ msgid "Build project"
 msgstr "编译"
 
 #: src/build/build-log-messages.ts
+msgid "Build stopped after {minutes} minutes without finishing. Something in the document may be looping; the log below is how far it got."
+msgstr "编译运行 {minutes} 分钟仍未完成，已停止。文档中可能有内容陷入了死循环；下方日志显示了停止前的进度。"
+
+#: src/build/build-log-messages.ts
 msgid "Build stopped after {seconds} s. The log below is how far it got."
 msgstr "编译在 {seconds} 秒后停止。下方日志显示了停止前的进度。"
 
@@ -8131,6 +8135,10 @@ msgstr "Lattice 无法写入 {file}"
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 msgstr "Lattice 当前登录的是 {0}。要打开其他 Overleaf 服务器上的项目，请在 设置 → Overleaf 中登录那台服务器。"
+
+#: src/build/use-compile-repair.ts
+msgid "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
+msgstr "Lattice 已失去对修复任务的跟踪，编辑器已恢复可编辑。请打开 Agent 查看修复进行到了哪一步。"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts

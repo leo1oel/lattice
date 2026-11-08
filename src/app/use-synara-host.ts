@@ -169,25 +169,36 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   const [frameMounted, setFrameMounted] = useState(false);
   /** Part of the agent frame's key: Retry remounts a frame that never said it was ready. */
   const [frameAttempt, setFrameAttempt] = useState(0);
-  const [readyFrameKey, setReadyFrameKey] = useState<string | null>(null);
+  /**
+   * Bumped whenever the agent frame starts loading a document or goes away
+   * (frameLoading). A reload keeps the frame's key (a light/dark or language
+   * change in its URL, an agent restart on the same port, a project reopened,
+   * showThread), so readiness belongs to the load whose embed-ready said so:
+   * until the reloaded panel says it again, prompts and host-write reports wait
+   * instead of going to a document that drops them.
+   */
+  const [frameLoad, setFrameLoad] = useState(0);
+  const [readyFrame, setReadyFrame] = useState<{ key: string; load: number } | null>(null);
   const [permissionMode, setPermissionMode] = useState<SynaraPermissionMode>("full-access");
   const [autoModeAvailable, setAutoModeAvailable] = useState(true);
   /** An inline visual the panel asked to show over the window. */
   const [expandedVisual, setExpandedVisual] = useState<AgentVisualExpand | null>(null);
   const closeExpandedVisual = useCallback(() => setExpandedVisual(null), []);
   const frameKey = origin && project ? `${origin}\0${project.root}` : null;
-  const frameReady = frameKey !== null && readyFrameKey === frameKey;
+  const frameReady = frameKey !== null && readyFrame?.key === frameKey && readyFrame.load === frameLoad;
+  const frameLoading = useCallback(() => setFrameLoad((load) => load + 1), []);
   const projectRootRef = useLatestRef(project?.root ?? null);
   const latest = useRef({
     bridge,
     agentVisible,
     frameKey,
+    frameLoad,
     hostContext: null as AgentHostContextSnapshot | null,
     paperLibrary: null as AgentPaperLibrarySnapshot | null,
     hostTheme: null as AgentHostThemeSnapshot | null,
   });
   useLayoutEffect(() => {
-    Object.assign(latest.current, { bridge, agentVisible, frameKey });
+    Object.assign(latest.current, { bridge, agentVisible, frameKey, frameLoad });
   });
 
   /** Start the runtime and mount the agent frame (both stay up once started). */
@@ -246,7 +257,9 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   useEffect(() => {
     if (!frameReady) return;
     setHostFileWritesSink((message) => {
-      if (message.workspaceRoot === projectRootRef.current) void postMessage(message);
+      if (message.workspaceRoot !== projectRootRef.current) return false;
+      void postMessage(message);
+      return true;
     });
     return () => setHostFileWritesSink(null);
   }, [frameReady, postMessage, projectRootRef]);
@@ -271,8 +284,9 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     const url = new URL(frame.src);
     url.pathname = `/${encodeURIComponent(threadId)}`;
     publishAgentDeckPresence(null);
+    frameLoading();
     frame.src = url.toString();
-  }, [origin]);
+  }, [frameLoading, origin]);
 
   // WebKit drops pointerleave when the cursor leaves the agent iframe, so hover
   // states inside it stick. Any pointerover here means the pointer is not over
@@ -302,7 +316,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     /** Messages identified by their `type`. */
     const handlers: Record<string, (data: MessageData, host: typeof latest.current) => void> = {
       "synara:embed-ready": (_data, host) => {
-        if (host.frameKey) setReadyFrameKey(host.frameKey);
+        if (host.frameKey) setReadyFrame({ key: host.frameKey, load: host.frameLoad });
         // A (re)loaded panel reports its thread's turn afresh.
         publishAgentDeckPresence(null);
         post({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
@@ -478,13 +492,15 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   }, [origin, retry]);
   return {
     runtime, retry, retryAgent, origin, requestRuntime, mountFrame,
-    frameRef, sourceControlFrameRef, frameMounted, frameAttempt, frameReady,
+    frameRef, sourceControlFrameRef, frameMounted, frameAttempt, frameReady, frameLoading,
     permissionMode, autoModeAvailable, changePermissionMode,
     postMessage, notifyPanelOpened, showThread, sendComposerPrompt,
     expandedVisual, closeExpandedVisual,
     /** Delivery state for the snapshots useAgentContext posts; not for rendering. */
     latest,
     deliverable: Boolean(origin && frameMounted && frameReady && agentVisible),
+    /** The running service's identity: each launch makes a new token (useCompileRepair). */
+    agentSession: runtime.state === "ready" ? runtime.authToken : null,
   };
 }
 

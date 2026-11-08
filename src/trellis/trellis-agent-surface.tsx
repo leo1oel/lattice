@@ -3,7 +3,7 @@
  * reparents view content, so the iframe (and its running session) survives
  * docking, floating, hiding and zooming. It is never hibernated.
  */
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { AgentVisualDialog } from "../agent/agent-visual-dialog";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
@@ -20,13 +20,21 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
 }) {
   const { t } = useLingui();
   const {
-    origin, runtime, frameMounted, frameAttempt, frameReady, frameRef, retryAgent, expandedVisual, closeExpandedVisual,
+    origin, runtime, frameMounted, frameAttempt, frameReady, frameLoading, frameRef, retryAgent, expandedVisual, closeExpandedVisual,
   } = synara;
   // Recording navigation must not change src and reload an in-progress turn.
   const src = useMemo(() => origin
     ? synaraEmbedUrl({ origin, authToken: runtime.authToken, projectRoot, theme, locale: appLocale })
     : undefined,
   [origin, runtime.authToken, projectRoot, theme, appLocale]);
+  // A new src (or a new or removed iframe) is a document still loading; the
+  // host holds what it sends until that document says embed-ready.
+  const loading = frameMounted && src !== undefined;
+  useLayoutEffect(() => {
+    if (!loading) return;
+    frameLoading();
+    return frameLoading;
+  }, [frameAttempt, frameLoading, loading, src]);
   return (
     <div className={`synara-frame-shell ${dropActive ? "agent-drop-active" : ""}`} data-tour="agent-panel" data-ready={frameReady || undefined}>
       {frameMounted && origin && <iframe

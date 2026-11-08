@@ -26,7 +26,7 @@ describe("batch repair controls", () => {
     vi.mocked(invoke).mockRejectedValueOnce("The workspace already has an active writer.");
     function RepairPanel() {
       const repair = useCompileRepair({
-        projectRoot: "/paper", rootDocument: "main.tex", runtimeMode: "auto", enabled: true,
+        projectRoot: "/paper", rootDocument: "main.tex", agent: { permissionMode: "auto", agentSession: null }, enabled: true,
         save: async () => true, onComplete: async () => {},
       });
       return <CompileDiagnosticsPanel {...props} repair={repair.state} fixDisabled={repair.busy}

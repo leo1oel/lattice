@@ -62,6 +62,11 @@ export function useOverleafRealtimeConnection({
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let retryAttempt = 0;
     let needsReconnect = false;
+    // The connect command installs the new client, then waits on the sync
+    // lease (as long as a full sync) before answering. A drop in that wait is
+    // this attempt's own socket going down, since the backend only forwards
+    // the newest connection's events, so its answer must not mark it live.
+    let droppedWhileConnecting = false;
     let lastReason = "";
     // Every handshake may return a different role, and the connection that
     // established the current one may be gone: fail closed until Overleaf
@@ -72,6 +77,7 @@ export function useOverleafRealtimeConnection({
       needsReconnect = true;
       lastReason = reason;
       forgetPermission();
+      if (connecting) droppedWhileConnecting = true;
       if (retryTimer || connecting) return;
       const delay = immediate ? 0 : Math.min(RECONNECT_BASE_MS * 2 ** retryAttempt, RECONNECT_MAX_MS);
       if (!immediate) retryAttempt += 1;
@@ -86,12 +92,19 @@ export function useOverleafRealtimeConnection({
     const connect = async () => {
       if (cancelled || connecting) return;
       connecting = true;
+      droppedWhileConnecting = false;
       forgetPermission();
       setStatus("connecting");
       if (!needsReconnect) setDetail(null);
       try {
         const joined = await invoke<JoinedProject>("overleaf_rt_connect", { projectRoot: connectingRoot });
         if (cancelled) return;
+        if (droppedWhileConnecting) {
+          // Another try, backing off further (as for a failed connect).
+          connecting = false;
+          scheduleReconnect(lastReason);
+          return;
+        }
         // The join answer carries the document ids, so live editing can start
         // without waiting on — or racing — the event of the same name.
         // Overleaf may not have named us yet; the `connected` event fills that

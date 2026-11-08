@@ -2739,6 +2739,10 @@ msgid "Build project"
 msgstr "Build project"
 
 #: src/build/build-log-messages.ts
+msgid "Build stopped after {minutes} minutes without finishing. Something in the document may be looping; the log below is how far it got."
+msgstr "Build stopped after {minutes} minutes without finishing. Something in the document may be looping; the log below is how far it got."
+
+#: src/build/build-log-messages.ts
 msgid "Build stopped after {seconds} s. The log below is how far it got."
 msgstr "Build stopped after {seconds} s. The log below is how far it got."
 
@@ -8131,6 +8135,10 @@ msgstr "Lattice couldn’t write {file}"
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 msgstr "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
+
+#: src/build/use-compile-repair.ts
+msgid "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
+msgstr "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
