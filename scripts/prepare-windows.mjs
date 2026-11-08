@@ -36,6 +36,9 @@ try {
     execFileSync("tar.exe", ["-xf", archive, "-C", output], { stdio: "inherit" });
     for (const file of item.files) cpSync(join(output, item.directory, file), join(root, "bin", file));
   }
+  const uvLicense = await fetch("https://raw.githubusercontent.com/astral-sh/uv/0.12.3/LICENSE-MIT");
+  if (!uvLicense.ok) throw new Error("Could not fetch the uv redistribution license");
+  writeFileSync(join(root, "bin/uv-LICENSE-MIT.txt"), await uvLicense.text());
   writeFileSync(join(root, "manifest.json"), JSON.stringify({ platform: "win32-x64", nodeVersion: "24.20.0", uvVersion: "0.12.3", agentAvailable: false }, null, 2));
   // Install the pinned formatter through pnpm so its own lock and integrity
   // checks apply; the Python bibliography tools find this launcher on PATH.

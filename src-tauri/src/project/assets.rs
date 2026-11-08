@@ -239,6 +239,7 @@ mod tests {
     use crate::project::pdf_copy::save_asset_copy;
     use crate::project::test_support::Fixture;
     use crate::project::tree::{read_file, scan_tree, TreeView};
+    use std::fs::OpenOptions;
 
     /// The preview `relative` reads as, with its inline bytes decoded.
     fn inline(root: &Path, relative: &str) -> (String, String, Vec<u8>) {

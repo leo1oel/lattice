@@ -1675,6 +1675,10 @@ msgstr "AI 助手正在修改，已答复 {0}/{1}"
 msgid "Agent isn’t available on Linux yet"
 msgstr "Linux 版暂不支持 AI 助手"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent isn’t available on Windows yet"
+msgstr "Windows 暂不支持内置智能体"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "AI 权限：{label}"
@@ -3044,6 +3048,7 @@ msgid "Check accent example"
 msgstr "抑扬符示例"
 
 #: src/app/project-index-load.ts
+#: src/build/tex-setup-wizard.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
@@ -5117,6 +5122,10 @@ msgstr "下载论文"
 #: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Download TeX Live"
+msgstr "下载 TeX Live"
 
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
@@ -7229,6 +7238,10 @@ msgstr "安装论文工具"
 msgid "Install required tools"
 msgstr "安装所需工具"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX. Research tools are included."
+msgstr "请安装 Windows 版 TeX Live，然后重新检查。未安装 LaTeX 也可以继续编辑。研究工具已随应用提供。"
+
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
 msgstr "正在安装 LaTeX…"
@@ -7831,6 +7844,10 @@ msgstr "Lattice 当前登录的是 {0}。要打开其他 Overleaf 服务器上�
 #: src/settings/settings-dialog.tsx
 msgid "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 msgstr "Linux 版 Lattice 不会自行更新。请到 GitHub 发布页下载新版本。"
+
+#: src/settings/settings-dialog.tsx
+msgid "Lattice on Windows doesn’t update itself. Download new versions from GitHub Releases."
+msgstr "Windows 版 Lattice 不会自动更新。请从 GitHub Releases 下载新版本。"
 
 #: src/overleaf/overleaf-collab.tsx
 msgctxt "comment source"
@@ -11555,6 +11572,10 @@ msgstr "高级匹配"
 #: src/project/project-replace-dialog.tsx
 msgid "Regular expression"
 msgstr "高级匹配（正则）"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Reinstall this Windows build to restore its bundled research tools."
+msgstr "请重新安装此 Windows 版本以恢复随附的研究工具。"
 
 #: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
@@ -15327,6 +15348,10 @@ msgstr "请更新 Lattice 后使用校对"
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
+msgstr "此 Windows 版本尚无法防止智能体直接编辑 .bib 文件。请在终端面板中使用 Claude Code 或 Codex。依赖内置智能体的功能暂不可用。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in the Lattice app."

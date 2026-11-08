@@ -54,3 +54,68 @@ jobs:
           path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 30
+
+  e2e:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
+        with:
+          name: Lattice-Windows-x64
+          path: installer
+      - uses: r-lib/actions/setup-tinytex@v2
+        env:
+          TINYTEX_INSTALLER: TinyTeX-1
+      - name: Install tutorial TeX packages
+        shell: pwsh
+        run: |
+          tlmgr install latexmk natbib lineno microtype booktabs mylatexformat
+          if ($LASTEXITCODE -ne 0) { throw 'TeX package install failed' }
+      - name: Install app and WebView2 driver
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem installer/*.exe | Select-Object -First 1).FullName
+          $appDir = Join-Path $env:RUNNER_TEMP 'Lattice Windows é'
+          $process = Start-Process -FilePath $setup -ArgumentList @('/S', "/D=$appDir") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+          $app = (Get-ChildItem "$appDir/*.exe" | Where-Object { $_.Name -notmatch '(?i)uninstall' } | Select-Object -First 1).FullName
+          if (!$app) { throw "Installed executable missing in $appDir" }
+          "LATTICE_TEST_APP=$app" >> $env:GITHUB_ENV
+          $webview = Get-ChildItem 'C:/Program Files (x86)/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (!$webview) { throw 'WebView2 runtime is missing after installation' }
+          $edge = $webview.VersionInfo.ProductVersion
+          Invoke-WebRequest "https://msedgedriver.microsoft.com/$edge/edgedriver_win64.zip" -OutFile "$env:RUNNER_TEMP/edgedriver.zip"
+          Expand-Archive "$env:RUNNER_TEMP/edgedriver.zip" "$env:RUNNER_TEMP/edgedriver"
+          cargo install tauri-driver --version 2.1.0 --locked
+          if ($LASTEXITCODE -ne 0) { throw 'tauri-driver installation failed' }
+      - name: Exercise the installed app
+        shell: pwsh
+        run: |
+          $driver = Start-Process tauri-driver -ArgumentList @('--native-driver', "$env:RUNNER_TEMP/edgedriver/msedgedriver.exe") -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/driver.log" -RedirectStandardError "$env:RUNNER_TEMP/driver-error.log"
+          try {
+            for ($attempt = 0; $attempt -lt 100; $attempt++) {
+              try { Invoke-RestMethod http://127.0.0.1:4444/status | Out-Null; break } catch { Start-Sleep -Milliseconds 200 }
+            }
+            node scripts/windows-e2e.mjs --app "$env:LATTICE_TEST_APP" --artifacts "$env:RUNNER_TEMP/evidence"
+            if ($LASTEXITCODE -ne 0) { throw 'Windows application checks failed' }
+          } finally {
+            Stop-Process -Id $driver.Id -ErrorAction SilentlyContinue
+          }
+      - name: Collect evidence and logs
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP/evidence" | Out-Null
+          Copy-Item "$env:RUNNER_TEMP/driver*.log" "$env:RUNNER_TEMP/evidence" -ErrorAction SilentlyContinue
+          Copy-Item "$env:LOCALAPPDATA/app.lattice.windows/logs" "$env:RUNNER_TEMP/evidence/app-logs" -Recurse -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-test-evidence
+          path: ${{ runner.temp }}/evidence
+          retention-days: 30

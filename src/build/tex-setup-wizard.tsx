@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   isOnlyPaperToolsMissing,
   missingTexToolNames,
@@ -49,6 +50,28 @@ export function TexSetupWizard(props: {
   if (!props.open) return null;
 
   const busy = props.checking || installing;
+
+  if (/Windows NT/.test(navigator.userAgent)) {
+    return (
+      <TexInstallDialog
+        label={t`Install LaTeX tools`}
+        title={paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}
+        description={paperToolsOnly
+          ? t`Reinstall this Windows build to restore its bundled research tools.`
+          : t`Install TeX Live for Windows, then check again. You can keep editing without LaTeX. Research tools are included.`}
+        closeDisabled={false}
+        onClose={props.onClose}
+        progress={null}
+        error={null}
+      >
+        <div className="modal-actions">
+          <Button variant="ghost" onClick={props.onClose}>{t`Install later`}</Button>
+          <Button disabled={props.checking} onClick={() => void props.onRecheck()}>{t`Check again`}</Button>
+          {!paperToolsOnly && <Button variant="primary" onClick={() => void openUrl("https://tug.org/texlive/windows.html")}>{t`Download TeX Live`}</Button>}
+        </div>
+      </TexInstallDialog>
+    );
+  }
 
   const startInstall = async () => {
     setInstalling(true);

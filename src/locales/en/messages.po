@@ -1675,6 +1675,10 @@ msgstr "Agent is revising, {0} of {1} answered"
 msgid "Agent isn’t available on Linux yet"
 msgstr "Agent isn’t available on Linux yet"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent isn’t available on Windows yet"
+msgstr "Agent isn’t available on Windows yet"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
@@ -3044,6 +3048,7 @@ msgid "Check accent example"
 msgstr "Check accent example"
 
 #: src/app/project-index-load.ts
+#: src/build/tex-setup-wizard.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
@@ -5117,6 +5122,10 @@ msgstr "Download paper"
 #: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "Download PDF"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Download TeX Live"
+msgstr "Download TeX Live"
 
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
@@ -7229,6 +7238,10 @@ msgstr "Install required paper tools"
 msgid "Install required tools"
 msgstr "Install required tools"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX. Research tools are included."
+msgstr "Install TeX Live for Windows, then check again. You can keep editing without LaTeX. Research tools are included."
+
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
 msgstr "Installing BasicTeX…"
@@ -7831,6 +7844,10 @@ msgstr "Lattice is signed in to {0}. To open projects from another Overleaf serv
 #: src/settings/settings-dialog.tsx
 msgid "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 msgstr "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
+
+#: src/settings/settings-dialog.tsx
+msgid "Lattice on Windows doesn’t update itself. Download new versions from GitHub Releases."
+msgstr "Lattice on Windows doesn’t update itself. Download new versions from GitHub Releases."
 
 #: src/overleaf/overleaf-collab.tsx
 msgctxt "comment source"
@@ -11555,6 +11572,10 @@ msgstr "Regex"
 #: src/project/project-replace-dialog.tsx
 msgid "Regular expression"
 msgstr "Regular expression"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Reinstall this Windows build to restore its bundled research tools."
+msgstr "Reinstall this Windows build to restore its bundled research tools."
 
 #: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
@@ -15327,6 +15348,10 @@ msgstr "This version of the agent runtime cannot proofread yet. Update Lattice t
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
+
+#: src/agent/synara-loading-surface.tsx
+msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
+msgstr "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in the Lattice app."

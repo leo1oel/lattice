@@ -104,7 +104,8 @@ fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
             writer.add_directory(format!("{name}/"), options).map_err(err)?;
         } else if !excluded_file(name)
             && build_pdf.as_deref() != Some(entry.path())
-            && crate::platform_fs::path_identity(entry.path()).map_err(err)? != archive
+            && crate::platform_fs::identity(&File::open(entry.path()).map_err(err)?).map_err(err)?
+                != archive
         {
             writer.start_file(name, options).map_err(err)?;
             io::copy(&mut File::open(entry.path()).map_err(err)?, &mut writer).map_err(err)?;

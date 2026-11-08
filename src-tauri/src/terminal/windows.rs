@@ -24,7 +24,8 @@ pub(crate) struct Session {
     root: PathBuf,
     name: String,
     pid: Option<u32>,
-    master: Mutex<Box<dyn MasterPty + Send>>,
+    job: Arc<crate::platform_windows::ProcessJob>,
+    master: Arc<Mutex<Option<Box<dyn MasterPty + Send>>>>,
     input: mpsc::Sender<Vec<u8>>,
     killer: Arc<Mutex<Box<dyn ChildKiller + Send + Sync>>>,
     stop: Arc<AtomicBool>,
@@ -35,7 +36,7 @@ pub(crate) struct Session {
 pub(crate) struct Hangup {
     killer: Arc<Mutex<Box<dyn ChildKiller + Send + Sync>>>,
     exit: Arc<(Mutex<bool>, Condvar)>,
-    pid: Option<u32>,
+    job: Arc<crate::platform_windows::ProcessJob>,
 }
 
 fn size(cols: u16, rows: u16) -> PtySize {
@@ -63,6 +64,15 @@ impl Session {
             .map_err(|error| format!("Could not start a shell: {error}"))?;
         drop(pair.slave);
         let pid = child.process_id();
+        let job =
+            match pid.and_then(|pid| crate::platform_windows::ProcessJob::for_process(pid).ok()) {
+                Some(job) => Arc::new(job),
+                None => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err("Could not supervise the Windows terminal process tree.".into());
+                }
+            };
         let killer = Arc::new(Mutex::new(child.clone_killer()));
         let mut reader = pair.master.try_clone_reader().map_err(|error| error.to_string())?;
         let mut writer = pair.master.take_writer().map_err(|error| error.to_string())?;
@@ -81,8 +91,10 @@ impl Session {
         let reader_output = output.clone();
         let read_thread = std::thread::spawn(move || {
             let mut bytes = vec![0; 64 * 1024];
-            while !reader_stop.load(Ordering::Acquire) {
-                while reader_unread.load(Ordering::Acquire) > 2 * 1024 * 1024
+            let mut page_alive = true;
+            loop {
+                while page_alive
+                    && reader_unread.load(Ordering::Acquire) > 2 * 1024 * 1024
                     && !reader_stop.load(Ordering::Acquire)
                 {
                     std::thread::sleep(Duration::from_millis(5));
@@ -90,39 +102,32 @@ impl Session {
                 match reader.read(&mut bytes) {
                     Ok(0) | Err(_) => break,
                     Ok(count) => {
-                        reader_unread.fetch_add(count, Ordering::AcqRel);
-                        if reader_output
-                            .send(InvokeResponseBody::Raw(bytes[..count].to_vec()))
-                            .is_err()
-                        {
-                            break;
+                        if page_alive {
+                            reader_unread.fetch_add(count, Ordering::AcqRel);
+                            page_alive = reader_output
+                                .send(InvokeResponseBody::Raw(bytes[..count].to_vec()))
+                                .is_ok();
                         }
                     }
                 }
             }
         });
+        let master = Arc::new(Mutex::new(Some(pair.master)));
+        let child_master = Arc::clone(&master);
+        let child_job = Arc::clone(&job);
         let (child_exit, child_stop) = (Arc::clone(&exit), Arc::clone(&stop));
         std::thread::spawn(move || {
             let status = child.wait().ok().map(|status| status.exit_code());
             *child_exit.0.lock().unwrap_or_else(PoisonError::into_inner) = true;
             child_exit.1.notify_all();
             child_stop.store(true, Ordering::Release);
+            child_job.terminate();
+            drop(child_master.lock().unwrap_or_else(PoisonError::into_inner).take());
             let _ = read_thread.join();
             let _ = output
                 .send(InvokeResponseBody::Json(serde_json::json!({"exit": status}).to_string()));
         });
-        Ok(Self {
-            window,
-            root,
-            name,
-            pid,
-            master: Mutex::new(pair.master),
-            input,
-            killer,
-            stop,
-            unread,
-            exit,
-        })
+        Ok(Self { window, root, name, pid, job, master, input, killer, stop, unread, exit })
     }
 
     pub(crate) fn window(&self) -> &str {
@@ -141,6 +146,8 @@ impl Session {
         self.master
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .ok_or_else(|| "This terminal has closed.".to_string())?
             .resize(size(cols, rows))
             .map_err(|error| error.to_string())
     }
@@ -157,7 +164,7 @@ impl Session {
     }
     pub(crate) fn hang_up(self) -> Hangup {
         self.stop.store(true, Ordering::Release);
-        let hangup = Hangup { killer: self.killer, exit: self.exit, pid: self.pid };
+        let hangup = Hangup { killer: self.killer, exit: self.exit, job: self.job };
         hangup.kill();
         hangup
     }
@@ -169,10 +176,8 @@ impl Session {
 
 impl Hangup {
     fn kill(&self) {
+        self.job.terminate();
         if !*self.exit.0.lock().unwrap_or_else(PoisonError::into_inner) {
-            if let Some(pid) = self.pid {
-                crate::platform_windows::terminate_tree(pid);
-            }
             let _ = self.killer.lock().unwrap_or_else(PoisonError::into_inner).kill();
         }
     }

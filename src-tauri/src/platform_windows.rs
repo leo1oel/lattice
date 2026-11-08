@@ -2,6 +2,61 @@
 use std::ffi::OsStr;
 use std::process::Command;
 
+/// A terminal and all of its descendants die when the app exits, including
+/// an abnormal exit. Windows automatically closes our last job handle.
+pub(crate) struct ProcessJob(std::os::windows::io::OwnedHandle);
+
+impl ProcessJob {
+    pub(crate) fn for_process(pid: u32) -> std::io::Result<Self> {
+        use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+        use windows_sys::Win32::System::Threading::{
+            OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE,
+        };
+        // SAFETY: each non-null kernel handle is immediately placed in an
+        // OwnedHandle, and the information buffer matches its declared class.
+        unsafe {
+            let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+            if job.is_null() {
+                return Err(std::io::Error::last_os_error());
+            }
+            let job = OwnedHandle::from_raw_handle(job);
+            let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+            limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            if SetInformationJobObject(
+                job.as_raw_handle(),
+                JobObjectExtendedLimitInformation,
+                (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+                std::mem::size_of_val(&limits) as u32,
+            ) == 0
+            {
+                return Err(std::io::Error::last_os_error());
+            }
+            let process = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid);
+            if process.is_null() {
+                return Err(std::io::Error::last_os_error());
+            }
+            let process = OwnedHandle::from_raw_handle(process);
+            if AssignProcessToJobObject(job.as_raw_handle(), process.as_raw_handle()) == 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(Self(job))
+        }
+    }
+
+    pub(crate) fn terminate(&self) {
+        use std::os::windows::io::AsRawHandle;
+        // SAFETY: this is a live job owned by this object.
+        unsafe {
+            windows_sys::Win32::System::JobObjects::TerminateJobObject(self.0.as_raw_handle(), 1);
+        }
+    }
+}
+
 pub(crate) fn valid_name(name: &OsStr) -> bool {
     let name = name.to_string_lossy();
     if name.is_empty()

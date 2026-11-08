@@ -22,6 +22,9 @@ struct EnvironmentChanged {
 }
 
 pub(super) fn read_login_shell() -> ShellRead {
+    #[cfg(windows)]
+    return Ok(std::env::vars().filter(|(name, _)| environment::is_inherited(name)).collect());
+    #[cfg(not(windows))]
     shell_env::read(
         &crate::terminal::login_shell(),
         shell_env::SHELL_TIMEOUT,

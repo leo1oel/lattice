@@ -316,6 +316,11 @@ installed packages cannot answer.
 - **The `@pierre/trees` patch** (`patches/@pierre__trees@1.0.0-beta.6.patch`). The package's own terms are now attributed (Apache-2.0). The patch is a modification, and Apache-2.0 §4(b) requires modified files to carry prominent notices of the change; whether the patch satisfies that has not been checked.
 - **Univer's commercial tier** (`@univerjs/*`). Every Univer package in the tree declares Apache-2.0 and is attributed in the generated section. Univer is also marketed with a commercial tier, so confirm that the Apache-2.0 packages Lattice actually depends on are the whole story and that no feature in use falls under separate terms.
 
+
+## Windows port additions
+
+The Windows port also uses portable-pty 0.9 (MIT, Wez Furlong), cap-std 3 (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT, the cap-std project), and windows-sys 0.61 (MIT OR Apache-2.0, Microsoft/windows-rs contributors). Their license files are distributed with the source crates. The Windows build bundles Node.js 24.20.0 with its LICENSE file and uv/uvx 0.12.3 (MIT OR Apache-2.0, Astral), in addition to the existing upstream JavaScript formatter and presentation runtime.
+
 <!-- BEGIN GENERATED NOTICES — do not edit below this line -->
 
 # Generated third-party notices

@@ -109,3 +109,36 @@ fn history_pruning_keeps_latest_json_and_unrelated_files() {
     assert!(root.0.join("history/03.json").is_file());
     assert!(root.0.join("history/04.json").is_file());
 }
+
+#[test]
+fn closing_a_terminal_job_terminates_its_descendants() {
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE,
+    };
+    let root = Fixture::new();
+    let marker = root.0.join("child-pid.txt");
+    let script = format!("Start-Sleep -Milliseconds 500; $child = Start-Process powershell.exe -ArgumentList '-NoProfile','-Command','Start-Sleep 60' -WindowStyle Hidden -PassThru; [IO.File]::WriteAllText('{}', [string]$child.Id); Start-Sleep 60", marker.display().to_string().replace('\'', "''"));
+    let mut command = std::process::Command::new("powershell.exe");
+    platform_windows::configure(&mut command);
+    let mut child = command.args(["-NoProfile", "-Command", &script]).spawn().unwrap();
+    let job = platform_windows::ProcessJob::for_process(child.id()).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let pid = loop {
+        if let Ok(Some(pid)) =
+            fs::read_to_string(&marker).map(|value| value.trim().parse::<u32>().ok())
+        {
+            break pid;
+        }
+        assert!(std::time::Instant::now() < deadline, "PowerShell did not start the descendant");
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    };
+    // Keep the descendant handle open so PID reuse cannot make the check lie.
+    let descendant = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+    assert!(!descendant.is_null());
+    let descendant = unsafe { OwnedHandle::from_raw_handle(descendant) };
+    drop(job);
+    assert_eq!(unsafe { WaitForSingleObject(descendant.as_raw_handle(), 5000) }, WAIT_OBJECT_0);
+    let _ = child.wait();
+}

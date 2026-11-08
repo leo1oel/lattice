@@ -639,7 +639,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           <SettingsRow
             data-setting="version"
             label={t`Version`}
-            description={/Windows NT/.test(navigator.userAgent) ? "Cette version Windows se met à jour manuellement depuis GitHub Releases." : t`Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases.`}
+            description={/Windows NT/.test(navigator.userAgent) ? t`Lattice on Windows doesn’t update itself. Download new versions from GitHub Releases.` : t`Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases.`}
           >
             <Button variant="ghost" size="compact" onClick={() => void openUrl(/Windows NT/.test(navigator.userAgent) ? "https://github.com/LucasDavidTPE/lattice_w/releases/latest" : LATEST_RELEASE_URL)}>
               {t`GitHub Releases`} <ExternalLink size={12} />

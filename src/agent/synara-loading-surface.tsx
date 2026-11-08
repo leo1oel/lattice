@@ -84,8 +84,8 @@ function SynaraUnsupportedNotice() {
         <ShieldOff size={17} />
       </span>
       <div className="synara-loading-copy">
-        <strong>{/Windows NT/.test(navigator.userAgent) ? "Agent intégré indisponible sur Windows" : t`Agent isn’t available on Linux yet`}</strong>
-        <p>{/Windows NT/.test(navigator.userAgent) ? "La protection des fichiers .bib utilise une API macOS qui n’existe pas sous Windows. Vous pouvez utiliser Claude Code ou Codex dans le panneau Terminal. Les fonctions qui dépendent de l’agent intégré sont indisponibles." : t`On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming.`}</p>
+        <strong>{/Windows NT/.test(navigator.userAgent) ? t`Agent isn’t available on Windows yet` : t`Agent isn’t available on Linux yet`}</strong>
+        <p>{/Windows NT/.test(navigator.userAgent) ? t`This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable.` : t`On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming.`}</p>
       </div>
     </div>
   );
