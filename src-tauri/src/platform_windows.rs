@@ -66,10 +66,23 @@ pub(crate) fn valid_name(name: &OsStr) -> bool {
         return false;
     }
     let stem = name.split('.').next().unwrap_or_default().to_ascii_uppercase();
-    !matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-        && !(stem.len() == 4
-            && (stem.starts_with("COM") || stem.starts_with("LPT"))
-            && matches!(stem.as_bytes()[3], b'1'..=b'9'))
+    !matches!(
+        stem.as_str(),
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "CONIN$"
+            | "CONOUT$"
+            | "COM¹"
+            | "COM²"
+            | "COM³"
+            | "LPT¹"
+            | "LPT²"
+            | "LPT³"
+    ) && !(stem.len() == 4
+        && (stem.starts_with("COM") || stem.starts_with("LPT"))
+        && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
 pub(crate) fn configure(command: &mut Command) {

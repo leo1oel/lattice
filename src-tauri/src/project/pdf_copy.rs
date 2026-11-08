@@ -61,14 +61,14 @@ fn copy_checked_version(
         Err(error) => return Err(err(error)),
     };
     if let Some(existing) = &existing {
+        if !existing.is_file() {
+            return Err("Choose a file to save the PDF to.".to_string());
+        }
         // Saved over itself, it already holds this version.
         if crate::platform_fs::path_identity(&destination).map_err(err)?
             == crate::platform_fs::identity(&file).map_err(err)?
         {
             return saved_to;
-        }
-        if !existing.is_file() {
-            return Err("Choose a file to save the PDF to.".to_string());
         }
     }
 

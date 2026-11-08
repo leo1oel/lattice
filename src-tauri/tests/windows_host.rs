@@ -42,6 +42,7 @@ fn saves_replace_existing_bytes_and_refuse_traversal_and_windows_aliases() {
         "\\\\server\\share\\file",
         "file.tex:stream",
         "NUL.tex",
+        "COM¹.tex",
         "COM1",
         "file.tex.",
         "file.tex ",
