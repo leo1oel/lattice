@@ -387,6 +387,7 @@ mod tests {
 
     /// #658: latexdiff ran on for half an hour after its export was left.
     /// Closing the project, or quitting, kills it.
+    #[cfg(unix)]
     #[test]
     fn closing_the_project_or_quitting_stops_its_export_with_changes_marked() {
         let folder = crate::test_support::TempDir::new("changes-export-close");
@@ -433,6 +434,7 @@ mod tests {
 
     /// The comparison closing after its window switched projects still
     /// stops the export it left; naming a project nobody has creates nothing.
+    #[cfg(unix)]
     #[test]
     fn cancelling_an_export_needs_no_window_on_its_project() {
         let folder = crate::test_support::TempDir::new("changes-export-cancel");
@@ -451,6 +453,7 @@ mod tests {
         assert!(!state.projects.lock().unwrap().contains_key(unknown));
     }
 
+    #[cfg(unix)]
     #[test]
     fn closing_the_last_window_on_a_project_stops_its_build() {
         use std::os::unix::process::CommandExt;

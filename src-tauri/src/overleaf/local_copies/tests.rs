@@ -147,7 +147,7 @@ fn folders_remembered_at_once_are_all_kept() {
 
 #[test]
 fn display_paths_use_the_home_folder_as_a_tilde() {
-    let home = PathBuf::from(std::env::var_os("HOME").unwrap());
+    let home = crate::host_paths::home_dir().unwrap();
     assert_eq!(display_path(&home.join("Papers/Native VLM")), "~/Papers/Native VLM");
     assert_eq!(display_path(Path::new("/Volumes/Work/Paper")), "/Volumes/Work/Paper");
 }

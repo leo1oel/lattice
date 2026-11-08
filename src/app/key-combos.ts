@@ -5,9 +5,8 @@
  * `Mod+Shift+Enter`, App's commands), so a sheet built from those keymaps
  * draws what they actually bind.
  *
- * Lattice is a macOS app (its browser host runs on the same Mac), so a
- * combination is always drawn with the Mac glyphs, ⌘ first, the way the rest
- * of the interface writes them: ⌘⇧J, ⌘⌥P.
+ * Windows uses Ctrl/Alt/Shift labels; existing Mac/browser combinations
+ * keep their compact glyphs.
  */
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names and glyphs, not interface copy */
@@ -51,14 +50,15 @@ const SHIFTED_SYMBOLS = new Set([..."?{}|:\"<>+_~!@#$%^&*()"]);
 export function comboKeys(combo: KeyCombo): string[] {
   // A letter is drawn in capitals, as on the keycap; a named key (F8) too.
   const key = KEY_GLYPHS[combo.key.toLowerCase()] ?? (combo.key.length === 1 || /^f\d+$/i.test(combo.key) ? combo.key.toUpperCase() : combo.key);
+  const windows = /Windows NT/.test(navigator.userAgent);
   return [
-    ...(combo.ctrl ? ["⌃"] : []),
-    ...(combo.mod ? ["⌘"] : []),
-    ...(combo.alt ? ["⌥"] : []),
-    ...(combo.shift && !SHIFTED_SYMBOLS.has(combo.key) ? ["⇧"] : []),
+    ...(combo.ctrl ? [windows ? "Ctrl" : "⌃"] : []),
+    ...(combo.mod ? [windows ? "Ctrl" : "⌘"] : []),
+    ...(combo.alt ? [windows ? "Alt" : "⌥"] : []),
+    ...(combo.shift && !SHIFTED_SYMBOLS.has(combo.key) ? [windows ? "Shift" : "⇧"] : []),
     key,
   ];
 }
 
 /** `combo` written as one string, as the palette and menus show it: "⌘⇧J". */
-export const comboText = (combo: KeyCombo) => comboKeys(combo).join("");
+export const comboText = (combo: KeyCombo) => comboKeys(combo).join(/Windows NT/.test(navigator.userAgent) ? "+" : "");

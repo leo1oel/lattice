@@ -67,7 +67,9 @@ pub(crate) struct ScratchBibliography {
 impl ScratchBibliography {
     pub(crate) fn new(prefix: &str, contents: Option<&str>) -> Result<Self, String> {
         let dir = std::env::temp_dir().join(format!("{prefix}-{}", Uuid::new_v4()));
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        let mut builder = builder;
         #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
         builder.create(&dir).map_err(err)?;

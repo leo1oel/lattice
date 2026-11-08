@@ -34,9 +34,9 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { isCompileSetupMissing, missingPaperToolNames } from "../build/tex-setup";
 import type { TexSetup } from "../app/use-tex-setup";
 import {
-  GET_STARTED_STEPS, getStartedProgress, markGetStartedStep, skipGetStartedStep, type GetStartedStepId,
+  getStartedProgress, markGetStartedStep, skipGetStartedStep, type GetStartedStepId,
 } from "./get-started-progress";
-import { GET_STARTED, type GetStartedStep, type ShowMeContext } from "./get-started-steps";
+import { getStartedSteps, type GetStartedStep, type ShowMeContext } from "./get-started-steps";
 import "./get-started.css";
 
 const CLAUDE_CODE_URL = "https://github.com/anthropics/claude-code";
@@ -67,7 +67,7 @@ function openLink(url: string) {
 
 /** Shortcuts in a sentence (⌘S, ⌘⇧K) drawn as keys. */
 function withKeys(text: string): ReactNode[] {
-  return text.split(/([⌘⇧⌥⌃]+[A-Z0-9])/u).map((part, index) => (index % 2
+  return text.split(/([⌘⇧⌥⌃]+[A-Z0-9]|Ctrl(?:\+(?:Shift|Alt))?\+[A-Z0-9])/u).map((part, index) => (index % 2
     ? <kbd key={index} className="get-started-keys">{part}</kbd>
     : part));
 }
@@ -179,11 +179,13 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
     void runDoctor();
   }, [checking, report, runDoctor]);
 
-  const done = new Set<GetStartedStepId>(progress.done);
+  const steps = getStartedSteps();
+  const stepIds = steps.map((step) => step.id);
+  const done = new Set<GetStartedStepId>(progress.done.filter((step) => stepIds.includes(step)));
   if (texReady) done.add("latex");
   else if (report && isCompileSetupMissing(report)) done.delete("latex");
   const skipped = new Set(progress.skipped);
-  const current = GET_STARTED_STEPS.find((step) => !done.has(step) && !skipped.has(step)) ?? null;
+  const current = stepIds.find((step) => !done.has(step) && !skipped.has(step)) ?? null;
   // A row opened by hand stays open until another step gets done.
   const expanded = open && open.seen === done.size ? open.step : current;
   const allDone = current === null;
@@ -296,16 +298,16 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
         <p className="checklist-verdict">{allDone ? t`You’re ready to write` : t`Your first paper in Lattice`}</p>
         <div className="checklist-progress">
           <span className="checklist-track" aria-hidden="true">
-            {GET_STARTED_STEPS.map((step) => <span key={step} data-state={done.has(step) ? "ok" : "none"} />)}
+            {stepIds.map((step) => <span key={step} data-state={done.has(step) ? "ok" : "none"} />)}
           </span>
           <span className="checklist-progress-count">
-            <span aria-hidden="true">{`${done.size}/${GET_STARTED_STEPS.length}`}</span>
-            <span className="sr-only">{t`${done.size} of ${GET_STARTED_STEPS.length} steps done`}</span>
+            <span aria-hidden="true">{`${done.size}/${stepIds.length}`}</span>
+            <span className="sr-only">{t`${done.size} of ${stepIds.length} steps done`}</span>
           </span>
         </div>
       </div>
       <ol className="get-started-steps">
-        {GET_STARTED.map((step, index) => {
+        {steps.map((step, index) => {
           const isDone = done.has(step.id);
           const isOpen = expanded === step.id;
           const value = valueOf(step.id);

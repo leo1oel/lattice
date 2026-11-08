@@ -462,6 +462,13 @@ fn project_relative(root: &Path, cwd: &Path, path: &str) -> Option<String> {
 
 /// `path` as a `/`-separated path inside `root`, if it is one.
 fn relative_parts(root: &Path, path: &Path) -> Option<String> {
+    // Canonical Windows paths have a verbatim prefix, while TeX's recorder
+    // and the lexical fallback for a deleted file use ordinary drive/UNC paths.
+    #[cfg(windows)]
+    let (root, path) = (
+        PathBuf::from(crate::host_paths::tex_path(root)),
+        PathBuf::from(crate::host_paths::tex_path(path)),
+    );
     let relative = path.strip_prefix(root).ok()?;
     let parts: Option<Vec<&str>> = relative
         .components()
@@ -520,9 +527,10 @@ fn left_out(
         let Some(path) = entry.path().strip_prefix(root).ok().and_then(Path::to_str) else {
             continue;
         };
-        if files.contains_key(path)
-            || merged.contains(path)
-            || written.contains(path)
+        let path = path.replace('\\', "/");
+        if files.contains_key(&path)
+            || merged.contains(&path)
+            || written.contains(&path)
             || BUILD_OUTPUT_SUFFIXES.iter().any(|suffix| path.ends_with(suffix))
         {
             continue;

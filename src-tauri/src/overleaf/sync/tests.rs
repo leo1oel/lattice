@@ -1,5 +1,3 @@
-mod link_safety;
-
 use super::*;
 use crate::overleaf::link::{load_state, state_path};
 use crate::overleaf::review::HistoryFrom;
@@ -972,3 +970,5 @@ fn sync_failures_are_classified_with_a_fix() {
     );
     assert_eq!(classify_sync_error(&upload("Could not reach Overleaf: reset")).kind, "network");
 }
+
+mod link_safety;

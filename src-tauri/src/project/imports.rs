@@ -109,7 +109,11 @@ pub fn import_assets(
         let destination = available_path(&target, file_name, true, &BTreeSet::new());
         fs::copy(source, &destination).map_err(err)?;
         imported.push(
-            destination.strip_prefix(&canonical_root).map_err(err)?.to_string_lossy().to_string(),
+            destination
+                .strip_prefix(&canonical_root)
+                .map_err(err)?
+                .to_string_lossy()
+                .replace('\\', "/"),
         );
     }
     Ok(imported)

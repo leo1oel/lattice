@@ -7,5 +7,6 @@
  */
 export function updatesItself(): boolean {
   const userAgent = navigator.userAgent;
+  if (/\bWindows NT\b/.test(userAgent)) return false;
   return !/\bLinux\b/.test(userAgent) || /\bAndroid\b/.test(userAgent);
 }

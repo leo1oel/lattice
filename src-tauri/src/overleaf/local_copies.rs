@@ -88,11 +88,10 @@ pub fn remember_local_copy(config_dir: &Path, root: &Path) {
 }
 
 fn display_path(path: &Path) -> String {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    match home.as_deref().and_then(|home| path.strip_prefix(home).ok()) {
-        Some(rest) if rest.as_os_str().is_empty() => "~".to_string(),
-        Some(rest) => format!("~/{}", rest.display()),
-        None => path.display().to_string(),
+    let shown = path.to_string_lossy().replace('\\', "/");
+    match crate::host_paths::home_dir() {
+        Some(home) => crate::host_paths::redact_home(&shown, &home.to_string_lossy()),
+        None => shown,
     }
 }
 

@@ -59,7 +59,7 @@ impl Search<'_> {
                 continue;
             }
             let relative = relative.to_string_lossy().replace('\\', "/");
-            if !self.file_id.is_empty() && file_identity(&metadata) == self.file_id {
+            if !self.file_id.is_empty() && file_identity(&path) == self.file_id {
                 return Ok(Some(relative));
             }
             // Only a file of the same length is read.

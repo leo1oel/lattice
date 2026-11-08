@@ -19,5 +19,19 @@ fn main() {
         Ok("beta") => println!("cargo:rustc-cfg=lattice_beta"),
         Ok(other) => panic!("LATTICE_FLAVOR={other:?}: the only flavor is \"beta\""),
     }
-    tauri_build::build()
+    let mut attributes = tauri_build::Attributes::default();
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
+        && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+    {
+        // Tauri embeds its Common Controls v6 manifest only in application
+        // binaries. The libtest harness also imports rfd's TaskDialogIndirect;
+        // without that activation context it fails to load before any test runs.
+        // Let MSVC embed the same dependency in every linked executable instead
+        // of adding a second, conflicting manifest resource to the application.
+        attributes = attributes
+            .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest());
+        println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+        println!("cargo:rustc-link-arg=/MANIFESTDEPENDENCY:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'");
+    }
+    tauri_build::try_build(attributes).expect("failed to build Tauri resources")
 }

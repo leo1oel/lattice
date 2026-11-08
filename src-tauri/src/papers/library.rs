@@ -573,7 +573,7 @@ mod tests {
         let project = TestProject::new("");
         let papers = project.root.join(".research/papers");
         fs::create_dir_all(papers.join("archive")).unwrap();
-        std::os::unix::fs::symlink(&papers, papers.join("archive/loop")).unwrap();
+        crate::test_support::symlink(&papers, papers.join("archive/loop")).unwrap();
         assert!(cached_bundles(&project.root).unwrap().is_empty());
     }
 

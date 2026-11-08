@@ -176,6 +176,8 @@ pub(crate) fn bibcite_output_cancellable(
     in_new_process_group(command);
 
     let mut child = command.spawn().map_err(|error| format!("could not start bibcite: {error}"))?;
+    let _process_group =
+        super::track_process_group(&mut child).map_err(|error| error.to_string())?;
     let deadline = Instant::now() + timeout;
     loop {
         let error = match child.try_wait() {
@@ -209,7 +211,7 @@ pub(crate) fn bibcite_output_cancellable(
 }
 
 fn terminate_bibcite(child: &mut std::process::Child) {
-    super::signal_process_group(child.id(), libc::SIGKILL);
+    super::signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -223,7 +225,10 @@ impl BibciteCapture {
     fn new() -> Result<Self, String> {
         let path = env::temp_dir()
             .join(format!("lattice-bibcite-output-{}", uuid::Uuid::new_v4().simple()));
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        let mut builder = builder;
+        #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
         builder.create(&path).map_err(|error| error.to_string())?;
         Ok(Self { path })
@@ -296,13 +301,18 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
     app_cache_dir("arxiv2md", "/tmp/research-writer-arxiv2md-cache")
 }
 
-pub(crate) fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
+pub(crate) fn app_cache_dir(name: &str, _without_home: &str) -> PathBuf {
+    #[cfg(windows)]
+    return super::app_support_dir()
+        .map(|root| root.join("cache").join(name))
+        .unwrap_or_else(|| std::env::temp_dir().join(name));
+    #[cfg(not(windows))]
     match env::var_os("HOME") {
         Some(home) => PathBuf::from(home)
             .join("Library/Caches")
             .join(crate::app_identity::identifier())
             .join(name),
-        None => PathBuf::from(without_home),
+        None => PathBuf::from(_without_home),
     }
 }
 
@@ -424,8 +434,8 @@ mod tests {
 
     /// The process whose pid is in `pid_file` must be gone within two seconds.
     fn assert_descendant_exits(pid_file: &std::path::Path, message: &str) {
-        let pid: i32 = fs::read_to_string(pid_file).unwrap().parse().unwrap();
-        let alive = || unsafe { libc::kill(pid, 0) } == 0;
+        let pid: u32 = fs::read_to_string(pid_file).unwrap().parse().unwrap();
+        let alive = || crate::test_support::process_alive(pid);
         let deadline = Instant::now() + Duration::from_secs(2);
         while alive() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(10));

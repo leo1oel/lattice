@@ -15,10 +15,10 @@ fn a_path_no_sync_reads_is_left_alone_and_not_reported_as_edited() {
     .serve();
     let config = link_to(&server, &root, &[("main.tex", b"body")], &[("main.tex", b"body")]);
     fs::write(shared.join("refs.bib"), "@book{shared}").unwrap();
-    std::os::unix::fs::symlink(shared.join("refs.bib"), disk_path(&root, "refs.bib")).unwrap();
+    crate::test_support::symlink(shared.join("refs.bib"), disk_path(&root, "refs.bib")).unwrap();
     fs::create_dir_all(disk_path(&root, "fig/plot.png")).unwrap();
     shared.write("figures/a.png", b"\x89PNG shared");
-    std::os::unix::fs::symlink(shared.join("figures"), disk_path(&root, "figures")).unwrap();
+    crate::test_support::symlink(shared.join("figures"), disk_path(&root, "figures")).unwrap();
 
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
     assert!(result.edited_during_sync.is_empty());

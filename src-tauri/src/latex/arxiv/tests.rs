@@ -30,7 +30,7 @@ fn built_project(label: &str) -> Fixture {
     let root = fixture.root.canonicalize().unwrap();
     let recorder = format!(
         "PWD {root}\nINPUT /usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls\nINPUT main.tex\nOUTPUT main.log\nINPUT ./main.aux\nOUTPUT main.aux\nINPUT sections/intro.tex\nINPUT {root}/figures/plot.pdf\nINPUT neurips.sty\nINPUT main.bbl\nINPUT .research/notes.md\nINPUT figures/deleted.pdf\nOUTPUT main.pdf\n",
-        root = root.display()
+        root = crate::host_paths::tex_path(&root)
     );
     fixture.write("main.fls", recorder);
     fixture

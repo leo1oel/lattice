@@ -134,3 +134,18 @@ describe("tex setup wizard helpers", () => {
     expect(screen.getByRole("button", { name: "Install Basic TeX (1 GB)" })).toBeEnabled();
   });
 });
+
+
+it("on Windows, links to TeX Live and lets the user keep editing without running the macOS installer", async () => {
+  const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+  try {
+    tauri.invoke.mockClear();
+    const { onClose, onRecheck } = renderWizard(report(check("latexmk", false)));
+    expect(screen.getByRole("button", { name: "Download TeX Live" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    expect(onRecheck).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Install later" }));
+    expect(onClose).toHaveBeenCalled();
+    expect(tauri.invoke).not.toHaveBeenCalledWith("start_tex_install", expect.anything());
+  } finally { userAgent.mockRestore(); }
+});

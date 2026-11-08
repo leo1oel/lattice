@@ -121,7 +121,7 @@ fn transaction_rolls_back_files_written_before_a_later_write_fails() {
     let outside = Fixture::empty("transaction-rollback-outside");
     fixture.write("first.tex", "first before");
     outside.write("second.tex", "second before");
-    std::os::unix::fs::symlink(outside.path("second.tex"), fixture.path("second.tex")).unwrap();
+    crate::test_support::symlink(outside.path("second.tex"), fixture.path("second.tex")).unwrap();
 
     let two = edits(&[("first.tex", "first after"), ("second.tex", "second after")]);
     assert!(apply_transaction(&fixture.root, "Edit two files", two).is_err());
@@ -136,7 +136,7 @@ fn legacy_and_unchanged_history_records_are_read_without_rewriting_them() {
     let record = |id: &str, label: &str, before: &str| {
         format!(
             r#"{{"id": "{id}", "label": "{label}", "timestamp": "2026-07-29T12:00:00Z",
-                "changes": [{{"path":"main.tex","before":"{before}","after":"new"}}]}}"#
+            "changes": [{{"path":"main.tex","before":"{before}","after":"new"}}]}}"#
         )
     };
     fixture.write(

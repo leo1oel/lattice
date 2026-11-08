@@ -1,4 +1,5 @@
 use super::*;
+#[cfg(unix)]
 use crate::commands;
 use crate::papers::library::{list_papers, read_paper, read_paper_blog_local};
 #[cfg(unix)]
@@ -153,14 +154,14 @@ fn resolver_never_receives_existing_citations_or_controls_duplicate_keys() {
     let path = parent.write("references.bib", before);
     let tool = parent.join("bibcite");
     write_test_tool(&tool, concat!(
-            "#!/bin/sh\nset -eu\n",
-            "if grep -q diao2026pixels \"$3\" 2>/dev/null; then\n",
-            "  echo '{\"key\":\"diao2026pixels\",\"action\":\"exists\",\"source\":\"arxiv\"}'\n",
-            "else\n",
-            "  echo '@misc{diao2025pixels, title={Native Vision-Language Primitives}, author={Haiwen Diao}, year={2025}, doi={10.1234/primitives}, eprint={2510.14979v2}}' > \"$3\"\n",
-            "  echo '{\"key\":\"diao2025pixels\",\"action\":\"added\",\"source\":\"arxiv\"}'\n",
-            "fi\n",
-        ));
+        "#!/bin/sh\nset -eu\n",
+        "if grep -q diao2026pixels \"$3\" 2>/dev/null; then\n",
+        "  echo '{\"key\":\"diao2026pixels\",\"action\":\"exists\",\"source\":\"arxiv\"}'\n",
+        "else\n",
+        "  echo '@misc{diao2025pixels, title={Native Vision-Language Primitives}, author={Haiwen Diao}, year={2025}, doi={10.1234/primitives}, eprint={2510.14979v2}}' > \"$3\"\n",
+        "  echo '{\"key\":\"diao2025pixels\",\"action\":\"added\",\"source\":\"arxiv\"}'\n",
+        "fi\n",
+    ));
     let _bibcite = ToolOverride::set(&commands::BIBCITE, &tool);
     let output = add_citation(&path, "10.1234/primitives", &AtomicBool::new(false)).unwrap();
     let bibliography = fs::read_to_string(&path).unwrap();
@@ -197,7 +198,7 @@ fn conflicting_doi_resolution_never_commits_a_different_paper() {
 fn duplicate_pdf_url_reuses_complete_version_equivalent_cache_without_resolution() {
     let _lock = tool_lock();
     let bibliography =
-            "@article{vaswani2017attention, title={Attention Is All You Need}, eprint={1706.03762v7}}\n";
+        "@article{vaswani2017attention, title={Attention Is All You Need}, eprint={1706.03762v7}}\n";
     let project = TestProject::new(bibliography);
     let markdown = "Title: Attention Is All You Need\n";
     let title = "Attention Is All You Need".to_string();
@@ -276,18 +277,19 @@ fn a_committed_citation_survives_a_failed_or_cancelled_full_text_download() {
 
 /// A complete one-page PDF, with asymmetric title/body and enough text to
 /// distinguish successful conversion from an empty placeholder.
+#[cfg(unix)]
 fn one_page_pdf() -> Vec<u8> {
     let stream = format!(
         "BT /F1 22 Tf 50 750 Td (Direct PDF Study) Tj /F1 12 Tf {} ET",
         "0 -18 Td (Evidence from the imported report remains readable.) Tj ".repeat(8)
     );
     let objects = [
-            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>".to_string(),
-            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
-            format!("<< /Length {} >>\nstream\n{stream}\nendstream", stream.len()),
-        ];
+        "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>".to_string(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
+        format!("<< /Length {} >>\nstream\n{stream}\nendstream", stream.len()),
+    ];
     let mut pdf = "%PDF-1.4\n".to_string();
     let mut offsets = Vec::new();
     for (index, object) in objects.iter().enumerate() {

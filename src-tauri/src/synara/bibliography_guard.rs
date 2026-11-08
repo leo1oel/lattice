@@ -83,7 +83,7 @@ mod tests {
         let (replacement, renamed, alias) =
             (path("replacement.tmp"), path("renamed.tmp"), path("alias.txt"));
         let (bib_alias, hardlink_alias) = (path("alias.bib"), path("hardlink.txt"));
-        std::os::unix::fs::symlink(&bibliography, &alias).expect("symlink to bibliography");
+        crate::test_support::symlink(&bibliography, &alias).expect("symlink to bibliography");
 
         let attempts: [(&str, &[&PathBuf]); 9] = [
             ("printf changed >> \"$1\"", &[&bibliography]),

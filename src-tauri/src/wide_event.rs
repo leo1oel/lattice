@@ -60,7 +60,7 @@ pub type Classify = fn(&str) -> Failure;
 /// Install the subscriber that turns operation spans into wide events and
 /// forwards every other `tracing` event to `log`. Call once, at startup.
 pub fn init() {
-    let home = std::env::var("HOME").ok();
+    let home = crate::host_paths::home_dir().map(|path| path.to_string_lossy().into_owned());
     let subscriber = tracing_subscriber::registry().with(WideEvents::new(Arc::new(LogSink), home));
     // Only fails when a subscriber is already installed, which leaves that one in charge.
     let _ = tracing::subscriber::set_global_default(subscriber);
@@ -295,7 +295,7 @@ pub(crate) fn scrub(text: &str, root: Option<&str>, home: Option<&str>) -> Strin
         text = text.replace(&format!("{root}/"), "").replace(root, ".");
     }
     if let Some(home) = home.filter(|home| home.len() > 1) {
-        text = text.replace(home, "~");
+        text = crate::host_paths::redact_home(&text, home);
     }
     for (pattern, replacement) in SECRETS.iter() {
         if let std::borrow::Cow::Owned(masked) = pattern.replace_all(&text, *replacement) {

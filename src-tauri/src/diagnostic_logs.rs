@@ -167,7 +167,7 @@ pub(crate) mod tests {
 
         let outside = TempDir::new("diagnostic");
         outside.write("secret.log", "secret");
-        std::os::unix::fs::symlink(&*outside, root.join("linked")).unwrap();
+        crate::test_support::symlink(&*outside, root.join("linked")).unwrap();
         let error = read_allowed_tail(&root, &root.join("linked/secret.log")).unwrap_err();
         assert!(error.contains("outside"));
     }

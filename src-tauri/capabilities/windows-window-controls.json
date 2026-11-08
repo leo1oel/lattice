@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "windows-window-controls",
+  "description": "F11 fullscreen for native Windows workspace windows only.",
+  "platforms": ["windows"],
+  "windows": ["main", "project-*"],
+  "permissions": ["core:window:allow-set-fullscreen"]
+}

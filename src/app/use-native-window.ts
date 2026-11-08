@@ -45,9 +45,15 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
       // Chained, so a runtime without the monitor API lands in the catch too.
       void Promise.resolve().then(() => currentMonitor()).then((monitor) => {
         if (!active) return;
-        const screenWidth = monitor ? monitor.workArea.size.width / monitor.scaleFactor : Infinity;
+        const windows = /Windows NT/.test(navigator.userAgent);
+        // Win32 workArea includes the frame and caption, while setMinSize
+        // takes client dimensions. A too-tall minimum prevents maximizing on
+        // laptops with display scaling, even though the layout can shrink.
+        const screenWidth = monitor ? monitor.workArea.size.width / monitor.scaleFactor - (windows ? 16 : 0) : Infinity;
+        const screenHeight = monitor ? monitor.workArea.size.height / monitor.scaleFactor - (windows ? 48 : 0) : Infinity;
         const width = minimumWindowWidth({ layoutMinWidth: layoutMin, interfaceScale, screenWidth });
-        return appWindow.setMinSize(new LogicalSize(width, APP_WINDOW_MIN_HEIGHT));
+        const height = windows && Number.isFinite(screenHeight) ? Math.max(1, Math.min(APP_WINDOW_MIN_HEIGHT, Math.floor(screenHeight))) : APP_WINDOW_MIN_HEIGHT;
+        return appWindow.setMinSize(new LogicalSize(width, height));
       }).catch(() => {
         // Browser previews and older desktop capabilities may not expose this.
       });
@@ -108,6 +114,23 @@ export function useFullscreen(): boolean {
       stop();
     };
   }, []);
+  useEffect(() => {
+    if (!/Windows NT/.test(navigator.userAgent)) return;
+    const appWindow = getCurrentWindowSafely();
+    if (typeof appWindow?.setFullscreen !== "function") return;
+    const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+      if (event.key === "F11") {
+        event.preventDefault();
+        void appWindow.isFullscreen().then(value => appWindow.setFullscreen(!value)).catch(() => {});
+      } else if (event.key === "Escape" && isFullscreen) {
+        event.preventDefault();
+        void appWindow.setFullscreen(false).catch(() => {});
+      }
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [isFullscreen]);
   return isFullscreen;
 }
 

@@ -66,7 +66,7 @@ pub fn is_running(active: &ActiveBuild) -> bool {
 
 /// latexmk and every pass it starts share the process group made at spawn.
 fn terminate(pid: u32) {
-    commands::signal_process_group(pid, libc::SIGTERM);
+    commands::signal_process_group(pid, crate::commands::TERM_SIGNAL);
 }
 
 /// Register an already-running process as this project's build.
@@ -101,6 +101,8 @@ pub(super) fn run_tracked(
 ) -> Result<(Output, bool), String> {
     commands::in_new_process_group(&mut command).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
+    let _process_group = commands::track_process_group(&mut child)
+        .map_err(|error| format!("{start_error}{error}"))?;
     let pid = child.id();
     if let Err(error) = begin_active(active, pid) {
         terminate(pid);

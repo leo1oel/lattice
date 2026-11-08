@@ -44,7 +44,7 @@ fn new_source_file(relative: &str) -> Result<(String, &'static str), String> {
         "Choose a supported source or configuration extension, such as .tex, .md, .py, .rs, .sh, .json, or .toml."
             .to_string()
     })?;
-    Ok((path.to_string_lossy().to_string(), seed))
+    Ok((path.to_string_lossy().replace('\\', "/"), seed))
 }
 
 const OPEN_SLIDE_DECK_SEED: &str = r#"import type { Page, SlideMeta } from '@open-slide/core';
@@ -121,7 +121,11 @@ pub fn rename_entry(root: &Path, relative: &str, new_name: &str) -> Result<Strin
         _ => requested_name.to_string(),
     };
     let parent = Path::new(relative).parent().unwrap_or_else(|| Path::new(""));
-    relocate_entry(root, relative, &parent.join(&normalized_name).to_string_lossy())
+    relocate_entry(
+        root,
+        relative,
+        &parent.join(&normalized_name).to_string_lossy().replace('\\', "/"),
+    )
 }
 
 pub fn move_entry(root: &Path, relative: &str, target_directory: &str) -> Result<String, String> {
@@ -137,7 +141,7 @@ pub fn move_entry(root: &Path, relative: &str, target_directory: &str) -> Result
         if !safe_path(root, target_directory)?.is_dir() {
             return Err("Choose an existing project folder.".to_string());
         }
-        Path::new(target_directory).join(file_name).to_string_lossy().to_string()
+        Path::new(target_directory).join(file_name).to_string_lossy().replace('\\', "/")
     };
     relocate_entry(root, relative, &destination_relative)
 }
@@ -212,7 +216,7 @@ fn remove_tex_build_artifacts(root: &Path, relative: &str) -> Result<(), String>
 fn renamed_relative_path(path: &str, old_path: &str, new_path: &str) -> String {
     match Path::new(path).strip_prefix(old_path) {
         Ok(suffix) if suffix.as_os_str().is_empty() => new_path.to_string(),
-        Ok(suffix) => Path::new(new_path).join(suffix).to_string_lossy().to_string(),
+        Ok(suffix) => Path::new(new_path).join(suffix).to_string_lossy().replace('\\', "/"),
         Err(_) => path.to_string(),
     }
 }

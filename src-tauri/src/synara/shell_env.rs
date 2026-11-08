@@ -5,21 +5,30 @@
 //! Only names `keep` accepts leave this module; the rest of the environment,
 //! and every value, stay out of logs.
 
+#[cfg(unix)]
 use crate::commands::{in_new_process_group, signal_process_group};
 use std::collections::BTreeMap;
+#[cfg(unix)]
 use std::io::Read;
+#[cfg(unix)]
 use std::path::Path;
+#[cfg(unix)]
 use std::process::{Command, Stdio};
+#[cfg(unix)]
 use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+#[cfg(unix)]
+use std::time::Instant;
 
 /// A heavy rc (oh-my-zsh, conda, nvm) takes a second or two; one that waits
 /// on a prompt or starts a multiplexer would never return.
+#[cfg(unix)]
 pub(super) const SHELL_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long output may keep arriving after the shell exits: a background
 /// job the rc started can hold the pipe open forever.
+#[cfg(unix)]
 const DRAIN_GRACE: Duration = Duration::from_millis(300);
 /// How long after launch the first read starts, so the rc files' own work
 /// stays out of Lattice's startup.
@@ -28,15 +37,19 @@ const PREFETCH_DELAY: Duration = Duration::from_secs(3);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ShellError {
     /// No answer within [`SHELL_TIMEOUT`].
+    #[cfg(any(unix, test))]
     Timeout,
     /// It could not start, or printed no environment.
+    #[cfg(unix)]
     Failed,
 }
 
 impl ShellError {
     pub(super) fn code(self) -> &'static str {
         match self {
+            #[cfg(any(unix, test))]
             Self::Timeout => "timeout",
+            #[cfg(unix)]
             Self::Failed => "failed",
         }
     }
@@ -46,6 +59,7 @@ pub(super) type ShellRead = Result<BTreeMap<String, String>, ShellError>;
 
 /// Run `shell` as an interactive login shell and return the variables `keep`
 /// accepts.
+#[cfg(unix)]
 pub(super) fn read(shell: &Path, timeout: Duration, keep: fn(&str) -> bool) -> ShellRead {
     // A marker the rc's own output (banners, `neofetch`) cannot contain, then
     // the environment NUL-separated, so values with newlines survive.
@@ -82,7 +96,7 @@ pub(super) fn read(shell: &Path, timeout: Duration, keep: fn(&str) -> bool) -> S
             Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
             result => {
                 // The group reaches whatever the rc started too.
-                signal_process_group(child.id(), libc::SIGKILL);
+                signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
                 let _ = child.kill();
                 let _ = child.wait();
                 return Err(if result.is_err() { ShellError::Failed } else { ShellError::Timeout });
@@ -95,6 +109,7 @@ pub(super) fn read(shell: &Path, timeout: Duration, keep: fn(&str) -> bool) -> S
 }
 
 /// The variables after `marker` in `env -0` output; `None` without it.
+#[cfg(unix)]
 fn parse(output: &[u8], marker: &str, keep: fn(&str) -> bool) -> Option<BTreeMap<String, String>> {
     let start = output.windows(marker.len()).position(|window| window == marker.as_bytes())?;
     let environment = &output[start + marker.len()..];
@@ -178,13 +193,17 @@ impl Prefetch {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use crate::test_support::TempDir;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
+    #[cfg(unix)]
     fn keep_proxy(name: &str) -> bool {
         name.ends_with("_PROXY")
     }
 
+    #[cfg(unix)]
     fn script(directory: &TempDir, body: &str) -> std::path::PathBuf {
         // Stands in for a login shell: ignores `-ilc`, runs its rc, then the
         // command it was given, exactly as `sh -c` would.
@@ -194,6 +213,7 @@ mod tests {
         path
     }
 
+    #[cfg(unix)]
     #[test]
     fn reads_only_kept_variables_past_the_rc_output() {
         let directory = TempDir::new("shell-env");
@@ -207,6 +227,7 @@ mod tests {
         assert!(!variables.contains_key("SECRET_TOKEN"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_shell_that_never_answers_times_out() {
         let directory = TempDir::new("shell-env-hang");

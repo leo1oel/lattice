@@ -631,7 +631,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           <SettingsRow
             data-setting="version"
             label={t`Version`}
-            description={t`Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases.`}
+            description={/Windows NT/.test(navigator.userAgent) ? t`Automatic updates aren’t available in this experimental Windows build.` : t`Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases.`}
           >
             <Button variant="ghost" size="compact" onClick={() => void openUrl(LATEST_RELEASE_URL)}>
               {t`GitHub Releases`} <ExternalLink size={12} />

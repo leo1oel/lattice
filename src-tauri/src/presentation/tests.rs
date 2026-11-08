@@ -6,9 +6,9 @@ fn startup_errors_prefer_the_child_process_cause() {
 Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@open-slide/core'\n\
 Node.js v24.20.0\n";
     assert_eq!(
-            startup_error_message("EOF while parsing a value", stderr),
-            "Open Slide startup failed: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@open-slide/core'"
-        );
+        startup_error_message("EOF while parsing a value", stderr),
+        "Open Slide startup failed: Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@open-slide/core'"
+    );
     assert_eq!(
         startup_error_message("EOF while parsing a value", ""),
         "Open Slide startup failed: EOF while parsing a value"
@@ -50,8 +50,7 @@ fn only_a_live_page_still_showing_the_project_keeps_its_lease() {
 /// Its Node executable does not exist, so any new launch fails at once.
 fn runtime_held_by_main(parent: &crate::test_support::TempDir) -> (PresentationRuntime, PathBuf) {
     let talk = fs::canonicalize(parent.join("talk")).unwrap();
-    let mut command = Command::new("sleep");
-    command.arg("60");
+    let mut command = crate::test_support::sleep_command(60);
     crate::commands::in_new_process_group(&mut command);
     let runtime = PresentationRuntime {
         node: NodeRuntime { executable: parent.join("missing/node") },
@@ -170,6 +169,7 @@ fn shadow_mirrors_every_file_a_deck_can_import_and_sees_later_ones() {
 
 #[test]
 fn shadow_sync_does_not_walk_unrelated_project_directories() {
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
     let parent = crate::test_support::TempDir::new("presentation-shadow");
@@ -178,9 +178,11 @@ fn shadow_sync_does_not_walk_unrelated_project_directories() {
     let unrelated = source.join("large-paper-cache");
     parent.write("project/slides/talk/index.tsx", "export default [];\n");
     fs::create_dir_all(&unrelated).unwrap();
+    #[cfg(unix)]
     fs::set_permissions(&unrelated, fs::Permissions::from_mode(0o000)).unwrap();
 
     let result = synchronize(&source, &shadow);
+    #[cfg(unix)]
     fs::set_permissions(&unrelated, fs::Permissions::from_mode(0o700)).unwrap();
     // Only an existing directory is a presentation project.
     assert!(scoped_root(source.join("slides/talk/index.tsx").to_str().unwrap()).is_err());
