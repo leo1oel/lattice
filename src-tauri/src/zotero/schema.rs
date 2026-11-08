@@ -20,11 +20,6 @@ pub struct ZoteroCollection {
     pub name: String,
     /// The collection it sits in, by key; None at the top.
     pub parent: Option<String>,
-    /// The items importing it brings in: those directly in it (not in its
-    /// subcollections), as `items` reads them.
-    pub items: u64,
-    /// Items in it or in any collection below it, each counted once.
-    pub total: u64,
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -35,6 +30,9 @@ pub struct ZoteroItem {
     pub citation_key: String,
     /// Its PDF attachment's item key, for `attachment_path`.
     pub pdf: Option<String>,
+    /// The collections it sits in directly (not through a subcollection), by
+    /// key.
+    pub collections: Vec<String>,
 }
 
 /// The items an import brings in, over `items i` joined to
@@ -86,53 +84,31 @@ fn check_schema(db: &Connection) -> Result<(), String> {
 
 pub(super) fn collections(db: &Connection) -> Result<Vec<ZoteroCollection>, String> {
     check_schema(db)?;
-    let deleted = table_exists(db, "deletedCollections");
     let mut statement = db
         .prepare(&format!(
-            "WITH RECURSIVE tree(rootID, collectionID) AS (
-                 SELECT collectionID, collectionID FROM collections WHERE libraryID = ?1
-                 UNION
-                 SELECT tree.rootID, c.collectionID FROM collections c
-                 JOIN tree ON c.parentCollectionID = tree.collectionID
-             ),
-             importable(collectionID, itemID) AS (
-                 SELECT ci.collectionID, ci.itemID FROM collectionItems ci
-                 JOIN items i ON i.itemID = ci.itemID
-                 JOIN itemTypesCombined t ON t.itemTypeID = i.itemTypeID
-                 WHERE {IMPORTABLE}
-             )
-             SELECT c.key, c.collectionName, p.key,
-                    (SELECT count(*) FROM importable WHERE importable.collectionID = c.collectionID),
-                    (SELECT count(DISTINCT importable.itemID) FROM tree
-                     JOIN importable ON importable.collectionID = tree.collectionID
-                     WHERE tree.rootID = c.collectionID {deleted_tree})
+            "SELECT c.key, c.collectionName, p.key
              FROM collections c LEFT JOIN collections p ON p.collectionID = c.parentCollectionID
              WHERE c.libraryID = ?1 {}
              ORDER BY lower(c.collectionName)",
-            if deleted {
-                "AND c.collectionID NOT IN (SELECT collectionID FROM deletedCollections)"
-            } else {
-                ""
-            },
-            deleted_tree = if deleted {
-                "AND tree.collectionID NOT IN (SELECT collectionID FROM deletedCollections)"
-            } else {
-                ""
-            },
+            live_collections(db, "c")
         ))
         .map_err(|e| e.to_string())?;
     let rows = statement
         .query_map(params![USER_LIBRARY], |row| {
-            Ok(ZoteroCollection {
-                key: row.get(0)?,
-                name: row.get(1)?,
-                parent: row.get(2)?,
-                items: row.get::<_, i64>(3)?.max(0) as u64,
-                total: row.get::<_, i64>(4)?.max(0) as u64,
-            })
+            Ok(ZoteroCollection { key: row.get(0)?, name: row.get(1)?, parent: row.get(2)? })
         })
         .map_err(|e| e.to_string())?;
     rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+}
+
+/// The condition that leaves out trashed collections, over `alias`; none when
+/// this Zotero has no collection trash.
+fn live_collections(db: &Connection, alias: &str) -> String {
+    if table_exists(db, "deletedCollections") {
+        format!("AND {alias}.collectionID NOT IN (SELECT collectionID FROM deletedCollections)")
+    } else {
+        String::new()
+    }
 }
 
 fn table_exists(db: &Connection, table: &str) -> bool {
@@ -145,16 +121,14 @@ fn table_exists(db: &Connection, table: &str) -> bool {
     .is_some()
 }
 
-/// Each top-level regular item of `collection` (the library when None), with
-/// the path of its PDF when the file is on this Mac. `base` is the directory
-/// linked `attachments:` files are relative to.
+/// Each top-level regular item of the library, with the collections it is in
+/// and the path of its PDF when the file is on this Mac. `base` is the
+/// directory linked `attachments:` files are relative to.
 ///
-/// Keys are assigned over the whole library, so an item has the same key
-/// whichever collection it is read from: every pinned key is taken first, then
-/// generated keys go out in itemID order.
+/// Every pinned key is taken first, then generated keys go out in itemID
+/// order, so a later item never takes a key an earlier one is cited by.
 pub(super) fn items(
     db: &Connection, better_bibtex: Option<&Connection>, data_dir: &Path, base: Option<&Path>,
-    collection: Option<&str>, include_subfolders: bool,
 ) -> Result<Vec<(ZoteroItem, Option<PathBuf>)>, String> {
     check_schema(db)?;
     let listed: Vec<(i64, String, String)> = db
@@ -169,31 +143,23 @@ pub(super) fn items(
         .map_err(|e| e.to_string())?
         .collect::<Result<_, _>>()
         .map_err(|e| e.to_string())?;
-    let chosen: Option<HashSet<i64>> = match collection {
-        None => None,
-        Some(collection) => Some(
-            db.prepare(&format!(
-                "WITH RECURSIVE tree(collectionID, depth) AS (
-                     SELECT collectionID, 0 FROM collections WHERE key = ?2 AND libraryID = ?1
-                     UNION
-                     SELECT c.collectionID, tree.depth + 1 FROM collections c
-                     JOIN tree ON c.parentCollectionID = tree.collectionID
-                     WHERE ?3 {}
-                 )
-                 SELECT ci.itemID FROM collectionItems ci JOIN tree USING (collectionID)",
-                if table_exists(db, "deletedCollections") {
-                    "AND c.collectionID NOT IN (SELECT collectionID FROM deletedCollections)"
-                } else {
-                    ""
-                }
-            ))
-            .map_err(|e| e.to_string())?
-            .query_map(params![USER_LIBRARY, collection, include_subfolders], |row| row.get(0))
-            .map_err(|e| e.to_string())?
-            .collect::<Result<_, _>>()
-            .map_err(|e| e.to_string())?,
-        ),
-    };
+    let mut memberships: HashMap<i64, Vec<String>> = HashMap::new();
+    let mut statement = db
+        .prepare(&format!(
+            "SELECT ci.itemID, c.key FROM collectionItems ci
+             JOIN collections c ON c.collectionID = ci.collectionID
+             WHERE c.libraryID = ?1 {}
+             ORDER BY ci.itemID, c.collectionID",
+            live_collections(db, "c")
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = statement
+        .query_map(params![USER_LIBRARY], |row| Ok((row.get::<_, i64>(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let (item, collection) = row.map_err(|e| e.to_string())?;
+        memberships.entry(item).or_default().push(collection);
+    }
     let better_bibtex_keys = better_bibtex.map(better_bibtex_keys).unwrap_or_default();
     let mut read = Vec::with_capacity(listed.len());
     for (id, key, item_type) in listed {
@@ -216,7 +182,7 @@ pub(super) fn items(
         .filter_map(|(.., pinned)| pinned.as_ref())
         .map(|key| key.to_lowercase())
         .collect();
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(read.len());
     for (id, item_type, fields, creators, pinned) in read {
         let record = Record { item_type: &item_type, fields: &fields, creators: &creators };
         let citation_key = pinned.unwrap_or_else(|| {
@@ -224,15 +190,13 @@ pub(super) fn items(
             taken.insert(key.to_lowercase());
             key
         });
-        if chosen.as_ref().is_some_and(|chosen| !chosen.contains(&id)) {
-            continue;
-        }
         let pdf = pdf_attachment(db, id, data_dir, base)?;
         out.push((
             ZoteroItem {
                 bibtex: bibtex::entry(&record, &citation_key),
                 citation_key,
                 pdf: pdf.as_ref().map(|(key, _)| key.clone()),
+                collections: memberships.remove(&id).unwrap_or_default(),
             },
             pdf.map(|(_, path)| path),
         ));

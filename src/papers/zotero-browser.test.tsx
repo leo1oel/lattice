@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PaperSummary } from "../app-types";
 import { AddPapersSheet } from "./add-papers-sheet";
 import type { ResolvedCitationDraft } from "./bib-entry-dialog";
-import { collectionTree, folderRows, type ZoteroCollection, type ZoteroItem } from "./zotero";
+import { collectionTree, folderCounts, folderItems, folderRows, type ZoteroCollection, type ZoteroItem, type ZoteroLibrary } from "./zotero";
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
@@ -18,31 +18,30 @@ afterEach(() => {
 
 const LONG_NAME = "Reading for chapter three: sparse attention, retrieval and long-context evaluation";
 const COLLECTIONS: ZoteroCollection[] = [
-  { key: "CHAP0003", name: LONG_NAME, parent: "THESIS01", items: 3, total: 3 },
-  { key: "THESIS01", name: "Thesis", parent: null, items: 1, total: 4 },
-  { key: "EMPTY001", name: "Empty", parent: null, items: 0, total: 0 },
-  { key: "ORPHAN01", name: "Orphan", parent: "GONE0001", items: 1, total: 1 },
+  { key: "CHAP0003", name: LONG_NAME, parent: "THESIS01" },
+  { key: "THESIS01", name: "Thesis", parent: null },
+  { key: "EMPTY001", name: "Empty", parent: null },
+  { key: "ORPHAN01", name: "Orphan", parent: "GONE0001" },
 ];
 const entry = (key: string, title: string, extra = "") => `@article{${key},\n  title = {${title}},\n  author = {Lee, Ada},\n  year = {2024}${extra}\n}`;
+// Sparse attention sits in Thesis and in its Chapter 3 both.
 const CHAPTER: ZoteroItem[] = [
-  { citationKey: "Lee2024Sparse", pdf: "PDF00001", bibtex: entry("Lee2024Sparse", "Sparse attention for long documents", ",\n  doi = {10.1000/sparse}") },
-  { citationKey: "lee_dense_2024", pdf: null, bibtex: entry("lee_dense_2024", "Dense retrieval for drafting") },
-  { citationKey: "vaswani2017attention", pdf: null, bibtex: entry("vaswani2017attention", "Attention Is All You Need", ",\n  eprint = {1706.03762}") },
+  { citationKey: "Lee2024Sparse", pdf: "PDF00001", collections: ["THESIS01", "CHAP0003"], bibtex: entry("Lee2024Sparse", "Sparse attention for long documents", ",\n  doi = {10.1000/sparse}") },
+  { citationKey: "lee_dense_2024", pdf: null, collections: ["CHAP0003"], bibtex: entry("lee_dense_2024", "Dense retrieval for drafting") },
+  { citationKey: "vaswani2017attention", pdf: null, collections: ["CHAP0003"], bibtex: entry("vaswani2017attention", "Attention Is All You Need", ",\n  eprint = {1706.03762}") },
 ];
-const THESIS: ZoteroItem[] = [{ citationKey: "gu_mamba_2023", pdf: null, bibtex: entry("gu_mamba_2023", "Mamba") }];
+const MAMBA: ZoteroItem = { citationKey: "gu_mamba_2023", pdf: null, collections: ["THESIS01"], bibtex: entry("gu_mamba_2023", "Mamba") };
+const LOOSE: ZoteroItem = { citationKey: "lee_loose_2024", pdf: null, collections: [], bibtex: entry("lee_loose_2024", "In no folder") };
 const DATA_DIR = "/Users/ada/Zotero";
-const LIBRARY = { dataDir: DATA_DIR, collections: COLLECTIONS };
+const LIBRARY: ZoteroLibrary = { dataDir: DATA_DIR, collections: COLLECTIONS, items: [...CHAPTER, MAMBA, LOOSE] };
 const IN_PAPERS = {
   arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Vaswani, Ashish", citationKey: "vaswani2017attention",
   hasFullText: true, hasBlog: false, assetPaths: [],
 } as PaperSummary;
 
-/** Zotero answering from LIBRARY: a folder's items, with its subfolders' when asked. */
-function zotero(command: string, args?: { collection?: string | null; includeSubfolders?: boolean }) {
-  if (command === "zotero_library") return Promise.resolve(LIBRARY);
-  if (args?.collection === "CHAP0003") return Promise.resolve(CHAPTER);
-  if (args?.collection === "THESIS01") return Promise.resolve(args.includeSubfolders ? [...THESIS, ...CHAPTER] : THESIS);
-  return Promise.resolve([]);
+/** Zotero answering with LIBRARY, its one read. */
+function zotero(command: string) {
+  return command === "zotero_library" ? Promise.resolve(LIBRARY) : Promise.reject(new Error(`unexpected ${command}`));
 }
 
 function sheet(onAdd = vi.fn()) {
@@ -78,6 +77,22 @@ describe("Zotero folder rows", () => {
   });
 });
 
+describe("Zotero folder contents", () => {
+  const keys = (items: ZoteroItem[]) => items.map((item) => item.citationKey);
+
+  it("lists a folder's own papers, or with its subfolders every paper below it once", () => {
+    expect(keys(folderItems(LIBRARY, "THESIS01", false))).toEqual(["Lee2024Sparse", "gu_mamba_2023"]);
+    expect(keys(folderItems(LIBRARY, "THESIS01", true))).toEqual(["Lee2024Sparse", "lee_dense_2024", "vaswani2017attention", "gu_mamba_2023"]);
+    expect(keys(folderItems(LIBRARY, "EMPTY001", true))).toEqual([]);
+    expect(keys(folderItems(LIBRARY, "", false))).toHaveLength(5);
+  });
+
+  it("counts each folder as it lists it", () => {
+    expect(Object.fromEntries(folderCounts(LIBRARY, false))).toEqual({ CHAP0003: 3, THESIS01: 2, EMPTY001: 0, ORPHAN01: 0 });
+    expect(Object.fromEntries(folderCounts(LIBRARY, true))).toEqual({ CHAP0003: 3, THESIS01: 4, EMPTY001: 0, ORPHAN01: 0 });
+  });
+});
+
 describe("Add papers from Zotero", () => {
   it("adds exactly the ticked papers of a folder, each with its PDF, and never one Papers holds", async () => {
     invoke.mockImplementation(zotero);
@@ -87,7 +102,6 @@ describe("Add papers from Zotero", () => {
     expect(folderNames()).toEqual(["My Library", "Thesis", LONG_NAME, "Empty", "Orphan"]);
 
     openFolder(LONG_NAME);
-    expect(invoke).toHaveBeenLastCalledWith("zotero_items", { dataDir: DATA_DIR, collection: "CHAP0003", includeSubfolders: false });
     const list = await screen.findByRole("list", { name: LONG_NAME });
     expect(within(list).getAllByRole("checkbox")).toHaveLength(3);
     const held = screen.getByRole("checkbox", { name: "Attention Is All You Need" });
@@ -105,6 +119,7 @@ describe("Add papers from Zotero", () => {
       { id: "zotero:Lee2024Sparse", input: CHAPTER[0].bibtex, label: "Sparse attention for long documents", pdf: "PDF00001" },
       { id: "zotero:lee_dense_2024", input: CHAPTER[1].bibtex, label: "Dense retrieval for drafting", pdf: undefined },
     ]);
+    expect(invoke.mock.calls).toEqual([["zotero_library", { dataDir: null }]]);
   });
 
   it("says an empty folder is empty, with nothing to add", async () => {
@@ -123,14 +138,17 @@ describe("Add papers from Zotero", () => {
     sheet();
     await screen.findByRole("tree", { name: "Zotero folders" });
     const count = () => inTree().getByTitle("Thesis").closest("button")!.querySelector(".zotero-count")?.textContent;
-    expect(count()).toBe("1");
+    expect(count()).toBe("2");
     openFolder("Thesis");
     expect(await screen.findAllByRole("checkbox", { name: "Mamba" })).toHaveLength(1);
     expect(screen.queryByRole("checkbox", { name: "Dense retrieval for drafting" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("switch", { name: "Include subfolders" }));
-    expect(await screen.findByRole("checkbox", { name: "Dense retrieval for drafting" })).toBeInTheDocument();
-    expect(invoke).toHaveBeenLastCalledWith("zotero_items", { dataDir: DATA_DIR, collection: "THESIS01", includeSubfolders: true });
+    const list = screen.getByRole("list", { name: "Thesis" });
+    expect(within(list).getAllByRole("checkbox").map((box) => box.getAttribute("aria-label"))).toEqual([
+      "Sparse attention for long documents", "Dense retrieval for drafting", "Attention Is All You Need", "Mamba",
+    ]);
     expect(count()).toBe("4");
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 
   it("finds papers in the folder by title", async () => {
@@ -142,6 +160,31 @@ describe("Add papers from Zotero", () => {
     await screen.findByRole("list", { name: LONG_NAME });
     fireEvent.change(screen.getByRole("searchbox", { name: "Search papers" }), { target: { value: "dense" } });
     expect(within(screen.getByRole("list", { name: LONG_NAME })).getAllByRole("checkbox").map((box) => box.getAttribute("aria-label"))).toEqual(["Dense retrieval for drafting"]);
+  });
+
+  it("selects all of the papers a search shows, and adds those ticked in every folder", async () => {
+    invoke.mockImplementation(zotero);
+    const onAdd = sheet();
+    await screen.findByRole("tree", { name: "Zotero folders" });
+    openFolder("Thesis");
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Mamba" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Thesis" }));
+    openFolder(LONG_NAME);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search papers" }), { target: { value: "dense" } });
+    const selectAll = screen.getByRole("checkbox", { name: "Select all" });
+    fireEvent.click(selectAll);
+    expect(screen.getByRole("status")).toHaveTextContent("2 papers selected");
+    fireEvent.click(selectAll);
+    expect(screen.getByRole("status")).toHaveTextContent("1 paper selected");
+    fireEvent.click(selectAll);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search papers" }), { target: { value: "" } });
+    expect(screen.getByRole("checkbox", { name: "Dense retrieval for drafting" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Sparse attention for long documents" })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Add 2 papers" }));
+    expect(onAdd).toHaveBeenCalledWith([
+      { id: "zotero:gu_mamba_2023", input: MAMBA.bibtex, label: "Mamba", pdf: undefined },
+      { id: "zotero:lee_dense_2024", input: CHAPTER[1].bibtex, label: "Dense retrieval for drafting", pdf: undefined },
+    ]);
   });
 
   it("steps back with Escape: the folders first, then the paste box", async () => {
@@ -167,33 +210,28 @@ describe("Add papers from Zotero", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("tree", { name: "Zotero folders" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledTimes(2);
   });
 
   it("reads a library kept in a folder the writer chooses", async () => {
     invoke.mockRejectedValueOnce("Lattice couldn't find a Zotero library on this Mac.")
-      .mockImplementation((command: string, args?: { collection?: string | null }) => (command === "zotero_library"
-        ? Promise.resolve({ dataDir: "/Volumes/Research/Zotero", collections: COLLECTIONS })
-        : zotero(command, args)));
+      .mockImplementation(() => Promise.resolve({ ...LIBRARY, dataDir: "/Volumes/Research/Zotero" }));
     openDialog.mockResolvedValue("/Volumes/Research/Zotero");
     sheet();
     fireEvent.click(await screen.findByRole("button", { name: "Choose Zotero folder…" }));
     expect(await screen.findByRole("tree", { name: "Zotero folders" })).toBeInTheDocument();
     expect(invoke).toHaveBeenLastCalledWith("zotero_library", { dataDir: "/Volumes/Research/Zotero" });
     openFolder("Thesis");
-    expect(invoke).toHaveBeenLastCalledWith("zotero_items", { dataDir: "/Volumes/Research/Zotero", collection: "THESIS01", includeSubfolders: false });
+    expect(await screen.findByRole("checkbox", { name: "Mamba" })).toBeInTheDocument();
   });
 
   it("drops a read that lands after Back, keeping what was typed since", async () => {
-    let finish: (items: ZoteroItem[]) => void = () => {};
-    invoke.mockImplementation((command: string) => (command === "zotero_library"
-      ? Promise.resolve(LIBRARY)
-      : new Promise<ZoteroItem[]>((resolve) => { finish = resolve; })));
+    let finish: (library: ZoteroLibrary) => void = () => {};
+    invoke.mockImplementation(() => new Promise<ZoteroLibrary>((resolve) => { finish = resolve; }));
     sheet();
-    await screen.findByRole("tree", { name: "Zotero folders" });
-    openFolder("Thesis");
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Paste references" }), { target: { value: "10.1000/typed" } });
-    await act(async () => { finish(THESIS); });
+    await act(async () => { finish(LIBRARY); });
     expect(screen.getByRole("textbox", { name: "Paste references" })).toHaveValue("10.1000/typed");
   });
 });

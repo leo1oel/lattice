@@ -13,7 +13,7 @@ export type PaperAddItem = {
   input: string;
   /** What the pending row names it by. */
   label: string;
-  /** The Zotero attachment whose PDF becomes its text (zotero-collections.tsx). */
+  /** The Zotero attachment whose PDF becomes its text (zotero-browser.tsx). */
   pdf?: string;
   state: "waiting" | "adding" | "added" | "failed" | "cancelled";
   citationKey?: string;

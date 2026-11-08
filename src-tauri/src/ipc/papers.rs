@@ -5,7 +5,7 @@ use crate::app_state::AppState;
 use crate::citation_health::CitationHealth;
 use crate::literature::LiteraturePage;
 use crate::papers::{ImportResult, PaperSummary, PaperTextMatch};
-use crate::zotero::{self, ZoteroItem, ZoteroLibrary};
+use crate::zotero::{self, ZoteroLibrary};
 use crate::{literature, paper_pdf_proxy, papers};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -200,27 +200,11 @@ pub async fn read_paper_blog_local(
         .await
 }
 
-/// The writer's Zotero library and its collections, read from a copy of
-/// its database (zotero.rs); `data_dir` is a folder the writer chose.
+/// The writer's Zotero library, its collections and its items, read from a
+/// copy of its database (zotero.rs); `data_dir` is a folder the writer chose.
 #[tauri::command]
 pub async fn zotero_library(data_dir: Option<String>) -> Result<ZoteroLibrary, String> {
     run_blocking("Zotero library", move || zotero::library(data_dir.as_deref())).await
-}
-
-/// The items of one Zotero collection (with its subfolders' when asked), or
-/// of the whole library, as BibTeX for the Add papers sheet.
-#[tauri::command]
-pub async fn zotero_items(
-    data_dir: Option<String>, collection: Option<String>, include_subfolders: Option<bool>,
-) -> Result<Vec<ZoteroItem>, String> {
-    run_blocking("Zotero items", move || {
-        zotero::items(
-            data_dir.as_deref(),
-            collection.as_deref(),
-            include_subfolders.unwrap_or(false),
-        )
-    })
-    .await
 }
 
 /// Make the Zotero attachment `attachment`'s PDF the text of the citation

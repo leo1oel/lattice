@@ -27,7 +27,7 @@ import { Switch } from "../components/ui/switch";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { hostErrorMessage } from "../app-utils";
 import { findInLibrary, parsePastedReferences } from "./paper-add";
-import { folderRows, type ZoteroItem, type ZoteroLibrary } from "./zotero";
+import { folderCounts, folderItems, folderRows, type ZoteroItem, type ZoteroLibrary } from "./zotero";
 
 /** A paper as its row shows it. */
 export type ZoteroPaper = {
@@ -40,11 +40,6 @@ export type ZoteroPaper = {
 
 /** "" stands for My Library, the whole library. */
 type FolderKey = string;
-
-type ListState =
-  | { state: "loading" }
-  | { state: "done"; items: ZoteroItem[] }
-  | { state: "failed"; error: string };
 
 type BrowserState = {
   library: ZoteroLibrary | null;
@@ -59,8 +54,6 @@ type BrowserState = {
   /** The folder in view; null before one is opened. */
   folder: FolderKey | null;
   includeSubfolders: boolean;
-  /** What each folder read answered, by `listKey`. */
-  lists: Readonly<Record<string, ListState>>;
   /** Ticked papers by citation key, kept across folders. */
   ticked: ReadonlyMap<string, ZoteroPaper>;
   /** In a narrow sheet, which pane shows. */
@@ -77,18 +70,15 @@ type BrowserAction =
   | { type: "paper-query"; query: string }
   | { type: "open"; folder: FolderKey }
   | { type: "subfolders"; on: boolean }
-  | { type: "list"; key: string; list: ListState }
   | { type: "tick"; papers: ZoteroPaper[]; on: boolean }
   | { type: "pane"; pane: "folders" | "papers" };
-
-const listKey = (folder: FolderKey, includeSubfolders: boolean) => `${folder}\u0000${folder && includeSubfolders ? 1 : 0}`;
 
 function browserReducer(state: BrowserState, action: BrowserAction): BrowserState {
   switch (action.type) {
     case "library": return { ...state, library: action.library, libraryError: null };
     case "library-failed": return { ...state, libraryError: action.error };
-    case "retry": return { ...state, library: null, libraryError: null, attempt: state.attempt + 1 };
-    case "chose-dir": return { ...state, chosenDir: action.dir, library: null, libraryError: null, lists: {}, ticked: new Map(), folder: null };
+    case "retry": return { ...state, library: null, libraryError: null, folder: null, attempt: state.attempt + 1 };
+    case "chose-dir": return { ...state, chosenDir: action.dir, library: null, libraryError: null, ticked: new Map(), folder: null };
     case "toggle": {
       const expanded = new Set(state.expanded);
       if (action.open ?? !expanded.has(action.key)) expanded.add(action.key);
@@ -99,7 +89,6 @@ function browserReducer(state: BrowserState, action: BrowserAction): BrowserStat
     case "paper-query": return { ...state, paperQuery: action.query };
     case "open": return { ...state, folder: action.folder, paperQuery: "", pane: "papers" };
     case "subfolders": return { ...state, includeSubfolders: action.on };
-    case "list": return { ...state, lists: { ...state.lists, [action.key]: action.list } };
     case "tick": {
       const ticked = new Map(state.ticked);
       for (const paper of action.papers) {
@@ -126,10 +115,12 @@ export function ZoteroBrowser(props: {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(browserReducer, {
     library: null, libraryError: null, chosenDir: null, attempt: 0, expanded: new Set<string>(), folderQuery: "",
-    paperQuery: "", folder: null, includeSubfolders: false, lists: {}, ticked: new Map(), pane: "folders",
+    paperQuery: "", folder: null, includeSubfolders: false, ticked: new Map(), pane: "folders",
   });
   const { library, folder, includeSubfolders, chosenDir, attempt } = state;
 
+  // One read of one snapshot each time the browser opens (and on Try again or
+  // a chosen folder); opening a folder filters it, without reading again.
   useEffect(() => {
     let current = true;
     invoke<ZoteroLibrary>("zotero_library", { dataDir: chosenDir }).then(
@@ -139,32 +130,23 @@ export function ZoteroBrowser(props: {
     return () => { current = false; };
   }, [attempt, chosenDir]);
 
-  // Read the folder in view once per folder and subfolder choice; a read that
-  // lands after the browser closed is dropped.
+  // A folder chosen after the browser closed is dropped.
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  const key = folder === null ? null : listKey(folder, includeSubfolders);
-  const list = key ? state.lists[key] : undefined;
-  useEffect(() => {
-    if (key === null || folder === null || list || !library) return;
-    dispatch({ type: "list", key, list: { state: "loading" } });
-    invoke<ZoteroItem[]>("zotero_items", { dataDir: library.dataDir, collection: folder || null, includeSubfolders: Boolean(folder) && includeSubfolders }).then(
-      (items) => { if (mounted.current) dispatch({ type: "list", key, list: { state: "done", items } }); },
-      (reason: unknown) => { if (mounted.current) dispatch({ type: "list", key, list: { state: "failed", error: hostErrorMessage(reason) } }); },
-    );
-  }, [folder, includeSubfolders, key, library, list]);
 
-  const papers: ZoteroPaper[] = useMemo(() => {
-    if (list?.state !== "done") return [];
-    return list.items.map((item) => {
-      const record = parsePastedReferences(item.bibtex)[0]?.record;
-      const title = record?.title || item.citationKey;
-      return { item, title, byline: record?.byline ?? "", existing: record ? findInLibrary(props.papers, record.identity) : undefined };
-    });
-  }, [list, props.papers]);
+  const counts = useMemo(() => (library ? folderCounts(library, includeSubfolders) : new Map<string, number>()), [library, includeSubfolders]);
+  const items: ZoteroItem[] = useMemo(
+    () => (library && folder !== null ? folderItems(library, folder, includeSubfolders) : []),
+    [library, folder, includeSubfolders],
+  );
+  const papers: ZoteroPaper[] = useMemo(() => items.map((item) => {
+    const record = parsePastedReferences(item.bibtex)[0]?.record;
+    const title = record?.title || item.citationKey;
+    return { item, title, byline: record?.byline ?? "", existing: record ? findInLibrary(props.papers, record.identity) : undefined };
+  }), [items, props.papers]);
   const needle = state.paperQuery.trim().toLocaleLowerCase();
   const shownPapers = needle
     ? papers.filter((paper) => `${paper.title} ${paper.byline} ${paper.item.citationKey}`.toLocaleLowerCase().includes(needle))
@@ -234,9 +216,7 @@ export function ZoteroBrowser(props: {
   );
 
   const paperList = () => {
-    if (folder === null) return <EmptyState className="zotero-empty" density="compact" title={t`Choose a folder`} />;
-    if (!list || list.state === "loading") return <div className="zotero-loading"><InfinityLoader size={16} /></div>;
-    if (list.state === "failed") return <p className="zotero-error" role="alert">{list.error}</p>;
+    if (folder === null || !library) return <EmptyState className="zotero-empty" density="compact" title={t`Choose a folder`} />;
     if (!papers.length) return <EmptyState className="zotero-empty" density="compact" title={t`No papers in this folder`} />;
     if (!shownPapers.length) return <EmptyState className="zotero-empty" density="compact" title={t`No matching papers`} />;
     return (
@@ -293,7 +273,7 @@ export function ZoteroBrowser(props: {
           ) : (
             <ul className="zotero-tree" role="tree" aria-label={t`Zotero folders`}>
               {!state.folderQuery.trim() && folderRow("", t`My Library`, null, 0)}
-              {rows.map((row) => folderRow(row.key, row.name, includeSubfolders ? row.total : row.items, row.depth + 1, row))}
+              {rows.map((row) => folderRow(row.key, row.name, counts.get(row.key) ?? 0, row.depth + 1, row))}
               {state.folderQuery.trim() && !rows.length && <li className="zotero-none">{t`No matching folders`}</li>}
             </ul>
           )}
@@ -312,7 +292,7 @@ export function ZoteroBrowser(props: {
               </label>
             )}
           </div>
-          {list?.state === "done" && papers.length > 0 && (
+          {papers.length > 0 && (
             <div className="zotero-papers-tools">
               <label className="zotero-select-all">
                 <Checkbox

@@ -32,13 +32,16 @@ pub use schema::{ZoteroCollection, ZoteroItem};
 const NOT_FOUND: &str = "Lattice couldn't find a Zotero library on this Mac.";
 const UNREADABLE: &str = "Lattice couldn't read the Zotero library: {}";
 
-/// The Zotero library Lattice found, as the picker shows it.
+/// The Zotero library Lattice found, as the browser shows it: one read of one
+/// snapshot, which the browser filters by folder itself.
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ZoteroLibrary {
     /// The data directory, which holds zotero.sqlite and storage/.
     pub data_dir: String,
     pub collections: Vec<ZoteroCollection>,
+    /// Every top-level regular item, as BibTeX under its citation key.
+    pub items: Vec<ZoteroItem>,
 }
 
 /// The PDFs the last read named, by attachment key, so `attachment_path`
@@ -181,21 +184,12 @@ impl Drop for Snapshot {
     }
 }
 
-/// The library and its collections.
+/// The library: its collections and its items, each item as BibTeX under its
+/// citation key.
 pub fn library(chosen: Option<&str>) -> Result<ZoteroLibrary, String> {
     let data_dir = data_dir(chosen)?;
     let snapshot = Snapshot::take(&data_dir, "zotero.sqlite")?;
     let collections = schema::collections(&snapshot.connection).map_err(unreadable)?;
-    Ok(ZoteroLibrary { data_dir: data_dir.to_string_lossy().into_owned(), collections })
-}
-
-/// The top-level items of the collection `collection` (by its Zotero key; the
-/// whole library when None), each as BibTeX under its citation key.
-pub fn items(
-    chosen: Option<&str>, collection: Option<&str>, include_subfolders: bool,
-) -> Result<Vec<ZoteroItem>, String> {
-    let data_dir = data_dir(chosen)?;
-    let snapshot = Snapshot::take(&data_dir, "zotero.sqlite")?;
     // Better BibTeX keeps its keys in a database of its own beside Zotero's.
     let better_bibtex = data_dir
         .join("better-bibtex.sqlite")
@@ -207,12 +201,10 @@ pub fn items(
         better_bibtex.as_ref().map(|snapshot| &snapshot.connection),
         &data_dir,
         support_dir().and_then(|support| attachment_base(&support)).as_deref(),
-        collection,
-        include_subfolders,
     )
     .map_err(unreadable)?;
     let mut pdfs = known_pdfs().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    Ok(read
+    let items = read
         .into_iter()
         .map(|(item, pdf)| {
             if let (Some(key), Some(path)) = (&item.pdf, pdf) {
@@ -220,7 +212,8 @@ pub fn items(
             }
             item
         })
-        .collect())
+        .collect();
+    Ok(ZoteroLibrary { data_dir: data_dir.to_string_lossy().into_owned(), collections, items })
 }
 
 /// Where the PDF attachment `key`, named by an earlier read, is on this Mac.

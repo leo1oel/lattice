@@ -148,6 +148,20 @@ fn library() -> Library {
     library
 }
 
+/// The items of one read, in itemID order.
+fn items(library: &Library) -> Vec<ZoteroItem> {
+    super::library(library.path()).unwrap().items
+}
+
+/// The citation keys of the items directly in `collection`.
+fn keys_in(items: &[ZoteroItem], collection: &str) -> Vec<String> {
+    items
+        .iter()
+        .filter(|item| item.collections.iter().any(|key| key == collection))
+        .map(|item| item.citation_key.clone())
+        .collect()
+}
+
 #[test]
 fn collections_come_from_a_copy_while_zotero_holds_the_database() {
     let library = library();
@@ -170,16 +184,8 @@ fn collections_come_from_a_copy_while_zotero_holds_the_database() {
                 key: "CHAP0003".into(),
                 name: "Chapter 3".into(),
                 parent: Some("THESIS01".into()),
-                items: 2,
-                total: 2,
             },
-            ZoteroCollection {
-                key: "THESIS01".into(),
-                name: "Thesis".into(),
-                parent: None,
-                items: 1,
-                total: 3,
-            },
+            ZoteroCollection { key: "THESIS01".into(), name: "Thesis".into(), parent: None },
         ]
     );
     // The live database is untouched: Zotero's connection still writes to it.
@@ -192,10 +198,18 @@ fn collections_come_from_a_copy_while_zotero_holds_the_database() {
 #[test]
 fn a_collection_reads_as_bibtex_under_the_keys_the_writer_cites() {
     let library = library();
-    let items = super::items(library.path(), Some("CHAP0003"), false).unwrap();
-    let keys: Vec<&str> = items.iter().map(|item| item.citation_key.as_str()).collect();
+    // A PDF key no other test reads: attachment keys are remembered process-wide.
+    library.item(18, 4, "JUMPPDF1", &[], &[]);
+    library
+        .live
+        .execute("INSERT INTO itemAttachments VALUES (18, 10, 1, 'application/pdf', 'storage:Jumper 2021.pdf')", [])
+        .unwrap();
+    library.dir.write("storage/JUMPPDF1/Jumper 2021.pdf", b"%PDF-1.4");
+    let all = items(&library);
     // The trashed item is left out; a key pinned in Extra is kept.
-    assert_eq!(keys, ["jumper_highly_2021", "devlin2019bert"]);
+    assert_eq!(keys_in(&all, "CHAP0003"), ["jumper_highly_2021", "devlin2019bert"]);
+    let items: Vec<&ZoteroItem> =
+        all.iter().filter(|item| item.collections == ["CHAP0003"]).collect();
     assert_eq!(
         items[0].bibtex,
         "@article{jumper_highly_2021,\n  title = {Highly accurate protein structure prediction with AlphaFold},\n  author = {Jumper, John and Evans, Richard},\n  journal = {Nature},\n  year = {2021},\n  volume = {596},\n  pages = {583--589},\n  doi = {10.1038/s41586-021-03819-2}\n}"
@@ -204,9 +218,10 @@ fn a_collection_reads_as_bibtex_under_the_keys_the_writer_cites() {
     assert!(items[1].bibtex.contains("  year = {2019}"), "{}", items[1].bibtex);
     // Its PDF is named by key, and only that key resolves to the file.
     assert_eq!(items[1].pdf.as_deref(), Some("PDF00001"));
+    assert_eq!(items[0].pdf.as_deref(), Some("JUMPPDF1"));
     assert_eq!(
-        attachment_path("PDF00001").unwrap(),
-        library.dir.join("storage/PDF00001/Devlin 2019 BERT.pdf")
+        attachment_path("JUMPPDF1").unwrap(),
+        library.dir.join("storage/JUMPPDF1/Jumper 2021.pdf")
     );
     assert!(attachment_path("NOPE0001").is_err());
 }
@@ -214,7 +229,7 @@ fn a_collection_reads_as_bibtex_under_the_keys_the_writer_cites() {
 #[test]
 fn the_whole_library_carries_arxiv_ids_and_zoteros_citation_key_field() {
     let library = library();
-    let items = super::items(library.path(), None, false).unwrap();
+    let items = items(&library);
     let by_key: HashMap<&str, &ZoteroItem> =
         items.iter().map(|item| (item.citation_key.as_str(), item)).collect();
     assert_eq!(items.len(), 4, "{:?}", by_key.keys());
@@ -236,11 +251,7 @@ fn better_bibtex_keys_come_first() {
         CREATE TABLE citationkey (itemID INT, itemKey TEXT, libraryID INT, citationKey TEXT, pinned INT);
         INSERT INTO citationkey VALUES (10, 'ALPHA001', 1, 'Jumper2021AlphaFold', 0), (12, 'RESNET01', 1, 'HeResNet', 1);
     ").unwrap();
-    let keys: Vec<String> = super::items(library.path(), None, false)
-        .unwrap()
-        .into_iter()
-        .map(|item| item.citation_key)
-        .collect();
+    let keys: Vec<String> = items(&library).into_iter().map(|item| item.citation_key).collect();
     assert_eq!(keys, ["Jumper2021AlphaFold", "gu_mamba_2023", "HeResNet", "devlin2019bert"]);
 }
 
@@ -251,34 +262,38 @@ fn a_write_still_in_zoteros_log_is_read() {
     library.live.execute("INSERT INTO collectionItems VALUES (1, 20, 1)", []).unwrap();
     let wal = std::fs::metadata(library.dir.join("zotero.sqlite-wal")).unwrap().len();
     assert!(wal > 0);
-    let items = super::items(library.path(), Some("THESIS01"), false).unwrap();
-    assert!(items.iter().any(|item| item.citation_key == "lee_just"), "{items:?}");
+    let items = items(&library);
+    assert!(keys_in(&items, "THESIS01").contains(&"lee_just".to_string()), "{items:?}");
 }
 
 #[test]
-fn a_collections_count_is_what_importing_it_brings_in() {
+fn only_regular_items_are_listed_with_the_collections_they_sit_in() {
     let library = library();
-    // A standalone note and a standalone PDF sit beside the regular items.
+    // A standalone note and a standalone PDF sit beside the regular items, and
+    // an item is also in a trashed collection.
     library.item(17, 4, "LOOSEPDF", &[], &[]);
     library
         .live
         .execute_batch(
             "
         INSERT INTO itemAttachments VALUES (17, NULL, 1, 'application/pdf', 'storage:loose.pdf');
-        INSERT INTO collectionItems VALUES (2, 16, 3), (2, 17, 4);
+        INSERT INTO collectionItems VALUES (2, 16, 3), (2, 17, 4), (3, 11, 0), (2, 11, 5);
     ",
         )
         .unwrap();
     library.dir.write("storage/LOOSEPDF/loose.pdf", b"%PDF-1.4");
-    let collections = super::library(library.path()).unwrap().collections;
-    let chapter = collections.iter().find(|collection| collection.key == "CHAP0003").unwrap();
-    let imported = super::items(library.path(), Some("CHAP0003"), false).unwrap();
-    assert_eq!(imported.len(), 2);
-    assert_eq!(chapter.items, imported.len() as u64);
+    let items = items(&library);
+    assert_eq!(items.len(), 4);
+    let mamba = items.iter().find(|item| item.citation_key == "gu_mamba_2023").unwrap();
+    assert_eq!(mamba.collections, ["THESIS01", "CHAP0003"]);
+    assert_eq!(
+        keys_in(&items, "CHAP0003"),
+        ["jumper_highly_2021", "gu_mamba_2023", "devlin2019bert"]
+    );
 }
 
 #[test]
-fn an_items_key_is_the_same_whichever_collection_it_is_read_from() {
+fn generated_keys_never_take_a_key_another_item_is_cited_by() {
     let library = library();
     library
         .live
@@ -302,27 +317,16 @@ fn an_items_key_is_the_same_whichever_collection_it_is_read_from() {
     ",
         )
         .unwrap();
-    let keys = |collection: Option<&str>| -> HashMap<String, String> {
-        super::items(library.path(), collection, false)
-            .unwrap()
-            .into_iter()
-            .map(|item| {
-                let id = item.bibtex.lines().nth(1).unwrap_or_default().to_string();
-                (id, item.citation_key)
-            })
-            .collect()
-    };
-    let whole = keys(None);
-    let a = keys(Some("COLLA001"));
-    let b = keys(Some("COLLB001"));
-    assert_eq!(b.values().collect::<Vec<_>>(), ["wang_learning_2023"]);
-    assert_eq!(a.len(), 2);
-    for (title, key) in a.iter().chain(&b) {
-        assert_eq!(whole.get(title), Some(key), "{title}");
-    }
-    assert!(a.values().any(|key| key == "wang_learning_2023b"), "{a:?}");
-    assert!(a.values().any(|key| key == "lee_graph_2020b"), "{a:?}");
-    assert_eq!(whole.values().filter(|key| *key == "lee_graph_2020").count(), 1, "{whole:?}");
+    let items = items(&library);
+    // The earlier item keeps the plain key even though only B holds it.
+    assert_eq!(keys_in(&items, "COLLB001"), ["wang_learning_2023"]);
+    assert_eq!(keys_in(&items, "COLLA001"), ["wang_learning_2023b", "lee_graph_2020b"]);
+    let lee: Vec<&str> = items
+        .iter()
+        .map(|item| item.citation_key.as_str())
+        .filter(|key| key.starts_with("lee_graph_2020"))
+        .collect();
+    assert_eq!(lee, ["lee_graph_2020b", "lee_graph_2020"]);
 }
 
 #[test]
@@ -341,7 +345,7 @@ fn zoteros_rich_text_becomes_latex() {
         ],
         &[("Min", "Kim")],
     );
-    let items = super::items(library.path(), None, false).unwrap();
+    let items = items(&library);
     let item = items.iter().find(|item| item.citation_key == "kim_drosophila_2020").unwrap();
     assert!(
         item.bibtex.contains(
@@ -399,7 +403,7 @@ fn real_library() {
     let chosen = std::env::var("ZOTERO_DATA_DIR").ok();
     let read = super::library(chosen.as_deref()).unwrap();
     println!("data dir: {}, {} collections", read.data_dir, read.collections.len());
-    let items = super::items(chosen.as_deref(), None, false).unwrap();
+    let items = read.items;
     println!(
         "{} items, {} with a PDF on this Mac",
         items.len(),
@@ -416,29 +420,4 @@ fn real_library() {
             item.bibtex
         );
     }
-}
-
-#[test]
-fn a_folder_can_bring_in_its_subfolders_too() {
-    let library = library();
-    let direct: Vec<String> = super::items(library.path(), Some("THESIS01"), false)
-        .unwrap()
-        .into_iter()
-        .map(|item| item.citation_key)
-        .collect();
-    assert_eq!(direct, ["gu_mamba_2023"]);
-    let nested: Vec<String> = super::items(library.path(), Some("THESIS01"), true)
-        .unwrap()
-        .into_iter()
-        .map(|item| item.citation_key)
-        .collect();
-    // Its own item and Chapter 3's, trash aside, as many as the folder's total.
-    assert_eq!(nested, ["jumper_highly_2021", "gu_mamba_2023", "devlin2019bert"]);
-    let thesis = super::library(library.path())
-        .unwrap()
-        .collections
-        .into_iter()
-        .find(|c| c.key == "THESIS01")
-        .unwrap();
-    assert_eq!(thesis.total as usize, nested.len());
 }
