@@ -1,0 +1,13 @@
+.clone-repository-modal { width: min(460px, calc(100vw - 40px)); }
+/* The path and its Choose button on one line; the path gives way first. */
+.clone-repository-location { display: flex; gap: var(--space-3); min-width: 0; }
+.clone-repository-location > input { flex: 1 1 auto; min-width: 0; text-overflow: ellipsis; }
+.clone-repository-location > button { flex: none; }
+.clone-repository-progress { display: grid; gap: var(--space-3); margin-top: var(--space-8); }
+.clone-repository-progress > span { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.clone-repository-progress-track { height: var(--space-3); overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
+.clone-repository-progress-fill { height: 100%; border-radius: inherit; corner-shape: inherit; background: var(--control-active); transition: width var(--motion-slow); }
+.clone-repository-error { display: grid; gap: var(--space-2); margin-top: var(--space-8); }
+.clone-repository-error .ui-inline-message { margin: 0; }
+/* git's own words: long URLs and paths wrap rather than run out of the dialog. */
+.clone-repository-detail { margin: 0; color: var(--text-tertiary); font-family: var(--font-mono); font-size: var(--type-micro-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }

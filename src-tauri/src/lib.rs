@@ -587,6 +587,8 @@ pub fn run() {
             ipc::git::git_status,
             ipc::git::git_user_name,
             ipc::git::git_init,
+            ipc::git::clone_repository,
+            ipc::git::cancel_clone,
             ipc::git::git_log,
             ipc::git::git_show_diff,
             ipc::git::git_compare_files,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -461,6 +461,21 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     ));
   }, [revealNewProject, t]);
 
+  /** Clone repository's dialog (project/clone-repository-dialog.tsx): shown, and what it starts from. */
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const recentProjectPath = recents.projects[0]?.path ?? null;
+  const clone = useMemo(() => ({
+    open: cloneOpen,
+    recentProjectPath,
+    show: () => setCloneOpen(true),
+    close: () => setCloneOpen(false),
+    /** The clone finished: open its folder as any new project is. */
+    opened: (root: string) => {
+      setCloneOpen(false);
+      void revealNewProject(t`Opening project…`, async () => root);
+    },
+  }), [cloneOpen, recentProjectPath, revealNewProject, t]);
+
   const exportProjectZip = useCallback(async () => {
     if (!project) return;
     const zipPath = await saveDialog({
@@ -536,7 +551,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   return {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, openExistingProject, chooseExisting, createProject,
-    chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
+    chooseRecentProject, openTutorialProject, importOverleafZip, clone, exportProjectZip, moveWorkspace,
     movingWorkspace,
   };
 }

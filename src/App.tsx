@@ -748,11 +748,11 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   });
   const canvasToolbar = useCanvasToolbar({
     documents, tools, commentCount: unresolvedComments, comments: editorComments, inBrowserTab: browserHosted,
-    onMoveWorkspace: () => void moveWorkspace(), hiddenTools: appearance.hiddenTitlebarTools, overleaf,
+    onMoveWorkspace: moveWorkspace, hiddenTools: appearance.hiddenTitlebarTools, overleaf,
     onOverleafSync: syncOverleaf,
   });
   // Shown over the welcome screen and a project alike.
-  const appOverlays = <AppOverlays interfaceScale={appearance.interfaceScale} interfaceZoom={interfaceZoom} whatsNew={whatsNew} />;
+  const appOverlays = <AppOverlays interfaceScale={appearance.interfaceScale} interfaceZoom={interfaceZoom} whatsNew={whatsNew} clone={lifecycle.clone} />;
   if (!project) {
     return (
       <>
@@ -769,13 +769,14 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
           setProjectVenue={(venue) => updateCreateForm({ venue })}
           onCreate={createProject}
           onOpen={chooseExisting}
-          onImportZip={() => void importOverleafZip()}
-          onOpenTutorial={() => void openTutorialProject()}
+          onImportZip={importOverleafZip}
+          onClone={lifecycle.clone.show}
+          onOpenTutorial={openTutorialProject}
           recentProjects={recentProjects}
           unopenedProject={unopenedProject}
-          onRecent={(path) => void chooseRecentProject(path)}
+          onRecent={chooseRecentProject}
           onSettings={() => openSettings()}
-          onInstallTex={() => void texSetup.openWizard()}
+          onInstallTex={texSetup.openWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />}
         {commandOverlays}
@@ -814,11 +815,12 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
           recentProjects,
           busyLabel,
           onRecent: chooseRecentProject,
-          onOpen: () => void chooseExisting(),
+          onOpen: chooseExisting,
           onNew: () => updateCreateForm({ open: true }),
+          onClone: lifecycle.clone.show,
           onOpenOverleaf: () => setOverleafPickerOpen(true),
-          onOpenTutorial: () => void openTutorialProject(),
-          onExportZip: () => void exportProjectZip(),
+          onOpenTutorial: openTutorialProject,
+          onExportZip: exportProjectZip,
           onExportArxiv: () => setArxivExportOpen(true),
           onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
