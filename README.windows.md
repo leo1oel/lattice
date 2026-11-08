@@ -28,7 +28,7 @@ Le binaire communautaire n’est pas signé par un certificat Windows. Les mises
 
 ## Export Word éditable
 
-Dans la palette de commandes (Ctrl+K), chercher **Export Word…**, puis choisir un fichier `.docx`. Les modifications ouvertes sont sauvegardées avant la conversion du document LaTeX principal du projet. Pandoc est inclus dans l’installateur Windows ; sur les autres plateformes, installer Pandoc séparément.
+Cliquer sur **Search** dans la barre du haut, puis chercher **Export Word…** dans la palette de commandes, puis choisir un fichier `.docx`. Les modifications ouvertes sont sauvegardées avant la conversion du document LaTeX principal du projet. Pandoc est inclus dans l’installateur Windows ; sur les autres plateformes, installer Pandoc séparément.
 
 Le DOCX contient du texte éditable, des titres, des équations Word, les images compatibles et les citations/bibliographies que Pandoc peut convertir. Il convient aux commentaires et au suivi des modifications des encadrants dans Word. Vérifier le document face au PDF avant envoi : pagination, polices, macros personnalisées, références croisées, TikZ, figures PDF et mises en page complexes peuvent différer ou être omis. Les avertissements du convertisseur sont affichés. Les modifications et commentaires ajoutés dans Word ne sont pas réimportés dans LaTeX.
 
