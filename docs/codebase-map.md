@@ -181,7 +181,7 @@ rather than a fact:
 | `project_fs.rs` | Race-free mutations beneath an already selected project root. |
 | `fs_watch.rs` | The project filesystem watcher (FSEvents plus a debounce thread). |
 | `fts.rs` | The incremental SQLite FTS5 project search index. |
-| `git.rs` + `git/` | Git for the project folder: status and the version timeline. |
+| `git.rs` + `git/` | Git for the project folder: status and the version timeline; `git/clone.rs` clones a repository from a URL into a new project folder. |
 | `latex.rs` + `latex/` | latexmk builds, build-log parsing, SyncTeX, prewarming, the pdfLaTeX preamble format cache (`preamble_format.rs`) and venue detection. |
 | `texlab.rs` | A TexLab language server per project, for editor diagnostics, completion, hover and go-to-definition. |
 | `texcount.rs` | Word counts for the root document, with an estimate when `texcount` is missing. |
