@@ -49,3 +49,12 @@ jobs:
           printf '%s  %s\n' "$EXPECTED_SHA256" "$ASSET_NAME" > SHA256SUMS.txt
           sha256sum --check SHA256SUMS.txt
           gh release upload "$RELEASE_TAG" "$ASSET_NAME" SHA256SUMS.txt --clobber
+      - name: Include the bundled converter source with the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          curl --fail --location https://github.com/jgm/pandoc/archive/refs/tags/3.13.tar.gz --output pandoc-3.13-source.tar.gz
+          echo 'fbf6044766b0c9be5ccbf18ffe657124449e8563a177d85662ecb6f031f9c308  pandoc-3.13-source.tar.gz' | sha256sum --check
+          gh release upload "$RELEASE_TAG" pandoc-3.13-source.tar.gz --clobber

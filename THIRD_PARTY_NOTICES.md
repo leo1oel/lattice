@@ -24249,5 +24249,5 @@ THE SOFTWARE.
 The Windows installer includes the unmodified Pandoc executable from
 https://github.com/jgm/pandoc/releases/tag/3.13 (GPL v2 or later).
 Its COPYING.rtf and COPYRIGHT.txt are distributed beside pandoc.exe.
-Corresponding source: https://github.com/jgm/pandoc/releases/download/3.13/pandoc-3.13.tar.gz.
+Corresponding source: https://github.com/jgm/pandoc/archive/refs/tags/3.13.tar.gz.
 Pandoc runs as a separate command-line process to convert LaTeX into DOCX.
