@@ -3,6 +3,11 @@ on:
   push:
     branches: [windows-port]
   workflow_dispatch:
+    inputs:
+      installer_run:
+        description: Existing successful installer run to exercise without rebuilding
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -13,6 +18,7 @@ concurrency:
 
 jobs:
   build:
+    if: inputs.installer_run == ''
     runs-on: windows-latest
     env:
       CARGO_INCREMENTAL: '0'
@@ -57,24 +63,29 @@ jobs:
 
   e2e:
     needs: build
+    if: always() && (needs.build.result == 'success' || inputs.installer_run != '')
+    permissions:
+      contents: read
+      actions: read
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/download-artifact@v4
         with:
           name: Lattice-Windows-x64
           path: installer
+          run-id: ${{ inputs.installer_run || github.run_id }}
+          github-token: ${{ github.token }}
       - uses: r-lib/actions/setup-tinytex@v2
         env:
           TINYTEX_INSTALLER: TinyTeX-1
       - name: Install tutorial TeX packages
         shell: pwsh
         run: |
-          tlmgr install latexmk natbib lineno microtype booktabs mylatexformat times helvetic psnfss
+          tlmgr install collection-latexextra collection-fontsrecommended latexmk mylatexformat latexindent natbib lineno microtype booktabs environ
           if ($LASTEXITCODE -ne 0) { throw 'TeX package install failed' }
       - name: Scan installer with Windows Defender when available
         shell: pwsh
@@ -109,12 +120,10 @@ jobs:
           $edge = $webview.VersionInfo.ProductVersion
           Invoke-WebRequest "https://msedgedriver.microsoft.com/$edge/edgedriver_win64.zip" -OutFile "$env:RUNNER_TEMP/edgedriver.zip"
           Expand-Archive "$env:RUNNER_TEMP/edgedriver.zip" "$env:RUNNER_TEMP/edgedriver"
-          cargo install tauri-driver --version 2.1.0 --locked
-          if ($LASTEXITCODE -ne 0) { throw 'tauri-driver installation failed' }
       - name: Exercise the installed app
         shell: pwsh
         run: |
-          $driver = Start-Process tauri-driver -WindowStyle Hidden -ArgumentList @('--native-driver', "$env:RUNNER_TEMP/edgedriver/msedgedriver.exe") -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/driver.log" -RedirectStandardError "$env:RUNNER_TEMP/driver-error.log"
+          $driver = Start-Process "$env:RUNNER_TEMP/edgedriver/msedgedriver.exe" -WindowStyle Hidden -ArgumentList @('--port=4444', '--verbose') -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/driver.log" -RedirectStandardError "$env:RUNNER_TEMP/driver-error.log"
           try {
             for ($attempt = 0; $attempt -lt 100; $attempt++) {
               try { Invoke-RestMethod http://127.0.0.1:4444/status | Out-Null; break } catch { Start-Sleep -Milliseconds 200 }

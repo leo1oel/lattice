@@ -61,9 +61,9 @@ export function webDriver(base) {
   return { call };
 }
 
-export async function startSession(driver, app) {
+export async function startSession(driver, app, capabilities = { browserName: "wry", "tauri:options": { application: app } }) {
   const value = await driver.call("POST", "/session", {
-    capabilities: { alwaysMatch: { browserName: "wry", "tauri:options": { application: app } } },
+    capabilities: { alwaysMatch: capabilities },
   });
   const id = value.sessionId;
   const at = (route) => `/session/${id}${route}`;

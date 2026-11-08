@@ -1,6 +1,7 @@
 // Drive the installed Windows executable through its real WebView2 IPC.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { projectRoot } from "./lib/util.mjs";
 import { parseArgs } from "node:util";
@@ -25,6 +26,7 @@ monitor.stderr.on("data", chunk => { monitorLog += chunk; });
 const monitorExited = new Promise(resolve => { monitor.once("exit", resolve); monitor.once("error", error => { monitorLog += error.message; resolve(-1); }); });
 let monitorStopped = false;
 let session;
+let appProcess;
 async function stopMonitor() {
   if (monitorStopped) return;
   monitorStopped = true;
@@ -68,15 +70,41 @@ try {
     if (monitor.exitCode !== null || Date.now() > monitorDeadline) throw new Error(`Console monitor did not start: ${monitorLog}`);
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  session = await startSession(driver, resolve(values.app));
+  // Test-only debugging configuration: never enabled by the application or
+  // its installer. Attach to the real WebView2 rather than asking EdgeDriver
+  // to find DevToolsActivePort in Tauri's own profile directory.
+  appProcess = spawn(resolve(values.app), [], { stdio: "ignore", env: {
+    ...process.env,
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9222",
+    WEBVIEW2_USER_DATA_FOLDER: join(tmpdir(), `lattice-webdriver-${process.pid}`),
+  } });
+  const cdpDeadline = Date.now() + 60_000;
+  while (!(await fetch("http://127.0.0.1:9222/json/version").then(response => response.ok).catch(() => false))) {
+    if (appProcess.exitCode !== null || Date.now() > cdpDeadline) throw new Error("The installed WebView2 did not start its test endpoint");
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  session = await startSession(driver, resolve(values.app), {
+    browserName: "webview2", "ms:edgeChromium": true,
+    "ms:edgeOptions": { debuggerAddress: "127.0.0.1:9222" },
+  });
   await runChecks(session, console.log, "Windows");
   await resizeWindow();
+  await session.keys([{ type: "keyDown", value: "\uE03B" }, { type: "keyUp", value: "\uE03B" }]);
+  await waitFor("F11 fullscreen", "return document.querySelector('.app-shell')?.classList.contains('fullscreen');");
+  if (!(await invoke("plugin:window|is_fullscreen", { label: "main" }))) throw new Error("F11 did not enter native fullscreen");
+  await session.keys([{ type: "keyDown", value: "\uE03B" }, { type: "keyUp", value: "\uE03B" }]);
+  await waitFor("F11 restoring the window", "return !document.querySelector('.app-shell')?.classList.contains('fullscreen');");
+  console.log("ok: F11 enters and exits native Windows fullscreen");
   await invoke("run_doctor");
   await invoke("run_doctor");
   console.log("ok: maximized and restored Lattice three times and repeated tool checks");
   const project = await invoke("initial_project");
   if (!project?.root) throw new Error("The tutorial project is not bound to the window");
   const projectRoot = project.root;
+  const source = await invoke("read_project_file", { projectRoot, path: "main.tex" });
+  const formatted = await invoke("format_latex", { path: "main.tex", text: source });
+  if (!formatted.includes("\\documentclass{article}")) throw new Error("LaTeX formatting did not return the document");
+  console.log("ok: native Windows latexindent formatting");
   const path = "notes/été 中文.txt";
   await invoke("write_project_file", { projectRoot, path, content: "Première sauvegarde — 中文\n" });
   await invoke("write_project_file", { projectRoot, path, content: "Seconde sauvegarde — 中文\n" });
@@ -123,5 +151,6 @@ try {
   throw error;
 } finally {
   if (session) await session.end().catch(() => {});
+  if (appProcess && appProcess.exitCode === null) appProcess.kill();
   await stopMonitor().catch(error => console.error(error.message));
 }

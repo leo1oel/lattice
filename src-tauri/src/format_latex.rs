@@ -43,7 +43,7 @@ pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<S
     let _ = project::safe_path(root, &relative)?;
     let mut child = latexindent()?
         .current_dir(root)
-        .args(["-g=/dev/null", "-"])
+        .args([if cfg!(windows) { "-g=NUL" } else { "-g=/dev/null" }, "-"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

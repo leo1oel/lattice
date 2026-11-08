@@ -19,6 +19,7 @@ Le binaire communautaire n’est pas signé par un certificat Windows. Les mises
 - Ouverture, sauvegarde atomique, renommage, suppression et historique via des dossiers ouverts sous Windows.
 - Refus des chemins hors projet, flux NTFS alternatifs et noms de périphériques Windows.
 - Identité des fichiers par volume et index NTFS ; lecture partielle et export des PDF.
+- Double-clic de barre de titre pour agrandir/restaurer et F11 pour entrer/sortir du plein écran ; minimum de fenêtre adapté aux écrans Windows avec mise à l’échelle.
 - Terminal PowerShell réel avec ConPTY, redimensionnement, entrées/sorties et arrêt des processus.
 - Recherche des exécutables `.exe`, `.cmd` et `.bat`, de TeX Live et MiKTeX.
 - URI de fichiers Windows et Unicode pour TexLab.
