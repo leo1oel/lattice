@@ -145,7 +145,12 @@ function literalEnd(text: string, name: string, at: number): number | null {
   return close === -1 ? text.length : close + `\\end{${environment}}`.length;
 }
 
-function blankIgnored(source: string): string {
+/**
+ * `visibleLatexSource` without its cache, for a caller that reads every
+ * version of a document as it is typed and would only push the other files
+ * out of the cache.
+ */
+export function blankIgnored(source: string): string {
   const parts: string[] = [];
   let kept = 0;
   const blank = (from: number, to: number, oneLine = false) => {

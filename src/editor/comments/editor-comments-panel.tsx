@@ -20,13 +20,13 @@ import { AnnotationQuote } from "./annotation-quote";
 import {
   annotationStatus,
   editorCommentAuthorDisplayName,
-  resolveCommentAnchor,
   type AnnotationRound,
   type AnnotationStatus,
   type EditorComment,
 } from "./editor-comment-data";
 import { formatCommentTimestamp } from "./editor-comments";
-import { useIntentLabels } from "./use-intent-labels";
+import { annotationNote, useIntentLabels } from "./use-intent-labels";
+import { annotationAnchor } from "../latex/citation-reasons";
 import { formatCount, joinPhrases } from "../../i18n";
 import { latexHighlights } from "../latex/latex-highlights";
 import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../latex/highlighters";
@@ -167,7 +167,7 @@ export function EditorCommentsPanel(props: {
       const sections = source ? sectionsOf(source, path) : [];
       const name = baseName(path);
       const placed = byFile.get(path)!.map((comment) => {
-        const range = source ? resolveCommentAnchor(source, comment) : null;
+        const range = source ? annotationAnchor(source, comment) : null;
         const from = range?.from ?? comment.from;
         const section = sections.filter((item) => item.offset <= from).at(-1) ?? null;
         const line = source && range ? source.slice(0, range.from).split("\n").length : null;
@@ -377,6 +377,7 @@ export function EditorCommentsPanel(props: {
     const pin = comment.number ?? 0;
     const gone = leaving.has(comment.id);
     const outcome = outcomes.get(comment.id);
+    const note = annotationNote(comment, intentLabels);
     return (
       <article
         className="annotation-card"
@@ -394,7 +395,7 @@ export function EditorCommentsPanel(props: {
           // The card's parts run together as inline text; its name reads them as sentences.
           aria-label={[
             pin ? t`Annotation ${pin}` : author,
-            comment.body || (comment.intent && intentLabels[comment.intent]),
+            note,
             `“${comment.quote.trim()}”`,
             status === null ? t`Revising…` : status === "open" ? null : statusLabels[status],
             location,
@@ -405,9 +406,7 @@ export function EditorCommentsPanel(props: {
             ? <AnnotationPin number={pin} status={status ?? "open"} />
             : <span className="annotation-card-author-dot" aria-hidden />}
           <span className="annotation-card-quote">{comment.quote.trim() ? <AnnotationQuote text={comment.quote.trim()} /> : t`(empty span)`}</span>
-          {comment.body
-            ? <span className="annotation-card-note">{comment.body}</span>
-            : comment.intent && <span className="annotation-card-note">{intentLabels[comment.intent]}</span>}
+          {note && <span className="annotation-card-note">{note}</span>}
           <span className="annotation-card-meta">
             {status === null ? (
               <span className="annotation-status" data-annotation-status="running"><InfinityLoader size={11} />{t`Revising…`}</span>

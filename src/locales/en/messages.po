@@ -1568,6 +1568,10 @@ msgstr "Add a citation"
 msgid "Add a cursor above or below"
 msgstr "Add a cursor above or below"
 
+#: src/editor/latex/citation-reason-editor.ts
+msgid "Add a note"
+msgstr "Add a note"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
@@ -2356,6 +2360,11 @@ msgstr "Back to Overleaf sign-in"
 msgid "Back to reference"
 msgstr "Back to reference"
 
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Background"
+msgstr "Background"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bar over an expression"
 msgstr "Bar over an expression"
@@ -2873,6 +2882,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
@@ -3578,7 +3588,7 @@ msgstr "Cited"
 msgid "Cited {count}× in this paper"
 msgstr "Cited {count}× in this paper"
 
-#: src/editor/latex/latex-hover-cards.ts
+#: src/editor/latex/citation-card-uses.ts
 msgid "Cited {times}× here"
 msgstr "Cited {times}× here"
 
@@ -4005,6 +4015,11 @@ msgstr "Compared with now"
 #: src/history/compare-versions.tsx
 msgid "Comparing…"
 msgstr "Comparing…"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Comparison"
+msgstr "Comparison"
 
 #: src/papers/citation-candidates.tsx
 msgid "Compatible author names"
@@ -4693,6 +4708,11 @@ msgstr "Couldn’t save"
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
 msgstr "Couldn’t start the paper tools"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Counterexample"
+msgstr "Counterexample"
 
 #: src/agent/agent-composer-prompt.ts
 msgid "Create a presentation about"
@@ -8256,6 +8276,7 @@ msgstr "Line"
 #. placeholder {0}: hit.line
 #. placeholder {0}: hunk.line
 #. placeholder {0}: passage.line
+#: src/editor/latex/citation-card-uses.ts
 #: src/history/compare-versions.tsx
 #: src/history/conflict-resolver.tsx
 #: src/project/todo-scavenger-panel.tsx
@@ -8867,6 +8888,11 @@ msgstr "Metadata source"
 #: src/papers/audit-messages.ts
 msgid "Metadata source (cached)"
 msgstr "Metadata source (cached)"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Method"
+msgstr "Method"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Middle table rule"
@@ -9824,6 +9850,7 @@ msgstr "not written"
 msgid "Not yet"
 msgstr "Not yet"
 
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "Note"
@@ -10244,6 +10271,10 @@ msgstr "Open page"
 #: src/project/paper-inspector.tsx
 msgid "Open paper"
 msgstr "Open paper"
+
+#: src/editor/latex/citation-card-uses.ts
+msgid "Open paper at page {target}"
+msgstr "Open paper at page {target}"
 
 #: src/project/project-find-dialog.tsx
 msgid "Open paper result: {paperTitle}"
@@ -10721,9 +10752,15 @@ msgid "owner"
 msgstr "owner"
 
 #. placeholder {0}: place.page
+#. placeholder {0}: use.page
 #: src/canvas/paper-selection-actions.tsx
+#: src/editor/latex/citation-card-uses.ts
 msgid "p. {0}"
 msgstr "p. {0}"
+
+#: src/project/paper-inspector.tsx
+msgid "p. {page}"
+msgstr "p. {page}"
 
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
@@ -11887,6 +11924,7 @@ msgstr "Reload panel"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
 #: src/project/deadline-card.tsx
@@ -12735,6 +12773,10 @@ msgstr "Right normal subgroup eq"
 msgid "Right vertical bar"
 msgstr "Right vertical bar"
 
+#: src/editor/latex/citation-reason-editor.ts
+msgid "Role"
+msgstr "Role"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Roman text"
 msgstr "Roman text"
@@ -12838,6 +12880,7 @@ msgstr "Saturation and brightness"
 #: src/app/vanished-file.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/latex/citation-reason-editor.ts
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -14094,6 +14137,11 @@ msgstr "Superset"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "Superset or equal"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Supporting"
+msgstr "Supporting"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
@@ -16729,6 +16777,11 @@ msgstr "Who"
 #: src/pdf/pdf-viewer.tsx
 msgid "Whole word"
 msgstr "Whole word"
+
+#: src/editor/latex/citation-reason-editor.ts
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Why cited"
+msgstr "Why cited"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Width"

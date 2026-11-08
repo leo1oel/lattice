@@ -1568,6 +1568,10 @@ msgstr "补引用"
 msgid "Add a cursor above or below"
 msgstr "多加光标"
 
+#: src/editor/latex/citation-reason-editor.ts
+msgid "Add a note"
+msgstr "添加备注"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
@@ -2356,6 +2360,11 @@ msgstr "返回 Overleaf 登录"
 msgid "Back to reference"
 msgstr "返回原文"
 
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Background"
+msgstr "背景"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bar over an expression"
 msgstr "表达式上方加横线"
@@ -2873,6 +2882,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
@@ -3578,7 +3588,7 @@ msgstr "已引用"
 msgid "Cited {count}× in this paper"
 msgstr "本文引用 {count} 次"
 
-#: src/editor/latex/latex-hover-cards.ts
+#: src/editor/latex/citation-card-uses.ts
 msgid "Cited {times}× here"
 msgstr "本文引用 {times} 次"
 
@@ -4005,6 +4015,11 @@ msgstr "与现在相比"
 #: src/history/compare-versions.tsx
 msgid "Comparing…"
 msgstr "正在对比…"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Comparison"
+msgstr "对比"
 
 #: src/papers/citation-candidates.tsx
 msgid "Compatible author names"
@@ -4693,6 +4708,11 @@ msgstr "无法保存"
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
 msgstr "无法启动论文工具"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Counterexample"
+msgstr "反例"
 
 #: src/agent/agent-composer-prompt.ts
 msgid "Create a presentation about"
@@ -8256,6 +8276,7 @@ msgstr "行"
 #. placeholder {0}: hit.line
 #. placeholder {0}: hunk.line
 #. placeholder {0}: passage.line
+#: src/editor/latex/citation-card-uses.ts
 #: src/history/compare-versions.tsx
 #: src/history/conflict-resolver.tsx
 #: src/project/todo-scavenger-panel.tsx
@@ -8867,6 +8888,11 @@ msgstr "资料来源"
 #: src/papers/audit-messages.ts
 msgid "Metadata source (cached)"
 msgstr "资料来源（缓存）"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Method"
+msgstr "方法"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Middle table rule"
@@ -9824,6 +9850,7 @@ msgstr "未生成"
 msgid "Not yet"
 msgstr "尚未同步"
 
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "备注"
@@ -10244,6 +10271,10 @@ msgstr "打开网页"
 #: src/project/paper-inspector.tsx
 msgid "Open paper"
 msgstr "打开论文"
+
+#: src/editor/latex/citation-card-uses.ts
+msgid "Open paper at page {target}"
+msgstr "在第 {target} 页打开论文"
 
 #: src/project/project-find-dialog.tsx
 msgid "Open paper result: {paperTitle}"
@@ -10721,9 +10752,15 @@ msgid "owner"
 msgstr "负责人"
 
 #. placeholder {0}: place.page
+#. placeholder {0}: use.page
 #: src/canvas/paper-selection-actions.tsx
+#: src/editor/latex/citation-card-uses.ts
 msgid "p. {0}"
 msgstr "第 {0} 页"
+
+#: src/project/paper-inspector.tsx
+msgid "p. {page}"
+msgstr "第 {page} 页"
 
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
@@ -11887,6 +11924,7 @@ msgstr "重新载入面板"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
 #: src/project/deadline-card.tsx
@@ -12735,6 +12773,10 @@ msgstr "右正规子群（含等号）"
 msgid "Right vertical bar"
 msgstr "右竖线"
 
+#: src/editor/latex/citation-reason-editor.ts
+msgid "Role"
+msgstr "角色"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Roman text"
 msgstr "罗马体文本"
@@ -12838,6 +12880,7 @@ msgstr "饱和度与亮度"
 #: src/app/vanished-file.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/latex/citation-reason-editor.ts
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -14094,6 +14137,11 @@ msgstr "真超集"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "超集或等于"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Supporting"
+msgstr "支持"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
@@ -16729,6 +16777,11 @@ msgstr "负责人"
 #: src/pdf/pdf-viewer.tsx
 msgid "Whole word"
 msgstr "整个词"
+
+#: src/editor/latex/citation-reason-editor.ts
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Why cited"
+msgstr "引用理由"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Width"

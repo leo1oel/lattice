@@ -8,7 +8,7 @@
  * fallback that covered all of them would unmount an open panel while an
  * unrelated chunk loads.
  */
-import { lazy, memo, Suspense, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useEffect, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -27,6 +27,8 @@ import type { AnnotationRounds } from "./annotation-rounds";
 import type { AnnotationRound, EditorComment } from "../editor/comments/editor-comment-data";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
+import { useCitationReasonSources } from "./use-citation-reason-sources";
+import { chunk } from "../lib/lazy-chunk";
 import type {
   BodyBoundary,
   BuildResult,
@@ -45,6 +47,10 @@ const ManuscriptChecklistPanel = lazy(() => import("../project/manuscript-checkl
 const FigureInventoryDialog = lazy(() => import("../project/figure-inventory-dialog").then((module) => ({ default: module.FigureInventoryDialog })));
 // So does the TODO panel: its empty-state drawing alone is ~22 KB of path data.
 const TodoScavengerPanel = lazy(() => import("../project/todo-scavenger-panel").then((module) => ({ default: module.TodoScavengerPanel })));
+
+// Placing citation reasons is no part of what a window needs to start, and a
+// project without any never loads it.
+const loadCitationReasons = chunk(() => import("../editor/latex/citation-reasons"));
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
@@ -82,8 +88,11 @@ const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, rounds
 export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurface, ...props }: {
   comments: EditorComments;
   annotationRounds: AnnotationRounds;
-  /** Wraps the comment list in the Overleaf drawer when the project is linked. */
-  renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
+  /**
+   * Wraps the comment list in the Overleaf drawer when the project is linked,
+   * with how many notes the list holds and how many of them are open.
+   */
+  renderCommentsSurface?: (localComments: ReactNode, local: { count: number; open: number }) => ReactNode;
   openFigureFile: OpenProjectFile;
   beforeFigureWrite: () => Promise<boolean>;
   afterFigureWrite: () => Promise<void>;
@@ -158,11 +167,30 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   // has no text to annotate either.
   const writingFile = props.activeFile && props.openTabs.includes(props.activeFile)
     && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
+  // A citation reason joins the notes once its cite is gone (or it was resolved there).
+  // One revision for both scans; the compiler keeps its identity until either changes.
+  const reasonScan = { unusedSymbols, files: project.files };
+  const reasonSourceFor = useCitationReasonSources(project.root, comments.citationReasons, sourceFor, annotationRounds.readSource, reasonScan);
+  const [citationReasonsModule, setCitationReasonsModule] = useState(loadCitationReasons.loaded);
+  const hasCitationReasons = comments.citationReasons.length > 0;
+  useEffect(() => {
+    if (hasCitationReasons && !citationReasonsModule) void loadCitationReasons().then(setCitationReasonsModule);
+  }, [hasCitationReasons, citationReasonsModule]);
+  const orphaned = hasCitationReasons && citationReasonsModule
+    ? citationReasonsModule.panelCitationReasons(comments.citationReasons, reasonSourceFor)
+    : [];
+  const panelComments = orphaned.length ? [...comments.comments, ...orphaned] : comments.comments;
+  const openOrphans = orphaned.filter((reason) => !reason.resolved).length;
+  const { setOpenOrphans } = comments;
+  useEffect(() => {
+    setOpenOrphans(openOrphans);
+    return () => setOpenOrphans(0);
+  }, [openOrphans, setOpenOrphans]);
   const commentsPanel = (
     <EditorCommentsPanel
       key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}
       embedded={!!renderCommentsSurface}
-      comments={comments.comments}
+      comments={panelComments}
       activePath={props.activeFile}
       onOpenFile={writingFile ? undefined : () => trellis?.bridge?.quickOpen()}
       currentAuthorId={props.editorCommentAuthorId}
@@ -204,7 +232,12 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
           )
       )}
       <Suspense fallback={null}>
-        {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
+        {renderCommentsSurface
+          ? renderCommentsSurface(commentsPanel, {
+            count: panelComments.length,
+            open: panelComments.filter((comment) => !comment.resolved).length,
+          })
+          : comments.panelOpen && commentsPanel}
       </Suspense>
       <AnnotationRoundsHost
         rounds={annotationRounds}

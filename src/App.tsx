@@ -471,9 +471,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     projectRef, activeFileRef, accept, recordSavedPaths, refreshProject, refreshHistory, loadFile, clearEditor,
   });
 
-  const openSources = useCallback(() => new Map([
-    [activeFileRef.current, sourceRef.current],
-  ]), [activeFileRef, sourceRef]);
+  const openSources = useCallback(() => new Map([[activeFileRef.current, sourceRef.current]]), [activeFileRef, sourceRef]);
   const editorComments = useEditorComments({
     project, projectRootRef, activeFileRef, openProjectFile: openFile, overleaf,
     author: { id: editorCommentAuthorId, name: authorName },
@@ -481,7 +479,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     agentOptionsRef: agentCommentsOptionsRef,
   });
   const { reset: resetEditorComments, load: loadEditorComments } = editorComments;
-  const unresolvedComments = editorComments.all.filter((comment) => !comment.resolved).length;
 
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
@@ -632,7 +629,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   });
 
   const sourceNavigation = useSourceNavigation({
-    project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree,
+    project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree, editorComments,
     openProjectPathRef: openMarkdownProjectPathRef,
   });
   const {
@@ -646,10 +643,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     ));
   }, [editorPositionRef, setEditorPosition]);
 
-
-
   useLayoutEffect(() => { openOverleafSettingsRef.current = () => openSettings("overleaf"); }, [openSettings]);
-
 
   const settingsDialog = (
     <AppSettingsDialog
@@ -720,6 +714,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const panelPortals = usePanelPortals({
     project, documents, trellis, agentPresent, theme, appLocale, tree, library, overleafSyncing, paperActions,
     referenceImport, openSymbolOccurrence, synara, tools, checkReferences, rootDocumentPath, gitFiles: projectGit.gitFiles,
+    citationReasons: editorComments.citationReasons,
     prewarm: { prewarmLikelyProjectFile, prewarmLikelyPaper },
     projectSearch: { open: projectSearchOpen, setOpen: setProjectSearchOpen, openFind: openProjectFind },
     newEntry: { request: newEntryRequest, requestNew: requestNewEntry },
@@ -746,7 +741,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     pdfPage: { setCount: setPdfPageCount, setNumber: setPdfPageNumber },
   });
   const canvasToolbar = useCanvasToolbar({
-    documents, tools, commentCount: unresolvedComments, comments: editorComments, inBrowserTab: browserHosted,
+    documents, tools, commentCount: editorComments.unresolved, comments: editorComments, inBrowserTab: browserHosted,
     onMoveWorkspace: moveWorkspace, hiddenTools: appearance.hiddenTitlebarTools, overleaf,
     onOverleafSync: syncOverleaf,
   });
@@ -868,9 +863,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         </LazyMount>
       </main>
 
-
       <TexSetupDialogs setup={texSetup} />
-
 
       <AppHistoryDrawers
         tools={tools}
@@ -900,12 +893,12 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         }}
         comments={editorComments}
         annotationRounds={annotationRounds}
-        renderCommentsSurface={overleafLink ? (localComments) => (
+        renderCommentsSurface={overleafLink ? (localComments, local) => (
           <AppOverleafCollabDrawer
             key={`${project.root}:${editorComments.panelFocusId ? editorComments.panelFocus?.nonce : "comments"}`}
             localComments={localComments}
-            localCommentCount={editorComments.comments.filter((comment) => !comment.resolved).length}
-            hasLocalComments={editorComments.comments.length > 0}
+            localCommentCount={local.open}
+            hasLocalComments={local.count > 0}
             focusLocalComments={!!editorComments.panelFocusId && !overleafThreadOf(editorComments.panelFocusId)}
             focusThreadId={editorComments.panelFocusId ? overleafThreadOf(editorComments.panelFocusId) : null}
             activeFileRef={activeFileRef}
@@ -921,7 +914,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         ) : undefined}
         key={project.root}
         activeFile={activeFile}
-        activeSource={settledCanvasSource}
+        activeSource={activePaper ? source : settledCanvasSource}
         openTabs={documents.tabs}
         build={build}
         editorCommentAuthorId={editorCommentAuthorId}

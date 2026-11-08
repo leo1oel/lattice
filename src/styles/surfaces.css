@@ -109,6 +109,7 @@ body[data-scroll-locked]::after {
 .texlab-hover-card,
 .citation-hover-card,
 .source-editor .cm-tooltip.citation-hover-card,
+.source-editor .cm-tooltip.citation-reason-popover,
 .reference-hover-card,
 .source-editor .cm-tooltip.symbol-palette,
 .source-editor .cm-tooltip.math-preview-card,

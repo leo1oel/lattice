@@ -80,6 +80,16 @@ pub struct AnnotationRevision {
     pub error: Option<String>,
 }
 
+/// Why one `\cite` occurrence cites a paper: the key the annotation is
+/// anchored on, and the role the writer filed it under.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CitationReason {
+    pub key: String,
+    /// `supporting`, `counterexample`, `method`, `comparison` or `background`.
+    pub role: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditorComment {
@@ -103,6 +113,9 @@ pub struct EditorComment {
     pub pdf: Option<PdfAnchor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision: Option<AnnotationRevision>,
+    /// Set on a citation reason, which takes no pin number.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub citation: Option<CitationReason>,
     pub author_id: String,
     pub author_name: String,
     #[serde(default)]
@@ -203,11 +216,14 @@ pub fn write_annotations(
 }
 
 /// Number every annotation without one after the highest in use, oldest
-/// first, so pins read in the order the notes were written.
+/// first, so pins read in the order the notes were written. A citation
+/// reason has no pin and stays unnumbered.
 fn number_unnumbered(annotations: &mut [EditorComment]) {
     let mut next = annotations.iter().map(|annotation| annotation.number).max().unwrap_or(0);
-    let mut unnumbered =
-        annotations.iter_mut().filter(|annotation| annotation.number == 0).collect::<Vec<_>>();
+    let mut unnumbered = annotations
+        .iter_mut()
+        .filter(|annotation| annotation.number == 0 && annotation.citation.is_none())
+        .collect::<Vec<_>>();
     unnumbered.sort_by(|left, right| left.created_at.cmp(&right.created_at));
     for annotation in unnumbered {
         next += 1;
@@ -267,4 +283,33 @@ pub fn read_annotation_round(root: &Path, number: u32) -> Result<Vec<FileChange>
     }
     let raw = fs::read_to_string(path).map_err(err)?;
     Ok(serde_json::from_str::<RoundSnapshot>(&raw).map_err(err)?.files)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::project::test_support::Fixture;
+
+    #[test]
+    fn citation_reasons_keep_their_role_and_take_no_pin() {
+        let fixture = Fixture::empty("annotations-citation-reason");
+        fs::create_dir_all(fixture.root.join(".research")).unwrap();
+        let raw = r#"{"schemaVersion":2,"rounds":[],"annotations":[
+          {"id":"note","path":"main.tex","from":0,"to":4,"quote":"Text","body":"","authorId":"a","authorName":"A","createdAt":"1","updatedAt":"1"},
+          {"id":"why","path":"main.tex","from":12,"to":17,"quote":"smith","body":"Counter to our claim","citation":{"key":"smith","role":"counterexample"},"authorId":"a","authorName":"A","createdAt":"2","updatedAt":"2"}
+        ]}"#;
+        fs::write(fixture.root.join(ANNOTATIONS_PATH), raw).unwrap();
+
+        let read = read_annotations(&fixture.root).unwrap();
+        assert_eq!(read.annotations[0].number, 1);
+        assert_eq!(read.annotations[1].number, 0);
+
+        write_annotations(&fixture.root, read.annotations, read.rounds, 1).unwrap();
+        let saved: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(fixture.root.join(ANNOTATIONS_PATH)).unwrap())
+                .unwrap();
+        assert_eq!(saved["annotations"][1]["citation"]["role"], "counterexample");
+        assert_eq!(saved["annotations"][1]["citation"]["key"], "smith");
+        assert!(saved["annotations"][0].get("citation").is_none());
+    }
 }

@@ -43,6 +43,8 @@ import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
 import { highlightPaint } from "./latex-highlight-paint";
 import { prefersReducedMotion } from "../../lib/reduced-motion";
+import type { CitationReasonData } from "./citation-reasons";
+import { citationReasons } from "./citation-reason-editor";
 
 export const latexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "500" },
@@ -72,7 +74,7 @@ export const latexHighlightStyle = HighlightStyle.define([
 export const latexIndexChanged = StateEffect.define<null>();
 
 /** Project data the editor reads at use time, so extensions need not be rebuilt as it changes. */
-export type LatexEditorLiveData = {
+export type LatexEditorLiveData = CitationReasonData & {
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -412,10 +414,13 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     handler(target);
     return true;
   };
+  const reasons = currentPath ? citationReasons(live, currentPath) : null;
+  const reasonsContext = reasons ? { currentPath, api: reasons.api } : undefined;
   return [
     ...textEditorExtensions(options.spellcheck ? "latex" : false, options.live, options.onPasteImage),
     highlightPaint(),
-    citationTooltips(live, onGotoDefinition),
+    reasons?.extension ?? [],
+    citationTooltips(live, onGotoDefinition, reasonsContext),
     referenceTooltips(live, options.loadReferenceImage),
     options.loadReferenceImage ? graphicsTooltips(live, options.loadReferenceImage) : [],
     texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
@@ -480,7 +485,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       gotoDefinition: (view) => gotoDefinition(view, view.state.selection.main.head),
       findReferences: symbolCommand(onFindReferences),
       renameSymbol: symbolCommand(onRenameSymbol),
-      citationCard: citationCardAtCursor(live, onGotoDefinition),
+      citationCard: citationCardAtCursor(live, onGotoDefinition, reasonsContext),
       wrapEnvironment: onWrapEnvironment,
       renameEnvironment: onRenameEnvironment,
     }))),
