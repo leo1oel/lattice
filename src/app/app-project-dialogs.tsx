@@ -105,7 +105,7 @@ export function AppProjectDialogs({
           initialQuery={references.literatureSeed.query}
           onClose={() => setLiteratureOpen(false)}
           importedIds={importedArxivIds}
-          onImportArxiv={async (arxivId) => { await references.importReference(arxivId); }}
+          onImportArxiv={async (arxivId) => Boolean((await references.importReference(arxivId))?.citationKey)}
           onAddBib={(query) => {
             setLiteratureOpen(false);
             references.openBibEntry(query);
