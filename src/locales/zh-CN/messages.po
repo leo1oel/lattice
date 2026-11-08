@@ -229,6 +229,11 @@ msgstr "{0} 个软件包"
 msgid "{0} pages"
 msgstr "{0} 页"
 
+#. placeholder {0}: ticked.length
+#: src/papers/zotero-browser.tsx
+msgid "{0} papers selected"
+msgstr "已选 {0} 篇"
+
 #. placeholder {0}: peers.length
 #: src/overleaf/overleaf-presence.tsx
 msgid "{0} people on Overleaf now"
@@ -1198,6 +1203,10 @@ msgstr "还剩 1 页"
 msgid "1 paper"
 msgstr "1 篇论文"
 
+#: src/papers/zotero-browser.tsx
+msgid "1 paper selected"
+msgstr "已选 1 篇"
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 人正在 Overleaf 上"
@@ -1357,6 +1366,10 @@ msgstr "有个面板崩溃了"
 #: src/platform/host-errors-workspace.ts
 msgid "A part of the path is not a folder."
 msgstr "路径中有一项不是文件夹"
+
+#: src/platform/host-errors-papers.ts
+msgid "A PDF can only be attached to a cited paper."
+msgstr "PDF 只能附加到已引用的文献上。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "A pending Overleaf move also changes its name."
@@ -1544,7 +1557,9 @@ msgid "Add “{projectWord}” to project dictionary"
 msgstr "把“{projectWord}”加入项目词库"
 
 #. placeholder {0}: addable.length
+#. placeholder {0}: ticked.length
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add {0} papers"
 msgstr "添加 {0} 篇论文"
 
@@ -1553,6 +1568,7 @@ msgid "Add {title} to Papers"
 msgstr "把 {title} 加入论文库"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add 1 paper"
 msgstr "添加 1 篇论文"
 
@@ -1615,6 +1631,7 @@ msgstr "加链接"
 #: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Add papers"
 msgstr "添加论文"
@@ -2075,6 +2092,7 @@ msgid "Another package or the template already loads {name}. Pass your options w
 msgstr "别的宏包或模板已经加载了 {name}。请在 \\documentclass 之前用 \\PassOptionsToPackage 传入你的选项，或删掉第二个 \\usepackage。"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Another paper is being added"
 msgstr "另一篇论文正在添加"
 
@@ -2332,6 +2350,7 @@ msgid "Azure"
 msgstr "天蓝色"
 
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Back"
 msgstr "上一步"
 
@@ -3297,6 +3316,10 @@ msgstr "请选择要移动的文件或文件夹"
 msgid "Choose a file to save the PDF to."
 msgstr "请选择 PDF 的保存位置"
 
+#: src/papers/zotero-browser.tsx
+msgid "Choose a folder"
+msgstr "选择一个分类"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "请选择包含 LaTeX 源文件的文件夹或 ZIP"
@@ -3390,10 +3413,6 @@ msgstr "选择图片"
 msgid "Choose location"
 msgstr "选择位置"
 
-#: src/papers/add-papers-sheet.tsx
-msgid "Choose one"
-msgstr "需要选择"
-
 #: src/platform/host-errors-project.ts
 msgid "Choose pdf, xelatex, or lualatex."
 msgstr "请选择 pdf、xelatex 或 lualatex"
@@ -3449,6 +3468,10 @@ msgstr "请选择保留还是删除正文中的引用"
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose your library's .bib file"
 msgstr "选择文献库的 .bib 文件"
+
+#: src/papers/zotero-browser.tsx
+msgid "Choose Zotero folder…"
+msgstr "选择 Zotero 文件夹…"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
@@ -3837,6 +3860,10 @@ msgstr "标题"
 #: src/settings/settings-search-index.ts
 msgid "Code theme"
 msgstr "代码主题"
+
+#: src/papers/zotero-browser.tsx
+msgid "Collapse {name}"
+msgstr "收起 {name}"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
@@ -5862,6 +5889,10 @@ msgstr "已导出 Excel"
 msgid "Exit focus"
 msgstr "退出专注"
 
+#: src/papers/zotero-browser.tsx
+msgid "Expand {name}"
+msgstr "展开 {name}"
+
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
 msgstr "放大"
@@ -6332,6 +6363,10 @@ msgstr "已折叠的代码"
 #: src/editor/codemirror-host.tsx
 msgid "Folded lines"
 msgstr "已折叠行"
+
+#: src/papers/zotero-browser.tsx
+msgid "Folders"
+msgstr "分类"
 
 #: src/settings/editor-font-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -7164,6 +7199,7 @@ msgid "In Lattice, this panel shows the project's Git changes and pull requests,
 msgstr "在 Lattice 里，这个面板显示项目的 Git 更改和 PR，以及 AI 助手每一轮改了什么。"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/papers/zotero-browser.tsx
 msgid "In Papers"
 msgstr "已在论文库"
 
@@ -7229,6 +7265,10 @@ msgstr "包含完整诊断内容"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Include replies"
 msgstr "包含回复"
+
+#: src/papers/zotero-browser.tsx
+msgid "Include subfolders"
+msgstr "包含子分类"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -8063,9 +8103,17 @@ msgstr "Lattice 无法读取项目的标签和引用：{error}"
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice 无法写入 TeX 安装文件夹。"
 
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't find a Zotero library on this Mac."
+msgstr "Lattice 没有在这台 Mac 上找到 Zotero 文库。"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
 msgstr "窗口打不开了"
+
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't read the Zotero library: {reason}"
+msgstr "Lattice 无法读取 Zotero 文库：{reason}"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
@@ -9049,6 +9097,10 @@ msgstr "已有多条引用对应这篇论文，请先处理重复项再导入"
 msgid "Multiset union"
 msgstr "多重集并"
 
+#: src/papers/zotero-browser.tsx
+msgid "My Library"
+msgstr "我的文库"
+
 #: src/project/local-templates.tsx
 msgid "My templates"
 msgstr "我的模板"
@@ -9499,6 +9551,10 @@ msgstr "没找到"
 msgid "No matching files"
 msgstr "没有这个文件"
 
+#: src/papers/zotero-browser.tsx
+msgid "No matching folders"
+msgstr "没有匹配的分类"
+
 #: src/telemetry/app-log.tsx
 msgid "No matching logs"
 msgstr "没有匹配的日志"
@@ -9508,6 +9564,7 @@ msgid "No matching pages"
 msgstr "没有匹配的页面"
 
 #: src/editor/markdown/engine/chrome/references.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
 msgstr "没有匹配的论文"
@@ -9575,6 +9632,10 @@ msgstr "还没有设置 Overleaf 地址"
 #: src/platform/host-errors-overleaf.ts
 msgid "No Overleaf project selected."
 msgstr "没有选择 Overleaf 项目"
+
+#: src/papers/zotero-browser.tsx
+msgid "No papers in this folder"
+msgstr "这个分类里没有论文"
 
 #: src/project/project-find-dialog.tsx
 msgid "No papers match “{trimmedQuery}”"
@@ -9736,6 +9797,10 @@ msgstr "右上箭头"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-west arrow"
 msgstr "左上箭头"
+
+#: src/platform/host-errors-papers.ts
+msgid "Not a PDF: {path}"
+msgstr "不是 PDF：{path}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Not added"
@@ -10875,6 +10940,7 @@ msgstr "纸面色"
 #: src/app/command-palette.tsx
 #: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -13164,6 +13230,10 @@ msgstr "搜索文件和论文…"
 msgid "Search files, papers and commands"
 msgstr "搜索文件、论文、命令"
 
+#: src/papers/zotero-browser.tsx
+msgid "Search folders"
+msgstr "搜索分类"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "搜索论文"
@@ -13187,6 +13257,10 @@ msgstr "搜索或导入论文"
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search Overleaf projects"
 msgstr "搜索项目"
+
+#: src/papers/zotero-browser.tsx
+msgid "Search papers"
+msgstr "搜索论文"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
@@ -13261,6 +13335,7 @@ msgstr "选中一段，点「批注」，写下要改什么，再点「保存并
 
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Select all"
 msgstr "全选"
 
@@ -13426,6 +13501,10 @@ msgstr "设置"
 #: src/settings/settings-dialog.tsx
 msgid "Settings sections"
 msgstr "设置分区"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Several matches"
+msgstr "有多条匹配"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
@@ -15086,6 +15165,10 @@ msgstr "PDF 里缺了 {count} 个中日韩文字（{sample}）：这篇文档用
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 msgstr "PDF 还不是最新的，先修好编译错误再试"
 
+#: src/platform/host-errors-papers.ts
+msgid "The PDF is not on this Mac: {path}"
+msgstr "这台 Mac 上找不到这个 PDF：{path}"
+
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载太慢，请重试或在浏览器打开"
@@ -15783,6 +15866,10 @@ msgstr "这个工作区已在 Lattice 应用中打开"
 msgid "This workspace is already open in your browser."
 msgstr "此工作区已在浏览器中打开"
 
+#: src/platform/host-errors-papers.ts
+msgid "this Zotero database (schema {schema}) has no {table}.{column}"
+msgstr "这个 Zotero 数据库（架构 {schema}）没有 {table}.{column}"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ 绘图"
@@ -15990,6 +16077,7 @@ msgstr "试试"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library-status.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
@@ -17101,3 +17189,15 @@ msgstr "缩小"
 #: src/settings/settings-search-index.ts
 msgid "zoom scale bigger smaller"
 msgstr "缩放 放大 缩小 界面 字号 zoom scale"
+
+#: src/papers/zotero-browser.tsx
+msgid "Zotero folders"
+msgstr "Zotero 分类"
+
+#: src/platform/host-errors-papers.ts
+msgid "Zotero has no file on this Mac for this attachment."
+msgstr "这个附件在这台 Mac 上没有文件。"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Zotero…"
+msgstr "从 Zotero 导入…"

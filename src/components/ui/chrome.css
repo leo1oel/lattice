@@ -503,13 +503,16 @@
   background: var(--control-on-surface);
 }
 
+/* A vector tick. Two borders of a rotated box snap to whole device pixels
+   before they turn, so at 1x and at the in-between interface sizes the
+   diagonal strokes broke into steps and dots. */
 .ui-checkbox:checked::before {
   content: "";
-  width: 7px;
-  height: 4px;
-  border-bottom: 1.5px solid currentColor;
-  border-left: 1.5px solid currentColor;
-  transform: translateY(-1px) rotate(-45deg);
+  width: calc(var(--control-size-checkbox) - 2px);
+  height: calc(var(--control-size-checkbox) - 2px);
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.6 6.2 4.8 8.4 9.4 3.7' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.6 6.2 4.8 8.4 9.4 3.7' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .ui-checkbox[data-state="indeterminate"]::before {

@@ -251,11 +251,25 @@ export function useReferenceImport({
    * after another, so each gets the pipeline's progress and its own Cancel,
    * while the writer keeps writing with the sheet closed.
    */
-  const addPapers = (items: ReadonlyArray<Pick<PaperAddItem, "id" | "input" | "label">>) => {
+  const addPapers = (items: ReadonlyArray<Pick<PaperAddItem, "id" | "input" | "label" | "pdf">>) => {
     if (inFlightRef.current || addQueueRunning()) return;
     const root = projectRootRef.current;
     startBatch();
-    void runAddQueue(items, (item) => importReference(item.input, { notices: "none", label: item.label }), () => projectRootRef.current === root);
+    void runAddQueue(items, async (item) => {
+      const result = await importReference(item.input, { notices: "none", label: item.label });
+      // A Zotero item's PDF is its text when the import brought none (no
+      // arXiv id, or arXiv refused); the citation stands either way, so a
+      // PDF that cannot be read is the row's note, not a failure.
+      if (!item.pdf || !result?.citationKey || result.cancelled || result.alreadyImported || result.paperPath) return result;
+      if (projectRootRef.current !== root) return result;
+      try {
+        await invoke("attach_zotero_pdf", { citationKey: result.citationKey, attachment: item.pdf });
+        await refreshProject();
+        return { ...result, fetchError: undefined };
+      } catch (reason) {
+        return { ...result, fetchError: hostErrorMessage(reason) };
+      }
+    }, () => projectRootRef.current === root);
   };
 
   const openBibEntry = useCallback((resolveSeed = "") => showBibEntry("add", undefined, resolveSeed), [showBibEntry]);

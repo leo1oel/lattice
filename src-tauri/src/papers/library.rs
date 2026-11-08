@@ -20,6 +20,8 @@ struct CachedBundle {
     key: String,
     /// The URL a webpage capture snapshotted; empty for arXiv bundles.
     source_url: String,
+    /// The citation a local PDF's bundle was attached to.
+    citation_key: String,
     has_full_text: bool,
     has_blog: bool,
     asset_paths: Vec<String>,
@@ -129,7 +131,13 @@ fn take_bundle(
     let by_url = bundles
         .iter()
         .position(|bundle| citation.url.as_deref().is_some_and(|cited| bundle.captured(cited)));
-    by_arxiv.or(by_url).map(|index| bundles.remove(index))
+    let by_key = || {
+        bundles.iter().position(|bundle| {
+            !bundle.citation_key.is_empty()
+                && bundle.citation_key.eq_ignore_ascii_case(&citation.key)
+        })
+    };
+    by_arxiv.or(by_url).or_else(by_key).map(|index| bundles.remove(index))
 }
 
 /// Recheck the citation health of every DOI the bibliography cites (within
@@ -180,11 +188,18 @@ fn cached_bundles(root: &Path) -> Result<Vec<CachedBundle>, String> {
         }
         // Legacy or externally supplied text may have no metadata. Keep it
         // readable, but it has no captured URL to join on.
-        let source_url = PaperMetadata::read(&bundle_dir)
-            .map(|metadata| metadata.source_url)
+        let (source_url, citation_key) = PaperMetadata::read(&bundle_dir)
+            .map(|metadata| (metadata.source_url, metadata.citation_key))
             .unwrap_or_default();
         let asset_paths = paper_asset_paths(&bundle_dir, &key);
-        bundles.push(CachedBundle { key, source_url, has_full_text, has_blog, asset_paths });
+        bundles.push(CachedBundle {
+            key,
+            source_url,
+            citation_key,
+            has_full_text,
+            has_blog,
+            asset_paths,
+        });
     }
     Ok(bundles)
 }

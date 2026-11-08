@@ -229,6 +229,11 @@ msgstr "{0} packages"
 msgid "{0} pages"
 msgstr "{0} pages"
 
+#. placeholder {0}: ticked.length
+#: src/papers/zotero-browser.tsx
+msgid "{0} papers selected"
+msgstr "{0} papers selected"
+
 #. placeholder {0}: peers.length
 #: src/overleaf/overleaf-presence.tsx
 msgid "{0} people on Overleaf now"
@@ -1198,6 +1203,10 @@ msgstr "1 page remaining"
 msgid "1 paper"
 msgstr "1 paper"
 
+#: src/papers/zotero-browser.tsx
+msgid "1 paper selected"
+msgstr "1 paper selected"
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 person on Overleaf now"
@@ -1357,6 +1366,10 @@ msgstr "A panel crashed"
 #: src/platform/host-errors-workspace.ts
 msgid "A part of the path is not a folder."
 msgstr "A part of the path is not a folder."
+
+#: src/platform/host-errors-papers.ts
+msgid "A PDF can only be attached to a cited paper."
+msgstr "A PDF can only be attached to a cited paper."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "A pending Overleaf move also changes its name."
@@ -1544,7 +1557,9 @@ msgid "Add “{projectWord}” to project dictionary"
 msgstr "Add “{projectWord}” to project dictionary"
 
 #. placeholder {0}: addable.length
+#. placeholder {0}: ticked.length
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add {0} papers"
 msgstr "Add {0} papers"
 
@@ -1553,6 +1568,7 @@ msgid "Add {title} to Papers"
 msgstr "Add {title} to Papers"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add 1 paper"
 msgstr "Add 1 paper"
 
@@ -1615,6 +1631,7 @@ msgstr "Add or edit a link"
 #: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Add papers"
 msgstr "Add papers"
@@ -2075,6 +2092,7 @@ msgid "Another package or the template already loads {name}. Pass your options w
 msgstr "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage."
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Another paper is being added"
 msgstr "Another paper is being added"
 
@@ -2332,6 +2350,7 @@ msgid "Azure"
 msgstr "Azure"
 
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Back"
 msgstr "Back"
 
@@ -3297,6 +3316,10 @@ msgstr "Choose a file or folder to move."
 msgid "Choose a file to save the PDF to."
 msgstr "Choose a file to save the PDF to."
 
+#: src/papers/zotero-browser.tsx
+msgid "Choose a folder"
+msgstr "Choose a folder"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "Choose a folder or ZIP containing LaTeX source files."
@@ -3390,10 +3413,6 @@ msgstr "Choose image to upload"
 msgid "Choose location"
 msgstr "Choose location"
 
-#: src/papers/add-papers-sheet.tsx
-msgid "Choose one"
-msgstr "Choose one"
-
 #: src/platform/host-errors-project.ts
 msgid "Choose pdf, xelatex, or lualatex."
 msgstr "Choose pdf, xelatex, or lualatex."
@@ -3449,6 +3468,10 @@ msgstr "Choose whether to keep or remove manuscript citations."
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose your library's .bib file"
 msgstr "Choose your library's .bib file"
+
+#: src/papers/zotero-browser.tsx
+msgid "Choose Zotero folder…"
+msgstr "Choose Zotero folder…"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
@@ -3837,6 +3860,10 @@ msgstr "Code block title"
 #: src/settings/settings-search-index.ts
 msgid "Code theme"
 msgstr "Code theme"
+
+#: src/papers/zotero-browser.tsx
+msgid "Collapse {name}"
+msgstr "Collapse {name}"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
@@ -5862,6 +5889,10 @@ msgstr "Excel workbook exported"
 msgid "Exit focus"
 msgstr "Exit focus"
 
+#: src/papers/zotero-browser.tsx
+msgid "Expand {name}"
+msgstr "Expand {name}"
+
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
 msgstr "Expand image"
@@ -6332,6 +6363,10 @@ msgstr "folded code"
 #: src/editor/codemirror-host.tsx
 msgid "Folded lines"
 msgstr "Folded lines"
+
+#: src/papers/zotero-browser.tsx
+msgid "Folders"
+msgstr "Folders"
 
 #: src/settings/editor-font-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -7164,6 +7199,7 @@ msgid "In Lattice, this panel shows the project's Git changes and pull requests,
 msgstr "In Lattice, this panel shows the project's Git changes and pull requests, and what each Agent turn changed."
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/papers/zotero-browser.tsx
 msgid "In Papers"
 msgstr "In Papers"
 
@@ -7229,6 +7265,10 @@ msgstr "Include raw diagnostic text"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Include replies"
 msgstr "Include replies"
+
+#: src/papers/zotero-browser.tsx
+msgid "Include subfolders"
+msgstr "Include subfolders"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -8063,9 +8103,17 @@ msgstr "Lattice could not read the project’s labels and citations: {error}"
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice could not write to the TeX installation folder."
 
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't find a Zotero library on this Mac."
+msgstr "Lattice couldn't find a Zotero library on this Mac."
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
 msgstr "Lattice couldn’t open this window"
+
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't read the Zotero library: {reason}"
+msgstr "Lattice couldn't read the Zotero library: {reason}"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
@@ -9049,6 +9097,10 @@ msgstr "Multiple existing citations match this paper. Resolve the duplicates bef
 msgid "Multiset union"
 msgstr "Multiset union"
 
+#: src/papers/zotero-browser.tsx
+msgid "My Library"
+msgstr "My Library"
+
 #: src/project/local-templates.tsx
 msgid "My templates"
 msgstr "My templates"
@@ -9499,6 +9551,10 @@ msgstr "No matches found."
 msgid "No matching files"
 msgstr "No matching files"
 
+#: src/papers/zotero-browser.tsx
+msgid "No matching folders"
+msgstr "No matching folders"
+
 #: src/telemetry/app-log.tsx
 msgid "No matching logs"
 msgstr "No matching logs"
@@ -9508,6 +9564,7 @@ msgid "No matching pages"
 msgstr "No matching pages"
 
 #: src/editor/markdown/engine/chrome/references.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
@@ -9575,6 +9632,10 @@ msgstr "No Overleaf host configured."
 #: src/platform/host-errors-overleaf.ts
 msgid "No Overleaf project selected."
 msgstr "No Overleaf project selected."
+
+#: src/papers/zotero-browser.tsx
+msgid "No papers in this folder"
+msgstr "No papers in this folder"
 
 #: src/project/project-find-dialog.tsx
 msgid "No papers match “{trimmedQuery}”"
@@ -9736,6 +9797,10 @@ msgstr "North-east arrow"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-west arrow"
 msgstr "North-west arrow"
+
+#: src/platform/host-errors-papers.ts
+msgid "Not a PDF: {path}"
+msgstr "Not a PDF: {path}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Not added"
@@ -10875,6 +10940,7 @@ msgstr "Paper tones"
 #: src/app/command-palette.tsx
 #: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -13164,6 +13230,10 @@ msgstr "Search files and papers…"
 msgid "Search files, papers and commands"
 msgstr "Search files, papers and commands"
 
+#: src/papers/zotero-browser.tsx
+msgid "Search folders"
+msgstr "Search folders"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "Search literature"
@@ -13187,6 +13257,10 @@ msgstr "Search or import papers"
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search Overleaf projects"
 msgstr "Search Overleaf projects"
+
+#: src/papers/zotero-browser.tsx
+msgid "Search papers"
+msgstr "Search papers"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
@@ -13261,6 +13335,7 @@ msgstr "Select a paragraph, choose Annotate, write what should change, then Save
 
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Select all"
 msgstr "Select all"
 
@@ -13426,6 +13501,10 @@ msgstr "Settings"
 #: src/settings/settings-dialog.tsx
 msgid "Settings sections"
 msgstr "Settings sections"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Several matches"
+msgstr "Several matches"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
@@ -15086,6 +15165,10 @@ msgstr "The PDF is missing {count} Chinese, Japanese or Korean characters ({samp
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 msgstr "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 
+#: src/platform/host-errors-papers.ts
+msgid "The PDF is not on this Mac: {path}"
+msgstr "The PDF is not on this Mac: {path}"
+
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
@@ -15783,6 +15866,10 @@ msgstr "This workspace is already open in the Lattice app."
 msgid "This workspace is already open in your browser."
 msgstr "This workspace is already open in your browser."
 
+#: src/platform/host-errors-papers.ts
+msgid "this Zotero database (schema {schema}) has no {table}.{column}"
+msgstr "this Zotero database (schema {schema}) has no {table}.{column}"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ drawing"
@@ -15990,6 +16077,7 @@ msgstr "Try"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library-status.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
@@ -17101,3 +17189,15 @@ msgstr "Zoom out"
 #: src/settings/settings-search-index.ts
 msgid "zoom scale bigger smaller"
 msgstr "zoom scale bigger smaller"
+
+#: src/papers/zotero-browser.tsx
+msgid "Zotero folders"
+msgstr "Zotero folders"
+
+#: src/platform/host-errors-papers.ts
+msgid "Zotero has no file on this Mac for this attachment."
+msgstr "Zotero has no file on this Mac for this attachment."
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Zotero…"
+msgstr "Zotero…"

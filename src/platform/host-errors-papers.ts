@@ -34,6 +34,15 @@ export const PAPERS_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["papers/convert.rs", "The URL did not return a PDF document.", () => t`The URL did not return a PDF document.`],
   ["papers/library.rs", "Cached paper has no full-text body.", () => t`Cached paper has no full-text body.`],
 
+  // Bringing a Zotero collection in, with its PDFs (zotero.rs, papers/attach.rs)
+  ["zotero.rs", "Lattice couldn't find a Zotero library on this Mac.", () => t`Lattice couldn't find a Zotero library on this Mac.`],
+  ["zotero.rs", "Lattice couldn't read the Zotero library: {}", ([reason]) => t`Lattice couldn't read the Zotero library: ${reason}`],
+  ["zotero.rs", "Zotero has no file on this Mac for this attachment.", () => t`Zotero has no file on this Mac for this attachment.`],
+  ["zotero/schema.rs", "this Zotero database (schema {}) has no {table}.{missing}", ([schema, table, column]) => t`this Zotero database (schema ${schema}) has no ${table}.${column}`],
+  ["papers/attach.rs", "A PDF can only be attached to a cited paper.", () => t`A PDF can only be attached to a cited paper.`],
+  ["papers/attach.rs", "Not a PDF: {}", ([path]) => t`Not a PDF: ${path}`],
+  ["papers/attach.rs", "The PDF is not on this Mac: {}", ([path]) => t`The PDF is not on this Mac: ${path}`],
+
   // Citing a web page (papers/web_citation.rs)
   ["papers/web_citation.rs", "The page has no readable citation metadata; it may require JavaScript.", () => t`The page has no readable citation metadata; it may require JavaScript.`],
   ["papers/web_citation.rs", "The rendered page still has no reliable citation metadata. Supply its official BibTeX or DOI instead.", () => t`The rendered page still has no reliable citation metadata. Supply its official BibTeX or DOI instead.`],

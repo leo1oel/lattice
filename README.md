@@ -50,6 +50,7 @@ Annotations and Overleaf comments also line up in a column beside the PDF, each 
 The Agent panel runs [Claude Code](https://github.com/anthropics/claude-code) or [Codex](https://github.com/openai/codex), or another agent CLI on your Mac such as Cursor, OpenCode or Droid, signed in as you.
 Lattice comes with no model and no AI subscription of its own.
 The agent reads your project and papers, fixes build errors and edits files; every change shows as a diff you can review or undo.
+It can also use the MCP servers you add to that CLI, such as Zotero or Heptabase: see [Zotero, Heptabase and the Agent panel](docs/zotero-and-notes.md).
 
 ## Research
 
@@ -57,7 +58,7 @@ The agent reads your project and papers, fixes build errors and edits files; eve
 
 <sub>Paper shown: Albert Gu and Tri Dao, “Mamba: Linear-Time Sequence Modeling with Selective State Spaces”, arXiv:2312.00752, CC BY 4.0.</sub>
 
-Add papers by arXiv ID, DOI, title, link or BibTeX, and read each as a blog, the paper or the PDF beside your draft.
+Add papers by arXiv ID, DOI, title, link or BibTeX, or straight from your Zotero library, and read each as a blog, the paper or the PDF beside your draft.
 Cite in one step, with the reference on hover.
 The library sorts, filters and groups by what you cite; **Check references** audits your bibliography against Crossref and shows each finding in a keyboard queue.
 

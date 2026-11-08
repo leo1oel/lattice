@@ -45,6 +45,7 @@ Lattice 把它们放进同一个原生 Mac 窗口。
 Agent 面板运行 [Claude Code](https://github.com/anthropics/claude-code) 或 [Codex](https://github.com/openai/codex)，也可以是 Mac 上的其他智能体命令行工具，比如 Cursor、OpenCode 或 Droid，都用你自己的账号登录。
 Lattice 不自带模型，也没有自己的 AI 订阅。
 智能体能读项目和文献、修复编译错误、编辑文件；每处改动都以差异显示，可以审阅或撤销。
+它也能用你给这个命令行工具添加的 MCP 服务器，比如 Zotero 或 Heptabase：见 [Zotero, Heptabase and the Agent panel](docs/zotero-and-notes.md)。
 
 ## 文献
 
@@ -52,7 +53,7 @@ Lattice 不自带模型，也没有自己的 AI 订阅。
 
 <sub>图中论文：Albert Gu、Tri Dao，“Mamba: Linear-Time Sequence Modeling with Selective State Spaces”，arXiv:2312.00752，CC BY 4.0。</sub>
 
-通过 arXiv ID、DOI、标题、链接或 BibTeX 添加文献，在草稿旁以博客、论文或 PDF 的形式阅读。
+通过 arXiv ID、DOI、标题、链接或 BibTeX 添加文献，也可以直接从 Zotero 文献库中勾选导入，在草稿旁以博客、论文或 PDF 的形式阅读。
 一步引用，悬停即显示文献信息。
 文献库可按引用情况排序、筛选和分组；**检查引用** 对照 Crossref 审核参考文献，并把每条结果放进可用键盘处理的队列。
 
