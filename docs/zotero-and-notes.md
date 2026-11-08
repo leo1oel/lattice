@@ -14,7 +14,8 @@ Nothing needs turning on in Zotero, and Zotero can be open or closed.
    folder's subfolders with its arrow). Its papers list beside it; turn on
    **Include subfolders** to list the papers of every folder below it too.
 3. Tick the papers you want, or **Select all**, and choose **Add N papers**.
-   A paper Papers already holds (same DOI, arXiv id or citation key) reads
+   Only ticked papers in the list on screen are added, and opening another
+   folder clears the ticks. A paper Papers already holds (same DOI, arXiv id or citation key) reads
    **In Papers** and cannot be ticked.
 
 **Back** returns to the paste box, and Escape steps back one level. In a narrow
