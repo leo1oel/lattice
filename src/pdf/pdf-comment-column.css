@@ -46,7 +46,6 @@
 }
 .pdf-comment-slot > .comment-card { width: 100%; min-width: 0; max-width: none; }
 .pdf-comment-slot-preview { border-radius: var(--radius-surface); cursor: pointer; }
-.pdf-comment-slot-preview:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 /* A resting card is the comment's preview, a step quieter than the open one;
    its passage under the pointer lifts it. */
 .pdf-comment-slot-preview > .comment-preview {
@@ -67,7 +66,8 @@
   width: calc(10px * var(--pin-scale));
   height: calc(10px * var(--pin-scale));
   padding: 0;
-  background: var(--pin-color, var(--annotation-ink));
+  --pin-color: var(--annotation-ink);
+  background: var(--pin-color);
 }
 
 /* The folded column's way back, in the pages' top corner. */

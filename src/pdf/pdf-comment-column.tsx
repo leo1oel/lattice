@@ -102,7 +102,7 @@ export function PdfCommentColumn({
       slide();
     };
     const schedule = () => {
-      frame ??= window.requestAnimationFrame(place);
+      if (frame === null) frame = window.requestAnimationFrame(place);
     };
     place();
     const observer = new ResizeObserver(schedule);
