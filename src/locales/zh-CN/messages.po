@@ -16401,7 +16401,7 @@ msgstr "有全文"
 
 #: src/project/export-word.ts
 msgid "Word"
-msgstr "Word"
+msgstr "Word 文档"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Word and page limits"
