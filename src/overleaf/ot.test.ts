@@ -214,10 +214,12 @@ class FakeServer {
   get version() { return this.history.length; }
 
   submit({ ops, version }: Send): Send {
-    // Transform against everything accepted since the client's version; the
-    // server's own history takes priority.
+    // Transform against everything accepted since the client's version, as
+    // the left side: ShareJS's `transform(op, other, 'left')`, which the
+    // document updater runs (and the Rust mock transcribes). At a tie the
+    // later arrival lands first.
     let incoming = ops;
-    for (const accepted of this.history.slice(version)) incoming = transformBoth(accepted, incoming)[1];
+    for (const accepted of this.history.slice(version)) incoming = transformBoth(incoming, accepted)[0];
     this.text = apply(this.text, incoming);
     // The version reported back is the one the operation applied AT, not the
     // one the document moved to — measured against overleaf.com, where a

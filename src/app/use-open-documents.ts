@@ -51,6 +51,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     intentRef, viewIntentRef, setOpening, setNavIndex, navLockRef,
     persistenceReadyRoot, tabsSettledRoot, flushRef, captureViewportRef, viewStates, vanishedRef,
     showFileText, closePaper, paperBuffersDirty, addTab, flush, bufferText, flushAndCheckDirty, recordDiskVersion, accept, isOutsideText,
+    typeFileText,
   } = store;
   const { save, saveStatus, saveActivityRef } = useDocumentSave(store);
   const opens = useDocumentOpens(store, save);
@@ -268,7 +269,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       path: paperPath ?? file,
       text: paper ? paperText : text,
       previewText: paper ? (paperView === "blog" ? paperBlog ?? "" : stripFrontmatter(paperMarkdown)) : undefined,
-      setText: paper ? setPaperText : setText,
+      setText: paper ? setPaperText : (value: string, base?: string) => (base === undefined ? setText(value) : typeFileText(value, base)),
       isOutsideText,
       onLeave: onEditorLeave,
       onLeaveForPdf,

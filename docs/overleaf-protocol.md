@@ -121,7 +121,7 @@ replace it.
 | `src-tauri/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
 | `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
 | `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes through the same ops that move the text, and `overleaf-suggestions.ts` does the same for tracked changes, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
-| `src/overleaf/use-overleaf-realtime.ts` | React-side document ownership, debounce, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
+| `src/overleaf/use-overleaf-realtime.ts` (connection and reconnect: `use-overleaf-realtime-connection.ts`) | React-side document ownership, send interval, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
 | `src/app/use-overleaf-workspace.ts` (`useOverleafWorkspace`) | Owns the workspace-level Overleaf state and reads the sync mode and remote-delete choice shared by every window from `src/overleaf/overleaf-sync-settings.ts`; consumed by `src/App.tsx`, which chooses between Overleaf OT and ordinary Overleaf sync, and excludes live-owned paths from ordinary sync | Lattice safety policy |
 | `scripts/verify-overleaf.mjs` | Explicit opt-in cloud smoke test against a user-selected project and document | Live compatibility check; never a default test |
 
@@ -258,7 +258,15 @@ purpose.
   text, range decoding, version position and operation order are all preserved.
 - **A document has at most one client operation in flight.** Work typed while
   waiting is composed; remote work is transformed against both the in-flight and
-  the pending operation.
+  the pending operation, with our own work as the left side. The document
+  updater transforms an arriving update as the left side against everything
+  applied since (ShareJS `transform(op, other, 'left')`, transcribed in
+  `overleaf_rt/mock_ot.rs`), so at a tie — both typing at one spot — our insert
+  lands first on the server and has to land first here, or the copies diverge.
+- **Typing goes out at least every 250 ms while it continues**, and a remote
+  update arriving before then is transformed against it rather than handing the
+  file to regular sync. Typing done while a remote update is being written to
+  disk is carried onto the new text and sent after it.
 - **A timeout is not proof of rejection.** A document whose send outcome is
   unknown stays owned by OT until a late ack or a rejoin/catch-up proves what
   happened. Ordinary file sync must not resend it blindly.

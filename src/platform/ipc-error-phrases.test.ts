@@ -8,7 +8,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { OVERLEAF_UNREACHABLE, RESPONSE_BODY_UNDECODABLE } from "../app/use-overleaf-workspace";
+import { OVERLEAF_UNREACHABLE, RESPONSE_BODY_UNDECODABLE } from "../app/overleaf-sync-failures";
 import {
   INSTALL_TEX,
   isMissingPaperToolsError,

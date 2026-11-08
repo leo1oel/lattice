@@ -306,6 +306,17 @@ pub fn overleaf_rt_disconnect(
     Ok(())
 }
 
+/// A joined document, with the text the last sync agreed it held.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JoinedDocument {
+    #[serde(flatten)]
+    joined: overleaf_rt::JoinedDoc,
+    /// See `overleaf::agreed_text`. Read under the same exclusive lease as
+    /// the join, so no sync can move it in between.
+    agreed: Option<String>,
+}
+
 /// Subscribe to a document; returns its current text and version.
 ///
 /// `fromVersion` asks the server to replay what happened while we were away
@@ -315,7 +326,7 @@ pub fn overleaf_rt_disconnect(
 pub async fn overleaf_rt_join_doc(
     state: State<'_, AppState>, window: Window, project_root: String, doc_id: String,
     from_version: Option<i64>, receipt: String,
-) -> Result<overleaf_rt::JoinedDoc, String> {
+) -> Result<JoinedDocument, String> {
     let lease = state.lease(&project_root, Lease::Exclusive).await;
     let root = scoped_root(&state, &window, &project_root)?;
     let client = realtime_client(&state, &window)?;
@@ -331,16 +342,24 @@ pub async fn overleaf_rt_join_doc(
         if realtime.root.as_ref() != Some(&root) || !realtime.is_current(&client) {
             return Err("The Overleaf project changed before the document joined.".to_string());
         }
-        realtime.joined_paths.insert(doc_id.clone(), path)
+        realtime.joined_paths.insert(doc_id.clone(), path.clone())
     };
     match client.join_doc(&doc_id, from_version).await {
         Ok(joined) => {
-            let mut realtime = lease.project.realtime()?;
-            if !realtime.is_current(&client) {
-                return Err("The Overleaf connection changed during the document join.".to_string());
+            {
+                let mut realtime = lease.project.realtime()?;
+                if !realtime.is_current(&client) {
+                    return Err(
+                        "The Overleaf connection changed during the document join.".to_string()
+                    );
+                }
+                realtime.join_receipts.insert(doc_id, receipt);
             }
-            realtime.join_receipts.insert(doc_id, receipt);
-            Ok(joined)
+            let agreed = run_blocking("overleaf.agreed_text", move || {
+                Ok(overleaf::agreed_text(&root, &path))
+            })
+            .await?;
+            Ok(JoinedDocument { joined, agreed })
         }
         Err(error) => {
             if let Ok(mut realtime) = lease.project.realtime.lock() {

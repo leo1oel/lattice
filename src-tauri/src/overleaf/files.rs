@@ -348,6 +348,18 @@ pub fn checkpoint_realtime_text(root: &Path, rel: &str, text: &str) -> Result<()
     write_local_file(root, &format!("{STATE_DIR}/{STATE_FILE}"), body.as_bytes())
 }
 
+/// The text both sides last agreed `rel` held — the base copy, while the
+/// recorded hash still vouches for it — or None when there is no such text.
+///
+/// Live editing starts from it when it joins a document whose text moved on
+/// since the last sync: a buffer still holding exactly this has nothing
+/// Overleaf lacks, and Overleaf's text can be taken as it stands.
+pub fn agreed_text(root: &Path, rel: &str) -> Option<String> {
+    validate_inventory_path(rel).ok()?;
+    let hash = load_state(root).ok()?.files.get(rel).cloned()?;
+    read_base_copy(root, rel).filter(|text| sha256_hex(text.as_bytes()) == hash)
+}
+
 /// Outcome of reconciling a file both sides changed.
 pub(super) enum MergeOutcome {
     /// Combined cleanly; the bytes belong on disk *and* on Overleaf.
@@ -484,6 +496,18 @@ mod tests {
         let peer =
             BTreeMap::from([("main.tex".to_string(), b"A peer replaced the ending.\n".to_vec())]);
         assert_eq!(plan(&after, &peer).conflict.len(), 1);
+    }
+
+    #[test]
+    fn agreed_text_is_the_base_copy_only_while_the_recorded_hash_vouches_for_it() {
+        let root = linked_root(&[("main.tex", b"local\n")], &[("main.tex", b"agreed\n")]);
+        assert_eq!(agreed_text(&root, "main.tex").as_deref(), Some("agreed\n"));
+        assert_eq!(agreed_text(&root, "missing.tex"), None);
+        // A base copy the hash no longer describes is not an agreement.
+        write_base_copy(&root, "main.tex", b"rewritten\n").unwrap();
+        assert_eq!(agreed_text(&root, "main.tex"), None);
+        checkpoint_realtime_text(&root, "main.tex", "shared\n").unwrap();
+        assert_eq!(agreed_text(&root, "main.tex").as_deref(), Some("shared\n"));
     }
 
     #[test]

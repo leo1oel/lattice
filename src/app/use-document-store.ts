@@ -51,6 +51,9 @@ export const isVanished = (vanished: VanishedFile | null, root: string | undefin
   vanished?.root === root && vanished?.path === path
 );
 
+/** What `accept` requires of the open buffer; see there. */
+export type AcceptExpectation = { text?: string; saved?: string; show?: (current: string) => string | null };
+
 /** The state behind the open-documents store, shared by the hooks that carry out its commands. */
 export type DocumentStore = ReturnType<typeof useDocumentStore>;
 
@@ -75,7 +78,7 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const {
     setFile, setText, setSavedText, setAsset, setPaper, setPaperView, setPaperMarkdown, setSavedPaperMarkdown,
     setPaperBlog, setSavedPaperBlog, setTabs, setMode, setOpening, setNavStack, setNavIndex,
-    setPersistenceReadyRoot, setTabsSettledRoot, commitFileText, takeOutsideText, showFileText, setPaperBuffers, closePaper,
+    setPersistenceReadyRoot, setTabsSettledRoot, commitFileText, takeOutsideText, typeFileText, showFileText, setPaperBuffers, closePaper,
     addTab, showTab, pushNavigation,
   } = documentsStore.getState();
   // Ref-shaped views for async work: they read the store, so they hold every write at once.
@@ -179,12 +182,15 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
    * Durable text for `path` reached disk: show it if `path` is the open file.
    * `expect` makes it a compare-and-swap: "clean" only replaces a buffer with
    * no unsaved edits; `{ text, saved }` only one still holding exactly those.
-   * True when the buffer now shows `content`.
+   * With `show`, `content` becomes the saved text and the buffer shows what
+   * `show` makes of the buffer as it stands (null refuses): the writer's
+   * unsaved typing carried onto it, still unsaved.
+   * True when the buffer now shows `content`, or what `show` made.
    */
   const accept = useCallback((
     path: string,
     content: string,
-    expect?: "clean" | { text?: string; saved?: string },
+    expect?: "clean" | AcceptExpectation,
   ) => {
     if (fileRef.current !== path) return false;
     if (expect === "clean" && textRef.current !== savedRef.current) return false;
@@ -192,9 +198,12 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
       if (expect.text !== undefined && textRef.current !== expect.text) return false;
       if (expect.saved !== undefined && savedRef.current !== expect.saved) return false;
     }
+    const shown = typeof expect === "object" && expect.show ? expect.show(textRef.current) : content;
+    if (shown === null) return false;
     commitFileText(content);
+    if (shown !== content) takeOutsideText(shown);
     return true;
-  }, [commitFileText, fileRef, savedRef, textRef]);
+  }, [commitFileText, fileRef, savedRef, takeOutsideText, textRef]);
 
   /**
    * Whether the canvas's `value` is the file's text as it came from outside
@@ -223,7 +232,7 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     persistenceReadyRoot, setPersistenceReadyRoot, tabsSettledRoot, setTabsSettledRoot,
     diskVersionRef, vanishedRef, flushRef, captureViewportRef, viewStates, viewStateRef, renderedRef,
     // Primitives.
-    commitFileText, takeOutsideText, isOutsideText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
+    commitFileText, takeOutsideText, typeFileText, isOutsideText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
     addTab, showTab, flush, bufferText, flushAndCheckDirty, recordDiskVersion, requestLine, accept,
   };
 }

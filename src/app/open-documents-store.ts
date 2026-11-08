@@ -2,6 +2,7 @@ import type { SetStateAction } from "react";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { AssetPreview, CanvasMode, NavigationEntry, PaperSummary } from "../app-types";
 import type { PaperView } from "./paper-documents";
+import { diffToOps, rebaseOnto } from "../overleaf/ot";
 
 const NAVIGATION_HISTORY_LIMIT = 80;
 
@@ -61,6 +62,13 @@ type OpenDocumentsActions = Setters & {
   commitFileText: (content: string) => void;
   /** Replace the file's buffer with text that merged in edits from outside; it stays unsaved. */
   takeOutsideText: (content: string) => void;
+  /**
+   * The editor's typing turned `base`, the buffer as the editor last saw it,
+   * into `content`. When the buffer moved on meanwhile — text from outside
+   * landed while the editor had yet to take it in — the typing is carried
+   * onto that text rather than replacing it.
+   */
+  typeFileText: (content: string, base: string) => void;
   /** Load `content` as `path`'s durable text. */
   showFileText: (path: string, content: string) => void;
   /** Both of the open Paper's reading buffers, as read from disk. */
@@ -102,6 +110,11 @@ export function createOpenDocumentsStore(): OpenDocumentsStore {
       ...setters,
       commitFileText: (content) => set({ text: content, savedText: content, outsideText: content }),
       takeOutsideText: (content) => set({ text: content, outsideText: content }),
+      typeFileText: (content, base) => set(({ text }) => {
+        if (text === base) return { text: content };
+        const merged = rebaseOnto(base, content, diffToOps(base, text), text);
+        return merged === null ? { text: content } : { text: merged, outsideText: merged };
+      }),
       showFileText: (path, content) => set({ file: path, text: content, savedText: content, outsideText: content }),
       setPaperBuffers: (markdown, blog) => set({
         paperMarkdown: markdown, savedPaperMarkdown: markdown, paperBlog: blog, savedPaperBlog: blog,

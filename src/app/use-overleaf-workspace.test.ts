@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { OverleafThread, ProjectSnapshot } from "../app-types";
 import { createOverleafConnectionStore } from "../overleaf/overleaf-connection-store";
+import { diffToOps } from "../overleaf/ot";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
 import { projectOverleafEditorComments } from "../overleaf/overleaf-editor-comments";
 import { applyOverleafRemoteText } from "./overleaf-remote-text";
+import type { AcceptExpectation } from "./use-document-store";
 import { useOverleafWorkspace, type OverleafWorkspaceDeps } from "./use-overleaf-workspace";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -35,14 +37,21 @@ function remoteFixture() {
     sourceRef: { current: "old caption" },
     savedSourceRef: { current: "old caption" },
     // The open documents' compare-and-swap: only a buffer still holding `expect` takes the text.
-    accept: vi.fn((path: string, content: string, expect: { text: string; saved: string }) => {
-      if (deps.activeFileRef.current !== path || deps.sourceRef.current !== expect.text
-        || deps.savedSourceRef.current !== expect.saved) return false;
-      deps.sourceRef.current = deps.savedSourceRef.current = content;
+    accept: vi.fn((path: string, content: string, expect: AcceptExpectation) => {
+      if (deps.activeFileRef.current !== path || (expect.text !== undefined && deps.sourceRef.current !== expect.text)
+        || (expect.saved !== undefined && deps.savedSourceRef.current !== expect.saved)) return false;
+      const shown = expect.show ? expect.show(deps.sourceRef.current) : content;
+      if (shown === null) return false;
+      deps.savedSourceRef.current = content;
+      deps.sourceRef.current = shown;
       return true;
     }),
   };
-  const context = { projectRoot: "/project", path: "section.tex", baseContent: "old caption", isCurrent: () => true };
+  // A co-author's operation, which turns the caption into "remote caption".
+  const context = {
+    projectRoot: "/project", path: "section.tex", baseContent: "old caption",
+    ops: diffToOps("old caption", "remote caption"), carryTyping: true, isCurrent: () => true,
+  };
   return { deps, context };
 }
 
@@ -83,23 +92,66 @@ describe("safe Overleaf remote text delivery", () => {
     const { deps, context } = remoteFixture();
     vi.mocked(invoke).mockResolvedValue(undefined);
     expect(await applyOverleafRemoteText(deps, "remote caption", context)).toBe(true);
-    expect(deps.accept).toHaveBeenCalledWith("section.tex", "remote caption", { text: "old caption", saved: "old caption" });
+    expect(deps.accept).toHaveBeenCalledWith("section.tex", "remote caption", { saved: "old caption", show: expect.any(Function) });
     expect(deps.sourceRef.current).toBe("remote caption");
     expect(deps.savedSourceRef.current).toBe("remote caption");
   });
 
-  it.each(["typing", "navigation", "project generation"])("does not apply a late response after %s", async (change) => {
+  it.each(["navigation", "project generation"])("does not apply a late response after %s", async (change) => {
     const { deps, context } = remoteFixture();
     let resolve!: () => void;
     vi.mocked(invoke).mockImplementation(() => new Promise<void>((done) => { resolve = done; }));
     const pending = applyOverleafRemoteText(deps, "remote caption", context);
-    if (change === "typing") deps.sourceRef.current = "my unfinished edit";
     if (change === "navigation") deps.activeFileRef.current = "other.tex";
     if (change === "project generation") deps.projectOperationGenerationRef.current += 1;
     await act(async () => { resolve(); });
     expect(await pending).toBe(false);
-    expect(deps.sourceRef.current).toBe(change === "typing" ? "my unfinished edit" : "old caption");
+    expect(deps.sourceRef.current).toBe("old caption");
     expect(deps.savedSourceRef.current).toBe("old caption");
+  });
+
+  it("carries typing done while the write crossed IPC onto the co-author's text, unsaved", async () => {
+    const { deps, context } = remoteFixture();
+    let resolve!: () => void;
+    vi.mocked(invoke).mockImplementation(() => new Promise<void>((done) => { resolve = done; }));
+    const pending = applyOverleafRemoteText(deps, "remote caption", context);
+    deps.sourceRef.current = "old caption, typed";
+    await act(async () => { resolve(); });
+    expect(await pending).toBe(true);
+    expect(deps.savedSourceRef.current).toBe("remote caption");
+    expect(deps.sourceRef.current).toBe("remote caption, typed");
+  });
+
+  it("carries typing the live channel had not sent yet, and writes it with the co-author's text", async () => {
+    const { deps, context } = remoteFixture();
+    deps.sourceRef.current = "old caption!";
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    expect(await applyOverleafRemoteText(deps, "remote caption", context)).toBe(true);
+    expect(invoke).toHaveBeenCalledWith("write_project_file", {
+      path: "section.tex", projectRoot: "/project", content: "remote caption!", expectedContent: "old caption",
+    });
+    expect([deps.sourceRef.current, deps.savedSourceRef.current]).toEqual(["remote caption!", "remote caption!"]);
+  });
+
+  it("requires a joined snapshot to match the buffer exactly", async () => {
+    const { deps, context } = remoteFixture();
+    deps.sourceRef.current = "old caption!";
+    vi.mocked(invoke).mockResolvedValue(undefined);
+    expect(await applyOverleafRemoteText(deps, "remote caption", { ...context, carryTyping: false })).toBe(false);
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "write_project_file")).toBe(false);
+  });
+
+  it("writes again when the editor's own save lands first", async () => {
+    const { deps, context } = remoteFixture();
+    deps.sourceRef.current = "old caption!";
+    vi.mocked(invoke).mockImplementationOnce(async () => {
+      deps.savedSourceRef.current = "old caption!";
+      throw new Error("disk changed");
+    }).mockResolvedValue(undefined);
+    expect(await applyOverleafRemoteText(deps, "remote caption", context)).toBe(true);
+    expect(invoke).toHaveBeenLastCalledWith("write_project_file", {
+      path: "section.tex", projectRoot: "/project", content: "remote caption!", expectedContent: "old caption!",
+    });
   });
 });
 

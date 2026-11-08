@@ -268,6 +268,20 @@ export function transformBoth(left: OtOp[], right: OtOp[]): [OtOp[], OtOp[]] {
   return [leftOp, newRightOp];
 }
 
+/**
+ * `current` is `base` with local typing on top; `remote`, ops on `base`,
+ * turned it into `remoteText`. Return `remoteText` with that typing on top,
+ * placed the way the server will place it once it arrives there (see
+ * `OtDocument.remote` for why local work goes on the left). Null when
+ * `current` does not descend from `base` this way — the typing then does not
+ * fit, and nothing should be guessed.
+ */
+export function rebaseOnto(base: string, current: string, remote: OtOp[], remoteText: string): string | null {
+  if (current === base) return remoteText;
+  const [typed] = transformBoth(diffToOps(base, current), remote);
+  return applyOps(remoteText, typed);
+}
+
 /** Combine two operations that apply one after the other into a single one. */
 export function composeOps(first: OtOp[], second: OtOp[]): OtOp[] {
   const result = first.slice();
@@ -445,14 +459,16 @@ export class OtDocument {
       const current = this.version;
       throw new OtDesyncError(i18n._(msg`Overleaf sent version ${version} while this document is at ${current}.`));
     }
-    // The incoming operation is already in the server's history, so it takes
-    // precedence and ours is transformed as the later one — exactly as the
-    // server will when ours arrives, or two inserts at one spot would order
-    // differently here and never converge.
+    // Ours goes on the left, as ShareJS's own client puts it: when ours
+    // reaches the server, the server transforms it as the left side against
+    // everything applied since (`transform(op, other, 'left')`), so at a tie —
+    // both typing at one spot — ours lands first there and has to land first
+    // here, or the two copies order those inserts differently and never
+    // converge. The next hash Overleaf checks would then reject the document.
     let incoming = ops;
-    if (this.inflight) [incoming, this.inflight] = transformBoth(incoming, this.inflight);
+    if (this.inflight) [this.inflight, incoming] = transformBoth(this.inflight, incoming);
     if (this.pending) {
-      [incoming, this.pending] = transformBoth(incoming, this.pending);
+      [this.pending, incoming] = transformBoth(this.pending, incoming);
       // Cancelled out entirely (see `acknowledge`): nothing is left to send.
       if (this.pending.length === 0) this.pending = null;
     }

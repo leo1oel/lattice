@@ -25,6 +25,19 @@ describe("open documents store", () => {
     expect(store.getState()).toMatchObject({ text: "From disk", savedText: "From disk" });
   });
 
+  it("carries a keystroke onto a co-author's text that landed before the editor took it in", () => {
+    const store = createOpenDocumentsStore();
+    const { showFileText, takeOutsideText, typeFileText } = store.getState();
+    showFileText("main.tex", "We study attention.\n");
+    // The co-author's words reach the buffer; the editor still shows the old text.
+    takeOutsideText("We study attention closely.\n");
+    typeFileText("Here we study attention.\n", "We study attention.\n");
+    expect(store.getState().text).toBe("Here we study attention closely.\n");
+    // Nothing moved behind the editor: the edit is the buffer.
+    typeFileText("Here we study attention closely!\n", "Here we study attention closely.\n");
+    expect(store.getState().text).toBe("Here we study attention closely!\n");
+  });
+
   it("takes values or updaters in its field setters, like useState", () => {
     const store = createOpenDocumentsStore();
     const { setTabs, setMode } = store.getState();

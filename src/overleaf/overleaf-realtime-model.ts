@@ -53,6 +53,8 @@ export type JoinedDoc = {
   caughtUp: ReplayedUpdate[];
   /** Whether the server honoured the version we asked to resume from; if not, `text` is all there is. */
   resumed: boolean;
+  /** The text the last sync agreed this document held, when that is still on record. */
+  agreed?: string | null;
 };
 
 /** `suggestedBy` is set when the update was sent as a suggestion. */
@@ -60,7 +62,18 @@ export type DocUpdateEvent = { type: "docUpdate"; docId: string; suggestedBy?: S
 export type OverleafRemoteTextContext = {
   projectRoot: string;
   path: string;
+  /** The text the new text was made from. */
   baseContent: string;
+  /** The operations that turned `baseContent` into the new text. */
+  ops: OtOp[];
+  /**
+   * Whether the buffer may already hold the writer's typing on top of
+   * `baseContent`, to be carried onto the new text the way the server will
+   * place it. True for a co-author's operation, which OT built on the text
+   * this side last sent; false for a joined snapshot, which the buffer has to
+   * match (or already show) before anything is taken.
+   */
+  carryTyping: boolean;
   isCurrent: () => boolean;
 };
 
