@@ -31,7 +31,6 @@ import { useOverleafTrackChanges } from "../overleaf/use-overleaf-track-changes"
 import { collabPeopleHues, peopleHuesFromKey, peopleHuesKey } from "../overleaf/overleaf-collab-people";
 import { projectOverleafEditorComments } from "../overleaf/overleaf-editor-comments";
 import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
-import { hasConflictMarkers } from "../history/conflict-markers";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import { reviewMode } from "../history/review-mode-store";
 import { applyOverleafRemoteText } from "./overleaf-remote-text";
@@ -41,6 +40,7 @@ import type {
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
 import { overleafSyncWarnings } from "./overleaf-sync-warnings";
+import { reportSyncOutcome } from "./overleaf-sync-outcome";
 import { overleafSyncSummary } from "./overleaf-sync-summary";
 import { unsettledPaths } from "./overleaf-sync-unsettled";
 
@@ -358,28 +358,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ...[...externalBatch.keys()].filter((path) => !livePaths.includes(path)
           && !result.deletedLocal.includes(path) && !result.skippedRemoteDeletes.includes(path)),
       ]);
-      if (result.conflicts.length) {
-        // Only a file with markers has spots to resolve; for a figure or PDF,
-        // say plainly that both versions are sitting on disk. A later disk
-        // write can supersede the snapshot, so never demand choices for a clean
-        // file; an unreadable one goes to the resolver, which reports it.
-        const marked: OverleafSyncResult["conflicts"] = [];
-        for (const item of result.conflicts.filter((conflict) => conflict.markers !== false)) {
-          const content = await invoke<string>("read_project_file", { path: item.path, projectRoot: syncRoot }).catch(() => null);
-          if (content === null || hasConflictMarkers(content)) marked.push(item);
-          if (!stillCurrent()) return;
-        }
-        const whole = result.conflicts.filter((item) => item.markers === false);
-        const markedFiles = marked.map((item) => item.path).join(", ");
-        const wholeFiles = whole.map((item) => item.path).join(", ");
-        const parts = [
-          marked.length ? t`Couldn’t merge ${markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then.` : "",
-          whole.length ? t`${wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it.` : "",
-        ].filter(Boolean);
-        if (parts.length) showError(parts.join(" "));
-        // Only worth opening for a file that actually has markers in it.
-        if (marked[0]) setConflictPath(marked[0].path);
-      }
+      if (!(await reportSyncOutcome({ result, projectRoot: syncRoot, stillCurrent, openConflict: setConflictPath }))) return;
       let reloadBlockedPath: string | null = null;
       if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });

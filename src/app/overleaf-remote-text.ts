@@ -3,6 +3,7 @@
  * open file: written to disk and shown, only while nothing newer is there.
  */
 import { invoke } from "@tauri-apps/api/core";
+import { noteHostFileWrites } from "../agent/agent-host-writes";
 import { reviewMode } from "../history/review-mode-store";
 import type { OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import type { OverleafWorkspaceDeps } from "./use-overleaf-workspace";
@@ -36,6 +37,8 @@ export async function applyOverleafRemoteText(
   // snapshot must not erase agent edits that have not reached the editor yet.
   // Ordinary sync, which has the real shared baseline, reconciles divergence.
   await invoke("write_project_file", { path, projectRoot, content: text, expectedContent: saved });
+  // Nor the agent's: an Agent Undo must not reverse it along with the agent's change.
+  if (text !== saved) noteHostFileWrites(projectRoot, [path]);
   // Typing during IPC stays dirty against its original saved base; the
   // ordinary editor save can merge it with the remote bytes now on disk.
   // A co-author's text is not the writer's tracked change: it moves review mode's base.

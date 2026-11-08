@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import {
@@ -9,8 +10,10 @@ import {
   type AgentCompileResultMessage,
   type AgentProjectHistorySnapshot,
 } from "../agent/synara-runtime";
+import { hasConflictMarkers } from "../history/conflict-markers";
 import type { HistoryItem } from "../history/history-drawer";
 import type { BuildPreferences } from "../settings/app-settings";
+import { announceAgentUndoConflicts } from "./agent-undo-conflicts";
 import { persistSynaraThread } from "./app-synara-embed";
 import { clearTimer, restartTimer } from "./effect-helpers";
 
@@ -19,6 +22,22 @@ export type AgentCompileAssociation = { threadId: string; turnId: string; checkp
 const entryKey = (entry: AgentCheckpointHistoryEntry) => `${entry.threadId}\u0000${entry.id}`;
 const isBuildInputPath = (path: string) => !path.startsWith(".research/") && !path.startsWith(".git/");
 const touchesBuild = (entry: AgentCheckpointHistoryEntry) => entry.files.some((file) => isBuildInputPath(file.path));
+
+/**
+ * The undone files that came back with conflict markers. Undo reverses the
+ * agent's change onto the current text, so where a co-author (or the writer)
+ * had since edited the agent's very lines, Synara keeps both versions marked
+ * for just those spots rather than refusing the whole undo or dropping their
+ * words. Sync holds such a file back from Overleaf until it is resolved.
+ */
+async function filesWithConflictMarkers(projectRoot: string, paths: readonly string[]) {
+  const marked: string[] = [];
+  for (const path of paths) {
+    const content = await invoke<string>("read_project_file", { path, projectRoot }).catch(() => null);
+    if (content !== null && hasConflictMarkers(content)) marked.push(path);
+  }
+  return marked;
+}
 
 /**
  * Agent turns edit files on disk without passing through the editor, so the
@@ -115,6 +134,13 @@ export function useAgentCheckpoints({ project, projectRef, autoBuildModeRef, com
     if (!primedThreadsRef.current.has(threadId)) {
       primedThreadsRef.current.add(threadId);
       return;
+    }
+    const undonePaths = [...new Set(removedEntries.flatMap((entry) => entry.files.map((file) => file.path)))]
+      .filter(isBuildInputPath);
+    if (root && undonePaths.length) {
+      void filesWithConflictMarkers(root, undonePaths).then((marked) => {
+        if (marked.length && projectRef.current?.root === root) announceAgentUndoConflicts(marked);
+      });
     }
     const buildEntries = changedEntries.filter(touchesBuild);
     // Undo clears a turn's diff, so Synara omits it from the next history

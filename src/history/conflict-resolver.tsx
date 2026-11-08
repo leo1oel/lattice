@@ -33,6 +33,7 @@ import { toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
 import { logAction } from "../telemetry/app-notify";
 import { PIERRE_UNSAFE_CSS, usePierreResources } from "./pierre-diff";
+import { noteHostFileWrites } from "../agent/agent-host-writes";
 import "./conflict-resolver.css";
 
 const createEditor: EditorFactory<undefined, undefined> = (editorType, options, editStateKey) =>
@@ -97,12 +98,20 @@ function ConflictSide(props: {
 
 const CHOICE_KEYS: Record<string, ConflictChoice> = { 1: "ours", 2: "theirs", 3: "both" };
 
+/**
+ * Whose text each side is. A sync's markers put this computer's text against
+ * Overleaf's; an Agent Undo's put the text on disk now (with a co-author's or
+ * the writer's newer edits) against the text from before the agent's change.
+ */
+export type ConflictSides = "overleaf" | "agent-undo";
+
 function ConflictSpot(props: {
   hunk: ConflictHunk;
   position: number;
   total: number;
   choice: ConflictChoice | undefined;
   disabled: boolean;
+  sides: ConflictSides;
   onChoose: (choice: ConflictChoice) => void;
 }) {
   const { t } = useLingui();
@@ -110,7 +119,20 @@ function ConflictSpot(props: {
   const ours = hunk.oursLines.join("\n");
   const theirs = hunk.theirsLines.join("\n");
   const keeps = (side: "ours" | "theirs") => choice === side || choice === "both";
-  const decision = { ours: t`Keeping this computer's`, theirs: t`Keeping Overleaf's`, both: t`Keeping both` };
+  const words = props.sides === "agent-undo"
+    ? {
+      ours: t`Current text`, keepOurs: t`Keep the current text`, keepingOurs: t`Keeping the current text`,
+      oursEmpty: t`The current text removed this part.`,
+      theirs: t`Before the agent`, keepTheirs: t`Keep the text from before the agent`,
+      keepingTheirs: t`Keeping the text from before the agent`, theirsEmpty: t`Before the agent, this part was empty.`,
+    }
+    : {
+      ours: t`This computer`, keepOurs: t`Keep this computer's version`, keepingOurs: t`Keeping this computer's`,
+      oursEmpty: t`This computer removed this part.`,
+      theirs: t`Overleaf`, keepTheirs: t`Keep Overleaf's version`, keepingTheirs: t`Keeping Overleaf's`,
+      theirsEmpty: t`Overleaf removed this part.`,
+    };
+  const decision = { ours: words.keepingOurs, theirs: words.keepingTheirs, both: t`Keeping both` };
   return (
     <article
       className="conflict-spot"
@@ -136,27 +158,27 @@ function ConflictSpot(props: {
       <div className="conflict-choices" role="radiogroup" aria-label={t`Version to keep for spot ${props.position}`}>
         <div className="conflict-sides">
         <ConflictSide
-          label={t`This computer`}
-          choiceLabel={t`Keep this computer's version`}
+          label={words.ours}
+          choiceLabel={words.keepOurs}
           shortcut="1"
           text={ours}
           other={theirs}
           checked={keeps("ours")}
           dropped={choice === "theirs"}
           disabled={props.disabled}
-          emptyLabel={t`This computer removed this part.`}
+          emptyLabel={words.oursEmpty}
           onChoose={() => props.onChoose("ours")}
         />
         <ConflictSide
-          label={t`Overleaf`}
-          choiceLabel={t`Keep Overleaf's version`}
+          label={words.theirs}
+          choiceLabel={words.keepTheirs}
           shortcut="2"
           text={theirs}
           other={ours}
           checked={keeps("theirs")}
           dropped={choice === "ours"}
           disabled={props.disabled}
-          emptyLabel={t`Overleaf removed this part.`}
+          emptyLabel={words.theirsEmpty}
           onChoose={() => props.onChoose("theirs")}
         />
         </div>
@@ -182,6 +204,8 @@ export function ConflictResolverDialog(props: {
   open: boolean;
   path: string | null;
   projectRoot: string;
+  /** Whose text each side is; a sync's conflict unless an Agent Undo left it. */
+  sides?: ConflictSides;
   onClose: () => void;
   /** Called after the resolved file is written, so the editor can reload and sync can upload it. */
   onResolved: (path: string) => void;
@@ -261,6 +285,7 @@ export function ConflictResolverDialog(props: {
         content: savedContent,
         projectRoot: props.projectRoot,
       });
+      noteHostFileWrites(props.projectRoot, [path]);
       if (stage === "edit" && draftRef.current !== savedContent) {
         trace.fail(t`The file changed while it was saving. Review the latest text and save again.`);
         setSaving(false);
@@ -335,6 +360,7 @@ export function ConflictResolverDialog(props: {
                   total={total}
                   choice={choices.get(hunk.index)}
                   disabled={saving}
+                  sides={props.sides ?? "overleaf"}
                   onChoose={(choice) => choose(hunk.index, choice)}
                 />
               ))}
