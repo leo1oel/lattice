@@ -300,7 +300,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 20 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
 | `papers` | 12 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
-| `git` | 10 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
+| `git` | 12 | `git_status`, `git_user_name`, `clone_repository`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
 | service modules | 15 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
 
@@ -349,7 +349,8 @@ that header before changing anything under `overleaf_rt/`.
 `overleaf-session.json` in app data), linking and clone (`overleaf/link.rs`),
 which folders already hold a linked copy, so Open from Overleaf reopens one
 instead of downloading a second (`overleaf/local_copies.rs`),
-the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`), history and review (`overleaf/review.rs`),
+the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`; a sync's edits to documents go as live
+operations instead, `overleaf/doc_push.rs`), history and review (`overleaf/review.rs`),
 and a real three-way merge (`overleaf/sync.rs`). The merge keeps a pristine copy of every text file as of
 the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,
@@ -383,6 +384,7 @@ creates it.
 | `.research/licenses/` | `project/create.rs` | license texts for imported material |
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
+| `.research/review/` | `project/review_mode.rs` (`REVIEW_DIRECTORY`) | review mode, present only while it is on: `review.json` (when it was turned on, the files it left out), `base/` (each `.tex`/`.bib` file's base, mirroring the project's paths) and `build/` (the PDF with the changes marked; `latex/changes/review.rs`); deleted when review mode is turned off; never committed (see the gitignore files below), synced to Overleaf (all of `.research/` stays local) or written by `write_bytes` |
 | `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
 | `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
 | `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |
@@ -397,13 +399,13 @@ known to hold a linked copy (`overleaf-local-copies.json`,
 `.research/overleaf.json` before use.
 
 Two gitignore files are written at project creation (`project/create.rs`):
-`.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/`
+`.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/ review/`
 (`RESEARCH_GITIGNORE`), and the project's root `.gitignore`
-gets the same four paths plus `/main.pdf` and the LaTeX build-artifact list.
+gets the same five paths plus `/main.pdf` and the LaTeX build-artifact list.
 Every open (`project/manifest.rs`) writes `.research/.gitignore` only if it is
 missing (an existing one is left as is), and `ensure_ignore_line` adds
-`.research/checkpoints/`, `.research/cache/` and the build-artifact list to the
-root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
+`.research/checkpoints/`, `.research/cache/`, `.research/review/` and the
+build-artifact list to the root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
 `.log` and `.fls` in the directory. Exporting a PDF with changes marked (`latex/changes.rs`) adds its `/<root>-changes.pdf` to the root `.gitignore` the same way.
 
 Export (`export_project_zip`) excludes `.git/`, all of `.research/`, the

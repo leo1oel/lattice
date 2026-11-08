@@ -1,3 +1,4 @@
+import { isWindowsHost } from "../platform/host-platform";
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
@@ -45,7 +46,7 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
       // Chained, so a runtime without the monitor API lands in the catch too.
       void Promise.resolve().then(() => currentMonitor()).then((monitor) => {
         if (!active) return;
-        const windows = /Windows NT/.test(navigator.userAgent);
+        const windows = isWindowsHost();
         // Win32 workArea includes the frame and caption, while setMinSize
         // takes client dimensions. A too-tall minimum prevents maximizing on
         // laptops with display scaling, even though the layout can shrink.
@@ -115,7 +116,7 @@ export function useFullscreen(): boolean {
     };
   }, []);
   useEffect(() => {
-    if (!/Windows NT/.test(navigator.userAgent)) return;
+    if (!isWindowsHost()) return;
     const appWindow = getCurrentWindowSafely();
     if (typeof appWindow?.setFullscreen !== "function") return;
     const keydown = (event: KeyboardEvent) => {

@@ -10,6 +10,7 @@ mod deletions;
 mod prefetch;
 mod preview;
 mod relocations;
+mod send;
 
 const NO_LIVE: &BTreeSet<String> = &BTreeSet::new();
 
@@ -54,28 +55,6 @@ fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
     let kept_overleaf = plan(&after, theirs);
     assert!(kept_overleaf.push.is_empty());
     assert!(kept_overleaf.pull.is_empty() && kept_overleaf.conflict.is_empty());
-}
-
-#[test]
-fn overleaf_sync_uploads_only_while_overleaf_holds_still() {
-    // Someone typed in the Overleaf editor between our snapshot (the first
-    // history read) and our upload (the second). Uploading would replace
-    // their words, so nothing goes up and the file stays marked as a local
-    // edit for the next round; an unchanged version must not block it.
-    let base = b"base body".as_slice();
-    for (versions, uploaded) in [(vec![11, 12], false), (vec![11], true)] {
-        let mock = Mock { versions, ..Mock::project(&[("main.tex", base)]) };
-        let (server, root, result) =
-            run_sync(mock, &[("main.tex", b"locally edited")], &[("main.tex", base)]);
-        let expected: &[&str] = if uploaded { &["main.tex"] } else { &[] };
-        assert_eq!(result.pushed, expected);
-        assert_eq!(server.uploads().len(), expected.len());
-        assert_eq!(read_local(&root, "main.tex").unwrap(), b"locally edited");
-        let recorded = state_files(&root).get("main.tex").cloned();
-        // Dropped from state when standing down, so the very next sync
-        // re-detects the local edit and sends it merged with theirs.
-        assert_eq!(recorded, uploaded.then(|| sha256_hex(b"locally edited")));
-    }
 }
 
 #[test]

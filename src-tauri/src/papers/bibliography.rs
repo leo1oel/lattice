@@ -1,12 +1,11 @@
-//! Running bibcite, and the edits made to the primary bibliography: removing
-//! a reference (optionally with its manuscript citations), which cuts out only
-//! that entry's text, and upgrading preprints to their publications.
+//! Running bibcite, and removing a reference from the primary bibliography
+//! (optionally with its manuscript citations), which cuts out only that
+//! entry's text. Upgrading preprints lives in `upgrade`.
 //!
 //! bibcite always works on a scratch copy; nothing reaches the project until
 //! the result has been checked and is committed through `commit_bibliography`
 //! or the citation transaction.
 
-use super::citation::validate_resolved_identity;
 use super::{ensure_success, uv_tool_spawn_error};
 use crate::models::SymbolOccurrence;
 use crate::util::err;
@@ -26,14 +25,6 @@ pub enum HistoryMode {
     Record,
     /// Write directly; the caller (an agent turn) records history itself.
     Defer,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpgradeResult {
-    pub dry_run: bool,
-    pub changed: bool,
-    pub report: Value,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -115,7 +106,7 @@ pub(super) fn run_bibcite_input(
 
 /// Run a bibcite subcommand to completion, with credentials redacted from
 /// whatever it prints.
-fn run_bibcite(label: &str, command: &mut Command) -> Result<Vec<u8>, String> {
+pub(super) fn run_bibcite(label: &str, command: &mut Command) -> Result<Vec<u8>, String> {
     let output = command
         .output()
         .map(|output| commands::redact_bibcite_output(command, output))
@@ -124,13 +115,9 @@ fn run_bibcite(label: &str, command: &mut Command) -> Result<Vec<u8>, String> {
     Ok(output.stdout)
 }
 
-fn parse_report(stdout: &[u8]) -> Result<Value, String> {
+pub(super) fn parse_report(stdout: &[u8]) -> Result<Value, String> {
     serde_json::from_slice(stdout)
         .map_err(|error| format!("bibcite returned an invalid JSON report: {error}"))
-}
-
-fn run_bibcite_tidy(path: &Path) -> Result<(), String> {
-    run_bibcite("bibcite tidy", commands::BIBCITE.command()?.arg("tidy").arg(path)).map(drop)
 }
 
 /// A string field of bibcite's report ("key", or "source": what it resolved —
@@ -285,88 +272,6 @@ fn without_entry(bibliography: &str, start: usize, end: usize) -> String {
     kept
 }
 
-/// Upgrade preprints to their publications. Only the agent asks for this, and
-/// its turn records the history entry itself.
-pub fn upgrade_bibliography(root: &Path, dry_run: bool) -> Result<UpgradeResult, String> {
-    let manifest = project::read_manifest(root)?;
-    let path = project::safe_path(root, &manifest.primary_bibliography)?;
-    let before = fs::read_to_string(&path).unwrap_or_default();
-    let scratch = ScratchBibliography::new("lattice-upgrade", Some(&before))?;
-    let mut command = commands::BIBCITE.command()?;
-    command.arg("upgrade").arg("--no-tidy").arg(&scratch.path);
-    if dry_run {
-        command.arg("--dry-run");
-    }
-    let report = parse_report(&run_bibcite("bibcite", &mut command)?)?;
-    let mut after = scratch.read()?;
-    if !dry_run && after != before {
-        run_bibcite_tidy(&scratch.path)?;
-        after = scratch.read()?;
-        validate_bibliography_upgrade(&before, &after)?;
-        // Upgrade preserves old author fields, so agreement with its output
-        // is not independent evidence. Check each changed record at its DOI.
-        let old = project::parse_bibliography(&before);
-        for (key, start, end) in project::bibliography_entry_spans(&after) {
-            let Some(previous) = old.iter().find(|entry| entry.key == key) else {
-                continue;
-            };
-            let raw = &after[start..end];
-            let current = project::parse_bibliography(raw).remove(0);
-            if previous.doi == current.doi
-                && previous.title == current.title
-                && previous.year == current.year
-                && previous.venue == current.venue
-                && previous.authors == current.authors
-            {
-                continue;
-            }
-            let doi = current.doi.ok_or("An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.")?;
-            let verified = project::resolve_citation_query(&doi)?;
-            if !crate::citation_audit::metadata_identity_matches(raw, verified.bibtex.trim()) {
-                return Err(format!(
-                    "Publication metadata for '{key}' could not be independently confirmed."
-                ));
-            }
-        }
-        if fs::read_to_string(&path).map_err(err)? != before {
-            return Err("The bibliography changed while upgrading. Retry the operation.".into());
-        }
-        fs::write(project::safe_path(root, &manifest.primary_bibliography)?, &after)
-            .map_err(err)?;
-    }
-    Ok(UpgradeResult { dry_run, changed: after != before, report })
-}
-
-/// An upgrade may enrich records but never add, drop, re-key or swap a work.
-fn validate_bibliography_upgrade(before: &str, after: &str) -> Result<(), String> {
-    if project::parse_bibliography(before).len() != project::parse_bibliography(after).len() {
-        return Err("An upgrade cannot add or remove citations.".into());
-    }
-    let after_spans = project::bibliography_entry_spans(after);
-    for (key, start, end) in project::bibliography_entry_spans(before) {
-        let matches: Vec<_> =
-            after_spans.iter().filter(|(candidate, _, _)| *candidate == key).collect();
-        let [(_, proposed_start, proposed_end)] = matches[..] else {
-            return Err(format!("An upgrade must preserve the unique citation key '{key}'."));
-        };
-        let previous = &before[start..end];
-        let proposed = &after[*proposed_start..*proposed_end];
-        if previous == proposed {
-            continue;
-        }
-        validate_resolved_identity("", proposed)?;
-        if !crate::citation_audit::metadata_identity_matches(previous, proposed) {
-            return Err(format!(
-                "The upgrade changes the identity of '{key}'. No changes were saved."
-            ));
-        }
-        if let Some(id) = project::parse_bibliography(previous).remove(0).arxiv_id {
-            validate_resolved_identity(&id, proposed)?;
-        }
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -516,24 +421,6 @@ mod tests {
             assert!(result.removed, "{contents}");
             assert_eq!(result.key, "teoh2025nextlatent");
             assert_eq!(project.bibliography(), expected, "{contents}");
-        }
-    }
-
-    #[test]
-    fn bulk_upgrade_cannot_change_paper_identity_or_citation_keys() {
-        let before = "@misc{old,title={Exact Title},author={Alice Smith and Bob Jones},year={2025},eprint={2510.14979}}";
-        let after = before
-            .replace("@misc", "@article")
-            .replace("year={2025}", "year={2026},doi={10.1234/published}");
-        assert!(validate_bibliography_upgrade(before, &after).is_ok());
-        for invalid in [
-            after.replace("Alice", "Ann"),
-            after.replace("Exact Title", "Similar Title"),
-            after.replace("2510.14979", "2605.28820"),
-            after.replace("{old,", "{new,"),
-            format!("{after}\n{after}"),
-        ] {
-            assert!(validate_bibliography_upgrade(before, &invalid).is_err(), "{invalid}");
         }
     }
 

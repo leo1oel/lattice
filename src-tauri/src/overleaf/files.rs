@@ -384,6 +384,8 @@ mod tests {
     fn overleaf_exclusion_rules() {
         for (path, excluded) in [
             (".research/overleaf.json", true),
+            // Review mode's bases and marked build are local state.
+            (".research/review/base/main.tex", true),
             // MCP server config: `env` is where an API key goes.
             (".omp/mcp.json", true),
             (".omp", true),

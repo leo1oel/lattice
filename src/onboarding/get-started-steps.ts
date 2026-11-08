@@ -11,6 +11,7 @@
  * dimming anything. Steps are marked done where they really happen (see
  * get-started-progress.ts), never by a click near them.
  */
+import { isWindowsHost } from "../platform/host-platform";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import type { TrellisController, TrellisSingleton } from "../trellis/trellis-controller";
@@ -116,7 +117,7 @@ const GET_STARTED: readonly GetStartedStep[] = [
 
 /** The embedded agent is not supported on the experimental Windows host. */
 export function getStartedSteps(): readonly GetStartedStep[] {
-  if (!/Windows NT/.test(navigator.userAgent)) return GET_STARTED;
+  if (!isWindowsHost()) return GET_STARTED;
   return GET_STARTED.filter((step) => step.id !== "agent").map((step) => {
     switch (step.id) {
       case "latex": return { ...step, why: msg`Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX.` };

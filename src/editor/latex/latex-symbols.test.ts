@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   citationCompletionRange,
   citationHoverTarget,
+  citationNotePage,
   definitionTargetAt,
   graphicsHoverTarget,
   includeCompletionRange,
@@ -41,6 +42,23 @@ describe("LaTeX symbols", () => {
     expect(citationHoverTarget(source, source.indexOf("dosovitskiy") + 4)?.key).toBe("dosovitskiy2021image");
     expect(citationHoverTarget(source, source.indexOf("citep") + 2)).toBeNull();
     expect(citationHoverTarget("Plain text", 3)).toBeNull();
+  });
+
+  it.each([
+    ["p.~5", 5], ["p. 5", 5], ["p5", 5], ["pp.~5--7", 5], ["pp. 12–14", 12], ["page 9", 9], ["Page~9", 9], ["pages 3-4", 3],
+    ["5", 5], [" p.\\,5 ", 5], ["Theorem 2", undefined], ["ch.~3", undefined], ["p.~0", undefined], ["", undefined], ["see p.~5", undefined],
+  ])("reads the page a citation note %j names", (note, page) => {
+    expect(citationNotePage(note)).toBe(page);
+  });
+
+  it("carries the page of a citation's postnote with the hovered key", () => {
+    const at = (source: string) => citationHoverTarget(source, source.indexOf("vaswani") + 2);
+    expect(at("\\cite[p.~5]{vaswani}")).toMatchObject({ key: "vaswani", page: 5 });
+    expect(at("\\citep[page 12]{vaswani, other}")).toMatchObject({ key: "vaswani", page: 12 });
+    // natbib's two notes are the prenote and the postnote; only the postnote names the page.
+    expect(at("\\citep[see][p.~7]{vaswani}")).toMatchObject({ page: 7 });
+    expect(at("\\citep[p.~3][]{vaswani}")?.page).toBeUndefined();
+    expect(at("\\cite{vaswani} and \\cite[p.~9]{other}")?.page).toBeUndefined();
   });
 
   it("identifies the figure path hovered inside \\includegraphics, options and \\detokenize included", () => {

@@ -470,11 +470,11 @@ jobs:
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: windows-latest
     env:
+      # Keep native linking and cached artifacts small on the experimental runner.
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-pnpm
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
@@ -486,6 +486,7 @@ jobs:
           New-Item -ItemType Directory -Force src-tauri/synara-runtime | Out-Null
           Set-Content src-tauri/synara-runtime/placeholder.txt 'stub'
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      # perf-lab drives AppKit and is exercised on macOS only.
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 

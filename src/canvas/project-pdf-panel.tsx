@@ -17,6 +17,8 @@ import { SavedViewState } from "./saved-view-state";
 import { LivePreviewSessionContext } from "../live-preview/live-preview-context";
 import { LivePreviewStatus } from "../live-preview/live-preview-status";
 import { loadLivePreviewModule, type LivePreview } from "../live-preview/use-live-preview";
+import { InlineMessage } from "../components/ui/inline-message";
+import { useMarkedPdf } from "../history/use-marked-pdf";
 
 /** The compiled project PDF: its build, SyncTeX in both directions and its pages. */
 type ProjectPdf = Readonly<{
@@ -114,6 +116,8 @@ export function ProjectPdfPanel({
   if (previewIdentity.root !== projectRoot || (previewOwner && previewOwner !== previewIdentity.path)) {
     setPreviewIdentity({ root: projectRoot, path: previewOwner ?? activeFile });
   }
+  // Review mode's marked PDF has no SyncTeX of its own: jumps stay with the paper's.
+  const marked = useMarkedPdf(projectRoot, pdf.pdfUrl);
   if (!host) return null;
   const previewPath = previewOwner ?? previewIdentity.path;
   const liveSession = livePreview?.state.kind === "running" ? livePreview.state.session : null;
@@ -133,6 +137,11 @@ export function ProjectPdfPanel({
       onWheelCapture={onLeaveEditor}
     >
       {pdf.pdfTop}
+      {marked.error && (
+        <InlineMessage level="warning" className="review-pdf-message">
+          {t`The changes could not be marked in the PDF, so it shows the paper without them.`} {marked.error}
+        </InlineMessage>
+      )}
       <LivePreviewSessionContext value={liveSession}>
       <ChunkGate chunk={loadPdfPreviewModule} fallback={<PdfPreviewLoading />}><Suspense fallback={<PdfPreviewLoading />}>
         {/* One viewer per project, across its TeX files: it restores the place it mounts with. */}
@@ -142,13 +151,13 @@ export function ProjectPdfPanel({
         >
           {(initialViewState) => (
             <PdfPreview
-              url={pdf.pdfUrl}
-              pdfBytes={pdf.pdfBytes}
+              url={marked.url ?? pdf.pdfUrl}
+              pdfBytes={marked.url ? null : pdf.pdfBytes}
               citations={citations.citations}
               canOpenCitation={citations.canOpenCitation}
               onOpenCitation={citations.onOpenCitation}
-              syncTarget={pdf.pdfSyncTarget}
-              canForwardSync={pdf.canForwardSync}
+              syncTarget={marked.url ? null : pdf.pdfSyncTarget}
+              canForwardSync={!marked.url && pdf.canForwardSync}
               locatingPdf={pdf.locatingPdf}
               onForwardSync={pdf.onForwardSync}
               loadErrorHint={t`Try building the project again`}
@@ -156,13 +165,23 @@ export function ProjectPdfPanel({
               building={pdf.building}
               buildShortcut={pdf.buildShortcut}
               // Under Trellis a reverse jump always has a file panel to land in.
-              onSource={pdf.onPdfSource}
+              onSource={marked.url ? undefined : pdf.onPdfSource}
               onTextSelect={selection.onPdfTextSelect}
               annotations={review.annotations}
               annotationRounds={review.annotationRounds}
               onNumPages={pdf.onPdfPageCount}
               pageLayer={liveSession ? LiveLayer : undefined}
-              status={livePreview ? <LivePreviewStatus state={livePreview.state} onRetry={livePreview.retry} /> : null}
+              status={marked.building
+                ? (
+                  // The live preview's pill, which a marked PDF never shows beside.
+                  <div className="live-preview-status-host review-pdf-status" data-rebuilding>
+                    <span className="live-preview-status" role="status">
+                      <i className="live-preview-status-dot" aria-hidden="true" />
+                      <span className="live-preview-status-label">{t`Marking changes…`}</span>
+                    </span>
+                  </div>
+                )
+                : livePreview ? <LivePreviewStatus state={livePreview.state} onRetry={livePreview.retry} /> : null}
               onPageChange={pdf.onPdfPageChange}
               initialViewState={initialViewState}
               onViewState={(state) => viewState.onFileViewState?.(previewPath, { pdf: state })}

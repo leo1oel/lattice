@@ -44,6 +44,10 @@ msgstr "“{0}”里已有文件，且没关联 Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}”保持关联"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "“{destinationName}” already exists there. Choose another location"
+msgstr "那里已有“{destinationName}”，请换一个位置"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}”和磁盘上的 {file} 大小写不一致，Overleaf 和 arXiv 可能找不到它"
@@ -109,6 +113,12 @@ msgstr "{0} 打不开这个项目"
 
 #. placeholder {0}: changes.length
 #: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} changes"
+msgstr "{0} 处改动"
+
+#. placeholder {0}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "tracked changes waiting for review"
 msgid "{0} changes"
 msgstr "{0} 处改动"
 
@@ -182,6 +192,13 @@ msgstr "{0} 条尚未检查"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "{0} notes"
 msgstr "{0} 条批注"
+
+#. placeholder {0}: formatCount(index + 1, i18n.locale)
+#. placeholder {1}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "the tracked change at the caret, of all of them"
+msgid "{0} of {1}"
+msgstr "第 {0} 处，共 {1} 处"
 
 #. placeholder {0}: chosen.length
 #. placeholder {1}: changes.length
@@ -308,6 +325,10 @@ msgstr "{builds} 次编译"
 #: src/project/arxiv-export.ts
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}；arXiv 使用 pdfLaTeX 编译"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
+msgstr "{chain} 通过 \\input 互相引用，latexdiff 将无法完成。请删除造成循环的 \\input。"
 
 #: src/settings/grammar-settings.tsx
 msgid "{changedCount} changed from the grammar style"
@@ -502,6 +523,10 @@ msgstr "{description}：在 PATH 中未找到"
 #: src/project/manuscript-checklist.tsx
 msgid "{detail}. {limit}"
 msgstr "{detail}。{limit}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
+msgstr "{document} 是在开启审阅模式之后创建的，没有可对照的版本来标记改动。"
 
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — BibTeX source"
@@ -836,6 +861,10 @@ msgstr "{path} 在项目中已经是一个文件夹"
 #: src/app/vanished-file.ts
 msgid "{path} is no longer on disk"
 msgstr "{path} 已不在磁盘上"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not a file review mode tracks."
+msgstr "审阅模式不跟踪 {path}。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} is not a folder on Overleaf."
@@ -1213,6 +1242,10 @@ msgstr "清单最多 200 项"
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引号或 %。"
 
+#: src/history/review-mode-extension.ts
+msgid "A co-author edited text you changed. Both versions are kept."
+msgstr "合作者编辑了你改动过的文字，两个版本都已保留。"
+
 #: src/terminal/terminal-window.ts
 msgid "A command is still running. Closing stops it."
 msgstr "仍有命令在运行，关闭会将其停止。"
@@ -1415,6 +1448,7 @@ msgstr "主题色"
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Accept"
@@ -1425,6 +1459,7 @@ msgid "Accept {kept} of {offered}"
 msgstr "接受 {kept}/{offered} 处"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all"
 msgstr "全部接受"
@@ -1576,6 +1611,10 @@ msgstr "添加文献"
 msgid "Add the submission deadline"
 msgstr "添加投稿截止时间"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Add to note"
+msgstr "加到笔记"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
 msgstr "加入论文库"
@@ -1626,6 +1665,10 @@ msgstr "已添加 {done} 篇论文"
 #: src/papers/add-papers-sheet.tsx
 msgid "Added 1 paper"
 msgstr "已添加 1 篇论文"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Added to {path}"
+msgstr "已加到 {path}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -1681,7 +1724,7 @@ msgstr "Linux 版暂不支持 AI 助手"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Agent isn’t available on Windows yet"
-msgstr "Windows 暂不支持智能体"
+msgstr "Windows 暂不支持AI 助手"
 
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
@@ -2042,6 +2085,7 @@ msgid "App"
 msgstr "应用"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "App updater"
 msgstr "应用更新"
 
@@ -2825,6 +2869,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/clone-repository-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
 #: src/project/local-templates.tsx
@@ -3149,6 +3194,10 @@ msgstr "核实日期"
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "正在检查 {completed} / {progressTotal}…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Checking out files…"
+msgstr "正在检出文件…"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "正在检查 {linkedHost}…"
@@ -3338,6 +3387,10 @@ msgstr "请用完整路径选择文献库的 .bib 文件"
 msgid "Choose to do, to check, or confirmed."
 msgstr "请选择未完成、待核实或已确认"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Choose where to clone the repository"
+msgstr "选择克隆仓库的位置"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "选择项目位置"
@@ -3371,6 +3424,7 @@ msgid "Choose your library's .bib file"
 msgstr "选择文献库的 .bib 文件"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
 msgstr "选择…"
 
@@ -3607,6 +3661,36 @@ msgstr "剪贴板"
 #: src/platform/host-errors-project.ts
 msgid "Clipboard images must be saved as PNG, JPEG, or WebP."
 msgstr "剪贴板图片只能保存为 PNG、JPEG 或 WebP"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone"
+msgstr "克隆"
+
+#: src/app/use-command-table.ts
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone a Git repository"
+msgstr "克隆 Git 仓库"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone progress"
+msgstr "克隆进度"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository"
+msgstr "克隆仓库"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository…"
+msgstr "克隆仓库…"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Clone Repository…"
+msgstr "克隆仓库…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Cloning…"
+msgstr "正在克隆…"
 
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
@@ -4011,6 +4095,10 @@ msgstr "正在连接实时协作…"
 msgid "Connecting to Overleaf's live channel…"
 msgstr "正在连接 Overleaf…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Connecting…"
+msgstr "正在连接…"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
 msgid "Connection"
@@ -4149,6 +4237,10 @@ msgstr "复制路径"
 msgid "Copy source"
 msgstr "复制源代码"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Copy source link"
+msgstr "复制出处链接"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Copy the link from the project’s address bar or its Share menu."
 msgstr "请从项目的地址栏或“分享”菜单复制链接。"
@@ -4169,6 +4261,10 @@ msgstr "核心组件"
 msgid "Correction/update"
 msgstr "更正/更新"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not add to the note"
+msgstr "没能加到笔记"
+
 #: src/platform/host-errors-project.ts
 msgid "Could not allocate a temporary project file."
 msgstr "无法创建项目临时文件"
@@ -4188,6 +4284,10 @@ msgstr "无法检查同名记录：{error}。请重试，或提供 DOI"
 #: src/telemetry/app-log.tsx
 msgid "Could not collect runtime logs."
 msgstr "日志收集失败"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not copy the source link"
+msgstr "没能复制出处链接"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
@@ -4240,6 +4340,10 @@ msgstr "找不到图片“{path}”"
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "找不到文件“{path}”"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not find this passage in the PDF"
+msgstr "在 PDF 里找不到这段文字"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
@@ -4516,6 +4620,10 @@ msgstr "找不到 {citationCommand} 对应的文献"
 msgid "Couldn't find this one"
 msgstr "没找到这一条"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t find this repository, or your account can’t access it"
+msgstr "找不到这个仓库，或你的账号没有访问权限"
+
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "安装更新失败"
@@ -4535,6 +4643,10 @@ msgstr "表格打不开"
 #: src/app/use-overleaf-workspace.ts
 msgid "Couldn’t reach Overleaf"
 msgstr "连不上 Overleaf"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t reach the server"
+msgstr "无法连接到服务器"
 
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
@@ -4881,6 +4993,10 @@ msgstr "已删除“{key}”"
 msgid "Deleted “{name}”"
 msgstr "已删除“{name}”"
 
+#: src/history/review-mode-extension.ts
+msgid "Deleted “{removed}”"
+msgstr "删除了“{removed}”"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Deleted here too"
 msgstr "本机也会删"
@@ -4971,6 +5087,7 @@ msgid "Discover literature"
 msgstr "找文献"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 msgid "Dismiss"
 msgstr "关闭"
 
@@ -5202,6 +5319,7 @@ msgid "Downloading update…"
 msgstr "正在下载更新…"
 
 #: src/papers/bib-entry-detail.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Downloading…"
 msgstr "正在下载…"
 
@@ -6337,6 +6455,7 @@ msgstr "没有全文，先显示概览"
 msgid "Full release notes"
 msgstr "完整更新说明"
 
+#: src/canvas/paper-selection-actions.tsx
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Full text"
@@ -6396,9 +6515,22 @@ msgstr "Git（可选，用于项目状态 / 提交面板）"
 msgid "git bridge"
 msgstr "Git 同步"
 
+#. Search words for the Clone a Git repository command, space-separated
+#: src/app/use-command-table.ts
+msgid "git clone GitHub GitLab"
+msgstr "git clone 克隆 GitHub GitLab"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git couldn’t sign in to this repository"
+msgstr "Git 无法登录这个仓库"
+
 #: src/history/versions-timeline.tsx
 msgid "Git isn’t available on this Mac"
 msgstr "这台 Mac 上没有 Git"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
+msgstr "未安装 Git。请先安装 Xcode 命令行工具，再重试"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/settings/settings-dialog.tsx
@@ -6414,6 +6546,7 @@ msgid "Git workspace didn’t load"
 msgstr "Git 没加载出来"
 
 #: src/settings/settings-dialog.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"
 msgstr "GitHub 发布页"
 
@@ -7237,6 +7370,10 @@ msgstr "下插一行"
 msgid "Insert table"
 msgstr "插入表格"
 
+#: src/history/review-mode-extension.ts
+msgid "Inserted “{added}”"
+msgstr "插入了“{added}”"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Inspect and replace"
 msgstr "检查与替换"
@@ -7918,6 +8055,7 @@ msgid "Lattice is signed in to {0}. To open projects from another Overleaf serve
 msgstr "Lattice 当前登录的是 {0}。要打开其他 Overleaf 服务器上的项目，请在 设置 → Overleaf 中登录那台服务器。"
 
 #: src/settings/settings-dialog.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 msgstr "Linux 版 Lattice 不会自行更新。请到 GitHub 发布页下载新版本。"
 
@@ -8406,6 +8544,10 @@ msgstr "正在加载…"
 msgid "Locate the file…"
 msgstr "重新定位文件…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Location"
+msgstr "位置"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Log"
 msgstr "日志"
@@ -8555,6 +8697,10 @@ msgstr "Markdown 源码"
 msgctxt "macOS menu bar"
 msgid "Markers Only"
 msgstr "仅标记"
+
+#: src/canvas/project-pdf-panel.tsx
+msgid "Marking changes…"
+msgstr "正在标记改动…"
 
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -9073,6 +9219,7 @@ msgid "New terminal"
 msgstr "新建终端"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "New version {version}"
 msgstr "新版本 {version}"
 
@@ -9104,6 +9251,7 @@ msgstr "下个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "下一处改动"
@@ -9167,6 +9315,10 @@ msgstr "参考文献里没有键为 {key} 的条目。检查这个键，或把�
 #: src/project/arxiv-export.ts
 msgid "No bibliography to include"
 msgstr "无需包含参考文献"
+
+#: src/history/review-mode-bar.tsx
+msgid "No changes"
+msgstr "没有改动"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -9861,6 +10013,10 @@ msgstr "Linux 版暂不支持一键安装 TeX 宏包"
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "只有 LaTeX 文档能导出标注修改的版本"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Only a LaTeX document can show its changes marked."
+msgstr "只有 LaTeX 文档可以标记改动。"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
 msgstr "只有二进制文件有改动"
@@ -10064,6 +10220,10 @@ msgstr "打开日志文件夹"
 #: src/agent/synara-loading-surface.tsx
 msgid "Open logs"
 msgstr "打开日志"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Open note"
+msgstr "打开笔记"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
@@ -10336,6 +10496,10 @@ msgid "Overleaf did not report that document in this project."
 msgstr "Overleaf 没有在这个项目中列出该文档"
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf did not say whether the edit applied."
+msgstr "Overleaf 没有说明这次修改是否已生效"
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf 断开了这次会话"
 
@@ -10554,6 +10718,11 @@ msgctxt "submission checklist field"
 msgid "owner"
 msgstr "负责人"
 
+#. placeholder {0}: place.page
+#: src/canvas/paper-selection-actions.tsx
+msgid "p. {0}"
+msgstr "第 {0} 页"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "{page} 页"
@@ -10661,6 +10830,7 @@ msgid "Paper tones"
 msgstr "纸面色"
 
 #: src/app/command-palette.tsx
+#: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
@@ -11117,6 +11287,7 @@ msgstr "上个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "上一处改动"
@@ -11664,11 +11835,13 @@ msgstr "高级匹配（正则）"
 
 #: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
 msgstr "拒绝"
 
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "全部拒绝"
@@ -11982,6 +12155,10 @@ msgstr "替换为“{replacement}”"
 msgid "Replace with <0>{suggestion}</0>"
 msgstr "替换为 <0>{suggestion}</0>"
 
+#: src/history/review-mode-extension.ts
+msgid "Replaced “{removed}” with “{added}”"
+msgstr "将“{removed}”替换为“{added}”"
+
 #: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrence in {files} file."
 msgstr "已替换 {replacements} 处（{files} 个文件）"
@@ -12040,6 +12217,10 @@ msgstr "回复 {author}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "回复…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Repository URL"
+msgstr "仓库 URL"
 
 #: src/papers/audit-messages.ts
 msgid "Request queue busy"
@@ -12176,6 +12357,10 @@ msgstr "{0} 已解决"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved: {note}"
 msgstr "已解决：{note}"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Resolving changes…"
+msgstr "正在解析变更…"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -12367,10 +12552,6 @@ msgstr "重试"
 msgid "Return to {name}"
 msgstr "返回 {name}"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Return to {writingName}"
-msgstr "返回 {writingName}"
-
 #: src/app/use-trellis-bridge.ts
 #: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF"
@@ -12384,6 +12565,10 @@ msgstr "反向断言符"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "还原布局"
+
+#: src/history/review-mode-bar.tsx
+msgid "Review"
+msgstr "审阅"
 
 #: src/project/arxiv-export-dialog.tsx
 msgctxt "arXiv export comments"
@@ -12415,6 +12600,10 @@ msgstr "评阅副本由 Lattice 于 {0} 导出，含 {count}。"
 #: src/app/use-command-table.ts
 msgid "Review here"
 msgstr "在此审阅"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Review mode is off in this project."
+msgstr "此项目未开启审阅模式。"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"
@@ -13072,6 +13261,10 @@ msgstr "选下一处"
 msgid "Select the text to proofread first."
 msgstr "请先选中要校对的文字。"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Selected passage"
+msgstr "选中的文字"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"
 msgstr "所选"
@@ -13231,6 +13424,10 @@ msgstr "显示更改"
 msgid "Show changes as"
 msgstr "改动显示方式"
 
+#: src/history/review-mode-bar.tsx
+msgid "Show changes in the PDF"
+msgstr "在 PDF 中显示改动"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "显示大纲"
@@ -13303,6 +13500,10 @@ msgstr "显示 PDF"
 #: src/app/use-command-table.ts
 msgid "Show the PDF beside the editor"
 msgstr "并排看 PDF"
+
+#: src/history/review-mode-bar.tsx
+msgid "Show the PDF without changes"
+msgstr "显示不含改动的 PDF"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -13548,6 +13749,10 @@ msgstr "源码下载失败：{error}"
 msgid "Source editor"
 msgstr "源码编辑器"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Source link copied"
+msgstr "已复制出处链接"
+
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
 msgstr "在 PDF 中的位置"
@@ -13754,6 +13959,19 @@ msgstr "遇到首个错误即停止"
 #: src/trellis/trellis-workspace.tsx
 msgid "Stop the build"
 msgstr "停止编译"
+
+#: src/history/review-mode-bar.tsx
+#: src/history/review-mode-store.ts
+msgid "Stop tracking"
+msgstr "停止修订"
+
+#: src/canvas/canvas-toolbar.tsx
+msgid "Stop tracking changes"
+msgstr "停止跟踪修订"
+
+#: src/history/review-mode-store.ts
+msgid "Stop tracking changes?"
+msgstr "停止跟踪修订？"
 
 #: src/project/arxiv-export.ts
 msgid "Stopped after 2 minutes"
@@ -14221,6 +14439,10 @@ msgstr "这条历史记录已不存在"
 msgid "That is a folder."
 msgstr "这是一个文件夹"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "That isn’t a Git repository URL"
+msgstr "这不是 Git 仓库的 URL"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "That isn’t an Overleaf project link"
 msgstr "这不是 Overleaf 项目链接"
@@ -14432,6 +14654,10 @@ msgstr "缓存的论文由不受支持的转换器生成"
 msgid "The candidate's title or authors conflict with its source metadata. No citation was added."
 msgstr "候选条目的标题或作者与来源信息不符，没有添加引用"
 
+#: src/canvas/project-pdf-panel.tsx
+msgid "The changes could not be marked in the PDF, so it shows the paper without them."
+msgstr "无法在 PDF 中标记改动，因此显示的是不含改动的论文。"
+
 #: src/platform/host-errors-papers.ts
 msgid "The citation contains conflicting arXiv identifiers."
 msgstr "引用中的 arXiv 编号相互冲突"
@@ -14447,6 +14673,10 @@ msgstr "剪贴板内容不是有效的图片"
 #: src/platform/host-errors-project.ts
 msgid "The clipboard image was empty."
 msgstr "剪贴板里的图片是空的"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "The clone didn’t finish"
+msgstr "克隆未完成"
 
 #: src/app/use-command-table.ts
 msgid "the comment or suggestion by the caret"
@@ -14568,6 +14798,10 @@ msgstr "第一处：{path}:{line}"
 #: src/platform/host-errors-workspace.ts
 msgid "The folder is not empty."
 msgstr "文件夹不是空的"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "The folder to clone into doesn’t exist"
+msgstr "要克隆到的文件夹不存在"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
@@ -15441,7 +15675,7 @@ msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更�
 
 #: src/agent/synara-loading-surface.tsx
 msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
-msgstr "此 Windows 版本暂时无法防止智能体直接修改 .bib 文件。可在终端面板中使用 Claude Code 或 Codex。依赖内置智能体的功能暂不可用。"
+msgstr "此 Windows 版本暂时无法防止AI 助手直接修改 .bib 文件。可在终端面板中使用 Claude Code 或 Codex。依赖内置AI 助手的功能暂不可用。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in the Lattice app."
@@ -15602,6 +15836,15 @@ msgstr "表格顶线"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Top-level section heading"
 msgstr "顶级章节标题"
+
+#: src/canvas/canvas-toolbar.tsx
+#: src/history/review-mode-store.ts
+msgid "Track changes"
+msgstr "跟踪修订"
+
+#: src/history/review-mode-bar.tsx
+msgid "Tracking changes"
+msgstr "正在跟踪修订"
 
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Translate into academic English"
@@ -16611,6 +16854,11 @@ msgstr "黄色"
 msgid "You"
 msgstr "你"
 
+#: src/history/review-mode-extension.ts
+msgctxt "the writer, as the author of a tracked change"
+msgid "You"
+msgstr "你"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 msgstr "你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目；你的修改保留在这台 Mac 上"
@@ -16655,6 +16903,10 @@ msgstr "你的回答…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "你的颜色"
+
+#: src/history/review-mode-store.ts
+msgid "Your edits stay in the files. The changes waiting for review are no longer marked."
+msgstr "你的编辑会保留在文件中，待审阅的改动将不再标记。"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

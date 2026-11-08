@@ -254,8 +254,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .lit-load-more:hover:not(:disabled) { background: var(--navigation-tree-hover-surface); color: var(--text-secondary); }
 .lit-load-more:disabled { opacity: 0.7; }
 /* A long file name shortens instead of widening the empty state. */
-.editor-comments-return { max-width: 100%; }
-.editor-comments-return span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-editor .cm-selectionLayer .cm-selectionBackground,
 .source-editor .cm-selectionBackground {
   background: var(--code-selection) !important;

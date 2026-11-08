@@ -39,6 +39,7 @@ pub(crate) fn open_resolved(path: &Path) -> io::Result<File> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
+        // A FIFO swapped in after validation must not block an IPC thread.
         options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     }
     #[cfg(windows)]

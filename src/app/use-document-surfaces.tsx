@@ -43,6 +43,7 @@ import type { EditorComments } from "./use-editor-comments";
 import type { OpenDocuments } from "./use-open-documents";
 import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 import type { usePaperActions } from "./use-paper-actions";
+import { usePaperSourceRoute } from "./use-paper-source-route";
 import type { usePreviewPrewarm } from "./use-preview-prewarm";
 import type { useLatexStructure } from "./use-latex-structure";
 import type { useProjectLibrary } from "./use-project-library";
@@ -125,6 +126,11 @@ export function useDocumentSurfaces({
   /** Opens a .bib reference's paper (downloading it first), and each download's progress. */
   paperActions: Pick<ReturnType<typeof usePaperActions>, "readPaper" | "fetchAndOpenPaper" | "paperFetchStates">;
 }) {
+  // A hook, so before the early return below.
+  const paperSource = usePaperSourceRoute({
+    activePaperId: documents.paper?.arxivId, activeFile: documents.file, openPaper: documents.openPaper,
+    fetchAndOpenPaper: paperActions.fetchAndOpenPaper,
+  });
   if (!project) return null;
   const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, save } = documents;
   const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;
@@ -163,13 +169,15 @@ export function useDocumentSurfaces({
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameIgnoringCase(item.key, key)));
   // The source editor's citation card and the PDF's open the same thing.
   const canOpenCitation = (key: string) => Boolean(paperCited(key) || citationUrl(key));
-  const onOpenCitation = (key: string) => {
+  const onOpenCitation = (key: string, page?: number) => {
     const paper = paperCited(key);
     const url = citationUrl(key);
     const openSource = () => {
       if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
     };
-    if (paper?.hasFullText || paper?.hasBlog) paperActions.readPaper(paper);
+    // `\cite[p.~5]{key}` opens the paper's PDF at page 5.
+    if (paper && page) paperSource.openPaperSource(paper, { page, first: "", last: "" }, openSource);
+    else if (paper?.hasFullText || paper?.hasBlog) paperActions.readPaper(paper);
     else if (paper) void paperActions.fetchAndOpenPaper(paper).then((downloaded) => {
       if (!downloaded) openSource();
     });
@@ -222,6 +230,7 @@ export function useDocumentSurfaces({
       bibliography={{
         papers,
         onOpenPaper: paperActions.readPaper,
+        onOpenPaperSource: paperSource.openPaperSource,
         paperFetchStates: paperActions.paperFetchStates,
         onOpenUrl: (url) => void openUrl(url).catch((reason) => showError(toMessage(reason))),
         canOpenCitation,
@@ -246,6 +255,8 @@ export function useDocumentSurfaces({
       navigation={{
         requests: canvasRequests.requests,
         onRequestHandled: canvasRequests.settle,
+        paperSource: paperSource.request,
+        onPaperSourceHandled: paperSource.settle,
         onEditorPosition,
         onViewState: (path, state) => rememberFileViewState(path, { text: state }),
         getFileViewState,

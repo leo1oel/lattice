@@ -1,12 +1,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Check, CornerDownLeft, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search } from "lucide-react";
+import { Check, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search } from "lucide-react";
 import { comboText, parseKeyName } from "../../app/key-combos";
 import { InfinityLoader } from "../../components/ui/activity-icons";
 import { Button } from "../../components/ui/button";
 import { DestructiveIconButton } from "../../components/ui/destructive-button";
 import { EmptyIllustration } from "../../components/ui/empty-illustration";
 import { EmptyState } from "../../components/ui/empty-state";
+import { ResearchArt } from "../../components/ui/research-art";
+import { ANNOTATION_FLAGS } from "../../components/ui/research-art-annotation-flags";
 import { AnnotationsEmptyIllustration } from "./annotations-empty-illustration";
 import { IconButton } from "../../components/ui/icon-button";
 import { ResizableDrawer } from "../../components/ui/resizable-drawer";
@@ -61,10 +63,8 @@ export function EditorCommentsPanel(props: {
   embedded?: boolean;
   comments: EditorComment[];
   activePath: string | null;
-  /** The file the writer annotates in, or null with none open. */
-  writingFile?: string | null;
-  /** Back to `writingFile`'s editor, caret where it was; with no file, a file picker. */
-  onReturnToEditor?: () => void;
+  /** A file picker, offered by the empty panel while no file is open to annotate. */
+  onOpenFile?: () => void;
   currentAuthorId: string;
   focusCommentId?: string | null;
   /** The note last opened, from here, the gutter or the PDF: its card stands out and comes into view. */
@@ -231,7 +231,6 @@ export function EditorCommentsPanel(props: {
 
   const hasComments = props.comments.length > 0;
   const hasLocalNotes = props.comments.some((comment) => comment.number);
-  const writingName = props.writingFile ? props.writingFile.split("/").at(-1) || props.writingFile : null;
   const closeReply = () => {
     setReplyingId(null);
     setReplyDraft("");
@@ -622,8 +621,8 @@ export function EditorCommentsPanel(props: {
   // before the first annotation, with nothing open, nothing settled or no
   // match. Only under a round's progress banner does it keep a compact line.
   const centred = !banner;
-  const emptyIcon = !hasComments || query.trim()
-    ? <EmptyIllustration kind={hasComments ? "search" : "comments"} size={centred ? "default" : "compact"} />
+  const emptyIcon = !hasComments ? <ResearchArt drawing={ANNOTATION_FLAGS} />
+    : query.trim() ? <EmptyIllustration kind="search" size={centred ? "default" : "compact"} />
     : <AnnotationsEmptyIllustration settled={filter !== "resolved"} size={centred ? "default" : "compact"} />;
   const emptyState = !visible.length && (
     <EmptyState
@@ -632,16 +631,17 @@ export function EditorCommentsPanel(props: {
       align={centred ? "center" : "start"}
       density={centred ? "default" : "compact"}
       icon={emptyIcon}
-      // Before the first one, a title and the way forward (Return / Open a
-      // file); Annotate itself is on the selection, which has no key.
+      // Before the first one, a title; Annotate itself is on the selection,
+      // which has no key. With no file open there is nothing to select in, so
+      // the way forward is the file picker.
       title={!hasComments ? t`No annotations yet` : undefined}
       description={hasComments
         ? query.trim() ? t`No matches` : filter === "resolved" ? t`No resolved annotations` : t`No open annotations`
         : undefined}
-      actions={!hasComments && props.onReturnToEditor && (
-        <Button size="compact" className="editor-comments-return" onClick={props.onReturnToEditor}>
-          {writingName ? <CornerDownLeft size={13} /> : <FileSearch size={13} />}
-          <span>{writingName ? t`Return to ${writingName}` : t`Open a file`}</span>
+      actions={!hasComments && props.onOpenFile && (
+        <Button size="compact" onClick={props.onOpenFile}>
+          <FileSearch size={13} />
+          <span>{t`Open a file`}</span>
         </Button>
       )}
     />

@@ -45,6 +45,8 @@ pub(crate) struct ProjectResources {
     pub(crate) arxiv_checks: latex::ArxivChecks,
     /// The PDF with changes marked, while its latexdiff or build runs.
     pub(crate) changes_exports: Arc<latex::ChangesExports>,
+    /// Review mode's PDF with changes marked, apart from the export so neither stops the other.
+    pub(crate) review_changes: Arc<latex::ChangesExports>,
     pub(crate) texlab: Arc<Mutex<texlab::TexlabPool>>,
     /// Live connection to Overleaf's editing channel, when one is open.
     pub(crate) realtime: Arc<Mutex<OverleafRealtimeState>>,
@@ -164,6 +166,7 @@ impl AppState {
             let _ = latex::abort(&resources.active_build);
             resources.arxiv_checks.cancel();
             resources.changes_exports.cancel();
+            resources.review_changes.cancel();
             if let Ok(mut pool) = resources.texlab.lock() {
                 pool.reset();
             }
@@ -208,6 +211,7 @@ impl AppState {
         let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
         for project in projects.values() {
             project.changes_exports.cancel();
+            project.review_changes.cancel();
         }
     }
 

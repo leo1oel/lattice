@@ -29,13 +29,14 @@ pub(crate) struct MenuLabels {
     show_all: String,
     quit: String,
     file: String,
-    /// File ▸ New Project, Open, Open Recent, Open from Overleaf, Import
-    /// Overleaf ZIP, Export ZIP and Export for arXiv: the project title
+    /// File ▸ New Project, Open, Open Recent, Clone Repository, Open from
+    /// Overleaf, Import Overleaf ZIP, Export ZIP and Export for arXiv: the project title
     /// menu's actions, which the page runs as its own commands
     /// (src/app/use-command-table.ts).
     new_project: String,
     open_folder: String,
     open_recent: String,
+    clone_repository: String,
     open_from_overleaf: String,
     import_zip: String,
     export_zip: String,
@@ -248,6 +249,7 @@ pub(crate) fn build_menu<R: Runtime>(
             &file_command("open-folder", &labels.open_folder, true, Some("CmdOrCtrl+O"))?,
             &open_recent,
             &PredefinedMenuItem::separator(app)?,
+            &file_command("clone-repository", &labels.clone_repository, true, None)?,
             &file_command("overleaf-open", &labels.open_from_overleaf, true, None)?,
             &file_command("import-zip", &labels.import_zip, true, None)?,
             &PredefinedMenuItem::separator(app)?,

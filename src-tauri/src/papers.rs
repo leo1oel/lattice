@@ -11,7 +11,8 @@
 //!   paper into markdown; `markdown` cleans the converters' output.
 //! - `library` lists and reads what the bibliography cites; `library_search`
 //!   searches it through `search_index`, the full-text index of its cached
-//!   text; `bibliography` runs bibcite and removes or upgrades entries.
+//!   text; `bibliography` runs bibcite and removes entries; `upgrade` applies
+//!   bibcite's preprint upgrades entry by entry.
 
 use reqwest::blocking::{RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
@@ -32,12 +33,11 @@ mod markdown;
 mod search_index;
 #[cfg(test)]
 mod test_support;
+mod upgrade;
 mod web_citation;
 
 pub(crate) use bibliography::ScratchBibliography;
-pub use bibliography::{
-    remove_reference, upgrade_bibliography, CitationRemovalMode, HistoryMode, RemoveResult,
-};
+pub use bibliography::{remove_reference, CitationRemovalMode, HistoryMode, RemoveResult};
 pub use bundle::{fetch_paper, fetch_web_reference, FetchResult};
 pub(crate) use citation::{
     official_arxiv_citation, validate_resolved_identity, verify_title_citation,
@@ -50,6 +50,7 @@ pub use library::{
 };
 pub use library_search::{refresh_search_index, search_library, search_library_text};
 pub use search_index::PaperTextMatch;
+pub use upgrade::upgrade_bibliography;
 pub(crate) use web_citation::alphaxiv_bibtex;
 
 /// How Lattice identifies itself to arXiv, alphaXiv and cited webpages.

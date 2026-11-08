@@ -87,8 +87,9 @@ pub(crate) fn valid_name(name: &OsStr) -> bool {
 
 pub(crate) fn configure(command: &mut Command) {
     use std::os::windows::process::CommandExt;
+    use windows_sys::Win32::System::Threading::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
     // GUI-launched builds must not flash a console for each tool invocation.
-    command.creation_flags(0x08000000 | 0x00000200);
+    command.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
 }
 
 /// Kept by a build/export until capture and reaping finish, even if its

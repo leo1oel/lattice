@@ -29,23 +29,24 @@ describe("EditorCommentsPanel", () => {
     expect(onUpdateBody).not.toHaveBeenCalled();
   });
 
-  it("offers the way back to the writing file from an empty list, and a file picker with none open", () => {
-    const onReturnToEditor = vi.fn();
-    const panel = (writingFile: string | null) => (
+  it("draws an empty list as a desk object with a title, and a file picker only with no file open", () => {
+    const onOpenFile = vi.fn();
+    const panel = (open: (() => void) | undefined) => (
       <EditorCommentsPanel
-        embedded comments={[]} activePath={writingFile} writingFile={writingFile} onReturnToEditor={onReturnToEditor}
+        embedded comments={[]} activePath="chapters/intro.tex" onOpenFile={open}
         currentAuthorId="ada" onClose={vi.fn()} onOpen={vi.fn()} onDelete={vi.fn()} onToggleResolved={vi.fn()}
         onUpdateBody={vi.fn()} onReply={vi.fn()}
       />
     );
-    const { rerender } = render(panel("chapters/intro.tex"));
-    expect(screen.getByText("No annotations yet")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Return to intro.tex" }));
-    expect(onReturnToEditor).toHaveBeenCalledTimes(1);
-    rerender(panel(null));
-    expect(screen.getByText("No annotations yet")).toBeInTheDocument();
+    const { container, rerender } = render(panel(undefined));
+    const empty = screen.getByText("No annotations yet").closest<HTMLElement>("[data-slot='empty-state']")!;
+    expect(empty).toHaveAttribute("data-fill");
+    expect(empty.querySelector("svg.research-art")).toHaveAttribute("data-kind", "annotation-flags");
+    // Beside the file being written there is nowhere to go back to.
+    expect(container.querySelector("button")).toBeNull();
+    rerender(panel(onOpenFile));
     fireEvent.click(screen.getByRole("button", { name: "Open a file" }));
-    expect(onReturnToEditor).toHaveBeenCalledTimes(2);
+    expect(onOpenFile).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the way back out of a list that has comments", () => {
@@ -54,7 +55,7 @@ describe("EditorCommentsPanel", () => {
     })!;
     render(
       <EditorCommentsPanel
-        embedded comments={[{ ...comment, resolved: true }]} activePath="main.tex" writingFile="main.tex" onReturnToEditor={vi.fn()}
+        embedded comments={[{ ...comment, resolved: true }]} activePath="main.tex" onOpenFile={vi.fn()}
         currentAuthorId="ada" onClose={vi.fn()} onOpen={vi.fn()} onDelete={vi.fn()} onToggleResolved={vi.fn()}
         onUpdateBody={vi.fn()} onReply={vi.fn()}
       />,
@@ -64,7 +65,7 @@ describe("EditorCommentsPanel", () => {
     expect(empty).toHaveAttribute("data-fill");
     expect(empty).toHaveAttribute("data-align", "center");
     expect(empty.querySelector(".empty-illustration")).toHaveAttribute("data-kind", "annotations-clear");
-    expect(screen.queryByRole("button", { name: /Return to/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open a file" })).not.toBeInTheDocument();
   });
 
   describe("answers each action on the card", () => {

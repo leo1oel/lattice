@@ -87,6 +87,9 @@ zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 # 0.10 matches the version tauri and its plugins already compile in; 0.11
 # shipped a second copy of the whole digest stack for one Sha256::digest call.
 sha2 = "0.10"
+# The hash Overleaf checks an update against (`doc_push`); already compiled in
+# for the websocket handshake.
+sha1 = "0.10"
 md5 = "0.7"
 diffy = "0.5.1"
 tokio-tungstenite = { version = "0.29.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots", "handshake"] }

@@ -1,3 +1,4 @@
+import { isWindowsHost } from "../platform/host-platform";
 import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
@@ -51,7 +52,7 @@ export function TexSetupWizard(props: {
 
   const busy = props.checking || installing;
 
-  if (/Windows NT/.test(navigator.userAgent)) {
+  if (isWindowsHost()) {
     return (
       <TexInstallDialog
         label={t`Install LaTeX tools`}

@@ -37,6 +37,8 @@ mod http;
 mod ipc;
 mod latex;
 mod link_preview;
+#[cfg(any(target_os = "linux", test))]
+mod linux_release_notice;
 mod literature;
 mod literature_credentials;
 mod literature_service;
@@ -144,23 +146,6 @@ fn is_open_slide_presenter_url(url: &tauri::Url) -> bool {
         && query("next").is_some_and(|next| presenter_path(&next))
 }
 
-/// The traffic lights sit over the web content, which draws its own title bar.
-fn overlay_title_bar<'a, R: Runtime, M: Manager<R>>(
-    builder: WebviewWindowBuilder<'a, R, M>,
-) -> WebviewWindowBuilder<'a, R, M> {
-    #[cfg(target_os = "macos")]
-    {
-        builder
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .hidden_title(true)
-            .accept_first_mouse(true)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        builder
-    }
-}
-
 /// A desktop workspace window: the launch window (`center`) or a project
 /// window, which the window-state plugin places. The main window in
 /// tauri.conf.json has `create: false` so it gets this same constrained popup
@@ -178,10 +163,8 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
                 tauri::webview::NewWindowResponse::Deny
             }
         });
-    #[cfg(windows)]
-    let builder = builder.min_inner_size(640.0, 240.0);
     let builder = if center { builder.center() } else { builder };
-    let window = overlay_title_bar(builder).build()?;
+    let window = title_bar::overlay(builder).build()?;
     traffic_lights::install_traffic_light_alignment(&window);
     macos_window::apply_window_material(&window, &macos_window::WindowMaterial::at_launch());
     macos_window::render_at_display_refresh_rate(&window);
@@ -212,6 +195,7 @@ fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
     app.state::<AppState>().stop_all_live_previews();
     app.state::<AppState>().cancel_all_changes_exports();
     app.state::<AppState>().terminals.close_all_and_wait();
+    git::clone::cancel_all();
 }
 
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
@@ -232,6 +216,7 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         window.state::<app_restart::AppRestart>().forget(window.label());
         macos_window::clear_pdf_copy_text(window.label());
         macos_window::forget_window_material(window.label());
+        git::clone::cancel(window.label());
         // Its page never ran the cleanup that releases a deck's lease, which
         // would otherwise keep every other project's deck from opening.
         window.state::<presentation::PresentationRuntime>().forget_page(window.label());
@@ -253,6 +238,7 @@ fn on_page_load<R: Runtime>(
     if payload.event() == tauri::webview::PageLoadEvent::Started {
         // The new page enables saving before close again once it can.
         save_before_close::forget(webview.app_handle(), webview.label());
+        git::clone::cancel(webview.label());
         if let Some(restart) = webview.try_state::<app_restart::AppRestart>() {
             restart.forget(webview.label());
         }
@@ -410,7 +396,7 @@ pub fn run() {
     // In-app auto-update (checks GitHub Releases, verifies with the updater
     // key). Not on Linux: the AppImage is released without an updater archive
     // and latest.json has no Linux entry, so Linux copies update by hand
-    // (docs/release-process.md) and the frontend never checks there.
+    // (docs/release-process.md). A separate check offers the releases page.
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let app = builder
@@ -458,6 +444,8 @@ pub fn run() {
             perf_lab::perf_wheel,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_mouse,
+            #[cfg(target_os = "linux")]
+            linux_release_notice::check_linux_release,
             ipc::workspace::create_project,
             ipc::workspace::list_local_templates,
             ipc::workspace::inspect_template_source,
@@ -567,6 +555,7 @@ pub fn run() {
             ipc::build::agent_text_task,
             ipc::build::export_changes_pdf,
             ipc::build::cancel_changes_pdf,
+            ipc::build::review_changes_pdf,
             ipc::build::preview_latex_figure,
             ipc::build::abort_build,
             ipc::build::clean_project,
@@ -599,6 +588,8 @@ pub fn run() {
             ipc::git::git_status,
             ipc::git::git_user_name,
             ipc::git::git_init,
+            ipc::git::clone_repository,
+            ipc::git::cancel_clone,
             ipc::git::git_log,
             ipc::git::git_show_diff,
             ipc::git::git_compare_files,
@@ -607,6 +598,11 @@ pub fn run() {
             ipc::git::git_restore_project,
             ipc::git::git_auto_commit,
             ipc::history::list_history,
+            ipc::history::review_mode_load,
+            ipc::history::review_mode_start,
+            ipc::history::review_mode_files,
+            ipc::history::review_mode_save_base,
+            ipc::history::review_mode_stop,
             ipc::history::get_history_entry,
             ipc::history::revert_transaction,
             ipc::history::revert_history_file,

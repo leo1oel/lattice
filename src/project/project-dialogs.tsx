@@ -1,6 +1,6 @@
 import { Suspense, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Cloud, FileArchive, Folder, FolderOpen, PackageCheck, Plus, Settings, Sparkles, Wrench } from "lucide-react";
+import { Cloud, FileArchive, Folder, FolderOpen, GitBranch, PackageCheck, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
@@ -52,6 +52,7 @@ export function Welcome(props: {
   onCreate: () => void;
   onOpen: () => void;
   onImportZip: () => void;
+  onClone: () => void;
   onOpenTutorial: () => void;
   /** Projects to reopen; `unopenedProject` is the one launch could not. */
   recentProjects: RecentProject[];
@@ -115,6 +116,9 @@ export function Welcome(props: {
           </section>
         )}
         <div className="welcome-more">
+          <button className="welcome-more-action" onClick={props.onClone}>
+            <GitBranch size={15} /> {t`Clone repository`}
+          </button>
           {props.onOpenOverleaf && (
             <button className="welcome-more-action" onClick={props.onOpenOverleaf}>
               <Cloud size={15} /> {t`Open from Overleaf`}
@@ -275,6 +279,7 @@ export function ProjectMenu(props: {
   onRecent: (path: string) => void;
   onOpen: () => void;
   onNew: () => void;
+  onClone: () => void;
   onOpenTutorial: () => void;
   onExportZip: () => void;
   onExportArxiv: () => void;
@@ -315,6 +320,7 @@ export function ProjectMenu(props: {
         <FolderOpen /> {t`Open another folder`}
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={props.onNew}><Plus /> {t`New project`}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={props.onClone}><GitBranch /> {t`Clone repository…`}</DropdownMenuItem>
       {props.onOpenOverleaf && (
         <DropdownMenuItem disabled={busy} onSelect={props.onOpenOverleaf}>
           <Cloud /> {t`Open from Overleaf`}

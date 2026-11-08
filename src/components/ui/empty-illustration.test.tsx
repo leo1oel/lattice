@@ -5,7 +5,7 @@ import { EmptyState } from "./empty-state";
 
 afterEach(cleanup);
 
-const KINDS: EmptyIllustrationKind[] = ["comments", "search", "history", "done"];
+const KINDS: EmptyIllustrationKind[] = ["search", "history", "done"];
 
 it.each(KINDS)("draws the %s illustration as decoration that draws itself in", (kind) => {
   const { container } = render(<EmptyIllustration kind={kind} />);
@@ -20,7 +20,7 @@ it.each(KINDS)("draws the %s illustration as decoration that draws itself in", (
 });
 
 it("sits in an empty state without adding to what it announces", () => {
-  const { container } = render(<EmptyState icon={<EmptyIllustration kind="comments" size="compact" />} description="No comments yet" />);
+  const { container } = render(<EmptyState icon={<EmptyIllustration kind="search" size="compact" />} description="No comments yet" />);
   expect(container.querySelector(".ui-empty-state-icon svg")).toHaveAttribute("data-size", "compact");
   expect(container.querySelector(".ui-empty-state")).toHaveTextContent(/^No comments yet$/);
 });

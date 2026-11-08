@@ -9,6 +9,16 @@
 
 use crate::macos_window::ns_window_address;
 
+/// Draw the web title bar under the native traffic lights.
+pub fn overlay<'a, R: tauri::Runtime, M: tauri::Manager<R>>(
+    builder: tauri::WebviewWindowBuilder<'a, R, M>,
+) -> tauri::WebviewWindowBuilder<'a, R, M> {
+    builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .accept_first_mouse(true)
+}
+
 /// The `NSGlobalDomain` key System Settings writes for that choice.
 const ACTION_ON_DOUBLE_CLICK: &str = "AppleActionOnDoubleClick";
 

@@ -200,6 +200,7 @@ export function installDemoBackend(files: ProjectFiles): { tauri: MockTauri; unh
       case "overleaf_link":
       case "git_user_name":
       case "set_pdf_copy_text":
+      case "review_mode_load":
         return null;
       case "plugin:dialog|open":
       case "plugin:dialog|save":

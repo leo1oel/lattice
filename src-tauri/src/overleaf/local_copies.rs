@@ -88,10 +88,25 @@ pub fn remember_local_copy(config_dir: &Path, root: &Path) {
 }
 
 fn display_path(path: &Path) -> String {
-    let shown = path.to_string_lossy().replace('\\', "/");
     match crate::host_paths::home_dir() {
-        Some(home) => crate::host_paths::redact_home(&shown, &home.to_string_lossy()),
-        None => shown,
+        Some(home) => display_path_from_home(path, &home),
+        None => path.to_string_lossy().into_owned(),
+    }
+}
+
+fn display_path_from_home(path: &Path, home: &Path) -> String {
+    #[cfg(windows)]
+    let (path, home) = (
+        PathBuf::from(crate::host_paths::tex_path(path)),
+        PathBuf::from(crate::host_paths::tex_path(home)),
+    );
+    match path.strip_prefix(home) {
+        Ok(relative) if relative.as_os_str().is_empty() => "~".into(),
+        Ok(relative) => format!(
+            "~/{}",
+            relative.iter().map(|part| part.to_string_lossy()).collect::<Vec<_>>().join("/")
+        ),
+        Err(_) => path.to_string_lossy().into_owned(),
     }
 }
 

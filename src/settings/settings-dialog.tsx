@@ -1,3 +1,4 @@
+import { isWindowsHost } from "../platform/host-platform";
 import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -631,7 +632,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           <SettingsRow
             data-setting="version"
             label={t`Version`}
-            description={/Windows NT/.test(navigator.userAgent) ? t`Automatic updates aren’t available in this experimental Windows build.` : t`Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases.`}
+            description={isWindowsHost() ? t`Automatic updates aren’t available in this experimental Windows build.` : t`Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases.`}
           >
             <Button variant="ghost" size="compact" onClick={() => void openUrl(LATEST_RELEASE_URL)}>
               {t`GitHub Releases`} <ExternalLink size={12} />

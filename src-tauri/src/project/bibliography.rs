@@ -193,8 +193,31 @@ pub(crate) fn parse_bibliography_fields_syntax(body: &str) -> BTreeMap<String, S
 }
 
 fn parse_bibliography_field_values(body: &str, preserve_syntax: bool) -> BTreeMap<String, String> {
+    bibliography_field_spans(body)
+        .into_iter()
+        .map(|field| {
+            let value =
+                if preserve_syntax { body[field.value].trim().to_string() } else { field.raw };
+            (body[field.name].to_ascii_lowercase(), value)
+        })
+        .collect()
+}
+
+/// One `name = value` field of an entry body, as byte ranges into that body,
+/// so an edit can rewrite a single value and leave every other byte alone.
+pub(crate) struct BibFieldSpan {
+    /// The field name as written (any case).
+    pub(crate) name: std::ops::Range<usize>,
+    /// The value expression with its delimiters (`{A}`, `"A"`, `jul`).
+    pub(crate) value: std::ops::Range<usize>,
+    /// The value with its outer delimiters stripped.
+    pub(crate) raw: String,
+}
+
+/// Every field of an entry body, in source order.
+pub(crate) fn bibliography_field_spans(body: &str) -> Vec<BibFieldSpan> {
     let bytes = body.as_bytes();
-    let mut fields = BTreeMap::new();
+    let mut fields = Vec::new();
     let mut position = 0;
     while position < bytes.len() {
         let name_start =
@@ -206,14 +229,14 @@ fn parse_bibliography_field_values(body: &str, preserve_syntax: bool) -> BTreeMa
             position += 1;
             continue;
         }
-        let name = body[name_start..position].to_ascii_lowercase();
+        let name = name_start..position;
         position = skip_bytes(bytes, position, u8::is_ascii_whitespace);
         if bytes.get(position) != Some(&b'=') {
             continue;
         }
         let expression_start = skip_bytes(bytes, position + 1, u8::is_ascii_whitespace);
         position = expression_start;
-        let value = match bytes.get(position) {
+        let raw = match bytes.get(position) {
             Some(b'{') => delimited_value(body, &mut position, true),
             Some(b'"') => delimited_value(body, &mut position, false),
             Some(_) => {
@@ -222,8 +245,9 @@ fn parse_bibliography_field_values(body: &str, preserve_syntax: bool) -> BTreeMa
             }
             None => String::new(),
         };
-        let syntax = || body[expression_start..position].trim().to_string();
-        fields.insert(name, if preserve_syntax { syntax() } else { value });
+        // A bare value runs to the comma; its trailing spaces are not part of it.
+        let value_end = expression_start + body[expression_start..position].trim_end().len();
+        fields.push(BibFieldSpan { name, value: expression_start..value_end, raw });
     }
     fields
 }

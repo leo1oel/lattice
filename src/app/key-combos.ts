@@ -11,6 +11,8 @@
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names and glyphs, not interface copy */
 
+import { isWindowsHost } from "../platform/host-platform";
+
 export type KeyCombo = {
   /** The key as KeyboardEvent.key names it: "j", "?", "Enter", "ArrowUp", "F8". */
   key: string;
@@ -50,7 +52,7 @@ const SHIFTED_SYMBOLS = new Set([..."?{}|:\"<>+_~!@#$%^&*()"]);
 export function comboKeys(combo: KeyCombo): string[] {
   // A letter is drawn in capitals, as on the keycap; a named key (F8) too.
   const key = KEY_GLYPHS[combo.key.toLowerCase()] ?? (combo.key.length === 1 || /^f\d+$/i.test(combo.key) ? combo.key.toUpperCase() : combo.key);
-  const windows = /Windows NT/.test(navigator.userAgent);
+  const windows = isWindowsHost();
   return [
     ...(combo.ctrl ? [windows ? "Ctrl" : "⌃"] : []),
     ...(combo.mod ? [windows ? "Ctrl" : "⌘"] : []),
@@ -61,4 +63,4 @@ export function comboKeys(combo: KeyCombo): string[] {
 }
 
 /** `combo` written as one string, as the palette and menus show it: "⌘⇧J". */
-export const comboText = (combo: KeyCombo) => comboKeys(combo).join(/Windows NT/.test(navigator.userAgent) ? "+" : "");
+export const comboText = (combo: KeyCombo) => comboKeys(combo).join(isWindowsHost() ? "+" : "");

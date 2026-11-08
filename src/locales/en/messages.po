@@ -44,6 +44,10 @@ msgstr "“{0}” already has files and isn’t linked to Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}” stays linked"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "“{destinationName}” already exists there. Choose another location"
+msgstr "“{destinationName}” already exists there. Choose another location"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
@@ -109,6 +113,12 @@ msgstr "{0} can’t open this project"
 
 #. placeholder {0}: changes.length
 #: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} changes"
+msgstr "{0} changes"
+
+#. placeholder {0}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "tracked changes waiting for review"
 msgid "{0} changes"
 msgstr "{0} changes"
 
@@ -182,6 +192,13 @@ msgstr "{0} not checked"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "{0} notes"
 msgstr "{0} notes"
+
+#. placeholder {0}: formatCount(index + 1, i18n.locale)
+#. placeholder {1}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "the tracked change at the caret, of all of them"
+msgid "{0} of {1}"
+msgstr "{0} of {1}"
 
 #. placeholder {0}: chosen.length
 #. placeholder {1}: changes.length
@@ -308,6 +325,10 @@ msgstr "{builds} compiles"
 #: src/project/arxiv-export.ts
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}; arXiv builds with pdfLaTeX"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
+msgstr "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
 
 #: src/settings/grammar-settings.tsx
 msgid "{changedCount} changed from the grammar style"
@@ -502,6 +523,10 @@ msgstr "{description}: not found on PATH"
 #: src/project/manuscript-checklist.tsx
 msgid "{detail}. {limit}"
 msgstr "{detail}. {limit}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
+msgstr "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — BibTeX source"
@@ -836,6 +861,10 @@ msgstr "{path} is already a folder in this project."
 #: src/app/vanished-file.ts
 msgid "{path} is no longer on disk"
 msgstr "{path} is no longer on disk"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not a file review mode tracks."
+msgstr "{path} is not a file review mode tracks."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} is not a folder on Overleaf."
@@ -1213,6 +1242,10 @@ msgstr "A checklist holds at most 200 items."
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 
+#: src/history/review-mode-extension.ts
+msgid "A co-author edited text you changed. Both versions are kept."
+msgstr "A co-author edited text you changed. Both versions are kept."
+
 #: src/terminal/terminal-window.ts
 msgid "A command is still running. Closing stops it."
 msgstr "A command is still running. Closing stops it."
@@ -1415,6 +1448,7 @@ msgstr "Accent"
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Accept"
@@ -1425,6 +1459,7 @@ msgid "Accept {kept} of {offered}"
 msgstr "Accept {kept} of {offered}"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all"
 msgstr "Accept all"
@@ -1576,6 +1611,10 @@ msgstr "Add reference"
 msgid "Add the submission deadline"
 msgstr "Add the submission deadline"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Add to note"
+msgstr "Add to note"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
 msgstr "Add to Papers"
@@ -1626,6 +1665,10 @@ msgstr "Added {done} papers"
 #: src/papers/add-papers-sheet.tsx
 msgid "Added 1 paper"
 msgstr "Added 1 paper"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Added to {path}"
+msgstr "Added to {path}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -2042,6 +2085,7 @@ msgid "App"
 msgstr "App"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "App updater"
 msgstr "App updater"
 
@@ -2825,6 +2869,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/clone-repository-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
 #: src/project/local-templates.tsx
@@ -3149,6 +3194,10 @@ msgstr "checked date"
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "Checking {completed} of {progressTotal}…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Checking out files…"
+msgstr "Checking out files…"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "Checking the connection to {linkedHost}…"
@@ -3338,6 +3387,10 @@ msgstr "Choose the library's .bib file by its full path."
 msgid "Choose to do, to check, or confirmed."
 msgstr "Choose to do, to check, or confirmed."
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Choose where to clone the repository"
+msgstr "Choose where to clone the repository"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "Choose where to create the project"
@@ -3371,6 +3424,7 @@ msgid "Choose your library's .bib file"
 msgstr "Choose your library's .bib file"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
 msgstr "Choose…"
 
@@ -3607,6 +3661,36 @@ msgstr "Clipboard"
 #: src/platform/host-errors-project.ts
 msgid "Clipboard images must be saved as PNG, JPEG, or WebP."
 msgstr "Clipboard images must be saved as PNG, JPEG, or WebP."
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone"
+msgstr "Clone"
+
+#: src/app/use-command-table.ts
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone a Git repository"
+msgstr "Clone a Git repository"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone progress"
+msgstr "Clone progress"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository"
+msgstr "Clone repository"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository…"
+msgstr "Clone repository…"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Clone Repository…"
+msgstr "Clone Repository…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Cloning…"
+msgstr "Cloning…"
 
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
@@ -4011,6 +4095,10 @@ msgstr "Connecting live editing…"
 msgid "Connecting to Overleaf's live channel…"
 msgstr "Connecting to Overleaf's live channel…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Connecting…"
+msgstr "Connecting…"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
 msgid "Connection"
@@ -4149,6 +4237,10 @@ msgstr "Copy path"
 msgid "Copy source"
 msgstr "Copy source"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Copy source link"
+msgstr "Copy source link"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Copy the link from the project’s address bar or its Share menu."
 msgstr "Copy the link from the project’s address bar or its Share menu."
@@ -4169,6 +4261,10 @@ msgstr "Core components"
 msgid "Correction/update"
 msgstr "Correction/update"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not add to the note"
+msgstr "Could not add to the note"
+
 #: src/platform/host-errors-project.ts
 msgid "Could not allocate a temporary project file."
 msgstr "Could not allocate a temporary project file."
@@ -4188,6 +4284,10 @@ msgstr "Could not check for same-title records: {error}. Retry or supply a DOI."
 #: src/telemetry/app-log.tsx
 msgid "Could not collect runtime logs."
 msgstr "Could not collect runtime logs."
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not copy the source link"
+msgstr "Could not copy the source link"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
@@ -4240,6 +4340,10 @@ msgstr "Could not find figure “{path}”."
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "Could not find included file “{path}”."
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not find this passage in the PDF"
+msgstr "Could not find this passage in the PDF"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
@@ -4516,6 +4620,10 @@ msgstr "Couldn't find a bibliography entry for {citationCommand}."
 msgid "Couldn't find this one"
 msgstr "Couldn't find this one"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t find this repository, or your account can’t access it"
+msgstr "Couldn’t find this repository, or your account can’t access it"
+
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
@@ -4535,6 +4643,10 @@ msgstr "Couldn’t open this spreadsheet"
 #: src/app/use-overleaf-workspace.ts
 msgid "Couldn’t reach Overleaf"
 msgstr "Couldn’t reach Overleaf"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t reach the server"
+msgstr "Couldn’t reach the server"
 
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
@@ -4881,6 +4993,10 @@ msgstr "Deleted “{key}”"
 msgid "Deleted “{name}”"
 msgstr "Deleted “{name}”"
 
+#: src/history/review-mode-extension.ts
+msgid "Deleted “{removed}”"
+msgstr "Deleted “{removed}”"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Deleted here too"
 msgstr "Deleted here too"
@@ -4971,6 +5087,7 @@ msgid "Discover literature"
 msgstr "Discover literature"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -5202,6 +5319,7 @@ msgid "Downloading update…"
 msgstr "Downloading update…"
 
 #: src/papers/bib-entry-detail.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Downloading…"
 msgstr "Downloading…"
 
@@ -6337,6 +6455,7 @@ msgstr "Full paper text is unavailable; showing the overview instead."
 msgid "Full release notes"
 msgstr "Full release notes"
 
+#: src/canvas/paper-selection-actions.tsx
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Full text"
@@ -6396,9 +6515,22 @@ msgstr "Git (optional project status / commit panel)"
 msgid "git bridge"
 msgstr "git bridge"
 
+#. Search words for the Clone a Git repository command, space-separated
+#: src/app/use-command-table.ts
+msgid "git clone GitHub GitLab"
+msgstr "git clone GitHub GitLab"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git couldn’t sign in to this repository"
+msgstr "Git couldn’t sign in to this repository"
+
 #: src/history/versions-timeline.tsx
 msgid "Git isn’t available on this Mac"
 msgstr "Git isn’t available on this Mac"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
+msgstr "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/settings/settings-dialog.tsx
@@ -6414,6 +6546,7 @@ msgid "Git workspace didn’t load"
 msgstr "Git workspace didn’t load"
 
 #: src/settings/settings-dialog.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"
 msgstr "GitHub Releases"
 
@@ -7237,6 +7370,10 @@ msgstr "Insert row below"
 msgid "Insert table"
 msgstr "Insert table"
 
+#: src/history/review-mode-extension.ts
+msgid "Inserted “{added}”"
+msgstr "Inserted “{added}”"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Inspect and replace"
 msgstr "Inspect and replace"
@@ -7918,6 +8055,7 @@ msgid "Lattice is signed in to {0}. To open projects from another Overleaf serve
 msgstr "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 
 #: src/settings/settings-dialog.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 msgstr "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
 
@@ -8406,6 +8544,10 @@ msgstr "Loading…"
 msgid "Locate the file…"
 msgstr "Locate the file…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Location"
+msgstr "Location"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Log"
 msgstr "Log"
@@ -8555,6 +8697,10 @@ msgstr "Markdown source"
 msgctxt "macOS menu bar"
 msgid "Markers Only"
 msgstr "Markers Only"
+
+#: src/canvas/project-pdf-panel.tsx
+msgid "Marking changes…"
+msgstr "Marking changes…"
 
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -9073,6 +9219,7 @@ msgid "New terminal"
 msgstr "New terminal"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/linux-release-notice.ts
 msgid "New version {version}"
 msgstr "New version {version}"
 
@@ -9104,6 +9251,7 @@ msgstr "Next build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "Next change"
@@ -9167,6 +9315,10 @@ msgstr "No bibliography entry has the key {key}. Check the key, or add the entry
 #: src/project/arxiv-export.ts
 msgid "No bibliography to include"
 msgstr "No bibliography to include"
+
+#: src/history/review-mode-bar.tsx
+msgid "No changes"
+msgstr "No changes"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -9861,6 +10013,10 @@ msgstr "One-click TeX package install is not available on Linux yet."
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "Only a LaTeX document can be exported with its changes marked."
 
+#: src/platform/host-errors-workspace.ts
+msgid "Only a LaTeX document can show its changes marked."
+msgstr "Only a LaTeX document can show its changes marked."
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
 msgstr "Only binary files would change"
@@ -10064,6 +10220,10 @@ msgstr "Open log folder"
 #: src/agent/synara-loading-surface.tsx
 msgid "Open logs"
 msgstr "Open logs"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Open note"
+msgstr "Open note"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
@@ -10336,6 +10496,10 @@ msgid "Overleaf did not report that document in this project."
 msgstr "Overleaf did not report that document in this project."
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf did not say whether the edit applied."
+msgstr "Overleaf did not say whether the edit applied."
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf disconnected this session."
 
@@ -10554,6 +10718,11 @@ msgctxt "submission checklist field"
 msgid "owner"
 msgstr "owner"
 
+#. placeholder {0}: place.page
+#: src/canvas/paper-selection-actions.tsx
+msgid "p. {0}"
+msgstr "p. {0}"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "p.{page}"
@@ -10661,6 +10830,7 @@ msgid "Paper tones"
 msgstr "Paper tones"
 
 #: src/app/command-palette.tsx
+#: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
@@ -11117,6 +11287,7 @@ msgstr "Previous build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "Previous change"
@@ -11664,11 +11835,13 @@ msgstr "Regular expression"
 
 #: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
 msgstr "Reject"
 
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "Reject all"
@@ -11982,6 +12155,10 @@ msgstr "Replace with “{replacement}”"
 msgid "Replace with <0>{suggestion}</0>"
 msgstr "Replace with <0>{suggestion}</0>"
 
+#: src/history/review-mode-extension.ts
+msgid "Replaced “{removed}” with “{added}”"
+msgstr "Replaced “{removed}” with “{added}”"
+
 #: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrence in {files} file."
 msgstr "Replaced {replacements} occurrence in {files} file."
@@ -12040,6 +12217,10 @@ msgstr "Reply to {author}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "Reply…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Repository URL"
+msgstr "Repository URL"
 
 #: src/papers/audit-messages.ts
 msgid "Request queue busy"
@@ -12176,6 +12357,10 @@ msgstr "Resolved by {0}"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved: {note}"
 msgstr "Resolved: {note}"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Resolving changes…"
+msgstr "Resolving changes…"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -12367,10 +12552,6 @@ msgstr "Retry"
 msgid "Return to {name}"
 msgstr "Return to {name}"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Return to {writingName}"
-msgstr "Return to {writingName}"
-
 #: src/app/use-trellis-bridge.ts
 #: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF"
@@ -12384,6 +12565,10 @@ msgstr "Reverse turnstile"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "Revert to saved"
+
+#: src/history/review-mode-bar.tsx
+msgid "Review"
+msgstr "Review"
 
 #: src/project/arxiv-export-dialog.tsx
 msgctxt "arXiv export comments"
@@ -12415,6 +12600,10 @@ msgstr "Review copy exported from Lattice on {0}, with {count}."
 #: src/app/use-command-table.ts
 msgid "Review here"
 msgstr "Review here"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Review mode is off in this project."
+msgstr "Review mode is off in this project."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"
@@ -13072,6 +13261,10 @@ msgstr "Select the next occurrence"
 msgid "Select the text to proofread first."
 msgstr "Select the text to proofread first."
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Selected passage"
+msgstr "Selected passage"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"
 msgstr "Selection"
@@ -13231,6 +13424,10 @@ msgstr "Show changes"
 msgid "Show changes as"
 msgstr "Show changes as"
 
+#: src/history/review-mode-bar.tsx
+msgid "Show changes in the PDF"
+msgstr "Show changes in the PDF"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "Show document outline"
@@ -13303,6 +13500,10 @@ msgstr "Show the PDF"
 #: src/app/use-command-table.ts
 msgid "Show the PDF beside the editor"
 msgstr "Show the PDF beside the editor"
+
+#: src/history/review-mode-bar.tsx
+msgid "Show the PDF without changes"
+msgstr "Show the PDF without changes"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -13548,6 +13749,10 @@ msgstr "Source download failed: {error}"
 msgid "Source editor"
 msgstr "Source editor"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Source link copied"
+msgstr "Source link copied"
+
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
 msgstr "Source location in PDF"
@@ -13754,6 +13959,19 @@ msgstr "Stop on first error"
 #: src/trellis/trellis-workspace.tsx
 msgid "Stop the build"
 msgstr "Stop the build"
+
+#: src/history/review-mode-bar.tsx
+#: src/history/review-mode-store.ts
+msgid "Stop tracking"
+msgstr "Stop tracking"
+
+#: src/canvas/canvas-toolbar.tsx
+msgid "Stop tracking changes"
+msgstr "Stop tracking changes"
+
+#: src/history/review-mode-store.ts
+msgid "Stop tracking changes?"
+msgstr "Stop tracking changes?"
 
 #: src/project/arxiv-export.ts
 msgid "Stopped after 2 minutes"
@@ -14221,6 +14439,10 @@ msgstr "That history entry no longer exists."
 msgid "That is a folder."
 msgstr "That is a folder."
 
+#: src/project/clone-repository-dialog.tsx
+msgid "That isn’t a Git repository URL"
+msgstr "That isn’t a Git repository URL"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "That isn’t an Overleaf project link"
 msgstr "That isn’t an Overleaf project link"
@@ -14432,6 +14654,10 @@ msgstr "The cached paper was produced by an unsupported converter."
 msgid "The candidate's title or authors conflict with its source metadata. No citation was added."
 msgstr "The candidate's title or authors conflict with its source metadata. No citation was added."
 
+#: src/canvas/project-pdf-panel.tsx
+msgid "The changes could not be marked in the PDF, so it shows the paper without them."
+msgstr "The changes could not be marked in the PDF, so it shows the paper without them."
+
 #: src/platform/host-errors-papers.ts
 msgid "The citation contains conflicting arXiv identifiers."
 msgstr "The citation contains conflicting arXiv identifiers."
@@ -14447,6 +14673,10 @@ msgstr "The clipboard data is not a valid image."
 #: src/platform/host-errors-project.ts
 msgid "The clipboard image was empty."
 msgstr "The clipboard image was empty."
+
+#: src/project/clone-repository-dialog.tsx
+msgid "The clone didn’t finish"
+msgstr "The clone didn’t finish"
 
 #: src/app/use-command-table.ts
 msgid "the comment or suggestion by the caret"
@@ -14568,6 +14798,10 @@ msgstr "The first is at {path}:{line}."
 #: src/platform/host-errors-workspace.ts
 msgid "The folder is not empty."
 msgstr "The folder is not empty."
+
+#: src/project/clone-repository-dialog.tsx
+msgid "The folder to clone into doesn’t exist"
+msgstr "The folder to clone into doesn’t exist"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
@@ -15603,6 +15837,15 @@ msgstr "Top table rule"
 msgid "Top-level section heading"
 msgstr "Top-level section heading"
 
+#: src/canvas/canvas-toolbar.tsx
+#: src/history/review-mode-store.ts
+msgid "Track changes"
+msgstr "Track changes"
+
+#: src/history/review-mode-bar.tsx
+msgid "Tracking changes"
+msgstr "Tracking changes"
+
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Translate into academic English"
 msgstr "Translate into academic English"
@@ -16611,6 +16854,11 @@ msgstr "Yellow"
 msgid "You"
 msgstr "You"
 
+#: src/history/review-mode-extension.ts
+msgctxt "the writer, as the author of a tracked change"
+msgid "You"
+msgstr "You"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 msgstr "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
@@ -16655,6 +16903,10 @@ msgstr "Your answer…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
+
+#: src/history/review-mode-store.ts
+msgid "Your edits stay in the files. The changes waiting for review are no longer marked."
+msgstr "Your edits stay in the files. The changes waiting for review are no longer marked."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

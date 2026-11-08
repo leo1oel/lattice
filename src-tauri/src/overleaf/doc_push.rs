@@ -1,23 +1,43 @@
-//! Sending an edit to a file Overleaf holds as a document.
+//! Sending a sync's edit to a file Overleaf holds as a document over the live
+//! channel, the way Overleaf's own editor does, instead of uploading it.
 //!
-//! An upload replaces whatever is at its path with what the upload endpoint
-//! makes of the bytes, and the endpoint decides that from the file name alone,
-//! not from what is already there. A document made with New file in the
-//! browser, say a `data.csv` for pgfplots, comes back from an upload as a
-//! binary file: no longer editable in the browser, and its comments and
-//! tracked changes gone with it. Overleaf's own editor never uploads a
-//! document; it edits it over the live channel. So does this, for each
-//! document whose name the upload might not read as text: join it, send the
-//! difference as one operation, leave.
+//! An upload is wrong for a document in three ways. It replaces the whole
+//! document, so whatever a co-author typed after the sync last looked is gone
+//! from it (Overleaf's history still has it). It makes Overleaf tell everyone
+//! with the file open that it was "updated externally". And the upload
+//! endpoint decides what a file becomes from its name alone, not from what is
+//! already at the path: a `data.csv` made with New file in the browser comes
+//! back from an upload as a binary file, no longer editable there, and its
+//! comments and tracked changes gone with it.
 //!
-//! The operation is tracked when the project's track-changes setting is on
+//! So each document goes like this: join it; check that Overleaf still holds
+//! exactly the copy the sync planned against; send the difference between that
+//! copy and ours as operations, at the version the join reported; wait for
+//! Overleaf to say they applied; leave. Anything a co-author types between the
+//! join and our operations landing, Overleaf transforms against them, as it
+//! does for any two people typing at once — their keystrokes move, they are
+//! never replaced. A document Overleaf has moved past the copy the sync
+//! planned against is left alone: the operations were worked out against the
+//! wrong text, and from the newer one they would undo a co-author's work. The
+//! next sync merges it first.
+//!
+//! The operations are tracked when the project's track-changes setting is on
 //! for this account, as Overleaf does with an upload into a document.
 
 use super::api::Remote;
-use crate::overleaf_rt::{OtOp, RealtimeClient, RealtimeConfig, Submission};
+use crate::overleaf_rt::{OtOp, RealtimeClient, RealtimeConfig, RealtimeEvent, Submission};
 use crate::wide_event;
+use diffy::{DiffOptions, HunkRange};
+use sha1::{Digest, Sha1};
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::mpsc::{channel, Receiver};
+use std::time::{Duration, Instant};
 use tauri::async_runtime as rt;
+
+/// How long Overleaf has to say an edit applied, once it has queued it.
+/// Its answer to `applyOtUpdate` means only that: the edit is applied, or
+/// refused, afterwards, and said so in a separate message.
+const APPLY_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Extensions an upload reads as text on any Overleaf, so uploading one keeps
 /// a document a document. Deliberately short: a document missing from it only
@@ -36,8 +56,64 @@ pub(super) fn may_become_a_file(path: &str) -> bool {
 }
 
 /// The edit that turns `before` into `after`, positioned the way Overleaf
-/// counts: in UTF-16 code units.
+/// counts: in UTF-16 code units, each operation where the ones before it in
+/// the same update left the text.
+///
+/// Each run of lines that changed is its own operation, rather than one span
+/// from the first change to the last. Overleaf transforms a co-author's concurrent typing against these; inside
+/// a span that deletes and reinserts everything between two far-apart edits,
+/// their sentence would be carried off to one end of it.
 pub(super) fn edit_ops(before: &str, after: &str) -> Vec<OtOp> {
+    let ops = hunk_ops(before, after);
+    // The diff and the position bookkeeping are checked by applying the
+    // result; should they ever disagree, the single span is still exact.
+    if applied(before, &ops).as_deref() == Some(after) {
+        ops
+    } else {
+        span_ops(before, after, 0)
+    }
+}
+
+fn hunk_ops(before: &str, after: &str) -> Vec<OtOp> {
+    let patch = DiffOptions::new().set_context_len(0).create_patch(before, after);
+    let (old_lines, new_lines) = (line_starts(before), line_starts(after));
+    // A range names its first line counting from 1, but an empty range names
+    // the line it comes after.
+    let span = |starts: &[usize], range: HunkRange| {
+        let first = if range.is_empty() { range.start() } else { range.start() - 1 };
+        starts[first]..starts[first + range.len()]
+    };
+    let mut ops = Vec::new();
+    // How far the operations so far moved the text after them.
+    let mut shift = 0isize;
+    for hunk in patch.hunks() {
+        let (from, to) = (span(&old_lines, hunk.old_range()), span(&new_lines, hunk.new_range()));
+        let at = units(&before[..from.start]) as isize + shift;
+        for op in span_ops(&before[from], &after[to], at as usize) {
+            shift += op.i.as_deref().map_or(0, units) as isize;
+            shift -= op.d.as_deref().map_or(0, units) as isize;
+            ops.push(op);
+        }
+    }
+    ops
+}
+
+/// The byte offset each line starts at, and the text's length after them.
+fn line_starts(text: &str) -> Vec<usize> {
+    let ends = text.split_inclusive('\n').scan(0, |end, line| {
+        *end += line.len();
+        Some(*end)
+    });
+    std::iter::once(0).chain(ends).collect()
+}
+
+fn units(text: &str) -> usize {
+    text.encode_utf16().count()
+}
+
+/// The single delete-and-insert turning `before` into `after`, both trimmed of
+/// what they share at either end, for text that starts at `at`.
+fn span_ops(before: &str, after: &str, at: usize) -> Vec<OtOp> {
     let common = |a: &mut dyn Iterator<Item = char>, b: &mut dyn Iterator<Item = char>| -> usize {
         a.zip(b).take_while(|(x, y)| x == y).map(|(c, _)| c.len_utf8()).sum()
     };
@@ -46,7 +122,7 @@ pub(super) fn edit_ops(before: &str, after: &str) -> Vec<OtOp> {
     let suffix = common(&mut before_rest.chars().rev(), &mut after_rest.chars().rev());
     let removed = &before_rest[..before_rest.len() - suffix];
     let inserted = &after_rest[..after_rest.len() - suffix];
-    let p = before[..prefix].encode_utf16().count();
+    let p = at + units(&before[..prefix]);
     let op = |i: Option<&str>, d: Option<&str>| OtOp {
         p,
         i: i.map(str::to_string),
@@ -63,228 +139,192 @@ pub(super) fn edit_ops(before: &str, after: &str) -> Vec<OtOp> {
     ops
 }
 
-/// Send each of `files` that Overleaf holds as a document an upload might
-/// turn into a file over the live channel instead, and answer with the paths
-/// sent; the rest are left for the upload.
-///
-/// When the live channel cannot be reached, nothing goes this way and every
-/// file is uploaded as it always was. Once it is reached, a document that
-/// fails to take its edit fails the sync, like a failed upload: falling back
-/// to the upload is exactly what loses the document.
-pub(super) fn push_docs(
-    remote: &Remote, files: &BTreeMap<String, Vec<u8>>,
-) -> Result<BTreeSet<String>, String> {
-    // A document only ever holds text.
-    let candidates: Vec<(&String, &str)> = (files.iter())
-        .filter(|(path, _)| may_become_a_file(path))
-        .filter_map(|(path, bytes)| Some((path, std::str::from_utf8(bytes).ok()?)))
-        .collect();
-    if candidates.is_empty() {
-        return Ok(BTreeSet::new());
-    }
-    let config = RealtimeConfig {
-        user_id: remote.session.user_id.clone(),
-        host: remote.host.clone(),
-        cookie: remote.session.cookie.clone(),
-        project_id: remote.state.project_id.clone(),
-    };
-    let client = match rt::block_on(RealtimeClient::connect(config, |_| {})) {
-        Ok(client) => client,
-        Err(_) => {
-            wide_event::record("doc_push_unreachable", true);
-            return Ok(BTreeSet::new());
+/// `text` with `ops` applied in order, as Overleaf applies an update; `None`
+/// when one does not fit, deleting text that is not there.
+pub(super) fn applied(text: &str, ops: &[OtOp]) -> Option<String> {
+    let mut doc: Vec<u16> = text.encode_utf16().collect();
+    for op in ops {
+        if let Some(deleted) = &op.d {
+            let deleted: Vec<u16> = deleted.encode_utf16().collect();
+            let end = op.p + deleted.len();
+            if doc.get(op.p..end) != Some(&deleted[..]) {
+                return None;
+            }
+            doc.drain(op.p..end);
         }
-    };
-    let sent = rt::block_on(send_all(&client, &candidates));
-    client.shutdown();
-    sent
+        if let Some(inserted) = &op.i {
+            if op.p > doc.len() {
+                return None;
+            }
+            doc.splice(op.p..op.p, inserted.encode_utf16());
+        }
+    }
+    String::from_utf16(&doc).ok()
 }
 
-async fn send_all(
-    client: &RealtimeClient, candidates: &[(&String, &str)],
-) -> Result<BTreeSet<String>, String> {
-    let project = client.project();
-    let mut sent = BTreeSet::new();
-    for (path, text) in candidates {
-        // A path that is a binary file on Overleaf, or not there at all, is
-        // the upload's.
-        let Some(doc) = project.docs.iter().find(|doc| doc.path == **path) else { continue };
-        let failed = |error: String| format!("Failed to send \"{path}\" to Overleaf: {error}");
-        let joined = client.join_doc(&doc.id, None).await.map_err(failed)?;
-        let ops = edit_ops(&joined.text, text);
-        (client.send_ops(
-            &doc.id,
-            joined.version,
-            ops,
-            project.track_changes,
-            Submission::default(),
-        ))
-        .await
-        .map_err(failed)?;
-        client.leave_doc(&doc.id).await.map_err(failed)?;
-        sent.insert((*path).clone());
+/// What Overleaf's document updater hashes a document to,
+/// `sha1("blob {UTF-16 length}\0{UTF-8 text}")`.
+pub(super) fn doc_hash(text: &str) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(format!("blob {}\0", units(text)).as_bytes());
+    hasher.update(text.as_bytes());
+    hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// Whether Overleaf stores what `ops` insert exactly as sent. Its document
+/// updater replaces every UTF-16 surrogate in inserted text with U+FFFD, and
+/// a carriage return has no place in a document's lines. An upload has always
+/// carried both as the upload endpoint makes of them, so such an edit still
+/// goes that way, unless an upload could turn the document into a file.
+fn lands_as_sent(ops: &[OtOp]) -> bool {
+    (ops.iter().filter_map(|op| op.i.as_deref()))
+        .all(|text| !text.contains('\r') && text.chars().all(|c| c.len_utf16() == 1))
+}
+
+/// What became of the documents sent over the live channel.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(super) struct LivePush {
+    /// Took their edit as operations, and Overleaf said they applied.
+    pub sent: BTreeSet<String>,
+    /// Overleaf had moved past the copy the edit was worked out against, so
+    /// nothing was sent; the next sync merges the newer work in first.
+    pub stale: BTreeSet<String>,
+}
+
+/// The live channel, open for the documents of one sync.
+pub(super) struct LiveDocs {
+    client: RealtimeClient,
+    events: Receiver<RealtimeEvent>,
+    /// What it takes: each path, with its document's id.
+    docs: BTreeMap<String, String>,
+}
+
+impl LiveDocs {
+    /// Open the live channel for those of `files` Overleaf holds as documents.
+    /// `held` is Overleaf's copy of the project the sync planned against.
+    ///
+    /// `None` when the channel cannot be reached, or nothing would go over it:
+    /// a new file, a binary one, and a path that is a binary file on Overleaf
+    /// are uploaded, and so is everything when the channel is unreachable.
+    pub fn open(
+        remote: &Remote, files: &BTreeMap<String, Vec<u8>>, held: &BTreeMap<String, Vec<u8>>,
+    ) -> Option<LiveDocs> {
+        // A document only ever holds text.
+        let candidates: BTreeSet<&String> = (files.iter())
+            .filter(|(path, bytes)| {
+                let Ok(text) = std::str::from_utf8(bytes) else { return false };
+                match held.get(*path).map(|bytes| std::str::from_utf8(bytes)) {
+                    Some(Ok(base)) => {
+                        may_become_a_file(path) || lands_as_sent(&edit_ops(base, text))
+                    }
+                    // A document there now is one Overleaf moved past
+                    // (`push`). Only an upload that could turn a new
+                    // document into a file is worth the channel to find out;
+                    // any other new file goes up while Overleaf holds still.
+                    Some(Err(_)) | None => may_become_a_file(path),
+                }
+            })
+            .map(|(path, _)| path)
+            .collect();
+        if candidates.is_empty() {
+            return None;
+        }
+        let config = RealtimeConfig {
+            user_id: remote.session.user_id.clone(),
+            host: remote.host.clone(),
+            cookie: remote.session.cookie.clone(),
+            project_id: remote.state.project_id.clone(),
+        };
+        let (tell, events) = channel();
+        let connected = rt::block_on(RealtimeClient::connect(config, move |event| {
+            let _ = tell.send(event);
+        }));
+        let Ok(client) = connected else {
+            wide_event::record("doc_push_unreachable", true);
+            return None;
+        };
+        let docs: BTreeMap<String, String> = (client.project().docs.iter())
+            .filter(|doc| candidates.contains(&doc.path))
+            .map(|doc| (doc.path.clone(), doc.id.clone()))
+            .collect();
+        let live = LiveDocs { client, events, docs };
+        (!live.docs.is_empty()).then_some(live)
     }
-    wide_event::record("docs_pushed_live", sent.len());
-    Ok(sent)
+
+    /// Whether `path` goes over this channel rather than up as an upload.
+    pub fn takes(&self, path: &str) -> bool {
+        self.docs.contains_key(path)
+    }
+
+    /// Send each document this channel takes its edit from `files`.
+    ///
+    /// A document that fails to take its edit fails the sync, like a failed
+    /// upload. Falling back to the upload is exactly what replaces what a
+    /// co-author just typed, and for some documents loses the document; and
+    /// an edit whose outcome is unknown may have landed, so the sync records
+    /// nothing and the next one merges against whatever Overleaf then holds.
+    pub fn push(
+        &self, files: &BTreeMap<String, Vec<u8>>, held: &BTreeMap<String, Vec<u8>>,
+    ) -> Result<LivePush, String> {
+        let tracked = self.client.project().track_changes;
+        let mut pushed = LivePush::default();
+        for (path, id) in &self.docs {
+            let failed = |error: String| format!("Failed to send \"{path}\" to Overleaf: {error}");
+            let text = files.get(path).and_then(|bytes| std::str::from_utf8(bytes).ok());
+            let text = text.ok_or_else(|| failed("it is not text".into()))?;
+            let joined = rt::block_on(self.client.join_doc(id, None)).map_err(failed)?;
+            let base = held.get(path).and_then(|bytes| std::str::from_utf8(bytes).ok());
+            if base == Some(joined.text.as_str()) {
+                let ops = edit_ops(&joined.text, text);
+                if !ops.is_empty() {
+                    // When nothing lands before it, Overleaf checks the result
+                    // against this and refuses the edit on a mismatch.
+                    let hash = lands_as_sent(&ops).then(|| doc_hash(text));
+                    let submission = Submission { hash: hash.as_deref(), ..Submission::default() };
+                    let sent = self.client.send_ops(id, joined.version, ops, tracked, submission);
+                    rt::block_on(sent).map_err(failed)?;
+                    self.applied(id).map_err(failed)?;
+                }
+                pushed.sent.insert(path.clone());
+            } else {
+                pushed.stale.insert(path.clone());
+            }
+            rt::block_on(self.client.leave_doc(id)).map_err(failed)?;
+        }
+        wide_event::record("docs_pushed_live", pushed.sent.len());
+        if !pushed.stale.is_empty() {
+            wide_event::record("docs_stale_live", pushed.stale.len());
+        }
+        Ok(pushed)
+    }
+
+    /// Wait for Overleaf to say the edit just sent to document `id` applied.
+    fn applied(&self, id: &str) -> Result<(), String> {
+        let deadline = Instant::now() + APPLY_TIMEOUT;
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            match self.events.recv_timeout(left) {
+                Ok(RealtimeEvent::DocAck { doc_id, .. }) if doc_id == id => return Ok(()),
+                // Its shape is undocumented, so one naming no document is
+                // taken to be about the only edit in flight.
+                Ok(RealtimeEvent::OtError { doc_id, message })
+                    if doc_id == id || doc_id.is_empty() =>
+                {
+                    return Err(message)
+                }
+                Ok(RealtimeEvent::Disconnected { reason }) => return Err(reason),
+                Ok(_) => {}
+                Err(_) => return Err("Overleaf did not say whether the edit applied.".into()),
+            }
+        }
+    }
+}
+
+impl Drop for LiveDocs {
+    fn drop(&mut self) {
+        self.client.shutdown();
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::overleaf::account::{load_session, save_session, SessionFile};
-    use crate::overleaf::api::http_client;
-    use crate::overleaf::link::{save_state, SyncState};
-    use crate::overleaf_rt::mock_server::{
-        sent_updates as updates, serve_http, start_mock_serving, MOCK_USER_ID,
-    };
-    use crate::test_support::TempDir;
-    use serde_json::{json, Value};
-    use std::sync::{Arc, Mutex};
-
-    fn remote(host: &str) -> Remote {
-        Remote {
-            session: SessionFile {
-                host: host.into(),
-                cookie: "overleaf_session2=test-cookie".into(),
-                email: None,
-                name: None,
-                user_id: Some("user-1".into()),
-                expired: false,
-            },
-            state: SyncState {
-                host: host.into(),
-                project_id: "proj-1".into(),
-                root_folder_id: Some("root-1".into()),
-                ..Default::default()
-            },
-            host: host.into(),
-        }
-    }
-
-    /// The main text, a data file made with New file in the browser (so a
-    /// document), and a figure description uploaded as a binary file.
-    fn project(track_changes: Value) -> Value {
-        json!({
-            "_id": "proj-1",
-            "name": "Paper",
-            "trackChangesState": track_changes,
-            "rootFolder": [{
-                "_id": "root-1",
-                "name": "rootFolder",
-                "docs": [{"_id": "doc-main", "name": "main.tex"}, {"_id": "doc-data", "name": "data.csv"}],
-                "fileRefs": [{"_id": "file-1", "name": "plot.json"}],
-                "folders": []
-            }]
-        })
-    }
-
-    fn files(entries: &[(&str, &str)]) -> BTreeMap<String, Vec<u8>> {
-        entries.iter().map(|(path, text)| (path.to_string(), text.as_bytes().to_vec())).collect()
-    }
-
-    #[test]
-    fn an_upload_is_trusted_with_a_document_only_when_its_name_reads_as_text() {
-        for (path, risky) in [
-            ("main.tex", false),
-            ("sections/Intro.TEX", false),
-            ("refs.bib", false),
-            ("data.csv", true),
-            ("results/table.dat", true),
-            ("plot.json", true),
-            ("latexmkrc", true),
-            (".latexmkrc", true),
-        ] {
-            assert_eq!(may_become_a_file(path), risky, "{path}");
-        }
-    }
-
-    #[test]
-    fn the_edit_is_positioned_in_utf16_units_and_never_splits_a_character() {
-        let op = |p: usize, i: Option<&str>, d: Option<&str>| OtOp {
-            p,
-            i: i.map(str::to_string),
-            d: d.map(str::to_string),
-            u: None,
-        };
-        // 😀 counts two units, so "b" starts at 3.
-        assert_eq!(
-            edit_ops("a😀b\nx", "a😀B\nx"),
-            vec![op(3, None, Some("b")), op(3, Some("B"), None)]
-        );
-        // é and è share their first UTF-8 byte; the edit still takes the whole character.
-        assert_eq!(edit_ops("café", "cafè"), vec![op(3, None, Some("é")), op(3, Some("è"), None)]);
-        assert_eq!(edit_ops("x,y", "x,y\n1,2"), vec![op(3, Some("\n1,2"), None)]);
-        assert_eq!(edit_ops("same", "same"), vec![]);
-    }
-
-    #[test]
-    fn a_document_takes_its_edit_over_the_live_channel_and_everything_else_is_left_to_the_upload() {
-        let (host, state) = start_mock_serving(project(json!(false)), &["x,y", "1,2"]);
-        let files = files(&[
-            ("data.csv", "x,y\n1,2\n3,4"),
-            ("main.tex", "\\documentclass{article}"),
-            ("plot.json", "{}"),
-            ("new.dat", "1 2"),
-        ]);
-        let sent = push_docs(&remote(&host), &files).unwrap();
-        assert_eq!(sent, BTreeSet::from(["data.csv".to_string()]));
-        let updates = updates(&state);
-        assert_eq!(updates.len(), 1, "{updates:?}");
-        assert_eq!(updates[0]["doc"], "doc-data");
-        assert_eq!(updates[0]["v"], 42);
-        assert_eq!(updates[0]["op"], json!([{"p": 7, "i": "\n3,4"}]));
-        assert!(updates[0].get("meta").is_none(), "{:?}", updates[0]);
-    }
-
-    #[test]
-    fn the_edit_is_a_suggestion_when_the_project_tracks_this_accounts_changes() {
-        let (host, state) = start_mock_serving(project(json!({"user-1": true})), &["x,y"]);
-        push_docs(&remote(&host), &files(&[("data.csv", "x,z")])).unwrap();
-        let updates = updates(&state);
-        assert!(updates[0]["meta"]["tc"].is_string(), "{updates:?}");
-    }
-
-    #[test]
-    fn a_session_stored_without_its_account_id_still_suggests_when_tracked() {
-        let (host, state) = start_mock_serving(project(json!({MOCK_USER_ID: true})), &["x,y"]);
-        let (config, root) = (TempDir::new("doc-push-config"), TempDir::new("doc-push-project"));
-        let session = SessionFile { user_id: None, ..remote(&host).session };
-        save_session(&config, &session).unwrap();
-        save_state(&root, &remote(&host).state).unwrap();
-        let linked = Remote::open_for_sync(&config, &root).unwrap();
-        push_docs(&linked, &files(&[("data.csv", "x,z")])).unwrap();
-        let updates = updates(&state);
-        assert!(updates[0]["meta"]["tc"].is_string(), "{updates:?}");
-        // Looked up once: the next sync reads it from the stored session.
-        assert_eq!(load_session(&config).unwrap().user_id.as_deref(), Some(MOCK_USER_ID));
-    }
-
-    #[test]
-    fn the_upload_skips_a_document_it_would_have_turned_into_a_file() {
-        // Every request but the live channel's would be an upload here.
-        let (host, state) = start_mock_serving(project(json!(false)), &["x,y"]);
-        let (remote, client) = (remote(&host), http_client(10).unwrap());
-        let uploader = remote.uploader(&client, "fixture-csrf").unwrap();
-        uploader.upload_all(&files(&[("data.csv", "x,y\n1,2")]), &BTreeSet::new()).unwrap();
-        let requests = state.lock().unwrap().requests.clone();
-        assert!(requests.iter().all(|(url, _, _)| url.starts_with("/socket.io/")), "{requests:?}");
-        assert_eq!(updates(&state).len(), 1);
-    }
-
-    #[test]
-    fn without_the_live_channel_everything_is_left_to_the_upload_as_before() {
-        let hits = Arc::new(Mutex::new(0));
-        let seen = Arc::clone(&hits);
-        let host = serve_http(move |request| {
-            *seen.lock().unwrap() += 1;
-            let _ = request.respond(tiny_http::Response::empty(404));
-        });
-        let remote = remote(&host);
-        // Nothing that could be a document: the live channel is not even tried.
-        let safe = files(&[("main.tex", "text")]);
-        assert_eq!(push_docs(&remote, &safe).unwrap(), BTreeSet::new());
-        assert_eq!(*hits.lock().unwrap(), 0);
-        assert_eq!(push_docs(&remote, &files(&[("data.csv", "x,y")])).unwrap(), BTreeSet::new());
-        assert!(*hits.lock().unwrap() > 0);
-    }
-}
+mod tests;

@@ -496,6 +496,7 @@ const UNSYNCED_RESEARCH_PREFIXES: &[&str] = &[
     ".research/omp-",
     ".research/checkpoints/",
     ".research/cache/",
+    ".research/review/",
 ];
 
 /// Write raw bytes (base64) to a project-relative path, for Open Slide's

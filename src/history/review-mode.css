@@ -1,0 +1,90 @@
+/* The review bar (review-mode-bar.tsx), in the source editor's top panel.
+   One row that wraps at the group edges when the editor is narrow, so no
+   control is ever squeezed; the button labels give way to their icons first. */
+.source-editor .cm-panel.cm-review-bar {
+  font-family: var(--ui-font);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.review-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
+  min-width: 0;
+  color: var(--text-secondary);
+}
+.review-bar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* The writer's colour for their changes (REVIEW_HUE), set inline as the marks in the text are. */
+.review-bar-title > i {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+.review-bar-count {
+  min-width: 0;
+  font: 500 var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.review-bar-group,
+.review-bar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.review-bar-end { margin-inline-start: auto; gap: var(--space-2); }
+.review-bar .ui-icon-button.active { color: var(--text-primary); background: var(--control-pressed-surface); }
+.review-bar-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-height-compact);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  white-space: nowrap;
+  cursor: default;
+}
+.review-bar-text > svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.review-bar-text:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
+.review-bar-text:active:not(:disabled) { background: var(--control-pressed-surface); }
+.review-bar-text:disabled { opacity: var(--control-disabled-opacity); }
+.review-bar-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-basis: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+}
+.review-bar-notice > span { min-width: 0; overflow-wrap: anywhere; }
+/* Narrow: the text buttons keep their icons (named by tooltip and for screen
+   readers) and lose their words, so the bar stays one row; narrower still, the
+   title keeps only its dot. */
+.review-bar .review-bar-label { white-space: nowrap; }
+@container editor-panels (max-width: 760px) {
+  .review-bar-text > .review-bar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .review-bar-text { padding: 0 var(--space-3); }
+}
+@container editor-panels (max-width: 520px) {
+  .review-bar-title > .review-bar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .review-bar { column-gap: var(--space-2); padding-inline: var(--space-3) var(--space-2); }
+  .review-bar-group, .review-bar-end { gap: 0; }
+  .review-bar-text { padding: 0 var(--space-2); }
+}
+/* Above the PDF panel's pages when the marked PDF could not be made (project-pdf-panel.tsx). */
+.review-pdf-message { margin: var(--space-4) var(--space-6) 0; }
+/* The outline rail starts below the bar rather than over it. */
+.source-editor:has(.cm-review-bar) .latex-outline-rail { inset-block-start: calc(var(--space-10) + var(--control-height-compact) + var(--space-4)); }

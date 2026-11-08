@@ -1,12 +1,13 @@
-import { deferred, fileNode, openTreeFile, projectCommands, projectSnapshot, refreshableProject, expectEditorText, expectInvoked, pause, SINGLE_TRANSFORMER } from "./app-test-utils";
+import { deferred, fileNode, openTreeFile, projectCommands, projectSnapshot, refreshableProject, expectEditorText, expectInvoked, pause, SINGLE_TRANSFORMER, mockPdfDocument, pdfDocumentStub } from "./app-test-utils";
 import { PAPER_TOOLS_MISSING } from "../build/tex-setup";
 import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 import type { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { act, fireEvent, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { getDocument } from "pdfjs-dist";
+import { describe, expect, it, vi } from "vitest";
 
 /**
  * The source editor's citation card opens what the PDF's does: the cited
@@ -55,6 +56,25 @@ describe("citation card in the source editor", () => {
     const card = await keyboardCard(view);
     fireEvent.click(within(card).getByRole("button", { name: control === "title" ? "A Single Transformer" : OPEN_PAPER }));
     await expectInvoked("read_paper", { arxivId: SINGLE_TRANSFORMER.arxivId });
+  });
+
+  it("opens the cited Paper's PDF at the page its note names", async () => {
+    const source = "As shown by \\citep[p.~4]{chen2024single}.";
+    mockPdfDocument(() => pdfDocumentStub(6, { render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }) }));
+    renderApp({
+      ...projectCommands(projectSnapshot(), source),
+      list_citations: () => CITATIONS,
+      list_papers: () => [SINGLE_TRANSFORMER],
+      read_paper: "# Paper body",
+    });
+    const view = await expectEditorText(source);
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: source.indexOf("chen") + 2 } });
+    });
+    fireEvent.click(within(await keyboardCard(view)).getByRole("button", { name: OPEN_PAPER }));
+    await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({ url: `https://arxiv.org/pdf/${SINGLE_TRANSFORMER.arxivId}` })));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "PDF page number" })).toHaveValue("4"));
   });
 
   it("downloads a cited preprint the library has not fetched, then opens it, from the card's title", async () => {

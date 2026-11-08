@@ -752,8 +752,22 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   box-shadow: none;
 }
 /* Keep the hover arrow outside the host, but scroll the card within the
-   available height CodeMirror measures above or below the anchor. */
-.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) { overflow: visible; }
+   available height CodeMirror measures above or below the anchor. Another
+   hover card over a commented passage (a citation, a diagnostic) stands as its
+   own card beside the comment's, apart by a gap rather than under
+   CodeMirror's section rule; the gap is inside the popover, so the pointer
+   crossing it still counts as over it. */
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) {
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) > .cm-tooltip-section {
+  min-height: 0;
+  flex: 0 1 auto;
+  border-top: 0;
+}
 /* `--comment-card-room` is the editor's width less its margins, set as the card opens. */
 .cm-editor-comment-card-host { --comment-card-room: 320px; display: flex; flex-direction: column; max-height: 100%; }
 .cm-editor-comment-card-host > .comment-card {
@@ -1017,7 +1031,41 @@ body.resizing-split::after { content: ""; position: fixed; inset: 0; z-index: va
 .paper-visual-header h1 { margin: 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-display-size); font-weight: var(--weight-semibold); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; text-wrap: balance; }
 .paper-visual-header p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 .paper-visual-header .paper-visual-eligibility { margin: 0 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
-.paper-reader-shell { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--editor-bg); }
+.paper-reader-shell { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--editor-bg); }
+/* Copy source link and Add to note, where a selection in the reader ends:
+   one pill like the compiled PDF's Annotate offer. Placed (and kept inside
+   the reader) by paper-selection-actions.tsx; a label too long for a narrow
+   reader ellipsizes rather than leaving it. */
+.paper-selection-actions {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  max-width: calc(100% - 2 * var(--space-4));
+  padding: var(--space-1);
+  gap: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+}
+.paper-selection-action {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-inline-tight);
+  height: calc(var(--control-height-compact) - 2 * var(--space-1));
+  padding: 0 var(--pad-inline-control);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--type-body-compact-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.paper-selection-action > svg { flex: none; }
+.paper-selection-action > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.paper-selection-action:hover:not(:disabled) { background: color-mix(in srgb, var(--surface-elevated) 92%, var(--text-primary)); }
+.paper-selection-action:disabled { cursor: default; color: var(--text-secondary); }
 /* The size container is the header, the only thing its query restyles: a
    container's width change restyles all of its contents in WebKit, and the
    shell holds the whole paper. */

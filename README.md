@@ -82,6 +82,7 @@ Slides are React decks powered by [Open Slide](https://github.com/open-slide/ope
 
 One timeline for saved versions, every edit from you or the agent, and Overleaf's history.
 Open any entry to see its diff and restore a file, or **Compare…** any two versions and export the PDF with the changes marked (via `latexdiff` from your TeX Live).
+**Track changes** turns on review mode: your edits since then are marked in the source as you type, the PDF can show them marked too, and you accept or reject each change, or all at once, without an Overleaf plan.
 The Git panel shows changes and pull requests when the project is a repository.
 
 ## Install
@@ -98,7 +99,7 @@ Official builds are signed, notarized by Apple, and update themselves.
 
 **Linux (experimental).** Releases that pass their Linux checks also carry an x86_64 `.AppImage`, for Ubuntu 22.04 or later, Fedora 45 and similar distributions.
 Make it executable (`chmod +x Lattice_*.AppImage`) and run it; it builds with the TeX Live from your distribution's packages.
-On Linux, Lattice does not update itself, so download each new release, and the built-in Agent is not available yet.
+On Linux, Lattice checks for new releases and links to GitHub Releases, but does not update itself; download each new release yourself. The built-in Agent is not available yet.
 
 ## Contributing
 

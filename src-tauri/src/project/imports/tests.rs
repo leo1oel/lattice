@@ -230,4 +230,7 @@ fn clipboard_images_are_saved_and_byte_writes_skip_paper_bundles() {
         write_bytes(&fixture.root, ".research/papers/2401.00001/paper_assets/figure.png", "QQ==")
             .unwrap_err();
     assert!(error.contains("cannot be written directly"));
+    // Review mode bases are written only through review_mode.rs.
+    let error = write_bytes(&fixture.root, ".research/review/base/main.tex", "QQ==").unwrap_err();
+    assert!(error.contains("cannot be written directly"));
 }

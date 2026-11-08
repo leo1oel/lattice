@@ -27,6 +27,7 @@ import { paperDropExtension } from "../editor/paper-drop";
 import { marginReviewExtension, overleafCursorsExtension, overleafTrackChangesExtension } from "../overleaf/overleaf-editor-extensions";
 import { editorDiagnosticsForFile } from "../build/compile-diagnostics";
 import { editorTexlabDiagnosticsForFile } from "../build/texlab-diagnostics";
+import { reviewModeExtension } from "../history/review-mode-extension";
 
 /**
  * What the source editor's extensions are built from. Two configurations
@@ -123,6 +124,7 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
       onReject: (change) => review().overleafTrackChangeActions.onReject(change),
     }),
     marginReviewExtension(),
+    reviewModeExtension(path),
     editorCommentsExtension(path, {
       pinLabel: (numbers) => live.pinLabel(numbers),
       cards: config.commentCards,

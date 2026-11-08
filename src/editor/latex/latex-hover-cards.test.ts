@@ -48,9 +48,16 @@ describe("citation card title", () => {
     expect(card.querySelector(".citation-card-actions button")?.textContent).toContain("Open paper");
 
     fireEvent.click(title!);
-    expect(onOpenCitation).toHaveBeenCalledExactlyOnceWith(key);
+    expect(onOpenCitation).toHaveBeenCalledExactlyOnceWith(key, undefined);
     expect(onGotoDefinition).not.toHaveBeenCalled();
     expect(card.isConnected).toBe(false);
+  });
+
+  it("opens the paper at the page the citation's note names", () => {
+    const onOpenCitation = vi.fn();
+    const { card } = openCard("\\citep[p.~5]{vaswani2017}", "vaswani2017", { canOpenCitation: () => true, onOpenCitation });
+    fireEvent.click(card.querySelector<HTMLButtonElement>("button.citation-card-title")!);
+    expect(onOpenCitation).toHaveBeenCalledExactlyOnceWith("vaswani2017", 5);
   });
 
   it("goes to the .bib entry from its title when there is no paper to open", () => {

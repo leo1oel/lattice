@@ -10,7 +10,6 @@ import { closeCompletion } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
 import { paperAuthorNames } from "../papers/paper-identity";
-import { paperSourceCitation } from "../papers/paper-source";
 import { restoreViewportAround } from "./viewport-restore";
 import { landWhenReady } from "./land-when-ready";
 import { useViewFade } from "./view-fade";
@@ -54,6 +53,7 @@ import { AnnotationReviewLayer } from "./annotation-review";
 import { notifyInfo } from "../telemetry/app-notify";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
+import { ReviewModeBars } from "../history/review-mode-bar";
 import { EditorStatusBar } from "./editor-status-bar";
 import { isLatexSourcePath } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
@@ -73,6 +73,7 @@ import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
 import { useSourceSession } from "./use-source-session";
 import { usePaperPdf } from "./use-paper-pdf";
+import { followPaperSourceLink } from "./paper-source-link-click";
 import { SPLIT_MINIMUMS, splitGridTemplate, useSplitLayout } from "./use-split-layout";
 
 type StructuredDocumentKind = "board" | "spreadsheet" | "presentation";
@@ -104,6 +105,8 @@ function useRegistration<T>(register: ((value: T | null) => void) | undefined, v
   }, [register, value]);
 }
 
+const ignoreSourceRequest = () => undefined;
+
 export function DocumentCanvas(props: DocumentCanvasProps) {
   const { activeFile, editorKey, setSource, source: editorSource } = props.document;
   const { editorKeymap } = props.preferences;
@@ -124,8 +127,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   } = props.navigation.requests;
   const { t } = useLingui();
   const commentAuthor = useMemo(() => ({ id: commentAuthorId, name: commentAuthorName }), [commentAuthorId, commentAuthorName]);
-  // The newest props for handlers and window listeners, so those never
-  // rebuild for them; current before the editor's own commit reads them.
+  // The newest props, current before the editor's own commit reads them.
   const latestRef = useCommittedRef(props);
   const [proofread] = useState(createProofreadBridge);
   const [selectionToolbar, setSelectionToolbar] = useState<SelectionToolbarPlacement | null>(null);
@@ -195,8 +197,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     || (activeFile.toLocaleLowerCase().endsWith(".md") && primaryKind !== "presentation");
   const htmlDocument = !props.document.activePaper && isHtmlFilePath(activeFile);
   const bibDocument = !props.document.activePaper && isBibFilePath(activeFile);
-  // The source editor's accessible name: which document, then which kind of
-  // source, so a screen reader tells it from the other editor or a search field.
+  // The source editor's accessible name: the document, then the kind of source.
   const documentName = props.document.activePaper?.title || activeFile.slice(activeFile.lastIndexOf("/") + 1);
   const sourceLabel = isLatexSourcePath(activeFile) ? t`${documentName} — LaTeX source`
     : markdownDocument ? t`${documentName} — Markdown source`
@@ -255,6 +256,8 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     flushVisualMarkdown: flushPrimaryVisualMarkdown,
     previewViewportRef: markdownPreviewViewportRef,
     settledPreviewText,
+    sourceRequest: props.navigation.paperSource ?? null,
+    onSourceRequestHandled: props.navigation.onPaperSourceHandled ?? ignoreSourceRequest,
   });
   const { quoteFallback, returnViewportRef: paperReturnViewportRef } = paperPdf;
   const paperPdfOpen = paperPdf.pdfView !== null;
@@ -899,16 +902,10 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       // App integration suites find it through this testid.
       viewportProps={{
         "data-testid": "editor-scroll-container",
-        onClickCapture: (event) => {
-          if (!props.document.activePaper || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-          const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
-          if (!link) return;
-          const citation = paperSourceCitation(props.document.activePaper, link.href, link.title);
-          if (!citation || !paperPdf.pdfSource) return;
-          event.preventDefault();
-          event.stopPropagation();
-          paperPdf.openPdf({ ...citation, id: crypto.randomUUID() });
-        },
+        onClickCapture: (event) => followPaperSourceLink(event, {
+          activePaper: props.document.activePaper, pdf: paperPdf, papers: props.bibliography.papers ?? [],
+          onOpenPaperSource: props.bibliography.onOpenPaperSource,
+        }),
         // Split mode has its own scroll coordinator and insertion viewport lock;
         // native anchoring would be a competing scroll writer.
         style: props.document.mode === "split" ? { overflowAnchor: "none" } : undefined,
@@ -975,6 +972,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       pdf={paperPdf}
       markdown={markdownPreview}
       onOpenMarkdownPath={props.document.onOpenMarkdownPath}
+      projectRoot={props.preferences.projectRoot}
       onContextSurfaceActivate={props.selection.onContextSurfaceActivate}
       onTextSelect={props.selection.onPaperTextSelect}
       pdfViewState={{
@@ -1062,6 +1060,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
             editable={props.document.editorEditable && isLatexSourcePath(activeFile)}
             viewRef={primaryViewRef}
           />
+          <ReviewModeBars projectRoot={props.preferences.projectRoot} />
           <AnnotationReviewLayer
             bridge={props.review.annotationRounds.reviewBridge}
             activeFile={activeFile}

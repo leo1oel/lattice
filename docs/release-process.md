@@ -178,10 +178,11 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
 `--config '{"bundle":{"createUpdaterArtifacts":false}}'`, so no updater
 artifact is made or signed for Linux, and `latest.json` has no Linux
 entry; the release notes tell Linux users to download each
-release. The app agrees: on Linux it does not register the updater plugin
-(`src-tauri/src/lib.rs`) or check for updates, and Settings → App updates
-says so and links to the latest release instead. Offering in-app updates on
-Linux would mean signing the AppImage
+release. On Linux the app does not register the updater plugin
+(`src-tauri/src/lib.rs`). A separate notice checks the latest release metadata
+for an AppImage and links to GitHub Releases; Settings → App updates also links
+to the latest release. Offering in-app updates on Linux would mean signing the
+AppImage
 with `TAURI_SIGNING_PRIVATE_KEY` and merging a `linux-x86_64` entry into
 `latest.json`, as `macos-intel.yml` does for `darwin-x86_64`.
 

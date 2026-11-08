@@ -384,6 +384,13 @@ export type CanvasRequests = {
   replace: { path: string; line: number; token: string; replacement: string; id: string } | null;
 };
 
+/**
+ * Show a Paper's original PDF at `page`, the passage between `first` and
+ * `last` highlighted there (empty for the page alone): a source link or a
+ * `\cite[p.~5]{key}` followed from elsewhere. Answered once that Paper is in front.
+ */
+export type PaperSourceRequest = { arxivId: string; page: number; first: string; last: string; id: string };
+
 // ---- Overleaf bridge ----------------------------------------------------
 // Shapes mirror the Rust `overleaf` module's serde camelCase output exactly.
 
