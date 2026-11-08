@@ -4685,6 +4685,11 @@ msgstr "Could not start: {message}"
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "Could not unpack the rtex archive: {error}"
 
+#: src/project/figure-converters-actions.ts
+#: src/project/figure-converters.ts
+msgid "Could not update the figure"
+msgstr "Could not update the figure"
+
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Could not upload the project to Overleaf"
 msgstr "Could not upload the project to Overleaf"
@@ -6146,8 +6151,14 @@ msgstr "Figure inventory"
 msgid "Figure preview could not be loaded."
 msgstr "Figure preview could not be loaded."
 
+#. placeholder {0}: figure.entry
+#: src/project/figure-converters-actions.ts
+msgid "Figure ready: {0}. Open a LaTeX file to include it."
+msgstr "Figure ready: {0}. Open a LaTeX file to include it."
+
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
+#: src/project/figure-converters-actions.ts
 msgid "Figures"
 msgstr "Figures"
 
@@ -16786,6 +16797,10 @@ msgstr "Use “{word}” instead of “{original}”."
 #: src/platform/host-errors-workspace.ts
 msgid "Use an HTTP(S) source URL without credentials."
 msgstr "Use an HTTP(S) source URL without credentials."
+
+#: src/project/project-file-tree.tsx
+msgid "Use as editable figure"
+msgstr "Use as editable figure"
 
 #: src/platform/host-errors-project.ts
 msgid "Use letters, numbers, and :_-.+ in the {name}."

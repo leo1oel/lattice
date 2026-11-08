@@ -15,6 +15,7 @@ import type { AgentProjectDocumentToolRequest } from "../agent/agent-project-doc
 import { waitForAgentSpreadsheetDocument } from "../agent/agent-spreadsheet-tools";
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "../editor/insert/clipboard-image";
 import { rewriteMovedDocumentAssetPaths } from "../editor/insert/figure-insertion";
+import { dropDrawingFile } from "../project/figure-converters";
 import type { OverleafSyncMode } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
 import type { TrellisController } from "../trellis/trellis-controller";
@@ -427,8 +428,6 @@ export function useProjectTree(deps: ProjectTreeDeps) {
         const dropKind = classifyExternalProjectDrop(dragPaths);
         const editorPath = activeFileRef.current;
         const insertsIntoEditor = Boolean(editorPosition && dropKind === "asset" && /\.(?:tex|md)$/i.test(editorPath ?? ""));
-        // The tree accepts every drop kind, so the highlight only tracks
-        // geometry (null when the pointer is not over the Project tree).
         setAssetDropTarget(targetDirectory);
         setEditorDropActive(insertsIntoEditor);
         setAgentPanelDropActive(agentPanelTarget && dropKind !== "unsupported");
@@ -438,6 +437,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
         if (event.payload.type !== "drop") return;
         clearDropHighlights();
         if (!event.payload.paths.length) return;
+        if (editorPosition && dropDrawingFile(event.payload.paths, editorPosition)) return;
         if (agentPanelTarget && dropKind !== "unsupported") {
           // The agent iframe never sees native drops (Tauri intercepts
           // them), so read the bytes here and relay them over the embed
@@ -478,7 +478,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
           showError(t`Drop figures onto a TeX or Markdown editor, or the Project pane`);
         }
       }))
-      // Browser-based tests and previews do not expose native file paths.
+      // Tests and previews have no native paths.
       .catch(() => () => undefined));
     return () => {
       active = false;

@@ -93,6 +93,27 @@ Programs, scripts and web pages (`.app`, `.exe`, `.sh`, `.command`, `.py`,
 `.js`, `.html`…) and files with no extension never open. Any other type asks
 first, once per extension in a session.
 
+## Inkscape and draw.io drawings
+
+Figures can also be kept as a `.svg` (Inkscape) or a `.drawio`/`.dio` (draw.io)
+drawing in the project. **Use as editable figure** in the project tree's context
+menu renders it with the program installed in its usual place, writes an entry
+`.tex` beside it, with the usual first line, and puts the figure in the LaTeX
+editor last in use. Draw.io gives a PDF; Inkscape gives a PDF and a `.pdf_tex`
+that sets the drawing's text in the document's fonts.
+
+A drawing file copied in the file manager and pasted into a LaTeX source, or
+dropped on it, goes the same way, copied under `figures/` first if it is
+outside the project.
+
+A draw.io file of several pages uses the first; the entry's second line,
+`% editable-figure page: 1 (of 3: …)`, names them, and changing its number chooses another.
+
+From then on, when the drawing changes on disk and an entry beside it names it,
+Lattice renders it again and the watcher rebuilds the document. Only those two
+programs run, from their standard locations: a project cannot name one. Without
+the program a notice says to install it.
+
 ## For authors of drawing tools
 
 Any program can offer this without talking to Lattice:

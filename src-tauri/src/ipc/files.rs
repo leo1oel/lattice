@@ -231,6 +231,49 @@ pub async fn open_figure_source(
     .await
 }
 
+/// Renders a drawing in the project with its program and writes the entry that includes it.
+#[tauri::command]
+pub async fn make_editable_figure(
+    state: State<'_, AppState>, window: Window, path: String,
+) -> Result<project::ImportedFigure, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Figure conversion", move || project::make_editable_figure(&root, &path)).await
+}
+
+/// A drawing dropped from the file manager: brought into the project and made a figure.
+#[tauri::command]
+pub async fn drop_drawing_file(
+    state: State<'_, AppState>, window: Window, path: String,
+) -> Result<project::ImportedFigure, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Figure conversion", move || project::import_drawing_path(&root, &path)).await
+}
+
+/// The path of a file copied in the system's file manager, where the system tells it.
+#[tauri::command]
+pub async fn clipboard_file_path() -> Result<Option<String>, String> {
+    run_blocking("Clipboard read", || Ok(project::clipboard_file_path())).await
+}
+
+/// A drawing pasted as a file: saved in the project and made a figure.
+#[tauri::command]
+pub async fn paste_drawing_file(
+    state: State<'_, AppState>, window: Window, name: String, data: String,
+) -> Result<project::ImportedFigure, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Figure conversion", move || project::import_drawing_file(&root, &name, &data))
+        .await
+}
+
+/// Renders a figure's drawing again after it changed; false when it is no figure's source.
+#[tauri::command]
+pub async fn refresh_figure_source(
+    state: State<'_, AppState>, window: Window, path: String,
+) -> Result<bool, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Figure conversion", move || project::refresh_figure_source(&root, &path)).await
+}
+
 /// A figure pasted from a drawing program, with its source file and the
 /// files rendered from it (docs/editable-figures.md).
 #[tauri::command]

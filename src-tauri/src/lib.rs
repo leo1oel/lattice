@@ -205,17 +205,15 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
             api.prevent_close();
         }
     }
-    // A closed window's project must stop being anyone's project, or
-    // its LaTeX language server and Overleaf socket outlive the window
-    // and a later window reusing the label inherits a stale binding.
+    // A closed window's project must stop being anyone's project, or its
+    // language server and Overleaf socket outlive it for the next window.
     if matches!(event, tauri::WindowEvent::Destroyed) {
         save_before_close::forget(window.app_handle(), window.label());
         window.state::<app_restart::AppRestart>().forget(window.label());
         macos_window::clear_pdf_copy_text(window.label());
         macos_window::forget_window_material(window.label());
         git::clone::cancel(window.label());
-        // Its page never ran the cleanup that releases a deck's lease, which
-        // would otherwise keep every other project's deck from opening.
+        // Its page never released its deck leases, which block other decks.
         window.state::<presentation::PresentationRuntime>().forget_page(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
@@ -226,9 +224,8 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     }
 }
 
-/// WebKit reports `Started` when a main-frame navigation commits (a reload,
-/// or the first load): the page it replaced never ran its cleanup, so its
-/// deck leases are released and its live preview stopped here.
+/// WebKit reports `Started` when a main-frame navigation commits: the page it
+/// replaced never cleaned up, so its leases and live preview are released here.
 fn on_page_load<R: Runtime>(
     webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
 ) {
@@ -503,6 +500,11 @@ pub fn run() {
             ipc::files::import_clipboard_image,
             ipc::files::import_editable_figure,
             ipc::files::open_figure_source,
+            ipc::files::make_editable_figure,
+            ipc::files::refresh_figure_source,
+            ipc::files::paste_drawing_file,
+            ipc::files::drop_drawing_file,
+            ipc::files::clipboard_file_path,
             ipc::files::read_project_asset,
             ipc::files::read_project_asset_range,
             ipc::files::save_project_pdf,

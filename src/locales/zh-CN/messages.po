@@ -4685,6 +4685,11 @@ msgstr "无法启动：{message}"
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "无法解压 rtex 安装包：{error}"
 
+#: src/project/figure-converters-actions.ts
+#: src/project/figure-converters.ts
+msgid "Could not update the figure"
+msgstr "无法更新此图"
+
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Could not upload the project to Overleaf"
 msgstr "上传失败"
@@ -6146,8 +6151,14 @@ msgstr "插图使用检查"
 msgid "Figure preview could not be loaded."
 msgstr "图片预览加载失败"
 
+#. placeholder {0}: figure.entry
+#: src/project/figure-converters-actions.ts
+msgid "Figure ready: {0}. Open a LaTeX file to include it."
+msgstr "图已就绪：{0}。请打开 LaTeX 文件以插入。"
+
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
+#: src/project/figure-converters-actions.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -16786,6 +16797,10 @@ msgstr "用 “{word}” 代替 “{original}”。"
 #: src/platform/host-errors-workspace.ts
 msgid "Use an HTTP(S) source URL without credentials."
 msgstr "来源地址须为 HTTP(S)，且不能包含账号密码"
+
+#: src/project/project-file-tree.tsx
+msgid "Use as editable figure"
+msgstr "用作可编辑图"
 
 #: src/platform/host-errors-project.ts
 msgid "Use letters, numbers, and :_-.+ in the {name}."

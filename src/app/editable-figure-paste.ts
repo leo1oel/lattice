@@ -32,7 +32,7 @@ export async function pasteEditableFigure(
 }
 
 /** Puts a figure whose files are in the project into `view`: its include at the selection, what it needs in the preamble. */
-async function insertImportedFigure(view: EditorView, figure: ImportedFigure): Promise<void> {
+export async function insertImportedFigure(view: EditorView, figure: ImportedFigure): Promise<void> {
   const source = view.state.doc.toString();
   const selection = view.state.selection.main;
   const known = figure.preamble?.length

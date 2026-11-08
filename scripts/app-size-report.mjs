@@ -198,7 +198,9 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // Raised from 1.365 MiB for editable figures: the project tree must know a
 // drawing without a load, and the rest of pasting and opening a figure loads
 // on demand, +0.4 KB.
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.366 * 1024 * 1024);
+// Raised to 1.367 MiB for figures from drawing programs: the tree's menu entry
+// and the watcher that renders a changed drawing again, +1.3 KB.
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.367 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.
