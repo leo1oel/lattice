@@ -9,11 +9,11 @@ import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useStoreSlice } from "../hooks/use-store-slice";
 import { useSharedSetting } from "../settings/shared-setting";
-import { isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
+import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useOverleafRemoteDeletes } from "./use-overleaf-remote-deletes";
 import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
 import {
-  bridgeFields, createOverleafConnectionStore, type OverleafConnectionStore, type OverleafLinkFor,
+  bridgeFields, createOverleafConnectionStore, type OverleafConnectionStore,
 } from "../overleaf/overleaf-connection-store";
 import { overleafRemoteDeletePolicy, overleafSyncModeSetting } from "../overleaf/overleaf-sync-settings";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
@@ -29,9 +29,10 @@ import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import { reviewMode } from "../history/review-mode-store";
 import { applyOverleafRemoteText } from "./overleaf-remote-text";
+import { readOverleafLink } from "./read-overleaf-link";
 import type { AcceptExpectation } from "./use-document-store";
 import type {
-  AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
+  AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject,
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
@@ -64,15 +65,6 @@ const OVERLEAF_CHANNEL_POLL_MS = 45_000;
  * minute, and a collaborator typing moves the version on every poll.
  */
 const minimumSyncGap = (channelLive: boolean) => (channelLive ? 30_000 : 12_000);
-
-async function readOverleafLink(root: string): Promise<OverleafLinkFor | null> {
-  const [status, link] = await Promise.all([invoke<OverleafStatus>("overleaf_status"), invoke<OverleafLink | null>("overleaf_link")]);
-  return link ? {
-    root,
-    link: { ...link, host: link.host.trim() || status.host.trim() },
-    active: status.connected && !link.paused && overleafLinkMatchesSession(status.host, link.host),
-  } : null;
-}
 
 /**
  * Everything the Overleaf bridge borrows from App. App owns the three sync-gate
@@ -775,8 +767,11 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   // Live mode also pushes, keyed off *saves*: autosave clears the dirty flag
   // long before any sensible push delay, so watching dirty text cancelled it.
+  // Keyed off whether there is a link, not the link object: every sync re-reads
+  // it anew, and a re-run cancelled the push after the saved paths were taken.
+  const overleafLinked = overleafLink !== null;
   useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "live" || saveGeneration === 0) return;
+    if (!overleafLinked || overleafSyncMode !== "live" || saveGeneration === 0) return;
     const savedPaths = captureSavedPaths();
     const wholeFilePaths = savedPaths.filter(isWholeFileEditorPath);
     if (wholeFilePaths.length) {
@@ -790,8 +785,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     // Whole-file saves wait for a document boundary (or the idle fallback)
     // instead of a project download after every serialized control change.
     if (!savedPaths.some((path) => !isWholeFileEditorPath(path))) return;
-    return schedulePush();
-  }, [captureSavedPaths, flushBoundaryPathsSoon, overleafLink, overleafSyncMode, saveGeneration, savedPathsRef, schedulePush, wholeFileEditingPathsRef]);
+    return schedulePush(() => (overleafSyncingRef.current ? "wait" : "go"));
+  }, [captureSavedPaths, flushBoundaryPathsSoon, overleafLinked, overleafSyncMode, overleafSyncingRef, saveGeneration, savedPathsRef, schedulePush, wholeFileEditingPathsRef]);
 
   // Manual mode never syncs on its own; it only badges incoming work.
   useEffect(() => {

@@ -341,6 +341,22 @@ describe("external edit Overleaf handoff", () => {
     expect(syncs()).toBe(before + 2);
   });
 
+  it("still pushes a save when the link is re-read before the push fires", async () => {
+    const { fixture, view, realtime, advance } = mountWorkspace("live");
+    await waitFor(() => expect(realtime().liveFile).toBe(true));
+    await advance(31_000);
+    const syncs = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync").length;
+    const before = syncs();
+    // A file outside the live channel is saved...
+    fixture.deps.savedPathsRef.current.add("figures/table.tex");
+    fixture.deps.saveGeneration = 1;
+    view.rerender();
+    // ...and a sync finishing meanwhile re-reads the link (a new object).
+    await act(async () => { view.result.current.refreshOverleafLink(); });
+    await advance(31_000);
+    await waitFor(() => expect(syncs()).toBe(before + 1));
+  });
+
   it("cancels a pending disk-edit upload when switching projects", async () => {
     const { fixture, view, realtime, advance, suspend, synced } = mountWorkspace("live");
     await waitFor(() => expect(realtime().liveFile).toBe(true));
