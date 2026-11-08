@@ -124,6 +124,10 @@ Discovery is read-only and reads only that folder's sessions (`apps/server/src/p
 
 The rate-limit notice above the composer keeps its close button on its first line at every panel width, and is written entirely in the interface language with a readable reset time ("Approaching rate limit (92% used). Resets in about 47 h.", zh-CN "即将达到速率限制（已用 92%）。约 47 小时后重置。"; minutes under an hour, hours under two days, days beyond) (fork `4594911aec9a7f710d062199673e5188ddd237ad`, [fork PR 10](https://github.com/leo1oel/synara/pull/10)). Before, the shared `AlertAction` dropped below the text under Tailwind's 640px `sm` breakpoint, which the panel's iframe always hits, and the percentage and the reset time ("Resets in 2822m.") were hard-coded English. The strings are new `lattice` catalog entries; only `RateLimitBanner.tsx` changes.
 
+When the installed Codex is older than 0.153.0, the model picker's Codex tab says so in one status line, "Update Codex to 0.153.0+ to use GPT-6 Astra" (zh-CN "将 Codex 升级到 0.153.0+ 以使用 GPT-6 Astra"), above its list and its empty search (fork `66cacbd9e96039b8737a8c61033f95a9139d2a65`, [fork PR 11](https://github.com/leo1oel/synara/pull/11)).
+The tab lists exactly what Codex's `model/list` returns, which replaces the static catalog that already names `gpt-6-astra`, and Codex's own catalog gives GPT-6 Astra `minimal_client_version: 0.153.0`, so an older Codex left it out with no word why ([#685](https://github.com/leo1oel/lattice/issues/685)).
+The check reads the version the Codex status probe already reports (`codexNeedsUpdateForAstra` in the fork's `apps/web/src/components/chat/ComposerModelPicker.logic.ts`); an unknown or unparseable version shows nothing. Astra is not added to an older Codex's list, since those clients lack the tool modes it needs.
+
 ## Synara 0.9.1 compatibility
 
 The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.
