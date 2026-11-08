@@ -242,14 +242,31 @@ fn command_directories() -> Vec<PathBuf> {
     // Known TeX locations next: a GUI launch's PATH rarely includes
     // /Library/TeX/texbin, even after MacTeX/BasicTeX install. Rediscovered on
     // every call so Recheck works without quitting after a fresh install.
-    directories.push(PathBuf::from("/Library/TeX/texbin"));
-    directories.extend(discover_texlive_bins(Path::new("/usr/local/texlive")));
-    directories.extend(discover_texlive_bins(Path::new("/opt/homebrew/texlive")));
-    directories
-        .extend(["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"].map(PathBuf::from));
-    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
-        directories.extend([home.join(".local/bin"), home.join(".cargo/bin")]);
-        directories.extend(discover_texlive_bins(&home.join("Library/TinyTeX")));
+    directories.extend(tex_directories());
+    #[cfg(unix)]
+    {
+        directories
+            .extend(["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"].map(PathBuf::from));
+        if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+            directories.extend([home.join(".local/bin"), home.join(".cargo/bin")]);
+        }
+    }
+    #[cfg(windows)]
+    {
+        for (variable, suffix) in [
+            ("USERPROFILE", ".cargo/bin"),
+            ("USERPROFILE", ".local/bin"),
+            ("APPDATA", "npm"),
+            ("LOCALAPPDATA", "Programs/Git/cmd"),
+            ("ProgramFiles", "Git/cmd"),
+            ("ProgramFiles", "PowerShell/7"),
+            ("SystemRoot", "System32"),
+            ("SystemRoot", "System32/WindowsPowerShell/v1.0"),
+        ] {
+            if let Some(root) = env::var_os(variable) {
+                directories.push(PathBuf::from(root).join(suffix));
+            }
+        }
     }
     if let Some(path) = env::var_os("PATH") {
         directories.extend(env::split_paths(&path));
@@ -288,6 +305,12 @@ fn windows_tex_directories() -> Vec<PathBuf> {
             directories.push(root.join("Programs/MiKTeX/miktex/bin/x64"));
             directories.push(root.join("Programs/TinyTeX/bin/windows"));
         }
+    }
+    if let Some(root) = env::var_os("APPDATA") {
+        directories.push(PathBuf::from(root).join("TinyTeX/bin/windows"));
+    }
+    if let Some(root) = env::var_os("ProgramData") {
+        directories.push(PathBuf::from(root).join("MiKTeX/miktex/bin/x64"));
     }
     let drive = env::var_os("SystemDrive").unwrap_or_else(|| "C:".into());
     directories.extend(discover_texlive_bins(&PathBuf::from(format!(

@@ -223,7 +223,9 @@ impl BibciteCapture {
     fn new() -> Result<Self, String> {
         let path = env::temp_dir()
             .join(format!("lattice-bibcite-output-{}", uuid::Uuid::new_v4().simple()));
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        let mut builder = builder;
         #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
         builder.create(&path).map_err(|error| error.to_string())?;
@@ -297,7 +299,7 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
     app_cache_dir("arxiv2md", "/tmp/research-writer-arxiv2md-cache")
 }
 
-pub(crate) fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
+pub(crate) fn app_cache_dir(name: &str, _without_home: &str) -> PathBuf {
     #[cfg(windows)]
     return super::app_support_dir()
         .map(|root| root.join("cache").join(name))
@@ -308,7 +310,7 @@ pub(crate) fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
             .join("Library/Caches")
             .join(crate::app_identity::identifier())
             .join(name),
-        None => PathBuf::from(without_home),
+        None => PathBuf::from(_without_home),
     }
 }
 

@@ -266,6 +266,7 @@ fn extract_release(archive: &Path, destination: &Path, archive_root: &str) -> Re
         std::io::copy(&mut entry, &mut output)
             .and_then(|_| output.flush())
             .map_err(|error| format!("Could not unpack {}: {error}", relative.display()))?;
+        #[cfg(unix)]
         let mode = if relative == Path::new("bin/rtex") { 0o755 } else { 0o644 };
         #[cfg(unix)]
         fs::set_permissions(&target, fs::Permissions::from_mode(mode))
