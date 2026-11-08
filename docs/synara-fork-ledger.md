@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-07 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-08 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**781 files, +73,039 / −8,710 lines**. It carries embedded-workspace UI, a skills manager,
+**796 files, +74,746 / −8,785 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -130,6 +130,10 @@ The check reads the version the Codex status probe already reports (`codexNeedsU
 
 In the Git drawer, the empty states of Changes and Pull requests sit centred in the panel's height, a little above the middle, instead of 24px from the top with most of the panel empty below (fork `58f34d951baddad6757284e702bb96de21ae9e1c`, [fork PR 12](https://github.com/leo1oel/synara/pull/12)).
 A panel too short for one starts it at the top and scrolls rather than clipping its drawing, and an empty state above a list (closed pull requests under "No open pull requests") keeps its place at the top. Only `.lattice-git-empty` in the fork's `apps/web/src/index.css` changes; `GitRepositorySetup.browser.tsx` checks both heights.
+
+Agent Undo reverses only the agent's own changes and keeps everyone else's (fork `3e3a91a7dc1e01fee37a67b1336c0d627e5cde22`, [fork PR 13](https://github.com/leo1oel/synara/pull/13)). Before, "Revert to this message" restored the whole workspace to the checkpoint (`git restore --source <ref> -- .` and `git clean -fd`), and Lattice uploaded the rollback, so a co-author's Overleaf edits made since were deleted locally and on Overleaf, even in files the agent never touched. File Undo (the Agent card, History) also reversed a co-author's edit that landed while the turn ran, because it sat inside the turn's whole-workspace diff.
+Thread revert now reverses each later turn's own diff (turn-start snapshot to turn-end snapshot), newest first, onto the current text, with the same strict-then-three-way apply as file Undo; edits synced between turns are not swept up. Where a newer edit changed the agent's very lines, both scopes keep the rest of the undo and leave diff3 markers (`ours` the current text, `base` the agent's, `theirs` the text before it) for just those spots, with an "Undo left conflicts to resolve" notice, instead of refusing the whole undo. Lattice opens its conflict resolver on such a file ("Current text" against "Before the agent"), and sync holds it back until it is resolved.
+Lattice posts `lattice:host-file-writes` for the files it writes itself, and the fork records them on the turn running in that project (`/api/lattice/host-file-writes`, a `turn-host-writes` ref beside the checkpoints); Undo refuses to reverse such a file, saying a co-author's or the writer's edit landed in it while the agent worked. The revert confirmation now says newer messages are discarded and the agent's file changes undone while other edits are kept (en, zh-CN). The fork's `CheckpointStore.coauthorUndo.test.ts` and the "Undo keeps edits that are not the agent's" reactor tests pin the scenarios with real git.
 
 ## Synara 0.9.1 compatibility
 
