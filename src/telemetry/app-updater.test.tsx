@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { addAppLog, clearAppLogs } from "./app-log-store";
 import { UpdaterProvider, useUpdater, type DownloadEvent, type UpdaterApi } from "./app-updater";
 import { ToastStack } from "./toast-stack";
@@ -15,6 +15,8 @@ import { ToastStack } from "./toast-stack";
  * flipping the flag cannot depend on vitest's module cache.
  */
 const plugins = vi.hoisted(() => ({ check: vi.fn(), invoke: vi.fn(), relaunch: vi.fn(), tauriMissing: false }));
+/** Every update a check offered, by the id the backend holds it under. */
+const offered = new Map<number, FakeUpdate>();
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
   get check() {
@@ -27,6 +29,9 @@ vi.mock("@tauri-apps/api/core", () => ({
   get invoke() {
     if (plugins.tauriMissing) throw new Error("Tauri IPC unavailable");
     return plugins.invoke;
+  },
+  Channel: class<T> {
+    onmessage: (message: T) => void = () => {};
   },
 }));
 
@@ -49,13 +54,39 @@ vi.mock("./interface-sounds", () => ({ playInterfaceSound: vi.fn(), configureInt
  */
 const MODE_KEY = "lattice.update.mode.v1";
 
-type FakeUpdate = { version: string; currentVersion: string; downloadAndInstall: ReturnType<typeof vi.fn> };
+/**
+ * An offered update. `downloadAndInstall` stands for the backend's install of
+ * it (`install_update`), which reports progress on the channel it is given.
+ */
+type FakeUpdate = {
+  version: string;
+  currentVersion: string;
+  rid: number;
+  downloadAndInstall: Mock<(onEvent?: (event: DownloadEvent) => void) => Promise<void>>;
+};
 
 /** Make the next check resolve with an update (newer than current by default). */
-function offerUpdate(overrides?: Partial<FakeUpdate>): FakeUpdate {
-  const update = { version: "0.1.230", currentVersion: "0.1.229", downloadAndInstall: vi.fn(async () => undefined), ...overrides };
+function offerUpdate(overrides?: Partial<Omit<FakeUpdate, "rid">>): FakeUpdate {
+  const update = {
+    version: "0.1.230", currentVersion: "0.1.229", rid: offered.size + 1, downloadAndInstall: vi.fn(async () => undefined), ...overrides,
+  };
+  offered.set(update.rid, update);
   plugins.check.mockResolvedValue(update);
   return update;
+}
+
+type InstallArgs = { version: string; rid: number; onEvent: { onmessage: (event: DownloadEvent) => void } };
+
+/** The backend's `install_update`: installs the update it holds under `rid`. */
+const installThrough = (args: InstallArgs): Promise<void> => (
+  offered.get(args.rid)!.downloadAndInstall((event: DownloadEvent) => args.onEvent.onmessage(event))
+);
+
+/** Answer backend commands with `handler`, installing through the offered update. */
+function answer(handler: (command: string, args?: Record<string, unknown>) => unknown) {
+  plugins.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => (
+    command === "install_update" ? installThrough(args as InstallArgs) : handler(command, args)
+  ));
 }
 
 const failingInstall = () => ({ downloadAndInstall: vi.fn().mockRejectedValue(new Error("disk full")) });
@@ -129,7 +160,9 @@ beforeEach(() => {
   localStorage.clear();
   plugins.tauriMissing = false;
   plugins.check.mockReset().mockResolvedValue(null);
-  plugins.invoke.mockReset().mockResolvedValue(undefined);
+  offered.clear();
+  plugins.invoke.mockReset();
+  answer(() => undefined);
   plugins.relaunch.mockReset().mockResolvedValue(undefined);
   clearAppLogs();
   vi.mocked(addAppLog).mockReset().mockImplementation(realStore.addAppLog);
@@ -284,9 +317,9 @@ describe("useUpdater / install", () => {
     await waitFor(() => expect(result.current.phase).toBe("restarting"));
     // Every window saves before the backend restarts (save_before_close.rs).
     expect(commands()).toEqual([
-      "claim_update_install", "finish_update_install", "restart_impact", "restart_lattice",
+      "claim_update_install", "install_update", "restart_impact", "restart_lattice",
     ]);
-    expect(plugins.invoke).toHaveBeenCalledWith("finish_update_install", { version: "0.1.230", installed: true });
+    expect(plugins.invoke).toHaveBeenCalledWith("install_update", expect.objectContaining({ version: "0.1.230", rid: 1 }));
     expect(plugins.relaunch).not.toHaveBeenCalled();
   });
 
@@ -295,7 +328,7 @@ describe("useUpdater / install", () => {
     ["older", ["restart_lattice", "restart_after_update"], "restart_after_update", 1],
   ])("falls back for an %s backend that installed the new frontend", async (_, missing, called, relaunches) => {
     offerUpdate();
-    plugins.invoke.mockImplementation(async (command: string) => {
+    answer((command) => {
       if (missing.includes(command)) throw `Command ${command} not found`;
     });
     const result = await renderChecked();
@@ -333,8 +366,7 @@ describe("useUpdater / install", () => {
     expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({
       level: "error", source: "App updater", title: "Lattice update failed", detail: "signature mismatch", dedupeKey: "app-update",
     }));
-    expect(commands()).toEqual(["claim_update_install", "finish_update_install"]);
-    expect(plugins.invoke).toHaveBeenCalledWith("finish_update_install", { version: "0.1.230", installed: false });
+    expect(commands()).toEqual(["claim_update_install", "install_update"]);
 
     // The in-flight guard has to be released on the way out, or "Update now"
     // is dead for the rest of the session after one transient failure.
@@ -546,7 +578,7 @@ describe("restarting into an installed update", () => {
 
     await waitFor(() => expect(updateToast()).toHaveTextContent("Lattice 0.1.230 is ready"));
     expect(updateToast()).toHaveTextContent("Otherwise the update applies the next time Lattice opens.");
-    expect(commands()).toEqual(["claim_update_install", "finish_update_install"]);
+    expect(commands()).toEqual(["claim_update_install", "install_update"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Restart now" }));
     await waitFor(() => expect(commands()).toContain("restart_lattice"));
@@ -554,7 +586,7 @@ describe("restarting into an installed update", () => {
   });
 
   it("warns about running agent tasks, terminal commands and compiles, and restarts only when confirmed", async () => {
-    plugins.invoke.mockImplementation(async (command: string) => (
+    answer((command) => (
       command === "restart_impact" ? { agentTurns: 1, terminalCommands: 2, builds: 1 } : undefined
     ));
     offerUpdate();
@@ -574,7 +606,7 @@ describe("restarting into an installed update", () => {
   });
 
   it("stays open, still offering the restart, when a window could not save", async () => {
-    plugins.invoke.mockImplementation(async (command: string) => {
+    answer((command) => {
       if (command === "restart_lattice") throw "A window could not save its edits, so Lattice did not restart.";
     });
     offerUpdate();
@@ -591,17 +623,26 @@ describe("restarting into an installed update", () => {
 });
 
 describe("one install across windows", () => {
-  /** The backend's lease (app_restart.rs), shared by every window's updater. */
+  /** The backend's claim (app_restart.rs), shared by every window's updater; its install releases it. */
   function sharedLease() {
     let install: { version: string; done: boolean } | null = null;
-    plugins.invoke.mockImplementation(async (command: string, args?: { version: string; installed?: boolean }) => {
+    plugins.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      const version = args?.version as string;
       if (command === "claim_update_install") {
         if (install && !install.done) return "busy";
-        if (install?.version === args!.version) return "installed";
-        install = { version: args!.version, done: false };
+        if (install?.version === version) return "installed";
+        install = { version, done: false };
         return "claimed";
       }
-      if (command === "finish_update_install") install = args!.installed ? { version: args!.version, done: true } : null;
+      if (command === "install_update") {
+        try {
+          await installThrough(args as InstallArgs);
+          install = { version, done: true };
+        } catch (reason) {
+          install = null;
+          throw reason;
+        }
+      }
     });
   }
 

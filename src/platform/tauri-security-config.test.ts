@@ -117,7 +117,6 @@ describe("Tauri security boundary", () => {
       "dialog:allow-open",
       "dialog:allow-save",
       "updater:allow-check",
-      "updater:allow-download-and-install",
       "process:allow-restart",
       "log:default",
     ]);

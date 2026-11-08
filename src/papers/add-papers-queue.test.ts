@@ -21,6 +21,23 @@ describe("runAddQueue", () => {
     expect(getAddQueue()).toEqual([]);
   });
 
+  it("drops a one-paper batch whose project closes while it imports", async () => {
+    let open = true;
+    let release!: () => void;
+    const items = [{ id: "p1", input: "10.1/1", label: "Paper 1" }];
+    const run = runAddQueue(items, () => new Promise((resolve) => {
+      release = () => resolve({ citationKey: "a2020" });
+    }), () => open);
+    // The writer closes the sheet and switches project mid-import; clearing
+    // while the batch runs keeps its rows.
+    clearAddQueue();
+    open = false;
+    release();
+    await run;
+    // Before, the old project's "added" row reached the next project's sheet.
+    expect(getAddQueue()).toEqual([]);
+  });
+
   it("keeps a finished batch while its project is open", async () => {
     const items = [{ id: "p1", input: "10.1/1", label: "Paper 1" }];
     await runAddQueue(items, async () => ({ citationKey: "a2020" }), () => true);
