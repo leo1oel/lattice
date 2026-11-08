@@ -77,10 +77,10 @@ describe("Add papers from Zotero", () => {
   });
 
   it.each([
-    ["zotero-not-running", "Zotero isn't running. Open Zotero, then try again."],
-    ["zotero-local-api-disabled", "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."],
-  ])("says what to do when Zotero answers %s, and tries again", async (error, message) => {
-    invoke.mockRejectedValueOnce(error).mockResolvedValue(COLLECTIONS);
+    "Zotero isn't running. Open Zotero, then try again.",
+    "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”.",
+  ])("says what to do (%s), and tries again", async (message) => {
+    invoke.mockRejectedValueOnce(message).mockResolvedValue(COLLECTIONS);
     sheet();
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));

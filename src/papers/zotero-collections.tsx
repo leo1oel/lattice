@@ -14,10 +14,6 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { hostErrorMessage } from "../app-utils";
 import { collectionTree, type ZoteroCollection, type ZoteroItem } from "./zotero";
 
-/** zotero.rs's NOT_RUNNING and API_DISABLED. */
-const NOT_RUNNING = "zotero-not-running";
-const API_DISABLED = "zotero-local-api-disabled";
-
 type PickerState = {
   collections: ZoteroCollection[] | null;
   error: string | null;
@@ -66,12 +62,6 @@ export function ZoteroCollections(props: { onPick: (items: ZoteroItem[]) => void
     );
   };
 
-  const errorText = error === NOT_RUNNING
-    ? t`Zotero isn't running. Open Zotero, then try again.`
-    : error === API_DISABLED
-      ? t`In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”.`
-      : error;
-
   const row = (key: string, name: string, items: number | null, depth: number, icon: ReactNode) => (
     <li key={key || "library"}>
       <button
@@ -94,9 +84,9 @@ export function ZoteroCollections(props: { onPick: (items: ZoteroItem[]) => void
   return (
     <div className="zotero-collections">
       <span className="add-papers-section">{t`Zotero collections`}</span>
-      {errorText && (
+      {error && (
         <div className="zotero-error" role="alert">
-          <span>{errorText}</span>
+          <span>{error}</span>
           {!collections && <Button variant="secondary" size="compact" onClick={() => dispatch({ type: "retry" })}>{t`Try again`}</Button>}
         </div>
       )}

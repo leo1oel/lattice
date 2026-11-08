@@ -1358,6 +1358,10 @@ msgstr "有个面板崩溃了"
 msgid "A part of the path is not a folder."
 msgstr "路径中有一项不是文件夹"
 
+#: src/platform/host-errors-papers.ts
+msgid "A PDF can only be attached to a cited paper."
+msgstr "PDF 只能附加到已引用的文献上。"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "A pending Overleaf move also changes its name."
 msgstr "待同步的 Overleaf 移动同时改了名字"
@@ -4327,6 +4331,10 @@ msgstr "没能复制出处链接"
 msgid "Could not create the ZIP archive: {error}"
 msgstr "无法创建 ZIP 压缩包：{error}"
 
+#: src/platform/host-errors-papers.ts
+msgid "Could not create the Zotero client: {error}"
+msgstr "无法创建 Zotero 连接：{error}"
+
 #: src/platform/host-errors-project.ts
 msgid "Could not decode file bytes: {error}"
 msgstr "无法解码文件内容：{error}"
@@ -7211,7 +7219,7 @@ msgctxt "margin review"
 msgid "In view"
 msgstr "当前可见"
 
-#: src/papers/zotero-collections.tsx
+#: src/platform/host-errors-papers.ts
 msgid "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
 msgstr "在 Zotero 中打开 设置 › 高级 › “允许此计算机上的其他应用程序与 Zotero 通信”。"
 
@@ -9741,6 +9749,14 @@ msgstr "右上箭头"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-west arrow"
 msgstr "左上箭头"
+
+#: src/platform/host-errors-papers.ts
+msgid "Not a PDF: {path}"
+msgstr "不是 PDF：{path}"
+
+#: src/platform/host-errors-papers.ts
+msgid "Not a Zotero item key: {key}"
+msgstr "不是 Zotero 条目键：{key}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Not added"
@@ -15091,6 +15107,10 @@ msgstr "PDF 里缺了 {count} 个中日韩文字（{sample}）：这篇文档用
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 msgstr "PDF 还不是最新的，先修好编译错误再试"
 
+#: src/platform/host-errors-papers.ts
+msgid "The PDF is not on this Mac: {path}"
+msgstr "这台 Mac 上找不到这个 PDF：{path}"
+
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载太慢，请重试或在浏览器打开"
@@ -17091,13 +17111,29 @@ msgstr "缩小"
 msgid "zoom scale bigger smaller"
 msgstr "缩放 放大 缩小 界面 字号 zoom scale"
 
+#: src/platform/host-errors-papers.ts
+msgid "Zotero answered HTTP {status}: {body}"
+msgstr "Zotero 返回了 HTTP {status}：{body}"
+
 #: src/papers/zotero-collections.tsx
 msgid "Zotero collections"
 msgstr "Zotero 分类"
 
-#: src/papers/zotero-collections.tsx
+#: src/platform/host-errors-papers.ts
+msgid "Zotero did not answer: {error}"
+msgstr "Zotero 没有响应：{error}"
+
+#: src/platform/host-errors-papers.ts
+msgid "Zotero has no file on this Mac for this attachment."
+msgstr "这个附件在这台 Mac 上没有文件。"
+
+#: src/platform/host-errors-papers.ts
 msgid "Zotero isn't running. Open Zotero, then try again."
 msgstr "Zotero 没有运行。打开 Zotero 后再试一次。"
+
+#: src/platform/host-errors-papers.ts
+msgid "Zotero sent an unreadable answer: {error}"
+msgstr "Zotero 返回的内容无法读取：{error}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Zotero…"

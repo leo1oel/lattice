@@ -1358,6 +1358,10 @@ msgstr "A panel crashed"
 msgid "A part of the path is not a folder."
 msgstr "A part of the path is not a folder."
 
+#: src/platform/host-errors-papers.ts
+msgid "A PDF can only be attached to a cited paper."
+msgstr "A PDF can only be attached to a cited paper."
+
 #: src/platform/host-errors-overleaf.ts
 msgid "A pending Overleaf move also changes its name."
 msgstr "A pending Overleaf move also changes its name."
@@ -4327,6 +4331,10 @@ msgstr "Could not copy the source link"
 msgid "Could not create the ZIP archive: {error}"
 msgstr "Could not create the ZIP archive: {error}"
 
+#: src/platform/host-errors-papers.ts
+msgid "Could not create the Zotero client: {error}"
+msgstr "Could not create the Zotero client: {error}"
+
 #: src/platform/host-errors-project.ts
 msgid "Could not decode file bytes: {error}"
 msgstr "Could not decode file bytes: {error}"
@@ -7211,7 +7219,7 @@ msgctxt "margin review"
 msgid "In view"
 msgstr "In view"
 
-#: src/papers/zotero-collections.tsx
+#: src/platform/host-errors-papers.ts
 msgid "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
 msgstr "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
 
@@ -9741,6 +9749,14 @@ msgstr "North-east arrow"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-west arrow"
 msgstr "North-west arrow"
+
+#: src/platform/host-errors-papers.ts
+msgid "Not a PDF: {path}"
+msgstr "Not a PDF: {path}"
+
+#: src/platform/host-errors-papers.ts
+msgid "Not a Zotero item key: {key}"
+msgstr "Not a Zotero item key: {key}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Not added"
@@ -15091,6 +15107,10 @@ msgstr "The PDF is missing {count} Chinese, Japanese or Korean characters ({samp
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 msgstr "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 
+#: src/platform/host-errors-papers.ts
+msgid "The PDF is not on this Mac: {path}"
+msgstr "The PDF is not on this Mac: {path}"
+
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
@@ -17091,13 +17111,29 @@ msgstr "Zoom out"
 msgid "zoom scale bigger smaller"
 msgstr "zoom scale bigger smaller"
 
+#: src/platform/host-errors-papers.ts
+msgid "Zotero answered HTTP {status}: {body}"
+msgstr "Zotero answered HTTP {status}: {body}"
+
 #: src/papers/zotero-collections.tsx
 msgid "Zotero collections"
 msgstr "Zotero collections"
 
-#: src/papers/zotero-collections.tsx
+#: src/platform/host-errors-papers.ts
+msgid "Zotero did not answer: {error}"
+msgstr "Zotero did not answer: {error}"
+
+#: src/platform/host-errors-papers.ts
+msgid "Zotero has no file on this Mac for this attachment."
+msgstr "Zotero has no file on this Mac for this attachment."
+
+#: src/platform/host-errors-papers.ts
 msgid "Zotero isn't running. Open Zotero, then try again."
 msgstr "Zotero isn't running. Open Zotero, then try again."
+
+#: src/platform/host-errors-papers.ts
+msgid "Zotero sent an unreadable answer: {error}"
+msgstr "Zotero sent an unreadable answer: {error}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Zotero…"

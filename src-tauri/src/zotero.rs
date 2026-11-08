@@ -21,10 +21,10 @@ use std::time::Duration;
 /// IPv4 only, and `localhost` may resolve to `::1` first.
 const ZOTERO_SERVER: &str = "http://127.0.0.1:23119";
 
-/// The errors the frontend names in the writer's language; anything else is
-/// shown as written.
-pub const NOT_RUNNING: &str = "zotero-not-running";
-pub const API_DISABLED: &str = "zotero-local-api-disabled";
+/// Nothing listens on Zotero's port.
+const NOT_RUNNING: &str = "Zotero isn't running. Open Zotero, then try again.";
+/// Zotero answers 403 while its local API is off.
+const API_DISABLED: &str = "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”.";
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
