@@ -1,7 +1,7 @@
 # Zotero, Heptabase and the Agent panel
 
 For writers who read in Zotero, take notes in another app, and write in
-Lattice. Two parts: bringing a Zotero collection into the Papers library, and
+Lattice. Two parts: bringing papers from Zotero into the Papers library, and
 letting the Agent panel reach your Zotero library and your notes through MCP
 servers.
 

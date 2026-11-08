@@ -58,7 +58,7 @@ It can also use the MCP servers you add to that CLI, such as Zotero or Heptabase
 
 <sub>Paper shown: Albert Gu and Tri Dao, “Mamba: Linear-Time Sequence Modeling with Selective State Spaces”, arXiv:2312.00752, CC BY 4.0.</sub>
 
-Add papers by arXiv ID, DOI, title, link or BibTeX, or a whole Zotero collection, and read each as a blog, the paper or the PDF beside your draft.
+Add papers by arXiv ID, DOI, title, link or BibTeX, or straight from your Zotero library, and read each as a blog, the paper or the PDF beside your draft.
 Cite in one step, with the reference on hover.
 The library sorts, filters and groups by what you cite; **Check references** audits your bibliography against Crossref and shows each finding in a keyboard queue.
 

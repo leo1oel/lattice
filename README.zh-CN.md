@@ -53,7 +53,7 @@ Lattice 不自带模型，也没有自己的 AI 订阅。
 
 <sub>图中论文：Albert Gu、Tri Dao，“Mamba: Linear-Time Sequence Modeling with Selective State Spaces”，arXiv:2312.00752，CC BY 4.0。</sub>
 
-通过 arXiv ID、DOI、标题、链接或 BibTeX 添加文献，也可以一次导入整个 Zotero 文献集，在草稿旁以博客、论文或 PDF 的形式阅读。
+通过 arXiv ID、DOI、标题、链接或 BibTeX 添加文献，也可以直接从 Zotero 文献库中勾选导入，在草稿旁以博客、论文或 PDF 的形式阅读。
 一步引用，悬停即显示文献信息。
 文献库可按引用情况排序、筛选和分组；**检查引用** 对照 Crossref 审核参考文献，并把每条结果放进可用键盘处理的队列。
 

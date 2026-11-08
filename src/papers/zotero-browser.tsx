@@ -7,8 +7,9 @@
  * find is chosen by its folder.
  *
  * Folders and papers sit side by side; in a narrow sheet the papers replace
- * the folders and Back (or Escape) returns to them. A paper Papers already
- * holds (same DOI, arXiv id or citation key) is marked and cannot be ticked.
+ * the folders and the Folders button (or Escape) returns to them. A paper
+ * Papers already holds (same DOI, arXiv id or citation key) is marked and
+ * cannot be ticked.
  * The ticked papers go to the sheet's ordinary import queue, each with its
  * PDF attachment, if any, for the import to attach.
  */
