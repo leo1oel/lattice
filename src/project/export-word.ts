@@ -13,7 +13,7 @@ export async function exportWord(name: string, saveEdits: () => Promise<boolean>
   const destination = await save({
     title: i18n._(msg`Export editable Word document`),
     defaultPath: `${name.replace(/[\\/:*?"<>|]+/g, "-") || i18n._(msg`paper`)}.docx`,
-    filters: [{ name: "Word", extensions: ["docx"] }],
+    filters: [{ name: i18n._(msg`Word`), extensions: ["docx"] }],
   });
   if (!destination || !(await saveEdits())) return;
   const result = await invoke<Result>("export_word", { destination });
