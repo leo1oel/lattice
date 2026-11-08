@@ -10353,6 +10353,10 @@ msgid "Overleaf did not report that document in this project."
 msgstr "Overleaf 没有在这个项目中列出该文档"
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf did not say whether the edit applied."
+msgstr "Overleaf 没有说明这次修改是否已生效"
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf 断开了这次会话"
 

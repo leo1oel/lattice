@@ -76,6 +76,7 @@ export const OVERLEAF_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["overleaf_rt/client.rs", "The Overleaf realtime server returned an error: {}", ([error]) => t`The Overleaf realtime server returned an error: ${error}`],
   ["overleaf_rt/client.rs", "Overleaf rejected the realtime connection.", () => t`Overleaf rejected the realtime connection.`],
   ["overleaf_rt/client.rs", "Overleaf rejected the edit.", () => t`Overleaf rejected the edit.`],
+  ["overleaf/doc_push.rs", "Overleaf did not say whether the edit applied.", () => t`Overleaf did not say whether the edit applied.`],
   ["overleaf_rt/client.rs", "Overleaf disconnected this session.", () => t`Overleaf disconnected this session.`],
   ["overleaf_rt/client.rs", "No Overleaf project selected.", () => t`No Overleaf project selected.`],
   ["overleaf_rt/client.rs", "Could not open the Overleaf realtime connection: {e}", ([error]) => t`Could not open the Overleaf realtime connection: ${error}`],
