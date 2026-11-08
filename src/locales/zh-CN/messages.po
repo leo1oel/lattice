@@ -862,6 +862,10 @@ msgstr "{paragraphs} 个段落有改动"
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
 
+#: src/app/format-document.ts
+msgid "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
+msgstr "整理排版期间 {path} 被改过，所以没有应用结果。请重新运行“整理排版”。"
+
 #: src/history/conflict-resolver.tsx
 msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 msgstr "对话框打开期间 {path} 被改过，所以什么都没保存。重新载入后按新内容处理；这里做的选择和编辑会清空。"

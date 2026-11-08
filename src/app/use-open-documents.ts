@@ -234,6 +234,26 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     return handle;
   }, [intentRef, setOpening]);
 
+  /**
+   * The open file and its text now (deferred visual edits published), and a
+   * replace that lands only while that same file of this project still holds
+   * exactly that text: for slow work computed from the text, such as Format
+   * document, whose result must never go into whatever is open when it returns
+   * or overwrite what was typed meanwhile. False when it did not land.
+   */
+  const pinText = useCallback(() => {
+    const ownsProject = captureProjectScope();
+    flush();
+    const path = fileRef.current;
+    const text = textRef.current;
+    const replace = (next: string) => {
+      if (!flush() || !ownsProject() || fileRef.current !== path || textRef.current !== text) return false;
+      setText(next);
+      return true;
+    };
+    return { path, text, replace };
+  }, [captureProjectScope, fileRef, flush, setText, textRef]);
+
   /** True while nothing newer was opened or chosen in this project. */
   const scope = useCallback(() => {
     const ownsProject = captureProjectScope();
@@ -292,7 +312,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     // Buffers.
     /** The last write to disk, for the status bar's save slot. */
     saveStatus,
-    flush, save, bufferText, hasUnsavedEdits, edit: setText, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
+    flush, save, bufferText, hasUnsavedEdits, edit: setText, pinText, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.
     enter, remove, move,
   };

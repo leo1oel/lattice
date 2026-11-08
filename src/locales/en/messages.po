@@ -862,6 +862,10 @@ msgstr "{paragraphs} changed paragraphs"
 msgid "{passing} of {0} checks pass"
 msgstr "{passing} of {0} checks pass"
 
+#: src/app/format-document.ts
+msgid "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
+msgstr "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
+
 #: src/history/conflict-resolver.tsx
 msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 msgstr "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
