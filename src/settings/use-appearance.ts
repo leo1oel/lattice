@@ -143,6 +143,7 @@ export function useAppearance(): Appearance {
     set("--prose-font", Boolean(proseFont) && editorFontStack(proseFont, "--reading-font"));
     set("--prose-font-size", proseFontSize !== PROSE_FONT_SIZE && `${proseFontSize}px`);
     set("--prose-line-height", proseLineHeight !== PROSE_LINE_HEIGHT && String(proseLineHeight));
+    set("--prose-reading-line-height", proseLineHeight !== PROSE_LINE_HEIGHT && String(proseLineHeight));
     if (firstEditorType.current) {
       firstEditorType.current = false;
       return;

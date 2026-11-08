@@ -45,6 +45,10 @@ textarea {
   --source-font: var(--editor-font);
   --source-line-height: 1.6;
   --prose-font: var(--reading-font);
+  --prose-font-size: var(--type-typeset-size);
+  --prose-line-height: 1.7;
+  /* Reading mode sets prose a touch looser, until a line height is chosen. */
+  --prose-reading-line-height: 1.75;
   /* Shared by source CodeMirror and the visual Markdown fixed caret. */
   --editor-caret-width: 1.4px;
   font-family: var(--ui-font);

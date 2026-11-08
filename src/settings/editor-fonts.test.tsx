@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({ setZoom: vi.fn().mockResolvedValue(undefined) }),
 }));
 
-const TOKENS = ["--source-font", "--source-line-height", "--prose-font", "--prose-font-size", "--prose-line-height"];
+const TOKENS = ["--source-font", "--source-line-height", "--prose-font", "--prose-font-size", "--prose-line-height", "--prose-reading-line-height"];
 const token = (name: string) => document.documentElement.style.getPropertyValue(name);
 
 beforeEach(() => {
@@ -68,6 +68,7 @@ describe("applying editor fonts", () => {
     expect(token("--prose-font")).toBe("ui-serif, var(--reading-font)");
     expect(token("--prose-font-size")).toBe("18px");
     expect(token("--prose-line-height")).toBe("1.9");
+    expect(token("--prose-reading-line-height")).toBe("1.9");
     // CodeMirror and the visual editor measure again.
     expect(resize).toHaveBeenCalled();
 
