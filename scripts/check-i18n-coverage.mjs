@@ -48,7 +48,7 @@ function parsePo(text) {
   const entries = [];
   let entry = null;
   let field = null;
-  for (const line of text.split("\n")) {
+  for (const line of text.split(/\r?\n/)) {
     const start = line.match(/^(msgid|msgstr) (".*")$/);
     if (start) {
       if (start[1] === "msgid") entries.push(entry = { msgid: "", msgstr: "" });
@@ -64,7 +64,7 @@ function parsePo(text) {
 }
 
 const allowed = new Set((await readFile(allowlistPath, "utf8"))
-  .split("\n")
+  .split(/\r?\n/)
   .filter((line) => line.trim() && !line.startsWith("#")));
 const entries = parsePo(await readFile(catalogPath, "utf8"));
 const chinese = /[㐀-鿿]/;
