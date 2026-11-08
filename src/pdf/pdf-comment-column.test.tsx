@@ -79,11 +79,13 @@ function roundsDouble() {
   };
 }
 
-function renderLayer(pdf: ReturnType<typeof preview>, rounds: ReturnType<typeof roundsDouble>, annotations: EditorComment[]) {
+function renderLayer(
+  pdf: ReturnType<typeof preview>, rounds: ReturnType<typeof roundsDouble>, annotations: EditorComment[], count = renderCount,
+) {
   const layer = (list: EditorComment[]) => (
     <PdfAnnotationLayer
       recordRef={pdf.recordRef} previewRef={pdf.previewRef} rounds={rounds as unknown as AnnotationRounds}
-      annotations={list} generation={1} renderCount={renderCount} scale={1}
+      annotations={list} generation={1} renderCount={count} scale={1}
     />
   );
   const view = render(layer(annotations));
@@ -221,6 +223,49 @@ describe("the PDF's comment column", () => {
     expect(toggle.textContent).toBe("1");
     fireEvent.click(toggle);
     expect(column().querySelector(".pdf-comment-column-count")?.textContent).toBe("1");
+  });
+
+  it("stays docked through a rebuild that places its source comments again", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => (
+      command === "synctex_view" ? { page: 1, x: 72, y: 84, width: 400, height: 10 } : null
+    ));
+    const quote = "divides the scores";
+    const from = SOURCE.indexOf(quote);
+    const note = createEditorComment({
+      path: "main.tex", source: SOURCE, from, to: from + quote.length, number: 1, body: "Why?", authorId: "me", authorName: "Ada",
+    })!;
+    let pages = 1;
+    const listeners = new Set<() => void>();
+    const count: PdfRenderCount = {
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      pages: () => pages,
+      textLayers: () => 1,
+    };
+    const pdf = preview(900);
+    renderLayer(pdf, roundsDouble(), [note], count);
+    await waitFor(() => expect(slotOf(note.id)).toBeTruthy());
+    expect(pdf.area.hasAttribute("data-comment-column")).toBe(true);
+
+    const changes: MutationRecord[] = [];
+    const watch = new MutationObserver((records) => changes.push(...records));
+    watch.observe(pdf.area, { attributes: true, attributeFilter: ["data-comment-column"] });
+    const lookups = vi.mocked(invoke).mock.calls.length;
+    // A rebuild swaps a new document into the open viewer and redraws its pages (pdf-page-swap.ts).
+    (pdf.recordRef.current!.slick as { document: unknown }).document = compiledDocument();
+    act(() => {
+      pages += 1;
+      for (const listener of listeners) listener();
+    });
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.length).toBeGreaterThan(lookups));
+    await act(async () => {});
+    changes.push(...watch.takeRecords());
+    watch.disconnect();
+    expect(changes).toEqual([]);
+    expect(pdf.area.hasAttribute("data-comment-column")).toBe(true);
+    expect(slotOf(note.id)).toBeTruthy();
   });
 
   it("holds an Overleaf thread on a .tex file beside its passage, its pin a dot", async () => {
