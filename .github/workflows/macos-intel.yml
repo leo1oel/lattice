@@ -278,13 +278,7 @@ jobs:
             --key-id "$APPLE_API_KEY" \
             --issuer "$APPLE_API_ISSUER" \
             --wait
-          # Stapling fetches the ticket from Apple's CloudKit, which can drop
-          # the connection right after an accepted submission.
-          for attempt in 1 2 3 4 5; do
-            xcrun stapler staple "$dmg_path" && break
-            if ((attempt == 5)); then exit 1; fi
-            sleep $((attempt * 15))
-          done
+          .github/scripts/retry-stapler.sh staple "$dmg_path"
 
       - name: Verify signed and notarized artifacts
         if: steps.signing.outputs.signed == 'true'
@@ -296,7 +290,7 @@ jobs:
             --context context:primary-signature \
             --verbose=4 \
             "$dmg_path"
-          xcrun stapler validate "$dmg_path"
+          .github/scripts/retry-stapler.sh validate "$dmg_path"
 
           mount_path="$(mktemp -d "$RUNNER_TEMP/lattice-dmg.XXXXXX")"
           hdiutil attach "$dmg_path" \
@@ -310,7 +304,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$app_path"
 
           spctl --assess --type execute --verbose=4 "$app_path"
-          xcrun stapler validate "$app_path"
+          .github/scripts/retry-stapler.sh validate "$app_path"
 
       # Release asset names: Tauri already names the DMG Lattice_<version>_x64.dmg;
       # the updater archive gets the same suffix, next to tauri-action's

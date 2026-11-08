@@ -220,6 +220,8 @@ From the release's commit, on GitHub's runners:
    `.github/scripts/check-macos-arch.sh` (every Mach-O file in the bundle
    must contain x86_64), DMG notarization and stapling, and the same
    `codesign`/`spctl`/`stapler` verification as the Apple silicon release.
+   Each `stapler` call goes through `.github/scripts/retry-stapler.sh`,
+   which retries the CloudKit ticket lookup the Intel runners have dropped.
    The app's own downloads follow its architecture: the managed `uv`
    (`src-tauri/src/tex_setup/installer.rs`) and rtex for live preview
    (`src-tauri/src/live_preview/install.rs`) pin one archive per CPU.
