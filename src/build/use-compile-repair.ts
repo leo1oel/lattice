@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
+import { toMessage } from "../app-utils";
 import { diagnosticSeverity, type CompileDiagnostic } from "./compile-diagnostics";
 import type { SynaraPermissionMode } from "../app/app-synara-embed";
 
@@ -21,9 +22,15 @@ export type RepairOperation = {
   stopping?: boolean;
   /** The task reported completed: only the recompile is left, and nothing can lose the task any more. */
   taskDone?: boolean;
-  /** The agent service the task runs in (`agentSession`), once known. */
-  session: string | null;
+  /**
+   * The agent service the task started in (its `agentSession`), from the
+   * start answer; undefined until then.
+   */
+  session?: string | null;
 };
+
+/** What the Rust relay answers for a 404 on a started task: the running service does not know it (synara.rs). */
+export const TASK_UNKNOWN = "agent_task_unknown";
 
 /**
  * Only a terminal status releases the editor on its own, or the service
@@ -84,12 +91,28 @@ export function useCompileRepair(options: {
     });
   }, [t]);
 
+  /** Ask the task to stop. A service that no longer knows it has lost it. */
+  const requestCancel = useCallback(async (operation: RepairOperation) => {
+    if (!operation.threadId) return;
+    await cancelRepair(operation.root, operation.threadId).catch((error) => {
+      if (operationRef.current !== operation || operation.cancelled) return;
+      if (toMessage(error) === TASK_UNKNOWN) abandon(operation);
+      else noteError(error);
+    });
+  }, [abandon, noteError]);
+
   const { agentSession } = options.agent;
+  const lastSessionRef = useRef(agentSession);
   useEffect(() => {
+    const previous = lastSessionRef.current;
+    lastSessionRef.current = agentSession;
+    // Only the task's own service going away loses it. The window catching
+    // up to that service (X, then null, then the task's Y) is the restart
+    // the start itself may have caused.
     const operation = operationRef.current;
-    if (!operation) return;
-    if (operation.session === null) operation.session = agentSession;
-    else if (agentSession !== operation.session) abandon(operation);
+    if (operation && operation.session !== undefined && previous === operation.session && agentSession !== previous) {
+      abandon(operation);
+    }
   }, [abandon, agentSession]);
 
   useEffect(() => {
@@ -111,22 +134,20 @@ export function useCompileRepair(options: {
     const current = optionsRef.current;
     const repairable = diagnostics.filter((item) => diagnosticSeverity(item.level) !== "info");
     if (!current.enabled || !current.projectRoot || operationRef.current || !repairable.length) return;
-    const operation: RepairOperation = {
-      root: current.projectRoot, cancelled: false, cancelRequested: false, session: current.agent.agentSession,
-    };
+    const operation: RepairOperation = { root: current.projectRoot, cancelled: false, cancelRequested: false };
     operationRef.current = operation;
     const owns = () => operationRef.current === operation
       && !operation.cancelled && optionsRef.current.projectRoot === operation.root;
     setState({ status: "starting" });
     await loadCompileRepairRun().then(({ runCompileRepair }) => runCompileRepair({
       operation, owns, repairable, rootDocument: current.rootDocument, permissionMode: current.agent.permissionMode,
-      save: current.save, onComplete: () => optionsRef.current.onComplete, setState, noteError, abandon,
+      save: current.save, onComplete: () => optionsRef.current.onComplete, setState, noteError, abandon, requestCancel,
     })).catch((error: unknown) => {
       if (owns()) setState({ status: "failed", message: String(error) });
     }).finally(() => {
       if (operationRef.current === operation) operationRef.current = null;
     });
-  }, [abandon, noteError, optionsRef]);
+  }, [abandon, noteError, optionsRef, requestCancel]);
 
   const cancel = useCallback(async () => {
     const operation = operationRef.current;
@@ -143,11 +164,8 @@ export function useCompileRepair(options: {
         setState((previous) => previous && previous.status !== "compiling" ? { ...previous, stopping: true } : previous);
       }, STOP_GRACE_MS);
     }
-    if (!operation.threadId) return;
-    await cancelRepair(operation.root, operation.threadId).catch((error) => {
-      if (operationRef.current === operation && !operation.cancelled) noteError(error);
-    });
-  }, [noteError]);
+    await requestCancel(operation);
+  }, [requestCancel]);
 
   /** The writer's explicit release of a task that has not stopped since Cancel. */
   const unlock = useCallback(() => {

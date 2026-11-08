@@ -403,7 +403,7 @@ pub fn task_relay_request(
         .map_err(|error| error.to_string())?;
     let mut request =
         if action == "status" { client.get(url) } else { client.post(url).json(&payload) };
-    if let Some(token) = info.auth_token {
+    if let Some(token) = &info.auth_token {
         request = request.bearer_auth(token);
     }
     let response = request.send().map_err(|error| error.to_string())?;
@@ -414,7 +414,7 @@ pub fn task_relay_request(
     {
         return Err(TASK_UNKNOWN.into());
     }
-    let value: serde_json::Value = match response.json() {
+    let mut value: serde_json::Value = match response.json() {
         Ok(value) => value,
         // The start routes answer JSON, even their own 404s; a bare 404 is the
         // router's, for a path this runtime does not have.
@@ -423,6 +423,14 @@ pub fn task_relay_request(
     };
     if !status.is_success() {
         return Err(value["error"].as_str().unwrap_or("The agent request failed.").to_string());
+    }
+    // The service that took the repair, which can be one this request had to
+    // start: its windows hear of that restart, and must not take it for the
+    // loss of this task (useCompileRepair).
+    if action == "start" && route == COMPILE_REPAIR_ROUTE {
+        if let Some(answer) = value.as_object_mut() {
+            answer.insert("runtimeSession".into(), serde_json::json!(info.auth_token));
+        }
     }
     Ok(value)
 }
@@ -640,6 +648,46 @@ mod tests {
         assert_eq!(requests[6].0, "POST /api/lattice/compile-repair");
         assert_eq!(requests[7].0, "GET /api/lattice/compile-repair/repair:gone");
         assert_eq!(requests[8].0, "POST /api/lattice/text-task/text:gone/cancel");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn repair_start_answer_names_the_service_that_took_it() {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", server.server_addr().to_ip().unwrap());
+        let server = thread::spawn(move || {
+            let request = server.recv().unwrap();
+            let token = request
+                .headers()
+                .iter()
+                .find(|header| header.field.equiv("Authorization"))
+                .map(|header| header.value.to_string());
+            let response = tiny_http::Response::from_string(r#"{"threadId":"repair:one"}"#)
+                .with_status_code(202);
+            request.respond(response).unwrap();
+            token
+        });
+        let runtime = SynaraRuntime::default();
+        let child = std::process::Command::new("sleep").arg("30").spawn().unwrap();
+        *runtime.running.lock().unwrap() = Some(RunningSynara {
+            child,
+            info: runtime.ready_info(&origin, Some("launch-2"), 0),
+            environment: environment::AgentEnvironment::default(),
+        });
+        let answer = task_relay_request(
+            &runtime,
+            COMPILE_REPAIR_ROUTE,
+            "start",
+            None,
+            serde_json::json!({}),
+        );
+        let mut running = runtime.running.lock().unwrap().take().unwrap();
+        let _ = running.child.kill();
+        let _ = running.child.wait();
+        let answer = answer.unwrap();
+        assert_eq!(answer["threadId"], "repair:one");
+        assert_eq!(answer["runtimeSession"], "launch-2");
+        assert_eq!(server.join().unwrap().as_deref(), Some("Bearer launch-2"));
     }
 
     #[test]

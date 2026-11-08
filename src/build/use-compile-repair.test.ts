@@ -235,7 +235,7 @@ describe("user-triggered compile repair", () => {
   // A restarted service reloads the task's persisted session, which may still
   // say running: the restart itself is the signal.
   it("releases the editor when the agent service restarts under a running repair", async () => {
-    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }) });
+    mockRepair({ start: () => ({ threadId: "repair-1", runtimeSession: "token-1" }), status: () => ({ status: "running" }) });
     const { result, rerender } = renderRepair({ agentSession: "token-1" });
     await act(async () => { void result.current.start([diagnostic]); });
     rerender({ agentSession: null });
@@ -250,7 +250,7 @@ describe("user-triggered compile repair", () => {
   // recompile that follows has no task left to lose.
   it("reports a completed repair as completed when the agent service restarts during its recompile", async () => {
     const recompiled = deferred<void>();
-    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status: "completed" }) });
+    mockRepair({ start: () => ({ threadId: "repair-1", runtimeSession: "token-1" }), status: () => ({ status: "completed" }) });
     const { result, rerender } = renderRepair({ agentSession: "token-1", onComplete: () => recompiled.promise });
     let work!: Promise<void>;
     await act(async () => { work = result.current.start([diagnostic]); });
@@ -266,7 +266,7 @@ describe("user-triggered compile repair", () => {
   // Fix all asks for the runtime and starts the repair at once, so the
   // service's identity often arrives only after the repair began.
   it("follows the agent service that becomes known after the repair started, and its restart", async () => {
-    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }) });
+    mockRepair({ start: () => ({ threadId: "repair-1", runtimeSession: "token-1" }), status: () => ({ status: "running" }) });
     const { result, rerender } = renderRepair({ agentSession: null });
     await act(async () => { void result.current.start([diagnostic]); });
     rerender({ agentSession: "token-1" });
@@ -274,6 +274,37 @@ describe("user-triggered compile repair", () => {
     rerender({ agentSession: null });
     expect(result.current.busy).toBe(false);
     expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
+  });
+
+  // A sidecar that exited on its own is started again by the repair's start
+  // request, which announces the restart: the window moves from the dead
+  // service to null to the one that took the task, which is no loss.
+  it("keeps a repair whose start restarted the agent service, and gives it up when that service goes", async () => {
+    const started = deferred<unknown>();
+    mockRepair({ start: () => started.promise, status: () => ({ status: "running" }) });
+    const { result, rerender } = renderRepair({ agentSession: "token-1" });
+    await act(async () => { void result.current.start([diagnostic]); });
+    rerender({ agentSession: null });
+    await act(async () => { started.resolve({ threadId: "repair-1", runtimeSession: "token-2" }); });
+    rerender({ agentSession: "token-2" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(result.current.busy).toBe(true);
+    expect(invoke).not.toHaveBeenCalledWith("compile_repair", expect.objectContaining({ action: "cancel" }));
+    rerender({ agentSession: null });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
+  });
+
+  it("gives up on a task Cancel finds the agent service no longer knows", async () => {
+    mockRepair({
+      start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }),
+      cancel: () => { throw "agent_task_unknown"; },
+    });
+    const { result } = renderRepair();
+    await act(async () => { void result.current.start([diagnostic]); });
+    await act(async () => { await result.current.cancel(); });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toEqual({ status: "failed", threadId: "repair-1", message: LOST });
   });
 
   it("does not start in a read-only project or after save failure", async () => {

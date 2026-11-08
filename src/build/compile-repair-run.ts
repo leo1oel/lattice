@@ -8,15 +8,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { toMessage } from "../app-utils";
 import { i18n } from "../i18n";
 import type { CompileDiagnostic } from "./compile-diagnostics";
-import { cancelRepair, type CompileRepairState, type RepairOperation } from "./use-compile-repair";
-
-/** What the Rust relay answers for a 404 on a started task: the running service does not know it (synara.rs). */
-const TASK_UNKNOWN = "agent_task_unknown";
+import { cancelRepair, TASK_UNKNOWN, type CompileRepairState, type RepairOperation } from "./use-compile-repair";
 
 const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 export async function runCompileRepair({
-  operation, owns, repairable, rootDocument, permissionMode, save, onComplete, setState, noteError, abandon,
+  operation, owns, repairable, rootDocument, permissionMode, save, onComplete, setState, noteError, abandon, requestCancel,
 }: {
   operation: RepairOperation;
   /** Whether `operation` still owns the window's repair. */
@@ -30,13 +27,14 @@ export async function runCompileRepair({
   setState: (state: CompileRepairState) => void;
   noteError: (error: unknown) => void;
   abandon: (operation: RepairOperation) => void;
+  requestCancel: (operation: RepairOperation) => Promise<void>;
 }) {
   const running = (state: CompileRepairState) => setState(operation.stopping ? { ...state, stopping: true } : state);
   try {
     if (!(await save())) throw new Error(i18n._(msg`Save the project before repairing.`));
     if (!owns()) return;
     if (operation.cancelRequested) throw new Error(i18n._(msg`Repair cancelled.`));
-    const result = await invoke<{ threadId: string }>("compile_repair", {
+    const result = await invoke<{ threadId: string; runtimeSession?: string | null }>("compile_repair", {
       action: "start", projectRoot: operation.root,
       rootDocument: rootDocument ?? null,
       runtimeMode: permissionMode,
@@ -47,14 +45,13 @@ export async function runCompileRepair({
     const threadId = result?.threadId;
     if (!threadId) throw new Error(i18n._(msg`The repair service did not return a task.`));
     operation.threadId = threadId;
+    operation.session = result.runtimeSession ?? null;
     if (!owns()) {
       await cancelRepair(operation.root, threadId);
       return;
     }
     running({ status: "running", threadId });
-    if (operation.cancelRequested) {
-      await cancelRepair(operation.root, threadId).catch((error) => { if (owns()) noteError(error); });
-    }
+    if (operation.cancelRequested) await requestCancel(operation);
     while (owns()) {
       let progress: CompileRepairState;
       try {
