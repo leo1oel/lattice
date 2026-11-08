@@ -155,3 +155,18 @@ fn a_deletion_carried_to_overleaf_is_dropped_once_the_file_is_back_here() {
     assert_eq!(outcome, RemoteDelete::BackHere);
     assert!(server.with_method("DELETE").is_empty());
 }
+
+#[test]
+fn a_deletion_carried_to_overleaf_stays_put_when_overleaf_history_cannot_be_read() {
+    // Without the history there is no telling whether a co-author edited the
+    // file meanwhile, so the removal must fail rather than go ahead: a file
+    // left on Overleaf can be removed later, a lost edit cannot be recovered.
+    let base: Files = &[("main.tex", b"body"), ("dropped.tex", b"kept on overleaf")];
+    let history_down = ("GET", "/project/proj-1/updates", 500, "{}".to_string());
+    let server = Mock { routes: vec![history_down], ..Mock::project(base) }.serve();
+    let (config, root) = linked(&server, &[("main.tex", b"body")], base);
+    let error = delete_unchanged(&config, &root, "dropped.tex", "doc", "doc-1").unwrap_err();
+    assert!(error.contains("dropped.tex"), "{error}");
+    assert!(!server.with_method("GET").is_empty(), "the history was never asked for");
+    assert!(server.with_method("DELETE").is_empty());
+}
