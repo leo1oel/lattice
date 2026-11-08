@@ -30,7 +30,9 @@ folder…**. Only your personal library is read; group libraries are not.
 Citation keys stay the ones you cite with: a Better BibTeX key is used when
 Better BibTeX keeps one, then a key in the item's Citation Key field or pinned in
 its Extra field as `Citation Key: …`, otherwise a key in the shape of Zotero's
-own export (`lastname_firstword_year`). An item with an arXiv id brings its full
+own export (`lastname_firstword_year`). When two items would share a key, the
+one added to Zotero later gets a letter suffix (`b`, `c`, …), so every paper
+keeps its own key. An item with an arXiv id brings its full
 text from arXiv; otherwise its PDF attachment, when the file is on this Mac,
 becomes the paper's readable text. Items without either are added as citations
 only.
