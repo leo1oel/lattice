@@ -82,3 +82,16 @@ describe("CanvasToolbar project tools", () => {
     expect(screen.getByRole("button", { name: "Git status and commit" })).toBeInTheDocument();
   });
 });
+
+describe("CanvasToolbar review mode", () => {
+  it("turns review mode on, and shows it is on", () => {
+    const onReview = vi.fn();
+    const { rerender } = render(<CanvasToolbar {...baseProps} onReview={onReview} />);
+    const toggle = screen.getByRole("button", { name: "Track changes" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(onReview).toHaveBeenCalledOnce();
+    rerender(<CanvasToolbar {...baseProps} onReview={onReview} reviewing />);
+    expect(screen.getByRole("button", { name: "Stop tracking changes" })).toHaveAttribute("aria-pressed", "true");
+  });
+});

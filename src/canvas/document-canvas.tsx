@@ -54,6 +54,7 @@ import { AnnotationReviewLayer } from "./annotation-review";
 import { notifyInfo } from "../telemetry/app-notify";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
+import { ReviewModeBars } from "../history/review-mode-bar";
 import { EditorStatusBar } from "./editor-status-bar";
 import { isLatexSourcePath } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
@@ -124,8 +125,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   } = props.navigation.requests;
   const { t } = useLingui();
   const commentAuthor = useMemo(() => ({ id: commentAuthorId, name: commentAuthorName }), [commentAuthorId, commentAuthorName]);
-  // The newest props for handlers and window listeners, so those never
-  // rebuild for them; current before the editor's own commit reads them.
+  // The newest props, current before the editor's own commit reads them.
   const latestRef = useCommittedRef(props);
   const [proofread] = useState(createProofreadBridge);
   const [selectionToolbar, setSelectionToolbar] = useState<SelectionToolbarPlacement | null>(null);
@@ -195,8 +195,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     || (activeFile.toLocaleLowerCase().endsWith(".md") && primaryKind !== "presentation");
   const htmlDocument = !props.document.activePaper && isHtmlFilePath(activeFile);
   const bibDocument = !props.document.activePaper && isBibFilePath(activeFile);
-  // The source editor's accessible name: which document, then which kind of
-  // source, so a screen reader tells it from the other editor or a search field.
+  // The source editor's accessible name: the document, then the kind of source.
   const documentName = props.document.activePaper?.title || activeFile.slice(activeFile.lastIndexOf("/") + 1);
   const sourceLabel = isLatexSourcePath(activeFile) ? t`${documentName} — LaTeX source`
     : markdownDocument ? t`${documentName} — Markdown source`
@@ -1062,6 +1061,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
             editable={props.document.editorEditable && isLatexSourcePath(activeFile)}
             viewRef={primaryViewRef}
           />
+          <ReviewModeBars projectRoot={props.preferences.projectRoot} />
           <AnnotationReviewLayer
             bridge={props.review.annotationRounds.reviewBridge}
             activeFile={activeFile}

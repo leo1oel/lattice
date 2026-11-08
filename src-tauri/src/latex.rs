@@ -4,7 +4,8 @@
 //!   a time and abortable from the UI; `prewarm` shortens a cold first build;
 //!   `preamble_format` keeps a pdfLaTeX format of the document's preamble so
 //!   passes skip loading it; `build_steps` times the passes it runs.
-//! - `changes` builds the PDF with the changes between two versions marked.
+//! - `changes` builds the PDF with the changes between two versions marked,
+//!   and review mode's, with the changes since its base.
 //! - `compile_root` picks the document a build compiles: the manifest
 //!   default, or a standalone figure open in the editor, built once.
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
@@ -59,7 +60,9 @@ pub(crate) use build::begin_active as begin_for_test;
 pub use build::{abort, build, classify_build_error, clean, is_running, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
 pub use build_steps::{BuildStep, BuildSteps};
-pub use changes::{export_changes_pdf, ChangesExports, ChangesPdf, ChangesPdfOptions};
+pub use changes::{
+    export_changes_pdf, review_changes_pdf, ChangesExports, ChangesPdf, ChangesPdfOptions,
+};
 pub use figure_preview::{preview_figure, FigurePreview, FigurePreviewRequest};
 pub use pinned::{build_pinned, PinnedBuild};
 pub use submission_review::{review_submission, SubmissionReview};

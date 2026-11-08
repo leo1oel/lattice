@@ -1,4 +1,4 @@
-import { AppWindow, BookOpen, ChevronDown, Cloud, ExternalLink, FileCode2, Globe, Image, MessagesSquare } from "lucide-react";
+import { AppWindow, BookOpen, ChevronDown, Cloud, ExternalLink, FileCode2, FilePen, Globe, Image, MessagesSquare } from "lucide-react";
 import { memo, useMemo, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
@@ -19,6 +19,10 @@ type CanvasToolbarProps = {
   onGit: () => void;
   commentCount: number;
   onComments: () => void;
+  /** Review mode is on: the writer's edits show as tracked changes (history/review-mode-*). */
+  reviewing?: boolean;
+  /** Turn review mode on, or off. */
+  onReview?: () => void;
   overleafLinked?: boolean;
   overleafSyncing?: boolean;
   /** Manual mode only: Overleaf has work you have not taken yet. */
@@ -83,6 +87,16 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
       <div className="canvas-actions" data-tour="workspace-actions">
         {props.activeKind === "document" && (
           <>
+            {props.onReview && (
+              <ToolbarButton
+                label={props.reviewing ? t`Stop tracking changes` : t`Track changes`}
+                className={props.reviewing ? "history-button active" : "history-button"}
+                aria-pressed={Boolean(props.reviewing)}
+                onClick={props.onReview}
+              >
+                <FilePen size={14} />
+              </ToolbarButton>
+            )}
             {!props.overleafLinked && shows("comments") && (
               <ToolbarButton
                 label={t`Annotations`}
@@ -198,7 +212,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
 });
 
 const FORWARDED_HANDLERS = {
-  onHistory: true, onGit: true, onComments: true, onOverleafSync: true, onOverleafOpenCurrent: true,
+  onHistory: true, onGit: true, onComments: true, onReview: true, onOverleafSync: true, onOverleafOpenCurrent: true,
   onOverleafOpen: true, onOverleafChat: true, onMoveWorkspace: true,
 } as const satisfies Partial<Record<keyof CanvasToolbarProps, true>>;
 type ForwardedHandlers = Pick<CanvasToolbarProps, keyof typeof FORWARDED_HANDLERS>;

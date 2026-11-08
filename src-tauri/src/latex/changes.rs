@@ -20,6 +20,7 @@
 
 mod guard;
 mod input_loop;
+mod review;
 
 use super::build::engine_args;
 use super::build_log::parse_diagnostics;
@@ -27,6 +28,7 @@ use super::{default_root_document, latexmk};
 use crate::{commands, git, project};
 pub use guard::ChangesExports;
 use guard::{Limits, Ran, Stop, BUILD_LIMITS, LATEXDIFF_LIMITS};
+pub use review::review_changes_pdf;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

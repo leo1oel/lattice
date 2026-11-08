@@ -16,7 +16,7 @@ import {
   bridgeFields, createOverleafConnectionStore, type OverleafConnectionStore, type OverleafLinkFor,
 } from "../overleaf/overleaf-connection-store";
 import { overleafRemoteDeletePolicy, overleafSyncModeSetting } from "../overleaf/overleaf-sync-settings";
-import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
+import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
 import {
   isOverleafProjectRefusal,
   OVERLEAF_NOT_CONNECTED,
@@ -33,6 +33,10 @@ import { projectOverleafEditorComments } from "../overleaf/overleaf-editor-comme
 import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import { hasConflictMarkers } from "../history/conflict-markers";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
+import { reviewMode } from "../history/review-mode-store";
+import { applyOverleafRemoteText } from "./overleaf-remote-text";
+
+export { applyOverleafRemoteText };
 import type {
   AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject,
@@ -137,42 +141,6 @@ export type OverleafWorkspaceDeps = {
   /** Settings › Overleaf, where a signed-out writer signs in again. */
   openOverleafSettingsRef: RefObject<() => void>;
 };
-
-/**
- * Apply only against the buffer and disk versions the live channel knows.
- *
- * The view is left alone: the editor takes in only what changed, so the
- * place and the caret stay with their text (see codemirror-host.tsx). This
- * runs on every return to a live document's tab, with Overleaf's copy of the
- * text on screen; anything it did to the view would move a tab that came
- * back in place.
- */
-export async function applyOverleafRemoteText(
-  deps: Pick<OverleafWorkspaceDeps,
-    "projectRef" | "projectOperationGenerationRef" | "activeFileRef" | "sourceRef" | "savedSourceRef"
-    | "accept" | "compile">,
-  text: string,
-  context: OverleafRemoteTextContext,
-): Promise<boolean> {
-  const { path, projectRoot, baseContent } = context;
-  const generation = deps.projectOperationGenerationRef.current;
-  const isCurrent = () => context.isCurrent()
-    && deps.projectRef.current?.root === projectRoot
-    && deps.projectOperationGenerationRef.current === generation
-    && deps.activeFileRef.current === path;
-  if (!isCurrent() || deps.sourceRef.current !== baseContent) return false;
-  const saved = deps.savedSourceRef.current;
-  if (text === baseContent && saved !== baseContent) return false;
-  // A compare-and-swap, never a merge against a guessed ancestor: a join
-  // snapshot must not erase agent edits that have not reached the editor yet.
-  // Ordinary sync, which has the real shared baseline, reconciles divergence.
-  await invoke("write_project_file", { path, projectRoot, content: text, expectedContent: saved });
-  // Typing during IPC stays dirty against its original saved base; the
-  // ordinary editor save can merge it with the remote bytes now on disk.
-  if (!isCurrent() || !deps.accept(path, text, { text: baseContent, saved })) return false;
-  if (text !== saved) void deps.compile();
-  return true;
-}
 
 /**
  * The Overleaf bridge: link discovery, syncing (manual, automatic and live),
@@ -341,6 +309,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (!stillCurrent()) return;
       const livePaths = currentOverleafLivePaths(options?.auto ? options.includeWholeFilePaths : wholeFileEditingPathsRef.current);
       const externalBatch = new Map(externalChangesRef.current);
+      const reviewed = await reviewMode.beforeSync();
       const result = await diagnosticInvoke<OverleafSyncResult>("overleaf_sync", {
         projectRoot: syncRoot,
         live: livePaths,
@@ -379,6 +348,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       }
       const resolve = (path: string) => { if (stillCurrent()) setConflictPath(path); };
       for (const { message, action } of overleafSyncWarnings(result, resolve)) showWarning(message, "Overleaf", action);
+      await reviewMode.afterSync(reviewed, [...result.pulled, ...result.merged]);
       // Merged and conflicted files were rewritten on disk like pulled ones;
       // the editor must reload them or it would save over the incoming edits.
       const changedOnDisk = new Set([

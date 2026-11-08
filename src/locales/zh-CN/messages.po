@@ -116,6 +116,12 @@ msgstr "{0} 打不开这个项目"
 msgid "{0} changes"
 msgstr "{0} 处改动"
 
+#. placeholder {0}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "tracked changes waiting for review"
+msgid "{0} changes"
+msgstr "{0} 处改动"
+
 #. placeholder {0}: compactCount(cites, i18n.locale)
 #. placeholder {0}: formatCount(cites, i18n.locale)
 #: src/papers/literature-discovery-panel.tsx
@@ -186,6 +192,13 @@ msgstr "{0} 条尚未检查"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "{0} notes"
 msgstr "{0} 条批注"
+
+#. placeholder {0}: formatCount(index + 1, i18n.locale)
+#. placeholder {1}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "the tracked change at the caret, of all of them"
+msgid "{0} of {1}"
+msgstr "第 {0} 处，共 {1} 处"
 
 #. placeholder {0}: chosen.length
 #. placeholder {1}: changes.length
@@ -1217,6 +1230,10 @@ msgstr "清单最多 200 项"
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引号或 %。"
 
+#: src/history/review-mode-extension.ts
+msgid "A co-author edited text you changed. Both versions are kept."
+msgstr "合作者编辑了你改动过的文字，两个版本都已保留。"
+
 #: src/terminal/terminal-window.ts
 msgid "A command is still running. Closing stops it."
 msgstr "仍有命令在运行，关闭会将其停止。"
@@ -1419,6 +1436,7 @@ msgstr "主题色"
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Accept"
@@ -1429,6 +1447,7 @@ msgid "Accept {kept} of {offered}"
 msgstr "接受 {kept}/{offered} 处"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all"
 msgstr "全部接受"
@@ -4916,6 +4935,10 @@ msgstr "已删除“{key}”"
 msgid "Deleted “{name}”"
 msgstr "已删除“{name}”"
 
+#: src/history/review-mode-extension.ts
+msgid "Deleted “{removed}”"
+msgstr "删除了“{removed}”"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Deleted here too"
 msgstr "本机也会删"
@@ -5006,6 +5029,7 @@ msgid "Discover literature"
 msgstr "找文献"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 msgid "Dismiss"
 msgstr "关闭"
 
@@ -7266,6 +7290,10 @@ msgstr "下插一行"
 msgid "Insert table"
 msgstr "插入表格"
 
+#: src/history/review-mode-extension.ts
+msgid "Inserted “{added}”"
+msgstr "插入了“{added}”"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Inspect and replace"
 msgstr "检查与替换"
@@ -8573,6 +8601,10 @@ msgctxt "macOS menu bar"
 msgid "Markers Only"
 msgstr "仅标记"
 
+#: src/canvas/project-pdf-panel.tsx
+msgid "Marking changes…"
+msgstr "正在标记改动…"
+
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Match app"
@@ -9121,6 +9153,7 @@ msgstr "下个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "下一处改动"
@@ -9184,6 +9217,10 @@ msgstr "参考文献里没有键为 {key} 的条目。检查这个键，或把�
 #: src/project/arxiv-export.ts
 msgid "No bibliography to include"
 msgstr "无需包含参考文献"
+
+#: src/history/review-mode-bar.tsx
+msgid "No changes"
+msgstr "没有改动"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -11134,6 +11171,7 @@ msgstr "上个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "上一处改动"
@@ -11681,11 +11719,13 @@ msgstr "高级匹配（正则）"
 
 #: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
 msgstr "拒绝"
 
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "全部拒绝"
@@ -11998,6 +12038,10 @@ msgstr "替换为“{replacement}”"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Replace with <0>{suggestion}</0>"
 msgstr "替换为 <0>{suggestion}</0>"
+
+#: src/history/review-mode-extension.ts
+msgid "Replaced “{removed}” with “{added}”"
+msgstr "将“{removed}”替换为“{added}”"
 
 #: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrence in {files} file."
@@ -12409,6 +12453,10 @@ msgstr "反向断言符"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "还原布局"
+
+#: src/history/review-mode-bar.tsx
+msgid "Review"
+msgstr "审阅"
 
 #: src/project/arxiv-export-dialog.tsx
 msgctxt "arXiv export comments"
@@ -13256,6 +13304,10 @@ msgstr "显示更改"
 msgid "Show changes as"
 msgstr "改动显示方式"
 
+#: src/history/review-mode-bar.tsx
+msgid "Show changes in the PDF"
+msgstr "在 PDF 中显示改动"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "显示大纲"
@@ -13328,6 +13380,10 @@ msgstr "显示 PDF"
 #: src/app/use-command-table.ts
 msgid "Show the PDF beside the editor"
 msgstr "并排看 PDF"
+
+#: src/history/review-mode-bar.tsx
+msgid "Show the PDF without changes"
+msgstr "显示不含改动的 PDF"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -13775,6 +13831,19 @@ msgstr "遇到首个错误即停止"
 #: src/trellis/trellis-workspace.tsx
 msgid "Stop the build"
 msgstr "停止编译"
+
+#: src/history/review-mode-bar.tsx
+#: src/history/review-mode-store.ts
+msgid "Stop tracking"
+msgstr "停止修订"
+
+#: src/canvas/canvas-toolbar.tsx
+msgid "Stop tracking changes"
+msgstr "停止跟踪修订"
+
+#: src/history/review-mode-store.ts
+msgid "Stop tracking changes?"
+msgstr "停止跟踪修订？"
 
 #: src/project/arxiv-export.ts
 msgid "Stopped after 2 minutes"
@@ -14456,6 +14525,10 @@ msgstr "缓存的论文由不受支持的转换器生成"
 #: src/platform/host-errors-papers.ts
 msgid "The candidate's title or authors conflict with its source metadata. No citation was added."
 msgstr "候选条目的标题或作者与来源信息不符，没有添加引用"
+
+#: src/canvas/project-pdf-panel.tsx
+msgid "The changes could not be marked in the PDF, so it shows the paper without them."
+msgstr "无法在 PDF 中标记改动，因此显示的是不含改动的论文。"
 
 #: src/platform/host-errors-papers.ts
 msgid "The citation contains conflicting arXiv identifiers."
@@ -15632,6 +15705,14 @@ msgstr "表格顶线"
 msgid "Top-level section heading"
 msgstr "顶级章节标题"
 
+#: src/canvas/canvas-toolbar.tsx
+msgid "Track changes"
+msgstr "跟踪修订"
+
+#: src/history/review-mode-bar.tsx
+msgid "Tracking changes"
+msgstr "正在跟踪修订"
+
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Translate into academic English"
 msgstr "翻译成学术英语"
@@ -16640,6 +16721,11 @@ msgstr "黄色"
 msgid "You"
 msgstr "你"
 
+#: src/history/review-mode-extension.ts
+msgctxt "the writer, as the author of a tracked change"
+msgid "You"
+msgstr "你"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 msgstr "你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目；你的修改保留在这台 Mac 上"
@@ -16684,6 +16770,10 @@ msgstr "你的回答…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "你的颜色"
+
+#: src/history/review-mode-store.ts
+msgid "Your edits stay in the files. The changes waiting for review are no longer marked."
+msgstr "你的编辑会保留在文件中，待审阅的改动将不再标记。"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

@@ -306,6 +306,8 @@ export type TrackedChangeTooltipActions = {
    * though the extension is built once.
    */
   canAct: () => boolean;
+  /** What the change did, in words; Overleaf's own "Suggests inserting …" when absent. */
+  describe?: (change: TrackedChange) => string;
   onAccept: (change: TrackedChange) => void;
   onReject: (change: TrackedChange) => void;
 };
@@ -322,9 +324,9 @@ export function buildTrackedChangeTooltipDom(changes: TrackedChange[], actions: 
       head.append(element("span", "cm-tracked-change-tooltip-time", formatCommentTimestamp(change.timestamp, now)));
     }
     const text = change.text;
-    const body = element("div", "cm-tracked-change-tooltip-body", change.deletion
+    const body = element("div", "cm-tracked-change-tooltip-body", actions.describe?.(change) ?? (change.deletion
       ? i18n._(msg`Suggests removing "${text}"`)
-      : i18n._(msg`Suggests inserting "${text}"`));
+      : i18n._(msg`Suggests inserting "${text}"`)));
     const row = element("div", "cm-tracked-change-tooltip-actions");
     for (const [label, act] of [[i18n._(msg`Accept`), actions.onAccept], [i18n._(msg`Reject`), actions.onReject]] as const) {
       const button = element("button", "", label);
