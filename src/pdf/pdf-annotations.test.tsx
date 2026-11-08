@@ -122,14 +122,14 @@ describe("annotations made in the source, on the PDF", () => {
       command === "synctex_view" && (args as { line: number }).line === 2 ? { page: 1, x: 72, y: 84, width: 400, height: 10 } : null
     ));
     const record = compiledPage();
-    const openById = vi.fn();
+    const open = vi.fn();
     const rounds = {
       canAnnotatePdf: () => false,
       readSource: async () => SOURCE,
       author: () => ({ id: "me", name: "Ada" }),
       resolve: vi.fn(),
       reply: vi.fn(),
-      openById,
+      open,
     } as unknown as AnnotationRounds;
     render(
       <PdfAnnotationLayer
@@ -148,7 +148,7 @@ describe("annotations made in the source, on the PDF", () => {
     fireEvent.click(pin);
     // The card stands hidden until it is measured beside its passage, which jsdom never lays out.
     fireEvent.click(await screen.findByText("Show in the source"));
-    expect(openById).toHaveBeenCalledWith(sourceNote.id);
+    expect(open).toHaveBeenCalledWith(sourceNote, true);
   });
 
   it("draws no mark for a .tex note SyncTeX cannot place, and never waits on it to draw a PDF note", async () => {
