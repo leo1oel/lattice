@@ -4,7 +4,7 @@ Portage communautaire de [leo1oel/lattice](https://github.com/leo1oel/lattice), 
 
 ## Installation
 
-1. Télécharger l’installateur `Lattice-Windows-0.15.8-r2-setup.exe` depuis les Releases de ce dépôt.
+1. Télécharger l’installateur `Lattice-Windows-0.15.8-r3-setup.exe` depuis les Releases de ce dépôt.
 2. Lancer l’installateur pour votre compte Windows. Il propose l’installation de Microsoft WebView2 si nécessaire.
 3. Pour compiler les documents, installer [TeX Live pour Windows](https://tug.org/texlive/windows.html), avec `latexmk`, puis redémarrer Lattice. Une installation MiKTeX avec `latexmk` et Perl fonctionne également, mais TeX Live est la distribution utilisée pour la validation.
 4. Ouvrir un dossier ou le tutoriel intégré, puis compiler.

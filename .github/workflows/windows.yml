@@ -69,7 +69,7 @@ jobs:
 
   e2e:
     needs: build
-    if: always() && (needs.build.result == 'success' || inputs.installer_run != '')
+    if: ${{ !cancelled() && (needs.build.result == 'success' || inputs.installer_run != '') }}
     permissions:
       contents: read
       actions: read
