@@ -947,7 +947,7 @@ export function useOverleafRealtime(options: {
     /** The server version when the open document has nothing local in flight; unlike `reserveOperation`, keeps the wire free. */
     settledVersion: () => {
       const doc = openDocument();
-      // Treating debounced typing as settled would let a REST mutation reload
+      // Treating typing not yet sent as settled would let a REST mutation reload
       // the server copy over those keystrokes.
       if (typingUnsent() || deliveryPending(doc)) return null;
       return doc?.settled ? doc.version : null;
