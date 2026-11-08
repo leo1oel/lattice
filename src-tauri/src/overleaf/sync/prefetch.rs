@@ -28,17 +28,23 @@ impl Prefetched {
     /// agreed, and comparing the two would read our own newer state as
     /// Overleaf going back. A path only whose agreed copy moved on, still
     /// here and in the download, can wait for the next sync; one that came or
-    /// went cannot, and nor can the paths a move remapped.
+    /// went cannot, and nor can the paths a move remapped. So too a document
+    /// the read ahead left on its agreed copy because the editor had it live
+    /// (`RemoteFiles::unsettled`) and that is no longer live: that copy is
+    /// not Overleaf's.
     pub(super) fn fits(
         &self, state: &SyncState, live: &BTreeSet<String>, local: &BTreeMap<String, Vec<u8>>,
     ) -> Option<BTreeSet<String>> {
         if !state.pending_relocations.is_empty() {
             return None;
         }
-        let paths: BTreeSet<&String> = self.files.keys().chain(state.files.keys()).collect();
+        let stand_ins = &self.downloaded.unsettled;
+        let paths: BTreeSet<&String> =
+            self.files.keys().chain(state.files.keys()).chain(stand_ins).collect();
         let mut moved = BTreeSet::new();
         for path in paths {
-            if self.files.get(path) == state.files.get(path) || live.contains(path) {
+            let unchanged = self.files.get(path) == state.files.get(path);
+            if live.contains(path) || (unchanged && !stand_ins.contains(path)) {
                 continue;
             }
             let held = self.files.contains_key(path)

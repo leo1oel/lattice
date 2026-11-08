@@ -447,6 +447,43 @@ fn a_change_too_wide_for_the_projects_size_takes_the_download() {
     }
 }
 
+/// A read ahead leaves a document the editor has live on its agreed copy,
+/// which is not Overleaf's. Closed before the sync takes the lease, the
+/// document is not sent up from that stale copy over the co-author's text:
+/// it waits for the next sync, which fetches it.
+#[test]
+fn a_document_live_only_in_the_read_ahead_is_left_for_the_next_sync() {
+    let lab = lab();
+    let theirs = "\\section{A}\nAlpha, typed by the co-author.\n";
+    lab.co_author(
+        |files| {
+            files.insert("sections/a.tex".into(), theirs.into());
+            files.insert("sections/b.tex".into(), b"\\section{B}\nBeta, edited.\n".to_vec());
+        },
+        &["sections/a.tex", "sections/b.tex"],
+        json!([]),
+    );
+    // The live channel had already brought the co-author's text here.
+    fs::write(disk_path(&lab.root, "sections/a.tex"), theirs).unwrap();
+    let hint: BTreeSet<String> = ["sections/a.tex".to_string()].into();
+    let read = prefetch(&lab.config, &lab.root, &hint, None, &|| {}, &|_, _| {}).unwrap();
+    assert_eq!(lab.docs_joined(), [entity_id("sections/b.tex")]);
+
+    // Closed meanwhile: not live under the lease.
+    let result = sync_prefetched(&lab.config, &lab.root, NO_LIVE, None, read, None).unwrap();
+    let result = result.expect("the read ahead fits");
+    assert_eq!(result.pulled, ["sections/b.tex"]);
+    assert!(result.pushed.is_empty() && result.merged.is_empty(), "{:?}", result.pushed);
+    assert!(lab.server.uploads().is_empty() && sent_updates(&lab.live).is_empty());
+    let unsettled = load_state(&lab.root).unwrap().unsettled;
+    assert_eq!(unsettled, Some(hint.clone()), "the next sync fetches it");
+
+    let result = lab.sync();
+    assert!(result.pushed.is_empty() && result.pulled.is_empty());
+    assert_eq!(lab.downloads(), 0);
+    lab.assert_matches_overleaf();
+}
+
 /// Only the project download passes the gate that holds downloads to the
 /// gap between them; fetching what changed is the editor's own traffic, so a
 /// fetch-only sync right after a download is not held back, ahead of the
