@@ -254,6 +254,103 @@ fn a_write_still_in_zoteros_log_is_read() {
 }
 
 #[test]
+fn a_collections_count_is_what_importing_it_brings_in() {
+    let library = library();
+    // A standalone note and a standalone PDF sit beside the regular items.
+    library.item(17, 4, "LOOSEPDF", &[], &[]);
+    library
+        .live
+        .execute_batch(
+            "
+        INSERT INTO itemAttachments VALUES (17, NULL, 1, 'application/pdf', 'storage:loose.pdf');
+        INSERT INTO collectionItems VALUES (2, 16, 3), (2, 17, 4);
+    ",
+        )
+        .unwrap();
+    library.dir.write("storage/LOOSEPDF/loose.pdf", b"%PDF-1.4");
+    let collections = super::library(library.path()).unwrap().collections;
+    let chapter = collections.iter().find(|collection| collection.key == "CHAP0003").unwrap();
+    let imported = super::items(library.path(), Some("CHAP0003")).unwrap();
+    assert_eq!(imported.len(), 2);
+    assert_eq!(chapter.items, imported.len() as u64);
+}
+
+#[test]
+fn an_items_key_is_the_same_whichever_collection_it_is_read_from() {
+    let library = library();
+    library
+        .live
+        .execute_batch(
+            "
+        INSERT INTO collections VALUES (5, 'A', NULL, 1, 'COLLA001'), (6, 'B', NULL, 1, 'COLLB001');
+    ",
+        )
+        .unwrap();
+    // Two items that generate the same key, the earlier one only in B.
+    library.item(30, 1, "WANGLRN1", &[(1, "Learning to rank"), (2, "2023")], &[("Wei", "Wang")]);
+    library.item(31, 1, "WANGLRN2", &[(1, "Learning to see"), (2, "2023")], &[("Li", "Wang")]);
+    // An item whose generated key another, later item has pinned.
+    library.item(32, 1, "LEEGRAPH", &[(1, "Graph networks"), (2, "2020")], &[("Ada", "Lee")]);
+    library.item(33, 1, "PINNED01", &[(1, "Other"), (7, "Citation Key: lee_graph_2020")], &[]);
+    library
+        .live
+        .execute_batch(
+            "
+        INSERT INTO collectionItems VALUES (5, 31, 0), (5, 32, 1), (6, 30, 0);
+    ",
+        )
+        .unwrap();
+    let keys = |collection: Option<&str>| -> HashMap<String, String> {
+        super::items(library.path(), collection)
+            .unwrap()
+            .into_iter()
+            .map(|item| {
+                let id = item.bibtex.lines().nth(1).unwrap_or_default().to_string();
+                (id, item.citation_key)
+            })
+            .collect()
+    };
+    let whole = keys(None);
+    let a = keys(Some("COLLA001"));
+    let b = keys(Some("COLLB001"));
+    assert_eq!(b.values().collect::<Vec<_>>(), ["wang_learning_2023"]);
+    assert_eq!(a.len(), 2);
+    for (title, key) in a.iter().chain(&b) {
+        assert_eq!(whole.get(title), Some(key), "{title}");
+    }
+    assert!(a.values().any(|key| key == "wang_learning_2023b"), "{a:?}");
+    assert!(a.values().any(|key| key == "lee_graph_2020b"), "{a:?}");
+    assert_eq!(whole.values().filter(|key| *key == "lee_graph_2020").count(), 1, "{whole:?}");
+}
+
+#[test]
+fn zoteros_rich_text_becomes_latex() {
+    let library = library();
+    library.item(
+        40,
+        1,
+        "RICHTEXT",
+        &[
+            (
+                1,
+                "<i>Drosophila</i> genes, H<sub>2</sub>O, x<sup>2</sup>, <b>bold</b>, <sc>Small</sc>, <span class=\"nocase\">iPhone</span>, O(n^2), a~b\\c, <i>open",
+            ),
+            (2, "2020"),
+        ],
+        &[("Min", "Kim")],
+    );
+    let items = super::items(library.path(), None).unwrap();
+    let item = items.iter().find(|item| item.citation_key == "kim_drosophila_2020").unwrap();
+    assert!(
+        item.bibtex.contains(
+            "  title = {\\textit{Drosophila} genes, H\\textsubscript{2}O, x\\textsuperscript{2}, \\textbf{bold}, \\textsc{Small}, {iPhone}, O(n\\^{}2), a\\textasciitilde{}b\\textbackslash{}c, \\textit{open}},\n"
+        ),
+        "{}",
+        item.bibtex
+    );
+}
+
+#[test]
 fn an_absent_or_unknown_library_says_so() {
     let empty = TempDir::new("no-zotero");
     assert_eq!(super::library(empty.to_str()).unwrap_err(), NOT_FOUND);
@@ -278,11 +375,17 @@ fn the_default_profile_names_the_data_directory() {
         "user_pref(\"extensions.zotero.dataDir\", \"/Volumes/Research/Zotero\");\nuser_pref(\"extensions.zotero.useDataDir\", true);\n",
     );
     assert_eq!(profile_data_dir(&support), Some(PathBuf::from("/Volumes/Research/Zotero")));
+    // Linked files resolve against the default profile's base, not the first listed.
+    support.write(
+        "Profiles/other/prefs.js",
+        "user_pref(\"extensions.zotero.baseAttachmentPath\", \"/Users/other/Papers\");\n",
+    );
     support.write(
         "Profiles/abc.default/prefs.js",
-        "user_pref(\"extensions.zotero.dataDir\", \"/Volumes/Research/Zotero\");\n",
+        "user_pref(\"extensions.zotero.dataDir\", \"/Volumes/Research/Zotero\");\nuser_pref(\"extensions.zotero.baseAttachmentPath\", \"/Volumes/Research/Papers\");\n",
     );
     assert_eq!(profile_data_dir(&support), None);
+    assert_eq!(attachment_base(&support), Some(PathBuf::from("/Volumes/Research/Papers")));
 }
 
 /// Reads the Zotero library on this Mac (or `ZOTERO_DATA_DIR`) and prints

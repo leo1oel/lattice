@@ -20,7 +20,8 @@ pub struct ZoteroCollection {
     pub name: String,
     /// The collection it sits in, by key; None at the top.
     pub parent: Option<String>,
-    /// Items directly in it (not in its subcollections), trash aside.
+    /// The items importing it brings in: those directly in it (not in its
+    /// subcollections), as `items` reads them.
     pub items: u64,
 }
 
@@ -33,6 +34,13 @@ pub struct ZoteroItem {
     /// Its PDF attachment's item key, for `attachment_path`.
     pub pdf: Option<String>,
 }
+
+/// The items an import brings in, over `items i` joined to
+/// `itemTypesCombined t`: the personal library's (`?1`) top-level regular
+/// items, trash aside.
+const IMPORTABLE: &str = "i.libraryID = ?1
+    AND t.typeName NOT IN ('attachment', 'note', 'annotation')
+    AND i.itemID NOT IN (SELECT itemID FROM deletedItems)";
 
 /// The tables and columns read here; a database without them is not one this
 /// code understands.
@@ -81,8 +89,9 @@ pub(super) fn collections(db: &Connection) -> Result<Vec<ZoteroCollection>, Stri
         .prepare(&format!(
             "SELECT c.key, c.collectionName, p.key,
                     (SELECT count(*) FROM collectionItems ci
-                     WHERE ci.collectionID = c.collectionID
-                       AND ci.itemID NOT IN (SELECT itemID FROM deletedItems))
+                     JOIN items i ON i.itemID = ci.itemID
+                     JOIN itemTypesCombined t ON t.itemTypeID = i.itemTypeID
+                     WHERE ci.collectionID = c.collectionID AND {IMPORTABLE})
              FROM collections c LEFT JOIN collections p ON p.collectionID = c.parentCollectionID
              WHERE c.libraryID = ?1 {}
              ORDER BY lower(c.collectionName)",
@@ -117,40 +126,48 @@ fn table_exists(db: &Connection, table: &str) -> bool {
 }
 
 /// Each top-level regular item of `collection` (the library when None), with
-/// the path of its PDF when the file is on this Mac.
+/// the path of its PDF when the file is on this Mac. `base` is the directory
+/// linked `attachments:` files are relative to.
+///
+/// Keys are assigned over the whole library, so an item has the same key
+/// whichever collection it is read from: every pinned key is taken first, then
+/// generated keys go out in itemID order.
 pub(super) fn items(
-    db: &Connection, better_bibtex: Option<&Connection>, data_dir: &Path, collection: Option<&str>,
+    db: &Connection, better_bibtex: Option<&Connection>, data_dir: &Path, base: Option<&Path>,
+    collection: Option<&str>,
 ) -> Result<Vec<(ZoteroItem, Option<PathBuf>)>, String> {
     check_schema(db)?;
-    let mut statement = db
-        .prepare(
+    let listed: Vec<(i64, String, String)> = db
+        .prepare(&format!(
             "SELECT i.itemID, i.key, t.typeName FROM items i
              JOIN itemTypesCombined t ON t.itemTypeID = i.itemTypeID
-             WHERE i.libraryID = ?1
-               AND t.typeName NOT IN ('attachment', 'note', 'annotation')
-               AND i.itemID NOT IN (SELECT itemID FROM deletedItems)
-               AND (?2 IS NULL OR i.itemID IN (
-                    SELECT ci.itemID FROM collectionItems ci
-                    JOIN collections c ON c.collectionID = ci.collectionID
-                    WHERE c.key = ?2 AND c.libraryID = ?1))
-             ORDER BY i.itemID",
-        )
-        .map_err(|e| e.to_string())?;
-    let listed: Vec<(i64, String, String)> = statement
-        .query_map(params![USER_LIBRARY, collection], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-        })
+             WHERE {IMPORTABLE}
+             ORDER BY i.itemID"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_map(params![USER_LIBRARY], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
         .map_err(|e| e.to_string())?
         .collect::<Result<_, _>>()
         .map_err(|e| e.to_string())?;
+    let chosen: Option<HashSet<i64>> = match collection {
+        None => None,
+        Some(collection) => Some(
+            db.prepare(
+                "SELECT ci.itemID FROM collectionItems ci
+                 JOIN collections c ON c.collectionID = ci.collectionID
+                 WHERE c.key = ?2 AND c.libraryID = ?1",
+            )
+            .map_err(|e| e.to_string())?
+            .query_map(params![USER_LIBRARY, collection], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<_, _>>()
+            .map_err(|e| e.to_string())?,
+        ),
+    };
     let better_bibtex_keys = better_bibtex.map(better_bibtex_keys).unwrap_or_default();
-    let base_path = attachment_base();
-    let mut taken: HashSet<String> = HashSet::new();
-    let mut out = Vec::new();
+    let mut read = Vec::with_capacity(listed.len());
     for (id, key, item_type) in listed {
         let fields = fields(db, id)?;
-        let creators = creators(db, id)?;
-        let record = Record { item_type: &item_type, fields: &fields, creators: &creators };
         let pinned = [
             better_bibtex_keys.get(&key).cloned(),
             fields.get("citationKey").cloned(),
@@ -162,10 +179,25 @@ pub(super) fn items(
         .into_iter()
         .flatten()
         .find(|candidate| bibtex::is_citation_key(candidate));
-        let citation_key =
-            pinned.unwrap_or_else(|| bibtex::unique_key(&bibtex::generated_key(&record), &taken));
-        taken.insert(citation_key.to_lowercase());
-        let pdf = pdf_attachment(db, id, data_dir, base_path.as_deref())?;
+        read.push((id, item_type, fields, creators(db, id)?, pinned));
+    }
+    let mut taken: HashSet<String> = read
+        .iter()
+        .filter_map(|(.., pinned)| pinned.as_ref())
+        .map(|key| key.to_lowercase())
+        .collect();
+    let mut out = Vec::new();
+    for (id, item_type, fields, creators, pinned) in read {
+        let record = Record { item_type: &item_type, fields: &fields, creators: &creators };
+        let citation_key = pinned.unwrap_or_else(|| {
+            let key = bibtex::unique_key(&bibtex::generated_key(&record), &taken);
+            taken.insert(key.to_lowercase());
+            key
+        });
+        if chosen.as_ref().is_some_and(|chosen| !chosen.contains(&id)) {
+            continue;
+        }
+        let pdf = pdf_attachment(db, id, data_dir, base)?;
         out.push((
             ZoteroItem {
                 bibtex: bibtex::entry(&record, &citation_key),
@@ -258,24 +290,6 @@ fn pdf_attachment(
         };
         path.is_file().then_some((key, path))
     }))
-}
-
-/// The base directory linked files are relative to, from the default profile.
-fn attachment_base() -> Option<PathBuf> {
-    let home = PathBuf::from(std::env::var_os("HOME")?);
-    let support = home.join("Library/Application Support/Zotero");
-    let ini = std::fs::read_to_string(support.join("profiles.ini")).ok()?;
-    let path = ini.lines().find_map(|line| line.trim().strip_prefix("Path="))?;
-    let prefs = std::fs::read_to_string(support.join(path.trim()).join("prefs.js")).ok()?;
-    prefs.lines().find_map(|line| {
-        let rest =
-            line.trim().strip_prefix("user_pref(\"extensions.zotero.baseAttachmentPath\",")?;
-        serde_json::from_str::<String>(
-            rest.trim().trim_end_matches(';').trim_end_matches(')').trim(),
-        )
-        .ok()
-        .map(PathBuf::from)
-    })
 }
 
 /// Better BibTeX's keys by item key (its `citationkey` table), when its

@@ -50,7 +50,10 @@ below.
 ### Zotero
 
 [Zotero MCP](https://github.com/54yyyu/zotero-mcp) (`zotero-mcp-server` on
-PyPI) reads your local library through the same Zotero setting as above.
+PyPI) reads your local library through Zotero's local API, which answers only
+when **Settings → Advanced → Allow other applications on this computer to
+communicate with Zotero** is on in Zotero. Unlike the import above, this server
+needs that setting.
 
 ```bash
 uv tool install zotero-mcp-server      # or: pipx install zotero-mcp-server

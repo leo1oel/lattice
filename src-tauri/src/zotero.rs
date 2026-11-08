@@ -52,6 +52,11 @@ fn unreadable(error: impl std::fmt::Display) -> String {
     UNREADABLE.replace("{}", &error.to_string())
 }
 
+/// Zotero's application support folder, which holds profiles.ini.
+fn support_dir() -> Option<PathBuf> {
+    Some(PathBuf::from(std::env::var_os("HOME")?).join("Library/Application Support/Zotero"))
+}
+
 /// Zotero's data directory: `chosen` when the writer picked one, else the
 /// one the default Zotero profile names (`extensions.zotero.dataDir`), else
 /// `~/Zotero`; whichever holds a zotero.sqlite.
@@ -61,7 +66,8 @@ pub fn data_dir(chosen: Option<&str>) -> Result<PathBuf, String> {
         None => {
             let home =
                 PathBuf::from(std::env::var_os("HOME").ok_or_else(|| NOT_FOUND.to_string())?);
-            profile_data_dir(&home.join("Library/Application Support/Zotero"))
+            support_dir()
+                .and_then(|support| profile_data_dir(&support))
                 .into_iter()
                 .chain([home.join("Zotero")])
                 .collect()
@@ -73,9 +79,9 @@ pub fn data_dir(chosen: Option<&str>) -> Result<PathBuf, String> {
         .ok_or_else(|| NOT_FOUND.to_string())
 }
 
-/// The data directory the default profile in `support` (Zotero's application
-/// support folder) points at, when it chose one.
-fn profile_data_dir(support: &Path) -> Option<PathBuf> {
+/// The prefs.js of the default profile in `support` (Zotero's application
+/// support folder): the one marked `Default=1`, else the first listed.
+fn default_profile_prefs(support: &Path) -> Option<String> {
     let ini = fs::read_to_string(support.join("profiles.ini")).ok()?;
     let mut profiles: Vec<(bool, bool, String)> = Vec::new();
     for section in ini.split('[').filter(|section| section.starts_with("Profile")) {
@@ -95,17 +101,36 @@ fn profile_data_dir(support: &Path) -> Option<PathBuf> {
     profiles.sort_by_key(|(default, _, _)| !default);
     let (_, relative, path) = profiles.into_iter().next()?;
     let profile = if relative { support.join(path) } else { PathBuf::from(path) };
-    let prefs = fs::read_to_string(profile.join("prefs.js")).ok()?;
-    let pref = |name: &str| {
-        prefs.lines().find_map(|line| {
-            let rest = line.trim().strip_prefix(&format!("user_pref(\"{name}\","))?;
-            Some(rest.trim().trim_end_matches(';').trim_end_matches(')').trim().to_string())
-        })
-    };
-    if pref("extensions.zotero.useDataDir").as_deref() != Some("true") {
+    fs::read_to_string(profile.join("prefs.js")).ok()
+}
+
+/// The value `prefs` sets for `name`, as written (a JSON literal).
+fn pref(prefs: &str, name: &str) -> Option<String> {
+    prefs.lines().find_map(|line| {
+        let rest = line.trim().strip_prefix(&format!("user_pref(\"{name}\","))?;
+        Some(rest.trim().trim_end_matches(';').trim_end_matches(')').trim().to_string())
+    })
+}
+
+/// The data directory the default profile in `support` points at, when it
+/// chose one.
+fn profile_data_dir(support: &Path) -> Option<PathBuf> {
+    let prefs = default_profile_prefs(support)?;
+    if pref(&prefs, "extensions.zotero.useDataDir").as_deref() != Some("true") {
         return None;
     }
-    serde_json::from_str::<String>(&pref("extensions.zotero.dataDir")?).ok().map(PathBuf::from)
+    serde_json::from_str::<String>(&pref(&prefs, "extensions.zotero.dataDir")?)
+        .ok()
+        .map(PathBuf::from)
+}
+
+/// The base directory the default profile in `support` resolves linked
+/// `attachments:` files against.
+fn attachment_base(support: &Path) -> Option<PathBuf> {
+    let prefs = default_profile_prefs(support)?;
+    serde_json::from_str::<String>(&pref(&prefs, "extensions.zotero.baseAttachmentPath")?)
+        .ok()
+        .map(PathBuf::from)
 }
 
 /// A private copy of one of the library's databases, removed when dropped.
@@ -179,6 +204,7 @@ pub fn items(chosen: Option<&str>, collection: Option<&str>) -> Result<Vec<Zoter
         &snapshot.connection,
         better_bibtex.as_ref().map(|snapshot| &snapshot.connection),
         &data_dir,
+        support_dir().and_then(|support| attachment_base(&support)).as_deref(),
         collection,
     )
     .map_err(unreadable)?;

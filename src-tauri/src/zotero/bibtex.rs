@@ -88,18 +88,85 @@ fn entry_type(record: &Record) -> &'static str {
     }
 }
 
-/// Text as BibTeX reads it: the characters TeX treats as commands escaped.
+/// A formatting tag of Zotero's rich text at the start of `text`, as
+/// (name, the LaTeX that opens it or None for a closing tag, its length).
+/// Zotero keeps title formatting as `<i>`, `<b>`, `<sub>`, `<sup>`, `<sc>`,
+/// `<span class="nocase">` and `<span style="font-variant:small-caps;">`.
+fn markup(text: &str) -> Option<(&str, Option<&'static str>, usize)> {
+    let end = text.find('>')?;
+    let inner = &text[1..end];
+    let (closing, inner) = match inner.strip_prefix('/') {
+        Some(name) => (true, name),
+        None => (false, inner),
+    };
+    let (name, attributes) = inner.split_once(char::is_whitespace).unwrap_or((inner, ""));
+    let latex = match name {
+        "i" => "\\textit{",
+        "b" => "\\textbf{",
+        "sub" => "\\textsubscript{",
+        "sup" => "\\textsuperscript{",
+        "sc" => "\\textsc{",
+        "span" if attributes.contains("small-caps") => "\\textsc{",
+        "span" => "{",
+        _ => return None,
+    };
+    Some((name, (!closing).then_some(latex), end + 1))
+}
+
+/// Text as BibTeX reads it: Zotero's formatting tags as their LaTeX commands
+/// (a `nocase` span as braces, which keep its case), and the characters TeX
+/// treats as commands escaped.
 fn tex(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
+    let mut open: Vec<&str> = Vec::new();
+    let mut rest = text;
+    while let Some(c) = rest.chars().next() {
+        if c == '<' {
+            if let Some((name, latex, length)) = markup(rest) {
+                match latex {
+                    Some(latex) => {
+                        open.push(name);
+                        out.push_str(latex);
+                    }
+                    None if open.last() == Some(&name) => {
+                        open.pop();
+                        out.push('}');
+                    }
+                    None => {}
+                }
+                rest = &rest[length..];
+                continue;
+            }
+        }
         match c {
             '&' | '%' | '#' | '_' | '$' => {
                 out.push('\\');
                 out.push(c);
             }
+            '\\' => out.push_str("\\textbackslash{}"),
+            '^' => out.push_str("\\^{}"),
+            '~' => out.push_str("\\textasciitilde{}"),
             '{' | '}' => {}
             '\n' | '\r' => out.push(' '),
             _ => out.push(c),
+        }
+        rest = &rest[c.len_utf8()..];
+    }
+    out.extend(open.iter().map(|_| '}'));
+    out
+}
+
+/// `text` with Zotero's formatting tags taken out.
+fn plain(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(c) = rest.chars().next() {
+        match (c == '<').then(|| markup(rest)).flatten() {
+            Some((.., length)) => rest = &rest[length..],
+            None => {
+                out.push(c);
+                rest = &rest[c.len_utf8()..];
+            }
         }
     }
     out
@@ -207,7 +274,7 @@ pub(super) fn generated_key(record: &Record) -> String {
         &["a", "an", "the", "of", "on", "in", "for", "and", "to", "with", "is", "are"];
     let word = field(record, "title")
         .and_then(|title| {
-            title
+            plain(title)
                 .split(|c: char| c.is_whitespace() || c == ':' || c == '-')
                 .map(ascii)
                 .find(|word| !word.is_empty() && !SKIP.contains(&word.as_str()))
@@ -248,8 +315,8 @@ fn deunicode_char(c: char) -> Option<char> {
     Some(base)
 }
 
-/// `key`, or `key` with the first free letter after it (b, c, …) when an
-/// earlier item of the same read already took it.
+/// `key`, or `key` with the first free letter after it (b, c, …) when it is
+/// already taken.
 pub(super) fn unique_key(key: &str, taken: &HashSet<String>) -> String {
     if !taken.contains(&key.to_lowercase()) {
         return key.to_string();
