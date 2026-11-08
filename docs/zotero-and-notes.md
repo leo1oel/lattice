@@ -16,8 +16,9 @@ servers.
    and the rest is added with **Add papers**.
 
 Citation keys stay the ones you cite with: a Better BibTeX key is used when
-Better BibTeX is installed (or the key is pinned in the item's Extra field as
-`Citation Key: …`), otherwise Zotero's own export key. An item with an arXiv id
+Better BibTeX is installed, then a key set in the item's Citation Key field or
+pinned in its Extra field as `Citation Key: …`, otherwise Zotero's own export
+key. An item with an arXiv id
 brings its full text from arXiv; otherwise its PDF attachment in Zotero, when
 the file is on this Mac, becomes the paper's readable text. Items without
 either are added as citations only.
