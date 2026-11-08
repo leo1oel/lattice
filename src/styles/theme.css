@@ -76,8 +76,8 @@ textarea {
   --editor-line: rgba(48, 48, 51, 0.045);
   --accent-soft: var(--neutral-soft);
   --accent-contrast: #ffffff;
-  /* The keyboard focus ring, and where a dragged tab or panel lands: weft
-     blue, the mark's own thread, so focus never reads as the grey of a
+  /* The keyboard focus ring, and where a dragged tab or panel lands: a
+     blue, the mark's original weft, so focus never reads as the grey of a
      selected row (5.5:1 on the sheet, 5:1 on the chrome). An accent preset
      swaps in the accent. */
   --focus: #3b5bd6;
@@ -85,8 +85,8 @@ textarea {
   --success: #2c785c;
   --warning: #8d6400;
   --info: #6488c5;
-  --brand-weft: #4568f6;
-  --brand-warp: #25b4bb;
+  --brand-weft: #4e5c1d;
+  --brand-warp: #909e42;
   --brand-glint: rgba(255, 255, 255, 0.85);
   /* File glyphs, one hue per kind; each clears 3:1 on the sheet, the lift
      and a selected row. Folders are manila. */
@@ -128,11 +128,12 @@ textarea {
   --pdf-bg: #efeff0;
   /* "Weft and warp", Lattice's own code theme (settings/code-themes.ts
      names the others): the source editor is colored by the mark's two
-     threads. Commands take the weft's blue, environment names and math the
-     warp's teal, and arguments and prose stay in ink, so one blue and one
+     original threads, the blue and teal it wore before the olive recolour.
+     Commands take the weft's blue, environment names and math the warp's
+     teal, and arguments and prose stay in ink, so one blue and one
      teal carry the structure and nothing competes with the writing. Numbers,
      operators and citations are the warm voice.
-     Each thread keeps the mark's hue at a text lightness, and every token
+     Each thread keeps its hue at a text lightness, and every token
      reads at 4.5:1 or more on the editor, its active line and a focused
      selection, under every tint. The selection strength is the most the
      dimmest tokens (comment, bracket) allow. */
@@ -192,8 +193,8 @@ textarea {
   --warning: #d7a62b;
   --info: #8fabd8;
   --focus: #7f97ff;
-  --brand-weft: #7f97ff;
-  --brand-warp: #4fd2c6;
+  --brand-weft: #8a9c3e;
+  --brand-warp: #c5ce80;
   --brand-glint: rgba(255, 255, 255, 0.7);
   --glyph-tex: #8fa5ff;
   --glyph-style: #bba3f2;
@@ -340,7 +341,7 @@ textarea {
  * in its theme, because the accent also colors text (outline links, roles,
  * active toolbar icons); its label color clears 4.5:1 on it. A custom accent
  * is fitted to the same floor in theme-customization.ts and set inline.
- * Graphite, the default, keeps the neutral accent and the weft-blue focus ring.
+ * Graphite, the default, keeps the neutral accent and the blue focus ring.
  */
 [data-accent="graphite"] { --accent: var(--accent-graphite); }
 [data-accent="blue"] { --accent: #096acb; }

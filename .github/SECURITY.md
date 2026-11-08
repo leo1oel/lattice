@@ -17,9 +17,9 @@ versions, and fixes are delivered as a new release rather than a backport.
 | Any earlier release | ❌ — update first, then re-test |
 | Builds from `main` or from a fork | ❌ — see [Out of scope](#out-of-scope) |
 
-Official builds target **Apple Silicon Macs on macOS 14 or later**
+Official builds target **Macs on macOS 14 or later**, Apple silicon and Intel
 (`bundle.macOS.minimumSystemVersion` in `src-tauri/tauri.conf.json`). Older
-macOS versions and Intel Macs are not supported at all.
+macOS versions are not supported at all.
 
 ## Reporting a vulnerability
 

@@ -300,7 +300,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 20 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
 | `papers` | 12 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
-| `git` | 10 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
+| `git` | 12 | `git_status`, `git_user_name`, `clone_repository`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
 | service modules | 15 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
 
@@ -349,7 +349,8 @@ that header before changing anything under `overleaf_rt/`.
 `overleaf-session.json` in app data), linking and clone (`overleaf/link.rs`),
 which folders already hold a linked copy, so Open from Overleaf reopens one
 instead of downloading a second (`overleaf/local_copies.rs`),
-the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`), history and review (`overleaf/review.rs`),
+the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`; a sync's edits to documents go as live
+operations instead, `overleaf/doc_push.rs`), history and review (`overleaf/review.rs`),
 and a real three-way merge (`overleaf/sync.rs`). The merge keeps a pristine copy of every text file as of
 the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,
@@ -434,10 +435,10 @@ regression is not visible in a dev build.
 | Eager JavaScript (all `<script>` in `index.html`) | `1.355 * 1024 * 1024` = 1,420,820 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
-| Staged Open Slide runtime (file bytes) | 66 MiB on macOS, 69 MiB on Linux (larger ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |
+| Staged Open Slide runtime (file bytes) | 66 MiB on Apple silicon Macs, 68 MiB on Intel Macs, 69 MiB on Linux (larger x86_64 and ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |
 
 The Release workflow adds a fifth on the built bundle: `node scripts/app-size-report.mjs --app <Lattice.app>`
-prints the installed size folder by folder and fails above `INSTALLED_APP_BUDGET_BYTES`, counted in allocated
+prints the installed size folder by folder and fails above `INSTALLED_APP_BUDGET_BYTES` (`INSTALLED_INTEL_APP_BUDGET_BYTES` for the Intel app), counted in allocated
 blocks as `du` reports it.
 
 The check (`checkAppSizeBudgets`) additionally refuses any external (non-local)

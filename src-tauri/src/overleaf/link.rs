@@ -106,8 +106,9 @@ pub(super) struct SyncState {
     /// reported once when it starts being held, not on every later sync.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unresolved_conflicts: Vec<String>,
-    /// Paths Lattice itself last wrote to Overleaf (an upload, a realtime
-    /// checkpoint, a replayed move), with where in history that write ends.
+    /// Paths Lattice itself last wrote to Overleaf (a sync's upload or live
+    /// operations, a realtime checkpoint, a replayed move), with where in
+    /// history that write ends.
     /// Overleaf's history records those writes like anyone's, but they can
     /// never confirm a download that would wipe the file out.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

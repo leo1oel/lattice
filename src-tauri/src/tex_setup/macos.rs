@@ -170,7 +170,7 @@ fn ensure_uv_installed(
     if verify_uv_as_current_user().is_ok() {
         return Ok(());
     }
-    if std::env::consts::ARCH != "aarch64" {
+    if !matches!(std::env::consts::ARCH, "aarch64" | "x86_64") {
         return Err(format!(
             "Automatic uv installation is not available for this Mac architecture ({}).",
             std::env::consts::ARCH

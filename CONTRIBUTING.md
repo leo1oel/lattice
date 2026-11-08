@@ -139,8 +139,8 @@ touch src-tauri/synara-runtime/placeholder.txt
 ```
 
 With those files in place, `pnpm check`, `cargo test`, and `cargo clippy` all pass.
-Three of the five workflows that compile the Rust crate do exactly this — see the "Stub bundled runtime resources for compilation" step in `.github/workflows/ci.yml`, `.github/workflows/flake-hunt.yml` and `.github/workflows/release-cache.yml`, none of which ships a binary.
-`.github/workflows/release.yml` and `.github/workflows/linux-appimage.yml` are the only ones that stage the real pinned runtimes, because they are the only ones that package the app.
+Three of the six workflows that compile the Rust crate do exactly this — see the "Stub bundled runtime resources for compilation" step in `.github/workflows/ci.yml`, `.github/workflows/flake-hunt.yml` and `.github/workflows/release-cache.yml`, none of which ships a binary.
+`.github/workflows/release.yml`, `.github/workflows/macos-intel.yml` and `.github/workflows/linux-appimage.yml` are the only ones that stage the real pinned runtimes, because they are the only ones that package the app.
 `src-tauri/synara-runtime/` is gitignored, so the stub stays out of your commits.
 `src-tauri/presentation-runtime/` needs no stub: its `placeholder.txt` is tracked, and everything else in it is gitignored.
 

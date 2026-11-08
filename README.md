@@ -86,10 +86,11 @@ The Git panel shows changes and pull requests when the project is a repository.
 
 ## Install
 
-Lattice runs on Apple Silicon Macs with macOS 14 or later, and builds with your own [MacTeX](https://tug.org/mactex/) or TeX Live.
+Lattice runs on Macs with macOS 14 or later, Apple silicon or Intel, and builds with your own [MacTeX](https://tug.org/mactex/) or TeX Live.
 No TeX yet? Lattice offers to install BasicTeX for you: it is the first step of the Get started checklist, and a build that finds no TeX offers it too.
 
 1. Download the `.dmg` from the [latest release](https://github.com/leo1oel/lattice/releases/latest) and drag Lattice into Applications.
+   On a Mac with an Intel processor, download the one ending in `_x64.dmg` (Apple menu → About This Mac shows **Chip** on Apple silicon and **Processor** on Intel).
 2. Open a folder, start from a template, or connect an Overleaf project.
    **Guided tutorial** in the project menu opens a sample paper beside Get started, a six-step checklist from building the PDF to letting the Agent revise a paragraph.
 

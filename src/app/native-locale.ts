@@ -20,6 +20,7 @@ export type NativeMenuLabels = {
   newProject: string;
   openFolder: string;
   openRecent: string;
+  cloneRepository: string;
   openFromOverleaf: string;
   importZip: string;
   exportZip: string;
@@ -84,6 +85,7 @@ export function nativeMenuLabels(): NativeMenuLabels {
     newProject: i18n._(msg({ context: "macOS menu bar", message: "New Project…" })),
     openFolder: i18n._(msg({ context: "macOS menu bar", message: "Open…" })),
     openRecent: i18n._(msg({ context: "macOS menu bar", message: "Open Recent" })),
+    cloneRepository: i18n._(msg({ context: "macOS menu bar", message: "Clone Repository…" })),
     openFromOverleaf: i18n._(msg({ context: "macOS menu bar", message: "Open from Overleaf…" })),
     importZip: i18n._(msg({ context: "macOS menu bar", message: "Import Overleaf ZIP…" })),
     exportZip: i18n._(msg({ context: "macOS menu bar", message: "Export ZIP…" })),

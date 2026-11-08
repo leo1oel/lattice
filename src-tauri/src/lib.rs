@@ -202,6 +202,7 @@ fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
     app.state::<AppState>().stop_all_live_previews();
     app.state::<AppState>().cancel_all_changes_exports();
     app.state::<AppState>().terminals.close_all_and_wait();
+    git::clone::cancel_all();
 }
 
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
@@ -222,6 +223,7 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         window.state::<app_restart::AppRestart>().forget(window.label());
         macos_window::clear_pdf_copy_text(window.label());
         macos_window::forget_window_material(window.label());
+        git::clone::cancel(window.label());
         // Its page never ran the cleanup that releases a deck's lease, which
         // would otherwise keep every other project's deck from opening.
         window.state::<presentation::PresentationRuntime>().forget_page(window.label());
@@ -243,6 +245,7 @@ fn on_page_load<R: Runtime>(
     if payload.event() == tauri::webview::PageLoadEvent::Started {
         // The new page enables saving before close again once it can.
         save_before_close::forget(webview.app_handle(), webview.label());
+        git::clone::cancel(webview.label());
         if let Some(restart) = webview.try_state::<app_restart::AppRestart>() {
             restart.forget(webview.label());
         }
@@ -591,6 +594,8 @@ pub fn run() {
             ipc::git::git_status,
             ipc::git::git_user_name,
             ipc::git::git_init,
+            ipc::git::clone_repository,
+            ipc::git::cancel_clone,
             ipc::git::git_log,
             ipc::git::git_show_diff,
             ipc::git::git_compare_files,

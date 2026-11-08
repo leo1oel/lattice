@@ -8,6 +8,7 @@ import {
 } from "../editor/editor-languages";
 import type { EditorKeymap } from "../app-types";
 import { thenUnlessDisposed } from "../app/effect-helpers";
+import { defineVimExCommands } from "./vim-ex-commands";
 
 export function isLatexSourcePath(path: string): boolean {
   return /\.(?:tex|sty|cls)$/i.test(path);
@@ -59,7 +60,10 @@ function vimModeExtension(getCM: VimGetCM, onModeChange: (mode: string) => void)
 // Hoisted loaders: inline `import()` expressions inside a hook make the React
 // Compiler bail out of it (the same pattern App.tsx uses for lazy panels).
 const loadVimKeymapExtensions = (onVimModeChange: (mode: string) => void) => import("@replit/codemirror-vim")
-  .then((module) => [module.vim({ status: false }), vimModeExtension(module.getCM, onVimModeChange)]);
+  .then((module) => {
+    defineVimExCommands(module.Vim);
+    return [module.vim({ status: false }), vimModeExtension(module.getCM, onVimModeChange)];
+  });
 const loadEmacsKeymapExtensions = () => import("@replit/codemirror-emacs").then((module) => [module.emacs()]);
 
 /** Vim/Emacs keymaps, loaded on demand, and the Vim mode the editor last reported. */

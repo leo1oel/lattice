@@ -216,7 +216,7 @@ Rules that follow from this:
 Keyboard focus is one ring for the whole product. Its selector lives in
 `src/styles/app-shell.css`; `--focus-ring`, `--focus-ring-width`, and
 `--focus-ring-offset` live in `src/styles/foundations.css`. The ring is 2px
-at a 2px offset, in weft blue under Graphite (`--focus`, `#3B5BD6`, 5.5:1 on
+at a 2px offset, in blue under Graphite (`--focus`, `#3B5BD6`, 5.5:1 on
 the sheet; `#7F97FF` in dark) and in the accent under a colored preset, so
 focus never reads as the grey of a selected row. A drop target (Trellis's
 drop slot) takes the same colour as its edge and a faint wash of it.
@@ -819,12 +819,13 @@ The app icon's woven lattice is Lattice's mark, and a small set of touches
 reuse its vocabulary so the product reads as one thing:
 
 - `LatticeMark` (`src/components/ui/lattice-mark.tsx`) draws the icon live from
-  its own geometry. Its two threads have their own roles, `--mark-weft` (blue)
-  and `--mark-warp` (teal), plus `--mark-glint`. They are identity, not
+  its own geometry. Its two threads have their own roles, `--mark-weft` (olive)
+  and `--mark-warp` (sage), the app icon's colours,, plus `--mark-glint`. They are identity, not
   interaction: they color the mark and the one accent stroke of an
   illustration, never a control, whatever accent the writer chose.
 - Lattice's own code theme ("weft and warp", `--lattice-syntax-*` in
-  `src/styles/theme.css`) borrows the two threads' hues at text lightness:
+  `src/styles/theme.css`) borrows the hues the two threads had before the
+  olive recolour, at text lightness:
   commands in the weft's blue, environment names and math in the warp's teal,
   arguments and prose in ink, numbers, operators and citations the warm voice. Every
   token reads at 4.5:1 or more on the editor, its active line and a focused

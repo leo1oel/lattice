@@ -5,7 +5,10 @@ use super::{
 };
 use crate::app_state::AppState;
 use crate::git;
+use crate::git::clone::{self, CloneError, CloneProgress};
 use crate::git::GitStatus;
+use std::path::PathBuf;
+use tauri::ipc::Channel;
 use tauri::{State, Window};
 
 #[tauri::command]
@@ -103,4 +106,29 @@ pub async fn git_auto_commit(
         git::auto_commit(&root, &message, author.as_deref())
     })
     .await
+}
+
+/// Clone `url` into `destination`, a new folder, and answer with its path for
+/// the page to open as a project. Progress goes to `on_progress`;
+/// `cancel_clone` from the same window stops it.
+#[tauri::command]
+pub async fn clone_repository(
+    window: Window, url: String, destination: String, on_progress: Channel<CloneProgress>,
+) -> Result<String, CloneError> {
+    let label = window.label().to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let destination = PathBuf::from(destination);
+        clone::clone(&label, &url, &destination, |progress| {
+            let _ = on_progress.send(progress);
+        })
+        .inspect_err(|reason| log::warn!(target: "lattice::git", "Clone failed: {reason:?}"))
+        .map(|()| destination.to_string_lossy().into_owned())
+    })
+    .await
+    .unwrap_or_else(|error| Err(CloneError::Failed(error.to_string())))
+}
+
+#[tauri::command]
+pub fn cancel_clone(window: Window) {
+    clone::cancel(window.label());
 }

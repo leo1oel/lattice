@@ -343,7 +343,7 @@ purpose.
   it. Editor saves wait out a sync behind the project lease, but agents and
   other programs do not; their edit is left as it is, keeps the previous agreed
   hash, and is reported (`editedDuringSync`) so the next sync merges or sends
-  it. A file edited during its own upload keeps what went up as its merge base.
+  it. A file edited while a sync sends it keeps what went up as its merge base.
 - Active, draining and outcome-unknown OT documents stay excluded from ordinary
   ZIP/file synchronization until the realtime owner releases them.
 - Every delayed project-specific Overleaf read or mutation carries the project
@@ -357,12 +357,35 @@ purpose.
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and
   document history.
-- The upload endpoint decides what a file becomes from its name alone, not from
-  what is already at the path. Uploading into a document whose name it does not
-  read as text (a `data.csv` made with New file in the browser) turns it into a
-  binary file, and its comments and tracked changes go with it. Such documents
-  take their edit over the live channel instead (`overleaf/doc_push.rs`); only
-  when that channel cannot be reached are they uploaded as before.
+- A sync sends its edit to a file Overleaf holds as a document over the live
+  channel rather than by upload, except as listed below (`overleaf/doc_push.rs`,
+  `overleaf/sync/send.rs`).
+  An upload replaces the whole document, so a co-author's keystrokes landing
+  after the sync's last look are lost from it, and Overleaf shows everyone with
+  the file open "Document Updated Externally". The upload endpoint also decides
+  what a file becomes from its name alone, so uploading into a document whose
+  name it does not read as text (a `data.csv` made with New file in the
+  browser) turns it into a binary file, comments and tracked changes gone.
+- Each such document is joined, and its text must equal Overleaf's copy the
+  sync planned against (for a merge, the copy it merged with). The difference
+  from that copy goes up as operations at the version the join reported, one
+  per changed run of lines, so Overleaf transforms concurrent typing against
+  them instead of carrying it off to the end of one wide span. The update
+  carries `hash` unless what it inserts would not be stored as sent (see
+  surrogates above). The `applyOtUpdate` acknowledgement means only that
+  Overleaf queued the update: the document counts as sent once the bare
+  `{doc, v}` echo arrives, and an `otUpdateError`, a disconnect or no answer
+  fails the sync without recording it, so the next sync merges against
+  whatever Overleaf then holds.
+- A document Overleaf moved past the copy the sync planned against gets
+  nothing: operations worked out against the wrong text would undo the newer
+  work. It stays a local edit on that copy, so the next sync merges in only
+  what Overleaf did since and sends the result.
+- Uploads remain for new files, binary files, an edit inserting a carriage
+  return or a character outside the BMP into a document an upload keeps a
+  document, and everything when the live channel cannot be reached. An upload
+  goes only while the project's history version has not moved since the
+  snapshot; otherwise it stands down the same way.
 - A failure partway through a multi-file sync must not mark unconfirmed files or
   versions as synchronized.
 

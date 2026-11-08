@@ -44,6 +44,10 @@ msgstr "“{0}”里已有文件，且没关联 Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}”保持关联"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "“{destinationName}” already exists there. Choose another location"
+msgstr "那里已有“{destinationName}”，请换一个位置"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}”和磁盘上的 {file} 大小写不一致，Overleaf 和 arXiv 可能找不到它"
@@ -2814,6 +2818,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/papers/linked-library-sheet.tsx
 #: src/pdf/review-pdf-sheet.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/clone-repository-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
 #: src/project/local-templates.tsx
@@ -3137,6 +3142,10 @@ msgstr "核实日期"
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "正在检查 {completed} / {progressTotal}…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Checking out files…"
+msgstr "正在检出文件…"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "正在检查 {linkedHost}…"
@@ -3326,6 +3335,10 @@ msgstr "请用完整路径选择文献库的 .bib 文件"
 msgid "Choose to do, to check, or confirmed."
 msgstr "请选择未完成、待核实或已确认"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Choose where to clone the repository"
+msgstr "选择克隆仓库的位置"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "选择项目位置"
@@ -3359,6 +3372,7 @@ msgid "Choose your library's .bib file"
 msgstr "选择文献库的 .bib 文件"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
 msgstr "选择…"
 
@@ -3591,6 +3605,36 @@ msgstr "剪贴板"
 #: src/platform/host-errors-project.ts
 msgid "Clipboard images must be saved as PNG, JPEG, or WebP."
 msgstr "剪贴板图片只能保存为 PNG、JPEG 或 WebP"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone"
+msgstr "克隆"
+
+#: src/app/use-command-table.ts
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone a Git repository"
+msgstr "克隆 Git 仓库"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Clone progress"
+msgstr "克隆进度"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository"
+msgstr "克隆仓库"
+
+#: src/project/project-dialogs.tsx
+msgid "Clone repository…"
+msgstr "克隆仓库…"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Clone Repository…"
+msgstr "克隆仓库…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Cloning…"
+msgstr "正在克隆…"
 
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
@@ -3994,6 +4038,10 @@ msgstr "正在连接实时协作…"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Connecting to Overleaf's live channel…"
 msgstr "正在连接 Overleaf…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Connecting…"
+msgstr "正在连接…"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
@@ -4496,6 +4544,10 @@ msgstr "找不到 {citationCommand} 对应的文献"
 msgid "Couldn't find this one"
 msgstr "没找到这一条"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t find this repository, or your account can’t access it"
+msgstr "找不到这个仓库，或你的账号没有访问权限"
+
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "安装更新失败"
@@ -4515,6 +4567,10 @@ msgstr "表格打不开"
 #: src/app/use-overleaf-workspace.ts
 msgid "Couldn’t reach Overleaf"
 msgstr "连不上 Overleaf"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Couldn’t reach the server"
+msgstr "无法连接到服务器"
 
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
@@ -5174,6 +5230,7 @@ msgid "Downloading update…"
 msgstr "正在下载更新…"
 
 #: src/papers/bib-entry-detail.tsx
+#: src/project/clone-repository-dialog.tsx
 msgid "Downloading…"
 msgstr "正在下载…"
 
@@ -6360,9 +6417,22 @@ msgstr "Git（可选，用于项目状态 / 提交面板）"
 msgid "git bridge"
 msgstr "Git 同步"
 
+#. Search words for the Clone a Git repository command, space-separated
+#: src/app/use-command-table.ts
+msgid "git clone GitHub GitLab"
+msgstr "git clone 克隆 GitHub GitLab"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git couldn’t sign in to this repository"
+msgstr "Git 无法登录这个仓库"
+
 #: src/history/versions-timeline.tsx
 msgid "Git isn’t available on this Mac"
 msgstr "这台 Mac 上没有 Git"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
+msgstr "未安装 Git。请先安装 Xcode 命令行工具，再重试"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/settings/settings-dialog.tsx
@@ -8209,12 +8279,12 @@ msgid "Live preview engine"
 msgstr "实时预览引擎"
 
 #: src/live-preview/live-preview-settings.tsx
-msgid "Live preview needs a Mac with Apple silicon"
-msgstr "实时预览需要搭载 Apple 芯片的 Mac"
+msgid "Live preview needs a Mac"
+msgstr "实时预览需要在 Mac 上运行"
 
 #: src/platform/host-errors-workspace.ts
-msgid "Live preview needs a Mac with Apple silicon."
-msgstr "实时预览需要搭载 Apple 芯片的 Mac"
+msgid "Live preview needs a Mac."
+msgstr "实时预览需要在 Mac 上运行"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Live preview needs LuaLaTeX, and Lattice could not run it."
@@ -8351,6 +8421,10 @@ msgstr "正在加载…"
 #: src/papers/linked-library-sheet.tsx
 msgid "Locate the file…"
 msgstr "重新定位文件…"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Location"
+msgstr "位置"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Log"
@@ -10283,6 +10357,10 @@ msgid "Overleaf did not report that document in this project."
 msgstr "Overleaf 没有在这个项目中列出该文档"
 
 #: src/platform/host-errors-overleaf.ts
+msgid "Overleaf did not say whether the edit applied."
+msgstr "Overleaf 没有说明这次修改是否已生效"
+
+#: src/platform/host-errors-overleaf.ts
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf 断开了这次会话"
 
@@ -11988,6 +12066,10 @@ msgstr "回复 {author}"
 msgid "Reply…"
 msgstr "回复…"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "Repository URL"
+msgstr "仓库 URL"
+
 #: src/papers/audit-messages.ts
 msgid "Request queue busy"
 msgstr "排队太多"
@@ -12123,6 +12205,10 @@ msgstr "{0} 已解决"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved: {note}"
 msgstr "已解决：{note}"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "Resolving changes…"
+msgstr "正在解析变更…"
 
 #: src/papers/paper-import-progress.ts
 msgid "Resolving citation metadata…"
@@ -14164,6 +14250,10 @@ msgstr "这条历史记录已不存在"
 msgid "That is a folder."
 msgstr "这是一个文件夹"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "That isn’t a Git repository URL"
+msgstr "这不是 Git 仓库的 URL"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "That isn’t an Overleaf project link"
 msgstr "这不是 Overleaf 项目链接"
@@ -14391,6 +14481,10 @@ msgstr "剪贴板内容不是有效的图片"
 msgid "The clipboard image was empty."
 msgstr "剪贴板里的图片是空的"
 
+#: src/project/clone-repository-dialog.tsx
+msgid "The clone didn’t finish"
+msgstr "克隆未完成"
+
 #: src/app/use-command-table.ts
 msgid "the comment or suggestion by the caret"
 msgstr "光标处的评论或修订"
@@ -14511,6 +14605,10 @@ msgstr "第一处：{path}:{line}"
 #: src/platform/host-errors-workspace.ts
 msgid "The folder is not empty."
 msgstr "文件夹不是空的"
+
+#: src/project/clone-repository-dialog.tsx
+msgid "The folder to clone into doesn’t exist"
+msgstr "要克隆到的文件夹不存在"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."

@@ -8,8 +8,8 @@
 //! rules to keep honest.
 
 use super::api::{
-    csrf_token, download_project_zip, expect_success, folders_above, http_client,
-    latest_update_version, read_zip_entries, DownloadProgress, Remote,
+    csrf_token, download_project_zip, expect_success, http_client, latest_update_version,
+    read_zip_entries, DownloadProgress, Remote,
 };
 use super::case_collisions::{self, CaseCollision};
 use super::files::*;
@@ -105,9 +105,9 @@ pub(super) fn wipes_out(local: &[u8], remote: &[u8]) -> bool {
 pub(super) struct SyncPlan {
     /// Remote content to write locally (path → bytes).
     pub pull: Vec<(String, Vec<u8>)>,
-    /// Paths to upload from the local snapshot.
+    /// Paths to send from the local snapshot (see `send`).
     pub push: Vec<String>,
-    /// Cleanly merged content (path → merged bytes); also uploaded.
+    /// Cleanly merged content (path → merged bytes); also sent.
     pub merge: Vec<(String, Vec<u8>)>,
     pub conflict: Vec<ConflictPlan>,
     pub delete_local: Vec<String>,
@@ -455,11 +455,11 @@ pub(super) fn sync_stamp() -> String {
 ///
 /// Most successful paths now match the bytes on disk. A conflicted path is
 /// the exception: the disk copy has markers while its recorded common
-/// ancestor is Overleaf's snapshot. So is a file edited again while its upload
-/// was under way: the ancestor is what went up, which only `known` still
+/// ancestor is Overleaf's snapshot. So is a file edited again while it was
+/// being sent: the ancestor is what went up, which only `known` still
 /// holds. Live-held paths may match neither and deliberately keep their
 /// previous base. `known` is every other copy of a file this sync had in hand
-/// — Overleaf's, and what it uploaded.
+/// — Overleaf's, and what it sent.
 pub(super) fn finalize_base_copies(
     root: &Path, previous_files: &BTreeMap<String, String>, next_files: &BTreeMap<String, String>,
     known: &[&BTreeMap<String, Vec<u8>>],
@@ -815,7 +815,7 @@ fn sync_files(
     // Never publish conflict markers: a marked-up file stays unsent, on the
     // base its markers show, until resolved.
     let marked = |path: &String| upload_bytes(path).is_some_and(|b| has_conflict_markers(b));
-    let (mut to_push, held_back): (Vec<String>, Vec<String>) = if writable {
+    let (to_push, held_back): (Vec<String>, Vec<String>) = if writable {
         to_push.into_iter().partition(|path| !marked(path))
     } else {
         (Vec::new(), to_push)
@@ -827,50 +827,40 @@ fn sync_files(
         };
     }
 
-    // Overleaf may have moved on between the copy we planned against and now —
-    // someone typing in the web editor while we worked. Uploading then replaces
-    // whatever they just wrote (and is what makes Overleaf warn them their
-    // recent changes may have been overwritten). Stand down instead: dropping
-    // these paths from state marks them as local edits again, so the next sync
-    // merges their work first and sends the combined result.
-    if !to_push.is_empty()
-        && remote_version_before.is_some()
-        && linked.version(&client) != remote_version_before
-    {
-        wide_event::record("stood_down", to_push.len());
-        for path in to_push.drain(..) {
-            new_files.remove(&path);
-        }
+    let files = (to_push.iter())
+        .map(|path| {
+            let bytes = upload_bytes(path).ok_or_else(|| format!("{path} disappeared during sync"));
+            Ok((path.clone(), bytes?.clone()))
+        })
+        .collect::<Result<_, String>>()?;
+    let send::Sent { sent, stood_down } =
+        send::send(&linked, &client, csrf.as_deref(), &remote, files, remote_version_before)?;
+    // Each stays a local edit on the copy it was planned against (a merge's,
+    // the copy it merged with), so the next sync merges in only what Overleaf
+    // did since. A new file has no such copy.
+    for path in &stood_down {
+        match remote.get(path) {
+            Some(bytes) => new_files.insert(path.clone(), sha256_hex(bytes)),
+            None => new_files.remove(path),
+        };
     }
+    let pushed: Vec<String> = sent.keys().cloned().collect();
     let mut own_writes = linked.state.own_writes.clone();
-    let mut sent: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-    if !to_push.is_empty() {
-        let csrf = csrf.as_deref().ok_or("Overleaf's upload token was not fetched.")?;
-        for path in &to_push {
-            let bytes =
-                upload_bytes(path).ok_or_else(|| format!("{path} disappeared during sync"))?;
-            sent.insert(path.clone(), bytes.clone());
-        }
-        // Overleaf has every folder that holds a file of its copy.
-        let folders = (remote.keys()).flat_map(|path| folders_above(path)).map(str::to_string);
-        wide_event::record("upload_bytes", sent.values().map(Vec::len).sum::<usize>());
-        let step = wide_event::step("upload");
-        linked.uploader(&client, csrf)?.upload_all(&sent, &folders.collect())?;
-        drop(step);
+    if !pushed.is_empty() {
         let written = linked
             .version(&client)
             .map(HistoryFrom::Version)
             .unwrap_or_else(|| HistoryFrom::Time(chrono::Utc::now().timestamp_millis()));
-        own_writes.extend(to_push.iter().map(|path| (path.clone(), written)));
+        own_writes.extend(pushed.iter().map(|path| (path.clone(), written)));
         // What went up is the agreed copy even if the file changed again
         // meanwhile; that newer edit goes up next time.
-        for path in &to_push {
+        for path in &pushed {
             if since_read(root, path, sent.get(path)) == SinceRead::Edited {
                 result.edited_during_sync.push(path.clone());
             }
         }
     }
-    result.pushed = to_push;
+    result.pushed = pushed;
     result.read_only = !writable;
     result.edited_during_sync.sort();
     result.edited_during_sync.dedup();
@@ -901,10 +891,10 @@ fn sync_files(
     // the end: that newer value may include a collaborator's edit which is not
     // in the zip we materialized as the new base.
     //
-    // Uploads advance history themselves, but Overleaf does not return the
-    // resulting project version. Leave it unknown so the next probe performs
-    // one verification sync instead of attributing an unverified latest
-    // version to our upload.
+    // Uploads and live operations advance history themselves, but Overleaf
+    // does not return the resulting project version. Leave it unknown so the
+    // next probe performs one verification sync instead of attributing an
+    // unverified latest version to what we sent.
     state.remote_version = if result.pushed.is_empty() { remote_version_before } else { None };
     state.agreed_version = remote_version_before;
     save_state(root, &state)?;
@@ -953,6 +943,7 @@ mod outcome;
 mod prefetch;
 mod preview;
 mod relocations;
+mod send;
 use outcome::{newly_held, record_result};
 pub use outcome::{OverleafConflict, OverleafSyncResult};
 pub use prefetch::{prefetch, Prefetched};

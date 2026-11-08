@@ -2,119 +2,18 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { runWorkflow, type Value, type Workflow } from "./lib/workflow-conditions";
 
 // The Linux AppImage may only ever add to a release the Mac workflow already
-// published (docs/release-process.md, "linux-appimage.yml"). No pull request
-// can run the tag-time path, so these run the workflow's own conditions
-// against the events GitHub sends it and check which jobs and steps would run.
+// published (docs/release-process.md, "linux-appimage.yml").
 const repo = path.resolve(__dirname, "..");
 const read = (file: string) => readFileSync(path.join(repo, file), "utf8");
-type Step = { name?: string; uses?: string; run?: string; if?: string; env?: Record<string, string> };
-type Job = { needs?: string | string[]; if?: string; permissions?: Record<string, string>; env?: Record<string, string>; steps?: Step[] };
-type Workflow = { name: string; on: Record<string, { workflows?: string[]; types?: string[] } | null>; permissions?: Record<string, string>; env?: Record<string, string>; jobs: Record<string, Job> };
 const linux = parse(read(".github/workflows/linux-appimage.yml")) as Workflow;
 const release = parse(read(".github/workflows/release.yml")) as Workflow;
 
-type Value = string | number | boolean | null | { [key: string]: Value };
-
-/**
- * GitHub Actions expressions, as far as these workflows use them: property
- * paths, single-quoted strings, `!`, `==`, `!=`, `&&`, `||`, parentheses and
- * `startsWith`. As GitHub documents it, `&&` and `||` yield an operand, a
- * missing property is null, and strings compare ignoring case.
- */
-function evaluate(source: string, context: Record<string, Value>): Value {
-  const tokens = source.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, "$1")
-    .match(/'(?:[^']|'')*'|&&|\|\||==|!=|[()!,]|[\w.-]+/g) ?? [];
-  let at = 0;
-  const peek = () => tokens[at];
-  const take = (expected?: string) => {
-    const token = tokens[at++];
-    if (expected !== undefined && token !== expected) throw new Error(`expected ${expected} in ${source}, found ${token}`);
-    return token;
-  };
-  const truthy = (value: Value) => value !== null && value !== false && value !== 0 && value !== "";
-  const fold = (value: Value) => (typeof value === "string" ? value.toLowerCase() : value);
-  const primary = (): Value => {
-    const token = take();
-    if (token === "(") {
-      const value = or();
-      take(")");
-      return value;
-    }
-    if (token === "!") return !truthy(primary());
-    if (token.startsWith("'")) return token.slice(1, -1).replaceAll("''", "'");
-    if (token === "true" || token === "false") return token === "true";
-    if (token === "null") return null;
-    if (token === "startsWith") {
-      take("(");
-      const text = or();
-      take(",");
-      const prefix = or();
-      take(")");
-      return String(fold(text)).startsWith(String(fold(prefix)));
-    }
-    return token.split(".").reduce<Value>((value, key) => (value !== null && typeof value === "object" ? value[key] ?? null : null), context);
-  };
-  const equality = (): Value => {
-    let left = primary();
-    while (peek() === "==" || peek() === "!=") {
-      const negate = take() === "!=";
-      left = (fold(left) === fold(primary())) !== negate;
-    }
-    return left;
-  };
-  const and = (): Value => {
-    let left = equality();
-    while (peek() === "&&") {
-      take();
-      const right = equality();
-      left = truthy(left) ? right : left;
-    }
-    return left;
-  };
-  const or = (): Value => {
-    let left = and();
-    while (peek() === "||") {
-      take();
-      const right = and();
-      left = truthy(left) ? left : right;
-    }
-    return left;
-  };
-  const value = or();
-  if (at !== tokens.length) throw new Error(`could not read ${source} past ${tokens[at]}`);
-  return value;
-}
-
-/** An `env` value: an expression interpolated into a string, as GitHub writes one. */
-const interpolate = (value: string, context: Record<string, Value>) =>
-  value.includes("${{") ? String(evaluate(value, context)) : value;
-
 const SECRETS = { LATTICE_FIRECRAWL_KEY: "firecrawl-secret", VITE_TLDRAW_LICENSE_KEY: "tldraw-secret", LATTICE_FONTS_DEPLOY_KEY: "fonts-secret" };
 
-/**
- * The jobs and steps that run for one event. A job runs when every job it
- * needs ran and its `if` holds, GitHub's default for a job without a status
- * function.
- */
-function runFor(github: Record<string, Value>) {
-  const base = { github, secrets: SECRETS };
-  const env = Object.fromEntries(Object.entries(linux.env ?? {}).map(([key, value]) => [key, interpolate(value, base)]));
-  const context = { ...base, env };
-  const ran = new Set<string>();
-  for (const [name, job] of Object.entries(linux.jobs)) {
-    const needs = [job.needs ?? []].flat();
-    if (needs.every((need) => ran.has(need)) && (job.if === undefined || evaluate(job.if, context))) ran.add(name);
-  }
-  const step = (job: string, name: string) => {
-    const found = linux.jobs[job].steps?.find((candidate) => candidate.name === name);
-    if (!found) throw new Error(`${job} has no step named ${name}`);
-    const runs = ran.has(job) && (found.if === undefined || Boolean(evaluate(found.if, context)));
-    return { runs, env: Object.fromEntries(Object.entries(found.env ?? {}).map(([key, value]) => [key, interpolate(value, context)])) };
-  };
-  return { jobs: [...ran], env, step };
-}
+const runFor = (github: Record<string, Value>) => runWorkflow(linux, github, SECRETS);
 
 /** The `github` context of a completed Release run for a tag push, with `workflowRun` changed. */
 const releaseRun = (workflowRun: Record<string, Value>) => ({

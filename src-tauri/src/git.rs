@@ -14,6 +14,7 @@ use std::process::{Command, Output};
 use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+pub mod clone;
 mod compare;
 mod parse;
 
