@@ -214,11 +214,8 @@ pub(super) fn plan_sync(
                     plan.files.insert(path.clone(), local_hash);
                     continue;
                 }
-                // Still marked up from an earlier conflict, and Overleaf moved
-                // on again (a co-author still typing). The markers' "theirs"
-                // is the recorded base; keep it, and the file, until the
-                // writer resolves it. Merging now would wrap these markers in
-                // a second set and overwrite the untouched local copy.
+                // Still marked up from an earlier conflict: merging again would
+                // nest markers. Hold it at its markers' base until resolved.
                 if local_changed && has_conflict_markers(lb) {
                     if let Some(base) = base_hash {
                         plan.files.insert(path.clone(), base.clone());
@@ -730,6 +727,7 @@ fn sync_files(
         skipped_large: oversized,
         automatic_remote_deletes,
         skipped_remote_deletes: plan.skipped_remote_deletes,
+        newly_unresolved_conflicts: newly_held(&linked.state, &plan.unresolved_conflicts),
         unresolved_conflicts: plan.unresolved_conflicts,
         case_collisions,
         downloaded_under_lease,
@@ -897,6 +895,7 @@ fn sync_files(
     own_writes.retain(|path, _| state.files.contains_key(path));
     state.own_writes = own_writes;
     state.refused = refused;
+    state.unresolved_conflicts = result.unresolved_conflicts.clone();
     state.last_sync = Some(now_iso());
     // `remote_version_before` is the only history position known to precede
     // the downloaded snapshot. Never replace it with a newer value fetched at
@@ -955,7 +954,7 @@ mod outcome;
 mod prefetch;
 mod preview;
 mod relocations;
-use outcome::record_result;
+use outcome::{newly_held, record_result};
 pub use outcome::{OverleafConflict, OverleafSyncResult};
 pub use prefetch::{prefetch, Prefetched};
 pub use preview::{preview, OverleafPreview};

@@ -15,7 +15,7 @@ use std::path::Path;
 pub struct OverleafChange {
     pub path: String,
     /// "incoming" | "outgoing" | "merge" | "conflict" | "deleteLocal" | "skippedRemoteDelete"
-    /// | "refusedIncoming"
+    /// | "refusedIncoming" | "unresolvedConflict"
     pub kind: String,
     /// The file as it stands locally right now; None when absent locally.
     pub before: Option<String>,
@@ -81,6 +81,10 @@ pub fn preview(
     let mut changes: Vec<OverleafChange> = (plan.conflict.iter())
         .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved)))
         .collect();
+    // Still marked up from an earlier conflict: nothing moves until resolved.
+    for path in &plan.unresolved_conflicts {
+        changes.push(preview_change(path, "unresolvedConflict", None, None));
+    }
     for path in refused.keys() {
         let after = remote.get(path).map(Vec::as_slice);
         changes.push(preview_change(path, "refusedIncoming", local_bytes(path), after));
@@ -107,7 +111,15 @@ pub fn preview(
     for path in &plan.skipped_remote_deletes {
         changes.push(preview_change(path, "skippedRemoteDelete", None, None));
     }
-    let rank = ["conflict", "refusedIncoming", "incoming", "merge", "outgoing", "deleteLocal"];
+    let rank = [
+        "conflict",
+        "unresolvedConflict",
+        "refusedIncoming",
+        "incoming",
+        "merge",
+        "outgoing",
+        "deleteLocal",
+    ];
     let rank = |kind: &str| rank.iter().position(|k| *k == kind).unwrap_or(rank.len());
     changes.sort_by(|a, b| rank(&a.kind).cmp(&rank(&b.kind)).then_with(|| a.path.cmp(&b.path)));
 

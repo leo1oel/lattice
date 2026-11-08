@@ -39,6 +39,7 @@ import { LoadingAnnouncement } from "../components/ui/loading-status";
  */
 const GROUPS: { kind: OverleafChangeKind; Icon: typeof Trash2; title: MessageDescriptor; blurb?: MessageDescriptor }[] = [
   { kind: "conflict", Icon: TriangleAlert, title: msg`Edited on both sides` },
+  { kind: "unresolvedConflict", Icon: TriangleAlert, title: msg`Waiting on conflict resolution` },
   { kind: "refusedIncoming", Icon: ShieldAlert, title: msg`Kept here`, blurb: msg`Overleaf sent these empty or much smaller, but its history does not confirm the change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again` },
   { kind: "incoming", Icon: ArrowDownToLine, title: msg`Coming from Overleaf` },
   { kind: "merge", Icon: GitMerge, title: msg`Combines automatically` },

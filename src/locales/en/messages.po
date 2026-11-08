@@ -551,6 +551,10 @@ msgstr "{failing} checks need attention"
 msgid "{failures} to fix"
 msgstr "{failures} to fix"
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "{file} still has conflict markers. Resolve them to bring in Overleaf's newer edits."
+msgstr "{file} still has conflict markers. Resolve them to bring in Overleaf's newer edits."
+
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} file"
@@ -10436,17 +10440,21 @@ msgstr "Overleaf turned this request away, though the session is still valid."
 msgid "Overleaf write access is required to sync moved files. Local moves have been kept."
 msgstr "Overleaf write access is required to sync moved files. Local moves have been kept."
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: already up to date."
 msgstr "Overleaf: already up to date."
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}, merged {merged}."
 msgstr "Overleaf: pulled {pulled}, pushed {pushed}, merged {merged}."
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
+
+#: src/app/overleaf-sync-summary.ts
+msgid "Overleaf: waiting on conflict resolution in {files}."
+msgstr "Overleaf: waiting on conflict resolution in {files}."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's full history needs a paid plan on this project."
@@ -12070,6 +12078,7 @@ msgstr "Resize reference list and details"
 msgid "Resize right panel"
 msgstr "Resize right panel"
 
+#: src/app/overleaf-sync-warnings.ts
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
@@ -16284,6 +16293,10 @@ msgstr "Waiting for Overleaf's live file tree before syncing moved files."
 #: src/overleaf/overleaf-connect-parts.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "Waiting for you to sign in in the Overleaf window…"
+
+#: src/overleaf/overleaf-review.tsx
+msgid "Waiting on conflict resolution"
+msgstr "Waiting on conflict resolution"
 
 #: src/telemetry/app-log.tsx
 msgid "WARN"

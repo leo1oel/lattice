@@ -1,11 +1,17 @@
 import { t } from "@lingui/core/macro";
 import type { OverleafSyncResult } from "../app-types";
+import type { AppToastAction } from "../telemetry/app-log-store";
+
+export type OverleafSyncWarning = { message: string; action?: AppToastAction };
 
 /**
  * What a finished sync left undone that would otherwise look synced: one
  * warning each, so the absence is not first discovered from the other side.
+ * `resolve` opens the conflict resolver on a file.
  */
-export function overleafSyncWarnings(result: OverleafSyncResult): string[] {
+export function overleafSyncWarnings(
+  result: OverleafSyncResult, resolve: (path: string) => void,
+): OverleafSyncWarning[] {
   const warnings: string[] = [];
   if (result.skippedLarge?.length) {
     const files = result.skippedLarge.join(", ");
@@ -24,5 +30,11 @@ export function overleafSyncWarnings(result: OverleafSyncResult): string[] {
     const pairs = result.caseCollisions.map(({ kept, skipped }) => `${kept} / ${skipped}`).join(", ");
     warnings.push(t`Overleaf has names that differ only in capitalization, which this Mac treats as the same name: ${pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both.`);
   }
-  return warnings;
+  // Held back while Overleaf moves on, named once when the hold starts: the
+  // backend leaves out files the previous sync was holding already.
+  const held = (result.newlyUnresolvedConflicts ?? []).map((file) => ({
+    message: t`${file} still has conflict markers. Resolve them to bring in Overleaf's newer edits.`,
+    action: { label: t`Resolve`, onClick: () => resolve(file) },
+  }));
+  return [...warnings.map((message) => ({ message })), ...held];
 }

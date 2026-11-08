@@ -101,6 +101,11 @@ pub(super) struct SyncState {
     /// without Overleaf's history confirming the change.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub refused: BTreeMap<String, Refusal>,
+    /// Files the last sync held back still marked up from an earlier
+    /// conflict (see `OverleafSyncResult::unresolved_conflicts`), so each is
+    /// reported once when it starts being held, not on every later sync.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unresolved_conflicts: Vec<String>,
     /// Paths Lattice itself last wrote to Overleaf (an upload, a realtime
     /// checkpoint, a replayed move), with where in history that write ends.
     /// Overleaf's history records those writes like anyone's, but they can

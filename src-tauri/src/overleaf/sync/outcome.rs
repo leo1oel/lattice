@@ -1,7 +1,7 @@
 //! What a sync reports: the files it moved, merged or left alone, and its
 //! shape (counts, never paths) on the wide event.
 
-use super::CaseCollision;
+use super::{CaseCollision, SyncState};
 use crate::wide_event;
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +62,10 @@ pub struct OverleafSyncResult {
     /// resolved, the next sync merges in what Overleaf did since.
     #[serde(default)]
     pub unresolved_conflicts: Vec<String>,
+    /// The `unresolved_conflicts` the previous sync did not hold already:
+    /// each is news once, not on every sync while it stays marked up.
+    #[serde(default)]
+    pub newly_unresolved_conflicts: Vec<String>,
     /// Overleaf paths that differ only in case from another, left out of the
     /// sync on both sides (see `case_collisions`); named on every sync until
     /// one is renamed.
@@ -71,6 +75,12 @@ pub struct OverleafSyncResult {
     /// app counts towards the gap between downloads once the sync is done.
     #[serde(skip)]
     pub downloaded_under_lease: bool,
+}
+
+/// Of the files this sync holds marked up, those `state` (the last sync's)
+/// did not hold already.
+pub(super) fn newly_held(state: &SyncState, held: &[String]) -> Vec<String> {
+    held.iter().filter(|path| !state.unresolved_conflicts.contains(path)).cloned().collect()
 }
 
 /// The sync's shape on its wide event: counts, never paths.

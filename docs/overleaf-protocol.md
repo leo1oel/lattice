@@ -336,7 +336,9 @@ purpose.
 - A file still carrying conflict markers is never merged again while
   Overleaf moves on: it keeps its recorded base and is reported as
   `unresolvedConflicts` until resolved, when the next sync merges in what
-  Overleaf did since. Merging it would nest markers inside markers.
+  Overleaf did since. Merging it would nest markers inside markers. Each is
+  warned about once, when the hold starts (`newlyUnresolvedConflicts`), and
+  no sync calls the project up to date while one is held.
 - A sync never writes over or deletes a file that changed on disk since it read
   it. Editor saves wait out a sync behind the project lease, but agents and
   other programs do not; their edit is left as it is, keeps the previous agreed

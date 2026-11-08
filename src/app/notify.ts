@@ -2,6 +2,7 @@ import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
 import { toMessage } from "../app-utils";
 import { notifyError, notifySuccess, notifyWarning } from "../telemetry/app-notify";
+import type { AppToastAction } from "../telemetry/app-log-store";
 
 /*
  * Ordinary toasts, so every message has one appearance and one log line. The
@@ -13,8 +14,8 @@ import { notifyError, notifySuccess, notifyWarning } from "../telemetry/app-noti
 export function showError(message: string, source?: string) {
   if (message) notifyError(source ?? i18n._(msg`App`), message);
 }
-export function showWarning(message: string, source?: string) {
-  if (message) notifyWarning(source ?? i18n._(msg`App`), message);
+export function showWarning(message: string, source?: string, primaryAction?: AppToastAction) {
+  if (message) notifyWarning(source ?? i18n._(msg`App`), message, { primaryAction });
 }
 export function showNotice(message: string, source?: string) {
   if (message) notifySuccess(source ?? i18n._(msg`App`), message);

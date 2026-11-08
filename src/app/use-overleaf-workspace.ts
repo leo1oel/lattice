@@ -39,6 +39,7 @@ import type {
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
 import { overleafSyncWarnings } from "./overleaf-sync-warnings";
+import { overleafSyncSummary } from "./overleaf-sync-summary";
 import { unsettledPaths } from "./overleaf-sync-unsettled";
 
 type OverleafSyncOptions = {
@@ -376,7 +377,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         await settleRemoteDeletes(result.skippedRemoteDeletes, syncRoot, syncGeneration);
         if (!stillCurrent()) return;
       }
-      for (const warning of overleafSyncWarnings(result)) showWarning(warning, "Overleaf");
+      const resolve = (path: string) => { if (stillCurrent()) setConflictPath(path); };
+      for (const { message, action } of overleafSyncWarnings(result, resolve)) showWarning(message, "Overleaf", action);
       // Merged and conflicted files were rewritten on disk like pulled ones;
       // the editor must reload them or it would save over the incoming edits.
       const changedOnDisk = new Set([
@@ -452,19 +454,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ...externalChangesRef.current.keys(), ...(reloadBlockedPath ? [reloadBlockedPath] : []), ...unsettledPaths(result),
       ]) reconciled.delete(path);
       if (!result.readOnly) resumeRealtimePathsRef.current([...reconciled]);
-      if (result.pulled.length || result.pushed.length || result.merged.length) {
-        const pulled = result.pulled.length;
-        const pushed = result.pushed.length;
-        const merged = result.merged.length;
-        trace.ok(merged
-          ? t`Overleaf: pulled ${pulled}, pushed ${pushed}, merged ${merged}.`
-          : t`Overleaf: pulled ${pulled}, pushed ${pushed}.`);
-      } else if (!options?.auto) {
-        trace.ok(t`Overleaf: already up to date.`);
-      } else {
-        // A quiet background no-op still logs, so a gap in sync history is explained.
-        trace.finish("success", t`Overleaf: already up to date.`);
-      }
+      // A quiet background no-op still logs, so a gap in sync history is explained.
+      if (!options?.auto || result.pulled.length || result.pushed.length || result.merged.length) {
+        trace.ok(overleafSyncSummary(result));
+      } else trace.finish("success", overleafSyncSummary(result));
       // Only a real content change becomes a version: committing a no-op woke
       // the filesystem watcher and reloaded unrelated previews.
       if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
