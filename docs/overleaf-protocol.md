@@ -249,11 +249,13 @@ purpose.
   creating, deleting and saving files do not wait out the download
   (`prefetch` in `src-tauri/src/overleaf/sync/prefetch.rs`). Under the lease
   the download is used only if the sync state still agrees with the one it
-  was taken against, apart from live documents and files only whose agreed
-  hash moved on, which the sync leaves alone for the next one
-  (`Prefetched::fits`). When nothing read ahead fits, the sync lets go of the
-  lease and reads ahead again; after `READ_AHEAD_ROUNDS` such reads it
-  downloads under the lease instead, so a sync always finishes. Every ZIP
+  was taken against, apart from live documents, files only whose agreed
+  hash moved on, and documents the read ahead kept on their agreed copy
+  because the editor had them live but that no longer are, which the sync
+  leaves alone for the next one (`Prefetched::fits`). When nothing read ahead
+  fits, the sync lets go of the lease and reads ahead again; after
+  `READ_AHEAD_ROUNDS` such reads it downloads under the lease instead, so a
+  sync always finishes. Every ZIP
   download a sync makes, ahead of the lease or under it, first waits out the
   account-wide gap since the previous one (`DownloadGate`, passed by
   `wait_for_download_gap` in `src-tauri/src/ipc/overleaf.rs`). Nothing else

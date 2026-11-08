@@ -73,7 +73,8 @@ impl Prefetched {
 /// move must be replayed first.
 ///
 /// `live` is the editor's view of the live documents; the sync recomputes it
-/// under the lease, so a stale one costs at most a redundant download.
+/// under the lease, so a stale one costs at most a redundant download, or a
+/// document left for the next sync.
 /// `gate` is passed only on the way to the project download.
 pub fn prefetch(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
