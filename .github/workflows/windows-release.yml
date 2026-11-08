@@ -1,0 +1,30 @@
+name: Publish Windows installer
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Windows build run containing the installer
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Lattice-Windows-x64
+          path: installer
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run }}
+      - name: Verify and upload the tested installer to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mv installer/Lattice_0.15.8_x64-setup.exe Lattice-Windows-0.15.8-r2-setup.exe
+          echo 'd403a9b7e126cd052a67d129652e69edc96298e41aa3395af921afa5be91a870  Lattice-Windows-0.15.8-r2-setup.exe' > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          gh release upload windows-v0.15.8-r2 Lattice-Windows-0.15.8-r2-setup.exe SHA256SUMS.txt --clobber
