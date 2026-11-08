@@ -49,6 +49,7 @@ mod macos_window;
 mod macos_window;
 mod models;
 mod native_locale;
+mod open_slide_presenter;
 mod openalex;
 mod overleaf;
 mod overleaf_rt;
@@ -117,25 +118,6 @@ fn browser_host_launch() -> bool {
     std::env::args_os().any(|argument| argument == BROWSER_HOST_ARG)
 }
 
-// Presenter and projection synchronize through BroadcastChannel, so this must
-// remain a Wry child window sharing its opener's WebView configuration. An
-// external browser can load the notes but cannot stay linked to the slideshow.
-fn is_open_slide_presenter_url(url: &tauri::Url) -> bool {
-    let query =
-        |name: &str| url.query_pairs().find_map(|(key, value)| (key == name).then_some(value));
-    let presenter_path = |next: &str| {
-        next.strip_prefix("/s/")
-            .and_then(|path| path.strip_suffix("/presenter"))
-            .is_some_and(|deck_id| !deck_id.is_empty() && !deck_id.contains('/'))
-    };
-    url.scheme() == "http"
-        && url.host_str() == Some("127.0.0.1")
-        && url.port().is_some()
-        && url.path() == "/__lattice/bootstrap"
-        && query("token").is_some_and(|token| !token.is_empty())
-        && query("next").is_some_and(|next| presenter_path(&next))
-}
-
 /// The traffic lights sit over the web content, which draws its own title bar.
 fn overlay_title_bar<'a, R: Runtime, M: Manager<R>>(
     builder: WebviewWindowBuilder<'a, R, M>,
@@ -164,7 +146,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
         .min_inner_size(640.0, 680.0)
         .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF))
         .on_new_window(|url, _| {
-            if is_open_slide_presenter_url(&url) {
+            if open_slide_presenter::is_presenter_url(&url) {
                 tauri::webview::NewWindowResponse::Allow
             } else {
                 tauri::webview::NewWindowResponse::Deny
@@ -640,13 +622,13 @@ pub fn run() {
             ipc::overleaf::overleaf_accept_changes,
             ipc::overleaf::overleaf_change_authors,
             ipc::overleaf::overleaf_delete_entity,
-            ipc::overleaf::overleaf_threads,
-            ipc::overleaf::overleaf_comment_anchors,
-            ipc::overleaf::overleaf_edit_message,
-            ipc::overleaf::overleaf_delete_message,
-            ipc::overleaf::overleaf_reply_to_thread,
-            ipc::overleaf::overleaf_resolve_thread,
-            ipc::overleaf::overleaf_delete_thread,
+            ipc::overleaf_comments::overleaf_threads,
+            ipc::overleaf_comments::overleaf_comment_anchors,
+            ipc::overleaf_comments::overleaf_edit_message,
+            ipc::overleaf_comments::overleaf_delete_message,
+            ipc::overleaf_comments::overleaf_reply_to_thread,
+            ipc::overleaf_comments::overleaf_resolve_thread,
+            ipc::overleaf_comments::overleaf_delete_thread,
             ipc::overleaf::overleaf_preview,
             ipc::overleaf::overleaf_set_paused,
             ipc::overleaf::overleaf_probe,
@@ -709,9 +691,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        is_open_slide_presenter_url, is_workspace_window, keeps_running_without_windows, log_level,
-    };
+    use super::{is_workspace_window, keeps_running_without_windows, log_level};
 
     #[test]
     fn closing_the_last_window_leaves_lattice_running_on_a_mac() {
@@ -739,22 +719,5 @@ mod tests {
             if cfg!(debug_assertions) { log::LevelFilter::Debug } else { log::LevelFilter::Info };
         assert_eq!(log_level(Some("verbose")), default);
         assert_eq!(log_level(None), default);
-    }
-
-    #[test]
-    fn only_authenticated_loopback_presenter_pages_can_open_popup_windows() {
-        let allowed: tauri::Url = "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk%2Fpresenter"
-            .parse()
-            .unwrap();
-        assert!(is_open_slide_presenter_url(&allowed));
-
-        for rejected in [
-            "https://example.com/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk%2Fpresenter",
-            "http://127.0.0.1:43123/__lattice/bootstrap?next=%2Fs%2Ftalk%2Fpresenter",
-            "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk",
-            "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fsettings",
-        ] {
-            assert!(!is_open_slide_presenter_url(&rejected.parse().unwrap()), "{rejected}");
-        }
     }
 }
