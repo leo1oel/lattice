@@ -104,7 +104,9 @@ function writeBack(field: StateField<Placed>, live: () => LatexEditorLiveData) {
       if (moves.size) save(moves);
     }
     destroy() {
-      if (this.timer) clearTimeout(this.timer);
+      if (!this.timer) return;
+      clearTimeout(this.timer);
+      this.flush();
     }
   });
 }
