@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   checkAppSizeBudgets,
   checkInstalledAppBudget,
+  installedAppBudgetBytes,
   createAppSizeReport,
   createInstalledAppReport,
   formatInstalledAppReport,
@@ -135,7 +136,12 @@ for (const [overrides, error] of [
   [{ synaraNodeRuntime: null, bundledNodeBytes: null }, null],
   [{ presentationRuntimeBytes: 66 * MiB + 1 }, /Presentation runtime.*budget/],
 ]) {
-  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides }, { platform: "darwin" });
+  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides }, { platform: "darwin", arch: "arm64" });
+  await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
+}
+// The Intel Mac stages larger x86_64 builds of the same runtime, under a budget of its own.
+for (const [presentationRuntimeBytes, error] of [[68 * MiB, null], [68 * MiB + 1, /Presentation runtime is \d+ bytes; budget is 71303168$/]]) {
+  const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], presentationRuntimeBytes }, { platform: "darwin", arch: "x64" });
   await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
 }
 // Linux stages larger ELF builds of the same runtime, under a budget of its own.
@@ -170,5 +176,7 @@ assert.deepEqual(
 assert.match(formatInstalledAppReport(installed, 1), /Total/);
 assert.doesNotThrow(() => checkInstalledAppBudget(installed, installed.allocatedBytes));
 assert.throws(() => checkInstalledAppBudget(installed, installed.allocatedBytes - 1), /installed app is .* budget is/);
+// The first Intel app (macos-intel.yml) built at 335.8 MiB on disk; its budget must admit it.
+assert.ok(installedAppBudgetBytes("x64") >= 335.8 * MiB);
 
 console.log("app-size-report self-test passed");

@@ -8206,12 +8206,12 @@ msgid "Live preview engine"
 msgstr "实时预览引擎"
 
 #: src/live-preview/live-preview-settings.tsx
-msgid "Live preview needs a Mac with Apple silicon"
-msgstr "实时预览需要搭载 Apple 芯片的 Mac"
+msgid "Live preview needs a Mac"
+msgstr "实时预览需要在 Mac 上运行"
 
 #: src/platform/host-errors-workspace.ts
-msgid "Live preview needs a Mac with Apple silicon."
-msgstr "实时预览需要搭载 Apple 芯片的 Mac"
+msgid "Live preview needs a Mac."
+msgstr "实时预览需要在 Mac 上运行"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Live preview needs LuaLaTeX, and Lattice could not run it."

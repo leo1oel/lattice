@@ -154,7 +154,7 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
 
   // Live preview (ipc/live_preview.rs, live_preview/)
   ["ipc/live_preview.rs", "The live preview has stopped.", () => t`The live preview has stopped.`],
-  ["live_preview/install.rs", "Live preview needs a Mac with Apple silicon.", () => t`Live preview needs a Mac with Apple silicon.`],
+  ["live_preview/install.rs", "Live preview needs a Mac.", () => t`Live preview needs a Mac.`],
   ["live_preview/install.rs", "Live preview needs LuaLaTeX, and Lattice could not run it.", () => t`Live preview needs LuaLaTeX, and Lattice could not run it.`],
   ["live_preview/install.rs", "Could not install rtex: {error}", ([error]) => t`Could not install rtex: ${error}`],
   ["live_preview/install.rs", "Could not remove rtex: {error}", ([error]) => t`Could not remove rtex: ${error}`],
