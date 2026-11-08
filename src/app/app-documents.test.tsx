@@ -175,11 +175,12 @@ describe("documents and editors", () => {
 
   it("offers the file picker from empty Comments once the last writing tab is closed", async () => {
     // Regression: closing the last tab keeps the file's buffer active, so the
-    // empty state still offered “Return to main.tex” and the click went nowhere.
+    // empty state took main.tex for the file being written and offered no picker.
     renderApp(refreshableProject());
     await waitForSelectedTab("main.tex");
     fireEvent.click(await screen.findByTitle("Annotations"));
-    expect(await screen.findByRole("button", { name: "Return to main.tex" })).toBeInTheDocument();
+    expect(await screen.findByText("No annotations yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open a file" })).toBeNull();
 
     const close = screen.getByRole("tab", { name: "main.tex" }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
     fireEvent.pointerDown(close, { button: 0 });
@@ -188,7 +189,6 @@ describe("documents and editors", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Open a file" }));
     expect(await screen.findByPlaceholderText("Open file…")).toHaveFocus();
-    expect(screen.queryByRole("button", { name: "Return to main.tex" })).toBeNull();
   });
 
   it("reopens a file from the tree after its last tab closed", async () => {

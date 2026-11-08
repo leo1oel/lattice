@@ -150,30 +150,19 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
       },
     );
   };
-  // Where the writer was writing: the active file, still active while a Paper
-  // or PDF covers it. A Board, Sheet or Deck has no text to comment on.
-  // Closing the last tab keeps the file's buffer (and so `activeFile`) but
-  // removes its panel, so only a file still in the tabs is somewhere to return
-  // to; without one the action becomes the file picker.
+  // A file still in the tabs is somewhere to annotate. Closing the last tab
+  // keeps the file's buffer (and so `activeFile`) but removes its panel, so
+  // without one the empty panel offers the file picker. A Board, Sheet or Deck
+  // has no text to annotate either.
   const writingFile = props.activeFile && props.openTabs.includes(props.activeFile)
     && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
-  const returnToEditor = async () => {
-    if (!writingFile) {
-      trellis?.bridge?.quickOpen();
-      return;
-    }
-    // A Paper or PDF in front gives way to the file, at its remembered caret and scroll.
-    if (trellis?.app.get().activeKey !== writingFile) await openProjectFile(writingFile);
-    trellis?.focusDocument(writingFile);
-  };
   const commentsPanel = (
     <EditorCommentsPanel
       key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}
       embedded={!!renderCommentsSurface}
       comments={comments.comments}
       activePath={props.activeFile}
-      writingFile={writingFile}
-      onReturnToEditor={() => void returnToEditor()}
+      onOpenFile={writingFile ? undefined : () => trellis?.bridge?.quickOpen()}
       currentAuthorId={props.editorCommentAuthorId}
       focusCommentId={comments.panelFocusId}
       activeCommentId={comments.activeId}
