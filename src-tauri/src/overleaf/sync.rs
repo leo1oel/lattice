@@ -812,17 +812,16 @@ fn sync_files(
     to_push.sort();
     let upload_bytes = |path: &String| merged_content.get(path).or_else(|| local.get(path));
 
-    // Never publish unresolved conflict markers to the project: a marked-up
-    // file stays unsent, on the base its markers show, until resolved.
+    // Never publish conflict markers: a marked-up file stays unsent, on the
+    // base its markers show, until resolved.
+    let marked = |path: &String| upload_bytes(path).is_some_and(|b| has_conflict_markers(b));
     let (mut to_push, held_back): (Vec<String>, Vec<String>) = if writable {
-        to_push
-            .into_iter()
-            .partition(|path| !upload_bytes(path).is_some_and(|b| has_conflict_markers(b)))
+        to_push.into_iter().partition(|path| !marked(path))
     } else {
         (Vec::new(), to_push)
     };
     for path in &held_back {
-        match linked.state.files.get(path).filter(|_| writable) {
+        match linked.state.files.get(path).filter(|_| marked(path)) {
             Some(hash) => new_files.insert(path.clone(), hash.clone()),
             None => new_files.remove(path),
         };

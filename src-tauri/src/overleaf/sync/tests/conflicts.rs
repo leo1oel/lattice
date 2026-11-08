@@ -94,28 +94,36 @@ fn a_file_still_marked_up_is_not_merged_again_while_overleaf_moves_on() {
 
 #[test]
 fn a_marked_up_file_is_not_held_for_newer_edits_while_overleaf_stands_still() {
-    let (_server, root, first) = run_sync(
-        Mock::project(&[("main.tex", TYPED)]),
-        &[("main.tex", AGENT)],
-        &[("main.tex", BASE)],
-    );
-    assert_eq!(first.conflicts.len(), 1);
-    let marked = text(&root, "main.tex");
-    // Nobody has typed on Overleaf since: twice over, nothing is waiting
-    // there, so there is nothing to warn about and nothing goes up.
-    for _ in 0..2 {
-        let (server, again) = sync_against(&root, &[("main.tex", TYPED)]);
-        assert!(again.unresolved_conflicts.is_empty(), "{:?}", again.unresolved_conflicts);
-        assert!(again.newly_unresolved_conflicts.is_empty());
-        assert!(again.pushed.is_empty() && server.uploads().is_empty());
-        assert_eq!(text(&root, "main.tex"), marked);
-        assert_eq!(state_files(&root)["main.tex"], sha256_hex(TYPED));
+    // Whether or not this account may write: an unrecorded role fails closed.
+    for writable in [true, false] {
+        let (_server, root, first) = run_sync(
+            Mock::project(&[("main.tex", TYPED)]),
+            &[("main.tex", AGENT)],
+            &[("main.tex", BASE)],
+        );
+        assert_eq!(first.conflicts.len(), 1);
+        if !writable {
+            edit_state(&root, |state| state.permission = None);
+        }
+        let marked = text(&root, "main.tex");
+        // Nobody has typed on Overleaf since: twice over, nothing is waiting
+        // there, so there is nothing to warn about and nothing goes up.
+        for _ in 0..2 {
+            let (server, again) = sync_against(&root, &[("main.tex", TYPED)]);
+            assert_eq!(again.read_only, !writable);
+            assert!(again.unresolved_conflicts.is_empty(), "{:?}", again.unresolved_conflicts);
+            assert!(again.newly_unresolved_conflicts.is_empty());
+            assert!(again.pushed.is_empty() && server.uploads().is_empty());
+            assert_eq!(text(&root, "main.tex"), marked);
+            assert_eq!(state_files(&root)["main.tex"], sha256_hex(TYPED));
+        }
+        // Resolved, it goes up as the local edit it is, once it can.
+        fs::write(root.join("main.tex"), AGENT).unwrap();
+        let (server, resolved) = sync_against(&root, &[("main.tex", TYPED)]);
+        let expected: &[&str] = if writable { &["main.tex"] } else { &[] };
+        assert_eq!(resolved.pushed, expected);
+        assert_eq!(server.uploads().len(), expected.len());
     }
-    // Resolved, it goes up as the local edit it is.
-    fs::write(root.join("main.tex"), AGENT).unwrap();
-    let (server, resolved) = sync_against(&root, &[("main.tex", TYPED)]);
-    assert_eq!(resolved.pushed, ["main.tex"]);
-    assert_eq!(server.uploads().len(), 1);
 }
 
 #[test]
