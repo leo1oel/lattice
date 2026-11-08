@@ -914,7 +914,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         ) : undefined}
         key={project.root}
         activeFile={activeFile}
-        activeSource={settledCanvasSource}
+        activeSource={activePaper ? source : settledCanvasSource}
         openTabs={documents.tabs}
         build={build}
         editorCommentAuthorId={editorCommentAuthorId}

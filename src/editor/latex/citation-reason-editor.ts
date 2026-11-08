@@ -6,7 +6,7 @@
  * opened from the citation card or by right-clicking the key.
  */
 import { MapMode, StateEffect, StateField, type EditorState, type Extension } from "@codemirror/state";
-import { EditorView, showTooltip, ViewPlugin, type Tooltip, type ViewUpdate } from "@codemirror/view";
+import { closeHoverTooltips, EditorView, showTooltip, ViewPlugin, type Tooltip, type ViewUpdate } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { buttonClassName } from "../../components/ui/button-styles";
 import { i18n } from "../../i18n";
@@ -123,6 +123,8 @@ export type CitationReasonsApi = {
   placed: (state: EditorState) => Placed;
   /** Open the popover on the citation key spanning `from`..`to`. */
   edit: (view: EditorView, target: { from: number; to: number; key: string }) => void;
+  /** Whether the popover is open: the key's hover card stays away meanwhile. */
+  editing: (state: EditorState) => boolean;
 };
 
 /**
@@ -310,9 +312,14 @@ export function citationReasons(live: () => LatexEditorLiveData, path: string): 
     };
   }
 
+  // The pointer that right-clicked a key still rests on it, so its hover card
+  // opens too, and stacked above the popover it pushes the popover off the
+  // top of the editor (under the titlebar). The card closes here, and stays
+  // closed while the popover is open (`editing`, latex-hover-cards.ts).
   const edit = (view: EditorView, target: { from: number; to: number; key: string }) => {
-    view.dispatch({ effects: openReasonEditor.of(target) });
+    view.dispatch({ effects: [openReasonEditor.of(target), closeHoverTooltips] });
   };
+  const editing = (state: EditorState) => Boolean(state.field(editorField, false));
 
   // Right-click on a citation key files its reason; anywhere else keeps the system menu.
   const contextMenu = EditorView.domEventHandlers({
@@ -329,6 +336,6 @@ export function citationReasons(live: () => LatexEditorLiveData, path: string): 
 
   return {
     extension: [field, editorField, writeBack(field, live), contextMenu],
-    api: { reasonAt, placed, edit },
+    api: { reasonAt, placed, edit, editing },
   };
 }

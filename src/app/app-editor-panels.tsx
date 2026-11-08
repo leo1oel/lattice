@@ -8,7 +8,7 @@
  * fallback that covered all of them would unmount an open panel while an
  * unrelated chunk loads.
  */
-import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useEffect, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -164,7 +164,8 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const writingFile = props.activeFile && props.openTabs.includes(props.activeFile)
     && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
   // A citation reason joins the notes once its cite is gone (or it was resolved there).
-  const reasonScan = useMemo(() => ({ unusedSymbols, files: project.files }), [unusedSymbols, project.files]);
+  // One revision for both scans; the compiler keeps its identity until either changes.
+  const reasonScan = { unusedSymbols, files: project.files };
   const reasonSourceFor = useCitationReasonSources(project.root, comments.citationReasons, sourceFor, annotationRounds.readSource, reasonScan);
   const orphaned = comments.citationReasons.length ? panelCitationReasons(comments.citationReasons, reasonSourceFor) : [];
   const panelComments = orphaned.length ? [...comments.comments, ...orphaned] : comments.comments;

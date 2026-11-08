@@ -218,6 +218,7 @@ export function citationTooltips(
   reasons?: CitationReasonsContext,
 ): Extension {
   return [keyboardCard, hoverTooltip((view, position) => {
+    if (reasons?.api.editing(view.state)) return null;
     const target = citationHoverTarget(view.state.doc.toString(), position);
     const data = live();
     const citation = target && citationFor(data, target.key);
