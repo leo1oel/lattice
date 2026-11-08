@@ -36,6 +36,8 @@ mod http;
 mod ipc;
 mod latex;
 mod link_preview;
+#[cfg(any(target_os = "linux", test))]
+mod linux_release_notice;
 mod literature;
 mod literature_credentials;
 mod literature_service;
@@ -398,7 +400,7 @@ pub fn run() {
     // In-app auto-update (checks GitHub Releases, verifies with the updater
     // key). Not on Linux: the AppImage is released without an updater archive
     // and latest.json has no Linux entry, so Linux copies update by hand
-    // (docs/release-process.md) and the frontend never checks there.
+    // (docs/release-process.md). A separate check offers the releases page.
     #[cfg(not(target_os = "linux"))]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let app = builder
@@ -446,6 +448,8 @@ pub fn run() {
             perf_lab::perf_wheel,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_mouse,
+            #[cfg(target_os = "linux")]
+            linux_release_notice::check_linux_release,
             ipc::workspace::create_project,
             ipc::workspace::list_local_templates,
             ipc::workspace::inspect_template_source,
