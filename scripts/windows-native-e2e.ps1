@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $guard = Join-Path $PSScriptRoot 'windows-console-guard.ps1'
-. $guard -Mode Library
+. $guard -Mode Library -AppPath $AppPath
 New-Item -ItemType Directory -Force $Artifacts | Out-Null
 $ready = Join-Path $Artifacts 'console-monitor.ready'
 $stop = Join-Path $Artifacts 'console-monitor.stop'
