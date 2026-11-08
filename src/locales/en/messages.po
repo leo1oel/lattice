@@ -4469,7 +4469,7 @@ msgstr "Could not read the arXiv title lookup: {error}"
 msgid "Could not read:"
 msgstr "Could not read:"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 msgstr "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 
@@ -10538,7 +10538,7 @@ msgstr "Overleaf history keeps a copy"
 msgid "Overleaf is still preparing file uploads. Try syncing again in a moment."
 msgstr "Overleaf is still preparing file uploads. Try syncing again in a moment."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 msgstr "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 
@@ -10550,7 +10550,7 @@ msgstr "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 msgstr "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Overleaf live editing reconnected."
 msgstr "Overleaf live editing reconnected."
 
@@ -14900,7 +14900,7 @@ msgstr "The live preview PDF is not in its build folder."
 msgid "The lookup returned no record."
 msgstr "The lookup returned no record."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
 msgstr "the network became available"
 

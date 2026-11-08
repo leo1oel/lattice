@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { loadWorkspaceLayout, type WorkspaceLayout } from "../settings/app-settings";
 import { paperDocumentPath } from "./use-open-documents";
 import { invokeCalls } from "../platform/tauri-test-mocks";
+import { reviewMode } from "../history/review-mode-store";
 
 describe("opening documents", () => {
   it("overlaps the outgoing save with the incoming read, and keeps the old file when that save fails", async () => {
@@ -203,6 +204,40 @@ describe("tree changes", () => {
 });
 
 describe("durable text and disk", () => {
+  it("tells review mode the co-author's text it waits for now carries the writer's typing folded onto it", async () => {
+    const before = "First.\n\nSecond.\n";
+    const docs = renderDocuments({ "main.tex": before });
+    await docs.enter();
+    const answer = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => (command === "review_mode_load"
+      ? { startedAt: "2026-11-08T00:00:00Z", bases: { "main.tex": before } }
+      : answer(command, args)));
+    await reviewMode.load(ROOT);
+    const waitsFor = (text: string) => reviewMode.takeCoauthorText("main.tex", (noted) => noted === text);
+    try {
+      // A co-author's word reaches the buffer; the writer's keystroke was made on the text before it.
+      const remote = "First.\n\nThe second.\n";
+      reviewMode.noteCoauthorText("main.tex", remote);
+      act(() => { docs.current().accept("main.tex", remote, { text: before }); });
+      act(() => docs.current().canvas.setText("First. One\n\nSecond.\n", before));
+      const merged = "First. One\n\nThe second.\n";
+      expect(docs.current().text).toBe(merged);
+      expect(waitsFor(merged)).toBe(true);
+
+      // The editor folds the next keystroke onto a co-author's text it had yet to show.
+      const again = "First. One\n\nThe second, again.\n";
+      reviewMode.noteCoauthorText("main.tex", again);
+      act(() => { docs.current().accept("main.tex", again, { text: merged }); });
+      const typed = "First. One two\n\nThe second, again.\n";
+      act(() => docs.current().canvas.setText(typed, again));
+      expect(docs.current().text).toBe(typed);
+      expect(waitsFor(again)).toBe(false);
+      expect(waitsFor(typed)).toBe(true);
+    } finally {
+      await reviewMode.load(null);
+    }
+  });
+
   it("shows text that reached disk only where the caller's expectation still holds", async () => {
     const docs = renderDocuments({ "main.tex": "Main" });
     await docs.enter();

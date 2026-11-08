@@ -557,7 +557,7 @@ mod tests {
     #[test]
     fn a_garbled_answer_reads_as_reqwests_decode_error() {
         // The UI retries a sync on this wording (RESPONSE_BODY_UNDECODABLE in
-        // use-overleaf-workspace.ts), and it is reqwest's text, not ours: a
+        // overleaf-sync-failures.ts), and it is reqwest's text, not ours: a
         // reqwest upgrade that rewords it must fail here.
         let base = crate::overleaf_rt::mock_server::serve_http(|request| {
             let _ = request.respond(tiny_http::Response::from_string("<html>"));

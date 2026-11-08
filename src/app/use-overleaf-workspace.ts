@@ -17,13 +17,8 @@ import {
 } from "../overleaf/overleaf-connection-store";
 import { overleafRemoteDeletePolicy, overleafSyncModeSetting } from "../overleaf/overleaf-sync-settings";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
-import {
-  isOverleafProjectRefusal,
-  OVERLEAF_NOT_CONNECTED,
-  OVERLEAF_REFUSAL_RETRIES,
-  OVERLEAF_SESSION_EXPIRED,
-} from "../overleaf/overleaf-realtime-model";
-import { mentionsAny } from "../platform/ipc-error-phrases";
+import { isOverleafProjectRefusal, OVERLEAF_REFUSAL_RETRIES } from "../overleaf/overleaf-realtime-model";
+import { isOverleafSignedOut, isTransientOverleafTransportFailure } from "./overleaf-sync-failures";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
 import { useOverleafComments } from "../overleaf/use-overleaf-comments";
@@ -34,6 +29,7 @@ import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import { reviewMode } from "../history/review-mode-store";
 import { applyOverleafRemoteText } from "./overleaf-remote-text";
+import type { AcceptExpectation } from "./use-document-store";
 import type {
   AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject,
@@ -50,22 +46,6 @@ type OverleafSyncOptions = {
   /** Whole-file editors normally stay protected; these paths are ready to flush. */
   includeWholeFilePaths?: readonly string[];
 };
-
-/* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
-/** overleaf/api.rs's error for a request that never reached Overleaf. */
-export const OVERLEAF_UNREACHABLE = "Could not reach Overleaf";
-/** reqwest's own text for a body cut off mid-read; a test in overleaf/api.rs pins it. */
-export const RESPONSE_BODY_UNDECODABLE = "error decoding response body";
-/* eslint-enable lingui/no-unlocalized-strings */
-
-function isTransientOverleafTransportFailure(reason: unknown): boolean {
-  return mentionsAny(toMessage(reason), [OVERLEAF_UNREACHABLE, RESPONSE_BODY_UNDECODABLE]);
-}
-
-/** The backend's session-expired and not-connected errors (overleaf_rt.rs), however a sync step wraps them. */
-function isOverleafSignedOut(reason: unknown): boolean {
-  return mentionsAny(toMessage(reason), [OVERLEAF_SESSION_EXPIRED, OVERLEAF_NOT_CONNECTED]);
-}
 
 /** How often live mode asks Overleaf whether anything changed. */
 const OVERLEAF_LIVE_POLL_MS = 3_000;
@@ -112,7 +92,7 @@ export type OverleafWorkspaceDeps = {
   sourceRef: RefObject<string>;
   savedSourceRef: RefObject<string>;
   /** Show durable text for the open file, only while its buffer still holds `expect` (a compare-and-swap). */
-  accept: (path: string, content: string, expect: { text: string; saved: string }) => boolean;
+  accept: (path: string, content: string, expect: AcceptExpectation) => boolean;
   editorPosition: EditorPosition | null;
   editorPositionRef: RefObject<EditorPosition | null>;
   build: BuildResult | null;

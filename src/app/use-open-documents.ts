@@ -11,6 +11,7 @@ import { isVanished, useDocumentStore, type OpenDocumentsDeps } from "./use-docu
 import { useDocumentTreeChanges } from "./use-document-tree-changes";
 import { settleVanished } from "./vanished-file-wait";
 import { useWorkspaceLayout } from "./use-workspace-layout";
+import type { OtOp } from "../overleaf/ot";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView } from "./paper-documents";
 export type { SaveStatus } from "./save-activity";
@@ -51,6 +52,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     intentRef, viewIntentRef, setOpening, setNavIndex, navLockRef,
     persistenceReadyRoot, tabsSettledRoot, flushRef, captureViewportRef, viewStates, vanishedRef,
     showFileText, closePaper, paperBuffersDirty, addTab, flush, bufferText, flushAndCheckDirty, recordDiskVersion, accept, isOutsideText,
+    typeFileText,
   } = store;
   const { save, saveStatus, saveActivityRef } = useDocumentSave(store);
   const opens = useDocumentOpens(store, save);
@@ -268,7 +270,9 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       path: paperPath ?? file,
       text: paper ? paperText : text,
       previewText: paper ? (paperView === "blog" ? paperBlog ?? "" : stripFrontmatter(paperMarkdown)) : undefined,
-      setText: paper ? setPaperText : setText,
+      setText: paper ? setPaperText : (value: string, base?: string, typed?: OtOp[]) => (
+        base === undefined ? setText(value) : typeFileText(value, base, typed)
+      ),
       isOutsideText,
       onLeave: onEditorLeave,
       onLeaveForPdf,

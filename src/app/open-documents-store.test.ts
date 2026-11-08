@@ -25,6 +25,40 @@ describe("open documents store", () => {
     expect(store.getState()).toMatchObject({ text: "From disk", savedText: "From disk" });
   });
 
+  it("carries a keystroke onto a co-author's text that landed before the editor took it in", () => {
+    const store = createOpenDocumentsStore();
+    const { showFileText, takeOutsideText, typeFileText } = store.getState();
+    showFileText("main.tex", "We study attention.\n");
+    // The co-author's words reach the buffer; the editor still shows the old text.
+    takeOutsideText("We study attention closely.\n");
+    typeFileText("Here we study attention.\n", "We study attention.\n");
+    expect(store.getState().text).toBe("Here we study attention closely.\n");
+    // Nothing moved behind the editor: the edit is the buffer.
+    typeFileText("Here we study attention closely!\n", "Here we study attention closely.\n");
+    expect(store.getState().text).toBe("Here we study attention closely!\n");
+  });
+
+  // Placed as ShareJS's text type places them: an insert inside text the
+  // other side deleted lands where that text was, our own first at a tie.
+  it("keeps a keystroke typed inside the word a co-author replaced, and their replacement too", () => {
+    const store = createOpenDocumentsStore();
+    const { showFileText, takeOutsideText, typeFileText } = store.getState();
+    showFileText("main.tex", "one two three\n");
+    takeOutsideText("one 2 three\n");
+    typeFileText("one twLo three\n", "one two three\n", [{ p: 6, i: "L" }]);
+    expect(store.getState()).toMatchObject({ text: "one L2 three\n", outsideText: "one L2 three\n" });
+  });
+
+  it("keeps edits at both ends of a line the co-author changed in the middle", () => {
+    const store = createOpenDocumentsStore();
+    const { showFileText, takeOutsideText, typeFileText } = store.getState();
+    showFileText("main.tex", "one two three\n");
+    takeOutsideText("one 2 three\n");
+    // Carrying the edit as one span from "one" to "three" used to bring "two" back.
+    typeFileText("ONE two THREE\n", "one two three\n");
+    expect(store.getState().text).toBe("ONE 2 THREE\n");
+  });
+
   it("takes values or updaters in its field setters, like useState", () => {
     const store = createOpenDocumentsStore();
     const { setTabs, setMode } = store.getState();

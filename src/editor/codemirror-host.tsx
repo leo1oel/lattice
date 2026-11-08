@@ -23,7 +23,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { Annotation, Compartment, EditorState, Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
+import { Annotation, ChangeSet, Compartment, EditorState, Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
 import {
   EditorView, crosshairCursor, drawSelection, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, rectangularSelection, type ViewUpdate,
@@ -41,11 +41,55 @@ import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { documentText, textChange } from "./text-change";
 import { i18n } from "../i18n";
+import { preciseOps, transformBoth, type OtOp } from "../overleaf/ot";
 
 const hostExternalChange = Annotation.define<boolean>();
 
 /** How long after a local keystroke an external value write is deferred. */
 const TYPING_QUIET_MS = 200;
+
+/**
+ * `waiting`, a value that arrived while the writer was typing, as changes to
+ * the document the writer's `update` produced. It was made from what was
+ * last emitted, which is what the view held before `update`; null when the
+ * view held anything else, as the change then cannot be put next to it.
+ * The writer's own values are never offered here: they keep losing to their
+ * later typing, as they always have.
+ *
+ * The two meet as Overleaf's OT has them meet, the writer's typing first at
+ * a tie: typing inside text the value removes stays, where that text was.
+ * The value is worked out to the character (`preciseOps`): one replacement
+ * from its first difference to its last would swallow typing in between.
+ */
+function waitingChange(update: ViewUpdate, waiting: string, lastEmitted: string): ChangeSet | null {
+  const before = update.startState.doc.toString();
+  if (documentText(lastEmitted) !== before) return null;
+  const [, outside] = transformBoth(typedOps(update), preciseOps(before, documentText(waiting)));
+  return opsChange(outside, update.state.doc.length);
+}
+
+/** `before` to `after` as one change per changed run of characters. */
+function runsChange(before: string, after: string): ChangeSet {
+  return opsChange(preciseOps(before, after), before.length);
+}
+
+/** `ops`, applied one after another to a document `length` long, as one change. */
+function opsChange(ops: OtOp[], length: number): ChangeSet {
+  return ops.reduce(
+    (changes, op) => changes.compose(ChangeSet.of({ from: op.p, to: op.p + (op.d?.length ?? 0), insert: op.i ?? "" }, changes.newLength)),
+    ChangeSet.empty(length),
+  );
+}
+
+/** What `update` typed, as ops on the document before it, one after another (see `OtOp`). */
+function typedOps(update: ViewUpdate): OtOp[] {
+  const ops: OtOp[] = [];
+  update.changes.iterChanges((fromA, toA, fromB, _toB, inserted) => {
+    if (toA > fromA) ops.push({ p: fromB, d: update.startState.doc.sliceString(fromA, toA) });
+    if (inserted.length) ops.push({ p: fromB, i: inserted.toString() });
+  });
+  return ops;
+}
 
 // The slice of @uiw's basicSetup both editors used (autocompletion off — the
 // LaTeX extensions bring their own). Copied per the upstream advice that a
@@ -117,7 +161,11 @@ type CodeMirrorHostProps = {
   isOutsideValue?: (value: string) => boolean;
   editable?: boolean;
   extensions: Extension[];
-  onChange: (value: string) => void;
+  /**
+   * `base` is the value the edit was made on: the one last emitted, or taken
+   * from props. `typed`, when given, is the edit itself, as ops on `base`.
+   */
+  onChange: (value: string, base: string, typed?: OtOp[]) => void;
   onUpdate: (update: ViewUpdate) => void;
   onCreateEditor: (view: EditorView) => void;
   /** The document this mount edits, to park it under when the view goes; read once, at mount. */
@@ -130,6 +178,8 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
   /** The exact string object last emitted through onChange (or reconciled from props). */
   const lastEmittedRef = useRef(props.value);
   const lastTypedAtRef = useRef(0);
+  /** A value that arrived while the writer was typing and is waiting to be applied. */
+  const waitingRef = useRef<string | null>(null);
   const retryTimerRef = useRef<number | null>(null);
   const propsRef = useRef(props);
   // Refreshed in a layout effect declared ahead of every other effect here, so
@@ -155,9 +205,37 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
       if (update.docChanged && scrollRef.current) scrollRef.current = scrollRef.current.map(update.changes) ?? null;
       if (update.docChanged && !update.transactions.some((tr) => tr.annotation(hostExternalChange))) {
         lastTypedAtRef.current = Date.now();
-        const text = update.state.doc.toString();
+        const waiting = waitingRef.current;
+        waitingRef.current = null;
+        // Only while it is still the newest value, claims to come from outside,
+        // and no composition is open (applyExternalValue waits those out too).
+        const outside = waiting !== null && !update.view.composing && waiting === propsRef.current.value
+          && (propsRef.current.isOutsideValue?.(waiting) ?? false)
+          ? waitingChange(update, waiting, lastEmittedRef.current)
+          : null;
+        let text = update.state.doc.toString();
+        if (outside) {
+          // Text from outside was waiting out the typing — a co-author's, most
+          // often, arriving while the writer types without a pause. Emitting
+          // this keystroke's text alone would replace it in the buffer, and the
+          // live channel would then send its removal to everyone. Take it in
+          // now instead, moved past the keystroke, in the transaction after
+          // this one (a view cannot dispatch while it updates).
+          text = outside.apply(update.state.doc).toString();
+          if (retryTimerRef.current !== null) window.clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+          queueMicrotask(() => {
+            const view = viewRef.current;
+            if (!view || lastEmittedRef.current !== text) return;
+            const changes = view.state.doc === update.state.doc ? outside : runsChange(view.state.doc.toString(), text);
+            view.dispatch({ changes, annotations: [hostExternalChange.of(true), Transaction.addToHistory.of(false)] });
+          });
+        }
+        // What the edit was made on: the waiting value, when it was just
+        // taken in with this keystroke; otherwise what the view last emitted.
+        const base = outside && waiting !== null ? waiting : lastEmittedRef.current;
         lastEmittedRef.current = text;
-        propsRef.current.onChange(text);
+        propsRef.current.onChange(text, base, outside ? undefined : typedOps(update));
       }
       propsRef.current.onUpdate(update);
     }),
@@ -240,10 +318,12 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
       const view = viewRef.current;
       if (!view) return;
       const next = propsRef.current.value;
+      waitingRef.current = null;
       if (next === lastEmittedRef.current) return;
       // Don't fight active typing or IME composition; retry shortly, like
       // the wrapper's typing latch.
       if (view.composing || Date.now() - lastTypedAtRef.current < TYPING_QUIET_MS) {
+        waitingRef.current = next;
         retryTimerRef.current ??= window.setTimeout(() => {
           retryTimerRef.current = null;
           applyExternalValue();
