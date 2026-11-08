@@ -20,6 +20,13 @@ pub struct Prefetched {
 }
 
 impl Prefetched {
+    /// Whether this read took the project download rather than fetching
+    /// only what changed: only then does it count against the gap between
+    /// downloads.
+    pub fn downloaded_project(&self) -> bool {
+        self.downloaded.whole
+    }
+
     /// Whether the download still fits the link as it stands now, under the
     /// lease, and the paths the sync must then leave alone as it does a live
     /// document. Between the two, a live document may have been checkpointed

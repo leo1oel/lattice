@@ -668,7 +668,9 @@ pub async fn overleaf_sync(
                             )
                         });
                         let prefetched = settled(&app, read.await).await?;
-                        let downloaded = prefetched.is_some();
+                        let downloaded = prefetched
+                            .as_ref()
+                            .is_some_and(overleaf::Prefetched::downloaded_project);
                         Ok((prefetched, downloaded))
                     }
                 };

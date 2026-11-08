@@ -303,8 +303,12 @@ pub(super) struct RemoteFiles {
     pub files: BTreeMap<String, Vec<u8>>,
     pub automatic_remote_deletes: Vec<String>,
     /// Live documents whose copy in `files` Overleaf has since moved past
-    /// (see `SyncState::unsettled`); a download has none, nor does a fetch.
+    /// (see `SyncState::unsettled`): a download has none; a fetch carries the
+    /// live documents it did not fetch.
     pub unsettled: BTreeSet<String>,
+    /// Whether this is the project download, which alone the gap between
+    /// downloads holds back; fetching what changed is ordinary editor traffic.
+    pub whole: bool,
 }
 
 pub(super) fn fetch_remote_files(
@@ -325,7 +329,7 @@ pub(super) fn fetch_remote_files(
     }
     automatic_remote_deletes.sort();
     let files = syncable(entries);
-    Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: BTreeSet::new() })
+    Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: BTreeSet::new(), whole: true })
 }
 
 pub(super) fn sync_stamp() -> String {
@@ -555,7 +559,7 @@ fn sync_files(
     };
     let remote_version_before = version.or(linked.state.remote_version);
     let mut downloaded_under_lease = false;
-    let (read, RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled }) =
+    let (read, RemoteFiles { files: mut remote, automatic_remote_deletes, mut unsettled, .. }) =
         match prefetched {
             Some(Prefetched { downloaded, .. }) => (read, downloaded),
             None => match remote_copy(&linked, &client, root, version, &read.files, live) {
@@ -565,8 +569,8 @@ fn sync_files(
                 }
                 _ if !may_download => return Ok(None),
                 copy => {
-                    downloaded_under_lease = true;
                     let downloaded = fetch(&linked, &client, copy, &|_, _| {})?;
+                    downloaded_under_lease = downloaded.whole;
                     // Read again after the download, as above.
                     (read_local_files(root)?, downloaded)
                 }

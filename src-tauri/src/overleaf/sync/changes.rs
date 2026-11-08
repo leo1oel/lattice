@@ -34,6 +34,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use tauri::async_runtime as rt;
 
+/// The most documents and files a sync fetches one by one before it takes
+/// the project download instead.
+const MOST_FETCHES: usize = 40;
+
 /// Where Overleaf's copy for a sync comes from.
 pub(super) enum RemoteCopy {
     /// The agreed copy is Overleaf's copy of every file a sync may touch:
@@ -113,9 +117,14 @@ pub(super) fn remote_copy(
         }
     }
     // Documents the last sync left on an older merge base are fetched again
-    // too, unless still live.
+    // too, unless still live. A folder operation names only the folder, so
+    // every agreed path in it is fetched, live or not: another document may
+    // stand at that path now.
+    let in_tree_change = |path: &String| tree_paths.iter().any(|changed| within(path, changed));
+    let in_folder = state.files.keys().filter(|path| in_tree_change(path));
     let (mut still_live, mut fetch): (BTreeSet<String>, BTreeSet<String>) =
-        named.iter().chain(unsettled).cloned().partition(|path| held_live(path));
+        (named.iter().chain(unsettled).chain(in_folder).cloned())
+            .partition(|path| held_live(path) && !in_tree_change(path));
     let mut agreed = BTreeMap::new();
     for (path, hash) in &state.files {
         if fetch.contains(path) {
@@ -141,6 +150,7 @@ pub(super) fn remote_copy(
             files: agreed,
             automatic_remote_deletes: Vec::new(),
             unsettled: still_live,
+            whole: false,
         });
     }
     let table = state.files.keys().cloned().collect();
@@ -216,44 +226,53 @@ fn fetch_with(
     // A file gone from the tree is one a sync deletes here, so only an
     // update that removed or renamed it, or a folder above it, may account
     // for it; a tree missing anything else is not trusted.
-    let named = |path: &str| {
-        (changes.tree_paths.iter()).any(|changed| {
-            (path.strip_prefix(changed.as_str()))
-                .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
-        })
-    };
+    let named = |path: &str| changes.tree_paths.iter().any(|changed| within(path, changed));
     if (changes.table.iter()).any(|path| !entries.contains_key(path) && !named(path)) {
         return Err("a file left Overleaf's tree with no update saying so");
     }
-    let (mut files, mut fetched, mut fetched_bytes) = (BTreeMap::new(), 0usize, 0usize);
+    let mut files = BTreeMap::new();
+    let mut missing = Vec::new();
     for (path, entity) in entries {
         let hash = project.file_hashes.get(&entity.id).filter(|_| entity.kind == "file");
         // A figure replaced under the same name is caught by its hash even
         // where the history missed it.
         let agreed = (changes.agreed.get(&path).filter(|_| !changes.fetch.contains(&path)))
             .filter(|bytes| hash.is_none_or(|hash| blob_hash(bytes) == *hash));
-        let bytes = match agreed {
-            Some(bytes) => bytes.clone(),
-            None => {
-                let bytes = if entity.kind == "doc" {
-                    fetch_doc(channel, &entity.id)?
-                } else {
-                    fetch_file(remote, client, &entity.id)?
-                };
-                if hash.is_some_and(|hash| blob_hash(&bytes) != *hash) {
-                    return Err("a fetched file does not match Overleaf's hash for it");
-                }
-                fetched += 1;
-                fetched_bytes += bytes.len();
-                progress(fetched_bytes as u64, None);
-                bytes
+        match agreed {
+            Some(bytes) => {
+                files.insert(path, bytes.clone());
             }
-        };
-        files.insert(path, bytes);
+            None => missing.push((path, entity, hash)),
+        }
     }
-    wide_event::record("fetched_files", fetched);
+    // Each fetch is a round trip or two of its own, so past this many the
+    // one download is the quicker way to the same copy.
+    if missing.len() > MOST_FETCHES {
+        return Err("too much changed to fetch file by file");
+    }
+    let mut fetched_bytes = 0usize;
+    for (path, entity, hash) in &missing {
+        let bytes = if entity.kind == "doc" {
+            fetch_doc(channel, &entity.id)?
+        } else {
+            fetch_file(remote, client, &entity.id)?
+        };
+        if hash.is_some_and(|hash| blob_hash(&bytes) != *hash) {
+            return Err("a fetched file does not match Overleaf's hash for it");
+        }
+        fetched_bytes += bytes.len();
+        progress(fetched_bytes as u64, None);
+        files.insert(path.clone(), bytes);
+    }
+    wide_event::record("fetched_files", missing.len());
     wide_event::record("fetched_bytes", fetched_bytes);
-    Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: changes.unsettled })
+    Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: changes.unsettled, whole: false })
+}
+
+/// Whether `path` is `changed` itself or lies in the folder `changed`: what
+/// an update naming `changed` may have touched.
+fn within(path: &str, changed: &str) -> bool {
+    path.strip_prefix(changed).is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
 }
 
 /// A document's text as Overleaf holds it now: joined, read, and left.

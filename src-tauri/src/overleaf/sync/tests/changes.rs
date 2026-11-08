@@ -377,6 +377,92 @@ fn a_figure_replaced_without_the_history_naming_it_is_caught_by_its_hash() {
     lab.assert_matches_overleaf();
 }
 
+/// A folder operation names only the folder, so a document still at its
+/// agreed path may hold another document's text now: deleting `sections/`
+/// and renaming `sections_new/` into its place left `sections/a.tex` with the
+/// old text here while Overleaf held the new.
+#[test]
+fn a_folder_replaced_by_another_brings_the_new_folders_documents() {
+    let mut files = paper();
+    files.push(("sections_new/a.tex".into(), b"\\section{A}\nAlpha, rewritten.\n".to_vec()));
+    let lab = lab_with(&files, |_| {});
+    lab.co_author(
+        |files| {
+            files.remove("sections/a.tex");
+            files.remove("sections/b.tex");
+            let rewritten = files.remove("sections_new/a.tex").unwrap();
+            files.insert("sections/a.tex".into(), rewritten);
+        },
+        &[],
+        json!([
+            { "remove": { "pathname": "sections" } },
+            { "rename": { "pathname": "sections_new", "newPathname": "sections" } },
+        ]),
+    );
+
+    let result = lab.sync();
+    assert_eq!(result.pulled, ["sections/a.tex"]);
+    assert_eq!(result.deleted_local, ["sections/b.tex", "sections_new/a.tex"]);
+    assert!(result.pushed.is_empty() && result.conflicts.is_empty());
+    lab.assert_matches_overleaf();
+}
+
+/// Each fetch is a round trip or two of its own, so a change touching more
+/// files than a sync fetches one by one takes the one download instead.
+#[test]
+fn a_change_too_wide_to_fetch_file_by_file_takes_the_download() {
+    let chapters: Vec<String> = (0..45).map(|n| format!("chapters/c{n}.tex")).collect();
+    let mut files = paper();
+    files.extend(chapters.iter().map(|path| (path.clone(), format!("{path}\n").into_bytes())));
+    let lab = lab_with(&files, |_| {});
+    let named: Vec<&str> = chapters.iter().map(String::as_str).collect();
+    lab.co_author(
+        |files| {
+            for path in &chapters {
+                files.insert(path.clone(), b"Rewritten on Overleaf.\n".to_vec());
+            }
+        },
+        &named,
+        json!([]),
+    );
+
+    let result = lab.sync();
+    assert_eq!(lab.downloads(), 1);
+    assert!(lab.docs_joined().is_empty(), "nothing fetched one by one");
+    let mut pulled = chapters.clone();
+    pulled.sort();
+    assert_eq!(result.pulled, pulled);
+    lab.assert_matches_overleaf();
+}
+
+/// Only the project download holds the next sync to the gap between
+/// downloads; fetching what changed is the editor's own traffic, so the sync
+/// after it is not held back.
+#[test]
+fn only_the_project_download_counts_against_the_gap_between_downloads() {
+    let lab = lab();
+    let edit = |body: &'static str| {
+        move |files: &mut BTreeMap<String, Vec<u8>>| {
+            files.insert("sections/a.tex".into(), body.into());
+        }
+    };
+    lab.co_author(edit("\\section{A}\nOnce.\n"), &["sections/a.tex"], json!([]));
+    let read = prefetch(&lab.config, &lab.root, NO_LIVE, None, &|_, _| {}).unwrap();
+    assert!(!read.expect("a fetch").downloaded_project());
+    let synced = sync_prefetched(&lab.config, &lab.root, NO_LIVE, None, None, true).unwrap();
+    assert!(!synced.expect("a sync").downloaded_under_lease);
+    assert_eq!(lab.downloads(), 0);
+
+    // A history short of the version: only the download can tell.
+    lab.co_author(edit("\\section{A}\nTwice.\n"), &["sections/a.tex"], json!([]));
+    lab.shared.lock().unwrap().version += 1;
+    let read = prefetch(&lab.config, &lab.root, NO_LIVE, None, &|_, _| {}).unwrap();
+    assert!(read.expect("a download").downloaded_project());
+    let synced = sync_prefetched(&lab.config, &lab.root, NO_LIVE, None, None, true).unwrap();
+    assert!(synced.expect("a sync").downloaded_under_lease);
+    lab.assert_matches_overleaf();
+}
+
 /// The download is most of a sync's time, and most syncs run because the
 /// project's version moved without any file a sync handles changing. When
 /// Overleaf's history proves that, the copy already agreed on stands in for
