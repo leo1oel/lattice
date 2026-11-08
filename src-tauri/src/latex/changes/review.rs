@@ -164,9 +164,9 @@ mod tests {
         let paper = |body: &str| {
             format!("\\documentclass{{article}}\n\\begin{{document}}\n{body}\n\\end{{document}}\n")
         };
-        root.write("main.tex", &paper("Attention lets a decoder look at encoder states."));
+        root.write("main.tex", paper("Attention lets a decoder look at encoder states."));
         project::start_review(&root).unwrap();
-        root.write("main.tex", &paper("Attention lets a decoder retrieve encoder states."));
+        root.write("main.tex", paper("Attention lets a decoder retrieve encoder states."));
         let exports = ChangesExports::default();
         let pdf = review_changes_pdf(&root, &exports, exports.begin()).unwrap();
         assert!(pdf.starts_with(b"%PDF-"));

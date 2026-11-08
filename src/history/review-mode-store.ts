@@ -40,7 +40,7 @@ export type ReviewModeState = Readonly<{
 type Loaded = { startedAt: string; bases: Record<string, string> };
 
 /** The files review mode tracks: the paper's LaTeX and its bibliography. */
-export const isReviewablePath = (path: string) => /\.(?:tex|bib)$/i.test(path);
+const isReviewablePath = (path: string) => /\.(?:tex|bib)$/i.test(path);
 
 /** How long a base waits before it is written, so an accept-all or a run of accepts is one write. */
 const SAVE_DELAY_MS = 400;

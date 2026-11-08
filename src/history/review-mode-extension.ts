@@ -85,7 +85,7 @@ export function reviewOf(view: EditorView): Review | null {
 }
 
 /** The hunk at the caret (touching either end counts), or the first after it; its index, or -1. */
-export function hunkIndexAt(hunks: readonly ReviewHunk[], pos: number, after = false): number {
+function hunkIndexAt(hunks: readonly ReviewHunk[], pos: number, after = false): number {
   const at = hunks.findIndex((hunk) => hunk.from <= pos && pos <= hunk.to);
   if (at >= 0 || !after) return at;
   return hunks.findIndex((hunk) => hunk.from > pos);
@@ -179,7 +179,7 @@ export function rejectAll(view: EditorView): boolean {
 }
 
 /** What the review bar shows for one editor. */
-export type ReviewBarState = Readonly<{ count: number; index: number }>;
+type ReviewBarState = Readonly<{ count: number; index: number }>;
 
 /** The editor hosting a review bar: its panel, and word whenever what the bar shows changes. */
 export type ReviewPanel = Readonly<{

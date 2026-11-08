@@ -326,6 +326,10 @@ msgstr "{builds} 次编译"
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}；arXiv 使用 pdfLaTeX 编译"
 
+#: src/platform/host-errors-workspace.ts
+msgid "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
+msgstr "{chain} 通过 \\input 互相引用，latexdiff 将无法完成。请删除造成循环的 \\input。"
+
 #: src/settings/grammar-settings.tsx
 msgid "{changedCount} changed from the grammar style"
 msgstr "{changedCount} 条与语法风格默认不同"
@@ -519,6 +523,10 @@ msgstr "{description}：在 PATH 中未找到"
 #: src/project/manuscript-checklist.tsx
 msgid "{detail}. {limit}"
 msgstr "{detail}。{limit}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
+msgstr "{document} 是在开启审阅模式之后创建的，没有可对照的版本来标记改动。"
 
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — BibTeX source"
@@ -853,6 +861,10 @@ msgstr "{path} 在项目中已经是一个文件夹"
 #: src/app/vanished-file.ts
 msgid "{path} is no longer on disk"
 msgstr "{path} 已不在磁盘上"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not a file review mode tracks."
+msgstr "审阅模式不跟踪 {path}。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} is not a folder on Overleaf."
@@ -9915,6 +9927,10 @@ msgstr "Linux 版暂不支持一键安装 TeX 宏包"
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "只有 LaTeX 文档能导出标注修改的版本"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Only a LaTeX document can show its changes marked."
+msgstr "只有 LaTeX 文档可以标记改动。"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
 msgstr "只有二进制文件有改动"
@@ -12488,6 +12504,10 @@ msgstr "评阅副本由 Lattice 于 {0} 导出，含 {count}。"
 #: src/app/use-command-table.ts
 msgid "Review here"
 msgstr "在此审阅"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Review mode is off in this project."
+msgstr "此项目未开启审阅模式。"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"

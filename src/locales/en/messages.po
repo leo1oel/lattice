@@ -326,6 +326,10 @@ msgstr "{builds} compiles"
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}; arXiv builds with pdfLaTeX"
 
+#: src/platform/host-errors-workspace.ts
+msgid "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
+msgstr "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
+
 #: src/settings/grammar-settings.tsx
 msgid "{changedCount} changed from the grammar style"
 msgstr "{changedCount} changed from the grammar style"
@@ -519,6 +523,10 @@ msgstr "{description}: not found on PATH"
 #: src/project/manuscript-checklist.tsx
 msgid "{detail}. {limit}"
 msgstr "{detail}. {limit}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
+msgstr "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — BibTeX source"
@@ -853,6 +861,10 @@ msgstr "{path} is already a folder in this project."
 #: src/app/vanished-file.ts
 msgid "{path} is no longer on disk"
 msgstr "{path} is no longer on disk"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not a file review mode tracks."
+msgstr "{path} is not a file review mode tracks."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} is not a folder on Overleaf."
@@ -9915,6 +9927,10 @@ msgstr "One-click TeX package install is not available on Linux yet."
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "Only a LaTeX document can be exported with its changes marked."
 
+#: src/platform/host-errors-workspace.ts
+msgid "Only a LaTeX document can show its changes marked."
+msgstr "Only a LaTeX document can show its changes marked."
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
 msgstr "Only binary files would change"
@@ -12488,6 +12504,10 @@ msgstr "Review copy exported from Lattice on {0}, with {count}."
 #: src/app/use-command-table.ts
 msgid "Review here"
 msgstr "Review here"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Review mode is off in this project."
+msgstr "Review mode is off in this project."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"
