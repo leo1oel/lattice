@@ -74,7 +74,7 @@ describe("AnnotationRounds / PDF notes posted to Overleaf", () => {
   // collaborator may have changed since the passage was selected on the PDF.
   function overleafNote(live: string) {
     const { rounds, store, sourceRef } = roundsWith([]);
-    const create = vi.fn(() => null);
+    const create = vi.fn((): "overleaf" => "overleaf");
     Object.assign(store, { destination: () => "overleaf", create });
     sourceRef.current = live;
     // As mapPdfSelection placed it when the PDF text was selected.
@@ -88,7 +88,7 @@ describe("AnnotationRounds / PDF notes posted to Overleaf", () => {
   it("anchors the comment where the passage stands in the live text now", () => {
     const added = "A collaborator wrote this line above.\n";
     const { saved, create, from, quote } = overleafNote(added + SOURCE);
-    expect(saved).toBe(true);
+    expect(saved).toBe("saved");
     const [comment] = create.mock.calls[0] as unknown as [EditorComment];
     expect(comment.from).toBe(added.length + from);
     expect(comment.quote).toBe(quote);
@@ -96,7 +96,7 @@ describe("AnnotationRounds / PDF notes posted to Overleaf", () => {
 
   it("posts nothing when the passage itself changed since the PDF was built", () => {
     const { saved, create } = overleafNote(SOURCE.replace("deliberately simple", "simple"));
-    expect(saved).toBe(false);
+    expect(saved).toBe("stale");
     expect(create).not.toHaveBeenCalled();
   });
 });
@@ -123,10 +123,25 @@ describe("AnnotationRounds / revise scope", () => {
     const mapped = { path: "main.tex", line: 3, from, to: from + passage(2).length, source: SOURCE };
     const selection = { page: 1, rects: [], text: passage(2), point: { x: 0, y: 0 } };
 
-    expect(rounds.createFromPdf(selection, mapped, "", "shorten", true)).toBe(true);
+    expect(rounds.createFromPdf(selection, mapped, "", "shorten", true)).toBe("saved");
 
     expect(await asked()).toEqual([passage(2)]);
     expect(proposed()).toEqual([passage(2)]);
+  });
+
+  // A store that refuses the note (annotations not read yet) must not read as
+  // saved, or the composer closes and the typed note is lost.
+  it("reports a refused note as not made, from the source or the PDF, and asks the agent nothing", async () => {
+    const { rounds, store } = roundsWith([]);
+    Object.assign(store, { create: () => null });
+    const from = SOURCE.indexOf(passage(2));
+    const review = { commentAuthorId: "ada", commentAuthorName: "Ada", onCreateEditorComment: store.create, annotationRounds: rounds };
+    const mapped = { path: "main.tex", line: 3, from, to: from + passage(2).length, source: SOURCE };
+    const selection = { page: 1, rects: [], text: passage(2), point: { x: 0, y: 0 } };
+
+    expect(annotateSelection(review, { path: "main.tex", source: SOURCE, from, to: mapped.to, body: "Tighten", revise: true })).toBe(false);
+    expect(rounds.createFromPdf(selection, mapped, "Tighten", undefined, true)).toBe("refused");
+    expect(reviseAnnotationWithAgent).not.toHaveBeenCalled();
   });
 
   it("counts an Annotate answer as the Get started Agent step done, and a failed one not", async () => {

@@ -5,7 +5,7 @@ import { createEditorComment, type AnnotationIntent, type EditorComment } from "
 type NoteReview = {
   commentAuthorId: string;
   commentAuthorName: string;
-  onCreateEditorComment: (comment: EditorComment) => EditorComment | null;
+  onCreateEditorComment: (comment: EditorComment) => EditorComment | "overleaf" | null;
   annotationRounds: Pick<AnnotationRounds, "revise">;
 };
 
@@ -15,7 +15,7 @@ type NoteReview = {
  * (Save and revise now) the agent is asked about that note alone: the writer
  * picked Shorten or Rewrite for the passage they selected, so the other open
  * annotations wait for the panel's Revise. False when the range holds
- * nothing to anchor a note.
+ * nothing to anchor a note or the note was refused, so the composer stays.
  */
 export function annotateSelection(review: NoteReview, note: {
   path: string;
@@ -32,6 +32,7 @@ export function annotateSelection(review: NoteReview, note: {
   });
   if (!comment) return false;
   const created = review.onCreateEditorComment(comment);
-  if (created && note.revise) review.annotationRounds.revise([created.id]);
+  if (created === null) return false;
+  if (created !== "overleaf" && note.revise) review.annotationRounds.revise([created.id]);
   return true;
 }

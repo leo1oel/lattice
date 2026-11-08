@@ -169,7 +169,7 @@ it("sends a PDF note to Overleaf only for the live file, and keeps one for a fil
 it("saves nothing until the project's annotations have been read", async () => {
   const { view } = await renderComments([comment("old-1"), comment("old-2")]);
   act(() => view.result.current.reset());
-  let created: EditorComment | null = comment("x");
+  let created: ReturnType<typeof view.result.current.create> = comment("x");
   act(() => {
     created = view.result.current.create(comment("new"));
   });
