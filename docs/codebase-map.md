@@ -204,7 +204,7 @@ rather than a fact:
 | `literature_service.rs` | HTTP plumbing shared by the OpenAlex, Semantic Scholar and Crossref clients. |
 | `literature_credentials.rs` | Personal literature-provider keys and the Crossref email, in one keychain item. |
 | `openalex.rs` | The OpenAlex works search. |
-| `zotero.rs` | Read-only client for Zotero's local API on 127.0.0.1: collections, their items as BibTeX, and an attachment's local PDF path. |
+| `zotero.rs` + `zotero/` | Reads the writer's Zotero library from a private copy of its `zotero.sqlite` (no Zotero setting needed): finding the data folder, the collections, their items as BibTeX (`bibtex.rs`, over the queries of `schema.rs`), and the local PDF behind an attachment key. |
 | `alphaxiv.rs` | alphaXiv full-text search and per-paper overviews. |
 | `firecrawl.rs` | Webpages cited into the bibliography, scraped into local Markdown. |
 | `web_metadata.rs` | Deterministic webpage citation metadata. |

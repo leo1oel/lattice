@@ -7,25 +7,30 @@ servers.
 
 ## Import a Zotero collection into Papers
 
-1. In Zotero 7 or later, open **Settings → Advanced** and turn on
-   **Allow other applications on this computer to communicate with Zotero**.
-   Leave Zotero open.
-2. In Lattice, open **Papers → Add papers** and choose **Zotero…**.
-3. Pick **My Library** or a collection. Its items fill the sheet as BibTeX:
+Nothing needs turning on in Zotero, and Zotero can be open or closed.
+
+1. In Lattice, open **Papers → Add papers** and choose **Zotero…**.
+2. Pick **My Library** or a collection. Its items fill the sheet as BibTeX:
    what Papers already holds (same DOI, arXiv id or citation key) is skipped,
    and the rest is added with **Add papers**.
 
-Citation keys stay the ones you cite with: a Better BibTeX key is used when
-Better BibTeX is installed, then a key set in the item's Citation Key field or
-pinned in its Extra field as `Citation Key: …`, otherwise Zotero's own export
-key. An item with an arXiv id
-brings its full text from arXiv; otherwise its PDF attachment in Zotero, when
-the file is on this Mac, becomes the paper's readable text. Items without
-either are added as citations only.
+Lattice finds the Zotero data folder the way Zotero does (the folder set in
+Zotero's **Settings → Advanced → Files and Folders**, otherwise `~/Zotero`) and
+reads a private copy of its `zotero.sqlite`, never the live file. If the library
+lives somewhere Lattice cannot find, choose its folder with **Choose Zotero
+folder…**. Only your personal library is read; group libraries are not.
 
-Without Zotero running, export the collection from Zotero (or with Better
-BibTeX) as a `.bib` file and paste the whole file into **Add papers**, or link it
-with **Linked library…** to take in later changes after review.
+Citation keys stay the ones you cite with: a Better BibTeX key is used when
+Better BibTeX keeps one, then a key in the item's Citation Key field or pinned in
+its Extra field as `Citation Key: …`, otherwise a key in the shape of Zotero's
+own export (`lastname_firstword_year`). An item with an arXiv id brings its full
+text from arXiv; otherwise its PDF attachment, when the file is on this Mac,
+becomes the paper's readable text. Items without either are added as citations
+only.
+
+To bring in a library from another Mac, export the collection from Zotero (or
+with Better BibTeX) as a `.bib` file and paste the whole file into **Add papers**,
+or link it with **Linked library…** to take in later changes after review.
 
 The import only reads from Zotero; nothing is written back.
 

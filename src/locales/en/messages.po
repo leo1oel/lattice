@@ -3455,6 +3455,10 @@ msgstr "Choose whether to keep or remove manuscript citations."
 msgid "Choose your library's .bib file"
 msgstr "Choose your library's .bib file"
 
+#: src/papers/zotero-collections.tsx
+msgid "Choose Zotero folder…"
+msgstr "Choose Zotero folder…"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
@@ -4330,10 +4334,6 @@ msgstr "Could not copy the source link"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
 msgstr "Could not create the ZIP archive: {error}"
-
-#: src/platform/host-errors-papers.ts
-msgid "Could not create the Zotero client: {error}"
-msgstr "Could not create the Zotero client: {error}"
 
 #: src/platform/host-errors-project.ts
 msgid "Could not decode file bytes: {error}"
@@ -7219,10 +7219,6 @@ msgctxt "margin review"
 msgid "In view"
 msgstr "In view"
 
-#: src/platform/host-errors-papers.ts
-msgid "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
-msgstr "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "Include another TeX file"
@@ -8072,9 +8068,17 @@ msgstr "Lattice could not read the project’s labels and citations: {error}"
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice could not write to the TeX installation folder."
 
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't find a Zotero library on this Mac."
+msgstr "Lattice couldn't find a Zotero library on this Mac."
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
 msgstr "Lattice couldn’t open this window"
+
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't read the Zotero library: {reason}"
+msgstr "Lattice couldn't read the Zotero library: {reason}"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
@@ -9753,10 +9757,6 @@ msgstr "North-west arrow"
 #: src/platform/host-errors-papers.ts
 msgid "Not a PDF: {path}"
 msgstr "Not a PDF: {path}"
-
-#: src/platform/host-errors-papers.ts
-msgid "Not a Zotero item key: {key}"
-msgstr "Not a Zotero item key: {key}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Not added"
@@ -15799,6 +15799,10 @@ msgstr "This workspace is already open in the Lattice app."
 msgid "This workspace is already open in your browser."
 msgstr "This workspace is already open in your browser."
 
+#: src/platform/host-errors-papers.ts
+msgid "this Zotero database (schema {schema}) has no {table}.{column}"
+msgstr "this Zotero database (schema {schema}) has no {table}.{column}"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ drawing"
@@ -17111,29 +17115,13 @@ msgstr "Zoom out"
 msgid "zoom scale bigger smaller"
 msgstr "zoom scale bigger smaller"
 
-#: src/platform/host-errors-papers.ts
-msgid "Zotero answered HTTP {status}: {body}"
-msgstr "Zotero answered HTTP {status}: {body}"
-
 #: src/papers/zotero-collections.tsx
 msgid "Zotero collections"
 msgstr "Zotero collections"
 
 #: src/platform/host-errors-papers.ts
-msgid "Zotero did not answer: {error}"
-msgstr "Zotero did not answer: {error}"
-
-#: src/platform/host-errors-papers.ts
 msgid "Zotero has no file on this Mac for this attachment."
 msgstr "Zotero has no file on this Mac for this attachment."
-
-#: src/platform/host-errors-papers.ts
-msgid "Zotero isn't running. Open Zotero, then try again."
-msgstr "Zotero isn't running. Open Zotero, then try again."
-
-#: src/platform/host-errors-papers.ts
-msgid "Zotero sent an unreadable answer: {error}"
-msgstr "Zotero sent an unreadable answer: {error}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Zotero…"

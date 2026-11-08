@@ -558,7 +558,7 @@ pub fn run() {
             ipc::papers::search_paper_library,
             ipc::papers::read_paper,
             ipc::papers::read_paper_blog_local,
-            ipc::papers::zotero_collections,
+            ipc::papers::zotero_library,
             ipc::papers::zotero_items,
             ipc::papers::attach_zotero_pdf,
             ipc::build::build_project,

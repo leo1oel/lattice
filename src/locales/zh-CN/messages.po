@@ -3455,6 +3455,10 @@ msgstr "请选择保留还是删除正文中的引用"
 msgid "Choose your library's .bib file"
 msgstr "选择文献库的 .bib 文件"
 
+#: src/papers/zotero-collections.tsx
+msgid "Choose Zotero folder…"
+msgstr "选择 Zotero 文件夹…"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
 msgid "Choose…"
@@ -4330,10 +4334,6 @@ msgstr "没能复制出处链接"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
 msgstr "无法创建 ZIP 压缩包：{error}"
-
-#: src/platform/host-errors-papers.ts
-msgid "Could not create the Zotero client: {error}"
-msgstr "无法创建 Zotero 连接：{error}"
 
 #: src/platform/host-errors-project.ts
 msgid "Could not decode file bytes: {error}"
@@ -7219,10 +7219,6 @@ msgctxt "margin review"
 msgid "In view"
 msgstr "当前可见"
 
-#: src/platform/host-errors-papers.ts
-msgid "In Zotero, turn on Settings › Advanced › “Allow other applications on this computer to communicate with Zotero”."
-msgstr "在 Zotero 中打开 设置 › 高级 › “允许此计算机上的其他应用程序与 Zotero 通信”。"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "引入另一个 TeX 文件"
@@ -8072,9 +8068,17 @@ msgstr "Lattice 无法读取项目的标签和引用：{error}"
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice 无法写入 TeX 安装文件夹。"
 
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't find a Zotero library on this Mac."
+msgstr "Lattice 没有在这台 Mac 上找到 Zotero 文库。"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
 msgstr "窗口打不开了"
+
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't read the Zotero library: {reason}"
+msgstr "Lattice 无法读取 Zotero 文库：{reason}"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
@@ -9753,10 +9757,6 @@ msgstr "左上箭头"
 #: src/platform/host-errors-papers.ts
 msgid "Not a PDF: {path}"
 msgstr "不是 PDF：{path}"
-
-#: src/platform/host-errors-papers.ts
-msgid "Not a Zotero item key: {key}"
-msgstr "不是 Zotero 条目键：{key}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Not added"
@@ -15799,6 +15799,10 @@ msgstr "这个工作区已在 Lattice 应用中打开"
 msgid "This workspace is already open in your browser."
 msgstr "此工作区已在浏览器中打开"
 
+#: src/platform/host-errors-papers.ts
+msgid "this Zotero database (schema {schema}) has no {table}.{column}"
+msgstr "这个 Zotero 数据库（架构 {schema}）没有 {table}.{column}"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ 绘图"
@@ -17111,29 +17115,13 @@ msgstr "缩小"
 msgid "zoom scale bigger smaller"
 msgstr "缩放 放大 缩小 界面 字号 zoom scale"
 
-#: src/platform/host-errors-papers.ts
-msgid "Zotero answered HTTP {status}: {body}"
-msgstr "Zotero 返回了 HTTP {status}：{body}"
-
 #: src/papers/zotero-collections.tsx
 msgid "Zotero collections"
 msgstr "Zotero 分类"
 
 #: src/platform/host-errors-papers.ts
-msgid "Zotero did not answer: {error}"
-msgstr "Zotero 没有响应：{error}"
-
-#: src/platform/host-errors-papers.ts
 msgid "Zotero has no file on this Mac for this attachment."
 msgstr "这个附件在这台 Mac 上没有文件。"
-
-#: src/platform/host-errors-papers.ts
-msgid "Zotero isn't running. Open Zotero, then try again."
-msgstr "Zotero 没有运行。打开 Zotero 后再试一次。"
-
-#: src/platform/host-errors-papers.ts
-msgid "Zotero sent an unreadable answer: {error}"
-msgstr "Zotero 返回的内容无法读取：{error}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Zotero…"

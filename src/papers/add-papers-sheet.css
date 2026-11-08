@@ -67,7 +67,8 @@
 .zotero-collection-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zotero-collection-count { color: var(--text-secondary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; }
 .zotero-error { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); color: color-mix(in srgb, var(--status-danger) 80%, var(--text-primary)); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.zotero-error > span { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.zotero-error > span:first-child { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.zotero-error-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 .zotero-loading { display: flex; justify-content: center; padding: var(--space-12) 0; color: var(--text-secondary); }
 
 .add-papers-footer { align-items: center; }

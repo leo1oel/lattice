@@ -5,7 +5,7 @@ use crate::app_state::AppState;
 use crate::citation_health::CitationHealth;
 use crate::literature::LiteraturePage;
 use crate::papers::{ImportResult, PaperSummary, PaperTextMatch};
-use crate::zotero::{Zotero, ZoteroCollection, ZoteroItem};
+use crate::zotero::{self, ZoteroItem, ZoteroLibrary};
 use crate::{literature, paper_pdf_proxy, papers};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -200,28 +200,32 @@ pub async fn read_paper_blog_local(
         .await
 }
 
-/// The collections of the writer's Zotero library (zotero.rs).
+/// The writer's Zotero library and its collections, read from a copy of
+/// its database (zotero.rs); `data_dir` is a folder the writer chose.
 #[tauri::command]
-pub async fn zotero_collections() -> Result<Vec<ZoteroCollection>, String> {
-    run_blocking("Zotero collections", || Zotero::local()?.collections()).await
+pub async fn zotero_library(data_dir: Option<String>) -> Result<ZoteroLibrary, String> {
+    run_blocking("Zotero library", move || zotero::library(data_dir.as_deref())).await
 }
 
 /// The items of one Zotero collection, or of the whole library, as BibTeX
 /// for the Add papers sheet.
 #[tauri::command]
-pub async fn zotero_items(collection: Option<String>) -> Result<Vec<ZoteroItem>, String> {
-    run_blocking("Zotero items", move || Zotero::local()?.items(collection.as_deref())).await
+pub async fn zotero_items(
+    data_dir: Option<String>, collection: Option<String>,
+) -> Result<Vec<ZoteroItem>, String> {
+    run_blocking("Zotero items", move || zotero::items(data_dir.as_deref(), collection.as_deref()))
+        .await
 }
 
 /// Make the Zotero attachment `attachment`'s PDF the text of the citation
-/// `citation_key`. Zotero says where the file is, so the frontend never names
-/// a path on disk.
+/// `citation_key`. Only a PDF an earlier read found is attached, so the
+/// frontend never names a path on disk.
 #[tauri::command]
 pub async fn attach_zotero_pdf(
     state: State<'_, AppState>, window: Window, citation_key: String, attachment: String,
 ) -> Result<papers::FetchResult, String> {
     in_project(&state, &window, "Zotero PDF", move |root| {
-        let path = Zotero::local()?.attachment_path(&attachment)?;
+        let path = zotero::attachment_path(&attachment)?;
         papers::attach_pdf_file(root, &citation_key, &path)
     })
     .await

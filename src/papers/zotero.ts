@@ -3,6 +3,8 @@
  * collections in the order Zotero's own tree shows them.
  */
 export type ZoteroCollection = { key: string; name: string; parent: string | null; items: number };
+/** The library Lattice found: its data folder and its collections. */
+export type ZoteroLibrary = { dataDir: string; collections: ZoteroCollection[] };
 /** One item: its BibTeX entry, its citation key, and its PDF attachment's item key. */
 export type ZoteroItem = { bibtex: string; citationKey: string; pdf: string | null };
 
