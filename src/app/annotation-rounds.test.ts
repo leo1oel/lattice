@@ -112,16 +112,17 @@ describe("AnnotationRounds / PDF notes on a file the editor does not have open",
       if (command === "read_project_file") return (args as { path: string }).path === "abstract.tex" ? ABSTRACT : null;
       return null;
     });
-    const selection = { page: 1, rects: [], text: "it scales", point: { x: 0, y: 0 } };
+    const selection = { page: 1, rects: [], text: "We show that it", point: { x: 0, y: 0 } };
     const mapped = await rounds.mapPdfSelection(selection);
-    // The second "We show that it", on the line SyncTeX named: not the first.
-    const from = ABSTRACT.indexOf("it scales");
-    expect(mapped).toEqual({ path: "abstract.tex", line: 3, from, to: from + "it scales".length, source: ABSTRACT });
+    // The words are on lines 2 and 3; SyncTeX named line 3, so it is that one.
+    const from = ABSTRACT.lastIndexOf("We show that it");
+    expect(from).toBeGreaterThan(ABSTRACT.indexOf("We show that it"));
+    expect(mapped).toEqual({ path: "abstract.tex", line: 3, from, to: from + "We show that it".length, source: ABSTRACT });
 
     await expect(rounds.commentInDocumentFromPdf(selection, mapped, " Cite it. ")).resolves.toBe("placed");
     const [comment, source] = vi.mocked(store.createInDocument).mock.calls[0]!;
     expect(source).toBe(ABSTRACT);
-    expect(comment).toMatchObject({ path: "abstract.tex", from, to: from + 9, quote: "it scales", body: "Cite it." });
+    expect(comment).toMatchObject({ path: "abstract.tex", from, to: from + 15, quote: "We show that it", body: "Cite it." });
     expect((rounds as unknown as { deps: AnnotationRoundsDeps }).deps.openProjectFile).not.toHaveBeenCalled();
   });
 

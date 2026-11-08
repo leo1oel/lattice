@@ -41,11 +41,10 @@ fn a_repeated_passage_is_carried_through_edits_elsewhere_to_the_same_occurrence(
 
 #[test]
 fn a_passage_the_edit_rewrote_is_found_only_where_it_occurs_once() {
-    let ours = "Alpha beta gamma.\n";
-    // A co-author changed a word inside the passage and moved it: the words
-    // commented on are still there once, so that is where the thread goes.
-    let held = "Intro.\nAlpha beta gamma.\n";
-    assert_eq!(place(ours, 0, "Alpha beta", held), Some(at(held, "Alpha")));
+    // A co-author typed inside the passage, so the edit cannot carry it, but
+    // the words commented on are still there once: that is where it goes.
+    let held = "Alpha Alpha beta.\n";
+    assert_eq!(place("Alpha beta.\n", 0, "Alpha beta", held), Some(6));
     // Overleaf's copy holds them twice and the edit touched the passage: no
     // single place, so nothing is guessed.
     let ours = "One two three. Four.\n";
