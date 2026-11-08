@@ -893,12 +893,12 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         }}
         comments={editorComments}
         annotationRounds={annotationRounds}
-        renderCommentsSurface={overleafLink ? (localComments) => (
+        renderCommentsSurface={overleafLink ? (localComments, local) => (
           <AppOverleafCollabDrawer
             key={`${project.root}:${editorComments.panelFocusId ? editorComments.panelFocus?.nonce : "comments"}`}
             localComments={localComments}
-            localCommentCount={editorComments.comments.filter((item) => !item.resolved).length}
-            hasLocalComments={editorComments.comments.length > 0}
+            localCommentCount={local.open}
+            hasLocalComments={local.count > 0}
             focusLocalComments={!!editorComments.panelFocusId && !overleafThreadOf(editorComments.panelFocusId)}
             focusThreadId={editorComments.panelFocusId ? overleafThreadOf(editorComments.panelFocusId) : null}
             activeFileRef={activeFileRef}

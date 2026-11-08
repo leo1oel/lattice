@@ -8,8 +8,8 @@ type Read = { projectRoot: string; paths: string; sources: Map<string, string | 
  * reason sits on that `sourceFor` has not read this session, so the
  * Annotations panel can tell whether its cite is still there. A file that
  * cannot be read is null (gone); one not read yet is undefined. The files
- * are read again for each `revision` of the project's citation scan, and
- * the last texts stand until the new ones arrive.
+ * are read again for each `revision`, and the last texts stand until the
+ * new ones arrive.
  */
 export function useCitationReasonSources(
   projectRoot: string,
