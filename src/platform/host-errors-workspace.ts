@@ -152,6 +152,13 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["latex/changes.rs", "The PDF with changes marked was stopped after {} minutes without finishing its build. Build the paper itself to check that it finishes, then export again.", ([minutes]) => t`The PDF with changes marked was stopped after ${minutes} minutes without finishing its build. Build the paper itself to check that it finishes, then export again.`],
   ["latex/changes.rs", "The PDF with changes marked was stopped when its build used {} GB of memory. Build the paper itself to check that it finishes, then export again.", ([gigabytes]) => t`The PDF with changes marked was stopped when its build used ${gigabytes} GB of memory. Build the paper itself to check that it finishes, then export again.`],
 
+  // Review mode and its marked PDF (project/review_mode.rs, latex/changes/review.rs)
+  ["project/review_mode.rs", "{path} is not a file review mode tracks.", ([path]) => t`${path} is not a file review mode tracks.`],
+  ["latex/changes/review.rs", "Review mode is off in this project.", () => t`Review mode is off in this project.`],
+  ["latex/changes/review.rs", "Only a LaTeX document can show its changes marked.", () => t`Only a LaTeX document can show its changes marked.`],
+  ["latex/changes/review.rs", "{document} was made after review mode was turned on, so there is nothing to mark its changes against.", ([document]) => t`${document} was made after review mode was turned on, so there is nothing to mark its changes against.`],
+  ["latex/changes/review.rs", "{} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop.", ([chain]) => t`${chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop.`],
+
   // Live preview (ipc/live_preview.rs, live_preview/)
   ["ipc/live_preview.rs", "The live preview has stopped.", () => t`The live preview has stopped.`],
   ["live_preview/install.rs", "Live preview needs a Mac.", () => t`Live preview needs a Mac.`],

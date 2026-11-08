@@ -136,6 +136,23 @@ pub async fn export_changes_pdf(
     .await
 }
 
+/// Review mode's PDF: the paper with the changes since its base marked,
+/// built under `.research/review/` (latex/changes/review.rs). Starting one
+/// stops the one before it, which then answers with an error to ignore.
+#[tauri::command]
+pub async fn review_changes_pdf(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<tauri::ipc::Response, String> {
+    let root = pinned_root(&state, &window, &project_root, "its changes could be marked")?;
+    let builds = Arc::clone(&state.project(&root).review_changes);
+    let build = builds.begin();
+    let bytes = run_blocking("Review PDF with changes marked", move || {
+        latex::review_changes_pdf(&root, &builds, build)
+    })
+    .await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// Stop the export with changes marked: Cancel in its sheet, or the
 /// comparison it belongs to closed. latexdiff and the build are killed now.
 #[tauri::command]

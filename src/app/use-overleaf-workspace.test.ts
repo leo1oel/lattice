@@ -5,7 +5,8 @@ import type { OverleafThread, ProjectSnapshot } from "../app-types";
 import { createOverleafConnectionStore } from "../overleaf/overleaf-connection-store";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
 import { projectOverleafEditorComments } from "../overleaf/overleaf-editor-comments";
-import { applyOverleafRemoteText, useOverleafWorkspace, type OverleafWorkspaceDeps } from "./use-overleaf-workspace";
+import { applyOverleafRemoteText } from "./overleaf-remote-text";
+import { useOverleafWorkspace, type OverleafWorkspaceDeps } from "./use-overleaf-workspace";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));

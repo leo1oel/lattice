@@ -116,6 +116,12 @@ msgstr "{0} can’t open this project"
 msgid "{0} changes"
 msgstr "{0} changes"
 
+#. placeholder {0}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "tracked changes waiting for review"
+msgid "{0} changes"
+msgstr "{0} changes"
+
 #. placeholder {0}: compactCount(cites, i18n.locale)
 #. placeholder {0}: formatCount(cites, i18n.locale)
 #: src/papers/literature-discovery-panel.tsx
@@ -186,6 +192,13 @@ msgstr "{0} not checked"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "{0} notes"
 msgstr "{0} notes"
+
+#. placeholder {0}: formatCount(index + 1, i18n.locale)
+#. placeholder {1}: formatCount(count, i18n.locale)
+#: src/history/review-mode-bar.tsx
+msgctxt "the tracked change at the caret, of all of them"
+msgid "{0} of {1}"
+msgstr "{0} of {1}"
 
 #. placeholder {0}: chosen.length
 #. placeholder {1}: changes.length
@@ -312,6 +325,10 @@ msgstr "{builds} compiles"
 #: src/project/arxiv-export.ts
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}; arXiv builds with pdfLaTeX"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
+msgstr "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
 
 #: src/settings/grammar-settings.tsx
 msgid "{changedCount} changed from the grammar style"
@@ -506,6 +523,10 @@ msgstr "{description}: not found on PATH"
 #: src/project/manuscript-checklist.tsx
 msgid "{detail}. {limit}"
 msgstr "{detail}. {limit}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
+msgstr "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — BibTeX source"
@@ -840,6 +861,10 @@ msgstr "{path} is already a folder in this project."
 #: src/app/vanished-file.ts
 msgid "{path} is no longer on disk"
 msgstr "{path} is no longer on disk"
+
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not a file review mode tracks."
+msgstr "{path} is not a file review mode tracks."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} is not a folder on Overleaf."
@@ -1217,6 +1242,10 @@ msgstr "A checklist holds at most 200 items."
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 
+#: src/history/review-mode-extension.ts
+msgid "A co-author edited text you changed. Both versions are kept."
+msgstr "A co-author edited text you changed. Both versions are kept."
+
 #: src/terminal/terminal-window.ts
 msgid "A command is still running. Closing stops it."
 msgstr "A command is still running. Closing stops it."
@@ -1419,6 +1448,7 @@ msgstr "Accent"
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Accept"
@@ -1429,6 +1459,7 @@ msgid "Accept {kept} of {offered}"
 msgstr "Accept {kept} of {offered}"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all"
 msgstr "Accept all"
@@ -4941,6 +4972,10 @@ msgstr "Deleted “{key}”"
 msgid "Deleted “{name}”"
 msgstr "Deleted “{name}”"
 
+#: src/history/review-mode-extension.ts
+msgid "Deleted “{removed}”"
+msgstr "Deleted “{removed}”"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Deleted here too"
 msgstr "Deleted here too"
@@ -5031,6 +5066,7 @@ msgid "Discover literature"
 msgstr "Discover literature"
 
 #: src/canvas/proofread-card.tsx
+#: src/history/review-mode-bar.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -7293,6 +7329,10 @@ msgstr "Insert row below"
 msgid "Insert table"
 msgstr "Insert table"
 
+#: src/history/review-mode-extension.ts
+msgid "Inserted “{added}”"
+msgstr "Inserted “{added}”"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Inspect and replace"
 msgstr "Inspect and replace"
@@ -8601,6 +8641,10 @@ msgctxt "macOS menu bar"
 msgid "Markers Only"
 msgstr "Markers Only"
 
+#: src/canvas/project-pdf-panel.tsx
+msgid "Marking changes…"
+msgstr "Marking changes…"
+
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Match app"
@@ -9150,6 +9194,7 @@ msgstr "Next build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "Next change"
@@ -9213,6 +9258,10 @@ msgstr "No bibliography entry has the key {key}. Check the key, or add the entry
 #: src/project/arxiv-export.ts
 msgid "No bibliography to include"
 msgstr "No bibliography to include"
+
+#: src/history/review-mode-bar.tsx
+msgid "No changes"
+msgstr "No changes"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -9906,6 +9955,10 @@ msgstr "One-click TeX package install is not available on Linux yet."
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "Only a LaTeX document can be exported with its changes marked."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Only a LaTeX document can show its changes marked."
+msgstr "Only a LaTeX document can show its changes marked."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
@@ -11177,6 +11230,7 @@ msgstr "Previous build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
+#: src/history/review-mode-bar.tsx
 #: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "Previous change"
@@ -11724,11 +11778,13 @@ msgstr "Regular expression"
 
 #: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
 msgstr "Reject"
 
+#: src/history/review-mode-bar.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "Reject all"
@@ -12041,6 +12097,10 @@ msgstr "Replace with “{replacement}”"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Replace with <0>{suggestion}</0>"
 msgstr "Replace with <0>{suggestion}</0>"
+
+#: src/history/review-mode-extension.ts
+msgid "Replaced “{removed}” with “{added}”"
+msgstr "Replaced “{removed}” with “{added}”"
 
 #: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrence in {files} file."
@@ -12453,6 +12513,10 @@ msgstr "Reverse turnstile"
 msgid "Revert to saved"
 msgstr "Revert to saved"
 
+#: src/history/review-mode-bar.tsx
+msgid "Review"
+msgstr "Review"
+
 #: src/project/arxiv-export-dialog.tsx
 msgctxt "arXiv export comments"
 msgid "Review"
@@ -12483,6 +12547,10 @@ msgstr "Review copy exported from Lattice on {0}, with {count}."
 #: src/app/use-command-table.ts
 msgid "Review here"
 msgstr "Review here"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Review mode is off in this project."
+msgstr "Review mode is off in this project."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"
@@ -13303,6 +13371,10 @@ msgstr "Show changes"
 msgid "Show changes as"
 msgstr "Show changes as"
 
+#: src/history/review-mode-bar.tsx
+msgid "Show changes in the PDF"
+msgstr "Show changes in the PDF"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "Show document outline"
@@ -13375,6 +13447,10 @@ msgstr "Show the PDF"
 #: src/app/use-command-table.ts
 msgid "Show the PDF beside the editor"
 msgstr "Show the PDF beside the editor"
+
+#: src/history/review-mode-bar.tsx
+msgid "Show the PDF without changes"
+msgstr "Show the PDF without changes"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -13826,6 +13902,19 @@ msgstr "Stop on first error"
 #: src/trellis/trellis-workspace.tsx
 msgid "Stop the build"
 msgstr "Stop the build"
+
+#: src/history/review-mode-bar.tsx
+#: src/history/review-mode-store.ts
+msgid "Stop tracking"
+msgstr "Stop tracking"
+
+#: src/canvas/canvas-toolbar.tsx
+msgid "Stop tracking changes"
+msgstr "Stop tracking changes"
+
+#: src/history/review-mode-store.ts
+msgid "Stop tracking changes?"
+msgstr "Stop tracking changes?"
 
 #: src/project/arxiv-export.ts
 msgid "Stopped after 2 minutes"
@@ -14507,6 +14596,10 @@ msgstr "The cached paper was produced by an unsupported converter."
 #: src/platform/host-errors-papers.ts
 msgid "The candidate's title or authors conflict with its source metadata. No citation was added."
 msgstr "The candidate's title or authors conflict with its source metadata. No citation was added."
+
+#: src/canvas/project-pdf-panel.tsx
+msgid "The changes could not be marked in the PDF, so it shows the paper without them."
+msgstr "The changes could not be marked in the PDF, so it shows the paper without them."
 
 #: src/platform/host-errors-papers.ts
 msgid "The citation contains conflicting arXiv identifiers."
@@ -15683,6 +15776,15 @@ msgstr "Top table rule"
 msgid "Top-level section heading"
 msgstr "Top-level section heading"
 
+#: src/canvas/canvas-toolbar.tsx
+#: src/history/review-mode-store.ts
+msgid "Track changes"
+msgstr "Track changes"
+
+#: src/history/review-mode-bar.tsx
+msgid "Tracking changes"
+msgstr "Tracking changes"
+
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Translate into academic English"
 msgstr "Translate into academic English"
@@ -16691,6 +16793,11 @@ msgstr "Yellow"
 msgid "You"
 msgstr "You"
 
+#: src/history/review-mode-extension.ts
+msgctxt "the writer, as the author of a tracked change"
+msgid "You"
+msgstr "You"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 msgstr "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
@@ -16735,6 +16842,10 @@ msgstr "Your answer…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
+
+#: src/history/review-mode-store.ts
+msgid "Your edits stay in the files. The changes waiting for review are no longer marked."
+msgstr "Your edits stay in the files. The changes waiting for review are no longer marked."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

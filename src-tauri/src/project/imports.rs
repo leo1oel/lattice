@@ -492,6 +492,7 @@ const UNSYNCED_RESEARCH_PREFIXES: &[&str] = &[
     ".research/omp-",
     ".research/checkpoints/",
     ".research/cache/",
+    ".research/review/",
 ];
 
 /// Write raw bytes (base64) to a project-relative path, for Open Slide's
@@ -764,6 +765,10 @@ mod tests {
             "QQ==",
         )
         .unwrap_err();
+        assert!(error.contains("cannot be written directly"));
+        // Review mode's bases are written only through review_mode.rs.
+        let error =
+            write_bytes(&fixture.root, ".research/review/base/main.tex", "QQ==").unwrap_err();
         assert!(error.contains("cannot be written directly"));
     }
 }

@@ -20,6 +20,8 @@
 //! - [`entries`], [`imports`], [`assets`], [`archive`] — Project-pane file
 //!   operations, drops and uploads, figure previews, and ZIP packs.
 //! - [`history`] — undoable transactions and the history log.
+//! - [`review_mode`] — review mode's bases, the text tracked changes are
+//!   shown against.
 //!
 //! Content changes go through `history` (atomic writes via
 //! `crate::project_fs::ProjectDir`, an undo record, a search-index refresh).
@@ -44,6 +46,7 @@ mod moved_file;
 mod paths;
 mod pdf_copy;
 mod references;
+mod review_mode;
 mod search;
 mod symbols;
 pub mod templates;
@@ -102,6 +105,10 @@ pub(crate) use paths::{creation_path, stays_inside};
 pub use pdf_copy::save_asset_copy;
 pub use references::references;
 pub use references::ReferenceIndex;
+pub use review_mode::{
+    is_reviewable_path, load_review, review_base_directory, review_excluded, reviewable_texts,
+    save_review_base, start_review, stop_review, ReviewBases, REVIEW_DIRECTORY,
+};
 pub(crate) use search::{
     file_search_result, matches_search, search_terms, searchable_text_lines, searchable_text_path,
 };

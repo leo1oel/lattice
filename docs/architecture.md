@@ -384,6 +384,7 @@ creates it.
 | `.research/licenses/` | `project/create.rs` | license texts for imported material |
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
+| `.research/review/` | `project/review_mode.rs` (`REVIEW_DIRECTORY`) | review mode, present only while it is on: `review.json` (when it was turned on, the files it left out), `base/` (each `.tex`/`.bib` file's base, mirroring the project's paths) and `build/` (the PDF with the changes marked; `latex/changes/review.rs`); deleted when review mode is turned off; never committed (see the gitignore files below), synced to Overleaf (all of `.research/` stays local) or written by `write_bytes` |
 | `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
 | `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
 | `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |
@@ -398,13 +399,13 @@ known to hold a linked copy (`overleaf-local-copies.json`,
 `.research/overleaf.json` before use.
 
 Two gitignore files are written at project creation (`project/create.rs`):
-`.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/`
+`.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/ review/`
 (`RESEARCH_GITIGNORE`), and the project's root `.gitignore`
-gets the same four paths plus `/main.pdf` and the LaTeX build-artifact list.
+gets the same five paths plus `/main.pdf` and the LaTeX build-artifact list.
 Every open (`project/manifest.rs`) writes `.research/.gitignore` only if it is
 missing (an existing one is left as is), and `ensure_ignore_line` adds
-`.research/checkpoints/`, `.research/cache/` and the build-artifact list to the
-root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
+`.research/checkpoints/`, `.research/cache/`, `.research/review/` and the
+build-artifact list to the root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
 `.log` and `.fls` in the directory. Exporting a PDF with changes marked (`latex/changes.rs`) adds its `/<root>-changes.pdf` to the root `.gitignore` the same way.
 
 Export (`export_project_zip`) excludes `.git/`, all of `.research/`, the
