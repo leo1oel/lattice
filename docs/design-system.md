@@ -842,7 +842,8 @@ reuse its vocabulary so the product reads as one thing:
   states as static isometric objects from a research desk: the clipboard of an
   empty document panel and of a workspace with every panel closed, the first
   PDF's proof tray, the empty library's card box, literature search's
-  reading folio before a first search, the reading glass of a reference
+  reading folio before a first search, the highlighter and page flags of no
+  annotations yet, the reading glass of a reference
   check with nothing left to review, and, in the Overleaf panel, the margin
   notes of no comments, the proof marks of no suggestions and the letter rack
   of an empty chat.
@@ -857,8 +858,7 @@ Motion follows three rules:
   Overleaf channel coming up, a dialog arriving) or something appearing (an
   empty state, a skeleton). It plays once. The only ambient loops are the
   welcome screen, which is never on screen while writing, loading
-  placeholders such as the PDF skeleton, which last only until content arrives,
-  and the comments empty state's typing dots, which run only while hovered.
+  placeholders such as the PDF skeleton, which last only until content arrives.
 - **Never under the writer's own typing.** Nothing the writer types animates,
   and nothing near the editor repeats while they work. What changes the text
   for them gets one moment (`editor/change-marks.ts`): an accepted

@@ -10,7 +10,7 @@ import "./empty-illustration.css";
  * its empty state is hovered; nothing loops. Decorative only: the empty
  * state's text says what it means.
  */
-export type EmptyIllustrationKind = "comments" | "search" | "history" | "done";
+export type EmptyIllustrationKind = "search" | "history" | "done";
 
 const order = (index: number) => ({ "--draw-order": index }) as CSSProperties;
 
@@ -20,28 +20,6 @@ export function Line({ d, i, className }: { d: string; i: number; className?: st
 }
 
 const SEARCH_PAGE = "M14 9.5a2.5 2.5 0 0 1 2.5-2.5h17a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-17a2.5 2.5 0 0 1-2.5-2.5z";
-
-function drawComments() {
-  return (
-    <>
-      <Line d="M9 8h28a4 4 0 0 1 4 4v13a4 4 0 0 1-4 4H19l-6 5v-5H9a4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z" i={0} />
-      <Line d="M11 15h20M11 21h12" i={1} className="empty-illustration-faint" />
-      <path className="empty-illustration-paper" d="M27 20h28a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-4v5l-6-5H27a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4z" />
-      <Line d="M27 20h28a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-4v5l-6-5H27a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4z" i={2} />
-      <g className="empty-illustration-typing">
-        <g style={order(3)}>
-          <circle className="empty-illustration-knot" data-thread="weft" cx="34" cy="30" r="2" />
-        </g>
-        <g style={order(4)}>
-          <circle className="empty-illustration-knot" data-thread="warp" cx="41" cy="30" r="2" />
-        </g>
-        <g style={order(5)}>
-          <circle className="empty-illustration-knot" data-thread="weft" cx="48" cy="30" r="2" />
-        </g>
-      </g>
-    </>
-  );
-}
 
 function drawSearch() {
   // A page the lens has passed over and found nothing on. The page's lines
@@ -94,7 +72,6 @@ function drawHistory() {
 }
 
 const DRAWINGS: Record<EmptyIllustrationKind, () => ReactNode> = {
-  comments: drawComments,
   search: drawSearch,
   history: drawHistory,
   done: drawDone,

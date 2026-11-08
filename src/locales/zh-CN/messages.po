@@ -12495,10 +12495,6 @@ msgstr "重试"
 msgid "Return to {name}"
 msgstr "返回 {name}"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Return to {writingName}"
-msgstr "返回 {writingName}"
-
 #: src/app/use-trellis-bridge.ts
 #: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF"
