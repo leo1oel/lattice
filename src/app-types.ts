@@ -535,6 +535,11 @@ export type OverleafSyncResult = {
    * Each is listed once per Overleaf copy, not again on every sync.
    */
   refusedIncoming?: string[];
+  /**
+   * Still marked up from an earlier conflict while Overleaf moved on again:
+   * left as they are until resolved, then merged with Overleaf's newer edits.
+   */
+  unresolvedConflicts?: string[];
   readOnly?: boolean;
   /**
    * Overleaf paths that differ only in letter case, which one file or folder

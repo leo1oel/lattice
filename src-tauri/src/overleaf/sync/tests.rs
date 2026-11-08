@@ -5,6 +5,7 @@ use crate::overleaf::test_support::*;
 use serde_json::json;
 
 mod case_collisions;
+mod conflicts;
 mod deletions;
 mod prefetch;
 mod preview;
@@ -128,36 +129,6 @@ fn overleaf_sync_does_not_commit_local_state_after_a_partial_upload_failure() {
         assert_eq!(read_local(&root, rel).as_deref(), Some(*edited), "{rel}");
         assert_eq!(read_base_copy(&root, rel).as_deref().map(str::as_bytes), Some(*original));
         assert_eq!(files.get(*rel), Some(&sha256_hex(original)), "{rel}");
-    }
-}
-
-#[test]
-fn overleaf_sync_never_uploads_excluded_files_or_unresolved_conflict_markers() {
-    // A file still carrying markers must not be published to collaborators.
-    let marked = format!("{CONFLICT_MARKER} ours\nmine\n=======\ntheirs\n>>>>>>> theirs\n");
-    let base: Files = &[("main.tex", b"body"), ("notes.tex", b"alpha\n")];
-    let (server, root, result) = run_sync(
-        Mock::project(base),
-        &[
-            ("main.tex", b"body"),
-            ("notes.tex", marked.as_bytes()),
-            ("main.log", b"latexmk noise"),
-            (".DS_Store", b"finder noise"),
-            ("main.pdf", b"%PDF compiled output"),
-            ("main.synctex.gz", b"synctex"),
-            ("tmp/pdfs/full-appendix/render-1.png", b"temporary preview"),
-        ],
-        base,
-    );
-    assert!(result.pushed.is_empty() && result.pulled.is_empty());
-    assert!(server.uploads().is_empty());
-    // Excluded files never enter state, and the marked file is left out so
-    // it uploads as soon as the markers are gone.
-    assert_eq!(state_files(&root).keys().collect::<Vec<_>>(), vec!["main.tex"]);
-    // Both stay untouched on disk.
-    assert_eq!(read_local(&root, "notes.tex").unwrap(), marked.as_bytes());
-    for rel in ["main.log", "main.pdf", "tmp/pdfs/full-appendix/render-1.png"] {
-        assert!(read_local(&root, rel).is_some(), "{rel}");
     }
 }
 

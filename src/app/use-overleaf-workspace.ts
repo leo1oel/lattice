@@ -39,6 +39,7 @@ import type {
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
 import { overleafSyncWarnings } from "./overleaf-sync-warnings";
+import { unsettledPaths } from "./overleaf-sync-unsettled";
 
 type OverleafSyncOptions = {
   auto?: boolean;
@@ -448,10 +449,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         reconciled.add(path);
       }
       for (const path of [
-        ...externalChangesRef.current.keys(), ...(reloadBlockedPath ? [reloadBlockedPath] : []),
-        ...result.conflicts.map((conflict) => conflict.path),
-        ...result.deletedLocal, ...result.skippedRemoteDeletes, ...(result.skippedLarge ?? []),
-        ...(result.refusedIncoming ?? []).filter((path) => !result.pushed.includes(path)),
+        ...externalChangesRef.current.keys(), ...(reloadBlockedPath ? [reloadBlockedPath] : []), ...unsettledPaths(result),
       ]) reconciled.delete(path);
       if (!result.readOnly) resumeRealtimePathsRef.current([...reconciled]);
       if (result.pulled.length || result.pushed.length || result.merged.length) {
