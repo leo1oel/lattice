@@ -10,6 +10,7 @@ import { i18n } from "../i18n";
 import { hostErrorText } from "../platform/host-error-text";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { transformSpan, type OtDocument, type OtOp } from "./ot";
+import type { OverleafConnectionStore } from "./overleaf-connection-store";
 import { changesAfter, type Suggester } from "./overleaf-suggestions";
 
 export type DocEntry = { id: string; path: string };
@@ -78,6 +79,50 @@ export type OverleafRemoteTextContext = {
   isCurrent: () => boolean;
 };
 
+export type OverleafRealtimeOptions = {
+  /** The window's connection store, where the channel's status and tree live. */
+  store: OverleafConnectionStore;
+  /** Connect whenever the project is linked: chat and presence ride here too. */
+  enabled: boolean;
+  /**
+   * Whether to edit the open file through the channel. Off in manual sync mode,
+   * while the connection itself stays up so the rest of the bridge keeps
+   * working.
+   */
+  documents: boolean;
+  projectRoot: string | null;
+  activeFile: string | null;
+  /** Return false to preserve divergent local work and fall back to regular sync. */
+  onRemoteText: (text: string, context: OverleafRemoteTextContext) => boolean | void | Promise<boolean | void>;
+  onNotice: (message: string) => void;
+  onNeedsSync?: (paths: readonly string[]) => void;
+};
+
+export const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.`);
+export const replacedNotice = () => i18n._(msg`Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees.`);
+
+/** Why ordinary sync is paused on a file whose last send has no proven outcome. */
+export const unconfirmedNotice = (path: string | undefined, detail: string) => (path
+  ? i18n._(msg`Lattice could not confirm whether Overleaf accepted the latest edit to ${path} (${detail}). Syncing is paused for this file while Lattice checks.`)
+  : i18n._(msg`Lattice could not confirm whether Overleaf accepted the latest edit to this file (${detail}). Syncing is paused for this file while Lattice checks.`));
+/** Why re-joining a held document cannot prove its last edit yet: the reason recorded, and the detail shown. */
+export const unprovenJoin = (why: "noReplay" | "noPublicId", activeFile: string): [string, string] => (why === "noReplay"
+  ? [
+    i18n._(msg`Overleaf could not replay from the last version Lattice trusts`),
+    i18n._(msg`Overleaf could not replay enough history to confirm the last edit to ${activeFile}. Syncing remains paused for this file.`),
+  ]
+  : [
+    i18n._(msg`the connection id needed to classify replayed updates is not available`),
+    i18n._(msg`Lattice cannot yet identify which replayed edits to ${activeFile} are its own. Syncing remains paused for this file.`),
+  ]);
+/** `attempt`, then again every `ms` for as long as `retry` says a failure is worth retrying. */
+export const retrying = <T>(attempt: () => Promise<T>, ms: number, retry: (reason: unknown) => boolean): Promise<T> =>
+  attempt().catch(async (reason: unknown) => {
+    if (!retry(reason)) throw reason;
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    return retrying(attempt, ms, retry);
+  });
+
 /** The document on screen, with the spans Overleaf anchored in it. */
 export type OpenDoc = { id: string; comments: CommentRange[]; changes: TrackedChange[] };
 export type RealtimeStatus = "off" | "connecting" | "live" | "error";
@@ -89,6 +134,19 @@ export type RealtimeStatus = "off" | "connecting" | "live" | "error";
  */
 export const isOwnUpdate = (source: string | null, publicId: string | null, submittedVia: readonly string[] = []) =>
   Boolean(source) && (source === publicId || submittedVia.includes(source!));
+
+/**
+ * Replay a join's catch-up into `doc`; our own updates coming back are acknowledgements.
+ * With `stopAfterOurs`, nothing after our last update is applied: those were
+ * built on text the operation changed outside `doc` (a reject's inverse), and
+ * only a full re-join reads them correctly.
+ */
+export const replayInto = (doc: OtDocument, updates: ReplayedUpdate[], publicId: string | null, stopAfterOurs = false) => {
+  const marked = updates.map((update) => ({ ...update, mine: isOwnUpdate(update.source, publicId, doc.submittedVia) }));
+  let end = marked.length;
+  if (stopAfterOurs) while (end > 0 && !marked[end - 1]!.mine) end -= 1;
+  return doc.catchUp(end > 0 ? marked.slice(0, end) : marked);
+};
 
 /**
  * Overleaf refused a request while the session is still valid

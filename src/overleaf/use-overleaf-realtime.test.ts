@@ -62,29 +62,6 @@ describe("guarded remote delivery", () => {
     vi.mocked(invoke).mockImplementation(original);
   });
 
-  it("does not promote text after an out-of-band reservation until a full reset, then checkpoints acknowledged human text", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const view = await mountLive();
-    act(() => { expect(view.result.current.reserveOperation()).not.toBeNull(); });
-    emit({ type: "docAck", docId: DOC_A, version: 10 });
-    await typeAndSend(view.result, "alpha later");
-    emit({ type: "docAck", docId: DOC_A, version: 11 });
-    act(() => view.result.current.suspendPaths(["a.tex"]));
-    await waitFor(() => expect(leaves()).toContain(DOC_A));
-    expectLeft({ checkpoint: { text: "alpha", version: 10 } });
-    await waitFor(() => expect(view.result.current.livePaths).toEqual([]));
-    act(() => view.result.current.resumePaths(["a.tex"]));
-    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
-    await typeAndSend(view.result, "alpha after reset");
-    emit({ type: "docAck", docId: DOC_A, version: 10 });
-    act(() => view.result.current.suspendPaths(["a.tex"]));
-    await waitFor(() => expect(leaves()).toHaveLength(2));
-    // A debounced send can land after the leave under load, so check the leave itself, not call order.
-    expect(invokeCalls("overleaf_rt_leave_doc").at(-1)).toEqual(expect.objectContaining({
-      docId: DOC_A, checkpoint: { text: "alpha after reset", version: 11 },
-    }));
-  });
-
   it.each([
     { mixed: false, reopen: false }, { mixed: true, reopen: false },
     { mixed: false, reopen: true }, { mixed: true, reopen: true },

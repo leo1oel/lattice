@@ -20,16 +20,16 @@ import { useStoreSlice } from "../hooks/use-store-slice";
 import { i18n } from "../i18n";
 import { hostErrorText } from "../platform/host-error-text";
 import { OtDocument, preciseOps, type OtOp } from "./ot";
-import { channelFields, projectAccess, type OverleafConnectionStore } from "./overleaf-connection-store";
+import { channelFields, projectAccess } from "./overleaf-connection-store";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import { useOverleafRealtimeConnection } from "./use-overleaf-realtime-connection";
 import type { Suggester } from "./overleaf-suggestions";
 import { useOpenDocReview } from "./use-open-doc-review";
 import { useOverleafDocumentTree } from "./use-overleaf-document-tree";
 import {
-  isOwnUpdate, overleafDocHash, promoteShared,
+  driftNotice, isOwnUpdate, overleafDocHash, promoteShared, replacedNotice, replayInto, retrying, unconfirmedNotice, unprovenJoin,
   type CommentRange, type DocumentProof, type DocUpdateEvent, type JoinedDoc, type OverleafCommentTarget,
-  type OverleafRemoteTextContext, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
+  type OverleafRealtimeOptions, type OverleafRemoteTextContext, type ReservedOperation, type TrackedChange,
 } from "./overleaf-realtime-model";
 
 export type { OverleafCommentTarget, OverleafRemoteTextContext, ReservedOperation, TrackedChange };
@@ -47,27 +47,10 @@ const HASH_INTERVAL_MS = 5_000;
  * or someone typing without a pause would send nothing until they stopped.
  */
 const SEND_INTERVAL_MS = 250;
-const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.`);
-const replacedNotice = () => i18n._(msg`Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees.`);
+/** Between attempts to re-read a document a reject left stale. */
+const RESYNC_RETRY_MS = 2_000;
 
-export function useOverleafRealtime(options: {
-  /** The window's connection store, where the channel's status and tree live. */
-  store: OverleafConnectionStore;
-  /** Connect whenever the project is linked: chat and presence ride here too. */
-  enabled: boolean;
-  /**
-   * Whether to edit the open file through the channel. Off in manual sync mode,
-   * while the connection itself stays up so the rest of the bridge keeps
-   * working.
-   */
-  documents: boolean;
-  projectRoot: string | null;
-  activeFile: string | null;
-  /** Return false to preserve divergent local work and fall back to regular sync. */
-  onRemoteText: (text: string, context: OverleafRemoteTextContext) => boolean | void | Promise<boolean | void>;
-  onNotice: (message: string) => void;
-  onNeedsSync?: (paths: readonly string[]) => void;
-}) {
+export function useOverleafRealtime(options: OverleafRealtimeOptions) {
   // For rendered text and caller-initiated actions only. `t` changes identity
   // with the interface language, so anything the connection or open-document
   // effects depend on translates through `i18n._(msg…)` instead: a dependency
@@ -111,6 +94,8 @@ export function useOverleafRealtime(options: {
   const unsentText = useRef<string | null>(null);
   /** Set by `reload`: take the server's copy instead of resuming from ours. */
   const forceFullJoin = useRef(false);
+  /** Copies missing an operation sent outside them (a reject's inverse): nothing is sent or applied until a full join. */
+  const resyncing = useRef(new Set<string>());
   const flushRef = useRef<(id: string | null, send: { version: number; ops: OtOp[] } | null, dupIfSource?: readonly string[]) => Promise<void>>(async () => undefined);
   const reconcileUnknownRef = useRef<(id: string) => void>(() => undefined);
   const sendTypingRef = useRef<(id: string) => void>(() => undefined);
@@ -145,9 +130,6 @@ export function useOverleafRealtime(options: {
 
   /** Whether `source` is us: this connection, or an earlier one that carried `doc`'s unanswered operation. */
   const isMine = (source: string | null, doc?: OtDocument) => isOwnUpdate(source, publicId.current, doc?.submittedVia);
-  /** Replay a join's catch-up into `doc`; our own updates coming back are acknowledgements. */
-  const replay = (doc: OtDocument, updates: ReplayedUpdate[]) =>
-    doc.catchUp(updates.map((update) => ({ ...update, mine: isOwnUpdate(update.source, publicId.current, doc.submittedVia) })));
   /**
    * After a replay on a new connection, send the still-unanswered operation
    * again, naming every connection it went out on before. If one of those
@@ -164,12 +146,20 @@ export function useOverleafRealtime(options: {
     if (send) void flushRef.current(id, send, send.dupIfSource);
   };
   const deliveryPending = (doc: OtDocument | null | undefined) => Boolean(doc && remoteDeliveries.current.get(doc)?.pending);
+  const openDocument = () => (docId.current ? documents.current.get(docId.current) : undefined);
+  /** Typing not yet sent has not entered OtDocument yet, but it is still local work. */
+  const typingUnsent = () => sendTimer.current !== null || unsentText.current !== null;
+  /** Re-join a `resyncing` doc once nothing of ours is outstanding: after an ack, a settling replay, a delivery. */
+  const resyncIfDue = useCallback((id: string) => {
+    const doc = documents.current.get(id);
+    if (!resyncing.current.has(id) || docId.current !== id || !doc?.settled || deliveryPending(doc) || uncertain.current.has(id)) return;
+    bumpReloadNonce();
+  }, []);
   const { openDoc, setOpenDoc, patchOpenDoc, shiftAnchors, onReviewEvent, noteProject, suggester } = useOpenDocReview((id) => {
     const doc = documents.current.get(id);
     const projectRoot = connectionRoot.current;
-    const typing = sendTimer.current !== null || unsentText.current !== null;
-    return doc && projectRoot && docId.current === id && doc.settled && !typing && !deliveryPending(doc)
-      && !uncertain.current.has(id) && !leaving.current.has(id) ? { doc, projectRoot } : null;
+    return doc && projectRoot && docId.current === id && doc.settled && !typingUnsent() && !deliveryPending(doc)
+      && !uncertain.current.has(id) && !leaving.current.has(id) && !resyncing.current.has(id) ? { doc, projectRoot } : null;
   });
   const clearSendTimer = () => {
     if (sendTimer.current) clearTimeout(sendTimer.current);
@@ -186,8 +176,7 @@ export function useOverleafRealtime(options: {
   const publishUnacknowledged = useCallback(() => {
     const id = docId.current;
     const doc = id ? documents.current.get(id) : undefined;
-    const typing = sendTimer.current !== null || unsentText.current !== null;
-    setUnacknowledged(Boolean(id && doc && (typing || !doc.settled || uncertain.current.has(id))));
+    setUnacknowledged(Boolean(id && doc && (typingUnsent() || !doc.settled || uncertain.current.has(id) || resyncing.current.has(id))));
   }, [setUnacknowledged]);
   const cancelDrain = (id: string) => {
     clearTimeout(draining.current.get(id));
@@ -245,11 +234,7 @@ export function useOverleafRealtime(options: {
     uncertain.current.add(id);
     publishLivePaths();
     publishUnacknowledged();
-    const path = pathsByDocId.current.get(id);
-    const detail = String(reason);
-    const message = path
-      ? i18n._(msg`Lattice could not confirm whether Overleaf accepted the latest edit to ${path} (${detail}). Syncing is paused for this file while Lattice checks.`)
-      : i18n._(msg`Lattice could not confirm whether Overleaf accepted the latest edit to this file (${detail}). Syncing is paused for this file while Lattice checks.`);
+    const message = unconfirmedNotice(pathsByDocId.current.get(id), String(reason));
     if (docId.current === id) setDetail(message);
     if (first) callbacks.current.onNotice(message);
     reconcileUnknownRef.current(id);
@@ -309,6 +294,7 @@ export function useOverleafRealtime(options: {
     // Intentional project teardown has no remaining frontend sync owner.
     documents.current.clear();
     leaving.current.clear();
+    resyncing.current.clear();
     publishLivePaths();
   }, [publishLivePaths, release, stopDocument]);
 
@@ -433,8 +419,9 @@ export function useOverleafRealtime(options: {
     }).finally(() => {
       delivery.pending -= 1;
       if (!delivery.pending && isCurrent()) setLiveFile(true);
+      resyncIfDue(id);
     });
-  }, [pathsByDocId, setDetail, setLiveFile, suspendPaths]);
+  }, [pathsByDocId, resyncIfDue, setDetail, setLiveFile, suspendPaths]);
 
   /**
    * Ask the server to replay from the last version we trust after a send's
@@ -468,7 +455,7 @@ export function useOverleafRealtime(options: {
       }
       const sawOurUpdate = caughtUp.some((update) => isMine(update.source, doc));
       const baseContent = doc.text;
-      const result = replay(doc, caughtUp);
+      const result = replayInto(doc, caughtUp, publicId.current, resyncing.current.has(id));
       promoteShared(doc, proof);
       shiftAnchors(id, result.applied);
       if (docId.current === id) {
@@ -484,13 +471,14 @@ export function useOverleafRealtime(options: {
       }
       publishUnacknowledged();
       releaseIfDone(id, doc);
+      resyncIfDue(id);
     } catch {
       // Still unknown. Keeping the path in livePaths is the safety mechanism;
       // a later ack or reconnect can resolve it without a blind retransmit.
     } finally {
       if (connectionRoot.current === projectRoot) reconciling.current.delete(id);
     }
-  }, [deliverRemoteText, patchOpenDoc, publishLivePaths, publishUnacknowledged, releaseIfDone, setDetail, shiftAnchors]);
+  }, [deliverRemoteText, patchOpenDoc, publishLivePaths, publishUnacknowledged, releaseIfDone, resyncIfDue, setDetail, shiftAnchors]);
   useEffect(() => {
     reconcileUnknownRef.current = (id) => void reconcileUnknown(id);
   }, [reconcileUnknown]);
@@ -509,7 +497,7 @@ export function useOverleafRealtime(options: {
     // Recorded before the send can fail: an operation whose answer is lost
     // with its connection must still be recognised as ours when it is
     // replayed under this id after a reconnect.
-    if (publicId.current) doc?.noteSubmitted(publicId.current);
+    doc?.noteSubmitted(publicId.current);
     // Now and then, say what the document should read once this lands.
     // Overleaf rejects the update when its copy disagrees, so a copy that has
     // drifted fails loudly — and falls back to syncing — instead of every
@@ -592,6 +580,7 @@ export function useOverleafRealtime(options: {
           if (wasUncertain && docId.current === payload.docId) setDetail(null);
           publishUnacknowledged();
           releaseIfDone(payload.docId, doc);
+          resyncIfDue(payload.docId);
         } catch (reason) {
           dropDocument(payload.docId, toMessage(reason));
           callbacks.current.onNotice(driftNotice());
@@ -607,6 +596,8 @@ export function useOverleafRealtime(options: {
         // Our own work coming back is already in this copy; only the separate
         // acknowledgement moves the state machine on.
         if (isMine(payload.source, doc)) return;
+        // After a reject's answer, updates build on text this copy lacks.
+        if (resyncing.current.has(payload.docId) && doc.settled) return;
         try {
           const onScreen = payload.docId === docId.current;
           // Typing not yet sent goes into the document first, so the update is
@@ -628,7 +619,7 @@ export function useOverleafRealtime(options: {
     }
   }), [
     deliverRemoteText, dropDocument, fail, flush, noteDocumentTree, onReviewEvent, publishLivePaths, publishUnacknowledged,
-    releaseIfDone, setDetail, shiftAnchors, stopAfterDisconnect,
+    releaseIfDone, resyncIfDue, setDetail, shiftAnchors, stopAfterDisconnect,
   ]);
 
   // ---- connection ---------------------------------------------------------
@@ -669,16 +660,20 @@ export function useOverleafRealtime(options: {
     // resume from its version makes the server replay what it did meanwhile
     // instead of only stating where it ended up, which is the difference
     // between keeping work that never reached it and overwriting it.
-    const fullJoin = forceFullJoin.current;
+    const current = documents.current.get(id);
+    const resync = resyncing.current.has(id) && current?.settled === true;
+    const fullJoin = forceFullJoin.current || resync;
     forceFullJoin.current = false;
-    let held = fullJoin ? undefined : documents.current.get(id);
+    // Lands over the stale copy the editor shows; typing since goes to regular sync's merge.
+    const replacedText = resync ? current.text : null;
+    let held = fullJoin ? undefined : current;
     const joiningRoot = connectionRoot.current;
     if (!joiningRoot) {
       setDetail(i18n._(msg`The Overleaf project connection is no longer active.`));
       return;
     }
     const receipt = crypto.randomUUID();
-    const pauseUnproven = (reason: string, message: string) => {
+    const pauseUnproven = ([reason, message]: [string, string]) => {
       markOutcomeUnknown(id, reason);
       setDetail(message);
     };
@@ -688,9 +683,12 @@ export function useOverleafRealtime(options: {
         if (!await pendingLeave) throw new Error(i18n._(msg`The previous Overleaf document could not be released. Syncing remains paused.`));
         held = undefined;
       }
-      if (cancelled) return null;
-      return invoke<JoinedDoc>("overleaf_rt_join_doc", {
+      // A copy a reject left stale stays blocked: keep re-reading while it is open.
+      return retrying(() => (cancelled ? Promise.resolve(null) : invoke<JoinedDoc>("overleaf_rt_join_doc", {
         projectRoot: joiningRoot, docId: id, fromVersion: held?.version ?? null, receipt,
+      })), RESYNC_RETRY_MS, (reason) => {
+        if (resync && !cancelled) setDetail(String(reason));
+        return resync && !cancelled;
       });
     })().then((joined) => {
       if (!joined) return;
@@ -708,10 +706,7 @@ export function useOverleafRealtime(options: {
       const heldProof = held && proofs.current.get(held);
       if (heldProof) heldProof.receipt = receipt;
       if (held && !held.settled && !joined.resumed) {
-        pauseUnproven(
-          i18n._(msg`Overleaf could not replay from the last version Lattice trusts`),
-          i18n._(msg`Overleaf could not replay enough history to confirm the last edit to ${activeFile}. Syncing remains paused for this file.`),
-        );
+        pauseUnproven(unprovenJoin("noReplay", activeFile));
         return;
       }
       // Settled, and taken in here: the last text this side and Overleaf both held.
@@ -719,16 +714,13 @@ export function useOverleafRealtime(options: {
       if (held && joined.resumed) {
         const caughtUp = joined.caughtUp ?? [];
         if (held.waiting && !publicId.current && caughtUp.length) {
-          pauseUnproven(
-            i18n._(msg`the connection id needed to classify replayed updates is not available`),
-            i18n._(msg`Lattice cannot yet identify which replayed edits to ${activeFile} are its own. Syncing remains paused for this file.`),
-          );
+          pauseUnproven(unprovenJoin("noPublicId", activeFile));
           return;
         }
         // Classified before replaying: an acknowledgement in the replay
         // forgets which connections carried the operation it answers.
         const sawOurUpdate = caughtUp.some((update) => isMine(update.source, held));
-        const result = replay(held, caughtUp);
+        const result = replayInto(held, caughtUp, publicId.current, resyncing.current.has(id));
         text = result.text;
         promoteShared(held, heldProof);
         if (result.send) void flush(id, result.send);
@@ -742,6 +734,7 @@ export function useOverleafRealtime(options: {
         proofs.current.set(doc, { receipt, lastShared: null, locallyAppliedText: null, textModelValid: true });
         documents.current.set(id, doc);
         uncertain.current.delete(id);
+        resyncing.current.delete(id);
       }
       // Joining the socket room and returning its snapshot cross an async IPC
       // boundary. Updates can arrive in between; replay them over the snapshot
@@ -785,7 +778,8 @@ export function useOverleafRealtime(options: {
       // the buffer's own work goes out as operations. Anything else has no
       // trusted relationship to local disk edits and is left to regular sync.
       const agreed = held && joined.resumed ? null : joined.agreed ?? null;
-      if (heldShared !== null) deliverRemoteText(id, text, heldShared, { carryTyping: true });
+      if (replacedText !== null) deliverRemoteText(id, text, replacedText);
+      else if (heldShared !== null) deliverRemoteText(id, text, heldShared, { carryTyping: true });
       else if (agreed !== null && agreed !== text) deliverRemoteText(id, text, agreed);
       else deliverRemoteText(id, text, text, { carryTyping: agreed === text });
     }).catch((reason) => {
@@ -835,7 +829,8 @@ export function useOverleafRealtime(options: {
   /** Feed the editor's current text in; ops go out when it differs. */
   const pushLocal = useCallback((text: string) => {
     const id = docId.current;
-    if (!id || !documents.current.has(id) || !canContribute.current || deliveryPending(documents.current.get(id))) return;
+    // Resyncing: typing stays in the editor, for the re-join to hand to regular sync.
+    if (!id || !documents.current.has(id) || !canContribute.current || deliveryPending(documents.current.get(id)) || resyncing.current.has(id)) return;
     // Coalesce keystrokes: one operation per SEND_INTERVAL_MS keeps the
     // channel quiet without anyone noticing a delay. Held where leaving the
     // document, or a co-author's operation, can find it, because until it is
@@ -863,6 +858,7 @@ export function useOverleafRealtime(options: {
       || connectionRoot.current !== target.projectRoot
       || callbacks.current.activeFile !== target.path
       || deliveryPending(doc)
+      || resyncing.current.has(target.docId)
     ) {
       throw new Error(t`The commented file is no longer open live with Overleaf. Try again.`);
     }
@@ -871,6 +867,7 @@ export function useOverleafRealtime(options: {
     // server has not confirmed.
     const reserved = doc.anchor();
     if (!reserved) throw new Error(t`An edit is still on its way to Overleaf. Try again in a moment.`);
+    doc.noteSubmitted(publicId.current);
     publishUnacknowledged();
     try {
       await invoke("overleaf_rt_send_comment", {
@@ -883,10 +880,6 @@ export function useOverleafRealtime(options: {
     // Show it straight away rather than waiting for the round trip.
     patchOpenDoc(target.docId, (current) => ({ comments: [...current.comments, { threadId, position, quote }] }));
   }, [fail, patchOpenDoc, publishUnacknowledged, t]);
-
-  const openDocument = () => (docId.current ? documents.current.get(docId.current) : undefined);
-  /** Typing not yet sent has not entered OtDocument yet, but it is still local work. */
-  const typingUnsent = () => sendTimer.current !== null || unsentText.current !== null;
 
   return {
     status,
@@ -929,14 +922,17 @@ export function useOverleafRealtime(options: {
     reserveOperation: (): ReservedOperation | null => {
       const id = docId.current;
       const doc = openDocument();
-      if (deliveryPending(doc)) return null;
+      // Unsent typing would leave on the copy the reject makes stale.
+      if (typingUnsent() || deliveryPending(doc) || (id && resyncing.current.has(id))) return null;
       const anchor = doc?.anchor();
       if (!id || !doc || !anchor) return null;
+      doc.noteSubmitted(publicId.current);
       // Rejection sends real inverse text ops outside OtDocument, although
       // its reservation is empty. Keep the old shared proof but never claim
       // this model is current again until a full reset and guarded delivery.
       const proof = proofs.current.get(doc);
       if (proof) proof.textModelValid = false;
+      resyncing.current.add(id);
       publishUnacknowledged();
       return { docId: id, version: anchor.version };
     },
@@ -949,13 +945,18 @@ export function useOverleafRealtime(options: {
       const doc = openDocument();
       // Treating typing not yet sent as settled would let a REST mutation reload
       // the server copy over those keystrokes.
-      if (typingUnsent() || deliveryPending(doc)) return null;
+      if (typingUnsent() || deliveryPending(doc) || resyncing.current.has(docId.current ?? "")) return null;
       return doc?.settled ? doc.version : null;
     },
     /** Re-read the open document, after accepting or rejecting a suggestion. */
     reload: () => {
       const id = docId.current;
       const doc = openDocument();
+      // A reject's re-join is owed; it starts once Overleaf answers.
+      if (id && resyncing.current.has(id)) {
+        resyncIfDue(id);
+        return;
+      }
       if (typingUnsent() || (doc && !doc.settled) || deliveryPending(doc)) {
         setDetail(i18n._(msg`A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely.`));
         if (id && uncertain.current.has(id)) reconcileUnknownRef.current(id);

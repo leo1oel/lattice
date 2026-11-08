@@ -121,8 +121,8 @@ export function useCommandTable({
   // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
   "use no memo";
   const { t, i18n } = useLingui();
-  const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, save } = documents;
-  const { openFile, openAsset, edit: editFile } = documents;
+  const { file: activeFile, paper: activePaper, asset: activeAsset, save } = documents;
+  const { openFile, openAsset } = documents;
   const { building, cleanAndRebuild, cleanProject, abortBuild, cycleDiagnostic } = buildPipeline;
   const { revealSourceInPdf } = syncTex;
   const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
@@ -139,7 +139,12 @@ export function useCommandTable({
     { kind: "palette"; recentCommands: string[]; recentFiles: string[] } | { kind: "shortcuts" } | null
   >(null);
 
-  const formatFocusedDocument = () => void loadFormatDocument().then(({ formatDocument }) => formatDocument(activeFile, source, editFile));
+  // Pinned at the keypress, not when the lazy module arrives: the result
+  // belongs to the file and text the writer asked to format.
+  const formatFocusedDocument = () => {
+    const target = documents.pinText();
+    void loadFormatDocument().then(({ formatDocument }) => formatDocument(target));
+  };
   const commandSurface = paletteSurface({ file: activeFile, paper: activePaper !== null, asset: Boolean(activeAsset) });
   // The welcome screen keeps the shortcuts listening, so a command that needs
   // a project, a text editor or LaTeX source says so and is neither listed
