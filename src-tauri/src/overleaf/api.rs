@@ -308,6 +308,13 @@ pub(super) fn read_zip_entries(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>
 pub(super) fn fetch_remote_version(
     client: &Client, host: &str, cookie: &str, project_id: &str,
 ) -> Option<i64> {
+    fetch_history_version(client, host, cookie, project_id).map(HistoryVersion::value)
+}
+
+/// [`fetch_remote_version`], saying which kind of number Overleaf gave.
+fn fetch_history_version(
+    client: &Client, host: &str, cookie: &str, project_id: &str,
+) -> Option<HistoryVersion> {
     wide_event::add("http_requests", 1);
     let response = client
         .get(format!("{host}/project/{project_id}/updates?min_count=1"))
@@ -321,7 +328,7 @@ pub(super) fn fetch_remote_version(
     if !response.status().is_success() {
         return None;
     }
-    latest_update_version(&response.json::<Value>().ok()?)
+    latest_update(&response.json::<Value>().ok()?)
 }
 
 /// A number that only moves forward when the project changes.
@@ -332,13 +339,37 @@ pub(super) fn fetch_remote_version(
 /// must then not guess "yes", or it would re-download the project on every
 /// poll and get itself rate-limited.
 pub(super) fn latest_update_version(body: &Value) -> Option<i64> {
+    latest_update(body).map(HistoryVersion::value)
+}
+
+/// Where the project's history stands, in one of the two kinds of number
+/// [`latest_update_version`] reads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum HistoryVersion {
+    /// Overleaf's history version, one step per change.
+    Counted(i64),
+    /// The newest edit's timestamp, when the history reports no version. It
+    /// moves for any change, ours included, by no telling how much.
+    Stamped(i64),
+}
+
+impl HistoryVersion {
+    pub fn value(self) -> i64 {
+        match self {
+            HistoryVersion::Counted(value) | HistoryVersion::Stamped(value) => value,
+        }
+    }
+}
+
+fn latest_update(body: &Value) -> Option<HistoryVersion> {
     let updates = body.get("updates")?.as_array()?;
     let version = |update: &Value| update.get("toV").or_else(|| update.get("v"))?.as_i64();
     let end_ts = |update: &Value| {
         let meta = update.get("meta")?;
         meta.get("end_ts").or_else(|| meta.get("endTs"))?.as_i64()
     };
-    updates.iter().filter_map(version).max().or_else(|| updates.iter().filter_map(end_ts).max())
+    let counted = updates.iter().filter_map(version).max().map(HistoryVersion::Counted);
+    counted.or_else(|| updates.iter().filter_map(end_ts).max().map(HistoryVersion::Stamped))
 }
 
 /// Every folder above `path`, outermost first: `a/b/c.tex` → `a`, `a/b`.
@@ -411,7 +442,12 @@ impl Remote {
 
     /// See [`fetch_remote_version`].
     pub fn version(&self, client: &Client) -> Option<i64> {
-        fetch_remote_version(client, &self.host, &self.session.cookie, &self.state.project_id)
+        self.history_version(client).map(HistoryVersion::value)
+    }
+
+    /// See [`HistoryVersion`].
+    pub fn history_version(&self, client: &Client) -> Option<HistoryVersion> {
+        fetch_history_version(client, &self.host, &self.session.cookie, &self.state.project_id)
     }
 
     /// `{host}/project/{id}{path}`, carrying the session cookie, the CSRF token

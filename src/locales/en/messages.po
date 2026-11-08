@@ -13699,6 +13699,10 @@ msgstr "Some files are left out of label and citation checks"
 msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Someone edited the Overleaf project while {files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing."
+msgstr "Someone edited the Overleaf project while {files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing."
+
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-list-toolbar.tsx
 msgid "Sort"

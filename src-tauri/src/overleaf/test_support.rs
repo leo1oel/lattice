@@ -76,6 +76,17 @@ pub(super) struct Mock {
     /// last value repeats). An empty list answers 404, matching an instance
     /// without history.
     pub versions: Vec<i64>,
+    /// Serve each of `versions` as the newest edit's timestamp, with no
+    /// history version, as a history that keeps versions per document does.
+    pub stamped: bool,
+    /// How far each upload moves the version served after it, by the
+    /// uploaded file's name; unset, only `versions` moves it.
+    pub upload_moves: Option<fn(&str) -> i64>,
+    /// The names Overleaf keeps as file entities, whose diff says binary.
+    pub file_entities: Vec<&'static str>,
+    /// `(pathname, from, to, parts)`: what a diff of one file between two
+    /// versions answers. Any other diff of a document shows it unchanged.
+    pub diffs: Vec<(&'static str, i64, i64, serde_json::Value)>,
     /// The project history, newest first, served whole to every other
     /// `/updates` request: the page reads that confirm a destructive pull.
     pub history: Vec<serde_json::Value>,
@@ -104,6 +115,7 @@ impl Mock {
         let mut versions: VecDeque<i64> = self.versions.iter().copied().collect();
         let mut uploads = 0usize;
         let mut downloads = 0usize;
+        let mut moved = 0i64;
         let html = self.dashboard.take().unwrap_or_else(projects_page_html);
         let routes = std::mem::take(&mut self.routes);
         let realtime = self.realtime.take();
@@ -127,7 +139,7 @@ impl Mock {
                 url: url.clone(),
                 csrf_header: header("X-Csrf-Token"),
                 cookie_header: header("Cookie"),
-                body,
+                body: body.clone(),
             });
             if let Some(hook) = self.on_request.as_mut() {
                 hook(&method, &url);
@@ -150,13 +162,40 @@ impl Mock {
                 ("GET", p) if p.ends_with("/updates") => match versions.front().copied() {
                     None => (404, None, Vec::new()),
                     Some(version) => {
+                        let version = version + moved;
                         if versions.len() > 1 {
                             versions.pop_front();
                         }
-                        let body = format!("{{\"updates\":[{{\"fromV\":0,\"toV\":{version}}}]}}");
-                        (200, JSON, body.into_bytes())
+                        let update = match self.stamped {
+                            true => serde_json::json!({ "meta": { "end_ts": version } }),
+                            false => serde_json::json!({ "fromV": 0, "toV": version }),
+                        };
+                        let body = serde_json::json!({ "updates": [update] });
+                        (200, JSON, body.to_string().into_bytes())
                     }
                 },
+                ("GET", p) if p.ends_with("/diff") => {
+                    let query = reqwest::Url::parse(&format!("http://mock{url}")).unwrap();
+                    let arg = |key: &str| {
+                        let pairs = query.query_pairs();
+                        pairs.into_iter().find(|(k, _)| k == key).map(|(_, v)| v.into_owned())
+                    };
+                    let (pathname, from, to) = (arg("pathname"), arg("from"), arg("to"));
+                    let pathname = pathname.unwrap_or_default();
+                    let version = |v: Option<String>| v.and_then(|v| v.parse::<i64>().ok());
+                    let (from, to) = (version(from), version(to));
+                    let name = pathname.rsplit('/').next().unwrap_or_default();
+                    let scripted = (self.diffs.iter())
+                        .find(|(p, f, t, _)| *p == pathname && Some(*f) == from && Some(*t) == to);
+                    let diff = match scripted {
+                        Some((.., parts)) => parts.clone(),
+                        None if self.file_entities.contains(&name) => {
+                            serde_json::json!({ "binary": true })
+                        }
+                        None => serde_json::json!([{ "u": "" }]),
+                    };
+                    (200, JSON, serde_json::json!({ "diff": diff }).to_string().into_bytes())
+                }
                 ("GET", "/project") => (200, Some("text/html"), html.clone().into_bytes()),
                 ("GET", p) if p.ends_with("/download/zip") => {
                     downloads += 1;
@@ -173,6 +212,12 @@ impl Mock {
                         let (status, body) = self.upload_failure.unwrap_or((500, "upload failed"));
                         (status, JSON, body.into())
                     } else {
+                        let body = String::from_utf8_lossy(&body);
+                        let name = body.split("filename=\"").nth(1);
+                        let name = name.and_then(|rest| rest.split('"').next()).unwrap_or_default();
+                        if let Some(moves) = self.upload_moves {
+                            moved += moves(name);
+                        }
                         let body =
                             "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
                         (200, JSON, body.into())
