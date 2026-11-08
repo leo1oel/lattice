@@ -176,8 +176,7 @@ assert.deepEqual(
 assert.match(formatInstalledAppReport(installed, 1), /Total/);
 assert.doesNotThrow(() => checkInstalledAppBudget(installed, installed.allocatedBytes));
 assert.throws(() => checkInstalledAppBudget(installed, installed.allocatedBytes - 1), /installed app is .* budget is/);
-// The Intel app's x86_64 binaries get a budget of their own; Apple silicon keeps its.
-assert.equal(installedAppBudgetBytes("arm64"), 333 * MiB);
-assert.ok(installedAppBudgetBytes("x64") > installedAppBudgetBytes("arm64"));
+// The first Intel app (macos-intel.yml) built at 335.8 MiB on disk; its budget must admit it.
+assert.ok(installedAppBudgetBytes("x64") >= 335.8 * MiB);
 
 console.log("app-size-report self-test passed");

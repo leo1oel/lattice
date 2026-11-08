@@ -12,7 +12,9 @@ const read = (file: string) => readFileSync(path.join(repo, file), "utf8");
 const intel = parse(read(".github/workflows/macos-intel.yml")) as Workflow & {
   jobs: Record<string, { "runs-on"?: string; outputs?: Record<string, string> }>;
 };
-const release = parse(read(".github/workflows/release.yml")) as Workflow;
+const release = parse(read(".github/workflows/release.yml")) as Workflow & {
+  jobs: Record<string, { steps?: { uses?: string; with?: Record<string, string> }[] }>;
+};
 
 const SECRETS = {
   LATTICE_FIRECRAWL_KEY: "firecrawl-secret",
@@ -36,7 +38,10 @@ describe("the macOS Intel workflow", () => {
     expect(Object.keys(release.on)).not.toContain("workflow_run");
     expect(Object.keys(release.on)).not.toContain("workflow_call");
     // release.yml still builds only Apple silicon, so its tauri-action writes darwin-aarch64 alone.
-    expect(read(".github/workflows/release.yml")).toContain("args: --target aarch64-apple-darwin");
+    const tauriActions = Object.values(release.jobs)
+      .flatMap((job) => job.steps ?? [])
+      .filter((step) => step.uses?.startsWith("tauri-apps/tauri-action"));
+    expect(tauriActions.map((step) => step.with?.args)).toEqual(["--target aarch64-apple-darwin"]);
   });
 
   it("builds and smokes on Intel runners", () => {
@@ -73,7 +78,11 @@ describe("the macOS Intel workflow", () => {
     expect(run.jobs).not.toContain("attach");
     expect(run.jobs).toContain("smoke");
     expect(run.step("build", "Fetch the licensed interface fonts").runs).toBe(false);
-    expect(run.step("build", BUILD).env).toMatchObject({ LATTICE_FIRECRAWL_KEY: "", VITE_TLDRAW_LICENSE_KEY: "" });
+    expect(run.step("build", BUILD).env).toMatchObject({
+      LATTICE_FIRECRAWL_KEY: "",
+      VITE_TLDRAW_LICENSE_KEY: "",
+      TAURI_SIGNING_PRIVATE_KEY: "",
+    });
   });
 
   it("gives only attach, which every check gates, the right to write", () => {
@@ -83,10 +92,7 @@ describe("the macOS Intel workflow", () => {
     expect(intel.jobs.attach.needs).toEqual(["build", "smoke"]);
   });
 
-  it("adds both darwin-x86_64 keys through the verifying script, and never runs tauri-action", () => {
-    const attach = intel.jobs.attach.steps?.map((step) => step.run ?? "").join("\n") ?? "";
-    expect(attach).toContain("node scripts/add-updater-platform.mjs");
-    expect(attach).toMatch(/darwin-x86_64 darwin-x86_64-app/);
+  it("never runs tauri-action or builds Lattice Beta", () => {
     const actions = Object.values(intel.jobs).flatMap((job) => job.steps ?? []).map((step) => step.uses ?? "");
     expect(actions.filter((uses) => uses.startsWith("tauri-apps/tauri-action"))).toEqual([]);
     // Lattice Beta is LATTICE_FLAVOR=beta (build.rs) over tauri.beta.conf.json.

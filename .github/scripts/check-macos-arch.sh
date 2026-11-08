@@ -27,7 +27,7 @@ if [[ "$count" == "0" ]]; then
   echo "::error::Found no Mach-O files in $app"
   exit 1
 fi
-if grep -v "$arch" "$report"; then
+if awk -F'|' -v a="$arch" 'index($2, a) == 0 { print; found = 1 } END { exit !found }' "$report"; then
   echo "::error::The Mach-O files above have no $arch code."
   exit 1
 fi

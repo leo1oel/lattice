@@ -222,16 +222,17 @@ jobs:
 
       # What tauri-action runs in release.yml: `tauri build` signs the app with
       # APPLE_SIGNING_IDENTITY, notarizes it with the App Store Connect key,
-      # and signs the updater archive with the updater key. Tauri treats a
-      # set-but-empty variable as set, so the ones a fork lacks are unset.
+      # and, for a release only, signs the updater archive with the updater
+      # key. Tauri treats a set-but-empty variable as set, so the ones a run
+      # lacks are unset.
       - name: Build and sign the Intel app
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           SIGNED: ${{ steps.signing.outputs.signed }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.IS_RELEASE == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.IS_RELEASE == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
           LATTICE_FIRECRAWL_KEY: ${{ env.IS_RELEASE == 'true' && secrets.LATTICE_FIRECRAWL_KEY || '' }}
           VITE_TLDRAW_LICENSE_KEY: ${{ env.IS_RELEASE == 'true' && secrets.VITE_TLDRAW_LICENSE_KEY || '' }}
         run: |
@@ -375,7 +376,10 @@ jobs:
   # public (the Release run succeeded), so this adds the Intel assets, the
   # darwin-x86_64 updater entries and the Intel install notes; the Apple
   # silicon assets and latest.json entries stay as they are. --clobber makes a
-  # re-run replace the Intel assets instead of failing or adding a second copy.
+  # re-run replace the Intel assets instead of failing or adding a second copy,
+  # but only while latest.json lists no other Intel archive: a re-built archive
+  # has a new signature, and replacing the one latest.json vouches for would
+  # break every Intel copy's update.
   attach:
     needs: [build, smoke]
     if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v')
@@ -412,6 +416,14 @@ jobs:
             exit 1
           fi
           assets="$RUNNER_TEMP/intel-assets"
+          manifest_dir="$(mktemp -d "$RUNNER_TEMP/lattice-updater.XXXXXX")"
+          gh release download "$TAG" --pattern latest.json --dir "$manifest_dir"
+          if ! jq -e --arg sig "$(<"$assets/$ARCHIVE.sig")" \
+            '[.platforms["darwin-x86_64", "darwin-x86_64-app"] | select(. != null) | .signature == $sig] | all' \
+            "$manifest_dir/latest.json"; then
+            echo "::error::latest.json already lists a different Intel archive; replacing it would break Intel updates."
+            exit 1
+          fi
           gh release upload "$TAG" "$assets/$DMG" "$assets/$ARCHIVE" "$assets/$ARCHIVE.sig" --clobber
       # The updater entries go in after the assets they point to are uploaded.
       # A re-run adds the same entries again.

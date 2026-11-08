@@ -228,7 +228,9 @@ From the release's commit, on GitHub's runners:
    `x64`), checks Gatekeeper accepts the app, launches it, and requires a
    Lattice window on screen and the frontend's events in `lattice.log`. Its
    screenshot and log are uploaded as `macos-intel-smoke-evidence`.
-3. **attach**, only after both: uploads `Lattice_<version>_x64.dmg`,
+3. **attach**, only after both: stops if `latest.json` already lists a
+   `darwin-x86_64` archive with a different signature (a full re-run's new
+   build), then uploads `Lattice_<version>_x64.dmg`,
    `Lattice_<version>_x64.app.tar.gz` and its `.sig` with `--clobber`, then
    `scripts/add-updater-platform.mjs` verifies the archive's signature against
    `plugins.updater.pubkey` and adds `darwin-x86_64` and `darwin-x86_64-app`
@@ -241,9 +243,9 @@ and the `darwin-aarch64` updater URLs keep working; the website links the
 `_x64.dmg` separately. As with Linux, a re-run uses the original workflow file
 and the tag's code, so a fix merged on `main` takes effect at the next release.
 A pull request that changes this packaging, or a manual `workflow_dispatch`
-run, runs build and smoke with the open-licensed fonts and no baked-in keys —
-signed and notarized when the repository's secrets are available — and
-attaches nothing.
+run, runs build and smoke with the open-licensed fonts, no baked-in keys and
+no updater key (so no updater archive) — signed and notarized when the
+repository's secrets are available — and attaches nothing.
 
 ### `web-demo.yml`
 
