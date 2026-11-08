@@ -181,6 +181,48 @@ describe("the PDF's comment column", () => {
     expect(await screen.findByText("Show in the source")).toBeTruthy();
   });
 
+  it("hides the open card with the column, rather than opening it over the page", async () => {
+    const pdf = preview(900);
+    const note = pdfNote(1, 0.1, "Say by what.");
+    renderLayer(pdf, roundsDouble(), [note]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Annotation 1" }));
+    await within(column()).findByRole("dialog", { name: "Comment" });
+    fireEvent.click(within(column()).getByRole("button", { name: "Hide comments" }));
+    expect(screen.queryByRole("complementary", { name: "Comments" })).toBeNull();
+    expect(screen.queryByText("Show in the source")).toBeNull();
+    expect(pdf.area.hasAttribute("data-comment-column")).toBe(false);
+  });
+
+  it("counts and docks for only the comments drawn on the pages", async () => {
+    vi.mocked(invoke).mockResolvedValue(null);
+    const quote = "by a constant";
+    const from = SOURCE.indexOf(quote);
+    // SyncTeX finds no place for it in the PDF, as for a file the build never reads.
+    const unplaced = createEditorComment({
+      path: "main.tex", source: SOURCE, from, to: from + quote.length, number: 2, body: "Which constant?", authorId: "me", authorName: "Ada",
+    })!;
+    const unplacedOnly = preview(900);
+    renderLayer(unplacedOnly, roundsDouble(), [unplaced]);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("synctex_view", expect.anything()));
+    await act(async () => {});
+    expect(screen.queryByRole("complementary", { name: "Comments" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show comments" })).toBeNull();
+    expect(unplacedOnly.area.hasAttribute("data-comment-column")).toBe(false);
+    cleanup();
+    document.body.replaceChildren();
+
+    const pdf = preview(480);
+    const note = pdfNote(1, 0.1, "Say by what.");
+    renderLayer(pdf, roundsDouble(), [note, unplaced]);
+    const toggle = await screen.findByRole("button", { name: "Show comments" });
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.length).toBeGreaterThan(1));
+    await act(async () => {});
+    expect(toggle.textContent).toBe("1");
+    fireEvent.click(toggle);
+    expect(column().querySelector(".pdf-comment-column-count")?.textContent).toBe("1");
+  });
+
   it("holds an Overleaf thread on a .tex file beside its passage, its pin a dot", async () => {
     const quote = "divides the scores";
     const from = SOURCE.indexOf(quote);
@@ -215,5 +257,17 @@ describe("the PDF's comment column", () => {
     fireEvent.keyDown(card, { key: "Enter" });
     const opened = await within(column()).findByRole("dialog", { name: "Comment" });
     await waitFor(() => expect(opened.contains(document.activeElement)).toBe(true));
+
+    // Esc in the card, or anywhere else, gives focus back to the card's preview in the column.
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(within(column()).queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(slotOf(note.id)!.querySelector(".pdf-comment-slot-preview"));
+
+    fireEvent.keyDown(document.activeElement!, { key: "Enter" });
+    await within(column()).findByRole("dialog", { name: "Comment" });
+    act(() => (document.activeElement as HTMLElement).blur());
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(within(column()).queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(slotOf(note.id)!.querySelector(".pdf-comment-slot-preview"));
   });
 });

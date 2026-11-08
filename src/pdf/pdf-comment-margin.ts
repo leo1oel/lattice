@@ -14,8 +14,9 @@ export const MARGIN_CARD_GAP = 8;
  * Each card's top. A card stands level with its mark unless the card above
  * reaches past it, when it moves down just clear of that one. The open card
  * (`activeId`) is the exception: it always stands level with its mark, the
- * cards after it move down clear of it and the cards before it move up, so
- * the one being read or answered never drifts from its passage.
+ * cards after it move down clear of it and the cards before it move up only
+ * as far as they must to clear it, so the one being read or answered never
+ * drifts from its passage.
  *
  * Cards are taken in their marks' order down the pages; two at one height
  * keep the order they were given in.
@@ -30,17 +31,16 @@ export function layoutMarginCards(
     .map(({ card }) => card);
   const tops = new Map<string, number>();
   const pinned = activeId === null ? -1 : order.findIndex((card) => card.id === activeId);
-  const start = Math.max(0, pinned);
   let floor = -Infinity;
-  for (const card of order.slice(start)) {
-    const top = Math.max(card.anchor, floor);
+  for (const [index, card] of order.entries()) {
+    const top = index === pinned ? card.anchor : Math.max(card.anchor, floor);
     tops.set(card.id, top);
     floor = top + card.height + gap;
   }
   if (pinned <= 0) return tops;
   let ceiling = tops.get(order[pinned]!.id)! - gap;
   for (const card of order.slice(0, pinned).reverse()) {
-    const top = Math.min(card.anchor, ceiling - card.height);
+    const top = Math.min(tops.get(card.id)!, ceiling - card.height);
     tops.set(card.id, top);
     ceiling = top - gap;
   }

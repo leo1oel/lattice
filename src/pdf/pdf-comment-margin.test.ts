@@ -28,6 +28,16 @@ describe("the PDF's comment column", () => {
     ], "b", 8))).toEqual({ a: 32, b: 120, c: 168 });
   });
 
+  it("leaves the cards before the open one where they stand when it is far below them", () => {
+    const cards = [
+      { id: "a", anchor: 100, height: 80 },
+      { id: "b", anchor: 110, height: 40 },
+      { id: "c", anchor: 500, height: 40 },
+    ];
+    expect(tops(layoutMarginCards(cards, null, 8))).toEqual({ a: 100, b: 188, c: 500 });
+    expect(tops(layoutMarginCards(cards, "c", 8))).toEqual({ a: 100, b: 188, c: 500 });
+  });
+
   it("lays out from the top as usual when the open card is the first", () => {
     expect(tops(layoutMarginCards([
       { id: "a", anchor: 100, height: 80 },

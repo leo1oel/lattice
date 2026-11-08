@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { flushSync } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { MessageSquareText } from "lucide-react";
@@ -19,7 +20,7 @@ import { PdfCommentColumn, PdfCommentToggle } from "./pdf-comment-column";
 import { usePdfCommentColumn } from "./use-pdf-comment-column";
 import type { PdfPassage } from "./use-pdf-anchored-popup";
 import { selectedLines } from "./pdf-selected-lines";
-import { drawnOnPdf } from "./pdf-drawn-annotations";
+import { drawnOnPdf, lightMark } from "./pdf-drawn-annotations";
 import { placePdfMark } from "./pdf-annotation-place";
 import { linesAsBuilt, placeSourceMark, type PlacedMark, type SourceMarkReader } from "./pdf-source-marks";
 import type { PageText, SyncBox, TextRun } from "./review-pdf";
@@ -231,7 +232,9 @@ export default function PdfAnnotationLayer({
       : []
   )), [annotations]);
   const places = usePdfMarkPlaces(recordRef, rounds, marks, generation, pageRenderGeneration);
-  const column = usePdfCommentColumn(previewRef, marks.length > 0, generation);
+  // The column holds, and counts, only the comments drawn on the pages.
+  const placedMarks = useMemo(() => (places ? marks.filter((mark) => places.has(mark.id)) : []), [marks, places]);
+  const column = usePdfCommentColumn(previewRef, placedMarks.length > 0, generation);
   const columnOpen = column.open;
   const annotatable = rounds.canAnnotatePdf();
 
@@ -391,9 +394,7 @@ export default function PdfAnnotationLayer({
     let timer: number | null = null;
     let under: string | null = null;
     const light = (id: string | null) => {
-      for (const layer of root.querySelectorAll<HTMLElement>(".pdf-annotation-mark")) {
-        layer.toggleAttribute("data-hovered", layer.dataset.annotationId === id);
-      }
+      lightMark(root, id);
       root.toggleAttribute("data-annotation-hover", id !== null);
       for (const slot of previewRef.current?.querySelectorAll<HTMLElement>(".pdf-comment-slot") ?? []) {
         slot.toggleAttribute("data-hovered", slot.dataset.commentId === id);
@@ -430,16 +431,18 @@ export default function PdfAnnotationLayer({
     };
   }, [generation, marks, previewRef, recordRef]);
 
+  // A card opened from the keyboard gives focus back where it was opened: its card's preview in the column, or its pin.
   const closeCard = () => {
     const open = cardRef.current;
-    setCard(null);
-    if (open?.keyboard) {
-      recordRef.current?.root
-        .querySelector<HTMLElement>(`[data-annotation-id="${CSS.escape(open.id)}"] .pdf-annotation-pin`)
-        ?.focus({ preventScroll: true });
-    }
+    flushSync(() => setCard(null));
+    if (!open?.keyboard) return;
+    const id = CSS.escape(open.id);
+    const back = columnOpen
+      ? previewRef.current?.querySelector<HTMLElement>(`.pdf-comment-slot[data-comment-id="${id}"] .pdf-comment-slot-preview`)
+      : recordRef.current?.root.querySelector<HTMLElement>(`[data-annotation-id="${id}"] .pdf-annotation-pin`);
+    back?.focus({ preventScroll: true });
   };
-  // An open card leaves on Esc wherever focus is, and gives a keyboard user back their pin.
+  // An open card leaves on Esc wherever focus is.
   useEffect(() => {
     if (!card) return;
     const key = (event: KeyboardEvent) => {
@@ -509,19 +512,22 @@ export default function PdfAnnotationLayer({
           area={column.area}
           docked={column.docked}
           recordRef={recordRef}
-          marks={marks}
+          marks={placedMarks}
           places={places}
           rounds={rounds}
           active={card}
           onActivate={(id, keyboard) => setCard({ id, keyboard })}
-          onClose={() => setCard(null)}
+          onClose={closeCard}
           onResolving={fade}
-          onHide={() => column.setOpen(false)}
+          onHide={() => {
+            setCard(null);
+            column.setOpen(false);
+          }}
           redraw={`${generation}:${pageRenderGeneration}:${scale}`}
         />
       )}
-      {column.area && !columnOpen && marks.length > 0 && (
-        <PdfCommentToggle area={column.area} count={marks.length} onShow={() => column.setOpen(true)} />
+      {column.area && !columnOpen && placedMarks.length > 0 && (
+        <PdfCommentToggle area={column.area} count={placedMarks.length} onShow={() => column.setOpen(true)} />
       )}
       {cardAnnotation && cardPassage && !columnOpen && (
         <PdfCommentCard

@@ -11,6 +11,7 @@ import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-poin
 import { formatCount } from "../i18n";
 import type { PdfAnnotationMark } from "./pdf-annotations";
 import { PdfCommentThread } from "./pdf-comment-popups";
+import { lightMark } from "./pdf-drawn-annotations";
 import { layoutMarginCards, type MarginCard } from "./pdf-comment-margin";
 import { addListeners } from "./pdf-viewer-utils";
 import { pdfPageView } from "./pdf-slick";
@@ -24,13 +25,6 @@ function leadOf(slot: HTMLElement) {
   if (!meta) return 0;
   const box = meta.getBoundingClientRect();
   return box.top - slot.getBoundingClientRect().top + box.height / 2;
-}
-
-/** Light a comment's passage on the PDF while the pointer rests on its card. */
-function lightMark(root: HTMLElement | undefined, id: string | null) {
-  for (const layer of root?.querySelectorAll<HTMLElement>(".pdf-annotation-mark") ?? []) {
-    layer.toggleAttribute("data-hovered", layer.dataset.annotationId === id);
-  }
 }
 
 /**
@@ -48,6 +42,7 @@ export function PdfCommentColumn({
   area: HTMLElement;
   docked: boolean;
   recordRef: ActiveViewerRef;
+  /** The marks drawn on the pages, each one in `places`. */
   marks: readonly PdfAnnotationMark[];
   places: ReadonlyMap<string, PlacedMark> | null;
   rounds: AnnotationRounds;
@@ -66,7 +61,7 @@ export function PdfCommentColumn({
   const activeSlotRef = useRef<HTMLDivElement>(null);
   // In reading order, as the keyboard walks them: by page, then down it.
   const placedMarks = places
-    ? marks.filter((mark) => places.has(mark.id)).sort((left, right) => {
+    ? [...marks].sort((left, right) => {
       const [a, b] = [places.get(left.id)!, places.get(right.id)!];
       return a.page - b.page || a.pin.y - b.pin.y;
     })

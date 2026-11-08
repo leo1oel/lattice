@@ -14,3 +14,10 @@ export function drawnOnPdf(annotation: EditorComment): boolean {
   if (annotation.id.startsWith(OVERLEAF_COMMENT_PREFIX)) return TYPESET.test(annotation.path);
   return Boolean(annotation.number && (annotation.pdf || TYPESET.test(annotation.path)));
 }
+
+/** Light a comment's passage on the PDF while the pointer rests on it or on its card in the comment column. */
+export function lightMark(root: HTMLElement | undefined, id: string | null) {
+  for (const layer of root?.querySelectorAll<HTMLElement>(".pdf-annotation-mark") ?? []) {
+    layer.toggleAttribute("data-hovered", layer.dataset.annotationId === id);
+  }
+}
