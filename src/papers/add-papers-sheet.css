@@ -26,7 +26,9 @@
 .add-papers-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .add-papers-tab-count { flex: none; font-variant-numeric: tabular-nums; }
 
-.add-papers-rows { margin: 0; padding: 0; list-style: none; border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); overflow: hidden; }
+/* `clip`, not `hidden`: a grid item that is a scroll container may shrink
+   below its content, which cut a long list off with nothing to scroll. */
+.add-papers-rows { margin: 0; padding: 0; list-style: none; border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); overflow: clip; }
 .add-papers-rows > li + li { border-top: 1px solid var(--border-subtle); }
 .add-papers-row { padding: var(--space-5) var(--space-6); display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; }
 .add-papers-rows > li[data-state="duplicate"] .add-papers-main { opacity: .62; }
@@ -77,13 +79,14 @@
 .zotero-papers-head { min-height: 28px; display: flex; align-items: center; gap: var(--space-4); }
 .zotero-papers-title { flex: 1; color: var(--text-primary); font-size: var(--type-body-size); font-weight: var(--weight-medium); }
 .zotero-back { display: none; flex: none; margin-inline-start: calc(-1 * var(--space-3)); }
-.zotero-subfolders { flex: none; display: inline-flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; }
+/* These labels outrank the sheet's stacked `.modal label`. */
+.zotero-browser .zotero-subfolders { flex: none; flex-direction: row; font-weight: var(--weight-regular); display: inline-flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; }
 .zotero-papers-tools { display: flex; align-items: center; gap: var(--space-5); }
 .zotero-papers-tools > .ui-search-field { flex: 1; min-width: 0; }
-.zotero-select-all { flex: none; display: inline-flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; }
+.zotero-browser .zotero-select-all { flex: none; flex-direction: row; font-weight: var(--weight-regular); display: inline-flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; }
 .zotero-paper-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); }
 .zotero-paper-list > li + li { border-top: 1px solid var(--border-subtle); }
-.zotero-paper { padding: var(--space-4) var(--space-5); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; cursor: default; }
+.zotero-browser .zotero-paper { font-weight: var(--weight-regular); padding: var(--space-4) var(--space-5); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; cursor: default; }
 .zotero-paper-list > li:not([data-existing]) .zotero-paper:hover { background: var(--control-hover-surface); }
 .zotero-paper-list > li[data-existing] .zotero-paper-main { opacity: .62; }
 .zotero-paper-main { min-width: 0; display: grid; gap: var(--space-1); }
