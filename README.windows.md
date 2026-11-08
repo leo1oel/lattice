@@ -4,7 +4,7 @@ Portage communautaire de [leo1oel/lattice](https://github.com/leo1oel/lattice), 
 
 ## Installation
 
-1. Télécharger l’installateur `Lattice_0.15.8_x64-setup.exe` depuis les Releases de ce dépôt.
+1. Télécharger l’installateur `Lattice-Windows-0.15.8-r2-setup.exe` depuis les Releases de ce dépôt.
 2. Lancer l’installateur pour votre compte Windows. Il propose l’installation de Microsoft WebView2 si nécessaire.
 3. Pour compiler les documents, installer [TeX Live pour Windows](https://tug.org/texlive/windows.html), avec `latexmk`, puis redémarrer Lattice. Une installation MiKTeX avec `latexmk` et Perl fonctionne également, mais TeX Live est la distribution utilisée pour la validation.
 4. Ouvrir un dossier ou le tutoriel intégré, puis compiler.
@@ -45,4 +45,4 @@ pnpm build:windows
 
 La préparation des ressources vérifie les sommes SHA-256 de Node et uv avant extraction. L’installateur se trouve dans `src-tauri/target/release/bundle/nsis/`.
 
-Le workflow `.github/workflows/windows.yml` compile le moteur sur Windows, exécute les tests de fichiers Windows, construit l’interface et l’installateur. Son contrôle de bout en bout installe le `.exe`, ouvre le tutoriel, compile et affiche son PDF, recompile, vérifie les sauvegardes Unicode exécute une commande PowerShell via ConPTY et surveille l’apparition de consoles externes pendant trois agrandissements de la fenêtre. Les captures et journaux sont conservés comme artefacts.
+Le workflow `.github/workflows/windows.yml` compile le moteur sur Windows, exécute les tests de fichiers Windows, construit l’interface et l’installateur. Le script de contrôle de bout en bout installe le `.exe`, attend la compilation du tutoriel en PDF, contrôle trois agrandissements/restaurations ainsi que F11/Échap, demande une recompilation et exécute une commande PowerShell via ConPTY. Il surveille l’apparition de consoles externes. Consulter le résultat du workflow : la présence du script ne garantit pas que tous ces contrôles ont réussi. Les captures et journaux sont conservés comme artefacts.
