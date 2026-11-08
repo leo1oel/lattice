@@ -481,7 +481,8 @@ export class AnnotationRounds {
   /**
    * Show an annotation: its passage in the editor (its proposal, when one
    * waits), and its card in the panel unless `inPlace`: a pin on the PDF
-   * leaves the panel where it is, which may be the PDF's own.
+   * leaves the panel where it is, which may be the PDF's own. An Overleaf
+   * thread (from the PDF's comment column) opens on its passage the same way.
    */
   open = (comment: EditorComment, inPlace = false) => {
     const deps = this.deps;
@@ -490,11 +491,6 @@ export class AnnotationRounds {
     deps.store.setActiveId(comment.id);
     if (comment.revision?.state === "proposed" && !comment.resolved) this.openReview(comment.id);
     else deps.store.openComment(comment);
-  };
-
-  openById = (id: string) => {
-    const annotation = this.find(id);
-    if (annotation) this.open(annotation, true);
   };
 
   /** Resolve from the annotation's card on the PDF, with the toast that offers it back. */

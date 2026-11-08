@@ -2027,6 +2027,7 @@ msgstr "Annotations and highlights"
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/overleaf/overleaf-presence.tsx
+#: src/pdf/pdf-annotations.tsx
 #: src/pdf/review-pdf-sheet.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Anonymous"
@@ -3865,6 +3866,10 @@ msgstr "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move th
 msgid "Comment"
 msgstr "Comment"
 
+#: src/pdf/pdf-annotations.tsx
+msgid "Comment by {name}"
+msgstr "Comment by {name}"
+
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "Comment from {opener}"
 msgstr "Comment from {opener}"
@@ -3908,6 +3913,7 @@ msgstr "comments"
 
 #: src/app/use-editor-comments.ts
 #: src/overleaf/overleaf-collab.tsx
+#: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts
 msgid "Comments"
 msgstr "Comments"
@@ -6769,6 +6775,10 @@ msgstr "Hide {name} panel"
 #: src/history/compare-versions.tsx
 msgid "Hide automatic versions"
 msgstr "Hide automatic versions"
+
+#: src/pdf/pdf-comment-column.tsx
+msgid "Hide comments"
+msgstr "Hide comments"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Hide details"
@@ -12560,7 +12570,7 @@ msgstr "Review Overleaf changes"
 msgid "Review source changes"
 msgstr "Review source changes"
 
-#: src/pdf/pdf-annotations.tsx
+#: src/pdf/pdf-comment-popups.tsx
 msgid "Review the proposal"
 msgstr "Review the proposal"
 
@@ -13375,6 +13385,10 @@ msgstr "Show changes as"
 msgid "Show changes in the PDF"
 msgstr "Show changes in the PDF"
 
+#: src/pdf/pdf-comment-column.tsx
+msgid "Show comments"
+msgstr "Show comments"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "Show document outline"
@@ -13399,7 +13413,7 @@ msgstr "Show in history"
 msgid "Show in source"
 msgstr "Show in source"
 
-#: src/pdf/pdf-annotations.tsx
+#: src/pdf/pdf-comment-popups.tsx
 msgid "Show in the source"
 msgstr "Show in the source"
 

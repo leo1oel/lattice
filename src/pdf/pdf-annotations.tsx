@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowUpRight, MessageSquareText } from "lucide-react";
+import { MessageSquareText } from "lucide-react";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import { PdfAnnotationComposer } from "../canvas/pdf-annotation-composer";
-import { Button } from "../components/ui/button";
-import { CommentCard, CommentPreview } from "../editor/comments/comment-card";
 import {
-  annotationStatus, resolveCommentAnchor, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfRect,
+  annotationStatus, editorCommentAuthorDisplayName, resolveCommentAnchor, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfRect,
 } from "../editor/comments/editor-comment-data";
-import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { notifyInfo } from "../telemetry/app-notify";
 import { addListeners } from "./pdf-viewer-utils";
 import { pdfPageView } from "./pdf-slick";
@@ -17,17 +14,22 @@ import { isPdfCopyField, pdfSelectedPlainTextWithin } from "./pdf-text-layer-sel
 import { usePdfRenderCount, type PdfRenderCount } from "./use-pdf-document";
 import type { ActiveViewerRef } from "./use-pdf-view";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { usePdfAnchoredPopup, type PdfPassage } from "./use-pdf-anchored-popup";
+import { PdfCommentCard, PdfCommentPreview } from "./pdf-comment-popups";
+import { PdfCommentColumn, PdfCommentToggle } from "./pdf-comment-column";
+import { usePdfCommentColumn } from "./use-pdf-comment-column";
+import type { PdfPassage } from "./use-pdf-anchored-popup";
+import { selectedLines } from "./pdf-selected-lines";
 import { drawnOnPdf } from "./pdf-drawn-annotations";
 import { placePdfMark } from "./pdf-annotation-place";
 import { linesAsBuilt, placeSourceMark, type PlacedMark, type SourceMarkReader } from "./pdf-source-marks";
 import type { PageText, SyncBox, TextRun } from "./review-pdf";
 
 /**
- * An annotation as the PDF draws it: an amber highlight over the words it
- * quotes and its numbered pin. One made on the PDF is drawn where it was
- * made; one made in a .tex file where SyncTeX puts its lines in the last
- * build (pdf-source-marks.ts).
+ * A comment as the PDF draws it: an amber highlight over the words it
+ * quotes and its pin, numbered for an annotation (`number` 0 for an
+ * Overleaf thread, whose pin is a dot). One made on the PDF is drawn where
+ * it was made; one made in a .tex file where SyncTeX puts its lines in the
+ * last build (pdf-source-marks.ts).
  */
 export type PdfAnnotationMark = { id: string; number: number; status: AnnotationStatus; annotation: EditorComment };
 
@@ -37,42 +39,6 @@ export type PdfAnnotationMark = { id: string; number: number; status: Annotation
  * source (the first line's start, in PDF units from the page's top left).
  */
 export type PdfTextSelection = { page: number; rects: PdfRect[]; text: string; point: { x: number; y: number } };
-
-const percent = (value: string) => Number.parseFloat(value) / 100;
-
-/**
- * The selection's line boxes on its first page, read from the highlight the
- * text layer draws (`.pdf-sel-rect`, in fractions of the page): after a drag
- * WebKit parks the selection in a hidden copy field, but the highlight stays.
- * Glyph boxes on one line join into one box.
- */
-function selectedLines(root: HTMLElement): { page: number; pageElement: HTMLElement; rects: PdfRect[] } | null {
-  const marks = [...root.querySelectorAll<HTMLElement>(".textLayer .pdf-sel-rect")];
-  const pageElement = marks[0]?.closest<HTMLElement>("[data-page-number]");
-  if (!pageElement) return null;
-  const page = Number.parseInt(pageElement.dataset.pageNumber ?? "", 10);
-  const boxes = marks.filter((mark) => pageElement.contains(mark)).map((mark) => ({
-    x: percent(mark.style.left), y: percent(mark.style.top), width: percent(mark.style.width), height: percent(mark.style.height),
-  })).filter((box) => [box.x, box.y, box.width, box.height].every(Number.isFinite));
-  const lines: PdfRect[] = [];
-  for (const box of boxes.sort((a, b) => a.y - b.y || a.x - b.x)) {
-    const line = lines.find((item) => Math.abs(item.y + item.height / 2 - (box.y + box.height / 2)) < Math.min(item.height, box.height) / 2);
-    if (!line) {
-      lines.push({ ...box });
-      continue;
-    }
-    const right = Math.max(line.x + line.width, box.x + box.width);
-    const bottom = Math.max(line.y + line.height, box.y + box.height);
-    line.x = Math.min(line.x, box.x);
-    line.y = Math.min(line.y, box.y);
-    line.width = right - line.x;
-    line.height = bottom - line.y;
-  }
-  const round = (value: number) => Math.round(value * 10_000) / 10_000;
-  return Number.isFinite(page) && lines.length
-    ? { page, pageElement, rects: lines.map((line) => ({ x: round(line.x), y: round(line.y), width: round(line.width), height: round(line.height) })) }
-    : null;
-}
 
 /** How long source notes wait after a change before SyncTeX looks them up, so typing in a passage runs no process per key. */
 const SOURCE_PLACE_DELAY_MS = 250;
@@ -208,9 +174,6 @@ function usePdfMarkPlaces(
 /** How long the pointer rests on a passage before its preview shows, as on the source editor's comments. */
 const PREVIEW_DELAY_MS = 300;
 
-const CARD_PLACE = { side: "above", width: 320 } as const;
-const PREVIEW_PLACE = { side: "above" } as const;
-
 /** The annotation whose highlight on the PDF is under the point, if any. */
 function annotationAt(root: HTMLElement, x: number, y: number): string | null {
   for (const box of root.querySelectorAll<HTMLElement>(".pdf-annotation-highlight")) {
@@ -263,11 +226,13 @@ export default function PdfAnnotationLayer({
   const [card, setCard] = useState<{ id: string; keyboard: boolean } | null>(null);
   const cardRef = useLatestRef(card);
   const marks = useMemo((): PdfAnnotationMark[] => annotations.flatMap((annotation) => (
-    annotation.number && drawnOnPdf(annotation)
-      ? [{ id: annotation.id, number: annotation.number, status: annotationStatus(annotation), annotation }]
+    drawnOnPdf(annotation)
+      ? [{ id: annotation.id, number: annotation.number ?? 0, status: annotationStatus(annotation), annotation }]
       : []
   )), [annotations]);
   const places = usePdfMarkPlaces(recordRef, rounds, marks, generation, pageRenderGeneration);
+  const column = usePdfCommentColumn(previewRef, marks.length > 0, generation);
+  const columnOpen = column.open;
   const annotatable = rounds.canAnnotatePdf();
 
   // A finished drag offers Annotate where the selection ends.
@@ -380,8 +345,15 @@ export default function PdfAnnotationLayer({
         pin.dataset.annotationStatus = mark.status;
         pin.dataset.side = at.side;
         pin.style.setProperty("--pin-stack", String(stack));
-        pin.textContent = String(mark.number);
-        pin.setAttribute("aria-label", t`Annotation ${mark.number}`);
+        if (mark.number) {
+          pin.textContent = String(mark.number);
+          pin.setAttribute("aria-label", t`Annotation ${mark.number}`);
+        } else {
+          const name = editorCommentAuthorDisplayName(mark.annotation.authorName, t`Anonymous`);
+          pin.dataset.kind = "thread";
+          pin.style.setProperty("--pin-color", mark.annotation.authorColor?.color ?? "");
+          pin.setAttribute("aria-label", t`Comment by ${name}`);
+        }
         pin.setAttribute("aria-haspopup", "dialog");
         Object.assign(pin.style, { left: `${at.x * 100}%`, top: `${at.y * 100}%` });
         pin.addEventListener("click", (event) => {
@@ -401,10 +373,17 @@ export default function PdfAnnotationLayer({
       for (const layer of drawn) layer.remove();
     };
   }, [generation, marks, pageRenderGeneration, places, recordRef, scale, t, textLayerGeneration]);
+  // The open card's passage stays lit, as Word keeps a comment's words marked while it is read.
+  const cardId = card?.id ?? null;
+  useEffect(() => {
+    for (const layer of recordRef.current?.root.querySelectorAll<HTMLElement>(".pdf-annotation-mark") ?? []) {
+      layer.toggleAttribute("data-active", layer.dataset.annotationId === cardId);
+    }
+  }, [cardId, generation, marks, pageRenderGeneration, places, recordRef, scale, textLayerGeneration]);
 
   // The passage under the pointer, its highlight or its pin, previews after a
-  // short rest and lights while it does; a click on it (not a drag that
-  // selects) opens its card.
+  // short rest and lights while it does, with its card in the comment column;
+  // a click on it (not a drag that selects) opens its card.
   useEffect(() => {
     const record = recordRef.current;
     if (!record || !marks.length) return;
@@ -416,6 +395,9 @@ export default function PdfAnnotationLayer({
         layer.toggleAttribute("data-hovered", layer.dataset.annotationId === id);
       }
       root.toggleAttribute("data-annotation-hover", id !== null);
+      for (const slot of previewRef.current?.querySelectorAll<HTMLElement>(".pdf-comment-slot") ?? []) {
+        slot.toggleAttribute("data-hovered", slot.dataset.commentId === id);
+      }
     };
     const settle = (id: string | null) => {
       if (id === under) return;
@@ -446,7 +428,7 @@ export default function PdfAnnotationLayer({
       removeRoot();
       removeScroll();
     };
-  }, [generation, marks, recordRef]);
+  }, [generation, marks, previewRef, recordRef]);
 
   const closeCard = () => {
     const open = cardRef.current;
@@ -485,7 +467,8 @@ export default function PdfAnnotationLayer({
   };
 
   const cardAnnotation = card ? annotations.find((annotation) => annotation.id === card.id) ?? null : null;
-  const previewAnnotation = previewId && previewId !== card?.id
+  // With the column open, a comment's card stands there and its preview is the card itself.
+  const previewAnnotation = previewId && previewId !== card?.id && !columnOpen
     ? annotations.find((annotation) => annotation.id === previewId) ?? null
     : null;
   const previewPassage = previewAnnotation && passageOf(previewAnnotation, places);
@@ -521,7 +504,26 @@ export default function PdfAnnotationLayer({
       {previewAnnotation && previewPassage && (
         <PdfCommentPreview key={previewAnnotation.id} annotation={previewAnnotation} passage={previewPassage} />
       )}
-      {cardAnnotation && cardPassage && (
+      {column.area && columnOpen && (
+        <PdfCommentColumn
+          area={column.area}
+          docked={column.docked}
+          recordRef={recordRef}
+          marks={marks}
+          places={places}
+          rounds={rounds}
+          active={card}
+          onActivate={(id, keyboard) => setCard({ id, keyboard })}
+          onClose={() => setCard(null)}
+          onResolving={fade}
+          onHide={() => column.setOpen(false)}
+          redraw={`${generation}:${pageRenderGeneration}:${scale}`}
+        />
+      )}
+      {column.area && !columnOpen && marks.length > 0 && (
+        <PdfCommentToggle area={column.area} count={marks.length} onShow={() => column.setOpen(true)} />
+      )}
+      {cardAnnotation && cardPassage && !columnOpen && (
         <PdfCommentCard
           key={cardAnnotation.id}
           annotation={cardAnnotation}
@@ -541,60 +543,4 @@ function passageOf(annotation: EditorComment, places: ReadonlyMap<string, Placed
   const place = places?.get(annotation.id);
   if (place) return place;
   return annotation.pdf ?? null;
-}
-
-/** The preview over a passage the pointer rests on: lines only, never in the pointer's way. */
-function PdfCommentPreview({ annotation, passage }: { annotation: EditorComment; passage: PdfPassage }) {
-  const ref = useRef<HTMLDivElement>(null);
-  usePdfAnchoredPopup(ref, passage, PREVIEW_PLACE);
-  return (
-    <div ref={ref} role="tooltip" className="pdf-comment-popup pdf-comment-preview">
-      <CommentPreview comments={[annotation]} />
-    </div>
-  );
-}
-
-/** An annotation's card on the PDF, above its passage, until Esc or a click elsewhere. */
-function PdfCommentCard({ annotation, passage, rounds, keyboard, onResolving, onClose }: {
-  annotation: EditorComment;
-  passage: PdfPassage;
-  rounds: AnnotationRounds;
-  keyboard: boolean;
-  onResolving: (id: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useLingui();
-  const ref = useRef<HTMLDivElement>(null);
-  usePdfAnchoredPopup(ref, passage, CARD_PLACE);
-  // Its own pin opened it: pressing the pin again is not a click elsewhere.
-  useDismissOnOutsidePointer(ref, onClose, (target) => Boolean(target.closest(`[data-annotation-id="${CSS.escape(annotation.id)}"]`)));
-  useEffect(() => {
-    if (keyboard) ref.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus({ preventScroll: true });
-  }, [keyboard]);
-  const proposed = annotation.revision?.state === "proposed";
-  return (
-    <div ref={ref} className="pdf-comment-popup">
-      <CommentCard
-        comments={[annotation]}
-        author={rounds.author()}
-        onResolve={rounds.resolve}
-        onReply={rounds.reply}
-        onResolving={onResolving}
-        onClose={onClose}
-        footer={(
-          <Button
-            size="compact"
-            variant="ghost"
-            onClick={() => {
-              onClose();
-              rounds.openById(annotation.id);
-            }}
-          >
-            <ArrowUpRight size={13} aria-hidden="true" />
-            {proposed ? t`Review the proposal` : t`Show in the source`}
-          </Button>
-        )}
-      />
-    </div>
-  );
 }

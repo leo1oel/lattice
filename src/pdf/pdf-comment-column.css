@@ -1,0 +1,81 @@
+/* The PDF's comments beside its pages (pdf-comment-column.tsx). Docked, the
+   column is a margin of the pages' own ground, closed by a hairline, and the
+   pages give it their width (a fitted zoom follows). Folded on a narrow PDF,
+   it opens as a floating panel over the pages' right side. */
+.pdf-scroll-area { --pdf-comment-column-width: 280px; }
+.pdf-scroll-area[data-comment-column] > .pdf-viewer-host { inset-inline-end: var(--pdf-comment-column-width); }
+.pdf-scroll-area[data-comment-column] > .overlay-scrollbar[data-orientation="vertical"] { inset-inline-end: var(--pdf-comment-column-width); }
+
+.pdf-comment-column {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 6;
+  width: var(--pdf-comment-column-width);
+  max-width: calc(100% - var(--space-12));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-panel);
+  box-shadow: var(--elevation-floating);
+}
+.pdf-comment-column[data-docked] {
+  max-width: none;
+  background: transparent;
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
+.pdf-comment-column-head {
+  flex: none;
+  height: var(--control-height-compact);
+  padding-block: var(--space-2);
+  padding-inline: var(--space-5) var(--space-3);
+}
+.pdf-comment-column-count {
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+/* Cards scroll under the head, clipped where the pages' viewport ends.
+   Clipped, not hidden: a hidden overflow is still a scroller, and typing a
+   reply scrolled it to keep the caret in view, lifting every card off its mark. */
+.pdf-comment-column-body { position: relative; flex: 1; min-height: 0; overflow: clip; }
+.pdf-comment-column-track { position: absolute; inset-inline: 0; top: 0; will-change: transform; }
+.pdf-comment-slot {
+  position: absolute;
+  inset-inline: var(--space-4);
+  transition: top var(--motion-moderate);
+}
+.pdf-comment-slot > .comment-card { width: 100%; min-width: 0; max-width: none; }
+.pdf-comment-slot-preview { border-radius: var(--radius-surface); cursor: pointer; }
+.pdf-comment-slot-preview:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* A resting card is the comment's preview, a step quieter than the open one;
+   its passage under the pointer lifts it. */
+.pdf-comment-slot-preview > .comment-preview {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-shadow: var(--elevation-raised);
+  transition: box-shadow var(--motion-fast);
+}
+.pdf-comment-slot[data-hovered] .comment-preview,
+.pdf-comment-slot-preview:hover > .comment-preview { box-shadow: var(--elevation-popover); }
+
+/* The open card's passage stays lit on the page while it is read. */
+.pdf-annotation-mark[data-active] .pdf-annotation-highlight { background: color-mix(in srgb, var(--annotation-highlight-edge) 45%, var(--annotation-highlight)); }
+/* An Overleaf thread has no number: its pin is a dot in its author's colour. */
+.pdf-annotation-pin[data-kind="thread"] {
+  min-width: calc(10px * var(--pin-scale));
+  width: calc(10px * var(--pin-scale));
+  height: calc(10px * var(--pin-scale));
+  padding: 0;
+  background: var(--pin-color, var(--annotation-ink));
+}
+
+/* The folded column's way back, in the pages' top corner. */
+.pdf-comment-toggle {
+  position: absolute;
+  top: var(--space-4);
+  inset-inline-end: var(--space-4);
+  z-index: 6;
+  box-shadow: var(--elevation-raised);
+  font-variant-numeric: tabular-nums;
+}

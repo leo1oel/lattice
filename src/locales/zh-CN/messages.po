@@ -2027,6 +2027,7 @@ msgstr "批注与高亮"
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/overleaf/overleaf-presence.tsx
+#: src/pdf/pdf-annotations.tsx
 #: src/pdf/review-pdf-sheet.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Anonymous"
@@ -3865,6 +3866,10 @@ msgstr "\\usepackage 这类命令只能写在 {BEGIN_DOCUMENT} 之前。把这�
 msgid "Comment"
 msgstr "评论"
 
+#: src/pdf/pdf-annotations.tsx
+msgid "Comment by {name}"
+msgstr "{name} 的评论"
+
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "Comment from {opener}"
 msgstr "{opener} 的评论"
@@ -3908,6 +3913,7 @@ msgstr "注释"
 
 #: src/app/use-editor-comments.ts
 #: src/overleaf/overleaf-collab.tsx
+#: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts
 msgid "Comments"
 msgstr "评论"
@@ -6769,6 +6775,10 @@ msgstr "隐藏{name}"
 #: src/history/compare-versions.tsx
 msgid "Hide automatic versions"
 msgstr "收起自动版本"
+
+#: src/pdf/pdf-comment-column.tsx
+msgid "Hide comments"
+msgstr "隐藏评论"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Hide details"
@@ -12560,7 +12570,7 @@ msgstr "查看 Overleaf 改动"
 msgid "Review source changes"
 msgstr "预览源码修改"
 
-#: src/pdf/pdf-annotations.tsx
+#: src/pdf/pdf-comment-popups.tsx
 msgid "Review the proposal"
 msgstr "审阅这条建议"
 
@@ -13375,6 +13385,10 @@ msgstr "改动显示方式"
 msgid "Show changes in the PDF"
 msgstr "在 PDF 中显示改动"
 
+#: src/pdf/pdf-comment-column.tsx
+msgid "Show comments"
+msgstr "显示评论"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "显示大纲"
@@ -13399,7 +13413,7 @@ msgstr "历史中显示"
 msgid "Show in source"
 msgstr "在源码中显示"
 
-#: src/pdf/pdf-annotations.tsx
+#: src/pdf/pdf-comment-popups.tsx
 msgid "Show in the source"
 msgstr "在源码中定位"
 
