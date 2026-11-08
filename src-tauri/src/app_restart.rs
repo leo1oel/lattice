@@ -23,7 +23,11 @@ use crate::app_state::AppState;
 enum Install {
     #[default]
     Idle,
-    Installing(String),
+    /// A release, and the window installing it.
+    Installing {
+        version: String,
+        label: String,
+    },
     Installed(String),
 }
 
@@ -47,14 +51,15 @@ pub struct AppRestart {
 }
 
 impl AppRestart {
-    fn claim(&self, version: &str) -> UpdateClaim {
+    fn claim(&self, version: &str, label: &str) -> UpdateClaim {
         let mut install = self.install.lock().unwrap_or_else(PoisonError::into_inner);
         match &*install {
-            Install::Installing(_) => UpdateClaim::Busy,
+            Install::Installing { .. } => UpdateClaim::Busy,
             Install::Installed(installed) if installed == version => UpdateClaim::Installed,
             // Nothing under way, or a newer release than the one installed.
             _ => {
-                *install = Install::Installing(version.to_string());
+                *install =
+                    Install::Installing { version: version.to_string(), label: label.to_string() };
                 UpdateClaim::Claimed
             }
         }
@@ -62,7 +67,8 @@ impl AppRestart {
 
     fn finish(&self, version: &str, installed: bool) {
         let mut install = self.install.lock().unwrap_or_else(PoisonError::into_inner);
-        if *install == Install::Installing(version.to_string()) {
+        if matches!(&*install, Install::Installing { version: under_way, .. } if under_way == version)
+        {
             *install =
                 if installed { Install::Installed(version.to_string()) } else { Install::Idle };
         }
@@ -81,9 +87,15 @@ impl AppRestart {
         self.agent_turns.lock().unwrap_or_else(PoisonError::into_inner).len()
     }
 
-    /// The window's page went away, and its agent panel with it.
+    /// The window's page went away, and its agent panel with it. An install
+    /// it claimed will never report its end, so another window may claim it;
+    /// held, every window would hear "another window is installing" until quit.
     pub fn forget(&self, label: &str) {
         self.set_agent_turn(label, false);
+        let mut install = self.install.lock().unwrap_or_else(PoisonError::into_inner);
+        if matches!(&*install, Install::Installing { label: owner, .. } if owner == label) {
+            *install = Install::Idle;
+        }
     }
 }
 
@@ -98,8 +110,10 @@ pub struct RestartImpact {
 
 /// Ask to install release `version`; see `UpdateClaim`.
 #[tauri::command]
-pub fn claim_update_install(state: State<'_, AppRestart>, version: String) -> UpdateClaim {
-    state.claim(&version)
+pub fn claim_update_install(
+    window: WebviewWindow, state: State<'_, AppRestart>, version: String,
+) -> UpdateClaim {
+    state.claim(&version, window.label())
 }
 
 /// The install this window claimed ended: `installed`, or failed (and another
@@ -131,24 +145,36 @@ mod tests {
     #[test]
     fn one_window_installs_a_release_and_the_others_hear_it_is_installed() {
         let restart = AppRestart::default();
-        assert_eq!(restart.claim("0.13.1"), UpdateClaim::Claimed);
+        assert_eq!(restart.claim("0.13.1", "main"), UpdateClaim::Claimed);
         // Before, a second window's Update now ran a second install alongside.
-        assert_eq!(restart.claim("0.13.1"), UpdateClaim::Busy);
+        assert_eq!(restart.claim("0.13.1", "main"), UpdateClaim::Busy);
         restart.finish("0.13.1", true);
-        assert_eq!(restart.claim("0.13.1"), UpdateClaim::Installed);
+        assert_eq!(restart.claim("0.13.1", "main"), UpdateClaim::Installed);
         // A release published after that one installs over it.
-        assert_eq!(restart.claim("0.13.2"), UpdateClaim::Claimed);
+        assert_eq!(restart.claim("0.13.2", "main"), UpdateClaim::Claimed);
     }
 
     #[test]
     fn a_failed_install_lets_another_window_try() {
         let restart = AppRestart::default();
-        assert_eq!(restart.claim("0.13.1"), UpdateClaim::Claimed);
+        assert_eq!(restart.claim("0.13.1", "main"), UpdateClaim::Claimed);
         // Only the install under way can be ended.
         restart.finish("0.13.0", false);
-        assert_eq!(restart.claim("0.13.1"), UpdateClaim::Busy);
+        assert_eq!(restart.claim("0.13.1", "main"), UpdateClaim::Busy);
         restart.finish("0.13.1", false);
-        assert_eq!(restart.claim("0.13.1"), UpdateClaim::Claimed);
+        assert_eq!(restart.claim("0.13.1", "main"), UpdateClaim::Claimed);
+    }
+
+    #[test]
+    fn a_window_that_goes_away_mid_install_lets_another_window_install() {
+        let restart = AppRestart::default();
+        assert_eq!(restart.claim("0.13.1", "main"), UpdateClaim::Claimed);
+        // Another window's page going away leaves the install where it is.
+        restart.forget("project-2");
+        assert_eq!(restart.claim("0.13.1", "project-2"), UpdateClaim::Busy);
+        // The installing window closed or reloaded: its finish never comes.
+        restart.forget("main");
+        assert_eq!(restart.claim("0.13.1", "project-2"), UpdateClaim::Claimed);
     }
 
     #[test]
