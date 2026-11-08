@@ -96,9 +96,9 @@ export function AddPapersSheet(props: {
   const [zoteroPdfs, setZoteroPdfs] = useState<Record<string, string>>({});
   const pickZotero = (items: ZoteroItem[]) => {
     const bibtex = items.map((item) => item.bibtex).join("\n\n");
-    const next = text.trim() ? `${text.trimEnd()}\n\n${bibtex}` : bibtex;
-    setText(next);
-    setSettled(next);
+    const withZotero = (current: string) => (current.trim() ? `${current.trimEnd()}\n\n${bibtex}` : bibtex);
+    setText(withZotero);
+    setSettled(withZotero);
     setZoteroPdfs((current) => ({
       ...current,
       ...Object.fromEntries(items.flatMap((item) => (item.pdf ? [[item.citationKey, item.pdf]] : []))),

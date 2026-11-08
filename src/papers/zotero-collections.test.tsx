@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PaperSummary } from "../app-types";
 import { AddPapersSheet } from "./add-papers-sheet";
@@ -86,6 +86,21 @@ describe("Add papers from Zotero", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("list", { name: "Zotero collections" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("drops a read that finishes after Back, keeping what was typed since", async () => {
+    let finish: (items: ZoteroItem[]) => void = () => {};
+    invoke.mockImplementation((command: string) => (command === "zotero_collections"
+      ? Promise.resolve(COLLECTIONS)
+      : new Promise<ZoteroItem[]>((resolve) => { finish = resolve; })));
+    sheet();
+    fireEvent.click(await screen.findByTitle("My Library"));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    const box = screen.getByRole("textbox", { name: "Paste references" });
+    fireEvent.change(box, { target: { value: "10.1000/typed" } });
+    await act(async () => { finish(ITEMS); });
+    expect(screen.getByRole("textbox", { name: "Paste references" })).toHaveValue("10.1000/typed");
+    expect(screen.queryByRole("list", { name: "Zotero collections" })).not.toBeInTheDocument();
   });
 
   it("goes back to the paste box without reading anything", async () => {

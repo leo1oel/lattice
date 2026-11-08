@@ -5,7 +5,7 @@
  * which the sheet reads like a pasted .bib, so what Papers already holds is
  * skipped as usual.
  */
-import { useEffect, useReducer, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, type CSSProperties, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { Folder, Library } from "lucide-react";
@@ -53,12 +53,18 @@ export function ZoteroCollections(props: { onPick: (items: ZoteroItem[]) => void
     return () => { current = false; };
   }, [attempt]);
 
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
   const read = (collection: string) => {
     if (reading !== null) return;
     dispatch({ type: "read", collection });
     invoke<ZoteroItem[]>("zotero_items", { collection: collection || null }).then(
-      (items) => props.onPick(items),
-      (reason: unknown) => dispatch({ type: "failed", error: hostErrorMessage(reason) }),
+      (items) => { if (mounted.current) props.onPick(items); },
+      (reason: unknown) => { if (mounted.current) dispatch({ type: "failed", error: hostErrorMessage(reason) }); },
     );
   };
 
