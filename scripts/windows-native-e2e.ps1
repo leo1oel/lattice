@@ -86,7 +86,7 @@ try {
   Focus-App
   [System.Windows.Forms.SendKeys]::SendWait('^`')
   Start-Sleep -Seconds 3
-  [System.Windows.Forms.Clipboard]::SetText("[IO.File]::WriteAllText((Join-Path (Get-Location) 'terminal-proof.txt'), 'ConPTY works')")
+  [System.Windows.Forms.Clipboard]::SetText("[IO.File]::WriteAllText(([IO.Path]::Combine(`$PWD.ProviderPath, 'terminal-proof.txt')), 'ConPTY works')")
   [System.Windows.Forms.SendKeys]::SendWait('^v')
   [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
   $proof = Join-Path $source.DirectoryName 'terminal-proof.txt'
