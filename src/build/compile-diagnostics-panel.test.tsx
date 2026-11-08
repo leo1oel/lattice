@@ -67,6 +67,22 @@ describe("batch repair controls", () => {
     expect(screen.queryByRole("button", { name: "Cancel repair" })).not.toBeInTheDocument();
   });
 
+  it("offers Unlock anyway, with its warning, only for a repair that has not stopped since Cancel", () => {
+    const onUnlockRepair = vi.fn();
+    const { rerender } = render(<CompileDiagnosticsPanel {...props} onCancelRepair={vi.fn()} onUnlockRepair={onUnlockRepair}
+      repair={{ status: "running", threadId: "repair" }} />);
+    expect(screen.queryByRole("button", { name: "Unlock anyway" })).not.toBeInTheDocument();
+    rerender(<CompileDiagnosticsPanel {...props} onCancelRepair={vi.fn()} onUnlockRepair={onUnlockRepair}
+      repair={{ status: "running", threadId: "repair", stopping: true }} />);
+    expect(screen.getByText("Stopping…")).toBeInTheDocument();
+    expect(screen.getByText(/the agent may still be editing this file/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Unlock anyway" }));
+    expect(onUnlockRepair).toHaveBeenCalledTimes(1);
+    rerender(<CompileDiagnosticsPanel {...props} onUnlockRepair={onUnlockRepair}
+      repair={{ status: "failed", threadId: "repair", stopping: true, message: "Lost track." }} />);
+    expect(screen.queryByRole("button", { name: "Unlock anyway" })).not.toBeInTheDocument();
+  });
+
   it("keeps approval and error details accessible, and respects write restrictions", () => {
     const { rerender } = render(<CompileDiagnosticsPanel {...props} onFixAll={vi.fn()} fixDisabled />);
     expect(screen.getByRole("button", { name: "Fix all" })).toBeDisabled();

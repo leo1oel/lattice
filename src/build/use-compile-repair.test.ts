@@ -180,47 +180,52 @@ describe("user-triggered compile repair", () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  it("gives up after repeated status failures, and at once on a failure after Cancel", async () => {
+  // A transport failure or a slow Cancel does not prove the provider stopped
+  // writing: only a terminal status, a restart or a lost route releases the editor.
+  it("keeps the editor locked through status failures, before and after Cancel", async () => {
     mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => { throw new Error("connection refused"); } });
-    const first = renderRepair();
-    let work!: Promise<void>;
-    await act(async () => { work = first.result.current.start([diagnostic]); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(3 * 2000); });
-    expect(first.result.current.busy).toBe(true);
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); await work; });
-    expect(first.result.current.state).toMatchObject({ status: "failed", message: LOST });
-    first.unmount();
-
-    const second = renderRepair();
-    await act(async () => { work = second.result.current.start([diagnostic]); });
-    expect(second.result.current.busy).toBe(true);
-    await act(async () => { await second.result.current.cancel(); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); await work; });
-    expect(second.result.current.busy).toBe(false);
+    const { result } = renderRepair();
+    await act(async () => { void result.current.start([diagnostic]); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(result.current.busy).toBe(true);
+    await act(async () => { await result.current.cancel(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(result.current.busy).toBe(true);
+    expect(result.current.state?.message).toContain("connection refused");
   });
 
-  it("releases the editor at once when Cancel cannot reach the service", async () => {
+  it("keeps following the task and shows why when Cancel cannot reach the service", async () => {
     mockRepair({
       start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }),
       cancel: () => { throw new Error("The agent service is unavailable."); },
     });
     const { result } = renderRepair();
     await act(async () => { void result.current.start([diagnostic]); });
-    expect(result.current.busy).toBe(true);
     await act(async () => { await result.current.cancel(); });
-    expect(result.current.busy).toBe(false);
-    expect(result.current.state?.message).toBe(LOST);
+    expect(result.current.busy).toBe(true);
+    expect(result.current.state?.message).toContain("The agent service is unavailable.");
   });
 
-  it("gives up on a cancelled task that still says it runs long after", async () => {
+  it("offers an unlock once a cancelled task has not stopped, and releases the editor only when asked", async () => {
     mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }), cancel: () => ({}) });
     const { result } = renderRepair();
     await act(async () => { void result.current.start([diagnostic]); });
+    expect(result.current.state?.stopping).toBeFalsy();
     await act(async () => { await result.current.cancel(); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(9_000); });
+    expect(result.current.state?.stopping).toBeFalsy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(result.current.state).toMatchObject({ status: "running", stopping: true });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     expect(result.current.busy).toBe(true);
-    await act(async () => { await vi.advanceTimersByTimeAsync(12_000); });
+    expect(result.current.state?.stopping).toBe(true);
+    vi.mocked(invoke).mockClear();
+    act(() => { result.current.unlock(); });
     expect(result.current.busy).toBe(false);
+    expect(result.current.state).toEqual({ status: "failed", threadId: "repair-1", message: LOST });
+    expect(invoke).toHaveBeenCalledWith("compile_repair", { action: "cancel", projectRoot: "/paper", threadId: "repair-1" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(invoke).not.toHaveBeenCalledWith("compile_repair", expect.objectContaining({ action: "status" }));
   });
 
   // A restarted service reloads the task's persisted session, which may still
@@ -237,12 +242,17 @@ describe("user-triggered compile repair", () => {
     expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
   });
 
-  it("keeps following a repair when the agent service becomes known after it started", async () => {
+  // Fix all asks for the runtime and starts the repair at once, so the
+  // service's identity often arrives only after the repair began.
+  it("follows the agent service that becomes known after the repair started, and its restart", async () => {
     mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }) });
     const { result, rerender } = renderRepair({ agentSession: null });
     await act(async () => { void result.current.start([diagnostic]); });
     rerender({ agentSession: "token-1" });
     expect(result.current.busy).toBe(true);
+    rerender({ agentSession: null });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
   });
 
   it("does not start in a read-only project or after save failure", async () => {

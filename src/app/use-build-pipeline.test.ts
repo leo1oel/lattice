@@ -243,6 +243,27 @@ describe("the build outcome the Build button reports", () => {
     }
   });
 
+  // latexmk's first pass can write a new PDF before a later pass hangs: the
+  // timeout stops the build partway, so that PDF is not of these inputs.
+  it("does not credit a timed-out pass with the PDF it left partway", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    try {
+      let finish!: (value: BuildResult) => void;
+      const view = renderPipeline(() => new Promise((resolve) => { finish = resolve; }));
+      let running!: Promise<void>;
+      act(() => { running = view.result.current.runBuild(false, { requested: true }); });
+      await act(() => vi.advanceTimersByTimeAsync(BUILD_TIMEOUT_MS));
+      await act(async () => {
+        finish({ ...stoppedResult(), hasPdf: true });
+        await running;
+      });
+      expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("forgets the last outcome when the workspace moves to another project", async () => {
     const view = renderPipeline(async () => result());
     await act(() => view.result.current.runBuild(false, { requested: true }));

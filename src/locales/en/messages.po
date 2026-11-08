@@ -14140,6 +14140,7 @@ msgstr "Stop tracking changes?"
 msgid "Stopped after 2 minutes"
 msgstr "Stopped after 2 minutes"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "Stopping…"
@@ -15282,6 +15283,10 @@ msgstr "The rendered page still has no reliable citation metadata. Supply its of
 msgid "The repair agent needs an answer. Open the repair thread to respond."
 msgstr "The repair agent needs an answer. Open the repair thread to respond."
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+msgstr "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+
 #: src/build/compile-repair-messages.ts
 msgid "The repair request failed."
 msgstr "The repair request failed."
@@ -16318,6 +16323,10 @@ msgstr "Unlink"
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlinked. {target} stays as it is."
 msgstr "Unlinked. {target} stays as it is."
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Unlock anyway"
+msgstr "Unlock anyway"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."

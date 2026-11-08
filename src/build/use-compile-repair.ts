@@ -10,6 +10,8 @@ export type CompileRepairState = {
   status: "starting" | "running" | "awaiting-approval" | "compiling" | "completed" | "failed";
   threadId?: string;
   message?: string;
+  /** Cancel was asked for STOP_GRACE_MS ago and the task has not ended: the writer may unlock the editor anyway. */
+  stopping?: boolean;
 };
 
 type RepairOperation = {
@@ -17,21 +19,19 @@ type RepairOperation = {
   threadId?: string;
   cancelled: boolean;
   cancelRequested: boolean;
-  /** When Cancel was accepted; the task gets CANCEL_GRACE_MS to reach a terminal status. */
-  cancelRequestedAt?: number;
-  /** The agent service the task runs in (`agentSession`), when known at the start. */
+  stopping?: boolean;
+  /** The agent service the task runs in (`agentSession`), once known. */
   session: string | null;
 };
 
 /**
- * Polling gives up on a task it can no longer follow, instead of holding the
- * editor read-only forever: after this many status failures in a row, after
- * any failure once Cancel was asked for, when the service no longer has the
- * route, when the service restarted under it, or when a cancelled task still
- * says it runs this long after.
+ * Only a terminal status releases the editor on its own, or the service
+ * having restarted under the task or no longer having its route: the task is
+ * gone then. A transport failure or a slow Cancel does not prove the provider
+ * stopped writing, so this long after Cancel the writer is offered an
+ * explicit unlock instead.
  */
-const STATUS_FAILURE_LIMIT = 5;
-const CANCEL_GRACE_MS = 30_000;
+const STOP_GRACE_MS = 10_000;
 /** What the Rust relay answers for a path the running service does not have (synara.rs). */
 const ROUTE_UNAVAILABLE = "agent_route_unavailable";
 
@@ -79,7 +79,9 @@ export function useCompileRepair(options: {
   const { agentSession } = options.agent;
   useEffect(() => {
     const operation = operationRef.current;
-    if (operation?.session && agentSession !== operation.session) abandon(operation);
+    if (!operation) return;
+    if (operation.session === null) operation.session = agentSession;
+    else if (agentSession !== operation.session) abandon(operation);
   }, [abandon, agentSession]);
 
   useEffect(() => {
@@ -127,15 +129,10 @@ export function useCompileRepair(options: {
         await cancelRepair(operation.root, threadId);
         return;
       }
-      setState({ status: "running", threadId });
+      setState({ status: "running", threadId, ...(operation.stopping && { stopping: true }) });
       if (operation.cancelRequested) {
-        operation.cancelRequestedAt = Date.now();
-        if (!await cancelRepair(operation.root, threadId).then(() => true, () => false)) {
-          abandon(operation);
-          return;
-        }
+        await cancelRepair(operation.root, threadId).catch((error) => { if (owns()) noteError(error); });
       }
-      let failures = 0;
       while (owns()) {
         let progress: CompileRepairState;
         try {
@@ -144,8 +141,7 @@ export function useCompileRepair(options: {
           });
         } catch (error) {
           if (!owns()) return;
-          failures += 1;
-          if (failures >= STATUS_FAILURE_LIMIT || operation.cancelRequested || toMessage(error) === ROUTE_UNAVAILABLE) {
+          if (toMessage(error) === ROUTE_UNAVAILABLE) {
             abandon(operation);
             return;
           }
@@ -154,13 +150,6 @@ export function useCompileRepair(options: {
           continue;
         }
         if (!owns()) return;
-        failures = 0;
-        const cancelledAt = operation.cancelRequestedAt;
-        if (cancelledAt !== undefined && Date.now() - cancelledAt >= CANCEL_GRACE_MS
-          && progress.status !== "failed" && progress.status !== "completed") {
-          abandon(operation);
-          return;
-        }
         if (progress.status === "failed") throw new Error(progress.message ?? t`Repair failed.`);
         if (progress.status === "completed") {
           setState({ status: "compiling", threadId });
@@ -168,7 +157,7 @@ export function useCompileRepair(options: {
           if (owns()) setState({ status: "completed", threadId });
           return;
         }
-        setState({ ...progress, threadId });
+        setState({ ...progress, threadId, ...(operation.stopping && { stopping: true }) });
         await delay(1000);
       }
     } catch (error) {
@@ -189,24 +178,33 @@ export function useCompileRepair(options: {
   const cancel = useCallback(async () => {
     const operation = operationRef.current;
     if (!operation) return;
-    operation.cancelRequested = true;
     // The command is accepted before the provider has necessarily stopped, so
-    // polling continues: a terminal status releases the editor and permits
-    // another fix, or the bounds above give up on a task that never gets
-    // there. A cancel that cannot reach the service gives up at once: the
-    // writer asked to stop, and nothing here can follow the task any more.
-    if (!operation.threadId) return;
-    if (operation.cancelRequestedAt === undefined) operation.cancelRequestedAt = Date.now();
-    try {
-      await cancelRepair(operation.root, operation.threadId);
-    } catch {
-      abandon(operation);
+    // polling continues until a terminal status releases the editor and
+    // permits another fix. A task that does not get there in STOP_GRACE_MS
+    // (or a service Cancel cannot reach) is left to the writer's unlock.
+    if (!operation.cancelRequested) {
+      operation.cancelRequested = true;
+      window.setTimeout(() => {
+        if (operationRef.current !== operation || operation.cancelled) return;
+        operation.stopping = true;
+        setState((previous) => previous && previous.status !== "compiling" ? { ...previous, stopping: true } : previous);
+      }, STOP_GRACE_MS);
     }
+    if (!operation.threadId) return;
+    await cancelRepair(operation.root, operation.threadId).catch((error) => {
+      if (operationRef.current === operation && !operation.cancelled) noteError(error);
+    });
+  }, [noteError]);
+
+  /** The writer's explicit release of a task that has not stopped since Cancel. */
+  const unlock = useCallback(() => {
+    const operation = operationRef.current;
+    if (operation) abandon(operation);
   }, [abandon]);
 
   const busy = state !== null && !["completed", "failed"].includes(state.status);
   // Memoized by hand: the React Compiler skips this hook (its try/finally),
   // and a new object each render rebuilt the diagnostics panel App builds
   // from it on every keystroke.
-  return useMemo(() => ({ state, busy, start, cancel }), [busy, cancel, start, state]);
+  return useMemo(() => ({ state, busy, start, cancel, unlock }), [busy, cancel, start, state, unlock]);
 }

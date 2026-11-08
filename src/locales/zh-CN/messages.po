@@ -14140,6 +14140,7 @@ msgstr "停止跟踪修订？"
 msgid "Stopped after 2 minutes"
 msgstr "2 分钟后已停止"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "正在停止…"
@@ -15282,6 +15283,10 @@ msgstr "渲染后的网页仍没有可靠的引用信息，请改为提供官方
 msgid "The repair agent needs an answer. Open the repair thread to respond."
 msgstr "AI 有问题要问你，请打开修复对话"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+msgstr "修复还没有停止，AI 可能仍在修改这个文件。只有现在确实要编辑时，才选择“仍然解锁”。"
+
 #: src/build/compile-repair-messages.ts
 msgid "The repair request failed."
 msgstr "修复请求失败"
@@ -16318,6 +16323,10 @@ msgstr "取消关联"
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlinked. {target} stays as it is."
 msgstr "已取消关联，{target} 保持不变。"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Unlock anyway"
+msgstr "仍然解锁"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."

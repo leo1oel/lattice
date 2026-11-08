@@ -388,10 +388,10 @@ export function useBuildPipeline({
         const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
         // LaTeX carries on past most errors, so a failed pass that wrote a
         // new PDF still compiled these inputs. One that left the previous PDF
-        // in place (or was stopped partway) did not, and its SyncTeX map
-        // cannot be trusted either.
+        // in place (or was stopped partway, by Stop or the timeout) did not,
+        // and its SyncTeX map cannot be trusted either.
         const fingerprint = pdfBytes ? pdfBytesFingerprint(pdfBytes) : null;
-        const wrotePdf = fingerprint !== null && !cancelled
+        const wrotePdf = fingerprint !== null && !cancelled && !timedOut
           && (result.success || fingerprint !== readPdfFingerprintRef.current);
         if (fingerprint !== null) readPdfFingerprintRef.current = fingerprint;
         compiledRef.current = wrotePdf
