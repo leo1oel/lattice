@@ -93,6 +93,8 @@ try {
   Wait-Check { (Test-Path $proof) -and (Get-Content $proof -Raw) -eq 'ConPTY works' } 'PowerShell executing inside the project'
   Record 'the integrated ConPTY terminal executes PowerShell in the project folder'
   Focus-App
+  [System.Windows.Forms.SendKeys]::SendWait('^`')
+  Start-Sleep -Milliseconds 400
   [System.Windows.Forms.SendKeys]::SendWait('^k')
   Start-Sleep -Milliseconds 500
   [System.Windows.Forms.SendKeys]::SendWait('Export Word')
