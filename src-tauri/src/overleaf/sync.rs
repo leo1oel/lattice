@@ -214,8 +214,7 @@ pub(super) fn plan_sync(
                     plan.files.insert(path.clone(), local_hash);
                     continue;
                 }
-                // Still marked up from an earlier conflict: merging again would
-                // nest markers. Hold it at its markers' base until resolved.
+                // Still marked up: merging again would nest markers. Hold it.
                 if local_changed && has_conflict_markers(lb) {
                     if let Some(base) = base_hash {
                         plan.files.insert(path.clone(), base.clone());
@@ -813,8 +812,8 @@ fn sync_files(
     to_push.sort();
     let upload_bytes = |path: &String| merged_content.get(path).or_else(|| local.get(path));
 
-    // Never hand Overleaf a file whose conflict markers are still unresolved —
-    // that would publish the markers to everyone else in the project.
+    // Never publish unresolved conflict markers to the project: a marked-up
+    // file stays unsent, on the base its markers show, until resolved.
     let (mut to_push, held_back): (Vec<String>, Vec<String>) = if writable {
         to_push
             .into_iter()
@@ -822,10 +821,11 @@ fn sync_files(
     } else {
         (Vec::new(), to_push)
     };
-    // Held-back paths stay out of state too, so they count as local edits and
-    // upload as soon as they can.
     for path in &held_back {
-        new_files.remove(path);
+        match linked.state.files.get(path).filter(|_| writable) {
+            Some(hash) => new_files.insert(path.clone(), hash.clone()),
+            None => new_files.remove(path),
+        };
     }
 
     // Overleaf may have moved on between the copy we planned against and now —

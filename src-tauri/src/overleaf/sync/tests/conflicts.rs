@@ -90,6 +90,32 @@ fn a_file_still_marked_up_is_not_merged_again_while_overleaf_moves_on() {
 }
 
 #[test]
+fn a_marked_up_file_is_not_held_for_newer_edits_while_overleaf_stands_still() {
+    let (_server, root, first) = run_sync(
+        Mock::project(&[("main.tex", TYPED)]),
+        &[("main.tex", AGENT)],
+        &[("main.tex", BASE)],
+    );
+    assert_eq!(first.conflicts.len(), 1);
+    let marked = text(&root, "main.tex");
+    // Nobody has typed on Overleaf since: twice over, nothing is waiting
+    // there, so there is nothing to warn about and nothing goes up.
+    for _ in 0..2 {
+        let (server, again) = sync_against(&root, &[("main.tex", TYPED)]);
+        assert!(again.unresolved_conflicts.is_empty(), "{:?}", again.unresolved_conflicts);
+        assert!(again.newly_unresolved_conflicts.is_empty());
+        assert!(again.pushed.is_empty() && server.uploads().is_empty());
+        assert_eq!(text(&root, "main.tex"), marked);
+        assert_eq!(state_files(&root)["main.tex"], sha256_hex(TYPED));
+    }
+    // Resolved, it goes up as the local edit it is.
+    fs::write(root.join("main.tex"), AGENT).unwrap();
+    let (server, resolved) = sync_against(&root, &[("main.tex", TYPED)]);
+    assert_eq!(resolved.pushed, ["main.tex"]);
+    assert_eq!(server.uploads().len(), 1);
+}
+
+#[test]
 fn a_conflict_copy_never_takes_the_name_of_an_existing_file() {
     let taken =
         ["main (local conflict 20261108-0217).tex", "main (local conflict 20261108-0217 2).tex"];
@@ -124,9 +150,12 @@ fn overleaf_sync_never_uploads_excluded_files_or_unresolved_conflict_markers() {
     );
     assert!(result.pushed.is_empty() && result.pulled.is_empty());
     assert!(server.uploads().is_empty());
-    // Excluded files never enter state, and the marked file is left out so
-    // it uploads as soon as the markers are gone.
-    assert_eq!(state_files(&root).keys().collect::<Vec<_>>(), vec!["main.tex"]);
+    // Excluded files never enter state, and the marked file keeps its last
+    // agreed hash, so it still counts as a local edit and uploads as soon as
+    // the markers are gone.
+    let files = state_files(&root);
+    assert_eq!(files.keys().collect::<Vec<_>>(), vec!["main.tex", "notes.tex"]);
+    assert_eq!(files["notes.tex"], sha256_hex(b"alpha\n"));
     // Both stay untouched on disk.
     assert_eq!(read_local(&root, "notes.tex").unwrap(), marked.as_bytes());
     for rel in ["main.log", "main.pdf", "tmp/pdfs/full-appendix/render-1.png"] {
