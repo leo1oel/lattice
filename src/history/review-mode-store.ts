@@ -17,7 +17,8 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { msg } from "@lingui/core/macro";
-import { confirmAction } from "../app-utils";
+import { confirmAction, hostErrorMessage } from "../app-utils";
+import { showError } from "../app/notify";
 import { i18n } from "../i18n";
 import type { EditorView } from "@codemirror/view";
 
@@ -66,6 +67,9 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
   const pendingSaves = new Map<string, ReturnType<typeof setTimeout>>();
   const coauthor = new Map<string, { text: string; at: number }>();
 
+  /** A host call that failed, told to the writer: their tracked changes depend on it. */
+  const report = (reason: unknown) => showError(hostErrorMessage(reason), i18n._(msg`Track changes`));
+
   const set = (patch: Partial<ReviewModeState>) => {
     state = { ...state, ...patch };
     for (const listener of listeners) listener();
@@ -87,7 +91,12 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
     const root = state.root;
     const base = bases.get(path);
     if (!root || !state.active || base === undefined) return;
-    await call("review_mode_save_base", { projectRoot: root, path, base }).catch(() => undefined);
+    try {
+      await call("review_mode_save_base", { projectRoot: root, path, base });
+    } catch (reason) {
+      report(reason);
+      return;
+    }
     if (state.root === root && state.active) set({ revision: state.revision + 1 });
   };
 
@@ -124,7 +133,13 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
       const root = state.root;
       if (!root || state.active) return;
       const current = ++generation;
-      const loaded = await call<Loaded>("review_mode_start", { projectRoot: root });
+      let loaded: Loaded;
+      try {
+        loaded = await call<Loaded>("review_mode_start", { projectRoot: root });
+      } catch (reason) {
+        if (current === generation) report(reason);
+        return;
+      }
       if (current !== generation) return;
       adopt(root, loaded);
       if (open && store.baseFor(open.path) !== null) {
@@ -133,11 +148,14 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
       }
     },
 
-    /** Turn review mode off: the files stay as they are and the bases are deleted. */
+    /**
+     * Turn review mode off: the files stay as they are and the bases are
+     * deleted. When they could not be, review mode is read back as the disk has it.
+     */
     async stop() {
       const root = state.root;
       if (!root || !state.active) return;
-      ++generation;
+      const current = ++generation;
       for (const timer of pendingSaves.values()) clearTimeout(timer);
       pendingSaves.clear();
       bases = new Map();
@@ -146,7 +164,12 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
       coauthor.clear();
       set({ active: false, marked: false, notice: null });
       push();
-      await call("review_mode_stop", { projectRoot: root });
+      try {
+        await call("review_mode_stop", { projectRoot: root });
+      } catch (reason) {
+        report(reason);
+        if (current === generation) await store.load(root);
+      }
     },
 
     /** Turn review mode off once the writer agrees: the changes waiting stop being marked. */

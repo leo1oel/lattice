@@ -15726,6 +15726,7 @@ msgid "Top-level section heading"
 msgstr "Top-level section heading"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/history/review-mode-store.ts
 msgid "Track changes"
 msgstr "Track changes"
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { history, redo, undo } from "@codemirror/commands";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import {
   acceptAll, decideAtCaret, decideHunk, moveToChange, rejectAll, reviewModeExtension, reviewOf,
@@ -142,6 +142,37 @@ describe("review mode in the source editor", () => {
     expect(store.baseFor("main.tex")).toBe(edited);
     await vi.advanceTimersByTimeAsync(500);
     expect(calls.filter((entry) => entry.command === "review_mode_save_base").map((entry) => entry.args.base)).not.toContain(BASE);
+  });
+
+  it("does not put back a base a co-author's edit has moved on from when an accept is undone", async () => {
+    const { store } = await reviewing();
+    const view = editor(store, BASE.replace("look at", "retrieve"));
+    decideHunk(view, 0, true);
+    const doc = view.state.doc.toString();
+    const remote = `${doc}Their line.\n`;
+    store.noteCoauthorText("main.tex", remote);
+    view.dispatch({ changes: { from: doc.length, insert: "Their line.\n" }, annotations: Transaction.addToHistory.of(false) });
+    expect(texts(view)).toEqual([]);
+    undo(view);
+    // The co-author's line is never marked as the writer's insertion, nor its base saved over.
+    expect(texts(view)).toEqual([]);
+    expect(store.baseFor("main.tex")).toBe(remote);
+    redo(view);
+    expect(texts(view)).toEqual([]);
+    expect(store.baseFor("main.tex")).toBe(remote);
+  });
+
+  it("takes back two accepts one at a time", async () => {
+    const { store } = await reviewing();
+    const view = editor(store, BASE.replace("look at", "retrieve").replace("Old", "New"));
+    decideHunk(view, 0, true, false);
+    decideHunk(view, 0, true, false);
+    expect(texts(view)).toEqual([]);
+    undo(view);
+    expect(texts(view)).toEqual(["-Old", "+New"]);
+    undo(view);
+    expect(texts(view)).toEqual(["-look at", "+retrieve", "-Old", "+New"]);
+    expect(store.baseFor("main.tex")).toBe(BASE);
   });
 
   it("moves the base forward with a co-author's edit instead of marking it as the writer's", async () => {

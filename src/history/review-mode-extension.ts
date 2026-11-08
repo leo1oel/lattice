@@ -37,11 +37,14 @@ type Review = Readonly<{
 }>;
 
 /**
- * A new base. `session` names the review mode a writer's accept (and its undo)
- * belongs to: one from a review mode turned off since is not applied. Null for
- * the store turning review mode on or off, which is no undo step.
+ * A new base. `step` marks the writer's accept (and its undo and redo): it
+ * names the review mode it belongs to and the base it replaces, and is not
+ * applied once either has moved on (review mode turned off, or a co-author's
+ * edit carried into the base since). Null for the store turning review mode
+ * on or off, which is no undo step.
  */
-const setBase = StateEffect.define<{ base: string | null; session: string | null }>();
+type Step = Readonly<{ session: string; from: string | null }>;
+const setBase = StateEffect.define<{ base: string | null; step: Step | null }>();
 
 const OFF: Review = { base: null, hunks: [], changes: [], decorations: Decoration.none };
 
@@ -59,7 +62,9 @@ function reviewField(path: string, store: ReviewModeStore) {
     update(value, tr) {
       let base = value.base;
       for (const effect of tr.effects) {
-        if (effect.is(setBase) && (effect.value.session === null || effect.value.session === store.session())) base = effect.value.base;
+        if (!effect.is(setBase)) continue;
+        const { step } = effect.value;
+        if (step === null || (step.session === store.session() && step.from === base)) base = effect.value.base;
       }
       if (base === value.base && !tr.docChanged) return value;
       if (base !== null && base === value.base && isCoauthorEdit(tr, path, store)) {
@@ -93,7 +98,8 @@ export function reviewOf(view: EditorView): Review | null {
 /** The writer's accept in `view`: the base becomes `base`, one undo step. */
 function acceptBase(view: EditorView, base: string) {
   const session = viewFields.get(view)?.store.session() ?? null;
-  if (session !== null) view.dispatch({ effects: setBase.of({ base, session }), userEvent: "review.accept" });
+  const from = reviewOf(view)?.base ?? null;
+  if (session !== null) view.dispatch({ effects: setBase.of({ base, step: { session, from } }), userEvent: "review.accept" });
 }
 
 /** The hunk at the caret (touching either end counts), or the first after it; its index, or -1. */
@@ -270,7 +276,7 @@ export function reviewModeExtension(path: string, store: ReviewModeStore = revie
       viewFields.set(view, { field, store });
       // A base the store changed (review mode turned on or off) is not the writer's undo step.
       const apply = (base: string | null) => {
-        if (base !== view.state.field(field).base) view.dispatch({ effects: setBase.of({ base, session: null }) });
+        if (base !== view.state.field(field).base) view.dispatch({ effects: setBase.of({ base, step: null }) });
       };
       this.unregister = store.register(path, view, apply);
       // A parked editor comes back with the base it was parked with; the
@@ -330,8 +336,8 @@ export function reviewModeExtension(path: string, store: ReviewModeStore = revie
     field,
     sync,
     hover,
-    invertedEffects.of((tr) => tr.effects.flatMap((effect) => (effect.is(setBase) && effect.value.session !== null
-      ? [setBase.of({ base: tr.startState.field(field).base, session: effect.value.session })]
+    invertedEffects.of((tr) => tr.effects.flatMap((effect) => (effect.is(setBase) && effect.value.step !== null
+      ? [setBase.of({ base: tr.startState.field(field).base, step: { session: effect.value.step.session, from: effect.value.base } })]
       : []))),
     showPanel.compute([field], (state) => (state.field(field).base === null ? null : panel)),
   ];

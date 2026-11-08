@@ -1,9 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { showError } from "../app/notify";
 import { createReviewModeStore } from "./review-mode-store";
 
-/** A store over a fake host whose project files are `disk`; `excluded` are the ones the host leaves out of review. */
-function store(disk: Record<string, string>, bases: Record<string, string> | null = null, excluded: string[] = []) {
+vi.mock("../app/notify", () => ({ showError: vi.fn() }));
+afterEach(() => vi.mocked(showError).mockClear());
+
+/**
+ * A store over a fake host whose project files are `disk`; `excluded` are the
+ * ones the host leaves out of review, and `failing` the commands it refuses.
+ */
+function store(
+  disk: Record<string, string>, bases: Record<string, string> | null = null, excluded: string[] = [], failing: string[] = [],
+) {
   const call = vi.fn(async (command: string, args?: Record<string, unknown>) => {
+    if (failing.includes(command)) throw new Error("Permission denied (os error 13)");
     switch (command) {
       case "review_mode_load": return bases ? { startedAt: "2026-11-08T00:00:00Z", bases, excluded } : null;
       case "review_mode_start": {
@@ -110,6 +120,34 @@ describe("review mode's store", () => {
     expect(review.get().marked).toBe(false);
     await review.start();
     expect(review.get().marked).toBe(true);
+  });
+
+  it("tells the writer when review mode could not be turned on, and stays off", async () => {
+    const { review } = store({ "main.tex": "x" }, null, [], ["review_mode_start"]);
+    await review.load("/project");
+    await review.start();
+    expect(review.get().active).toBe(false);
+    expect(showError).toHaveBeenCalledWith(expect.stringContaining("Permission denied"), "Track changes");
+  });
+
+  it("tells the writer when the bases could not be deleted, and reads review mode back as the disk has it", async () => {
+    const { review } = store({ "main.tex": "x" }, { "main.tex": "x" }, [], ["review_mode_stop"]);
+    await review.load("/project");
+    await review.stop();
+    // The bases are still on disk, so reopening the project would find review mode on: it shows as on now.
+    expect(review.get().active).toBe(true);
+    expect(review.baseFor("main.tex")).toBe("x");
+    expect(showError).toHaveBeenCalledWith(expect.stringContaining("Permission denied"), "Track changes");
+  });
+
+  it("tells the writer when an accepted base could not be saved, and does not rebuild the marked PDF for it", async () => {
+    const { review } = store({ "main.tex": "x" }, { "main.tex": "x" }, [], ["review_mode_save_base"]);
+    await review.load("/project");
+    const revision = review.get().revision;
+    review.setBase("main.tex", "x accepted");
+    await review.flush();
+    expect(review.get().revision).toBe(revision);
+    expect(showError).toHaveBeenCalledWith(expect.stringContaining("Permission denied"), "Track changes");
   });
 
   it("names a co-author's text for an open file once, and forgets it after a while", async () => {

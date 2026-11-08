@@ -15726,6 +15726,7 @@ msgid "Top-level section heading"
 msgstr "顶级章节标题"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/history/review-mode-store.ts
 msgid "Track changes"
 msgstr "跟踪修订"
 
