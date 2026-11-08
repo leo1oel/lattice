@@ -4449,7 +4449,7 @@ msgstr "无法读取 arXiv 标题检索结果：{error}"
 msgid "Could not read:"
 msgstr "无法读取："
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 msgstr "无法保存 Overleaf 的 {scopedPermission} 权限（{detail}）"
 
@@ -10518,7 +10518,7 @@ msgstr "Overleaf 历史里留有副本"
 msgid "Overleaf is still preparing file uploads. Try syncing again in a moment."
 msgstr "Overleaf 还在准备上传，请稍后再同步"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 msgstr "Overleaf 一直拒绝这个项目的实时协作，但你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目。"
 
@@ -10530,7 +10530,7 @@ msgstr "实时协作断开（{reason}），{seconds} 秒后重连…"
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 msgstr "实时协作断开（{reason}），正在重连…"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Overleaf live editing reconnected."
 msgstr "实时协作已恢复"
 
@@ -14853,7 +14853,7 @@ msgstr "实时预览的 PDF 不在它的构建文件夹中"
 msgid "The lookup returned no record."
 msgstr "查找没有返回任何记录。"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
 msgstr "网络已恢复"
 
