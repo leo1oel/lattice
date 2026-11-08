@@ -84,7 +84,8 @@ export type LatexEditorLiveData = {
   projectPaths: string[];
   /** The project's root document, whose folder TeX reads `\input` paths from. */
   rootDocumentPath?: string;
-  onOpenCitation?: (key: string) => void;
+  /** Open the cited paper, at `page` when the citation's note names one (`\cite[p.~5]{key}`). */
+  onOpenCitation?: (key: string, page?: number) => void;
   canOpenCitation?: (key: string) => boolean;
   /** The library, for a citation card's Crossref health; matched by citation key. */
   papers?: PaperSummary[];

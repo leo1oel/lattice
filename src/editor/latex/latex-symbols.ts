@@ -70,7 +70,35 @@ function keyAt(text: string, pattern: RegExp, position: number): KeySpan | null 
   return null;
 }
 
-export const citationHoverTarget = (text: string, position: number) => keyAt(text, CITATION, position);
+/**
+ * The page a citation's note names: `p.~5`, `p. 5`, `pp.~5--7` (its first
+ * page), `page 5`, or a bare `5`, which biblatex also reads as a page.
+ * Anything else (`Theorem 2`, `ch.~3`) names no page.
+ */
+export function citationNotePage(note: string): number | undefined {
+  const match = /^\s*(?:(?:pp?|pg|pages?)\.?(?:\s|~|\\[ ,])*)?(\d+)(?:\s*(?:-{1,3}|–|—)\s*\d+)?\s*$/i.exec(note);
+  const page = match ? Number(match[1]) : NaN;
+  return page >= 1 && Number.isSafeInteger(page) ? page : undefined;
+}
+
+/**
+ * The citation key under `position`, with the page its note names. The note
+ * is the last optional argument: natbib and biblatex read `\cite[a][b]{k}` as
+ * prenote and postnote, and a lone `\cite[b]{k}` as the postnote.
+ */
+export function citationHoverTarget(text: string, position: number): (KeySpan & { page?: number }) | null {
+  const offset = Math.max(0, position - 800);
+  const window = text.slice(offset, position + 800);
+  for (const command of argumentsOf(window, CITATION, offset)) {
+    if (position < command.start || position > command.end) continue;
+    const hovered = keySpans(command.content, command.from).find((key) => position >= key.from && position <= key.to);
+    if (!hovered) continue;
+    const options = [...window.slice(command.start - offset, command.from - 1 - offset).matchAll(/\[([^\]]*)\]/g)];
+    const page = options.length ? citationNotePage(options.at(-1)![1]) : undefined;
+    return page ? { ...hovered, page } : hovered;
+  }
+  return null;
+}
 export const referenceHoverTarget = (text: string, position: number) => keyAt(text, REFERENCE, position);
 
 /** The `\includegraphics` path under `position`, as written, with its span. */

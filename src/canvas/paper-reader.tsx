@@ -7,6 +7,7 @@ import type { FileViewState, PaperSummary } from "../app-types";
 import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { SavedViewState } from "./saved-view-state";
+import { PaperSelectionActions } from "./paper-selection-actions";
 import type { usePaperPdf } from "./use-paper-pdf";
 import { joinPhrases } from "../i18n";
 
@@ -45,6 +46,8 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
   pdf: ReturnType<typeof usePaperPdf>;
   markdown: ReactNode;
   onOpenMarkdownPath: (path: string) => void;
+  /** Where Add to note writes the paper's note; without a project there is no note to add to. */
+  projectRoot?: string;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
   onTextSelect: (value: string) => void;
   /** The original PDF's saved place, read as it opens (see saved-view-state.tsx), and its writer. */
@@ -153,6 +156,14 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
           </Suspense>}
         </div>
       ) : markdown}
+      <PaperSelectionActions
+        shellRef={shellRef}
+        paper={paper}
+        pdf={pdf}
+        overview={!view && activeFile.toLocaleLowerCase().endsWith("/blog.md")}
+        projectRoot={props.projectRoot}
+        onOpenNote={props.onOpenMarkdownPath}
+      />
     </section>
   );
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canDownloadPaper, citationSourceUrl, isTitleQuery, paperPdfUrl, paperSourceCitation } from "./paper-source";
+import { engineSchema } from "../editor/markdown/engine/engine-schema";
+import { openMarkdown } from "../editor/markdown/engine/markdown-document";
+import {
+  canDownloadPaper, citationSourceUrl, findPaperSource, isTitleQuery, paperPdfUrl, paperSourceCitation, paperSourceHref,
+  sourceLinkMarkdown, sourceQuoteAnchors, sourceQuoteMarkdown,
+} from "./paper-source";
+import { findSourceQuote } from "./source-quote";
 
 describe("paper source routing", () => {
   it("opens bibliography web identities but rejects unsafe and credential-bearing URLs", () => {
@@ -56,5 +62,65 @@ describe("paper source routing", () => {
     expect(canDownloadPaper({ ...paper, url: "https://example.org/blog" })).toBe(true);
     expect(canDownloadPaper({ ...paper, arxivId: "1706.03762" })).toBe(true);
     expect(canDownloadPaper(paper)).toBe(false);
+  });
+});
+
+/** The first link mark in `markdown` as the visual editor reads it. */
+function linkOf(markdown: string): { href: string; title: string | null } | undefined {
+  const opened = openMarkdown(markdown, engineSchema());
+  if ("unavailable" in opened) throw new Error(opened.unavailable);
+  let link: { href: string; title: string | null } | undefined;
+  opened.doc.descendants((node) => {
+    const mark = node.marks.find((candidate) => candidate.type.name === "link");
+    if (mark && !link) link = { href: String(mark.attrs.href), title: mark.attrs.title as string | null };
+  });
+  return link;
+}
+
+describe("source links made from a selection", () => {
+  const paper = { arxivId: "1706.03762v7", hasFullText: true, hasBlog: false };
+
+  it("links the paper's own PDF at the page, whatever fragment its URL carried", () => {
+    expect(paperSourceHref(paper, 5)).toBe("https://arxiv.org/pdf/1706.03762v7#page=5");
+    expect(paperSourceHref({ arxivId: "web-abc", url: "https://example.test/report.pdf#page=2" }, 8)).toBe("https://example.test/report.pdf#page=8");
+    expect(paperSourceHref({ arxivId: "web-abc", url: "https://example.test/article" }, 1)).toBeNull();
+  });
+
+  it("anchors a quote with the fewest edge words that find only it", () => {
+    const quote = "the model attends to every position in the input sequence at once and so learns long range structure";
+    expect(sourceQuoteAnchors(quote)).toEqual({ first: "the model attends to", last: "learns long range structure" });
+    // Four words recur on the page, so the anchors grow until the passage is the only match.
+    const page = `the model attends to the left only. ${quote}. the model attends to nothing else; learns long range structure.`;
+    const anchors = sourceQuoteAnchors(quote, (first, last) => findSourceQuote(page, first, last) !== null)!;
+    expect(anchors.first.split(" ").length).toBeGreaterThan(4);
+    expect(findSourceQuote(page, anchors.first, anchors.last)).not.toBeNull();
+    // A short quote is its own anchors; unspaced text is anchored by characters.
+    expect(sourceQuoteAnchors("Attention is all you need")).toEqual({ first: "Attention is all you need", last: "Attention is all you need" });
+    expect(sourceQuoteAnchors("自注意力机制让模型在一次计算中同时关注输入序列的每一个位置从而学到长距离的结构关系"))
+      .toEqual({ first: "自注意力机制让模型在", last: "学到长距离的结构关系" });
+    expect(sourceQuoteAnchors("   ")).toBeNull();
+  });
+
+  it("writes Markdown that the reader's link parser reads back to the same page and quote", () => {
+    const anchors = { first: 'the "attention" is', last: "C:\\path [sic]" };
+    const href = paperSourceHref(paper, 5)!;
+    const markdown = sourceLinkMarkdown("p. 5", href, anchors);
+    const link = linkOf(markdown);
+    expect(link).toEqual({ href, title: 'the "attention" is … C:\\path [sic]' });
+    expect(paperSourceCitation(paper, link!.href, link!.title!)).toEqual({ page: 5, ...anchors });
+    // A URL with spaces or parentheses keeps its exact address inside angle brackets.
+    const odd = "https://example.test/a (draft).pdf#page=2";
+    expect(linkOf(sourceLinkMarkdown("p. 2", odd, { first: "a", last: "b" }))?.href).toBe(odd);
+    expect(sourceQuoteMarkdown("  a *starred*\n  line ", "[p. 5](x)")).toBe("> a \\*starred\\* line [p. 5](x)");
+  });
+
+  it("finds the library paper a link points into, and only a readable one", () => {
+    const unread = { arxivId: "2401.00001", hasFullText: false, hasBlog: false };
+    const papers = [unread, paper];
+    const href = "https://arxiv.org/pdf/1706.03762v7#page=3";
+    expect(findPaperSource(papers, href, "a … b")).toEqual({ paper, citation: { page: 3, first: "a", last: "b" } });
+    expect(findPaperSource(papers, "https://arxiv.org/pdf/2401.00001#page=3", "a … b")).toBeNull();
+    expect(findPaperSource(papers, "https://arxiv.org/pdf/1706.03762v7", "a … b")).toBeNull();
+    expect(findPaperSource(papers, "https://example.test/other.pdf#page=3", "a … b")).toBeNull();
   });
 });

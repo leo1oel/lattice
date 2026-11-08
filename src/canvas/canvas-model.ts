@@ -3,7 +3,7 @@ import type { EditorView } from "@codemirror/view";
 import type { AgentHostSurface, AgentPdfDocumentPlace, AgentSelectionLines } from "../agent/agent-host-context";
 import type {
   AssetPreview, CanvasMode, CanvasRequests, EditorKeymap, EditorPosition, EditorViewState, FileViewState,
-  PaperSummary, WordCount,
+  PaperSourceRequest, PaperSummary, WordCount,
 } from "../app-types";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
@@ -17,6 +17,7 @@ import type { OpenSlideWorkspaceProps } from "../editor/presentation/open-slide-
 import type { PresenceCursor, TrackedChangeTooltipActions } from "../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
+import type { PaperSourceCitation } from "../papers/paper-source";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { SwitchState } from "./after-switch";
 import type { DeckHosts } from "./open-slide-deck-pool";
@@ -103,14 +104,16 @@ type CanvasBibliography = Readonly<{
   papers?: PaperSummary[];
   /** A .bib reference's paper, opened from the reference list: downloaded first when only cited. */
   onOpenPaper?: (paper: PaperSummary) => void;
+  /** Open a library paper's PDF at a source link's page, its quote highlighted. */
+  onOpenPaperSource?: (paper: PaperSummary, citation: PaperSourceCitation) => void;
   /** The Papers downloads under way (and just done), by paper key: the reference list shows their progress. */
   paperFetchStates?: Readonly<Record<string, "loading" | "success">>;
   /** A .bib reference's DOI, arXiv or web link. */
   onOpenUrl?: (url: string) => void;
   /** Whether a citation card's Open paper has a readable library paper or a source link to open. */
   canOpenCitation?: (key: string) => boolean;
-  /** A citation card's Open paper, and its title: the readable library paper, else the source it cites. */
-  onOpenCitation?: (key: string) => void;
+  /** A citation card's Open paper, and its title: the readable library paper (at the page the citation names), else the source it cites. */
+  onOpenCitation?: (key: string, page?: number) => void;
   /** Looks a citation up for the reference list's Add reference. */
   onResolveCitation?: (query: string) => Promise<ResolvedCitationDraft>;
   /** Changes after the manuscript was saved, so the reference list scans its citations again. */
@@ -139,6 +142,9 @@ type CanvasNavigation = Readonly<{
   requests: CanvasRequests;
   /** Settle the request with this id (ids are unique across every kind). */
   onRequestHandled: (id: string) => void;
+  /** A source link or cited page to show in its Paper's PDF, and how it is settled once shown. */
+  paperSource?: PaperSourceRequest | null;
+  onPaperSourceHandled?: (id: string) => void;
   onEditorPosition: (position: EditorPosition) => void;
   onViewState: (path: string, state: EditorViewState) => void;
   getFileViewState?: (path: string) => FileViewState | undefined;

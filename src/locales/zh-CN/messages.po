@@ -1572,6 +1572,10 @@ msgstr "添加文献"
 msgid "Add the submission deadline"
 msgstr "添加投稿截止时间"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Add to note"
+msgstr "加到笔记"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
 msgstr "加入论文库"
@@ -1622,6 +1626,10 @@ msgstr "已添加 {done} 篇论文"
 #: src/papers/add-papers-sheet.tsx
 msgid "Added 1 paper"
 msgstr "已添加 1 篇论文"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Added to {path}"
+msgstr "已加到 {path}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -4128,6 +4136,10 @@ msgstr "复制路径"
 msgid "Copy source"
 msgstr "复制源代码"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Copy source link"
+msgstr "复制出处链接"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Copy the link from the project’s address bar or its Share menu."
 msgstr "请从项目的地址栏或“分享”菜单复制链接。"
@@ -4148,6 +4160,10 @@ msgstr "核心组件"
 msgid "Correction/update"
 msgstr "更正/更新"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not add to the note"
+msgstr "没能加到笔记"
+
 #: src/platform/host-errors-project.ts
 msgid "Could not allocate a temporary project file."
 msgstr "无法创建项目临时文件"
@@ -4167,6 +4183,10 @@ msgstr "无法检查同名记录：{error}。请重试，或提供 DOI"
 #: src/telemetry/app-log.tsx
 msgid "Could not collect runtime logs."
 msgstr "日志收集失败"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not copy the source link"
+msgstr "没能复制出处链接"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
@@ -4219,6 +4239,10 @@ msgstr "找不到图片“{path}”"
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "找不到文件“{path}”"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not find this passage in the PDF"
+msgstr "在 PDF 里找不到这段文字"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
@@ -6296,6 +6320,7 @@ msgstr "没有全文，先显示概览"
 msgid "Full release notes"
 msgstr "完整更新说明"
 
+#: src/canvas/paper-selection-actions.tsx
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Full text"
@@ -10004,6 +10029,10 @@ msgstr "打开日志文件夹"
 msgid "Open logs"
 msgstr "打开日志"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Open note"
+msgstr "打开笔记"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
 msgstr "查看公告"
@@ -10472,6 +10501,7 @@ msgstr "加入 Overleaf 项目时没有返回根文件夹 ID"
 msgid "Overleaf's root folder has no id."
 msgstr "Overleaf 的根文件夹没有 ID"
 
+#: src/canvas/paper-selection-actions.tsx
 #: src/project/paper-library.tsx
 msgid "Overview"
 msgstr "导读"
@@ -10488,6 +10518,11 @@ msgstr "覆盖同名文件，合并同名文件夹"
 msgctxt "submission checklist field"
 msgid "owner"
 msgstr "负责人"
+
+#. placeholder {0}: place.page
+#: src/canvas/paper-selection-actions.tsx
+msgid "p. {0}"
+msgstr "第 {0} 页"
 
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
@@ -10596,6 +10631,7 @@ msgid "Paper tones"
 msgstr "纸面色"
 
 #: src/app/command-palette.tsx
+#: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
@@ -13006,6 +13042,10 @@ msgstr "选下一处"
 msgid "Select the text to proofread first."
 msgstr "请先选中要校对的文字。"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Selected passage"
+msgstr "选中的文字"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"
 msgstr "所选"
@@ -13481,6 +13521,10 @@ msgstr "源码下载失败：{error}"
 #: src/settings/settings-search-index.ts
 msgid "Source editor"
 msgstr "源码编辑器"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Source link copied"
+msgstr "已复制出处链接"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
