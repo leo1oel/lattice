@@ -242,6 +242,23 @@ describe("user-triggered compile repair", () => {
     expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
   });
 
+  // The task is done once it reports completed: a restart during the
+  // recompile that follows has no task left to lose.
+  it("reports a completed repair as completed when the agent service restarts during its recompile", async () => {
+    const recompiled = deferred<void>();
+    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status: "completed" }) });
+    const { result, rerender } = renderRepair({ agentSession: "token-1", onComplete: () => recompiled.promise });
+    let work!: Promise<void>;
+    await act(async () => { work = result.current.start([diagnostic]); });
+    expect(result.current.state?.status).toBe("compiling");
+    rerender({ agentSession: null });
+    act(() => { result.current.unlock(); });
+    expect(result.current.state?.status).toBe("compiling");
+    await act(async () => { recompiled.resolve(); await work; });
+    expect(result.current.state).toEqual({ status: "completed", threadId: "repair-1" });
+    expect(invoke).not.toHaveBeenCalledWith("compile_repair", expect.objectContaining({ action: "cancel" }));
+  });
+
   // Fix all asks for the runtime and starts the repair at once, so the
   // service's identity often arrives only after the repair began.
   it("follows the agent service that becomes known after the repair started, and its restart", async () => {

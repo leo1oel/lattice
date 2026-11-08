@@ -20,6 +20,8 @@ type RepairOperation = {
   cancelled: boolean;
   cancelRequested: boolean;
   stopping?: boolean;
+  /** The task reported completed: only the recompile is left, and nothing can lose the task any more. */
+  taskDone?: boolean;
   /** The agent service the task runs in (`agentSession`), once known. */
   session: string | null;
 };
@@ -65,7 +67,7 @@ export function useCompileRepair(options: {
   }, []);
   /** Stop following `operation`: release the editor, and ask the task to stop in case it still runs. */
   const abandon = useCallback((operation: RepairOperation) => {
-    if (operationRef.current !== operation || operation.cancelled) return;
+    if (operationRef.current !== operation || operation.cancelled || operation.taskDone) return;
     operation.cancelled = true;
     operationRef.current = null;
     if (operation.threadId) void cancelRepair(operation.root, operation.threadId).catch(() => undefined);
@@ -152,6 +154,7 @@ export function useCompileRepair(options: {
         if (!owns()) return;
         if (progress.status === "failed") throw new Error(progress.message ?? t`Repair failed.`);
         if (progress.status === "completed") {
+          operation.taskDone = true;
           setState({ status: "compiling", threadId });
           await optionsRef.current.onComplete();
           if (owns()) setState({ status: "completed", threadId });
