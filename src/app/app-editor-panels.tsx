@@ -27,8 +27,8 @@ import type { AnnotationRounds } from "./annotation-rounds";
 import type { AnnotationRound, EditorComment } from "../editor/comments/editor-comment-data";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
-import { panelCitationReasons } from "../editor/latex/citation-reasons";
 import { useCitationReasonSources } from "./use-citation-reason-sources";
+import { chunk } from "../lib/lazy-chunk";
 import type {
   BodyBoundary,
   BuildResult,
@@ -47,6 +47,10 @@ const ManuscriptChecklistPanel = lazy(() => import("../project/manuscript-checkl
 const FigureInventoryDialog = lazy(() => import("../project/figure-inventory-dialog").then((module) => ({ default: module.FigureInventoryDialog })));
 // So does the TODO panel: its empty-state drawing alone is ~22 KB of path data.
 const TodoScavengerPanel = lazy(() => import("../project/todo-scavenger-panel").then((module) => ({ default: module.TodoScavengerPanel })));
+
+// Placing citation reasons is no part of what a window needs to start, and a
+// project without any never loads it.
+const loadCitationReasons = chunk(() => import("../editor/latex/citation-reasons"));
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
@@ -167,7 +171,14 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   // One revision for both scans; the compiler keeps its identity until either changes.
   const reasonScan = { unusedSymbols, files: project.files };
   const reasonSourceFor = useCitationReasonSources(project.root, comments.citationReasons, sourceFor, annotationRounds.readSource, reasonScan);
-  const orphaned = comments.citationReasons.length ? panelCitationReasons(comments.citationReasons, reasonSourceFor) : [];
+  const [citationReasonsModule, setCitationReasonsModule] = useState(loadCitationReasons.loaded);
+  const hasCitationReasons = comments.citationReasons.length > 0;
+  useEffect(() => {
+    if (hasCitationReasons && !citationReasonsModule) void loadCitationReasons().then(setCitationReasonsModule);
+  }, [hasCitationReasons, citationReasonsModule]);
+  const orphaned = hasCitationReasons && citationReasonsModule
+    ? citationReasonsModule.panelCitationReasons(comments.citationReasons, reasonSourceFor)
+    : [];
   const panelComments = orphaned.length ? [...comments.comments, ...orphaned] : comments.comments;
   const openOrphans = orphaned.filter((reason) => !reason.resolved).length;
   const { setOpenOrphans } = comments;

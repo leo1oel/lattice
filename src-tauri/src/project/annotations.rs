@@ -220,8 +220,9 @@ pub fn write_annotations(
 /// reason has no pin and stays unnumbered.
 fn number_unnumbered(annotations: &mut [EditorComment]) {
     let mut next = annotations.iter().map(|annotation| annotation.number).max().unwrap_or(0);
-    let mut unnumbered =
-        annotations.iter_mut().filter(|annotation| annotation.number == 0 && annotation.citation.is_none())
+    let mut unnumbered = annotations
+        .iter_mut()
+        .filter(|annotation| annotation.number == 0 && annotation.citation.is_none())
         .collect::<Vec<_>>();
     unnumbered.sort_by(|left, right| left.created_at.cmp(&right.created_at));
     for annotation in unnumbered {
@@ -305,7 +306,8 @@ mod tests {
 
         write_annotations(&fixture.root, read.annotations, read.rounds, 1).unwrap();
         let saved: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(fixture.root.join(ANNOTATIONS_PATH)).unwrap()).unwrap();
+            serde_json::from_str(&fs::read_to_string(fixture.root.join(ANNOTATIONS_PATH)).unwrap())
+                .unwrap();
         assert_eq!(saved["annotations"][1]["citation"]["role"], "counterexample");
         assert_eq!(saved["annotations"][1]["citation"]["key"], "smith");
         assert!(saved["annotations"][0].get("citation").is_none());
