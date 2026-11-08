@@ -5,7 +5,7 @@
  * returns the toolbar rather than a component, which would render again with
  * every App render, each keystroke included.
  */
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { CanvasToolbar } from "../canvas/canvas-toolbar";
 import { reviewMode } from "../history/review-mode-store";
 import { OverleafPresenceAvatars } from "../overleaf/overleaf-presence";
@@ -16,10 +16,10 @@ import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 import type { ToolDrawers } from "./use-tool-drawers";
 
 export function useCanvasToolbar({
-  documents: { paper: activePaper, asset: activeAsset, activeTab, dirty, file, bufferText }, tools, commentCount, comments, inBrowserTab,
+  documents: { paper: activePaper, asset: activeAsset, activeTab, dirty, file, bufferText, projectRoot }, tools, commentCount, comments, inBrowserTab,
   onMoveWorkspace, hiddenTools, overleaf, onOverleafSync,
 }: {
-  documents: Pick<OpenDocuments, "paper" | "asset" | "activeTab" | "dirty" | "file" | "bufferText">;
+  documents: Pick<OpenDocuments, "paper" | "asset" | "activeTab" | "dirty" | "file" | "bufferText" | "projectRoot">;
   tools: Pick<ToolDrawers, "open">;
   /** Unresolved comments on the document, local and Overleaf's alike. */
   commentCount: number;
@@ -35,7 +35,14 @@ export function useCanvasToolbar({
   } = overleaf;
   // The flag alone, not the state: this renders with App, and the store's
   // other changes (its project read at startup, each saved base) are not the toolbar's.
-  const reviewing = useSyncExternalStore(reviewMode.subscribe, () => reviewMode.get().active);
+  // Read for the project here, which every project shows, not by the source
+  // editor's bars: a project opening on a figure or a Preview kept the last
+  // project's review mode, with Track changes acting on that project.
+  useEffect(() => void reviewMode.load(projectRoot), [projectRoot]);
+  const reviewing = useSyncExternalStore(reviewMode.subscribe, () => {
+    const { active, root } = reviewMode.get();
+    return active && root === projectRoot;
+  });
   return (
     <CanvasToolbar
       activePath={activePaper ? activePaper.title : activeTab}

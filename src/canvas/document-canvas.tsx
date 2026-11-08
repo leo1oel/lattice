@@ -1057,7 +1057,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
             editable={props.document.editorEditable && isLatexSourcePath(activeFile)}
             viewRef={primaryViewRef}
           />
-          <ReviewModeBars projectRoot={props.preferences.projectRoot} />
+          <ReviewModeBars />
           <AnnotationReviewLayer
             bridge={props.review.annotationRounds.reviewBridge}
             activeFile={activeFile}

@@ -314,7 +314,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     saveStatus,
     flush, save, bufferText, hasUnsavedEdits, edit: setText, pinText, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.
-    enter, remove, move,
+    projectRoot, enter, remove, move,
   };
 }
 
