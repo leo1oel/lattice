@@ -8,6 +8,7 @@
  * Chrome, and runs each scenario in scripts/perf-bench/scenarios.mjs on a
  * fresh page. For every scenario it reports, per interaction:
  *   commits   React commits that rendered a component (idle ones are reported apart)
+ *   updates   state and store hooks whose value those commits changed, however batched
  *   renders   component renders (React DevTools' definition) and the hooks they ran
  *   recalcs   style recalculations, as Chromium counts them
  *   layouts   layouts, as Chromium counts them
@@ -96,6 +97,7 @@ import { fileURLToPath, URLSearchParams } from "node:url";
 import { freePort } from "./lib/util.mjs";
 import { applyBudgets, bestOf, COUNTS, gatedCounts } from "./perf-bench/budgets.mjs";
 import { profileSummary } from "./perf-bench/cpu-profile.mjs";
+import { formatTable } from "./perf-bench/results-table.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { launchWebKit } from "./perf-bench/webkit.mjs";
 import { LAYOUT_CHECKS } from "./perf-bench/layout-checks.mjs";
@@ -674,6 +676,7 @@ async function measure(page, driver, scenario, profileTo) {
   const milliseconds = (name) => (name in after ? Math.round(delta(name) * 1000) : null);
   return {
     commits: probe.commits,
+    updates: probe.updates,
     renders: probe.renders + probe.mounts,
     hooks: probe.hooks,
     recalcs: delta("RecalcStyleCount"),
@@ -700,21 +703,6 @@ async function measure(page, driver, scenario, profileTo) {
       topComponents: probe.components,
     },
   };
-}
-
-function formatTable(results) {
-  const rows = [["scenario", "unit", ...COUNTS.map((key) => `${key}/unit`), "long tasks", "task ms"]];
-  for (const { scenario, result } of results) {
-    rows.push([
-      scenario.name,
-      `${scenario.steps} ${scenario.unit}`,
-      ...COUNTS.map((key) => (result[key] === null ? "–" : (result[key] / scenario.steps).toFixed(1))),
-      String(result.info.longTasks),
-      String(result.info.taskMs ?? "–"),
-    ]);
-  }
-  const widths = rows[0].map((_, column) => Math.max(...rows.map((row) => row[column].length)));
-  return rows.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join("  ")).join("\n");
 }
 
 async function main() {

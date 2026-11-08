@@ -15,6 +15,10 @@
  *    an empty commit depends on how it interleaves with the component's real
  *    updates, which is timing (at startup, the PDF preview between PDF.js
  *    page-render events and the source editor's scrollbar).
+ *  - State updates: the state and store hooks whose value changed in those
+ *    commits, one per hook of each component that rendered. Unlike commits,
+ *    this does not depend on how React batched the updates: two updates
+ *    count two whether they commit together or one after the other.
  *  - DOM mutations: MutationObserver records over the whole document, split
  *    into child-list, attribute and text changes.
  *  - Long tasks and layout shifts (by the app region they happened in), from
@@ -31,6 +35,7 @@
   const blank = () => ({
     commits: 0,
     idleCommits: 0,
+    updates: 0,
     renders: 0,
     mounts: 0,
     hooks: 0,
@@ -68,10 +73,14 @@
   };
   // Where an update came from: a component whose own state or store snapshot
   // changed in this commit ("App#26" is App's 27th hook). Everything else that
-  // rendered did so because a parent or a context did.
+  // rendered did so because a parent or a context did. Each one is a state
+  // update.
   const recordOrigins = (fiber, previous, name) => {
     if (fiber.tag === 1) {
-      if (fiber.memoizedState !== previous.memoizedState) state.origins.set(`${name}#state`, (state.origins.get(`${name}#state`) || 0) + 1);
+      if (fiber.memoizedState !== previous.memoizedState) {
+        state.origins.set(`${name}#state`, (state.origins.get(`${name}#state`) || 0) + 1);
+        state.updates += 1;
+      }
       return;
     }
     let hook = fiber.memoizedState;
@@ -80,6 +89,7 @@
       if (hook.queue && hook.memoizedState !== before.memoizedState) {
         const key = `${name}#${index}${hook.queue.getSnapshot ? " (store)" : ""}`;
         state.origins.set(key, (state.origins.get(key) || 0) + 1);
+        state.updates += 1;
       }
       hook = hook.next;
       before = before.next;
@@ -212,6 +222,7 @@
       return {
         commits: state.commits,
         idleCommits: state.idleCommits,
+        updates: state.updates,
         renders: state.renders,
         mounts: state.mounts,
         hooks: state.hooks,
