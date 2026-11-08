@@ -764,7 +764,7 @@ msgstr "{name} is loaded twice with different options"
 msgid "{name} is not a UTF-8 text file."
 msgstr "{name} is not a UTF-8 text file."
 
-#: src/app/use-overleaf-presence-view.ts
+#: src/app/use-overleaf-workspace.ts
 msgid "{name} is not in a file right now."
 msgstr "{name} is not in a file right now."
 
@@ -2021,7 +2021,7 @@ msgstr "Annotations {list}"
 msgid "Annotations and highlights"
 msgstr "Annotations and highlights"
 
-#: src/app/use-overleaf-presence-view.ts
+#: src/app/use-overleaf-workspace.ts
 #: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-collab.tsx
@@ -15381,7 +15381,7 @@ msgstr "This byte range is outside the file."
 msgid "This cannot be undone."
 msgstr "This cannot be undone."
 
-#: src/app/use-overleaf-presence-view.ts
+#: src/app/use-overleaf-workspace.ts
 msgid "This collaborator is not in a file right now."
 msgstr "This collaborator is not in a file right now."
 

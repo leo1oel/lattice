@@ -764,7 +764,7 @@ msgstr "{name} 以不同选项加载了两次"
 msgid "{name} is not a UTF-8 text file."
 msgstr "{name} 不是 UTF-8 文本文件"
 
-#: src/app/use-overleaf-presence-view.ts
+#: src/app/use-overleaf-workspace.ts
 msgid "{name} is not in a file right now."
 msgstr "{name} 当前没在看任何文件"
 
@@ -2021,7 +2021,7 @@ msgstr "批注 {list}"
 msgid "Annotations and highlights"
 msgstr "批注与高亮"
 
-#: src/app/use-overleaf-presence-view.ts
+#: src/app/use-overleaf-workspace.ts
 #: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-collab.tsx
@@ -15381,7 +15381,7 @@ msgstr "字节范围超出了文件"
 msgid "This cannot be undone."
 msgstr "无法撤销"
 
-#: src/app/use-overleaf-presence-view.ts
+#: src/app/use-overleaf-workspace.ts
 msgid "This collaborator is not in a file right now."
 msgstr "该协作者当前没在看任何文件"
 
