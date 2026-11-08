@@ -11,7 +11,7 @@
  */
 import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, ChevronUp, FileDiff, ListChecks, ListX, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, FileDiff, ListChecks, ListX, PenOff, X } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
 import { hueColor } from "../components/ui/collab-colors";
@@ -42,7 +42,7 @@ function ReviewBar({ panel }: { panel: ReviewPanel }) {
     <div className="review-bar" role="toolbar" aria-label={t`Review`}>
       <span className="review-bar-title">
         <i aria-hidden="true" style={{ background: hueColor(REVIEW_HUE) }} />
-        {t`Tracking changes`}
+        <span className="review-bar-label">{t`Tracking changes`}</span>
       </span>
       <span className="review-bar-count" aria-live="polite">
         {none
@@ -68,17 +68,17 @@ function ReviewBar({ panel }: { panel: ReviewPanel }) {
         </IconButton>
       </span>
       <span className="review-bar-group review-bar-all">
-        {/* Named by a tooltip too: a narrow editor shows them as icons alone. */}
+        {/* Named by a tooltip too: a narrow editor shows these as icons alone. */}
         <Tip label={t`Accept all`}>
           <button type="button" className="review-bar-text" disabled={none} onClick={() => acceptAll(view)}>
             <ListChecks aria-hidden="true" />
-            <span>{t`Accept all`}</span>
+            <span className="review-bar-label">{t`Accept all`}</span>
           </button>
         </Tip>
         <Tip label={t`Reject all`}>
           <button type="button" className="review-bar-text" disabled={none} onClick={() => rejectAll(view)}>
             <ListX aria-hidden="true" />
-            <span>{t`Reject all`}</span>
+            <span className="review-bar-label">{t`Reject all`}</span>
           </button>
         </Tip>
       </span>
@@ -92,13 +92,16 @@ function ReviewBar({ panel }: { panel: ReviewPanel }) {
         >
           <FileDiff aria-hidden="true" />
         </IconButton>
-        <button
-          type="button"
-          className="review-bar-text"
-          onClick={() => void (count > 0 ? reviewMode.confirmStop() : reviewMode.stop())}
-        >
-          {t`Stop tracking`}
-        </button>
+        <Tip label={t`Stop tracking`}>
+          <button
+            type="button"
+            className="review-bar-text"
+            onClick={() => void (count > 0 ? reviewMode.confirmStop() : reviewMode.stop())}
+          >
+            <PenOff aria-hidden="true" />
+            <span className="review-bar-label">{t`Stop tracking`}</span>
+          </button>
+        </Tip>
       </span>
       {notice && (
         <span className="review-bar-notice" role="status">

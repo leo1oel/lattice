@@ -70,10 +70,19 @@
   color: var(--text-primary);
 }
 .review-bar-notice > span { min-width: 0; overflow-wrap: anywhere; }
-/* Narrow: Accept all and Reject all keep their icons and lose their words. */
-@container editor-panels (max-width: 460px) {
-  .review-bar-all .review-bar-text > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .review-bar-all .review-bar-text { padding: 0 var(--space-3); }
+/* Narrow: the text buttons keep their icons (named by tooltip and for screen
+   readers) and lose their words, so the bar stays one row; narrower still, the
+   title keeps only its dot. */
+.review-bar .review-bar-label { white-space: nowrap; }
+@container editor-panels (max-width: 760px) {
+  .review-bar-text > .review-bar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .review-bar-text { padding: 0 var(--space-3); }
+}
+@container editor-panels (max-width: 520px) {
+  .review-bar-title > .review-bar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .review-bar { column-gap: var(--space-2); padding-inline: var(--space-3) var(--space-2); }
+  .review-bar-group, .review-bar-end { gap: 0; }
+  .review-bar-text { padding: 0 var(--space-2); }
 }
 /* Above the PDF panel's pages when the marked PDF could not be made (project-pdf-panel.tsx). */
 .review-pdf-message { margin: var(--space-4) var(--space-6) 0; }
