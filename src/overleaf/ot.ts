@@ -15,7 +15,7 @@
 
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
-import { changedRuns, splitLines } from "./changed-runs";
+import { changedRuns, splitLines, type ChangedRun } from "./changed-runs";
 
 /** One OT operation: insert `i` or delete `d`, both at character offset `p`. */
 export type OtOp = { p: number; i?: string; d?: string };
@@ -31,13 +31,24 @@ export type OtOp = { p: number; i?: string; d?: string };
  * (./changed-runs), so changes made far apart in one send stay separate ops.
  */
 export function diffToOps(before: string, after: string): OtOp[] {
-  return changeOps(before, after, 0, true);
+  return changeOps(before, after, 0, true, false);
+}
+
+/**
+ * `diffToOps`, with each changed run of lines narrowed to the characters
+ * that changed in it: what merging needs, where a span from a line's first
+ * change to its last would also stand for the unchanged text between them.
+ */
+export function preciseOps(before: string, after: string): OtOp[] {
+  return changeOps(before, after, 0, true, true);
 }
 
 /** At most this many lines added or removed are matched up line by line; see `changedRuns`. */
 const MAX_CHANGED_LINES = 400;
+/** At most this many characters added or removed in one run are matched up one by one. */
+const MAX_CHANGED_CHARS = 400;
 
-function changeOps(before: string, after: string, at: number, byLine: boolean): OtOp[] {
+function changeOps(before: string, after: string, at: number, byLine: boolean, byChar: boolean): OtOp[] {
   if (before === after) return [];
   let prefix = 0;
   const maxPrefix = Math.min(before.length, after.length);
@@ -55,23 +66,15 @@ function changeOps(before: string, after: string, at: number, byLine: boolean): 
   const inserted = after.slice(prefix, after.length - suffix);
   const [removedLines, insertedLines] = [splitLines(removed), splitLines(inserted)];
   // A pure insertion or deletion is one run however many lines it spans.
-  const runs = byLine && removed && inserted && (removedLines.length > 1 || insertedLines.length > 1)
+  const lineRuns = byLine && removed && inserted && (removedLines.length > 1 || insertedLines.length > 1)
     ? changedRuns(removedLines, insertedLines, MAX_CHANGED_LINES)
     : null;
-  if (runs && runs.length > 1) {
-    // Each run is trimmed on its own, and lands where the runs before it left
-    // the text: ops apply one after another.
-    const starts = [0];
-    for (const line of removedLines) starts.push(starts.at(-1)! + line.length);
-    const ops: OtOp[] = [];
-    let shift = 0;
-    for (const run of runs) {
-      const was = removedLines.slice(run.aFrom, run.aTo).join("");
-      const is = insertedLines.slice(run.bFrom, run.bTo).join("");
-      ops.push(...changeOps(was, is, at + prefix + starts[run.aFrom]! + shift, false));
-      shift += is.length - was.length;
-    }
-    return ops;
+  if (lineRuns && lineRuns.length > 1) return runOps(removedLines, insertedLines, lineRuns, at + prefix, byChar);
+  if (byChar && removed && inserted) {
+    // Split by code point, so no run cuts a character in half.
+    const [removedChars, insertedChars] = [Array.from(removed), Array.from(inserted)];
+    const charRuns = changedRuns(removedChars, insertedChars, MAX_CHANGED_CHARS);
+    if (charRuns && charRuns.length > 1) return runOps(removedChars, insertedChars, charRuns, at + prefix, false);
   }
   // Delete first: the insert's position is then expressed against the text
   // that remains, which is what the server expects.
@@ -79,6 +82,25 @@ function changeOps(before: string, after: string, at: number, byLine: boolean): 
     ...(removed ? [{ p: at + prefix, d: removed }] : []),
     ...(inserted ? [{ p: at + prefix, i: inserted }] : []),
   ];
+}
+
+/**
+ * Ops for `runs` of `removed` pieces that became `inserted` ones, the
+ * removed pieces starting at `at`. Each run is trimmed on its own, and lands
+ * where the runs before it left the text: ops apply one after another.
+ */
+function runOps(removed: string[], inserted: string[], runs: ChangedRun[], at: number, byChar: boolean): OtOp[] {
+  const starts = [0];
+  for (const piece of removed) starts.push(starts.at(-1)! + piece.length);
+  const ops: OtOp[] = [];
+  let shift = 0;
+  for (const run of runs) {
+    const was = removed.slice(run.aFrom, run.aTo).join("");
+    const is = inserted.slice(run.bFrom, run.bTo).join("");
+    ops.push(...changeOps(was, is, at + starts[run.aFrom]! + shift, false, byChar));
+    shift += is.length - was.length;
+  }
+  return ops;
 }
 
 const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
@@ -268,52 +290,21 @@ export function transformBoth(left: OtOp[], right: OtOp[]): [OtOp[], OtOp[]] {
   return [leftOp, newRightOp];
 }
 
-/** Where each component of `op` falls in the text `op` applies to: an insert at a point, a delete over a span. */
-function baseSpans(op: OtOp[]): [number, number][] {
-  return op.map((component, index) => {
-    let from = component.p;
-    let to = component.p + (component.d?.length ?? 0);
-    for (let earlier = index - 1; earlier >= 0; earlier -= 1) {
-      const { p, i, d } = op[earlier]!;
-      if (i != null) {
-        if (from > p) from = Math.max(p, from - i.length);
-        if (to > p) to = Math.max(p, to - i.length);
-      } else if (d != null) {
-        if (from > p) from += d.length;
-        if (to >= p) to += d.length;
-      }
-    }
-    return [from, to];
-  });
-}
-
-/**
- * Whether two operations on the same text change any of it in common: a
- * span both delete, or an insert inside a span the other deletes. Meeting
- * at a point is not overlapping; OT places both sides' text there.
- */
-export function overlapping(left: OtOp[], right: OtOp[]): boolean {
-  const rightSpans = baseSpans(right);
-  return baseSpans(left).some(([a, b]) => rightSpans.some(([c, d]) => (
-    Math.max(a, c) < Math.min(b, d) || (a === b && c < a && a < d) || (c === d && a < c && c < b)
-  )));
-}
-
 /**
  * `current` is `base` with local typing on top; `remote`, ops on `base`,
  * turned it into `remoteText`. Return `remoteText` with that typing on top,
  * placed the way the server will place it once it arrives there (see
- * `OtDocument.remote` for why local work goes on the left). Null when
- * `current` does not descend from `base` this way, or when the typing and
- * `remote` change the same text: a diff spans everything between a line's
- * first and last change, so transforming one over the other would put back
- * what the other side removed. Nothing should be guessed then.
+ * `OtDocument.remote` for why local work goes on the left): typing inside
+ * text the other side removed stays, where that text was. `typing` is the
+ * typing as it was made, when known; otherwise it is worked out to the
+ * character (`preciseOps`), as a diff spanning a line's first and last
+ * change would put back what the other side removed in between. Null when
+ * the ops do not fit the texts, and nothing should be guessed.
  */
-export function rebaseOnto(base: string, current: string, remote: OtOp[], remoteText: string): string | null {
+export function rebaseOnto(base: string, current: string, remote: OtOp[], remoteText: string, typing?: OtOp[]): string | null {
   if (current === base) return remoteText;
-  const typing = diffToOps(base, current);
-  if (overlapping(typing, remote)) return null;
-  const [typed] = transformBoth(typing, remote);
+  const local = typing && applyOps(base, typing) === current ? typing : preciseOps(base, current);
+  const [typed] = transformBoth(local, remote);
   return applyOps(remoteText, typed);
 }
 

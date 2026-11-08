@@ -38,14 +38,25 @@ describe("open documents store", () => {
     expect(store.getState().text).toBe("Here we study attention closely!\n");
   });
 
-  it("keeps the co-author's text when a keystroke changed the very text theirs did", () => {
+  // Placed as ShareJS's text type places them: an insert inside text the
+  // other side deleted lands where that text was, our own first at a tie.
+  it("keeps a keystroke typed inside the word a co-author replaced, and their replacement too", () => {
     const store = createOpenDocumentsStore();
     const { showFileText, takeOutsideText, typeFileText } = store.getState();
     showFileText("main.tex", "one two three\n");
     takeOutsideText("one 2 three\n");
-    // Typed on the old text, over the word the co-author replaced: carrying it would bring "two" back.
+    typeFileText("one twLo three\n", "one two three\n", [{ p: 6, i: "L" }]);
+    expect(store.getState()).toMatchObject({ text: "one L2 three\n", outsideText: "one L2 three\n" });
+  });
+
+  it("keeps edits at both ends of a line the co-author changed in the middle", () => {
+    const store = createOpenDocumentsStore();
+    const { showFileText, takeOutsideText, typeFileText } = store.getState();
+    showFileText("main.tex", "one two three\n");
+    takeOutsideText("one 2 three\n");
+    // Carrying the edit as one span from "one" to "three" used to bring "two" back.
     typeFileText("ONE two THREE\n", "one two three\n");
-    expect(store.getState()).toMatchObject({ text: "one 2 three\n", outsideText: "one 2 three\n" });
+    expect(store.getState().text).toBe("ONE 2 THREE\n");
   });
 
   it("takes values or updaters in its field setters, like useState", () => {

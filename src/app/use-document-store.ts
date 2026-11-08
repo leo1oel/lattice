@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { DocumentViewMode, PaperSummary, RefreshProject, SyncTexWord } from "../app-types";
 import { paperTabKey } from "../app-utils";
 import { reviewMode } from "../history/review-mode-store";
+import type { OtOp } from "../overleaf/ot";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { liveField, useStoreSlice } from "../hooks/use-store-slice";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
@@ -211,9 +212,9 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
    * meanwhile (the store's `typeFileText`). A co-author's text that review
    * mode waits for the editor to take now comes with that typing on top.
    */
-  const typeText = useCallback((content: string, base: string) => {
+  const typeText = useCallback((content: string, base: string, typed?: OtOp[]) => {
     const before = textRef.current;
-    typeFileText(content, base);
+    typeFileText(content, base, typed);
     const path = fileRef.current;
     if (path) reviewMode.carryCoauthorText(path, before, textRef.current);
   }, [fileRef, textRef, typeFileText]);

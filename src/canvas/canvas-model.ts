@@ -21,6 +21,7 @@ import type { PaperSourceCitation } from "../papers/paper-source";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { SwitchState } from "./after-switch";
 import type { DeckHosts } from "./open-slide-deck-pool";
+import type { OtOp } from "../overleaf/ot";
 import type { SaveSlot } from "./save-slot";
 
 /**
@@ -51,8 +52,8 @@ type CanvasDocument = Readonly<{
   settledSource?: string;
   markdownPreviewSource?: string;
   activeFile: string;
-  /** `base`, when given, is the source the edit was made on (see `typeFileText`). */
-  setSource: (value: string, base?: string) => void;
+  /** `base`, when given, is the source the edit was made on, and `typed` the edit (see `typeFileText`). */
+  setSource: (value: string, base?: string, typed?: OtOp[]) => void;
   /** Whether `value` is the source as it came from outside the writer's editing (an agent, a collaborator), which is no undo step. */
   isOutsideSource?: (value: string) => boolean;
   onSave: () => Promise<boolean>;

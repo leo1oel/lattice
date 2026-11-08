@@ -266,15 +266,16 @@ purpose.
 - **Typing goes out at least every 250 ms while it continues**, and a remote
   update arriving before then is transformed against it rather than handing the
   file to regular sync. Typing done while a remote update is being written to
-  disk is carried onto the new text and sent after it. Typing that changes
-  text the remote update changes too (a span both delete, or an insert inside
-  the other's deletion) is never carried: the writer's side is diffed line by
-  line, so a transform would put back what the other side removed. The file
-  goes to regular sync instead (`rebaseOnto` in `src/overleaf/ot.ts`).
+  disk is carried onto the new text and sent after it, transformed as
+  Overleaf's own OT would: typing inside text the remote update removed stays,
+  where that text was. Both sides are worked out to the character for this
+  (`preciseOps` and `rebaseOnto` in `src/overleaf/ot.ts`), never as one span
+  from a line's first change to its last, which would put back what the
+  other side removed in between. The editor hands over the keystroke itself.
 - **A rejoin merges only from the last shared text.** When the document is
   still held and its last shared text is the one at its version, the writer's
   work since is carried onto the joined snapshot as OT would place it and goes
-  out as operations, unless both changed the same text (see above). The copy the last sync agreed on is not a merge ancestor:
+  out as operations. The copy the last sync agreed on is not a merge ancestor:
   an edit can have reached both sides after it, and merging from it would add
   that edit twice. It only decides the cases where one side alone moved on (a
   buffer still holding it takes the snapshot; a snapshot still equal to it

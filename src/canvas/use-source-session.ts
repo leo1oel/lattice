@@ -26,6 +26,7 @@ import { useCommittedRef } from "../hooks/use-latest-ref";
 import type { AnnotationDraft } from "./annotation-composer";
 import type { DocumentCanvasProps } from "./canvas-model";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
+import type { OtOp } from "../overleaf/ot";
 import type { ProofreadBridge } from "./proofread-bridge";
 import { sameSourceConfig, sourceSessionExtensions, type SourceSessionConfig, type SourceSessionLive } from "./source-session";
 
@@ -156,7 +157,10 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
   };
 
   // Also the board's and spreadsheet's change handler, so it keeps one identity.
-  const onChange = useCallback((value: string, base?: string) => latestRef.current.document.setSource(value, base), [latestRef]);
+  const onChange = useCallback(
+    (value: string, base?: string, typed?: OtOp[]) => latestRef.current.document.setSource(value, base, typed),
+    [latestRef],
+  );
   /** CodeMirrorHost's props for this session's editor; it reads its handlers' newest identities. */
   const host = {
     extensions,

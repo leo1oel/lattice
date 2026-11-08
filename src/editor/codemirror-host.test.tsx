@@ -205,32 +205,57 @@ it("keeps the writer's keystroke in place between two outside changes that waite
   expect(view!.state.selection.main.head).toBe(merged.indexOf("L") + 1);
 });
 
-it("never moves a keystroke past an outside change on its own line, leaving the outside text to arrive after the typing", async () => {
-  let view: EditorView | null = null;
-  const emitted: string[] = [];
-  const outside = new Set<string>();
-  const live = (value: string) => (
+function liveHost() {
+  const state = { view: null as EditorView | null, emitted: [] as string[], outside: new Set<string>() };
+  const element = (value: string) => (
     <CodeMirrorHost
       key="main.tex"
       label="main.tex — LaTeX source"
       value={value}
       extensions={NONE}
-      isOutsideValue={(text) => outside.has(text)}
-      onChange={(text) => emitted.push(text)}
+      isOutsideValue={(text) => state.outside.has(text)}
+      onChange={(text) => state.emitted.push(text)}
       onUpdate={() => {}}
-      onCreateEditor={(created) => { view = created; }}
+      onCreateEditor={(created) => { state.view = created; }}
     />
   );
-  const page = render(live("AAAA BBBB CCCC"));
-  act(() => { view!.dispatch({ changes: { from: 7, insert: "K" }, selection: { anchor: 8 }, userEvent: "input.type" }); });
+  return { state, element };
+}
+const typeAt = (view: EditorView, at: number, text: string) => act(() => {
+  view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length }, userEvent: "input.type" });
+});
+
+// Placed as ShareJS's text type places them: an insert inside text the other
+// side deleted lands where that text was, the writer's own first at a tie.
+it("keeps a keystroke in place between two outside changes on its own line", async () => {
+  const { state, element } = liveHost();
+  const page = render(element("AAAA BBBB CCCC"));
+  typeAt(state.view!, 7, "K");
   // Changed at both ends of the line the writer is typing in.
   const remote = "AAA_ BBKBB _CCC";
-  outside.add(remote);
-  page.rerender(live(remote));
-  act(() => { view!.dispatch({ changes: { from: 8, insert: "L" }, selection: { anchor: 9 }, userEvent: "input.type" }); });
-  // Mapping the line-wide change over the keystroke used to give "AAAL_ BBKBB _CCC".
-  expect(view!.state.doc.toString()).toBe("AAAA BBKLBB CCCC");
-  expect(emitted.at(-1)).toBe("AAAA BBKLBB CCCC");
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 450)); });
-  expect(view!.state.doc.toString()).toBe(remote);
+  state.outside.add(remote);
+  page.rerender(element(remote));
+  typeAt(state.view!, 8, "L");
+  // Mapping one line-wide change over the keystroke used to give "AAAL_ BBKBB _CCC".
+  const merged = "AAA_ BBKLBB _CCC";
+  expect(state.emitted.at(-1)).toBe(merged);
+  page.rerender(element(merged));
+  await act(async () => { await Promise.resolve(); });
+  expect(state.view!.state.doc.toString()).toBe(merged);
+  expect(state.view!.state.selection.main.head).toBe(merged.indexOf("L") + 1);
+});
+
+it("keeps a keystroke typed inside the word a co-author replaced, and their replacement too", async () => {
+  const { state, element } = liveHost();
+  const page = render(element("one two three"));
+  typeAt(state.view!, 13, "x");
+  const remote = "one 2 threex";
+  state.outside.add(remote);
+  page.rerender(element(remote));
+  typeAt(state.view!, 6, "L");
+  const merged = "one L2 threex";
+  expect(state.emitted.at(-1)).toBe(merged);
+  page.rerender(element(merged));
+  await act(async () => { await Promise.resolve(); });
+  expect(state.view!.state.doc.toString()).toBe(merged);
 });

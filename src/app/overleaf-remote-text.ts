@@ -5,7 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { noteHostFileWrites } from "../agent/agent-host-writes";
 import { reviewMode } from "../history/review-mode-store";
-import { diffToOps, rebaseOnto } from "../overleaf/ot";
+import { preciseOps, rebaseOnto } from "../overleaf/ot";
 import type { OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import type { OverleafWorkspaceDeps } from "./use-overleaf-workspace";
 
@@ -66,7 +66,7 @@ export async function applyOverleafRemoteText(
     if (!isCurrent()) return false;
     // Typing during IPC rides on top of what is now on disk, unsaved; the
     // ordinary editor save writes it, and the live channel sends it.
-    const step = current === merged ? [] : diffToOps(current, merged);
+    const step = current === merged ? [] : preciseOps(current, merged);
     const accepted = deps.accept(path, merged, {
       saved,
       show: (now) => {

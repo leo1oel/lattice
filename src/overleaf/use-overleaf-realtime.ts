@@ -19,7 +19,7 @@ import { toMessage } from "../app-utils";
 import { useStoreSlice } from "../hooks/use-store-slice";
 import { i18n } from "../i18n";
 import { hostErrorText } from "../platform/host-error-text";
-import { diffToOps, OtDocument, type OtOp } from "./ot";
+import { OtDocument, preciseOps, type OtOp } from "./ot";
 import { channelFields, projectAccess, type OverleafConnectionStore } from "./overleaf-connection-store";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import { useOverleafRealtimeConnection } from "./use-overleaf-realtime-connection";
@@ -384,7 +384,7 @@ export function useOverleafRealtime(options: {
   // synchronizer, retaining any unacknowledged OT lease.
   const deliverRemoteText = useCallback((
     id: string, text: string, baseContent: string,
-    { ops = diffToOps(baseContent, text), carryTyping = false }: { ops?: OtOp[]; carryTyping?: boolean } = {},
+    { ops = preciseOps(baseContent, text), carryTyping = false }: { ops?: OtOp[]; carryTyping?: boolean } = {},
   ) => {
     const doc = documents.current.get(id);
     const projectRoot = connectionRoot.current;

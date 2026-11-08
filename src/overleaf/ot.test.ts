@@ -6,6 +6,7 @@ import {
   diffToOps,
   OtDesyncError,
   OtDocument,
+  preciseOps,
   rebaseOnto,
   transformBoth,
   transformSpan,
@@ -127,17 +128,23 @@ describe("transformBoth", () => {
   });
 });
 
-// Expected texts are worked out by hand from what each side typed.
+// Expected texts are worked out by hand from what each side typed, placed as
+// ShareJS's text type places them: an insert inside text the other side
+// deleted lands where that text was, and our own insert goes first at a tie.
 describe("rebaseOnto", () => {
   const base = "one two three";
+  const remoteText = "one 2 three";
 
-  it("refuses typing that encloses a co-author's change on the same line, rather than putting back what they removed", () => {
+  it("keeps both sides' edits when the writer's typing spans a co-author's change on the same line", () => {
     // The writer capitalises both ends; the co-author meanwhile replaces the middle word.
     // Transforming one line-wide span over theirs used to give "ONE two THREE2".
-    const remoteText = "one 2 three";
-    expect(rebaseOnto(base, "ONE two THREE", diffToOps(base, remoteText), remoteText)).toBeNull();
-    // Their replacement is an operation of its own, not just a diff.
-    expect(rebaseOnto(base, "one t*o three", [{ p: 4, d: "two" }, { p: 4, i: "2" }], remoteText)).toBeNull();
+    expect(rebaseOnto(base, "ONE two THREE", diffToOps(base, remoteText), remoteText)).toBe("ONE 2 THREE");
+  });
+
+  it("keeps a keystroke typed inside the word a co-author replaced, where the word was", () => {
+    const replaced = [{ p: 4, d: "two" }, { p: 4, i: "2" }];
+    expect(rebaseOnto(base, "one twLo three", replaced, remoteText)).toBe("one L2 three");
+    expect(rebaseOnto(base, "one twLo three", replaced, remoteText, [{ p: 6, i: "L" }])).toBe("one L2 three");
   });
 
   it("carries typing elsewhere, or meeting the co-author's change at a point", () => {
@@ -146,6 +153,22 @@ describe("rebaseOnto", () => {
     expect(rebaseOnto(base, "one three", [{ p: 4, i: "2 " }], "one 2 two three")).toBe("one 2 three");
     // Both type at one spot: the writer's text goes first, as the server will place it.
     expect(rebaseOnto(base, "one two! three", [{ p: 7, i: "?" }], "one two? three")).toBe("one two!? three");
+  });
+
+  it("places the typing where the editor says it was made, which a diff of repeated letters cannot tell", () => {
+    // An "a" typed at the start of "aa", while the co-author types "X" between the two.
+    expect(rebaseOnto("aa", "aaa", [{ p: 1, i: "X" }], "aXa", [{ p: 0, i: "a" }])).toBe("aaXa");
+    // Typing that does not turn the base into the text is not believed.
+    expect(rebaseOnto("aa", "aaa", [{ p: 1, i: "X" }], "aXa", [{ p: 0, i: "b" }])).toBe("aXaa");
+  });
+});
+
+describe("preciseOps", () => {
+  it("narrows a changed line to the characters that changed, one op per run", () => {
+    expect(preciseOps("AAAA BBBB CCCC", "AAA_ BBBB _CCC")).toEqual([
+      { p: 3, d: "A" }, { p: 3, i: "_" }, { p: 10, d: "C" }, { p: 10, i: "_" },
+    ]);
+    expect(applyOps("one two three", preciseOps("one two three", "ONE two THREE"))).toBe("ONE two THREE");
   });
 });
 

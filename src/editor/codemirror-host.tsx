@@ -41,7 +41,7 @@ import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { documentText, textChange } from "./text-change";
 import { i18n } from "../i18n";
-import { diffToOps, overlapping } from "../overleaf/ot";
+import { preciseOps, transformBoth, type OtOp } from "../overleaf/ot";
 
 const hostExternalChange = Annotation.define<boolean>();
 
@@ -52,30 +52,43 @@ const TYPING_QUIET_MS = 200;
  * `waiting`, a value that arrived while the writer was typing, as changes to
  * the document the writer's `update` produced. It was made from what was
  * last emitted, which is what the view held before `update`; null when the
- * view held anything else, or when the typing changed text the value changes
- * too, as the change then cannot be put next to it.
+ * view held anything else, as the change then cannot be put next to it.
  * The writer's own values are never offered here: they keep losing to their
  * later typing, as they always have.
+ *
+ * The two meet as Overleaf's OT has them meet, the writer's typing first at
+ * a tie: typing inside text the value removes stays, where that text was.
+ * The value is worked out to the character (`preciseOps`): one replacement
+ * from its first difference to its last would swallow typing in between.
  */
 function waitingChange(update: ViewUpdate, waiting: string, lastEmitted: string): ChangeSet | null {
   const before = update.startState.doc.toString();
-  const after = documentText(waiting);
   if (documentText(lastEmitted) !== before) return null;
-  if (overlapping(diffToOps(before, update.state.doc.toString()), diffToOps(before, after))) return null;
-  return runsChange(before, after).map(update.changes);
+  const [, outside] = transformBoth(typedOps(update), preciseOps(before, documentText(waiting)));
+  return opsChange(outside, update.state.doc.length);
 }
 
-/**
- * `before` to `after` as one change per changed run: a single replacement
- * from the first difference to the last would swallow the writer's typing
- * between two runs, and mapping it through that replacement moves it past
- * the end.
- */
+/** `before` to `after` as one change per changed run of characters. */
 function runsChange(before: string, after: string): ChangeSet {
-  return diffToOps(before, after).reduce(
+  return opsChange(preciseOps(before, after), before.length);
+}
+
+/** `ops`, applied one after another to a document `length` long, as one change. */
+function opsChange(ops: OtOp[], length: number): ChangeSet {
+  return ops.reduce(
     (changes, op) => changes.compose(ChangeSet.of({ from: op.p, to: op.p + (op.d?.length ?? 0), insert: op.i ?? "" }, changes.newLength)),
-    ChangeSet.empty(before.length),
+    ChangeSet.empty(length),
   );
+}
+
+/** What `update` typed, as ops on the document before it, one after another (see `OtOp`). */
+function typedOps(update: ViewUpdate): OtOp[] {
+  const ops: OtOp[] = [];
+  update.changes.iterChanges((fromA, toA, fromB, _toB, inserted) => {
+    if (toA > fromA) ops.push({ p: fromB, d: update.startState.doc.sliceString(fromA, toA) });
+    if (inserted.length) ops.push({ p: fromB, i: inserted.toString() });
+  });
+  return ops;
 }
 
 // The slice of @uiw's basicSetup both editors used (autocompletion off — the
@@ -148,8 +161,11 @@ type CodeMirrorHostProps = {
   isOutsideValue?: (value: string) => boolean;
   editable?: boolean;
   extensions: Extension[];
-  /** `base` is the value the edit was made on: the one last emitted, or taken from props. */
-  onChange: (value: string, base: string) => void;
+  /**
+   * `base` is the value the edit was made on: the one last emitted, or taken
+   * from props. `typed`, when given, is the edit itself, as ops on `base`.
+   */
+  onChange: (value: string, base: string, typed?: OtOp[]) => void;
   onUpdate: (update: ViewUpdate) => void;
   onCreateEditor: (view: EditorView) => void;
   /** The document this mount edits, to park it under when the view goes; read once, at mount. */
@@ -219,7 +235,7 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
         // taken in with this keystroke; otherwise what the view last emitted.
         const base = outside && waiting !== null ? waiting : lastEmittedRef.current;
         lastEmittedRef.current = text;
-        propsRef.current.onChange(text, base);
+        propsRef.current.onChange(text, base, outside ? undefined : typedOps(update));
       }
       propsRef.current.onUpdate(update);
     }),
