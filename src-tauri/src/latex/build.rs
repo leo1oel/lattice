@@ -20,74 +20,12 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
-#[derive(Debug, Default)]
-pub struct ActiveBuildState {
-    pid: Option<u32>,
-    cancelled: bool,
-}
-
-/// Shared handle for the in-flight latexmk process group. Each project owns
-/// one, from `ProjectResources`'s derived `Default`.
-pub type ActiveBuild = Arc<Mutex<ActiveBuildState>>;
-
-/// Take the lock, recovering from poisoning.
-///
-/// The guarded state is two plain scalars, so a thread that panicked while
-/// holding the lock cannot have left them half-written. `panic = "abort"` is
-/// deliberately off, which makes a poisoned mutex reachable, and refusing it
-/// made every later build answer "cancelled" for the rest of the session. The
-/// warning is the only trace of whatever panicked, so it is not optional.
-fn state(active: &ActiveBuild) -> MutexGuard<'_, ActiveBuildState> {
-    active.lock().unwrap_or_else(|poisoned| {
-        log::warn!("Build state lock was poisoned by an earlier panic; recovering it");
-        poisoned.into_inner()
-    })
-}
-
-pub fn abort(active: &ActiveBuild) -> Result<bool, String> {
-    let mut guard = state(active);
-    if guard.pid.is_none() && !guard.cancelled {
-        return Ok(false);
-    }
-    guard.cancelled = true;
-    if let Some(pid) = guard.pid.take() {
-        terminate(pid);
-    }
-    Ok(true)
-}
-
-/// Whether latexmk is running for this project: a restart would stop it.
-pub fn is_running(active: &ActiveBuild) -> bool {
-    state(active).pid.is_some()
-}
-
-/// latexmk and every pass it starts share the process group made at spawn.
-fn terminate(pid: u32) {
-    commands::signal_process_group(pid, libc::SIGTERM);
-}
-
-/// Register an already-running process as this project's build.
-pub(crate) fn begin_active(active: &ActiveBuild, pid: u32) -> Result<(), String> {
-    let mut guard = state(active);
-    if guard.pid.is_some() {
-        return Err(ALREADY_RUNNING.to_string());
-    }
-    guard.pid = Some(pid);
-    guard.cancelled = false;
-    Ok(())
-}
-
-/// Returns whether this build was cancelled — never anything else. Reporting a
-/// build the user never stopped as cancelled hides its real outcome, log and
-/// all, which is what an unavailable lock used to do here.
-fn finish_active(active: &ActiveBuild) -> bool {
-    let mut guard = state(active);
-    guard.pid = None;
-    std::mem::take(&mut guard.cancelled)
-}
+mod active;
+pub(crate) use active::begin_active;
+pub use active::{abort, is_running, ActiveBuild};
+use active::{finish_active, terminate, BuildSession};
 
 /// Run `command` as this project's build and capture its output, reporting
 /// whether it was cancelled. The error texts prefix the spawn/wait error.
@@ -102,10 +40,15 @@ pub(super) fn run_tracked(
     commands::in_new_process_group(&mut command).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
     let pid = child.id();
-    if let Err(error) = begin_active(active, pid) {
-        terminate(pid);
-        let _ = child.wait_with_output();
-        return Err(error);
+    match begin_active(active, pid) {
+        // Stopped between two of the build's processes: this one ends at once.
+        Ok(true) => terminate(pid),
+        Ok(false) => {}
+        Err(error) => {
+            terminate(pid);
+            let _ = child.wait_with_output();
+            return Err(error);
+        }
     }
     let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
     let (stdout, stderr) = std::thread::scope(|scope| {
@@ -179,7 +122,9 @@ fn missing_root(document: &str) -> String {
 pub fn build(
     root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
+    let session = BuildSession::open(active);
     let mut result = build_passes(root, force, active, open_document, steps)?;
+    drop(session);
     result.one_off = is_one_off_root(root);
     result.steps = steps.take();
     result.synctex = result.has_pdf.then(|| !synctex_missing(root));
@@ -489,6 +434,8 @@ mod diagnostics_tests;
 mod error_mode_tests;
 #[cfg(test)]
 mod latexmkrc_tests;
+#[cfg(test)]
+mod stop_tests;
 
 #[cfg(test)]
 mod tests {
@@ -670,7 +617,7 @@ mod tests {
         // An unrelated panic taken while this lock is held poisons it for the
         // rest of the session; that must not turn every later build into
         // "cancelled".
-        let poisoner = Arc::clone(&active);
+        let poisoner = std::sync::Arc::clone(&active);
         let _ = std::thread::spawn(move || {
             let _guard = poisoner.lock().unwrap();
             panic!("poison the build lock");
