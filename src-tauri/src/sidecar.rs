@@ -30,7 +30,7 @@ impl NodeRuntime {
 /// SIGTERM a sidecar's process group, allow a two-second grace period, then
 /// SIGKILL whatever is left.
 pub(crate) fn terminate_process_group(child: &mut Child) {
-    signal_process_group(child.id(), libc::SIGTERM);
+    signal_process_group(child.id(), crate::commands::TERM_SIGNAL);
     let deadline = Instant::now() + Duration::from_secs(2);
     while Instant::now() < deadline {
         if matches!(child.try_wait(), Ok(Some(_))) {
@@ -38,7 +38,7 @@ pub(crate) fn terminate_process_group(child: &mut Child) {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
-    signal_process_group(child.id(), libc::SIGKILL);
+    signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
     let _ = child.kill();
     let _ = child.wait();
 }

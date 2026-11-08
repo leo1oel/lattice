@@ -31,6 +31,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
       - run: pnpm install --frozen-lockfile
       - name: Stage resources for compile checks
         shell: pwsh
@@ -39,10 +40,12 @@ jobs:
           Set-Content src-tauri/synara-runtime/placeholder.txt 'Compilation check only'
       - name: Check the Windows host
         run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Test Windows file operations
+        run: cargo test --manifest-path src-tauri/Cargo.toml --test windows_host
       - name: Build interface
         run: pnpm build
       - name: Prepare Windows resources
-        run: node scripts/prepare-windows.mjs
+        run: pnpm prepare:windows
       - name: Build Windows installer
         run: pnpm tauri build --config src-tauri/tauri.windows.conf.json --bundles nsis
       - uses: actions/upload-artifact@v4

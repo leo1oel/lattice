@@ -149,7 +149,7 @@ pub(super) fn spawn_shell(shell: &Path, cwd: &Path, cols: u16, rows: u16) -> io:
                 libc::SIGHUP,
                 libc::SIGINT,
                 libc::SIGQUIT,
-                libc::SIGTERM,
+                crate::commands::TERM_SIGNAL,
                 libc::SIGTSTP,
                 libc::SIGTTIN,
                 libc::SIGTTOU,

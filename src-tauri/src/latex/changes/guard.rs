@@ -87,7 +87,7 @@ impl ChangesExports {
     fn supersede(state: &mut Exports) -> u64 {
         state.latest += 1;
         if let Some((_, group)) = state.child.take() {
-            commands::signal_process_group(group, libc::SIGKILL);
+            commands::signal_process_group(group, crate::commands::KILL_SIGNAL);
         }
         state.latest
     }
@@ -221,7 +221,7 @@ fn shown(command: &Command) -> String {
 
 /// Kill the child's whole group, then reap the leader.
 fn kill(child: &mut Child) {
-    commands::signal_process_group(child.id(), libc::SIGKILL);
+    commands::signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -229,7 +229,9 @@ fn kill(child: &mut Child) {
 /// The physical footprint of every process in `group`, in bytes.
 fn group_footprint(group: u32) -> u64 {
     #[cfg(windows)]
-    { crate::platform_windows::tree_memory(group) }
+    {
+        crate::platform_windows::tree_memory(group)
+    }
     #[cfg(target_os = "macos")]
     {
         let Ok(group) = i32::try_from(group) else { return 0 };

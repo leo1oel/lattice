@@ -469,7 +469,9 @@ pub fn stat_file(root: &Path, relative: &str) -> Result<ProjectFileStat, String>
 /// (`mv`, `git mv`) keeps and a new file at the same path does not. A string,
 /// so a 64-bit inode reaches JavaScript exactly.
 pub(super) fn file_identity(path: &Path) -> String {
-    crate::platform_fs::path_identity(path).map(|(volume, index)| format!("{volume}:{index}")).unwrap_or_default()
+    crate::platform_fs::path_identity(path)
+        .map(|(volume, index)| format!("{volume}:{index}"))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

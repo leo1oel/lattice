@@ -244,7 +244,9 @@ fn read_stable_source(path: &Path) -> IndexResult<(String, Stamp)> {
         file.read_to_end(&mut bytes).map_err(IndexError::other)?;
         let after = fs::metadata(path).map_err(IndexError::other)?;
         if same_file_generation(&before, &after)
-            && crate::platform_fs::identity(&file).map_err(IndexError::other)? == crate::platform_fs::path_identity(path).map_err(IndexError::other)? {
+            && crate::platform_fs::identity(&file).map_err(IndexError::other)?
+                == crate::platform_fs::path_identity(path).map_err(IndexError::other)?
+        {
             return Ok((String::from_utf8(bytes).unwrap_or_default(), file_stamp(&before)));
         }
     }

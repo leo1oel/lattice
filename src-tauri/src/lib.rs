@@ -56,6 +56,9 @@ mod pdf_fonts;
 mod pdf_pages;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
+mod platform_fs;
+#[cfg(windows)]
+mod platform_windows;
 mod presentation;
 #[cfg(target_os = "macos")]
 mod process_inspector;
@@ -65,9 +68,6 @@ mod project_fs;
 #[cfg(windows)]
 #[path = "project_fs_windows.rs"]
 mod project_fs;
-mod platform_fs;
-#[cfg(windows)]
-mod platform_windows;
 mod research_env;
 mod review_pdf;
 mod save_before_close;

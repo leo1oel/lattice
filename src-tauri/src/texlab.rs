@@ -11,7 +11,7 @@ use crate::wide_event::{self, Failure};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -485,36 +485,11 @@ fn read_message(stdout: &mut impl BufRead) -> Result<Value, String> {
 }
 
 fn path_to_uri(path: &Path) -> String {
-    let mut uri = String::from("file://");
-    for component in canonical(path).components() {
-        if matches!(component, Component::Normal(_) | Component::Prefix(_)) {
-            uri.push('/');
-            uri.push_str(&crate::util::url_encode(&component.as_os_str().to_string_lossy()));
-        }
-    }
-    if uri == "file://" {
-        uri.push('/');
-    }
-    uri
+    tauri::Url::from_file_path(canonical(path)).map(|url| url.to_string()).unwrap_or_default()
 }
 
 fn uri_to_path(uri: &str) -> Option<PathBuf> {
-    let bytes = uri.strip_prefix("file://")?.as_bytes();
-    let mut out = String::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        let hex = |offset: usize| (bytes[index + offset] as char).to_digit(16);
-        if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(hi), Some(lo)) = (hex(1), hex(2)) {
-                out.push(((hi << 4) | lo) as u8 as char);
-                index += 3;
-                continue;
-            }
-        }
-        out.push(bytes[index] as char);
-        index += 1;
-    }
-    Some(PathBuf::from(out))
+    tauri::Url::parse(uri).ok()?.to_file_path().ok()
 }
 
 /// The diagnostics a `textDocument/publishDiagnostics` notification carries

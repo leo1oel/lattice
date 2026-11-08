@@ -169,6 +169,11 @@ pub(crate) fn safe_zip_entry_name<R: Read + ?Sized>(
         || file.enclosed_name().is_none()
         || trimmed.starts_with('/')
         || trimmed.split('/').any(|part| part == ".." || part.is_empty());
+    #[cfg(windows)]
+    let unsafe_path = unsafe_path
+        || trimmed
+            .split('/')
+            .any(|part| !crate::platform_windows::valid_name(std::ffi::OsStr::new(part)));
     (!unsafe_path).then(|| trimmed.to_string())
 }
 

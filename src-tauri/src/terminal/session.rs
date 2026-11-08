@@ -203,10 +203,10 @@ impl Hangup {
         let exited = self.exit.wait(grace).is_some();
         if !exited {
             log::warn!(target: "lattice::terminal", "Shell {shell} ignored the hangup; killing it");
-            pty::signal_group(shell, libc::SIGKILL);
+            pty::signal_group(shell, crate::commands::KILL_SIGNAL);
         }
         if let Some(group) = self.foreground.filter(|group| pty::group_alive(*group)) {
-            pty::signal_group(group, libc::SIGKILL);
+            pty::signal_group(group, crate::commands::KILL_SIGNAL);
         }
     }
 }

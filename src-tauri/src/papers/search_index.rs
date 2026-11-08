@@ -245,7 +245,11 @@ fn stamp(paper: &PaperText) -> PaperStamp {
         .iter()
         .filter_map(|file| {
             let metadata = fs::metadata(&file.absolute).ok()?;
-            let modified_ns = metadata.modified().ok().and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |time| time.as_nanos().min(i64::MAX as u128) as i64);
+            let modified_ns = metadata
+                .modified()
+                .ok()
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map_or(0, |time| time.as_nanos().min(i64::MAX as u128) as i64);
             Some((file.path.clone(), metadata.len(), modified_ns))
         })
         .collect();

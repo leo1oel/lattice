@@ -82,7 +82,7 @@ pub(super) fn read(shell: &Path, timeout: Duration, keep: fn(&str) -> bool) -> S
             Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
             result => {
                 // The group reaches whatever the rc started too.
-                signal_process_group(child.id(), libc::SIGKILL);
+                signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
                 let _ = child.kill();
                 let _ = child.wait();
                 return Err(if result.is_err() { ShellError::Failed } else { ShellError::Timeout });

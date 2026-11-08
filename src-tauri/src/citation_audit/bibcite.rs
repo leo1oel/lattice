@@ -78,7 +78,7 @@ pub(super) fn run_bibcite(args: &[&str], command: Option<Command>) -> Result<Out
             // uv may launch the CLI as a child; stop the whole isolated group
             // so a timeout does not leave provider requests running.
             #[cfg(unix)]
-            commands::signal_process_group(child.id(), libc::SIGKILL);
+            commands::signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
             let _ = child.kill();
             let _ = child.wait();
             return Err("bibcite timed out after 60 seconds".into());

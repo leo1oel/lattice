@@ -62,7 +62,7 @@ fn a_users_rc_cannot_move_the_pdf_or_keep_the_build_running() {
                 break status;
             }
             if Instant::now() > deadline {
-                commands::signal_process_group(child.id(), libc::SIGKILL);
+                commands::signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
                 let _ = child.wait();
                 panic!("latexmk was still running a minute in, under the rc {rc:?}");
             }

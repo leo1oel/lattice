@@ -26,6 +26,9 @@ pub use python_tools::{
 pub(crate) use python_tools::app_cache_dir;
 pub(crate) use python_tools::{bibcite_output_cancellable, redact_bibcite_output};
 
+pub(crate) const KILL_SIGNAL: libc::c_int = 9;
+pub(crate) const TERM_SIGNAL: libc::c_int = 15;
+
 pub const MANAGED_UV_VERSION: &str = "0.12.3";
 
 pub fn command(name: &str) -> Command {
@@ -54,7 +57,10 @@ pub(crate) fn in_new_process_group(command: &mut Command) -> &mut Command {
 /// pid names the group, which the child leads, so it cannot reach Lattice.
 pub(crate) fn signal_process_group(pid: u32, signal: libc::c_int) {
     #[cfg(windows)]
-    { let _ = signal; crate::platform_windows::terminate_tree(pid); }
+    {
+        let _ = signal;
+        crate::platform_windows::terminate_tree(pid);
+    }
     #[cfg(unix)]
     if let Ok(group) = i32::try_from(pid) {
         unsafe {
@@ -92,7 +98,8 @@ pub fn managed_tools_dir() -> Option<PathBuf> {
 /// This build's own folder under Application Support.
 pub(crate) fn app_support_dir() -> Option<PathBuf> {
     #[cfg(windows)]
-    return env::var_os("LOCALAPPDATA").map(|root| PathBuf::from(root).join(crate::app_identity::identifier()));
+    return env::var_os("LOCALAPPDATA")
+        .map(|root| PathBuf::from(root).join(crate::app_identity::identifier()));
     #[cfg(not(windows))]
     env::var_os("HOME").map(|home| {
         PathBuf::from(home)
@@ -106,6 +113,15 @@ pub fn managed_uv_tool_status(name: &str) -> Result<PathBuf, String> {
     let path = managed_tools_dir()
         .ok_or_else(|| "Could not locate your macOS Application Support folder.".to_string())?
         .join(executable_name(name));
+    #[cfg(windows)]
+    let path = if !path.is_file() {
+        bundled_tools_dir()
+            .map(|root| root.join(executable_name(name)))
+            .filter(|path| path.is_file())
+            .unwrap_or(path)
+    } else {
+        path
+    };
     uv_tool_status_at(&path, name)?;
     Ok(path)
 }
@@ -144,19 +160,37 @@ pub(crate) fn uv_tool_status_at(path: &Path, name: &str) -> Result<(), String> {
 
 fn executable_name(name: &str) -> OsString {
     #[cfg(windows)]
-    if Path::new(name).extension().is_none() { return format!("{name}.exe").into(); }
+    if Path::new(name).extension().is_none() {
+        return format!("{name}.exe").into();
+    }
     name.into()
 }
 
 pub fn resolve(name: &str) -> PathBuf {
     let names = {
         #[cfg(windows)]
-        { if Path::new(name).extension().is_none() { vec![format!("{name}.exe"), format!("{name}.cmd"), format!("{name}.bat"), name.to_string()] } else { vec![name.to_string()] } }
+        {
+            if Path::new(name).extension().is_none() {
+                vec![
+                    format!("{name}.exe"),
+                    format!("{name}.cmd"),
+                    format!("{name}.bat"),
+                    name.to_string(),
+                ]
+            } else {
+                vec![name.to_string()]
+            }
+        }
         #[cfg(not(windows))]
-        { vec![name.to_string()] }
+        {
+            vec![name.to_string()]
+        }
     };
-    command_directories().into_iter().flat_map(|directory| names.iter().map(move |name| directory.join(name)))
-        .find(|path| is_executable(path)).unwrap_or_else(|| PathBuf::from(executable_name(name)))
+    command_directories()
+        .into_iter()
+        .flat_map(|directory| names.iter().map(move |name| directory.join(name)))
+        .find(|path| is_executable(path))
+        .unwrap_or_else(|| PathBuf::from(executable_name(name)))
 }
 
 pub fn available(name: &str) -> bool {
@@ -165,9 +199,16 @@ pub fn available(name: &str) -> bool {
 
 fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
-    { path.is_file() && rustix::fs::access(path, rustix::fs::Access::EXEC_OK).is_ok() }
+    {
+        path.is_file() && rustix::fs::access(path, rustix::fs::Access::EXEC_OK).is_ok()
+    }
     #[cfg(windows)]
-    { path.is_file() && path.extension().is_some_and(|ext| ["exe", "com", "cmd", "bat"].iter().any(|known| ext.eq_ignore_ascii_case(known))) }
+    {
+        path.is_file()
+            && path.extension().is_some_and(|ext| {
+                ["exe", "com", "cmd", "bat"].iter().any(|known| ext.eq_ignore_ascii_case(known))
+            })
+    }
 }
 
 pub(crate) fn child_path() -> OsString {
@@ -229,12 +270,12 @@ pub(crate) fn tex_directories() -> Vec<PathBuf> {
     let mut directories = vec![PathBuf::from("/Library/TeX/texbin")];
     #[cfg(not(windows))]
     {
-    directories.extend(discover_texlive_bins(Path::new("/usr/local/texlive")));
-    directories.extend(discover_texlive_bins(Path::new("/opt/homebrew/texlive")));
-    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
-        directories.extend(discover_texlive_bins(&home.join("Library/TinyTeX")));
-    }
-    directories
+        directories.extend(discover_texlive_bins(Path::new("/usr/local/texlive")));
+        directories.extend(discover_texlive_bins(Path::new("/opt/homebrew/texlive")));
+        if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+            directories.extend(discover_texlive_bins(&home.join("Library/TinyTeX")));
+        }
+        directories
     }
 }
 
@@ -249,7 +290,10 @@ fn windows_tex_directories() -> Vec<PathBuf> {
         }
     }
     let drive = env::var_os("SystemDrive").unwrap_or_else(|| "C:".into());
-    directories.extend(discover_texlive_bins(&PathBuf::from(format!("{}\\texlive", drive.to_string_lossy()))));
+    directories.extend(discover_texlive_bins(&PathBuf::from(format!(
+        "{}\\texlive",
+        drive.to_string_lossy()
+    ))));
     directories
 }
 
@@ -274,16 +318,16 @@ fn macos_path_helper_directories() -> Vec<PathBuf> {
     return Vec::new();
     #[cfg(target_os = "macos")]
     {
-    let Ok(output) = Command::new("/usr/libexec/path_helper").arg("-s").output() else {
-        return Vec::new();
-    };
-    // PATH="/a:/b:/c"; export PATH;
-    let text = String::from_utf8_lossy(&output.stdout);
-    match text.split_once("PATH=\"").and_then(|(_, rest)| rest.split_once('"')) {
-        Some((path, _)) if output.status.success() => env::split_paths(path).collect(),
-        _ => Vec::new(),
+        let Ok(output) = Command::new("/usr/libexec/path_helper").arg("-s").output() else {
+            return Vec::new();
+        };
+        // PATH="/a:/b:/c"; export PATH;
+        let text = String::from_utf8_lossy(&output.stdout);
+        match text.split_once("PATH=\"").and_then(|(_, rest)| rest.split_once('"')) {
+            Some((path, _)) if output.status.success() => env::split_paths(path).collect(),
+            _ => Vec::new(),
+        }
     }
-}
 }
 
 #[cfg(all(test, unix))]

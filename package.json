@@ -34,7 +34,9 @@
     "perf:evidence": "node scripts/check-perf-evidence.mjs",
     "notices": "node scripts/generate-notices.mjs",
     "notices:check": "node scripts/generate-notices.mjs --check --allow-unresolved",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prepare:windows": "node scripts/prepare-windows.mjs",
+    "build:windows": "pnpm build && pnpm prepare:windows && tauri build --config src-tauri/tauri.windows.conf.json --bundles nsis"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -62,7 +62,9 @@ fn copy_checked_version(
     };
     if let Some(existing) = &existing {
         // Saved over itself, it already holds this version.
-        if crate::platform_fs::path_identity(&destination).map_err(err)? == crate::platform_fs::identity(&file).map_err(err)? {
+        if crate::platform_fs::path_identity(&destination).map_err(err)?
+            == crate::platform_fs::identity(&file).map_err(err)?
+        {
             return saved_to;
         }
         if !existing.is_file() {
@@ -98,11 +100,7 @@ impl StagedFile {
         let name =
             destination.file_name().map_or_else(Default::default, |name| name.to_string_lossy());
         let path = directory.join(format!(".{name}.{}.lattice-tmp", uuid::Uuid::new_v4().simple()));
-        let file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-            .map_err(err)?;
+        let file = OpenOptions::new().write(true).create_new(true).open(&path).map_err(err)?;
         Ok(Self { path, file, committed: false })
     }
 

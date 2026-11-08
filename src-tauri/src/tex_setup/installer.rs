@@ -262,8 +262,7 @@ pub(crate) fn create_private_file(path: &Path) -> Result<std::fs::File, String> 
     options.write(true).create_new(true);
     #[cfg(unix)]
     options.mode(0o600);
-    options.open(path)
-        .map_err(|error| format!("Could not create {}: {error}", path.display()))
+    options.open(path).map_err(|error| format!("Could not create {}: {error}", path.display()))
 }
 
 /// Extract exactly `<archive_root>/`, `uv` and `uvx` into `staging`,

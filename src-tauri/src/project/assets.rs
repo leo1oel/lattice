@@ -13,8 +13,8 @@ use serde::Serialize;
 use std::fs;
 use std::io::{self, Read};
 
-use std::path::Path;
 pub(super) use crate::platform_fs::{open_resolved, version as file_version};
+use std::path::Path;
 
 pub(super) fn asset_mime_type(path: &Path) -> Option<&'static str> {
     match extension(path).as_deref()? {

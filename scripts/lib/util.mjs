@@ -36,6 +36,10 @@ export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
 /** Run a command with inherited stdio. */
 export function run(command, args, options = {}) {
+  if (process.platform === "win32" && command === "pnpm") {
+    if (!process.env.npm_execpath) throw new Error("Run this script through pnpm run on Windows.");
+    return execFileSync(process.execPath, [process.env.npm_execpath, ...args], { stdio: "inherit", ...options });
+  }
   return execFileSync(command, args, { stdio: "inherit", ...options });
 }
 

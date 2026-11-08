@@ -209,7 +209,7 @@ pub(crate) fn bibcite_output_cancellable(
 }
 
 fn terminate_bibcite(child: &mut std::process::Child) {
-    super::signal_process_group(child.id(), libc::SIGKILL);
+    super::signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -224,6 +224,7 @@ impl BibciteCapture {
         let path = env::temp_dir()
             .join(format!("lattice-bibcite-output-{}", uuid::Uuid::new_v4().simple()));
         let mut builder = fs::DirBuilder::new();
+        #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
         builder.create(&path).map_err(|error| error.to_string())?;
         Ok(Self { path })
@@ -298,7 +299,9 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
 
 pub(crate) fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
     #[cfg(windows)]
-    return super::app_support_dir().map(|root| root.join("cache").join(name)).unwrap_or_else(|| std::env::temp_dir().join(name));
+    return super::app_support_dir()
+        .map(|root| root.join("cache").join(name))
+        .unwrap_or_else(|| std::env::temp_dir().join(name));
     #[cfg(not(windows))]
     match env::var_os("HOME") {
         Some(home) => PathBuf::from(home)

@@ -61,7 +61,7 @@ export function webDriver(base) {
   return { call };
 }
 
-async function startSession(driver, app) {
+export async function startSession(driver, app) {
   const value = await driver.call("POST", "/session", {
     capabilities: { alwaysMatch: { browserName: "wry", "tauri:options": { application: app } } },
   });
@@ -132,7 +132,7 @@ async function waitForBuild(session, label) {
   if (outcome !== "succeeded") throw new Error(`${label} failed`);
 }
 
-export async function runChecks(session, log = console.log) {
+export async function runChecks(session, log = console.log, platform = "Linux") {
   const editorReady = `Boolean(document.querySelector(${JSON.stringify(EDITOR)}) && document.querySelector(${JSON.stringify(BUILD_BUTTON)}))`;
   const first = await waitFor(
     session,
@@ -169,12 +169,12 @@ export async function runChecks(session, log = console.log) {
     const chord = ["\uE009", "\uE00A", "3"]; // Control, Alt, 3 (WebDriver key codes)
     await session.keys([...chord.map((value) => ({ type: "keyDown", value })), ...chord.reverse().map((value) => ({ type: "keyUp", value }))]);
   }
-  const notice = await waitFor(session, "the Agent's Linux notice", `const node = document.querySelector(${JSON.stringify(AGENT_UNSUPPORTED)}); return node ? node.textContent : null;`, 30_000);
-  if (!/Linux/.test(notice)) throw new Error(`The Agent panel's notice does not mention Linux: ${notice}`);
-  log("ok: the Agent panel says the Agent is not available on Linux yet");
+  const notice = await waitFor(session, `the Agent's ${platform} notice`, `const node = document.querySelector(${JSON.stringify(AGENT_UNSUPPORTED)}); return node ? node.textContent : null;`, 30_000);
+  if (!notice.includes(platform)) throw new Error(`The Agent panel's notice does not mention ${platform}: ${notice}`);
+  log(`ok: the Agent panel explains the ${platform} limitation`);
 }
 
-async function saveEvidence(session, directory) {
+export async function saveEvidence(session, directory) {
   mkdirSync(directory, { recursive: true });
   try {
     writeFileSync(path.join(directory, "failure.png"), Buffer.from(await session.screenshot(), "base64"));

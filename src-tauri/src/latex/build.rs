@@ -66,7 +66,7 @@ pub fn is_running(active: &ActiveBuild) -> bool {
 
 /// latexmk and every pass it starts share the process group made at spawn.
 fn terminate(pid: u32) {
-    commands::signal_process_group(pid, libc::SIGTERM);
+    commands::signal_process_group(pid, crate::commands::TERM_SIGNAL);
 }
 
 /// Register an already-running process as this project's build.

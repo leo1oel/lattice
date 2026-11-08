@@ -46,8 +46,7 @@ fn is_complete(dir: &Path) -> bool {
         fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_file())
     };
     regular(&executable)
-        && fs::metadata(&executable)
-            .is_ok_and(|metadata| executable_permissions(&metadata))
+        && fs::metadata(&executable).is_ok_and(|metadata| executable_permissions(&metadata))
         && regular(&dir.join("share/rtex/tex/rtex-serve.lua"))
 }
 
@@ -364,7 +363,11 @@ mod tests {
 
 fn executable_permissions(metadata: &fs::Metadata) -> bool {
     #[cfg(unix)]
-    { metadata.permissions().mode() & 0o111 != 0 }
+    {
+        metadata.permissions().mode() & 0o111 != 0
+    }
     #[cfg(windows)]
-    { metadata.is_file() }
+    {
+        metadata.is_file()
+    }
 }
