@@ -59,13 +59,13 @@ export const referenceCompletionRange = (before: string, cursor: number) =>
 export const includeCompletionRange = (before: string, cursor: number) =>
   completionRange(OPEN_INCLUDE, before, cursor, false);
 
-/** The comma-separated key under `position` inside a citation or reference command. */
-function keyAt(text: string, pattern: RegExp, position: number): KeySpan | null {
+/** The comma-separated key under `position` inside a citation or reference command, with that command. */
+function keyAt(text: string, pattern: RegExp, position: number) {
   const offset = Math.max(0, position - 800);
   for (const command of argumentsOf(text.slice(offset, position + 800), pattern, offset)) {
     if (position < command.start || position > command.end) continue;
     const hovered = keySpans(command.content, command.from).find((key) => position >= key.from && position <= key.to);
-    if (hovered) return hovered;
+    if (hovered) return { key: hovered, command };
   }
   return null;
 }
@@ -87,19 +87,13 @@ export function citationNotePage(note: string): number | undefined {
  * prenote and postnote, and a lone `\cite[b]{k}` as the postnote.
  */
 export function citationHoverTarget(text: string, position: number): (KeySpan & { page?: number }) | null {
-  const offset = Math.max(0, position - 800);
-  const window = text.slice(offset, position + 800);
-  for (const command of argumentsOf(window, CITATION, offset)) {
-    if (position < command.start || position > command.end) continue;
-    const hovered = keySpans(command.content, command.from).find((key) => position >= key.from && position <= key.to);
-    if (!hovered) continue;
-    const options = [...window.slice(command.start - offset, command.from - 1 - offset).matchAll(/\[([^\]]*)\]/g)];
-    const page = options.length ? citationNotePage(options.at(-1)![1]) : undefined;
-    return page ? { ...hovered, page } : hovered;
-  }
-  return null;
+  const target = keyAt(text, CITATION, position);
+  if (!target) return null;
+  const options = [...text.slice(target.command.start, target.command.from - 1).matchAll(/\[([^\]]*)\]/g)];
+  const page = options.length ? citationNotePage(options.at(-1)![1]) : undefined;
+  return page ? { ...target.key, page } : target.key;
 }
-export const referenceHoverTarget = (text: string, position: number) => keyAt(text, REFERENCE, position);
+export const referenceHoverTarget = (text: string, position: number): KeySpan | null => keyAt(text, REFERENCE, position)?.key ?? null;
 
 /** The `\includegraphics` path under `position`, as written, with its span. */
 export function graphicsHoverTarget(text: string, position: number): { from: number; to: number; path: string } | null {

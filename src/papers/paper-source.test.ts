@@ -114,6 +114,22 @@ describe("source links made from a selection", () => {
     expect(sourceQuoteMarkdown("  a *starred*\n  line ", "[p. 5](x)")).toBe("> a \\*starred\\* line [p. 5](x)");
   });
 
+  it("writes a quote that the editor reads back as the same words in one block quote", () => {
+    const quotes = ["# Results hold", "- only a dash", "+ a plus", "1. Introduction to it", "2) second", "costs $5 and $10", "a ~~struck~~ word"];
+    for (const quote of quotes) {
+      const opened = openMarkdown(sourceQuoteMarkdown(quote, "[p. 5](https://arxiv.org/pdf/1706.03762#page=5)"), engineSchema());
+      if ("unavailable" in opened) throw new Error(opened.unavailable);
+      const quoteBlock = opened.doc.firstChild!;
+      expect(quoteBlock.type.name).toBe("blockquote");
+      expect(quoteBlock.childCount).toBe(1);
+      expect(quoteBlock.firstChild!.type.name).toBe("paragraph");
+      expect(quoteBlock.textContent).toBe(`${quote} p. 5`);
+      const marks = new Set<string>();
+      quoteBlock.descendants((node) => { node.marks.forEach((mark) => marks.add(mark.type.name)); });
+      expect([...marks].filter((name) => name !== "latticeSource")).toEqual(["link"]);
+    }
+  });
+
   it("finds the library paper a link points into, and only a readable one", () => {
     const unread = { arxivId: "2401.00001", hasFullText: false, hasBlog: false };
     const papers = [unread, paper];

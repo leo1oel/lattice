@@ -50,6 +50,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.mocked(writeText).mockClear();
+  vi.mocked(invoke).mockClear();
   window.getSelection()?.removeAllRanges();
   pdfSelection.text = "";
 });
@@ -86,6 +87,19 @@ describe("the reader's selection actions", () => {
       '> simple network architecture, the Transformer, based solely [p. 2](https://arxiv.org/pdf/1706.03762#page=2 "simple network architecture, the Transformer, based solely … simple network architecture, the Transformer, based solely")',
     );
     expect(pdf.locateQuote).not.toHaveBeenCalled();
+  });
+
+  it("still add a full-text passage to the note, linked to the full text, when the PDF cannot be fetched", async () => {
+    const pdf = pdfOf(vi.fn(async (): Promise<Place> => { throw new Error("offline"); }));
+    const { shell } = renderShell(`<div class="markdown-preview"><p>${QUOTE}</p></div>`, pdf);
+    const range = document.createRange();
+    range.selectNodeContents(shell.querySelector("p")!);
+    window.getSelection()!.addRange(range);
+    await release(shell);
+    fireEvent.click(await screen.findByRole("button", { name: "Add to note" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({ path: "notes/vaswani2017.md" })));
+    const content = vi.mocked(invoke).mock.calls.find(([command]) => command === "write_project_file")?.[1] as { content: string };
+    expect(content.content).toMatch(new RegExp(`> ${QUOTE} \\[Full text\\]\\(`));
   });
 
   it("says so when the PDF does not hold a full-text passage", async () => {

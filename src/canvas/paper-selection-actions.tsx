@@ -167,8 +167,8 @@ export function PaperSelectionActions({ shellRef, paper, pdf, overview, projectR
   });
   const addToNote = () => run("note", async () => {
     if (!projectRoot) return;
-    const place = await locate();
-    // A passage the PDF does not hold still links to the paper, in its reading here.
+    const place = await locate().catch(() => null);
+    // A passage the PDF does not hold, or a PDF out of reach, still links to the paper, in its reading here.
     const link = (place && sourceLink(place))
       ?? `[${t`Full text`}](${paperLinkHref(paperNotePath(paper), { ...paper, hasFullText: true })})`;
     const path = await addToPaperNote(projectRoot, paper, sourceQuoteMarkdown(selection.text, link));

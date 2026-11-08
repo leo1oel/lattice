@@ -152,7 +152,7 @@ export function sourceQuoteAnchors(
 }
 
 /** Backslash-escape what Markdown would read as syntax inside link text (or a heading or quote). */
-export const markdownLinkText = (text: string) => text.replace(/[\\`*_[\]<>]/g, "\\$&");
+export const markdownLinkText = (text: string) => text.replace(/[\\`*_~$[\]<>]/g, "\\$&");
 
 /**
  * A source link as Markdown: `label` linking to `href`, with the quote's
@@ -167,7 +167,10 @@ export function sourceLinkMarkdown(label: string, href: string, anchors: { first
 
 /** A quote for a Markdown note: one line, its syntax escaped, as a block quote ending with its source link. */
 export function sourceQuoteMarkdown(quote: string, link: string): string {
-  return `> ${markdownLinkText(quote.trim().replace(/\s+/g, " "))} ${link}`;
+  // A leading `#`, `-`, `+` or `1.` would make a heading or list item of the quote.
+  const text = markdownLinkText(quote.trim().replace(/\s+/g, " "))
+    .replace(/^[#+-]/, "\\$&").replace(/^(\d{1,9})([.)])/, "$1\\$2");
+  return `> ${text} ${link}`;
 }
 
 export function isTitleQuery(input: string): boolean {
