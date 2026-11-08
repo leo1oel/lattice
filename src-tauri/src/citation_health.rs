@@ -113,22 +113,18 @@ fn lookup_at(
     let now = epoch_seconds();
     let cache = read_cache(root);
     let mut results = BTreeMap::new();
-    let stale = dois
-        .iter()
-        .filter(|doi| {
-            let Some(entry) = cache.entries.get(*doi) else {
-                return true;
-            };
-            if now.saturating_sub(entry.checked_at_epoch) < CACHE_TTL_SECS {
-                results.insert((*doi).clone(), entry.health.clone());
-                false
-            } else {
-                true
+    let mut stale = Vec::new();
+    for doi in &dois {
+        match cache.entries.get(doi) {
+            Some(entry) if now.saturating_sub(entry.checked_at_epoch) < CACHE_TTL_SECS => {
+                results.insert(doi.clone(), entry.health.clone());
             }
-        })
-        .take(MAX_REFRESH_PER_SCAN)
-        .cloned()
-        .collect::<Vec<_>>();
+            _ => stale.push(doi.clone()),
+        }
+    }
+    // The cap bounds requests, not cache reads: every fresh verdict above is
+    // read first, or one sorted past the cap's last refresh read as stale.
+    stale.truncate(MAX_REFRESH_PER_SCAN);
 
     // Opening a project, a save and an Overleaf pull can each scan the same
     // bibliography while an earlier scan is still waiting on Crossref. A DOI
@@ -539,5 +535,23 @@ mod tests {
             lookup_at(&root, ["10.1234/example".to_string()], "http://127.0.0.1:1/works", None);
         assert_eq!(cached["10.1234/example"].kind, "retracted");
         assert!(!cached["10.1234/example"].stale);
+    }
+
+    #[test]
+    fn a_fresh_verdict_past_the_refresh_cap_is_still_fresh() {
+        let root = crate::test_support::TempDir::new("health-cap");
+        let fresh = "10.9999/zz-fresh".to_string();
+        let entry = CacheEntry {
+            checked_at_epoch: epoch_seconds(),
+            health: CitationHealth::crossref("ok", timestamp_now()),
+        };
+        merge_into_cache(&root, &BTreeMap::from([(fresh.clone(), entry)])).unwrap();
+        // More never-checked DOIs than one scan refreshes, all sorted before it.
+        let mut dois =
+            (0..=MAX_REFRESH_PER_SCAN).map(|n| format!("10.1/{n:03}")).collect::<Vec<_>>();
+        dois.push(fresh.clone());
+        let results = lookup_at(&root, dois, "http://127.0.0.1:1/works", Some(None));
+        assert_eq!(results[&fresh].kind, "ok");
+        assert!(!results[&fresh].stale);
     }
 }
