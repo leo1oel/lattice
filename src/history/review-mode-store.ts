@@ -229,6 +229,15 @@ export function createReviewModeStore(call: typeof invoke = invoke) {
       if (store.baseFor(path) !== null) coauthor.set(path, { text: editorText(text), at: Date.now() });
     },
 
+    /**
+     * The writer typed on top of the co-author's text noted for `path` before
+     * an editor took it, turning `from` into `to`: the editor now takes `to`.
+     */
+    carryCoauthorText(path: string, from: string, to: string) {
+      const noted = coauthor.get(path);
+      if (noted && from !== to && noted.text === editorText(from)) coauthor.set(path, { text: editorText(to), at: noted.at });
+    },
+
     /** Whether `path`'s new text is the co-author's text noted for it; a match takes it. */
     takeCoauthorText(path: string, matches: (text: string) => boolean): boolean {
       const noted = coauthor.get(path);

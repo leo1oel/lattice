@@ -172,3 +172,35 @@ it("keeps a collaborator's text that arrives mid-typing when the writer types on
   act(() => { undo(view!); });
   expect(view!.state.doc.toString()).toBe("First paragraph.\n\nThe second paragraph.\n");
 });
+
+it("keeps the writer's keystroke in place between two outside changes that waited out the typing", async () => {
+  let view: EditorView | null = null;
+  const emitted: string[] = [];
+  const outside = new Set<string>();
+  const live = (value: string) => (
+    <CodeMirrorHost
+      key="main.tex"
+      label="main.tex — LaTeX source"
+      value={value}
+      extensions={NONE}
+      isOutsideValue={(text) => outside.has(text)}
+      onChange={(text) => emitted.push(text)}
+      onUpdate={() => {}}
+      onCreateEditor={(created) => { view = created; }}
+    />
+  );
+  const page = render(live("AAAA\nBBBB\nCCCC\n"));
+  act(() => { view!.dispatch({ changes: { from: 7, insert: "K" }, selection: { anchor: 8 }, userEvent: "input.type" }); });
+  // Changed in two places, a line apart, while the writer types between them.
+  const remote = "AAAAx\nBBKBB\nCCCCy\n";
+  outside.add(remote);
+  page.rerender(live(remote));
+  expect(view!.state.doc.toString()).toBe("AAAA\nBBKBB\nCCCC\n");
+  act(() => { view!.dispatch({ changes: { from: 8, insert: "L" }, selection: { anchor: 9 }, userEvent: "input.type" }); });
+  const merged = "AAAAx\nBBKLBB\nCCCCy\n";
+  expect(emitted.at(-1)).toBe(merged);
+  page.rerender(live(merged));
+  await act(async () => { await Promise.resolve(); });
+  expect(view!.state.doc.toString()).toBe(merged);
+  expect(view!.state.selection.main.head).toBe(merged.indexOf("L") + 1);
+});

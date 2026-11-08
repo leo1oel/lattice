@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { DocumentViewMode, PaperSummary, RefreshProject, SyncTexWord } from "../app-types";
 import { paperTabKey } from "../app-utils";
+import { reviewMode } from "../history/review-mode-store";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { liveField, useStoreSlice } from "../hooks/use-store-slice";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
@@ -206,6 +207,18 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   }, [commitFileText, fileRef, savedRef, takeOutsideText, textRef]);
 
   /**
+   * The editor's typing, carried onto text from outside the buffer took
+   * meanwhile (the store's `typeFileText`). A co-author's text that review
+   * mode waits for the editor to take now comes with that typing on top.
+   */
+  const typeText = useCallback((content: string, base: string) => {
+    const before = textRef.current;
+    typeFileText(content, base);
+    const path = fileRef.current;
+    if (path) reviewMode.carryCoauthorText(path, before, textRef.current);
+  }, [fileRef, textRef, typeFileText]);
+
+  /**
    * Whether the canvas's `value` is the file's text as it came from outside
    * the writer's editing (see `outsideText`). Read when the editor applies a
    * new value, so it answers for the buffer then, never a render's snapshot.
@@ -232,7 +245,7 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     persistenceReadyRoot, setPersistenceReadyRoot, tabsSettledRoot, setTabsSettledRoot,
     diskVersionRef, vanishedRef, flushRef, captureViewportRef, viewStates, viewStateRef, renderedRef,
     // Primitives.
-    commitFileText, takeOutsideText, typeFileText, isOutsideText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
+    commitFileText, takeOutsideText, typeFileText: typeText, isOutsideText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
     addTab, showTab, flush, bufferText, flushAndCheckDirty, recordDiskVersion, requestLine, accept,
   };
 }

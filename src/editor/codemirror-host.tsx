@@ -41,6 +41,7 @@ import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { documentText, textChange } from "./text-change";
 import { i18n } from "../i18n";
+import { diffToOps } from "../overleaf/ot";
 
 const hostExternalChange = Annotation.define<boolean>();
 
@@ -58,7 +59,20 @@ const TYPING_QUIET_MS = 200;
 function waitingChange(update: ViewUpdate, waiting: string, lastEmitted: string): ChangeSet | null {
   const before = update.startState.doc.toString();
   if (documentText(lastEmitted) !== before) return null;
-  return ChangeSet.of(textChange(before, documentText(waiting)), before.length).map(update.changes);
+  return runsChange(before, documentText(waiting)).map(update.changes);
+}
+
+/**
+ * `before` to `after` as one change per changed run: a single replacement
+ * from the first difference to the last would swallow the writer's typing
+ * between two runs, and mapping it through that replacement moves it past
+ * the end.
+ */
+function runsChange(before: string, after: string): ChangeSet {
+  return diffToOps(before, after).reduce(
+    (changes, op) => changes.compose(ChangeSet.of({ from: op.p, to: op.p + (op.d?.length ?? 0), insert: op.i ?? "" }, changes.newLength)),
+    ChangeSet.empty(before.length),
+  );
 }
 
 // The slice of @uiw's basicSetup both editors used (autocompletion off — the
@@ -192,7 +206,7 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
           queueMicrotask(() => {
             const view = viewRef.current;
             if (!view || lastEmittedRef.current !== text) return;
-            const changes = view.state.doc === update.state.doc ? outside : textChange(view.state.doc.toString(), text);
+            const changes = view.state.doc === update.state.doc ? outside : runsChange(view.state.doc.toString(), text);
             view.dispatch({ changes, annotations: [hostExternalChange.of(true), Transaction.addToHistory.of(false)] });
           });
         }

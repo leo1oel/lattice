@@ -11,6 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { applyOverleafRemoteText } from "../app/overleaf-remote-text";
 import type { AcceptExpectation } from "../app/use-document-store";
 import { invokeCalls } from "../platform/tauri-test-mocks";
+import { applyOps, type OtOp } from "./ot";
 import { cleanupRealtimeBackend, mount, resetRealtimeBackend, sends } from "./use-overleaf-realtime-test-utils";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -97,11 +98,40 @@ describe("joining a document Overleaf moved on from since the last sync", () => 
     await waitFor(() => expect(sends()).toEqual([expect.objectContaining({ ops: [{ p: 19, i: " Typed during the sync." }] })]));
   });
 
+  // Both typed through the sync window. Expected texts are written out by
+  // hand; at a tie the writer's insert lands first, as ShareJS places a
+  // client's own operation against one the server applied before it.
   it.each([
-    ["both sides moved on", AGREED],
-    ["nothing was agreed", null],
-  ])("still leaves it to sync when %s", async (_label, agreed) => {
-    join = { text: AHEAD, agreed };
+    [
+      "the same paragraph", AGREED, AHEAD, "Merged by the sync. Typed during the sync.\n",
+      "Merged by the sync. Typed during the sync. The co-author kept typing.\n",
+    ],
+    [
+      "different paragraphs", "First paragraph.\n\nSecond paragraph.\n",
+      "First paragraph.\n\nSecond paragraph, by the co-author.\n",
+      "First paragraph, by the writer.\n\nSecond paragraph.\n",
+      "First paragraph, by the writer.\n\nSecond paragraph, by the co-author.\n",
+    ],
+  ])("merges both sides' typing live when both moved on in %s", async (_label, agreed, ahead, typed, merged) => {
+    join = { text: ahead, agreed };
+    const buffer = editor(typed, agreed);
+    const { view, needsSync } = await joinWith(buffer);
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    expect(needsSync).not.toHaveBeenCalled();
+    expect([buffer.state.text, disk]).toEqual([merged, merged]);
+    expect(disk).not.toContain("<<<<<<<");
+    vi.useFakeTimers();
+    await act(async () => {
+      view.result.current.pushLocal(buffer.state.text);
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    vi.useRealTimers();
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(applyOps(ahead, sends()[0]!.ops as OtOp[])).toBe(merged);
+  });
+
+  it("still leaves it to sync when nothing was agreed", async () => {
+    join = { text: AHEAD, agreed: null };
     const buffer = editor("Merged by the sync. Typed during the sync.\n", AGREED);
     const { view, needsSync } = await joinWith(buffer);
     await waitFor(() => expect(needsSync).toHaveBeenCalledWith(["a.tex"]));

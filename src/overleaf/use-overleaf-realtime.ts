@@ -714,6 +714,8 @@ export function useOverleafRealtime(options: {
         );
         return;
       }
+      // Settled, and taken in here: the last text this side and Overleaf both held.
+      const heldShared = held && !joined.resumed && heldProof?.lastShared?.version === held.version ? heldProof.lastShared.text : null;
       if (held && joined.resumed) {
         const caughtUp = joined.caughtUp ?? [];
         if (held.waiting && !publicId.current && caughtUp.length) {
@@ -772,17 +774,17 @@ export function useOverleafRealtime(options: {
       setOpenDoc({ id, comments: joined.comments ?? [], changes: joined.changes ?? [] });
       for (const [applied, by] of bufferedApplied) shiftAnchors(id, applied, by);
       setDetail(null);
-      // A full/reconnected snapshot has no trusted relationship to local
-      // disk edits. Only start OT when it agrees; otherwise regular sync
-      // owns the common ancestor and can reconcile both sides safely. The
-      // last sync's agreed text says when one side alone moved on since: a
-      // buffer still holding it takes Overleaf's text (a co-author kept
-      // typing after the sync), and while Overleaf still holds it the
-      // buffer's own work goes out as operations. Either way nothing has to
-      // be merged; only both moving on is left to sync.
-      const agreed = held && joined.resumed ? null : joined.agreed ?? null;
-      if (agreed !== null && agreed !== text) deliverRemoteText(id, text, agreed);
-      else deliverRemoteText(id, text, text, { carryTyping: agreed === text });
+      // A full/reconnected snapshot is merged with the buffer only from a
+      // text both are known to descend from: the held document's last shared
+      // text, else the text the last sync agreed on. The writer's work since
+      // is carried onto Overleaf's the way OT would place it and goes out as
+      // operations, so a co-author typing through the sync window no longer
+      // keeps rejoining failing. With no such ancestor, the snapshot has no
+      // trusted relationship to local disk edits: it is taken only when the
+      // buffer already shows it, and otherwise regular sync reconciles both.
+      const ancestor = held && joined.resumed ? null : heldShared ?? joined.agreed ?? null;
+      if (ancestor === null) deliverRemoteText(id, text, text);
+      else deliverRemoteText(id, text, ancestor, { carryTyping: true });
     }).catch((reason) => {
       if (!cancelled) setDetail(String(reason));
     });
