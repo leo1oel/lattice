@@ -45,8 +45,8 @@ export function PdfAnnotationComposer(props: {
   const { rounds } = props;
   // Overleaf is taking a comment on a file not open; Save waits for it.
   const [saving, setSaving] = useState(false);
-  // An answer arriving after Esc or a click outside closed the note must not
-  // act for it (`onDone` would close whatever note is open by then).
+  // An answer arriving after the note closed must not act for it (`onDone`
+  // would close whatever note is open by then).
   const closedRef = useRef(false);
   useEffect(() => {
     closedRef.current = false;
@@ -69,7 +69,10 @@ export function PdfAnnotationComposer(props: {
   // Under the selection on its page, kept there as the PDF scrolls or zooms.
   usePdfAnchoredPopup(popupRef, selection, COMPOSER_PLACE);
   // A click outside closes it (and still selects, or presses, where it lands).
-  useDismissOnOutsidePointer(popupRef, () => props.onDismiss({ body, intent }));
+  const dismiss = () => {
+    if (!saving) props.onDismiss({ body, intent });
+  };
+  useDismissOnOutsidePointer(popupRef, dismiss);
 
   const name = mapped ? baseName(mapped.path) : null;
   const location = mapped ? t`PDF p.${selection.page} → ${name}:${mapped.line}` : t`PDF p.${selection.page} → …`;
@@ -128,7 +131,7 @@ export function PdfAnnotationComposer(props: {
         overleaf={toOverleaf}
         onBodyChange={setBody}
         onIntentChange={setIntent}
-        onCancel={() => props.onDismiss({ body, intent })}
+        onCancel={dismiss}
         onSave={(revise) => {
           if (!mapped) return;
           const destinationNow = rounds.pdfNoteDestination(mapped.path);

@@ -29,8 +29,9 @@ function compose(
     openPdfSource: vi.fn(),
   } as unknown as AnnotationRounds;
   const onDone = vi.fn();
-  render(<PdfAnnotationComposer selection={SELECTION} rounds={rounds} onDone={onDone} onDismiss={vi.fn()} />);
-  return { rounds, onDone, now };
+  const onDismiss = vi.fn();
+  render(<PdfAnnotationComposer selection={SELECTION} rounds={rounds} onDone={onDone} onDismiss={onDismiss} />);
+  return { rounds, onDone, onDismiss, now };
 }
 
 const button = (name: string) => screen.findByRole("button", { name: new RegExp(name) });
@@ -64,6 +65,33 @@ describe("a note made on the PDF of a project linked to Overleaf", () => {
     answer("placed");
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(rounds.openPdfSource).not.toHaveBeenCalled();
+  });
+
+  it("stays open through Esc and a click outside while Overleaf takes the comment", async () => {
+    let answer: (placement: CommentPlacement) => void = () => {};
+    const { onDone, onDismiss } = compose("other-file", () => new Promise((resolve) => { answer = resolve; }));
+    await screen.findByText("PDF p.1 → main_v2.tex:35");
+    const field = screen.getByRole("textbox", { name: "Annotation" });
+    fireEvent.change(field, { target: { value: "Cite it." } });
+    fireEvent.click(await button("Comment on Overleaf"));
+    expect(await button("Comment on Overleaf")).toBeDisabled();
+
+    fireEvent.keyDown(field, { key: "Escape" });
+    fireEvent.pointerDown(document.body);
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    answer("placed");
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it("is dismissed by Esc, with what was written, before it is saved", async () => {
+    const { onDismiss } = compose("other-file");
+    await screen.findByText("PDF p.1 → main_v2.tex:35");
+    const field = screen.getByRole("textbox", { name: "Annotation" });
+    fireEvent.change(field, { target: { value: "Cite it." } });
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(onDismiss).toHaveBeenCalledWith({ body: "Cite it.", intent: undefined });
   });
 
   it("opens the file at the passage, keeping the note, when Overleaf's copy reads differently there", async () => {
