@@ -1,6 +1,7 @@
 //! Reading Overleaf's side of a sync ahead of the project's exclusive lease
-//! (#670): the download that is most of a sync's time, taken while file
-//! writes here go on, and checked against the link once the lease is held.
+//! (#670): fetching what changed there, or the download, which is most of a
+//! sync's time, taken while file writes here go on, and checked against the
+//! link once the lease is held.
 
 use super::{fetch, remote_copy, sync_client, RemoteCopy, RemoteFiles};
 use crate::overleaf::api::{DownloadGate, DownloadProgress, Remote};
