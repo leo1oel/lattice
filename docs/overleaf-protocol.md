@@ -358,7 +358,8 @@ purpose.
   become delete-and-recreate — that severs comments, tracked changes and
   document history.
 - A sync sends its edit to a file Overleaf holds as a document over the live
-  channel, never by upload (`overleaf/doc_push.rs`, `overleaf/sync/send.rs`).
+  channel rather than by upload, except as listed below (`overleaf/doc_push.rs`,
+  `overleaf/sync/send.rs`).
   An upload replaces the whole document, so a co-author's keystrokes landing
   after the sync's last look are lost from it, and Overleaf shows everyone with
   the file open "Document Updated Externally". The upload endpoint also decides
@@ -368,7 +369,7 @@ purpose.
 - Each such document is joined, and its text must equal Overleaf's copy the
   sync planned against (for a merge, the copy it merged with). The difference
   from that copy goes up as operations at the version the join reported, one
-  per changed run of words, so Overleaf transforms concurrent typing against
+  per changed run of lines, so Overleaf transforms concurrent typing against
   them instead of carrying it off to the end of one wide span. The update
   carries `hash` unless what it inserts would not be stored as sent (see
   surrogates above). The `applyOtUpdate` acknowledgement means only that

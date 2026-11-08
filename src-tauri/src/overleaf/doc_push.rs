@@ -59,9 +59,8 @@ pub(super) fn may_become_a_file(path: &str) -> bool {
 /// counts: in UTF-16 code units, each operation where the ones before it in
 /// the same update left the text.
 ///
-/// Lines that changed, and within them the words that did, each their own
-/// operation, rather than one span from the first change to the last.
-/// Overleaf transforms a co-author's concurrent typing against these; inside
+/// Each run of lines that changed is its own operation, rather than one span
+/// from the first change to the last. Overleaf transforms a co-author's concurrent typing against these; inside
 /// a span that deletes and reinserts everything between two far-apart edits,
 /// their sentence would be carried off to one end of it.
 pub(super) fn edit_ops(before: &str, after: &str) -> Vec<OtOp> {
@@ -90,94 +89,13 @@ fn hunk_ops(before: &str, after: &str) -> Vec<OtOp> {
     for hunk in patch.hunks() {
         let (from, to) = (span(&old_lines, hunk.old_range()), span(&new_lines, hunk.new_range()));
         let at = units(&before[..from.start]) as isize + shift;
-        for op in word_ops(&before[from], &after[to], at as usize) {
+        for op in span_ops(&before[from], &after[to], at as usize) {
             shift += op.i.as_deref().map_or(0, units) as isize;
             shift -= op.d.as_deref().map_or(0, units) as isize;
             ops.push(op);
         }
     }
     ops
-}
-
-/// Most words a changed run of lines may hold, on both sides multiplied, for
-/// [`word_ops`] to match them up; past it the run is one span, still exact.
-const MAX_WORD_PAIRS: usize = 1 << 20;
-
-/// The operations turning `before` into `after`, for text that starts at
-/// `at`: one for each run of words that changed between the words both keep,
-/// the longest common run of words, as a word diff shows them.
-fn word_ops(before: &str, after: &str, at: usize) -> Vec<OtOp> {
-    let (old, new) = (words(before), words(after));
-    let width = new.len() + 1;
-    if old.len().saturating_mul(new.len()) > MAX_WORD_PAIRS {
-        return span_ops(before, after, at);
-    }
-    // `kept[i * width + j]`: how many words `old[i..]` and `new[j..]` share.
-    let mut kept = vec![0u32; (old.len() + 1) * width];
-    for i in (0..old.len()).rev() {
-        for j in (0..new.len()).rev() {
-            kept[i * width + j] = if old[i] == new[j] {
-                kept[(i + 1) * width + j + 1] + 1
-            } else {
-                kept[(i + 1) * width + j].max(kept[i * width + j + 1])
-            };
-        }
-    }
-    let mut ops = Vec::new();
-    let mut shift = 0isize;
-    // Byte offsets walked so far, and where the change being walked began.
-    let (mut i, mut j, mut a, mut b) = (0, 0, 0, 0);
-    let mut changed: Option<(usize, usize)> = None;
-    let mut close = |changed: &mut Option<(usize, usize)>, a: usize, b: usize| {
-        let Some((from_a, from_b)) = changed.take() else { return };
-        let p = (at + units(&before[..from_a])) as isize + shift;
-        for op in span_ops(&before[from_a..a], &after[from_b..b], p as usize) {
-            shift += op.i.as_deref().map_or(0, units) as isize;
-            shift -= op.d.as_deref().map_or(0, units) as isize;
-            ops.push(op);
-        }
-    };
-    while i < old.len() || j < new.len() {
-        if i < old.len() && j < new.len() && old[i] == new[j] {
-            close(&mut changed, a, b);
-            (a, b, i, j) = (a + old[i].len(), b + new[j].len(), i + 1, j + 1);
-            continue;
-        }
-        changed.get_or_insert((a, b));
-        if j < new.len() && (i == old.len() || kept[i * width + j + 1] >= kept[(i + 1) * width + j])
-        {
-            (b, j) = (b + new[j].len(), j + 1);
-        } else {
-            (a, i) = (a + old[i].len(), i + 1);
-        }
-    }
-    close(&mut changed, a, b);
-    ops
-}
-
-/// `text` as words: runs of letters and digits, runs of whitespace, and every
-/// other character on its own.
-fn words(text: &str) -> Vec<&str> {
-    let kind = |c: char| match c {
-        c if c.is_alphanumeric() => 0,
-        c if c.is_whitespace() => 1,
-        _ => 2,
-    };
-    let mut words = Vec::new();
-    let mut start = 0;
-    let mut previous = None;
-    for (at, c) in text.char_indices() {
-        let k = kind(c);
-        if previous.is_some_and(|previous| previous != k || k == 2) {
-            words.push(&text[start..at]);
-            start = at;
-        }
-        previous = Some(k);
-    }
-    if start < text.len() {
-        words.push(&text[start..]);
-    }
-    words
 }
 
 /// The byte offset each line starts at, and the text's length after them.

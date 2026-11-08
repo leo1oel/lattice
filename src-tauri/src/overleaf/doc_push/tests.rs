@@ -84,16 +84,18 @@ fn op(p: usize, i: Option<&str>, d: Option<&str>) -> OtOp {
 }
 
 #[test]
-fn each_changed_run_of_words_is_its_own_operation_placed_where_the_last_left_off() {
+fn each_changed_run_of_lines_is_its_own_operation_placed_where_the_last_left_off() {
     let before = "One.\nTwo.\nThree.\nFour.\n";
-    let after = "One!\nTwo.\nThree.\nAdded.\nFour, longer.\n";
+    let after = "One!!\nTwo.\nAdded.\nThree.\nFour, longer.\n";
     assert_eq!(
         edit_ops(before, after),
         vec![
             op(3, None, Some(".")),
-            op(3, Some("!"), None),
-            op(17, Some("Added.\n"), None),
-            op(28, Some(", longer"), None),
+            op(3, Some("!!"), None),
+            // "One!!\nTwo.\n" is 11 units long.
+            op(11, Some("Added.\n"), None),
+            // "One!!\nTwo.\nAdded.\nThree.\nFour" is 29.
+            op(29, Some(", longer"), None),
         ]
     );
 }
@@ -118,7 +120,7 @@ fn the_operations_always_turn_one_text_into_the_other() {
     ];
     for before in texts {
         for after in texts {
-            let ops = edit_ops(before, after);
+            let ops = hunk_ops(before, after);
             assert_eq!(applied(before, &ops).as_deref(), Some(after), "{before:?} → {after:?}");
             assert!(ops.iter().all(|op| op.i.is_some() != op.d.is_some()), "{ops:?}");
         }
