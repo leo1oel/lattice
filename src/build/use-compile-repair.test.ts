@@ -171,8 +171,9 @@ describe("user-triggered compile repair", () => {
   // every status with an error (or not at all), and polling retried forever
   // with the editor read-only and Cancel unable to reach the task.
   const LOST = "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got.";
-  it("gives up on a task whose route the restarted service no longer has", async () => {
-    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => { throw "agent_route_unavailable"; } });
+  // The relay's answer when the service does not know the thread (synara.rs TASK_UNKNOWN).
+  it("gives up on a task the agent service no longer knows", async () => {
+    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => { throw "agent_task_unknown"; } });
     const { result, onComplete } = renderRepair();
     await act(async () => { await result.current.start([diagnostic]); });
     expect(result.current.busy).toBe(false);
@@ -181,7 +182,7 @@ describe("user-triggered compile repair", () => {
   });
 
   // A transport failure or a slow Cancel does not prove the provider stopped
-  // writing: only a terminal status, a restart or a lost route releases the editor.
+  // writing: only a terminal status, a restart or an unknown task releases the editor.
   it("keeps the editor locked through status failures, before and after Cancel", async () => {
     mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => { throw new Error("connection refused"); } });
     const { result } = renderRepair();
@@ -222,7 +223,10 @@ describe("user-triggered compile repair", () => {
     vi.mocked(invoke).mockClear();
     act(() => { result.current.unlock(); });
     expect(result.current.busy).toBe(false);
-    expect(result.current.state).toEqual({ status: "failed", threadId: "repair-1", message: LOST });
+    expect(result.current.state).toEqual({
+      status: "failed", threadId: "repair-1",
+      message: "Editor unlocked while the repair may still be running. Open Agent to see how far it got.",
+    });
     expect(invoke).toHaveBeenCalledWith("compile_repair", { action: "cancel", projectRoot: "/paper", threadId: "repair-1" });
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(invoke).not.toHaveBeenCalledWith("compile_repair", expect.objectContaining({ action: "status" }));

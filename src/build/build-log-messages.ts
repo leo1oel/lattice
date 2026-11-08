@@ -58,10 +58,6 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
       const seconds = params.seconds ?? "";
       return i18n._(msg`Build stopped after ${seconds} s. The log below is how far it got.`);
     }
-    case "build-timed-out": {
-      const minutes = params.minutes ?? "";
-      return i18n._(msg`Build stopped after ${minutes} minutes without finishing. Something in the document may be looping; the log below is how far it got.`);
-    }
     case "pdf-fonts-not-times":
       return pdfFontsText(params, params.upToDate === "true");
     default:

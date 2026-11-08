@@ -10,8 +10,8 @@ import { i18n } from "../i18n";
 import type { CompileDiagnostic } from "./compile-diagnostics";
 import { cancelRepair, type CompileRepairState, type RepairOperation } from "./use-compile-repair";
 
-/** What the Rust relay answers for a path the running service does not have (synara.rs). */
-const ROUTE_UNAVAILABLE = "agent_route_unavailable";
+/** What the Rust relay answers when the running service does not know the task (synara.rs). */
+const TASK_UNKNOWN = "agent_task_unknown";
 
 const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -63,9 +63,9 @@ export async function runCompileRepair({
         });
       } catch (error) {
         if (!owns()) return;
-        // The restarted service has no such route: the task is gone with
-        // the old one. Any other failure proves nothing about the provider.
-        if (toMessage(error) === ROUTE_UNAVAILABLE) {
+        // The service does not know the task: it is gone with the one that
+        // ran it. Any other failure proves nothing about the provider.
+        if (toMessage(error) === TASK_UNKNOWN) {
           abandon(operation);
           return;
         }

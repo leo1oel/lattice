@@ -7,7 +7,8 @@ import { diagnosticsFingerprint, missingTexDependencyFile, type CompileDiagnosti
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
 import { scheduleFirstPage } from "../project/first-pages";
-import { logAction } from "../telemetry/app-notify";
+import { logAction, notifyWarning } from "../telemetry/app-notify";
+import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { clearTimer, restartTimer, subscribeTauriEvent, useRefState } from "./effect-helpers";
@@ -17,7 +18,7 @@ import type { AgentCompileAssociation } from "./use-agent-checkpoints";
 import type { LivePreviewBuildHooks } from "../live-preview/use-live-preview";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
 import { adoptRootDocument } from "./adopt-root-document";
-import { BUILD_TIMEOUT_MS, buildOutcome, rejectedBuildOutcome, timedOutBuild, type BuildOutcome } from "./build-outcome";
+import { buildOutcome, rejectedBuildOutcome, type BuildOutcome } from "./build-outcome";
 import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
 import { createQuietBuilds } from "../live-preview/quiet-builds";
@@ -51,6 +52,15 @@ type LiveBase = { token: number | null; quiet: boolean };
 
 /** The build that holds the pipeline: settles once it and every pass it took from the queue are done. */
 type RunningBuild = { settled: Promise<void>; revision: number };
+
+/**
+ * How long one pass runs before the writer is told it may be stuck (a macro
+ * that recurses forever, a figure that never finishes) and offered Stop. Only
+ * a notice: a large document can legitimately take this long, so nothing is
+ * stopped for it.
+ */
+const SLOW_BUILD_MINUTES = 10;
+const SLOW_BUILD_NOTICE = "build-still-running";
 
 /**
  * LaTeX builds and the PDF preview they feed: one build at a time with later
@@ -243,16 +253,17 @@ export function useBuildPipeline({
 
   const { takePendingCompiles, reportCompiles } = agent;
   /**
-   * Stop, or the timeout, ends the stuck pass and everything waiting behind
-   * it: a queued pass started the moment the stopped one came back and, from
-   * the same inputs, usually hung again. The Agent hears its queued compiles
-   * did not happen.
+   * Stop ends the stuck pass and everything waiting behind it: a queued pass
+   * started the moment the stopped one came back and, from the same inputs,
+   * usually hung again. The Agent hears its queued compiles did not happen.
    */
-  const dropWaitingBuilds = useCallback(() => {
+  const abortBuild = useCallback(async () => {
+    if (!buildingRef.current) return;
     quietBuilds.cancel();
     if (queueRef.current.consumeAgentAssociations) reportCompiles(takePendingCompiles(), null);
     Object.assign(queueRef.current, IDLE_QUEUE);
-  }, [quietBuilds, reportCompiles, takePendingCompiles]);
+    await invoke<boolean>("abort_build").catch((reason) => showError(toMessage(reason)));
+  }, [buildingRef, quietBuilds, reportCompiles, takePendingCompiles]);
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
     if (options?.automatic && quietBuilds.defer()) return;
     const queue = queueRef.current;
@@ -348,23 +359,27 @@ export function useBuildPipeline({
         // Each pass starts its sequence afresh; the backend fills it in as latexmk runs.
         const progressId = ++progressIdRef.current;
         progress.set({ steps: [], startedAt: performance.now() });
-        let timedOut = false;
-        const watchdog = setTimeout(() => {
-          timedOut = true;
-          dropWaitingBuilds();
-          void invoke("abort_build").catch(() => undefined);
-        }, BUILD_TIMEOUT_MS);
+        const slowNotice = setTimeout(() => {
+          const minutes = SLOW_BUILD_MINUTES;
+          notifyWarning(t`Build`, t`Still building after ${minutes} minutes. Something in the document may be looping; stop the build if it does not finish.`, {
+            timeoutMs: 0,
+            dedupeKey: SLOW_BUILD_NOTICE,
+            primaryAction: { label: t`Stop`, onClick: abortBuild },
+          });
+        }, SLOW_BUILD_MINUTES * 60_000);
         // A failure after the project moved on belongs to nobody: the pass is simply skipped.
-        const answer = await diagnosticInvoke<BuildResult>(
+        const result = await diagnosticInvoke<BuildResult>(
           "build_project", { force: currentForce, projectRoot, documentPath, progressId }, { operationId: trace.id },
         ).catch((reason) => {
           if (!scopeIsCurrent()) return null;
           compiledRef.current = null;
           reportCompiles(agentCompileAssociations, null);
           throw reason;
-        }).finally(() => clearTimeout(watchdog));
-        if (!answer || !scopeIsCurrent()) continue;
-        const result = timedOut ? timedOutBuild(answer) : answer;
+        }).finally(() => {
+          clearTimeout(slowNotice);
+          dismissAppToastByDedupeKey(SLOW_BUILD_NOTICE);
+        });
+        if (!result || !scopeIsCurrent()) continue;
         reportCompiles(agentCompileAssociations, result);
         trace.enrich({
           force: currentForce,
@@ -388,10 +403,10 @@ export function useBuildPipeline({
         const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
         // LaTeX carries on past most errors, so a failed pass that wrote a
         // new PDF still compiled these inputs. One that left the previous PDF
-        // in place (or was stopped partway, by Stop or the timeout) did not,
-        // and its SyncTeX map cannot be trusted either.
+        // in place (or was stopped partway) did not, and its SyncTeX map
+        // cannot be trusted either.
         const fingerprint = pdfBytes ? pdfBytesFingerprint(pdfBytes) : null;
-        const wrotePdf = fingerprint !== null && !cancelled && !timedOut
+        const wrotePdf = fingerprint !== null && !cancelled
           && (result.success || fingerprint !== readPdfFingerprintRef.current);
         if (fingerprint !== null) readPdfFingerprintRef.current = fingerprint;
         compiledRef.current = wrotePdf
@@ -493,7 +508,7 @@ export function useBuildPipeline({
   }, [
     activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef,
     quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, t,
-    takePendingCompiles, watchedBuilds, dropWaitingBuilds,
+    takePendingCompiles, watchedBuilds, abortBuild,
   ]);
   // Everything else that changes an input — the agent, a terminal, an
   // Overleaf pull, a rename in the tree, another editor — reaches the project
@@ -533,12 +548,6 @@ export function useBuildPipeline({
     }
     return compiledIsCurrent();
   }, [compiledIsCurrent, runBuild]);
-
-  const abortBuild = useCallback(async () => {
-    if (!buildingRef.current) return;
-    dropWaitingBuilds();
-    await invoke<boolean>("abort_build").catch((reason) => showError(toMessage(reason)));
-  }, [buildingRef, dropWaitingBuilds]);
 
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;

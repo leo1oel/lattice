@@ -27,8 +27,8 @@ export type RepairOperation = {
 
 /**
  * Only a terminal status releases the editor on its own, or the service
- * having restarted under the task or no longer having its route: the task is
- * gone then. A transport failure or a slow Cancel does not prove the provider
+ * having restarted under the task or no longer knowing it: the task is gone
+ * then. A transport failure or a slow Cancel does not prove the provider
  * stopped writing, so this long after Cancel the writer is offered an
  * explicit unlock instead.
  */
@@ -67,8 +67,11 @@ export function useCompileRepair(options: {
   const noteError = useCallback((error: unknown) => {
     setState((previous) => previous && ({ ...previous, message: String(error) }));
   }, []);
-  /** Stop following `operation`: release the editor, and ask the task to stop in case it still runs. */
-  const abandon = useCallback((operation: RepairOperation) => {
+  /**
+   * Stop following `operation`: release the editor, and ask the task to stop
+   * in case it still runs. `message` says why; by default Lattice lost the task.
+   */
+  const abandon = useCallback((operation: RepairOperation, message?: string) => {
     if (operationRef.current !== operation || operation.cancelled || operation.taskDone) return;
     operation.cancelled = true;
     operationRef.current = null;
@@ -76,7 +79,8 @@ export function useCompileRepair(options: {
     setState({
       status: "failed",
       threadId: operation.threadId,
-      message: t`Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got.`,
+      message: message
+        ?? t`Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got.`,
     });
   }, [t]);
 
@@ -148,8 +152,8 @@ export function useCompileRepair(options: {
   /** The writer's explicit release of a task that has not stopped since Cancel. */
   const unlock = useCallback(() => {
     const operation = operationRef.current;
-    if (operation) abandon(operation);
-  }, [abandon]);
+    if (operation) abandon(operation, t`Editor unlocked while the repair may still be running. Open Agent to see how far it got.`);
+  }, [abandon, t]);
 
   const busy = state !== null && !["completed", "failed"].includes(state.status);
   // One object while its members hold still: a new one each render rebuilt

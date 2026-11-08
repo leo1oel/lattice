@@ -4,13 +4,14 @@ import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
-import { BUILD_TIMEOUT_MS } from "./build-outcome";
+import { clearAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import { useBuildPipeline } from "./use-build-pipeline";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../project/first-pages", () => ({ scheduleFirstPage: vi.fn() }));
 afterEach(() => {
   cleanup();
+  clearAppLogs();
   vi.mocked(invoke).mockReset();
 });
 
@@ -218,7 +219,14 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.building).toBe(false);
   });
 
-  it("stops a pass that runs past the build timeout, says why, and starts nothing queued behind it", async () => {
+  // A pass that has run for ten minutes may be stuck, or may be a large
+  // document: the writer is told and offered Stop, and nothing is stopped for them.
+  const TEN_MINUTES = 10 * 60_000;
+  const slowNotice = () => getVisibleAppToastIds()
+    .map((id) => ({ entry: getAppLogEntry(id), options: getAppToastOptions(id) }))
+    .find(({ entry }) => entry?.title.startsWith("Still building after 10 minutes"));
+
+  it("offers Stop on a pass still running after ten minutes, which stops it and what is queued behind it", async () => {
     vi.useFakeTimers();
     try {
       const finishes: Array<(value: BuildResult) => void> = [];
@@ -226,39 +234,46 @@ describe("the build outcome the Build button reports", () => {
       let running!: Promise<void>;
       act(() => { running = view.result.current.runBuild(false, { requested: true }); });
       await act(() => view.result.current.runBuild(false, { automatic: true }));
-      await act(() => vi.advanceTimersByTimeAsync(BUILD_TIMEOUT_MS - 1_000));
-      expect(invokeCount("abort_build")).toBe(0);
+      await act(() => vi.advanceTimersByTimeAsync(TEN_MINUTES - 1_000));
+      expect(slowNotice()).toBeUndefined();
       await act(() => vi.advanceTimersByTimeAsync(1_000));
+      const notice = slowNotice();
+      expect(notice?.entry?.level).toBe("warning");
+      expect(invokeCount("abort_build")).toBe(0);
+      await act(() => vi.advanceTimersByTimeAsync(TEN_MINUTES));
+      expect(invokeCount("abort_build")).toBe(0);
+      expect(view.result.current.building).toBe(true);
+      expect(notice?.options?.primaryAction?.label).toBe("Stop");
+      await act(async () => { await notice?.options?.primaryAction?.onClick(); });
       expect(invokeCount("abort_build")).toBe(1);
       await act(async () => {
         finishes[0]!(stoppedResult());
         await running;
       });
       expect(invokeCount("build_project")).toBe(1);
-      expect(view.result.current.outcome).toMatchObject({ status: "failed" });
-      expect(view.result.current.build?.diagnostics[0]).toMatchObject({ code: "build-timed-out", params: { minutes: "10" } });
-      expect(view.result.current.diagnosticsExpanded).toBe(true);
+      expect(view.result.current.building).toBe(false);
+      expect(view.result.current.outcome).toBeNull();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  // latexmk's first pass can write a new PDF before a later pass hangs: the
-  // timeout stops the build partway, so that PDF is not of these inputs.
-  it("does not credit a timed-out pass with the PDF it left partway", async () => {
+  it("completes a slow pass that finishes after ten minutes, and takes the notice down", async () => {
     vi.useFakeTimers();
-    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
     try {
       let finish!: (value: BuildResult) => void;
       const view = renderPipeline(() => new Promise((resolve) => { finish = resolve; }));
       let running!: Promise<void>;
       act(() => { running = view.result.current.runBuild(false, { requested: true }); });
-      await act(() => vi.advanceTimersByTimeAsync(BUILD_TIMEOUT_MS));
+      await act(() => vi.advanceTimersByTimeAsync(TEN_MINUTES + 60_000));
+      expect(slowNotice()).toBeDefined();
       await act(async () => {
-        finish({ ...stoppedResult(), hasPdf: true });
+        finish(result({ durationMs: TEN_MINUTES + 60_000 }));
         await running;
       });
-      expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: false });
+      expect(invokeCount("abort_build")).toBe(0);
+      expect(slowNotice()).toBeUndefined();
+      expect(view.result.current.outcome).toMatchObject({ status: "succeeded", seconds: 660 });
     } finally {
       vi.useRealTimers();
     }

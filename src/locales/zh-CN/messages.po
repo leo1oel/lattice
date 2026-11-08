@@ -2079,7 +2079,7 @@ msgstr "批注与高亮"
 msgid "Anonymous"
 msgstr "匿名"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 msgstr "已经在修复了，请等它完成"
 
@@ -2737,10 +2737,6 @@ msgstr "编译结果"
 #: src/pdf/pdf-viewer.tsx
 msgid "Build project"
 msgstr "编译"
-
-#: src/build/build-log-messages.ts
-msgid "Build stopped after {minutes} minutes without finishing. Something in the document may be looping; the log below is how far it got."
-msgstr "编译运行 {minutes} 分钟仍未完成，已停止。文档中可能有内容陷入了死循环；下方日志显示了停止前的进度。"
 
 #: src/build/build-log-messages.ts
 msgid "Build stopped after {seconds} s. The log below is how far it got."
@@ -5639,6 +5635,10 @@ msgstr "键盘方案"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "状态"
+
+#: src/build/use-compile-repair.ts
+msgid "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
+msgstr "编辑器已解锁，但修复可能仍在运行。请打开 Agent 查看修复进行到了哪一步。"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Edits"
@@ -12171,11 +12171,11 @@ msgstr "重开标签"
 msgid "Reopened"
 msgstr "已重新打开"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair cancelled."
 msgstr "已取消修复"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair failed."
 msgstr "修复失败"
 
@@ -12187,7 +12187,7 @@ msgstr "修复完成"
 msgid "Repair has no active turn."
 msgstr "修正当前没有进行中的轮次。"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 msgstr "AI 助手正忙，请先结束它的任务再点“一键修复”"
 
@@ -13083,7 +13083,7 @@ msgstr "保存模板"
 msgid "Save the open file first."
 msgstr "请先保存当前打开的文件。"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Save the project before repairing."
 msgstr "请先保存再修复"
 
@@ -14093,6 +14093,10 @@ msgstr "以下文件的静态解析范围有限："
 msgid "Status"
 msgstr "状态"
 
+#: src/app/use-build-pipeline.ts
+msgid "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+msgstr "已编译 {minutes} 分钟仍未完成。文档中可能有内容陷入了死循环；如果一直不结束，请停止编译。"
+
 #. placeholder {0}: result.detail
 #: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
@@ -14106,6 +14110,7 @@ msgstr "Overleaf 上仍在"
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "还在等。请取消、关掉 Overleaf 窗口后再连一次"
 
+#: src/app/use-build-pipeline.ts
 #: src/papers/add-papers-sheet.tsx
 msgid "Stop"
 msgstr "停止"
@@ -15291,7 +15296,7 @@ msgstr "修复还没有停止，AI 可能仍在修改这个文件。只有现在
 msgid "The repair request failed."
 msgstr "修复请求失败"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "The repair service did not return a task."
 msgstr "修复服务没响应"
 

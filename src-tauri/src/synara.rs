@@ -213,6 +213,11 @@ impl SynaraRuntime {
         *running = Some(RunningSynara { child, info: info.clone(), environment });
         drop(running);
         self.proxy_watch.get_or_init(|| restart::watch_system_proxy(self.app.clone()));
+        // Windows hold the exited sidecar's token, and its tasks are gone:
+        // they learn of this restart as of one asked for (`restart`).
+        if reason == "restart_after_exit" {
+            restart::announce(self.app.as_ref());
+        }
         Ok(info)
     }
 
@@ -360,6 +365,10 @@ pub const TEXT_TASK_ROUTE: &str = "text-task";
 /// What a start answers when the running agent service predates the route, so
 /// the renderer can say so instead of quoting an HTTP status.
 pub const ROUTE_UNAVAILABLE: &str = "agent_route_unavailable";
+/// What a status or cancel answers when the running agent service does not
+/// know the task: the compile repair route answers an unknown thread with the
+/// same bare 404, and a route a task was started on cannot be missing.
+pub const TASK_UNKNOWN: &str = "agent_task_unknown";
 
 /// One action on the task route `/api/lattice/<route>`: `start` posts
 /// `payload`, `status` reads the task, `cancel` stops it. Keeps the desktop
@@ -400,9 +409,11 @@ pub fn task_relay_request(
     let status = response.status();
     let value: serde_json::Value = match response.json() {
         Ok(value) => value,
-        // The routes answer JSON, even their own 404s; a bare 404 is the
-        // router's, for a path this runtime does not have.
-        Err(_) if status == reqwest::StatusCode::NOT_FOUND => return Err(ROUTE_UNAVAILABLE.into()),
+        // A bare 404 on a start is the router's, for a path this runtime does
+        // not have; on an existing task it is the route's unknown task.
+        Err(_) if status == reqwest::StatusCode::NOT_FOUND => {
+            return Err(if action == "start" { ROUTE_UNAVAILABLE } else { TASK_UNKNOWN }.into())
+        }
         Err(_) => return Err(format!("The agent service returned {status}.")),
     };
     if !status.is_success() {
@@ -560,6 +571,7 @@ mod tests {
                 (409, r#"{"error":"Already repairing"}"#),
                 (404, r#"{"error":"Workspace not found."}"#),
                 (404, "Not Found"),
+                (404, "Not Found"),
             ] {
                 let mut request = server.recv().unwrap();
                 let mut received = Vec::new();
@@ -598,6 +610,11 @@ mod tests {
                 .unwrap_err(),
             ROUTE_UNAVAILABLE
         );
+        // The repair route answers a thread it does not know with the same bare 404.
+        assert_eq!(
+            request("status", Some("repair:gone"), serde_json::Value::Null).unwrap_err(),
+            TASK_UNKNOWN
+        );
 
         let requests = server.join().unwrap();
         assert_eq!(requests[0].0, "POST /api/lattice/compile-repair");
@@ -607,6 +624,7 @@ mod tests {
         assert_eq!(requests[2].0, "POST /api/lattice/compile-repair/repair:one/cancel");
         assert_eq!(requests[5].0, "POST /api/lattice/text-task");
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&requests[5].1).unwrap(), text_task);
+        assert_eq!(requests[6].0, "GET /api/lattice/compile-repair/repair:gone");
     }
 
     #[test]

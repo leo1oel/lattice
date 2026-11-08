@@ -2079,7 +2079,7 @@ msgstr "Annotations and highlights"
 msgid "Anonymous"
 msgstr "Anonymous"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 msgstr "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 
@@ -2737,10 +2737,6 @@ msgstr "Build output"
 #: src/pdf/pdf-viewer.tsx
 msgid "Build project"
 msgstr "Build project"
-
-#: src/build/build-log-messages.ts
-msgid "Build stopped after {minutes} minutes without finishing. Something in the document may be looping; the log below is how far it got."
-msgstr "Build stopped after {minutes} minutes without finishing. Something in the document may be looping; the log below is how far it got."
 
 #: src/build/build-log-messages.ts
 msgid "Build stopped after {seconds} s. The log below is how far it got."
@@ -5639,6 +5635,10 @@ msgstr "Editor keymap"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "Editor status"
+
+#: src/build/use-compile-repair.ts
+msgid "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
+msgstr "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Edits"
@@ -12171,11 +12171,11 @@ msgstr "Reopen the closed tab"
 msgid "Reopened"
 msgstr "Reopened"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair cancelled."
 msgstr "Repair cancelled."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair failed."
 msgstr "Repair failed."
 
@@ -12187,7 +12187,7 @@ msgstr "Repair finished"
 msgid "Repair has no active turn."
 msgstr "Repair has no active turn."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 msgstr "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 
@@ -13083,7 +13083,7 @@ msgstr "Save template"
 msgid "Save the open file first."
 msgstr "Save the open file first."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
 
@@ -14093,6 +14093,10 @@ msgstr "Static coverage is limited in:"
 msgid "Status"
 msgstr "Status"
 
+#: src/app/use-build-pipeline.ts
+msgid "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+msgstr "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+
 #. placeholder {0}: result.detail
 #: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
@@ -14106,6 +14110,7 @@ msgstr "Still on Overleaf"
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
+#: src/app/use-build-pipeline.ts
 #: src/papers/add-papers-sheet.tsx
 msgid "Stop"
 msgstr "Stop"
@@ -15291,7 +15296,7 @@ msgstr "The repair has not stopped yet, and the agent may still be editing this 
 msgid "The repair request failed."
 msgstr "The repair request failed."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "The repair service did not return a task."
 msgstr "The repair service did not return a task."
 
