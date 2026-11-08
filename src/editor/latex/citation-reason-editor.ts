@@ -83,7 +83,11 @@ const SETTLE_MS = 1200;
 function writeBack(field: StateField<Placed>, live: () => LatexEditorLiveData) {
   return ViewPlugin.fromClass(class {
     timer: ReturnType<typeof setTimeout> | null = null;
-    /** The state of the last update this plugin saw. */
+    /**
+     * The state of the last update this plugin saw. `destroy()` flushes from
+     * it, not `view.state`: a reconfigure destroys this plugin after the view
+     * already holds a state without this `field`.
+     */
     state: EditorState;
     constructor(view: EditorView) {
       this.state = view.state;
