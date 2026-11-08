@@ -365,10 +365,10 @@ pub const TEXT_TASK_ROUTE: &str = "text-task";
 /// What a start answers when the running agent service predates the route, so
 /// the renderer can say so instead of quoting an HTTP status.
 pub const ROUTE_UNAVAILABLE: &str = "agent_route_unavailable";
-/// What a status or cancel answers when the running agent service does not
-/// know the task. Its route exists, since the task was started on it: the
-/// compile repair route's poll and cancel answer a thread it does not know
-/// with a plain-text `Not Found` 404, and the text task route with a JSON 404.
+/// What a compile repair status or cancel answers when the running agent
+/// service does not know the thread. The route exists, since the task was
+/// started on it: its poll and cancel answer an unknown thread with a
+/// plain-text `Not Found` 404.
 pub const TASK_UNKNOWN: &str = "agent_task_unknown";
 
 /// One action on the task route `/api/lattice/<route>`: `start` posts
@@ -408,7 +408,10 @@ pub fn task_relay_request(
     }
     let response = request.send().map_err(|error| error.to_string())?;
     let status = response.status();
-    if status == reqwest::StatusCode::NOT_FOUND && action != "start" {
+    if status == reqwest::StatusCode::NOT_FOUND
+        && route == COMPILE_REPAIR_ROUTE
+        && action != "start"
+    {
         return Err(TASK_UNKNOWN.into());
     }
     let value: serde_json::Value = match response.json() {
@@ -619,11 +622,11 @@ mod tests {
         // know with `HttpServerResponse.text("Not Found", { status: 404 })`.
         let null = serde_json::Value::Null;
         assert_eq!(request("status", Some("repair:gone"), null.clone()).unwrap_err(), TASK_UNKNOWN);
-        // An unknown text task is a JSON 404.
+        // An unknown text task is a JSON 404, whose error reaches the reader as is.
         assert_eq!(
             task_relay_request(&runtime, TEXT_TASK_ROUTE, "cancel", Some("text:gone"), null)
                 .unwrap_err(),
-            TASK_UNKNOWN
+            "Task not found."
         );
 
         let requests = server.join().unwrap();
