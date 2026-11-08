@@ -318,6 +318,24 @@ describe("the root document a build compiled", () => {
 describe("cleaning build files", () => {
   // Every file a clean removes is one the next build writes again, so there is
   // nothing to confirm: it runs at once.
+  it("cleans before the queued pass when Clean and rebuild comes during a build", async () => {
+    const passes: Array<(value: BuildResult) => void> = [];
+    const view = renderPipeline(() => new Promise((resolve) => { passes.push(resolve); }));
+    let running!: Promise<void>;
+    act(() => { running = view.result.current.runBuild(false, { automatic: true }); });
+    await act(() => view.result.current.cleanAndRebuild());
+    // Never cleaned out from under the build that holds the pipeline.
+    expect(invoke).not.toHaveBeenCalledWith("clean_project");
+    await act(async () => { passes[0](result()); });
+    await vi.waitFor(() => expect(passes).toHaveLength(2));
+    const commands = vi.mocked(invoke).mock.calls.map(([command]) => command).filter((command) => command !== "read_compiled_pdf");
+    expect(commands).toEqual(["build_project", "clean_project", "build_project"]);
+    await act(async () => {
+      passes[1](result());
+      await running;
+    });
+  });
+
   it("cleans without asking first", async () => {
     const view = renderPipeline(async () => result());
     await act(() => view.result.current.cleanProject());

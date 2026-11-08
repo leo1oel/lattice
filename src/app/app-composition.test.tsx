@@ -2313,7 +2313,7 @@ describe("welcome screen", () => {
     const success = buildResult({ durationMs: 1 })();
     const ordinaryBuild = deferred<typeof success>();
     let buildCalls = 0;
-    renderApp({ ...projectCommands(), build_project: () => (++buildCalls === 1 ? ordinaryBuild.promise : success) });
+    renderApp({ ...projectCommands(), clean_project: undefined, build_project: () => (++buildCalls === 1 ? ordinaryBuild.promise : success) });
     await waitFor(() => expect(buildButton()).toHaveAttribute("aria-busy", "true"));
     await waitFor(() => expect(buildCalls).toBe(1));
     fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
@@ -2325,8 +2325,8 @@ describe("welcome screen", () => {
     ordinaryBuild.resolve(success);
     await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(2));
     expect(invokeCalls("build_project")[1]?.[1]).toEqual(expect.objectContaining({ force: true }));
-    // The queued build can finish before the lazy editor imports do. Let the
-    // real canvas mount before teardown so those imports keep a live test host.
+    expect(invokeCalls("clean_project")).toHaveLength(1);
+    // Let the lazy canvas mount: its imports need a live host.
     expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
   });
 
