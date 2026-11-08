@@ -5,6 +5,8 @@
 
 use super::*;
 
+mod agent_undo;
+
 const BASE: &[u8] = b"Intro.\n\nOld sentence one. Old sentence two.\n\nEnd.\n";
 const AGENT: &[u8] = b"Intro.\n\nThe agent rewrote this whole paragraph.\n\nEnd.\n";
 const TYPED: &[u8] =
@@ -172,4 +174,37 @@ fn overleaf_sync_never_uploads_excluded_files_or_unresolved_conflict_markers() {
     for rel in ["main.log", "main.pdf", "tmp/pdfs/full-appendix/render-1.png"] {
         assert!(read_local(&root, rel).is_some(), "{rel}");
     }
+}
+
+/// An Agent Undo that overlapped a co-author's edit (Synara's reverse
+/// three-way patch, diff3 style) leaves markers around just that spot. The
+/// same guards hold it: nothing goes up while Overleaf stands still or moves
+/// on, and the resolved file goes up as the local edit it is.
+#[test]
+fn an_agent_undo_conflict_is_never_uploaded_until_resolved() {
+    const SYNCED: &[u8] = b"\\section{Intro}\n\nP: The agent rewrote the opening paragraph completely. Co-author sentence.\n\nEnd.\n";
+    const UNDO: &[u8] = b"\\section{Intro}\n\n<<<<<<< ours\nP: The agent rewrote the opening paragraph completely. Co-author sentence.\n||||||| base\nP: The agent rewrote the opening paragraph completely.\n=======\nP: The old opening paragraph says one thing.\n>>>>>>> theirs\n\nEnd.\n";
+    const MOVED_ON: &[u8] = b"\\section{Intro}\n\nP: The agent rewrote the opening paragraph completely. Co-author sentence.\n\nEnd. Co-author footnote.\n";
+    const RESOLVED: &[u8] = b"\\section{Intro}\n\nP: The old opening paragraph says one thing. Co-author sentence.\n\nEnd.\n";
+
+    let (server, root, first) = run_sync(
+        Mock::project(&[("main.tex", SYNCED)]),
+        &[("main.tex", UNDO)],
+        &[("main.tex", SYNCED)],
+    );
+    assert!(first.pushed.is_empty() && server.uploads().is_empty(), "{first:?}");
+    assert_eq!(text(&root, "main.tex").as_bytes(), UNDO);
+    assert_eq!(state_files(&root)["main.tex"], sha256_hex(SYNCED));
+
+    // The co-author keeps typing elsewhere: still held, never merged into markers.
+    let (server, moved) = sync_against(&root, &[("main.tex", MOVED_ON)]);
+    assert!(moved.pushed.is_empty() && server.uploads().is_empty(), "{moved:?}");
+    assert_eq!(moved.unresolved_conflicts, ["main.tex"]);
+    assert_eq!(text(&root, "main.tex").as_bytes(), UNDO);
+
+    // Resolved while Overleaf stood still, it goes up.
+    fs::write(root.join("main.tex"), RESOLVED).unwrap();
+    let (server, resolved) = sync_against(&root, &[("main.tex", SYNCED)]);
+    assert_eq!(resolved.pushed, ["main.tex"]);
+    assert_eq!(server.uploads().len(), 1);
 }
