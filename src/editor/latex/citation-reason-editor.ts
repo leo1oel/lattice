@@ -83,8 +83,13 @@ const SETTLE_MS = 1200;
 function writeBack(field: StateField<Placed>, live: () => LatexEditorLiveData) {
   return ViewPlugin.fromClass(class {
     timer: ReturnType<typeof setTimeout> | null = null;
-    constructor(readonly view: EditorView) {}
+    /** The state of the last update this plugin saw. */
+    state: EditorState;
+    constructor(view: EditorView) {
+      this.state = view.state;
+    }
     update(update: ViewUpdate) {
+      this.state = update.state;
       if (!update.docChanged || !update.state.field(field).sites.size) return;
       if (this.timer) clearTimeout(this.timer);
       this.timer = setTimeout(() => this.flush(), SETTLE_MS);
@@ -92,9 +97,9 @@ function writeBack(field: StateField<Placed>, live: () => LatexEditorLiveData) {
     flush() {
       this.timer = null;
       const save = live().onReanchorCitationReasons;
-      const { reasons, sites } = this.view.state.field(field);
+      const { reasons, sites } = this.state.field(field);
       if (!save) return;
-      const source = this.view.state.doc.toString();
+      const source = this.state.doc.toString();
       const moves = new Map<string, NonNullable<ReturnType<typeof reanchoredReason>>>();
       for (const reason of reasons) {
         const site = sites.get(reason.id);
