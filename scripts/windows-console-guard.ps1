@@ -1,5 +1,5 @@
 param(
-  [ValidateSet('Monitor', 'Resize')][string]$Mode,
+  [ValidateSet('Monitor', 'Resize', 'Library')][string]$Mode,
   [string]$Ready,
   [string]$Stop,
   [string]$Report,
@@ -18,6 +18,22 @@ public class LatticeWindowInfo {
   public string ClassName;
 }
 public static class LatticeWindows {
+  [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+  [StructLayout(LayoutKind.Sequential)] public struct MonitorInfo { public int Size; public Rect Bounds, WorkArea; public uint Flags; }
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
+  [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr window);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW")] public static extern IntPtr GetStyle(IntPtr window, int index);
+  [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+  public static bool IsFullscreen(IntPtr window) {
+    Rect rect;
+    if (!GetWindowRect(window, out rect)) return false;
+    var info = new MonitorInfo(); info.Size = Marshal.SizeOf(typeof(MonitorInfo));
+    if (!GetMonitorInfo(MonitorFromWindow(window, 2), ref info)) return false;
+    bool noCaption = (GetStyle(window, -16).ToInt64() & 0x00C00000) == 0;
+    return noCaption && Math.Abs(rect.Left-info.Bounds.Left) <= 2 && Math.Abs(rect.Top-info.Bounds.Top) <= 2 && Math.Abs(rect.Right-info.Bounds.Right) <= 2 && Math.Abs(rect.Bottom-info.Bounds.Bottom) <= 2;
+  }
   public delegate bool EnumCallback(IntPtr window, IntPtr state);
   [DllImport("user32.dll")] static extern bool EnumWindows(EnumCallback callback, IntPtr state);
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
@@ -43,6 +59,7 @@ public static class LatticeWindows {
   }
 }
 '@
+if ($Mode -eq 'Library') { return }
 if ($Mode -eq 'Resize') {
   $app = Get-Process | Where-Object { $_.Path -eq $AppPath -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
   if (!$app) { throw "Could not find the installed Lattice window: $AppPath" }

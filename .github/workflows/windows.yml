@@ -85,8 +85,12 @@ jobs:
       - name: Install tutorial TeX packages
         shell: pwsh
         run: |
+          tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet
+          tlmgr update --self
+          if ($LASTEXITCODE -ne 0) { throw 'TeX manager update failed' }
           tlmgr install collection-latexextra collection-fontsrecommended latexmk mylatexformat latexindent natbib lineno microtype booktabs environ
           if ($LASTEXITCODE -ne 0) { throw 'TeX package install failed' }
+          if (!(kpsewhich environ.sty)) { throw 'The tutorial dependency environ.sty is still missing' }
       - name: Scan installer with Windows Defender when available
         shell: pwsh
         timeout-minutes: 5
@@ -120,19 +124,10 @@ jobs:
           $edge = $webview.VersionInfo.ProductVersion
           Invoke-WebRequest "https://msedgedriver.microsoft.com/$edge/edgedriver_win64.zip" -OutFile "$env:RUNNER_TEMP/edgedriver.zip"
           Expand-Archive "$env:RUNNER_TEMP/edgedriver.zip" "$env:RUNNER_TEMP/edgedriver"
-      - name: Exercise the installed app
-        shell: pwsh
+      - name: Exercise the installed native app
+        shell: powershell
         run: |
-          $driver = Start-Process "$env:RUNNER_TEMP/edgedriver/msedgedriver.exe" -WindowStyle Hidden -ArgumentList @('--port=4444', '--verbose') -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/driver.log" -RedirectStandardError "$env:RUNNER_TEMP/driver-error.log"
-          try {
-            for ($attempt = 0; $attempt -lt 100; $attempt++) {
-              try { Invoke-RestMethod http://127.0.0.1:4444/status | Out-Null; break } catch { Start-Sleep -Milliseconds 200 }
-            }
-            node scripts/windows-e2e.mjs --app "$env:LATTICE_TEST_APP" --artifacts "$env:RUNNER_TEMP/evidence"
-            if ($LASTEXITCODE -ne 0) { throw 'Windows application checks failed' }
-          } finally {
-            Stop-Process -Id $driver.Id -ErrorAction SilentlyContinue
-          }
+          & ./scripts/windows-native-e2e.ps1 -AppPath "$env:LATTICE_TEST_APP" -Artifacts "$env:RUNNER_TEMP/evidence"
       - name: Collect evidence and logs
         if: always()
         shell: pwsh
