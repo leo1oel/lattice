@@ -52,6 +52,12 @@ jobs:
         run: pnpm build
       - name: Prepare Windows resources
         run: pnpm prepare:windows
+      - name: Test editable Word export with bundled Pandoc
+        shell: pwsh
+        run: |
+          $env:LATTICE_TEST_PANDOC = (Resolve-Path src-tauri/synara-runtime/bin/pandoc.exe).Path
+          cargo test --manifest-path src-tauri/Cargo.toml --test word_export
+          if ($LASTEXITCODE -ne 0) { throw 'Word export integration tests failed' }
       - name: Build Windows installer
         run: pnpm tauri build --config src-tauri/tauri.windows.conf.json --bundles nsis
       - uses: actions/upload-artifact@v4

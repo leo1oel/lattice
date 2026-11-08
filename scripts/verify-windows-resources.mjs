@@ -8,7 +8,7 @@ for (const path of [
 ]) {
   if (!existsSync(join(projectRoot, path))) throw new Error(`Missing Windows resource: ${path}. Run pnpm build and pnpm prepare:windows first.`);
 }
-for (const file of ["node.exe", "uv.exe", "uvx.exe"]) {
+for (const file of ["node.exe", "uv.exe", "uvx.exe", "pandoc.exe"]) {
   if (readFileSync(join(projectRoot, "src-tauri/synara-runtime/bin", file)).subarray(0, 2).toString() !== "MZ") throw new Error(`Not a Windows executable: ${file}`);
 }
 console.log("Windows application resources verified.");

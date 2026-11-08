@@ -92,6 +92,7 @@ mod traffic_lights;
 mod util;
 mod web_metadata;
 mod wide_event;
+mod word_export;
 #[cfg(target_os = "linux")]
 mod xlib_threads;
 
@@ -462,6 +463,7 @@ pub fn run() {
             ipc::workspace::open_project,
             ipc::workspace::import_project_zip,
             ipc::workspace::export_project_zip,
+            ipc::workspace::export_word,
             ipc::workspace::check_arxiv_package,
             ipc::workspace::cancel_arxiv_check,
             ipc::workspace::export_arxiv_package,

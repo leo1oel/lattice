@@ -81,7 +81,7 @@ export type CommandTableDeps = {
   lifecycle: Pick<
     ReturnType<typeof useProjectLifecycle>,
     | "recentProjects" | "unopenedProject" | "createForm" | "updateCreateForm" | "busyLabel" | "chooseExisting"
-    | "chooseRecentProject" | "exportProjectZip" | "importOverleafZip" | "openTutorialProject" | "moveWorkspace"
+    | "chooseRecentProject" | "exportProjectWord" | "exportProjectZip" | "importOverleafZip" | "openTutorialProject" | "moveWorkspace"
   >;
   overleaf: Pick<
     ReturnType<typeof useOverleafWorkspace>,
@@ -127,7 +127,7 @@ export function useCommandTable({
   const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
   const {
     recentProjects, unopenedProject, createForm, updateCreateForm, busyLabel, chooseExisting, chooseRecentProject,
-    exportProjectZip, importOverleafZip, openTutorialProject, moveWorkspace,
+    exportProjectZip, exportProjectWord, importOverleafZip, openTutorialProject, moveWorkspace,
   } = lifecycle;
   const { overleafLink, overleafSyncing, overleafPickerOpen, setOverleafPickerOpen, openCurrentOverleafProject } = overleaf;
   const { preference: themePreference, setPreference: setThemePreference } = theme;
@@ -297,6 +297,7 @@ export function useCommandTable({
     { id: "format", when: latexSource, label: t`Format document`, keywords: "latexindent", group: "edit", run: formatFocusedDocument },
     ...projectPanelCommands({ inProject, i18n, trellis, requestNewEntry }),
     { id: "history", when: inProject, label: t`Open project history`, group: "project", run: () => tools.open("history") },
+    { id: "export-word", when: inProject, label: t`Export Word…`, keywords: t`DOCX editable document comments Track Changes`, group: "project", run: () => void exportProjectWord() },
     { id: "export-zip", when: inProject, label: t`Export project ZIP`, keywords: t`Overleaf source pack`, group: "project", run: () => void exportProjectZip() },
     { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, group: "project", run: () => setArxivExportOpen(true) },
     { id: "new-project", label: t`New project`, group: "project", key: "n", shift: true, run: () => updateCreateForm({ open: true }) },

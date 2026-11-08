@@ -175,6 +175,30 @@ pub async fn export_project_zip(
         .await
 }
 
+/// Convert the calling window's main LaTeX document into editable Word.
+#[tauri::command]
+pub async fn export_word(
+    state: State<'_, AppState>, window: Window, destination: String,
+) -> Result<crate::word_export::WordExport, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Word export", move || {
+        let manifest = project::read_manifest(&root)?;
+        let document = manifest
+            .root_documents
+            .iter()
+            .find(|d| d.is_default)
+            .or_else(|| manifest.root_documents.first())
+            .ok_or("Choose a main LaTeX document before exporting Word.")?;
+        crate::word_export::export_word(
+            &root,
+            &document.path,
+            &manifest.primary_bibliography,
+            Path::new(&destination),
+        )
+    })
+    .await
+}
+
 /// Stage the arXiv source pack and check it: the staged pack (every check
 /// but the test build) goes to `on_staged` at once, and the result, test
 /// build and all, is the reply.

@@ -24,6 +24,13 @@ pub(crate) const PDF: Format = Format {
     validate: validate_pdf,
 };
 
+pub(crate) const DOCX: Format = Format {
+    extension: "docx",
+    no_destination: "Choose where to save the Word document.",
+    wrong_extension: "The Word document must use the .docx extension.",
+    validate: validate_docx,
+};
+
 pub(crate) const XLSX: Format = Format {
     extension: "xlsx",
     no_destination: "Choose where to export the Excel workbook.",
@@ -54,6 +61,18 @@ fn validate_html(bytes: &[u8]) -> Result<(), String> {
         return Err("The visual is too large to save.".to_string());
     }
     std::str::from_utf8(bytes).map_err(|_| "The visual is not UTF-8 text.".to_string())?;
+    Ok(())
+}
+
+fn validate_docx(bytes: &[u8]) -> Result<(), String> {
+    if bytes.len() > MAX_XLSX_BYTES {
+        return Err("The Word document is too large to export.".into());
+    }
+    let mut archive = ZipArchive::new(Cursor::new(bytes))
+        .map_err(|_| "The exported data is not a Word document.")?;
+    for required in ["[Content_Types].xml", "word/document.xml"] {
+        archive.by_name(required).map_err(|_| "The exported data is not a Word document.")?;
+    }
     Ok(())
 }
 

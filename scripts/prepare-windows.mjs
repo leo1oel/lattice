@@ -24,6 +24,11 @@ try {
       sha256: "b23350c79e8ad0192b8124af13a0f17e8d4e4549524785e1aef389ae5a06990e",
       directory: "", files: ["uv.exe", "uvx.exe"],
     },
+    {
+      url: "https://github.com/jgm/pandoc/releases/download/3.13/pandoc-3.13-windows-x86_64.zip",
+      sha256: "23e1f2e978a3df80db8bf65c9c59534f41a23140480cfb4f783a882ab7dc6a4e",
+      directory: "pandoc-3.13", files: ["pandoc.exe", "COPYING.rtf", "COPYRIGHT.txt"],
+    },
   ]) {
     const archive = join(staging, `${item.files[0]}.zip`);
     const response = await fetch(item.url, { signal: AbortSignal.timeout(300_000) });

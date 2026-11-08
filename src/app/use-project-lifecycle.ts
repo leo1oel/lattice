@@ -461,6 +461,16 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     ));
   }, [revealNewProject, t]);
 
+  const exportProjectWord = useCallback(async () => {
+    if (!project) return;
+    setBusyLabel(t`Exporting Word…`);
+    try {
+      const { exportWord } = await import("../project/export-word");
+      await exportWord(project.manifest.name, save);
+    } catch (reason) { showError(toMessage(reason)); }
+    finally { setBusyLabel(null); }
+  }, [project, save, t]);
+
   const exportProjectZip = useCallback(async () => {
     if (!project) return;
     const zipPath = await saveDialog({
@@ -536,7 +546,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   return {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, openExistingProject, chooseExisting, createProject,
-    chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
+    chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, exportProjectWord, moveWorkspace,
     movingWorkspace,
   };
 }
