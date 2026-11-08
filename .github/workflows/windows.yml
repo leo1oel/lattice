@@ -48,6 +48,8 @@ jobs:
         run: cargo check --manifest-path src-tauri/Cargo.toml
       - name: Test Windows file operations
         run: cargo test --manifest-path src-tauri/Cargo.toml --test windows_host
+      - name: Check production translations
+        run: pnpm i18n:check
       - name: Build interface
         run: pnpm build
       - name: Prepare Windows resources

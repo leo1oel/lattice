@@ -5006,6 +5006,10 @@ msgstr "文档标题"
 msgid "Document view"
 msgstr "文稿"
 
+#: src/app/use-command-table.ts
+msgid "DOCX editable document comments Track Changes"
+msgstr "DOCX 可编辑文档 批注 修订"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Does not exist"
 msgstr "不存在"
@@ -5706,6 +5710,10 @@ msgstr "导出 1 条批注…"
 msgid "Export diagnostic log"
 msgstr "导出日志"
 
+#: src/project/export-word.ts
+msgid "Export editable Word document"
+msgstr "导出可编辑的 Word 文档"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Export Excel"
 msgstr "导出 Excel"
@@ -5762,6 +5770,14 @@ msgstr "导出评阅 PDF"
 msgid "Export review PDF…"
 msgstr "导出评阅 PDF…"
 
+#: src/project/export-word.ts
+msgid "Export Word"
+msgstr "导出 Word"
+
+#: src/app/use-command-table.ts
+msgid "Export Word…"
+msgstr "导出 Word…"
+
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
@@ -5779,6 +5795,10 @@ msgstr "导出…"
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exported {fileName}"
 msgstr "已导出 {fileName}"
+
+#: src/app/use-project-lifecycle.ts
+msgid "Exporting Word…"
+msgstr "正在导出 Word…"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Exporting ZIP…"
@@ -10516,6 +10536,10 @@ msgstr "面板"
 #: src/app/shortcut-groups.ts
 msgid "Panels and tabs"
 msgstr "面板标签"
+
+#: src/project/export-word.ts
+msgid "paper"
+msgstr "论文"
 
 #: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
@@ -16375,6 +16399,10 @@ msgstr "窗口"
 msgid "With full text"
 msgstr "有全文"
 
+#: src/project/export-word.ts
+msgid "Word"
+msgstr "Word"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Word and page limits"
 msgstr "词数与页数上限"
@@ -16394,6 +16422,19 @@ msgstr "字数"
 #: src/canvas/editor-status-bar.tsx
 msgid "Word count: {scope}, {count}"
 msgstr "字数：{scope}，{count}"
+
+#. placeholder {0}: result.path
+#: src/project/export-word.ts
+msgid "Word document exported to {0}"
+msgstr "Word 文档已导出到 {0}"
+
+#: src/project/export-word.ts
+msgid "Word export"
+msgstr "Word 导出"
+
+#: src/project/export-word.ts
+msgid "Word export creates editable text and equations for comments and Track Changes. Pagination, custom LaTeX commands, TikZ and complex layouts may differ or be omitted. Check the exported document against your PDF before sharing. Word edits are not imported back into LaTeX."
+msgstr "Word 导出会生成可编辑的文本和公式，便于批注和修订。分页、自定义 LaTeX 命令、TikZ 和复杂布局可能发生变化或被省略。分享前请对照 PDF 检查导出的文档。Word 中的修改不会导回 LaTeX。"
 
 #: src/history/compare-versions.tsx
 msgctxt "changed words count"

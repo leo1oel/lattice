@@ -5006,6 +5006,10 @@ msgstr "Document title"
 msgid "Document view"
 msgstr "Document view"
 
+#: src/app/use-command-table.ts
+msgid "DOCX editable document comments Track Changes"
+msgstr "DOCX editable document comments Track Changes"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Does not exist"
 msgstr "Does not exist"
@@ -5706,6 +5710,10 @@ msgstr "Export 1 note…"
 msgid "Export diagnostic log"
 msgstr "Export diagnostic log"
 
+#: src/project/export-word.ts
+msgid "Export editable Word document"
+msgstr "Export editable Word document"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Export Excel"
 msgstr "Export Excel"
@@ -5762,6 +5770,14 @@ msgstr "Export review PDF"
 msgid "Export review PDF…"
 msgstr "Export review PDF…"
 
+#: src/project/export-word.ts
+msgid "Export Word"
+msgstr "Export Word"
+
+#: src/app/use-command-table.ts
+msgid "Export Word…"
+msgstr "Export Word…"
+
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
@@ -5779,6 +5795,10 @@ msgstr "Export…"
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exported {fileName}"
 msgstr "Exported {fileName}"
+
+#: src/app/use-project-lifecycle.ts
+msgid "Exporting Word…"
+msgstr "Exporting Word…"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Exporting ZIP…"
@@ -10516,6 +10536,10 @@ msgstr "Panels"
 #: src/app/shortcut-groups.ts
 msgid "Panels and tabs"
 msgstr "Panels and tabs"
+
+#: src/project/export-word.ts
+msgid "paper"
+msgstr "paper"
 
 #: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
@@ -16375,6 +16399,10 @@ msgstr "Window"
 msgid "With full text"
 msgstr "With full text"
 
+#: src/project/export-word.ts
+msgid "Word"
+msgstr "Word"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Word and page limits"
 msgstr "Word and page limits"
@@ -16394,6 +16422,19 @@ msgstr "Word count"
 #: src/canvas/editor-status-bar.tsx
 msgid "Word count: {scope}, {count}"
 msgstr "Word count: {scope}, {count}"
+
+#. placeholder {0}: result.path
+#: src/project/export-word.ts
+msgid "Word document exported to {0}"
+msgstr "Word document exported to {0}"
+
+#: src/project/export-word.ts
+msgid "Word export"
+msgstr "Word export"
+
+#: src/project/export-word.ts
+msgid "Word export creates editable text and equations for comments and Track Changes. Pagination, custom LaTeX commands, TikZ and complex layouts may differ or be omitted. Check the exported document against your PDF before sharing. Word edits are not imported back into LaTeX."
+msgstr "Word export creates editable text and equations for comments and Track Changes. Pagination, custom LaTeX commands, TikZ and complex layouts may differ or be omitted. Check the exported document against your PDF before sharing. Word edits are not imported back into LaTeX."
 
 #: src/history/compare-versions.tsx
 msgctxt "changed words count"
