@@ -92,18 +92,38 @@ export function PdfAnnotationComposer(props: {
    * Comment on a file the editor does not have open, staying here until
    * Overleaf has it. When Overleaf's copy reads differently around the
    * passage, the file opens beside the PDF at it and the note stays, so Save
-   * places it in the file as the editor then holds it.
+   * places it in the file as the editor then holds it. Built here rather than
+   * in `rounds`, which loads with the app, so the PDF alone pays for it.
    */
   const commentInDocument = (place: MappedPdfSelection) => {
+    const session = rounds.pdfNoteSession();
+    const docId = session?.deps.store.docIdOf(place.path);
+    const projectRoot = session?.deps.projectRootRef.current;
+    if (!session || !docId || !projectRoot) {
+      setError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
+      return;
+    }
+    const { deps, generation } = session;
+    const quote = place.source.slice(place.from, place.to);
+    if (!quote.trim()) {
+      setError(t`There is no text to comment on in this selection.`);
+      return;
+    }
     setSaving(true);
     setError(null);
-    rounds.commentInDocumentFromPdf(selection, place, body).then(
+    deps.store.createInDocument({ projectRoot, docId, path: place.path }, place.source, place.from, quote, body.trim()).then((placement) => {
+      // Not once the project changed meanwhile: there is no file of it left to open.
+      if (placement === "notFound" && rounds.pdfNoteSession()?.generation !== generation) {
+        throw new Error(t`The project closed before the comment was saved.`);
+      }
+      return placement;
+    }).then(
       (placement) => {
         if (placement === "placed") {
           if (!closedRef.current) props.onDone();
           return;
         }
-        rounds.openPdfSource(place);
+        void deps.openProjectFile(place.path, { line: place.line, revealSource: false });
         if (closedRef.current) {
           showError(t`Your note on ${name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there.`);
           return;

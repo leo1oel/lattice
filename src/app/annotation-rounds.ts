@@ -26,7 +26,6 @@ import { notifyInfo } from "../telemetry/app-notify";
 import { showError } from "./notify";
 import { createAnnotationReviewBridge } from "../canvas/annotation-review-bridge";
 import type { CommentDestination, EditorComments } from "./use-editor-comments";
-import type { CommentPlacement } from "../overleaf/use-overleaf-comments";
 
 /** Text tasks the agent service runs at once is four; one stays free for a proofread. */
 const CONCURRENT_REVISIONS = 3;
@@ -78,7 +77,7 @@ const lineAt = (source: string, offset: number) => source.slice(0, offset).split
 
 /** What the rounds read and do in the app, attached by App once it has them. */
 export type AnnotationRoundsDeps = {
-  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "createInDocument" | "destination" | "setActiveId" | "openComment" | "resolve" | "reply">;
+  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "docIdOf" | "createInDocument" | "destination" | "setActiveId" | "openComment" | "resolve" | "reply">;
   projectRootRef: Ref<string | null>;
   activeFileRef: Ref<string>;
   /** The active file's live text. */
@@ -591,38 +590,12 @@ export class AnnotationRounds {
   };
 
   /**
-   * Save a note made on the PDF as an Overleaf comment on a file the editor
-   * does not have open live (destination "other-file"), without opening it:
-   * the comment lands on the span in `mapped`, placed again in Overleaf's copy
-   * of the file. "notFound" when that copy holds the passage nowhere it can
-   * tell; `openPdfSource` then lets the writer place it themselves. Not once
-   * the project changed meanwhile: there is no file of it left to open.
+   * The app's deps and the project's generation, for a PDF note on a file the
+   * editor does not have open, which the lazily loaded composer saves itself
+   * (kept out of this eagerly loaded module). A later call answering another
+   * generation means the project changed meanwhile.
    */
-  commentInDocumentFromPdf = async (selection: PdfTextSelection, mapped: MappedPdfSelection, body: string): Promise<CommentPlacement> => {
-    const deps = this.deps;
-    if (!deps) throw new Error(i18n._(msg`The project closed before the comment was saved.`));
-    const comment = createEditorComment({
-      path: mapped.path, source: mapped.source, from: mapped.from, to: mapped.to, body,
-      // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
-      authorId: deps.author.id, authorName: deps.author.name.trim() || "Anonymous",
-      pdf: { page: selection.page, rects: selection.rects, text: selection.text },
-    });
-    if (!comment) throw new Error(i18n._(msg`There is no text to comment on in this selection.`));
-    const generation = this.generation;
-    const placement = await deps.store.createInDocument(comment, mapped.source);
-    if (placement === "notFound" && this.generation !== generation) {
-      throw new Error(i18n._(msg`The project closed before the comment was saved.`));
-    }
-    return placement;
-  };
-
-  /**
-   * Open the file a PDF passage came from at its line, beside the PDF rather
-   * than in its place, so the note composed on the PDF can be saved there.
-   */
-  openPdfSource = (mapped: MappedPdfSelection) => {
-    void this.deps?.openProjectFile(mapped.path, { line: mapped.line, revealSource: false });
-  };
+  pdfNoteSession = () => this.deps && { deps: this.deps, generation: this.generation };
 
   /** Stop every question in flight: the project is closing or changing. */
   reset = () => {

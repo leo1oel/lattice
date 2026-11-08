@@ -15131,7 +15131,7 @@ msgstr "Overleaf 连接完成前项目已切换"
 msgid "The project changed before the action could start."
 msgstr "项目已切换，操作没有执行"
 
-#: src/app/annotation-rounds.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "The project closed before the comment was saved."
 msgstr "项目已关闭，评论没保存"
 
@@ -15416,7 +15416,7 @@ msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
 msgid "There exists"
 msgstr "存在"
 
-#: src/app/annotation-rounds.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "There is no text to comment on in this selection."
 msgstr "选中的内容里没有可评论的文字"
 
@@ -15571,6 +15571,7 @@ msgid "This file is not a PDF."
 msgstr "此文件不是 PDF"
 
 #: src/app/use-editor-comments.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "此文件没在实时协作中，请重连后再评论"
 

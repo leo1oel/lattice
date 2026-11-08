@@ -15131,7 +15131,7 @@ msgstr "The project changed before Overleaf could finish connecting."
 msgid "The project changed before the action could start."
 msgstr "The project changed before the action could start."
 
-#: src/app/annotation-rounds.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "The project closed before the comment was saved."
 msgstr "The project closed before the comment was saved."
 
@@ -15416,7 +15416,7 @@ msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 msgid "There exists"
 msgstr "There exists"
 
-#: src/app/annotation-rounds.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "There is no text to comment on in this selection."
 msgstr "There is no text to comment on in this selection."
 
@@ -15571,6 +15571,7 @@ msgid "This file is not a PDF."
 msgstr "This file is not a PDF."
 
 #: src/app/use-editor-comments.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
 

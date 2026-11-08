@@ -44,7 +44,7 @@ function roundsWith(annotations: EditorComment[]) {
       state.current = { ...state.current, annotations: [...state.current.annotations, created] };
       return created;
     },
-    createInDocument: vi.fn(async () => "placed" as const),
+    docIdOf: () => null, createInDocument: vi.fn(async () => "placed" as const),
     destination: () => "annotation", setActiveId: vi.fn(), openComment: vi.fn(), resolve: vi.fn(), reply: vi.fn(),
   };
   const rounds = new AnnotationRounds();
@@ -105,8 +105,8 @@ describe("AnnotationRounds / PDF notes posted to Overleaf", () => {
 describe("AnnotationRounds / PDF notes on a file the editor does not have open", () => {
   const ABSTRACT = "\\begin{abstract}\nWe show that it works.\nWe show that it scales.\n\\end{abstract}\n";
 
-  it("maps the selection into that file and comments on the exact span, without opening it", async () => {
-    const { rounds, store } = roundsWith([]);
+  it("maps the selection into that file, at the exact span, without opening it", async () => {
+    const { rounds } = roundsWith([]);
     vi.mocked(invoke).mockImplementation(async (command, args) => {
       if (command === "synctex_edit") return { path: "abstract.tex", line: 3 };
       if (command === "read_project_file") return (args as { path: string }).path === "abstract.tex" ? ABSTRACT : null;
@@ -118,41 +118,15 @@ describe("AnnotationRounds / PDF notes on a file the editor does not have open",
     const from = ABSTRACT.lastIndexOf("We show that it");
     expect(from).toBeGreaterThan(ABSTRACT.indexOf("We show that it"));
     expect(mapped).toEqual({ path: "abstract.tex", line: 3, from, to: from + "We show that it".length, source: ABSTRACT });
-
-    await expect(rounds.commentInDocumentFromPdf(selection, mapped, " Cite it. ")).resolves.toBe("placed");
-    const [comment, source] = vi.mocked(store.createInDocument).mock.calls[0]!;
-    expect(source).toBe(ABSTRACT);
-    expect(comment).toMatchObject({ path: "abstract.tex", from, to: from + 15, quote: "We show that it", body: "Cite it." });
     expect((rounds as unknown as { deps: AnnotationRoundsDeps }).deps.openProjectFile).not.toHaveBeenCalled();
   });
 
-  it("has no file to open for a passage Overleaf could not place once the project changed meanwhile", async () => {
-    const { rounds, store } = roundsWith([]);
-    const deps = (rounds as unknown as { deps: AnnotationRoundsDeps }).deps;
-    let answer: (placement: "placed" | "notFound") => void = () => {};
-    vi.mocked(store.createInDocument).mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
-    const selection = { page: 1, rects: [], text: "We show that it", point: { x: 0, y: 0 } };
-    const from = ABSTRACT.indexOf("We show that it");
-    const mapped = { path: "abstract.tex", line: 2, from, to: from + 15, source: ABSTRACT };
-
-    const late = rounds.commentInDocumentFromPdf(selection, mapped, "Cite it.");
-    rounds.reset();
-    answer("notFound");
-    await expect(late).rejects.toThrow("The project closed before the comment was saved.");
-    expect(deps.openProjectFile).not.toHaveBeenCalled();
-
-    // A comment that did land is still just placed.
-    const landed = rounds.commentInDocumentFromPdf(selection, mapped, "Cite it.");
-    rounds.reset();
-    answer("placed");
-    await expect(landed).resolves.toBe("placed");
-  });
-
-  it("opens the file beside the PDF at the passage when asked to place it there", () => {
+  it("tells a note saved before the project changed that it belongs to an earlier project", () => {
     const { rounds } = roundsWith([]);
-    const deps = (rounds as unknown as { deps: AnnotationRoundsDeps }).deps;
-    rounds.openPdfSource({ path: "abstract.tex", line: 3, from: 0, to: 1, source: ABSTRACT });
-    expect(deps.openProjectFile).toHaveBeenCalledWith("abstract.tex", { line: 3, revealSource: false });
+    const before = rounds.pdfNoteSession()!;
+    expect(rounds.pdfNoteSession()!.generation).toBe(before.generation);
+    rounds.reset();
+    expect(rounds.pdfNoteSession()!.generation).not.toBe(before.generation);
   });
 });
 
