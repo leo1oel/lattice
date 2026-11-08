@@ -8,6 +8,7 @@ use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{ErrorKind, Read};
+#[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex, Weak};
@@ -242,7 +243,8 @@ fn read_stable_source(path: &Path) -> IndexResult<(String, Stamp)> {
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes).map_err(IndexError::other)?;
         let after = fs::metadata(path).map_err(IndexError::other)?;
-        if same_file_generation(&before, &after) {
+        if same_file_generation(&before, &after)
+            && crate::platform_fs::identity(&file).map_err(IndexError::other)? == crate::platform_fs::path_identity(path).map_err(IndexError::other)? {
             return Ok((String::from_utf8(bytes).unwrap_or_default(), file_stamp(&before)));
         }
     }
@@ -250,8 +252,11 @@ fn read_stable_source(path: &Path) -> IndexResult<(String, Stamp)> {
 }
 
 fn same_file_generation(before: &fs::Metadata, after: &fs::Metadata) -> bool {
-    file_stamp(before) == file_stamp(after)
-        && (before.dev(), before.ino()) == (after.dev(), after.ino())
+    #[cfg(unix)]
+    let same_identity = (before.dev(), before.ino()) == (after.dev(), after.ino());
+    #[cfg(windows)]
+    let same_identity = before.created().ok() == after.created().ok();
+    file_stamp(before) == file_stamp(after) && same_identity
 }
 
 /// Every searchable file the Project pane shows.

@@ -297,6 +297,9 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
 }
 
 pub(crate) fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
+    #[cfg(windows)]
+    return super::app_support_dir().map(|root| root.join("cache").join(name)).unwrap_or_else(|| std::env::temp_dir().join(name));
+    #[cfg(not(windows))]
     match env::var_os("HOME") {
         Some(home) => PathBuf::from(home)
             .join("Library/Caches")

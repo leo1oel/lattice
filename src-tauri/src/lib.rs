@@ -60,7 +60,14 @@ mod presentation;
 #[cfg(target_os = "macos")]
 mod process_inspector;
 mod project;
+#[cfg(unix)]
 mod project_fs;
+#[cfg(windows)]
+#[path = "project_fs_windows.rs"]
+mod project_fs;
+mod platform_fs;
+#[cfg(windows)]
+mod platform_windows;
 mod research_env;
 mod review_pdf;
 mod save_before_close;
@@ -399,7 +406,7 @@ pub fn run() {
     // key). Not on Linux: the AppImage is released without an updater archive
     // and latest.json has no Linux entry, so Linux copies update by hand
     // (docs/release-process.md) and the frontend never checks there.
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let app = builder
         .plugin(tauri_plugin_process::init())

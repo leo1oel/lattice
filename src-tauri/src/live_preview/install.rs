@@ -6,6 +6,7 @@ use crate::util::{swap_in_dir, DirSwapError};
 use serde::Serialize;
 use std::fs;
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
@@ -46,7 +47,7 @@ fn is_complete(dir: &Path) -> bool {
     };
     regular(&executable)
         && fs::metadata(&executable)
-            .is_ok_and(|metadata| metadata.permissions().mode() & 0o111 != 0)
+            .is_ok_and(|metadata| executable_permissions(&metadata))
         && regular(&dir.join("share/rtex/tex/rtex-serve.lua"))
 }
 
@@ -143,6 +144,7 @@ pub(crate) fn install(on_progress: &Channel<InstallProgress>) -> Result<InstallS
     let staging = home.join(format!(".rtex-install-{}", uuid::Uuid::new_v4().simple()));
     fs::create_dir(&staging)
         .map_err(|error| format!("Could not prepare the rtex download: {error}"))?;
+    #[cfg(unix)]
     fs::set_permissions(&staging, fs::Permissions::from_mode(0o700))
         .map_err(|error| format!("Could not secure the rtex download: {error}"))?;
     let result = (|| {
@@ -266,6 +268,7 @@ fn extract_release(archive: &Path, destination: &Path, archive_root: &str) -> Re
             .and_then(|_| output.flush())
             .map_err(|error| format!("Could not unpack {}: {error}", relative.display()))?;
         let mode = if relative == Path::new("bin/rtex") { 0o755 } else { 0o644 };
+        #[cfg(unix)]
         fs::set_permissions(&target, fs::Permissions::from_mode(mode))
             .map_err(|error| format!("Could not unpack {}: {error}", relative.display()))?;
     }
@@ -357,4 +360,11 @@ mod tests {
         let link = archive(&dir, &[], Some((&format!("{ARCHIVE_ROOT}/bin/rtex"), "/bin/sh")));
         assert!(extract_release(&link, &out, ARCHIVE_ROOT).unwrap_err().contains("link"));
     }
+}
+
+fn executable_permissions(metadata: &fs::Metadata) -> bool {
+    #[cfg(unix)]
+    { metadata.permissions().mode() & 0o111 != 0 }
+    #[cfg(windows)]
+    { metadata.is_file() }
 }

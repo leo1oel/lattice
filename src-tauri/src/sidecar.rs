@@ -17,7 +17,7 @@ pub(crate) struct NodeRuntime {
 
 impl NodeRuntime {
     pub(crate) fn resolve(standalone_bin: &Path) -> Self {
-        Self { executable: standalone_bin.join("node") }
+        Self { executable: standalone_bin.join(if cfg!(windows) { "node.exe" } else { "node" }) }
     }
 
     /// Run the entry point in a fresh process group, so

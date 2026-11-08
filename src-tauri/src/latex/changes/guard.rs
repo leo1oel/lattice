@@ -228,6 +228,8 @@ fn kill(child: &mut Child) {
 
 /// The physical footprint of every process in `group`, in bytes.
 fn group_footprint(group: u32) -> u64 {
+    #[cfg(windows)]
+    { crate::platform_windows::tree_memory(group) }
     #[cfg(target_os = "macos")]
     {
         let Ok(group) = i32::try_from(group) else { return 0 };
@@ -259,6 +261,7 @@ fn group_footprint(group: u32) -> u64 {
     }
 }
 
+#[cfg(unix)]
 fn footprint(pid: libc::pid_t) -> u64 {
     #[cfg(target_os = "macos")]
     {

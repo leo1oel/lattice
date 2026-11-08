@@ -10,11 +10,11 @@ use crate::commands;
 use crate::util::err;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
-use std::fs::{self, File, Metadata, OpenOptions};
+use std::fs;
 use std::io::{self, Read};
-use std::os::unix::fs::{FileExt, MetadataExt, OpenOptionsExt};
+
 use std::path::Path;
-use std::time::UNIX_EPOCH;
+pub(super) use crate::platform_fs::{open_resolved, version as file_version};
 
 pub(super) fn asset_mime_type(path: &Path) -> Option<&'static str> {
     match extension(path).as_deref()? {
@@ -41,25 +41,6 @@ pub(super) const FILE_CHANGED: &str = "This PDF changed on disk.";
 /// Range reads are served only from the exact file `read_asset` checked, so a
 /// file replaced since then (or a link swapped in for it) is refused instead
 /// of being spliced into the open document.
-pub(super) fn file_version(metadata: &Metadata) -> String {
-    let modified = metadata
-        .modified()
-        .ok()
-        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-        .map_or(0, |elapsed| elapsed.as_nanos());
-    format!("{:x}-{:x}-{:x}-{modified:x}", metadata.dev(), metadata.ino(), metadata.len())
-}
-
-/// Open a file `safe_path` resolved, without following a link swapped in since.
-///
-/// `O_NONBLOCK` because a pipe swapped in for the file would otherwise block
-/// the open until something writes to it, holding an IPC worker thread for
-/// good; it changes nothing for a regular file. Callers still check with
-/// `fstat` (`File::metadata`) that what opened is a regular file.
-pub(super) fn open_resolved(path: &Path) -> io::Result<File> {
-    OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(path)
-}
-
 pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     let path = safe_path(root, relative)?;
     // SVG is the one supported image format whose bytes classify as text; it
@@ -96,7 +77,7 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
             mime_type: mime_type.to_string(),
             content: AssetContent::Ranges {
                 length: metadata.len(),
-                version: file_version(&metadata),
+                version: file_version(&file, &metadata).map_err(err)?,
             },
         });
     }
@@ -153,7 +134,7 @@ pub fn read_asset_range(
     };
     let checked = || -> Result<u64, String> {
         let metadata = file.metadata().map_err(err)?;
-        if !metadata.is_file() || file_version(&metadata) != version {
+        if !metadata.is_file() || file_version(&file, &metadata).map_err(err)? != version {
             return Err(FILE_CHANGED.to_string());
         }
         Ok(metadata.len())
@@ -162,7 +143,7 @@ pub fn read_asset_range(
         return Err("This byte range is outside the file.".to_string());
     }
     let mut bytes = vec![0; (end - start) as usize];
-    match file.read_exact_at(&mut bytes, start) {
+    match crate::platform_fs::read_exact_at(&file, &mut bytes, start) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => {
             return Err(FILE_CHANGED.to_string())

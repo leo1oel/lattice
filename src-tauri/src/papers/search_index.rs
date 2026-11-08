@@ -21,7 +21,7 @@ mod tokenizer;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
-use std::os::unix::fs::MetadataExt;
+
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
@@ -245,7 +245,7 @@ fn stamp(paper: &PaperText) -> PaperStamp {
         .iter()
         .filter_map(|file| {
             let metadata = fs::metadata(&file.absolute).ok()?;
-            let modified_ns = metadata.mtime() * 1_000_000_000 + metadata.mtime_nsec();
+            let modified_ns = metadata.modified().ok().and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |time| time.as_nanos().min(i64::MAX as u128) as i64);
             Some((file.path.clone(), metadata.len(), modified_ns))
         })
         .collect();

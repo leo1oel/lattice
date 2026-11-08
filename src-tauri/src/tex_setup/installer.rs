@@ -256,17 +256,19 @@ pub(super) fn valid_tex_dependency_name(missing_file: &str) -> bool {
 }
 
 pub(crate) fn create_private_file(path: &Path) -> Result<std::fs::File, String> {
+    #[cfg(unix)]
     use std::os::unix::fs::OpenOptionsExt;
-    std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(path)
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    options.open(path)
         .map_err(|error| format!("Could not create {}: {error}", path.display()))
 }
 
 /// Extract exactly `<archive_root>/`, `uv` and `uvx` into `staging`,
 /// refusing anything else the archive holds.
+#[cfg(unix)]
 pub(super) fn extract_uv_archive(
     archive_path: &Path, staging: &Path, archive_root: &str,
 ) -> Result<(), String> {

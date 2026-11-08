@@ -8,7 +8,8 @@ use crate::util::err;
 use chrono::{Datelike, Local, NaiveDate, TimeZone, Timelike};
 use std::fs::{self, File};
 use std::io::{self, Read};
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use walkdir::WalkDir;
@@ -67,7 +68,7 @@ pub fn export_project_zip(root: &Path, zip_path: &Path) -> Result<(), String> {
 fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
     // The archive may be written inside the project (possibly through a
     // symlinked folder); it must not contain itself.
-    let archive = file.metadata().map_err(err)?;
+    let archive = crate::platform_fs::identity(&file).map_err(err)?;
     // Where builds put the PDF (see `latex::compiled_pdf_path`). A folder
     // without a manifest has no build to leave out.
     let build_pdf = read_manifest(root).ok().and_then(|manifest| {
@@ -91,16 +92,19 @@ fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
         }
         let name = (relative.to_str())
             .ok_or_else(|| format!("{} is not a UTF-8 path.", relative.display()))?;
+        let name = name.replace('\\', "/");
+        let name = name.as_str();
         let metadata = entry.metadata().map_err(err)?;
         let options = SimpleFileOptions::default()
-            .unix_permissions(metadata.permissions().mode())
             .last_modified_time(zip_time(metadata.modified().ok()))
             .large_file(metadata.len() >= u64::from(u32::MAX));
+        #[cfg(unix)]
+        let options = options.unix_permissions(metadata.permissions().mode());
         if metadata.is_dir() {
             writer.add_directory(format!("{name}/"), options).map_err(err)?;
         } else if !excluded_file(name)
             && build_pdf.as_deref() != Some(entry.path())
-            && (metadata.dev(), metadata.ino()) != (archive.dev(), archive.ino())
+            && crate::platform_fs::path_identity(entry.path()).map_err(err)? != archive
         {
             writer.start_file(name, options).map_err(err)?;
             io::copy(&mut File::open(entry.path()).map_err(err)?, &mut writer).map_err(err)?;
@@ -230,6 +234,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
         if let Some(modified) = file.last_modified().and_then(system_time) {
             let _ = out.set_modified(modified);
         }
+        #[cfg(unix)]
         if let Some(mode) = file.unix_mode().map(|mode| mode & 0o777).filter(|&mode| mode != 0) {
             fs::set_permissions(&target, fs::Permissions::from_mode(mode | 0o600)).map_err(err)?;
         }

@@ -461,16 +461,15 @@ pub fn stat_file(root: &Path, relative: &str) -> Result<ProjectFileStat, String>
         exists: true,
         mtime_ms,
         size: metadata.len(),
-        file_id: file_identity(&metadata),
+        file_id: file_identity(&path),
     })
 }
 
 /// The file itself rather than its name: device and inode, which a rename
 /// (`mv`, `git mv`) keeps and a new file at the same path does not. A string,
 /// so a 64-bit inode reaches JavaScript exactly.
-pub(super) fn file_identity(metadata: &fs::Metadata) -> String {
-    use std::os::unix::fs::MetadataExt;
-    format!("{}:{}", metadata.dev(), metadata.ino())
+pub(super) fn file_identity(path: &Path) -> String {
+    crate::platform_fs::path_identity(path).map(|(volume, index)| format!("{volume}:{index}")).unwrap_or_default()
 }
 
 #[cfg(test)]

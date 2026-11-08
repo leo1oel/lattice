@@ -1,0 +1,12 @@
+{
+  "identifier": "app.lattice.windows",
+  "build": { "beforeBuildCommand": "node scripts/verify-windows-resources.mjs" },
+  "bundle": {
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": { "installMode": "currentUser", "languages": ["French", "English"], "displayLanguageSelector": true }
+    }
+  }
+}
