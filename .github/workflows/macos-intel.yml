@@ -28,9 +28,10 @@ name: macOS Intel
 #   verifies the archive's signature against the app's updater key first).
 #
 # A pull request that changes this packaging, or a run by hand, runs the same
-# build, signing, notarization and smoke with the open-licensed fonts and no
-# baked-in keys, and publishes nothing. Without the signing secrets (a fork)
-# it builds ad hoc signed and skips notarization.
+# build, signing, notarization and smoke with the open-licensed fonts, no
+# baked-in keys and no updater key (so no updater archive), and publishes
+# nothing. Without the signing secrets (a fork) it builds ad hoc signed and
+# skips notarization.
 on:
   workflow_run:
     workflows: [Release]
@@ -165,10 +166,10 @@ jobs:
           echo "LATTICE_PRIVATE_FONTS_DIR=$fonts_checkout/Timeless-Type-Family-1.094" >> "$GITHUB_ENV"
           echo "LATTICE_PRIVATE_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
 
-      # The same Developer ID, App Store Connect key and updater key as
-      # release.yml. A release must have them; a run without them (a fork's
-      # pull request) builds ad hoc signed, with no updater archive, and
-      # skips notarization.
+      # The same Developer ID and App Store Connect key as release.yml. A
+      # release must have them; a run without them (a fork's pull request)
+      # builds ad hoc signed and skips notarization. The updater key is passed
+      # to the build step for a release only.
       - name: Import Apple Developer ID certificate
         id: signing
         env:
