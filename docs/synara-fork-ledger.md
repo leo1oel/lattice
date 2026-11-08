@@ -128,6 +128,9 @@ When the installed Codex is older than 0.153.0, the model picker's Codex tab say
 The tab lists exactly what Codex's `model/list` returns, which replaces the static catalog that already names `gpt-6-astra`, and Codex's own catalog gives GPT-6 Astra `minimal_client_version: 0.153.0`, so an older Codex left it out with no word why ([#685](https://github.com/leo1oel/lattice/issues/685)).
 The check reads the version the Codex status probe already reports (`codexNeedsUpdateForAstra` in the fork's `apps/web/src/components/chat/ComposerModelPicker.logic.ts`); an unknown or unparseable version shows nothing. Astra is not added to an older Codex's list, since those clients lack the tool modes it needs.
 
+In the Git drawer, the empty states of Changes and Pull requests sit centred in the panel's height, a little above the middle, instead of 24px from the top with most of the panel empty below (fork `58f34d951baddad6757284e702bb96de21ae9e1c`, [fork PR 12](https://github.com/leo1oel/synara/pull/12)).
+A panel too short for one starts it at the top and scrolls rather than clipping its drawing, and an empty state above a list (closed pull requests under "No open pull requests") keeps its place at the top. Only `.lattice-git-empty` in the fork's `apps/web/src/index.css` changes; `GitRepositorySetup.browser.tsx` checks both heights.
+
 ## Synara 0.9.1 compatibility
 
 The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.
