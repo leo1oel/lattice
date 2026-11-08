@@ -188,3 +188,72 @@ fn an_agents_rewrite_of_the_paragraph_a_co_author_is_typing_in_keeps_both() {
     assert_eq!(text.replacen(" (co-author typing)", "", 1), rewritten, "{text}");
     assert_eq!(read_local(&root, "main.tex").unwrap(), rewritten.as_bytes());
 }
+
+// Without the live channel (a network or proxy that blocks WebSockets), a
+// document Overleaf holds goes up whole, so each one goes only while the
+// project's history version still holds, read again just before it and just
+// after. The mock answers one version per read, in the order a sync reads
+// them: the snapshot, then before the first upload and after each one.
+
+const COAUTHOR: &str = "Intro.\n\nMiddle.\n\nEnd, typed on Overleaf.\n";
+const OURS: &str = "Intro, edited here.\n\nMiddle.\n\nEnd.\n";
+
+#[test]
+fn a_co_author_edit_landing_before_the_upload_stands_it_down_and_the_next_sync_merges_it() {
+    // They typed after our snapshot and before the upload: Overleaf's copy
+    // is no longer the one we planned against, so nothing goes up.
+    let mock = Mock {
+        versions: vec![11, 12],
+        later_zip: Some(build_zip(&[("main.tex", COAUTHOR.as_bytes())])),
+        ..Mock::project(&[("main.tex", BASE.as_bytes())])
+    };
+    let server = mock.serve();
+    let (config, root) =
+        linked(&server, &[("main.tex", OURS.as_bytes())], &[("main.tex", BASE.as_bytes())]);
+    let first = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert!(first.pushed.is_empty() && server.uploads().is_empty());
+    assert!(first.uploaded_over_edits.is_empty());
+    assert_eq!(state_files(&root)["main.tex"], sha256_hex(BASE.as_bytes()));
+
+    // The next sync downloads their edit, merges ours into it, and sends both.
+    let second = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(second.merged, ["main.tex"]);
+    assert_eq!(second.pushed, ["main.tex"]);
+    assert!(second.uploaded_over_edits.is_empty());
+    let both = "Intro, edited here.\n\nMiddle.\n\nEnd, typed on Overleaf.\n";
+    let uploads = server.uploads();
+    assert_eq!(uploads.len(), 1);
+    assert!(uploads[0].body_text().contains(both), "{}", uploads[0].body_text());
+    assert_eq!(read_local(&root, "main.tex").unwrap(), both.as_bytes());
+}
+
+#[test]
+fn a_co_author_edit_landing_during_the_upload_is_reported_once_for_the_sync() {
+    // Two documents. Their edit lands while `a.tex` goes up: the version
+    // after it moved by more than our one upload. `a.tex` may have replaced
+    // their words, which is named; `b.tex` waits for the next sync.
+    let base: Files = &[("a.tex", BASE.as_bytes()), ("b.tex", BASE.as_bytes())];
+    let local: Files = &[("a.tex", OURS.as_bytes()), ("b.tex", OURS.as_bytes())];
+    let mock = Mock { versions: vec![11, 11, 13], ..Mock::project(base) };
+    let (server, root, result) = run_sync(mock, local, base);
+    assert_eq!(result.pushed, ["a.tex"]);
+    assert_eq!(result.uploaded_over_edits, ["a.tex"]);
+    assert_eq!(server.uploads().len(), 1);
+    assert_eq!(state_files(&root)["b.tex"], sha256_hex(BASE.as_bytes()));
+}
+
+#[test]
+fn documents_uploaded_while_overleaf_holds_still_report_nothing() {
+    let base: Files = &[("a.tex", BASE.as_bytes()), ("b.tex", BASE.as_bytes())];
+    let local: Files =
+        &[("a.tex", OURS.as_bytes()), ("b.tex", OURS.as_bytes()), ("new.tex", b"New.\n")];
+    // Each of our uploads moves the version by one, or Overleaf reports it
+    // late and the version stays put: neither is anyone else's edit.
+    for versions in [vec![11, 11, 12, 13], vec![11]] {
+        let mock = Mock { versions, ..Mock::project(base) };
+        let (server, _root, result) = run_sync(mock, local, base);
+        assert_eq!(result.pushed, ["a.tex", "b.tex", "new.tex"]);
+        assert!(result.uploaded_over_edits.is_empty(), "{:?}", result.uploaded_over_edits);
+        assert_eq!(server.uploads().len(), 3);
+    }
+}

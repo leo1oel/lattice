@@ -24,6 +24,13 @@ export function overleafSyncWarnings(
     const files = result.refusedIncoming.join(", ");
     warnings.push(t`Kept your copy of ${files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.`);
   }
+  // Without the live channel a document goes up whole, and someone's edit
+  // reached the project while one did. Which file they were in is not known,
+  // so this says "may", and points to where their words are kept.
+  if (result.uploadedOverEdits?.length) {
+    const files = result.uploadedOverEdits.join(", ");
+    warnings.push(t`Someone edited the Overleaf project while ${files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing.`);
+  }
   // Overleaf keeps names apart that this Mac's disk treats as one; the sync
   // takes the first of each pair and leaves the other alone on both sides.
   if (result.caseCollisions?.length) {

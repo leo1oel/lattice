@@ -13617,6 +13617,10 @@ msgstr "有些文件未纳入标签和引用检查"
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Someone edited the Overleaf project while {files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing."
+msgstr "有人在 {files} 上传期间改动了 Overleaf 项目。上传会替换整个文件，所以可能覆盖了对方刚打的字。请在 Overleaf 上查看该文件的历史记录，找回缺失的内容"
+
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-list-toolbar.tsx
 msgid "Sort"

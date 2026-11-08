@@ -833,17 +833,11 @@ fn sync_files(
             Ok((path.clone(), bytes?.clone()))
         })
         .collect::<Result<_, String>>()?;
-    let send::Sent { sent, stood_down } =
+    let outcome =
         send::send(&linked, &client, csrf.as_deref(), &remote, files, remote_version_before)?;
-    // Each stays a local edit on the copy it was planned against (a merge's,
-    // the copy it merged with), so the next sync merges in only what Overleaf
-    // did since. A new file has no such copy.
-    for path in &stood_down {
-        match remote.get(path) {
-            Some(bytes) => new_files.insert(path.clone(), sha256_hex(bytes)),
-            None => new_files.remove(path),
-        };
-    }
+    outcome.keep_planned_copies(&remote, &mut new_files);
+    let send::Sent { sent, over_edits, .. } = outcome;
+    result.uploaded_over_edits = over_edits;
     let pushed: Vec<String> = sent.keys().cloned().collect();
     let mut own_writes = linked.state.own_writes.clone();
     if !pushed.is_empty() {

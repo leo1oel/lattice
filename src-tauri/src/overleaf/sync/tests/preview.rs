@@ -121,10 +121,12 @@ fn overleaf_preview_reports_exactly_what_sync_then_does() {
     assert!(server.with_method("DELETE").is_empty());
     let uploads = server.uploads();
     assert_eq!(uploads.len(), 3);
-    // A file into a folder Overleaf does not have yet goes up first and
-    // alone, so no two uploads race to create the same folder.
-    assert!(uploads[0].body_text().contains("\r\n\r\nnested/new-chapter.tex\r\n"));
-    // The rest run a few at a time, so they arrive in no particular order.
+    // Documents Overleaf holds go up first, one at a time, each between two
+    // reads of the project's version (see `send`); new files come after.
+    let upload_of = |rel: &str| format!("\r\n\r\n{rel}\r\n");
+    assert!(uploads[0].body_text().contains(&upload_of("main.tex")));
+    assert!(uploads[1].body_text().contains(&upload_of("outgoing.tex")));
+    assert!(uploads[2].body_text().contains(&upload_of("nested/new-chapter.tex")));
     for rel in &result.pushed {
         let upload = (uploads.iter())
             .find(|upload| upload.body_text().contains(&format!("\r\n\r\n{rel}\r\n")))

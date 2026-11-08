@@ -55,6 +55,11 @@ pub struct OverleafSyncResult {
     /// they count as local edits and need one more sync to go up.
     #[serde(default)]
     pub edited_during_sync: Vec<String>,
+    /// Documents uploaded whole, for want of the live channel, while someone
+    /// else's edit reached the project: the upload may have replaced what a
+    /// co-author had just typed in them, which Overleaf's history still has.
+    #[serde(default)]
+    pub uploaded_over_edits: Vec<String>,
     /// Files still carrying the conflict markers of an earlier sync while
     /// Overleaf moved on again. Merging the marked-up file once more would
     /// nest a second set of markers inside the first, so each is left exactly
@@ -95,6 +100,7 @@ pub(super) fn record_result(result: &OverleafSyncResult) {
         ("skipped_large", result.skipped_large.len()),
         ("refused_incoming", result.refused_incoming.len()),
         ("edited_during_sync", result.edited_during_sync.len()),
+        ("uploaded_over_edits", result.uploaded_over_edits.len()),
         ("unresolved_conflicts", result.unresolved_conflicts.len()),
         ("case_collisions", result.case_collisions.len()),
     ] {
