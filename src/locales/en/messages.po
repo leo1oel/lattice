@@ -10501,7 +10501,6 @@ msgstr "Overleaf's project join returned no root folder id."
 msgid "Overleaf's root folder has no id."
 msgstr "Overleaf's root folder has no id."
 
-#: src/canvas/paper-selection-actions.tsx
 #: src/project/paper-library.tsx
 msgid "Overview"
 msgstr "Overview"

@@ -10501,7 +10501,6 @@ msgstr "加入 Overleaf 项目时没有返回根文件夹 ID"
 msgid "Overleaf's root folder has no id."
 msgstr "Overleaf 的根文件夹没有 ID"
 
-#: src/canvas/paper-selection-actions.tsx
 #: src/project/paper-library.tsx
 msgid "Overview"
 msgstr "导读"
