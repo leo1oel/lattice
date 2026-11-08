@@ -551,6 +551,10 @@ msgstr "{failing} 项需要处理"
 msgid "{failures} to fix"
 msgstr "{failures} 项需修复"
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "{file} still has conflict markers. Resolve them to bring in Overleaf's newer edits."
+msgstr "{file} 里还有冲突标记，处理完才能合并 Overleaf 上的新改动"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} 个文件"
@@ -10436,17 +10440,21 @@ msgstr "会话仍然有效，但 Overleaf 拒绝了这次请求"
 msgid "Overleaf write access is required to sync moved files. Local moves have been kept."
 msgstr "同步移动的文件需要 Overleaf 写入权限，本地的移动已保留"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: already up to date."
 msgstr "Overleaf：已是最新"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}, merged {merged}."
 msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个，合并 {merged} 个"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个"
+
+#: src/app/overleaf-sync-summary.ts
+msgid "Overleaf: waiting on conflict resolution in {files}."
+msgstr "Overleaf：等你处理 {files} 的冲突"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's full history needs a paid plan on this project."
@@ -12070,6 +12078,7 @@ msgstr "调整文献列表与详情的宽度"
 msgid "Resize right panel"
 msgstr "调整右侧面板大小"
 
+#: src/app/overleaf-sync-warnings.ts
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
@@ -16284,6 +16293,10 @@ msgstr "正在等待 Overleaf 的实时文件树，之后再同步移动的文�
 #: src/overleaf/overleaf-connect-parts.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "请在 Overleaf 窗口中登录…"
+
+#: src/overleaf/overleaf-review.tsx
+msgid "Waiting on conflict resolution"
+msgstr "等你处理冲突"
 
 #: src/telemetry/app-log.tsx
 msgid "WARN"

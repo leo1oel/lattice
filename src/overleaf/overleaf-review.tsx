@@ -39,6 +39,7 @@ import { LoadingAnnouncement } from "../components/ui/loading-status";
  */
 const GROUPS: { kind: OverleafChangeKind; Icon: typeof Trash2; title: MessageDescriptor; blurb?: MessageDescriptor }[] = [
   { kind: "conflict", Icon: TriangleAlert, title: msg`Edited on both sides` },
+  { kind: "unresolvedConflict", Icon: TriangleAlert, title: msg`Waiting on conflict resolution` },
   { kind: "refusedIncoming", Icon: ShieldAlert, title: msg`Kept here`, blurb: msg`Overleaf sent these empty or much smaller, but its history does not confirm the change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again` },
   { kind: "incoming", Icon: ArrowDownToLine, title: msg`Coming from Overleaf` },
   { kind: "merge", Icon: GitMerge, title: msg`Combines automatically` },
@@ -133,13 +134,15 @@ export function OverleafReviewDialog(props: {
 
   if (!props.open) return null;
 
-  const total = preview?.changes.length ?? 0;
-  const conflicts = preview?.changes.filter((change) => change.kind === "conflict").length ?? 0;
+  // A file held marked up changes nothing until resolved, but waits on you.
+  const changes = preview?.changes ?? [];
+  const total = changes.filter((change) => change.kind !== "unresolvedConflict").length;
+  const conflicts = changes.filter((change) => change.kind === "conflict" || change.kind === "unresolvedConflict").length;
   const changeSummary = total === 1 ? t`${total} file would change` : t`${total} files would change`;
   const conflictSummary = conflicts === 1 ? t`${conflicts} needs your decision` : t`${conflicts} need your decision`;
-  const summary = conflicts
-    ? t`${changeSummary}, ${conflictSummary}`
-    : changeSummary;
+  const summary = !total ? conflictSummary
+    : conflicts ? t`${changeSummary}, ${conflictSummary}`
+      : changeSummary;
 
   const apply = async () => {
     setApplying(true);
@@ -166,7 +169,7 @@ export function OverleafReviewDialog(props: {
         <div className="overleaf-review-head">
           <div>
             <h2><Trans>Review changes</Trans></h2>
-            {!loading && <p>{total === 0 ? t`Everything already matches Overleaf` : summary}</p>}
+            {!loading && <p>{changes.length === 0 ? t`Everything already matches Overleaf` : summary}</p>}
           </div>
           <ReloadButton size="compact" variant="ghost" busy={loading} disabled={loading || applying} onClick={() => void load()}>
             <Trans>Refresh</Trans>

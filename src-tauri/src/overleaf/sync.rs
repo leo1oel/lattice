@@ -19,72 +19,11 @@ use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED, SESSION_STILL_VALID};
 use crate::util::err;
 use crate::wide_event::{self, Failure};
 use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OverleafConflict {
-    pub path: String,
-    pub local_copy: String,
-    /// Whether the file carries conflict markers to work through.
-    ///
-    /// False for one that could not be merged line by line at all — a figure,
-    /// a PDF — where the remote version simply takes the path and the local
-    /// one is kept beside it. Telling someone to resolve the spots in a file
-    /// that has none, and opening a marker resolver on it, is worse than
-    /// saying plainly that both versions are on disk.
-    #[serde(default)]
-    pub markers: bool,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OverleafSyncResult {
-    pub pulled: Vec<String>,
-    pub pushed: Vec<String>,
-    /// Files where both sides had edits that combined cleanly.
-    pub merged: Vec<String>,
-    pub conflicts: Vec<OverleafConflict>,
-    pub deleted_local: Vec<String>,
-    pub skipped_remote_deletes: Vec<String>,
-    /// App-owned transient paths that should be removed remotely without
-    /// applying the user's deletion policy for ordinary project files.
-    #[serde(default)]
-    pub automatic_remote_deletes: Vec<String>,
-    /// Files left alone because they are bigger than Overleaf will take.
-    /// Reported rather than dropped quietly: to the writer they look synced.
-    #[serde(default)]
-    pub skipped_large: Vec<String>,
-    /// Files kept as they are here although Overleaf's download had them
-    /// empty or cut to a fraction, because Overleaf's history does not confirm
-    /// a change to them since the last sync (see [`settle_destructive`]). Each
-    /// is reported once per Overleaf copy, not again while that copy stays.
-    #[serde(default)]
-    pub refused_incoming: Vec<String>,
-    /// True when local work stayed here because this account cannot write to
-    /// the project. Everything incoming still landed.
-    #[serde(default)]
-    pub read_only: bool,
-    /// Files changed here while this sync ran, by something other than the
-    /// editor (whose saves wait for a sync to finish): an agent, another
-    /// editor. The sync wrote nothing over them and recorded none of it, so
-    /// they count as local edits and need one more sync to go up.
-    #[serde(default)]
-    pub edited_during_sync: Vec<String>,
-    /// Overleaf paths that differ only in case from another, left out of the
-    /// sync on both sides (see `case_collisions`); named on every sync until
-    /// one is renamed.
-    #[serde(default)]
-    pub case_collisions: Vec<CaseCollision>,
-    /// Whether this sync downloaded the project under the lease, which the
-    /// app counts towards the gap between downloads once the sync is done.
-    #[serde(skip)]
-    pub downloaded_under_lease: bool,
-}
 
 /// Result of the cheap remote-change check that live mode polls.
 #[derive(Debug, Clone, Serialize)]
@@ -173,6 +112,8 @@ pub(super) struct SyncPlan {
     pub conflict: Vec<ConflictPlan>,
     pub delete_local: Vec<String>,
     pub skipped_remote_deletes: Vec<String>,
+    /// See `OverleafSyncResult::unresolved_conflicts`.
+    pub unresolved_conflicts: Vec<String>,
     /// Pulls and merges held for confirmation; until then each keeps its local
     /// hash in `files`.
     pub destructive: Vec<Destructive>,
@@ -273,6 +214,14 @@ pub(super) fn plan_sync(
                     plan.files.insert(path.clone(), local_hash);
                     continue;
                 }
+                // Still marked up: merging again would nest markers. Hold it.
+                if local_changed && has_conflict_markers(lb) {
+                    if let Some(base) = base_hash {
+                        plan.files.insert(path.clone(), base.clone());
+                    }
+                    plan.unresolved_conflicts.push(path.clone());
+                    continue;
+                }
                 // Changed there. When both sides changed, combine them line
                 // by line against the copy we kept at the last sync, so edits
                 // to different parts of a file simply merge — only genuinely
@@ -293,7 +242,9 @@ pub(super) fn plan_sync(
                         markers,
                         resolved,
                         local: lb.clone(),
-                        local_copy: conflict_copy_name(path, stamp),
+                        local_copy: conflict_copy_name(path, stamp, |name| {
+                            disk_path(root, name).exists()
+                        }),
                     })
                 });
                 if wipes_out(lb, rb) {
@@ -620,27 +571,6 @@ pub fn classify_sync_error(error: &str) -> Failure {
     }
 }
 
-/// The sync's shape on its wide event: counts, never paths.
-fn record_result(result: &OverleafSyncResult) {
-    for (key, count) in [
-        ("pulled", result.pulled.len()),
-        ("pushed", result.pushed.len()),
-        ("merged", result.merged.len()),
-        ("conflicts", result.conflicts.len()),
-        ("deleted_local", result.deleted_local.len()),
-        ("skipped_remote_deletes", result.skipped_remote_deletes.len()),
-        ("skipped_large", result.skipped_large.len()),
-        ("refused_incoming", result.refused_incoming.len()),
-        ("edited_during_sync", result.edited_during_sync.len()),
-        ("case_collisions", result.case_collisions.len()),
-    ] {
-        if count > 0 {
-            wide_event::record(key, count);
-        }
-    }
-    wide_event::record("read_only", result.read_only);
-}
-
 /// Lease-free reads ahead a sync makes before its last round, which takes
 /// the lease and downloads under it if it must, so a link that keeps moving
 /// during each download cannot keep a sync from finishing.
@@ -796,6 +726,8 @@ fn sync_files(
         skipped_large: oversized,
         automatic_remote_deletes,
         skipped_remote_deletes: plan.skipped_remote_deletes,
+        newly_unresolved_conflicts: newly_held(&linked.state, &plan.unresolved_conflicts),
+        unresolved_conflicts: plan.unresolved_conflicts,
         case_collisions,
         downloaded_under_lease,
         ..Default::default()
@@ -880,19 +812,19 @@ fn sync_files(
     to_push.sort();
     let upload_bytes = |path: &String| merged_content.get(path).or_else(|| local.get(path));
 
-    // Never hand Overleaf a file whose conflict markers are still unresolved —
-    // that would publish the markers to everyone else in the project.
+    // Never publish conflict markers: a marked-up file stays unsent, on the
+    // base its markers show, until resolved.
+    let marked = |path: &String| upload_bytes(path).is_some_and(|b| has_conflict_markers(b));
     let (mut to_push, held_back): (Vec<String>, Vec<String>) = if writable {
-        to_push
-            .into_iter()
-            .partition(|path| !upload_bytes(path).is_some_and(|b| has_conflict_markers(b)))
+        to_push.into_iter().partition(|path| !marked(path))
     } else {
         (Vec::new(), to_push)
     };
-    // Held-back paths stay out of state too, so they count as local edits and
-    // upload as soon as they can.
     for path in &held_back {
-        new_files.remove(path);
+        match linked.state.files.get(path).filter(|_| marked(path)) {
+            Some(hash) => new_files.insert(path.clone(), hash.clone()),
+            None => new_files.remove(path),
+        };
     }
 
     // Overleaf may have moved on between the copy we planned against and now —
@@ -962,6 +894,7 @@ fn sync_files(
     own_writes.retain(|path, _| state.files.contains_key(path));
     state.own_writes = own_writes;
     state.refused = refused;
+    state.unresolved_conflicts = result.unresolved_conflicts.clone();
     state.last_sync = Some(now_iso());
     // `remote_version_before` is the only history position known to precede
     // the downloaded snapshot. Never replace it with a newer value fetched at
@@ -1016,9 +949,12 @@ pub fn probe(
     })
 }
 
+mod outcome;
 mod prefetch;
 mod preview;
 mod relocations;
+use outcome::{newly_held, record_result};
+pub use outcome::{OverleafConflict, OverleafSyncResult};
 pub use prefetch::{prefetch, Prefetched};
 pub use preview::{preview, OverleafPreview};
 pub use relocations::sync_relocations;

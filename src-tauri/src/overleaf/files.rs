@@ -155,15 +155,28 @@ pub fn is_conflict_copy(file_name: &str) -> bool {
     file_name.contains(" (local conflict ")
 }
 
-pub(super) fn conflict_copy_name(path: &str, stamp: &str) -> String {
-    let renamed = |file_name: &str| match file_name.rsplit_once('.') {
-        Some((stem, ext)) if !stem.is_empty() => format!("{stem} (local conflict {stamp}).{ext}"),
-        _ => format!("{file_name} (local conflict {stamp})"),
+/// Where the untouched local side of a conflict goes, beside `path`. The
+/// stamp is to the minute, so a second conflict in the same minute takes the
+/// first free numbered name (`… 2`, `… 3`) rather than `taken` one: writing
+/// over an earlier copy would lose the only clean version of that side.
+pub(super) fn conflict_copy_name(path: &str, stamp: &str, taken: impl Fn(&str) -> bool) -> String {
+    let named = |label: &str| {
+        let renamed = |file_name: &str| match file_name.rsplit_once('.') {
+            Some((stem, ext)) if !stem.is_empty() => {
+                format!("{stem} (local conflict {label}).{ext}")
+            }
+            _ => format!("{file_name} (local conflict {label})"),
+        };
+        match path.rsplit_once('/') {
+            Some((dir, file_name)) => format!("{dir}/{}", renamed(file_name)),
+            None => renamed(path),
+        }
     };
-    match path.rsplit_once('/') {
-        Some((dir, file_name)) => format!("{dir}/{}", renamed(file_name)),
-        None => renamed(path),
+    let first = named(stamp);
+    if !taken(&first) {
+        return first;
     }
+    (2..).map(|n| named(&format!("{stamp} {n}"))).find(|name| !taken(name)).unwrap_or(first)
 }
 
 pub(super) fn has_conflict_markers(bytes: &[u8]) -> bool {

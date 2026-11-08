@@ -78,6 +78,22 @@ describe("OverleafReviewDialog", () => {
     expect(screen.getByRole("button", { name: "notes.txt" })).toHaveAttribute("aria-current", "true");
   });
 
+  it("counts a file held marked up as waiting on you, not as a change", async () => {
+    const held = textChange("main.tex", "unresolvedConflict", "marked", "marked");
+    vi.mocked(invoke).mockResolvedValue({
+      remoteVersion: 42, changes: [held, textChange("conflict.tex", "conflict", "mine", "marked"), textChange("incoming.tex")],
+    } satisfies OverleafPreview);
+    render(dialog("/project"));
+    expect(await screen.findByText("2 files would change, 2 need your decision")).toBeInTheDocument();
+    cleanup();
+
+    vi.mocked(invoke).mockResolvedValue({ remoteVersion: 42, changes: [held] } satisfies OverleafPreview);
+    render(dialog("/project"));
+    expect(await screen.findByText("1 needs your decision")).toBeInTheDocument();
+    expect(screen.queryByText("Everything already matches Overleaf")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply and sync" })).toBeDisabled();
+  });
+
   it("ignores an older preview request after the project changes", async () => {
     let resolveFirst!: (preview: OverleafPreview) => void;
     let resolveSecond!: (preview: OverleafPreview) => void;

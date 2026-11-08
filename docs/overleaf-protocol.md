@@ -331,7 +331,14 @@ purpose.
   ancestor **actually materialized locally**, not the newest remote state
   observed later.
 - Conflict markers are never uploaded. Conflict copies stay local and stay
-  excluded from synchronization.
+  excluded from synchronization, and a new one never takes the name of an
+  existing file (`conflict_copy_name` in `src-tauri/src/overleaf/files.rs`).
+- A file still carrying conflict markers is never merged again while
+  Overleaf moves on: it keeps its recorded base and is reported as
+  `unresolvedConflicts` until resolved, when the next sync merges in what
+  Overleaf did since. Merging it would nest markers inside markers. Each is
+  warned about once, when the hold starts (`newlyUnresolvedConflicts`), and
+  no sync calls the project up to date while one is held.
 - A sync never writes over or deletes a file that changed on disk since it read
   it. Editor saves wait out a sync behind the project lease, but agents and
   other programs do not; their edit is left as it is, keeps the previous agreed
