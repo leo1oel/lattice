@@ -32,8 +32,7 @@ const CHAPTER: ZoteroItem[] = [
 ];
 const MAMBA: ZoteroItem = { citationKey: "gu_mamba_2023", pdf: null, collections: ["THESIS01"], bibtex: entry("gu_mamba_2023", "Mamba") };
 const LOOSE: ZoteroItem = { citationKey: "lee_loose_2024", pdf: null, collections: [], bibtex: entry("lee_loose_2024", "In no folder") };
-const DATA_DIR = "/Users/ada/Zotero";
-const LIBRARY: ZoteroLibrary = { dataDir: DATA_DIR, collections: COLLECTIONS, items: [...CHAPTER, MAMBA, LOOSE] };
+const LIBRARY: ZoteroLibrary = { collections: COLLECTIONS, items: [...CHAPTER, MAMBA, LOOSE] };
 const IN_PAPERS = {
   arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Vaswani, Ashish", citationKey: "vaswani2017attention",
   hasFullText: true, hasBlog: false, assetPaths: [],
@@ -44,16 +43,25 @@ function zotero(command: string) {
   return command === "zotero_library" ? Promise.resolve(LIBRARY) : Promise.reject(new Error(`unexpected ${command}`));
 }
 
-function sheet(onAdd = vi.fn()) {
+function sheet(onAdd = vi.fn(), onClose = vi.fn()) {
   render(
     <AddPapersSheet
       seed="" papers={[IN_PAPERS]} importing={false}
       onResolve={vi.fn() as unknown as (query: string) => Promise<ResolvedCitationDraft>}
-      onAdd={onAdd} onStop={vi.fn()} onEnterManually={vi.fn()} onLinkLibrary={vi.fn()} onClose={vi.fn()}
+      onAdd={onAdd} onStop={vi.fn()} onEnterManually={vi.fn()} onLinkLibrary={vi.fn()} onClose={onClose}
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: "Zotero…" }));
   return onAdd;
+}
+
+/** A complete mouse press, as Radix's outside-interaction detection sees one. */
+function pressOutside(target: Element) {
+  fireEvent.pointerDown(target, { button: 0, buttons: 1, pointerType: "mouse" });
+  fireEvent.mouseDown(target, { button: 0, buttons: 1, detail: 1 });
+  fireEvent.pointerUp(target, { button: 0, buttons: 0, pointerType: "mouse" });
+  fireEvent.mouseUp(target, { button: 0, buttons: 0, detail: 1 });
+  fireEvent.click(target, { button: 0, detail: 1 });
 }
 
 const folderNames = () => within(screen.getByRole("tree", { name: "Zotero folders" }))
@@ -215,7 +223,7 @@ describe("Add papers from Zotero", () => {
 
   it("reads a library kept in a folder the writer chooses", async () => {
     invoke.mockRejectedValueOnce("Lattice couldn't find a Zotero library on this Mac.")
-      .mockImplementation(() => Promise.resolve({ ...LIBRARY, dataDir: "/Volumes/Research/Zotero" }));
+      .mockImplementation(zotero);
     openDialog.mockResolvedValue("/Volumes/Research/Zotero");
     sheet();
     fireEvent.click(await screen.findByRole("button", { name: "Choose Zotero folder…" }));
@@ -223,6 +231,37 @@ describe("Add papers from Zotero", () => {
     expect(invoke).toHaveBeenLastCalledWith("zotero_library", { dataDir: "/Volumes/Research/Zotero" });
     openFolder("Thesis");
     expect(await screen.findByRole("checkbox", { name: "Mamba" })).toBeInTheDocument();
+  });
+
+  it("reads again when the same folder is chosen after a failed read", async () => {
+    invoke.mockRejectedValueOnce("Lattice couldn't find a Zotero library on this Mac.")
+      .mockRejectedValueOnce("Lattice couldn't read the Zotero library: database is locked")
+      .mockImplementation(zotero);
+    openDialog.mockResolvedValue("/Volumes/Research/Zotero");
+    sheet();
+    fireEvent.click(await screen.findByRole("button", { name: "Choose Zotero folder…" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("database is locked"));
+    fireEvent.click(screen.getByRole("button", { name: "Choose Zotero folder…" }));
+    expect(await screen.findByRole("tree", { name: "Zotero folders" })).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledTimes(3);
+    expect(invoke).toHaveBeenLastCalledWith("zotero_library", { dataDir: "/Volumes/Research/Zotero" });
+  });
+
+  it("keeps the sheet open on a click outside while papers are ticked", async () => {
+    invoke.mockImplementation(zotero);
+    const onClose = vi.fn();
+    sheet(vi.fn(), onClose);
+    await screen.findByRole("tree", { name: "Zotero folders" });
+    openFolder("Thesis");
+    const mamba = await screen.findByRole("checkbox", { name: "Mamba" });
+    fireEvent.click(mamba);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const backdrop = document.querySelector(".modal-backdrop")!;
+    pressOutside(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(mamba);
+    pressOutside(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("drops a read that lands after Back, keeping what was typed since", async () => {

@@ -176,7 +176,6 @@ fn collections_come_from_a_copy_while_zotero_holds_the_database() {
         .is_err());
 
     let read = super::library(library.path()).unwrap();
-    assert_eq!(read.data_dir, library.dir.to_string_lossy());
     assert_eq!(
         read.collections,
         vec![
@@ -402,7 +401,7 @@ fn the_default_profile_names_the_data_directory() {
 fn real_library() {
     let chosen = std::env::var("ZOTERO_DATA_DIR").ok();
     let read = super::library(chosen.as_deref()).unwrap();
-    println!("data dir: {}, {} collections", read.data_dir, read.collections.len());
+    println!("{} collections", read.collections.len());
     let items = read.items;
     println!(
         "{} items, {} with a PDF on this Mac",

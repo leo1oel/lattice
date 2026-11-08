@@ -91,6 +91,7 @@ export function AddPapersSheet(props: {
   const references = useMemo(() => parsePastedReferences(settled), [settled]);
   // The Zotero library, browsed in place of the paste box (zotero-browser.tsx).
   const [zotero, setZotero] = useState(false);
+  const [zoteroTicked, setZoteroTicked] = useState(0);
   const zoteroRef = useRef<ZoteroBrowserHandle>(null);
   const [lookups, setLookups] = useState<Record<string, Lookup>>({});
   // Lookups sent and not yet answered; their rows read as looking up meanwhile.
@@ -290,7 +291,7 @@ export function AddPapersSheet(props: {
     <SheetDialog
       className="add-papers-sheet"
       label={t`Add papers`}
-      dirty={Boolean(text.trim()) && !queued}
+      dirty={(Boolean(text.trim()) && !queued) || (zotero && !batch && zoteroTicked > 0)}
       onClose={onClose}
       onEscapeKeyDown={(event) => {
         // Escape steps back inside the Zotero browser before it closes the sheet.
@@ -301,7 +302,7 @@ export function AddPapersSheet(props: {
     >
       <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={t`Add papers`} onClose={onClose} />
       {zotero && !batch ? (
-        <ZoteroBrowser handle={zoteroRef} papers={props.papers} busy={importingElsewhere || adding} onAdd={addFromZotero} onBack={() => setZotero(false)} />
+        <ZoteroBrowser handle={zoteroRef} papers={props.papers} busy={importingElsewhere || adding} onAdd={addFromZotero} onTicked={setZoteroTicked} onBack={() => setZotero(false)} />
       ) : (<>
       <div className="add-papers-body">
         {!batch && (

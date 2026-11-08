@@ -10,8 +10,8 @@ export type ZoteroCollection = {
 };
 /** One item: its BibTeX entry, its citation key, its PDF attachment's item key, and the collections it sits in directly. */
 export type ZoteroItem = { bibtex: string; citationKey: string; pdf: string | null; collections: string[] };
-/** The library Lattice found: its data folder, its collections and its items. */
-export type ZoteroLibrary = { dataDir: string; collections: ZoteroCollection[]; items: ZoteroItem[] };
+/** The library Lattice found: its collections and its items. */
+export type ZoteroLibrary = { collections: ZoteroCollection[]; items: ZoteroItem[] };
 
 /** Each collection's direct subcollections, by key. */
 function childrenOf(collections: readonly ZoteroCollection[]): Map<string, string[]> {

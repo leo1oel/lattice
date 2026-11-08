@@ -78,7 +78,7 @@ function browserReducer(state: BrowserState, action: BrowserAction): BrowserStat
     case "library": return { ...state, library: action.library, libraryError: null };
     case "library-failed": return { ...state, libraryError: action.error };
     case "retry": return { ...state, library: null, libraryError: null, folder: null, attempt: state.attempt + 1 };
-    case "chose-dir": return { ...state, chosenDir: action.dir, library: null, libraryError: null, ticked: new Map(), folder: null };
+    case "chose-dir": return { ...state, chosenDir: action.dir, library: null, libraryError: null, ticked: new Map(), folder: null, attempt: state.attempt + 1 };
     case "toggle": {
       const expanded = new Set(state.expanded);
       if (action.open ?? !expanded.has(action.key)) expanded.add(action.key);
@@ -109,6 +109,8 @@ export function ZoteroBrowser(props: {
   /** Another import holds the pipeline. */
   busy: boolean;
   onAdd: (papers: ZoteroPaper[]) => void;
+  /** How many papers are ticked; 0 once the browser closes. */
+  onTicked: (count: number) => void;
   onBack: () => void;
   handle: Ref<ZoteroBrowserHandle>;
 }) {
@@ -154,6 +156,11 @@ export function ZoteroBrowser(props: {
   const tickable = shownPapers.filter((paper) => !paper.existing);
   const tickedHere = tickable.filter((paper) => state.ticked.has(paper.item.citationKey)).length;
   const ticked = [...state.ticked.values()];
+  const { onTicked } = props;
+  useEffect(() => {
+    onTicked(state.ticked.size);
+    return () => onTicked(0);
+  }, [onTicked, state.ticked.size]);
 
   const rows = library ? folderRows(library.collections, state.expanded, state.folderQuery) : [];
   const folderName = folder === "" ? t`My Library` : library?.collections.find((collection) => collection.key === folder)?.name ?? "";

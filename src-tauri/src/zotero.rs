@@ -37,8 +37,6 @@ const UNREADABLE: &str = "Lattice couldn't read the Zotero library: {}";
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ZoteroLibrary {
-    /// The data directory, which holds zotero.sqlite and storage/.
-    pub data_dir: String,
     pub collections: Vec<ZoteroCollection>,
     /// Every top-level regular item, as BibTeX under its citation key.
     pub items: Vec<ZoteroItem>,
@@ -213,7 +211,7 @@ pub fn library(chosen: Option<&str>) -> Result<ZoteroLibrary, String> {
             item
         })
         .collect();
-    Ok(ZoteroLibrary { data_dir: data_dir.to_string_lossy().into_owned(), collections, items })
+    Ok(ZoteroLibrary { collections, items })
 }
 
 /// Where the PDF attachment `key`, named by an earlier read, is on this Mac.
