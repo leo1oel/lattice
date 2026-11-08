@@ -329,6 +329,22 @@ fn generated_keys_never_take_a_key_another_item_is_cited_by() {
 }
 
 #[test]
+fn a_pinned_key_two_items_share_stays_with_the_first() {
+    let library = library();
+    // Zotero's Duplicate Item copies the Citation Key field; Extra pins the
+    // same key in another case.
+    library.item(50, 1, "SMITH001", &[(1, "Original"), (8, "smith2020")], &[]);
+    library.item(51, 1, "SMITH002", &[(1, "Duplicate"), (8, "smith2020")], &[]);
+    library.item(52, 1, "SMITH003", &[(1, "Third"), (7, "Citation Key: Smith2020")], &[]);
+    let keys: Vec<String> = items(&library)
+        .into_iter()
+        .map(|item| item.citation_key)
+        .filter(|key| key.to_lowercase().starts_with("smith2020"))
+        .collect();
+    assert_eq!(keys, ["smith2020", "smith2020b", "Smith2020c"]);
+}
+
+#[test]
 fn zoteros_rich_text_becomes_latex() {
     let library = library();
     library.item(

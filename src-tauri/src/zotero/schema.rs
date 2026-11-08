@@ -125,8 +125,9 @@ fn table_exists(db: &Connection, table: &str) -> bool {
 /// and the path of its PDF when the file is on this Mac. `base` is the
 /// directory linked `attachments:` files are relative to.
 ///
-/// Every pinned key is taken first, then generated keys go out in itemID
-/// order, so a later item never takes a key an earlier one is cited by.
+/// Every pinned key is taken first, then keys go out in itemID order: an item
+/// keeps its pinned key unless an earlier item claimed it, and a repeated
+/// pinned key or a generated one gets a suffix, so no two items share a key.
 pub(super) fn items(
     db: &Connection, better_bibtex: Option<&Connection>, data_dir: &Path, base: Option<&Path>,
 ) -> Result<Vec<(ZoteroItem, Option<PathBuf>)>, String> {
@@ -182,14 +183,21 @@ pub(super) fn items(
         .filter_map(|(.., pinned)| pinned.as_ref())
         .map(|key| key.to_lowercase())
         .collect();
+    let mut claimed: HashSet<String> = HashSet::new();
     let mut out = Vec::with_capacity(read.len());
     for (id, item_type, fields, creators, pinned) in read {
         let record = Record { item_type: &item_type, fields: &fields, creators: &creators };
-        let citation_key = pinned.unwrap_or_else(|| {
-            let key = bibtex::unique_key(&bibtex::generated_key(&record), &taken);
-            taken.insert(key.to_lowercase());
-            key
-        });
+        let citation_key = match pinned {
+            Some(key) if claimed.insert(key.to_lowercase()) => key,
+            pinned => {
+                let key = bibtex::unique_key(
+                    &pinned.unwrap_or_else(|| bibtex::generated_key(&record)),
+                    &taken,
+                );
+                taken.insert(key.to_lowercase());
+                key
+            }
+        };
         let pdf = pdf_attachment(db, id, data_dir, base)?;
         out.push((
             ZoteroItem {
