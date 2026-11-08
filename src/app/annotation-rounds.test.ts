@@ -126,6 +126,28 @@ describe("AnnotationRounds / PDF notes on a file the editor does not have open",
     expect((rounds as unknown as { deps: AnnotationRoundsDeps }).deps.openProjectFile).not.toHaveBeenCalled();
   });
 
+  it("has no file to open for a passage Overleaf could not place once the project changed meanwhile", async () => {
+    const { rounds, store } = roundsWith([]);
+    const deps = (rounds as unknown as { deps: AnnotationRoundsDeps }).deps;
+    let answer: (placement: "placed" | "notFound") => void = () => {};
+    vi.mocked(store.createInDocument).mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+    const selection = { page: 1, rects: [], text: "We show that it", point: { x: 0, y: 0 } };
+    const from = ABSTRACT.indexOf("We show that it");
+    const mapped = { path: "abstract.tex", line: 2, from, to: from + 15, source: ABSTRACT };
+
+    const late = rounds.commentInDocumentFromPdf(selection, mapped, "Cite it.");
+    rounds.reset();
+    answer("notFound");
+    await expect(late).rejects.toThrow("The project closed before the comment was saved.");
+    expect(deps.openProjectFile).not.toHaveBeenCalled();
+
+    // A comment that did land is still just placed.
+    const landed = rounds.commentInDocumentFromPdf(selection, mapped, "Cite it.");
+    rounds.reset();
+    answer("placed");
+    await expect(landed).resolves.toBe("placed");
+  });
+
   it("opens the file beside the PDF at the passage when asked to place it there", () => {
     const { rounds } = roundsWith([]);
     const deps = (rounds as unknown as { deps: AnnotationRoundsDeps }).deps;

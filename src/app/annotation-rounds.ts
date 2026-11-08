@@ -595,7 +595,8 @@ export class AnnotationRounds {
    * does not have open live (destination "other-file"), without opening it:
    * the comment lands on the span in `mapped`, placed again in Overleaf's copy
    * of the file. "notFound" when that copy holds the passage nowhere it can
-   * tell; `openPdfSource` then lets the writer place it themselves.
+   * tell; `openPdfSource` then lets the writer place it themselves. Not once
+   * the project changed meanwhile: there is no file of it left to open.
    */
   commentInDocumentFromPdf = async (selection: PdfTextSelection, mapped: MappedPdfSelection, body: string): Promise<CommentPlacement> => {
     const deps = this.deps;
@@ -607,7 +608,12 @@ export class AnnotationRounds {
       pdf: { page: selection.page, rects: selection.rects, text: selection.text },
     });
     if (!comment) throw new Error(i18n._(msg`There is no text to comment on in this selection.`));
-    return deps.store.createInDocument(comment, mapped.source);
+    const generation = this.generation;
+    const placement = await deps.store.createInDocument(comment, mapped.source);
+    if (placement === "notFound" && this.generation !== generation) {
+      throw new Error(i18n._(msg`The project closed before the comment was saved.`));
+    }
+    return placement;
   };
 
   /**
