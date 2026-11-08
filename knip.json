@@ -32,7 +32,10 @@
         "tools/perf-bench/bench-page.ts",
         "tools/web-demo/demo-page.ts"
       ],
-      "project": ["src/**", "scripts/**", "tools/**"]
+      "project": ["src/**", "scripts/**", "tools/**"],
+      // src/assets/fonts/reading-aids/reading-aids.css names these packages'
+      // WOFF2 files in url(), which Vite resolves and knip does not read.
+      "ignoreDependencies": ["@fontsource/atkinson-hyperlegible", "@fontsource/opendyslexic"]
     },
     "tools/open-slide-runtime": {
       "entry": ["*.mjs"],
