@@ -5,6 +5,7 @@ use crate::app_state::AppState;
 use crate::citation_health::CitationHealth;
 use crate::literature::LiteraturePage;
 use crate::papers::{ImportResult, PaperSummary, PaperTextMatch};
+use crate::zotero::{Zotero, ZoteroCollection, ZoteroItem};
 use crate::{literature, paper_pdf_proxy, papers};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -197,4 +198,31 @@ pub async fn read_paper_blog_local(
     let root = current_root(&state, &window)?;
     run_blocking("Paper overview read", move || papers::read_paper_blog_local(&root, &arxiv_id))
         .await
+}
+
+/// The collections of the writer's Zotero library (zotero.rs).
+#[tauri::command]
+pub async fn zotero_collections() -> Result<Vec<ZoteroCollection>, String> {
+    run_blocking("Zotero collections", || Zotero::local()?.collections()).await
+}
+
+/// The items of one Zotero collection, or of the whole library, as BibTeX
+/// for the Add papers sheet.
+#[tauri::command]
+pub async fn zotero_items(collection: Option<String>) -> Result<Vec<ZoteroItem>, String> {
+    run_blocking("Zotero items", move || Zotero::local()?.items(collection.as_deref())).await
+}
+
+/// Make the Zotero attachment `attachment`'s PDF the text of the citation
+/// `citation_key`. Zotero says where the file is, so the frontend never names
+/// a path on disk.
+#[tauri::command]
+pub async fn attach_zotero_pdf(
+    state: State<'_, AppState>, window: Window, citation_key: String, attachment: String,
+) -> Result<papers::FetchResult, String> {
+    in_project(&state, &window, "Zotero PDF", move |root| {
+        let path = Zotero::local()?.attachment_path(&attachment)?;
+        papers::attach_pdf_file(root, &citation_key, &path)
+    })
+    .await
 }

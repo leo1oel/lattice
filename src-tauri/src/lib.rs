@@ -89,6 +89,7 @@ mod web_metadata;
 mod wide_event;
 #[cfg(target_os = "linux")]
 mod xlib_threads;
+mod zotero;
 
 use app_state::AppState;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
@@ -557,6 +558,9 @@ pub fn run() {
             ipc::papers::search_paper_library,
             ipc::papers::read_paper,
             ipc::papers::read_paper_blog_local,
+            ipc::papers::zotero_collections,
+            ipc::papers::zotero_items,
+            ipc::papers::attach_zotero_pdf,
             ipc::build::build_project,
             ipc::build::compile_repair,
             ipc::build::agent_text_task,

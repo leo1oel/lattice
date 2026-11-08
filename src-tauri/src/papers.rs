@@ -13,6 +13,7 @@
 //!   searches it through `search_index`, the full-text index of its cached
 //!   text; `bibliography` runs bibcite and removes entries; `upgrade` applies
 //!   bibcite's preprint upgrades entry by entry.
+//! - `attach` makes a PDF on this Mac (a Zotero attachment) a citation's text.
 
 use reqwest::blocking::{RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,7 @@ use std::process::Output;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+mod attach;
 mod bibliography;
 mod bundle;
 mod citation;
@@ -37,6 +39,7 @@ mod test_support;
 mod upgrade;
 mod web_citation;
 
+pub use attach::attach_pdf_file;
 pub(crate) use bibliography::ScratchBibliography;
 pub use bibliography::{remove_reference, CitationRemovalMode, HistoryMode, RemoveResult};
 pub use bundle::{fetch_paper, fetch_web_reference, FetchResult};
