@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
@@ -50,6 +50,8 @@ import { LivePreviewSettings } from "../live-preview/live-preview-settings";
 import type { LivePreview } from "../live-preview/use-live-preview";
 import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime";
 import { prefersReducedMotion } from "../lib/reduced-motion";
+
+const PluginSettings = lazy(() => import("../plugins/plugin-settings").then((module) => ({ default: module.PluginSettings })));
 
 /** The Settings tabs that embed a Synara settings page, and which one. */
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = {
@@ -149,6 +151,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     { label: t`Integrations`, items: [
       { tab: "overleaf", label: t`Overleaf`, icon: "cloud-upload" },
       { tab: "literature", label: t`Literature services`, icon: "api-key" },
+      { tab: "plugins", label: t`Plugins`, icon: "package" },
     ] },
     { label: t`Diagnostics`, items: [
       { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
@@ -260,6 +263,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
+    plugins: props.tab === "plugins" ? <Suspense fallback={null}><PluginSettings /></Suspense> : null,
     environment: <AgentEnvironmentSettings runtime={props.synaraRuntime} />,
     overleaf: (
       <OverleafSettingsSection

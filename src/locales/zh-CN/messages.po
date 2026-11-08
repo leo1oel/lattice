@@ -102,6 +102,11 @@ msgstr "{0} 篇已在论文库，将跳过"
 msgid "{0} annotations"
 msgstr "{0} 条批注"
 
+#. placeholder {0}: plugin.manifest.name
+#: src/plugins/plugin-settings.tsx
+msgid "{0} can run code with your account’s permissions. Its linked folder can change after installation. Enable only if you trust its source."
+msgstr "{0} 可以使用你的账户权限运行代码。关联文件夹在安装后仍可能改变；请只启用你信任的来源。"
+
 #. placeholder {0}: props.account
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "{0} can’t open this project"
@@ -1309,6 +1314,14 @@ msgstr "路径中有一项不是文件夹"
 msgid "A pending Overleaf move also changes its name."
 msgstr "待同步的 Overleaf 移动同时改了名字"
 
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin must declare 1–32 commands"
+msgstr "插件必须声明 1 至 32 个命令"
+
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin with this ID is already installed"
+msgstr "已安装相同 ID 的插件"
+
 #: src/papers/bibliography-audit.tsx
 msgid "A possible record conflicts with this reference"
 msgstr "找到的记录和这条文献对不上"
@@ -1563,6 +1576,10 @@ msgstr "添加论文"
 #: src/project/paper-library.tsx
 msgid "Add papers…"
 msgstr "添加论文…"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Add plugin folder…"
+msgstr "添加插件文件夹…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -2873,9 +2890,25 @@ msgstr "{path} 已被修改，未能应用更改，请重试"
 msgid "Cannot apply the live update because {path} changed outside live editing."
 msgstr "{path} 在实时协作之外被修改过，无法应用这次实时更新"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot find plugin executable: {detail}"
+msgstr "找不到插件可执行文件：{detail}"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot open plugin folder: {detail}"
+msgstr "无法打开插件文件夹：{detail}"
+
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "找不到所选内容在源码中的位置，请切到源码视图再批注"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read plugin manifest: {detail}"
+msgstr "无法读取插件清单：{detail}"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read plugin registry: {detail}"
+msgstr "无法读取插件注册表：{detail}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot remove the reference because {path} changed. Try again."
@@ -2888,6 +2921,10 @@ msgstr "{path} 在这条历史记录之后又被修改过，无法恢复。请�
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot save {path} because it was deleted outside the editor."
 msgstr "{path} 已在编辑器外被删除，无法保存"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot start plugin: {detail}"
+msgstr "无法启动插件：{detail}"
 
 #: src/build/tex-doctor-messages.ts
 msgid "Cannot verify fonts (kpsewhich missing). Install BasicTeX from Lattice."
@@ -3215,6 +3252,10 @@ msgstr "请选择包含 LaTeX 源文件的文件夹或 ZIP"
 #: src/platform/host-errors-workspace.ts
 msgid "Choose a folder to extract the project into."
 msgstr "请选择要把项目解压到哪个文件夹"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Choose a plugin directory"
+msgstr "请选择插件文件夹"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
@@ -3765,6 +3806,14 @@ msgstr "来自 Overleaf"
 #: src/canvas/proofread-card.tsx
 msgid "command"
 msgstr "命令"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Command completed"
+msgstr "命令已完成"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Command failed"
+msgstr "命令失败"
 
 #: src/app/command-palette.tsx
 #: src/app/use-command-table.ts
@@ -4934,6 +4983,10 @@ msgstr "与核实记录不一致"
 msgid "Dimensions unknown"
 msgstr "尺寸未知"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Disable"
+msgstr "停用"
+
 #: src/canvas/proofread-card.tsx
 msgid "Discard"
 msgstr "放弃"
@@ -5487,6 +5540,18 @@ msgstr "空集"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set (variant)"
 msgstr "空集（变体）"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Enable"
+msgstr "启用"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Enable the plugin before running a command"
+msgstr "请先启用插件，再运行命令"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Enable this plugin?"
+msgstr "启用此插件？"
 
 #: src/history/versions-timeline.tsx
 msgid "Enable version tracking"
@@ -7201,6 +7266,7 @@ msgid "Inspect and replace"
 msgstr "检查与替换"
 
 #: src/build/compile-diagnostics-panel.tsx
+#: src/plugins/plugin-settings.tsx
 msgid "Install"
 msgstr "安装"
 
@@ -7382,6 +7448,18 @@ msgstr "Overleaf 地址无效：{error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Invalid PDF source position."
 msgstr "PDF 位置无效"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid plugin command"
+msgstr "插件命令无效"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid plugin identity or unsupported API version (expected 1)"
+msgstr "插件标识无效或 API 版本不受支持（需要版本 1）"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid plugin manifest: {detail}"
+msgstr "插件清单无效：{detail}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Invalid regular expression: {error}"
@@ -8114,6 +8192,10 @@ msgstr "链接"
 #: src/platform/host-errors-project.ts
 msgid "Link a file inside the project."
 msgstr "请关联项目内的文件"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Link a local plugin folder. Commands run only when you choose them; removing a plugin does not delete its folder."
+msgstr "关联本地插件文件夹。命令仅在你选择时运行；移除插件不会删除其文件夹。"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Link a Zotero or Paperpile export"
@@ -9346,6 +9428,10 @@ msgstr "还没有论文"
 #: src/pdf/pdf-viewer.tsx
 msgid "No PDF yet"
 msgstr "还没有 PDF"
+
+#: src/plugins/plugin-settings.tsx
+msgid "No plugins installed."
+msgstr "尚未安装插件。"
 
 #: src/settings/synara-settings-pane.tsx
 msgid "No project open"
@@ -10916,6 +11002,56 @@ msgstr "纯文本"
 msgid "Please confirm that you want to continue."
 msgstr "请确认要继续"
 
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin command not found"
+msgstr "找不到插件命令"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin command timed out after 20 seconds"
+msgstr "插件命令超过 20 秒，已超时"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin executable moved outside its directory"
+msgstr "插件可执行文件已移到其文件夹之外"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin executable must be a file inside its directory"
+msgstr "插件可执行文件必须位于其文件夹内"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin ID changed; remove and reinstall it"
+msgstr "插件 ID 已改变，请移除后重新安装"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin manifest changed; disable and enable it again"
+msgstr "插件清单已改变，请停用后重新启用"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin manifest exceeds 64 KiB"
+msgstr "插件清单超过 64 KiB"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin not found"
+msgstr "找不到插件"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugin output"
+msgstr "插件输出"
+
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Plugins"
+msgstr "插件"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins are trusted programs, not sandboxed. They run with your account’s permissions. Only install plugins you trust."
+msgstr "插件是受信任的程序，不在沙箱中运行。它们使用你的账户权限；请只安装你信任的插件。"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins run code with your account’s permissions. They can read and change your files and use the network. Only install a folder you trust. The plugin stays disabled until you enable it."
+msgstr "插件使用你的账户权限运行代码，可以读取和修改文件并使用网络。请只安装你信任的文件夹。插件会保持停用，直到你启用它。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "正负号"
@@ -11653,6 +11789,7 @@ msgstr "重新载入面板"
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/deadline-card.tsx
 #: src/project/submission-items.tsx
 msgid "Remove"
@@ -12529,6 +12666,10 @@ msgstr "rtex 无法为实时排版载入导言区。每次整篇排版和编译�
 #: src/live-preview/live-preview-status.tsx
 msgid "rtex stopped. The PDF still updates with each build."
 msgstr "rtex 已停止。PDF 仍会随每次编译更新。"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Run"
+msgstr "运行"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "run {run}"
@@ -15570,6 +15711,10 @@ msgstr "左三角形"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle right"
 msgstr "右三角形"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Trust this plugin?"
+msgstr "信任此插件？"
 
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Try"

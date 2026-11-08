@@ -102,6 +102,11 @@ msgstr "{0} already in Papers are skipped"
 msgid "{0} annotations"
 msgstr "{0} annotations"
 
+#. placeholder {0}: plugin.manifest.name
+#: src/plugins/plugin-settings.tsx
+msgid "{0} can run code with your account’s permissions. Its linked folder can change after installation. Enable only if you trust its source."
+msgstr "{0} can run code with your account’s permissions. Its linked folder can change after installation. Enable only if you trust its source."
+
 #. placeholder {0}: props.account
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "{0} can’t open this project"
@@ -1309,6 +1314,14 @@ msgstr "A part of the path is not a folder."
 msgid "A pending Overleaf move also changes its name."
 msgstr "A pending Overleaf move also changes its name."
 
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin must declare 1–32 commands"
+msgstr "A plugin must declare 1–32 commands"
+
+#: src/platform/host-errors-plugins.ts
+msgid "A plugin with this ID is already installed"
+msgstr "A plugin with this ID is already installed"
+
 #: src/papers/bibliography-audit.tsx
 msgid "A possible record conflicts with this reference"
 msgstr "A possible record conflicts with this reference"
@@ -1563,6 +1576,10 @@ msgstr "Add papers"
 #: src/project/paper-library.tsx
 msgid "Add papers…"
 msgstr "Add papers…"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Add plugin folder…"
+msgstr "Add plugin folder…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -2873,9 +2890,25 @@ msgstr "Cannot apply the change because {path} changed. Try again."
 msgid "Cannot apply the live update because {path} changed outside live editing."
 msgstr "Cannot apply the live update because {path} changed outside live editing."
 
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot find plugin executable: {detail}"
+msgstr "Cannot find plugin executable: {detail}"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot open plugin folder: {detail}"
+msgstr "Cannot open plugin folder: {detail}"
+
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read plugin manifest: {detail}"
+msgstr "Cannot read plugin manifest: {detail}"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot read plugin registry: {detail}"
+msgstr "Cannot read plugin registry: {detail}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot remove the reference because {path} changed. Try again."
@@ -2888,6 +2921,10 @@ msgstr "Cannot restore {path} because it changed after this history entry. Revie
 #: src/platform/host-errors-workspace.ts
 msgid "Cannot save {path} because it was deleted outside the editor."
 msgstr "Cannot save {path} because it was deleted outside the editor."
+
+#: src/platform/host-errors-plugins.ts
+msgid "Cannot start plugin: {detail}"
+msgstr "Cannot start plugin: {detail}"
 
 #: src/build/tex-doctor-messages.ts
 msgid "Cannot verify fonts (kpsewhich missing). Install BasicTeX from Lattice."
@@ -3215,6 +3252,10 @@ msgstr "Choose a folder or ZIP containing LaTeX source files."
 #: src/platform/host-errors-workspace.ts
 msgid "Choose a folder to extract the project into."
 msgstr "Choose a folder to extract the project into."
+
+#: src/platform/host-errors-plugins.ts
+msgid "Choose a plugin directory"
+msgstr "Choose a plugin directory"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
@@ -3765,6 +3806,14 @@ msgstr "Coming from Overleaf"
 #: src/canvas/proofread-card.tsx
 msgid "command"
 msgstr "command"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Command completed"
+msgstr "Command completed"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Command failed"
+msgstr "Command failed"
 
 #: src/app/command-palette.tsx
 #: src/app/use-command-table.ts
@@ -4934,6 +4983,10 @@ msgstr "Differs from the verified record"
 msgid "Dimensions unknown"
 msgstr "Dimensions unknown"
 
+#: src/plugins/plugin-settings.tsx
+msgid "Disable"
+msgstr "Disable"
+
 #: src/canvas/proofread-card.tsx
 msgid "Discard"
 msgstr "Discard"
@@ -5487,6 +5540,18 @@ msgstr "Empty set"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set (variant)"
 msgstr "Empty set (variant)"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Enable"
+msgstr "Enable"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Enable the plugin before running a command"
+msgstr "Enable the plugin before running a command"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Enable this plugin?"
+msgstr "Enable this plugin?"
 
 #: src/history/versions-timeline.tsx
 msgid "Enable version tracking"
@@ -7201,6 +7266,7 @@ msgid "Inspect and replace"
 msgstr "Inspect and replace"
 
 #: src/build/compile-diagnostics-panel.tsx
+#: src/plugins/plugin-settings.tsx
 msgid "Install"
 msgstr "Install"
 
@@ -7382,6 +7448,18 @@ msgstr "Invalid Overleaf host: {error}"
 #: src/platform/host-errors-workspace.ts
 msgid "Invalid PDF source position."
 msgstr "Invalid PDF source position."
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid plugin command"
+msgstr "Invalid plugin command"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid plugin identity or unsupported API version (expected 1)"
+msgstr "Invalid plugin identity or unsupported API version (expected 1)"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Invalid plugin manifest: {detail}"
+msgstr "Invalid plugin manifest: {detail}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Invalid regular expression: {error}"
@@ -8114,6 +8192,10 @@ msgstr "Link"
 #: src/platform/host-errors-project.ts
 msgid "Link a file inside the project."
 msgstr "Link a file inside the project."
+
+#: src/plugins/plugin-settings.tsx
+msgid "Link a local plugin folder. Commands run only when you choose them; removing a plugin does not delete its folder."
+msgstr "Link a local plugin folder. Commands run only when you choose them; removing a plugin does not delete its folder."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Link a Zotero or Paperpile export"
@@ -9346,6 +9428,10 @@ msgstr "No papers yet"
 #: src/pdf/pdf-viewer.tsx
 msgid "No PDF yet"
 msgstr "No PDF yet"
+
+#: src/plugins/plugin-settings.tsx
+msgid "No plugins installed."
+msgstr "No plugins installed."
 
 #: src/settings/synara-settings-pane.tsx
 msgid "No project open"
@@ -10916,6 +11002,56 @@ msgstr "Plain text"
 msgid "Please confirm that you want to continue."
 msgstr "Please confirm that you want to continue."
 
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin command not found"
+msgstr "Plugin command not found"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin command timed out after 20 seconds"
+msgstr "Plugin command timed out after 20 seconds"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin executable moved outside its directory"
+msgstr "Plugin executable moved outside its directory"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin executable must be a file inside its directory"
+msgstr "Plugin executable must be a file inside its directory"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin ID changed; remove and reinstall it"
+msgstr "Plugin ID changed; remove and reinstall it"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin manifest changed; disable and enable it again"
+msgstr "Plugin manifest changed; disable and enable it again"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin manifest exceeds 64 KiB"
+msgstr "Plugin manifest exceeds 64 KiB"
+
+#: src/platform/host-errors-plugins.ts
+msgid "Plugin not found"
+msgstr "Plugin not found"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugin output"
+msgstr "Plugin output"
+
+#: src/plugins/plugin-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Plugins"
+msgstr "Plugins"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins are trusted programs, not sandboxed. They run with your account’s permissions. Only install plugins you trust."
+msgstr "Plugins are trusted programs, not sandboxed. They run with your account’s permissions. Only install plugins you trust."
+
+#: src/plugins/plugin-settings.tsx
+msgid "Plugins run code with your account’s permissions. They can read and change your files and use the network. Only install a folder you trust. The plugin stays disabled until you enable it."
+msgstr "Plugins run code with your account’s permissions. They can read and change your files and use the network. Only install a folder you trust. The plugin stays disabled until you enable it."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "Plus-minus"
@@ -11653,6 +11789,7 @@ msgstr "Reload panel"
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
+#: src/plugins/plugin-settings.tsx
 #: src/project/deadline-card.tsx
 #: src/project/submission-items.tsx
 msgid "Remove"
@@ -12529,6 +12666,10 @@ msgstr "rtex could not load the preamble for live typing. The preview still upda
 #: src/live-preview/live-preview-status.tsx
 msgid "rtex stopped. The PDF still updates with each build."
 msgstr "rtex stopped. The PDF still updates with each build."
+
+#: src/plugins/plugin-settings.tsx
+msgid "Run"
+msgstr "Run"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "run {run}"
@@ -15570,6 +15711,10 @@ msgstr "Triangle left"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle right"
 msgstr "Triangle right"
+
+#: src/plugins/plugin-settings.tsx
+msgid "Trust this plugin?"
+msgstr "Trust this plugin?"
 
 #: src/editor/latex/selection-instruction-menu.tsx
 msgid "Try"

@@ -15,7 +15,7 @@ use tauri::{Manager, Runtime, State, Webview, Window};
 const MAX_WRITE_BYTES: usize = 256 * 1024;
 
 /// The calling window, once its page passed [`terminal::caller::check`].
-fn caller_window<R: Runtime>(
+pub(crate) fn caller_window<R: Runtime>(
     webview: &Webview<R>, request: &Request<'_>,
 ) -> Result<Window<R>, String> {
     let window = webview.window();
