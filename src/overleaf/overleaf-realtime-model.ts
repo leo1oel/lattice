@@ -135,9 +135,18 @@ export type RealtimeStatus = "off" | "connecting" | "live" | "error";
 export const isOwnUpdate = (source: string | null, publicId: string | null, submittedVia: readonly string[] = []) =>
   Boolean(source) && (source === publicId || submittedVia.includes(source!));
 
-/** Replay a join's catch-up into `doc`; our own updates coming back are acknowledgements. */
-export const replayInto = (doc: OtDocument, updates: ReplayedUpdate[], publicId: string | null) =>
-  doc.catchUp(updates.map((update) => ({ ...update, mine: isOwnUpdate(update.source, publicId, doc.submittedVia) })));
+/**
+ * Replay a join's catch-up into `doc`; our own updates coming back are acknowledgements.
+ * With `stopAfterOurs`, nothing after our last update is applied: those were
+ * built on text the operation changed outside `doc` (a reject's inverse), and
+ * only a full re-join reads them correctly.
+ */
+export const replayInto = (doc: OtDocument, updates: ReplayedUpdate[], publicId: string | null, stopAfterOurs = false) => {
+  const marked = updates.map((update) => ({ ...update, mine: isOwnUpdate(update.source, publicId, doc.submittedVia) }));
+  let end = marked.length;
+  if (stopAfterOurs) while (end > 0 && !marked[end - 1]!.mine) end -= 1;
+  return doc.catchUp(end > 0 ? marked.slice(0, end) : marked);
+};
 
 /**
  * Overleaf refused a request while the session is still valid

@@ -367,9 +367,9 @@ export class OtDocument {
     return this.submitted;
   }
 
-  /** Record that the operation in flight went out on connection `publicId`. */
-  noteSubmitted(publicId: string) {
-    if (this.inflight && !this.submitted.includes(publicId)) this.submitted.push(publicId);
+  /** Record that the operation in flight went out on connection `publicId`, once Overleaf has named it. */
+  noteSubmitted(publicId: string | null) {
+    if (publicId && this.inflight && !this.submitted.includes(publicId)) this.submitted.push(publicId);
   }
 
   /**

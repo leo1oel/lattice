@@ -29,10 +29,12 @@ const INSERTION: TrackedChange = { id: "c-ins", position: 6, text: "brave ", del
 /** One Overleaf document, as its document updater keeps it. */
 class OverleafDoc {
   history: OtOp[][] = [];
+  /** The connection each landed update came from. */
+  sources: string[] = [];
   constructor(public text: string, public from: number, public changes: TrackedChange[]) {}
   get version() { return this.from + this.history.length; }
   /** Apply `ops` made at version `at`; the version it landed at, or why it was refused. */
-  async submit(ops: OtOp[], at: number, hash?: string): Promise<number | string> {
+  async submit(ops: OtOp[], at: number, hash?: string, source = "me"): Promise<number | string> {
     if (at < this.from || at > this.version) return "version";
     let incoming = ops;
     for (const landed of this.history.slice(at - this.from)) [, incoming] = transformBoth(landed, incoming);
@@ -41,6 +43,7 @@ class OverleafDoc {
     if (hash && at === this.version && await overleafDocHash(next) !== hash) return "hash";
     this.text = next;
     this.history.push(incoming);
+    this.sources.push(source);
     return this.version - 1;
   }
 }
@@ -85,10 +88,12 @@ function serveOverleaf() {
         joinFailures -= 1;
         throw new Error("the connection is closing");
       }
-      // Asked to resume, Overleaf replays what landed since; every update in these tests went out on the first connection.
+      // Asked to resume, Overleaf replays what landed since, naming the connection each update came from.
       const resumed = fromVersion !== null && fromVersion >= server.from && fromVersion <= server.version;
       const caughtUp = resumed
-        ? server.history.slice(fromVersion - server.from).map((ops, index) => ({ version: fromVersion + index, ops, source: "me" }))
+        ? server.history.slice(fromVersion - server.from).map((ops, index) => ({
+          version: fromVersion + index, ops, source: server.sources[fromVersion - server.from + index],
+        }))
         : [];
       return { text: server.text, version: server.version, comments: [], changes: server.changes, caughtUp, resumed };
     },
@@ -218,7 +223,11 @@ describe("rejecting a suggestion live", () => {
     await waitFor(() => expect(result.current.realtime.changes).toEqual([]));
   });
 
-  it("does not leave the file blocked when the reject's answer is lost in a reconnect", async () => {
+  it.each([
+    { coAuthor: null, after: "Hello world" },
+    // Made on Overleaf's text without the rejected words: on the stale copy it would not fit.
+    { coAuthor: [{ p: 6, d: "world" }], after: "Hello " },
+  ])("does not leave the file blocked when the reject's answer is lost in a reconnect (co-author edit after it: $coAuthor)", async ({ coAuthor, after }) => {
     const result = await mountLive();
     await act(() => result.current.review.reject([INSERTION]));
     // The connection drops before the answer arrives; the reconnect's resumed join replays the reject instead.
@@ -226,6 +235,7 @@ describe("rejecting a suggestion live", () => {
     // Nothing can be joined on the socket that is going down.
     joinFailures = 1;
     emit({ type: "disconnected", reason: "network changed" });
+    if (coAuthor) expect(await server.submit(coAuthor, server.version, undefined, "them")).toBe(11);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
@@ -238,7 +248,7 @@ describe("rejecting a suggestion live", () => {
     expect(result.current.realtime.unacknowledged).toBe(false);
     expect(result.current.realtime.changes).toEqual([]);
     expect(sends()).toEqual([]);
-    expect(server.text).toBe("Hello world");
+    expect(server.text).toBe(after);
   });
 
   it("refuses a second Reject of a suggestion until the first is re-read", async () => {

@@ -455,7 +455,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
       }
       const sawOurUpdate = caughtUp.some((update) => isMine(update.source, doc));
       const baseContent = doc.text;
-      const result = replayInto(doc, caughtUp, publicId.current);
+      const result = replayInto(doc, caughtUp, publicId.current, resyncing.current.has(id));
       promoteShared(doc, proof);
       shiftAnchors(id, result.applied);
       if (docId.current === id) {
@@ -497,7 +497,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     // Recorded before the send can fail: an operation whose answer is lost
     // with its connection must still be recognised as ours when it is
     // replayed under this id after a reconnect.
-    if (publicId.current) doc?.noteSubmitted(publicId.current);
+    doc?.noteSubmitted(publicId.current);
     // Now and then, say what the document should read once this lands.
     // Overleaf rejects the update when its copy disagrees, so a copy that has
     // drifted fails loudly — and falls back to syncing — instead of every
@@ -720,7 +720,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
         // Classified before replaying: an acknowledgement in the replay
         // forgets which connections carried the operation it answers.
         const sawOurUpdate = caughtUp.some((update) => isMine(update.source, held));
-        const result = replayInto(held, caughtUp, publicId.current);
+        const result = replayInto(held, caughtUp, publicId.current, resyncing.current.has(id));
         text = result.text;
         promoteShared(held, heldProof);
         if (result.send) void flush(id, result.send);
@@ -867,7 +867,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     // server has not confirmed.
     const reserved = doc.anchor();
     if (!reserved) throw new Error(t`An edit is still on its way to Overleaf. Try again in a moment.`);
-    if (publicId.current) doc.noteSubmitted(publicId.current);
+    doc.noteSubmitted(publicId.current);
     publishUnacknowledged();
     try {
       await invoke("overleaf_rt_send_comment", {
@@ -926,7 +926,7 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
       if (typingUnsent() || deliveryPending(doc) || (id && resyncing.current.has(id))) return null;
       const anchor = doc?.anchor();
       if (!id || !doc || !anchor) return null;
-      if (publicId.current) doc.noteSubmitted(publicId.current);
+      doc.noteSubmitted(publicId.current);
       // Rejection sends real inverse text ops outside OtDocument, although
       // its reservation is empty. Keep the old shared proof but never claim
       // this model is current again until a full reset and guarded delivery.
