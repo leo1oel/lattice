@@ -67,6 +67,9 @@ fn a_file_still_marked_up_is_not_merged_again_while_overleaf_moves_on() {
     let rows: Vec<_> =
         (dry_run.changes.iter()).map(|c| (c.kind.as_str(), c.path.as_str())).collect();
     assert_eq!(rows, [("unresolvedConflict", "main.tex")]);
+    // Shown as it stands, unchanged: nothing moves until it is resolved.
+    let held = &dry_run.changes[0];
+    assert_eq!((held.before.as_deref(), held.after.as_deref()), (Some(&*marked), Some(&*marked)));
     // Every later sync while it stays marked up holds it without news.
     let (_server, held_again) = sync_against(&root, &[("main.tex", KEPT_TYPING)]);
     assert_eq!(held_again.unresolved_conflicts, ["main.tex"]);

@@ -76,14 +76,15 @@ pub fn preview(
     let refused = settle_destructive(&linked, &client, &mut plan);
 
     let local_bytes = |path: &str| local.get(path).map(Vec::as_slice);
-    // Conflicts first — they are the only rows that need a decision — then
-    // the rest in the order the user reads them.
+    // Conflicts first — the rows that wait on a decision — then the rest in
+    // the order the user reads them.
     let mut changes: Vec<OverleafChange> = (plan.conflict.iter())
         .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved)))
         .collect();
     // Still marked up from an earlier conflict: nothing moves until resolved.
     for path in &plan.unresolved_conflicts {
-        changes.push(preview_change(path, "unresolvedConflict", None, None));
+        let held = local_bytes(path);
+        changes.push(preview_change(path, "unresolvedConflict", held, held));
     }
     for path in refused.keys() {
         let after = remote.get(path).map(Vec::as_slice);
