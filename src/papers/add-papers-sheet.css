@@ -84,7 +84,9 @@
 .zotero-papers-tools { display: flex; align-items: center; gap: var(--space-5); }
 .zotero-papers-tools > .ui-search-field { flex: 1; min-width: 0; }
 .zotero-browser .zotero-select-all { flex: none; flex-direction: row; font-weight: var(--weight-regular); display: inline-flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; }
-.zotero-paper-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); }
+/* A border, not the raised list's ring: a ring is drawn outside the box, and
+   this box meets the panes' clipped edges on the right and at the bottom. */
+.zotero-paper-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-panel-raised); }
 .zotero-paper-list > li + li { border-top: 1px solid var(--border-subtle); }
 .zotero-browser .zotero-paper { font-weight: var(--weight-regular); padding: var(--space-4) var(--space-5); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; cursor: default; }
 .zotero-paper-list > li:not([data-existing]) .zotero-paper:hover { background: var(--control-hover-surface); }
