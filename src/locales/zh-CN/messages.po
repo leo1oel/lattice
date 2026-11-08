@@ -2729,6 +2729,10 @@ msgid "Bulleted list"
 msgstr "圆点列表"
 
 #: src/settings/acknowledged-software.ts
+msgid "By Abbie Gonzalez"
+msgstr "由 Abbie Gonzalez 设计"
+
+#: src/settings/acknowledged-software.ts
 msgid "By Ahmed Hatem, built on Iosevka by Renzhi Li"
 msgstr "由 Ahmed Hatem 制作，基于 Renzhi Li 的 Iosevka"
 
@@ -2751,6 +2755,10 @@ msgstr "由 Rasmus Andersson 设计"
 #: src/settings/acknowledged-software.ts
 msgid "By T3 Tools Inc. and Emanuele Di Pietro"
 msgstr "由 T3 Tools Inc. 和 Emanuele Di Pietro 开发"
+
+#: src/settings/acknowledged-software.ts
+msgid "By the Braille Institute"
+msgstr "由 Braille Institute 设计"
 
 #: src/project/citation-health.ts
 msgid "cached"
@@ -4712,6 +4720,7 @@ msgstr "幻灯片 ID 只能用小写字母、数字和连字符（kebab-case）"
 msgid "Decrement year"
 msgstr "年份减一"
 
+#: src/settings/editor-font-settings.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Default"
 msgstr "默认"
@@ -6138,6 +6147,25 @@ msgstr "已折叠的代码"
 #: src/editor/codemirror-host.tsx
 msgid "Folded lines"
 msgstr "已折叠行"
+
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Font"
+msgstr "字体"
+
+#: src/settings/editor-font-settings.tsx
+msgid "Font name"
+msgstr "字体名称"
+
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Font size"
+msgstr "字号"
+
+#. Search words for the editor font settings, space-separated
+#: src/settings/settings-search-index.ts
+msgid "font typeface text size spacing readability accessibility dyslexia"
+msgstr "字体 字型 文字 字号 行距 易读 无障碍 阅读障碍 font typeface dyslexia"
 
 #: src/project/submission-review.tsx
 msgid "Fonts not embedded"
@@ -8058,6 +8086,11 @@ msgstr "第 {line} 行：有条目没有闭合。"
 msgid "Line {line}: the entry “{key}” is never closed."
 msgstr "第 {line} 行：条目“{key}”没有闭合。"
 
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Line height"
+msgstr "行高"
+
 #: src/editor/goto-line-dialog.tsx
 msgid "Line number"
 msgstr "行号"
@@ -9538,6 +9571,10 @@ msgstr "不在任何文件中"
 msgid "Not installed"
 msgstr "未安装"
 
+#: src/settings/editor-font-settings.tsx
+msgid "Not installed, so the default is shown"
+msgstr "未安装，显示默认字体"
+
 #: src/onboarding/get-started-panel.tsx
 msgid "Not needed here"
 msgstr "演示中无需安装"
@@ -10165,6 +10202,10 @@ msgstr "起源与改编作品"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Other colours"
 msgstr "其他颜色"
+
+#: src/settings/editor-font-settings.tsx
+msgid "Other font…"
+msgstr "其他字体…"
 
 #: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
@@ -13436,10 +13477,10 @@ msgstr "Git 面板在你的 Mac 上运行"
 msgid "Source download failed: {error}"
 msgstr "源码下载失败：{error}"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/editor-font-settings.tsx
 #: src/settings/settings-search-index.ts
-msgid "Source editor font size"
-msgstr "源码编辑器字号"
+msgid "Source editor"
+msgstr "源码编辑器"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
@@ -16219,6 +16260,8 @@ msgid "Visual Markdown"
 msgstr "可视编辑"
 
 #: src/editor/markdown/engine/passive-view.tsx
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "Visual Markdown editor"
 msgstr "可视化 Markdown 编辑器"
 

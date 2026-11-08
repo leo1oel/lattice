@@ -365,7 +365,9 @@ The Synara sidecar has its own findings block further down; it is kept separate 
 | `lightningcss@1.32.0` | npm | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `lightningcss@1.33.0` | npm | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `@fontsource-variable/inter@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
+| `@fontsource/atkinson-hyperlegible@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
 | `@fontsource/instrument-serif@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
+| `@fontsource/opendyslexic@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
 | `htmlescape@0.3.1` | crates | `Apache-2.0 / MIT / MPL-2.0` | dual — file-level copyleft offered as one alternative; Lattice elects Apache-2.0 |
 | `r-efi@5.3.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative; Lattice elects Apache-2.0 |
 | `r-efi@6.0.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative; Lattice elects Apache-2.0 |
@@ -545,7 +547,7 @@ license named here is the one their upstream states:
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**587 packages.**
+**589 packages.**
 
 | Declared license | Packages |
 | --- | --- |
@@ -556,8 +558,8 @@ The production dependency closure of the root `package.json` — the superset of
 | `SEE LICENSE IN LICENSE.md` | 8 |
 | `MIT OR Apache-2.0` | 6 |
 | `apache-2.0` | 5 |
+| `OFL-1.1` | 4 |
 | `MPL-2.0` | 2 |
-| `OFL-1.1` | 2 |
 | `(MIT AND Zlib)` | 1 |
 | `(MIT OR GPL-3.0-or-later)` | 1 |
 | `0BSD` | 1 |
@@ -634,7 +636,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (65 distinct texts across 587 packages)
+### License texts (66 distinct texts across 589 packages)
 
 #### 1. MIT (+1 other declarations) — 235 package(s), from `LICENSE`
 
@@ -2364,91 +2366,20 @@ This License is governed by the laws of Delaware, and the parties consent to exc
 This License is the entire agreement between the parties, and supersedes any and all prior agreements, understandings or communications, written or oral, between the parties relating to the subject matter hereof. This License may be assigned by tldraw without your prior consent.
 ```
 
-#### 22. ISC — 3 package(s), from `LICENSE`
+#### 22. OFL-1.1 — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`kdbush@4.1.0`, `quickselect@2.0.0`, `quickselect@3.0.0`
+`@fontsource-variable/inter@5.3.0`, `@fontsource/atkinson-hyperlegible@5.3.0`, `@fontsource/instrument-serif@5.3.0`
 
 </details>
 
-Copyright notices (3):
-
-```text
-Copyright (c) 2018, Vladimir Agafonkin
-Copyright (c) 2024, Vladimir Agafonkin
-Copyright (c) 2026, Vladimir Agafonkin
-```
-
-```text
-ISC License
-
-Copyright (c) 2018, Vladimir Agafonkin
-
-Permission to use, copy, modify, and/or distribute this software for any purpose
-with or without fee is hereby granted, provided that the above copyright notice
-and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
-OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
-TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
-THIS SOFTWARE.
-```
-
-#### 23. SEE LICENSE IN LICENSE.md — 3 package(s), from `LICENSE.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`@tldraw/assets@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
-
-</details>
-
-```text
-This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)
-```
-
-#### 24. MIT — 3 package(s), from `license.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`lie@3.1.1`, `lie@3.3.0`, `process-nextick-args@2.0.1`
-
-</details>
-
-Copyright notices (3):
-
-```text
-Copyright (c) 2014 Calvin Metcalf
-Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
-Copyright (c) 2015 Calvin Metcalf
-```
-
-```text
-#Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-**THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.**
-```
-
-#### 25. OFL-1.1 — 2 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`@fontsource-variable/inter@5.3.0`, `@fontsource/instrument-serif@5.3.0`
-
-</details>
-
-Copyright notices (6):
+Copyright notices (7):
 
 ```text
 COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-Italic.ttf: Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-Bold.ttf: Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-BoldItalic.ttf: Copyright 2020 Braille Institute of America, Inc.
 Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif) InstrumentSerif-Italic.ttf: Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif)
 Copyright Holder(s) and the Author(s) or with their explicit written
 Copyright Holder. This restriction only applies to the primary font name as
@@ -2456,7 +2387,7 @@ copyright statement(s).
 ```
 
 ```text
-Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif) InstrumentSerif-Italic.ttf: Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif)
+Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-Italic.ttf: Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-Bold.ttf: Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-BoldItalic.ttf: Copyright 2020 Braille Institute of America, Inc.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
@@ -2548,6 +2479,78 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
+#### 23. ISC — 3 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`kdbush@4.1.0`, `quickselect@2.0.0`, `quickselect@3.0.0`
+
+</details>
+
+Copyright notices (3):
+
+```text
+Copyright (c) 2018, Vladimir Agafonkin
+Copyright (c) 2024, Vladimir Agafonkin
+Copyright (c) 2026, Vladimir Agafonkin
+```
+
+```text
+ISC License
+
+Copyright (c) 2018, Vladimir Agafonkin
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+```
+
+#### 24. SEE LICENSE IN LICENSE.md — 3 package(s), from `LICENSE.md`
+
+<details><summary>Packages sharing this text</summary>
+
+`@tldraw/assets@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
+
+</details>
+
+```text
+This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)
+```
+
+#### 25. MIT — 3 package(s), from `license.md`
+
+<details><summary>Packages sharing this text</summary>
+
+`lie@3.1.1`, `lie@3.3.0`, `process-nextick-args@2.0.1`
+
+</details>
+
+Copyright notices (3):
+
+```text
+Copyright (c) 2014 Calvin Metcalf
+Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
+Copyright (c) 2015 Calvin Metcalf
+```
+
+```text
+#Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+**THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.**
 ```
 
 #### 26. MPL-2.0 — 2 package(s), from `LICENSE`
@@ -7092,7 +7095,122 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 48. MIT — 1 package(s), from `LICENSE.md`
+#### 48. OFL-1.1 — 1 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`@fontsource/opendyslexic@5.3.0`
+
+</details>
+
+Copyright notices (6):
+
+```text
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+Copyright (c) 12/2012 - 2019
+Copyright (c) 2019-07-29, Abbie Gonzalez (https://abbiecod.es|support@abbiecod.es),
+Copyright Holder(s) and the Author(s) or with their explicit written
+Copyright Holder. This restriction only applies to the primary font name as
+copyright statement(s).
+```
+
+```text
+Copyright (c) 2019-07-29, Abbie Gonzalez (https://abbiecod.es|support@abbiecod.es),
+with Reserved Font Name OpenDyslexic.
+Copyright (c) 12/2012 - 2019
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
+#### 49. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7130,7 +7248,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 49. MIT — 1 package(s), from `LICENSE`
+#### 50. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7165,7 +7283,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 50. ISC — 1 package(s), from `LICENSE`
+#### 51. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7227,7 +7345,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 51. MIT — 1 package(s), from `LICENSE`
+#### 52. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7265,7 +7383,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 52. MIT — 1 package(s), from `LICENSE.md`
+#### 53. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7295,7 +7413,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 53. MIT — 1 package(s), from `LICENSE`
+#### 54. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7354,7 +7472,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 54. ISC — 1 package(s), from `LICENSE`
+#### 55. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7393,7 +7511,7 @@ under a Creative Commons Attribution-ShareAlike 4.0 International License
 https://creativecommons.org/licenses/by-sa/4.0/
 ```
 
-#### 55. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 56. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7437,7 +7555,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 56. MIT — 1 package(s), from `LICENSE`
+#### 57. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7479,7 +7597,7 @@ Commits in this fork are (c) Ziggy Jonsson (ziggy.jonsson.nyc@gmail.com)
 and fall under same licence structure as the original repo (MIT)
 ```
 
-#### 57. MIT — 1 package(s), from `license`
+#### 58. MIT — 1 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7519,7 +7637,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 58. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 59. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7575,7 +7693,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-#### 59. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 60. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7625,7 +7743,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 60. ISC — 1 package(s), from `licenses/upstream/npm/saxes@5.0.1/LICENSE`
+#### 61. ISC — 1 package(s), from `licenses/upstream/npm/saxes@5.0.1/LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7709,7 +7827,7 @@ MIT License, as follows:
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 61. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 62. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7756,7 +7874,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 62. MIT — 1 package(s), from `LICENCE.md`
+#### 63. MIT — 1 package(s), from `LICENCE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7795,7 +7913,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 63. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 64. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7823,7 +7941,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 64. MIT — 1 package(s), from `LICENSE.txt`
+#### 65. MIT — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7862,7 +7980,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 65. ISC — 1 package(s), from `LICENSE`
+#### 66. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 

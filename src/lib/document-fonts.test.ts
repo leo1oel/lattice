@@ -21,8 +21,8 @@ function fakeFonts() {
 
 describe("document fonts", () => {
   it("loads every cut of the first family each document face names, once", async () => {
-    document.documentElement.style.setProperty("--editor-font", "\"Ioskeley Mono\", Menlo, monospace");
-    document.documentElement.style.setProperty("--reading-font", "\"Timeless Serif Text\", \"Inter Variable\", sans-serif");
+    document.documentElement.style.setProperty("--source-font", "\"Ioskeley Mono\", Menlo, monospace");
+    document.documentElement.style.setProperty("--prose-font", "\"Timeless Serif Text\", \"Inter Variable\", sans-serif");
     const { requested, settle } = fakeFonts();
     const { documentFontsReady } = await import("./document-fonts");
     const ready = documentFontsReady();
@@ -36,7 +36,7 @@ describe("document fonts", () => {
   });
 
   it("stops waiting for a face that never arrives", async () => {
-    document.documentElement.style.setProperty("--editor-font", "\"Ioskeley Mono\"");
+    document.documentElement.style.setProperty("--source-font", "\"Ioskeley Mono\"");
     fakeFonts();
     vi.useFakeTimers();
     const { documentFontsReady } = await import("./document-fonts");

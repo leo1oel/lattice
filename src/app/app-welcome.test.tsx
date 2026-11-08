@@ -155,7 +155,10 @@ describe("welcome screen", () => {
     await waitFor(() => expect(rootStyle("--editor-font-size")).toBe("14px"));
     expect(rootStyle("--ui-font")).toBe("");
     expect(rootStyle("--editor-font")).toBe("");
-    expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
+    // So do the editors' own faces, until a writer chooses one.
+    expect(rootStyle("--source-font")).toBe("");
+    expect(rootStyle("--prose-font")).toBe("");
+    expect(screen.getAllByRole("slider", { name: "Font size" })[0]).toHaveValue("14");
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     expect(section("Appearance")).not.toHaveAttribute("aria-current");
     expect(section("Editor & builds")).toHaveAttribute("aria-current", "page");

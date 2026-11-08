@@ -33,7 +33,8 @@ import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
 import type { SynaraSettingsTarget } from "../app/use-synara-host";
 import { AgentEnvironmentSettings } from "./agent-environment-settings";
-import { SelectRow, SliderRow } from "./settings-controls";
+import { SelectRow } from "./settings-controls";
+import { EditorFontSettingsGroups } from "./editor-font-settings";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep } from "./interface-scale";
 import { CodeThemeSettingsGroup } from "./code-theme-settings";
@@ -418,16 +419,6 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
             items={INTERFACE_SCALE_STEPS.map((step) => ({ value: String(step), label: interfaceScalePercent(step) }))}
           />
         </SettingsRow>
-        <SliderRow
-          id="editor-font-size"
-          data-setting="editor-font-size"
-          label={t`Source editor font size`}
-          min={10}
-          max={24}
-          value={props.appearance.editorFontSize}
-          unit="px"
-          onChange={(editorFontSize) => patchAppearance(props, { editorFontSize })}
-        />
         <SwitchField
           data-setting="interface-sounds"
           label={t`Interface sounds`}
@@ -447,6 +438,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
           onChange={(toastPosition) => patchAppearance(props, { toastPosition })}
         />
       </SettingsGroup>
+      <EditorFontSettingsGroups appearance={props.appearance} setAppearance={props.setAppearance} />
       <ThemeSettingsGroup {...props} />
       <CodeThemeSettingsGroup {...props} />
       <TitlebarToolsGroup {...props} />

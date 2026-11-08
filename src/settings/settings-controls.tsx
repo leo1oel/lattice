@@ -46,6 +46,10 @@ export function SliderRow(props: {
   max: number;
   value: number;
   unit?: string;
+  /** Defaults to whole numbers. */
+  step?: number;
+  /** How the readout shows the value, when not `${value}${unit}`. */
+  format?: (value: number) => string;
   onChange: (value: number) => void;
 }) {
   return (
@@ -56,11 +60,11 @@ export function SliderRow(props: {
           type="range"
           min={props.min}
           max={props.max}
-          step="1"
+          step={props.step ?? 1}
           value={props.value}
           onChange={(event) => props.onChange(Number(event.target.value))}
         />
-        <output htmlFor={props.id}>{props.value}{props.unit}</output>
+        <output htmlFor={props.id}>{props.format ? props.format(props.value) : `${props.value}${props.unit ?? ""}`}</output>
       </div>
     </SettingsRow>
   );

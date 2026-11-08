@@ -37,14 +37,24 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
   const overleaf = t`Overleaf`;
   // The Builds group's rows are found by its name too: "build" should reach the engine.
   const builds = t`Builds`;
+  const sourceEditor = t`Source editor`;
+  const proseEditor = t`Visual Markdown editor`;
+  const fontWords = t({ message: "font typeface text size spacing readability accessibility dyslexia", comment: "Search words for the editor font settings, space-separated" });
+  const sourceTerms = `${sourceEditor} ${fontWords}`;
+  const proseTerms = `${proseEditor} Markdown ${fontWords}`;
   /* eslint-disable lingui/no-unlocalized-strings -- product and file names */
   return [
     { tab: "appearance", label: appearance, place: t`General` },
     { tab: "appearance", place: appearance, id: "interface-language", label: t`Interface language`, terms: `${t`English`} ${t`Simplified Chinese`}` },
     { tab: "appearance", place: appearance, id: "interface-size", label: t`Interface size`, terms: `${t({ message: "zoom scale bigger smaller", comment: "Search words for the Interface size setting, space-separated" })} ⌘+ ⌘− ⌘0` },
-    { tab: "appearance", place: appearance, id: "editor-font-size", label: t`Source editor font size`, terms: t`Editor font size` },
     { tab: "appearance", place: appearance, id: "interface-sounds", label: t`Interface sounds`, terms: t({ message: "sound", comment: "Search words for the Interface sounds setting, space-separated" }) },
     { tab: "appearance", place: appearance, id: "toast-position", label: t`Notification position`, terms: `${t`Top right`} ${t`Top center`} ${t`Bottom right`} ${t`Bottom center`} ${t({ message: "toast notification", comment: "Search words for the Notification position setting, space-separated" })}` },
+    { tab: "appearance", place: sourceEditor, id: "source-font", label: t`Font`, terms: `${sourceTerms} SF Mono Menlo Inter Atkinson Hyperlegible OpenDyslexic` },
+    { tab: "appearance", place: sourceEditor, id: "editor-font-size", label: t`Font size`, terms: `${sourceTerms} ${t`Editor font size`}` },
+    { tab: "appearance", place: sourceEditor, id: "source-line-height", label: t`Line height`, terms: sourceTerms },
+    { tab: "appearance", place: proseEditor, id: "prose-font", label: t`Font`, terms: `${proseTerms} SF Pro New York Georgia Atkinson Hyperlegible OpenDyslexic` },
+    { tab: "appearance", place: proseEditor, id: "prose-font-size", label: t`Font size`, terms: proseTerms },
+    { tab: "appearance", place: proseEditor, id: "prose-line-height", label: t`Line height`, terms: proseTerms },
     { tab: "appearance", place: appearance, id: "color-theme", label: t`Color theme`, terms: `${t`Theme`} ${t`Light`} ${t`Dark`}` },
     { tab: "appearance", place: appearance, id: "theme-tint", label: t`Tint`, terms: `${t`Theme`} ${t`Graphite`} ${t({ message: "Paper", context: "theme tint" })} ${t`Sage`} ${t`Mist`} ${t`Dusk`}` },
     { tab: "appearance", place: appearance, id: "theme-accent", label: t`Accent`, terms: `${t`Theme`} ${t({ message: "color", comment: "Search words for the Accent setting, space-separated" })} ${t`Custom`}` },
