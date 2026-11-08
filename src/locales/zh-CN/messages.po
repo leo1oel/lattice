@@ -8010,15 +8010,15 @@ msgstr "Lattice {version} 已就绪"
 msgid "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 msgstr "Lattice 用这台 Mac 上的 LaTeX 编译 PDF，BasicTeX 约 1 GB。"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "{activeFile} 暂停同步，Lattice 正在核对"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "{path} 暂停同步，正在确认 Overleaf 是否已收到（{detail}）"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "此文件暂停同步，正在确认 Overleaf 是否已收到（{detail}）"
 
@@ -10456,7 +10456,7 @@ msgstr "Overleaf"
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
 msgstr "Overleaf 确认了版本 {version}，但此文档当前为版本 {current}。"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
 msgstr "Overleaf 存不了表情和部分特殊字符，已换成 �（大家看到的一样）"
 
@@ -10485,11 +10485,11 @@ msgstr "评论和聊天，{count} 条未读"
 msgid "Overleaf could not create the project ({status}): {detail}"
 msgstr "Overleaf 无法创建项目（{status}）：{detail}"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file."
 msgstr "{activeFile} 暂停同步，无法确认最后一次修改"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf could not replay from the last version Lattice trusts"
 msgstr "Overleaf 无法从可信版本恢复"
 
@@ -14724,7 +14724,7 @@ msgstr "编译结果不是有效的 PDF"
 msgid "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
 msgstr "会议官方导出的引用与 Crossref 在这些字段上不一致：{0}。已保留会议官方的版本。"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "缺少连接信息"
 
@@ -15478,7 +15478,7 @@ msgstr "无法渲染此图表。"
 msgid "This document changed in the same place"
 msgstr "这份文档同一处被改了"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it."
 msgstr "文档和 Overleaf 不一致，实时协作已停，同步时会自动对齐"
 

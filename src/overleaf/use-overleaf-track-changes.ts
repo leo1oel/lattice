@@ -77,11 +77,22 @@ export function useOverleafTrackChanges(options: {
   useEffect(() => {
     latest.current = options;
   });
+  /**
+   * Suggestions rejected (or being rejected) here that the list still shows:
+   * it is re-read only once Overleaf has applied the reject, and clicking the
+   * card again meanwhile sent the inverse a second time, which put a rejected
+   * deletion's words back twice.
+   */
+  const rejected = useRef(new Set<string>());
 
   // Keyed on which suggestions exist, not on the array's identity: a caller
   // that doesn't memoize it would otherwise re-fetch on every commit.
   const changeIdsKey = options.changes.map((change) => change.id).join(",");
   const { enabled, projectRoot } = options;
+  useEffect(() => {
+    const shown = new Set(changeIdsKey.split(","));
+    for (const id of rejected.current) if (!shown.has(id)) rejected.current.delete(id);
+  }, [changeIdsKey]);
   useEffect(() => {
     if (!enabled || !changeIdsKey) {
       // Deferred rather than called straight from the effect body, which the
@@ -145,26 +156,39 @@ export function useOverleafTrackChanges(options: {
     return docId;
   }), [run, t]);
 
-  const reject = useCallback((toReject: TrackedChange[]) => run(toReject.map((change) => change.id), async (current) => {
-    if (!current.docId) throw new Error(t`Open the document this suggestion is in first.`);
-    if (!current.projectRoot) throw new Error(t`Open the linked Overleaf project first.`);
-    const reservation = current.reserveOperation();
-    if (reservation === null) {
-      throw new Error(t`An edit is still on its way to Overleaf. Try rejecting again in a moment.`);
-    }
-    try {
-      await invoke("overleaf_reject_changes", {
-        projectRoot: current.projectRoot,
-        docId: reservation.docId,
-        version: reservation.version,
-        changes: toReject,
-      });
-    } catch (reason) {
-      current.noteReservedOperationUnknown(reservation, reason);
-      throw reason;
-    }
-    return reservation.docId;
-  }), [run, t]);
+  const reject = useCallback((toReject: TrackedChange[]) => {
+    // As the list shows them now, with current positions; a card left over
+    // from before a re-read names a change Overleaf no longer has.
+    const shown = new Map(latest.current.changes.map((change) => [change.id, change]));
+    const fresh = toReject.flatMap((change) => {
+      const now = shown.get(change.id);
+      return now && !rejected.current.has(change.id) ? [now] : [];
+    });
+    return run(fresh.map((change) => change.id), async (current) => {
+      if (!current.docId) throw new Error(t`Open the document this suggestion is in first.`);
+      if (!current.projectRoot) throw new Error(t`Open the linked Overleaf project first.`);
+      const reservation = current.reserveOperation();
+      if (reservation === null) {
+        throw new Error(t`An edit is still on its way to Overleaf. Try rejecting again in a moment.`);
+      }
+      for (const change of fresh) rejected.current.add(change.id);
+      try {
+        await invoke("overleaf_reject_changes", {
+          projectRoot: current.projectRoot,
+          docId: reservation.docId,
+          version: reservation.version,
+          changes: fresh,
+        });
+      } catch (reason) {
+        // Possibly never applied: a later Reject may try again once the
+        // channel has reconciled what happened.
+        for (const change of fresh) rejected.current.delete(change.id);
+        current.noteReservedOperationUnknown(reservation, reason);
+        throw reason;
+      }
+      return reservation.docId;
+    });
+  }, [run, t]);
 
   return { authorName, busy, error, accept, reject };
 }

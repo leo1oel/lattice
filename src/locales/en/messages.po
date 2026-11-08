@@ -8010,15 +8010,15 @@ msgstr "Lattice {version} is ready"
 msgid "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 msgstr "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 
@@ -10456,7 +10456,7 @@ msgstr "Overleaf"
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
 msgstr "Overleaf acknowledged version {version} while this document is at {current}."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
 msgstr "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
 
@@ -10485,11 +10485,11 @@ msgstr "Overleaf comments and chat, {count} waiting"
 msgid "Overleaf could not create the project ({status}): {detail}"
 msgstr "Overleaf could not create the project ({status}): {detail}"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file."
 msgstr "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf could not replay from the last version Lattice trusts"
 msgstr "Overleaf could not replay from the last version Lattice trusts"
 
@@ -14724,7 +14724,7 @@ msgstr "The compiled output is not a valid PDF."
 msgid "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
 msgstr "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
 
@@ -15478,7 +15478,7 @@ msgstr "This diagram could not be rendered."
 msgid "This document changed in the same place"
 msgstr "This document changed in the same place"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it."
 msgstr "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it."
 
