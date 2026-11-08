@@ -23,7 +23,9 @@ describe("settings search", () => {
     ["proxy", ["page:environment"]],
     ["latexmkrc", ["compile-engine"]],
     // A cut description's words live on in the row's terms.
-    ["source editor", ["editor-font-size"]],
+    ["source editor", ["source-font", "editor-font-size", "source-line-height"]],
+    ["opendyslexic", ["source-font", "prose-font"]],
+    ["dyslexia", ["source-font", "editor-font-size", "source-line-height", "prose-font", "prose-font-size", "prose-line-height"]],
     ["desktop", ["translucency"]],
     [".aux", ["aux-files"]],
     ["crossref", ["literature-email"]],
@@ -59,6 +61,7 @@ describe("settings search", () => {
     ["评论署名", ["author-name"]],
     ["可添加", ["project-dictionary"]],
     ["英式", ["grammar-dialect"]],
+    ["行高", ["source-line-height", "prose-line-height"]],
   ])("finds %j in Chinese", async (query, ids) => {
     await act(() => activateAppLocale("zh-CN"));
     expect(search(query)).toEqual(ids);

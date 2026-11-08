@@ -2729,6 +2729,10 @@ msgid "Bulleted list"
 msgstr "Bulleted list"
 
 #: src/settings/acknowledged-software.ts
+msgid "By Abbie Gonzalez"
+msgstr "By Abbie Gonzalez"
+
+#: src/settings/acknowledged-software.ts
 msgid "By Ahmed Hatem, built on Iosevka by Renzhi Li"
 msgstr "By Ahmed Hatem, built on Iosevka by Renzhi Li"
 
@@ -2751,6 +2755,10 @@ msgstr "By Rasmus Andersson"
 #: src/settings/acknowledged-software.ts
 msgid "By T3 Tools Inc. and Emanuele Di Pietro"
 msgstr "By T3 Tools Inc. and Emanuele Di Pietro"
+
+#: src/settings/acknowledged-software.ts
+msgid "By the Braille Institute"
+msgstr "By the Braille Institute"
 
 #: src/project/citation-health.ts
 msgid "cached"
@@ -4712,6 +4720,7 @@ msgstr "Deck ids must use kebab-case letters and numbers."
 msgid "Decrement year"
 msgstr "Decrement year"
 
+#: src/settings/editor-font-settings.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Default"
 msgstr "Default"
@@ -6138,6 +6147,25 @@ msgstr "folded code"
 #: src/editor/codemirror-host.tsx
 msgid "Folded lines"
 msgstr "Folded lines"
+
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Font"
+msgstr "Font"
+
+#: src/settings/editor-font-settings.tsx
+msgid "Font name"
+msgstr "Font name"
+
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Font size"
+msgstr "Font size"
+
+#. Search words for the editor font settings, space-separated
+#: src/settings/settings-search-index.ts
+msgid "font typeface text size spacing readability accessibility dyslexia"
+msgstr "font typeface text size spacing readability accessibility dyslexia"
 
 #: src/project/submission-review.tsx
 msgid "Fonts not embedded"
@@ -8058,6 +8086,11 @@ msgstr "Line {line}: an entry is never closed."
 msgid "Line {line}: the entry “{key}” is never closed."
 msgstr "Line {line}: the entry “{key}” is never closed."
 
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Line height"
+msgstr "Line height"
+
 #: src/editor/goto-line-dialog.tsx
 msgid "Line number"
 msgstr "Line number"
@@ -9538,6 +9571,10 @@ msgstr "Not in a file"
 msgid "Not installed"
 msgstr "Not installed"
 
+#: src/settings/editor-font-settings.tsx
+msgid "Not installed, so the default is shown"
+msgstr "Not installed, so the default is shown"
+
 #: src/onboarding/get-started-panel.tsx
 msgid "Not needed here"
 msgstr "Not needed here"
@@ -10165,6 +10202,10 @@ msgstr "Origins and adapted work"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Other colours"
 msgstr "Other colours"
+
+#: src/settings/editor-font-settings.tsx
+msgid "Other installed font…"
+msgstr "Other installed font…"
 
 #: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
@@ -13436,10 +13477,10 @@ msgstr "Source control runs on your Mac"
 msgid "Source download failed: {error}"
 msgstr "Source download failed: {error}"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/editor-font-settings.tsx
 #: src/settings/settings-search-index.ts
-msgid "Source editor font size"
-msgstr "Source editor font size"
+msgid "Source editor"
+msgstr "Source editor"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
@@ -16219,6 +16260,8 @@ msgid "Visual Markdown"
 msgstr "Visual Markdown"
 
 #: src/editor/markdown/engine/passive-view.tsx
+#: src/settings/editor-font-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "Visual Markdown editor"
 msgstr "Visual Markdown editor"
 

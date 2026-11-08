@@ -38,6 +38,13 @@ textarea {
   --display-font: var(--display-font-fallback);
   --editor-font: "Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace;
   --editor-font-size: var(--type-typeset-size);
+  /* The two editors' own type, which a writer can change in Settings ›
+     Appearance (settings/editor-fonts.ts writes these on the root; a choice
+     falls back through the stack below). --editor-font stays the code face of
+     every other surface. */
+  --source-font: var(--editor-font);
+  --source-line-height: 1.6;
+  --prose-font: var(--reading-font);
   /* Shared by source CodeMirror and the visual Markdown fixed caret. */
   --editor-caret-width: 1.4px;
   font-family: var(--ui-font);

@@ -419,10 +419,10 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-scroller,
 .source-editor .cm-content {
   color: var(--code-ink);
-  font-family: var(--editor-font) !important;
+  font-family: var(--source-font) !important;
   font-size: var(--editor-font-size) !important;
   /* Override CodeMirror's base-theme 1.4 so source matches reading density. */
-  line-height: 1.6 !important;
+  line-height: var(--source-line-height) !important;
 }
 /* Line numbers and fold markers read as one quiet column, the same in the live
    editor and its Trellis snapshot (src/editor/source-gutter.ts). It shares the

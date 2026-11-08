@@ -15,9 +15,9 @@
 /** The cuts each document face is drawn in, per the font token that names it. */
 const DOCUMENT_CUTS: ReadonlyArray<readonly [token: string, cuts: readonly string[]]> = [
   // The source editor: text, LaTeX commands (500), Markdown headings and bold (600, 700), comments and arguments.
-  ["--editor-font", ["400", "500", "700", "italic 400", "italic 700"]],
+  ["--source-font", ["400", "500", "700", "italic 400", "italic 700"]],
   // A rendered Markdown page: text, medium, headings (600), bold, emphasis.
-  ["--reading-font", ["400", "500", "600", "700", "italic 400", "italic 600"]],
+  ["--prose-font", ["400", "500", "600", "700", "italic 400", "italic 600"]],
 ];
 /* eslint-enable lingui/no-unlocalized-strings */
 

@@ -11,8 +11,9 @@
 .lx-md-editor {
   /* The writing surface: the long-form reading role, with a looser line for prose. */
   --lx-md-measure: 760px;
-  --lx-md-font-size: var(--type-typeset-size);
-  --lx-md-line-height: 1.7;
+  /* The writer's own size and line height (Settings › Appearance), else these. */
+  --lx-md-font-size: var(--prose-font-size, var(--type-typeset-size));
+  --lx-md-line-height: var(--prose-line-height, 1.7);
   --lx-md-flow: 0.85em;
   --lx-md-code-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
   position: relative;
@@ -20,7 +21,7 @@
   color: var(--text-primary);
 }
 
-.lx-md-editor.is-reading { --lx-md-line-height: 1.75; }
+.lx-md-editor.is-reading { --lx-md-line-height: var(--prose-line-height, 1.75); }
 
 .lx-md-eligibility {
   max-width: var(--lx-md-measure);
@@ -37,7 +38,7 @@
   margin: 0 auto;
   padding: var(--space-16) var(--space-12) 40vh;
   outline: none;
-  font-family: var(--reading-font);
+  font-family: var(--prose-font);
   font-size: var(--lx-md-font-size);
   font-weight: var(--weight-regular);
   line-height: var(--lx-md-line-height);

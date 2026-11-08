@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect, useLayoutEffect, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import {
@@ -16,6 +16,7 @@ import {
 import { changedFields, sharedSetting, useSharedSetting } from "./shared-setting";
 import { fitAccent, isCustomAccent } from "./theme-customization";
 import { codeThemeProperties, resolveCodeThemeKind } from "./code-themes";
+import { PROSE_FONT_SIZE, PROSE_LINE_HEIGHT, SOURCE_LINE_HEIGHT, cssFontFamily, editorFontStack } from "./editor-fonts";
 import { activateAppLocale, i18n } from "../i18n";
 import { syncNativeLocaleIfChanged } from "../app/native-locale";
 
@@ -128,9 +129,34 @@ export function useAppearance(): Appearance {
     }
   }, [appLocale]);
 
-  useEffect(() => {
-    document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
-  }, [appearance.editorFontSize]);
+  const { editorFontSize, sourceFont, sourceLineHeight, proseFont, proseFontSize, proseLineHeight } = appearance;
+  // Before paint, and before a document waits for its faces
+  // (lib/document-fonts.ts reads these tokens). A default leaves its token to
+  // theme.css, so nothing changes for anyone who never chose.
+  const firstEditorType = useRef(true);
+  useLayoutEffect(() => {
+    const style = document.documentElement.style;
+    const set = (name: string, value: string | false) => value ? style.setProperty(name, value) : style.removeProperty(name);
+    style.setProperty("--editor-font-size", `${editorFontSize}px`);
+    set("--source-font", Boolean(sourceFont) && editorFontStack(sourceFont, "--editor-font"));
+    set("--source-line-height", sourceLineHeight !== SOURCE_LINE_HEIGHT && String(sourceLineHeight));
+    set("--prose-font", Boolean(proseFont) && editorFontStack(proseFont, "--reading-font"));
+    set("--prose-font-size", proseFontSize !== PROSE_FONT_SIZE && `${proseFontSize}px`);
+    set("--prose-line-height", proseLineHeight !== PROSE_LINE_HEIGHT && String(proseLineHeight));
+    if (firstEditorType.current) {
+      firstEditorType.current = false;
+      return;
+    }
+    // CodeMirror and the visual editor's block window keep the line heights
+    // they measured, and a token change resizes nothing they observe. Both
+    // measure again on a window resize; send one now and once more when the
+    // chosen faces have arrived and swapped in (a bundled one loads on first
+    // use, which this asks for rather than waiting on).
+    const remeasure = () => window.dispatchEvent(new Event("resize"));
+    remeasure();
+    const faces = [sourceFont, proseFont].filter(Boolean).map((name) => document.fonts?.load(`16px ${cssFontFamily(name)}`).catch(() => []));
+    if (faces.length) void Promise.all(faces).then(remeasure);
+  }, [editorFontSize, sourceFont, sourceLineHeight, proseFont, proseFontSize, proseLineHeight]);
 
   useEffect(() => { syncNativeLocaleIfChanged(); }, [appearance.interfaceLanguage]);
 

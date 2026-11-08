@@ -15,6 +15,14 @@ import {
 } from "./theme-customization";
 import { type CodeTheme, type CodeThemeVariant, CODE_THEMES, CODE_THEME_VARIANTS } from "./code-themes";
 import { clamp } from "../lib/clamp";
+import {
+  FONT_SIZE_RANGE,
+  PROSE_FONT_SIZE,
+  PROSE_LINE_HEIGHT,
+  SOURCE_LINE_HEIGHT,
+  normalizeFontName,
+  normalizeLineHeight,
+} from "./editor-fonts";
 
 export type Theme = "light" | "dark";
 /** What the user picked; `system` tracks the OS appearance as it changes. */
@@ -427,7 +435,15 @@ export function persistFileViewStates(root: string, states: Record<string, FileV
 export type AppearanceSettings = {
   interfaceLanguage: InterfaceLanguage;
   interfaceScale: number;
+  /** The source editor's size; its face and line height follow (settings/editor-fonts.ts). */
   editorFontSize: number;
+  /** A face for the source editor, or "" for the default. Not `editorFont`: that older field held a stack of its own and is still in some stores. */
+  sourceFont: string;
+  sourceLineHeight: number;
+  /** A face for the visual Markdown editor, or "" for the default reading face. */
+  proseFont: string;
+  proseFontSize: number;
+  proseLineHeight: number;
   editorKeymap: "default" | "vim" | "emacs";
   editorSpellcheck: boolean;
   interfaceSounds: boolean;
@@ -474,6 +490,11 @@ export function loadAppearance(): AppearanceSettings {
     interfaceLanguage: "system",
     interfaceScale: 1,
     editorFontSize: 14,
+    sourceFont: "",
+    sourceLineHeight: SOURCE_LINE_HEIGHT,
+    proseFont: "",
+    proseFontSize: PROSE_FONT_SIZE,
+    proseLineHeight: PROSE_LINE_HEIGHT,
     editorKeymap: "default",
     editorSpellcheck: true,
     interfaceSounds: true,
@@ -498,7 +519,12 @@ export function loadAppearance(): AppearanceSettings {
       // v4 shipped with 110% as its implicit default. Migrate that value once,
       // while preserving every other legacy choice and all future v5 choices.
       interfaceScale: current === null && storedInterfaceScale === 1.1 ? defaults.interfaceScale : storedInterfaceScale,
-      editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
+      editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, ...FONT_SIZE_RANGE),
+      sourceFont: normalizeFontName(value?.sourceFont),
+      sourceLineHeight: normalizeLineHeight(value?.sourceLineHeight, defaults.sourceLineHeight),
+      proseFont: normalizeFontName(value?.proseFont),
+      proseFontSize: clamp(Number(value?.proseFontSize) || defaults.proseFontSize, ...FONT_SIZE_RANGE),
+      proseLineHeight: normalizeLineHeight(value?.proseLineHeight, defaults.proseLineHeight),
       editorKeymap: oneOf(value?.editorKeymap, ["vim", "emacs"], defaults.editorKeymap),
       // Absent means "never chose", which now inherits the on-by-default
       // behavior; only an explicit false keeps Harper quiet. Harper reports
