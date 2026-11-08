@@ -23,7 +23,7 @@ function mount() {
     projectRootRef: { current: "/projects/thesis" },
     refreshProject,
     refreshHistory: vi.fn(async () => undefined),
-    editor: { activeFile: "main.tex", source: "", dirty: false, save: vi.fn(async () => true), accept: vi.fn() },
+    editor: { activeFile: "main.tex", dirty: false, save: vi.fn(async () => true), accept: vi.fn() },
     onCite: vi.fn(),
     onExternalEdits: { current: vi.fn() },
     onMissingPaperTools: vi.fn(),
