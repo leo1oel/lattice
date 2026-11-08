@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { paperPdfUrl } from "../papers/paper-source";
+import { paperPdfUrl, type PaperSourceCitation } from "../papers/paper-source";
 import { sourceQuoteDomRange } from "../papers/source-quote";
 import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { notifyError } from "../telemetry/app-notify";
-import type { CanvasMode, PaperSummary, VisualMarkdownViewState } from "../app-types";
+import type { CanvasMode, PaperSourceRequest, PaperSummary, VisualMarkdownViewState } from "../app-types";
 import { toMessage } from "../app-utils";
-import { loadPdfPreviewModule } from "./canvas-lazy-modules";
+import { loadPdfPreviewModule, loadPdfQuotePageModule } from "./canvas-lazy-modules";
 import { capturePreviewViewport } from "./markdown-preview-sync";
 
 /** An original PDF a Paper links to; `generic` sources are fetched through the backend rather than opened directly. */
@@ -63,6 +63,7 @@ type PaperQuoteFallback = { paperId: string; path: string; returnPath: string; q
  */
 export function usePaperPdf({
   activePaper, activeFile, mode, onOpenMarkdownPath, flushVisualMarkdown, previewViewportRef, settledPreviewText,
+  sourceRequest, onSourceRequestHandled,
 }: {
   activePaper: PaperSummary | null;
   activeFile: string;
@@ -72,6 +73,9 @@ export function usePaperPdf({
   flushVisualMarkdown: () => boolean | undefined;
   previewViewportRef: RefObject<HTMLDivElement | null>;
   settledPreviewText: string;
+  /** A source link or cited page followed from elsewhere, for whichever Paper it names. */
+  sourceRequest: PaperSourceRequest | null;
+  onSourceRequestHandled: (id: string) => void;
 }) {
   const { t } = useLingui();
   const activePaperId = activePaper?.arxivId;
@@ -163,11 +167,39 @@ export function usePaperPdf({
       fallbackToQuote(quote);
     });
   }, [activeFile, fallbackToQuote, flushVisualMarkdown, pdfSource, previewViewportRef, updateView]);
+  // Answered once its Paper is in front, after the effects above, so the PDF
+  // this opens is not closed again by the open's own file change.
+  // On the next frame, once the Paper's own first render has painted.
+  useEffect(() => {
+    if (!sourceRequest || !activePaperId || sourceRequest.arxivId !== activePaperId) return;
+    const frame = requestAnimationFrame(() => {
+      onSourceRequestHandled(sourceRequest.id);
+      const { arxivId: _paper, ...quote } = sourceRequest;
+      if (pdfSource) openPdf(quote);
+      // Without a PDF, the passage is still found in the full text; a page alone has nowhere to go.
+      else if (quote.first) fallbackToQuote(quote);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activePaperId, fallbackToQuote, onSourceRequestHandled, openPdf, pdfSource, sourceRequest]);
   const capturePdf = useCallback((bytes: ArrayBuffer) => {
     if (!pdfSource) return;
     bytesRef.current = { key: pdfSource.key, bytes };
     updateView(pdfSource.key, { bytes });
   }, [pdfSource, updateView]);
+  /**
+   * Where `quote`, read in the full text, sits in the original PDF: its page
+   * and anchors there, or null when the PDF does not hold it once. The PDF
+   * read for it is kept, so viewing it next does not fetch it again.
+   */
+  const locateQuote = useCallback(async (quote: string): Promise<PaperSourceCitation | null> => {
+    if (!pdfSource) return null;
+    const cached = bytesRef.current?.key === pdfSource.key ? bytesRef.current.bytes : null;
+    const source = cached ? { data: cached }
+      : { url: pdfSource.generic ? await invoke<string>("paper_pdf_preview_url", { url: pdfSource.url }) : pdfSource.url };
+    const { place, bytes } = await (await loadPdfQuotePageModule()).findQuotePage(source, quote);
+    if (!cached) bytesRef.current = { key: pdfSource.key, bytes };
+    return place;
+  }, [pdfSource]);
   const rememberPage = useCallback((page: number) => {
     if (pdfSource) pagesRef.current.set(pdfSource.key, page);
   }, [pdfSource]);
@@ -186,6 +218,6 @@ export function usePaperPdf({
     /** Where the reader came from before a quote fell back into this full text, while it is shown. */
     quoteReturnPath: quoteFallback?.paperId === activePaperId && quoteFallback?.path === activeFile ? quoteFallback.returnPath : null,
     clearQuoteFallback: () => setQuoteFallback(null),
-    returnViewportRef, openPdf, closePdf, capturePdf, rememberPage, fallbackToQuote, openInBrowser,
+    returnViewportRef, openPdf, closePdf, capturePdf, rememberPage, fallbackToQuote, openInBrowser, locateQuote,
   };
 }

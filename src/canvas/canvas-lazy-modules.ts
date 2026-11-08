@@ -13,6 +13,9 @@ let visualMarkdownEditorWarmed = false;
 
 export const loadPdfPreviewModule = chunk(() => import("../pdf/pdf-viewer"));
 
+/** Finding a passage of a paper's full text in its PDF, for a source link to its page. */
+export const loadPdfQuotePageModule = chunk(() => import("../pdf/pdf-quote-page"));
+
 /** The visual Markdown editor (Lattice's own engine). */
 export const loadVisualMarkdownEditorModule = chunk(() => import("../editor/markdown/engine/lattice-visual-editor")
   .then((module) => {

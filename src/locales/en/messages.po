@@ -1580,6 +1580,10 @@ msgstr "Add reference"
 msgid "Add the submission deadline"
 msgstr "Add the submission deadline"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Add to note"
+msgstr "Add to note"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
 msgstr "Add to Papers"
@@ -1630,6 +1634,10 @@ msgstr "Added {done} papers"
 #: src/papers/add-papers-sheet.tsx
 msgid "Added 1 paper"
 msgstr "Added 1 paper"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Added to {path}"
+msgstr "Added to {path}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -4181,6 +4189,10 @@ msgstr "Copy path"
 msgid "Copy source"
 msgstr "Copy source"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Copy source link"
+msgstr "Copy source link"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Copy the link from the project’s address bar or its Share menu."
 msgstr "Copy the link from the project’s address bar or its Share menu."
@@ -4201,6 +4213,10 @@ msgstr "Core components"
 msgid "Correction/update"
 msgstr "Correction/update"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not add to the note"
+msgstr "Could not add to the note"
+
 #: src/platform/host-errors-project.ts
 msgid "Could not allocate a temporary project file."
 msgstr "Could not allocate a temporary project file."
@@ -4220,6 +4236,10 @@ msgstr "Could not check for same-title records: {error}. Retry or supply a DOI."
 #: src/telemetry/app-log.tsx
 msgid "Could not collect runtime logs."
 msgstr "Could not collect runtime logs."
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not copy the source link"
+msgstr "Could not copy the source link"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
@@ -4272,6 +4292,10 @@ msgstr "Could not find figure “{path}”."
 #: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "Could not find included file “{path}”."
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Could not find this passage in the PDF"
+msgstr "Could not find this passage in the PDF"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
@@ -6358,6 +6382,7 @@ msgstr "Full paper text is unavailable; showing the overview instead."
 msgid "Full release notes"
 msgstr "Full release notes"
 
+#: src/canvas/paper-selection-actions.tsx
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Full text"
@@ -10086,6 +10111,10 @@ msgstr "Open log folder"
 msgid "Open logs"
 msgstr "Open logs"
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Open note"
+msgstr "Open note"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
 msgstr "Open notice"
@@ -10579,6 +10608,11 @@ msgctxt "submission checklist field"
 msgid "owner"
 msgstr "owner"
 
+#. placeholder {0}: place.page
+#: src/canvas/paper-selection-actions.tsx
+msgid "p. {0}"
+msgstr "p. {0}"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "p.{page}"
@@ -10686,6 +10720,7 @@ msgid "Paper tones"
 msgstr "Paper tones"
 
 #: src/app/command-palette.tsx
+#: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
@@ -13105,6 +13140,10 @@ msgstr "Select the next occurrence"
 msgid "Select the text to proofread first."
 msgstr "Select the text to proofread first."
 
+#: src/canvas/paper-selection-actions.tsx
+msgid "Selected passage"
+msgstr "Selected passage"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"
 msgstr "Selection"
@@ -13580,6 +13619,10 @@ msgstr "Source download failed: {error}"
 #: src/settings/settings-search-index.ts
 msgid "Source editor"
 msgstr "Source editor"
+
+#: src/canvas/paper-selection-actions.tsx
+msgid "Source link copied"
+msgstr "Source link copied"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"

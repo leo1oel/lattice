@@ -59,19 +59,41 @@ export const referenceCompletionRange = (before: string, cursor: number) =>
 export const includeCompletionRange = (before: string, cursor: number) =>
   completionRange(OPEN_INCLUDE, before, cursor, false);
 
-/** The comma-separated key under `position` inside a citation or reference command. */
-function keyAt(text: string, pattern: RegExp, position: number): KeySpan | null {
+/** The comma-separated key under `position` inside a citation or reference command, with that command. */
+function keyAt(text: string, pattern: RegExp, position: number) {
   const offset = Math.max(0, position - 800);
   for (const command of argumentsOf(text.slice(offset, position + 800), pattern, offset)) {
     if (position < command.start || position > command.end) continue;
     const hovered = keySpans(command.content, command.from).find((key) => position >= key.from && position <= key.to);
-    if (hovered) return hovered;
+    if (hovered) return { key: hovered, command };
   }
   return null;
 }
 
-export const citationHoverTarget = (text: string, position: number) => keyAt(text, CITATION, position);
-export const referenceHoverTarget = (text: string, position: number) => keyAt(text, REFERENCE, position);
+/**
+ * The page a citation's note names: `p.~5`, `p. 5`, `pp.~5--7` (its first
+ * page), `page 5`, or a bare `5`, which biblatex also reads as a page.
+ * Anything else (`Theorem 2`, `ch.~3`) names no page.
+ */
+export function citationNotePage(note: string): number | undefined {
+  const match = /^\s*(?:(?:pp?|pg|pages?)\.?(?:\s|~|\\[ ,])*)?(\d+)(?:\s*(?:-{1,3}|–|—)\s*\d+)?\s*$/i.exec(note);
+  const page = match ? Number(match[1]) : NaN;
+  return page >= 1 && Number.isSafeInteger(page) ? page : undefined;
+}
+
+/**
+ * The citation key under `position`, with the page its note names. The note
+ * is the last optional argument: natbib and biblatex read `\cite[a][b]{k}` as
+ * prenote and postnote, and a lone `\cite[b]{k}` as the postnote.
+ */
+export function citationHoverTarget(text: string, position: number): (KeySpan & { page?: number }) | null {
+  const target = keyAt(text, CITATION, position);
+  if (!target) return null;
+  const options = [...text.slice(target.command.start, target.command.from - 1).matchAll(/\[([^\]]*)\]/g)];
+  const page = options.length ? citationNotePage(options.at(-1)![1]) : undefined;
+  return page ? { ...target.key, page } : target.key;
+}
+export const referenceHoverTarget = (text: string, position: number): KeySpan | null => keyAt(text, REFERENCE, position)?.key ?? null;
 
 /** The `\includegraphics` path under `position`, as written, with its span. */
 export function graphicsHoverTarget(text: string, position: number): { from: number; to: number; path: string } | null {

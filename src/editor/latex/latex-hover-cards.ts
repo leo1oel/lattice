@@ -119,12 +119,12 @@ function citationCard(
   view: EditorView,
   citation: CitationInfo,
   data: LatexEditorLiveData,
-  host: { keyboard: boolean; close: () => void; onGotoDefinition?: (target: DefinitionTarget) => void },
+  host: { keyboard: boolean; close: () => void; onGotoDefinition?: (target: DefinitionTarget) => void; page?: number },
 ): HTMLDivElement {
   const dom = createHoverCard("citation-hover-card", view, 160);
   const { onOpenCitation } = data;
   const openPaper: CardAction | undefined = onOpenCitation && data.canOpenCitation?.(citation.key)
-    ? { label: i18n._(msg`Open paper`), lead: true, run: () => { host.close(); onOpenCitation(citation.key); } }
+    ? { label: i18n._(msg`Open paper`), lead: true, run: () => { host.close(); onOpenCitation(citation.key, host.page); } }
     : undefined;
   const { onGotoDefinition } = host;
   const gotoEntry: CardAction | undefined = onGotoDefinition
@@ -217,7 +217,7 @@ export function citationTooltips(live: () => LatexEditorLiveData, onGotoDefiniti
       above: true,
       create() {
         const close = () => view.dispatch({ effects: closeHoverTooltips });
-        return { dom: citationCard(view, citation, data, { keyboard: false, close, onGotoDefinition }) };
+        return { dom: citationCard(view, citation, data, { keyboard: false, close, onGotoDefinition, page: target.page }) };
       },
     };
   })];
@@ -249,7 +249,7 @@ export function citationCardAtCursor(
         end: target.to,
         above: true,
         create() {
-          const dom = citationCard(view, citation, data, { keyboard: true, close, onGotoDefinition });
+          const dom = citationCard(view, citation, data, { keyboard: true, close, onGotoDefinition, page: target.page });
           dom.addEventListener("keydown", (event) => {
             if (event.key !== "Escape") return;
             event.preventDefault();

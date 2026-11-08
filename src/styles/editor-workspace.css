@@ -1017,7 +1017,41 @@ body.resizing-split::after { content: ""; position: fixed; inset: 0; z-index: va
 .paper-visual-header h1 { margin: 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-display-size); font-weight: var(--weight-semibold); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; text-wrap: balance; }
 .paper-visual-header p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 .paper-visual-header .paper-visual-eligibility { margin: 0 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
-.paper-reader-shell { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--editor-bg); }
+.paper-reader-shell { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--editor-bg); }
+/* Copy source link and Add to note, where a selection in the reader ends:
+   one pill like the compiled PDF's Annotate offer. Placed (and kept inside
+   the reader) by paper-selection-actions.tsx; a label too long for a narrow
+   reader ellipsizes rather than leaving it. */
+.paper-selection-actions {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  max-width: calc(100% - 2 * var(--space-4));
+  padding: var(--space-1);
+  gap: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+}
+.paper-selection-action {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-inline-tight);
+  height: calc(var(--control-height-compact) - 2 * var(--space-1));
+  padding: 0 var(--pad-inline-control);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--type-body-compact-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.paper-selection-action > svg { flex: none; }
+.paper-selection-action > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.paper-selection-action:hover:not(:disabled) { background: color-mix(in srgb, var(--surface-elevated) 92%, var(--text-primary)); }
+.paper-selection-action:disabled { cursor: default; color: var(--text-secondary); }
 /* The size container is the header, the only thing its query restyles: a
    container's width change restyles all of its contents in WebKit, and the
    shell holds the whole paper. */
