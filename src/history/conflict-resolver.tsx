@@ -222,6 +222,8 @@ export function ConflictResolverDialog(props: {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The file on disk no longer matches what the choices were made against.
+  const [changedOnDisk, setChangedOnDisk] = useState(false);
   const draftRef = useRef("");
   const loadGenerationRef = useRef(0);
   const onCloseRef = useRef(props.onClose);
@@ -236,6 +238,7 @@ export function ConflictResolverDialog(props: {
     const generation = ++loadGenerationRef.current;
     setLoading(true);
     setError(null);
+    setChangedOnDisk(false);
     setStage("resolve");
     try {
       const nextContent = await invoke<string>("read_project_file", { path, projectRoot: props.projectRoot });
@@ -280,10 +283,16 @@ export function ConflictResolverDialog(props: {
     const savedContent = stage === "edit" ? draftRef.current : resolvedContent;
     const trace = logAction(t`Conflicts`, t`Save resolved file`, path);
     try {
+      // The dialog is modal but the project is not: a sync merge or an agent
+      // can rewrite this file while it stands open. Writing only over the
+      // exact text the choices were made against keeps their edit (and a
+      // co-author's, merged in by sync) from being replaced by stale text
+      // that the next sync would then upload.
       await invoke("write_project_file", {
         path,
         content: savedContent,
         projectRoot: props.projectRoot,
+        expectedContent: content,
       });
       noteHostFileWrites(props.projectRoot, [path]);
       if (stage === "edit" && draftRef.current !== savedContent) {
@@ -295,8 +304,14 @@ export function ConflictResolverDialog(props: {
       props.onResolved(path);
       props.onClose();
     } catch (reason) {
-      setError(toMessage(reason));
-      trace.fail(reason);
+      const now = await invoke<string>("read_project_file", { path, projectRoot: props.projectRoot }).catch(() => null);
+      if (now !== null && now !== content) {
+        setChangedOnDisk(true);
+        trace.fail(t`The file changed while the dialog was open. Nothing was saved.`);
+      } else {
+        setError(toMessage(reason));
+        trace.fail(reason);
+      }
     }
     setSaving(false);
   };
@@ -317,6 +332,11 @@ export function ConflictResolverDialog(props: {
         </div>
 
         {error && <InlineMessage level="error">{error}</InlineMessage>}
+        {changedOnDisk && (
+          <InlineMessage level="warning">
+            {t`${path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared.`}
+          </InlineMessage>
+        )}
 
         {resources.error ? (
           <InlineMessage level="error">{t`Could not render this file: ${resources.error.message}`}</InlineMessage>
@@ -393,19 +413,25 @@ export function ConflictResolverDialog(props: {
               <PencilLine size={14} aria-hidden="true" /> {t`Edit before saving`}
             </Button>
           )}
-          <MotionButton
-            className={buttonClassName({ variant: "primary" })}
-            disabled={saving || loading || (stage === "resolve" && decided === 0)}
-            onClick={() => void save()}
-          >
-            {saving ? <InfinityLoader size={15} /> : null}
-            {saving
-              ? t`Saving…`
-              : stage === "edit" || remaining === 0
-                // A settled file is queued for upload (App's onResolved), so the button says so.
-                ? t`Save and upload`
-                : t`Save decided spots`}
-          </MotionButton>
+          {changedOnDisk ? (
+            <Button variant="primary" onClick={() => void load(path)}>
+              {t`Reload conflicts`}
+            </Button>
+          ) : (
+            <MotionButton
+              className={buttonClassName({ variant: "primary" })}
+              disabled={saving || loading || (stage === "resolve" && decided === 0)}
+              onClick={() => void save()}
+            >
+              {saving ? <InfinityLoader size={15} /> : null}
+              {saving
+                ? t`Saving…`
+                : stage === "edit" || remaining === 0
+                  // A settled file is queued for upload (App's onResolved), so the button says so.
+                  ? t`Save and upload`
+                  : t`Save decided spots`}
+            </MotionButton>
+          )}
         </div>
       </div>
     </ModalDialog>

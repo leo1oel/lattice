@@ -5,6 +5,9 @@ import type { OverleafRemoteDelete } from "../settings/app-settings";
 import { confirmAction, hostErrorMessage } from "../app-utils";
 import { showError, showNotice } from "./notify";
 
+/** The host's answer to a removal (`RemoteDelete` in overleaf/sync/remote_delete.rs). */
+type RemoteDelete = "deleted" | "changedOnOverleaf" | "backHere";
+
 /**
  * Files gone here but still on Overleaf. Deletion is never inferred from
  * absence: ordinary files obey the setting (leave, remove, or ask), app-owned
@@ -52,19 +55,41 @@ export function useOverleafRemoteDeletes(
       }
       if (!stillCurrent()) return;
     }
+    // The sync judged these files unchanged on Overleaf, but the question may
+    // have stood open for minutes. A writer's deletion names its path so the
+    // host re-reads Overleaf's history first and leaves a file a co-author
+    // edited meanwhile; the next sync brings their version back here, where
+    // the writer can decide again. App-owned clutter is removed as is.
+    const kept: string[] = [];
+    let removed = 0;
     for (const entry of known) {
       if (!stillCurrent()) return;
-      try {
-        await invoke("overleaf_delete_entity", { projectRoot, kind: entry.entity.kind, entityId: entry.entity.id });
-      } catch (reason) {
+      const outcome = await invoke<RemoteDelete>("overleaf_delete_entity", {
+        projectRoot, kind: entry.entity.kind, entityId: entry.entity.id, ...(automatic ? {} : { path: entry.path }),
+      }).catch((reason: unknown) => {
         if (stillCurrent()) showError(t({ message: `Could not remove ${entry.path} from Overleaf: ${hostErrorMessage(reason)}` }), "Overleaf");
-        return;
-      }
+        return null;
+      });
+      if (outcome === null) return;
+      if (outcome === "changedOnOverleaf") kept.push(entry.path);
+      else if (outcome === "deleted") removed += 1;
     }
-    if (stillCurrent() && !automatic) {
-      showNotice(known.length === 1
+    if (!stillCurrent() || automatic) return;
+    if (kept.length) {
+      const names = kept.join(", ");
+      const single = kept.length === 1;
+      showNotice(asking
+        ? single
+          ? t({ message: `${names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here.` })
+          : t({ message: `${names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here.` })
+        : single
+          ? t({ message: `${names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here.` })
+          : t({ message: `${names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here.` }), "Overleaf");
+    }
+    if (removed) {
+      showNotice(removed === 1
         ? t`Removed one file from Overleaf`
-        : t({ message: `Removed ${known.length} files from Overleaf` }), "Overleaf");
+        : t({ message: `Removed ${removed} files from Overleaf` }), "Overleaf");
     }
   }, [entitiesRef, policyRef, projectGuard, t]);
 }

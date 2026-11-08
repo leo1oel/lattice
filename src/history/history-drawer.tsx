@@ -147,6 +147,7 @@ export function HistoryDrawer(props: {
   const versions = useGitVersions({
     projectRoot: props.overleafProjectRoot,
     onVersionsChanged: props.onVersionsChanged,
+    overleafLinked: props.overleafLinked,
     onGitUnreachable: () => {
       // The git commands are missing entirely (e.g. an older backend build).
       // If the user hasn't picked a view themselves, fall back to the whole

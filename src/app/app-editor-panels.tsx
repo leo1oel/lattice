@@ -57,10 +57,11 @@ const AnnotationRoundsDialog = lazy(() =>
  * The Revision rounds sheet, loaded once it is first opened: the rounds'
  * own state says when, so nothing here runs while it stays closed.
  */
-const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, roundsList, annotations }: {
+const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, roundsList, annotations, overleafLinked }: {
   rounds: AnnotationRounds;
   roundsList: readonly AnnotationRound[];
   annotations: readonly EditorComment[];
+  overleafLinked: boolean;
 }) {
   const open = useSyncExternalStore(rounds.subscribe, () => rounds.getSnapshot().roundsOpen);
   return (
@@ -71,6 +72,7 @@ const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, rounds
         readSource={rounds.readSource}
         onOpenInHistory={rounds.openInHistory}
         onRestore={rounds.restore}
+        overleafLinked={overleafLinked}
         onClose={rounds.closeRounds}
       />
     </LazyMount>
@@ -204,7 +206,12 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
       <Suspense fallback={null}>
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
       </Suspense>
-      <AnnotationRoundsHost rounds={annotationRounds} roundsList={comments.rounds} annotations={comments.comments} />
+      <AnnotationRoundsHost
+        rounds={annotationRounds}
+        roundsList={comments.rounds}
+        annotations={comments.comments}
+        overleafLinked={!!renderCommentsSurface}
+      />
       <LazyMount when={tools.isOpen.todos}>
         <TodoScavengerPanel
           hits={todoHits}

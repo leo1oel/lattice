@@ -34,6 +34,12 @@ export function useGitVersions(props: {
   onVersionsChanged?: () => void | Promise<void>;
   /** Called when the git backend itself is unreachable (`git_status` rejects). */
   onGitUnreachable?: () => void;
+  /**
+   * A restore is an ordinary local edit, so syncing carries it to Overleaf and
+   * replaces what co-authors wrote there since. The local version saved first
+   * keeps only this machine's state, so the confirmation has to say so.
+   */
+  overleafLinked?: boolean;
 }) {
   const { t } = useLingui();
   const [phase, setPhase] = useState<GitVersionsPhase>(() => (props.projectRoot && lastLog.has(props.projectRoot) ? "ready" : "loading"));
@@ -154,7 +160,10 @@ export function useGitVersions(props: {
       return hash ? t`Version saved.` : t`No changes since the last version.`;
     }),
     restoreFile: async (hash: string, path: string) => {
-      if (!await confirmAction(t`Restore ${path} to this version? The current state is saved as a version first.`)) return;
+      const question = callbacksRef.current.overleafLinked
+        ? t`Restore ${path} to this version? The current state is saved as a local version first. Syncing then replaces the file on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those.`
+        : t`Restore ${path} to this version? The current state is saved as a version first.`;
+      if (!await confirmAction(question)) return;
       await runAction(t`Restore file`, `${path} @ ${hash}`, async () => {
         await invoke("git_restore_file", { rev: hash, path });
         await callbacksRef.current.onVersionsChanged?.();
@@ -162,7 +171,11 @@ export function useGitVersions(props: {
       });
     },
     restoreProject: async (hash: string) => {
-      const warning = t`Restore the project to this version?
+      const warning = callbacksRef.current.overleafLinked
+        ? t`Restore the project to this version?
+
+The current state is saved as a local version first. Syncing then replaces the project on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those.`
+        : t`Restore the project to this version?
 
 Nothing is lost: the current state is saved as a version first`;
       if (!await confirmAction(warning)) return;
