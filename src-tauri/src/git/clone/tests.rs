@@ -94,6 +94,48 @@ fn tells_sign_in_missing_repositories_and_network_apart() {
     assert_eq!(classify_failure(&[]), CloneError::Failed("git clone failed.".to_string()));
 }
 
+#[test]
+fn names_git_s_own_error_not_the_host_s_chatter_before_it() {
+    // A transfer that dropped after the host had started sending.
+    let dropped = "warning: redirecting to https://github.com/owner/paper.git/\nremote: Enumerating objects: 1234, done.\nremote: Total 1234 (delta 0), reused 0 (delta 0), pack-reused 1234\nerror: RPC failed; curl 92 HTTP/2 stream 5 was not closed cleanly: CANCEL (err 8)\nfatal: early EOF\nfatal: fetch-pack: invalid index-pack output";
+    assert_eq!(
+        classify_failure(&lines(dropped)),
+        CloneError::Failed(
+            "RPC failed; curl 92 HTTP/2 stream 5 was not closed cleanly: CANCEL (err 8)"
+                .to_string()
+        ),
+    );
+    assert_eq!(
+        classify_failure(&lines(
+            "remote: Enumerating objects: 1234, done.\nfatal: write error: No space left on device"
+        )),
+        CloneError::Failed("write error: No space left on device".to_string()),
+    );
+    // ssh's own line, not the advice git adds after it.
+    assert_eq!(
+        classify_failure(&lines(
+            "Warning: Permanently added 'github.com' (ED25519) to the list of known hosts.\ngit@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository."
+        )),
+        CloneError::Auth("git@github.com: Permission denied (publickey).".to_string()),
+    );
+}
+
+#[test]
+fn a_folder_git_may_not_write_to_is_not_a_sign_in_failure() {
+    assert_eq!(
+        classify_failure(&lines("fatal: could not create work tree dir 'paper': Permission denied")),
+        CloneError::Failed("could not create work tree dir 'paper': Permission denied".to_string()),
+    );
+}
+
+#[test]
+fn the_git_shim_without_the_command_line_tools_is_git_missing() {
+    assert_eq!(
+        classify_failure(&lines("xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun at: /Library/Developer/CommandLineTools/usr/bin/xcrun")),
+        CloneError::GitMissing,
+    );
+}
+
 /// A bare repository holding one commit, reachable by a file:// URL, or
 /// `None` when git is not installed.
 fn origin(label: &str) -> Option<(TempDir, String)> {

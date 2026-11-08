@@ -236,20 +236,35 @@ fn parse_progress(line: &str) -> Option<CloneProgress> {
     Some(CloneProgress { stage, progress: from + span * share })
 }
 
-/// What went wrong, from the lines git printed. The first says it; the
-/// lines after it are git's general advice ("Please make sure you have the
-/// correct access rights and the repository exists") whatever the cause.
+/// What went wrong, from the lines git printed. The first that is not the
+/// host's chatter (`remote: Enumerating objects…`) or a warning says it;
+/// the lines after it are git's general advice ("Please make sure you have
+/// the correct access rights and the repository exists") whatever the cause.
 fn classify_failure(said: &[String]) -> CloneError {
     let lower = said.join("\n").to_ascii_lowercase();
     let says = |phrases: &[&str]| phrases.iter().any(|phrase| lower.contains(phrase));
-    let first = said.first().map_or("", String::as_str);
-    let detail = first.trim_start_matches("fatal:").trim_start_matches("ERROR:").trim().to_string();
-    if says(&[
+    let chatter = |line: &&String| {
+        let line = line.to_ascii_lowercase();
+        ["remote:", "warning:", "hint:"].iter().any(|prefix| line.starts_with(prefix))
+    };
+    let first = said
+        .iter()
+        .find(|line| !chatter(line))
+        .or_else(|| said.first())
+        .map_or("", String::as_str);
+    let detail = ["fatal:", "error:", "ERROR:"]
+        .iter()
+        .fold(first, |line, prefix| line.trim_start_matches(prefix))
+        .trim()
+        .to_string();
+    if says(&["xcrun: error", "invalid active developer path"]) {
+        CloneError::GitMissing
+    } else if says(&[
         "authentication failed",
         "could not read username",
         "could not read password",
         "terminal prompts disabled",
-        "permission denied",
+        "permission denied (",
         "host key verification failed",
         "invalid username or password",
         "the requested url returned error: 401",
