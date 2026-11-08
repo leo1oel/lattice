@@ -15,9 +15,10 @@
 //! ahead of Overleaf's: a co-author typed since the last sync, or the file
 //! holds edits not sent yet. It is placed in Overleaf's copy through the
 //! difference between the two, and only where Overleaf's copy reads the same
-//! words there. A passage that difference rewrote, which Overleaf's copy holds
-//! in several places, comes back as not found, before any thread exists, so
-//! the app can open the file and let the writer place it.
+//! words there. A passage that difference rewrote is placed only where both
+//! copies read it once; one either copy holds in several places comes back as
+//! not found, before any thread exists, so the app can open the file and let
+//! the writer place it.
 
 use super::api::Remote;
 use super::doc_push::{await_applied, connect_channel, edit_ops};
@@ -84,8 +85,10 @@ fn units(text: &str) -> Vec<u16> {
 
 /// Where in `held` the passage `quote`, at UTF-16 offset `from` of `ours`,
 /// is: carried through the edit that turns `ours` into `held`, or failing
-/// that its one occurrence in `held`. `None` when `ours` does not read
-/// `quote` there, or `held` has no single place for it.
+/// that its one occurrence in `held` when `ours` also reads it only there.
+/// `None` when `ours` does not read `quote` there, or either copy reads it in
+/// more than one place: a comment on the wrong one of two alike sentences is
+/// worse than letting the writer place it.
 pub(super) fn place(ours: &str, from: usize, quote: &str, held: &str) -> Option<usize> {
     let (ours, held, quote) = (units(ours), units(held), units(quote));
     let len = quote.len();
@@ -96,9 +99,15 @@ pub(super) fn place(ours: &str, from: usize, quote: &str, held: &str) -> Option<
     if let Some(at) = carried(&ours, &held, from, len).filter(|&at| reads_quote(at)) {
         return Some(at);
     }
-    let mut found = (0..held.len().saturating_sub(len - 1)).filter(|&at| reads_quote(at));
+    occurs_once(&ours, &quote)?;
+    occurs_once(&held, &quote)
+}
+
+/// The one offset at which `text` reads `quote`, if it reads it exactly once.
+fn occurs_once(text: &[u16], quote: &[u16]) -> Option<usize> {
+    let mut found = text.windows(quote.len()).enumerate().filter(|(_, window)| *window == quote);
     match (found.next(), found.next()) {
-        (Some(at), None) => Some(at),
+        (Some((at, _)), None) => Some(at),
         _ => None,
     }
 }

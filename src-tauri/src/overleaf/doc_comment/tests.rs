@@ -56,6 +56,16 @@ fn a_passage_the_edit_rewrote_is_found_only_where_it_occurs_once() {
 }
 
 #[test]
+fn a_rewritten_passage_lattice_reads_twice_is_not_moved_onto_its_twin() {
+    // The second "We show A" is meant; a co-author rewrote it on Overleaf, so
+    // the one "We show A" Overleaf still holds is the first sentence, not it.
+    let ours = "We show A. Then B. We show A.\n";
+    let held = "We show A. Then B. We prove A.\n";
+    let second = ours.rfind("We show A").unwrap();
+    assert_eq!(place(ours, second, "We show A", held), None);
+}
+
+#[test]
 fn positions_count_utf16_units_as_overleaf_does() {
     let ours = "😀 é text here\n";
     let from = at(ours, "text");
