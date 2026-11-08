@@ -4,7 +4,7 @@
  * quoted passage highlighted. The Paper reader answers the request once the
  * paper is in front (usePaperPdf), so this holds it only until then.
  */
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useEffectEvent, useReducer } from "react";
 import type { PaperSourceRequest, PaperSummary } from "../app-types";
 import type { PaperSourceCitation } from "../papers/paper-source";
 
@@ -33,8 +33,13 @@ export function usePaperSourceRoute({ activePaperId, activeFile, openPaper, fetc
 
   // Going anywhere but the requested paper drops the request, so a failed or
   // abandoned open does not jump a later, unrelated visit to that page.
+  // Only while one is pending: a reducer dispatch always re-renders App, and
+  // every file switch (startup's first open too) would pay for a no-op one.
+  const dropUnlessInFront = useEffectEvent((arxivId: string | undefined) => {
+    if (request) dispatch({ type: "front", arxivId });
+  });
   useEffect(() => {
-    dispatch({ type: "front", arxivId: activePaperId });
+    dropUnlessInFront(activePaperId);
   }, [activePaperId, activeFile]);
 
   /** `onDownloadFailed` runs when the paper's text had to be fetched and could not be. */
