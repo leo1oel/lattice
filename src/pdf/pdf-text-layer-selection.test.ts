@@ -19,6 +19,7 @@ import {
 } from "./pdf-text-layer-selection";
 
 import { AGENT_ENTRY_ATTRIBUTE } from "../agent/agent-entry";
+import { sourceQuoteDomRange } from "../papers/source-quote";
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn(async () => undefined),
@@ -503,6 +504,30 @@ describe("PDF selection on the way to the Agent", () => {
       expect(pdfSelectedPlainTextWithin(preview)).toBe("Compiled text");
       expect(pdfSelectedPlainTextWithin(reader)).toBe("");
     }));
+  });
+
+  // PDF.js ends each text line with a <br>, which textContent drops. Read as
+  // textContent, "to<br>German" is "toGerman": the copy is wrong, and a source
+  // link's anchors never match the layer the reader's highlight searches.
+  it("reads a line end in the text layer as a space, joining a line-end hyphen", async () => {
+    const reader = document.createElement("div");
+    const { layer, spans } = glyphLayer("on the English to", "German translation. A trans-", "former model");
+    spans[0]!.after(document.createElement("br"));
+    spans[1]!.after(document.createElement("br"));
+    reader.append(layer);
+    document.body.append(reader);
+    mockGlyphBox(spans[0]!, WIDE_BOX);
+    await withSelection(layer, () => {
+      pointerDown(spans[0]!);
+      const range = document.createRange();
+      range.setStart(spans[0]!.firstChild!, 0);
+      range.setEnd(spans[2]!.firstChild!, "former model".length);
+      selectRange(range);
+      pointerUp();
+      const text = pdfSelectedPlainTextWithin(reader);
+      expect(text).toBe("on the English to German translation. A transformer model");
+      expect(sourceQuoteDomRange(layer, "English to German", "A transformer model")).not.toBeNull();
+    });
   });
 
   // A project PDF open as a document sits beside the compiled preview: each

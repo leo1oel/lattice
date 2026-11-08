@@ -215,8 +215,16 @@ function paintSelectionOverlays(selection: Selection | null) {
   for (const [textLayer, fragment] of fragments) textLayer.append(fragment);
 }
 
+/**
+ * PDF.js ends each text line with a <br>, which textContent drops ("to" +
+ * "German" → "toGerman"). Read it as a line end, and drop a hyphen right
+ * before one, the way findSourceQuote reads the layer, so a selection's words
+ * (and a source link's anchors) match the text the reader's highlight searches.
+ */
 function textFromRange(range: Range): string {
-  const contents = range.cloneContents().textContent ?? "";
+  const fragment = range.cloneContents();
+  for (const lineEnd of fragment.querySelectorAll("br")) lineEnd.replaceWith("\n");
+  const contents = (fragment.textContent ?? "").replace(/-[\t ]*\n\s*/g, "");
   return contents.trim() ? contents : range.toString();
 }
 
