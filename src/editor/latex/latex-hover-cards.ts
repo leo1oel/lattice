@@ -217,7 +217,19 @@ export function citationTooltips(live: () => LatexEditorLiveData, onGotoDefiniti
       above: true,
       create() {
         const close = () => view.dispatch({ effects: closeHoverTooltips });
-        return { dom: citationCard(view, citation, data, { keyboard: false, close, onGotoDefinition, page: target.page }) };
+        return {
+          dom: citationCard(view, citation, data, { keyboard: false, close, onGotoDefinition, page: target.page }),
+          // CodeMirror hosts every hover card in one popover anchored at the
+          // earliest `pos` among them, but each card keeps its own range: this
+          // one goes once the pointer leaves the key and is outside the
+          // popover. Under a comment, that earliest `pos` is where the
+          // comment starts, often a few wrapped rows above the key, so moving
+          // up toward the popover crossed commented text, which kept the
+          // comment and dropped the citation before the pointer arrived.
+          // Placed by the key instead (the host takes the one `getCoords` its
+          // cards give), the popover rises straight from it.
+          getCoords: () => view.coordsAtPos(target.from, 1) ?? { left: 0, right: 0, top: 0, bottom: 0 },
+        };
       },
     };
   })];
