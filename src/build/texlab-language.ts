@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import type { EditorState, Text } from "@codemirror/state";
 import { hoverTooltip, type Tooltip } from "@codemirror/view";
+import { hoverAnchor } from "../editor/hover-anchor";
 import { commandInMath } from "../editor/latex/math-region";
 
 const OPEN_CITATION = /\\(?:cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite)\*?(?:\[[^\]]*\]){0,2}\{([^}]*)$/;
@@ -130,15 +131,16 @@ export function texlabHover(
     const answer = await quietly<Tooltip>(async () => {
       const hover = await askTexlab<{ contents: string } | null>("texlab_hover", position.request);
       if (!hover?.contents.trim()) return null;
+      const from = Math.max(position.line.from, pos - 40);
       return {
-        pos: Math.max(position.line.from, pos - 40),
+        pos: from,
         end: Math.min(position.line.to, pos + 40),
         above: true,
-        create() {
+        create(view) {
           const dom = document.createElement("div");
           dom.className = "texlab-hover-card";
           dom.textContent = hover.contents;
-          return { dom };
+          return { dom, getCoords: hoverAnchor(view, from) };
         },
       };
     });

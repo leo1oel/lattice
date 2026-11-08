@@ -27,6 +27,7 @@ import {
   acceptedBase, advancedBase, rejectAllEdits, rejectEdit, reviewChanges, reviewHunks, type ReviewHunk,
 } from "./review-mode-diff";
 import { reviewMode, type ReviewModeStore } from "./review-mode-store";
+import { hoverAnchor } from "../editor/hover-anchor";
 
 type Review = Readonly<{
   /** Null while review mode is off for this file. */
@@ -315,12 +316,14 @@ export function reviewModeExtension(path: string, store: ReviewModeStore = revie
     const cards = [...new Map(hits.map((change) => [change.id.split(":")[1], change])).values()];
     const base = value.base;
     const line = view.state.doc.lineAt(pos);
+    const start = Math.max(from, line.from);
     return {
-      pos: Math.max(from, line.from),
+      pos: start,
       end: Math.min(to, line.to),
       above: true,
       arrow: true,
       create: () => ({
+        getCoords: hoverAnchor(view, start),
         dom: buildTrackedChangeTooltipDom(cards, {
           authorName: () => i18n._(msg({ message: "You", context: "the writer, as the author of a tracked change" })),
           describe: (change) => describeHunk(base, view.state.doc.toString(), value.hunks[Number(change.id.split(":")[1])]),
