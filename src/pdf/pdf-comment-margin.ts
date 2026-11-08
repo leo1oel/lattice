@@ -8,7 +8,7 @@
 export type MarginCard = { id: string; anchor: number; height: number };
 
 /** The space between two cards that would otherwise touch. */
-export const MARGIN_CARD_GAP = 8;
+const MARGIN_CARD_GAP = 8;
 
 /**
  * Each card's top. A card stands level with its mark unless the card above
