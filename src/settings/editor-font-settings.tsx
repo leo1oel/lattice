@@ -116,7 +116,7 @@ function FontFaceRows(props: {
                 <span style={{ fontFamily: cssFontFamily(family) }}>{label}</span>
               </SelectItem>
             ))}
-            <SelectItem value={OTHER_CHOICE}>{t`Other installed font…`}</SelectItem>
+            <SelectItem value={OTHER_CHOICE}>{t`Other font…`}</SelectItem>
           </SelectContent>
         </Select>
       </SettingsRow>

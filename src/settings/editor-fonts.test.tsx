@@ -111,7 +111,7 @@ describe("editor font settings", () => {
     await choose("Source editor", "OpenDyslexic");
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ sourceFont: "OpenDyslexic", proseFont: "" }));
 
-    await choose("Visual Markdown editor", "Other installed font…");
+    await choose("Visual Markdown editor", "Other font…");
     const name = screen.getByRole("textbox", { name: "Font name" });
     fireEvent.change(name, { target: { value: "Fira " } });
     // The typed space stays in the field while the stored name is trimmed.

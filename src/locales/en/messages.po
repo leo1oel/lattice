@@ -10204,8 +10204,8 @@ msgid "Other colours"
 msgstr "Other colours"
 
 #: src/settings/editor-font-settings.tsx
-msgid "Other installed font…"
-msgstr "Other installed font…"
+msgid "Other font…"
+msgstr "Other font…"
 
 #: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
