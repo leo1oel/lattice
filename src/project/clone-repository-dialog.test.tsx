@@ -104,12 +104,15 @@ describe("CloneRepositoryDialog", () => {
 
   it("starts in Documents with no project yet, and Choose puts the clone in the chosen folder", async () => {
     renderDialog(null);
-    fireEvent.change(urlField(), { target: { value: "git@github.com:owner/paper.git" } });
-    await waitFor(() => expect(locationField()).toHaveProperty("value", "/Users/ada/Documents/paper"));
+    fireEvent.change(urlField(), { target: { value: "git@github.com:owner/paperr.git" } });
+    await waitFor(() => expect(locationField()).toHaveProperty("value", "/Users/ada/Documents/paperr"));
 
     tauri.open.mockResolvedValue("/Volumes/Work");
     fireEvent.click(screen.getByRole("button", { name: "Choose…" }));
-    await waitFor(() => expect(locationField()).toHaveProperty("value", "/Volumes/Work/paper"));
+    await waitFor(() => expect(locationField()).toHaveProperty("value", "/Volumes/Work/paperr"));
+    // A URL fixed after choosing still names the folder.
+    fireEvent.change(urlField(), { target: { value: "git@github.com:owner/paper.git" } });
+    expect(locationField()).toHaveProperty("value", "/Volumes/Work/paper");
   });
 
   it("says plainly why a clone failed, with git's own words, and lets the writer try again", async () => {

@@ -29,7 +29,7 @@ type CloneFormAction =
   | { type: "url"; url: string }
   | { type: "destination"; destination: string }
   | { type: "default-parent"; parent: string }
-  | { type: "chose-parent"; parent: string; destination: string | null }
+  | { type: "chose-parent"; parent: string }
   | { type: "started" }
   | { type: "progress"; progress: CloneProgress }
   | { type: "stopped"; error: CloneError };
@@ -40,7 +40,7 @@ function cloneFormReducer(form: CloneForm, action: CloneFormAction): CloneForm {
     case "destination": return { ...form, typedDestination: action.destination, error: null };
     // Only while nothing better is there.
     case "default-parent": return form.parent ? form : { ...form, parent: action.parent };
-    case "chose-parent": return { ...form, parent: action.parent, typedDestination: action.destination, error: null };
+    case "chose-parent": return { ...form, parent: action.parent, typedDestination: null, error: null };
     case "started": return { ...form, progress: { stage: "connecting", progress: 0 }, error: null };
     // A report that lands after the clone stopped is dropped.
     case "progress": return form.progress ? { ...form, progress: action.progress } : form;
@@ -91,7 +91,7 @@ export function CloneRepositoryDialog({ recentProjectPath, onClose, onCloned }: 
   const chooseParent = async () => {
     const chosen = await open({ directory: true, multiple: false, title: t`Choose where to clone the repository` });
     if (!chosen) return;
-    dispatch({ type: "chose-parent", parent: String(chosen), destination: name ? joinPath(String(chosen), name) : null });
+    dispatch({ type: "chose-parent", parent: String(chosen) });
   };
 
   const clone = async () => {
