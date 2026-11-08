@@ -121,6 +121,26 @@ fn names_git_s_own_error_not_the_host_s_chatter_before_it() {
 }
 
 #[test]
+fn names_the_host_s_own_error_over_git_s_advice() {
+    // GitLab over ssh, for a project that is missing or hidden from the account.
+    let gitlab = "remote: \nremote: ========================================================================\nremote: \nremote: ERROR: The project you were looking for could not be found or you don't have permission to view it.\nremote: \nremote: ========================================================================\nremote: \nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.";
+    assert_eq!(
+        classify_failure(&lines(gitlab)),
+        CloneError::NotFound(
+            "The project you were looking for could not be found or you don't have permission to view it."
+                .to_string()
+        ),
+    );
+    // GitHub over https: git's own line, not the host's echo before it.
+    assert_eq!(
+        classify_failure(&lines(
+            "remote: Repository not found.\nfatal: repository 'https://github.com/owner/nope.git/' not found"
+        )),
+        CloneError::NotFound("repository 'https://github.com/owner/nope.git/' not found".to_string()),
+    );
+}
+
+#[test]
 fn a_folder_git_may_not_write_to_is_not_a_sign_in_failure() {
     assert_eq!(
         classify_failure(&lines("fatal: could not create work tree dir 'paper': Permission denied")),

@@ -237,7 +237,8 @@ fn parse_progress(line: &str) -> Option<CloneProgress> {
 }
 
 /// What went wrong, from the lines git printed. The first that is not the
-/// host's chatter (`remote: Enumerating objects…`) or a warning says it;
+/// host's chatter (`remote: Enumerating objects…`, though the host's own
+/// `remote: ERROR: …` counts) or a warning says it;
 /// the lines after it are git's general advice ("Please make sure you have
 /// the correct access rights and the repository exists") whatever the cause.
 fn classify_failure(said: &[String]) -> CloneError {
@@ -245,13 +246,14 @@ fn classify_failure(said: &[String]) -> CloneError {
     let says = |phrases: &[&str]| phrases.iter().any(|phrase| lower.contains(phrase));
     let chatter = |line: &&String| {
         let line = line.to_ascii_lowercase();
-        ["remote:", "warning:", "hint:"].iter().any(|prefix| line.starts_with(prefix))
+        let host_error = ["remote: error:", "remote: fatal:"].iter().any(|prefix| line.starts_with(prefix));
+        !host_error && ["remote:", "warning:", "hint:"].iter().any(|prefix| line.starts_with(prefix))
     };
     let first = said
         .iter()
         .find(|line| !chatter(line))
         .or_else(|| said.first())
-        .map_or("", String::as_str);
+        .map_or("", |line| line.trim_start_matches("remote:").trim_start());
     let detail = ["fatal:", "error:", "ERROR:"]
         .iter()
         .fold(first, |line, prefix| line.trim_start_matches(prefix))
@@ -274,6 +276,7 @@ fn classify_failure(said: &[String]) -> CloneError {
     } else if says(&[
         "repository not found",
         "not found",
+        "could not be found",
         "does not appear to be a git repository",
         "does not exist",
     ]) {
