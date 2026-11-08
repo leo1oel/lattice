@@ -788,6 +788,22 @@ msgstr "{names} 及另 {more} 人"
 msgid "{names} and {count} more"
 msgstr "{names} 等 {count} 人"
 
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf after you were asked, so it was not removed there. The next sync brings the newer version back here."
+msgstr "{names} 在询问之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf after you were asked, so they were not removed there. The next sync brings the newer versions back here."
+msgstr "{names} 在询问之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf since the last sync, so it was not removed there. The next sync brings the newer version back here."
+msgstr "{names} 在上次同步之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
+#: src/app/use-overleaf-remote-deletes.ts
+msgid "{names} changed on Overleaf since the last sync, so they were not removed there. The next sync brings the newer versions back here."
+msgstr "{names} 在上次同步之后被人在 Overleaf 上改过，所以没有在 Overleaf 上删除。下次同步会把新版本拉回本地。"
+
 #: src/papers/paper-identity.ts
 msgid "{names} et al."
 msgstr "{names} 等"
@@ -845,6 +861,10 @@ msgstr "{paragraphs} 个段落有改动"
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
+
+#: src/history/conflict-resolver.tsx
+msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
+msgstr "对话框打开期间 {path} 被改过，所以什么都没保存。重新载入后按新内容处理；这里做的选择和编辑会清空。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} disappeared during sync"
@@ -2032,6 +2052,7 @@ msgstr "批注与高亮"
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/overleaf/overleaf-presence.tsx
+#: src/pdf/pdf-annotations.tsx
 #: src/pdf/review-pdf-sheet.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Anonymous"
@@ -3891,6 +3912,10 @@ msgstr "\\usepackage 这类命令只能写在 {BEGIN_DOCUMENT} 之前。把这�
 msgid "Comment"
 msgstr "评论"
 
+#: src/pdf/pdf-annotations.tsx
+msgid "Comment by {name}"
+msgstr "{name} 的评论"
+
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "Comment from {opener}"
 msgstr "{opener} 的评论"
@@ -3934,6 +3959,7 @@ msgstr "注释"
 
 #: src/app/use-editor-comments.ts
 #: src/overleaf/overleaf-collab.tsx
+#: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts
 msgid "Comments"
 msgstr "评论"
@@ -6819,6 +6845,10 @@ msgstr "隐藏{name}"
 #: src/history/compare-versions.tsx
 msgid "Hide automatic versions"
 msgstr "收起自动版本"
+
+#: src/pdf/pdf-comment-column.tsx
+msgid "Hide comments"
+msgstr "隐藏评论"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Hide details"
@@ -11895,6 +11925,10 @@ msgstr "松开即可放大"
 msgid "Release to focus {title}"
 msgstr "松开放大{title}"
 
+#: src/history/conflict-resolver.tsx
+msgid "Reload conflicts"
+msgstr "重新载入冲突"
+
 #. Search words for the Refresh file tree command, space-separated
 #: src/app/project-panel-commands.ts
 msgid "reload files folders sync disk"
@@ -11985,10 +12019,9 @@ msgstr "删除 {name} 字段"
 msgid "removed"
 msgstr "删除"
 
-#. placeholder {0}: known.length
 #: src/app/use-overleaf-remote-deletes.ts
-msgid "Removed {0} files from Overleaf"
-msgstr "已从 Overleaf 删除 {0} 个文件"
+msgid "Removed {removed} files from Overleaf"
+msgstr "已从 Overleaf 删除 {removed} 个文件"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Removed from library"
@@ -12457,6 +12490,10 @@ msgid "Restore {name}"
 msgstr "恢复到{name}"
 
 #: src/history/use-git-versions.ts
+msgid "Restore {path} to this version? The current state is saved as a local version first. Syncing then replaces the file on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+msgstr "把 {path} 恢复到此版本？当前状态会先在本地存为一个版本。之后同步会连同 Overleaf 上的这个文件一起替换，合作者在此版本之后在 Overleaf 上的修改也会被覆盖；这些修改在 Overleaf 的历史里还在。"
+
+#: src/history/use-git-versions.ts
 msgid "Restore {path} to this version? The current state is saved as a version first."
 msgstr "把 {path} 恢复到此版本？当前状态会先存为一个版本。"
 
@@ -12497,6 +12534,10 @@ msgstr "恢复大小"
 msgid "Restore the files the rounds touched to {name}?"
 msgstr "把各轮改动过的文件恢复到{name}？"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Restore the files the rounds touched to {name}? Syncing then replaces them on Overleaf too, including co-authors' changes made there since; Overleaf's history keeps those."
+msgstr "把各轮改动过的文件恢复到{name}？之后同步会连同 Overleaf 上的这些文件一起替换，合作者在那之后在 Overleaf 上的修改也会被覆盖；这些修改在 Overleaf 的历史里还在。"
+
 #: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore the layout"
@@ -12513,6 +12554,14 @@ msgid "Restore the project to this version?\n"
 msgstr "把项目恢复到此版本？\n"
 "\n"
 "什么都不会丢：当前状态会先存为一个版本"
+
+#: src/history/use-git-versions.ts
+msgid "Restore the project to this version?\n"
+"\n"
+"The current state is saved as a local version first. Syncing then replaces the project on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+msgstr "把项目恢复到此版本？\n"
+"\n"
+"当前状态会先在本地存为一个版本。之后同步会连同 Overleaf 上的项目一起替换，合作者在此版本之后在 Overleaf 上的修改也会被覆盖；这些修改在 Overleaf 的历史里还在。"
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
@@ -12642,7 +12691,7 @@ msgstr "查看 Overleaf 改动"
 msgid "Review source changes"
 msgstr "预览源码修改"
 
-#: src/pdf/pdf-annotations.tsx
+#: src/pdf/pdf-comment-popups.tsx
 msgid "Review the proposal"
 msgstr "审阅这条建议"
 
@@ -13457,6 +13506,10 @@ msgstr "改动显示方式"
 msgid "Show changes in the PDF"
 msgstr "在 PDF 中显示改动"
 
+#: src/pdf/pdf-comment-column.tsx
+msgid "Show comments"
+msgstr "显示评论"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "显示大纲"
@@ -13481,7 +13534,7 @@ msgstr "历史中显示"
 msgid "Show in source"
 msgstr "在源码中显示"
 
-#: src/pdf/pdf-annotations.tsx
+#: src/pdf/pdf-comment-popups.tsx
 msgid "Show in the source"
 msgstr "在源码中定位"
 
@@ -13702,6 +13755,10 @@ msgstr "有些文件未纳入标签和引用检查"
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Someone edited the Overleaf project while {files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing."
+msgstr "有人在 {files} 上传期间改动了 Overleaf 项目。上传会替换整个文件，所以可能覆盖了对方刚打的字。请在 Overleaf 上查看该文件的历史记录，找回缺失的内容"
 
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-list-toolbar.tsx
@@ -14816,6 +14873,10 @@ msgstr "插图源文已更改，请刷新后重新预览。"
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "保存时文件变了，请看最新内容再保存"
 
+#: src/history/conflict-resolver.tsx
+msgid "The file changed while the dialog was open. Nothing was saved."
+msgstr "对话框打开期间文件被改过，什么都没保存。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The file name is too long."
 msgstr "文件名太长"
@@ -15649,6 +15710,14 @@ msgstr "此项目同步到“{0}”"
 #: src/overleaf/overleaf-connect.tsx
 msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgstr "此项目用的是 {linkedHost}，请退出并重新连接它"
+
+#: src/app/use-editor-comments.ts
+msgid "This project's annotations are still being read. Try again in a moment."
+msgstr "正在读取此项目的批注，请稍后再试。"
+
+#: src/app/use-editor-comments.ts
+msgid "This project's annotations could not be read, so changes to them are not saved: {error}"
+msgstr "无法读取此项目的批注，因此对批注的修改不会保存：{error}"
 
 #: src/canvas/annotation-review.tsx
 msgid "This proposal has been decided."

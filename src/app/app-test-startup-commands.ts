@@ -4,5 +4,7 @@ export function mockAppCommand(command: string) {
   if (command === "list_citations") return { citations: [], skipped: [] };
   if (command === "list_references") return { references: [], skipped: [] };
   if (command === "list_local_templates") return [];
+  // Every project entry reads its annotations; an unanswered read would refuse annotation saves.
+  if (command === "list_annotations") return { annotations: [], rounds: [] };
   throw new Error(`Unexpected command: ${command}`);
 }

@@ -20,7 +20,8 @@ pub(crate) struct AppState {
     /// Process-wide backstop for Overleaf's ten-project-downloads-per-minute
     /// limit. Frontend instances also debounce, but page reloads, multiple
     /// windows, and different projects still share the same account allowance.
-    pub(crate) overleaf_sync_started: tokio::sync::Mutex<Option<tokio::time::Instant>>,
+    /// When the last project download started.
+    pub(crate) overleaf_download_started: Arc<Mutex<Option<std::time::Instant>>>,
     /// Overleaf sign-ins under way, which Cancel and Sign out end.
     pub(crate) overleaf_logins: Arc<crate::overleaf::LoginAttempts>,
     /// One import per window. The request id prevents a late Cancel click from
@@ -97,7 +98,7 @@ impl AppState {
         Self {
             roots: Mutex::new(roots),
             projects: Mutex::default(),
-            overleaf_sync_started: tokio::sync::Mutex::new(None),
+            overleaf_download_started: Arc::default(),
             overleaf_logins: Arc::default(),
             paper_imports: Mutex::default(),
             paper_fetches: Mutex::default(),

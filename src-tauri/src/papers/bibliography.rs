@@ -170,19 +170,33 @@ fn json_objects(text: &str) -> Vec<String> {
     found
 }
 
+/// Commit `contents`, computed from `before`, only while the bibliography
+/// still holds `before` (an absent file reads as empty). Resolves false,
+/// writing nothing, once it does not: an import resolves for seconds to
+/// minutes, and the writer, Overleaf or the agent may have changed the file
+/// meanwhile, so the caller re-reads it rather than putting the old text back.
 pub(super) fn commit_bibliography(
-    root: &Path, relative: &str, contents: &str, label: &str, history: HistoryMode,
-) -> Result<(), String> {
-    match history {
-        HistoryMode::Record => {
+    root: &Path, relative: &str, before: &str, contents: &str, label: &str, history: HistoryMode,
+) -> Result<bool, String> {
+    let path = project::safe_path(root, relative)?;
+    let current = path.exists().then(|| fs::read_to_string(&path).map_err(err)).transpose()?;
+    if current.as_deref().unwrap_or_default() != before {
+        return Ok(false);
+    }
+    match (history, current) {
+        // The transaction compares again as it commits, closing the window
+        // between this read and the write.
+        (HistoryMode::Record, Some(current)) => {
+            let edit = vec![(relative.to_string(), current, contents.to_string())];
+            project::apply_citation_transaction_checked(root, label, edit)?;
+        }
+        (HistoryMode::Record, None) => {
             let edit = vec![(relative.to_string(), contents.to_string())];
             project::apply_citation_transaction(root, label, edit)?;
         }
-        HistoryMode::Defer => {
-            fs::write(project::safe_path(root, relative)?, contents).map_err(err)?;
-        }
+        (HistoryMode::Defer, _) => fs::write(path, contents).map_err(err)?,
     }
-    Ok(())
+    Ok(true)
 }
 
 /// What a removal does about manuscript citations of the key.

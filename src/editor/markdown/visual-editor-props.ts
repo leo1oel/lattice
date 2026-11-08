@@ -46,7 +46,8 @@ export type VisualMarkdownEditorProps = {
   activeEditorCommentId?: string | null;
   onEditorCommentClick?: (id: string) => void;
   overleafTrackChangeActions?: TrackedChangeTooltipActions;
-  onCreateComment?: (from: number, to: number, body: string) => void;
+  /** Saves a note on `[from, to)`; false when it was not made, so the composer keeps it. */
+  onCreateComment?: (from: number, to: number, body: string) => boolean;
   editable?: boolean;
   /**
    * A jump to land on once the text it names is shown: the target is

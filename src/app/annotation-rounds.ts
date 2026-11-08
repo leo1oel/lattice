@@ -481,7 +481,8 @@ export class AnnotationRounds {
   /**
    * Show an annotation: its passage in the editor (its proposal, when one
    * waits), and its card in the panel unless `inPlace`: a pin on the PDF
-   * leaves the panel where it is, which may be the PDF's own.
+   * leaves the panel where it is, which may be the PDF's own. An Overleaf
+   * thread (from the PDF's comment column) opens on its passage the same way.
    */
   open = (comment: EditorComment, inPlace = false) => {
     const deps = this.deps;
@@ -490,11 +491,6 @@ export class AnnotationRounds {
     deps.store.setActiveId(comment.id);
     if (comment.revision?.state === "proposed" && !comment.resolved) this.openReview(comment.id);
     else deps.store.openComment(comment);
-  };
-
-  openById = (id: string) => {
-    const annotation = this.find(id);
-    if (annotation) this.open(annotation, true);
   };
 
   /** Resolve from the annotation's card on the PDF, with the toast that offers it back. */
@@ -567,27 +563,30 @@ export class AnnotationRounds {
   };
 
   /**
-   * Save a note made on the PDF; false when its source no longer holds the
-   * span. Revises it alone at once with `revise`. An Overleaf comment is
+   * Save a note made on the PDF: "stale" when its source no longer holds the
+   * span, "refused" when the store would not take it (and said why). Revises it alone at once with `revise`. An Overleaf comment is
    * anchored by offset in the live document, so it is placed again in the
    * text as it stands now, which collaborators may have changed meanwhile.
    */
-  createFromPdf = (selection: PdfTextSelection, mapped: MappedPdfSelection, body: string, intent: AnnotationIntent | undefined, revise: boolean) => {
+  createFromPdf = (
+    selection: PdfTextSelection, mapped: MappedPdfSelection, body: string, intent: AnnotationIntent | undefined, revise: boolean,
+  ): "saved" | "stale" | "refused" => {
     const deps = this.deps;
-    if (!deps) return false;
+    if (!deps) return "refused";
     const source = deps.store.destination(mapped.path) === "overleaf" ? deps.sourceRef.current : mapped.source;
     const range = source === mapped.source ? mapped : sourceRangeForPdfText(source, mapped.line, selection.text);
-    if (!range || source.slice(range.from, range.to) !== mapped.source.slice(mapped.from, mapped.to)) return false;
+    if (!range || source.slice(range.from, range.to) !== mapped.source.slice(mapped.from, mapped.to)) return "stale";
     const comment = createEditorComment({
       path: mapped.path, source, from: range.from, to: range.to, body,
       // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
       authorId: deps.author.id, authorName: deps.author.name.trim() || "Anonymous",
       intent, pdf: { page: selection.page, rects: selection.rects, text: selection.text },
     });
-    if (!comment) return false;
+    if (!comment) return "stale";
     const created = deps.store.create(comment);
-    if (created && revise) this.revise([created.id]);
-    return true;
+    if (created === null) return "refused";
+    if (created !== "overleaf" && revise) this.revise([created.id]);
+    return "saved";
   };
 
   /** Stop every question in flight: the project is closing or changing. */

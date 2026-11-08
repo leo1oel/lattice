@@ -14,12 +14,12 @@ const SELECTION = { page: 1, rects: [{ x: 0.1, y: 0.2, width: 0.3, height: 0.02 
 const MAPPED: MappedPdfSelection = { path: "main_v2.tex", line: 35, from: 10, to: 27, source: "" };
 
 /** The note on a PDF selection SyncTeX places in main_v2.tex, which goes to `destination`. */
-function compose(destination: CommentDestination) {
+function compose(destination: CommentDestination, outcome: ReturnType<AnnotationRounds["createFromPdf"]> = "saved") {
   const now = { destination };
   const rounds = {
     mapPdfSelection: vi.fn(async () => MAPPED),
     pdfNoteDestination: vi.fn(() => now.destination),
-    createFromPdf: vi.fn(() => true),
+    createFromPdf: vi.fn(() => outcome),
   } as unknown as AnnotationRounds;
   const onDone = vi.fn();
   render(<PdfAnnotationComposer selection={SELECTION} rounds={rounds} onDone={onDone} onDismiss={vi.fn()} />);
@@ -66,6 +66,16 @@ describe("a note made on the PDF of a project linked to Overleaf", () => {
     expect(rounds.createFromPdf).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
     expect((await screen.findByRole("alert")).textContent).toMatch(/main_v2\.tex is not being edited live with Overleaf right now/);
+    expect(screen.getByRole("textbox", { name: "Annotation" })).toHaveValue("Cite the source here.");
+  });
+
+  it("keeps what was typed, without blaming the PDF, when the note was refused", async () => {
+    const { onDone } = compose("annotation", "refused");
+    await screen.findByText("PDF p.1 → main_v2.tex:35");
+    fireEvent.change(screen.getByRole("textbox", { name: "Annotation" }), { target: { value: "Cite the source here." } });
+    fireEvent.click(await button("^Save(?! and)"));
+    expect(onDone).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("textbox", { name: "Annotation" })).toHaveValue("Cite the source here.");
   });
 

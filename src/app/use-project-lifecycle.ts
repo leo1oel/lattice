@@ -221,9 +221,14 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     }, (reason: unknown) => {
       if (ownsProject()) failIndex("references", reason);
     });
-    if (!(await entry.restore(nextPapers ?? []))) return;
+    const restored = await entry.restore(nextPapers ?? []);
+    // A restore cut short (the writer opened a file first, or the restored
+    // file could not be read) still entered the project: its annotations,
+    // history and to-dos are read all the same. Unread annotations would
+    // otherwise sit empty, and the next one made would replace the file.
+    if (!ownsProject()) return;
     await depsRef.current.scanProject();
-    entry.finish();
+    if (restored) entry.finish();
     // Never animate shell opacity from 0 — a cancelled/interrupted tween leaves the
     // whole window blank white with the UI still "mounted".
     if (shellRef.current) shellRef.current.style.opacity = "1";

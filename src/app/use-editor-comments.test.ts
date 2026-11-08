@@ -4,14 +4,17 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { notifyInfo } from "../telemetry/app-notify";
+import { showError } from "./notify";
 import { useEditorComments } from "./use-editor-comments";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../telemetry/app-notify", () => ({ notifyInfo: vi.fn() }));
+vi.mock("./notify", () => ({ showError: vi.fn() }));
 afterEach(() => {
   cleanup();
   vi.mocked(invoke).mockReset();
   vi.mocked(notifyInfo).mockReset();
+  vi.mocked(showError).mockReset();
 });
 
 const comment = (id: string): EditorComment => ({
@@ -159,4 +162,63 @@ it("sends a PDF note to Overleaf only for the live file, and keeps one for a fil
   expect(destinationIn(docs, { status: "error", docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
   expect(destinationIn(new Map(), { status: "connecting", docId: null, liveFile: false })("main_v2.tex")).toBe("offline");
   expect(destinationIn(docs, { status: "live", docId: "doc-v2", liveFile: true }, false)("main_v2.tex")).toBe("annotation");
+});
+
+// A save replaces the whole of annotations.json, so state that was never read
+// from it must not be saved over it (implicit-state audit S1).
+it("saves nothing until the project's annotations have been read", async () => {
+  const { view } = await renderComments([comment("old-1"), comment("old-2")]);
+  act(() => view.result.current.reset());
+  let created: ReturnType<typeof view.result.current.create> = comment("x");
+  act(() => {
+    created = view.result.current.create(comment("new"));
+  });
+  expect(created).toBeNull();
+  expect(saved()).toEqual([]);
+  expect(view.result.current.comments).toEqual([]);
+  expect(showError).toHaveBeenLastCalledWith("This project's annotations are still being read. Try again in a moment.");
+
+  await act(() => view.result.current.load());
+  act(() => view.result.current.create(comment("new")));
+  expect(saved().at(-1)).toEqual(["old-1", "old-2", "new"]);
+});
+
+it("keeps a file it cannot read unsaved and says why, rather than reading it as empty", async () => {
+  const { view } = await renderComments([comment("old-1")]);
+  vi.mocked(invoke).mockImplementation(async (command) => {
+    if (command === "list_annotations") throw new Error("expected value at line 1 column 1");
+    return undefined;
+  });
+  act(() => view.result.current.reset());
+  await act(() => view.result.current.load());
+  expect(showError).toHaveBeenLastCalledWith(
+    "This project's annotations could not be read, so changes to them are not saved: expected value at line 1 column 1",
+  );
+  act(() => {
+    view.result.current.create(comment("new"));
+  });
+  expect(saved()).toEqual([]);
+  expect(view.result.current.comments).toEqual([]);
+});
+
+it("drops a read that lands after another project opened", async () => {
+  const { view, projectRootRef } = await renderComments([]);
+  let answer: (value: unknown) => void = () => undefined;
+  vi.mocked(invoke).mockImplementation((command) => (command === "list_annotations"
+    ? new Promise((resolve) => { answer = resolve; })
+    : Promise.resolve(undefined)));
+  act(() => view.result.current.reset());
+  const loading = view.result.current.load();
+  // Entering another project resets the store before its own read.
+  projectRootRef.current = "/other";
+  act(() => view.result.current.reset());
+  await act(async () => {
+    answer({ annotations: [comment("stale")], rounds: [] });
+    await loading;
+  });
+  act(() => {
+    view.result.current.create(comment("new"));
+  });
+  expect(saved()).toEqual([]);
+  expect(view.result.current.comments).toEqual([]);
 });

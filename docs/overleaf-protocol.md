@@ -118,7 +118,7 @@ replace it.
 
 | Area | Responsibility | External evidence behind it |
 | --- | --- | --- |
-| `src-tauri/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
+| `src-tauri/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download or fetching only what changed, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
 | `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
 | `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes through the same ops that move the text, and `overleaf-suggestions.ts` does the same for tracked changes, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
 | `src/overleaf/use-overleaf-realtime.ts` | React-side document ownership, debounce, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
@@ -219,23 +219,48 @@ purpose.
   project creation.
 - A project ZIP is one downloaded snapshot. A later history version must never
   be recorded as the version that ZIP represents.
-- A sync skips the ZIP only when Overleaf's history proves the copy the last
-  sync agreed on still stands: the version has not moved, or every update since
-  only edited documents the realtime channel holds. That copy is then rebuilt
-  from local files and base copies whose hashes match it; anything that cannot
-  be, any tree change, and any held hollow download mean downloading
-  (`agreed_remote_files` in `src-tauri/src/overleaf/sync.rs`).
+- A sync fetches only what Overleaf's history says changed since the copy
+  the last sync agreed on (`SyncState::agreed_version`), and downloads the ZIP
+  only when the history cannot say. The agreed copy is rebuilt from local
+  files and base copies whose hashes match it; when the version has not moved,
+  or every update since only edited documents the realtime channel holds, that
+  is the whole of Overleaf's copy and nothing is fetched. Otherwise every path
+  the history names, every agreed path in a folder a tree update names (a
+  folder operation names only the folder, so this holds for live documents
+  too), and any agreed file that cannot be rebuilt, is fetched on its own: a
+  document over the realtime channel (`joinDoc`; closing the channel leaves
+  it), a binary file with `GET /project/{id}/file/{file_id}`, both by the ids
+  from `joinProject`. A file's `fileRefs[].hash` is git's blob SHA-1 of its bytes,
+  so a fetched figure is checked against it, and an agreed figure whose hash
+  no longer matches is fetched even when the history missed it. The ZIP stays
+  for no agreed version or copy, a table that was not exact at the last sync
+  (`SyncState::unsettled`), a held hollow download, a history that does not
+  reach the version just read or names nothing for an update, a file gone
+  from the tree with no tree update naming it or a folder above it, an
+  unreachable realtime channel, more files to fetch than the project's size
+  pays for (one per 320 KiB of the agreed copy, from 8 up to 40: each fetch
+  costs a round trip, the ZIP one round trip and the project's bytes), and
+  any fetch that fails or mismatches its hash (`remote_copy` and `fetch` in
+  `src-tauri/src/overleaf/sync/changes.rs`).
+  What went up in a sync differs from the agreed copy only by Lattice's own
+  write, which the history names, so an upload no longer forces the next sync
+  to download.
 - A full sync downloads before it takes the project's exclusive lease, so
   creating, deleting and saving files do not wait out the download
   (`prefetch` in `src-tauri/src/overleaf/sync/prefetch.rs`). Under the lease
   the download is used only if the sync state still agrees with the one it
-  was taken against, apart from live documents and files only whose agreed
-  hash moved on, which the sync leaves alone for the next one
-  (`Prefetched::fits`). When nothing read ahead fits, the sync lets go of the
-  lease and reads ahead again, behind the same account-wide gap between
-  downloads; after `READ_AHEAD_ROUNDS` such reads it downloads under the lease
-  instead, so a sync always finishes. A read ahead that downloaded nothing
-  does not count towards that gap.
+  was taken against, apart from live documents, files only whose agreed
+  hash moved on, and documents the read ahead kept on their agreed copy
+  because the editor had them live but that no longer are, which the sync
+  leaves alone for the next one (`Prefetched::fits`). When nothing read ahead
+  fits, the sync lets go of the lease and reads ahead again; after
+  `READ_AHEAD_ROUNDS` such reads it downloads under the lease instead, so a
+  sync always finishes. Every ZIP
+  download a sync makes, ahead of the lease or under it, first waits out the
+  account-wide gap since the previous one (`DownloadGate`, passed by
+  `wait_for_download_gap` in `src-tauri/src/ipc/overleaf.rs`). Nothing else
+  does: reading the version and history, and fetching only what changed,
+  make the same requests Overleaf's own editor does.
 - Uploads run a few at a time, except that a file into a folder Overleaf may
   not have yet goes first and alone, so two uploads never race to create the
   same folder.
@@ -383,9 +408,17 @@ purpose.
   what Overleaf did since and sends the result.
 - Uploads remain for new files, binary files, an edit inserting a carriage
   return or a character outside the BMP into a document an upload keeps a
-  document, and everything when the live channel cannot be reached. An upload
-  goes only while the project's history version has not moved since the
-  snapshot; otherwise it stands down the same way.
+  document, and everything when the live channel cannot be reached. A text
+  document Overleaf already holds, by a name an upload keeps a document, is
+  checked against its own history right before and right after its upload
+  (`upload_checked` in `overleaf/sync/send.rs`). It goes only while
+  Overleaf's diff of that one file shows no edit since the snapshot, and
+  otherwise stands down the same way. If someone else's edit to it lands
+  during the upload, the sync reports it (`uploadedOverEdits`) so the writer
+  can check Overleaf's history. Every other upload goes only while the
+  project's history version has not moved since the snapshot. So does such a
+  document when the history gives timestamps rather than versions, or when
+  Overleaf holds it as a file entity. Otherwise these stand down the same way.
 - A failure partway through a multi-file sync must not mark unconfirmed files or
   versions as synchronized.
 

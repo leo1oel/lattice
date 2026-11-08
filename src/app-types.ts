@@ -563,6 +563,12 @@ export type OverleafSyncResult = {
    * up with the next one.
    */
   editedDuringSync?: string[];
+  /**
+   * Uploaded whole, for want of Overleaf's live channel, while someone else's
+   * edit reached the project: the upload may have replaced what a co-author
+   * had just typed in them. Overleaf's history still has it.
+   */
+  uploadedOverEdits?: string[];
 };
 
 // ---- Git version timeline ------------------------------------------------

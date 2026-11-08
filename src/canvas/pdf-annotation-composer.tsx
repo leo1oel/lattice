@@ -102,8 +102,9 @@ export function PdfAnnotationComposer(props: {
             setDestinationAtSave(destinationNow);
             return;
           }
-          if (rounds.createFromPdf(selection, mapped, body, intent, revise)) props.onDone();
-          else setError(t`The source changed since the PDF was built. Build again, then annotate.`);
+          const outcome = rounds.createFromPdf(selection, mapped, body, intent, revise);
+          if (outcome === "saved") props.onDone();
+          else if (outcome === "stale") setError(t`The source changed since the PDF was built. Build again, then annotate.`);
         }}
       />
       {/* While SyncTeX maps the words, the location reads "→ …" and Save

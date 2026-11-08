@@ -30,6 +30,10 @@ struct TreeNode {
     name: String,
     parent: Option<String>,
     kind: NodeKind,
+    /// A file's content hash, as Overleaf names it (`fileRefs[].hash`):
+    /// the git blob SHA-1 its history stores the file under. Older
+    /// instances, and every document, have none.
+    hash: Option<String>,
 }
 
 /// The project's entities, indexed by id.
@@ -64,6 +68,28 @@ pub struct ProjectTree {
     /// Whether edits should be recorded as suggestions rather than applied
     /// outright, for this account.
     pub track_changes: bool,
+    /// Each binary file's content hash by its id, where Overleaf gave one
+    /// (see `TreeNode::hash`): what lets a sync tell an unchanged figure
+    /// without downloading it, and check one it does download.
+    #[serde(skip)]
+    pub file_hashes: HashMap<String, String>,
+}
+
+impl ProjectTree {
+    pub(super) fn of(
+        tree: &Tree, user_id: Option<String>, permission: Permission, track_changes: bool,
+    ) -> Self {
+        ProjectTree {
+            root_folder_id: tree.root.clone(),
+            docs: tree.docs(),
+            entities: tree.entities(),
+            root_document: tree.root_document(),
+            user_id,
+            permission,
+            track_changes,
+            file_hashes: tree.file_hashes(),
+        }
+    }
 }
 
 impl Tree {
@@ -85,7 +111,8 @@ impl Tree {
             return;
         };
         let name = folder.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
-        let node = TreeNode { name, parent: parent.map(str::to_string), kind: NodeKind::Folder };
+        let parent = parent.map(str::to_string);
+        let node = TreeNode { name, parent, kind: NodeKind::Folder, hash: None };
         self.nodes.insert(id.to_string(), node);
         for (key, kind) in [("docs", NodeKind::Doc), ("fileRefs", NodeKind::File)] {
             for entity in folder.get(key).and_then(Value::as_array).into_iter().flatten() {
@@ -103,10 +130,18 @@ impl Tree {
         else {
             return;
         };
-        self.nodes.insert(
-            id.to_string(),
-            TreeNode { name: name.to_string(), parent: Some(parent.to_string()), kind },
-        );
+        let hash = (kind == NodeKind::File)
+            .then(|| entity.get("hash").and_then(Value::as_str).map(str::to_string))
+            .flatten();
+        let (name, parent) = (name.to_string(), Some(parent.to_string()));
+        self.nodes.insert(id.to_string(), TreeNode { name, parent, kind, hash });
+    }
+
+    /// See [`ProjectTree::file_hashes`].
+    pub fn file_hashes(&self) -> HashMap<String, String> {
+        (self.nodes.iter())
+            .filter_map(|(id, node)| Some((id.clone(), node.hash.clone()?)))
+            .collect()
     }
 
     /// The path of an entity, relative to the project root. The root folder's

@@ -5,7 +5,7 @@ use super::account::{save_session, SessionFile};
 use super::files::{disk_path, sha256_hex, write_base_copy};
 use super::link::{load_state, save_state, SyncState};
 use super::sync::{sync, OverleafSyncResult};
-use crate::overleaf_rt::mock_server::{answer_realtime, serve_http, MockState};
+use crate::overleaf_rt::mock_server::{answer_realtime, serve_http, set_project, MockState};
 pub(super) use crate::test_support::TempDir;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
@@ -76,6 +76,17 @@ pub(super) struct Mock {
     /// last value repeats). An empty list answers 404, matching an instance
     /// without history.
     pub versions: Vec<i64>,
+    /// Serve each of `versions` as the newest edit's timestamp, with no
+    /// history version, as a history that keeps versions per document does.
+    pub stamped: bool,
+    /// How far each upload moves the version served after it, by the
+    /// uploaded file's name; unset, only `versions` moves it.
+    pub upload_moves: Option<fn(&str) -> i64>,
+    /// The names Overleaf keeps as file entities, whose diff says binary.
+    pub file_entities: Vec<&'static str>,
+    /// `(pathname, from, to, parts)`: what a diff of one file between two
+    /// versions answers. Any other diff of a document shows it unchanged.
+    pub diffs: Vec<(&'static str, i64, i64, serde_json::Value)>,
     /// The project history, newest first, served whole to every other
     /// `/updates` request: the page reads that confirm a destructive pull.
     pub history: Vec<serde_json::Value>,
@@ -91,6 +102,115 @@ pub(super) struct Mock {
     /// The live channel, kept as `overleaf_rt::mock_server` keeps it; without
     /// it the channel's handshake is refused, as when it cannot be reached.
     pub realtime: Option<Arc<Mutex<MockState>>>,
+    /// A project the test changes between syncs, served instead of `zip`,
+    /// `versions` and `history`, and to the live channel when there is one.
+    pub shared: Option<Arc<Mutex<SharedProject>>>,
+}
+
+/// A project on the mock Overleaf as a co-author leaves it: served alike by
+/// the project download, the file route, version and history reads, and the
+/// live channel's tree and documents.
+#[derive(Default)]
+pub(super) struct SharedProject {
+    pub files: BTreeMap<String, Vec<u8>>,
+    pub version: i64,
+    /// Newest first, as Overleaf lists it.
+    pub history: Vec<serde_json::Value>,
+}
+
+impl SharedProject {
+    pub fn new(files: &[(String, Vec<u8>)], version: i64) -> Arc<Mutex<Self>> {
+        let files = files.iter().cloned().collect();
+        Arc::new(Mutex::new(SharedProject { files, version, history: Vec::new() }))
+    }
+
+    /// Record an update to the next version, naming `pathnames` (documents
+    /// edited) and `project_ops` (tree operations).
+    pub fn update(&mut self, pathnames: &[&str], project_ops: serde_json::Value) {
+        let (from, to) = (self.version, self.version + 1);
+        let update = serde_json::json!({ "fromV": from, "toV": to, "pathnames": pathnames,
+            "project_ops": project_ops, "meta": { "end_ts": 0 } });
+        self.history.insert(0, update);
+        self.version = to;
+    }
+
+    /// The project as `joinProject` gives it: documents and files with ids,
+    /// files with their content hash, nested in folders.
+    fn tree(&self) -> (serde_json::Value, Vec<(String, String)>) {
+        fn folder(name: &str, id: &str) -> serde_json::Value {
+            serde_json::json!({ "_id": id, "name": name, "docs": [], "fileRefs": [], "folders": [] })
+        }
+        let mut root = folder("rootFolder", "root-1");
+        let mut texts = Vec::new();
+        for (path, bytes) in &self.files {
+            let mut at = &mut root;
+            let mut parts: Vec<&str> = path.split('/').collect();
+            let name = parts.pop().unwrap();
+            for (depth, part) in parts.iter().enumerate() {
+                let id = entity_id(&parts[..=depth].join("/"));
+                let folders = at["folders"].as_array_mut().unwrap();
+                let index = match folders.iter().position(|f| f["name"] == *part) {
+                    Some(index) => index,
+                    None => {
+                        folders.push(folder(part, &id));
+                        folders.len() - 1
+                    }
+                };
+                at = &mut at["folders"][index];
+            }
+            let id = entity_id(path);
+            if is_doc(path) {
+                texts.push((id.clone(), String::from_utf8(bytes.clone()).unwrap()));
+                at["docs"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(serde_json::json!({ "_id": id, "name": name }));
+            } else {
+                let entry =
+                    serde_json::json!({ "_id": id, "name": name, "hash": blob_sha1(bytes) });
+                at["fileRefs"].as_array_mut().unwrap().push(entry);
+            }
+        }
+        (serde_json::json!({ "_id": "proj-1", "name": "Paper", "rootFolder": [root] }), texts)
+    }
+
+    fn answer(&self, url: &str, path: &str) -> Option<(u16, Vec<u8>)> {
+        if path.ends_with("/updates") && url.ends_with("?min_count=1") {
+            let body = format!("{{\"updates\":[{{\"fromV\":0,\"toV\":{}}}]}}", self.version);
+            return Some((200, body.into_bytes()));
+        }
+        if path.ends_with("/updates") {
+            return Some((200, serde_json::json!({ "updates": self.history }).to_string().into()));
+        }
+        if path.ends_with("/download/zip") {
+            let files: Vec<(&str, &[u8])> =
+                self.files.iter().map(|(path, bytes)| (path.as_str(), bytes.as_slice())).collect();
+            return Some((200, build_zip(&files)));
+        }
+        let id = path.strip_prefix("/project/proj-1/file/")?;
+        let found = self.files.iter().find(|(path, _)| entity_id(path) == id);
+        Some(found.map_or((404, Vec::new()), |(_, bytes)| (200, bytes.clone())))
+    }
+}
+
+/// The id the mock gives the entity at `path`.
+pub(super) fn entity_id(path: &str) -> String {
+    format!("e{}", &sha256_hex(path.as_bytes())[..16])
+}
+
+/// What the mock serves as a document rather than a file.
+pub(super) fn is_doc(path: &str) -> bool {
+    let extension = path.rsplit_once('.').map(|(_, extension)| extension);
+    matches!(extension, Some("tex" | "bib" | "sty" | "cls" | "bst" | "txt" | "md"))
+}
+
+/// Git's blob SHA-1, the hash Overleaf keeps a file under.
+pub(super) fn blob_sha1(bytes: &[u8]) -> String {
+    use sha1::{Digest, Sha1};
+    let mut hasher = Sha1::new();
+    hasher.update(format!("blob {}\0", bytes.len()).as_bytes());
+    hasher.update(bytes);
+    hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 impl Mock {
@@ -104,13 +224,22 @@ impl Mock {
         let mut versions: VecDeque<i64> = self.versions.iter().copied().collect();
         let mut uploads = 0usize;
         let mut downloads = 0usize;
+        let mut moved = 0i64;
         let html = self.dashboard.take().unwrap_or_else(projects_page_html);
         let routes = std::mem::take(&mut self.routes);
         let realtime = self.realtime.take();
+        let shared = self.shared.take();
         let base = serve_http(move |mut request| {
             if let Some(realtime) =
                 realtime.as_ref().filter(|_| request.url().starts_with("/socket.io/"))
             {
+                // The handshake: connect to the project as it now stands.
+                if let Some(shared) =
+                    shared.as_ref().filter(|_| !request.url().contains("/websocket/"))
+                {
+                    let (project, texts) = shared.lock().unwrap().tree();
+                    set_project(realtime, project, &texts);
+                }
                 return answer_realtime(request, realtime, 60);
             }
             let mut body = Vec::new();
@@ -127,7 +256,7 @@ impl Mock {
                 url: url.clone(),
                 csrf_header: header("X-Csrf-Token"),
                 cookie_header: header("Cookie"),
-                body,
+                body: body.clone(),
             });
             if let Some(hook) = self.on_request.as_mut() {
                 hook(&method, &url);
@@ -135,6 +264,9 @@ impl Mock {
             let path = url.split('?').next().unwrap_or("");
             const JSON: Option<&str> = Some("application/json");
             let route = routes.iter().find(|(m, p, ..)| *m == method && *p == path);
+            let shared_answer = (shared.as_ref())
+                .filter(|_| method == "GET")
+                .and_then(|shared| shared.lock().unwrap().answer(&url, path));
             let (status, content_type, body): (u16, Option<&str>, Vec<u8>) = match (
                 method.as_str(),
                 path,
@@ -143,6 +275,10 @@ impl Mock {
                     let (.., status, body) = route.unwrap();
                     (*status, JSON, body.clone().into_bytes())
                 }
+                _ if shared_answer.is_some() => {
+                    let (status, body) = shared_answer.unwrap();
+                    (status, None, body)
+                }
                 ("GET", p) if p.ends_with("/updates") && !url.ends_with("?min_count=1") => {
                     let body = serde_json::json!({ "updates": self.history });
                     (200, JSON, body.to_string().into_bytes())
@@ -150,13 +286,40 @@ impl Mock {
                 ("GET", p) if p.ends_with("/updates") => match versions.front().copied() {
                     None => (404, None, Vec::new()),
                     Some(version) => {
+                        let version = version + moved;
                         if versions.len() > 1 {
                             versions.pop_front();
                         }
-                        let body = format!("{{\"updates\":[{{\"fromV\":0,\"toV\":{version}}}]}}");
-                        (200, JSON, body.into_bytes())
+                        let update = match self.stamped {
+                            true => serde_json::json!({ "meta": { "end_ts": version } }),
+                            false => serde_json::json!({ "fromV": 0, "toV": version }),
+                        };
+                        let body = serde_json::json!({ "updates": [update] });
+                        (200, JSON, body.to_string().into_bytes())
                     }
                 },
+                ("GET", p) if p.ends_with("/diff") => {
+                    let query = reqwest::Url::parse(&format!("http://mock{url}")).unwrap();
+                    let arg = |key: &str| {
+                        let pairs = query.query_pairs();
+                        pairs.into_iter().find(|(k, _)| k == key).map(|(_, v)| v.into_owned())
+                    };
+                    let (pathname, from, to) = (arg("pathname"), arg("from"), arg("to"));
+                    let pathname = pathname.unwrap_or_default();
+                    let version = |v: Option<String>| v.and_then(|v| v.parse::<i64>().ok());
+                    let (from, to) = (version(from), version(to));
+                    let name = pathname.rsplit('/').next().unwrap_or_default();
+                    let scripted = (self.diffs.iter())
+                        .find(|(p, f, t, _)| *p == pathname && Some(*f) == from && Some(*t) == to);
+                    let diff = match scripted {
+                        Some((.., parts)) => parts.clone(),
+                        None if self.file_entities.contains(&name) => {
+                            serde_json::json!({ "binary": true })
+                        }
+                        None => serde_json::json!([{ "u": "" }]),
+                    };
+                    (200, JSON, serde_json::json!({ "diff": diff }).to_string().into_bytes())
+                }
                 ("GET", "/project") => (200, Some("text/html"), html.clone().into_bytes()),
                 ("GET", p) if p.ends_with("/download/zip") => {
                     downloads += 1;
@@ -173,6 +336,12 @@ impl Mock {
                         let (status, body) = self.upload_failure.unwrap_or((500, "upload failed"));
                         (status, JSON, body.into())
                     } else {
+                        let body = String::from_utf8_lossy(&body);
+                        let name = body.split("filename=\"").nth(1);
+                        let name = name.and_then(|rest| rest.split('"').next()).unwrap_or_default();
+                        if let Some(moves) = self.upload_moves {
+                            moved += moves(name);
+                        }
                         let body =
                             "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
                         (200, JSON, body.into())

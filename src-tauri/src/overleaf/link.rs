@@ -64,13 +64,15 @@ pub(super) struct SyncState {
     /// not in the agreed copy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agreed_version: Option<i64>,
-    /// Whether `files` says exactly what Overleaf's copy at `remote_version`
+    /// Whether `files` says exactly what Overleaf's copy at `agreed_version`
     /// holds, so a sync may stand it in for a download (see
-    /// `sync::agreed_remote_files`): `Some` lists the documents that differ,
-    /// every one of them held by the realtime channel at the time and kept on
-    /// its earlier merge base. `None` when anything else differs — a local
-    /// edit held back, an edit that landed mid-sync, a deletion left standing
-    /// — until a download settles it again.
+    /// `sync::changes::remote_copy`): `Some` lists the paths that differ,
+    /// each a document held by the realtime channel at the time and kept on
+    /// its earlier merge base, or a file that sync sent, which the history
+    /// then names. A sync fetches each again unless it is still live. `None`
+    /// when anything else differs — a local edit held back, an edit that
+    /// landed mid-sync, a deletion left standing — until a download settles it
+    /// again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unsettled: Option<BTreeSet<String>>,
     /// What this account may do to the project, as Overleaf last reported it.

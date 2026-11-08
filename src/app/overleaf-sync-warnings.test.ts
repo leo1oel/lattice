@@ -19,6 +19,17 @@ describe("overleafSyncWarnings", () => {
     expect(resolve).toHaveBeenCalledWith("main.tex");
   });
 
+  it("names every file uploaded over a co-author's edit in one warning", () => {
+    const warnings = overleafSyncWarnings(result({ pushed: ["a.tex", "b.tex"], uploadedOverEdits: ["a.tex", "b.tex"] }), vi.fn());
+    expect(warnings).toEqual([{
+      message: "Someone edited the Overleaf project while a.tex, b.tex uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing.",
+    }]);
+  });
+
+  it("says nothing for a sync whose uploads met no one else's edit", () => {
+    expect(overleafSyncWarnings(result({ pushed: ["a.tex"], uploadedOverEdits: [] }), vi.fn())).toEqual([]);
+  });
+
   it("stays quiet about a file the previous sync was already holding", () => {
     expect(overleafSyncWarnings(result({ unresolvedConflicts: ["main.tex"] }), vi.fn())).toEqual([]);
   });

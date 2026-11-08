@@ -607,15 +607,8 @@ impl RealtimeClient {
         });
         let ack = await_slot(&shared, join_slot).await?;
         let (tree, permission, track_changes) = parse_project(ack_body(&ack, "joinProject")?)?;
-        let project = ProjectTree {
-            root_folder_id: tree.root.clone(),
-            docs: tree.docs(),
-            entities: tree.entities(),
-            root_document: tree.root_document(),
-            user_id: config.user_id.clone(),
-            permission,
-            track_changes: track_changes_for(track_changes.as_ref(), config.user_id.as_deref()),
-        };
+        let track_changes = track_changes_for(track_changes.as_ref(), config.user_id.as_deref());
+        let project = ProjectTree::of(&tree, config.user_id.clone(), permission, track_changes);
         *lock(&shared.tree) = tree;
         shared.emit(RealtimeEvent::ProjectJoined {
             root_folder_id: project.root_folder_id.clone(),

@@ -87,3 +87,86 @@ fn a_file_deleted_here_comes_back_once_overleaf_changes_it() {
     assert!(second.skipped_remote_deletes.is_empty());
     assert_eq!(read_local(&root, "notes.tex").unwrap(), b"edited on overleaf");
 }
+
+/// A project where `dropped.tex` was deleted here and left untouched on
+/// Overleaf, synced once against Overleaf at version 42 with `history`.
+fn deleted_here(history: Vec<serde_json::Value>) -> (MockServer, TempDir, TempDir) {
+    let base: Files = &[("main.tex", b"body"), ("dropped.tex", b"kept on overleaf")];
+    let server = Mock { versions: vec![42], history, ..Mock::project(base) }.serve();
+    let (config, root) = linked(&server, &[("main.tex", b"body")], base);
+    let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
+    assert_eq!(result.skipped_remote_deletes, vec!["dropped.tex"]);
+    (server, config, root)
+}
+
+#[test]
+fn a_deletion_carried_to_overleaf_spares_a_file_a_co_author_edited_meanwhile() {
+    // The sync judged dropped.tex unchanged at version 42 and asked the
+    // writer. While the dialog stood open, a co-author edited it (43 → 44).
+    // Confirming afterwards must not remove their edit: the next sync brings
+    // it back here instead.
+    let edited = json!({ "fromV": 43, "toV": 44, "pathnames": ["dropped.tex"] });
+    let (server, config, root) = deleted_here(vec![edited]);
+    let outcome = delete_unchanged(&config, &root, "dropped.tex", "doc", "doc-1").unwrap();
+    assert_eq!(outcome, RemoteDelete::ChangedOnOverleaf);
+    assert!(server.with_method("DELETE").is_empty());
+}
+
+#[test]
+fn a_deletion_carried_to_overleaf_spares_a_co_author_edit_made_just_after_lattice_left_the_file() {
+    // Live mode: closing dropped.tex checkpointed it as Lattice's own write,
+    // stamped with the time only. A co-author's edit three minutes later is
+    // still theirs, not Lattice's, and must keep the file on Overleaf.
+    let left = chrono::Utc::now().timestamp_millis();
+    let edited = json!({
+        "fromV": 43, "toV": 44, "pathnames": ["dropped.tex"],
+        "meta": { "end_ts": left + 3 * 60 * 1000 },
+    });
+    let (server, config, root) = deleted_here(vec![edited]);
+    edit_state(&root, |state| {
+        state.own_writes.insert("dropped.tex".into(), HistoryFrom::Time(left));
+    });
+    let outcome = delete_unchanged(&config, &root, "dropped.tex", "doc", "doc-1").unwrap();
+    assert_eq!(outcome, RemoteDelete::ChangedOnOverleaf);
+    assert!(server.with_method("DELETE").is_empty());
+}
+
+#[test]
+fn a_deletion_carried_to_overleaf_goes_ahead_when_only_older_or_other_edits_exist() {
+    // An edit to dropped.tex the sync already had (40 → 41, before 42), and a
+    // later edit to another file, leave nothing of anyone's to lose.
+    let history = vec![
+        json!({ "fromV": 43, "toV": 44, "pathnames": ["main.tex"] }),
+        json!({ "fromV": 40, "toV": 41, "pathnames": ["dropped.tex"] }),
+    ];
+    let (server, config, root) = deleted_here(history);
+    let outcome = delete_unchanged(&config, &root, "dropped.tex", "doc", "doc-1").unwrap();
+    assert_eq!(outcome, RemoteDelete::Deleted);
+    let deletes = server.with_method("DELETE");
+    assert_eq!(deletes.len(), 1);
+    assert!(deletes[0].url.ends_with("/project/proj-1/doc/doc-1"), "{}", deletes[0].url);
+}
+
+#[test]
+fn a_deletion_carried_to_overleaf_is_dropped_once_the_file_is_back_here() {
+    let (server, config, root) = deleted_here(Vec::new());
+    fs::write(root.join("dropped.tex"), b"restored").unwrap();
+    let outcome = delete_unchanged(&config, &root, "dropped.tex", "doc", "doc-1").unwrap();
+    assert_eq!(outcome, RemoteDelete::BackHere);
+    assert!(server.with_method("DELETE").is_empty());
+}
+
+#[test]
+fn a_deletion_carried_to_overleaf_stays_put_when_overleaf_history_cannot_be_read() {
+    // Without the history there is no telling whether a co-author edited the
+    // file meanwhile, so the removal must fail rather than go ahead: a file
+    // left on Overleaf can be removed later, a lost edit cannot be recovered.
+    let base: Files = &[("main.tex", b"body"), ("dropped.tex", b"kept on overleaf")];
+    let history_down = ("GET", "/project/proj-1/updates", 500, "{}".to_string());
+    let server = Mock { routes: vec![history_down], ..Mock::project(base) }.serve();
+    let (config, root) = linked(&server, &[("main.tex", b"body")], base);
+    let error = delete_unchanged(&config, &root, "dropped.tex", "doc", "doc-1").unwrap_err();
+    assert!(error.contains("dropped.tex"), "{error}");
+    assert!(!server.with_method("GET").is_empty(), "the history was never asked for");
+    assert!(server.with_method("DELETE").is_empty());
+}

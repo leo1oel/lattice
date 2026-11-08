@@ -11,7 +11,7 @@
 use super::bibliography::{
     bibcite_report_field, commit_bibliography, run_bibcite_input, HistoryMode, ScratchBibliography,
 };
-use super::bundle::{fetch_arxiv_bundle, fetch_web_bundle, is_pdf_url, PaperMetadata};
+use super::bundle::{fetch_arxiv_bundle, fetch_web_bundle, is_pdf_url};
 use super::citation::{
     official_arxiv_citation, resolve_arxiv_title, unused_key, validate_resolved_identity,
     verify_title_citation,
@@ -21,12 +21,10 @@ use super::ids::{
 };
 use super::is_web_url;
 use super::web_citation::{
-    alphaxiv_bibtex, merge_supplied_bibtex, pdf_citation_bibtex, resolve_web_citation, WebCitation,
+    alphaxiv_bibtex, merge_supplied_bibtex, resolve_web_citation, WebCitation,
 };
-use crate::models::ProjectManifest;
 use crate::papers::ImportResult;
 use crate::util::err;
-use crate::web_metadata::bib_url;
 use crate::{alphaxiv, project};
 use serde_json::{json, Value};
 use std::fs;
@@ -35,12 +33,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 
 /// The JSON report an import returns, in bibcite's shape.
-fn import_report(key: &str, source: &str, action: &str) -> String {
+pub(super) fn import_report(key: &str, source: &str, action: &str) -> String {
     json!({"key": key, "source": source, "action": action}).to_string()
 }
 
 /// An import the user stopped before any citation was committed.
-fn cancelled(title: &str) -> ImportResult {
+pub(super) fn cancelled(title: &str) -> ImportResult {
     ImportResult {
         arxiv_id: String::new(),
         title: title.to_string(),
@@ -80,7 +78,9 @@ pub fn import_reference(
         return Ok(result);
     }
     if is_pdf_url(query) && alphaxiv::paper_id_from_url(query).is_none() {
-        return import_pdf_citation(root, manifest, query, &before, history, progress, cancel);
+        return super::import_pdf::import_pdf_citation(
+            root, manifest, query, history, progress, cancel,
+        );
     }
     let scratch = ScratchBibliography::new("research-writer-cite", Some(&before))?;
 
@@ -169,14 +169,18 @@ pub fn import_reference(
     // fetched (no HTML rendering, network trouble) is still a full citation,
     // and failing the import after bibcite already resolved the entry threw
     // the user's citation away over a download problem.
-    if bibliography != before {
-        if fs::read_to_string(&bibliography_path).unwrap_or_default() != before {
-            return Err(
-                "The bibliography changed while resolving the citation. Retry the import.".into()
-            );
-        }
-        let label = format!("Cite {citation_key}");
-        commit_bibliography(root, &manifest.primary_bibliography, &bibliography, &label, history)?;
+    let label = format!("Cite {citation_key}");
+    if bibliography != before
+        && !commit_bibliography(
+            root,
+            &manifest.primary_bibliography,
+            &before,
+            &bibliography,
+            &label,
+            history,
+        )?
+    {
+        return Err(BIBLIOGRAPHY_CHANGED.into());
     }
     let resolved = ImportResult { citation_key: Some(citation_key), ..resolved };
     if cancel.load(Ordering::Acquire) {
@@ -256,52 +260,9 @@ fn import_existing_arxiv_citation(
     })
 }
 
-/// Import the report itself, enriching its citation from explicitly supplied
-/// metadata rather than treating a binary URL as an HTML webpage.
-fn import_pdf_citation(
-    root: &Path, manifest: &ProjectManifest, url: &str, before: &str, history: HistoryMode,
-    progress: &dyn Fn(&str), cancel: &AtomicBool,
-) -> Result<ImportResult, String> {
-    progress("fulltext");
-    let url = bib_url(url);
-    let fetched = match fetch_web_bundle(root, &url, None, cancel) {
-        Ok(fetched) => fetched,
-        Err(_) if cancel.load(Ordering::Acquire) => return Ok(cancelled(&url)),
-        Err(error) => return Err(error),
-    };
-    let metadata_path =
-        project::safe_path(root, &format!(".research/papers/{}/metadata.json", fetched.arxiv_id))?;
-    let metadata: PaperMetadata =
-        serde_json::from_slice(&fs::read(metadata_path).map_err(err)?).map_err(err)?;
-    let markdown =
-        fs::read_to_string(project::safe_path(root, &fetched.paper_path)?).map_err(err)?;
-    progress("resolving");
-    let raw = pdf_citation_bibtex(&markdown, &metadata.title, &url);
-    let (bibliography, key, already_imported) = merge_supplied_bibtex(before, &raw)?;
-    let captured = ImportResult {
-        arxiv_id: fetched.arxiv_id,
-        paper_path: fetched.paper_path,
-        ..cancelled(&metadata.title)
-    };
-    if cancel.load(Ordering::Acquire) {
-        return Ok(captured);
-    }
-    if bibliography != before {
-        let label = format!("Cite {key}");
-        commit_bibliography(root, &manifest.primary_bibliography, &bibliography, &label, history)?;
-    }
-    Ok(ImportResult {
-        citation_output: import_report(
-            &key,
-            "pdf",
-            if already_imported { "already-present" } else { "added" },
-        ),
-        citation_key: Some(key),
-        already_imported,
-        cancelled: false,
-        ..captured
-    })
-}
+/// Why an import gave up: the bibliography kept changing under it.
+pub(super) const BIBLIOGRAPHY_CHANGED: &str =
+    "The bibliography changed while resolving the citation. Retry the import.";
 
 /// Prefer an arXiv identity for a title before asking bibcite to choose the
 /// canonical publication record. Published DBLP/OpenReview records often omit

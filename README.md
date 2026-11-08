@@ -42,6 +42,7 @@ Dock any panel anywhere, keep Writing and Reading layouts, or save your own work
 
 Select text to **Proofread** or **Polish** it in place, with a reason for each edit.
 Annotate the source or the PDF, then revise from your annotations in rounds: the agent proposes an edit for each one and you accept or reject it in place.
+Annotations and Overleaf comments also line up in a column beside the PDF, each level with its mark on the page, where you read, reply to and resolve them.
 **Export review PDF** writes the annotations you tick into a copy of the compiled PDF as standard PDF comments, so collaborators can read them in Preview, Acrobat or Zotero.
 
 ### Bring your own agent

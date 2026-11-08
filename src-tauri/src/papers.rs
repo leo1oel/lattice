@@ -27,6 +27,7 @@ mod citation;
 mod convert;
 mod ids;
 mod import;
+mod import_pdf;
 mod library;
 mod library_search;
 mod markdown;
