@@ -2,7 +2,7 @@
 //! (#670): the download that is most of a sync's time, taken while file
 //! writes here go on, and checked against the link once the lease is held.
 
-use super::{agreed_remote_files, download, sync_client, RemoteFiles};
+use super::{fetch, remote_copy, sync_client, RemoteCopy, RemoteFiles};
 use crate::overleaf::api::{DownloadProgress, Remote};
 use crate::overleaf::files::read_local_files;
 use crate::overleaf::link::SyncState;
@@ -54,9 +54,10 @@ impl Prefetched {
     }
 }
 
-/// The slow, read-only half of a sync: Overleaf's version, then its project
-/// download when the sync will need one. Run before the sync takes the
-/// project's exclusive lease, so creating, deleting and saving files here are
+/// The slow, read-only half of a sync: Overleaf's version, then what changed
+/// there, or its project download, when the sync will need it. Run before the
+/// sync takes the project's exclusive lease, so creating, deleting and saving
+/// files here are
 /// not held for the minutes a large project's download can take; the sync
 /// then uses the download if it still fits (see [`Prefetched::fits`]), and
 /// turns it down if not, for this to run again once the lease is let go
@@ -77,9 +78,10 @@ pub fn prefetch(
     let client = sync_client()?;
     let version = linked.version(&client).or(observed_remote_version);
     let local = read_local_files(root)?.files;
-    if agreed_remote_files(&linked, &client, root, version, &local, live).is_some() {
+    let copy = remote_copy(&linked, &client, root, version, &local, live);
+    if let RemoteCopy::Agreed(_) = copy {
         return Ok(None);
     }
-    let downloaded = download(&linked, &client, progress)?;
+    let downloaded = fetch(&linked, &client, copy, progress)?;
     Ok(Some(Prefetched { version, files: linked.state.files, downloaded }))
 }

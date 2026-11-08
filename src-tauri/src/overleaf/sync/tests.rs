@@ -5,6 +5,7 @@ use crate::overleaf::test_support::*;
 use serde_json::json;
 
 mod case_collisions;
+mod changes;
 mod conflicts;
 mod deletions;
 mod prefetch;
@@ -611,15 +612,18 @@ fn a_file_left_behind_mid_sync_is_downloaded_again_before_anything_goes_up() {
         "pathnames": ["notes.md"] });
     let root = TempDir::new("overleaf-project");
     let (hook_root, hook_text) = (root.to_path_buf(), typed.clone());
-    let mut landed = false;
+    let mut history_reads = 0;
     let mock = Mock {
         versions: vec![41],
         history: vec![emptied],
-        // Confirming the emptied download reads the history: the edit lands then.
+        // The first history read finds what changed since the agreed copy;
+        // the second confirms the emptied download, and the edit lands then.
         on_request: Some(Box::new(move |_, url| {
-            if url.contains("/updates?min_count=50") && !landed {
-                landed = true;
-                fs::write(disk_path(&hook_root, "notes.md"), &hook_text).unwrap();
+            if url.contains("/updates?min_count=50") {
+                history_reads += 1;
+                if history_reads == 2 {
+                    fs::write(disk_path(&hook_root, "notes.md"), &hook_text).unwrap();
+                }
             }
         })),
         ..Mock::project(&[("notes.md", b"")])
@@ -655,97 +659,6 @@ fn downloads(server: &MockServer) -> usize {
 
 fn dashboards(server: &MockServer) -> usize {
     server.recorded().iter().filter(|r| r.url == "/project").count()
-}
-
-/// The download is most of a sync's time, and most syncs run because the
-/// project's version moved without any file a sync handles changing. When
-/// Overleaf's history proves that, the copy already agreed on stands in for
-/// the download; anything it cannot prove means downloading after all.
-#[test]
-fn a_sync_downloads_the_project_only_when_overleafs_history_cannot_rule_out_a_change() {
-    let base: Files = &[
-        ("fig.png", b"\x89PNG agreed"),
-        ("live.tex", b"live body"),
-        ("main.tex", b"main body"),
-        ("notes.tex", b"notes body"),
-    ];
-    let edit =
-        |from: i64, paths: &[&str]| json!({ "fromV": from, "toV": from + 1, "pathnames": paths });
-    let moved_live = edit(40, &["live.tex"]);
-    let renamed = json!({ "fromV": 40, "toV": 41, "pathnames": [],
-        "project_ops": [{ "rename": { "pathname": "live.tex", "newPathname": "live2.tex" } }] });
-    let live: BTreeSet<String> = ["live.tex".to_string()].into();
-    let exact = || Some(BTreeSet::new());
-    let left_on_base = || Some(BTreeSet::from(["notes.tex".to_string()]));
-    let main: (&str, &[u8]) = ("main.tex", b"main edited");
-    let figure: (&str, &[u8]) = ("fig.png", b"\x89PNG new");
-    // (case, versions, history, a local edit, how exactly the last sync's
-    // table matched Overleaf, downloaded)
-    type Case<'a> = (
-        &'a str,
-        Vec<i64>,
-        Vec<Value>,
-        Option<(&'a str, &'a [u8])>,
-        Option<BTreeSet<String>>,
-        bool,
-    );
-    let cases: &[Case] = &[
-        ("unchanged, nothing to do", vec![40], vec![], None, exact(), false),
-        ("unchanged, an edit to send", vec![40], vec![], Some(main), exact(), false),
-        ("only a live document edited", vec![41], vec![moved_live.clone()], None, exact(), false),
-        (
-            "a file edited on Overleaf",
-            vec![41],
-            vec![edit(40, &["notes.tex"])],
-            None,
-            exact(),
-            true,
-        ),
-        ("the tree changed", vec![41], vec![renamed], None, exact(), true),
-        ("history short of the version", vec![42], vec![moved_live], None, exact(), true),
-        ("no version to compare", vec![], vec![], None, exact(), true),
-        ("an edited figure has no base copy", vec![40], vec![], Some(figure), exact(), true),
-        ("the last sync's table was not exact", vec![40], vec![], None, None, true),
-        (
-            "a document left on its base is no longer live",
-            vec![40],
-            vec![],
-            None,
-            left_on_base(),
-            true,
-        ),
-    ];
-    for (case, versions, history, edited, unsettled, downloaded) in cases {
-        let mock =
-            Mock { versions: versions.clone(), history: history.clone(), ..Mock::project(base) };
-        let server = mock.serve();
-        let (config, root) = linked(&server, base, base);
-        edit_state(&root, |state| {
-            state.remote_version = Some(40);
-            state.unsettled = unsettled.clone();
-        });
-        if let Some((rel, data)) = edited {
-            fs::write(disk_path(&root, rel), data).unwrap();
-        }
-        let result = sync(&config, &root, &live, None).unwrap();
-        assert_eq!(downloads(&server) == 1, *downloaded, "{case}");
-        // The upload token is a page of every project; only an upload needs it.
-        assert_eq!(dashboards(&server), usize::from(edited.is_some()), "{case}");
-        let pushed: Vec<&str> = edited.iter().map(|(rel, _)| *rel).collect();
-        assert_eq!(result.pushed, pushed, "{case}");
-        assert!(result.pulled.is_empty() && result.merged.is_empty(), "{case}");
-        // The same agreed copy is recorded either way.
-        let files = state_files(&root);
-        for (rel, data) in base.iter().filter(|(rel, _)| !pushed.contains(rel)) {
-            assert_eq!(files.get(*rel), Some(&sha256_hex(data)), "{case}: {rel}");
-        }
-        if let Some((rel, data)) = edited {
-            assert_eq!(files.get(*rel), Some(&sha256_hex(data)), "{case}: {rel}");
-            assert!(server.uploads()[0]
-                .body_text()
-                .contains(&String::from_utf8_lossy(data).into_owned()));
-        }
-    }
 }
 
 // ---- permissions ----------------------------------------------------------------

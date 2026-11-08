@@ -219,12 +219,27 @@ purpose.
   project creation.
 - A project ZIP is one downloaded snapshot. A later history version must never
   be recorded as the version that ZIP represents.
-- A sync skips the ZIP only when Overleaf's history proves the copy the last
-  sync agreed on still stands: the version has not moved, or every update since
-  only edited documents the realtime channel holds. That copy is then rebuilt
-  from local files and base copies whose hashes match it; anything that cannot
-  be, any tree change, and any held hollow download mean downloading
-  (`agreed_remote_files` in `src-tauri/src/overleaf/sync.rs`).
+- A sync fetches only what Overleaf's history says changed since the copy
+  the last sync agreed on (`SyncState::agreed_version`), and downloads the ZIP
+  only when the history cannot say. The agreed copy is rebuilt from local
+  files and base copies whose hashes match it; when the version has not moved,
+  or every update since only edited documents the realtime channel holds, that
+  is the whole of Overleaf's copy and nothing is fetched. Otherwise every path
+  the history names, and any agreed file that cannot be rebuilt, is fetched on
+  its own: a document over the realtime channel (`joinDoc`, then `leaveDoc`),
+  a binary file with `GET /project/{id}/file/{file_id}`, both by the ids from
+  `joinProject`. A file's `fileRefs[].hash` is git's blob SHA-1 of its bytes,
+  so a fetched figure is checked against it, and an agreed figure whose hash
+  no longer matches is fetched even when the history missed it. The ZIP stays
+  for no agreed version or copy, a table that was not exact at the last sync
+  (`SyncState::unsettled`), a held hollow download, a history that does not
+  reach the version just read or names nothing for an update, a file gone
+  from the tree with no tree update naming it or a folder above it, an
+  unreachable realtime channel, and any fetch that fails or mismatches its
+  hash (`remote_copy` and `fetch` in `src-tauri/src/overleaf/sync/changes.rs`).
+  What went up in a sync differs from the agreed copy only by Lattice's own
+  write, which the history names, so an upload no longer forces the next sync
+  to download.
 - A full sync downloads before it takes the project's exclusive lease, so
   creating, deleting and saving files do not wait out the download
   (`prefetch` in `src-tauri/src/overleaf/sync/prefetch.rs`). Under the lease

@@ -1,7 +1,7 @@
 //! The dry run of a sync: the same fetch and the same classification, so what
 //! the user approves is exactly what runs, with nothing written or uploaded.
 
-use super::{fetch_remote_files, plan_sync, settle_destructive, sync_client, sync_stamp};
+use super::{fetch, plan_sync, remote_copy, settle_destructive, sync_client, sync_stamp};
 use crate::overleaf::api::Remote;
 use crate::overleaf::case_collisions;
 use crate::overleaf::files::{is_excluded, read_base_copy, read_local_files};
@@ -69,8 +69,10 @@ pub fn preview(
     let mut linked = Remote::open(config_dir, root)?;
     linked.state.files.retain(|path, _| !is_excluded(path));
     let client = sync_client()?;
-    let mut remote = fetch_remote_files(&linked, &client, &|_, _| {})?.files;
     let mut local = read_local_files(root)?.files;
+    let version = linked.version(&client);
+    let copy = remote_copy(&linked, &client, root, version, &local, live);
+    let mut remote = fetch(&linked, &client, copy, &|_, _| {})?.files;
     case_collisions::set_aside(&mut remote, &mut local, &linked.state.files);
     let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
     let refused = settle_destructive(&linked, &client, &mut plan);
@@ -124,5 +126,5 @@ pub fn preview(
     let rank = |kind: &str| rank.iter().position(|k| *k == kind).unwrap_or(rank.len());
     changes.sort_by(|a, b| rank(&a.kind).cmp(&rank(&b.kind)).then_with(|| a.path.cmp(&b.path)));
 
-    Ok(OverleafPreview { changes, remote_version: linked.version(&client) })
+    Ok(OverleafPreview { changes, remote_version: version })
 }

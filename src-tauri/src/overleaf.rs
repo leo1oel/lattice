@@ -14,7 +14,9 @@
 //!   `ol-projects` with a bare array), and `ol-user` (JSON with `email`,
 //!   `first_name`, `last_name`).
 //! - `GET {host}/project/{id}/download/zip` returns the whole project as a
-//!   zip archive.
+//!   zip archive. `GET {host}/project/{id}/file/{file_id}` returns one binary
+//!   file, whose `fileRefs[].hash` in `joinProject` is git's blob SHA-1 of it;
+//!   a document's text comes over socket.io (`joinDoc`).
 //! - `POST {host}/project/new/upload` creates a project from a zip archive as
 //!   multipart fields `name` and `qqfile`. The JSON response carries the new
 //!   `project_id`; CSRF uses the same dashboard token as other mutations.
@@ -33,8 +35,8 @@
 //! (the project list, pending invitations, a pasted link), `link` the persisted link
 //! between a folder and a project (and how one is made), `local_copies` which
 //! folders on this Mac hold one, `files` the local
-//! side of sync and its merge bases, `sync` the ZIP-based sync, preview and
-//! probe, `review` chat, comments, history and tracked changes, and `api` the
+//! side of sync and its merge bases, `sync` the sync (fetching what changed,
+//! or the ZIP), preview and probe, `review` chat, comments, history and tracked changes, and `api` the
 //! HTTP plumbing all of them share.
 
 mod account;
