@@ -5,7 +5,7 @@
 //! types meanwhile (see `doc_push`). The rest are uploaded: new files, binary
 //! files, and everything when the live channel cannot be reached.
 
-use super::super::api::{folders_above, Remote};
+use super::super::api::{folders_above, HistoryVersion, Remote};
 use super::super::doc_push::{LiveDocs, LivePush};
 use super::super::upload::Uploader;
 use crate::util::sha256_hex;
@@ -77,7 +77,10 @@ pub(super) fn send(
     // channel needs none of this: it is checked against the copy planned
     // against on its own, and what lands after that is transformed, not
     // replaced.
-    if !uploads.is_empty() && history.base.is_some() && !history.holds_at(linked.version(client)) {
+    if !uploads.is_empty()
+        && history.base.is_some()
+        && !history.holds_at(linked.history_version(client))
+    {
         outcome.stood_down.extend(std::mem::take(&mut uploads).into_keys());
     }
     if !uploads.is_empty() {
@@ -121,13 +124,18 @@ impl History<'_> {
     /// Whether `seen` could be the project with nothing in it but the copy
     /// planned against and our own uploads since.
     ///
-    /// Each upload moves the version by one. Overleaf may report that a
-    /// little late, so seeing fewer of our uploads than we made is fine;
-    /// seeing more than we made is someone else's edit. An unreadable
-    /// version tells nothing, so it never counts as holding still.
-    fn holds_at(&self, seen: Option<i64>) -> bool {
+    /// Each upload moves a counted version by one. Overleaf may report that
+    /// a little late, so seeing fewer of our uploads than we made is fine;
+    /// seeing more than we made is someone else's edit. A timestamp moves
+    /// for our upload as for anyone's, so it tells only until our first
+    /// upload; after that it holds, as no read can say otherwise. An
+    /// unreadable version tells nothing, so it never counts as holding still.
+    fn holds_at(&self, seen: Option<HistoryVersion>) -> bool {
         match (self.base, seen) {
-            (Some(base), Some(seen)) => (base..=base + self.own).contains(&seen),
+            (Some(base), Some(HistoryVersion::Counted(seen))) => {
+                (base..=base + self.own).contains(&seen)
+            }
+            (Some(base), Some(HistoryVersion::Stamped(seen))) => self.own > 0 || seen == base,
             _ => false,
         }
     }
@@ -154,10 +162,10 @@ impl History<'_> {
     fn upload_each(
         &mut self, uploader: &Uploader, documents: BTreeMap<String, Vec<u8>>, outcome: &mut Sent,
     ) -> Result<(), String> {
-        let mut seen = self.linked.version(self.client);
+        let mut seen = self.linked.history_version(self.client);
         // Not knowing where the planned copy stood, the first read is the
         // best line to hold to: it at least catches edits from here on.
-        self.base = self.base.or(seen);
+        self.base = self.base.or(seen.map(HistoryVersion::value));
         let mut documents = documents.into_iter();
         for (path, bytes) in documents.by_ref() {
             if self.base.is_some() && !self.holds_at(seen) {
@@ -166,7 +174,7 @@ impl History<'_> {
             }
             uploader.upload(&path, bytes.clone())?;
             self.own += 1;
-            seen = self.linked.version(self.client);
+            seen = self.linked.history_version(self.client);
             if self.base.is_some() && seen.is_some() && !self.holds_at(seen) {
                 outcome.over_edits.push(path.clone());
             }

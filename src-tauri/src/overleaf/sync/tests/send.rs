@@ -257,3 +257,39 @@ fn documents_uploaded_while_overleaf_holds_still_report_nothing() {
         assert_eq!(server.uploads().len(), 3);
     }
 }
+
+// A history that keeps its versions per document reports, for the project,
+// only the newest edit's timestamp in milliseconds. Our own upload moves that
+// as far as anyone's edit would, so it can tell only whether Overleaf moved
+// before the first upload.
+
+/// A moment in milliseconds, as `meta.end_ts` reports it.
+const AT: i64 = 1_700_000_000_000;
+
+#[test]
+fn a_history_of_timestamps_sends_every_document_in_one_sync_without_a_false_report() {
+    let base: Files = &[("a.tex", BASE.as_bytes()), ("b.tex", BASE.as_bytes())];
+    let local: Files =
+        &[("a.tex", OURS.as_bytes()), ("b.tex", OURS.as_bytes()), ("new.tex", b"New.\n")];
+    // The snapshot, before the first upload, and after each: the stamp jumps
+    // by seconds with each of our own uploads.
+    let versions = vec![AT, AT, AT + 4_000, AT + 9_000];
+    let mock = Mock { versions, stamped: true, ..Mock::project(base) };
+    let (server, root, result) = run_sync(mock, local, base);
+    assert_eq!(result.pushed, ["a.tex", "b.tex", "new.tex"]);
+    assert!(result.uploaded_over_edits.is_empty(), "{:?}", result.uploaded_over_edits);
+    assert_eq!(server.uploads().len(), 3);
+    assert_eq!(state_files(&root)["b.tex"], sha256_hex(OURS.as_bytes()));
+}
+
+#[test]
+fn a_history_of_timestamps_still_stands_down_when_overleaf_moved_before_the_uploads() {
+    let base: Files = &[("a.tex", BASE.as_bytes())];
+    let local: Files = &[("a.tex", OURS.as_bytes()), ("new.tex", b"New.\n")];
+    let mock = Mock { versions: vec![AT, AT + 3_000], stamped: true, ..Mock::project(base) };
+    let (server, root, result) = run_sync(mock, local, base);
+    assert!(result.pushed.is_empty(), "{:?}", result.pushed);
+    assert!(result.uploaded_over_edits.is_empty());
+    assert!(server.uploads().is_empty());
+    assert_eq!(state_files(&root)["a.tex"], sha256_hex(BASE.as_bytes()));
+}

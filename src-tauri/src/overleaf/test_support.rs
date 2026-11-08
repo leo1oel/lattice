@@ -76,6 +76,9 @@ pub(super) struct Mock {
     /// last value repeats). An empty list answers 404, matching an instance
     /// without history.
     pub versions: Vec<i64>,
+    /// Serve each of `versions` as the newest edit's timestamp, with no
+    /// history version, as a history that keeps versions per document does.
+    pub stamped: bool,
     /// The project history, newest first, served whole to every other
     /// `/updates` request: the page reads that confirm a destructive pull.
     pub history: Vec<serde_json::Value>,
@@ -153,8 +156,12 @@ impl Mock {
                         if versions.len() > 1 {
                             versions.pop_front();
                         }
-                        let body = format!("{{\"updates\":[{{\"fromV\":0,\"toV\":{version}}}]}}");
-                        (200, JSON, body.into_bytes())
+                        let update = match self.stamped {
+                            true => serde_json::json!({ "meta": { "end_ts": version } }),
+                            false => serde_json::json!({ "fromV": 0, "toV": version }),
+                        };
+                        let body = serde_json::json!({ "updates": [update] });
+                        (200, JSON, body.to_string().into_bytes())
                     }
                 },
                 ("GET", "/project") => (200, Some("text/html"), html.clone().into_bytes()),
