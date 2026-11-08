@@ -15646,6 +15646,14 @@ msgstr "This project syncs with “{0}”"
 msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgstr "This project uses {linkedHost}. Sign out and connect to it to resume"
 
+#: src/app/use-editor-comments.ts
+msgid "This project's annotations are still being read. Try again in a moment."
+msgstr "This project's annotations are still being read. Try again in a moment."
+
+#: src/app/use-editor-comments.ts
+msgid "This project's annotations could not be read, so changes to them are not saved: {error}"
+msgstr "This project's annotations could not be read, so changes to them are not saved: {error}"
+
 #: src/canvas/annotation-review.tsx
 msgid "This proposal has been decided."
 msgstr "This proposal has been decided."

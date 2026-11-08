@@ -11,7 +11,7 @@
 use super::bibliography::{
     bibcite_report_field, commit_bibliography, run_bibcite_input, HistoryMode, ScratchBibliography,
 };
-use super::bundle::{fetch_arxiv_bundle, fetch_web_bundle, is_pdf_url, PaperMetadata};
+use super::bundle::{fetch_arxiv_bundle, fetch_web_bundle, is_pdf_url};
 use super::citation::{
     official_arxiv_citation, resolve_arxiv_title, unused_key, validate_resolved_identity,
     verify_title_citation,
@@ -21,12 +21,10 @@ use super::ids::{
 };
 use super::is_web_url;
 use super::web_citation::{
-    alphaxiv_bibtex, merge_supplied_bibtex, pdf_citation_bibtex, resolve_web_citation, WebCitation,
+    alphaxiv_bibtex, merge_supplied_bibtex, resolve_web_citation, WebCitation,
 };
-use crate::models::ProjectManifest;
 use crate::papers::ImportResult;
 use crate::util::err;
-use crate::web_metadata::bib_url;
 use crate::{alphaxiv, project};
 use serde_json::{json, Value};
 use std::fs;
@@ -35,12 +33,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 
 /// The JSON report an import returns, in bibcite's shape.
-fn import_report(key: &str, source: &str, action: &str) -> String {
+pub(super) fn import_report(key: &str, source: &str, action: &str) -> String {
     json!({"key": key, "source": source, "action": action}).to_string()
 }
 
 /// An import the user stopped before any citation was committed.
-fn cancelled(title: &str) -> ImportResult {
+pub(super) fn cancelled(title: &str) -> ImportResult {
     ImportResult {
         arxiv_id: String::new(),
         title: title.to_string(),
@@ -80,7 +78,9 @@ pub fn import_reference(
         return Ok(result);
     }
     if is_pdf_url(query) && alphaxiv::paper_id_from_url(query).is_none() {
-        return import_pdf_citation(root, manifest, query, &before, history, progress, cancel);
+        return super::import_pdf::import_pdf_citation(
+            root, manifest, query, history, progress, cancel,
+        );
     }
     let scratch = ScratchBibliography::new("research-writer-cite", Some(&before))?;
 
@@ -169,14 +169,18 @@ pub fn import_reference(
     // fetched (no HTML rendering, network trouble) is still a full citation,
     // and failing the import after bibcite already resolved the entry threw
     // the user's citation away over a download problem.
-    if bibliography != before {
-        if fs::read_to_string(&bibliography_path).unwrap_or_default() != before {
-            return Err(
-                "The bibliography changed while resolving the citation. Retry the import.".into()
-            );
-        }
-        let label = format!("Cite {citation_key}");
-        commit_bibliography(root, &manifest.primary_bibliography, &bibliography, &label, history)?;
+    let label = format!("Cite {citation_key}");
+    if bibliography != before
+        && !commit_bibliography(
+            root,
+            &manifest.primary_bibliography,
+            &before,
+            &bibliography,
+            &label,
+            history,
+        )?
+    {
+        return Err(BIBLIOGRAPHY_CHANGED.into());
     }
     let resolved = ImportResult { citation_key: Some(citation_key), ..resolved };
     if cancel.load(Ordering::Acquire) {
@@ -256,52 +260,9 @@ fn import_existing_arxiv_citation(
     })
 }
 
-/// Import the report itself, enriching its citation from explicitly supplied
-/// metadata rather than treating a binary URL as an HTML webpage.
-fn import_pdf_citation(
-    root: &Path, manifest: &ProjectManifest, url: &str, before: &str, history: HistoryMode,
-    progress: &dyn Fn(&str), cancel: &AtomicBool,
-) -> Result<ImportResult, String> {
-    progress("fulltext");
-    let url = bib_url(url);
-    let fetched = match fetch_web_bundle(root, &url, None, cancel) {
-        Ok(fetched) => fetched,
-        Err(_) if cancel.load(Ordering::Acquire) => return Ok(cancelled(&url)),
-        Err(error) => return Err(error),
-    };
-    let metadata_path =
-        project::safe_path(root, &format!(".research/papers/{}/metadata.json", fetched.arxiv_id))?;
-    let metadata: PaperMetadata =
-        serde_json::from_slice(&fs::read(metadata_path).map_err(err)?).map_err(err)?;
-    let markdown =
-        fs::read_to_string(project::safe_path(root, &fetched.paper_path)?).map_err(err)?;
-    progress("resolving");
-    let raw = pdf_citation_bibtex(&markdown, &metadata.title, &url);
-    let (bibliography, key, already_imported) = merge_supplied_bibtex(before, &raw)?;
-    let captured = ImportResult {
-        arxiv_id: fetched.arxiv_id,
-        paper_path: fetched.paper_path,
-        ..cancelled(&metadata.title)
-    };
-    if cancel.load(Ordering::Acquire) {
-        return Ok(captured);
-    }
-    if bibliography != before {
-        let label = format!("Cite {key}");
-        commit_bibliography(root, &manifest.primary_bibliography, &bibliography, &label, history)?;
-    }
-    Ok(ImportResult {
-        citation_output: import_report(
-            &key,
-            "pdf",
-            if already_imported { "already-present" } else { "added" },
-        ),
-        citation_key: Some(key),
-        already_imported,
-        cancelled: false,
-        ..captured
-    })
-}
+/// Why an import gave up: the bibliography kept changing under it.
+pub(super) const BIBLIOGRAPHY_CHANGED: &str =
+    "The bibliography changed while resolving the citation. Retry the import.";
 
 /// Prefer an arXiv identity for a title before asking bibcite to choose the
 /// canonical publication record. Published DBLP/OpenReview records often omit
@@ -450,14 +411,13 @@ fn merge_resolved_citation(
 
 #[cfg(test)]
 mod tests {
+    use super::super::bundle::PaperMetadata;
     use super::*;
     use crate::commands;
     use crate::papers::library::{list_papers, read_paper, read_paper_blog_local};
+    use crate::papers::test_support::TestProject;
     #[cfg(unix)]
-    use crate::papers::test_support::{
-        fake_bibcite, fake_raw_bibcite, tool_lock, write_test_tool, ToolOverride,
-    };
-    use crate::papers::test_support::{serve_once, TestProject};
+    use crate::papers::test_support::{fake_bibcite, tool_lock, write_test_tool, ToolOverride};
 
     fn import(root: &Path, input: &str) -> Result<ImportResult, String> {
         import_reference(root, input, HistoryMode::Record, &|_| {}, &AtomicBool::new(false))
@@ -731,87 +691,41 @@ mod tests {
         }
     }
 
-    /// A complete one-page PDF, with asymmetric title/body and enough text to
-    /// distinguish successful conversion from an empty placeholder.
-    fn one_page_pdf() -> Vec<u8> {
-        let stream = format!(
-            "BT /F1 22 Tf 50 750 Td (Direct PDF Study) Tj /F1 12 Tf {} ET",
-            "0 -18 Td (Evidence from the imported report remains readable.) Tj ".repeat(8)
-        );
-        let objects = [
-            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>".to_string(),
-            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
-            format!("<< /Length {} >>\nstream\n{stream}\nendstream", stream.len()),
-        ];
-        let mut pdf = "%PDF-1.4\n".to_string();
-        let mut offsets = Vec::new();
-        for (index, object) in objects.iter().enumerate() {
-            offsets.push(pdf.len());
-            pdf.push_str(&format!("{} 0 obj\n{object}\nendobj\n", index + 1));
-        }
-        let xref = pdf.len();
-        pdf.push_str("xref\n0 6\n0000000000 65535 f \n");
-        for offset in offsets {
-            pdf.push_str(&format!("{offset:010} 00000 n \n"));
-        }
-        pdf.push_str(&format!("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"));
-        pdf.into_bytes()
-    }
-
+    /// A resolved citation is committed only over the text it was resolved
+    /// against; a bibliography changed while bibcite ran is left as it is.
     #[cfg(unix)]
     #[test]
-    fn direct_pdf_import_creates_readable_citation_and_reuses_it_offline() {
+    fn a_citation_resolved_against_an_old_bibliography_never_reverts_the_new_one() {
         let _lock = tool_lock();
-        let (url, server) = serve_once(one_page_pdf());
-        // A key collision must preserve the unrelated citation verbatim.
-        let key = "anonymousXXXXdirect";
-        let before = format!("@article{{{key}, title={{Keep me}}, doi={{10.1234/existing}}}}\n");
-        let project = TestProject::new(&before);
-        let _bibcite = ToolOverride::set(&commands::BIBCITE, &fake_raw_bibcite(&project.parent));
-        let imported = import(&project.root, &url).unwrap();
-        server.join().unwrap();
-        assert!(!imported.already_imported);
-        assert_eq!(imported.citation_key.as_deref(), Some(format!("{key}-2").as_str()));
-        let markdown = read_paper(&project.root, &imported.arxiv_id).unwrap();
-        assert!(markdown.contains("Evidence from the imported report remains readable."));
-        assert!(markdown.contains("pdf-text-layer"));
-        let bibliography = project.bibliography();
-        assert!(bibliography.starts_with(&before));
-        let entries = project::parse_bibliography(&bibliography);
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[1].url.as_deref(), Some(url.as_str()));
-        let listed = list_papers(&project.root).unwrap();
-        assert!(listed.iter().any(|paper| paper.arxiv_id == imported.arxiv_id
-            && paper.has_full_text
-            && !paper.has_blog));
-        let again = import(&project.root, &url).unwrap();
-        assert!(again.already_imported);
-        assert_eq!(again.citation_key, imported.citation_key);
-        assert_eq!(project.bibliography(), bibliography);
-        // Only arXiv bundles may be joined by title. A generic PDF must not
-        // get attached to a different citation just because titles coincide.
-        project.write(
-            "references.bib",
-            &format!("@misc{{decoy, title={{{}}}}}\n{bibliography}", imported.title),
-        );
-        let listed = list_papers(&project.root).unwrap();
-        let full_text = |key: Option<&str>| {
-            listed.iter().find(|paper| paper.citation_key.as_deref() == key).unwrap().has_full_text
-        };
-        assert!(!full_text(Some("decoy")));
-        assert!(full_text(imported.citation_key.as_deref()));
-    }
-
-    #[test]
-    fn direct_pdf_import_rejects_html_without_writing_a_citation() {
-        let (url, server) = serve_once(b"<html><title>Not a PDF</title></html>".to_vec());
         let project = TestProject::new("");
-        let error = import(&project.root, &url).unwrap_err();
-        server.join().unwrap();
-        assert!(error.contains("did not return a PDF"), "{error}");
-        assert_eq!(project.bibliography(), "");
+        let bibliography = project.root.join("references.bib");
+        let tool = project.parent.join("bibcite-slow");
+        write_test_tool(
+            &tool,
+            &format!(
+                concat!(
+                    "#!/bin/sh\nset -eu\n",
+                    "printf '@misc{{during, title={{Added meanwhile}}}}\\n' > '{}'\n",
+                    "printf '@article{{stub2024, title={{Resolved}}, doi={{10.1234/example}}}}\\n' >> \"$3\"\n",
+                    "echo '{{\"key\":\"stub2024\",\"source\":\"doi\"}}'\n",
+                ),
+                bibliography.display()
+            ),
+        );
+        let _bibcite = ToolOverride::set(&commands::BIBCITE, &tool);
+        for mode in [HistoryMode::Record, HistoryMode::Defer] {
+            project.write("references.bib", "");
+            let error = import_reference(
+                &project.root,
+                "10.1234/example",
+                mode,
+                &|_| {},
+                &AtomicBool::new(false),
+            )
+            .unwrap_err();
+            assert_eq!(error, BIBLIOGRAPHY_CHANGED);
+            assert_eq!(project.bibliography(), "@misc{during, title={Added meanwhile}}\n");
+        }
     }
 
     #[test]
@@ -862,30 +776,6 @@ mod tests {
         let from_title = import(root, &papers[0].title).unwrap();
         assert!(from_title.already_imported);
         assert_eq!(from_title.arxiv_id, papers[0].arxiv_id);
-    }
-
-    #[test]
-    #[ignore = "requires network access"]
-    fn direct_pdf_import_live_s_space() {
-        let project = TestProject::new("");
-        let url = "https://mirros.ai/report/s-space.pdf";
-        let result = import(&project.root, url).unwrap();
-        let markdown = read_paper(&project.root, &result.arxiv_id).unwrap();
-        assert!(markdown.contains("S-Space"), "expected the actual report text");
-        assert!(markdown.len() > 10_000);
-        assert!(result.citation_key.is_some());
-        assert!(result.fetch_error.is_none());
-        let bib = project.bibliography();
-        let entry = project::parse_bibliography(&bib)
-            .into_iter()
-            .find(|entry| Some(&entry.key) == result.citation_key.as_ref())
-            .unwrap();
-        assert_eq!(entry.authors, "MirroS Team");
-        assert_eq!(entry.year, "2026");
-        assert_eq!(entry.url.as_deref(), Some(url));
-        assert!(!bib.contains("needs review"));
-        assert!(!bib.contains("Blog post"));
-        eprintln!("Imported title: {}; {} bytes of Markdown", result.title, markdown.len());
     }
 
     #[test]

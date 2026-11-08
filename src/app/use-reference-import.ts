@@ -52,7 +52,6 @@ export function useReferenceImport({
   refreshHistory: () => Promise<void>;
   editor: {
     activeFile: string;
-    source: string;
     dirty: boolean;
     save: () => Promise<boolean>;
     /** Durable text for `path` reached disk: show it if `path` is the open file. */
@@ -286,7 +285,7 @@ export function useReferenceImport({
     });
   }, [onMissingPaperTools, setBibEntry]);
 
-  const { activeFile, source, dirty, save, accept } = editor;
+  const { activeFile, dirty, save, accept } = editor;
   const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
     const { importRoot, mode } = bibEntry;
     if (!project || (importRoot !== null && importRoot !== project.root)) return;
@@ -315,13 +314,18 @@ export function useReferenceImport({
         // The key is read-only when editing, so this replaces the entry in place.
         await invoke("save_bib_entry", { key: draft.key, bibtex: formatBibEntry(draft) });
       } else {
-        const existing = bibliography === activeFile
-          ? source
-          : await invoke<string>("read_project_file", { path: bibliography });
+        // Into the file as it is now, after the save above, never the open
+        // buffer's text from when this rendered: Overleaf, the agent or an
+        // import may have added entries since. The base makes the write a
+        // merge, like an editor save, if one lands in between.
+        const root = project.root;
+        const current = await invoke<string>("read_project_file", { path: bibliography, projectRoot: root });
+        if (projectRootRef.current !== root) return;
         await invoke("write_project_file", {
           path: bibliography,
-          content: appendBibEntry(existing, formatBibEntry(draft)),
-          projectRoot: project.root,
+          content: appendBibEntry(current, formatBibEntry(draft)),
+          projectRoot: root,
+          baseContent: current,
         });
       }
       onExternalEdits.current([bibliography]);
@@ -337,7 +341,7 @@ export function useReferenceImport({
     }
   }, [
     accept, activeFile, bibEntry, dirty, importReference, onCite, project, projectRootRef,
-    refreshProject, save, setBibEntry, source, onExternalEdits, t,
+    refreshProject, save, setBibEntry, onExternalEdits, t,
   ]);
 
   /**

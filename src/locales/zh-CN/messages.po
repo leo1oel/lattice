@@ -15646,6 +15646,14 @@ msgstr "此项目同步到“{0}”"
 msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgstr "此项目用的是 {linkedHost}，请退出并重新连接它"
 
+#: src/app/use-editor-comments.ts
+msgid "This project's annotations are still being read. Try again in a moment."
+msgstr "正在读取此项目的批注，请稍后再试。"
+
+#: src/app/use-editor-comments.ts
+msgid "This project's annotations could not be read, so changes to them are not saved: {error}"
+msgstr "无法读取此项目的批注，因此对批注的修改不会保存：{error}"
+
 #: src/canvas/annotation-review.tsx
 msgid "This proposal has been decided."
 msgstr "这条建议已处理。"

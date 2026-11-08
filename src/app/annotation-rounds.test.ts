@@ -35,7 +35,10 @@ function roundsWith(annotations: EditorComment[]) {
   const state = { current: { annotations, rounds: [] as AnnotationRound[] } };
   const store: AnnotationRoundsDeps["store"] = {
     stateRef: state,
-    commit: (change) => { state.current = change(state.current); },
+    commit: (change) => {
+      state.current = change(state.current);
+      return true;
+    },
     create: (comment) => {
       const created = { ...comment, number: state.current.annotations.length + 1 };
       state.current = { ...state.current, annotations: [...state.current.annotations, created] };

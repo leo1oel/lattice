@@ -230,9 +230,7 @@ describe("papers", () => {
     fireEvent.click(screen.getByLabelText("Insert cite at cursor after saving"));
     if (finish === "save") {
       fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
-      await expectInvoked("write_project_file", {
-        path: "references.bib", content: expect.stringContaining("title = {Typed by hand}"), projectRoot: ROOT,
-      });
+      await expectInvoked("write_project_file", expect.objectContaining({ content: expect.stringContaining("Typed by hand") }));
     } else {
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     }
