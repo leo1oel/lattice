@@ -68,8 +68,9 @@ pub use bibliography::{
     CitationIndex,
 };
 pub(crate) use bibliography::{
-    bibliography_arxiv_id, bibliography_entry_spans, iter_bibliography_sources, normalize_doi,
-    parse_bibliography, parse_bibliography_fields_raw, parse_bibliography_fields_syntax,
+    bibliography_arxiv_id, bibliography_entry_spans, bibliography_field_spans,
+    iter_bibliography_sources, normalize_doi, parse_bibliography, parse_bibliography_fields_raw,
+    parse_bibliography_fields_syntax,
 };
 pub use citation_lookup::resolve_citation_query;
 pub use create::{create_tutorial, create_with_venue, Venue};
