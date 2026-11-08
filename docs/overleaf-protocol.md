@@ -383,9 +383,17 @@ purpose.
   what Overleaf did since and sends the result.
 - Uploads remain for new files, binary files, an edit inserting a carriage
   return or a character outside the BMP into a document an upload keeps a
-  document, and everything when the live channel cannot be reached. An upload
-  goes only while the project's history version has not moved since the
-  snapshot; otherwise it stands down the same way.
+  document, and everything when the live channel cannot be reached. A text
+  document Overleaf already holds, by a name an upload keeps a document, is
+  checked against its own history right before and right after its upload
+  (`upload_checked` in `overleaf/sync/send.rs`). It goes only while
+  Overleaf's diff of that one file shows no edit since the snapshot, and
+  otherwise stands down the same way. If someone else's edit to it lands
+  during the upload, the sync reports it (`uploadedOverEdits`) so the writer
+  can check Overleaf's history. Every other upload goes only while the
+  project's history version has not moved since the snapshot. So does such a
+  document when the history gives timestamps rather than versions, or when
+  Overleaf holds it as a file entity. Otherwise these stand down the same way.
 - A failure partway through a multi-file sync must not mark unconfirmed files or
   versions as synchronized.
 
