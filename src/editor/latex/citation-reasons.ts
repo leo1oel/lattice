@@ -14,7 +14,7 @@
 import {
   createEditorComment, resolveCommentAnchor, type CitationReason, type CitationRole, type EditorComment,
 } from "../comments/editor-comment-data";
-import { argumentsOf, CITATION, citationNotePage, keySpans } from "./latex-symbols";
+import { argumentsOf, citationNotePage, keySpans } from "./latex-symbols";
 import { blankIgnored } from "./latex-visible-source";
 
 /** One key of one citation command: its span, its line and the page its note names (`\cite[p.~5]{key}`). */
@@ -33,6 +33,16 @@ const CONTEXT = 32;
 const MIN_SCORE = 16;
 
 /**
+ * A citation command as the manuscript scan (`list_citation_usages`) reads
+ * one: its commands, a space before an argument, and any number of options.
+ * Wider than the editor's `CITATION`, so each site here is a use there.
+ */
+const CITATION_USE = new RegExp(`\\\\(?:${[
+  "cite", "nocite", "citep", "citet", "citeyear", "citeyearpar", "citealp", "citealt", "citeauthor",
+  "supercite", "parencite", "smartcite", "textcite", "autocite", "footcite", "fullcite",
+].join("|")})\\*?(?![A-Za-z*])\\s*(?:\\[[^\\]]*\\]\\s*)*\\{([^}]*)\\}`, "g");
+
+/**
  * Every citation key in `source` that TeX reads, in reading order: a cite in
  * a comment or a verbatim-like environment is text, as the manuscript scan
  * (`list_citation_usages`) reads it too.
@@ -42,7 +52,7 @@ export function citationSites(source: string): CitationSite[] {
   const visible = blankIgnored(source);
   let line = 1;
   let counted = 0;
-  for (const command of argumentsOf(visible, CITATION)) {
+  for (const command of argumentsOf(visible, CITATION_USE)) {
     const options = [...visible.slice(command.start, command.from - 1).matchAll(/\[([^\]]*)\]/g)];
     const page = options.length ? citationNotePage(options.at(-1)![1]) : undefined;
     for (const span of keySpans(command.content, command.from)) {

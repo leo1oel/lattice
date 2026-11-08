@@ -66,7 +66,7 @@ async function renderPanels() {
     projectWordCount: null, todoHits: [], unusedSymbols: { labels: [], citations: [] }, editorCommentAuthorId: "me",
     openProjectFile: vi.fn(),
     tools: { isOpen: { checklist: true }, loading: null, close: vi.fn(), open: vi.fn() },
-    comments: { comments: [], citationReasons: [], rounds: [], panelOpen: false },
+    comments: { comments: [], citationReasons: [], rounds: [], panelOpen: false, setOpenOrphans: vi.fn() },
     annotationRounds: { subscribe: () => () => undefined, getSnapshot: () => ({ roundsOpen: false }) },
   } as unknown as ComponentProps<typeof AppEditorPanels>;
   render(<AppEditorPanels {...props} />);

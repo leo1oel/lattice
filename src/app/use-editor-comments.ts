@@ -92,6 +92,8 @@ export function useEditorComments({
   const [panelFocus, setPanelFocus] = useState<{ id: string; projectRoot: string; nonce: string } | null>(null);
   const panelFocusId = panelFocus && panelFocus.projectRoot === project?.root ? panelFocus.id : null;
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: string } | null>(null);
+  /** How many open citation reasons the Annotations panel lists because their cite is gone (app-editor-panels.tsx). */
+  const [openOrphans, setOpenOrphans] = useState(0);
   const openGenerationRef = useRef(0);
   const {
     overleafLink, overleafComments, overleafCommentsRef, overleafDocPaths, overleafRealtime, overleafEditorComments,
@@ -365,8 +367,8 @@ export function useEditorComments({
 
   /** Both kinds of comment, as the editor and the panel want them. */
   const all = useMemo(() => [...comments, ...overleafEditorComments], [comments, overleafEditorComments]);
-  /** How many of them are still open, as the toolbar's comments button counts them. */
-  const unresolved = all.filter((comment) => !comment.resolved).length;
+  /** How many notes are still open, as the toolbar's comments button counts them: the panel's orphaned reasons too. */
+  const unresolved = all.filter((comment) => !comment.resolved).length + openOrphans;
 
   // The files that open with Overleaf's threads beside their source, which
   // their skeleton is drawn for before they are read (margin-review-files.ts).
@@ -392,7 +394,7 @@ export function useEditorComments({
   }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, citationReasons, saveCitationReason, reanchorCitationReasons, renameCitationKey, rounds: state.rounds, stateRef, commit, all, unresolved, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
+    comments, citationReasons, saveCitationReason, reanchorCitationReasons, renameCitationKey, setOpenOrphans, rounds: state.rounds, stateRef, commit, all, unresolved, update, create, destination, toggleResolved, resolve, reply, reset, load, openComment,
     deleteComment, panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
     activeId, setActiveId, focusRequest, focusHandled,
   };

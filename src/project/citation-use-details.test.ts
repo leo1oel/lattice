@@ -23,6 +23,21 @@ describe("citationUseDetails", () => {
     ]);
   });
 
+  it("matches the scan's uses on a line that also has \\citeauthor, \\citeyear and a spaced \\cite", () => {
+    const line = "\\citeauthor{smith} (\\citeyear{smith}) argue X; but see \\cite [p.~12] {smith}.";
+    const site = citationSites(line).find((item) => item.from === line.lastIndexOf("smith"))!;
+    const counter = createCitationReason({
+      path: "main.tex", source: line, site, role: "counterexample", body: "", authorId: "me", authorName: "Me",
+    })!;
+    // list_citation_usages reads three uses of the key on this line: \citeauthor, \citeyear, then \cite.
+    const details = citationUseDetails([use(1), use(1), use(1)], new Map([["main.tex", line]]), [counter]);
+    expect(details.map((detail) => [detail.reason?.citation?.role ?? null, detail.page ?? null])).toEqual([
+      [null, null],
+      [null, null],
+      ["counterexample", 12],
+    ]);
+  });
+
   it("leaves a use whose file was not read without detail", () => {
     expect(citationUseDetails([use(2)], new Map(), [])).toEqual([{}]);
   });

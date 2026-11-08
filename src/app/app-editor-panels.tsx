@@ -8,7 +8,7 @@
  * fallback that covered all of them would unmount an open panel while an
  * unrelated chunk loads.
  */
-import { lazy, memo, Suspense, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -168,6 +168,12 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const reasonSourceFor = useCitationReasonSources(project.root, comments.citationReasons, sourceFor, annotationRounds.readSource, reasonScan);
   const orphaned = comments.citationReasons.length ? panelCitationReasons(comments.citationReasons, reasonSourceFor) : [];
   const panelComments = orphaned.length ? [...comments.comments, ...orphaned] : comments.comments;
+  const openOrphans = orphaned.filter((reason) => !reason.resolved).length;
+  const { setOpenOrphans } = comments;
+  useEffect(() => {
+    setOpenOrphans(openOrphans);
+    return () => setOpenOrphans(0);
+  }, [openOrphans, setOpenOrphans]);
   const commentsPanel = (
     <EditorCommentsPanel
       key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}

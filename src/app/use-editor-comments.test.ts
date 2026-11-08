@@ -246,3 +246,10 @@ it("moves the reasons on a renamed citation key to the new key, keeping where th
   expect(anchorCitationReasons(renamedSource, "main.tex", after).get(smith.id)?.key).toBe("smith2020a");
   expect(saved().at(-1)).toEqual(["plain", smith.id, jones.id]);
 });
+
+it("counts the panel's open orphaned citation reasons in the toolbar's open notes", async () => {
+  const { view } = await renderComments([comment("a"), { ...comment("b"), resolved: true }]);
+  expect(view.result.current.unresolved).toBe(1);
+  act(() => view.result.current.setOpenOrphans(2));
+  expect(view.result.current.unresolved).toBe(3);
+});
