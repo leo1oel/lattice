@@ -5,14 +5,21 @@ Lattice. Two parts: bringing a Zotero collection into the Papers library, and
 letting the Agent panel reach your Zotero library and your notes through MCP
 servers.
 
-## Import a Zotero collection into Papers
+## Import papers from Zotero into Papers
 
 Nothing needs turning on in Zotero, and Zotero can be open or closed.
 
 1. In Lattice, open **Papers → Add papers** and choose **Zotero…**.
-2. Pick **My Library** or a collection. Its items fill the sheet as BibTeX:
-   what Papers already holds (same DOI, arXiv id or citation key) is skipped,
-   and the rest is added with **Add papers**.
+2. Open **My Library** or a folder in the folder tree (search it, or open a
+   folder's subfolders with its arrow). Its papers list beside it; turn on
+   **Include subfolders** to list the papers of every folder below it too.
+3. Tick the papers you want, or **Select all**, and choose **Add N papers**.
+   A paper Papers already holds (same DOI, arXiv id or citation key) reads
+   **In Papers** and cannot be ticked.
+
+**Back** returns to the paste box, and Escape steps back one level. In a narrow
+window the folders and the papers show one at a time, with **Folders** to go
+back.
 
 Lattice finds the Zotero data folder the way Zotero does (the folder set in
 Zotero's **Settings → Advanced → Files and Folders**, otherwise `~/Zotero`) and
