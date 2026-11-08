@@ -25,15 +25,18 @@ function renderNote(note: string) {
 }
 
 describe("source links in a note", () => {
+  // The first test in the file pays for the cold lazy chunks (workspace, visual
+  // Markdown editor, then the Paper reader and PDF view), so it gets the budget
+  // the other App suites give their first real mount rather than the default.
   it("open the cited library paper's PDF at the linked page", async () => {
     renderNote(`# Reading\n\nSee [p. 7](${PDF_URL}#page=7 "a single … transformer").\n`);
-    fireEvent.click(await screen.findByRole("link", { name: "p. 7" }));
+    fireEvent.click(await screen.findByRole("link", { name: "p. 7" }, { timeout: 30_000 }));
     await expectInvoked("read_paper", { arxivId: SINGLE_TRANSFORMER.arxivId });
-    await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({ url: PDF_URL })));
+    await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({ url: PDF_URL })), { timeout: 15_000 });
     expect(await screen.findByRole("button", { name: "Back to Paper" })).toBeVisible();
     await waitFor(() => expect(screen.getByRole("textbox", { name: "PDF page number" })).toHaveValue("7"));
     expect(openUrl).not.toHaveBeenCalled();
-  });
+  }, 60_000);
 
   it("leave a link to a paper outside the library to the browser", async () => {
     const elsewhere = "https://arxiv.org/pdf/2101.00001#page=3";
