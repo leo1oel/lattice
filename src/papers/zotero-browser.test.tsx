@@ -170,29 +170,63 @@ describe("Add papers from Zotero", () => {
     expect(within(screen.getByRole("list", { name: LONG_NAME })).getAllByRole("checkbox").map((box) => box.getAttribute("aria-label"))).toEqual(["Dense retrieval for drafting"]);
   });
 
-  it("selects all of the papers a search shows, and adds those ticked in every folder", async () => {
+  it("selects all of the papers a search shows, and adds only what is ticked in view", async () => {
     invoke.mockImplementation(zotero);
     const onAdd = sheet();
     await screen.findByRole("tree", { name: "Zotero folders" });
-    openFolder("Thesis");
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Mamba" }));
     fireEvent.click(screen.getByRole("button", { name: "Expand Thesis" }));
     openFolder(LONG_NAME);
+    await screen.findByRole("list", { name: LONG_NAME });
     fireEvent.change(screen.getByRole("searchbox", { name: "Search papers" }), { target: { value: "dense" } });
     const selectAll = screen.getByRole("checkbox", { name: "Select all" });
     fireEvent.click(selectAll);
-    expect(screen.getByRole("status")).toHaveTextContent("2 papers selected");
-    fireEvent.click(selectAll);
     expect(screen.getByRole("status")).toHaveTextContent("1 paper selected");
+    fireEvent.click(selectAll);
+    expect(screen.getByRole("status")).toHaveTextContent("");
     fireEvent.click(selectAll);
     fireEvent.change(screen.getByRole("searchbox", { name: "Search papers" }), { target: { value: "" } });
     expect(screen.getByRole("checkbox", { name: "Dense retrieval for drafting" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Sparse attention for long documents" })).not.toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Add 2 papers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add 1 paper" }));
     expect(onAdd).toHaveBeenCalledWith([
-      { id: "zotero:gu_mamba_2023", input: MAMBA.bibtex, label: "Mamba", pdf: undefined },
       { id: "zotero:lee_dense_2024", input: CHAPTER[1].bibtex, label: "Dense retrieval for drafting", pdf: undefined },
     ]);
+  });
+
+  // Beta r67: a tick out of sight (another folder, a search, the subfolder
+  // switch) kept "Add 1 paper" over a list with nothing ticked in it.
+  it("never offers to add a paper that is not ticked in the list in view", async () => {
+    invoke.mockImplementation(zotero);
+    sheet();
+    await screen.findByRole("tree", { name: "Zotero folders" });
+    const add = () => screen.getByRole("button", { name: /^Add/ });
+    const nothingSelected = () => {
+      expect(add()).toHaveTextContent(/^Add papers$/);
+      expect(add()).toBeDisabled();
+      expect(screen.getByRole("status")).toHaveTextContent("");
+    };
+
+    openFolder("Thesis");
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Mamba" }));
+    expect(add()).toHaveTextContent("Add 1 paper");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search papers" }), { target: { value: "sparse" } });
+    nothingSelected();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search papers" }), { target: { value: "" } });
+    expect(add()).toHaveTextContent("Add 1 paper");
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand Thesis" }));
+    openFolder(LONG_NAME);
+    await screen.findByRole("list", { name: LONG_NAME });
+    nothingSelected();
+    openFolder("Thesis");
+    expect(screen.getByRole("checkbox", { name: "Mamba" })).not.toBeChecked();
+    nothingSelected();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Include subfolders" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Dense retrieval for drafting" }));
+    expect(add()).toHaveTextContent("Add 1 paper");
+    fireEvent.click(screen.getByRole("switch", { name: "Include subfolders" }));
+    nothingSelected();
   });
 
   it("steps back with Escape: the folders first, then the paste box", async () => {

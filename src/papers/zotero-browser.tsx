@@ -10,6 +10,10 @@
  * the folders and the Folders button (or Escape) returns to them. A paper
  * Papers already holds (same DOI, arXiv id or citation key) is marked and
  * cannot be ticked.
+ * What is added is what is ticked in the list in view: a tick a search or
+ * the subfolder switch hides is neither counted nor added, and opening
+ * another folder starts with nothing ticked. A tick kept out of sight made
+ * the footer offer "Add 1 paper" over a list with no tick in it.
  * The ticked papers go to the sheet's ordinary import queue, each with its
  * PDF attachment, if any, for the import to attach.
  */
@@ -88,7 +92,7 @@ function browserReducer(state: BrowserState, action: BrowserAction): BrowserStat
     }
     case "folder-query": return { ...state, folderQuery: action.query };
     case "paper-query": return { ...state, paperQuery: action.query };
-    case "open": return { ...state, folder: action.folder, paperQuery: "", pane: "papers" };
+    case "open": return { ...state, folder: action.folder, paperQuery: "", pane: "papers", ticked: action.folder === state.folder ? state.ticked : new Map() };
     case "subfolders": return { ...state, includeSubfolders: action.on };
     case "tick": {
       const ticked = new Map(state.ticked);
@@ -155,13 +159,13 @@ export function ZoteroBrowser(props: {
     ? papers.filter((paper) => `${paper.title} ${paper.byline} ${paper.item.citationKey}`.toLocaleLowerCase().includes(needle))
     : papers;
   const tickable = shownPapers.filter((paper) => !paper.existing);
-  const tickedHere = tickable.filter((paper) => state.ticked.has(paper.item.citationKey)).length;
-  const ticked = [...state.ticked.values()];
+  const ticked = tickable.filter((paper) => state.ticked.has(paper.item.citationKey));
+  const tickedHere = ticked.length;
   const { onTicked } = props;
   useEffect(() => {
-    onTicked(state.ticked.size);
+    onTicked(tickedHere);
     return () => onTicked(0);
-  }, [onTicked, state.ticked.size]);
+  }, [onTicked, tickedHere]);
 
   const rows = library ? folderRows(library.collections, state.expanded, state.folderQuery) : [];
   const folderName = folder === "" ? t`My Library` : library?.collections.find((collection) => collection.key === folder)?.name ?? "";
