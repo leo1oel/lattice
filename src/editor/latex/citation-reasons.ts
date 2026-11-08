@@ -15,7 +15,7 @@ import {
   createEditorComment, resolveCommentAnchor, type CitationReason, type CitationRole, type EditorComment,
 } from "../comments/editor-comment-data";
 import { argumentsOf, CITATION, citationNotePage, keySpans } from "./latex-symbols";
-import { visibleLatexSource } from "./latex-visible-source";
+import { blankIgnored } from "./latex-visible-source";
 
 /** One key of one citation command: its span, its line and the page its note names (`\cite[p.~5]{key}`). */
 export type CitationSite = { key: string; from: number; to: number; line: number; page?: number };
@@ -39,7 +39,7 @@ const MIN_SCORE = 16;
  */
 export function citationSites(source: string): CitationSite[] {
   const sites: CitationSite[] = [];
-  const visible = visibleLatexSource(source);
+  const visible = blankIgnored(source);
   let line = 1;
   let counted = 0;
   for (const command of argumentsOf(visible, CITATION)) {

@@ -43,3 +43,16 @@ it("drops texts read for another project", async () => {
   view.rerender({ root: "/b" });
   expect(view.result.current("methods.tex")).toBeUndefined();
 });
+
+it("reads the files again for a new citation scan, even when an edit kept their length", async () => {
+  const methods = reasonOn("methods.tex");
+  let disk = CITED;
+  const readSource = vi.fn(async () => disk);
+  const view = renderHook(({ scan }) => useCitationReasonSources("/project", [methods], () => undefined, readSource, scan), {
+    initialProps: { scan: {} },
+  });
+  await waitFor(() => expect(view.result.current("methods.tex")).toBe(CITED));
+  disk = CITED.replace("smith2020", "smith2021");
+  view.rerender({ scan: {} });
+  await waitFor(() => expect(view.result.current("methods.tex")).toBe(disk));
+});

@@ -161,7 +161,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const writingFile = props.activeFile && props.openTabs.includes(props.activeFile)
     && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
   // A citation reason joins the notes once its cite is gone (or it was resolved there).
-  const reasonSourceFor = useCitationReasonSources(project.root, comments.citationReasons, sourceFor, annotationRounds.readSource, project.files);
+  const reasonSourceFor = useCitationReasonSources(project.root, comments.citationReasons, sourceFor, annotationRounds.readSource, unusedSymbols);
   const orphaned = comments.citationReasons.length ? panelCitationReasons(comments.citationReasons, reasonSourceFor) : [];
   const panelComments = orphaned.length ? [...comments.comments, ...orphaned] : comments.comments;
   const commentsPanel = (
