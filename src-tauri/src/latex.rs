@@ -33,6 +33,7 @@ mod arxiv;
 mod bib_log;
 mod build;
 mod build_log;
+mod build_stall;
 mod build_steps;
 mod changes;
 mod cjk_text;

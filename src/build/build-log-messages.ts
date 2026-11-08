@@ -58,6 +58,11 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
       const seconds = params.seconds ?? "";
       return i18n._(msg`Build stopped after ${seconds} s. The log below is how far it got.`);
     }
+    case "build-stalled": {
+      const seconds = params.seconds ?? "";
+      const place = params.place ?? "";
+      return i18n._(msg`TeX stopped making progress, so the build was stopped after ${seconds} s. Look for an unfinished command just before ${place}.`);
+    }
     case "pdf-fonts-not-times":
       return pdfFontsText(params, params.upToDate === "true");
     default:

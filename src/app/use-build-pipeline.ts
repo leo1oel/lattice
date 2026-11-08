@@ -23,6 +23,7 @@ import { enqueueBuild, IDLE_QUEUE, type QueuedBuild } from "./build-queue";
 import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
 import { createQuietBuilds } from "../live-preview/quiet-builds";
+import { automaticBuildWouldStall, noteBuildOutcome } from "./stalled-build";
 import type { BuildPreferences } from "../settings/app-settings";
 import { createWatchedBuilds } from "./watched-builds";
 import { useDiagnosticCycle } from "./use-diagnostic-cycle";
@@ -36,11 +37,11 @@ type BuildOptions = {
   requested?: boolean;
   sound?: boolean;
   consumeAgentAssociations?: boolean;
-  /** Autosave asked: it waits for a pause while the live preview is live (quiet-builds.ts). */
+  /** Autosave asked: waits while the live preview is live (quiet-builds.ts). */
   automatic?: boolean;
-  /** Runs without the Build button's spinner or the PDF's "Updating…" (quiet-builds.ts). */
+  /** Runs without the spinner or "Updating…" (quiet-builds.ts). */
   quiet?: boolean;
-  /** Clean auxiliary files first: Clean and rebuild asked while another build held the pipeline. */
+  /** Clean auxiliary files first: asked while another build ran. */
   clean?: boolean;
 };
 
@@ -49,7 +50,7 @@ type Ref<T> = { readonly current: T };
 /** The live preview's name for the files a build read, and whether it ran quietly. */
 type LiveBase = { token: number | null; quiet: boolean };
 
-/** The build that holds the pipeline: settles once it and every pass it took from the queue are done. */
+/** The build holding the pipeline: settles once it and its queued passes are done. */
 type RunningBuild = { settled: Promise<void>; revision: number };
 
 /**
@@ -134,7 +135,7 @@ export function useBuildPipeline({
    */
   const inputRevisionRef = useRef(0);
   const compiledRef = useRef<{ revision: number; rootDocument: string | null; oneOff: boolean } | null>(null);
-  /** The last compiled PDF read from disk, so a failed pass can tell whether it wrote a new one. */
+  /** The last compiled PDF read from disk: did a failed pass write a new one? */
   const readPdfFingerprintRef = useRef<string | null>(null);
   const runningBuildRef = useRef<RunningBuild | null>(null);
 
@@ -264,7 +265,7 @@ export function useBuildPipeline({
     await invoke<boolean>("abort_build").catch((reason) => showError(toMessage(reason)));
   }, [buildingRef, quietBuilds, reportCompiles, takePendingCompiles]);
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
-    if (options?.automatic && quietBuilds.defer()) return;
+    if (options?.automatic && (automaticBuildWouldStall(sourceRef.current) || quietBuilds.defer())) return;
     const queue = queueRef.current;
     // A project with no LaTeX document has nothing to compile. Autosave, a
     // synctex jump and opening the project all reach here, and each of them
@@ -402,9 +403,9 @@ export function useBuildPipeline({
         ]);
         if (!scopeIsCurrent()) continue;
         setBuild(result);
+        noteBuildOutcome(result.diagnostics, sourceAtBuild);
         watchedBuilds.passWrote(result.outputs);
-        // A stopped build comes back as a failed result carrying the
-        // build-cancelled advice. The writer asked for that; it is not an error.
+        // A stopped build fails with build-cancelled: not an error.
         const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
         // LaTeX carries on past most errors, so a failed pass that wrote a
         // new PDF still compiled these inputs. One that left the previous PDF

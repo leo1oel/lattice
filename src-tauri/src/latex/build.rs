@@ -4,6 +4,7 @@ use super::build_log::{
     advice, is_stale_previous_invocation_log, log_conference_template, pages_written,
     parse_diagnostics, parse_format_diagnostics, skipped_recompile, trim_log,
 };
+use super::build_stall::{self, Progress};
 use super::build_steps::BuildSteps;
 use super::compile_root::{choose_compile_root, is_one_off_root};
 use super::preamble_format::{self, Prepared};
@@ -20,12 +21,12 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 mod active;
 pub(crate) use active::begin_active;
 pub use active::{abort, is_running, ActiveBuild};
-use active::{finish_active, terminate, BuildSession};
+use active::{finish_active, stop_stalled, terminate, was_stalled, BuildSession};
 
 /// Run `command` as this project's build and capture its output, reporting
 /// whether it was cancelled. The error texts prefix the spawn/wait error.
@@ -34,8 +35,14 @@ use active::{finish_active, terminate, BuildSession};
 /// passes latexmk announces reach `steps` while it runs; the step still open
 /// when the process exits ends with it.
 pub(super) fn run_tracked(
+    command: Command, active: &ActiveBuild, steps: &BuildSteps, start_error: &str, wait_error: &str,
+) -> Result<(Output, bool), String> {
+    run_watched(command, active, steps, start_error, wait_error, build_stall::STALL_LIMIT)
+}
+
+fn run_watched(
     mut command: Command, active: &ActiveBuild, steps: &BuildSteps, start_error: &str,
-    wait_error: &str,
+    wait_error: &str, stall_limit: Duration,
 ) -> Result<(Output, bool), String> {
     commands::in_new_process_group(&mut command).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
@@ -51,10 +58,14 @@ pub(super) fn run_tracked(
         }
     }
     let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
+    let progress = Progress::new();
     let (stdout, stderr) = std::thread::scope(|scope| {
-        let stdout = scope.spawn(|| read_lines(stdout, steps));
-        let stderr = scope.spawn(|| read_lines(stderr, steps));
-        (stdout.join().unwrap_or_default(), stderr.join().unwrap_or_default())
+        let stdout = scope.spawn(|| read_lines(stdout, steps, &progress));
+        let stderr = scope.spawn(|| read_lines(stderr, steps, &progress));
+        scope.spawn(|| progress.stalled_for(stall_limit).then(|| stop_stalled(active)));
+        let read = (stdout.join().unwrap_or_default(), stderr.join().unwrap_or_default());
+        progress.finish();
+        read
     });
     let status = child.wait().map_err(|error| format!("{wait_error}{error}"))?;
     steps.finish();
@@ -62,7 +73,7 @@ pub(super) fn run_tracked(
 }
 
 /// Everything `pipe` carries until it closes, each line shown to `steps` as it lands.
-fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps) -> Vec<u8> {
+fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps, progress: &Progress) -> Vec<u8> {
     let mut bytes = Vec::new();
     let Some(pipe) = pipe else { return bytes };
     let mut reader = BufReader::new(pipe);
@@ -70,7 +81,10 @@ fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps) -> Vec<u8> {
         let start = bytes.len();
         match reader.read_until(b'\n', &mut bytes) {
             Ok(0) | Err(_) => return bytes,
-            Ok(_) => steps.line(&bytes[start..]),
+            Ok(_) => {
+                progress.note(&bytes[start..]);
+                steps.line(&bytes[start..]);
+            }
         }
     }
 }
@@ -305,6 +319,9 @@ fn run_latexmk_with(
     drop(step);
     let log = commands::combined_output(&output);
     if cancelled {
+        if was_stalled(active) {
+            return Ok(build_stall::stalled_build(steps.started(), &log, &document));
+        }
         return Ok(cancelled_build(steps.started(), &log, &document));
     }
 
@@ -434,6 +451,8 @@ mod diagnostics_tests;
 mod error_mode_tests;
 #[cfg(test)]
 mod latexmkrc_tests;
+#[cfg(test)]
+mod stall_tests;
 #[cfg(test)]
 mod stop_tests;
 
