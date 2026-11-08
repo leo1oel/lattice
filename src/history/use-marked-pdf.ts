@@ -42,8 +42,13 @@ function shownReducer(current: Shown, action: ShownAction): Shown {
 }
 
 export function useMarkedPdf(projectRoot: string, pdfUrl: string | null): MarkedPdf {
-  const { root, active, marked, revision } = useSyncExternalStore(reviewMode.subscribe, reviewMode.get);
-  const wanted = active && marked && root === projectRoot;
+  // The base revision while a marked PDF is wanted, else null: a number, so
+  // the store's other changes (its project read at startup) do not render the panel.
+  const revision = useSyncExternalStore(reviewMode.subscribe, () => {
+    const { root, active, marked, revision } = reviewMode.get();
+    return active && marked && root === projectRoot ? revision : null;
+  });
+  const wanted = revision !== null;
   const [shown, dispatch] = useReducer(shownReducer, { ...NONE, root: projectRoot });
 
   useEffect(() => {

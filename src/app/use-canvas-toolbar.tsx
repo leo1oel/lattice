@@ -33,7 +33,9 @@ export function useCanvasToolbar({
   const {
     overleafLink, overleafSyncMode, overleafRealtime, overleafPresence, overleafChat, overleafComments, overleafDocPaths,
   } = overleaf;
-  const reviewing = useSyncExternalStore(reviewMode.subscribe, reviewMode.get).active;
+  // The flag alone, not the state: this renders with App, and the store's
+  // other changes (its project read at startup, each saved base) are not the toolbar's.
+  const reviewing = useSyncExternalStore(reviewMode.subscribe, () => reviewMode.get().active);
   return (
     <CanvasToolbar
       activePath={activePaper ? activePaper.title : activeTab}
