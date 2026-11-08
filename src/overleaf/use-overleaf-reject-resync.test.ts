@@ -53,6 +53,7 @@ let rejected: TrackedChange[][];
 let joinFailures: number;
 /** What the editor shows; remote text lands only over the text it was computed from, as the app's does. */
 let editor: string;
+let onNeedsSync: ReturnType<typeof vi.fn<(paths: readonly string[]) => void>>;
 
 /** Overleaf's document updater behind the mocked commands; see OverleafDoc. */
 function serveOverleaf() {
@@ -62,6 +63,7 @@ function serveOverleaf() {
   rejected = [];
   joinFailures = 0;
   editor = "";
+  onNeedsSync = vi.fn<(paths: readonly string[]) => void>();
   const deliver = mockListen();
   emit = (payload) => deliver({ projectRoot: ROOT, ...payload });
   const answer = async (ops: OtOp[], version: number, hash?: string) => {
@@ -114,6 +116,7 @@ async function mountLive() {
         return true;
       },
       onNotice: () => undefined,
+      onNeedsSync,
     });
     const review = useOverleafTrackChanges({
       enabled: true, projectRoot: ROOT, docId: realtime.docId,
@@ -168,13 +171,14 @@ describe("rejecting a suggestion live", () => {
     await waitFor(() => expect(result.current.realtime.unacknowledged).toBe(false));
   });
 
-  it("sends nothing typed while the reject is unanswered until the document is re-read", async () => {
+  it("sends nothing typed while the reject is unanswered, and keeps that typing for regular sync", async () => {
     const result = await mountLive();
     await act(() => result.current.review.reject([INSERTION]));
 
     // Typed into the editor, which still shows the rejected words.
+    editor = "Hello brave world later";
     await act(async () => {
-      result.current.realtime.pushLocal("Hello brave world later");
+      result.current.realtime.pushLocal(editor);
       vi.advanceTimersByTime(300);
     });
     expect(result.current.realtime.unacknowledged).toBe(true);
@@ -186,6 +190,11 @@ describe("rejecting a suggestion live", () => {
     expect(sends()).toEqual([]);
     expect(server.text).toBe("Hello world");
     await waitFor(() => expect(joinsOf(DOC_A)).toHaveLength(2));
+    // The re-read text is not laid over the typing; regular sync merges the two.
+    await waitFor(() => expect(onNeedsSync).toHaveBeenCalledWith(["a.tex"]));
+    expect(editor).toBe("Hello brave world later");
+    expect(result.current.realtime.liveFile).toBe(false);
+    expect(sends()).toEqual([]);
   });
 
   it("keeps re-reading until a join succeeds", async () => {
@@ -201,7 +210,7 @@ describe("rejecting a suggestion live", () => {
     await waitFor(() => expect(result.current.realtime.changes).toEqual([]));
   });
 
-  it("does nothing on a second Reject of a suggestion already rejected", async () => {
+  it("refuses a second Reject of a suggestion until the first is re-read", async () => {
     const result = await mountLive();
     // A deletion suggestion: rejecting it twice put the words back twice.
     const deletion: TrackedChange = { id: "c-del", position: 6, text: "bold ", deletion: true, userId: "them", timestamp: null, hue: 40 };
@@ -213,9 +222,12 @@ describe("rejecting a suggestion live", () => {
 
     await act(() => result.current.review.reject([deletion]));
     // The card is still on screen until the re-read: a second click.
-    await act(() => result.current.review.reject([deletion]));
+    const again = "An edit is still on its way to Overleaf. Try rejecting again in a moment.";
+    let refused: unknown;
+    await act(() => result.current.review.reject([deletion]).catch((reason: unknown) => { refused = reason; }));
+    expect(String(refused)).toBe(`Error: ${again}`);
+    expect(result.current.review.error).toBe(`Error: ${again}`);
     await answerAll();
-    await act(() => result.current.review.reject([deletion]));
 
     expect(rejected).toEqual([[deletion]]);
     expect(server.text).toBe("Hello bold brave world");
