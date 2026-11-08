@@ -627,6 +627,7 @@ pub fn run() {
             ipc::overleaf_comments::overleaf_edit_message,
             ipc::overleaf_comments::overleaf_delete_message,
             ipc::overleaf_comments::overleaf_reply_to_thread,
+            ipc::overleaf_comments::overleaf_comment_in_document,
             ipc::overleaf_comments::overleaf_resolve_thread,
             ipc::overleaf_comments::overleaf_delete_thread,
             ipc::overleaf::overleaf_preview,

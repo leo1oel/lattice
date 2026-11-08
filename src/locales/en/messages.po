@@ -3946,6 +3946,10 @@ msgstr "Comment source"
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Commenting on {name} on Overleaf…"
+msgstr "Commenting on {name} on Overleaf…"
+
 #: src/canvas/proofread-card.tsx
 msgid "comments"
 msgstr "comments"
@@ -10682,10 +10686,6 @@ msgstr "Overleaf sync is finishing. Try switching projects again in a moment."
 msgid "Overleaf sync paused"
 msgstr "Overleaf sync paused"
 
-#: src/canvas/pdf-annotation-composer.tsx
-msgid "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
-msgstr "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
-
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf turned this request away, though the session is still valid."
 msgstr "Overleaf turned this request away, though the session is still valid."
@@ -10709,6 +10709,10 @@ msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
 #: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: waiting on conflict resolution in {files}."
 msgstr "Overleaf: waiting on conflict resolution in {files}."
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Overleaf's copy of {name} reads differently here, so it is open beside the PDF now. Check the passage there, then save again."
+msgstr "Overleaf's copy of {name} reads differently here, so it is open beside the PDF now. Check the passage there, then save again."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's full history needs a paid plan on this project."
@@ -15127,6 +15131,10 @@ msgstr "The project changed before Overleaf could finish connecting."
 msgid "The project changed before the action could start."
 msgstr "The project changed before the action could start."
 
+#: src/app/annotation-rounds.ts
+msgid "The project closed before the comment was saved."
+msgstr "The project closed before the comment was saved."
+
 #: src/app/use-apply-open-slide-mutation.ts
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "The project closed before the Open Slide edit could be saved."
@@ -15407,6 +15415,10 @@ msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "There exists"
+
+#: src/app/annotation-rounds.ts
+msgid "There is no text to comment on in this selection."
+msgstr "There is no text to comment on in this selection."
 
 #: src/build/tex-setup.ts
 msgid "There is not enough disk space to install the package. Free up some space, then try again."

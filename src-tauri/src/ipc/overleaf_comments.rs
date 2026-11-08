@@ -57,6 +57,24 @@ pub async fn overleaf_reply_to_thread(
     .await
 }
 
+/// Start a thread on a passage of a document the editor does not have open:
+/// a comment made on the PDF, on text from another file. `from` counts UTF-16
+/// units into `source`, Lattice's copy of that file, where `quote` starts.
+/// See `overleaf::comment_in_document` for why it joins the document itself.
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn overleaf_comment_in_document(
+    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
+    doc_id: String, source: String, from: usize, quote: String, thread_id: String, content: String,
+) -> Result<overleaf::CommentPlacement, String> {
+    leased_rest_call(&app, &state, &window, &project_root, COMMENTS, move |config, root| {
+        overleaf::comment_in_document(
+            config, root, &doc_id, &source, from, &quote, &thread_id, &content,
+        )
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn overleaf_resolve_thread(
     app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,

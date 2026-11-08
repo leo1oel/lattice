@@ -38,6 +38,9 @@ export type OverleafCommentAnchor = {
 
 export type OverleafComments = ReturnType<typeof useOverleafComments>;
 
+/** What became of a comment on a document the editor does not have open. */
+export type CommentPlacement = "placed" | "notFound";
+
 /**
  * A Mongo-ObjectId-shaped id, which is what Overleaf's thread ids are.
  *
@@ -194,6 +197,24 @@ export function useOverleafComments(options: {
       await latest.current.anchor(target, threadId, position, quote);
       await latest.current.refresh();
       return threadId;
+    }),
+    /**
+     * Start a thread on a passage of a document the editor does not have
+     * open: Overleaf anchors one only in a document the connection joined, so
+     * the backend joins it on a connection of its own, anchors and leaves
+     * (`overleaf_comment_in_document`). `from` counts into `source`, Lattice's
+     * copy of the file. "notFound" when Overleaf's copy holds the passage
+     * nowhere it can tell, before any thread exists.
+     */
+    createInDocument: (target: OverleafCommentTarget, source: string, from: number, quote: string, content: string) => guard(async () => {
+      if (target.projectRoot !== projectRoot) {
+        throw new Error(t`The linked Overleaf project changed. Try commenting again.`);
+      }
+      const placement = await invoke<CommentPlacement>("overleaf_comment_in_document", {
+        projectRoot: target.projectRoot, docId: target.docId, source, from, quote, threadId: newThreadId(), content,
+      });
+      if (placement === "placed") await latest.current.refresh();
+      return placement;
     }),
   };
 }

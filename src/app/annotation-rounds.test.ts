@@ -44,6 +44,7 @@ function roundsWith(annotations: EditorComment[]) {
       state.current = { ...state.current, annotations: [...state.current.annotations, created] };
       return created;
     },
+    createInDocument: vi.fn(async () => "placed" as const),
     destination: () => "annotation", setActiveId: vi.fn(), openComment: vi.fn(), resolve: vi.fn(), reply: vi.fn(),
   };
   const rounds = new AnnotationRounds();
@@ -98,6 +99,37 @@ describe("AnnotationRounds / PDF notes posted to Overleaf", () => {
     const { saved, create } = overleafNote(SOURCE.replace("deliberately simple", "simple"));
     expect(saved).toBe("stale");
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe("AnnotationRounds / PDF notes on a file the editor does not have open", () => {
+  const ABSTRACT = "\\begin{abstract}\nWe show that it works.\nWe show that it scales.\n\\end{abstract}\n";
+
+  it("maps the selection into that file and comments on the exact span, without opening it", async () => {
+    const { rounds, store } = roundsWith([]);
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "synctex_edit") return { path: "abstract.tex", line: 3 };
+      if (command === "read_project_file") return (args as { path: string }).path === "abstract.tex" ? ABSTRACT : null;
+      return null;
+    });
+    const selection = { page: 1, rects: [], text: "it scales", point: { x: 0, y: 0 } };
+    const mapped = await rounds.mapPdfSelection(selection);
+    // The second "We show that it", on the line SyncTeX named: not the first.
+    const from = ABSTRACT.indexOf("it scales");
+    expect(mapped).toEqual({ path: "abstract.tex", line: 3, from, to: from + "it scales".length, source: ABSTRACT });
+
+    await expect(rounds.commentInDocumentFromPdf(selection, mapped, " Cite it. ")).resolves.toBe("placed");
+    const [comment, source] = vi.mocked(store.createInDocument).mock.calls[0]!;
+    expect(source).toBe(ABSTRACT);
+    expect(comment).toMatchObject({ path: "abstract.tex", from, to: from + 9, quote: "it scales", body: "Cite it." });
+    expect((rounds as unknown as { deps: AnnotationRoundsDeps }).deps.openProjectFile).not.toHaveBeenCalled();
+  });
+
+  it("opens the file beside the PDF at the passage when asked to place it there", () => {
+    const { rounds } = roundsWith([]);
+    const deps = (rounds as unknown as { deps: AnnotationRoundsDeps }).deps;
+    rounds.openPdfSource({ path: "abstract.tex", line: 3, from: 0, to: 1, source: ABSTRACT });
+    expect(deps.openProjectFile).toHaveBeenCalledWith("abstract.tex", { line: 3, revealSource: false });
   });
 });
 

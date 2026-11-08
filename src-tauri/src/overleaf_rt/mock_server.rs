@@ -135,6 +135,15 @@ pub(crate) fn sent_updates(state: &Arc<Mutex<MockState>>) -> Vec<Value> {
         .collect()
 }
 
+/// The name of every socket event the mock was sent, in order.
+pub(crate) fn sent_event_names(state: &Arc<Mutex<MockState>>) -> Vec<String> {
+    let frames = lock(state).frames.clone();
+    (frames.iter())
+        .filter_map(|text| parse_event(&parse_frame(text).ok()?.data).ok())
+        .map(|(name, _)| name)
+        .collect()
+}
+
 /// The account the mock's dashboard says is signed in.
 pub(crate) const MOCK_USER_ID: &str = "user-1";
 
