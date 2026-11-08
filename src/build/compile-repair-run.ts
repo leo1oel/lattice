@@ -10,7 +10,7 @@ import { i18n } from "../i18n";
 import type { CompileDiagnostic } from "./compile-diagnostics";
 import { cancelRepair, type CompileRepairState, type RepairOperation } from "./use-compile-repair";
 
-/** What the Rust relay answers when the running service does not know the task (synara.rs). */
+/** What the Rust relay answers for a 404 on a started task: the running service does not know it (synara.rs). */
 const TASK_UNKNOWN = "agent_task_unknown";
 
 const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));

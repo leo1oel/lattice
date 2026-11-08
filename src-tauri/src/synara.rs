@@ -366,8 +366,9 @@ pub const TEXT_TASK_ROUTE: &str = "text-task";
 /// the renderer can say so instead of quoting an HTTP status.
 pub const ROUTE_UNAVAILABLE: &str = "agent_route_unavailable";
 /// What a status or cancel answers when the running agent service does not
-/// know the task: the compile repair route answers an unknown thread with the
-/// same bare 404, and a route a task was started on cannot be missing.
+/// know the task. Its route exists, since the task was started on it: the
+/// compile repair route's poll and cancel answer a thread it does not know
+/// with a plain-text `Not Found` 404, and the text task route with a JSON 404.
 pub const TASK_UNKNOWN: &str = "agent_task_unknown";
 
 /// One action on the task route `/api/lattice/<route>`: `start` posts
@@ -407,13 +408,14 @@ pub fn task_relay_request(
     }
     let response = request.send().map_err(|error| error.to_string())?;
     let status = response.status();
+    if status == reqwest::StatusCode::NOT_FOUND && action != "start" {
+        return Err(TASK_UNKNOWN.into());
+    }
     let value: serde_json::Value = match response.json() {
         Ok(value) => value,
-        // A bare 404 on a start is the router's, for a path this runtime does
-        // not have; on an existing task it is the route's unknown task.
-        Err(_) if status == reqwest::StatusCode::NOT_FOUND => {
-            return Err(if action == "start" { ROUTE_UNAVAILABLE } else { TASK_UNKNOWN }.into())
-        }
+        // The start routes answer JSON, even their own 404s; a bare 404 is the
+        // router's, for a path this runtime does not have.
+        Err(_) if status == reqwest::StatusCode::NOT_FOUND => return Err(ROUTE_UNAVAILABLE.into()),
         Err(_) => return Err(format!("The agent service returned {status}.")),
     };
     if !status.is_success() {
@@ -572,6 +574,8 @@ mod tests {
                 (404, r#"{"error":"Workspace not found."}"#),
                 (404, "Not Found"),
                 (404, "Not Found"),
+                (404, "Not Found"),
+                (404, r#"{"error":"Task not found."}"#),
             ] {
                 let mut request = server.recv().unwrap();
                 let mut received = Vec::new();
@@ -610,9 +614,15 @@ mod tests {
                 .unwrap_err(),
             ROUTE_UNAVAILABLE
         );
-        // The repair route answers a thread it does not know with the same bare 404.
+        assert_eq!(request("start", None, payload.clone()).unwrap_err(), ROUTE_UNAVAILABLE);
+        // latticeCompileRepairHttpRoute's poll answers a thread it does not
+        // know with `HttpServerResponse.text("Not Found", { status: 404 })`.
+        let null = serde_json::Value::Null;
+        assert_eq!(request("status", Some("repair:gone"), null.clone()).unwrap_err(), TASK_UNKNOWN);
+        // An unknown text task is a JSON 404.
         assert_eq!(
-            request("status", Some("repair:gone"), serde_json::Value::Null).unwrap_err(),
+            task_relay_request(&runtime, TEXT_TASK_ROUTE, "cancel", Some("text:gone"), null)
+                .unwrap_err(),
             TASK_UNKNOWN
         );
 
@@ -624,7 +634,9 @@ mod tests {
         assert_eq!(requests[2].0, "POST /api/lattice/compile-repair/repair:one/cancel");
         assert_eq!(requests[5].0, "POST /api/lattice/text-task");
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&requests[5].1).unwrap(), text_task);
-        assert_eq!(requests[6].0, "GET /api/lattice/compile-repair/repair:gone");
+        assert_eq!(requests[6].0, "POST /api/lattice/compile-repair");
+        assert_eq!(requests[7].0, "GET /api/lattice/compile-repair/repair:gone");
+        assert_eq!(requests[8].0, "POST /api/lattice/text-task/text:gone/cancel");
     }
 
     #[test]
