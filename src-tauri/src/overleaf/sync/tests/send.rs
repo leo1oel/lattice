@@ -157,3 +157,34 @@ fn a_new_file_and_a_binary_one_are_still_uploaded_next_to_documents_sent_live() 
     assert!(uploads.iter().all(|upload| !upload.body_text().contains("main.tex")));
     assert_eq!(doc_text(&live, "doc-main").0, AGENTS);
 }
+
+#[test]
+fn an_agents_rewrite_of_the_paragraph_a_co_author_is_typing_in_keeps_both() {
+    // The Twitter question: the agent rewrites a paragraph on disk while a
+    // co-author types in that same paragraph on Overleaf. Their keystrokes
+    // land after we join and before our operations do, and the project's
+    // history version moves meanwhile, which used to stand an upload down
+    // (or, a moment later, let it replace their words). Sent as operations,
+    // Overleaf transforms ours past theirs: both survive, nothing uploads.
+    let live = live_project();
+    set_doc(&live, "doc-main", BASE);
+    let (_, typing) = insert_after(BASE, "Middle", " (co-author typing)");
+    type_after_join(&live, "doc-main", vec![typing]);
+    let mock = Mock {
+        realtime: Some(live.clone()),
+        versions: vec![11, 12],
+        ..Mock::project(&[("main.tex", BASE.as_bytes())])
+    };
+    let rewritten = "Intro.\n\nThe agent rewrote the middle paragraph.\n\nEnd.\n";
+    let (server, root, result) =
+        run_sync(mock, &[("main.tex", rewritten.as_bytes())], &[("main.tex", BASE.as_bytes())]);
+    assert_eq!(result.pushed, ["main.tex"]);
+    assert!(result.conflicts.is_empty(), "{:?}", result.conflicts);
+    assert!(server.uploads().is_empty(), "{:?}", server.uploads());
+    let (text, _) = doc_text(&live, "doc-main");
+    // Where their words land among ours is Overleaf's call; that they land
+    // whole, beside every word of the rewrite, is the contract.
+    assert_eq!(text.matches(" (co-author typing)").count(), 1, "{text}");
+    assert_eq!(text.replacen(" (co-author typing)", "", 1), rewritten, "{text}");
+    assert_eq!(read_local(&root, "main.tex").unwrap(), rewritten.as_bytes());
+}

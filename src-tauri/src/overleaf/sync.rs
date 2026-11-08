@@ -105,9 +105,9 @@ pub(super) fn wipes_out(local: &[u8], remote: &[u8]) -> bool {
 pub(super) struct SyncPlan {
     /// Remote content to write locally (path → bytes).
     pub pull: Vec<(String, Vec<u8>)>,
-    /// Paths to upload from the local snapshot.
+    /// Paths to send from the local snapshot (see `send`).
     pub push: Vec<String>,
-    /// Cleanly merged content (path → merged bytes); also uploaded.
+    /// Cleanly merged content (path → merged bytes); also sent.
     pub merge: Vec<(String, Vec<u8>)>,
     pub conflict: Vec<ConflictPlan>,
     pub delete_local: Vec<String>,
@@ -455,11 +455,11 @@ pub(super) fn sync_stamp() -> String {
 ///
 /// Most successful paths now match the bytes on disk. A conflicted path is
 /// the exception: the disk copy has markers while its recorded common
-/// ancestor is Overleaf's snapshot. So is a file edited again while its upload
-/// was under way: the ancestor is what went up, which only `known` still
+/// ancestor is Overleaf's snapshot. So is a file edited again while it was
+/// being sent: the ancestor is what went up, which only `known` still
 /// holds. Live-held paths may match neither and deliberately keep their
 /// previous base. `known` is every other copy of a file this sync had in hand
-/// — Overleaf's, and what it uploaded.
+/// — Overleaf's, and what it sent.
 pub(super) fn finalize_base_copies(
     root: &Path, previous_files: &BTreeMap<String, String>, next_files: &BTreeMap<String, String>,
     known: &[&BTreeMap<String, Vec<u8>>],
@@ -891,10 +891,10 @@ fn sync_files(
     // the end: that newer value may include a collaborator's edit which is not
     // in the zip we materialized as the new base.
     //
-    // Uploads advance history themselves, but Overleaf does not return the
-    // resulting project version. Leave it unknown so the next probe performs
-    // one verification sync instead of attributing an unverified latest
-    // version to our upload.
+    // Uploads and live operations advance history themselves, but Overleaf
+    // does not return the resulting project version. Leave it unknown so the
+    // next probe performs one verification sync instead of attributing an
+    // unverified latest version to what we sent.
     state.remote_version = if result.pushed.is_empty() { remote_version_before } else { None };
     state.agreed_version = remote_version_before;
     save_state(root, &state)?;

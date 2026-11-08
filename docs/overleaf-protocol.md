@@ -343,7 +343,7 @@ purpose.
   it. Editor saves wait out a sync behind the project lease, but agents and
   other programs do not; their edit is left as it is, keeps the previous agreed
   hash, and is reported (`editedDuringSync`) so the next sync merges or sends
-  it. A file edited during its own upload keeps what went up as its merge base.
+  it. A file edited while a sync sends it keeps what went up as its merge base.
 - Active, draining and outcome-unknown OT documents stay excluded from ordinary
   ZIP/file synchronization until the realtime owner releases them.
 - Every delayed project-specific Overleaf read or mutation carries the project
