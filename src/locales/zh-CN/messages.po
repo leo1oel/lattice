@@ -10320,7 +10320,7 @@ msgstr "在 Lattice 中打开"
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
 
-#: src/canvas/project-pdf-window.tsx
+#: src/canvas/project-pdf-panel.tsx
 msgid "Open in separate window"
 msgstr "在单独窗口中打开"
 
