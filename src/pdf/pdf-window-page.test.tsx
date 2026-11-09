@@ -149,6 +149,24 @@ describe("the PDF window's page", () => {
     expect(host.viewer).toMatchObject({ url: null, pdfBytes: null });
   });
 
+  it("reads the PDF its owner shows again once the build that was rewriting the file ends", async () => {
+    // A build with a fatal error deletes the file and puts the last PDF back when it ends.
+    host.invoke.mockRejectedValueOnce("Build the project first.");
+    await act(async () => {
+      render(<PdfWindowPage />);
+    });
+    await receive(state({ building: true }));
+    expect(host.viewer).toMatchObject({ url: null, pdfBytes: null });
+
+    await receive(state({ building: false }));
+    expect(host.invoke).toHaveBeenCalledTimes(2);
+    expect(host.viewer?.url).toBe("blob:window-1");
+    // Once read, a build starting or ending reads nothing again.
+    await receive(state({ building: true }));
+    await receive(state({ building: false }));
+    expect(host.invoke).toHaveBeenCalledTimes(2);
+  });
+
   it("sends what the reader does to its owner, signed with its label", async () => {
     vi.useFakeTimers();
     await act(async () => {

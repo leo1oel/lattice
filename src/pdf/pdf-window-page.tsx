@@ -65,30 +65,35 @@ function compiledPdfReducer(state: CompiledPdf, action: CompiledPdfAction): Comp
 
 /**
  * The compiled PDF whose fingerprint is `pdfKey`, read again whenever the key
- * changes. Until the next one is read the last stays on screen, as a rebuild
- * shows in the docked viewer; a key of null (no PDF yet) shows none.
- * `waiting` while the first is being read.
+ * changes, and while it has not been read, whenever a build starts or ends:
+ * one that was rewriting the file may have put these bytes back. Until the
+ * next one is read the last stays on screen, as a rebuild shows in the docked
+ * viewer; a key of null (no PDF yet) shows none. `waiting` while the first is
+ * being read.
  */
-function useCompiledPdf(projectRoot: string | null, pdfKey: string | null): { pdf: LoadedPdf | null; waiting: boolean } {
+function useCompiledPdf(
+  projectRoot: string | null, pdfKey: string | null, building: boolean,
+): { pdf: LoadedPdf | null; waiting: boolean } {
   const [{ loaded, failedKey }, dispatch] = useReducer(compiledPdfReducer, { loaded: null, failedKey: null });
+  const loadedKey = loaded?.key ?? null;
   useEffect(() => {
-    if (!projectRoot || !pdfKey) return;
+    if (!projectRoot || !pdfKey || loadedKey === pdfKey) return;
     let current = true;
     void invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot }).then((bytes) => {
       if (!current) return;
       // The next build is already rewriting the file: the PDF it writes
-      // comes with a key of its own.
+      // comes with a key of its own, or it puts these bytes back as it ends.
       if (pdfBytesFingerprint(bytes) !== pdfKey) dispatch({ type: "failed", key: pdfKey });
       else dispatch({ type: "read", pdf: { key: pdfKey, url: pdfBytesToObjectUrl(bytes), bytes } });
     }, () => {
       // Gone between the build and this read (cleaned, or the project
-      // closed): no PDF until the next build sends another key.
+      // closed): no PDF until the next build puts it back or sends another key.
       if (current) dispatch({ type: "failed", key: pdfKey });
     });
     return () => {
       current = false;
     };
-  }, [projectRoot, pdfKey]);
+  }, [projectRoot, pdfKey, building, loadedKey]);
   useEffect(() => {
     if (!loaded) return;
     const { url } = loaded;
@@ -133,7 +138,7 @@ export function PdfWindowPage() {
   const { t } = useLingui();
   const [{ owner: state, outlineOpen }, dispatch] = useReducer(windowReducer, { owner: null, outlineOpen: false });
   useOwnerState(dispatch);
-  const { pdf, waiting } = useCompiledPdf(state?.projectRoot ?? null, state?.pdfKey ?? null);
+  const { pdf, waiting } = useCompiledPdf(state?.projectRoot ?? null, state?.pdfKey ?? null, Boolean(state?.building));
   // Until the first PDF is read, the viewer's frame rather than its "No PDF yet".
   if (!state || waiting) {
     return <div className="canvas-body pdf-window"><div className="pdf-column"><PdfPreviewLoading /></div></div>;

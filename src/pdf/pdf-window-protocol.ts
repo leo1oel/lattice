@@ -29,7 +29,8 @@ export type PdfWindowState = {
    * The fingerprint (`pdfBytesFingerprint`) of the compiled PDF the owner
    * shows; null while there is none. The window reads the PDF again
    * (`read_compiled_pdf`) when this changes, and shows what it read only when
-   * it is these bytes: the next build may already be rewriting the file.
+   * it is these bytes: the next build may already be rewriting the file, in
+   * which case it reads again when that build ends.
    */
   pdfKey: string | null;
   syncTarget: PdfSyncTarget | null;
