@@ -9,6 +9,15 @@ afterEach(async () => {
 });
 
 describe("hostErrorText", () => {
+  // Review mode's marked PDF: where TeX stopped, in the paper's own files, in the interface language.
+  it("says where the PDF with changes marked stopped building", async () => {
+    await activateAppLocale("zh-CN");
+    expect(hostErrorText("The PDF with changes marked did not build: TeX stopped at line 4 of main.bbl (Missing \\endcsname inserted)."))
+      .toBe("标注修改的 PDF 编译失败：TeX 在 main.bbl 第 4 行出错（Missing \\endcsname inserted）。");
+    expect(hostErrorText("The PDF with changes marked did not build: TeX stopped near “A sentence taken out” (Undefined control sequence)."))
+      .toBe("标注修改的 PDF 编译失败：TeX 在“A sentence taken out”附近出错（Undefined control sequence）。");
+  });
+
   it("shows the high-frequency host errors in Chinese", async () => {
     await activateAppLocale("zh-CN");
     expect(hostErrorText("SyncTeX could not locate this PDF position.")).toBe("SyncTeX 无法定位 PDF 中的这个位置");

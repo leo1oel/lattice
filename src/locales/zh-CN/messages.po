@@ -13953,6 +13953,10 @@ msgstr "上弧关系"
 msgid "Soft {name}"
 msgstr "浅{name}"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Some changes are shown without marks: marked, they kept the PDF from building."
+msgstr "部分改动没有标记：标记后 PDF 无法编译。"
+
 #: src/app/project-index-load.ts
 msgid "Some files are left out of label and citation checks"
 msgstr "有些文件未纳入标签和引用检查"
@@ -14969,8 +14973,8 @@ msgid "The candidate's title or authors conflict with its source metadata. No ci
 msgstr "候选条目的标题或作者与来源信息不符，没有添加引用"
 
 #: src/canvas/project-pdf-panel.tsx
-msgid "The changes could not be marked in the PDF, so it shows the paper without them."
-msgstr "无法在 PDF 中标记改动，因此显示的是不含改动的论文。"
+msgid "The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks."
+msgstr "无法在 PDF 中标出改动，下面显示的是当前论文（内容已含修改，只是没有标记）。"
 
 #: src/platform/host-errors-papers.ts
 msgid "The citation contains conflicting arXiv identifiers."
@@ -15355,6 +15359,14 @@ msgstr "PDF 编译于 {0}。"
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build: {detail}"
 msgstr "标注修改的 PDF 编译失败：{detail}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build: TeX stopped at line {line} of {file} ({detail})."
+msgstr "标注修改的 PDF 编译失败：TeX 在 {file} 第 {line} 行出错（{detail}）。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build: TeX stopped near “{text}” ({detail})."
+msgstr "标注修改的 PDF 编译失败：TeX 在“{text}”附近出错（{detail}）。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build."

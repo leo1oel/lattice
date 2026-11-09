@@ -13953,6 +13953,10 @@ msgstr "Smile relation"
 msgid "Soft {name}"
 msgstr "Soft {name}"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Some changes are shown without marks: marked, they kept the PDF from building."
+msgstr "Some changes are shown without marks: marked, they kept the PDF from building."
+
 #: src/app/project-index-load.ts
 msgid "Some files are left out of label and citation checks"
 msgstr "Some files are left out of label and citation checks"
@@ -14969,8 +14973,8 @@ msgid "The candidate's title or authors conflict with its source metadata. No ci
 msgstr "The candidate's title or authors conflict with its source metadata. No citation was added."
 
 #: src/canvas/project-pdf-panel.tsx
-msgid "The changes could not be marked in the PDF, so it shows the paper without them."
-msgstr "The changes could not be marked in the PDF, so it shows the paper without them."
+msgid "The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks."
+msgstr "The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks."
 
 #: src/platform/host-errors-papers.ts
 msgid "The citation contains conflicting arXiv identifiers."
@@ -15355,6 +15359,14 @@ msgstr "The PDF was built on {0}."
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build: {detail}"
 msgstr "The PDF with changes marked did not build: {detail}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build: TeX stopped at line {line} of {file} ({detail})."
+msgstr "The PDF with changes marked did not build: TeX stopped at line {line} of {file} ({detail})."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build: TeX stopped near “{text}” ({detail})."
+msgstr "The PDF with changes marked did not build: TeX stopped near “{text}” ({detail})."
 
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build."
