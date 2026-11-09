@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { texPackageCheckProblem } from "./tex-package-updates";
+import { texPackageCheckProblem } from "./tex-package-check-problem";
 
 const NETWORK = "Couldn’t check for updates. Check the network connection, then run the TeX doctor again.";
 const TOO_OLD = "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.";

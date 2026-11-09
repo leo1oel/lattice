@@ -4,7 +4,8 @@ import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
 import { InlineMessage } from "../components/ui/inline-message";
 import type { TexPackageUpdates } from "../app/use-tex-package-updates";
-import { TEX_PACKAGE_UPDATE_COMMAND, texPackageCheckProblem, texPackageUpdateMessage } from "../build/tex-package-updates";
+import { TEX_PACKAGE_UPDATE_COMMAND, texPackageUpdateMessage } from "../build/tex-package-updates";
+import { texPackageCheckProblem } from "./tex-package-check-problem";
 
 /** Package names the row spells out before it only counts the rest. */
 const NAMED_PACKAGES = 3;
