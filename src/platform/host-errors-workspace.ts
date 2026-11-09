@@ -118,6 +118,11 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["pdf_window.rs", "Only a Lattice window can open the PDF in a window of its own.", () => t`Only a Lattice window can open the PDF in a window of its own.`],
   ["pdf_window.rs", "Could not open the PDF in a new window: {error}", ([error]) => t`Could not open the PDF in a new window: ${error}`],
   ["ipc/windows.rs", "Could not open the log folder: {error}", ([error]) => t`Could not open the log folder: ${error}`],
+  // Help ▸ Report a Problem… (diagnostic_logs.rs)
+  ["diagnostic_logs.rs", "The diagnostic log is too large to save.", () => t`The diagnostic log is too large to save.`],
+  ["diagnostic_logs.rs", "Could not create the report folder: {error}", ([error]) => t`Could not create the report folder: ${error}`],
+  ["diagnostic_logs.rs", "Could not save the diagnostic log: {error}", ([error]) => t`Could not save the diagnostic log: ${error}`],
+  ["diagnostic_logs.rs", "Could not show the diagnostic log in Finder: {error}", ([error]) => t`Could not show the diagnostic log in Finder: ${error}`],
   ["save_before_close.rs", "A window could not save its edits, so Lattice did not restart.", () => t`A window could not save its edits, so Lattice did not restart.`],
   ["ipc/terminal.rs", "Too much to type into the terminal at once.", () => t`Too much to type into the terminal at once.`],
   ["ipc/build.rs", "Choose where to save the PDF.", () => t`Choose where to save the PDF.`],

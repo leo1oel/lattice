@@ -23,6 +23,12 @@ use tauri::{AppHandle, Runtime};
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) struct MenuLabels {
     about: String,
+    /// Lattice ▸ Check for Updates…, or Restart to Update… once an update is
+    /// installed and waiting; `None` where Lattice does not update itself.
+    /// The page's updater answers it (src/telemetry/app-updater.tsx).
+    check_for_updates: Option<String>,
+    /// Lattice ▸ Settings… (⌘,), the command table's `settings` command.
+    settings: String,
     services: String,
     hide: String,
     hide_others: String,
@@ -70,6 +76,9 @@ pub(crate) struct MenuLabels {
     /// Help ▸ What's New in Lattice, which opens the release notes sheet
     /// (src/app/whats-new-dialog.tsx).
     whats_new: String,
+    /// Help ▸ Report a Problem…, the command table's `report-problem`
+    /// command (src/app/report-problem.ts).
+    report_problem: String,
     /// View → Margin review, sent while the focused window shows a linked
     /// Overleaf project's source (src/overleaf/margin-review-mode.ts).
     #[serde(default)]
@@ -117,10 +126,11 @@ const INTERFACE_ZOOM_PREFIX: &str = "interface-zoom:";
 /// interface size as ⌘+, ⌘− or ⌘0 would.
 const INTERFACE_ZOOM_EVENT: &str = "interface-zoom";
 
-/// Menu ids of File's project items; the part after the prefix is the id of
-/// the command-table command the page runs for it.
+/// Menu ids of items that run one of the page's command-table commands —
+/// File's project items, Lattice ▸ Settings… and Help ▸ Report a Problem…;
+/// the part after the prefix is the command's id.
 const FILE_COMMAND_PREFIX: &str = "file-command:";
-/// The event a project item sends to the focused workspace window.
+/// The event such an item sends to the focused workspace window.
 const FILE_COMMAND_EVENT: &str = "file-command";
 /// Menu ids of File ▸ Open Recent's entries; the part after the prefix is the
 /// project's path.
@@ -132,6 +142,11 @@ const OPEN_RECENT_EVENT: &str = "open-recent";
 /// The menu id of Help ▸ What's New, and the event it sends to the focused
 /// window, which opens its release notes sheet.
 const WHATS_NEW: &str = "whats-new";
+
+/// The menu id of Lattice ▸ Check for Updates… (or Restart to Update…), and
+/// the event it sends to the focused window, whose updater checks, offers
+/// the held update again, or restarts into the installed one.
+const CHECK_FOR_UPDATES: &str = "check-for-updates";
 
 /// The menu id of Lattice ▸ Quit, which saves every window before it exits.
 const QUIT: &str = "quit";
@@ -186,34 +201,10 @@ pub(crate) fn build_menu<R: Runtime>(
         credits: Some(TRELLIS_ATTRIBUTION.to_string()),
         ..Default::default()
     };
-    let app_menu = Submenu::with_items(
-        app,
-        package.name.clone(),
-        true,
-        &[
-            &PredefinedMenuItem::about(app, Some(labels.about.as_str()), Some(about))?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::services(app, Some(labels.services.as_str()))?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::hide(app, Some(labels.hide.as_str()))?,
-            &PredefinedMenuItem::hide_others(app, Some(labels.hide_others.as_str()))?,
-            &PredefinedMenuItem::show_all(app, Some(labels.show_all.as_str()))?,
-            &PredefinedMenuItem::separator(app)?,
-            // Not the predefined item: its `terminate:` ends the process
-            // before any window can save its last edits (save_before_close.rs).
-            &MenuItem::with_id(app, QUIT, &labels.quit, true, Some("CmdOrCtrl+Q"))?,
-        ],
-    )?;
-    // ⌘W closes a tab, as in a browser or an editor, and ⇧⌘W the window.
-    // Not the predefined Close Window, whose ⌘W closed the whole project when
-    // a tab was meant. The page binds ⌘W too and sees it first; this runs for
-    // a click, or for a ⌘W no page listener took.
-    let close_window = || {
-        MenuItem::with_id(app, CLOSE_WINDOW, &labels.close_window, true, Some("CmdOrCtrl+Shift+W"))
-    };
     // The project title menu's actions, where a Mac user looks for them
-    // first. The page binds ⇧⌘N and ⌘O too and sees them first, as with ⌘W.
-    let file_command = |command: &str, title: &str, enabled: bool, accelerator: Option<&str>| {
+    // first. The page binds ⇧⌘N, ⌘O and ⌘, too and sees them first, as with
+    // ⌘W below, so one key runs its command once.
+    let page_command = |command: &str, title: &str, enabled: bool, accelerator: Option<&str>| {
         MenuItem::with_id(
             app,
             format!("{FILE_COMMAND_PREFIX}{command}"),
@@ -221,6 +212,36 @@ pub(crate) fn build_menu<R: Runtime>(
             enabled,
             accelerator,
         )
+    };
+    let app_menu = Submenu::with_items(
+        app,
+        package.name.clone(),
+        true,
+        &[&PredefinedMenuItem::about(app, Some(labels.about.as_str()), Some(about))?],
+    )?;
+    if let Some(title) = &labels.check_for_updates {
+        app_menu.append(&MenuItem::with_id(app, CHECK_FOR_UPDATES, title, true, None::<&str>)?)?;
+    }
+    app_menu.append_items(&[
+        &PredefinedMenuItem::separator(app)?,
+        &page_command("settings", &labels.settings, true, Some("CmdOrCtrl+,"))?,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::services(app, Some(labels.services.as_str()))?,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::hide(app, Some(labels.hide.as_str()))?,
+        &PredefinedMenuItem::hide_others(app, Some(labels.hide_others.as_str()))?,
+        &PredefinedMenuItem::show_all(app, Some(labels.show_all.as_str()))?,
+        &PredefinedMenuItem::separator(app)?,
+        // Not the predefined item: its `terminate:` ends the process
+        // before any window can save its last edits (save_before_close.rs).
+        &MenuItem::with_id(app, QUIT, &labels.quit, true, Some("CmdOrCtrl+Q"))?,
+    ])?;
+    // ⌘W closes a tab, as in a browser or an editor, and ⇧⌘W the window.
+    // Not the predefined Close Window, whose ⌘W closed the whole project when
+    // a tab was meant. The page binds ⌘W too and sees it first; this runs for
+    // a click, or for a ⌘W no page listener took.
+    let close_window = || {
+        MenuItem::with_id(app, CLOSE_WINDOW, &labels.close_window, true, Some("CmdOrCtrl+Shift+W"))
     };
     let recents = labels
         .recent_projects
@@ -245,16 +266,16 @@ pub(crate) fn build_menu<R: Runtime>(
         &labels.file,
         true,
         &[
-            &file_command("new-project", &labels.new_project, true, Some("CmdOrCtrl+Shift+N"))?,
-            &file_command("open-folder", &labels.open_folder, true, Some("CmdOrCtrl+O"))?,
+            &page_command("new-project", &labels.new_project, true, Some("CmdOrCtrl+Shift+N"))?,
+            &page_command("open-folder", &labels.open_folder, true, Some("CmdOrCtrl+O"))?,
             &open_recent,
             &PredefinedMenuItem::separator(app)?,
-            &file_command("clone-repository", &labels.clone_repository, true, None)?,
-            &file_command("overleaf-open", &labels.open_from_overleaf, true, None)?,
-            &file_command("import-zip", &labels.import_zip, true, None)?,
+            &page_command("clone-repository", &labels.clone_repository, true, None)?,
+            &page_command("overleaf-open", &labels.open_from_overleaf, true, None)?,
+            &page_command("import-zip", &labels.import_zip, true, None)?,
             &PredefinedMenuItem::separator(app)?,
-            &file_command("export-zip", &labels.export_zip, labels.project_open, None)?,
-            &file_command("export-arxiv", &labels.export_arxiv, labels.project_open, None)?,
+            &page_command("export-zip", &labels.export_zip, labels.project_open, None)?,
+            &page_command("export-arxiv", &labels.export_arxiv, labels.project_open, None)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, CLOSE_TAB, &labels.close_tab, true, Some("CmdOrCtrl+W"))?,
             &close_window()?,
@@ -350,7 +371,11 @@ pub(crate) fn build_menu<R: Runtime>(
         tauri::menu::HELP_SUBMENU_ID,
         &labels.help,
         true,
-        &[&MenuItem::with_id(app, WHATS_NEW, &labels.whats_new, true, None::<&str>)?],
+        &[
+            &MenuItem::with_id(app, WHATS_NEW, &labels.whats_new, true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &page_command("report-problem", &labels.report_problem, true, None)?,
+        ],
     )?;
     Menu::with_items(
         app,
@@ -360,9 +385,9 @@ pub(crate) fn build_menu<R: Runtime>(
 
 /// A margin review choice goes to the window it was made in, which keeps it
 /// as its own and sends the menu back with the new check; Undo and Redo go
-/// to the focused window's focused editor, and an interface size change and
-/// What's New to the focused window; a PDF window's go to its owner
-/// (`menu_route`). Quit asks every window to save first.
+/// to the focused window's focused editor, and an interface size change,
+/// What's New and Check for Updates to the focused window; a PDF window's go
+/// to its owner (`menu_route`). Quit asks every window to save first.
 pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     use tauri::{Emitter, Manager};
 
@@ -394,8 +419,8 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         (EDIT_HISTORY_EVENT, direction)
     } else if let Some(change) = id.strip_prefix(INTERFACE_ZOOM_PREFIX) {
         (INTERFACE_ZOOM_EVENT, change)
-    } else if id == WHATS_NEW {
-        (WHATS_NEW, "")
+    } else if id == WHATS_NEW || id == CHECK_FOR_UPDATES {
+        (id, "")
     } else {
         return;
     };
@@ -429,9 +454,9 @@ enum MenuRoute {
 /// for its own fields, never to an editor on the other screen. Other commands
 /// made in a PDF window go to the workspace window that owns it (`owner`),
 /// which holds the project and the settings they act on, and which comes
-/// forward for a project command, a recent project or What's New. Only a
-/// window with Lattice's page runs File commands; the Overleaf sign-in has
-/// none. None when nothing runs the command.
+/// forward for a project command, a recent project, What's New or Check for
+/// Updates. Only a window with Lattice's page runs File commands; the
+/// Overleaf sign-in has none. None when nothing runs the command.
 fn menu_route(name: &str, focused: &str, owner: Option<String>) -> Option<MenuRoute> {
     if name == EDIT_HISTORY_EVENT && !asks_page_for_edit_history(focused) {
         return Some(MenuRoute::NativeEditHistory);
@@ -442,7 +467,8 @@ fn menu_route(name: &str, focused: &str, owner: Option<String>) -> Option<MenuRo
     if file_command && !crate::is_workspace_window(&label) {
         return None;
     }
-    let raise = label != focused && (file_command || name == WHATS_NEW);
+    let raise =
+        label != focused && (file_command || name == WHATS_NEW || name == CHECK_FOR_UPDATES);
     Some(MenuRoute::Page { label, raise })
 }
 
@@ -557,6 +583,17 @@ mod tests {
         assert_eq!(labels.copy, "拷贝");
         assert_eq!(labels.recent_projects[0].path, "/Users/me/论文初稿");
         assert!(labels.project_open);
+        assert_eq!(labels.check_for_updates.as_deref(), Some("检查更新…"));
+        // Where Lattice does not update itself, the page sends no title and
+        // the item is left out.
+        let mut no_updates = complete.clone();
+        no_updates
+            .as_object_mut()
+            .unwrap()
+            .insert("checkForUpdates".into(), serde_json::Value::Null);
+        let labels: MenuLabels =
+            serde_json::from_value(no_updates).expect("labels without updates");
+        assert!(labels.check_for_updates.is_none());
         let mut missing = complete.clone();
         missing.as_object_mut().unwrap().remove("copy");
         assert!(serde_json::from_value::<MenuLabels>(missing).is_err());
@@ -608,6 +645,13 @@ mod tests {
         );
         assert_eq!(file_menu_event(CLOSE_TAB), None);
         assert_eq!(file_menu_event(WHATS_NEW), None);
+        assert_eq!(file_menu_event(CHECK_FOR_UPDATES), None);
+        // Lattice ▸ Settings… and Help ▸ Report a Problem… run page commands too.
+        assert_eq!(file_menu_event("file-command:settings"), Some(("file-command", "settings")));
+        assert_eq!(
+            file_menu_event("file-command:report-problem"),
+            Some(("file-command", "report-problem"))
+        );
     }
 
     #[test]
@@ -625,6 +669,7 @@ mod tests {
         assert_eq!(menu_route(FILE_COMMAND_EVENT, "pdf-3", owner()), page("project-2", true));
         assert_eq!(menu_route(OPEN_RECENT_EVENT, "pdf-3", owner()), page("project-2", true));
         assert_eq!(menu_route(WHATS_NEW, "pdf-3", owner()), page("project-2", true));
+        assert_eq!(menu_route(CHECK_FOR_UPDATES, "pdf-3", owner()), page("project-2", true));
         assert_eq!(menu_route(INTERFACE_ZOOM_EVENT, "pdf-3", owner()), page("project-2", false));
         assert_eq!(menu_route(WHATS_NEW, "pdf-3", None), None);
         // ⌘Z in the PDF window must not undo the owner's last source edit.

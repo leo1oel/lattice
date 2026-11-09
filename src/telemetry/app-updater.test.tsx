@@ -364,7 +364,8 @@ describe("useUpdater / install", () => {
     expect(result.current.error).toBe("signature mismatch");
     expect(result.current.errorKind).toBe("install");
     expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({
-      level: "error", source: "App updater", title: "Lattice update failed", detail: "signature mismatch", dedupeKey: "app-update",
+      level: "error", source: "App updater", title: "Lattice update failed", dedupeKey: "app-update",
+      detail: "The downloaded update failed its signature check, so it was not installed. Download Lattice 0.1.230 from the releases page.",
     }));
     expect(commands()).toEqual(["claim_update_install", "install_update"]);
 
@@ -550,21 +551,35 @@ describe("the update toast", () => {
     expect(updateToast()).toBe(offer);
   });
 
-  it.each([["offer", false], ["failure", true]])("puts the update away when its %s is dismissed", async (_, installFails) => {
-    offerUpdate(installFails ? failingInstall() : undefined);
+  it("puts the update away when its offer is dismissed", async () => {
+    offerUpdate();
     const api = renderToasts();
     await run(() => api.current.check());
-    if (installFails) {
-      await run(() => api.current.install());
-      expect(updateToast()).toHaveTextContent("Lattice update failed");
-      expect(updateToast()).toHaveTextContent("disk full");
-    }
 
     fireEvent.click(screen.getByRole("button", { name: "Dismiss notification", hidden: true }));
 
     await waitFor(() => expect(updateToast()).toBeNull());
     expect(api.current.phase).toBe("idle");
     expect(api.current.error).toBeNull();
+  });
+
+  it("keeps a failed update when its failure toast is closed, so Update now can resume it", async () => {
+    // Issue #730: closing the failure dropped the update, so nothing could
+    // retry it until the next six-hourly check.
+    const update = offerUpdate(failingInstall());
+    const api = renderToasts();
+    await run(() => api.current.check());
+    await run(() => api.current.install());
+    expect(updateToast()).toHaveTextContent("Lattice update failed");
+    expect(updateToast()).toHaveTextContent("disk full");
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification", hidden: true }));
+    await waitFor(() => expect(updateToast()).toBeNull());
+
+    expect(api.current.phase).toBe("error");
+    update.downloadAndInstall.mockResolvedValueOnce(undefined);
+    await run(() => api.current.install());
+    expect(update.downloadAndInstall).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -186,7 +186,13 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // that keep a build or a jump from reopening the panel, and the window page's
 // start in main.tsx; the bridge and the window's page load on demand, +2.6 KB
 // (1,424,228 -> 1,426,861 bytes).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.361 * 1024 * 1024);
+// Raised from 1.361 MiB on 2026-11-09 for the updater's recovery (#730) and
+// the app menu's Check for Updates… / Settings… / Report a Problem… (#731):
+// the retries, the failure wording, the install's log line and the report
+// export load on demand, but the provider that offers a held update again,
+// answers the menu and keeps its title, and the menu's labels, run at
+// startup, +1.9 KB on top of #725 (1,426,861 -> 1,428,755 bytes).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.363 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

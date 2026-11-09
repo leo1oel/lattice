@@ -31,6 +31,10 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { updatesItself } from "./updates-itself";
+import { subscribeTauriEvent } from "../app/effect-helpers";
+import { listenInThisWindow } from "../app/window-events";
+import { setNativeUpdateMenu } from "../app/native-locale";
+import { version as RUNNING_VERSION } from "../../package.json";
 import { useLinuxReleaseNotice } from "./linux-release-notice";
 import { loadChoice } from "../settings/app-settings";
 import { sharedSetting, useSharedSetting } from "../settings/shared-setting";
@@ -82,6 +86,12 @@ export type DownloadEvent =
 async function loadUpdateCheck() {
   return (await import("@tauri-apps/plugin-updater")).check;
 }
+
+/** Retries and failure wording, needed only once something failed. */
+const loadRecovery = () => import("./update-recovery");
+
+/** What Lattice ▸ Check for Updates… sends to the window it was used in (native_locale.rs). */
+const CHECK_MENU_EVENT = "check-for-updates";
 
 /** What the backend answers a window asking to install a release; see app_restart.rs. */
 type UpdateClaim = "claimed" | "busy" | "installed";
@@ -162,7 +172,7 @@ export type UpdaterApi = UpdaterState & {
   install: () => Promise<void>;
   /** Restart into the installed update, warning first about work a restart would stop. */
   restart: () => Promise<void>;
-  /** Put the offered update (or a failed one) away without installing. */
+  /** Put the offered update away without installing. */
   dismiss: () => void;
 };
 
@@ -200,7 +210,8 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   const installingRef = useRef(false);
   /**
    * Set while `pendingRef` holds an update whose install failed. The update
-   * itself is kept so "Update now" can retry it, but it must stop gating
+   * itself is kept — closing the failure toast too — so Try again, or
+   * Lattice ▸ Check for Updates…, can resume it, but it must stop gating
    * `check` — see the note on `dismiss` for the same early return reached from
    * the other side.
    */
@@ -209,6 +220,8 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   const installedRef = useRef(false);
   /** A restart is being checked for running work, or under way. */
   const restartingRef = useRef(false);
+  /** Stops the retries of the check or install under way, mid-wait. */
+  const retriesRef = useRef<AbortController | null>(null);
   const modeRef = useLatestRef(mode);
 
   const patch = useCallback((next: Partial<UpdaterState>) => {
@@ -220,26 +233,29 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
    * `check` returns early while `pendingRef` holds an update, so a dismissed
    * update has to be released here or no later check — the six-hourly one or
    * the button in Settings — could notice a release for the rest of the
-   * session. Dismissing the failure toast lands here too.
+   * session. Dismissing the failure toast does not: that update is kept.
    */
   const dismiss = useCallback(() => {
+    retriesRef.current?.abort();
     pendingRef.current = null;
     installFailedRef.current = false;
     installedRef.current = false;
     patch({ phase: "idle", error: null, errorKind: null });
     dismissAppToastByDedupeKey(UPDATE_TOAST);
   }, [patch]);
-  const fail = useCallback((errorKind: UpdateErrorKind, reason: unknown) => {
+  /**
+   * A failed check has nothing to show over the editor when someone pressed
+   * "Check for updates" in Settings, which reports the outcome in the row they
+   * pressed; it comes with a `toast` only from the menu, and an install that
+   * was under way always turns its toast into the failure.
+   */
+  const fail = useCallback((errorKind: UpdateErrorKind, reason: unknown, toast?: { detail: string; options: AppToastOptions }) => {
     const detail = toMessage(reason);
     patch({ phase: "error", error: detail, errorKind });
-    // A failed check has nothing to show over the editor: it only happens when
-    // someone pressed "Check for updates" in Settings, which reports the
-    // outcome in the row they pressed. Only an install that was under way
-    // turns its toast into the failure.
     const title = i18n._(FAILURE_TITLES[errorKind]);
-    if (errorKind === "install") showUpdateToast("error", title, detail, { timeoutMs: 0, onDismiss: dismiss });
+    if (toast) showUpdateToast("error", title, toast.detail, toast.options);
     else addAppLog({ level: "error", source: i18n._(msg`App updater`), title, detail, toast: false });
-  }, [dismiss, patch]);
+  }, [patch]);
 
   /**
    * Restart into the installed update. `confirmed` skips the warning about
@@ -277,7 +293,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   }, [patch]);
 
   /** Download and install the pending update; `restartAfter` then restarts into it. */
-  const installUpdate = useCallback(async (restartAfter: boolean) => {
+  const installUpdate = useCallback(async function installUpdate(restartAfter: boolean): Promise<void> {
     const update = pendingRef.current;
     if (!update || installingRef.current) return;
     if (installedRef.current) {
@@ -312,34 +328,48 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     }
     patch({ phase: "downloading", progress: 0 });
     // Closing a running update's toast only hides it; the update carries on.
-    showUpdateToast("info", i18n._(msg`Downloading update…`), versionLine, { timeoutMs: 0, progress: "indeterminate" });
+    const showDownloading = (detail: string, options: AppToastOptions) => showUpdateToast("info", i18n._(msg`Downloading update…`), detail, options);
+    showDownloading(versionLine, { timeoutMs: 0, progress: "indeterminate" });
+    const retries = new AbortController();
+    retriesRef.current = retries;
+    const report = loadRecovery().then((recovery) => recovery.startInstallEvent({ version, mode: modeRef.current }), () => null);
+    let attempts = 1;
     let total = 0;
     let received = 0;
-    try {
-      await installInBackend(update, (event) => {
-        if (event.event === "Started") {
-          total = event.data?.contentLength ?? 0;
-          if (total > 0) updateAppToastProgress(UPDATE_TOAST, 0);
-        } else if (event.event === "Progress") {
-          received += event.data.chunkLength;
-          if (total > 0) {
-            const progress = Math.min(1, received / total);
-            patch({ progress });
-            updateAppToastProgress(UPDATE_TOAST, progress);
-          }
-        } else if (event.event === "Finished") {
-          patch({ phase: "installing", progress: 1 });
-          showUpdateToast("info", i18n._(msg`Installing…`), versionLine, { timeoutMs: 0, progress: "indeterminate" });
+    const attempt = () => installInBackend(update, (event) => {
+      if (event.event === "Started") {
+        total = event.data?.contentLength ?? 0;
+        received = 0;
+        if (total > 0) updateAppToastProgress(UPDATE_TOAST, 0);
+      } else if (event.event === "Progress") {
+        received += event.data.chunkLength;
+        if (total > 0) {
+          const progress = Math.min(1, received / total);
+          patch({ progress });
+          updateAppToastProgress(UPDATE_TOAST, progress);
         }
-      });
+      } else if (event.event === "Finished") {
+        patch({ phase: "installing", progress: 1 });
+        showUpdateToast("info", i18n._(msg`Installing…`), versionLine, { timeoutMs: 0, progress: "indeterminate" });
+      }
+    });
+    try {
+      await attempt().catch(async (first: unknown) => (await loadRecovery()).retryInstall(first, {
+        version, signal: retries.signal, cancel: () => retries.abort(), attempt, claim: claimUpdateInstall, onRetry: (next) => { attempts = next; }, showDownloading,
+      }));
     } catch (reason) {
       installingRef.current = false;
       installFailedRef.current = true;
-      fail("install", reason);
+      void report.then((event) => event?.finish({ outcome: retries.signal.aborted ? "cancelled" : "error", attempts, bytes: received, reason }));
+      fail("install", reason, await loadRecovery().then(
+        (recovery) => recovery.installFailureToast(reason, version, () => void installUpdate(true)),
+        () => ({ detail: toMessage(reason), options: { timeoutMs: 0 } }),
+      ));
       return;
     }
+    void report.then((event) => event?.finish({ outcome: "success", attempts, bytes: received }));
     await installed();
-  }, [fail, patch, restart]);
+  }, [fail, modeRef, patch, restart]);
 
   const install = useCallback(() => installUpdate(true), [installUpdate]);
 
@@ -351,41 +381,79 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     }
   }, [installUpdate]);
 
-  const check = useCallback(async (silent = true) => {
+  /** Offer the held update with Update now. */
+  const showOffer = useCallback((version: string) => {
+    patch({ phase: "available", version, error: null, errorKind: null });
+    // The title and Update now say all there is: no detail line.
+    showUpdateToast("info", i18n._(msg`New version ${version}`), "", {
+      timeoutMs: 0,
+      // The toast stays to carry the download that this starts.
+      primaryAction: { label: i18n._(msg`Update now`), onClick: () => void install(), keepOpen: true },
+      onDismiss: dismiss,
+    });
+  }, [dismiss, install, patch]);
+
+  /** `check`, which from the menu (`announce`) also says when nothing is new or the check failed. */
+  const runCheck = useCallback(async (silent: boolean, announce: boolean) => {
     // A held update is what stops a second offer for one already offered —
     // but only while it is still installable. Once its install has failed the
     // toast is a failure, and holding the check hostage to it means
     // the next release is never noticed for the rest of the session.
     if (!updatesItself() || installingRef.current || installedRef.current) return;
     if (pendingRef.current && !installFailedRef.current) return;
+    const retries = new AbortController();
+    retriesRef.current = retries;
     try {
       const checkForUpdate = await loadUpdateCheck();
       if (!silent) patch({ phase: "checking" });
-      const update = (await checkForUpdate()) as TauriUpdate | null;
+      // A 502/503/504 or a dropped connection is tried twice more, quietly.
+      const update = (await checkForUpdate().catch(async (first: unknown) => (
+        (await loadRecovery()).retryTransient(first, checkForUpdate, { signal: retries.signal })
+      ))) as TauriUpdate | null;
       if (update?.version && update.version !== update.currentVersion) {
         pendingRef.current = update;
         installFailedRef.current = false;
-        patch({ phase: "available", version: update.version, error: null, errorKind: null });
-        if (modeRef.current === "auto") void installUpdate(false);
-        else {
-          const { version } = update;
-          // The title and Update now say all there is: no detail line.
-          showUpdateToast("info", i18n._(msg`New version ${version}`), "", {
-            timeoutMs: 0,
-            // The toast stays to carry the download that this starts.
-            primaryAction: { label: i18n._(msg`Update now`), onClick: () => void install(), keepOpen: true },
-            onDismiss: dismiss,
-          });
-        }
+        if (modeRef.current === "auto") {
+          patch({ phase: "available", version: update.version, error: null, errorKind: null });
+          void installUpdate(false);
+        } else showOffer(update.version);
       } else if (!silent) {
         patch({ phase: "up-to-date" });
+        const version = RUNNING_VERSION;
+        if (announce) showUpdateToast("success", i18n._(msg`Lattice is up to date`), i18n._(msg`Version ${version}`), {});
       }
     } catch (reason) {
-      // Browser/dev (no Tauri) or a transient network error: stay quiet unless
-      // the user explicitly pressed "Check for updates".
-      if (!silent) fail("check", reason);
+      // Browser/dev (no Tauri) or a network error that outlasted the retries:
+      // stay quiet unless someone asked. An update held after a failed install
+      // is still on offer, whatever this check ran into.
+      const held = pendingRef.current;
+      if (silent) return;
+      if (held) showOffer(held.version);
+      else fail("check", reason, announce ? { detail: toMessage(reason), options: {} } : undefined);
     }
-  }, [dismiss, fail, install, installUpdate, modeRef, patch]);
+  }, [fail, installUpdate, modeRef, patch, showOffer]);
+
+  const check = useCallback((silent = true) => runCheck(silent, false), [runCheck]);
+
+  /**
+   * Lattice ▸ Check for Updates…: restart into an installed update (the item
+   * then reads Restart to Update…), offer a held one again, or check.
+   */
+  const checkFromMenu = useCallback(async () => {
+    if (installedRef.current) return restart();
+    if (installingRef.current) return;
+    const held = pendingRef.current;
+    if (held) showOffer(held.version);
+    else await runCheck(false, true);
+  }, [restart, runCheck, showOffer]);
+  useEffect(() => subscribeTauriEvent<string>(
+    (handler) => listenInThisWindow(CHECK_MENU_EVENT, handler),
+    () => void checkFromMenu(),
+  ), [checkFromMenu]);
+  const readyToRestart = state.phase === "ready";
+  useEffect(() => setNativeUpdateMenu(updatesItself() ? (readyToRestart ? "restart" : "check") : null), [readyToRestart]);
+  // Retries waiting when this provider goes stop with it.
+  useEffect(() => () => retriesRef.current?.abort(), []);
 
   useEffect(() => {
     if (!autoCheck) return;

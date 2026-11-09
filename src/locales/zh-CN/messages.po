@@ -331,6 +331,10 @@ msgstr "{builds} 次编译"
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}；arXiv 使用 pdfLaTeX 编译"
 
+#: src/telemetry/update-recovery.ts
+msgid "{cause}. Try again, or download Lattice {version} from the releases page."
+msgstr "{cause}。请重试，或从发布页面下载 Lattice {version}。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
 msgstr "{chain} 通过 \\input 互相引用，latexdiff 将无法完成。请删除造成循环的 \\input。"
@@ -2088,6 +2092,7 @@ msgid "Another file in this project"
 msgstr "项目里另一个文件"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/update-recovery.ts
 msgid "Another Lattice window is installing this update."
 msgstr "另一个 Lattice 窗口正在安装这个更新。"
 
@@ -2263,6 +2268,10 @@ msgstr "星号运算符"
 #: src/project/manuscript-checklist.tsx
 msgid "At the limit"
 msgstr "刚好到上限"
+
+#: src/app/report-problem.ts
+msgid "Attach the file shown in Finder to the bug report."
+msgstr "请将访达中显示的文件附加到问题报告。"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
@@ -2929,6 +2938,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/project/project-replace-dialog.tsx
 #: src/project/submission-items.tsx
 #: src/telemetry/app-log.tsx
+#: src/telemetry/update-recovery.ts
 msgid "Cancel"
 msgstr "取消"
 
@@ -3186,6 +3196,11 @@ msgstr "检查英文拼写"
 #: src/settings/settings-search-index.ts
 msgid "Check for updates"
 msgstr "检查更新"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Check for Updates…"
+msgstr "检查更新…"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Check incomplete"
@@ -4358,6 +4373,10 @@ msgid "Could not copy the source link"
 msgstr "没能复制出处链接"
 
 #: src/platform/host-errors-workspace.ts
+msgid "Could not create the report folder: {error}"
+msgstr "无法创建报告文件夹：{error}"
+
+#: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
 msgstr "无法创建 ZIP 压缩包：{error}"
 
@@ -4603,6 +4622,10 @@ msgstr "{failedPath} 没保存成功"
 msgid "Could not save {name}"
 msgstr "无法保存 {name}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not save the diagnostic log: {error}"
+msgstr "无法保存诊断日志：{error}"
+
 #: src/app/use-document-save.ts
 msgid "Could not save the project"
 msgstr "项目没保存成功"
@@ -4619,6 +4642,10 @@ msgstr "无法搜索 TeX Live 组件仓库：{error}"
 #: src/app/use-project-tree.ts
 msgid "Could not show that item in Finder. {message}"
 msgstr "无法在访达中显示。{message}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not show the diagnostic log in Finder: {error}"
+msgstr "无法在访达中显示诊断日志：{error}"
 
 #: src/platform/host-errors-papers.ts
 msgid "Could not start {tool}: {error}"
@@ -4743,6 +4770,10 @@ msgstr "无法重新打开“{unopenedName}”，它的文件夹可能已被移�
 #: src/canvas/status-save-state.tsx
 msgid "Couldn’t save"
 msgstr "无法保存"
+
+#: src/app/report-problem.ts
+msgid "Couldn’t save the diagnostic log"
+msgstr "无法保存诊断日志"
 
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
@@ -5099,6 +5130,10 @@ msgstr "详情"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "行列式样式的矩阵"
+
+#: src/app/report-problem.ts
+msgid "Diagnostic log saved"
+msgstr "诊断日志已保存"
 
 #: src/editor/codemirror-host.tsx
 #: src/settings/settings-dialog.tsx
@@ -6623,6 +6658,14 @@ msgstr "Git 没加载出来"
 msgid "GitHub Releases"
 msgstr "GitHub 发布页"
 
+#: src/telemetry/update-recovery.ts
+msgid "GitHub’s download server timed out (504). Try again, or download Lattice {version} from the releases page."
+msgstr "GitHub 下载服务器超时（504）。请重试，或从发布页面下载 Lattice {version}。"
+
+#: src/telemetry/update-recovery.ts
+msgid "GitHub’s download server was unavailable ({code}). Try again, or download Lattice {version} from the releases page."
+msgstr "GitHub 下载服务器暂时不可用（{code}）。请重试，或从发布页面下载 Lattice {version}。"
+
 #: src/platform/host-errors-project.ts
 msgid "Give the checked date as a day."
 msgstr "核实日期请填写到某一天"
@@ -8139,6 +8182,10 @@ msgstr "Lattice 无法写入 {file}"
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 msgstr "Lattice 当前登录的是 {0}。要打开其他 Overleaf 服务器上的项目，请在 设置 → Overleaf 中登录那台服务器。"
+
+#: src/telemetry/app-updater.tsx
+msgid "Lattice is up to date"
+msgstr "Lattice 已是最新版本"
 
 #: src/build/use-compile-repair.ts
 msgid "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
@@ -10386,6 +10433,10 @@ msgctxt "macOS menu bar"
 msgid "Open Recent"
 msgstr "打开最近使用"
 
+#: src/telemetry/update-recovery.ts
+msgid "Open releases page"
+msgstr "打开发布页面"
+
 #: src/app/use-command-table.ts
 msgid "Open settings"
 msgstr "打开设置"
@@ -12359,6 +12410,16 @@ msgstr "回复 {author}"
 msgid "Reply…"
 msgstr "回复…"
 
+#: src/app/report-problem.ts
+#: src/app/use-command-table.ts
+msgid "Report a problem"
+msgstr "报告问题"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Report a Problem…"
+msgstr "报告问题…"
+
 #: src/project/clone-repository-dialog.tsx
 msgid "Repository URL"
 msgstr "仓库 URL"
@@ -12538,6 +12599,11 @@ msgstr "立即重启"
 #: src/telemetry/app-updater.tsx
 msgid "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
 msgstr "重启即可完成更新；不重启的话，下次打开 Lattice 时生效。"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Restart to Update…"
+msgstr "重新启动以更新…"
 
 #: src/telemetry/app-updater.tsx
 msgid "Restarting now stops {running}."
@@ -13538,6 +13604,11 @@ msgstr "设置"
 #: src/settings/settings-dialog.tsx
 msgid "Settings sections"
 msgstr "设置分区"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Settings…"
+msgstr "设置…"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Several matches"
@@ -14915,6 +14986,10 @@ msgid "The current text removed this part."
 msgstr "现在的文本删掉了这部分。"
 
 #: src/platform/host-errors-workspace.ts
+msgid "The diagnostic log is too large to save."
+msgstr "诊断日志太大，无法保存。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "The disk is full."
 msgstr "磁盘空间已满"
 
@@ -14954,9 +15029,17 @@ msgstr "文档没有加载 Times：在模板之后加上 {command}，再点“�
 msgid "the documents area"
 msgstr "文档区"
 
+#: src/telemetry/update-recovery.ts
+msgid "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
+msgstr "下载中断：连接超时或已断开。请重试，或从发布页面下载 Lattice {version}。"
+
 #: src/platform/host-errors-setup.ts
 msgid "The downloaded {what} failed its security check."
 msgstr "下载的 {what} 未通过安全校验"
+
+#: src/telemetry/update-recovery.ts
+msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
+msgstr "下载的更新未通过签名校验，因此未安装。请从发布页面下载 Lattice {version}。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "The Excel workbook is too large to export."
@@ -15479,6 +15562,10 @@ msgstr "教程的白板：注意力如何连接查询、键和值"
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "The two versions read the same"
 msgstr "两个版本内容相同"
+
+#: src/telemetry/update-recovery.ts
+msgid "The update file is missing from GitHub’s download server (404). Download Lattice {version} from the releases page."
+msgstr "GitHub 下载服务器上没有这个更新文件（404）。请从发布页面下载 Lattice {version}。"
 
 #: src/platform/host-errors-papers.ts
 msgid "The upgrade changes the identity of ''{key}''. No changes were saved."
@@ -16130,6 +16217,7 @@ msgstr "试试"
 #: src/papers/linked-library-sheet.tsx
 #: src/papers/zotero-browser.tsx
 #: src/project/paper-library-status.tsx
+#: src/telemetry/update-recovery.ts
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
 msgstr "重试"
@@ -16150,6 +16238,10 @@ msgstr "立即重试"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "现在可以再试一次了"
+
+#: src/telemetry/update-recovery.ts
+msgid "Trying again ({next} of 3)…"
+msgstr "正在重试（第 {next} 次，共 3 次）…"
 
 #: src/project/project-dialogs.tsx
 msgid "Tsinghua University thesis ({name})"
@@ -16725,6 +16817,7 @@ msgid "Version {0} is ready to install"
 msgstr "新版本 {0} 可安装"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/update-recovery.ts
 msgid "Version {version}"
 msgstr "版本 {version}"
 

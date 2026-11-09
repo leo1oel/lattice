@@ -52,6 +52,7 @@ import type { useWhatsNew } from "./use-whats-new";
 import { detachPdf, dockPdf, pdfWindowOpen, pdfWindowsAvailable } from "./pdf-window-state";
 
 const loadFormatDocument = () => import("./format-document");
+const loadReportProblem = () => import("./report-problem");
 
 /** What File ▸ Close Tab (⌘W) sends the window it was used in (native_locale.rs). */
 const CLOSE_TAB_EVENT = "close-tab";
@@ -340,6 +341,8 @@ export function useCommandTable({
     { id: "whats-new", label: t`What’s new in Lattice`, detail: RUNNING_VERSION, group: "project", run: () => whatsNew.setOpen(true) },
     { id: "tutorial", label: t`Open guided tutorial`, group: "project", run: () => void openTutorialProject() },
     { id: "doctor", label: t`Run TeX doctor`, group: "project", run: () => openSettings("doctor") },
+    // Help ▸ Report a Problem… runs it too (native_locale.rs).
+    { id: "report-problem", when: !browserHosted, label: t`Report a problem`, group: "project", run: () => void loadReportProblem().then(({ reportProblem }) => reportProblem()) },
     {
       id: "browser", group: "project", run: () => void moveWorkspace(),
       ...(browserHosted
@@ -367,8 +370,9 @@ export function useCommandTable({
     (handler) => listenInThisWindow(CLOSE_TAB_EVENT, handler),
     () => runCommandRef.current("close-tab"),
   ), [runCommandRef]);
-  // File's project items (native_locale.rs) run the commands above, so the
-  // menu, the palette and the keys do one thing; Open Recent opens a project
+  // File's project items, Lattice ▸ Settings… and Help ▸ Report a Problem…
+  // (native_locale.rs) run the commands above, so the menu, the palette and
+  // the keys do one thing; Open Recent opens a project
   // as the title's switcher does, and lists the same ones.
   useEffect(() => subscribeTauriEvent<string>(
     (handler) => listenInThisWindow(FILE_COMMAND_EVENT, handler),

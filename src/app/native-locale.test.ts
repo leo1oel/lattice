@@ -5,7 +5,7 @@ import { i18n } from "../i18n";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { invokeCalls, mockInvoke } from "../platform/tauri-test-mocks";
 import { APPEARANCE_KEY, type AppearanceSettings, loadAppearance } from "../settings/app-settings";
-import { bundleLanguage, installNativeLocaleSync, nativeMenuLabels, setNativeFileMenu, syncNativeLocale, syncNativeLocaleIfChanged } from "./native-locale";
+import { bundleLanguage, installNativeLocaleSync, nativeMenuLabels, setNativeFileMenu, setNativeUpdateMenu, syncNativeLocale, syncNativeLocaleIfChanged } from "./native-locale";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({
@@ -36,6 +36,16 @@ describe("native locale", () => {
     // its test deserializes this same payload.
     const fixture = JSON.parse(readFileSync("src-tauri/tests/fixtures/menu-labels.json", "utf8")) as Record<string, string>;
     expect(Object.keys(labels).sort()).toEqual(Object.keys(fixture).sort());
+  });
+
+  it("labels Check for Updates… as the updater asks, and leaves it out where Lattice does not update itself", () => {
+    expect(nativeMenuLabels().checkForUpdates).toBeNull();
+    setNativeUpdateMenu("check");
+    expect(nativeMenuLabels().checkForUpdates).toBe("Check for Updates…");
+    setNativeUpdateMenu("restart");
+    expect(nativeMenuLabels().checkForUpdates).toBe("Restart to Update…");
+    setNativeUpdateMenu(null);
+    expect(nativeMenuLabels()).toMatchObject({ checkForUpdates: null, settings: "Settings…", reportProblem: "Report a Problem…" });
   });
 
   it("pins only an explicit interface language", () => {
