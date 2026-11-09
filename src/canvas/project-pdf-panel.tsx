@@ -19,7 +19,8 @@ import { LivePreviewStatus } from "../live-preview/live-preview-status";
 import { loadLivePreviewModule, type LivePreview } from "../live-preview/use-live-preview";
 import { InlineMessage } from "../components/ui/inline-message";
 import { useMarkedPdf } from "../history/use-marked-pdf";
-import { OpenPdfWindowButton, PdfInWindowPlaceholder, ProjectPdfWindow, type ProjectPdfWindowControl } from "./project-pdf-window";
+import { SquareArrowOutUpRight } from "lucide-react";
+import { PdfInWindowPlaceholder, ProjectPdfWindow, type ProjectPdfWindowControl } from "./project-pdf-window";
 
 /** The compiled project PDF: its build, SyncTeX in both directions and its pages. */
 export type ProjectPdf = Readonly<{
@@ -207,7 +208,7 @@ export function ProjectPdfPanel({
                 )
                 : livePreview ? <LivePreviewStatus state={livePreview.state} onRetry={livePreview.retry} /> : null}
               onPageChange={pdf.onPdfPageChange}
-              toolbarEnd={pdfWindow?.onOpen && <OpenPdfWindowButton onOpen={pdfWindow.onOpen} />}
+              toolbarAction={pdfWindow?.onOpen && { label: t`Open in separate window`, icon: SquareArrowOutUpRight, run: pdfWindow.onOpen }}
               initialViewState={initialViewState}
               onViewState={(state) => viewState.onFileViewState?.(previewPath, { pdf: state })}
               outline={(

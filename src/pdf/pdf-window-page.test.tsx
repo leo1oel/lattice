@@ -15,7 +15,7 @@ type ViewerProps = {
   onOpenCitation: (key: string) => void;
   onViewState: (state: object) => void;
   onBuild: () => void;
-  toolbarEnd: React.ReactNode;
+  toolbarAction: { label: string; run: () => void };
 };
 
 const host = vi.hoisted(() => ({
@@ -39,7 +39,8 @@ vi.mock("../settings/use-appearance", () => ({ useAppearance: () => undefined })
 vi.mock("./pdf-viewer", () => ({
   PdfPreview: (props: ViewerProps) => {
     host.viewer = props;
-    return <div data-testid="viewer">{props.toolbarEnd}</div>;
+    const action = props.toolbarAction;
+    return <div data-testid="viewer"><button type="button" onClick={action.run}>{action.label}</button></div>;
   },
 }));
 

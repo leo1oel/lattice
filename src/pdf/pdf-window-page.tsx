@@ -23,7 +23,6 @@ import { disposeWhenSettled } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
 import { PdfPreviewLoading } from "../canvas/canvas-lazy-editors";
 import { DocumentOutline } from "../canvas/document-outline";
-import { Tip } from "../components/icon-tip";
 import { useAppearance } from "../settings/use-appearance";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf-bytes";
 import { PdfPreview } from "./pdf-viewer";
@@ -144,7 +143,6 @@ export function PdfWindowPage() {
     return <div className="canvas-body pdf-window"><div className="pdf-column"><PdfPreviewLoading /></div></div>;
   }
   const openable = new Set(state.openableCitations);
-  const returnLabel = t`Return to workspace`;
   return (
     <div className="canvas-body pdf-window">
       <div className="pdf-column">
@@ -182,13 +180,7 @@ export function PdfWindowPage() {
               }}
             />
           )}
-          toolbarEnd={(
-            <Tip label={returnLabel}>
-              <button type="button" aria-label={returnLabel} onClick={() => send({ kind: "dock" })}>
-                <SquareArrowDownLeft size={14} />
-              </button>
-            </Tip>
-          )}
+          toolbarAction={{ label: t`Return to workspace`, icon: SquareArrowDownLeft, run: () => send({ kind: "dock" }) }}
         />
       </div>
     </div>

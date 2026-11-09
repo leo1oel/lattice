@@ -11,7 +11,6 @@ import {
   pdfWindowFrame, rememberPdfWindowFrame, takePdfWindowFocus, type PdfWindowFrame,
 } from "../app/pdf-window-state";
 import { listenInThisWindow } from "../app/window-events";
-import { Tip } from "../components/icon-tip";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -63,18 +62,6 @@ function closeWindow(label: string) {
  * the same label: the earlier one, unmounted by then, must leave it open.
  */
 let mounted = 0;
-
-/** The PDF toolbar's button that moves the compiled PDF into a window of its own. */
-export function OpenPdfWindowButton({ onOpen }: { onOpen: () => void }) {
-  const { t } = useLingui();
-  return (
-    <Tip label={t`Open in separate window`}>
-      <button type="button" aria-label={t`Open in separate window`} onClick={onOpen}>
-        <SquareArrowOutUpRight size={14} />
-      </button>
-    </Tip>
-  );
-}
 
 /** What the PDF panel shows while the PDF is in its own window, when a layout brings the panel up anyway. */
 export function PdfInWindowPlaceholder({ onDock }: { onDock: () => void }) {
