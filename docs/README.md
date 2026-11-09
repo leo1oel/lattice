@@ -28,6 +28,7 @@ are file names, function names and constant names. When it matters, grep.
 | --- | --- | --- |
 | [`architecture.md`](architecture.md) | Process boundaries, the Rust backend, the on-disk data model, performance/bundle constraints, the design-system contract, the `pnpm check` gate. | Current |
 | [`codebase-map.md`](codebase-map.md) | Where to start for each feature area; directory inventory; domain decomposition of `src/`; the `src-tauri/src/` modules; the files that matter; known rough edges. | Current |
+| [`editable-figures.md`](editable-figures.md) | Figures pasted from a drawing program with their source file: the clipboard manifest, what Lattice does on paste. | Current |
 | [`design-system.md`](design-system.md) | Typography, density, palette and spacing decisions — the reasoning behind the tokens that `src/styles/tokens.test.ts` enforces. | Current |
 | [`synara-runtime.md`](synara-runtime.md) | The bundled agent sidecar: how to work without building it, the runtime boundary, the tool catalog the model actually sees, staging and pruning, and the upstream-sync procedure for a pin change. | Current. Its tool-count figures are dated measurements — re-run the commands it gives rather than quoting them. |
 | [`synara-fork-ledger.md`](synara-fork-ledger.md) | What each Synara pin brought into the fork, the fork's size against upstream, and how the embedded panels behave against the current pin. | Current. Each pin change updates it; its fork-size figures are dated measurements. |

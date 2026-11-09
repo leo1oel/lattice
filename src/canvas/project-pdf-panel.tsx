@@ -13,6 +13,7 @@ import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
 import { DocumentOutline } from "./document-outline";
+import { PdfFigureSourceOpen } from "../pdf/pdf-figure-source-open";
 import { SavedViewState } from "./saved-view-state";
 import { LivePreviewSessionContext } from "../live-preview/live-preview-context";
 import { LivePreviewStatus } from "../live-preview/live-preview-status";
@@ -225,6 +226,7 @@ export function ProjectPdfPanel({
           )}
         </SavedViewState>
       </Suspense></ChunkGate>
+      <PdfFigureSourceOpen host={host} />
       </LivePreviewSessionContext>
     </div>,
     host,
