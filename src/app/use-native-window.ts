@@ -25,6 +25,9 @@ function onSettled(listen: (handler: () => void) => Promise<() => void>, delayMs
   };
 }
 
+/** Marks a minimum held back because the window is maximized. */
+const HELD = Symbol("held");
+
 /** A live value the window minimum follows without re-rendering its owner. */
 export type LiveValue<T> = { subscribe(listener: () => void): () => void; get(): T };
 
@@ -47,8 +50,18 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
       if (!force && layoutMin === applied) return;
       applied = layoutMin;
       // Chained, so a runtime without the monitor API lands in the catch too.
-      void Promise.resolve().then(() => currentMonitor()).then((monitor) => {
-        if (!active) return;
+      void Promise.resolve().then(async () => {
+        // Setting the minimum makes tao re-apply the size, which un-maximizes the window on
+        // Windows (closing a file shrinks the layout minimum and lands here). A maximized
+        // window already fills the screen the minimum is clamped to, so the new minimum
+        // waits for the restore (see the resize listener below).
+        if (typeof appWindow.isMaximized === "function" && await appWindow.isMaximized()) {
+          appliedSize = "";
+          return HELD;
+        }
+        return currentMonitor();
+      }).then((monitor) => {
+        if (!active || monitor === HELD) return;
         const windows = isWindowsHost();
         // Win32 workArea includes the frame and caption, while setMinSize
         // takes client dimensions. A too-tall minimum prevents maximizing on
@@ -71,10 +84,15 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
     const stop = typeof appWindow.onMoved === "function"
       ? onSettled((handler) => appWindow.onMoved(handler), 200, () => apply(true))
       : () => {};
+    // A minimum held back while maximized lands once the window is restored.
+    const stopResized = typeof appWindow.onResized === "function"
+      ? onSettled((handler) => appWindow.onResized(handler), 200, () => apply(true))
+      : () => {};
     return () => {
       active = false;
       unsubscribe();
       stop();
+      stopResized();
     };
   }, [interfaceScale, layoutMinWidth]);
 }
