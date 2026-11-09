@@ -43,7 +43,6 @@ export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
 const BIB_LIST_RATIO_KEY = "lattice.bib-list-ratio.v1";
-const PDF_COMMENT_COLUMN_WIDTH_KEY = "lattice.pdf-comment-column-width.v1";
 const LAST_FILE_KEY = "lattice.last-file.v1";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
@@ -81,7 +80,7 @@ export function persistSetting(key: string, value: string): void {
   safely(() => localStorage.setItem(key, value), undefined);
 }
 
-function readNumber(key: string, fallback: number, minimum: number, maximum: number): number {
+export function readNumber(key: string, fallback: number, minimum: number, maximum: number): number {
   return safely(() => clamp(Number(localStorage.getItem(key)) || fallback, minimum, maximum), fallback);
 }
 
@@ -234,13 +233,6 @@ export const persistSplitRatio = (ratio: number) => persistSetting(SPLIT_RATIO_K
 export const BIB_LIST_RATIO_DEFAULT = 0.44;
 export const loadBibListRatio = () => readNumber(BIB_LIST_RATIO_KEY, BIB_LIST_RATIO_DEFAULT, 0.1, 0.9);
 export const persistBibListRatio = (ratio: number) => persistSetting(BIB_LIST_RATIO_KEY, String(ratio));
-
-/** The width, in CSS px, the writer last dragged the PDF's comment column to; one for every PDF. */
-export const PDF_COMMENT_COLUMN_WIDTH = { default: 280, min: 240, max: 560 } as const;
-export const loadPdfCommentColumnWidth = () => readNumber(
-  PDF_COMMENT_COLUMN_WIDTH_KEY, PDF_COMMENT_COLUMN_WIDTH.default, PDF_COMMENT_COLUMN_WIDTH.min, PDF_COMMENT_COLUMN_WIDTH.max,
-);
-export const persistPdfCommentColumnWidth = (width: number) => persistSetting(PDF_COMMENT_COLUMN_WIDTH_KEY, String(Math.round(width)));
 
 // Unlike the other per-project maps, an unreadable last-file map is replaced
 // on the next write rather than preserved.

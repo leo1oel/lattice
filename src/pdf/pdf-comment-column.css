@@ -39,8 +39,8 @@
   height: auto;
   transform: translateX(-50%);
 }
-body.resizing-split .pdf-comment-column-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
-body.resizing-split .pdf-comment-slot { transition: none; }
+.pdf-comment-column-resizer:active { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
+.pdf-comment-column:has(> .pdf-comment-column-resizer:active) .pdf-comment-slot { transition: none; }
 /* A drawer's header (workspace-panels.css .drawer-header): the close button
    centred in a 40px row, clear of the toolbar's line above. */
 .pdf-comment-column-head {

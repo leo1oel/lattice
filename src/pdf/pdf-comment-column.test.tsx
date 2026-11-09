@@ -176,13 +176,13 @@ describe("the PDF's comment column", () => {
     expect(width()).toBe("280px");
 
     fireEvent.pointerDown(grip, { button: 0, clientX: 600, pointerId: 1 });
-    fireEvent.pointerMove(window, { clientX: 500, pointerId: 1 });
+    fireEvent.pointerMove(grip, { clientX: 500, pointerId: 1 });
     expect(width()).toBe("380px");
     // The pages keep their 360px: the drag stops where they would get less.
-    fireEvent.pointerMove(window, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(grip, { clientX: 100, pointerId: 1 });
     expect(width()).toBe("540px");
-    fireEvent.pointerMove(window, { clientX: 520, pointerId: 1 });
-    fireEvent.pointerUp(window, { pointerId: 1 });
+    fireEvent.pointerMove(grip, { clientX: 520, pointerId: 1 });
+    fireEvent.pointerUp(grip, { pointerId: 1 });
     expect(grip.getAttribute("aria-valuenow")).toBe("360");
     expect(localStorage.getItem("lattice.pdf-comment-column-width.v1")).toBe("360");
 

@@ -8,11 +8,9 @@ import { Button } from "../components/ui/button";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { CommentPreview } from "../editor/comments/comment-card";
-import { trackResizeDrag } from "../canvas/split-resizer";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { formatCount } from "../i18n";
 import { clamp } from "../lib/clamp";
-import { PDF_COMMENT_COLUMN_WIDTH } from "../settings/app-settings";
 import type { PdfAnnotationMark } from "./pdf-annotations";
 import { PdfCommentThread } from "./pdf-comment-popups";
 import { lightMark } from "./pdf-drawn-annotations";
@@ -20,6 +18,7 @@ import { layoutMarginCards, type MarginCard } from "./pdf-comment-margin";
 import { addListeners } from "./pdf-viewer-utils";
 import { pdfPageView } from "./pdf-slick";
 import type { PlacedMark } from "./pdf-source-marks";
+import { PDF_COMMENT_COLUMN_WIDTH } from "./use-pdf-comment-column";
 import type { ActiveViewerRef } from "./use-pdf-view";
 import "./pdf-comment-column.css";
 
@@ -45,15 +44,25 @@ function ColumnResizer({ area, docked, width, onResize }: {
   const widest = () => Math.min(PDF_COMMENT_COLUMN_WIDTH.max, area.clientWidth - (docked ? PAGES_MIN_WIDTH : FOLDED_PAGES_MARGIN));
   const fit = (next: number) => clamp(next, PDF_COMMENT_COLUMN_WIDTH.min, Math.max(PDF_COMMENT_COLUMN_WIDTH.min, widest()));
   const drawn = (grip: HTMLElement) => grip.parentElement?.getBoundingClientRect().width || width;
+  // The grip holds the pointer through the drag (the .bib editor's divider does the same), so it never reaches the pages.
+  const drag = useRef<{ x: number; from: number; to: number } | null>(null);
   const beginResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
-    const startX = event.clientX;
-    const startWidth = drawn(event.currentTarget);
-    let next = startWidth;
-    trackResizeDrag(event, (move) => {
-      next = fit(startWidth - (move.clientX - startX));
-      area.style.setProperty("--pdf-comment-column-chosen-width", `${next}px`);
-    }, () => onResize(next));
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const from = drawn(event.currentTarget);
+    drag.current = { x: event.clientX, from, to: from };
+  };
+  const moveResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const at = drag.current;
+    if (!at) return;
+    at.to = fit(at.from - (event.clientX - at.x));
+    area.style.setProperty("--pdf-comment-column-chosen-width", `${at.to}px`);
+  };
+  const endResize = () => {
+    const at = drag.current;
+    drag.current = null;
+    if (at) onResize(at.to);
   };
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -71,6 +80,9 @@ function ColumnResizer({ area, docked, width, onResize }: {
       aria-valuenow={Math.round(width)}
       tabIndex={0}
       onPointerDown={beginResize}
+      onPointerMove={moveResize}
+      onPointerUp={endResize}
+      onLostPointerCapture={endResize}
       onKeyDown={onKeyDown}
       onDoubleClick={() => onResize(PDF_COMMENT_COLUMN_WIDTH.default)}
     />

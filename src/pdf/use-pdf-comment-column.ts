@@ -1,5 +1,13 @@
 import { useLayoutEffect, useReducer, type RefObject } from "react";
-import { loadPdfCommentColumnWidth, persistPdfCommentColumnWidth } from "../settings/app-settings";
+import { persistSetting, readNumber } from "../settings/app-settings";
+
+// Here rather than in app-settings.ts: the PDF's annotation layer loads lazily, and the window's first script is at its size budget.
+const PDF_COMMENT_COLUMN_WIDTH_KEY = "lattice.pdf-comment-column-width.v1";
+/** The width, in CSS px, the writer last dragged the PDF's comment column to; one for every PDF. */
+export const PDF_COMMENT_COLUMN_WIDTH = { default: 280, min: 240, max: 560 } as const;
+const loadWidth = () => readNumber(
+  PDF_COMMENT_COLUMN_WIDTH_KEY, PDF_COMMENT_COLUMN_WIDTH.default, PDF_COMMENT_COLUMN_WIDTH.min, PDF_COMMENT_COLUMN_WIDTH.max,
+);
 
 /**
  * The narrowest PDF area that keeps the column docked beside the pages: the
@@ -28,7 +36,7 @@ const reduceColumn = (state: ColumnState, action: ColumnAction): ColumnState => 
  * Its width is the writer's, dragged at its left edge and kept for every PDF.
  */
 export function usePdfCommentColumn(previewRef: RefObject<HTMLDivElement | null>, hasComments: boolean, generation: number) {
-  const [state, dispatch] = useReducer(reduceColumn, null, () => ({ area: null, narrow: false, chosen: null, width: loadPdfCommentColumnWidth() }));
+  const [state, dispatch] = useReducer(reduceColumn, null, () => ({ area: null, narrow: false, chosen: null, width: loadWidth() }));
   useLayoutEffect(() => {
     // The viewer's own scroll area, which the column stands in beside the pages.
     const area = previewRef.current?.querySelector<HTMLElement>(":scope > .pdf-scroll-area") ?? null;
@@ -56,7 +64,7 @@ export function usePdfCommentColumn(previewRef: RefObject<HTMLDivElement | null>
   }, [area, width]);
   const resize = (next: number) => {
     dispatch({ width: next });
-    persistPdfCommentColumnWidth(next);
+    persistSetting(PDF_COMMENT_COLUMN_WIDTH_KEY, String(Math.round(next)));
   };
   return { area, open, docked, width, resize, setOpen: (chosen: boolean) => dispatch({ chosen }) };
 }
