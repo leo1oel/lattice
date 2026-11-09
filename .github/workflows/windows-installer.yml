@@ -1,0 +1,170 @@
+name: Windows installer (experimental)
+
+# Independent of the already published Mac release. PR/manual runs never
+# publish; only the final job can write, and it executes trusted workflow code.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  pull_request:
+    paths:
+      - ".github/workflows/windows-installer.yml"
+      - ".github/actions/setup-pnpm/**"
+      - "scripts/*windows*"
+      - "scripts/prepare-build*"
+      - "scripts/prepare-presentation-runtime*"
+      - "scripts/check-presentation-runtime*"
+      - "scripts/app-size-report*"
+      - "scripts/check-font-leaks*"
+      - "scripts/lib/node-runtime*"
+      - "scripts/lib/windows-package*"
+      - "scripts/lib/util.mjs"
+      - "scripts/lib/runtime-prune.mjs"
+      - "scripts/synara-runtime.json"
+      - "src-tauri/tauri*.conf.json"
+      - "tools/open-slide-runtime/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "rust-toolchain.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-installer-${{ github.event.workflow_run.head_branch || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.repository == 'leo1oel/lattice' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    outputs:
+      artifact-id: ${{ steps.package.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify the release source
+        if: github.event_name == 'workflow_run'
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:SOURCE_TAG -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw 'Not a release tag.' }
+          if ((git rev-parse HEAD) -ne $env:SOURCE_SHA) { throw 'Checkout differs from the Release run.' }
+          git fetch --no-tags origin "refs/tags/$env:SOURCE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release tag.' }
+          if ((git rev-parse 'FETCH_HEAD^{commit}') -ne $env:SOURCE_SHA) { throw 'Tag moved after release.' }
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne $env:SOURCE_TAG) { throw 'Tag/version mismatch.' }
+
+      - uses: ./.github/actions/setup-pnpm
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: x86_64-pc-windows-msvc-installer
+          save-if: ${{ github.event_name == 'workflow_run' }}
+
+      # Hosted Windows runners supply MSVC/SDK and WebView2. No Synara clone,
+      # private fonts, signing keys or new secrets are needed for this target.
+      - name: Build the unsigned per-user installer
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          LATTICE_PRIVATE_FONTS_DIR: ""
+          LATTICE_PRIVATE_FONTS_REQUIRED: ""
+        run: pnpm tauri build --bundles nsis --config src-tauri/tauri.windows.conf.json
+
+      - name: Find exactly one installer
+        id: installer
+        run: |
+          $found = @(Get-ChildItem src-tauri/target/release/bundle/nsis -Filter '*-setup.exe' -File)
+          if ($found.Count -ne 1) { throw "Expected one installer, found $($found.Count)." }
+          "path=$($found[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Check installation, real app, resources and uninstall
+        env:
+          INSTALLER: ${{ steps.installer.outputs.path }}
+        run: ./scripts/check-windows-install.ps1 -Installer $env:INSTALLER -Artifacts "$env:RUNNER_TEMP/windows-evidence"
+
+      # No installer is uploaded before the native checks AND uninstall pass.
+      - name: Prepare the checked download and checksum
+        run: |
+          node scripts/windows-package.mjs "$env:RUNNER_TEMP/windows-package"
+          if ($LASTEXITCODE -ne 0) { throw 'Package metadata/checksum check failed.' }
+          node scripts/check-font-leaks.mjs assets "$env:RUNNER_TEMP/windows-package"
+          if ($LASTEXITCODE -ne 0) { throw 'Release assets check failed.' }
+
+      - uses: actions/upload-artifact@v7
+        id: package
+        with:
+          name: windows-x64-experimental
+          path: ${{ runner.temp }}/windows-package/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Summarize the checked build
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          "### Experimental Windows x64 — $version" >> $env:GITHUB_STEP_SUMMARY
+          "Source: $(git rev-parse HEAD). Install, installed app, Open Slide, ConPTY, F11 and uninstall passed." >> $env:GITHUB_STEP_SUMMARY
+          "Unsigned: SmartScreen may warn. Agent unavailable; manual updates only. TeX is installed separately." >> $env:GITHUB_STEP_SUMMARY
+          "The Actions ZIP requires a GitHub account and expires after 14 days. Successful upstream release runs also attach the same checked files to the public release without an expiry." >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: windows-installer-failure-evidence
+          path: |
+            ${{ runner.temp }}/windows-evidence/*.png
+            ${{ runner.temp }}/windows-evidence/*.txt
+            ${{ runner.temp }}/windows-evidence/*.log
+            ${{ runner.temp }}/windows-evidence/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  attach:
+    needs: build
+    if: >-
+      github.event_name == 'workflow_run' && github.repository == 'leo1oel/lattice' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # Use the trusted workflow revision for publication code, not the
+      # checked-out release/PR revision and never a script in the artifact.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: ${{ runner.temp }}/windows-package
+          merge-multiple: true
+      - name: Attach only the validated experimental Windows files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-windows-installer.mjs "$RUNNER_TEMP/windows-package"

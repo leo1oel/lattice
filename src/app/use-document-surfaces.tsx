@@ -394,6 +394,7 @@ export function useDocumentSurfaces({
       livePreview={livePreview}
       pdf={{
         pdfUrl,
+        compiledBuild: lastBuild?.hasPdf ? lastBuild : undefined,
         pdfBytes: buildPipeline.displayedPdfBytesRef.current,
         onBuildProject: () => void build.compileAndShowPdf(false, true),
         building,

@@ -44,7 +44,8 @@ import { isMain, projectRoot, sha256, walkFiles } from "./lib/util.mjs";
  * image, and the Linux AppImage linux-appimage.yml attaches once its own checks pass
  * (it has no updater archive or signature: Linux copies update by hand).
  */
-const RELEASE_ASSETS = [/\.dmg$/, /\.app\.tar\.gz$/, /\.app\.tar\.gz\.sig$/, /^latest\.json$/, /_amd64\.AppImage$/];
+const RELEASE_ASSETS = [/\.dmg$/, /\.app\.tar\.gz$/, /\.app\.tar\.gz\.sig$/, /^latest\.json$/, /_amd64\.AppImage$/,
+  /^Lattice_\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?_windows-x64-experimental(?:-setup\.exe|\.sha256|\.build-info\.json|\.README\.txt)$/];
 const FONT_EXTENSION = /\.(?:woff2?|[ot]tf|ttc|eot|dfont|pfb|pfa)$/i;
 const FONT_SIGNATURES = new Set(["wOF2", "wOFF", "OTTO", "true", "typ1", "ttcf", "\0\x01\0\0"]);
 /**
@@ -62,6 +63,11 @@ const BUNDLES = {
     what: "an extracted AppImage (no usr/bin directory)",
     executable: "usr/bin",
     openRuntimes: ["usr/lib/Lattice/presentation-runtime/", "usr/lib/Lattice/synara-runtime/"],
+  },
+  windows: {
+    what: "an installed Windows app (no research-writer.exe)",
+    executable: "research-writer.exe",
+    openRuntimes: ["presentation-runtime/", "synara-runtime/"],
   },
 };
 const EMITTED_TIMELESS = /^Timeless.*\.woff2$/;
@@ -106,7 +112,9 @@ export function timelessFontHashes({ fontsDirectory, emittedDirectory }) {
  */
 export function checkBundle(root, timelessHashes, kind) {
   const { what, executable, openRuntimes } = BUNDLES[kind];
-  if (!statSync(root, { throwIfNoEntry: false })?.isDirectory() || !statSync(path.join(root, executable), { throwIfNoEntry: false })?.isDirectory()) {
+  const executableStat = statSync(path.join(root, executable), { throwIfNoEntry: false });
+  if (!statSync(root, { throwIfNoEntry: false })?.isDirectory()
+    || !(kind === "windows" ? executableStat?.isFile() : executableStat?.isDirectory())) {
     throw new Error(`${root} is not ${what}`);
   }
   const findings = [];
@@ -139,7 +147,7 @@ export function checkSite(site, timelessHashes) {
 }
 
 function main([mode, target, ...rest]) {
-  if (!target || rest.length > 0 || !["assets", "site", "app", "appdir"].includes(mode)) {
+  if (!target || rest.length > 0 || !["assets", "site", "app", "appdir", "windows"].includes(mode)) {
     process.stderr.write("Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP | appdir DIRECTORY\n");
     return 2;
   }

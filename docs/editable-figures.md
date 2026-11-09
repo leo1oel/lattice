@@ -141,10 +141,20 @@ A drawing can come from anywhere, so the program runs on it with limits:
   its file and folder names may not hold line breaks or TeX's special
   characters, which would reach the entry. A drawing pasted or dropped from
   elsewhere is renamed to fit.
+- A drawing renders again on its own, when it changes, only in a project
+  marked trusted (the setting that also allows shell escape) and only when
+  someone at this computer made that figure. Otherwise a drawing that changed
+  — one an Overleaf collaborator pushed, say — waits behind **Update figure**
+  in the notice it raises, so no drawing program reads it unasked.
 - Inkscape embeds the images an SVG links to in the PDF it writes, so an SVG
   that links to anything but a file inside the project (an absolute path, a
-  `file:` or web address, a way out with `..`, an XML entity, an embedded SVG
-  or style sheet) is refused; embed the image or keep it in the project.
+  `file:` or web address, a way out with `..`, a doctype, `xml:base`, an
+  embedded SVG or style sheet) is refused; embed the image or keep it in the
+  project. The drawing is read as XML, the way Inkscape reads it, so how a
+  link is written — a character reference, an entity, a style sheet — does not
+  change what is checked. A `.svg` the project holds that Lattice cannot read
+  as plain, uncompressed XML text (gzip, UTF-16) is refused rather than
+  guessed at, and an SVG the drawing uses as an image is checked too.
   draw.io may still load web images a diagram names, as it does when the
   diagram is opened in draw.io.
 - Inkscape's `.pdf_tex` sets the drawing's text as LaTeX, so a label is TeX the

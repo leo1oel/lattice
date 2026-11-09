@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.16.4"
+version = "0.16.5"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -82,6 +82,10 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std"] }
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
+# Reads a drawing's XML the way the drawing program's own parser will
+# (project/figure_converters/svg_links.rs). The version tauri's own
+# dependencies already compile in; no extra copy.
+quick-xml = "0.41"
 tar = "0.4"
 zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 # 0.10 matches the version tauri and its plugins already compile in; 0.11

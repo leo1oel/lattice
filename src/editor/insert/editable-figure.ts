@@ -284,13 +284,24 @@ export function editableFigureChanges(source: string, selection: { from: number;
   return { changes, unplaced: [...lines, ...(folder ? [graphicsPathLine(folder)] : []), ...block] };
 }
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- the comment line a drawing program writes into the entry file, part of the format
+const SOURCE_HEADER = "% editable-figure source: ";
+
+/** A drawing's path, not a document: the first line of an entry is a short one. */
+const MAX_SOURCE_LINE = 1024;
+
 /**
  * The project path of the drawing an entry file was made from, from its first
  * line, `% editable-figure source: <path>` (relative to the entry file); null
  * for any other file, or a path that climbs out of the project.
  */
 export function figureSourcePath(entryPath: string, entryText: string): string | null {
-  const name = /^% editable-figure source: (.+?)\s*$/.exec(entryText.split(/\r?\n/, 1)[0])?.[1];
+  // Read without a pattern over the whole line: a line of spaces made the
+  // obvious `(.+?)\s*$` cost four times as much for twice its length, so any
+  // .tex the watcher reported could hold the window for minutes.
+  const first = entryText.split(/\r?\n/, 1)[0];
+  if (first.length > MAX_SOURCE_LINE) return null;
+  const name = first.startsWith(SOURCE_HEADER) ? first.slice(SOURCE_HEADER.length).trimEnd() : "";
   if (!name || name.startsWith("/") || /^[A-Za-z]:/.test(name)) return null;
   const parts = entryPath.split("/").slice(0, -1);
   for (const part of name.split("/")) {

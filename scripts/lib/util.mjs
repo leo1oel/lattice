@@ -36,6 +36,15 @@ export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
 /** Run a command with inherited stdio. */
 export function run(command, args, options = {}) {
+  // A .cmd shim cannot be passed to execFileSync on Windows. pnpm exports
+  // its JavaScript entry point to every script, including Tauri's hook.
+  if (process.platform === "win32" && /^pnpm(?:\.cmd)?$/.test(command)) {
+    const cli = process.env.npm_execpath;
+    if (!cli || !/pnpm\.(?:c?js)$/i.test(cli)) {
+      throw new Error("Run this preparation script through pnpm (missing npm_execpath).");
+    }
+    return execFileSync(process.execPath, [cli, ...args], { stdio: "inherit", ...options });
+  }
   return execFileSync(command, args, { stdio: "inherit", ...options });
 }
 

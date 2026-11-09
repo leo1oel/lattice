@@ -148,7 +148,8 @@ export async function createAppSizeReport(workspace = process.cwd()) {
     eagerJsBytes: await localAssetBytes(dist, eager.js, "JavaScript"),
     eagerCssBytes: await localAssetBytes(dist, eager.css, "CSS"),
     synaraRuntimeBytes: totalBytes(runtimeFiles),
-    bundledNodeBytes: await optionalTotal(path.join(runtime, "bin/node")),
+    bundledNodeBytes: await optionalTotal(path.join(runtime, "bin/node"))
+      ?? await optionalTotal(path.join(runtime, "bin/node.exe")),
     synaraServerDistBytes: await optionalTotal(path.join(runtime, "server/dist")),
     runtimeNodeModulesBytes: await optionalTotal(path.join(runtime, "server/node_modules")),
     synaraTarget: typeof runtimeManifest?.target === "string" ? runtimeManifest.target : null,
@@ -224,6 +225,8 @@ const PRESENTATION_RUNTIME_BUDGET_BYTES = {
   darwin: 66 * 1024 * 1024,
   "darwin-x64": 68 * 1024 * 1024,
   linux: 69 * 1024 * 1024,
+  // Windows PE builds of the same frozen Open Slide closure: 78,110,553 bytes.
+  "win32-x64": 76 * 1024 * 1024,
 };
 
 export async function checkAppSizeBudgets(

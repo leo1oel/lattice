@@ -1323,6 +1323,14 @@ msgstr "副本须保留文本文件的扩展名，如 .tex 或 .txt"
 msgid "A deck from another project is open in another window"
 msgstr "另一个窗口里开着别的项目的幻灯片"
 
+#: src/project/figure-converters.ts
+msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
+msgstr "绘图可能来自任何人，因此 Lattice 只在你要求时才运行绘图程序。若想让插图随绘图自动更新，请在本项目设置中打开「允许 shell escape」。"
+
+#: src/project/figure-converters.ts
+msgid "A drawing changed: {path}"
+msgstr "绘图已更改：{path}"
+
 #: src/platform/host-errors-project.ts
 msgid "A dropped file"
 msgstr "拖入的文件"
@@ -3766,6 +3774,10 @@ msgstr "在正文里点一下，再按 ⌘⇧K"
 msgid "Click in the text, then press Ctrl+Shift+K"
 msgstr "点击正文，然后按 Ctrl+Shift+K"
 
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "Click to copy the LaTeX command"
+msgstr "点击复制 LaTeX 命令"
+
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
 msgstr "点击保留原文"
@@ -4162,6 +4174,10 @@ msgstr "组件"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Composition / ring"
 msgstr "复合 / 环运算"
+
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "Compound key"
+msgstr "化合物键"
 
 #: src/canvas/proofread-card.tsx
 msgid "concision"
@@ -6220,6 +6236,7 @@ msgstr "图已就绪：{0}。请打开 LaTeX 文件以插入。"
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
+#: src/project/figure-converters.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -8164,6 +8181,10 @@ msgstr "LaTeX"
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
 msgstr "LaTeX 编译驱动"
+
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "LaTeX command copied"
+msgstr "LaTeX 命令已复制"
 
 #: src/canvas/proofread-card.tsx
 msgid "LaTeX commands"
@@ -16029,6 +16050,10 @@ msgid "This document drifted while live editing started, so Lattice stopped join
 msgstr "启动时文档不一致，已停止实时协作，同步时会自动对齐"
 
 #: src/platform/host-errors-project.ts
+msgid "This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG."
+msgstr "此绘图不是未压缩的纯 XML 文本，Lattice 无法检查它链接了哪些文件。请把它另存为纯 SVG。"
+
+#: src/platform/host-errors-project.ts
 msgid "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project."
 msgstr "此绘图链接了项目外的文件。请把图片嵌入绘图，或把它放在项目内。"
 
@@ -16870,6 +16895,10 @@ msgstr "已更新"
 #: src/papers/audit-messages.ts
 msgid "Update available"
 msgstr "有更新"
+
+#: src/project/figure-converters.ts
+msgid "Update figure"
+msgstr "更新插图"
 
 #: src/telemetry/app-updater.tsx
 msgid "Update now"

@@ -6764,7 +6764,7 @@ dependencies = [
 
 [[package]]
 name = "research-writer"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "anydoc",
  "axum",
@@ -6789,6 +6789,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-web-kit",
  "portable-pty",
+ "quick-xml 0.41.0",
  "regex",
  "reqwest 0.13.4",
  "rfd",

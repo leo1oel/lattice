@@ -10,21 +10,25 @@
 //! replaced, and then by renaming over the name rather than writing through it.
 
 mod render;
+mod svg_links;
 #[cfg(test)]
 mod tests;
 
 use super::editable_figure::{
     numbered, taken, write_new, ImportedFigure, MAX_NAME_NUMBER, NO_FREE_NAME,
 };
+use super::manifest::read_manifest;
 use super::paths::{relative_to, safe_path, validate_entry_name};
 use crate::util::err;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use render::{check_svg_links, run_tool, tool_for, Tool};
+use render::{run_tool, tool_for, Tool};
+use serde::Serialize;
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use svg_links::check_svg_links;
 use uuid::Uuid;
 
 /// The most of the text block's height a figure may take, leaving room for its caption.
@@ -286,10 +290,23 @@ fn figure_of(root: &Path, source: &str) -> Result<Figure, String> {
 /// A private folder the program writes into, removed when dropped.
 struct Scratch(PathBuf);
 
+/// The figure is the project's, and `/tmp` is shared on Linux, so the folder
+/// is the user's own. Windows gives each user their own temp folder already.
+#[cfg(unix)]
+fn create_private_dir(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    fs::DirBuilder::new().mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(path: &Path) -> io::Result<()> {
+    fs::create_dir(path)
+}
+
 impl Scratch {
     fn new() -> Result<Self, String> {
         let path = std::env::temp_dir().join(format!("lattice-figure-{}", Uuid::new_v4()));
-        fs::create_dir(&path).map_err(err)?;
+        create_private_dir(&path).map_err(err)?;
         Ok(Self(path))
     }
 
@@ -312,7 +329,7 @@ fn render_figure(
 ) -> Result<Scratch, String> {
     if figure.tool == Tool::Inkscape {
         let svg = read_plain(&figure.source, MAX_DRAWING_BYTES).ok_or(TOO_LARGE)?;
-        check_svg_links(root, &figure.directory, &String::from_utf8_lossy(&svg))?;
+        check_svg_links(root, &figure.directory, &svg)?;
     }
     let scratch = Scratch::new()?;
     render(figure.tool, &figure.source, &scratch.0.join(format!("{}.pdf", figure.stem)), page)?;
@@ -424,26 +441,145 @@ fn convert(root: &Path, source: &str, render: Render) -> Result<ImportedFigure, 
     Err(NO_FREE_NAME.to_string())
 }
 
-/// Renders a drawing and writes its entry, for a document to include.
+/// Renders a drawing and writes its entry, for a document to include. The
+/// user asked for this one, so later changes to that drawing may render on
+/// their own (`may_render_unattended`).
 pub fn make_editable_figure(root: &Path, source: &str) -> Result<ImportedFigure, String> {
-    convert(root, source, &run_tool)
+    let figure = convert(root, source, &run_tool)?;
+    remember_hand_rendered(root, source);
+    Ok(figure)
 }
 
-fn refresh(root: &Path, source: &str, render: Render) -> Result<bool, String> {
+/// Drawings someone at this computer has turned into a figure, by the
+/// project-tree action, a paste or a drop. The list lives in `.research`,
+/// which never travels with the project, so a drawing that arrived from an
+/// Overleaf collaborator or a clone is not handed to a drawing program until
+/// someone here asks for it once.
+const RENDERED_BY_HAND: &str = ".research/figure-drawings.json";
+
+fn hand_rendered(root: &Path) -> std::collections::BTreeSet<String> {
+    fs::read_to_string(root.join(RENDERED_BY_HAND))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+fn remember_hand_rendered(root: &Path, source: &str) {
+    let mut known = hand_rendered(root);
+    if !known.insert(source.to_string()) {
+        return;
+    }
+    // Losing this record only means asking again, so a failure is not an error
+    // the user needs: the figure itself was made.
+    if let Ok(text) = serde_json::to_string(&known) {
+        let _ = fs::create_dir_all(root.join(".research"));
+        let _ = fs::write(root.join(RENDERED_BY_HAND), text);
+    }
+}
+
+/// What came of a request to render a figure's drawing again.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FigureRefresh {
+    /// No entry beside the drawing names it, so it is no figure's source.
+    NoFigure,
+    /// The drawing changed, but running a program on it needs the user's word:
+    /// the project is not trusted, or nothing here has rendered this drawing.
+    AwaitingConsent,
+    Rendered,
+}
+
+/// Whether a changed drawing may go to a program with no one asked. A drawing
+/// is a program's untrusted input, and a project can be a clone or an Overleaf
+/// collaborator's, so this holds to the same line as shell escape: trusted
+/// projects only, and only a drawing someone here rendered by hand.
+fn may_render_unattended(root: &Path, source: &str) -> bool {
+    read_manifest(root).is_ok_and(|manifest| manifest.trusted)
+        && hand_rendered(root).contains(source)
+}
+
+/// A rendered update waiting to be written. Rendering takes no project lease:
+/// it reads the drawing and writes only into its scratch folder, and a program
+/// that may take 90 seconds must not hold up an Overleaf sync (`install`).
+pub struct PreparedRefresh {
+    source: String,
+    stem: String,
+    tool: Tool,
+    scratch: Scratch,
+    /// Whether the watcher asked for this render rather than the user.
+    unattended: bool,
+}
+
+/// What a refresh request comes to before anything is written.
+pub enum RefreshPlan {
+    NoFigure,
+    AwaitingConsent,
+    Ready(PreparedRefresh),
+}
+
+fn prepare(
+    root: &Path, source: &str, unattended: bool, render: Render,
+) -> Result<RefreshPlan, String> {
     let figure = figure_of(root, source)?;
     if !figure.ours {
-        return Ok(false);
+        return Ok(RefreshPlan::NoFigure);
+    }
+    if unattended && !may_render_unattended(root, source) {
+        return Ok(RefreshPlan::AwaitingConsent);
     }
     let scratch = render_figure(root, &figure, page_of(&figure), render)?;
-    for name in rendered_names(figure.tool, &figure.stem) {
-        replace(&figure.folder, &name, &scratch.read(&name)?).map_err(err)?;
-    }
-    Ok(true)
+    Ok(RefreshPlan::Ready(PreparedRefresh {
+        source: source.to_string(),
+        stem: figure.stem,
+        tool: figure.tool,
+        scratch,
+        unattended,
+    }))
 }
 
-/// Renders a drawing again when an entry beside it names it; false when none does.
-pub fn refresh_figure_source(root: &Path, source: &str) -> Result<bool, String> {
-    refresh(root, source, &run_tool)
+/// Writes what the program rendered. The figure is looked up again, since the
+/// project may have moved on during the render: the files go in only where an
+/// entry still names this drawing under the same name.
+fn install_prepared(root: &Path, prepared: &PreparedRefresh) -> Result<FigureRefresh, String> {
+    let figure = figure_of(root, &prepared.source)?;
+    if !figure.ours || figure.stem != prepared.stem || figure.tool != prepared.tool {
+        return Ok(FigureRefresh::NoFigure);
+    }
+    for name in rendered_names(figure.tool, &figure.stem) {
+        replace(&figure.folder, &name, &prepared.scratch.read(&name)?).map_err(err)?;
+    }
+    if !prepared.unattended {
+        // The user asked for this one, so later changes to the drawing may
+        // follow on their own in a trusted project.
+        remember_hand_rendered(root, &prepared.source);
+    }
+    Ok(FigureRefresh::Rendered)
+}
+
+/// Stage one of rendering a figure's drawing again: everything but the write,
+/// so the caller holds the project's lease only for `install_figure_refresh`.
+/// `unattended` is a change the watcher noticed rather than a user's click.
+pub fn prepare_figure_refresh(
+    root: &Path, source: &str, unattended: bool,
+) -> Result<RefreshPlan, String> {
+    prepare(root, source, unattended, &run_tool)
+}
+
+/// Stage two: the write, under the project's lease.
+pub fn install_figure_refresh(
+    root: &Path, prepared: &PreparedRefresh,
+) -> Result<FigureRefresh, String> {
+    install_prepared(root, prepared)
+}
+
+/// Both stages at once, as a user's click runs them: the tests' way in.
+#[cfg(test)]
+fn refresh(root: &Path, source: &str, render: Render) -> Result<FigureRefresh, String> {
+    match prepare(root, source, false, render)? {
+        RefreshPlan::Ready(prepared) => install_prepared(root, &prepared),
+        RefreshPlan::NoFigure => Ok(FigureRefresh::NoFigure),
+        RefreshPlan::AwaitingConsent => Ok(FigureRefresh::AwaitingConsent),
+    }
 }
 
 /// A copied-in drawing's name: no line breaks, TeX specials or leading dot or dash.

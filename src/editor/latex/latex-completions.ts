@@ -3,8 +3,10 @@ import { completionStatus, startCompletion, type Completion, type CompletionCont
 import type { EditorState, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { LatexEditorLiveData } from "./latex-editor";
-import { citationCompletionRange, includeCompletionRange, referenceCompletionRange } from "./latex-symbols";
+import { citationCompletionRange, compoundCompletionRange, includeCompletionRange, markCompletionRange, referenceCompletionRange } from "./latex-symbols";
 import { referenceKindLabel } from "./latex-text";
+import { compoundEntries, compoundKeysIn } from "./compound-keys";
+import { readCompoundProject } from "./compound-project";
 import { paperBylineAuthors } from "../../papers/paper-identity";
 
 const GRAPHICS_FILE = /\.(png|jpe?g|pdf|svg|eps|webp)$/i;
@@ -93,6 +95,45 @@ export function referenceCompletions(live: () => LatexEditorLiveData) {
       options: live().references
         .filter((reference) => matchesQuery(query, reference.label, reference.title))
         .map((reference) => ({ label: reference.label, type: "variable", detail: referenceKindLabel(reference.kind), info: reference.title || undefined })),
+      validFor: /^[^,}\s]*$/,
+    };
+  };
+}
+
+const MARK_ONLY = /^[AaIi]:|^[^.]+\.[^.]+\.(?:num|dash|letter)$/;
+
+/** Turns the `\\cmpd{` being typed into `\\rcmpd{mark`. */
+function markApply(key: string) {
+  return (view: EditorView, _completion: Completion, from: number, to: number) => {
+    const start = view.state.sliceDoc(Math.max(0, from - 6), from) === "\\cmpd{" ? from - 6 : from;
+    view.dispatch({ changes: { from: start, to, insert: start === from ? key : `\\rcmpd{${key}` }, selection: { anchor: start + (start === from ? key.length : key.length + 7) } });
+  };
+}
+
+/** `\\cmpd{` lists the project's compound keys, each with the number the last build gave it. */
+export function compoundCompletions(live: () => LatexEditorLiveData) {
+  return async (context: CompletionContext): Promise<CompletionResult | null> => {
+    const before = textBefore(context.state, context.pos);
+    const mark = markCompletionRange(before, context.pos);
+    const range = mark ?? compoundCompletionRange(before, context.pos);
+    if (!range) return null;
+    const { projectPaths, projectRoot, compiledBuild } = live();
+    const { sources, numbers, placeLines } = await readCompoundProject(projectPaths, projectRoot, compiledBuild);
+    const keys = compoundKeysIn([context.state.doc.toString(), ...sources.map((source) => source.text)]);
+    return {
+      from: range.from,
+      options: compoundEntries(keys, numbers).map(({ key, number }, index) => {
+        // A drawing's mark is cited with \\rcmpd, whichever of the two was being typed.
+        const needsMark = !mark && MARK_ONLY.test(key);
+        return {
+        apply: needsMark ? markApply(key) : undefined,
+        label: key,
+        displayLabel: number ? `${key} — ${number}` : key,
+        detail: placeLines.get(key),
+        type: "variable",
+        boost: -index,
+        };
+      }),
       validFor: /^[^,}\s]*$/,
     };
   };
