@@ -209,7 +209,7 @@ msgid "{0} of {1} selected"
 msgstr "已选 {0} / {1} 项"
 
 #. placeholder {0}: done.size
-#. placeholder {1}: GET_STARTED_STEPS.length
+#. placeholder {1}: stepIds.length
 #: src/onboarding/get-started-panel.tsx
 msgid "{0} of {1} steps done"
 msgstr "已完成 {0}/{1} 步"
@@ -983,6 +983,10 @@ msgstr "{size}，上限 {limit}"
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size}，上限 {limit}；请移除较大的图片"
+
+#: src/platform/host-errors-project.ts
+msgid "{source} could not be found."
+msgstr "找不到 {source}。"
 
 #: src/project/deadline-card.tsx
 msgid "{span} left"
@@ -1780,6 +1784,10 @@ msgstr "AI 助手正在修改，已答复 {0}/{1}"
 msgid "Agent isn’t available on Linux yet"
 msgstr "Linux 版暂不支持 AI 助手"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent isn’t available on Windows yet"
+msgstr "Windows 暂不支持AI 助手"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "AI 权限：{label}"
@@ -2353,10 +2361,18 @@ msgstr "自动编译"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "“自动”会把 LaTeX 按学术写作检查，其他文件按日常文字检查"
 
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
+msgstr "此 Windows 实验版本暂不支持自动安装论文工具。"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Automatic updates"
 msgstr "自动更新"
+
+#: src/settings/settings-dialog.tsx
+msgid "Automatic updates aren’t available in this experimental Windows build."
+msgstr "此 Windows 实验版本暂不支持自动更新。"
 
 #: src/platform/host-errors-setup.ts
 msgid "Automatic uv installation is not available for this Mac architecture ({arch})."
@@ -2985,7 +3001,7 @@ msgstr "正在取消…"
 msgid "Cancelled"
 msgstr "已取消"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Candidate does not match reference"
 msgstr "找到的记录对不上"
 
@@ -3189,6 +3205,7 @@ msgstr "抑扬符示例"
 
 #: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "重新检查"
@@ -3216,7 +3233,7 @@ msgctxt "macOS menu bar"
 msgid "Check for Updates…"
 msgstr "检查更新…"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Check incomplete"
 msgstr "没查完"
 
@@ -3728,6 +3745,10 @@ msgstr "清空终端"
 #: src/onboarding/get-started-steps.ts
 msgid "Click in the text, then press ⌘⇧K"
 msgstr "在正文里点一下，再按 ⌘⇧K"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Click in the text, then press Ctrl+Shift+K"
+msgstr "点击正文，然后按 Ctrl+Shift+K"
 
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
@@ -4402,6 +4423,10 @@ msgstr "无法解码文件内容：{error}"
 msgid "Could not decode the clipboard image: {error}"
 msgstr "无法解码剪贴板图片：{error}"
 
+#: src/platform/host-errors-project.ts
+msgid "Could not decode the figure: {error}"
+msgstr "无法解码图形：{error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not delete {path}: {error}"
 msgstr "无法删除 {path}：{error}"
@@ -4680,6 +4705,10 @@ msgstr "无法启动实时预览引擎：{error}"
 #: src/live-preview/live-preview-settings.tsx
 msgid "Could not start: {message}"
 msgstr "无法启动：{message}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not supervise the Windows terminal process tree."
+msgstr "无法管理 Windows 终端的进程树。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not unpack the rtex archive: {error}"
@@ -5204,7 +5233,7 @@ msgstr "这个词是有意重复的吗？"
 msgid "Diff for {0}"
 msgstr "{0} 的改动"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Differs from the verified record"
 msgstr "与核实记录不一致"
 
@@ -5346,6 +5375,10 @@ msgstr "双击任意一句"
 msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
 msgstr "双击 PDF 里任意一句，光标会跳到写出它的那一行，在源码里按 ⌘⇧J 跳回 PDF。"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press Ctrl+Shift+J to jump back."
+msgstr "双击 PDF 中的任意句子即可跳转到对应源码行，按 Ctrl+Shift+J 跳回 PDF。"
+
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
 msgstr "双击以重命名"
@@ -5409,6 +5442,10 @@ msgstr "下载论文"
 #: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
+
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Download TeX Live"
+msgstr "下载 TeX Live"
 
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
@@ -5657,8 +5694,16 @@ msgid "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it
 msgstr "改一下 main.tex 里的 \\title 这一行并按 ⌘S，旁边的 PDF 大约一秒后就会更新。"
 
 #: src/onboarding/get-started-steps.ts
+msgid "Edit the title line in main.tex and press Ctrl+S to update the PDF beside it."
+msgstr "修改 main.tex 中的标题行，然后按 Ctrl+S 更新旁边的 PDF。"
+
+#: src/onboarding/get-started-steps.ts
 msgid "Edit the title, then press ⌘S"
 msgstr "改好标题，按 ⌘S"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Edit the title, then press Ctrl+S"
+msgstr "修改标题，然后按 Ctrl+S"
 
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -5852,7 +5897,7 @@ msgstr "手动填写"
 msgid "Enter text to find."
 msgstr "请输入要查找的文字"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Entry changed"
 msgstr "条目已变"
 
@@ -6521,6 +6566,7 @@ msgstr "已整理排版"
 
 #: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Formatting"
 msgstr "格式"
 
@@ -7314,6 +7360,10 @@ msgstr "在终端中运行："
 msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
 msgstr "在编辑器里按 ⌘⇧K，从本项目的论文里选一篇，或在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
 
+#: src/onboarding/get-started-steps.ts
+msgid "In the editor, press Ctrl+Shift+K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
+msgstr "在编辑器中按 Ctrl+Shift+K 选择项目中的论文，或在论文面板通过 arXiv ID、DOI 或标题添加论文。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
 msgstr "较新的版本里，{chain} 用 \\input 互相读入，latexdiff 会永远停不下来。请删掉让它们绕成一圈的那个 \\input，然后再导出。"
@@ -7393,7 +7443,7 @@ msgstr "调整缩进"
 msgid "Indented blockquote for citations."
 msgstr "引用他人原话"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Independent metadata unavailable"
 msgstr "没有可核对的资料"
 
@@ -7560,6 +7610,7 @@ msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "稍后安装"
 
@@ -7569,10 +7620,12 @@ msgid "Install LaTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 才能编译"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX"
@@ -7597,12 +7650,29 @@ msgid "Install paper tools"
 msgstr "安装论文工具"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "安装论文工具"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "安装所需工具"
+
+#: src/platform/host-errors-setup.ts
+msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
+msgstr "安装 Windows 版 TeX Live（https://tug.org/texlive/windows.html），然后重启 Lattice。"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
+msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
+
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
+msgstr "安装 Windows 版 TeX Live 后重新检查。没有 LaTeX 也可以继续编辑。"
+
+#: src/platform/host-errors-setup.ts
+msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
+msgstr "使用 TeX Live Manager 或 MiKTeX Console 安装缺失的宏包，然后重新编译。"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9575,6 +9645,10 @@ msgstr "这次更新没有文件改动"
 msgid "No files match “{trimmedQuery}”"
 msgstr "没有文件包含“{trimmedQuery}”"
 
+#: src/platform/host-errors-project.ts
+msgid "No free name was found for the figure."
+msgstr "找不到可用于该图形的文件名。"
+
 #: src/papers/bib-entry-detail.tsx
 msgid "No full text to download"
 msgstr "没有可下载的全文"
@@ -9684,7 +9758,7 @@ msgstr "没有匹配的论文"
 msgid "No matching paths"
 msgstr "没有匹配的路径"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "No matching publication found"
 msgstr "没找到这篇"
 
@@ -9868,6 +9942,7 @@ msgstr "没有待办"
 msgid "No unique matching publication"
 msgstr "找到多篇相似的，无法确定是哪篇"
 
+#: src/papers/audit-messages.ts
 #: src/papers/bibliography-audit.tsx
 msgid "No update found"
 msgstr "没有更新"
@@ -9925,7 +10000,7 @@ msgstr "不属于"
 msgid "Not built"
 msgstr "未编译"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not checked"
 msgstr "尚未检查"
 
@@ -10013,7 +10088,7 @@ msgstr "还没同步"
 msgid "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
 msgstr "不是 UTF-8 文本，转换为 UTF-8 后即可纳入检查：{encoded}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not verified"
 msgstr "未确认"
 
@@ -10172,7 +10247,7 @@ msgstr "学术写作中关闭：{0}"
 msgid "Off while Reduce transparency is on in System Settings"
 msgstr "系统已开“降低透明度”，此项暂停"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "官方核实没完成"
 
@@ -10277,6 +10352,7 @@ msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
 
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
+#: src/project/figure-source-run.ts
 msgid "Open"
 msgstr "打开"
 
@@ -10290,8 +10366,8 @@ msgid "Open {name}"
 msgstr "打开 {name}"
 
 #: src/project/figure-source-run.ts
-msgid "Open {name} in its default app?"
-msgstr "用默认应用打开 {name}？"
+msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
+msgstr "用默认应用打开 {name}？SVG 文件常会在网页浏览器中打开，浏览器会运行其中的脚本。"
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
@@ -11756,6 +11832,10 @@ msgid "Published"
 msgstr "已发表"
 
 #: src/papers/bibliography-audit.tsx
+msgid "Published version or missing fields"
+msgstr "已发表版本或补全字段"
+
+#: src/papers/bibliography-audit.tsx
 msgid "Published version: {published}"
 msgstr "已正式发表：{published}"
 
@@ -12035,7 +12115,7 @@ msgstr "这条文献改过了，请重新检查"
 msgid "Reference check progress"
 msgstr "引用检查进度"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Reference lacks identifying metadata"
 msgstr "文献信息不全，无法核对"
 
@@ -12055,6 +12135,10 @@ msgstr "文献"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Refresh"
 msgstr "刷新"
+
+#: src/app/use-reference-import.ts
+msgid "Refresh entry"
+msgstr "更新条目"
 
 #: src/project/project-new-entries.ts
 msgid "Refresh file tree"
@@ -13993,7 +14077,7 @@ msgstr "部分改动没有标记：标记后 PDF 无法编译。"
 msgid "Some files are left out of label and citation checks"
 msgstr "有些文件未纳入标签和引用检查"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
 
@@ -14116,6 +14200,10 @@ msgstr "来源暂时不可用"
 msgid "Source URL"
 msgstr "来源网址"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Sources differ from your entry"
+msgstr "来源与你的条目不同"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
 msgstr "右下箭头"
@@ -14204,6 +14292,10 @@ msgstr "另起一页"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start an environment"
 msgstr "开始环境"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Start from a venue template, open a folder on this computer, or bring a project from Overleaf."
+msgstr "从会议模板开始，打开此计算机上的文件夹，或从 Overleaf 导入项目。"
 
 #: src/onboarding/get-started-steps.ts
 msgid "Start from a venue template, open a folder on this Mac, or bring a project from Overleaf."
@@ -14707,6 +14799,14 @@ msgstr "TeX 组件"
 msgid "TeX packages updated. Build again to use them."
 msgstr "TeX 组件已更新。重新编译即可使用。"
 
+#: src/build/build-log-messages.ts
+msgid "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command just before {place}."
+msgstr "TeX 不再有进展，编译已在 {seconds} 秒后停止。请在 {place} 之前查找未写完的命令。"
+
+#: src/build/build-log-messages.ts
+msgid "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command."
+msgstr "TeX 不再有进展，编译已在 {seconds} 秒后停止。请查找未写完的命令。"
+
 #. placeholder {0}: diagnostic.message
 #: src/build/compile-diagnostics-panel.tsx
 msgid "TeX: {0}"
@@ -15121,6 +15221,10 @@ msgstr "下载的 {what} 未通过安全校验"
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "下载的更新未通过签名校验，因此未安装。请从发布页面下载 Lattice {version}。"
 
+#: src/app/use-reference-import.ts
+msgid "The entry for {citationCommand} already matches its sources."
+msgstr "{citationCommand} 的条目已与来源一致。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The Excel workbook is too large to export."
 msgstr "Excel 工作簿太大，无法导出"
@@ -15141,6 +15245,30 @@ msgstr "导出的论文须使用 .pdf 扩展名"
 msgid "The exported workbook must use the .xlsx extension."
 msgstr "导出的工作簿须使用 .xlsx 扩展名"
 
+#: src/platform/host-errors-project.ts
+msgid "The figure carries a file type Lattice does not import."
+msgstr "该图形包含 Lattice 不导入的文件类型。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure carries too many files."
+msgstr "这个图带的文件太多。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure is too large to import."
+msgstr "该图形太大，无法导入。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names a file without a usable name."
+msgstr "该图形中有文件没有可用的名称。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names no file to include."
+msgstr "该图形没有指明要包含的文件。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names one file twice."
+msgstr "这个图有两个文件同名。"
+
 #: src/project/figure-inventory.ts
 msgid "The figure source changed. Refresh and preview again."
 msgstr "插图源文已更改，请刷新后重新预览。"
@@ -15148,6 +15276,10 @@ msgstr "插图源文已更改，请刷新后重新预览。"
 #: src/platform/host-errors-project.ts
 msgid "The figure's file to include is not among its files."
 msgstr "图中要包含的文件不在其文件之列。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure's file to include is not text."
+msgstr "该图形要包含的文件不是文本。"
 
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
@@ -15605,6 +15737,10 @@ msgstr "源码 gzip 无法读取：{error}"
 msgid "The source spells file names in another case"
 msgstr "源文件里的文件名和磁盘上的大小写不一致"
 
+#: src/app/use-reference-import.ts
+msgid "The sources differ from the entry for {citationCommand}. Compare them in Check references."
+msgstr "来源与 {citationCommand} 的条目不同，请在“检查引用”里对照。"
+
 #: src/agent/agent-environment.ts
 msgid "The system proxy changed"
 msgstr "系统代理已更改"
@@ -15871,6 +16007,14 @@ msgstr "图片太大，无法在 Lattice 中预览（上限 50 MB）"
 msgid "This figure path cannot be inserted safely."
 msgstr "无法安全插入此图片路径。"
 
+#: src/app/editable-figure-paste.ts
+msgid "This figure wants to add these lines to the preamble. Add them?\n"
+"\n"
+"{lines}"
+msgstr "此图形要将以下内容添加到导言区。是否添加？\n"
+"\n"
+"{lines}"
+
 #: src/platform/host-errors-project.ts
 msgid "This figure was made for a newer version of the editable-figure format."
 msgstr "此图是用更新版本的可编辑图格式制作的。"
@@ -16092,6 +16236,10 @@ msgstr "请更新 Lattice 后使用校对"
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
+msgstr "此 Windows 版本暂时无法防止AI 助手直接修改 .bib 文件。可在终端面板中使用 Claude Code 或 Codex。依赖内置AI 助手的功能暂不可用。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in the Lattice app."
@@ -16678,7 +16826,7 @@ msgstr "修改批注…"
 msgid "Update applied"
 msgstr "已更新"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Update available"
 msgstr "有更新"
 
@@ -16706,6 +16854,10 @@ msgstr "更新于 {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "已用 {library} 更新 {target}。可在历史中撤销。"
+
+#: src/app/use-reference-import.ts
+msgid "Updated the entry for {citationCommand} from its sources."
+msgstr "已按来源更新 {citationCommand} 的条目。"
 
 #: src/app/whats-new.ts
 msgid "Updated to Lattice {running}"
@@ -17379,6 +17531,10 @@ msgstr "你的编辑会保留在文件中，待审阅的改动将不再标记。
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "你的修改留在这台 Mac 上，下次同步时上传"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Your entry and the source give different values, and either may be right, so Apply all leaves this one to you."
+msgstr "你的条目和来源给出的值不同，两者都可能对，所以批量应用会留给你自己决定。"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Your first paper in Lattice"

@@ -5,17 +5,20 @@ import { confirmAction, toMessage } from "../app-utils";
 import { i18n } from "../i18n";
 import { notifyError } from "../telemetry/app-notify";
 
-/** File types the person has agreed to open from figures, for this session. */
-const agreedExtensions = new Set<string>();
-
+/**
+ * The host opens a drawing format and only reveals anything else in the file
+ * manager. An SVG opens only once the user agrees, each time: a project names
+ * the file, and its default program is often a browser that runs its script.
+ */
 export async function openFigureSource(source: string): Promise<void> {
-  const extension = source.slice(source.lastIndexOf(".") + 1).toLowerCase();
   try {
-    if (await invoke<boolean>("open_figure_source", { path: source, allowOther: agreedExtensions.has(extension) })) return;
+    if (await invoke<boolean>("open_figure_source", { path: source })) return;
     const name = source.slice(source.lastIndexOf("/") + 1);
-    if (!await confirmAction({ message: i18n._(msg`Open ${name} in its default app?`) })) return;
-    agreedExtensions.add(extension);
-    await invoke("open_figure_source", { path: source, allowOther: true });
+    const agreed = await confirmAction({
+      message: i18n._(msg`Open ${name} in its default app? An SVG file often opens in a web browser, which runs any script it holds.`),
+      confirmLabel: i18n._(msg`Open`),
+    });
+    if (agreed) await invoke("open_figure_source", { path: source, agreed: true });
   } catch (reason) {
     notifyError(i18n._(msg`Could not open the drawing`), toMessage(reason));
   }

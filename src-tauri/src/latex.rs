@@ -33,6 +33,7 @@ mod arxiv;
 mod bib_log;
 mod build;
 mod build_log;
+mod build_stall;
 mod build_steps;
 mod changes;
 mod cjk_text;
@@ -55,7 +56,7 @@ pub use arxiv::{
 /// Register an already-running process as a project's build, for tests that
 /// need one in flight without launching latexmk. They must still hand over a
 /// process they own — abort signals a whole process group.
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(crate) use build::begin_active as begin_for_test;
 pub use build::{abort, build, classify_build_error, clean, is_running, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};

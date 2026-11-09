@@ -1,7 +1,8 @@
 /**
  * Opening a figure's source file in the program the system has for it, from
  * the PDF, a source line or the project tree (docs/editable-figures.md). The
- * host decides what may open; a type it does not know asks first.
+ * host opens drawing formats, opens an SVG once the user agrees, and only
+ * reveals any other file.
  */
 /** File types opened on a double-click in the tree. SVG is left out: Lattice previews it itself. */
 const DRAWING_FILE = /\.(?:reactio|cdxml|cdx|drawio|dio|ipe|excalidraw|ggb|odg)$/i;

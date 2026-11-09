@@ -356,9 +356,10 @@ mod tests {
             "the macOS WebView must disable its opaque white backing surface"
         );
         // The main and project windows (`workspace_window`) take the
-        // activation click from `overlay_title_bar`.
+        // activation click from the macOS title-bar helper.
         let lib = include_str!("lib.rs");
-        assert_eq!(lib.matches(".accept_first_mouse(true)").count(), 1);
-        assert!(lib.contains("let window = overlay_title_bar(builder).build()?;"));
+        let title_bar = include_str!("title_bar.rs");
+        assert_eq!(title_bar.matches(".accept_first_mouse(true)").count(), 1);
+        assert!(lib.contains("let window = title_bar::overlay(builder).build()?;"));
     }
 }

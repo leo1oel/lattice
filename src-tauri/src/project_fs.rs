@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn validates_paths_replaces_files_atomically_and_prunes_old_json() {
-        use std::os::unix::fs::symlink;
+        use crate::test_support::symlink;
         let fixture = Fixture::empty("capability-basic");
         let outside = Fixture::empty("capability-basic-outside");
         let project = ProjectDir::open(&fixture.root).unwrap();
@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn raced_parent_swaps_never_mutate_outside() {
-        use std::os::unix::fs::symlink;
+        use crate::test_support::symlink;
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
         let fixture = Fixture::empty("capability-race");

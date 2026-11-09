@@ -7,9 +7,10 @@
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { EditorView } from "@codemirror/view";
-import { toMessage } from "../app-utils";
+import { confirmAction, toMessage } from "../app-utils";
 import {
-  editableFigureBlockSnippet, editableFigureChanges, pastesFigureBlock, preambleFiles, type EditableFigureManifest, type ImportedFigure,
+  editableFigureBlockSnippet, editableFigureChanges, pastesFigureBlock, preambleFiles, preambleNeedsConfirmation,
+  type EditableFigureManifest, type ImportedFigure,
 } from "../editor/insert/editable-figure";
 import { i18n } from "../i18n";
 import { notifyInfo } from "../telemetry/app-notify";
@@ -32,12 +33,20 @@ export async function pasteEditableFigure(
 }
 
 /** Puts a figure whose files are in the project into `view`: its include at the selection, what it needs in the preamble. */
-export async function insertImportedFigure(view: EditorView, figure: ImportedFigure): Promise<void> {
+export async function insertImportedFigure(view: EditorView, pasted: ImportedFigure): Promise<void> {
+  // The editor may have closed during any wait: the files stay in the project.
+  if (!view.dom.isConnected) return;
+  let figure = pasted;
+  const known = figure.preamble?.length
+    ? (await Promise.all(preambleFiles(view.state.doc.toString()).map((path) => invoke<string>("read_project_file", { path }).catch(() => "")))).join("\n")
+    : "";
+  if (preambleNeedsConfirmation(view.state.doc.toString(), known, figure)) {
+    const lines = (figure.preamble ?? []).join("\n");
+    if (!await confirmAction({ message: i18n._(msg`This figure wants to add these lines to the preamble. Add them?\n\n${lines}`) })) figure = { ...figure, preamble: undefined };
+  }
+  if (!view.dom.isConnected) return;
   const source = view.state.doc.toString();
   const selection = view.state.selection.main;
-  const known = figure.preamble?.length
-    ? (await Promise.all(preambleFiles(source).map((path) => invoke<string>("read_project_file", { path }).catch(() => "")))).join("\n")
-    : "";
   const { changes, unplaced } = editableFigureChanges(source, selection, figure, known);
   if (pastesFigureBlock(source, selection)) {
     // The preamble first: the snippet then goes where the selection has moved to.

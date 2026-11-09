@@ -12,7 +12,7 @@
 import { sharedSetting } from "../settings/shared-setting";
 import type { TrellisController } from "../trellis/trellis-controller";
 
-export const GET_STARTED_STEPS = ["latex", "build", "jump", "cite", "agent", "own"] as const;
+const GET_STARTED_STEPS = ["latex", "build", "jump", "cite", "agent", "own"] as const;
 export type GetStartedStepId = (typeof GET_STARTED_STEPS)[number];
 
 export type GetStartedProgress = { done: GetStartedStepId[]; skipped: GetStartedStepId[] };

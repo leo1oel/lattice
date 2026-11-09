@@ -308,7 +308,7 @@ fn scan_directory(root: &Path, directory: &Path, view: TreeView) -> Result<Vec<F
         let entry = entry.map_err(err)?;
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
-        let relative = path.strip_prefix(root).map_err(err)?.to_string_lossy().to_string();
+        let relative = path.strip_prefix(root).map_err(err)?.to_string_lossy().replace('\\', "/");
         let excluded = if view == TreeView::Inventory {
             exclusion_reason(Path::new(&relative), &name, &path)
         } else {
@@ -461,16 +461,17 @@ pub fn stat_file(root: &Path, relative: &str) -> Result<ProjectFileStat, String>
         exists: true,
         mtime_ms,
         size: metadata.len(),
-        file_id: file_identity(&metadata),
+        file_id: file_identity(&path),
     })
 }
 
 /// The file itself rather than its name: device and inode, which a rename
 /// (`mv`, `git mv`) keeps and a new file at the same path does not. A string,
 /// so a 64-bit inode reaches JavaScript exactly.
-pub(super) fn file_identity(metadata: &fs::Metadata) -> String {
-    use std::os::unix::fs::MetadataExt;
-    format!("{}:{}", metadata.dev(), metadata.ino())
+pub(super) fn file_identity(path: &Path) -> String {
+    crate::platform_fs::path_identity(path)
+        .map(|(volume, index)| format!("{volume}:{index}"))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -605,7 +606,7 @@ mod tests {
 
     #[test]
     fn symlinks_are_visible_but_never_followed() {
-        use std::os::unix::fs::symlink;
+        use crate::test_support::symlink;
         let fixture = Fixture::empty("inventory-links");
         let outside = Fixture::empty("inventory-links-outside");
         outside.write("secret", b"secret");

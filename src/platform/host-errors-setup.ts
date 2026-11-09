@@ -46,6 +46,8 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["tex_setup/fetch.rs", "The {name} download was interrupted: {error}", ([what, error]) => t`The ${what} download was interrupted: ${error}`],
   ["tex_setup/fetch.rs", "The downloaded {} failed its security check.", ([what]) => t`The downloaded ${what} failed its security check.`],
   // Elsewhere one-click install is not built yet (tex_setup/stub.rs).
+  ["tex_setup/stub.rs", "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice.", () => t`Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice.`],
+  ["tex_setup/stub.rs", "Install the missing package with TeX Live Manager or MiKTeX Console, then build again.", () => t`Install the missing package with TeX Live Manager or MiKTeX Console, then build again.`],
   ["tex_setup/stub.rs", "One-click TeX install is not available on Linux yet.", () => t`One-click TeX install is not available on Linux yet.`],
   ["tex_setup/stub.rs", "One-click TeX package install is not available on Linux yet.", () => t`One-click TeX package install is not available on Linux yet.`],
   ["tex_setup/stub.rs", "One-click TeX package update is not available on Linux yet.", () => t`One-click TeX package update is not available on Linux yet.`],
@@ -77,6 +79,7 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["synara/bibliography_guard.rs", "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.", () => t`The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.`],
 
   // The terminal (terminal.rs, terminal/caller.rs, ipc/terminal.rs)
+  ["terminal/windows.rs", "Could not supervise the Windows terminal process tree.", () => t`Could not supervise the Windows terminal process tree.`],
   ["terminal.rs", "This terminal has closed.", () => t`This terminal has closed.`],
   ["terminal/caller.rs", "The terminal is only available in a Lattice window.", () => t`The terminal is only available in a Lattice window.`],
 

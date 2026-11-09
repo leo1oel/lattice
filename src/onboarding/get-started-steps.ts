@@ -11,6 +11,7 @@
  * dimming anything. Steps are marked done where they really happen (see
  * get-started-progress.ts), never by a click near them.
  */
+import { isWindowsHost } from "../platform/host-platform";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import type { TrellisController, TrellisSingleton } from "../trellis/trellis-controller";
@@ -63,7 +64,7 @@ const showManuscript = ({ controller, openFile }: ShowMeContext, line?: number) 
   }
 };
 
-export const GET_STARTED: readonly GetStartedStep[] = [
+const GET_STARTED: readonly GetStartedStep[] = [
   {
     id: "latex",
     title: msg`Install LaTeX`,
@@ -113,3 +114,18 @@ export const GET_STARTED: readonly GetStartedStep[] = [
       : msg`Start from a venue template, open a folder on this Mac, or bring a project from Overleaf.`,
   },
 ];
+
+/** The embedded agent is not supported on the experimental Windows host. */
+export function getStartedSteps(): readonly GetStartedStep[] {
+  if (!isWindowsHost()) return GET_STARTED;
+  return GET_STARTED.filter((step) => step.id !== "agent").map((step) => {
+    switch (step.id) {
+      case "latex": return { ...step, why: msg`Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX.` };
+      case "build": return { ...step, why: msg`Edit the title line in main.tex and press Ctrl+S to update the PDF beside it.`, hint: msg`Edit the title, then press Ctrl+S` };
+      case "jump": return { ...step, why: msg`Double-click any sentence in the PDF to land on the line that wrote it, and press Ctrl+Shift+J to jump back.` };
+      case "cite": return { ...step, why: msg`In the editor, press Ctrl+Shift+K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title.`, hint: msg`Click in the text, then press Ctrl+Shift+K` };
+      case "own": return { ...step, why: msg`Start from a venue template, open a folder on this computer, or bring a project from Overleaf.` };
+      default: return step;
+    }
+  });
+}

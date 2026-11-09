@@ -195,12 +195,18 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // Raised again the same day for the TeX doctor's package-update state (#726),
 // a hook App runs so an approved update outlives Settings, +2.4 KB
 // (1,428,755 -> 1,431,207 bytes, a local build).
-// Raised from 1.365 MiB for editable figures: the project tree must know a
+// Raised from 1.365 MiB for the reference check's fix groups and Refresh entry (#750), +1.8 KB (1,433,109 bytes, a local build).
+// Raised from 1.367 MiB for the build stall (#747): automatic builds hold after
+// a stall, which the build pipeline decides at startup, +0.3 KB (1,433,439 bytes).
+// The experimental Windows host (#702) fits under it: the host check behind
+// the Ctrl/Alt/Shift key labels, the window's client-area minimum, the Agent
+// notice and update gating run at startup; its LaTeX setup dialog and F11/Esc
+// fullscreen keys load on demand (windows-host-ui.ts), +1.0 KB
+// (1,433,439 -> 1,434,396 bytes, a local build).
+// Raised from 1.368 MiB for editable figures: the project tree must know a
 // drawing without a load, and the rest of pasting and opening a figure loads
-// on demand, +0.4 KB.
-// Raised to 1.367 MiB for figures from drawing programs: the tree's menu entry
-// and the watcher that renders a changed drawing again, +1.3 KB.
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.367 * 1024 * 1024);
+// on demand, +0.6 KB (1,434,396 -> 1,434,983 bytes, a local build).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.369 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

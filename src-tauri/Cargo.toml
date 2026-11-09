@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.16.3"
+version = "0.16.4"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -101,7 +101,7 @@ axum = { version = "0.8", features = ["ws"] }
 # kernel keyutils store, which keeps them in memory only. The sync client
 # avoids picking an async runtime; crypto-rust avoids linking OpenSSL.
 keyring = { version = "3", features = ["apple-native", "sync-secret-service", "crypto-rust"] }
-rustix = { version = "1", features = ["fs"] }
+
 # 0.2.4 aborts the whole conversion when even one page is classified as
 # needing OCR (including arXiv 2605.30170); keep the tested 0.1 line until the
 # new API can preserve the remaining text-layer pages.
@@ -169,6 +169,15 @@ objc2-web-kit = { version = "0.3", default-features = false, features = [
   "WKWebViewConfiguration",
 ] }
 block2 = "0.6"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["fs"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_System_JobObjects", "Win32_Security"] }
+keyring = { version = "3", features = ["windows-native"] }
+cap-std = "3"
+portable-pty = "0.9"
 
 [dev-dependencies]
 # The mock runtime, to drive the terminal commands through real IPC requests.

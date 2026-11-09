@@ -7,8 +7,8 @@ use super::{
     citations, create_blank, list_todos, preview_replace_in_project, replace_in_project, safe_path,
     search_files, unused_symbols,
 };
+use crate::test_support::symlink;
 use std::fs;
-use std::os::unix::fs::symlink;
 
 const LIBRARY: &str =
     "@article{vaswani2017,\n  title={Attention Is All You Need},\n  year={2017}\n}\n";

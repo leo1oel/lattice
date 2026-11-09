@@ -25,8 +25,8 @@ The program copies two kinds of data:
 ```json
 {"version": 1,
  "name": "scheme",
- "source": {"path": "/Users/me/paper/scheme.reactio"},
- "outputs": [{"path": "/Users/me/paper/scheme.pdf"}, {"path": "/Users/me/paper/scheme.tex"}],
+ "source": {"name": "scheme.reactio", "data": "<base64>"},
+ "outputs": [{"name": "scheme.pdf", "data": "<base64>"}, {"name": "scheme.tex", "data": "<base64>"}],
  "entry": "scheme.tex",
  "packages": ["graphicx", "tikz", "chemnum"]}
 ```
@@ -41,9 +41,24 @@ The program copies two kinds of data:
 | `packages` | LaTeX packages the entry needs. |
 | `preamble` | Optional. Whole lines the entry needs before `\begin{document}`, added once, unless the document or a file its preamble loads already defines their commands. |
 
-Each file is either `{"path": "<absolute path>"}`, for programs that write
-files, or `{"name": "scheme.pdf", "data": "<base64>"}`, for those that cannot
-(a web page).
+Each file is `{"name": "scheme.pdf", "data": "<base64>"}`. A paste is untrusted
+input, since any web page can put this on the clipboard, so a manifest never
+names a path on disk. `source` must be a drawing format or `.svg`, `outputs` are `.tex`,
+`.pdf`, `.pdf_tex`, `.png`, `.jpg`, `.svg` or `.eps`, `entry` is a `.tex`, and
+all the files together are at most 64 MB. A paste carries at most 32 files,
+no two with the same name (case aside), and each name holds only letters,
+digits, spaces, `.`, `_` and `-`.
+
+`preamble` is added without asking only if it holds nothing but definitions at
+its top level: `\providecommand`, `\newcommand`, `\DeclareMathOperator`,
+`\NewDocumentCommand` and `\ProvideDocumentCommand`, each naming one command
+and followed by exactly its own arguments; `\definecolor`, `\newcounter` and
+`\usepackage` with plain names and no options; and `\makeatletter` or
+`\ExplSyntaxOn` around them. A name with `@` counts only after
+`\makeatletter`, as TeX reads it. Anything else, a brace group of its own or
+`\DeclareRobustCommand` (which silently replaces a command the document has)
+included, is shown first and added only on a yes.
+The entry file is compiled as it is, like any other project file.
 
 ## What Lattice does on paste
 
@@ -51,9 +66,10 @@ Pasting into a LaTeX source (`import_editable_figure`,
 `src-tauri/src/project/editable_figure.rs`; the editor side is
 `src/editor/insert/editable-figure.ts` and `src/app/editable-figure-paste.ts`):
 
-1. copies the source and the outputs into `figures/`. When any of their names
-   is taken there, the whole set moves to the next free name (`scheme-2.*`)
-   and the entry file's references to its siblings are renamed with it;
+1. creates the source and the outputs in `figures/`, never over anything and
+   never through a link. Files named after the entry move together to the next
+   free name (`scheme-2.*`) and any other file finds a free name of its own;
+   the entry file's references to its siblings are renamed with them;
 2. replaces the selection with `\input{figures/scheme}`, from the project root.
    On an empty line outside any float it inserts a whole `figure` around that
    line, with empty `\caption{}` and `\label{fig:}` to fill in with Tab;
@@ -88,10 +104,10 @@ figure's `.tex` or `.pdf` has Edit figure source. The file must be inside the pr
 
 A project may come from someone else and its `.tex` names the file, so what
 opens depends on its type. Drawing formats (`.reactio`, `.cdxml`, `.cdx`,
-`.svg`, `.drawio`, `.dio`, `.ipe`, `.excalidraw`, `.ggb`, `.odg`) open directly.
-Programs, scripts and web pages (`.app`, `.exe`, `.sh`, `.command`, `.py`,
-`.js`, `.html`…) and files with no extension never open. Any other type asks
-first, once per extension in a session.
+`.drawio`, `.dio`, `.ipe`, `.excalidraw`, `.ggb`, `.odg`) open directly. An
+`.svg` opens only after Lattice asks, every time, since its default program is
+often a browser that runs any script in it. Any other file is only revealed in
+the file manager.
 
 ## Inkscape and draw.io drawings
 
@@ -125,8 +141,8 @@ Any program can offer this without talking to Lattice:
 2. **Manifest.** `version` is `1`; `name` is informational; `source` is the
    file the figure is edited in; `outputs` are the files rendered from it, the
    `.tex` named by `entry` among them; `packages` are the LaTeX packages it
-   needs. A file is `{"path": "<absolute path>"}` if your program writes files,
-   or `{"name": "scheme.pdf", "data": "<base64>"}` if it cannot.
+   needs. A file is `{"name": "scheme.pdf", "data": "<base64>"}`, always
+   inline: Lattice does not read paths from a clipboard.
 3. **Name the source.** Make the first line of the entry file
    `% editable-figure source: scheme.reactio`, relative to the entry. This is
    what Cmd/Ctrl+double-click reads; give the source file one of the drawing

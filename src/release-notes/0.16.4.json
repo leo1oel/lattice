@@ -1,0 +1,36 @@
+{
+  "version": "0.16.4",
+  "date": "2026-11-09",
+  "highlights": [
+    {
+      "title": {
+        "en": "Papers added through Lattice pass Check citations",
+        "zh": "通过 Lattice 添加的论文能通过“检查引用”"
+      },
+      "body": {
+        "en": "Add papers now runs the same lookup as Check citations, so it finds published versions known only to DBLP (ICLR, ICML, TMLR), Springer ECCV chapters and CVF paper pages. CVPR and ICCV pages from IEEE or CVF both count as correct. When the NeurIPS or ICLR proceedings sites can't be reached, the row is marked \"official verification incomplete\" instead of proposing changes, and an official link is never swapped for arXiv. Fixes are grouped into published version, formatting and sources differ, and Apply fixes leaves \"sources differ\" alone. Re-adding a paper you already cite offers Refresh entry.",
+        "zh": "“添加论文”现在使用与“检查引用”相同的查询，能找到只有 DBLP 收录的正式发表版本（ICLR、ICML、TMLR）、Springer 的 ECCV 章节和 CVF 论文页面。来自 IEEE 或 CVF 的 CVPR、ICCV 页面都算正确。NeurIPS 或 ICLR 论文集网站无法访问时，该行会标为“官方核验未完成”，而不是提出修改，也绝不会把官方链接换成 arXiv。修改建议分为“正式发表版本”“格式”和“来源不一致”三组，“应用修改”会跳过“来源不一致”。重新添加已引用的论文时会提供“刷新条目”。"
+      }
+    },
+    {
+      "title": {
+        "en": "A stuck TeX run is stopped",
+        "zh": "卡住的 TeX 编译会被停止"
+      },
+      "body": {
+        "en": "A build that makes no progress for 300 seconds, or repeats the same output for 120 seconds, is stopped and reports where it stood. Auto-build then waits for your next edit. Thanks to @Paivel.",
+        "zh": "编译 300 秒没有进展，或 120 秒内一直重复相同输出时，会被停止并报告停在了哪里；之后自动编译会等你再次编辑。感谢 @Paivel。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Figure and \\input paths are resolved the way TeX does: no false \"Missing figure\" for ./ or ../ paths, and no stale copy picked from another folder. Thanks to @ajay-mk.",
+      "zh": "图片和 \\input 路径按 TeX 的方式解析：./ 或 ../ 路径不再误报“缺少图片”，也不会选中其他文件夹里的旧副本。感谢 @ajay-mk。"
+    },
+    {
+      "en": "Groundwork for an experimental Windows build. There is no Windows download in this release. Thanks to @LucasDavidTPE.",
+      "zh": "为实验性的 Windows 版本打下基础，本次发布不提供 Windows 下载。感谢 @LucasDavidTPE。"
+    }
+  ]
+}

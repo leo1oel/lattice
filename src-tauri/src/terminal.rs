@@ -16,10 +16,18 @@
 //! writer's keys to it, and ends it.
 
 pub(crate) mod caller;
+#[cfg(unix)]
 mod pty;
+#[cfg(unix)]
 mod session;
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub(crate) use windows::{login_shell, Session};
 
+#[cfg(unix)]
 pub(crate) use pty::login_shell;
+#[cfg(unix)]
 pub(crate) use session::Session;
 
 use std::collections::HashMap;
@@ -122,5 +130,8 @@ impl Terminals {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests;
+
+#[cfg(all(test, windows))]
+mod windows_tests;

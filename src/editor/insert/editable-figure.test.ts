@@ -4,14 +4,14 @@ import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 import {
   editableFigureBlockSnippet, editableFigureChanges, editableFigureFromHtml, editableFigureInclude, figureSourcePath, includedTexPaths,
-  insideFigureHolder, missingPreambleInsertions, pastesFigureBlock, preambleFiles, type ImportedFigure,
+  insideFigureHolder, isDefinitionsOnly, missingPreambleInsertions, pastesFigureBlock, preambleFiles, preambleNeedsConfirmation, type ImportedFigure,
 } from "./editable-figure";
 
 const manifest = {
   version: 1,
   name: "scheme",
-  source: { path: "/Users/me/scheme.reactio" },
-  outputs: [{ path: "/Users/me/scheme.pdf" }, { name: "scheme.tex", data: "JQ==" }],
+  source: { name: "scheme.reactio", data: "e30=" },
+  outputs: [{ name: "scheme.pdf", data: "JQ==" }, { name: "scheme.tex", data: "JQ==" }],
   entry: "scheme.tex",
   packages: ["graphicx", "tikz", "chemnum"],
 };
@@ -98,6 +98,47 @@ describe("editable figure insertion", () => {
   });
 });
 
+describe("a manifest's preamble lines", () => {
+  it("are definitions when nothing runs at the top level", () => {
+    expect(isDefinitionsOnly(["\\providecommand\\a[1]{\\textbf{#1}}", "\\newcommand{\\b}{x} % note", "\\definecolor{c}{rgb}{1,0,0}"])).toBe(true);
+    expect(isDefinitionsOnly(["\\makeatletter", "\\providecommand\\x@y[3]{}", "\\makeatother"])).toBe(true);
+    expect(isDefinitionsOnly(["\\ExplSyntaxOn", "\\providecommand \\rcmpd [1]", "  { \\seq_item:Nn \\l_tmpa_seq { 2 } }", "\\ExplSyntaxOff"])).toBe(true);
+    expect(isDefinitionsOnly([String.raw`\NewDocumentCommand{\c}{m}{#1}`, String.raw`\DeclareMathOperator*{\argmax}{arg\,max}`, String.raw`\newcounter{step}`])).toBe(true);
+    expect(isDefinitionsOnly([String.raw`\usepackage{tikz}`, String.raw`\usepackage{chemnum, mhchem}`])).toBe(true);
+  });
+
+  it("are not when a group outside a definition would run", () => {
+    // A group of its own, or one past a definition's last argument, runs as the preamble is read.
+    expect(isDefinitionsOnly([String.raw`\newcommand\zz{}`, String.raw`{\input{/etc/passwd}}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\newcommand\a{x}{\input{/etc/passwd}}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\newcommand{\a\input{/etc/passwd}}{x}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\definecolor{c}{rgb}{\input{/etc/passwd}}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\usepackage{\input{/etc/passwd}}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\usepackage[shell]{a}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\newcounter{c}[section]`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\newcommand\a`])).toBe(false);
+    expect(isDefinitionsOnly(["}", "\\newcommand\\a{x}"])).toBe(false);
+  });
+
+  it("are not when TeX reads a name differently, or a command could be replaced", () => {
+    // Outside \makeatletter, `\a@{…}` is `\a`, then `@`, and the group runs.
+    expect(isDefinitionsOnly([String.raw`\newcommand\foo@{\typeout{ran}}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\newcommand{\foo@}{x}`])).toBe(false);
+    expect(isDefinitionsOnly(["\\makeatletter", String.raw`\newcommand\foo@{x}`, "\\makeatother", String.raw`\newcommand\bar@{x}`])).toBe(false);
+    expect(isDefinitionsOnly(["\\makeatletter", String.raw`\newcommand{\foo@}{x}`, "\\makeatother"])).toBe(true);
+    // \DeclareRobustCommand silently replaces a command the document has.
+    expect(isDefinitionsOnly([String.raw`\DeclareRobustCommand\maketitle{}`])).toBe(false);
+  });
+
+  it("are not when anything else is there", () => {
+    expect(isDefinitionsOnly(["\\input{/etc/passwd}"])).toBe(false);
+    expect(isDefinitionsOnly(["\\newcommand\\a{x}\\a"])).toBe(false);
+    expect(isDefinitionsOnly(["\\renewcommand\\section{x}"])).toBe(false);
+    expect(isDefinitionsOnly(["text"])).toBe(false);
+    expect(isDefinitionsOnly(["\\newcommand\\a{"])).toBe(false);
+  });
+});
+
 describe("figure source path", () => {
   it("resolves the first line's source against the entry file", () => {
     expect(figureSourcePath("figures/a.tex", "% editable-figure source: Document 1.reactio\n\\begin{tikzpicture}")).toBe("figures/Document 1.reactio");
@@ -151,6 +192,12 @@ describe("definitions a figure needs in the preamble", () => {
     const has = (text: string, known = "") => editableFigureChanges(text, at, figureWith, known).changes.some((change) => JSON.stringify(change).includes("cmpdseries[2]"));
     expect(has(doc, "\\newcommand{\\cmpdseries}[2]{}")).toBe(false);
     expect(has(doc, "% \\newcommand{\\cmpdseries}[2]{}")).toBe(true);
+  });
+
+  it("is shown first when it would run more than definitions", () => {
+    expect(preambleNeedsConfirmation(doc, "", figureWith)).toBe(false);
+    const smuggled = { ...figureWith, preamble: [...block, String.raw`{\input{/etc/passwd}}`] };
+    expect(preambleNeedsConfirmation(doc, "", smuggled)).toBe(true);
   });
 
   it("names it for a file that is not the root document, and finds the preamble's own files", () => {

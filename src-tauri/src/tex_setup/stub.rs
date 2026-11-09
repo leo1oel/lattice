@@ -9,10 +9,19 @@ type Progress = Channel<TexInstallProgress>;
 pub fn install_tex(
     _mode: TexInstallMode, _on_progress: &Progress,
 ) -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    return Err("Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice.".into());
+    #[cfg(not(windows))]
     Err("One-click TeX install is not available on Linux yet.".into())
 }
 
 pub fn install_dependency(_missing_file: &str, _on_progress: &Progress) -> Result<(), String> {
+    #[cfg(windows)]
+    return Err(
+        "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
+            .into(),
+    );
+    #[cfg(not(windows))]
     Err("One-click TeX package install is not available on Linux yet.".into())
 }
 
