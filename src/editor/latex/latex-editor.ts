@@ -496,6 +496,10 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       // (autocomplete already handles them), including accepting a completion.
       // Escape and background updates must not reopen a dismissed menu.
       if (!update.docChanged && (update.selectionSet || update.focusChanged)) openCitationAtCursor(update.view);
+      // CodeMirror closes a source when Backspace empties its query or starts
+      // at its slot, and Backspace never reopens one, so deleting back into a
+      // citation key left the menu shut. Reopen it while the cursor is in a slot.
+      if (update.transactions.some((transaction) => transaction.isUserEvent("delete.backward"))) openCitationAtCursor(update.view);
       const completed = update.transactions.some((transaction) => transaction.isUserEvent("input.complete"));
       const typed = completed || update.transactions.some((transaction) => transaction.isUserEvent("input.type"));
       const { empty, head } = update.state.selection.main;
