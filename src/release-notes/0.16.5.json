@@ -1,0 +1,40 @@
+{
+  "version": "0.16.5",
+  "date": "2026-11-09",
+  "highlights": [
+    {
+      "title": {
+        "en": "Figures you can edit in their drawing program",
+        "zh": "可在绘图程序中编辑的图片"
+      },
+      "body": {
+        "en": "Paste a figure from a drawing program and Lattice stores its source and rendered files in figures/, inserts the \\input and the packages it needs, and reopens the source in its program when you want to edit it. Drawings from Inkscape and draw.io (.svg, .drawio, .dio) become editable figures from the project tree, by paste or by drop, and re-render when the drawing changes: automatically in projects you trust, otherwise after you click Update figure. Thanks to @Paivel.",
+        "zh": "从绘图程序粘贴图片时，Lattice 会把源文件和渲染结果存到 figures/，插入 \\input 和所需的宏包，需要编辑时会在原程序中重新打开源文件。来自 Inkscape 和 draw.io 的绘图（.svg、.drawio、.dio）可以通过项目树、粘贴或拖放成为可编辑图片，绘图改动后会重新渲染：在你信任的项目中自动进行，否则点击“更新插图”即可。感谢 @Paivel。"
+      }
+    },
+    {
+      "title": {
+        "en": "chemnum compound numbers in the PDF and the editor",
+        "zh": "PDF 和编辑器中的 chemnum 化合物编号"
+      },
+      "body": {
+        "en": "Hovering a compound number in the PDF shows its key, and clicking copies \\cmpd{key}. Completion inside \\cmpd{ lists the project's compound keys with their numbers. Thanks to @Paivel.",
+        "zh": "在 PDF 中悬停化合物编号会显示其键名，点击即可复制 \\cmpd{key}。在 \\cmpd{ 中补全会列出项目中的化合物键名及其编号。感谢 @Paivel。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "A comment highlight has the same colour in the .tex source and in the PDF.",
+      "zh": "批注高亮在 .tex 源文件和 PDF 中使用相同的颜色。"
+    },
+    {
+      "en": "A root document in a subfolder finds the bibliography and other files at the project root, as on Overleaf, so citations no longer show as [?].",
+      "zh": "位于子文件夹中的主文档能找到项目根目录下的参考文献和其他文件（与 Overleaf 一致），引用不再显示为 [?]。"
+    },
+    {
+      "en": "When a build uses lineno 5.7, which draws CVPR review-mode line numbers over the text, Lattice says so and offers Update TeX packages. The TeX doctor checks for outdated packages once a day.",
+      "zh": "编译使用 lineno 5.7（会把 CVPR 审稿模式的行号画在正文上）时，Lattice 会提示并提供“更新 TeX 组件”。TeX 诊断每天检查一次过时的宏包。"
+    }
+  ]
+}
