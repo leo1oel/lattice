@@ -67,6 +67,21 @@ pub(super) fn parse_update_list(output: &str) -> Vec<TexPackageUpdate> {
     packages
 }
 
+/// Why `tlmgr update --list --machine-readable` failed, from its stderr:
+/// every line but the `start load`/`fail load` protocol lines that
+/// machine-readable mode sends there before tlmgr's own reason. `None` when
+/// nothing else is left.
+pub(super) fn update_list_failure(stderr: &str) -> Option<String> {
+    let reason: Vec<&str> = stderr
+        .lines()
+        .map(str::trim)
+        .filter(|line| {
+            !line.is_empty() && !line.starts_with("start load ") && !line.starts_with("fail load ")
+        })
+        .collect();
+    (!reason.is_empty()).then(|| reason.join("\n"))
+}
+
 /// Whether `texmfroot` (`kpsewhich -var-value=TEXMFROOT`) is a BasicTeX tree,
 /// `/usr/local/texlive/<year>basic`: the one kind of TeX Lattice installs.
 pub(super) fn is_basic_tex_root(texmfroot: &str) -> bool {
@@ -112,6 +127,36 @@ mod tests {
         assert!(parse_update_list("location-url\tx\nend-of-header\nend-of-updates\n").is_empty());
         // A failed run's stderr chatter is not a package list.
         assert!(parse_update_list("tlmgr: package repository x (not verified)\n").is_empty());
+    }
+
+    #[test]
+    fn update_list_failure_keeps_tlmgrs_reason_not_its_protocol_lines() {
+        // A real BasicTeX 2026 tlmgr's stderr for an unreachable repository
+        // (exit 1), November 2026.
+        let unreachable = "start load https://nonexistent.invalid/tlnet\n\
+            \n\
+            /Library/TeX/texbin/tlmgr: TLPDB::from_file could not get texlive.tlpdb from: https://nonexistent.invalid/tlnet/tlpkg/texlive.tlpdb\n\
+            Maybe the repository setting should be changed.\n\
+            More info: https://tug.org/texlive/acquire.html\n";
+        assert_eq!(
+            update_list_failure(unreachable).as_deref(),
+            Some(
+                "/Library/TeX/texbin/tlmgr: TLPDB::from_file could not get texlive.tlpdb from: https://nonexistent.invalid/tlnet/tlpkg/texlive.tlpdb\n\
+                 Maybe the repository setting should be changed.\n\
+                 More info: https://tug.org/texlive/acquire.html"
+            )
+        );
+        // tlmgr.pl's setup_one_remotetlpdb reports a failed load as
+        // `fail load <location>` before init_tlmedia_or_die's reason.
+        assert_eq!(
+            update_list_failure(
+                "start load https://mirror.example/tlnet\nfail load https://mirror.example/tlnet\n\
+                 tlmgr: Local TeX Live (2026) is older than remote repository (2027).\n"
+            )
+            .as_deref(),
+            Some("tlmgr: Local TeX Live (2026) is older than remote repository (2027).")
+        );
+        assert_eq!(update_list_failure("start load https://mirror.example/tlnet\n\n"), None);
     }
 
     #[test]

@@ -15,6 +15,15 @@ describe("texPackageCheckProblem", () => {
     }
   });
 
+  it("blames the network for what tlmgr says about an unreachable repository", () => {
+    // A real BasicTeX 2026 tlmgr's reason for an unreachable repository, as
+    // the backend keeps it (package_updates.rs `update_list_failure`).
+    const unreachable = "/Library/TeX/texbin/tlmgr: TLPDB::from_file could not get texlive.tlpdb from: https://nonexistent.invalid/tlnet/tlpkg/texlive.tlpdb\n"
+      + "Maybe the repository setting should be changed.\n"
+      + "More info: https://tug.org/texlive/acquire.html";
+    expect(texPackageCheckProblem(unreachable)).toEqual({ summary: NETWORK, detail: "" });
+  });
+
   it("says when the TeX Live release is older than the repository, even if a later mirror timed out", () => {
     const error = "tlmgr: Local TeX Live (2026) is older than remote repository (2027).\n"
       + "The TeX Live repository did not answer within 45 seconds.";

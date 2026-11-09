@@ -10,7 +10,7 @@ use super::installer::{
     UV, UV_ARCHIVE_ROOT,
 };
 use super::package_updates::{
-    is_basic_tex_root, parse_update_list, TexPackageUpdates, UPDATE_COMMAND,
+    is_basic_tex_root, parse_update_list, update_list_failure, TexPackageUpdates, UPDATE_COMMAND,
 };
 use super::{TexInstallMode, TexInstallProgress};
 use crate::commands;
@@ -113,7 +113,10 @@ pub fn check_package_updates() -> Option<TexPackageUpdates> {
                 let packages = parse_update_list(&String::from_utf8_lossy(&output.stdout));
                 return Some(TexPackageUpdates { managed, packages, error: None });
             }
-            Ok(output) => failures.push(command_failure_detail(&output)),
+            Ok(output) => failures.push(
+                update_list_failure(&String::from_utf8_lossy(&output.stderr))
+                    .unwrap_or_else(|| command_failure_detail(&output)),
+            ),
             Err(error) => {
                 failures.push(error);
                 break;
