@@ -269,14 +269,39 @@ pub async fn paste_drawing_file(
         .await
 }
 
-/// Renders a figure's drawing again after it changed; false when it is no figure's source.
+/// Renders a figure's drawing again after it changed. `unattended` is a change
+/// the watcher noticed rather than one the user asked for, and such a change
+/// renders on its own only in a trusted project.
+///
+/// The render itself takes no project lease: it reads the drawing and writes
+/// only into a scratch folder, and a drawing program may run for ninety
+/// seconds, which an Overleaf sync waiting for the lease would wait out. Only
+/// the write that follows takes it.
 #[tauri::command]
 pub async fn refresh_figure_source(
-    state: State<'_, AppState>, window: Window, path: String, project_root: String,
-) -> Result<bool, String> {
-    let _lease = state.lease(&project_root, Lease::Shared).await;
+    state: State<'_, AppState>, window: Window, path: String, unattended: Option<bool>,
+    project_root: String,
+) -> Result<project::FigureRefresh, String> {
     let root = pinned_root(&state, &window, &project_root, "the figure could be made")?;
-    run_blocking("Figure conversion", move || project::refresh_figure_source(&root, &path)).await
+    let rendering = {
+        let (root, path, unattended) = (root.clone(), path.clone(), unattended != Some(false));
+        run_blocking("Figure conversion", move || {
+            project::prepare_figure_refresh(&root, &path, unattended)
+        })
+        .await?
+    };
+    let prepared = match rendering {
+        project::RefreshPlan::NoFigure => return Ok(project::FigureRefresh::NoFigure),
+        project::RefreshPlan::AwaitingConsent => {
+            return Ok(project::FigureRefresh::AwaitingConsent)
+        }
+        project::RefreshPlan::Ready(prepared) => prepared,
+    };
+    let _lease = state.lease(&project_root, Lease::Shared).await;
+    // The project may have changed hands while the program ran.
+    let root = pinned_root(&state, &window, &project_root, "the figure could be made")?;
+    run_blocking("Figure conversion", move || project::install_figure_refresh(&root, &prepared))
+        .await
 }
 
 /// A figure pasted from a drawing program, with its source file and the

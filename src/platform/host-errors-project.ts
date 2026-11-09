@@ -208,5 +208,6 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/figure_converters/render.rs", "Install {} to update this figure.", ([tool]) => t`Install ${tool} to update this figure.`],
   ["project/figure_converters/render.rs", "{} took too long to convert the figure.", ([tool]) => t`${tool} took too long to convert the figure.`],
   ["project/figure_converters/render.rs", "{} could not convert the figure. {tail}", ([tool, tail]) => t`${tool} could not convert the figure. ${tail}`],
-  ["project/figure_converters/render.rs", "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project.", () => t`This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project.`],
+  ["project/figure_converters/svg_links.rs", "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project.", () => t`This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project.`],
+  ["project/figure_converters/svg_links.rs", "This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG.", () => t`This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG.`],
 ];

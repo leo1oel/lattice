@@ -1,4 +1,5 @@
-use super::render::{check_svg_links, convert_args};
+use super::render::convert_args;
+use super::svg_links::check_svg_links;
 use super::*;
 use crate::project::test_support::Fixture;
 use std::ffi::OsString;
@@ -109,7 +110,7 @@ fn makes_a_figure_from_what_the_program_wrote() {
     // The second time it is the figure's own: the same files, rendered again.
     let again = convert(&fixture.root, "figures/a.svg", &fake_render).unwrap();
     assert_eq!(again.entry, "a.tex");
-    assert_eq!(refresh(&fixture.root, "figures/a.svg", &fake_render), Ok(true));
+    assert_eq!(refresh(&fixture.root, "figures/a.svg", &fake_render), Ok(FigureRefresh::Rendered));
     assert_eq!(fixture.read("figures/a.svg"), "<svg/>");
     let leftovers = fs::read_dir(fixture.path("figures")).unwrap().count();
     assert_eq!(leftovers, 4, "no .part files stay behind");
@@ -208,13 +209,14 @@ fn leaves_files_of_the_same_name_alone() {
 #[test]
 fn refreshes_only_a_drawing_an_entry_names_inside_the_project() {
     let fixture = Fixture::project("figure-converters");
+    let refreshed = |source| refresh(&fixture.root, source, &fake_render);
     fixture.write("figures/plain.svg", "<svg/>");
-    assert_eq!(refresh_figure_source(&fixture.root, "figures/plain.svg"), Ok(false));
+    assert_eq!(refreshed("figures/plain.svg"), Ok(FigureRefresh::NoFigure));
     fixture.write("figures/a.tex", "\\section{Not a figure}");
     fixture.write("figures/a.svg", "<svg/>");
-    assert_eq!(refresh_figure_source(&fixture.root, "figures/a.svg"), Ok(false));
-    assert!(refresh_figure_source(&fixture.root, "../a.svg").is_err());
-    assert!(refresh_figure_source(&fixture.root, "figures/a.tex").is_err());
+    assert_eq!(refreshed("figures/a.svg"), Ok(FigureRefresh::NoFigure));
+    assert!(refreshed("../a.svg").is_err());
+    assert!(refreshed("figures/a.tex").is_err());
 }
 
 #[test]
@@ -233,7 +235,7 @@ fn an_svg_reads_nothing_outside_the_project() {
         "<rect style=\"fill:url(#grad)\"/>",
         "<a xlink:href=\"https://example.com\"><text>a link, not a fetch</text></a>",
     ] {
-        assert_eq!(check_svg_links(root, "figures", &svg(safe)), Ok(()), "{safe}");
+        assert_eq!(check_svg_links(root, "figures", svg(safe).as_bytes()), Ok(()), "{safe}");
     }
     for unsafe_link in [
         "<image href=\"/Users/me/.ssh/id_rsa.png\"/>",
@@ -250,11 +252,11 @@ fn an_svg_reads_nothing_outside_the_project() {
         "<style>@import \"/etc/x.css\";</style>",
         "<style>@import url(https://example.com/x.css);</style>",
     ] {
-        assert!(check_svg_links(root, "figures", &svg(unsafe_link)).is_err(), "{unsafe_link}");
+        assert!(check_svg_links(root, "figures", svg(unsafe_link).as_bytes()).is_err(), "{unsafe_link}");
     }
     let entity =
         "<!DOCTYPE svg [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><svg><text>&x;</text></svg>";
-    assert!(check_svg_links(root, "figures", entity).is_err());
+    assert!(check_svg_links(root, "figures", entity.as_bytes()).is_err());
 }
 
 #[cfg(unix)]
@@ -269,10 +271,10 @@ mod links {
         fs::create_dir_all(fixture.path("figures")).unwrap();
         symlink(&secret, fixture.path("figures/leak.png")).unwrap();
         let svg = "<svg><image href=\"leak.png\"/></svg>";
-        assert!(check_svg_links(&fixture.root, "figures", svg).is_err());
+        assert!(check_svg_links(&fixture.root, "figures", svg.as_bytes()).is_err());
         symlink(fixture.parent.clone(), fixture.path("figures/up")).unwrap();
         let svg = "<svg><image href=\"up/secret.png#x\"/></svg>";
-        assert!(check_svg_links(&fixture.root, "figures", svg).is_err());
+        assert!(check_svg_links(&fixture.root, "figures", svg.as_bytes()).is_err());
     }
 
     #[test]
@@ -315,7 +317,7 @@ mod links {
         let victim = fixture.outside("victim.pdf", "keep");
         fs::remove_file(fixture.path("figures/a.pdf")).unwrap();
         symlink(&victim, fixture.path("figures/a.pdf")).unwrap();
-        assert_eq!(refresh(&fixture.root, "figures/a.svg", &fake_render), Ok(true));
+        assert_eq!(refresh(&fixture.root, "figures/a.svg", &fake_render), Ok(FigureRefresh::Rendered));
         assert_eq!(fs::read_to_string(&victim).unwrap(), "keep");
         assert!(!fixture.path("figures/a.pdf").symlink_metadata().unwrap().is_symlink());
     }
@@ -331,5 +333,261 @@ mod links {
         let dropped = fixture.outside("d.drawio", "<mxfile/>");
         assert!(import_drawing_path(&fixture.root, &dropped.to_string_lossy()).is_err());
         assert_eq!(fs::read_dir(&elsewhere).unwrap().count(), 0);
+    }
+}
+
+/// Every way a drawing was found to slip past the reference check before it
+/// read the document as XML. Each of these reached the drawing program.
+mod refused_drawings {
+    use super::*;
+
+    const OUTSIDE: &str = "<image href=\"/Users/me/Pictures/private.png\"/>";
+
+    fn svg(body: &str) -> String {
+        format!("<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">{body}</svg>")
+    }
+
+    /// Whether a drawing of these bytes is rendered at all.
+    fn renders(label: &str, bytes: &[u8]) -> bool {
+        let fixture = Fixture::project(&format!("figure-refused-{label}"));
+        fixture.write("figures/a.svg", bytes);
+        let rendered = convert(&fixture.root, "figures/a.svg", &fake_render).is_ok();
+        assert_eq!(fixture.path("figures/a.pdf").exists(), rendered);
+        rendered
+    }
+
+    fn utf16(text: &str) -> Vec<u8> {
+        let mut bytes = vec![0xFF, 0xFE];
+        for unit in text.encode_utf16() {
+            bytes.extend_from_slice(&unit.to_le_bytes());
+        }
+        bytes
+    }
+
+    #[test]
+    fn a_drawing_with_no_links_outside_still_renders() {
+        assert!(renders("plain", svg("<rect width=\"10\" height=\"10\"/>").as_bytes()));
+        assert!(renders("inline", svg("<image href=\"data:image/png;base64,iVBOR\"/>").as_bytes()));
+    }
+
+    /// What Inkscape itself writes goes through: its own namespaces, a named
+    /// view, a gradient used by reference, a clip path and a UTF-8 label.
+    #[test]
+    fn inkscapes_own_file_is_not_refused() {
+        let inkscape = r##"<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="80mm" height="40mm" viewBox="0 0 80 40" version="1.1" id="svg5"
+   inkscape:version="1.3 (0e150ed, 2023-07-21)" sodipodi:docname="scheme.svg">
+  <sodipodi:namedview id="namedview7" pagecolor="#ffffff" inkscape:zoom="2.8"
+     inkscape:current-layer="layer1" showgrid="false"/>
+  <defs id="defs2">
+    <linearGradient id="grad"><stop style="stop-color:#ff0000;stop-opacity:1" offset="0"/></linearGradient>
+    <clipPath id="clip"><rect width="10" height="10"/></clipPath>
+  </defs>
+  <style type="text/css">.label { font-family:sans-serif; fill:url(#grad) }</style>
+  <metadata id="metadata1"><rdf:RDF><cc:Work rdf:about=""><dc:title>Schéma — 1</dc:title></cc:Work></rdf:RDF></metadata>
+  <g inkscape:label="Layer 1" inkscape:groupmode="layer" id="layer1" clip-path="url(#clip)">
+    <rect style="fill:url(#grad);stroke:none" width="60" height="20" x="5" y="5" id="rect1"/>
+    <text class="label" x="10" y="30" id="text1"><tspan sodipodi:role="line">a &lt; b &amp; c</tspan></text>
+    <image xlink:href="data:image/png;base64,iVBORw0KGgo=" width="8" height="8" x="60" y="5" id="image1"/>
+    <a xlink:href="https://example.com/paper"><text x="10" y="38">source</text></a>
+    <use xlink:href="#rect1" transform="translate(0,10)" id="use1"/>
+  </g>
+</svg>
+"##;
+        assert!(renders("inkscape", inkscape.as_bytes()));
+    }
+
+    #[test]
+    fn a_drawing_lattice_cannot_read_as_xml_text_is_refused() {
+        // UTF-16 and gzip hid every link from a scan of the bytes.
+        assert!(!renders("utf16", &utf16(&svg(OUTSIDE))));
+        assert!(!renders("utf16-plain", &utf16(&svg("<rect/>"))));
+        let mut encoder =
+            flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut encoder, svg(OUTSIDE).as_bytes()).unwrap();
+        assert!(!renders("gzip", &encoder.finish().unwrap()));
+        assert!(!renders("utf16-declared", svg(OUTSIDE).replace("1.0\"?", "1.0\" encoding=\"UTF-16\"?").as_bytes()));
+        assert!(!renders("nul", b"<svg><text>\0</text></svg>"));
+    }
+
+    #[test]
+    fn a_character_reference_of_any_length_is_decoded() {
+        for reference in ["&#47;", "&#00000000047;", "&#x2F;", "&#x000000002F;"] {
+            let body = format!("<image href=\"{reference}Users/me/private.png\"/>");
+            assert!(!renders("reference", svg(&body).as_bytes()), "{reference}");
+        }
+    }
+
+    #[test]
+    fn only_a_real_hyperlink_element_may_name_an_address() {
+        // `class="&lt;a "` made the scan read an <image> as a hyperlink.
+        let body = "<image class=\"&lt;a \" href=\"/Users/me/private.png\"/>";
+        assert!(!renders("fake-a", svg(body).as_bytes()));
+        let link = "<a xlink:href=\"https://example.com\"><text>a link, not a fetch</text></a>";
+        assert!(renders("real-a", svg(link).as_bytes()));
+    }
+
+    #[test]
+    fn a_moved_base_a_doctype_and_a_style_sheet_instruction_are_refused() {
+        let based = "<g xml:base=\"file:///Users/me/Pictures/\"><image href=\"private.png\"/></g>";
+        assert!(!renders("xml-base", svg(based).as_bytes()));
+        let doctype = "<!DOCTYPE svg><svg><rect/></svg>";
+        assert!(!renders("doctype", doctype.as_bytes()));
+        let instruction = "<?xml-stylesheet href=\"/etc/x.css\"?><svg><rect/></svg>";
+        assert!(!renders("instruction", instruction.as_bytes()));
+    }
+
+    #[test]
+    fn a_drawing_an_svg_in_the_project_links_to_is_checked_too() {
+        let fixture = Fixture::project("figure-nested-svg");
+        fixture.write("figures/inner.svg", svg(OUTSIDE));
+        fixture.write("figures/a.svg", svg("<image href=\"inner.svg\"/>"));
+        assert!(convert(&fixture.root, "figures/a.svg", &fake_render).is_err());
+        assert!(!fixture.path("figures/a.pdf").exists());
+        // The same chain with nothing outside at the end still renders.
+        fixture.write("figures/inner.svg", svg("<rect/>"));
+        assert!(convert(&fixture.root, "figures/a.svg", &fake_render).is_ok());
+    }
+
+    #[test]
+    fn a_ring_of_drawings_does_not_loop() {
+        let fixture = Fixture::project("figure-svg-ring");
+        fixture.write("figures/a.svg", svg("<image href=\"b.svg\"/>"));
+        fixture.write("figures/b.svg", svg("<image href=\"a.svg\"/>"));
+        assert!(convert(&fixture.root, "figures/a.svg", &fake_render).is_ok());
+    }
+
+    #[test]
+    fn a_style_sheet_in_the_document_is_read_where_it_sits() {
+        let sheet = "<style>.a { fill: url('file:///etc/passwd') }</style>";
+        assert!(!renders("style-url", svg(sheet).as_bytes()));
+        let import = "<style>@import \"/etc/x.css\";</style>";
+        assert!(!renders("style-import", svg(import).as_bytes()));
+        let attribute = "<rect style=\"fill:url(/etc/passwd)\"/>";
+        assert!(!renders("style-attribute", svg(attribute).as_bytes()));
+        // A value with no end is no file name.
+        let unterminated = format!("<style>.a {{ fill: url({} }}</style>", "x".repeat(8192));
+        assert!(!renders("style-unterminated", svg(&unterminated).as_bytes()));
+        let fragment = "<rect style=\"fill:url(#grad)\"/>";
+        assert!(renders("style-fragment", svg(fragment).as_bytes()));
+        // A presentation attribute takes a `url(…)` of its own.
+        for attribute in ["fill", "stroke", "filter", "mask", "clip-path"] {
+            let body = format!("<rect {attribute}=\"url(/etc/passwd)\"/>");
+            assert!(!renders("presentation", svg(&body).as_bytes()), "{attribute}");
+            let own = format!("<rect {attribute}=\"url(#own)\"/>");
+            assert!(renders("presentation-own", svg(&own).as_bytes()), "{attribute}");
+        }
+    }
+
+    /// The scan used to cost about four times as much for twice the document,
+    /// so a 64 MB drawing (the cap) held a thread and the project's lease for
+    /// hours. One pass over 4 MB is well under a second.
+    #[test]
+    fn the_scan_reads_a_large_drawing_once() {
+        let fixture = Fixture::project("figure-scan-cost");
+        let root = &fixture.root;
+        for body in ["&".repeat(4 << 20), "href ".repeat(850_000), "url(".repeat(1 << 20)] {
+            let text = format!("<svg {body}/>");
+            let started = std::time::Instant::now();
+            let _ = check_svg_links(root, "figures", text.as_bytes());
+            let spent = started.elapsed();
+            assert!(spent < std::time::Duration::from_secs(1), "{spent:?} for {} bytes", text.len());
+        }
+    }
+}
+
+/// Who may hand a changed drawing to a drawing program without being asked.
+/// A drawing is untrusted input, and a project can be a clone or an Overleaf
+/// collaborator's, so a change nobody here asked for waits for a click.
+mod unattended {
+    use super::*;
+    use crate::project::manifest::{read_manifest, write_manifest};
+
+    fn trust(root: &Path) {
+        let mut manifest = read_manifest(root).unwrap();
+        manifest.trusted = true;
+        write_manifest(root, &manifest).unwrap();
+    }
+
+    /// A figure as a collaborator's push leaves it: a drawing and an entry
+    /// naming it, neither of them rendered here.
+    fn pushed(label: &str) -> Fixture {
+        let fixture = Fixture::project(label);
+        fixture.write("figures/a.svg", "<svg><rect/></svg>");
+        fixture.write("figures/a.tex", "% editable-figure source: a.svg\n\\input{figures/a.pdf_tex}\n");
+        fixture
+    }
+
+    #[test]
+    fn a_pushed_drawing_waits_for_the_user_even_in_a_trusted_project() {
+        let fixture = pushed("figure-pushed");
+        let plan = |unattended| prepare(&fixture.root, "figures/a.svg", unattended, &fake_render);
+        assert!(matches!(plan(true), Ok(RefreshPlan::AwaitingConsent)));
+        assert!(!fixture.path("figures/a.pdf").exists());
+        trust(&fixture.root);
+        assert!(matches!(plan(true), Ok(RefreshPlan::AwaitingConsent)));
+        assert!(!fixture.path("figures/a.pdf").exists());
+        // The user's own click renders it, and records the drawing as theirs,
+        // so the next change to it follows on its own.
+        assert_eq!(refresh(&fixture.root, "figures/a.svg", &fake_render), Ok(FigureRefresh::Rendered));
+        assert!(hand_rendered(&fixture.root).contains("figures/a.svg"));
+        let plan = prepare(&fixture.root, "figures/a.svg", true, &fake_render);
+        assert!(matches!(plan, Ok(RefreshPlan::Ready(_))));
+    }
+
+    #[test]
+    fn an_untrusted_project_never_renders_a_change_on_its_own() {
+        let fixture = Fixture::project("figure-untrusted");
+        fixture.write("figures/a.svg", "<svg><rect/></svg>");
+        convert(&fixture.root, "figures/a.svg", &fake_render).unwrap();
+        remember_hand_rendered(&fixture.root, "figures/a.svg");
+        let plan = prepare(&fixture.root, "figures/a.svg", true, &fake_render);
+        assert!(matches!(plan, Ok(RefreshPlan::AwaitingConsent)));
+    }
+
+    #[test]
+    fn a_figure_made_here_in_a_trusted_project_follows_its_drawing() {
+        let fixture = Fixture::project("figure-trusted");
+        trust(&fixture.root);
+        fixture.write("figures/a.svg", "<svg><rect/></svg>");
+        // What the project-tree action, a paste and a drop leave behind: the
+        // figure, and the drawing recorded as one someone here rendered.
+        convert(&fixture.root, "figures/a.svg", &fake_render).unwrap();
+        remember_hand_rendered(&fixture.root, "figures/a.svg");
+        let plan = prepare(&fixture.root, "figures/a.svg", true, &fake_render);
+        assert!(matches!(plan, Ok(RefreshPlan::Ready(_))));
+    }
+
+    #[test]
+    fn the_record_of_hand_rendered_drawings_stays_out_of_the_project() {
+        let fixture = Fixture::project("figure-record");
+        remember_hand_rendered(&fixture.root, "figures/a.svg");
+        remember_hand_rendered(&fixture.root, "figures/a.svg");
+        assert!(hand_rendered(&fixture.root).contains("figures/a.svg"));
+        // `.research` is the project's own folder, and git ignores it.
+        assert!(fixture.path(RENDERED_BY_HAND).is_file());
+        assert!(fixture.read(".gitignore").contains(".research"));
+    }
+
+    /// Installing re-reads the figure, since the program ran without the
+    /// project's lease and the project may have moved on.
+    #[test]
+    fn a_figure_that_changed_during_the_render_is_not_written_over() {
+        let fixture = Fixture::project("figure-moved-on");
+        fixture.write("figures/a.svg", "<svg><rect/></svg>");
+        convert(&fixture.root, "figures/a.svg", &fake_render).unwrap();
+        let Ok(RefreshPlan::Ready(prepared)) =
+            prepare(&fixture.root, "figures/a.svg", false, &fake_render)
+        else {
+            panic!("the figure was ready to render")
+        };
+        // Someone renamed the entry away while the program was running.
+        fs::remove_file(fixture.path("figures/a.tex")).unwrap();
+        assert_eq!(install_prepared(&fixture.root, &prepared), Ok(FigureRefresh::NoFigure));
     }
 }
