@@ -57,6 +57,7 @@ mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
 mod pdf_pages;
+mod pdf_window;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
 mod presentation;
@@ -104,6 +105,13 @@ const MAIN_WINDOW_LABEL: &str = "main";
 pub(crate) fn is_workspace_window(label: &str) -> bool {
     label == MAIN_WINDOW_LABEL
         || label.strip_prefix("project-").is_some_and(|rest| !rest.is_empty())
+}
+
+/// Whether the window-state plugin remembers and restores the window
+/// `label`. Not a browser bridge, which must stay hidden (the plugin's restore
+/// shows it), nor a PDF window, placed per project instead (pdf_window.rs).
+fn window_state_tracks(label: &str) -> bool {
+    !label.starts_with("browser-") && !pdf_window::is_pdf_window(label)
 }
 
 /// Whether Lattice keeps running once its last window has closed. A Mac app
@@ -189,6 +197,7 @@ fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
 }
 
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    pdf_window::on_window_event(window, event);
     if let tauri::WindowEvent::Focused(is_focused) = event {
         macos_window::set_window_focused(window.label(), *is_focused);
     }
@@ -226,6 +235,12 @@ fn on_page_load<R: Runtime>(
     webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
 ) {
     if payload.event() == tauri::webview::PageLoadEvent::Started {
+        // A PDF window's page shows its owner's project and owns none of this.
+        if pdf_window::is_pdf_window(webview.label()) {
+            return;
+        }
+        // The new page opens its PDF window again if its project keeps one.
+        pdf_window::close_owned(webview.app_handle(), webview.label());
         // The new page enables saving before close again once it can.
         save_before_close::forget(webview.app_handle(), webview.label());
         git::clone::cancel(webview.label());
@@ -397,9 +412,7 @@ pub fn run() {
         // builder says `visible(false)`, so bridge windows must stay outside
         // this lifecycle entirely.
         .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| !label.starts_with("browser-"))
-                .build(),
+            tauri_plugin_window_state::Builder::default().with_filter(window_state_tracks).build(),
         )
         .on_window_event(on_window_event)
         .on_page_load(on_page_load)
@@ -472,6 +485,8 @@ pub fn run() {
             ipc::windows::align_traffic_lights,
             ipc::windows::title_bar_double_click,
             ipc::windows::sample_screen_color,
+            pdf_window::open_pdf_window,
+            pdf_window::close_pdf_window,
             ipc::files::list_project_tree_with_hidden,
             ipc::files::stat_project_file,
             ipc::files::find_moved_project_file,
@@ -695,7 +710,9 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_workspace_window, keeps_running_without_windows, log_level};
+    use super::{
+        is_workspace_window, keeps_running_without_windows, log_level, window_state_tracks,
+    };
 
     #[test]
     fn closing_the_last_window_leaves_lattice_running_on_a_mac() {
@@ -712,6 +729,16 @@ mod tests {
         }
         for label in ["project-", "browser-1", "overleaf-login", "presenter", "mainly"] {
             assert!(!is_workspace_window(label), "{label}");
+        }
+    }
+
+    #[test]
+    fn window_state_skips_bridge_and_pdf_windows() {
+        for label in ["main", "project-2"] {
+            assert!(window_state_tracks(label), "{label}");
+        }
+        for label in ["browser-1", "pdf-1"] {
+            assert!(!window_state_tracks(label), "{label}");
         }
     }
 

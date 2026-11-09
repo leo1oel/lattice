@@ -265,7 +265,7 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~700 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **236** commands in
+lifecycle and the child runtimes, and registers **240** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
@@ -280,7 +280,7 @@ the domain call on the blocking pool (`ipc::run_blocking` / `in_project`).
 Behaviour belongs in the domain modules. A few self-contained services keep
 their commands beside their state: `synara.rs`, `presentation.rs`,
 `browser_host/dialogs.rs`, `literature_credentials.rs`, `link_preview.rs`,
-`diagnostic_logs.rs`, `macos_window.rs`.
+`diagnostic_logs.rs`, `macos_window.rs`, `pdf_window.rs`.
 
 Which project each window shows, and the per-project resources that must not be
 shared between windows (the active build, the TexLab pool, the Overleaf
@@ -435,7 +435,7 @@ regression is not visible in a dev build.
 
 | Budget | Value | Constant |
 | --- | --- | --- |
-| Eager JavaScript (all `<script>` in `index.html`) | `1.359 * 1024 * 1024` = 1,425,014 bytes | `EAGER_JS_BUDGET_BYTES` |
+| Eager JavaScript (all `<script>` in `index.html`) | `1.361 * 1024 * 1024` = 1,427,111 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
 | Staged Open Slide runtime (file bytes) | 66 MiB on Apple silicon Macs, 68 MiB on Intel Macs, 69 MiB on Linux (larger x86_64 and ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |
