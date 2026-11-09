@@ -31,7 +31,6 @@ import { resolveCommentAnchor } from "../../comments/editor-comment-data";
 import { focusWhenShown } from "../../focus-when-shown";
 import { blockAnchors } from "./block-anchors";
 import { blockWindow, mayDrawInWindow, revealPosition, scrollToTarget } from "./block-window";
-import { FrozenHeaders } from "./frozen-headers";
 import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings, type DocumentHeading } from "./heading-anchors";
 import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
 import type { ImeGuard } from "./engine-keymap";
@@ -563,7 +562,6 @@ function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: Im
     SourceOverlays,
     RevealFlash,
     HeadingAnchors.configure({ paper: () => Boolean(chrome.host.props().optimizeForReading) }),
-    FrozenHeaders.configure({ enabled: () => !openOptions(chrome.host.props()).paperSpans }),
     HostHistory,
   ], { anchors: blockAnchors });
 }
