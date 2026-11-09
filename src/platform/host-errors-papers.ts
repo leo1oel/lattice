@@ -104,11 +104,11 @@ export const PAPERS_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["citation_health.rs", "Crossref lookup is still under way", () => t`Crossref lookup is still under way`],
   ["citation_health.rs", "Crossref lookup stopped", () => t`Crossref lookup stopped`],
 
-  // Applying a reference check (citation_audit/apply.rs, citation_audit/proposal.rs)
+  // Applying a reference check, or its proposal at import (citation_audit/apply.rs, citation_audit/check.rs)
   ["citation_audit/apply.rs", "The bibliography entry changed after the preview. Scan it again.", () => t`The bibliography entry changed after the preview. Scan it again.`],
   ["citation_audit/apply.rs", "The proposed replacement must be exactly one entry with the same citation key.", () => t`The proposed replacement must be exactly one entry with the same citation key.`],
   ["citation_audit/apply.rs", "The proposed metadata conflicts with this reference's identity. Check the title, authors, identifiers, year, and venue manually.", () => t`The proposed metadata conflicts with this reference's identity. Check the title, authors, identifiers, year, and venue manually.`],
   ["citation_audit/apply.rs", "That update would give this entry the DOI already used by '{conflict}', so it describes a different paper. Check the record before applying it.", ([key]) => t`That update would give this entry the DOI already used by ''${key}'', so it describes a different paper. Check the record before applying it.`],
   ["citation_audit/apply.rs", "Duplicate citation key in this file; fix it before checking or applying updates.", () => t`Duplicate citation key in this file; fix it before checking or applying updates.`],
-  ["citation_audit/proposal.rs", "A published record was found ({doi}, from {source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added.", ([doi, source]) => t`A published record was found (${doi}, from ${source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added.`],
+  ["citation_audit/check.rs", "A published record was found ({doi}, from {source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added.", ([doi, source]) => t`A published record was found (${doi}, from ${source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added.`],
 ];

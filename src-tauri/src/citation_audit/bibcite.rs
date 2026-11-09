@@ -55,8 +55,11 @@ pub(super) fn run_bibcite(args: &[&str], command: Option<Command>) -> Result<Out
     let capture = scratch(None)?;
     let stdout = capture.dir.join("stdout");
     let stderr = capture.dir.join("stderr");
+    // Every file argument is absolute; a relative write lands in the scratch
+    // directory, never the app's (or a test's) working directory.
     command
         .args(args)
+        .current_dir(&capture.dir)
         .stdout(Stdio::from(fs::File::create(&stdout).map_err(|e| e.to_string())?))
         .stderr(Stdio::from(fs::File::create(&stderr).map_err(|e| e.to_string())?));
     commands::in_new_process_group(&mut command);
