@@ -1,7 +1,9 @@
 //! Which project each window shows, and the resources an open project owns.
 
 use crate::ipc::overleaf_realtime::OverleafRealtimeState;
-use crate::{fs_watch, git, latex, live_preview, project, terminal, texlab, MAIN_WINDOW_LABEL};
+use crate::{
+    fs_watch, git, latex, live_preview, pdf_window, project, terminal, texlab, MAIN_WINDOW_LABEL,
+};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -33,6 +35,8 @@ pub(crate) struct AppState {
     /// The Terminal panel's shells. Each belongs to a window and the project
     /// it showed: they end with that binding (see `retire_unused_projects`).
     pub(crate) terminals: terminal::Terminals,
+    /// The PDF windows, each showing its owner's project (see `root_for`).
+    pub(crate) pdf_windows: pdf_window::PdfWindows,
 }
 
 /// State that belongs to one project, not the process: with two windows open,
@@ -103,6 +107,7 @@ impl AppState {
             paper_imports: Mutex::default(),
             paper_fetches: Mutex::default(),
             terminals: terminal::Terminals::default(),
+            pdf_windows: pdf_window::PdfWindows::default(),
         }
     }
 
@@ -241,7 +246,9 @@ impl AppState {
     }
 
     pub(crate) fn root_for(&self, label: &str) -> Result<Option<PathBuf>, String> {
-        Ok(self.roots()?.get(label).cloned())
+        // A PDF window shows the project of the workspace window that opened it.
+        let owner = self.pdf_windows.owner(label);
+        Ok(self.roots()?.get(owner.as_deref().unwrap_or(label)).cloned())
     }
 
     /// Bind a window to a project before it loads, so the window's own startup

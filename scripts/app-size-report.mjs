@@ -180,13 +180,18 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // repair run itself already loaded on demand (1,422,354 -> 1,423,643 bytes).
 // Raised from 1.358 MiB the same day for the audit's S11-S23 fixes (#720),
 // small guards spread over a dozen eager modules with no one import to defer,
-// +0.6 KB on top of S6-S10 (1,423,643 -> 1,424,228 bytes).
-// Raised from 1.359 MiB on 2026-11-09 for the TeX doctor's package update
-// (#726): its state is a hook App runs (use-tex-package-updates.ts), since
-// Settings unmounts on close and an approved update outlives it, and the
-// setup wizard reports a failed package update; the doctor's row and its
-// check-error wording load with Settings (about 1,426,500 bytes).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.361 * 1024 * 1024);
+// +0.6 KB on top of S6-S10 (1,423,643 -> 1,424,228 bytes). Raised from 1.359
+// MiB for the PDF's separate window (#725): whether each project's PDF is in
+// its own window, the palette entry that moves it there and back, the guards
+// that keep a build or a jump from reopening the panel, and the window page's
+// start in main.tsx; the bridge and the window's page load on demand, +2.6 KB
+// (1,424,228 -> 1,426,861 bytes). Raised again on 2026-11-09 for the TeX
+// doctor's package update (#726): its state is a hook App runs
+// (use-tex-package-updates.ts), since Settings unmounts on close and an
+// approved update outlives it, and the setup wizard reports a failed package
+// update; the doctor's row and its check-error wording load with Settings,
+// +2.4 KB (1,426,861 -> 1,429,220 bytes, a local build).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.364 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.
@@ -303,8 +308,9 @@ export async function checkAppSizeBudgets(
 // sidecar about 1.9 MB and the release built at 330.8 MiB on disk. v0.16.1
 // raised it from 333 MiB: the v0.16 features (Zotero import, PDF comment
 // column, history review, Overleaf live sync) grew the app binary from 61.7 to
-// 63.1 MiB, and the v0.16.0 build reached 333.2 MiB on disk.
-const INSTALLED_APP_BUDGET_BYTES = 335 * 1024 * 1024;
+// 63.1 MiB, and the v0.16.0 build reached 333.2 MiB on disk. 2026-11-09: set
+// to 400 MiB (captain's call) so routine growth stops blocking releases and PRs.
+const INSTALLED_APP_BUDGET_BYTES = 400 * 1024 * 1024;
 // The Intel Mac app (macos-intel.yml), built on an Intel host, carries x86_64
 // builds of the app, Node and the runtimes' native packages, all larger: the
 // first one built at 335.8 MiB on disk on 2026-11-07.

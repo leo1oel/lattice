@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "pdf-window",
+  "description": "Capability for the compiled PDF's separate window (src-tauri/src/pdf_window.rs), which runs only the PDF viewer. Events carry the owner window's state in and the viewer's actions (SyncTeX, outline, citations, Return to workspace) out; the owner opens, titles and closes the window from the backend, so the page needs no window permissions. Webview zoom follows the interface scale, clipboard text write copies selected PDF text, dialog save is Save PDF as…, and logging records the viewer's actions like the workspace's.",
+  "windows": ["pdf-*"],
+  "permissions": [
+    "core:event:default",
+    "core:webview:allow-set-webview-zoom",
+    "clipboard-manager:allow-write-text",
+    "dialog:allow-save",
+    "log:default"
+  ]
+}

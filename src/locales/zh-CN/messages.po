@@ -4472,6 +4472,10 @@ msgstr "无法建立 Overleaf 实时连接：{error}"
 msgid "Could not open the Overleaf sign-in window: {error}"
 msgstr "无法打开 Overleaf 登录窗口：{error}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not open the PDF in a new window: {error}"
+msgstr "无法在新窗口中打开 PDF：{error}"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not open the project because its Overleaf host is invalid."
 msgstr "Overleaf 地址无效，无法打开"
@@ -10155,6 +10159,10 @@ msgstr "只有 LaTeX 文档能导出标注修改的版本"
 msgid "Only a LaTeX document can show its changes marked."
 msgstr "只有 LaTeX 文档可以标记改动。"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Only a Lattice window can open the PDF in a window of its own."
+msgstr "只有 Lattice 窗口才能把 PDF 放进单独的窗口"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
 msgstr "只有二进制文件有改动"
@@ -10340,6 +10348,10 @@ msgstr "在 Lattice 中打开"
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
 
+#: src/canvas/project-pdf-panel.tsx
+msgid "Open in separate window"
+msgstr "在单独窗口中打开"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Open invitation"
@@ -10479,6 +10491,10 @@ msgstr "请先打开关联的项目，再改同步设置"
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the linked Overleaf project first."
 msgstr "请先打开关联的 Overleaf 项目"
+
+#: src/app/use-command-table.ts
+msgid "Open the PDF in a separate window"
+msgstr "在单独窗口中打开 PDF"
 
 #: src/trellis/trellis-document-views.tsx
 msgid "Open the reader"
@@ -12717,9 +12733,18 @@ msgstr "查找结果"
 msgid "Retry"
 msgstr "重试"
 
+#: src/app/use-command-table.ts
+msgid "Return the PDF to the workspace"
+msgstr "把 PDF 放回工作区"
+
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Return to {name}"
 msgstr "返回 {name}"
+
+#: src/canvas/project-pdf-window.tsx
+#: src/pdf/pdf-window-page.tsx
+msgid "Return to workspace"
+msgstr "放回工作区"
 
 #: src/app/use-trellis-bridge.ts
 #: src/pdf/pdf-viewer.tsx
@@ -15211,6 +15236,10 @@ msgstr "AI 助手读过之后这一段又改了。请重试，让它按现在的
 msgid "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
 msgstr "这个 PDF 几乎没有文字层；扫描版论文需要 OCR，目前不支持"
 
+#: src/canvas/project-pdf-window.tsx
+msgid "The PDF is in a separate window"
+msgstr "PDF 在单独的窗口中"
+
 #: src/platform/host-errors-papers.ts
 msgid "The PDF is larger than the 100 MB conversion limit."
 msgstr "PDF 超过了 100 MB 的转换上限"
@@ -16155,6 +16184,7 @@ msgid "Try again…"
 msgstr "重试…"
 
 #: src/canvas/project-pdf-panel.tsx
+#: src/pdf/pdf-window-page.tsx
 msgid "Try building the project again"
 msgstr "请尝试重新构建项目"
 

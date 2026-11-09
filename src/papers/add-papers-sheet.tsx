@@ -454,7 +454,8 @@ function CiteCopy({ citationKey }: { citationKey: string }) {
   const command = `\\cite{${citationKey}}`;
   return (
     <CopyButton className="add-papers-cite" text={command} iconSize={11} title={t`Copy \\cite command`} aria-label={t`Copy ${command}`}>
-      <code>{citationKey}</code>
+      {/* A long key truncates; hovering it shows the whole key (the button copies it whole). */}
+      <code title={citationKey}>{citationKey}</code>
     </CopyButton>
   );
 }

@@ -16,7 +16,7 @@ import { PREBUNDLED_DEPENDENCIES } from "./prebundled-dependencies.mjs";
 
 export { transformOpenSlideConnectionCopy };
 
-const VERSION = "2.3.1";
+const VERSION = "2.3.2";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PREVIOUS_CONTENT_LIMIT = 2 * 1024 * 1024;
 const PREVIOUS_CONTENT_TOTAL_LIMIT = 8 * 1024 * 1024;

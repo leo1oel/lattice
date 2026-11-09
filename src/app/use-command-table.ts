@@ -49,6 +49,7 @@ import type { ReferenceImport } from "./use-reference-import";
 import type { useSyncTexNavigation } from "./use-synctex-navigation";
 import type { ToolDrawers } from "./use-tool-drawers";
 import type { useWhatsNew } from "./use-whats-new";
+import { detachPdf, dockPdf, pdfWindowOpen, pdfWindowsAvailable } from "./pdf-window-state";
 
 const loadFormatDocument = () => import("./format-document");
 
@@ -190,6 +191,10 @@ export function useCommandTable({
     // Only ever wanted while a build runs, so never worth remembering.
     { id: "stop-build", when: building, label: t`Stop build`, group: "build", recent: false, run: () => void abortBuild() },
     { id: "sync-pdf", when: latexSource && syncTex.canForwardSync, label: t`Jump to PDF`, group: "navigate", ...REVEAL_IN_PDF_KEY, run: () => void revealSourceInPdf() },
+    // The PDF in a window of its own, for a second screen, and back (pdf-window-state.ts).
+    project && pdfWindowOpen(project.root)
+      ? { id: "pdf-window", label: t`Return the PDF to the workspace`, group: "layout", run: () => dockPdf(trellis, project.root) }
+      : { id: "pdf-window", when: project !== null && pdfWindowsAvailable(), label: t`Open the PDF in a separate window`, group: "layout", run: () => project && detachPdf(trellis, project.root) },
     { id: "quick-open", when: inProject, label: t`Quick open file`, group: "navigate", key: "p", run: () => setSearchDialog("quick-open") },
     { id: "goto-line", when: textEditor, label: t`Go to line`, group: "navigate", key: "g", run: () => setSearchDialog("goto-line") },
     { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, group: "navigate", key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },

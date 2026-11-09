@@ -60,6 +60,7 @@ import { useBuildPreferences } from "./app/use-build-preferences";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
+import { showProjectPdf } from "./app/pdf-window-state";
 import { useApplyOpenSlideMutation } from "./app/use-apply-open-slide-mutation";
 import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
 import { AppEditorPanels } from "./app/app-editor-panels";
@@ -364,16 +365,13 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         consumeAgentAssociations: options?.consumeAgentAssociations,
       });
     },
-    /**
-     * An explicit build (button, palette) also brings a closed or hidden PDF
-     * panel back under Trellis; in focus mode the PDF stays as the writer set it.
-     */
+    /** An explicit build (button, palette) also brings the PDF up (showProjectPdf). */
     compileAndShowPdf: (
       force?: boolean,
       sound?: boolean,
       options?: { consumeAgentAssociations?: boolean },
     ) => {
-      if (!trellis.ui.get().focus) trellis.showPanel("pdf", { focus: false });
+      showProjectPdf(trellis);
       return compile(force, sound, options);
     },
     openCompileDiagnostic: async (diagnostic: CompileDiagnostic) => {

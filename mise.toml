@@ -263,7 +263,6 @@ sources = [
   "tools/open-slide-runtime/*.mjs",
   "tools/open-slide-runtime/package.json",
   "tools/open-slide-runtime/pnpm-lock.yaml",
-  "tools/open-slide-runtime/patches/**",
   "src-tauri/src/presentation.rs",
   "scripts/prepare-presentation-runtime.mjs",
   "scripts/check-presentation-runtime.mjs",

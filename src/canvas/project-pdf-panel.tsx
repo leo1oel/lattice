@@ -19,9 +19,11 @@ import { LivePreviewStatus } from "../live-preview/live-preview-status";
 import { loadLivePreviewModule, type LivePreview } from "../live-preview/use-live-preview";
 import { InlineMessage } from "../components/ui/inline-message";
 import { useMarkedPdf } from "../history/use-marked-pdf";
+import { SquareArrowOutUpRight } from "lucide-react";
+import { PdfInWindowPlaceholder, ProjectPdfWindow, type ProjectPdfWindowControl } from "./project-pdf-window";
 
 /** The compiled project PDF: its build, SyncTeX in both directions and its pages. */
-type ProjectPdf = Readonly<{
+export type ProjectPdf = Readonly<{
   pdfUrl: string | null;
   pdfBytes?: ArrayBuffer | null;
   /** Builds the project from the PDF panel while it has no PDF yet. */
@@ -40,14 +42,14 @@ type ProjectPdf = Readonly<{
 }>;
 
 /** The citations the PDF's links name, and whether and how one opens. */
-type ProjectPdfCitations = Readonly<{
+export type ProjectPdfCitations = Readonly<{
   citations: CitationInfo[];
   canOpenCitation: (key: string) => boolean;
   onOpenCitation: (key: string) => void;
 }>;
 
 /** The manuscript's outline, offered from the PDF's toolbar. */
-type ProjectPdfOutline = Readonly<{
+export type ProjectPdfOutline = Readonly<{
   nodes: OutlineNode[];
   activeId: string | null;
   open: boolean;
@@ -62,13 +64,13 @@ type ProjectPdfReview = Readonly<{
 }>;
 
 /** What the agent hears about the PDF: the writer turning to it, and the text selected in it. */
-type ProjectPdfSelection = Readonly<{
+export type ProjectPdfSelection = Readonly<{
   onPdfTextSelect: (value: string, place?: AgentPdfDocumentPlace) => void;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
 }>;
 
 /** The per-file view states the PDF's place is filed under. */
-type ProjectPdfViewState = Readonly<{
+export type ProjectPdfViewState = Readonly<{
   getFileViewState?: (path: string) => FileViewState | undefined;
   onFileViewState?: (path: string, update: Partial<FileViewState>) => void;
 }>;
@@ -92,6 +94,8 @@ export type ProjectPdfPanelProps = Readonly<{
   onLeaveEditor: () => void;
   /** The LuaLaTeX live preview, drawn over the pages while it runs. */
   livePreview?: LivePreview;
+  /** The PDF in a window of its own instead (project-pdf-window.tsx). */
+  pdfWindow?: ProjectPdfWindowControl;
 }>;
 
 /**
@@ -102,7 +106,7 @@ export type ProjectPdfPanelProps = Readonly<{
  * nothing), so the document it files its place under survives that too.
  */
 export function ProjectPdfPanel({
-  host, projectRoot, activeFile, pdf, citations, outline, review, selection, viewState, onLeaveEditor, livePreview,
+  host, projectRoot, activeFile, pdf, citations, outline, review, selection, viewState, onLeaveEditor, livePreview, pdfWindow,
 }: ProjectPdfPanelProps) {
   const { t } = useLingui();
   // Saved-view ownership for the PDF. Files without a preview of their own
@@ -118,8 +122,29 @@ export function ProjectPdfPanel({
   }
   // Review mode's marked PDF has no SyncTeX of its own: jumps stay with the paper's.
   const marked = useMarkedPdf(projectRoot, pdf.pdfUrl);
-  if (!host) return null;
   const previewPath = previewOwner ?? previewIdentity.path;
+  // In its own window, the PDF leaves the panel: a layout that brings the
+  // panel up anyway shows the way back. The window shows the paper's own
+  // PDF, without review mode's marks or the live preview's layer.
+  if (pdfWindow?.open) {
+    return (
+      <>
+        <ProjectPdfWindow
+          key={projectRoot}
+          projectRoot={projectRoot}
+          previewPath={previewPath}
+          control={pdfWindow}
+          pdf={pdf}
+          citations={citations}
+          outline={outline}
+          selection={selection}
+          viewState={viewState}
+        />
+        {host && createPortal(<div className="pdf-column"><PdfInWindowPlaceholder onDock={pdfWindow.onDock} /></div>, host)}
+      </>
+    );
+  }
+  if (!host) return null;
   const liveSession = livePreview?.state.kind === "running" ? livePreview.state.session : null;
   // The session exists only once its chunk has loaded, so the layer is here.
   const LiveLayer = liveSession ? loadLivePreviewModule.loaded()?.LivePreviewLayer : undefined;
@@ -183,6 +208,7 @@ export function ProjectPdfPanel({
                 )
                 : livePreview ? <LivePreviewStatus state={livePreview.state} onRetry={livePreview.retry} /> : null}
               onPageChange={pdf.onPdfPageChange}
+              toolbarAction={pdfWindow?.onOpen && { label: t`Open in separate window`, icon: SquareArrowOutUpRight, run: pdfWindow.onOpen }}
               initialViewState={initialViewState}
               onViewState={(state) => viewState.onFileViewState?.(previewPath, { pdf: state })}
               outline={(
