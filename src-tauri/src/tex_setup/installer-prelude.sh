@@ -60,15 +60,15 @@ status() {
   printf '%s\n' "$1" > "${STATUS}"
 }
 
-# Copy tlmgr's output into LOG and report its "[n/total," lines as
-# "<stage> n total". A function rather than an inline loop: /bin/bash 3.2 skips
-# the ERR trap when a failing pipeline ends in a compound command, so the
-# script would exit without telling the app why.
+# Copy tlmgr's output into LOG and report its "[n/total," lines (n padded with
+# spaces to the width of total) as "<stage> n total". A function rather than
+# an inline loop: /bin/bash 3.2 skips the ERR trap when a failing pipeline ends
+# in a compound command, so the script would exit without telling the app why.
 relay_progress() {
   local line
   while IFS= read -r line; do
     printf '%s\n' "${line}"
-    if [[ "${line}" =~ ^\[([0-9]+)/([0-9]+), ]]; then
+    if [[ "${line}" =~ ^\[\ *([0-9]+)/([0-9]+), ]]; then
       status "$1 ${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
     fi
   done

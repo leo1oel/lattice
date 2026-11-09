@@ -34,15 +34,21 @@ export function TexPackageUpdatesCheck({ updates }: { updates: TexPackageUpdates
   // stays a problem while an update runs, until the recheck after it.
   if (!report) return null;
   let detail: string | null = null;
-  if (report.error) detail = t`Couldn’t check for updates. Check the network connection, then run the TeX doctor again.`;
-  else if (count > 0) detail = more > 0 ? t`Updates available (${count}): ${named}, and ${more} more` : t`Updates available (${count}): ${named}`;
+  let result = t`Up to date`;
+  if (report.error) {
+    detail = t`Couldn’t check for updates. Check the network connection, then run the TeX doctor again.`;
+    result = t`Couldn’t check for updates`;
+  } else if (count > 0) {
+    detail = more > 0 ? t`Updates available (${count}): ${named}, and ${more} more` : t`Updates available (${count}): ${named}`;
+    result = t`Updates available`;
+  }
 
   return (
     <li className={detail ? "warn" : "ok"} aria-busy={checking}>
       {detail ? <CircleAlert aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
       <strong>{t`TeX packages`}</strong>
       {/* For assistive technology only, as in the other checks. */}
-      <span className="doctor-check-result">{detail ? t`Updates available` : t`Up to date`}</span>
+      <span className="doctor-check-result">{result}</span>
       {detail && <span className="doctor-check-detail">{detail}</span>}
       {count > 0 && !report.managed && (
         <span className="doctor-check-detail">

@@ -4671,6 +4671,7 @@ msgid "Couldn’t check for Lattice updates"
 msgstr "检查更新失败"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Couldn’t check for updates"
 msgstr "检查更新失败"
 
