@@ -1,0 +1,34 @@
+{
+  "version": "0.16.6",
+  "date": "2026-11-09",
+  "highlights": [
+    {
+      "title": {
+        "en": "HTML and SVG in Markdown, drawn instead of shown as source",
+        "zh": "Markdown 中的 HTML 和 SVG 直接绘制，不再显示源码"
+      },
+      "body": {
+        "en": "Embedded HTML and inline SVG, such as a figure drafted as <svg>, show as a live, sanitized preview. Click it to edit the source, which is saved byte-for-byte.",
+        "zh": "内嵌的 HTML 和行内 SVG（例如用 <svg> 绘制的图）会显示为经过清理的实时预览。点击即可编辑源码，保存时逐字节保留。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "The Markdown editor no longer drifts up or down while you read: images far above the view keep their size, and the editor holds your reading position.",
+      "zh": "Markdown 编辑器在阅读时不再上下漂移：视图上方很远处的图片保持原有尺寸，编辑器会保持你的阅读位置。"
+    },
+    {
+      "en": "A Markdown table's header row stays with its table instead of sliding while you scroll.",
+      "zh": "Markdown 表格的表头行在滚动时始终跟随表格，不再滑开。"
+    },
+    {
+      "en": "On Windows, the window stays maximized after you maximize it or close a file. Thanks to @ivanvykopal.",
+      "zh": "在 Windows 上，最大化窗口或关闭文件后窗口保持最大化。感谢 @ivanvykopal。"
+    },
+    {
+      "en": "chemnum matches printed compound numbers faster and more safely.",
+      "zh": "chemnum 匹配印刷的化合物编号更快、更安全。"
+    }
+  ]
+}
