@@ -1,0 +1,46 @@
+{
+  "version": "0.16.3",
+  "date": "2026-11-09",
+  "highlights": [
+    {
+      "title": {
+        "en": "Git status no longer fills your repository",
+        "zh": "Git 状态不再占满你的仓库"
+      },
+      "body": {
+        "en": "The AI assistant's Git status summary uses a temporary object directory that is always removed, so it no longer writes into your repository's .git or leaves large temporary pack files behind after a timeout. Very large untracked files are skipped.",
+        "zh": "AI 助手的 Git 状态摘要改用一个用完即删的临时对象目录，不再写入你仓库的 .git，也不会在超时后留下巨大的临时 pack 文件；特别大的未跟踪文件会被跳过。"
+      }
+    },
+    {
+      "title": {
+        "en": "Check citations and Add papers agree",
+        "zh": "“检查引用”与“添加论文”保持一致"
+      },
+      "body": {
+        "en": "Both use one venue list, so entries added through Lattice pass Check citations unchanged. Venue names are no longer rewritten to forms like \"Advances in Neural Information Processing Systems 35\" or \"Proceedings of the …\", Findings venues (ACL, EMNLP, NAACL, …) are recognized with their abbreviations, and pasted, Zotero and editor entries get the same lookup as DOI imports.",
+        "zh": "两者使用同一份会议列表，通过 Lattice 添加的条目无需修改即可通过“检查引用”。会议名称不再被改写成 “Advances in Neural Information Processing Systems 35” 或 “Proceedings of the …” 这样的形式；Findings 系列会议（ACL、EMNLP、NAACL 等）可按缩写识别；粘贴、Zotero 和编辑器中的条目与 DOI 导入使用相同的查询。"
+      }
+    },
+    {
+      "title": {
+        "en": "Track changes builds for natbib papers again",
+        "zh": "使用 natbib 的论文可以再次生成修订 PDF"
+      },
+      "body": {
+        "en": "The PDF with changes marked builds again for natbib papers such as CVPR, ICLR and ACL templates. A change TeX can't mark is shown unmarked instead of losing the whole marked PDF.",
+        "zh": "使用 natbib 的论文（如 CVPR、ICLR、ACL 模板）可以再次生成标出修改的 PDF。TeX 无法标记的修改会以未标记的形式显示，而不会导致整份标记 PDF 生成失败。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "PDF comments column: resize it by dragging its left edge; the close button no longer sits on the line, comments stack from the top, and the PDF's scrollbar no longer draws over the column.",
+      "zh": "PDF 批注栏：拖动左边缘即可调整宽度；关闭按钮不再压在分隔线上，批注从顶部开始排列，PDF 的滚动条也不再盖住批注栏。"
+    },
+    {
+      "en": "Placing the caret in an already-written citation key shows only the hover card, without a suggestion list stacked under it, and the card's list of uses has Lattice's scrollbar.",
+      "zh": "将光标放在已写好的引用键中时只显示悬停卡片，下面不再叠着建议列表；卡片中的引用位置列表使用 Lattice 的滚动条。"
+    }
+  ]
+}
