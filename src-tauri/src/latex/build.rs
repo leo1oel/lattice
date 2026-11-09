@@ -22,71 +22,10 @@ use std::path::Path;
 use std::process::{Command, Output, Stdio};
 use std::time::Instant;
 
-#[derive(Debug, Default)]
-pub struct ActiveBuildState {
-    pid: Option<u32>,
-    cancelled: bool,
-}
-
-/// Shared handle for the in-flight latexmk process group. Each project owns
-/// one, from `ProjectResources`'s derived `Default`.
-pub type ActiveBuild = Arc<Mutex<ActiveBuildState>>;
-
-/// Take the lock, recovering from poisoning.
-///
-/// The guarded state is two plain scalars, so a thread that panicked while
-/// holding the lock cannot have left them half-written. `panic = "abort"` is
-/// deliberately off, which makes a poisoned mutex reachable, and refusing it
-/// made every later build answer "cancelled" for the rest of the session. The
-/// warning is the only trace of whatever panicked, so it is not optional.
-fn state(active: &ActiveBuild) -> MutexGuard<'_, ActiveBuildState> {
-    active.lock().unwrap_or_else(|poisoned| {
-        log::warn!("Build state lock was poisoned by an earlier panic; recovering it");
-        poisoned.into_inner()
-    })
-}
-
-pub fn abort(active: &ActiveBuild) -> Result<bool, String> {
-    let mut guard = state(active);
-    if guard.pid.is_none() && !guard.cancelled {
-        return Ok(false);
-    }
-    guard.cancelled = true;
-    if let Some(pid) = guard.pid.take() {
-        terminate(pid);
-    }
-    Ok(true)
-}
-
-/// Whether latexmk is running for this project: a restart would stop it.
-pub fn is_running(active: &ActiveBuild) -> bool {
-    state(active).pid.is_some()
-}
-
-/// latexmk and every pass it starts share the process group made at spawn.
-fn terminate(pid: u32) {
-    commands::signal_process_group(pid, crate::commands::TERM_SIGNAL);
-}
-
-/// Register an already-running process as this project's build.
-pub(crate) fn begin_active(active: &ActiveBuild, pid: u32) -> Result<(), String> {
-    let mut guard = state(active);
-    if guard.pid.is_some() {
-        return Err(ALREADY_RUNNING.to_string());
-    }
-    guard.pid = Some(pid);
-    guard.cancelled = false;
-    Ok(())
-}
-
-/// Returns whether this build was cancelled — never anything else. Reporting a
-/// build the user never stopped as cancelled hides its real outcome, log and
-/// all, which is what an unavailable lock used to do here.
-fn finish_active(active: &ActiveBuild) -> bool {
-    let mut guard = state(active);
-    guard.pid = None;
-    std::mem::take(&mut guard.cancelled)
-}
+mod active;
+pub(crate) use active::begin_active;
+pub use active::{abort, is_running, ActiveBuild};
+use active::{finish_active, terminate, BuildSession};
 
 /// Run `command` as this project's build and capture its output, reporting
 /// whether it was cancelled. The error texts prefix the spawn/wait error.
