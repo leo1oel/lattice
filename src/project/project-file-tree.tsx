@@ -5,8 +5,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { ContextMenuItem as PierreContextMenuItem, ContextMenuOpenContext, FileTreeDropTarget } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import {
-  Check, ClipboardPaste, Copy, Eye, FilePlay, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil, RotateCw,
-} from "lucide-react";
+  Check, ClipboardPaste, Copy, Eye, FilePlay, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil, RotateCw, PenTool } from "lucide-react";
 import { ContextMenu, ContextMenuTrigger } from "../components/ui/context-menu";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { absoluteProjectPath } from "../app-utils";
@@ -14,6 +13,7 @@ import type { FileNode, GitFileStatus } from "../app-types";
 import { dropTargetDirectory, fromPierrePath, toPierreDirectoryPath } from "./navigator-drag";
 import { PROJECT_FILE_TREE_ICONS } from "./project-file-icons";
 import { useProjectTreeClipboard } from "./project-tree-clipboard";
+import { figureEntryBeside, isDrawingFile, openDrawingOf, openFigureSource } from "./figure-source-open";
 import { ProjectTreeBackgroundMenu, ProjectTreeItemMenu, type MenuAction } from "./project-tree-context-menu";
 import { PIERRE_TREE_CSS } from "./project-tree-css";
 import {
@@ -361,6 +361,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     const protectedEntry = deletionPaths.some((deletedPath) => props.protectedPaths.some(
       (protectedPath) => protectedPath === deletedPath || protectedPath.startsWith(`${deletedPath}/`),
     ));
+    const figureEntry = directory ? null : figureEntryBeside(path, tree.paths);
     // Grouped as make, change, locate, view; a folder's imports make things too.
     const actions: MenuAction[] = [
       ...creationActions(directory ? path : parentDirectory(path)),
@@ -375,6 +376,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
         checked: path === props.mainDocument,
         run: () => { if (path !== props.mainDocument) props.onSetMainDocument(path); },
       }] : []),
+      ...(figureEntry ? [{ icon: PenTool, label: t`Edit figure source`, group: true, run: () => void openDrawingOf(figureEntry) }] : []),
       { icon: Pencil, label: t`Rename`, group: true, run: () => model.startRenaming(item.path) },
       {
         icon: Copy,
@@ -470,7 +472,9 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
                 // A double-click keeps the file's tab, opened as a preview by the first press.
                 onDoubleClick={(event) => {
                   const node = tree.nodes.get(rowPathFromPointer(event) ?? "");
-                  if (node && !isDirectoryNode(node)) trellisRef.current?.tabs.keep(node.path);
+                  if (!node || isDirectoryNode(node)) return;
+                  if (isDrawingFile(node.path)) void openFigureSource(node.path);
+                  else trellisRef.current?.tabs.keep(node.path);
                 }}
                 onClickCapture={pointerDrag.onClickCapture}
               />

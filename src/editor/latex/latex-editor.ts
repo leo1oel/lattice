@@ -16,6 +16,7 @@ import { changeMarksExtension } from "../change-marks";
 import { centerMatch, revealExtension } from "../editor-reveal";
 import { harperSpellcheck, type GrammarIgnores, type HarperProse, type IgnoreGrammar } from "../harper-spellcheck";
 import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
+import { deferIncludeJump, figureSourceDoubleClick } from "./figure-source-gesture";
 import {
   citationCompletions, citationIcon, includeCompletions, macroCompletions, openCitationAtCursor, referenceCompletions,
   textBefore,
@@ -453,6 +454,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       },
       addToOptions: [{ position: 10, render: citationIcon }],
     }),
+    figureSourceDoubleClick(currentPath, (view, position) => void gotoDefinition(view, position)),
     EditorView.domEventHandlers({
       click(event, view) {
         if (!(event.metaKey || event.ctrlKey)) {
@@ -461,6 +463,10 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
           return false;
         }
         const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (position != null && deferIncludeJump(view, position, currentPath, event.detail, () => gotoDefinition(view, position))) {
+          event.preventDefault();
+          return true;
+        }
         if (position == null || !gotoDefinition(view, position)) return false;
         event.preventDefault();
         return true;
