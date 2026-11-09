@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-08 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-09 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**796 files, +74,746 / −8,785 lines**. It carries embedded-workspace UI, a skills manager,
+**799 files, +75,416 / −8,800 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -134,6 +134,14 @@ A panel too short for one starts it at the top and scrolls rather than clipping 
 Agent Undo reverses only the agent's own changes and keeps everyone else's (fork `3e3a91a7dc1e01fee37a67b1336c0d627e5cde22`, [fork PR 13](https://github.com/leo1oel/synara/pull/13)). Before, "Revert to this message" restored the whole workspace to the checkpoint (`git restore --source <ref> -- .` and `git clean -fd`), and Lattice uploaded the rollback, so a co-author's Overleaf edits made since were deleted locally and on Overleaf, even in files the agent never touched. File Undo (the Agent card, History) also reversed a co-author's edit that landed while the turn ran, because it sat inside the turn's whole-workspace diff.
 Thread revert now reverses each later turn's own diff (turn-start snapshot to turn-end snapshot), newest first, onto the current text, with the same strict-then-three-way apply as file Undo; edits synced between turns are not swept up. Where a newer edit changed the agent's very lines, both scopes keep the rest of the undo and leave diff3 markers (`ours` the current text, `base` the agent's, `theirs` the text before it) for just those spots, with an "Undo left conflicts to resolve" notice, instead of refusing the whole undo. Lattice opens its conflict resolver on such a file ("Current text" against "Before the agent"), and sync holds it back until it is resolved.
 Lattice posts `lattice:host-file-writes` for the files it writes itself, and the fork records them on the turn running in that project (`/api/lattice/host-file-writes`, a `turn-host-writes` ref beside the checkpoints); Undo refuses to reverse such a file, saying a co-author's or the writer's edit landed in it while the agent worked. The revert confirmation now says newer messages are discarded and the agent's file changes undone while other edits are kept (en, zh-CN). The fork's `CheckpointStore.coauthorUndo.test.ts` and the "Undo keeps edits that are not the agent's" reactor tests pin the scenarios with real git.
+
+Git status and the commit-message preview no longer write anything into the open repository's object database (fork `7133a8993bfd7a4a87140b124d1e141cf9777eee`, [fork PR 14](https://github.com/leo1oel/synara/pull/14), [#738](https://github.com/leo1oel/lattice/issues/738)).
+The Changes summary takes a rename-aware path when untracked files sit beside a tracked deletion or inside an untracked directory: it copies the index and runs `git add -A` into the copy, then a rename-aware cached numstat. `GIT_INDEX_FILE` moves only the staging area, so every untracked file (a multi-GiB research archive included) was hashed into the real `.git/objects`. A file over `core.bigFileThreshold` streams into a `tmp_pack_*` there, and when the 15-second timeout killed Git, that pack stayed behind. This repeated on every status refresh; one report found 113 garbage entries totalling 89 GiB.
+The add now writes into a scratch object store inside the same scoped temporary directory as the copied index: `GIT_OBJECT_DIRECTORY` points at it, the repository's objects are a read-only `GIT_ALTERNATE_OBJECT_DIRECTORIES` entry, and compression is off. The directory goes when the scope closes, after `execute` has killed and awaited a timed-out Git, so nothing survives a timeout. If the store cannot be created, the summary falls back to the non-rename-aware counts rather than writing into the repository.
+Untracked files are sized before anything is hashed. A file over 16 MiB is left out of the add and listed with 0 lines, as Git lists a binary file. Over 128 MiB of other untracked data, the add is skipped and the non-rename-aware counts are shown.
+The "Write the message for me" preview (`previewCommitContext`) stages into a copied index the same way, and now uses the same scratch store.
+`apps/server/src/git/Layers/GitCore.scratchObjects.test.ts` pins this with real Git in temporary repositories. The tests assert that the real object directory gains no loose object, pack or `tmp_pack`: when the add is interrupted mid-pack (the reporter's control), when it hits a lowered timeout, and when the size limits apply.
+Garbage left by earlier pins is not removed: `git count-objects -vH` shows it, and `git gc --prune=now` clears it once no Git process is using the repository.
 
 ## Synara 0.9.1 compatibility
 
