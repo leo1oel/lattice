@@ -10278,6 +10278,7 @@ msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
 
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
+#: src/project/figure-source-run.ts
 msgid "Open"
 msgstr "打开"
 
@@ -10289,6 +10290,10 @@ msgstr "待处理"
 #: src/app/use-command-table.ts
 msgid "Open {name}"
 msgstr "打开 {name}"
+
+#: src/project/figure-source-run.ts
+msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
+msgstr "用默认应用打开 {name}？SVG 文件常会在网页浏览器中打开，浏览器会运行其中的脚本。"
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx

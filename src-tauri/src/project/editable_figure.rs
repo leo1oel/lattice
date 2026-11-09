@@ -35,10 +35,13 @@ fn extension_of(path: &Path) -> String {
 
 /// How a figure's source file is shown: a project names the file, and a paste
 /// can come from anyone, so only drawing formats run in another program.
-/// SVG is not among them: its default program is often a browser.
+/// SVG opens only once the user agrees each time: its default program is
+/// often a browser, which runs the script it may hold.
 #[derive(Debug, PartialEq)]
 pub enum FigureSourceOpening {
     Open(PathBuf),
+    /// SVG the user has not agreed to open this time.
+    Ask,
     Reveal(PathBuf),
 }
 
@@ -311,14 +314,20 @@ pub fn import_editable_figure(
 }
 
 /// A figure's source file, inside the project, and how to show it: a drawing
-/// format opens, anything else is only revealed in the file manager.
-pub fn figure_source_to_open(root: &Path, source: &str) -> Result<FigureSourceOpening, String> {
+/// format opens, SVG opens when `agreed`, anything else is only revealed in
+/// the file manager.
+pub fn figure_source_to_open(
+    root: &Path, source: &str, agreed: bool,
+) -> Result<FigureSourceOpening, String> {
     let path = safe_path(root, source)?;
     if !path.is_file() {
         return Err(format!("{source} could not be found."));
     }
-    Ok(if DRAWING_EXTENSIONS.contains(&extension_of(&path).as_str()) {
+    let kind = extension_of(&path);
+    Ok(if DRAWING_EXTENSIONS.contains(&kind.as_str()) || (kind == "svg" && agreed) {
         FigureSourceOpening::Open(path)
+    } else if kind == "svg" {
+        FigureSourceOpening::Ask
     } else {
         FigureSourceOpening::Reveal(path)
     })
@@ -458,6 +467,8 @@ mod tests {
             import_editable_figure(&fixture.root, &paste, "figures").is_err()
         };
         assert!(refused(&|paste| paste.source = inline("run.command", "x")));
+        assert!(refused(&|paste| paste.source = inline("open-me.inetloc", "<plist/>")));
+        assert!(refused(&|paste| paste.outputs[0] = inline("run.command", "#!/bin/sh")));
         assert!(refused(&|paste| paste.source = inline("scheme.tex", "x")));
         assert!(refused(&|paste| paste.outputs[0] = inline("scheme.html", "x")));
         assert!(refused(&|paste| {
@@ -465,6 +476,7 @@ mod tests {
             paste.entry = "scheme.png".into();
         }));
         assert!(!fixture.path("figures").join("run.command").exists());
+        assert!(!fixture.path("figures").join("open-me.inetloc").exists());
         let mut drawing = manifest();
         drawing.source = inline("scheme.svg", "<svg/>");
         assert!(import_editable_figure(&fixture.root, &drawing, "figures").is_ok());
@@ -489,25 +501,25 @@ mod tests {
     }
 
     #[test]
-    fn opens_drawings_and_only_reveals_the_rest() {
+    fn opens_drawings_asks_for_svg_and_only_reveals_the_rest() {
         let fixture = Fixture::project("figure-open");
         fs::create_dir_all(fixture.root.join("figures")).unwrap();
-        for name in ["a.reactio", "b.DRAWIO", "c.svg", "d.fileloc", "run.command", "binary"] {
+        let names = "a.reactio b.DRAWIO c.svg d.fileloc open-me.inetloc run.command binary";
+        for name in names.split(' ') {
             fs::write(fixture.root.join("figures").join(name), "x").unwrap();
         }
-        let opens = |name: &str| {
-            matches!(figure_source_to_open(&fixture.root, name), Ok(FigureSourceOpening::Open(_)))
-        };
-        let reveals = |name: &str| {
-            matches!(figure_source_to_open(&fixture.root, name), Ok(FigureSourceOpening::Reveal(_)))
-        };
-        assert!(opens("figures/a.reactio"));
-        assert!(opens("figures/b.DRAWIO"));
-        for name in ["figures/c.svg", "figures/d.fileloc", "figures/run.command", "figures/binary"]
-        {
-            assert!(reveals(name), "{name}");
+        let shown = |name: &str, agreed| figure_source_to_open(&fixture.root, name, agreed);
+        let opens = |name, agreed| matches!(shown(name, agreed), Ok(FigureSourceOpening::Open(_)));
+        assert!(opens("figures/a.reactio", false) && opens("figures/b.DRAWIO", false));
+        assert_eq!(shown("figures/c.svg", false), Ok(FigureSourceOpening::Ask));
+        assert!(opens("figures/c.svg", true));
+        for name in ["d.fileloc", "open-me.inetloc", "run.command", "binary"] {
+            for agreed in [false, true] {
+                let shown = shown(&format!("figures/{name}"), agreed);
+                assert!(matches!(shown, Ok(FigureSourceOpening::Reveal(_))), "{name}");
+            }
         }
-        assert!(figure_source_to_open(&fixture.root, "figures/missing.reactio").is_err());
-        assert!(figure_source_to_open(&fixture.root, "../a.reactio").is_err());
+        assert!(shown("figures/missing.reactio", false).is_err());
+        assert!(shown("../a.reactio", true).is_err());
     }
 }

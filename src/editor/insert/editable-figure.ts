@@ -173,40 +173,68 @@ function definesAll(text: string, block: readonly string[]): boolean {
   return definedCommands(block).every((command) => new RegExp(`\\\\(?:providecommand|newcommand|DeclareRobustCommand|def)\\*?\\s*\\{?\\${command}(?![A-Za-z])`).test(code));
 }
 
-/** What a block may do at its top level without being shown first: define things, and switch the modes definitions are written in. */
-const PREAMBLE_DEFINER = /^(?:providecommand|newcommand|DeclareRobustCommand|NewDocumentCommand|ProvideDocumentCommand|definecolor|newcounter|DeclareMathOperator)$/;
+/**
+ * What a block may hold at its top level without being shown first, and the
+ * arguments each takes: the command a definer defines (one control word, bare
+ * or braced), then its brace groups, whose bodies run only if called. Where
+ * TeX reads a group's text at once (a colour, a counter, a package), it must
+ * be plain. Only definers of new commands take `*` and `[…]` digits.
+ */
+type PreambleDefiner = { names: boolean; groups: number; options?: boolean; plain?: RegExp };
+const COMMAND_DEFINER: PreambleDefiner = { names: true, groups: 1, options: true };
+const DOCUMENT_COMMAND_DEFINER: PreambleDefiner = { names: true, groups: 2 };
+const PREAMBLE_DEFINERS = new Map<string, PreambleDefiner>(Object.entries({
+  providecommand: COMMAND_DEFINER,
+  newcommand: COMMAND_DEFINER,
+  DeclareRobustCommand: COMMAND_DEFINER,
+  DeclareMathOperator: COMMAND_DEFINER,
+  NewDocumentCommand: DOCUMENT_COMMAND_DEFINER,
+  ProvideDocumentCommand: DOCUMENT_COMMAND_DEFINER,
+  definecolor: { names: false, groups: 3, plain: /^\{[\w.,\s-]*\}$/ },
+  newcounter: { names: false, groups: 1, plain: /^\{[A-Za-z]+\}$/ },
+  usepackage: { names: false, groups: 1, plain: /^\{\s*[A-Za-z0-9-]+(?:\s*,\s*[A-Za-z0-9-]+)*\s*\}$/ },
+}));
 const PREAMBLE_MODE = /^(?:makeatletter|makeatother|ExplSyntaxOn|ExplSyntaxOff)$/;
+const COMMAND_NAME = /^\\[A-Za-z@]+$/;
+const BRACED_COMMAND_NAME = /^\{\s*\\[A-Za-z@]+\s*\}$/;
 
-/** Whether a manifest's preamble lines only define things: everything at the top level is a definition, whose body runs only if called. */
+/** Whether a manifest's preamble lines only define things: nothing at the top level runs but a definition. */
 export function isDefinitionsOnly(block: readonly string[]): boolean {
   const code = blankComments(block.join("\n"));
-  let depth = 0;
-  let namesCommand = false;
+  let definer: PreambleDefiner | undefined;
+  // Arguments `definer` still takes, the command it defines first.
+  let left = 0;
   let index = 0;
   while (index < code.length) {
     const char = code[index];
-    if (char === "\\") {
+    const naming = Boolean(definer?.names) && left === (definer?.groups ?? 0) + 1;
+    if (/\s/.test(char)) {
+      index += 1;
+    } else if (char === "\\") {
       const word = /^\\(?:[A-Za-z@]+|[\s\S])/.exec(code.slice(index))?.[0] ?? "\\";
       index += word.length;
-      if (depth > 0) continue;
-      const name = word.slice(1);
-      if (namesCommand) namesCommand = false;
-      else if (PREAMBLE_DEFINER.test(name)) namesCommand = true;
-      else if (!PREAMBLE_MODE.test(name)) return false;
-      continue;
-    }
-    index += 1;
-    if (char === "{") {
-      depth += 1;
-      namesCommand = false;
-    } else if (char === "}") {
-      depth -= 1;
-      if (depth < 0) return false;
-    } else if (depth === 0 && !/[\s*[\]0-9]/.test(char)) {
+      if (naming && COMMAND_NAME.test(word)) {
+        left -= 1;
+        continue;
+      }
+      if (left > 0) return false;
+      definer = PREAMBLE_DEFINERS.get(word.slice(1));
+      if (definer) left = definer.groups + (definer.names ? 1 : 0);
+      else if (!PREAMBLE_MODE.test(word.slice(1))) return false;
+    } else if (char === "{") {
+      const end = groupEnd(code, index);
+      if (!definer || left === 0 || end < 0) return false;
+      const group = code.slice(index, end);
+      if (naming ? !BRACED_COMMAND_NAME.test(group) : definer.plain && !definer.plain.test(group)) return false;
+      left -= 1;
+      index = end;
+    } else if (definer?.options && left > 0 && /[*[\]0-9]/.test(char)) {
+      index += 1;
+    } else {
       return false;
     }
   }
-  return depth === 0;
+  return left === 0;
 }
 
 /** Whether pasting `figure` would add preamble lines that must be shown first. */

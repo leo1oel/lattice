@@ -43,15 +43,18 @@ The program copies two kinds of data:
 
 Each file is `{"name": "scheme.pdf", "data": "<base64>"}`. A paste is untrusted
 input, since any web page can put this on the clipboard, so a manifest never
-names a path on disk. `source` must be a drawing format, `outputs` are `.tex`,
+names a path on disk. `source` must be a drawing format or `.svg`, `outputs` are `.tex`,
 `.pdf`, `.pdf_tex`, `.png`, `.jpg`, `.svg` or `.eps`, `entry` is a `.tex`, and
 all the files together are at most 64 MB.
 
 `preamble` is added without asking only if it holds nothing but definitions at
-its top level (`\providecommand`, `\newcommand`, `\DeclareRobustCommand`,
-`\NewDocumentCommand`, `\ProvideDocumentCommand`, `\definecolor`, `\newcounter`,
-`\DeclareMathOperator`, and `\makeatletter` or `\ExplSyntaxOn` around them).
-Anything else is shown first and added only on a yes.
+its top level: `\providecommand`, `\newcommand`, `\DeclareRobustCommand`,
+`\DeclareMathOperator`, `\NewDocumentCommand` and `\ProvideDocumentCommand`,
+each naming one command and followed by exactly its own arguments;
+`\definecolor`, `\newcounter` and `\usepackage` with plain names and no
+options; and `\makeatletter` or `\ExplSyntaxOn` around them. Anything else,
+a brace group of its own included, is shown first and added only on a yes.
+The entry file is compiled as it is, like any other project file.
 
 ## What Lattice does on paste
 
@@ -97,9 +100,10 @@ figure's `.tex` or `.pdf` has Edit figure source. The file must be inside the pr
 
 A project may come from someone else and its `.tex` names the file, so what
 opens depends on its type. Drawing formats (`.reactio`, `.cdxml`, `.cdx`,
-`.drawio`, `.dio`, `.ipe`, `.excalidraw`, `.ggb`, `.odg`) open directly. Any
-other file, `.svg` included since its default program is often a browser, is
-only revealed in the file manager.
+`.drawio`, `.dio`, `.ipe`, `.excalidraw`, `.ggb`, `.odg`) open directly. An
+`.svg` opens only after Lattice asks, every time, since its default program is
+often a browser that runs any script in it. Any other file is only revealed in
+the file manager.
 
 ## For authors of drawing tools
 
@@ -117,7 +121,7 @@ Any program can offer this without talking to Lattice:
 3. **Name the source.** Make the first line of the entry file
    `% editable-figure source: scheme.reactio`, relative to the entry. This is
    what Cmd/Ctrl+double-click reads; give the source file one of the drawing
-   formats above so it opens.
+   formats above so it opens without asking.
 4. **Update on save.** When the source is saved, write the outputs again
    beside it under the same names. Lattice watches the project and rebuilds on
    its own. Only overwrite an entry whose first line names that source.

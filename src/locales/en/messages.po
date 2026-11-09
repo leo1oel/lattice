@@ -10278,6 +10278,7 @@ msgstr "Only the listed graphics arguments will change. Image files stay in plac
 
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
+#: src/project/figure-source-run.ts
 msgid "Open"
 msgstr "Open"
 
@@ -10289,6 +10290,10 @@ msgstr "Open"
 #: src/app/use-command-table.ts
 msgid "Open {name}"
 msgstr "Open {name}"
+
+#: src/project/figure-source-run.ts
+msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
+msgstr "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx

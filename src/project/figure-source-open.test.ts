@@ -1,24 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { figureEntryBeside, isDrawingFile, openDrawingOf, openFigureSource } from "./figure-source-open";
 
-const { invoke, notifyError } = vi.hoisted(() => ({ invoke: vi.fn(), notifyError: vi.fn() }));
+const { invoke, notifyError, confirmAction } = vi.hoisted(() => ({ invoke: vi.fn(), notifyError: vi.fn(), confirmAction: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-vi.mock("../app-utils", () => ({ toMessage: (reason: unknown) => String(reason) }));
+vi.mock("../app-utils", () => ({ toMessage: (reason: unknown) => String(reason), confirmAction }));
 vi.mock("../telemetry/app-notify", () => ({ notifyError }));
 
 const opened = () => invoke.mock.calls.filter(([command]) => command === "open_figure_source").map(([, args]) => args);
 
 describe("opening a figure's source", () => {
-  beforeEach(() => { invoke.mockReset(); notifyError.mockReset(); });
+  beforeEach(() => { invoke.mockReset(); notifyError.mockReset(); confirmAction.mockReset(); });
 
   it("leaves what happens to the host, and says when it fails", async () => {
-    invoke.mockResolvedValueOnce(undefined);
+    invoke.mockResolvedValueOnce(true);
     await openFigureSource("figures/a.reactio");
     expect(opened()).toEqual([{ path: "figures/a.reactio" }]);
+    expect(confirmAction).not.toHaveBeenCalled();
     expect(notifyError).not.toHaveBeenCalled();
     invoke.mockRejectedValueOnce(new Error("a.reactio could not be found."));
     await openFigureSource("a.reactio");
     expect(notifyError).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens an SVG only when the user agrees, every time", async () => {
+    invoke.mockImplementation(async (_command: string, args: { agreed?: boolean }) => Boolean(args.agreed));
+    confirmAction.mockResolvedValueOnce(false);
+    await openFigureSource("figures/a.svg");
+    expect(opened()).toEqual([{ path: "figures/a.svg" }]);
+    confirmAction.mockResolvedValueOnce(true);
+    await openFigureSource("figures/a.svg");
+    expect(opened().slice(1)).toEqual([{ path: "figures/a.svg" }, { path: "figures/a.svg", agreed: true }]);
+    expect(confirmAction).toHaveBeenCalledTimes(2);
+    expect(notifyError).not.toHaveBeenCalled();
   });
 
   it("opens the drawing an entry names, skipping files that are not figures", async () => {
