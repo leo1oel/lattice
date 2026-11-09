@@ -29,6 +29,7 @@ function readJson<T>(path: string): T {
 
 const config = readJson<TauriConfig>("src-tauri/tauri.conf.json");
 const capability = readJson<Capability>("src-tauri/capabilities/default.json");
+const pdfWindowCapability = readJson<Capability>("src-tauri/capabilities/pdf-window.json");
 const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
 // The browser host module: its listener and windows, plus the HTTP server and
 // dialog commands split out beside it.
@@ -125,10 +126,26 @@ describe("Tauri security boundary", () => {
     }
   });
 
+  it("gives the PDF's separate window only what its viewer calls", () => {
+    // It runs the PDF viewer alone: events in and out, interface zoom, copy,
+    // Save PDF as… and logging. Its owner opens, titles and closes it from
+    // the backend, so it holds no window permissions, nor any default set.
+    expect(pdfWindowCapability.windows).toEqual(["pdf-*"]);
+    expect(pdfWindowCapability.permissions).toEqual([
+      "core:event:default",
+      "core:webview:allow-set-webview-zoom",
+      "clipboard-manager:allow-write-text",
+      "dialog:allow-save",
+      "log:default",
+    ]);
+    expect(capability.windows).not.toContain("pdf-*");
+  });
+
   it("keeps the fixed browser entry local and authenticated, and bridge windows hidden", () => {
     // The window-state plugin shows new dynamic windows unless they are
     // filtered out, overriding the bridge builder's `visible(false)` setting.
-    expectContains(rustApp, '.with_filter(|label| !label.starts_with("browser-"))');
+    // (PDF windows are filtered too: they are placed per project.)
+    expectContains(rustApp, '!label.starts_with("browser-") && !pdf_window::is_pdf_window(label)');
     expectContains(browserHost, '.title("")');
     expect(config.app.windows[0]?.visible).toBe(false);
     expectContains(rustApp, "browser_host_launch()");

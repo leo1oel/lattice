@@ -57,6 +57,7 @@ mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
 mod pdf_pages;
+mod pdf_window;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
 mod presentation;
@@ -189,6 +190,7 @@ fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
 }
 
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    pdf_window::on_window_event(window, event);
     if let tauri::WindowEvent::Focused(is_focused) = event {
         macos_window::set_window_focused(window.label(), *is_focused);
     }
@@ -226,6 +228,12 @@ fn on_page_load<R: Runtime>(
     webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
 ) {
     if payload.event() == tauri::webview::PageLoadEvent::Started {
+        // A PDF window's page shows its owner's project and owns none of this.
+        if pdf_window::is_pdf_window(webview.label()) {
+            return;
+        }
+        // The new page opens its PDF window again if its project keeps one.
+        pdf_window::close_owned(webview.app_handle(), webview.label());
         // The new page enables saving before close again once it can.
         save_before_close::forget(webview.app_handle(), webview.label());
         git::clone::cancel(webview.label());
@@ -398,7 +406,10 @@ pub fn run() {
         // this lifecycle entirely.
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| !label.starts_with("browser-"))
+                // PDF windows are placed per project instead (pdf_window.rs).
+                .with_filter(|label| {
+                    !label.starts_with("browser-") && !pdf_window::is_pdf_window(label)
+                })
                 .build(),
         )
         .on_window_event(on_window_event)
@@ -472,6 +483,8 @@ pub fn run() {
             ipc::windows::align_traffic_lights,
             ipc::windows::title_bar_double_click,
             ipc::windows::sample_screen_color,
+            pdf_window::open_pdf_window,
+            pdf_window::close_pdf_window,
             ipc::files::list_project_tree_with_hidden,
             ipc::files::stat_project_file,
             ipc::files::find_moved_project_file,

@@ -31,6 +31,7 @@ const DIRECT_WRITERS: Record<string, string> = {
   "settings/app-settings.ts": "per-project maps and the live preview choice, read again just before each write",
   "app/app-synara-embed.ts": "each project's agent thread",
   "app/whats-new.ts": "the version this install last ran",
+  "app/pdf-window-state.ts": "each project's PDF window, open or not and where it was left, read again just before each write",
   "platform/browser-host-bridge.ts": "seeds a browser preview's storage",
   "platform/browser-relay.ts": "seeds a browser preview's storage",
   "platform/perf-lab-harness.ts": "seeds the perf lab's storage",

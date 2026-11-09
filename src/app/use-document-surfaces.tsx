@@ -33,6 +33,7 @@ import type { SearchDialog } from "./app-search-dialogs";
 import type { AppSurfaces } from "./app-surfaces";
 import { persistSynaraThread } from "./app-synara-embed";
 import { ignoreGrammarInProject, projectGrammarIgnores } from "./project-grammar-action";
+import { compiledPdfName, detachPdf, dockPdf, pdfWindowsAvailable, usePdfWindowOpen } from "./pdf-window-state";
 import { showError, showingErrors } from "./notify";
 import type { useAgentContext } from "./use-agent-context";
 import type { useApplyOpenSlideMutation } from "./use-apply-open-slide-mutation";
@@ -131,6 +132,7 @@ export function useDocumentSurfaces({
     activePaperId: documents.paper?.arxivId, activeFile: documents.file, openPaper: documents.openPaper,
     fetchAndOpenPaper: paperActions.fetchAndOpenPaper,
   });
+  const pdfWindowOpen = usePdfWindowOpen(project?.root);
   if (!project) return null;
   const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, save } = documents;
   const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;
@@ -452,6 +454,12 @@ export function useDocumentSurfaces({
       }}
       viewState={{ getFileViewState, onFileViewState: rememberFileViewState }}
       onLeaveEditor={documents.canvas.onLeaveForPdf}
+      pdfWindow={{
+        open: pdfWindowOpen,
+        title: `${compiledPdfName(latex.rootDocumentPath)} — ${project.manifest.name}`,
+        onOpen: pdfWindowsAvailable() ? () => detachPdf(trellis, project.root) : undefined,
+        onDock: () => dockPdf(trellis, project.root),
+      }}
     />
   );
 

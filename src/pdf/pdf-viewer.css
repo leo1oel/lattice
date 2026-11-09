@@ -179,3 +179,5 @@
 .pdf-overflow-zoom [data-slot="dropdown-menu-item"] { justify-content: center; min-width: var(--space-16); height: var(--control-height-compact); padding: 0 var(--space-3); }
 .pdf-overflow-zoom .pdf-overflow-zoom-value { min-width: 52px; font-variant-numeric: tabular-nums; }
 @keyframes synctex-highlight-out { to { opacity: 0; } }
+/* The compiled PDF's separate window (pdf-window-app.tsx): the viewer fills it. */
+.canvas-body.pdf-window { position: fixed; inset: 0; width: auto; max-width: none; height: auto; background: var(--editor-bg); }

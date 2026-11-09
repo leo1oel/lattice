@@ -10,6 +10,7 @@ import { showError, showWarning, showingErrors } from "./notify";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
 import { markGetStartedStep } from "../onboarding/get-started-progress";
+import { pdfInWindow } from "./pdf-window-state";
 
 export type SyncTexNavigationDeps = {
   documents: Pick<OpenDocuments,
@@ -27,7 +28,8 @@ export type SyncTexNavigationDeps = {
  * editor's caret (or an outline entry) to its place in the PDF, and from a
  * double-click in the PDF to its source line. A jump is dropped when the
  * writer moves the caret, opens something else or switches projects before
- * it lands; the PDF panel comes back on screen for a forward jump.
+ * it lands; the PDF panel comes back on screen for a forward jump (unless
+ * the PDF is in its own window).
  */
 export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   const { t } = useLingui();
@@ -179,10 +181,11 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     markGetStartedStep("jump");
   }, [activeFileRef, captureProjectScope, openFile, pdfUrlRef, reveal, scope]);
 
-  // A forward search needs the PDF panel on screen: reopen or reveal it.
+  // A forward search needs the PDF panel on screen: reopen or reveal it,
+  // unless the PDF is in its own window, which the target is sent to.
   useEffect(() => {
     const ws = trellis.ws;
-    if (!ws || !pdfSyncTarget) return;
+    if (!ws || !pdfSyncTarget || pdfInWindow(trellis)) return;
     const pdf = ws.view("pdf");
     if (!pdf || !pdf.visible) trellis.showPanel("pdf", { focus: false });
   }, [pdfSyncTarget, trellis]);

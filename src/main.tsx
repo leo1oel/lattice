@@ -29,6 +29,17 @@ import { activateAppLocale, i18n } from "./i18n";
 import { installNativeLocaleSync } from "./app/native-locale";
 import { installEditHistoryMenu } from "./app/edit-history";
 import { installPointerFocus } from "./components/ui/pointer-focus";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+
+/** The compiled PDF's separate window (src-tauri/src/pdf_window.rs) runs the viewer alone. */
+function pdfWindowPage() {
+  try {
+    return getCurrentWindow().label.startsWith("pdf-") ? import("./pdf/pdf-window-app") : null;
+  } catch {
+    // No native window: a browser tab or a test.
+    return null;
+  }
+}
 
 async function startApp() {
   await browserRuntimeReady();
@@ -54,6 +65,8 @@ async function startApp() {
 
   await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
+  const pdfWindow = await pdfWindowPage();
+  if (pdfWindow) return pdfWindow.renderPdfWindow(root);
   installNativeLocaleSync();
   installEditHistoryMenu();
   if (lab) void lab.startLabHarness();
