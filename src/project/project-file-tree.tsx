@@ -13,6 +13,7 @@ import type { FileNode, GitFileStatus } from "../app-types";
 import { dropTargetDirectory, fromPierrePath, toPierreDirectoryPath } from "./navigator-drag";
 import { PROJECT_FILE_TREE_ICONS } from "./project-file-icons";
 import { useProjectTreeClipboard } from "./project-tree-clipboard";
+import { isConvertibleDrawing, makeEditableFigure, useFigureSourceRefresh } from "./figure-converters";
 import { figureEntryBeside, isDrawingFile, openDrawingOf, openFigureSource } from "./figure-source-open";
 import { ProjectTreeBackgroundMenu, ProjectTreeItemMenu, type MenuAction } from "./project-tree-context-menu";
 import { PIERRE_TREE_CSS } from "./project-tree-css";
@@ -106,6 +107,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   const { t, i18n } = useLingui();
   const { showHidden, toggleHidden, tree } = useProjectTreeFiles(props.projectKey, props.files, props.onError);
   const gitStatus = useMemo(() => toPierreGitStatus(props.gitStatus), [props.gitStatus]);
+  useFigureSourceRefresh(props.projectKey);
   const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
   const propsRef = useLatestRef(props);
   const treeRef = useLatestRef(tree);
@@ -377,6 +379,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
         run: () => { if (path !== props.mainDocument) props.onSetMainDocument(path); },
       }] : []),
       ...(figureEntry ? [{ icon: PenTool, label: t`Edit figure source`, group: true, run: () => void openDrawingOf(figureEntry) }] : []),
+      ...(!directory && isConvertibleDrawing(path) ? [{ icon: PenTool, label: t`Use as editable figure`, group: true, run: () => void makeEditableFigure(path, props.projectKey) }] : []),
       { icon: Pencil, label: t`Rename`, group: true, run: () => model.startRenaming(item.path) },
       {
         icon: Copy,
