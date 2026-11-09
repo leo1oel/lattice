@@ -1323,6 +1323,14 @@ msgstr "A copy must keep a text file's extension, such as .tex or .txt."
 msgid "A deck from another project is open in another window"
 msgstr "A deck from another project is open in another window"
 
+#: src/project/figure-converters.ts
+msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
+msgstr "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
+
+#: src/project/figure-converters.ts
+msgid "A drawing changed: {path}"
+msgstr "A drawing changed: {path}"
+
 #: src/platform/host-errors-project.ts
 msgid "A dropped file"
 msgstr "A dropped file"
@@ -6228,6 +6236,7 @@ msgstr "Figure ready: {0}. Open a LaTeX file to include it."
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
+#: src/project/figure-converters.ts
 msgid "Figures"
 msgstr "Figures"
 
@@ -16041,6 +16050,10 @@ msgid "This document drifted while live editing started, so Lattice stopped join
 msgstr "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 
 #: src/platform/host-errors-project.ts
+msgid "This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG."
+msgstr "This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG."
+
+#: src/platform/host-errors-project.ts
 msgid "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project."
 msgstr "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project."
 
@@ -16882,6 +16895,10 @@ msgstr "Update applied"
 #: src/papers/audit-messages.ts
 msgid "Update available"
 msgstr "Update available"
+
+#: src/project/figure-converters.ts
+msgid "Update figure"
+msgstr "Update figure"
 
 #: src/telemetry/app-updater.tsx
 msgid "Update now"

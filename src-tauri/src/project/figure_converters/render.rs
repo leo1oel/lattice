@@ -1,13 +1,13 @@
-//! Running the installed drawing program, and what a drawing may make it read.
-//! A drawing can come from anywhere (a paste, a drop, a collaborator's push),
-//! so the program is found only at its standard install location, gets its
-//! arguments without a shell, writes only into a private scratch folder, and
-//! is stopped with everything it started when it takes too long.
+//! Running the installed drawing program. A drawing can come from anywhere
+//! (a paste, a drop, a collaborator's push), so the program is found only at
+//! its standard install location, gets its arguments without a shell, writes
+//! only into a private scratch folder, and is stopped with everything it
+//! started when it takes too long. What a drawing may make the program read
+//! is svg_links.rs.
 
 use crate::commands::{
     in_new_process_group, signal_process_group, track_process_group, KILL_SIGNAL,
 };
-use crate::project::paths::{safe_path, NOT_FOUND};
 use crate::util::err;
 use std::ffi::OsString;
 use std::io::{self, Read};
@@ -150,144 +150,4 @@ pub(super) fn run_tool(tool: Tool, source: &Path, pdf: &Path, page: u32) -> Resu
     }
     let tail: String = detail.lines().rev().take(4).collect::<Vec<_>>().join(" ");
     Err(format!("{} could not convert the figure. {tail}", tool.name()))
-}
-
-/// `text` with XML's character references and predefined entities read, once,
-/// so `&#102;ile:` is checked as `file:`.
-fn decode_xml(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(index) = rest.find('&') {
-        out.push_str(&rest[..index]);
-        rest = &rest[index..];
-        let decoded = rest.find(';').filter(|&end| end <= 12).and_then(|end| {
-            let name = &rest[1..end];
-            let character = match name {
-                "lt" => Some('<'),
-                "gt" => Some('>'),
-                "amp" => Some('&'),
-                "quot" => Some('"'),
-                "apos" => Some('\''),
-                _ => name
-                    .strip_prefix("#x")
-                    .or_else(|| name.strip_prefix("#X"))
-                    .map(|hex| u32::from_str_radix(hex, 16))
-                    .or_else(|| name.strip_prefix('#').map(str::parse))
-                    .and_then(Result::ok)
-                    .and_then(char::from_u32),
-            }?;
-            Some((character, end + 1))
-        });
-        match decoded {
-            Some((character, length)) => {
-                out.push(character);
-                rest = &rest[length..];
-            }
-            None => {
-                out.push('&');
-                rest = &rest[1..];
-            }
-        }
-    }
-    out.push_str(rest);
-    out
-}
-
-/// The value after `at`: `="…"` or `='…'`, when that is what follows.
-fn attribute_value(text: &str, at: usize) -> Option<&str> {
-    let rest = text[at..].trim_start().strip_prefix('=')?.trim_start();
-    let quote = rest.chars().next().filter(|c| *c == '"' || *c == '\'')?;
-    rest[1..].split(quote).next()
-}
-
-/// Whether the tag open at the end of `before` is a hyperlink (`<a>`), whose
-/// target becomes a link in the PDF and is never fetched.
-fn in_hyperlink(before: &str) -> bool {
-    let Some(open) = before.rfind('<') else { return false };
-    let name = before[open + 1..].split(|c: char| c.is_whitespace() || c == '>').next();
-    name.is_some_and(|name| name == "a" || name.ends_with(":a"))
-}
-
-/// Embedded images Inkscape decodes itself; an embedded SVG or style sheet
-/// could carry links of its own, so those are refused.
-const EMBEDDED_IMAGES: [&str; 7] = ["png", "jpeg", "jpg", "gif", "webp", "bmp", "tiff"];
-
-/// Whether Inkscape following `link` from the drawing in `folder` reads only
-/// the drawing itself, embedded data, or a real file inside the project.
-fn link_stays_inside(root: &Path, folder: &str, link: &str) -> bool {
-    let link = link.trim();
-    if link.is_empty() || link.starts_with('#') {
-        return true;
-    }
-    let lower: String = link.to_ascii_lowercase().split_whitespace().collect();
-    if let Some(data) = lower.strip_prefix("data:") {
-        return EMBEDDED_IMAGES.iter().any(|kind| {
-            data.strip_prefix("image/")
-                .and_then(|rest| rest.strip_prefix(kind))
-                .is_some_and(|rest| rest.starts_with([';', ',']))
-        });
-    }
-    // A scheme, a drive, an absolute or home path, or an escape Inkscape would decode.
-    if link.contains([':', '\\', '%', '?']) || link.starts_with(['/', '~']) {
-        return false;
-    }
-    // `other.svg#shape` reads `other.svg`.
-    let file = link.split('#').next().unwrap_or_default();
-    let mut parts: Vec<&str> = folder.split('/').filter(|part| !part.is_empty()).collect();
-    for part in file.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                if parts.pop().is_none() {
-                    return false;
-                }
-            }
-            name => parts.push(name),
-        }
-    }
-    if parts.is_empty() {
-        return true;
-    }
-    // Real folders and files only: a link inside the project may lead out of it.
-    match safe_path(root, &parts.join("/")) {
-        Ok(_) => true,
-        Err(error) => error == NOT_FOUND,
-    }
-}
-
-/// Refuses a drawing that would make Inkscape read a file outside the
-/// project, or anything over the network, into the figure: Inkscape embeds
-/// a linked image in the PDF it writes, and follows `sodipodi:absref` when the
-/// link fails. `folder` is the drawing's folder, relative to the project.
-pub(super) fn check_svg_links(root: &Path, folder: &str, svg: &str) -> Result<(), String> {
-    const OUTSIDE: &str = "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project.";
-    let text = decode_xml(svg);
-    let lower = text.to_ascii_lowercase();
-    // An entity can name a file for the parser to read into the text.
-    if lower.contains("<!entity") {
-        return Err(OUTSIDE.to_string());
-    }
-    let mut links: Vec<&str> = Vec::new();
-    for keyword in ["href", "absref"] {
-        links.extend(
-            lower
-                .match_indices(keyword)
-                .filter(|(at, _)| !in_hyperlink(&lower[..*at]))
-                .filter_map(|(at, _)| attribute_value(&text, at + keyword.len())),
-        );
-    }
-    links.extend(lower.match_indices("url(").filter_map(|(at, _)| {
-        let value = text[at + 4..].split(')').next()?;
-        Some(value.trim().trim_matches(['"', '\'']))
-    }));
-    links.extend(lower.match_indices("@import").filter_map(|(at, _)| {
-        let rest = text[at + 7..].trim_start();
-        let quote = rest.chars().next().filter(|c| *c == '"' || *c == '\'')?;
-        rest[1..].split(quote).next()
-    }));
-    if links.iter().all(|link| link_stays_inside(root, folder, link)) {
-        Ok(())
-    } else {
-        Err(OUTSIDE.to_string())
-    }
 }

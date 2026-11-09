@@ -153,6 +153,16 @@ describe("figure source path", () => {
     expect(figureSourcePath("figures/a.tex", "% editable-figure source: /etc/a.reactio")).toBeNull();
     expect(figureSourcePath("figures/a.tex", "% editable-figure source: C:/a.reactio")).toBeNull();
   });
+
+  it("reads a long first line at once rather than backtracking over it", () => {
+    // A line of spaces cost a pattern four times as much for twice its
+    // length, so any .tex the watcher reported could hold the window.
+    const padded = `% editable-figure source: a.svg${" ".repeat(400_000)}x`;
+    const started = performance.now();
+    expect(figureSourcePath("figures/a.tex", padded)).toBeNull();
+    expect(performance.now() - started).toBeLessThan(100);
+    expect(figureSourcePath("figures/a.tex", `% editable-figure source: a.svg${" ".repeat(20)}`)).toBe("figures/a.svg");
+  });
 });
 
 describe("included files on a source line", () => {
