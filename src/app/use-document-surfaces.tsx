@@ -22,12 +22,12 @@ import { ChunkGate } from "../components/chunk-gate";
 import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
 import type { LivePreview } from "../live-preview/use-live-preview";
+import { pasteEditableFigureLazily } from "./paste-editable-figure-lazily";
 import { canDownloadPaper, citationSourceUrl } from "../papers/paper-source";
 import type { TrellisController } from "../trellis/trellis-controller";
 import type { EditorPosition, ProjectManifest, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { annotationRounds } from "./annotation-rounds";
-import { pasteEditableFigure } from "./editable-figure-paste";
 import { CompileDiagnosticsPanel } from "./app-lazy-panels";
 import { AppOverleafMarginReview } from "./app-overleaf-drawer";
 import type { SearchDialog } from "./app-search-dialogs";
@@ -332,7 +332,7 @@ export function useDocumentSurfaces({
         },
         onPrepareFigure: tree.prepareLatexFigure,
         onPasteImageFile: tree.pasteImageFile,
-        onPasteEditableFigure: (manifest, view) => void pasteEditableFigure(view, manifest, { projectRoot: project.root, refreshProject: library.refreshProject }),
+        onPasteEditableFigure: (manifest, view) => pasteEditableFigureLazily(view, manifest, { projectRoot: project.root, refreshProject: library.refreshProject }),
         nativeFigureDropActive: tree.drops.editor,
         fileDropTargetActive: tree.drops.fileTarget,
       }}

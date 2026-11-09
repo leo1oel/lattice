@@ -4479,7 +4479,7 @@ msgstr "Could not open a new Lattice window: {error}"
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
 
-#: src/project/figure-source-open.ts
+#: src/project/figure-source-run.ts
 msgid "Could not open the drawing"
 msgstr "Could not open the drawing"
 
@@ -10278,7 +10278,7 @@ msgstr "Open"
 msgid "Open {name}"
 msgstr "Open {name}"
 
-#: src/project/figure-source-open.ts
+#: src/project/figure-source-run.ts
 msgid "Open {name} in its default app?"
 msgstr "Open {name} in its default app?"
 

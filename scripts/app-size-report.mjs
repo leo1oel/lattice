@@ -195,7 +195,10 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // Raised again the same day for the TeX doctor's package-update state (#726),
 // a hook App runs so an approved update outlives Settings, +2.4 KB
 // (1,428,755 -> 1,431,207 bytes, a local build).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.365 * 1024 * 1024);
+// Raised from 1.365 MiB for editable figures: the project tree must know a
+// drawing without a load, and the rest of pasting and opening a figure loads
+// on demand, +0.4 KB.
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.366 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

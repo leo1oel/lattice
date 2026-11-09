@@ -4479,7 +4479,7 @@ msgstr "无法打开新的 Lattice 窗口：{error}"
 msgid "Could not open the article in your browser"
 msgstr "浏览器打不开原文"
 
-#: src/project/figure-source-open.ts
+#: src/project/figure-source-run.ts
 msgid "Could not open the drawing"
 msgstr "无法打开绘图"
 
@@ -10278,7 +10278,7 @@ msgstr "待处理"
 msgid "Open {name}"
 msgstr "打开 {name}"
 
-#: src/project/figure-source-open.ts
+#: src/project/figure-source-run.ts
 msgid "Open {name} in its default app?"
 msgstr "用默认应用打开 {name}？"
 
