@@ -77,12 +77,6 @@ export function lineCounter(source: string): (offset: number) => number {
   };
 }
 
-/** `candidate` itself, or the project file that ends with it as a path suffix. */
-export function findProjectPath(candidate: string, projectPaths: string[]): string | null {
-  if (projectPaths.includes(candidate)) return candidate;
-  return projectPaths.find((path) => path.endsWith(`/${candidate}`)) ?? null;
-}
-
 /** Lower case, one UTF-16 unit for one, so a folded path keeps the original's offsets. */
 export function foldCase(path: string): string {
   return path.replace(/[^]/g, (unit) => {
@@ -103,14 +97,6 @@ function foldedProjectPaths(projectPaths: readonly string[]): string[] {
   return folded;
 }
 
-/** `findProjectPath` with letter case ignored, as macOS's disk ignores it. */
-export function findProjectPathIgnoringCase(candidate: string, projectPaths: readonly string[]): string | null {
-  const folded = foldedProjectPaths(projectPaths);
-  const wanted = foldCase(candidate);
-  const index = folded.findIndex((path) => path === wanted || path.endsWith(`/${wanted}`));
-  return index < 0 ? null : projectPaths[index];
-}
-
 /** `path` with `.` and `..` collapsed; null when `..` climbs out of the project folder. */
 export function normalizeProjectPath(path: string): string | null {
   const parts: string[] = [];
@@ -128,47 +114,70 @@ export function rootFolder(rootPath: string): string {
 }
 
 /**
- * The project file an `\input`/`\include` path names. TeX (latexmk `-cd`)
- * reads it relative to the root document's folder, whichever file holds the
- * command, so that comes first and is the only place a `..` path can mean.
- * The project folder comes next, then any one file the path ends — a copy in
- * `arxiv-v1/` must not stand in for the one the build reads, so when several
- * end with it, none is chosen. `ignoreCase` matches as macOS's disk does.
+ * The project file a path names where TeX (latexmk `-cd`) reads it: the root
+ * document's folder, whichever file holds the command. That is the only
+ * place a `..` path can mean. `ignoreCase` matches as macOS's disk does.
  */
-export function findTexPath(
-  candidate: string,
-  projectPaths: readonly string[],
-  rootPath = "",
-  ignoreCase = false,
-): string | null {
-  const paths = ignoreCase ? foldedProjectPaths(projectPaths) : projectPaths;
-  const fold = (path: string) => (ignoreCase ? foldCase(path) : path);
-  const indexOf = (path: string | null) => (path ? paths.indexOf(fold(path)) : -1);
-  const fromRoot = indexOf(normalizeProjectPath(`${rootFolder(rootPath)}${candidate}`));
-  if (fromRoot >= 0) return projectPaths[fromRoot];
+function inRootFolder(candidate: string, projectPaths: readonly string[], rootPath: string, ignoreCase: boolean) {
+  const path = normalizeProjectPath(`${rootFolder(rootPath)}${candidate}`);
+  if (!path) return null;
+  const index = (ignoreCase ? foldedProjectPaths(projectPaths) : projectPaths).indexOf(ignoreCase ? foldCase(path) : path);
+  return index < 0 ? null : projectPaths[index];
+}
+
+/**
+ * A leniency for a file TeX would not find: the path read from the project
+ * folder, else the one project file that ends with it. A copy in `arxiv-v1/`
+ * must not stand in for the one the build reads, so when several end with
+ * it, none is chosen.
+ */
+function elsewhere(candidate: string, projectPaths: readonly string[], ignoreCase: boolean) {
   const fromProject = normalizeProjectPath(candidate);
   if (!fromProject || candidate.split("/").includes("..")) return null;
-  const inProject = indexOf(fromProject);
+  const paths = ignoreCase ? foldedProjectPaths(projectPaths) : projectPaths;
+  const wanted = ignoreCase ? foldCase(fromProject) : fromProject;
+  const inProject = paths.indexOf(wanted);
   if (inProject >= 0) return projectPaths[inProject];
-  const suffix = fold(`/${fromProject}`);
   let found = -1;
   for (const [index, path] of paths.entries()) {
-    if (!path.endsWith(suffix)) continue;
+    if (!path.endsWith(`/${wanted}`)) continue;
     if (found >= 0) return null;
     found = index;
   }
   return found < 0 ? null : projectPaths[found];
 }
 
+/**
+ * The first of `candidates` (a path with each extension or search folder
+ * TeX tries, in TeX's order) found in the root document's folder; only when
+ * none is there, the first found by `elsewhere`. So a file TeX would not
+ * read never wins over one it would.
+ */
+export function findPathCandidate<T extends { candidate: string }>(
+  candidates: readonly T[],
+  projectPaths: readonly string[],
+  rootPath = "",
+  ignoreCase = false,
+): (T & { file: string }) | null {
+  // An absolute path names a file on disk, never one in the project.
+  const relative = candidates.filter((item) => !item.candidate.startsWith("/"));
+  for (const item of relative) {
+    const file = inRootFolder(item.candidate, projectPaths, rootPath, ignoreCase);
+    if (file) return { ...item, file };
+  }
+  for (const item of relative) {
+    const file = elsewhere(item.candidate, projectPaths, ignoreCase);
+    if (file) return { ...item, file };
+  }
+  return null;
+}
+
 /** The project `.tex` file an `\input`/`\include` argument names, read from the root document `rootPath`. */
 export function resolveTexPath(raw: string, projectPaths: string[], rootPath = ""): string | null {
   const path = raw.trim();
   if (!path) return null;
-  for (const candidate of path.endsWith(".tex") ? [path] : [path, `${path}.tex`]) {
-    const found = findTexPath(candidate, projectPaths, rootPath);
-    if (found) return found;
-  }
-  return null;
+  const candidates = (path.endsWith(".tex") ? [path] : [path, `${path}.tex`]).map((candidate) => ({ candidate }));
+  return findPathCandidate(candidates, projectPaths, rootPath)?.file ?? null;
 }
 
 /** Labels defined in a dirty buffer, for live completion before save. */

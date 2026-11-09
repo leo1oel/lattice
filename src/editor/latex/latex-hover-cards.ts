@@ -420,7 +420,7 @@ export function graphicsTooltips(live: () => LatexEditorLiveData, loadImage: (pa
     const target = graphicsHoverTarget(view.state.doc.toString(), position);
     if (!target || /^https?:/.test(target.path)) return null;
     const data = live();
-    const resolved = resolveProjectPath(target.path, data.projectPaths, "graphics", data.graphicsRoots);
+    const resolved = resolveProjectPath(target.path, data.projectPaths, "graphics", data.graphicsRoots, data.rootDocumentPath);
     if (!resolved) return null;
     return {
       pos: target.from,
