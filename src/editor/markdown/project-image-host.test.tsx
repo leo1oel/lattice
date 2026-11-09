@@ -1,10 +1,27 @@
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProjectImageHostProvider, useProjectImage } from "./project-image-host";
 
 function ImageProbe({ src, enabled = true }: { src: string; enabled?: boolean }) {
   const resolved = useProjectImage(src, enabled);
-  return <span data-testid={src} data-resolved-length={resolved.src?.length ?? 0} data-target-existence={resolved.targetExistence} />;
+  return (
+    <span
+      data-testid={src}
+      data-resolved-length={resolved.src?.length ?? 0}
+      data-target-existence={resolved.targetExistence}
+      data-natural-size={resolved.naturalSize ? `${resolved.naturalSize.width}x${resolved.naturalSize.height}` : ""}
+    >
+      {resolved.src && <img alt="" src={resolved.src} onLoad={(event) => resolved.rememberSize(event.currentTarget)} />}
+    </span>
+  );
+}
+
+/** jsdom decodes nothing: give the probe's image the size a browser would read from its bytes. */
+function decode(probe: HTMLElement, width: number, height: number) {
+  const image = probe.querySelector("img")!;
+  Object.defineProperty(image, "naturalWidth", { configurable: true, value: width });
+  Object.defineProperty(image, "naturalHeight", { configurable: true, value: height });
+  fireEvent.load(image);
 }
 
 function CacheHarness({ paths, loadAsset, revision = 0, enabled }: {
@@ -72,6 +89,33 @@ describe("project image cache", () => {
     expect(probe).toHaveAttribute(...resolvedLength("data:image/png;base64,loaded"));
     await vi.advanceTimersByTimeAsync(5_000);
     await vi.waitFor(() => expect(probe).toHaveAttribute("data-resolved-length", "0"));
+  });
+
+  it("keeps an image's natural size once its bytes are released, and gives it to the next view of it before they arrive", async () => {
+    vi.useFakeTimers();
+    const loadAsset = vi.fn(async () => "data:image/png;base64,figure");
+    const paths = ["../figures/sized.png"];
+    const view = render(<CacheHarness paths={paths} loadAsset={loadAsset} />);
+    const probe = view.getByTestId(paths[0]);
+    await vi.waitFor(() => expect(probe.querySelector("img")).not.toBeNull());
+    expect(probe).toHaveAttribute("data-natural-size", "");
+    decode(probe, 1200, 900);
+    await vi.waitFor(() => expect(probe).toHaveAttribute("data-natural-size", "1200x900"));
+
+    // Out of view long enough, the bytes go and the size stays, so the box can stay.
+    view.rerender(<CacheHarness paths={paths} loadAsset={loadAsset} enabled={false} />);
+    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.waitFor(() => expect(probe).toHaveAttribute("data-resolved-length", "0"));
+    expect(probe).toHaveAttribute("data-natural-size", "1200x900");
+
+    // A view drawn again (the long-document window redraws its blocks) knows it at once.
+    view.unmount();
+    const pending = vi.fn(() => new Promise<string | null>(() => undefined));
+    const again = render(<CacheHarness paths={paths} loadAsset={loadAsset} enabled={false} />);
+    expect(again.getByTestId(paths[0])).toHaveAttribute("data-natural-size", "1200x900");
+    // Another project's file at the same path is not assumed to be the same size.
+    again.unmount();
+    expect(render(<CacheHarness paths={paths} loadAsset={pending} />).getByTestId(paths[0])).toHaveAttribute("data-natural-size", "");
   });
 
   it("keeps the current image visible while a newer revision loads", async () => {

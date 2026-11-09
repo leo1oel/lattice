@@ -15,7 +15,8 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { blockWindowMoved, scrollerOf } from "./block-window";
+import { blockWindowMoved } from "./block-window";
+import { scrollerOf } from "./viewport-anchor";
 
 type ScrollTimelineConstructor = new (options: { source: Element; axis: "block" }) => AnimationTimeline;
 

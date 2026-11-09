@@ -397,6 +397,7 @@
 .lx-md-editor .lx-md-image-loading {
   display: block;
   width: min(420px, 100%);
+  max-width: 100%;
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-control);
   background: linear-gradient(90deg, var(--lx-md-block-surface), var(--lx-md-block-surface-strong), var(--lx-md-block-surface));

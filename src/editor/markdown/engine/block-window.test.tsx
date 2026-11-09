@@ -5,7 +5,8 @@
  * jumps work on the whole document.
  *
  * jsdom has no layout, so these tests stack the surface's blocks themselves:
- * a drawn block is 24px tall, a placeholder its own height.
+ * a drawn block is 24px tall (or its `data-test-height`), a placeholder its
+ * own height.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
@@ -38,7 +39,7 @@ function layout(scroller: HTMLElement) {
   Object.defineProperty(scroller, "scrollTop", { configurable: true, get: () => scrollTop, set: (value: number) => { scrollTop = Math.max(0, value); } });
   const box = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 800, width: 800, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
   const heightOf = (element: Element) => {
-    if (!element.hasAttribute("data-lx-virtual")) return DRAWN_BLOCK;
+    if (!element.hasAttribute("data-lx-virtual")) return Number((element as HTMLElement).dataset.testHeight ?? DRAWN_BLOCK);
     const style = (element as HTMLElement).style;
     return Number.parseFloat(style.height) + Number.parseFloat(style.marginTop) + Number.parseFloat(style.marginBottom);
   };
@@ -76,9 +77,29 @@ function renderLong(text: string, props: Partial<Props> = {}) {
   host.className = "editor-doc-scroll";
   document.body.append(host);
   const geometry = layout(host);
-  render(<LatticeVisualMarkdownEditor text={text} activePath="long.md" onChangeMarkdown={onChange} onUndo={() => true} onRedo={() => true} {...props} />, { container: host });
-  return { onChange, geometry, host };
+  const editor = (next: string) => <LatticeVisualMarkdownEditor text={next} activePath="long.md" onChangeMarkdown={onChange} onUndo={() => true} onRedo={() => true} {...props} />;
+  const view = render(editor(text), { container: host });
+  return { onChange, geometry, host, rerender: (next: string) => view.rerender(editor(next)) };
 }
+
+/** A ResizeObserver whose callbacks the test runs, as the browser does once a height changed. */
+function resizeObservers() {
+  const observers: Array<() => void> = [];
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(callback: () => void) {
+      observers.push(callback);
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  });
+  return { layoutChanged: () => observers.forEach((observer) => observer()) };
+}
+
+const frames = (count: number) => new Promise<void>((resolve) => {
+  const step = (left: number) => (left ? requestAnimationFrame(() => step(left - 1)) : resolve());
+  step(count);
+});
 
 /** The first frame's window check, and the load the editor defers to a microtask. */
 const loaded = async () => {
@@ -314,6 +335,78 @@ describe("viewport rendering of a long document (R-PERF-3)", () => {
     above.style.height = `${Number.parseFloat(above.style.height) + 100}px`;
     for (const observer of observers) observer();
     expect(target()!.getBoundingClientRect().top).toBeCloseTo(centered);
+  });
+
+  describe("holding the reader's place while nothing scrolls (the browser's own anchoring is off)", () => {
+    /** A drawn block wholly above the viewport. */
+    const drawnAbove = () => drawn().filter((child) => child.getBoundingClientRect().bottom <= 0).at(-1) as HTMLElement;
+
+    /** Scroll paragraph `index` to the top of the viewport, and let the move's own hold run out. */
+    async function readAt(geometry: ReturnType<typeof layout>, index: number) {
+      geometry.scrollTo((surface().children[index] as HTMLElement).getBoundingClientRect().top + geometry.scrollTop);
+      await frames(3);
+      return () => (surface().children[index] as HTMLElement).getBoundingClientRect().top;
+    }
+
+    it("keeps the block at the top of the viewport still when a drawn block above it grows, as an image loading does", async () => {
+      const { layoutChanged } = resizeObservers();
+      const { geometry } = renderLong(paragraphs(400).join("\n\n"));
+      await loaded();
+      const top = await readAt(geometry, 200);
+      const before = top();
+      const above = drawnAbove();
+      above.dataset.testHeight = String(DRAWN_BLOCK + 300);
+      layoutChanged();
+      expect(top()).toBeCloseTo(before);
+      // And when it shrinks again, as an image whose bytes are released does.
+      delete above.dataset.testHeight;
+      layoutChanged();
+      expect(top()).toBeCloseTo(before);
+    });
+
+    it("keeps the block at the top of the viewport still when the file changes above it on disk", async () => {
+      const { layoutChanged } = resizeObservers();
+      const text = paragraphs(400);
+      const { geometry, rerender } = renderLong(text.join("\n\n"));
+      await loaded();
+      const top = await readAt(geometry, 200);
+      const before = top();
+      const longer = text.map((paragraph, index) => (index === 20 ? "A paragraph rewritten by the agent, much longer now. ".repeat(60) : paragraph));
+      // The canonical text comes back with a block far above the viewport replaced.
+      rerender(longer.join("\n\n"));
+      // The editor takes it on a microtask, within the same frame.
+      for (let turn = 0; turn < 5; turn += 1) await Promise.resolve();
+      expect(surface().editor.state.doc.child(20).textContent).toContain("rewritten by the agent");
+      // The browser reports the new height before it paints that frame.
+      layoutChanged();
+      expect(top()).toBeCloseTo(before);
+    });
+
+    it("holds it in a short document too, drawn whole", async () => {
+      const { layoutChanged } = resizeObservers();
+      const { geometry } = renderLong(paragraphs(120).join("\n\n"));
+      await waitFor(() => expect(surface().children).toHaveLength(120));
+      await frames(2);
+      const top = await readAt(geometry, 60);
+      const before = top();
+      (surface().children[40] as HTMLElement).dataset.testHeight = String(DRAWN_BLOCK + 300);
+      layoutChanged();
+      expect(top()).toBeCloseTo(before);
+    });
+
+    it("lets a scroll made since stand: the caret scrolled into view, or the browser's own anchoring, is not undone", async () => {
+      const { layoutChanged } = resizeObservers();
+      const { geometry, host } = renderLong(paragraphs(400).join("\n\n"));
+      await loaded();
+      await readAt(geometry, 200);
+      // Something scrolled on purpose (ProseMirror bringing the caret into view)
+      // in the same frame as a height changed, before its scroll event.
+      host.scrollTop += 120;
+      const scrolled = host.scrollTop;
+      drawnAbove().dataset.testHeight = String(DRAWN_BLOCK + 300);
+      layoutChanged();
+      expect(host.scrollTop).toBe(scrolled);
+    });
   });
 
   it("gives a heading that is not drawn its id, inside a component too, so the section rail can reach it", async () => {
