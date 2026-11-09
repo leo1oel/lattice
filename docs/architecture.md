@@ -435,7 +435,7 @@ regression is not visible in a dev build.
 
 | Budget | Value | Constant |
 | --- | --- | --- |
-| Eager JavaScript (all `<script>` in `index.html`) | `1.366 * 1024 * 1024` = 1,432,354 bytes | `EAGER_JS_BUDGET_BYTES` |
+| Eager JavaScript (all `<script>` in `index.html`) | `1.368 * 1024 * 1024` = 1,434,451 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
 | Staged Open Slide runtime (file bytes) | 66 MiB on Apple silicon Macs, 68 MiB on Intel Macs, 69 MiB on Linux (larger x86_64 and ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |

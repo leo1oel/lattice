@@ -17,8 +17,8 @@ export function showError(message: string, source?: string) {
 export function showWarning(message: string, source?: string, primaryAction?: AppToastAction) {
   if (message) notifyWarning(source ?? i18n._(msg`App`), message, { primaryAction });
 }
-export function showNotice(message: string, source?: string) {
-  if (message) notifySuccess(source ?? i18n._(msg`App`), message);
+export function showNotice(message: string, source?: string, primaryAction?: AppToastAction) {
+  if (message) notifySuccess(source ?? i18n._(msg`App`), message, { primaryAction });
 }
 
 /** Run `action`; a failure shows its message as an error. */

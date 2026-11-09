@@ -13,12 +13,15 @@ struct Site {
     source: &'static str,
     /// The app's canonical venue; official exports omit its acronym.
     venue: &'static str,
+    /// The fields its export settles over every other source.
+    settles: &'static [&'static str],
 }
 
 const ICLR: Site = Site {
     base: "https://proceedings.iclr.cc",
     source: "ICLR Proceedings",
     venue: "International Conference on Learning Representations (ICLR)",
+    settles: &["publisher", "url", "pages"],
 };
 /// Proceedings before 2018 are named "(NIPS)" (bibcite's year rule). This
 /// site needs no such rule while `paper_path` accepts only the
@@ -27,6 +30,9 @@ const NEURIPS: Site = Site {
     base: "https://papers.nips.cc",
     source: "NeurIPS Proceedings",
     venue: "Advances in Neural Information Processing Systems (NeurIPS)",
+    // LLaVA's publisher is Curran Associates in the export, the NeurIPS
+    // Foundation in Crossref's deposit; its link, the proceedings page.
+    settles: &["publisher", "url"],
 };
 
 pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
@@ -73,11 +79,46 @@ pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
             };
             checked.sources.push(SourceCheck::new(site.source, outcome));
             if outcome == "unavailable" {
+                // Unreachable here is not absent: a site some networks cannot
+                // reach must not turn its fields over to DBLP or Crossref,
+                // or the proposal would flip back wherever it answers.
+                checked.withheld = site.settles;
+                checked = withhold(checked);
                 checked.official_source_unavailable();
             }
             checked
         }
     }
+}
+
+/// `checked` without proposals for its withheld fields: each keeps the
+/// entry's own value. A proposal left with no change becomes "checked", for
+/// the caller to report as unverified.
+pub(super) fn withhold(mut checked: AuditResult) -> AuditResult {
+    let Some(after) = checked.after.as_deref().filter(|_| !checked.withheld.is_empty()) else {
+        return checked;
+    };
+    let local = field_expressions(&checked.before);
+    let mut expressions = field_expressions(after);
+    for name in checked.withheld {
+        match local.get(*name) {
+            Some(value) => expressions.insert(name.to_string(), value.clone()),
+            None => expressions.remove(*name),
+        };
+    }
+    let spans = project::bibliography_entry_spans(after);
+    let Some((key, _, _)) = spans.first() else {
+        return checked;
+    };
+    let narrowed =
+        proposal(&checked.before, render_entry(&entry_type(after), key, expressions), "");
+    checked.changes = narrowed.changes;
+    checked.after = narrowed.after;
+    if checked.after.is_none() {
+        checked.status = "checked".into();
+        checked.message = "No update found.".into();
+    }
+    checked
 }
 
 /// Only official hosts are contacted: HTTPS, at most three redirects, all on

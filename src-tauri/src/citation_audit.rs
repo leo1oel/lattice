@@ -43,8 +43,9 @@ pub use apply::apply;
 pub use batch::check_batch;
 pub(crate) use bibtex::{fields as entry_fields, single_entry_key};
 pub use check::check_entry;
+pub(crate) use check::prepare_import;
 pub(crate) use identity::metadata_identity_matches;
-pub(crate) use proposal::{prepare_import, protect_bibtex};
+pub(crate) use proposal::protect_bibtex;
 
 /// A record handed over whole (pasted, from Zotero, a chosen candidate or the
 /// entry editor) with the verified-source merge and cleanup a DOI import gets,
@@ -171,6 +172,11 @@ pub struct AuditResult {
     /// generic supplement (Crossref) cannot overwrite the fields it settled.
     #[serde(skip)]
     official: Option<String>,
+    /// Fields an official proceedings site settles that could not be reached
+    /// for this entry. No other source may propose them: its value would be
+    /// replaced again the next time the site answers.
+    #[serde(skip)]
+    withheld: &'static [&'static str],
 }
 
 #[derive(Debug, Serialize)]
@@ -204,6 +210,7 @@ fn result(status: &str, message: &str, before: impl Into<String>) -> AuditResult
         health: None,
         disagreements: vec![],
         official: None,
+        withheld: &[],
     }
 }
 

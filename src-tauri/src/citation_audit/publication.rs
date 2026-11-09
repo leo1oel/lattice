@@ -18,6 +18,9 @@ const ACL_ANTHOLOGY: &str = "ACL Anthology";
 struct Official {
     bibtex: String,
     source: &'static str,
+    /// CVF Open Access's page range when the record keeps the DOI's own
+    /// (IEEE Xplore) pagination: the two number the same paper differently.
+    cvf_pages: Option<String>,
 }
 
 pub(super) fn refine(checked: AuditResult) -> AuditResult {
@@ -57,6 +60,7 @@ fn refine_with(mut checked: AuditResult, import: bool) -> AuditResult {
                 Some(export) => prefer(export, &official.bibtex),
                 None => (official.bibtex, vec![]),
             };
+            let remote = keep_cvf_pages(&checked.before, remote, official.cvf_pages.as_deref());
             let anthology_authors = import
                 && source == ACL_ANTHOLOGY
                 && doi.is_some()
@@ -67,8 +71,13 @@ fn refine_with(mut checked: AuditResult, import: bool) -> AuditResult {
                 updated.health = checked.health;
                 updated.official = checked.official;
                 updated.disagreements = disagreements;
+                updated.withheld = checked.withheld;
                 if updated.after.is_some() {
                     updated.message = "Verified publication metadata is available.".into();
+                }
+                updated = proceedings::withhold(updated);
+                if !updated.withheld.is_empty() {
+                    updated.official_source_unavailable();
                 }
                 if updated.health.as_ref().is_some_and(CitationHealth::is_incomplete) {
                     updated.status = "unavailable".into();
@@ -94,6 +103,71 @@ fn refine_with(mut checked: AuditResult, import: bool) -> AuditResult {
     checked
 }
 
+/// A CVF Open Access record with the page range its DOI's own (IEEE Xplore)
+/// record gives, plus the CVF range it replaced. CVPR, ICCV and WACV papers
+/// carry both numberings; the DOI kept in the entry names the IEEE one, so
+/// the two never mix in one entry.
+pub(super) fn doi_pagination(cvf: &str, crossref: &str) -> (String, Option<String>) {
+    let ieee = fields(crossref).get("pages").cloned().filter(|pages| !pages.trim().is_empty());
+    let cvf_pages = fields(cvf).get("pages").cloned();
+    match ieee {
+        Some(ieee) if cvf_pages.as_deref().is_some_and(|cvf| !same_value("pages", cvf, &ieee)) => {
+            (with_field(cvf, "pages", &ieee), cvf_pages)
+        }
+        _ => (cvf.to_string(), None),
+    }
+}
+
+/// `remote` keeping the entry's own pages when they are the CVF numbering of
+/// the same DOI: either numbering of a CVF paper agrees with its record.
+pub(super) fn keep_cvf_pages(before: &str, remote: String, cvf_pages: Option<&str>) -> String {
+    let local = fields(before);
+    let same_doi = entry_doi(&local).is_some() && entry_doi(&local) == entry_doi(&fields(&remote));
+    match (local.get("pages"), cvf_pages) {
+        (Some(pages), Some(cvf)) if same_doi && same_value("pages", pages, cvf) => {
+            with_field(&remote, "pages", pages)
+        }
+        _ => remote,
+    }
+}
+
+/// Crossref types a Springer conference paper (ECCV, MICCAI) as a book
+/// chapter of its Lecture Notes volume and exports it as `@inbook`, with a
+/// booktitle in the series' "<topic> – <acronym> <year>" form ("Computer
+/// Vision – ECCV 2026"). When that acronym names a canonical venue, the
+/// chapter is a paper in those proceedings, as DBLP and the venue list file
+/// it. Only that exact trailing form counts; a real book's chapter stays one.
+pub(super) fn proceedings_chapter(bibtex: &str) -> String {
+    static EDITION: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"\s[\x{2013}\x{2014}-]\s*([A-Z][A-Za-z]*[A-Z]\s+\d{4})\s*$").unwrap()
+    });
+    let values = fields(bibtex);
+    let year = field_value(&values, "year").parse().ok();
+    let conference = values
+        .get("booktitle")
+        .and_then(|venue| EDITION.captures(venue))
+        .and_then(|edition| canonical_venue(&edition[1], year));
+    match (entry_type(bibtex.trim()).as_str(), conference) {
+        ("inbook" | "incollection", Some(conference)) => {
+            let opening = bibtex.find('@').unwrap_or(0);
+            let brace = bibtex[opening..].find(['{', '(']).map_or(opening, |at| opening + at);
+            let typed = format!("{}@inproceedings{}", &bibtex[..opening], &bibtex[brace..]);
+            with_field(&typed, "booktitle", conference)
+        }
+        _ => bibtex.to_string(),
+    }
+}
+
+/// `entry` with one field set to `value`.
+fn with_field(entry: &str, name: &str, value: &str) -> String {
+    let mut values = fields(entry);
+    values.insert(name.into(), value.into());
+    let spans = project::bibliography_entry_spans(entry);
+    let key = spans.first().map_or("official", |span| span.0.as_str());
+    let expressions = values.into_iter().map(|(name, value)| (name, format!("{{{value}}}")));
+    render_entry(&entry_type(entry.trim()), key, expressions.collect())
+}
+
 /// `primary` with any field it lacks taken from `secondary`, plus the
 /// bibliographic facts on which the two records disagree.
 fn prefer(primary: &str, secondary: &str) -> (String, Vec<String>) {
@@ -112,7 +186,7 @@ fn prefer(primary: &str, secondary: &str) -> (String, Vec<String>) {
     (render_entry(&entry_type(primary.trim()), key, expressions.collect()), disagreements)
 }
 
-fn candidate_dois(before: &str, report: &serde_json::Value) -> Vec<String> {
+pub(super) fn candidate_dois(before: &str, report: &serde_json::Value) -> Vec<String> {
     let local = fields(before);
     let title = local.get("title").map(|v| normalize_title(v)).unwrap_or_default();
     report
@@ -121,7 +195,10 @@ fn candidate_dois(before: &str, report: &serde_json::Value) -> Vec<String> {
         .into_iter()
         .flatten()
         .filter(|item| {
-            matches!(item["type"].as_str(), Some("proceedings-article" | "journal-article"))
+            matches!(
+                item["type"].as_str(),
+                Some("proceedings-article" | "journal-article" | "book-chapter")
+            )
         })
         .filter(|item| {
             !title.is_empty()
@@ -152,11 +229,18 @@ fn lookup(before: &str, doi: Option<&str>) -> Result<Option<Official>, String> {
         // The Anthology may lack an export for an older DOI; Crossref's
         // deposit is then still a verified record of the same DOI.
         let official = match acl_anthology(&client, &doi) {
-            Ok(Some(bibtex)) => Official { bibtex, source: ACL_ANTHOLOGY },
-            _ => Official { bibtex: crossref_bibtex(&client, &doi)?, source: CROSSREF },
+            Ok(Some(bibtex)) => Official { bibtex, source: ACL_ANTHOLOGY, cvf_pages: None },
+            _ => Official {
+                bibtex: proceedings_chapter(&crossref_bibtex(&client, &doi)?),
+                source: CROSSREF,
+                cvf_pages: None,
+            },
         };
         let remote = match official_cvf(&client, &official.bibtex, &doi)? {
-            Some(cvf) => Official { bibtex: cvf, ..official },
+            Some(cvf) => {
+                let (bibtex, cvf_pages) = doi_pagination(&cvf, &official.bibtex);
+                Official { bibtex, cvf_pages, ..official }
+            }
             None => official,
         };
         // Keep author conflicts visible for review rather than reporting that
@@ -316,7 +400,7 @@ fn cvf_papers(
     Ok(papers)
 }
 
-fn accepts(before: &str, remote: &str, doi: &str) -> bool {
+pub(super) fn accepts(before: &str, remote: &str, doi: &str) -> bool {
     let values = fields(remote);
     metadata_identity_matches(before, remote.trim())
         && values.get("doi").and_then(|v| normalize_doi(v)).as_deref() == Some(doi)

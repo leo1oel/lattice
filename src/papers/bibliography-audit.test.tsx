@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.mocked(saveAuditReport).mockReset().mockImplementation(async (root, report) => { reports.set(root, report); });
 });
 const entries: AuditEntry[] = Array.from({ length: 3 }, (_, i) => ({ path: `refs${i}.bib`, key: `key${i}`, title: `Paper ${i}`, bibtex: `@article{key${i},title={Paper ${i}}}`, issues: [] }));
-const updated: AuditResult = { status: "update", message: "A published version is available.", before: entries[0].bibtex, after: "@article{key0,title={Updated}}", changes: [{ field: "title", before: "Paper 0", after: "Updated" }] };
+const updated: AuditResult = { status: "update", message: "A published version is available.", before: entries[0].bibtex, after: "@article{key0,title={Paper 0},pages={1--9}}", changes: [{ field: "pages", before: "", after: "1--9" }] };
 function props() { return { open: true, projectRoot: "/project", onClose: vi.fn(), onPrepare: vi.fn(async () => true), onApply: vi.fn<(entry: AuditEntry, result: AuditResult) => Promise<void>>().mockResolvedValue(undefined) }; }
 async function checkAll() {
   const button = await screen.findByRole("button", { name: "Check all" });
@@ -250,7 +250,7 @@ it("files an update as a fix rather than a success, folds its fields and BibTeX,
   expect(screen.getByText("Details").closest("details")).not.toHaveAttribute("open");
   expect(screen.getByText("Fields and BibTeX").closest("details")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByText("Fields and BibTeX"));
-  expect(screen.getByText("Title")).toBeVisible();
+  expect(screen.getByText("Pages")).toBeVisible();
   expect(screen.getByText("Proposed BibTeX")).toBeVisible();
   expect(screen.getByText(updated.after!)).toBeVisible();
   fireEvent.click(screen.getByRole("link", { name: "Open notice" }));
@@ -364,6 +364,22 @@ it("accepts all updates sequentially without applying an item twice", async () =
   expect(onApplied).toHaveBeenCalledTimes(1);
   expect(p.onApply.mock.calls.map(([entry]) => entry.key)).toEqual(["key0", "key1", "key2"]);
   expect(screen.queryByRole("button", { name: "Apply 3 fixes" })).not.toBeInTheDocument();
+});
+
+it("groups fixes and leaves a disputed value out of Apply all", async () => {
+  // key1's publisher is replaced, not filled: both records are plausible.
+  const disputed = { ...updated, changes: [{ field: "publisher", before: "Curran Associates, Inc.", after: "NeurIPS Foundation" }] };
+  vi.mocked(invoke).mockImplementation(async (command, args) => command === "bibliography_audit_scan"
+    ? { entries, issues: [] }
+    : { results: (args as { entries: AuditEntry[] }).entries.map(entry => ({ ...(entry.key === "key1" ? disputed : updated), before: entry.bibtex })) });
+  const p = props();
+  await renderChecked(p);
+  const headings = await screen.findAllByRole("heading", { level: 4 });
+  expect(headings.map(heading => heading.textContent)).toEqual(["Published version or missing fields", "Sources differ from your entry"]);
+  fireEvent.click(screen.getByRole("button", { name: "Apply 2 fixes" }));
+  await waitFor(() => expect(screen.getAllByText("Update applied")).toHaveLength(2));
+  expect(p.onApply.mock.calls.map(([entry]) => entry.key)).toEqual(["key0", "key2"]);
+  expect(screen.queryByRole("button", { name: /^Apply \d+ fix/ })).not.toBeInTheDocument();
 });
 
 it("stops bulk apply on failure while retaining earlier successes", async () => {
