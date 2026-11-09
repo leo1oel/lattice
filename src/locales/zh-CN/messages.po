@@ -777,6 +777,10 @@ msgstr "{name} 不是 UTF-8 文本文件"
 msgid "{name} is not in a file right now."
 msgstr "{name} 当前没在看任何文件"
 
+#: src/platform/host-errors-project.ts
+msgid "{name} is not on this computer yet. Download it from your cloud drive and try again."
+msgstr "{name} 还不在这台电脑上。请先从云盘下载，然后重试。"
+
 #: src/terminal/terminal-window.ts
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} 仍在运行，关闭会将其停止。"
@@ -1020,6 +1024,14 @@ msgstr "{todoCount} 个标记"
 msgid "{todoCount} markers"
 msgstr "{todoCount} 个标记"
 
+#: src/platform/host-errors-project.ts
+msgid "{tool} could not convert the figure. {tail}"
+msgstr "{tool} 无法转换此图。{tail}"
+
+#: src/platform/host-errors-project.ts
+msgid "{tool} took too long to convert the figure."
+msgstr "{tool} 转换此图耗时过长。"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{total} file would change"
 msgstr "会改动 {total} 个文件"
@@ -1059,6 +1071,10 @@ msgstr "{warnings} 个警告"
 #: src/build/build-result-text.ts
 msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
+
+#: src/platform/host-errors-project.ts
+msgid "{what} is not a drawing Lattice can convert."
+msgstr "{what} 不是 Lattice 能转换的绘图文件。"
 
 #: src/project/deadline-card.tsx
 msgid "{when} your time ({zone})"
@@ -4722,6 +4738,11 @@ msgstr "无法管理 Windows 终端的进程树。"
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "无法解压 rtex 安装包：{error}"
 
+#: src/project/figure-converters-actions.ts
+#: src/project/figure-converters.ts
+msgid "Could not update the figure"
+msgstr "无法更新此图"
+
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Could not upload the project to Overleaf"
 msgstr "上传失败"
@@ -6199,8 +6220,14 @@ msgstr "插图使用检查"
 msgid "Figure preview could not be loaded."
 msgstr "图片预览加载失败"
 
+#. placeholder {0}: figure.entry
+#: src/project/figure-converters-actions.ts
+msgid "Figure ready: {0}. Open a LaTeX file to include it."
+msgstr "图已就绪：{0}。请打开 LaTeX 文件以插入。"
+
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
+#: src/project/figure-converters-actions.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -7594,6 +7621,10 @@ msgstr "检查与替换"
 msgid "Install"
 msgstr "安装"
 
+#: src/platform/host-errors-project.ts
+msgid "Install {tool} to update this figure."
+msgstr "请安装 {tool} 以更新此图。"
+
 #: src/settings/settings-dialog.tsx
 msgid "Install automatically"
 msgstr "自动安装"
@@ -8550,6 +8581,10 @@ msgstr "行高"
 #: src/editor/goto-line-dialog.tsx
 msgid "Line number"
 msgstr "行号"
+
+#: src/build/build-log-messages.ts
+msgid "Line numbers may be drawn over the text: your TeX has lineno 5.7, which has a known bug. Update TeX packages to fix it."
+msgstr "行号可能会压在正文上：你的 TeX 中的 lineno 是 5.7 版，它有一个已知问题。更新 TeX 组件即可修复。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Line under an expression"
@@ -12318,6 +12353,10 @@ msgstr "重命名"
 msgid "Rename {meaning}"
 msgstr "重命名“{meaning}”"
 
+#: src/platform/host-errors-project.ts
+msgid "Rename {source}: a figure's file and folder names cannot hold line breaks or TeX's special characters."
+msgstr "请重命名 {source}：图的文件名和文件夹名不能包含换行或 TeX 特殊字符。"
+
 #: src/project/project-dialogs.tsx
 msgid "Rename citation key"
 msgstr "改引用名"
@@ -14796,6 +14835,7 @@ msgstr "TeX 组件更新进度"
 msgid "TeX packages"
 msgstr "TeX 组件"
 
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "TeX packages updated. Build again to use them."
 msgstr "TeX 组件已更新。重新编译即可使用。"
@@ -15150,6 +15190,10 @@ msgstr "会议官方导出的引用与 Crossref 在这些字段上不一致：{0
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "缺少连接信息"
 
+#: src/platform/host-errors-project.ts
+msgid "The converted figure could not be read."
+msgstr "无法读取转换后的图。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The copy is not UTF-8 text."
 msgstr "副本不是 UTF-8 文本"
@@ -15221,6 +15265,10 @@ msgstr "下载的 {what} 未通过安全校验"
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "下载的更新未通过签名校验，因此未安装。请从发布页面下载 Lattice {version}。"
+
+#: src/platform/host-errors-project.ts
+msgid "The drawing is too large to convert."
+msgstr "绘图文件太大，无法转换。"
 
 #: src/app/use-reference-import.ts
 msgid "The entry for {citationCommand} already matches its sources."
@@ -15991,6 +16039,10 @@ msgstr "文档和 Overleaf 不一致，实时协作已停，同步时会自动�
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 msgstr "启动时文档不一致，已停止实时协作，同步时会自动对齐"
+
+#: src/platform/host-errors-project.ts
+msgid "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project."
+msgstr "此绘图链接了项目外的文件。请把图片嵌入绘图，或把它放在项目内。"
 
 #: src/app/remove-reference-action.ts
 msgid "This entry is cited in {count} places."
@@ -16839,6 +16891,7 @@ msgstr "立即更新"
 msgid "Update table"
 msgstr "更新表格"
 
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Update TeX packages"
 msgstr "更新 TeX 组件"
@@ -16868,6 +16921,7 @@ msgstr "已更新到 Lattice {running}"
 msgid "Updates {fields}"
 msgstr "更新{fields}"
 
+#: src/settings/settings-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Updates available"
 msgstr "有可用更新"
@@ -16889,6 +16943,7 @@ msgid "Updates the .bib entry and every \\cite"
 msgstr "会同步改 .bib 和所有 \\cite"
 
 #: src/build/tex-install-dialog.tsx
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Updating LaTeX packages…"
 msgstr "正在更新 LaTeX 组件…"
@@ -16950,6 +17005,10 @@ msgstr "用 “{word}” 代替 “{original}”。"
 #: src/platform/host-errors-workspace.ts
 msgid "Use an HTTP(S) source URL without credentials."
 msgstr "来源地址须为 HTTP(S)，且不能包含账号密码"
+
+#: src/project/project-file-tree.tsx
+msgid "Use as editable figure"
+msgstr "用作可编辑图"
 
 #: src/platform/host-errors-project.ts
 msgid "Use letters, numbers, and :_-.+ in the {name}."
@@ -17202,6 +17261,7 @@ msgid "Waiting"
 msgstr "等待中"
 
 #: src/build/tex-install-dialog.tsx
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"

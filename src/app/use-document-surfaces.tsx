@@ -23,6 +23,7 @@ import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
 import type { LivePreview } from "../live-preview/use-live-preview";
 import { pasteEditableFigureLazily } from "./paste-editable-figure-lazily";
+import { pasteDrawingFile } from "../project/figure-converters";
 import { canDownloadPaper, citationSourceUrl } from "../papers/paper-source";
 import type { TrellisController } from "../trellis/trellis-controller";
 import type { EditorPosition, ProjectManifest, ProjectSnapshot } from "../app-types";
@@ -333,6 +334,7 @@ export function useDocumentSurfaces({
         onPrepareFigure: tree.prepareLatexFigure,
         onPasteImageFile: tree.pasteImageFile,
         onPasteEditableFigure: (manifest, view) => pasteEditableFigureLazily(view, manifest, { projectRoot: project.root, refreshProject: library.refreshProject }),
+        onPasteDrawingFile: (file, view) => void pasteDrawingFile(file, view, project.root),
         nativeFigureDropActive: tree.drops.editor,
         fileDropTargetActive: tree.drops.fileTarget,
       }}
@@ -407,6 +409,7 @@ export function useDocumentSurfaces({
               onExpandedChange={buildPipeline.setDiagnosticsExpanded}
               onSelect={(diagnostic) => void build.openCompileDiagnostic(diagnostic)}
               onInstallDependency={texSetup.installDependency}
+              texPackageUpdates={texSetup.packageUpdates}
               onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
               onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
               onFixAll={() => { synara.requestRuntime(); void compileRepair.start(lastBuild.diagnostics); }}

@@ -200,4 +200,13 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/editable_figure.rs", "No free name was found for the figure.", () => t`No free name was found for the figure.`],
   ["project/editable_figure.rs", "Could not decode the figure: {error}", ([error]) => t`Could not decode the figure: ${error}`],
   ["project/editable_figure.rs", "{source} could not be found.", ([source]) => t`${source} could not be found.`],
+  ["project/figure_converters.rs", "{what} is not a drawing Lattice can convert.", ([what]) => t`${what} is not a drawing Lattice can convert.`],
+  ["project/figure_converters.rs", "The drawing is too large to convert.", () => t`The drawing is too large to convert.`],
+  ["project/figure_converters.rs", "The converted figure could not be read.", () => t`The converted figure could not be read.`],
+  ["project/figure_converters.rs", "Rename {source}: a figure's file and folder names cannot hold line breaks or TeX's special characters.", ([source]) => t`Rename ${source}: a figure's file and folder names cannot hold line breaks or TeX's special characters.`],
+  ["project/figure_converters.rs", "{name} is not on this computer yet. Download it from your cloud drive and try again.", ([name]) => t`${name} is not on this computer yet. Download it from your cloud drive and try again.`],
+  ["project/figure_converters/render.rs", "Install {} to update this figure.", ([tool]) => t`Install ${tool} to update this figure.`],
+  ["project/figure_converters/render.rs", "{} took too long to convert the figure.", ([tool]) => t`${tool} took too long to convert the figure.`],
+  ["project/figure_converters/render.rs", "{} could not convert the figure. {tail}", ([tool, tail]) => t`${tool} could not convert the figure. ${tail}`],
+  ["project/figure_converters/render.rs", "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project.", () => t`This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project.`],
 ];

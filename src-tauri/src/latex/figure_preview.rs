@@ -109,11 +109,14 @@ pub fn preview_figure(
     let paper_preamble = source.as_deref().and_then(preamble);
     let extra = request.preamble.as_deref().unwrap_or("");
     let engine = engine_binary(&manifest.engine);
-    let inputs = document
+    // The document's folder, then the project's, as the build searches them
+    // (`search_paths`).
+    let folder = document
         .as_deref()
         .and_then(|path| project::safe_path(root, path).ok())
         .and_then(|path| path.parent().map(Path::to_path_buf))
-        .unwrap_or_else(|| root.to_path_buf());
+        .filter(|folder| folder.as_path() != root);
+    let inputs: Vec<PathBuf> = folder.into_iter().chain([root.to_path_buf()]).collect();
 
     // One figure at a time: each is a TeX run, and the agent waits on it.
     static RUNNING: Mutex<()> = Mutex::new(());
@@ -337,7 +340,7 @@ struct Attempt {
 }
 
 fn typeset(
-    engine: &str, inputs: &Path, source: &Source, timeout: Duration,
+    engine: &str, inputs: &[PathBuf], source: &Source, timeout: Duration,
 ) -> Result<Attempt, String> {
     let scratch = Scratch::new()?;
     let tex = scratch.0.join(format!("{JOB}.tex"));
@@ -345,12 +348,15 @@ fn typeset(
     let mut command = commands::command(engine);
     unwrapped_log(&mut command).current_dir(&scratch.0);
     // The scratch folder first, so the document's folder can hold a file
-    // named like the job; the trailing separator keeps TeX's own trees.
-    let inputs = inputs.to_string_lossy();
-    command.env(
-        "TEXINPUTS",
-        if inputs.contains(':') { ".:".to_string() } else { format!(".:{inputs}:") },
-    );
+    // named like the job; the trailing separator keeps TeX's own trees. A
+    // folder whose path holds the separator cannot be named in the list.
+    let folders: String = inputs
+        .iter()
+        .map(|folder| folder.to_string_lossy())
+        .filter(|folder| !folder.contains(':'))
+        .map(|folder| format!("{folder}:"))
+        .collect();
+    command.env("TEXINPUTS", format!(".:{folders}"));
     command.env("openout_any", "p");
     command
         .args([
@@ -736,7 +742,8 @@ mod tests {
     fn a_runaway_figure_is_stopped_at_the_timeout() {
         let root = TempDir::new("figure-timeout");
         let source = Source::new(PLAIN_PREAMBLE, None, "", "\\def\\x{\\x}\\x", "\\columnwidth");
-        let attempt = typeset("pdflatex", &root, &source, Duration::from_secs(2)).unwrap();
+        let attempt =
+            typeset("pdflatex", &[root.to_path_buf()], &source, Duration::from_secs(2)).unwrap();
         assert!(attempt.timed_out && attempt.pdf.is_none());
         assert!(attempt.errors[0].contains("still typesetting after 2 seconds"));
     }

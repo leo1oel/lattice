@@ -33,7 +33,7 @@ export async function pasteEditableFigure(
 }
 
 /** Puts a figure whose files are in the project into `view`: its include at the selection, what it needs in the preamble. */
-async function insertImportedFigure(view: EditorView, pasted: ImportedFigure): Promise<void> {
+export async function insertImportedFigure(view: EditorView, pasted: ImportedFigure): Promise<void> {
   // The editor may have closed during any wait: the files stay in the project.
   if (!view.dom.isConnected) return;
   let figure = pasted;

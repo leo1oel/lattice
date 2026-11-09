@@ -154,6 +154,9 @@ input[type="search"]:focus-visible {
 .compile-diagnostic-item.warning > svg { color: var(--status-warning); }
 .compile-diagnostic-message { min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; line-height: 1.45; }
 .compile-diagnostic-line { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* An action's progress or result, beside its row (tex-package-update-action.tsx). */
+.compile-diagnostic-status { flex: 0 1 auto; max-width: 45%; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.45; overflow-wrap: anywhere; }
+.compile-diagnostic-status.error { color: var(--status-danger); }
 .compile-diagnostic-copy { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; transition: background-color var(--motion-fast), opacity var(--motion-fast); }
 .compile-diagnostic-copy:hover { background: var(--tone-hover-surface); opacity: 1; }
 /* An error the build explains (compile-explain.ts) opens into a card: the

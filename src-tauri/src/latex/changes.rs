@@ -324,6 +324,7 @@ fn build_marked(
     run: &Runner, newer: &Path, marked: &str, manifest: &ProjectManifest,
 ) -> Result<Result<PathBuf, Option<Diagnostic>>, Failed> {
     let mut command = latexmk(newer);
+    super::search_paths::search_project_folder(&mut command, marked);
     command
         .args(["-interaction=nonstopmode", "-file-line-error", "-halt-on-error"])
         .args(engine_args(newer, manifest))

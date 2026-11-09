@@ -22,6 +22,8 @@ import { compileDiagnosticText } from "./build-log-messages";
 import { buildHeadline } from "./build-result-text";
 import { compileRepairMessage } from "./compile-repair-messages";
 import { explainDiagnostic, type ExcerptLine } from "./compile-explain";
+import type { TexPackageUpdates } from "../app/use-tex-package-updates";
+import { TexPackageUpdateAction } from "./tex-package-update-action";
 
 const DOCKED_KEY = "lattice.build-output-docked.v1";
 
@@ -165,6 +167,8 @@ export function CompileDiagnosticsPanel(props: {
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (diagnostic: CompileDiagnostic) => void;
   onInstallDependency: (missingFile: string) => void;
+  /** The TeX doctor's package update, for a notice that only an update fixes (`lineno-outdated`). */
+  texPackageUpdates?: TexPackageUpdates;
   /** Build with pdfLaTeX from now on; absent when the project already does. */
   onSwitchToPdfLatex?: () => void;
   /** Put back the engine an automatic switch replaced (`xelatex`, `lualatex`). */
@@ -378,6 +382,9 @@ export function CompileDiagnosticsPanel(props: {
                             <Button variant="ghost" size="compact" onClick={props.onSwitchToPdfLatex}>
                               <Trans>Switch to pdfLaTeX</Trans>
                             </Button>
+                          )}
+                          {diagnostic.code === "lineno-outdated" && props.texPackageUpdates && (
+                            <TexPackageUpdateAction updates={props.texPackageUpdates} />
                           )}
                           {diagnostic.code === "engine-switched" && previousEngine && props.onUndoEngineSwitch && (
                             <Button variant="ghost" size="compact" onClick={() => props.onUndoEngineSwitch?.(previousEngine)}>

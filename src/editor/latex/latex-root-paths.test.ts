@@ -116,11 +116,30 @@ describe("figure paths read from the root document's folder", () => {
       .toEqual({ kind: "asset", path: file });
   });
 
+  // A root in a subfolder also searches the project folder, after its own,
+  // as Overleaf (which typesets there) and the build's TEXINPUTS do.
   it("finds a \\graphicspath figure beside a subfolder root before one at the project's top", () => {
-    const paths = ["paper/main.tex", "plot.pdf", "paper/figs/plot.png"];
+    const paths = ["paper/main.tex", "plot.png", "paper/figs/plot.pdf"];
     const source = "\\includegraphics{plot}";
     expect(definitionTargetAt(source, source.indexOf("plot"), [], paths, ["figs"], "paper/main.tex"))
-      .toEqual({ kind: "asset", path: "paper/figs/plot.png" });
+      .toEqual({ kind: "asset", path: "paper/figs/plot.pdf" });
+  });
+
+  it("tries the project folder for each extension, after the root's folder, as TeX does", () => {
+    const paths = ["paper/main.tex", "figures/plot.png", "paper/figures/plot.jpg"];
+    const source = "\\includegraphics{figures/plot}";
+    expect(definitionTargetAt(source, source.indexOf("figures") + 1, [], paths, [], "paper/main.tex"))
+      .toEqual({ kind: "asset", path: "figures/plot.png" });
+    // The same name in both folders: the root's own folder comes first.
+    expect(definitionTargetAt(source, source.indexOf("figures") + 1, [], [...paths, "paper/figures/plot.png"], [], "paper/main.tex"))
+      .toEqual({ kind: "asset", path: "paper/figures/plot.png" });
+  });
+
+  it("reads a subfolder root's \\input from the project folder over a namesake elsewhere", () => {
+    const paths = ["cvpr/main.tex", "sections/intro.tex", "old/sections/intro.tex"];
+    expect(resolveTexPath("sections/intro", paths, "cvpr/main.tex")).toBe("sections/intro.tex");
+    expect(pathDiagnostics("\\input{sections/intro}", paths, [], undefined, "cvpr/main.tex")).toEqual([]);
+    expect(includedPathsIn("\\input{sections/intro}", paths, "cvpr/main.tex")).toEqual(["sections/intro.tex"]);
   });
 
   it("gives the outline and the editor the same \\input file", () => {

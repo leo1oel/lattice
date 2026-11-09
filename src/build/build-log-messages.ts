@@ -64,6 +64,8 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
       if (!place) return i18n._(msg`TeX stopped making progress, so the build was stopped after ${seconds} s. Look for an unfinished command.`);
       return i18n._(msg`TeX stopped making progress, so the build was stopped after ${seconds} s. Look for an unfinished command just before ${place}.`);
     }
+    case "lineno-outdated":
+      return i18n._(msg`Line numbers may be drawn over the text: your TeX has lineno 5.7, which has a known bug. Update TeX packages to fix it.`);
     case "pdf-fonts-not-times":
       return pdfFontsText(params, params.upToDate === "true");
     default:

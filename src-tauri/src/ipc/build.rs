@@ -389,7 +389,8 @@ pub async fn start_tex_install(
 }
 
 /// The doctor's package-update check: asks the TeX Live repository, so the
-/// Settings page runs it on its own, never the launch check.
+/// launch check never waits on it; Settings runs it, and the app once a day in
+/// the background (`useDailyTexPackageCheck`).
 #[tauri::command]
 pub async fn check_tex_package_updates() -> Result<Option<tex_setup::TexPackageUpdates>, String> {
     run_blocking("TeX package update check", || Ok(tex_setup::check_package_updates())).await

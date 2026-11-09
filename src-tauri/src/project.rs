@@ -36,6 +36,7 @@ mod create;
 mod editable_figure;
 mod editor_save;
 mod entries;
+mod figure_converters;
 mod history;
 mod imports;
 mod index_sources;
@@ -81,6 +82,10 @@ pub use editable_figure::{
     ImportedFigure,
 };
 pub use entries::{create_entry, create_open_slide_deck, delete_entry, move_entry, rename_entry};
+pub use figure_converters::{
+    clipboard_file_path, import_drawing_file, import_drawing_path, make_editable_figure,
+    refresh_figure_source,
+};
 pub(crate) use history::retain_open_history;
 pub use history::{
     apply_annotation_restore, apply_citation_transaction, apply_citation_transaction_checked,
