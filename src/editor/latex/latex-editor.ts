@@ -457,7 +457,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       click(event, view) {
         if (!(event.metaKey || event.ctrlKey)) {
           // Clicking an unchanged cursor after Escape is an explicit reopen.
-          if (event.target instanceof Node && view.contentDOM.contains(event.target)) openCitationAtCursor(view);
+          if (event.target instanceof Node && view.contentDOM.contains(event.target)) openCitationAtCursor(view, "caret");
           return false;
         }
         const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -495,12 +495,13 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       // Cursor/focus entry is independent of typing. Ignore document edits
       // (autocomplete already handles them), including accepting a completion.
       // Background updates and Escape alone must not reopen a dismissed menu.
-      if (!update.docChanged && (update.selectionSet || update.focusChanged)) openCitationAtCursor(update.view);
+      // Only an empty slot opens on caret entry (see openCitationAtCursor).
+      if (!update.docChanged && (update.selectionSet || update.focusChanged)) openCitationAtCursor(update.view, "caret");
       // CodeMirror drops a source when a Backspace starts at the slot's start
       // or empties its query, and Backspace never reactivates one, so deleting
       // back into a citation key left the menu shut. Reopen it while the cursor
       // is in a slot; like typing, this also reopens a menu Escape dismissed.
-      if (update.transactions.some((transaction) => transaction.isUserEvent("delete.backward"))) openCitationAtCursor(update.view);
+      if (update.transactions.some((transaction) => transaction.isUserEvent("delete.backward"))) openCitationAtCursor(update.view, "edit");
       const completed = update.transactions.some((transaction) => transaction.isUserEvent("input.complete"));
       const typed = completed || update.transactions.some((transaction) => transaction.isUserEvent("input.type"));
       const { empty, head } = update.state.selection.main;

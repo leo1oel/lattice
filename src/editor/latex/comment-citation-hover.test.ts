@@ -1,9 +1,11 @@
+import { autocompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type Rect } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEditorComment } from "../comments/editor-comment-data";
 import { CommentCardHosts, editorCommentsExtension } from "../comments/editor-comments";
 import type { LatexEditorLiveData } from "./latex-editor";
+import { citationCompletions } from "./latex-completions";
 import { citationTooltips, referenceTooltips } from "./latex-hover-cards";
 import { overleafTrackChangesExtension } from "../../overleaf/overleaf-editor-extensions";
 
@@ -89,7 +91,7 @@ afterEach(() => {
  * `suggested` adds an Overleaf suggestion over the whole paragraph, whose card
  * covers the hovered row and opens after the key's card, in the same popover.
  */
-function openEditor({ suggested = false } = {}) {
+function openEditor({ suggested = false, menu = false } = {}) {
   const PARAGRAPH = paragraph();
   DOC = `${INTRO}\n${PARAGRAPH}`;
   const from = DOC.indexOf(PARAGRAPH);
@@ -109,6 +111,7 @@ function openEditor({ suggested = false } = {}) {
         editorCommentsExtension("main.tex", { getComments: () => [comment], cards: new CommentCardHosts() }),
         citationTooltips(() => data),
         referenceTooltips(() => data),
+        menu ? autocompletion({ override: [citationCompletions(() => data)] }) : [],
         suggested ? overleafTrackChangesExtension({
           authorName: () => "Ann", canAct: () => true, onAccept: vi.fn(), onReject: vi.fn(),
           getChanges: () => [{ id: "s1", position: from, text: PARAGRAPH, deletion: false, userId: "a", timestamp: null, hue: 200 }],
@@ -192,5 +195,37 @@ describe.each(Object.keys(CARDS) as Card[])("a %s card inside a commented passag
     // Below the document's last row, away from the popover.
     pointAt(view, 900, 700);
     expect(popover()).toBeNull();
+  });
+});
+
+// The suggestion menu opened under the card stacked the two over the key, and
+// the card vanished as the pointer moved down onto the menu.
+describe("a citation card and the citation suggestion menu", () => {
+  beforeEach(() => { card = "citation"; });
+
+  const hoverKey = (view: EditorView) => {
+    const key = coordsAt(DOC.indexOf("lee2026") + 3);
+    pointAt(view, key.left, (key.top + key.bottom) / 2);
+  };
+  const openMenu = async (view: EditorView) => {
+    view.dispatch({ selection: { anchor: DOC.indexOf("lee2026") + 3 } });
+    startCompletion(view);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(completionStatus(view.state)).toBe("active");
+  };
+
+  it("shows no card over a key while the menu is open", async () => {
+    const view = openEditor({ menu: true });
+    await openMenu(view);
+    hoverKey(view);
+    expect(parts().card).toBe(false);
+  });
+
+  it("closes the card when the menu opens under it", async () => {
+    const view = openEditor({ menu: true });
+    hoverKey(view);
+    expect(parts().card).toBe(true);
+    await openMenu(view);
+    expect(parts().card).toBe(false);
   });
 });

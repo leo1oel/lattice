@@ -109,6 +109,13 @@ describe("citation card rows", () => {
     expect(view.state.selection.main).toMatchObject({ from: second.from, to: second.to });
   });
 
+  it("scrolls a long list under Lattice's overlay scrollbar, not a native one", () => {
+    const card = setup(DOC, []).openCardAt(0);
+    const list = card.querySelector(".citation-card-uses-list")!;
+    expect(list.parentElement).toHaveClass("citation-card-uses-frame");
+    expect(list.parentElement?.querySelector(":scope > .lattice-scrollbar[data-orientation='vertical']")).not.toBeNull();
+  });
+
   it("adds the other files' occurrences from the saved manuscript", async () => {
     const intro = "\\section{Introduction}\nPrior work \\cite{smith2020} shows it.";
     vi.mocked(invoke).mockImplementation(async (command: string, args?: unknown) => {
