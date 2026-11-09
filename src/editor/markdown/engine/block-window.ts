@@ -22,6 +22,11 @@
  *   where it was on screen (the browser's own scroll anchoring is off, since
  *   WebKit and Chromium differ in it). A jump (`scrollToTarget`) draws its
  *   target's block first and holds it where it landed the same way.
+ * - The browser's anchoring cannot be relied on (viewport-anchor.ts), so the
+ *   view also does its job between moves, in a document of any length: what
+ *   is at the top of the viewport stays put whatever changes height above it
+ *   (an image loading or released, a view filling in, a block replaced from
+ *   disk), unless something scrolled on purpose since.
  *
  * Small documents, and environments without layout (no IntersectionObserver,
  * as in tests), are drawn whole, exactly as before.
@@ -33,6 +38,8 @@ import type { Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type DecorationSource, type EditorView, type NodeView } from "@tiptap/pm/view";
 import { sameItems } from "../../../lib/equality";
+import { applySize, measureBlock, Sizes } from "./block-sizes";
+import { childAt, holdReaderAnchor, holdScroll, readReaderAnchor, scrollerOf, type ReaderAnchor } from "./viewport-anchor";
 
 /** A document of fewer top-level blocks is drawn whole. */
 const MIN_BLOCKS = 250;
@@ -43,10 +50,6 @@ const LEAD_VIEWPORTS = 0.5;
 /** Before the viewport is known (a first load), assume one this tall. */
 const ASSUMED_VIEWPORT = 1000;
 
-/** A placeholder's box: its height and the margins it collapses with its neighbours by. */
-type Size = { height: number; marginTop: number; marginBottom: number };
-/** What estimates are made from: the surface's text metrics and width, and the viewport height. */
-type Metrics = { fontSize: number; lineHeight: number; width: number; viewport: number };
 /** The drawn blocks, as top-level positions: every block starting in `from`…`to`. */
 type Window = { from: number; to: number };
 type WindowState = { window: Window | null; pins: readonly number[]; decorations: DecorationSet };
@@ -64,8 +67,6 @@ const INACTIVE: WindowState = { window: null, pins: [], decorations: DecorationS
 const LIVE = { latticeLiveBlock: true };
 const VIRTUAL_ATTRIBUTE = "data-lx-virtual";
 
-const HEADING_EM = [1.8, 1.4, 1.17, 1, 0.92, 0.92];
-
 /**
  * The document edge a key goes to (Cmd-Up/Down on macOS, Ctrl-Home/End
  * elsewhere): -1 for the start, 1 for the end, 0 for any other key.
@@ -75,15 +76,6 @@ function documentEdge(event: KeyboardEvent): -1 | 0 | 1 {
   if (!(mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) || event.altKey) return 0;
   if (mac ? event.key === "ArrowUp" : event.key === "Home") return -1;
   return (mac ? event.key === "ArrowDown" : event.key === "End") ? 1 : 0;
-}
-
-/** Where the editor scrolls: the document pane, or the nearest scrolling ancestor. */
-function scrollerOf(element: HTMLElement): HTMLElement | null {
-  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
-    const { overflowY } = getComputedStyle(parent);
-    if (overflowY === "auto" || overflowY === "scroll" || parent.classList.contains("editor-doc-scroll")) return parent;
-  }
-  return null;
 }
 
 /** Real layout: the browser can measure what it draws (tests in jsdom cannot). */
@@ -145,115 +137,6 @@ function isTopLevel(doc: PmNode, pos: number): boolean {
     topLevelStarts.set(doc, starts = found);
   }
   return starts.has(pos);
-}
-
-/** Sizes and estimates for one editor, shared by its plugin and its node views. */
-class Sizes {
-  view: EditorView | null = null;
-  private current: Metrics | null = null;
-  private exact = new WeakMap<PmNode, Size>();
-  /** Measured sizes by kind and length: a block like one drawn before is likely as tall. */
-  private similar = new Map<string, Size>();
-  private estimates = new WeakMap<PmNode, Size>();
-  private anchorCache = new WeakMap<PmNode, readonly string[]>();
-
-  constructor(private readonly anchorsOf: (node: PmNode) => readonly string[]) {}
-
-  /**
-   * The surface's text metrics, read from the page the first time a size is
-   * needed: a long document's first window is chosen before the plugin view
-   * has measured anything.
-   */
-  get metrics(): Metrics {
-    this.current ??= readMetrics(this.view);
-    return this.current;
-  }
-
-  of(node: PmNode): Size {
-    const known = this.exact.get(node) ?? this.similar.get(similarKey(node)) ?? this.estimates.get(node);
-    if (known) return known;
-    const estimated = estimateBlockSize(node, this.metrics);
-    this.estimates.set(node, estimated);
-    return estimated;
-  }
-
-  remember(node: PmNode, size: Size) {
-    this.exact.set(node, size);
-    this.similar.set(similarKey(node), size);
-  }
-
-  anchors(node: PmNode): readonly string[] {
-    let anchors = this.anchorCache.get(node);
-    if (!anchors) this.anchorCache.set(node, anchors = this.anchorsOf(node));
-    return anchors;
-  }
-
-  /**
-   * Read the metrics again. Sizes measured at another width no longer hold;
-   * placeholders already drawn keep theirs (restyling thousands of them on
-   * every step of a pane resize would cost more than it saves) and are held
-   * in place by the anchor as they are drawn.
-   */
-  refresh(viewport: number) {
-    const metrics = readMetrics(this.view, viewport);
-    if (this.current && Math.abs(metrics.width - this.current.width) > 1) {
-      this.exact = new WeakMap();
-      this.similar.clear();
-      this.estimates = new WeakMap();
-    }
-    this.current = metrics;
-  }
-}
-
-/** The surface's text metrics and width, or a typical page's before it is in the page. */
-function readMetrics(view: EditorView | null, viewport?: number): Metrics {
-  const dom = view?.dom;
-  if (!dom?.isConnected) return { fontSize: 16, lineHeight: 27, width: 760, viewport: viewport ?? 0 };
-  viewport ??= scrollerOf(dom)?.clientHeight ?? 0;
-  const style = getComputedStyle(dom);
-  const fontSize = Number.parseFloat(style.fontSize) || 16;
-  const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.7;
-  const width = dom.clientWidth - (Number.parseFloat(style.paddingLeft) || 0) - (Number.parseFloat(style.paddingRight) || 0);
-  return { fontSize, lineHeight, width: width > 0 ? width : 760, viewport };
-}
-
-const similarKey = (node: PmNode) => `${node.type.name}:${String(node.attrs.level ?? "")}:${node.nodeSize}`;
-
-/** A block's likely size before it has ever been drawn. */
-function estimateBlockSize(node: PmNode, { fontSize, lineHeight, width }: Metrics): Size {
-  const lines = (characters: number, em = 1) => Math.max(1, Math.ceil((characters * fontSize * em * 0.5) / Math.max(200, width)));
-  const flow = fontSize * 0.85;
-  switch (node.type.name) {
-    case "heading": {
-      const em = HEADING_EM[(node.attrs.level as number) - 1] ?? 1;
-      return { height: lines(node.textContent.length, em) * fontSize * em * 1.3, marginTop: fontSize * em * 1.6, marginBottom: fontSize * em * 0.45 };
-    }
-    case "codeBlock":
-      return { height: node.textContent.split("\n").length * fontSize * 1.4 + fontSize * 3, marginTop: 0, marginBottom: flow };
-    case "horizontalRule":
-      return { height: 1, marginTop: fontSize * 2, marginBottom: fontSize * 2 };
-    case "table":
-      return { height: node.childCount * (lineHeight + fontSize * 0.9), marginTop: 0, marginBottom: flow };
-    default: {
-      // Prose, lists, quotes and the rest: a wrapped line run per textblock.
-      if (node.isTextblock) return { height: lines(node.textContent.length) * lineHeight, marginTop: 0, marginBottom: flow };
-      let height = 0;
-      let runs = 0;
-      node.descendants((child) => {
-        if (!child.isTextblock) return true;
-        height += lines(child.textContent.length) * lineHeight;
-        runs += 1;
-        return false;
-      });
-      return { height: Math.max(lineHeight, height + Math.max(0, runs - 1) * fontSize * 0.3), marginTop: 0, marginBottom: flow };
-    }
-  }
-}
-
-function applySize(element: HTMLElement, size: Size) {
-  element.style.height = `${size.height}px`;
-  element.style.marginTop = `${size.marginTop}px`;
-  element.style.marginBottom = `${size.marginBottom}px`;
 }
 
 /**
@@ -466,35 +349,8 @@ function nextWindowState(transaction: Transaction, value: WindowState, state: Ed
   return { window, pins, decorations: liveDecorations(doc, window, pins) };
 }
 
-/** The top-level child of the surface at vertical position `y` (or the nearest one), by bisection. */
-function childAt(children: HTMLCollection, y: number): HTMLElement | null {
-  let low = 0;
-  let high = children.length - 1;
-  while (low <= high) {
-    const middle = (low + high) >> 1;
-    const rect = children[middle]!.getBoundingClientRect();
-    if (y < rect.top) high = middle - 1;
-    else if (y >= rect.bottom) low = middle + 1;
-    else return children[middle] as HTMLElement;
-  }
-  return (children[Math.max(0, Math.min(high, children.length - 1))] as HTMLElement | undefined) ?? null;
-}
-
-/** A drawn block's box, with the space it keeps from its neighbours as margins. */
-function measureBlock(element: HTMLElement): Size {
-  const rect = element.getBoundingClientRect();
-  const previous = element.previousElementSibling;
-  const next = element.nextElementSibling;
-  return {
-    height: rect.height,
-    marginTop: previous ? Math.max(0, rect.top - previous.getBoundingClientRect().bottom) : 0,
-    marginBottom: next ? Math.max(0, next.getBoundingClientRect().top - rect.bottom) : Number.parseFloat(getComputedStyle(element).marginBottom) || 0,
-  };
-}
-
 /** A block kept still on screen while the blocks around it are drawn or released. */
 type Anchor = { pos: number; top: number };
-
 class BlockWindowView {
   private scroller: HTMLElement | null = null;
   private frame: number | null = null;
@@ -502,6 +358,7 @@ class BlockWindowView {
   private surfaceSize: ResizeObserver | null = null;
   private anchor: Anchor | null = null;
   private anchorFrame: number | null = null;
+  private reader: ReaderAnchor | null = null;
   private moving = false;
   private stale = false;
 
@@ -544,14 +401,22 @@ class BlockWindowView {
       this.resize.observe(this.view.dom);
       // Drawn content can still grow after the window moved (React node views
       // fill in on a microtask): the anchor is held until the frame is painted.
-      this.surfaceSize = new ResizeObserver(() => this.holdAnchor());
+      // Between moves, the reader's block is held through any change of height.
+      this.surfaceSize = new ResizeObserver(() => {
+        if (this.anchor) this.holdAnchor();
+        else this.holdReader();
+        this.readReader();
+      });
       this.surfaceSize.observe(this.view.dom);
     }
     this.sizes.refresh(scroller.clientHeight);
     return scroller;
   }
 
-  private readonly onScroll = () => this.check();
+  private readonly onScroll = () => {
+    this.check();
+    this.readReader();
+  };
 
   private schedule() {
     this.frame ??= requestAnimationFrame(() => {
@@ -660,14 +525,24 @@ class BlockWindowView {
     return middle && block ? { pos: block.from, top: middle.getBoundingClientRect().top } : null;
   }
 
+  /** Note the reader's place. A placeholder is held as a whole: it has nothing inside to hold by. */
+  private readReader() {
+    const { scroller, view } = this;
+    this.reader = scroller ? readReaderAnchor(scroller, view.dom, (element) => element.hasAttribute(VIRTUAL_ATTRIBUTE)) : null;
+  }
+
+  /** Put the reader's place back after a change of height nobody scrolled for. */
+  private holdReader() {
+    if (this.scroller) holdReaderAnchor(this.reader, this.scroller);
+  }
+
   /** Scroll so the anchor block is back where it was on screen. */
   private holdAnchor() {
     const { anchor, scroller, view } = this;
     if (!anchor || !scroller) return;
     const element = view.nodeDOM(anchor.pos);
     if (!(element instanceof HTMLElement)) return;
-    const shift = element.getBoundingClientRect().top - anchor.top;
-    if (Math.abs(shift) >= 0.5) scroller.scrollTop += shift;
+    holdScroll(scroller, element.getBoundingClientRect().top - anchor.top);
   }
 
   /** Draw the blocks around `pos` now, before anything scrolls to it. */

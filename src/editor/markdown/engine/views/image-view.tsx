@@ -10,7 +10,7 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- the figure decoration belongs with the view */
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
@@ -22,7 +22,7 @@ import Zoom from "react-medium-image-zoom";
 import { IconButton } from "../../../../components/ui/icon-button";
 import { Input } from "../../../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../../components/ui/popover";
-import { useProjectImage } from "../../project-image-host";
+import { useProjectImage, type ImageSize } from "../../project-image-host";
 import { useNearViewport } from "../../use-near-viewport";
 import { changedBlockRanges } from "../changed-ranges";
 import { Field, setNodeAttrs, useCommitKeys } from "./view-chrome";
@@ -33,6 +33,11 @@ const UNSAFE_SOURCE = /^\s*(?:javascript|vbscript|file|data:text\/html):/i;
 const MIN_WIDTH = 48;
 
 type Align = "left" | "center" | "right";
+
+/** The box an image of `natural` size is drawn in: its own width (or the authored frame's), at its aspect ratio. */
+function reservedBox(natural: ImageSize, authoredWidth: boolean): CSSProperties {
+  return { width: authoredWidth ? "100%" : `${natural.width}px`, aspectRatio: `${natural.width} / ${natural.height}` };
+}
 
 export function ImageView(props: NodeViewProps) {
   const { t } = useLingui();
@@ -54,6 +59,7 @@ export function ImageView(props: NodeViewProps) {
   const editable = editor.isEditable;
   const alt = String(node.attrs.alt ?? "");
   const missing = !safe || !authored || image.targetExistence === "missing";
+  const reserved = image.naturalSize ? reservedBox(image.naturalSize, width != null) : undefined;
 
   const startResize = (side: "left" | "right", event: ReactPointerEvent) => {
     const element = frame.current;
@@ -106,14 +112,21 @@ export function ImageView(props: NodeViewProps) {
                   src={image.src}
                   alt={alt}
                   title={node.attrs.title ?? undefined}
+                  // The size it decoded at before: the box is laid out before the bytes decode.
+                  style={reserved}
                   decoding="async"
                   draggable={false}
                   className={loaded ? "is-loaded" : undefined}
-                  onLoad={() => setLoaded(true)}
+                  onLoad={(event) => {
+                    setLoaded(true);
+                    image.rememberSize(event.currentTarget);
+                  }}
                 />
               </Zoom>
             )
-            : <span className="lx-md-image-loading" aria-hidden="true" />}
+            // An image drawn before keeps its box while its bytes are away, so
+            // releasing or reloading it moves nothing around it.
+            : <span className="lx-md-image-loading" aria-hidden="true" style={reserved} />}
         {editable && (
           <>
             <span className="lx-md-image-toolbar">

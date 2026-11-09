@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 import { clamp } from "../lib/clamp";
 import { clearTimer, restartTimer, whenIdle, type TimerRef } from "../app/effect-helpers";
+import { scrolledToHold } from "../editor/markdown/engine/viewport-anchor";
 import { interpolateScrollAnchors, scrollRange, sourceAnchorCenter, sourceAnchors, sourceScrollRange, type SourceAnchor } from "./markdown-preview-sync";
 
 type Side = "editor" | "preview";
@@ -166,10 +167,30 @@ export function useMarkdownSplitScroll({
       restartTimer(settledSyncTimer, peerScrollSettleMs, () => follow(owner));
     };
 
+    // What the source showed at its top when it last led: the text there, in
+    // which document. CodeMirror keeps that line still when lines change
+    // above it (a file rewritten on disk, an agent's edit) by scrolling, in a
+    // pass or two as it measures the new lines: those scrolls, with the same
+    // line on top of a changed document, move nothing the reader sees. A
+    // plain scroll leaves the document as it was, so it always leads.
+    let sourceTop: { doc: typeof view.state.doc; text: string } | null = null;
+    const sourceKeptPlace = () => {
+      const line = view.lineBlockAtHeight(view.scrollDOM.getBoundingClientRect().top - view.documentTop);
+      const text = view.state.doc.sliceString(line.from, line.from + 256);
+      const kept = sourceTop !== null && sourceTop.doc !== view.state.doc && sourceTop.text === text;
+      if (!kept) sourceTop = { doc: view.state.doc, text };
+      return kept;
+    };
+
     // The one-shot ignore flag absorbs the normal reciprocal event; ownership
     // also rejects a late or coalesced peer event, so it cannot write back
     // into the scrollbar the user is dragging.
     const ownScroll = (side: Side) => () => {
+      // A pane that only held its place while something above it changed
+      // height (the source by CodeMirror's anchoring, the preview by
+      // viewport-anchor.ts) shows what it showed: its peer has nothing to
+      // follow, and following from the stale anchor map would move it.
+      if (side === "preview" ? scrolledToHold(preview) : sourceKeptPlace()) return;
       if (!mayLead(side)) return;
       holdScrollOwnership(side);
       if (peerScrollSettleMs > 0) followPeer(side);
