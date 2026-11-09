@@ -4670,13 +4670,13 @@ msgstr "未能添加"
 msgid "Couldn’t check for Lattice updates"
 msgstr "检查更新失败"
 
-#: src/build/tex-package-updates.ts
 #: src/settings/settings-dialog.tsx
+#: src/settings/tex-package-check-problem.ts
 #: src/settings/tex-package-updates-row.tsx
 msgid "Couldn’t check for updates"
 msgstr "检查更新失败"
 
-#: src/build/tex-package-updates.ts
+#: src/settings/tex-package-check-problem.ts
 msgid "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
 msgstr "无法检查更新。请检查网络连接，然后重新运行 TeX 检查。"
 
@@ -15904,8 +15904,8 @@ msgstr "此表格的源码已被修改，或包含不支持的结构。请继续
 msgid "This terminal has closed."
 msgstr "此终端已关闭"
 
-#: src/build/tex-package-updates.ts
 #: src/build/tex-setup.ts
+#: src/settings/tex-package-check-problem.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
 
