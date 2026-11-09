@@ -1668,6 +1668,10 @@ msgstr "Add to note"
 msgid "Add to Papers"
 msgstr "Add to Papers"
 
+#: src/app/editable-figure-paste.ts
+msgid "Add to the main document's preamble: {lines}"
+msgstr "Add to the main document's preamble: {lines}"
+
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
 msgstr "Add your first paper"
@@ -4475,6 +4479,10 @@ msgstr "Could not open a new Lattice window: {error}"
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
 
+#: src/project/figure-source-open.ts
+msgid "Could not open the drawing"
+msgstr "Could not open the drawing"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
 msgstr "Could not open the log folder: {error}"
@@ -5607,6 +5615,10 @@ msgstr "Edit deadline"
 msgid "Edit document"
 msgstr "Edit document"
 
+#: src/project/project-file-tree.tsx
+msgid "Edit figure source"
+msgstr "Edit figure source"
+
 #: src/app/use-command-table.ts
 msgid "Edit HTML"
 msgstr "Edit HTML"
@@ -6134,6 +6146,7 @@ msgstr "Figure inventory"
 msgid "Figure preview could not be loaded."
 msgstr "Figure preview could not be loaded."
 
+#: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 msgid "Figures"
 msgstr "Figures"
@@ -10264,6 +10277,10 @@ msgstr "Open"
 #: src/app/use-command-table.ts
 msgid "Open {name}"
 msgstr "Open {name}"
+
+#: src/project/figure-source-open.ts
+msgid "Open {name} in its default app?"
+msgstr "Open {name} in its default app?"
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
@@ -15117,6 +15134,10 @@ msgstr "The exported workbook must use the .xlsx extension."
 msgid "The figure source changed. Refresh and preview again."
 msgstr "The figure source changed. Refresh and preview again."
 
+#: src/platform/host-errors-project.ts
+msgid "The figure's file to include is not among its files."
+msgstr "The figure's file to include is not among its files."
+
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "The file changed while it was saving. Review the latest text and save again."
@@ -15838,6 +15859,10 @@ msgstr "This figure is too large to preview inside Lattice (50 MB maximum)."
 #: src/project/figure-inventory.ts
 msgid "This figure path cannot be inserted safely."
 msgstr "This figure path cannot be inserted safely."
+
+#: src/platform/host-errors-project.ts
+msgid "This figure was made for a newer version of the editable-figure format."
+msgstr "This figure was made for a newer version of the editable-figure format."
 
 #: src/canvas/editor-status-bar.tsx
 msgid "This file"

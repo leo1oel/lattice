@@ -188,4 +188,6 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/manifest_settings.rs", "A project ignores at most 1000 rules and 1000 sentences.", () => t`A project ignores at most 1000 rules and 1000 sentences.`],
   ["project/manifest_settings.rs", "Name each ignored grammar rule by its Harper name.", () => t`Name each ignored grammar rule by its Harper name.`],
   ["project/manifest_settings.rs", "Ignored sentences must hold at most 2000 characters.", () => t`Ignored sentences must hold at most 2000 characters.`],
+  ["project/editable_figure.rs", "This figure was made for a newer version of the editable-figure format.", () => t`This figure was made for a newer version of the editable-figure format.`],
+  ["project/editable_figure.rs", "The figure's file to include is not among its files.", () => t`The figure's file to include is not among its files.`],
 ];

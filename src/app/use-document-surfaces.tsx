@@ -27,6 +27,7 @@ import type { TrellisController } from "../trellis/trellis-controller";
 import type { EditorPosition, ProjectManifest, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { annotationRounds } from "./annotation-rounds";
+import { pasteEditableFigure } from "./editable-figure-paste";
 import { CompileDiagnosticsPanel } from "./app-lazy-panels";
 import { AppOverleafMarginReview } from "./app-overleaf-drawer";
 import type { SearchDialog } from "./app-search-dialogs";
@@ -84,7 +85,7 @@ export function useDocumentSurfaces({
   preferences: Omit<DocumentCanvasProps["preferences"], "projectRoot" | "spellingWords" | "grammarIgnores" | "onIgnoreGrammar">;
   library: Pick<
     ReturnType<typeof useProjectLibrary>,
-    "papers" | "citationKeys" | "citations" | "unusedSymbols" | "bibliographyIndexPending" | "projectWordCount"
+    "papers" | "citationKeys" | "citations" | "unusedSymbols" | "bibliographyIndexPending" | "projectWordCount" | "refreshProject"
   >;
   latex: ReturnType<typeof useLatexStructure>;
   texlabDiagnostics: ReturnType<typeof useTexlabDiagnostics>;
@@ -331,6 +332,7 @@ export function useDocumentSurfaces({
         },
         onPrepareFigure: tree.prepareLatexFigure,
         onPasteImageFile: tree.pasteImageFile,
+        onPasteEditableFigure: (manifest, view) => void pasteEditableFigure(view, manifest, { projectRoot: project.root, refreshProject: library.refreshProject }),
         nativeFigureDropActive: tree.drops.editor,
         fileDropTargetActive: tree.drops.fileTarget,
       }}
