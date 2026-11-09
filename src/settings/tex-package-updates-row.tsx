@@ -4,7 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
 import { InlineMessage } from "../components/ui/inline-message";
 import type { TexPackageUpdates } from "../app/use-tex-package-updates";
-import { TEX_PACKAGE_UPDATE_COMMAND, texPackageUpdateMessage } from "../build/tex-package-updates";
+import { TEX_PACKAGE_UPDATE_COMMAND, texPackageCheckProblem, texPackageUpdateMessage } from "../build/tex-package-updates";
 
 /** Package names the row spells out before it only counts the rest. */
 const NAMED_PACKAGES = 3;
@@ -33,10 +33,11 @@ export function TexPackageUpdatesCheck({ updates }: { updates: TexPackageUpdates
   // checks, a current TeX is a compact row and only a problem says more. It
   // stays a problem while an update runs, until the recheck after it.
   if (!report) return null;
+  const problem = report.error ? texPackageCheckProblem(report.error) : null;
   let detail: string | null = null;
   let result = t`Up to date`;
-  if (report.error) {
-    detail = t`Couldn’t check for updates. Check the network connection, then run the TeX doctor again.`;
+  if (problem) {
+    detail = problem.summary;
     result = t`Couldn’t check for updates`;
   } else if (count > 0) {
     detail = more > 0 ? t`Updates available (${count}): ${named}, and ${more} more` : t`Updates available (${count}): ${named}`;
@@ -50,6 +51,7 @@ export function TexPackageUpdatesCheck({ updates }: { updates: TexPackageUpdates
       {/* For assistive technology only, as in the other checks. */}
       <span className="doctor-check-result">{result}</span>
       {detail && <span className="doctor-check-detail">{detail}</span>}
+      {problem?.detail && <pre className="doctor-check-detail doctor-package-update-detail">{problem.detail}</pre>}
       {count > 0 && !report.managed && (
         <span className="doctor-check-detail">
           {t`In Terminal:`} <code>{TEX_PACKAGE_UPDATE_COMMAND}</code>
@@ -67,7 +69,7 @@ export function TexPackageUpdatesActions({ updates, disabled }: { updates: TexPa
   const { t } = useLingui();
   const { report, run } = updates;
   const running = run?.running === true;
-  const offer = !running && !report?.error && report?.managed === true && report.packages.length > 0;
+  const offer = !running && !updates.checking && !report?.error && report?.managed === true && report.packages.length > 0;
   const failure = run?.error ? texPackageUpdateMessage(run.error) : null;
   if (!offer && !run) return null;
   const percent = Math.round((run?.progress.progress ?? 0) * 100);

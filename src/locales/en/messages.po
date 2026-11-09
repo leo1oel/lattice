@@ -4670,12 +4670,13 @@ msgstr "Couldn't add"
 msgid "Couldn’t check for Lattice updates"
 msgstr "Couldn’t check for Lattice updates"
 
+#: src/build/tex-package-updates.ts
 #: src/settings/settings-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Couldn’t check for updates"
 msgstr "Couldn’t check for updates"
 
-#: src/settings/tex-package-updates-row.tsx
+#: src/build/tex-package-updates.ts
 msgid "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
 msgstr "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
 
@@ -15903,6 +15904,7 @@ msgstr "This table has source edits or unsupported structure. Continue editing i
 msgid "This terminal has closed."
 msgstr "This terminal has closed."
 
+#: src/build/tex-package-updates.ts
 #: src/build/tex-setup.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."

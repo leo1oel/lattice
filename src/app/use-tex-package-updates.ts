@@ -7,7 +7,10 @@ type TexPackageUpdatesState = {
   /** The last check; null before one finishes, or without a tlmgr to ask. */
   report: TexPackageUpdatesReport | null;
   checking: boolean;
-  /** The update: present while it runs and after it ends, until the next one. */
+  /**
+   * The update: present while it runs and after it ends, until a check
+   * other than the one that follows it.
+   */
   run: {
     progress: TexPackageUpdateProgress;
     running: boolean;
@@ -18,7 +21,7 @@ type TexPackageUpdatesState = {
 
 type Action =
   | { type: "check-started" }
-  | { type: "checked"; report: TexPackageUpdatesReport | null }
+  | { type: "checked"; report: TexPackageUpdatesReport | null; afterUpdate: boolean }
   | { type: "update-started" }
   | { type: "update-progress"; progress: TexPackageUpdateProgress }
   | { type: "update-finished"; error: string | null };
@@ -30,7 +33,7 @@ function reducer(state: TexPackageUpdatesState, action: Action): TexPackageUpdat
     case "check-started":
       return { ...state, checking: true };
     case "checked":
-      return { ...state, report: action.report, checking: false };
+      return { ...state, report: action.report, checking: false, run: action.afterUpdate ? state.run : null };
     case "update-started":
       // A check still running answers for the packages before this update.
       return { ...state, checking: false, run: { progress: { stage: "authorizing", progress: 0 }, running: true, error: null } };
@@ -51,14 +54,15 @@ function reducer(state: TexPackageUpdatesState, action: Action): TexPackageUpdat
  * The TeX doctor's package-update check and the one-click update. The check
  * asks the TeX Live repository, so only the doctor page runs it, never the
  * launch check. A finished update checks again, so the row reflects what is
- * left; a check while an update runs would only see the old packages.
+ * left, and keeps its result until a later check; a check while an update
+ * runs would only see the old packages.
  */
 export function useTexPackageUpdates() {
   const [state, dispatch] = useReducer(reducer, IDLE);
   const checkGenerationRef = useRef(0);
   const updatingRef = useRef(false);
 
-  const check = useCallback(async () => {
+  const recheck = useCallback(async (afterUpdate: boolean) => {
     if (updatingRef.current) return;
     const generation = ++checkGenerationRef.current;
     dispatch({ type: "check-started" });
@@ -66,8 +70,9 @@ export function useTexPackageUpdates() {
       (found) => found ?? null,
       (reason): TexPackageUpdatesReport => ({ managed: false, packages: [], error: toMessage(reason) }),
     );
-    if (generation === checkGenerationRef.current) dispatch({ type: "checked", report });
+    if (generation === checkGenerationRef.current) dispatch({ type: "checked", report, afterUpdate });
   }, []);
+  const check = useCallback(() => recheck(false), [recheck]);
 
   const update = useCallback(async () => {
     if (updatingRef.current) return;
@@ -82,8 +87,8 @@ export function useTexPackageUpdates() {
     );
     updatingRef.current = false;
     dispatch({ type: "update-finished", error });
-    if (error === null) await check();
-  }, [check]);
+    if (error === null) await recheck(true);
+  }, [recheck]);
 
   return { ...state, check, update };
 }

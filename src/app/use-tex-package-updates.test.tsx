@@ -88,6 +88,36 @@ describe("useTexPackageUpdates", () => {
     expect(tauri.invoke.mock.calls.filter(([command]) => command === "check_tex_package_updates")).toHaveLength(1);
   });
 
+  it("keeps a finished update's result through the recheck after it, and clears it on a later check", async () => {
+    const recheck = deferred<TexPackageUpdatesReport>();
+    tauri.invoke.mockResolvedValueOnce(outdated(true)).mockResolvedValueOnce(undefined).mockReturnValueOnce(recheck.promise);
+    const { result } = renderHook(() => useTexPackageUpdates());
+    await act(() => result.current.check());
+    let finished!: Promise<void>;
+    await act(async () => { finished = result.current.update(); });
+    expect(result.current.checking).toBe(true);
+    recheck.resolve(CURRENT);
+    await act(() => finished);
+    expect(result.current.run).toMatchObject({ running: false, error: null });
+
+    tauri.invoke.mockResolvedValueOnce(CURRENT);
+    await act(() => result.current.check());
+    expect(result.current.run).toBeNull();
+  });
+
+  it("clears a failed update's message once a later check answers", async () => {
+    tauri.invoke.mockResolvedValueOnce(outdated(true))
+      .mockRejectedValueOnce(new Error("Administrator approval was cancelled, so nothing was updated."))
+      .mockResolvedValueOnce(outdated(true));
+    const { result } = renderHook(() => useTexPackageUpdates());
+    await act(() => result.current.check());
+    await act(() => result.current.update());
+    expect(result.current.run?.error).toBeTruthy();
+    await act(() => result.current.check());
+    expect(result.current.run).toBeNull();
+    expect(result.current.report).toEqual(outdated(true));
+  });
+
   it("drops a check that was still running when the update started", async () => {
     const staleCheck = deferred<TexPackageUpdatesReport>();
     tauri.invoke.mockReturnValueOnce(staleCheck.promise).mockResolvedValueOnce(undefined).mockResolvedValueOnce(CURRENT);
@@ -128,6 +158,21 @@ describe("TeX packages check", () => {
     expect(tauri.invoke).toHaveBeenCalledWith("start_tex_package_update", { onProgress: expect.anything() });
   });
 
+  it("does not offer the update again while the recheck after a finished one runs", async () => {
+    const recheck = deferred<TexPackageUpdatesReport>();
+    renderRow(outdated(true));
+    fireEvent.click(await screen.findByRole("button", { name: "Update TeX packages" }));
+    tauri.invoke.mockReset();
+    tauri.invoke.mockReturnValue(recheck.promise);
+    await act(async () => {});
+    expect(await screen.findByText("TeX packages updated. Build again to use them.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Update TeX packages" })).toBeNull();
+    await act(async () => recheck.resolve(CURRENT));
+    expect(screen.getByText("TeX packages updated. Build again to use them.")).toBeTruthy();
+    expect(screen.getByText("TeX packages").closest("li")).toHaveClass("ok");
+    expect(screen.queryByRole("button", { name: "Update TeX packages" })).toBeNull();
+  });
+
   it("gives the command for a TeX the writer installed", async () => {
     renderRow(outdated(false));
     expect(await screen.findByText("sudo tlmgr update --self --all")).toBeTruthy();
@@ -140,7 +185,14 @@ describe("TeX packages check", () => {
     expect(screen.getByText("Up to date")).toHaveClass("doctor-check-result");
     cleanup();
     renderRow({ managed: true, packages: [], error: "The TeX Live repository did not answer within 45 seconds." });
-    expect(await screen.findByText(/Couldn’t check for updates/)).toBeTruthy();
+    expect(await screen.findByText(/Couldn’t check for updates. Check the network connection/)).toBeTruthy();
+    expect(screen.queryByText(/did not answer within/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Update TeX packages" })).toBeNull();
+    cleanup();
+    const tooOld = "tlmgr: Local TeX Live (2026) is older than remote repository (2027).";
+    renderRow({ managed: true, packages: [], error: tooOld });
+    expect(await screen.findByText(/This TeX Live release is older than the package repository/)).toBeTruthy();
+    expect(screen.getByText(tooOld)).toBeTruthy();
+    expect(screen.queryByText(/Check the network connection/)).toBeNull();
   });
 });
