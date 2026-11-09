@@ -31,3 +31,9 @@ create Windows symbolic links. The Windows CI job runs these host checks without
 packaging or publishing a binary. Its native tests exercise Unicode paths,
 reparse-point refusal, atomic writes, file identities, process Job Objects and
 ConPTY execution, resizing and window ownership.
+
+## Proposed next step
+
+The [Windows installer proposal](windows-installer-proposal.md) discusses
+automatically compiled, downloadable experimental installers as a follow-up to
+the host support. It is a proposal only; it does not enable packaging or updates.
