@@ -129,6 +129,15 @@ describe("figure paths read from the root document's folder", () => {
     expect(includedPathsIn("\\input{intro}", paths, "main.tex")).toEqual(["intro.tex"]);
   });
 
+  // A written `./` pins the folder, as `..` does: TeX searches nowhere else.
+  it.each([
+    ["./figures/plot", ["paper/main.tex", "figures/plot.png"], "paper/main.tex"],
+    ["./plot", ["main.tex", "old/plot.png"], "main.tex"],
+  ])("warns about %s when TeX would not find it in the folder it names", (path, paths, root) => {
+    expect(pathDiagnostics(`\\includegraphics{${path}}`, paths, [], undefined, root)[0]?.message)
+      .toBe(`Missing figure “${path}”.`);
+  });
+
   it("leaves an absolute figure path to the disk, not the project", () => {
     expect(pathDiagnostics("\\includegraphics{/figures/plot.png}", figures, [], undefined, "main.tex")[0]?.message)
       .toBe("Missing figure “/figures/plot.png”.");

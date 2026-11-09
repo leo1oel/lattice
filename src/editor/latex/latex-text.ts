@@ -129,11 +129,12 @@ function inRootFolder(candidate: string, projectPaths: readonly string[], rootPa
  * A leniency for a file TeX would not find: the path read from the project
  * folder, else the one project file that ends with it. A copy in `arxiv-v1/`
  * must not stand in for the one the build reads, so when several end with
- * it, none is chosen.
+ * it, none is chosen. A written `.` or `..` pins the folder, so such a path
+ * gets no leniency.
  */
 function elsewhere(candidate: string, projectPaths: readonly string[], ignoreCase: boolean) {
   const fromProject = normalizeProjectPath(candidate);
-  if (!fromProject || candidate.split("/").includes("..")) return null;
+  if (!fromProject || candidate.split("/").some((part) => part === "." || part === "..")) return null;
   const paths = ignoreCase ? foldedProjectPaths(projectPaths) : projectPaths;
   const wanted = ignoreCase ? foldCase(fromProject) : fromProject;
   const inProject = paths.indexOf(wanted);
