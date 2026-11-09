@@ -11,11 +11,19 @@
 commands:
   # Run worktrees start with tracked files only, so node_modules is absent.
   prepare: "pnpm install --frozen-lockfile"
-  # Typecheck (tsc over src/ and tools/, noEmit) plus the Vitest suite. cargo
-  # test is left to `pnpm check` and CI: it needs the runtime resource stubs
-  # and a cold Tauri compile per run worktree, which is not targeted validation.
-  test: "pnpm exec tsc && pnpm test"
-  lint: "pnpm lint"
+  # The scoped gate, not the full suite: CI runs the full Vitest suite sharded
+  # (about 7 minutes) and must be green before any merge, so repeating it here
+  # cost 19-29 minutes a run for no new signal. `pnpm gate:changed` runs lint
+  # with the warning cap, knip, typecheck, i18n, notices and rustfmt when their
+  # inputs changed, and `vitest related` plus the invariant tests, against the
+  # merge base with origin/main. The fetch keeps that base current so the
+  # scope is the branch's own diff; offline it falls back to the local ref.
+  # cargo test stays with CI: it needs the runtime resource stubs and a cold
+  # Tauri compile per run worktree.
+  test: "(git fetch --quiet origin main || true) && pnpm gate:changed"
+  # gate:changed already runs `pnpm lint` in full; this keeps the lint step
+  # to the one cheap check of its own rather than a second oxlint pass.
+  lint: "node scripts/check-use-state-allowlist.mjs"
 
 test:
   instructions: |
@@ -25,6 +33,10 @@ test:
     `research-writer --browser-host`), and never driving a real-app session
     (including Playwright WebKit or CDP attached to a running Lattice host).
     A desktop build reaches the user's real home directory and files.
+
+    The configured test command is the scoped gate (`pnpm gate:changed`), not
+    the full suite: CI runs every test and must pass before merge, so do not
+    run `pnpm test` or the whole Vitest suite here.
 
     Verify changes only with:
     - the configured test and lint commands;
