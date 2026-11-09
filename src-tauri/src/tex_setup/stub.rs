@@ -9,6 +9,9 @@ type Progress = Channel<TexInstallProgress>;
 pub fn install_tex(
     _mode: TexInstallMode, _on_progress: &Progress,
 ) -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    return Err("Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice.".into());
+    #[cfg(not(windows))]
     Err("One-click TeX install is not available on Linux yet.".into())
 }
 
