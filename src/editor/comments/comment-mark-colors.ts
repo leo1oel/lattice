@@ -10,8 +10,8 @@
 import { peerColorForKey } from "../../components/ui/collab-colors";
 import type { EditorComment } from "./editor-comment-data";
 
-export const COMMENT_MARK_INK = "--comment-mark-ink";
-export const COMMENT_MARK_TINT = "--comment-mark-tint";
+const COMMENT_MARK_INK = "--comment-mark-ink";
+const COMMENT_MARK_TINT = "--comment-mark-tint";
 
 type Marked = Pick<EditorComment, "number" | "authorColor" | "authorId" | "authorName">;
 
