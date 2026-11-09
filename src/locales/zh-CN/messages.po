@@ -15166,6 +15166,10 @@ msgid "The figure carries a file type Lattice does not import."
 msgstr "该图形包含 Lattice 不导入的文件类型。"
 
 #: src/platform/host-errors-project.ts
+msgid "The figure carries too many files."
+msgstr "这个图带的文件太多。"
+
+#: src/platform/host-errors-project.ts
 msgid "The figure is too large to import."
 msgstr "该图形太大，无法导入。"
 
@@ -15176,6 +15180,10 @@ msgstr "该图形中有文件没有可用的名称。"
 #: src/platform/host-errors-project.ts
 msgid "The figure names no file to include."
 msgstr "该图形没有指明要包含的文件。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names one file twice."
+msgstr "这个图有两个文件同名。"
 
 #: src/project/figure-inventory.ts
 msgid "The figure source changed. Refresh and preview again."

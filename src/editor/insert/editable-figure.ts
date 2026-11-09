@@ -178,7 +178,11 @@ function definesAll(text: string, block: readonly string[]): boolean {
  * arguments each takes: the command a definer defines (one control word, bare
  * or braced), then its brace groups, whose bodies run only if called. Where
  * TeX reads a group's text at once (a colour, a counter, a package), it must
- * be plain. Only definers of new commands take `*` and `[…]` digits.
+ * be plain. Only definers of new commands take `*` and `[…]` digits. None of
+ * them replaces a command the document has: `\DeclareRobustCommand` would,
+ * silently, so it is shown first like any other line. `@` is a letter only
+ * after `\makeatletter`, as TeX reads it: `\a@{…}` elsewhere is `\a`, then
+ * `@`, and its group runs.
  */
 type PreambleDefiner = { names: boolean; groups: number; options?: boolean; plain?: RegExp };
 const COMMAND_DEFINER: PreambleDefiner = { names: true, groups: 1, options: true };
@@ -186,7 +190,6 @@ const DOCUMENT_COMMAND_DEFINER: PreambleDefiner = { names: true, groups: 2 };
 const PREAMBLE_DEFINERS = new Map<string, PreambleDefiner>(Object.entries({
   providecommand: COMMAND_DEFINER,
   newcommand: COMMAND_DEFINER,
-  DeclareRobustCommand: COMMAND_DEFINER,
   DeclareMathOperator: COMMAND_DEFINER,
   NewDocumentCommand: DOCUMENT_COMMAND_DEFINER,
   ProvideDocumentCommand: DOCUMENT_COMMAND_DEFINER,
@@ -195,8 +198,11 @@ const PREAMBLE_DEFINERS = new Map<string, PreambleDefiner>(Object.entries({
   usepackage: { names: false, groups: 1, plain: /^\{\s*[A-Za-z0-9-]+(?:\s*,\s*[A-Za-z0-9-]+)*\s*\}$/ },
 }));
 const PREAMBLE_MODE = /^(?:makeatletter|makeatother|ExplSyntaxOn|ExplSyntaxOff)$/;
-const COMMAND_NAME = /^\\[A-Za-z@]+$/;
-const BRACED_COMMAND_NAME = /^\{\s*\\[A-Za-z@]+\s*\}$/;
+/** How TeX reads a control word, a command name and a braced one, by whether `@` is a letter. */
+const READING = [
+  { word: /^\\(?:[A-Za-z]+|[\s\S])/, name: /^\\[A-Za-z]+$/, braced: /^\{\s*\\[A-Za-z]+\s*\}$/ },
+  { word: /^\\(?:[A-Za-z@]+|[\s\S])/, name: /^\\[A-Za-z@]+$/, braced: /^\{\s*\\[A-Za-z@]+\s*\}$/ },
+];
 
 /** Whether a manifest's preamble lines only define things: nothing at the top level runs but a definition. */
 export function isDefinitionsOnly(block: readonly string[]): boolean {
@@ -204,16 +210,18 @@ export function isDefinitionsOnly(block: readonly string[]): boolean {
   let definer: PreambleDefiner | undefined;
   // Arguments `definer` still takes, the command it defines first.
   let left = 0;
+  let atLetter = false;
   let index = 0;
   while (index < code.length) {
     const char = code[index];
     const naming = Boolean(definer?.names) && left === (definer?.groups ?? 0) + 1;
+    const reading: (typeof READING)[number] = READING[Number(atLetter)];
     if (/\s/.test(char)) {
       index += 1;
     } else if (char === "\\") {
-      const word = /^\\(?:[A-Za-z@]+|[\s\S])/.exec(code.slice(index))?.[0] ?? "\\";
+      const word: string = reading.word.exec(code.slice(index))?.[0] ?? "\\";
       index += word.length;
-      if (naming && COMMAND_NAME.test(word)) {
+      if (naming && reading.name.test(word)) {
         left -= 1;
         continue;
       }
@@ -221,11 +229,12 @@ export function isDefinitionsOnly(block: readonly string[]): boolean {
       definer = PREAMBLE_DEFINERS.get(word.slice(1));
       if (definer) left = definer.groups + (definer.names ? 1 : 0);
       else if (!PREAMBLE_MODE.test(word.slice(1))) return false;
+      else if (/^\\makeat(?:letter|other)$/.test(word)) atLetter = word.endsWith("letter");
     } else if (char === "{") {
       const end = groupEnd(code, index);
       if (!definer || left === 0 || end < 0) return false;
       const group = code.slice(index, end);
-      if (naming ? !BRACED_COMMAND_NAME.test(group) : definer.plain && !definer.plain.test(group)) return false;
+      if (naming ? !reading.braced.test(group) : definer.plain && !definer.plain.test(group)) return false;
       left -= 1;
       index = end;
     } else if (definer?.options && left > 0 && /[*[\]0-9]/.test(char)) {

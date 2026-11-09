@@ -23,6 +23,9 @@ const DRAWING_EXTENSIONS: [&str; 9] =
 /// What a figure's rendered files may be.
 const OUTPUT_EXTENSIONS: [&str; 7] = ["tex", "pdf", "pdf_tex", "png", "jpg", "svg", "eps"];
 
+/// The most files one paste may carry, its source included.
+const MAX_FIGURE_FILES: usize = 32;
+
 /// Tries before giving up on a name that keeps being taken while writing.
 const WRITE_ATTEMPTS: usize = 8;
 
@@ -78,10 +81,14 @@ pub struct ImportedFigure {
     pub packages: Vec<String>,
 }
 
+/// A plain name: one path component of letters, digits, spaces, `.`, `_`
+/// and `-`, so it reaches `\input{…}` and the entry's own references intact.
 fn file_name_of(file: &FigureFile) -> Result<String, String> {
     validate_entry_name(&file.name)
+        .ok()
+        .filter(|name| name.chars().all(|c| c.is_ascii_alphanumeric() || " ._-".contains(c)))
         .map(str::to_string)
-        .map_err(|_| "The figure names a file without a usable name.".to_string())
+        .ok_or_else(|| "The figure names a file without a usable name.".to_string())
 }
 
 fn bytes_of(file: &FigureFile, budget: &mut usize) -> Result<Vec<u8>, String> {
@@ -263,10 +270,18 @@ pub fn import_editable_figure(
     validate_user_entry(target_directory)?;
     let files: Vec<&FigureFile> =
         std::iter::once(&manifest.source).chain(&manifest.outputs).collect();
+    if files.len() > MAX_FIGURE_FILES {
+        return Err("The figure carries too many files.".to_string());
+    }
     let mut named = Vec::with_capacity(files.len());
     let mut budget = MAX_FIGURE_BYTES;
     for file in &files {
         named.push((file_name_of(file)?, bytes_of(file, &mut budget)?));
+    }
+    // Compared as a case-insensitive file system would.
+    let mut seen = BTreeSet::new();
+    if !named.iter().all(|(name, _)| seen.insert(name.to_lowercase())) {
+        return Err("The figure names one file twice.".to_string());
     }
     let entry = validate_entry_name(&manifest.entry)
         .map_err(|_| "The figure names no file to include.".to_string())?;
@@ -450,6 +465,30 @@ mod tests {
         assert!(import_editable_figure(&fixture.root, &missing, "figures").is_err());
         assert!(import_editable_figure(&fixture.root, &manifest(), "../out").is_err());
         assert!(!fixture.path("figures/escape.pdf").exists());
+    }
+
+    #[test]
+    fn refuses_tex_special_names_too_many_files_and_one_name_twice() {
+        let fixture = Fixture::folder("figure-limits", "paper");
+        let refused = |change: &dyn Fn(&mut FigureManifest)| {
+            let mut paste = manifest();
+            change(&mut paste);
+            import_editable_figure(&fixture.root, &paste, "figures").is_err()
+        };
+        for name in ["a}b.pdf", "a%b.pdf", "a\\b.pdf", "a#b.pdf", "a\nb.pdf", "a{b.pdf"] {
+            assert!(refused(&|paste| paste.outputs[0] = inline(name, "x")), "{name:?}");
+        }
+        assert!(refused(&|paste| {
+            paste.outputs =
+                (0..MAX_FIGURE_FILES).map(|n| inline(&format!("x{n}.png"), "")).collect();
+            paste.outputs.push(inline("scheme.tex", "x"));
+        }));
+        assert!(refused(&|paste| paste.outputs[0] = inline("scheme.tex", "x")));
+        assert!(refused(&|paste| paste.outputs[0] = inline("SCHEME.tex", "x")));
+        assert!(!fixture.path("figures").exists());
+        let mut spaced = manifest();
+        spaced.source = inline("Document 1.reactio", "{}");
+        assert!(import_editable_figure(&fixture.root, &spaced, "figures").is_ok());
     }
 
     #[test]

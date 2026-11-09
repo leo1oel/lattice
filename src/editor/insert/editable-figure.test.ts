@@ -102,7 +102,7 @@ describe("a manifest's preamble lines", () => {
   it("are definitions when nothing runs at the top level", () => {
     expect(isDefinitionsOnly(["\\providecommand\\a[1]{\\textbf{#1}}", "\\newcommand{\\b}{x} % note", "\\definecolor{c}{rgb}{1,0,0}"])).toBe(true);
     expect(isDefinitionsOnly(["\\makeatletter", "\\providecommand\\x@y[3]{}", "\\makeatother"])).toBe(true);
-    expect(isDefinitionsOnly(["\\ExplSyntaxOn", "\\DeclareRobustCommand \\rcmpd [1]", "  { \\seq_item:Nn \\l_tmpa_seq { 2 } }", "\\ExplSyntaxOff"])).toBe(true);
+    expect(isDefinitionsOnly(["\\ExplSyntaxOn", "\\providecommand \\rcmpd [1]", "  { \\seq_item:Nn \\l_tmpa_seq { 2 } }", "\\ExplSyntaxOff"])).toBe(true);
     expect(isDefinitionsOnly([String.raw`\NewDocumentCommand{\c}{m}{#1}`, String.raw`\DeclareMathOperator*{\argmax}{arg\,max}`, String.raw`\newcounter{step}`])).toBe(true);
     expect(isDefinitionsOnly([String.raw`\usepackage{tikz}`, String.raw`\usepackage{chemnum, mhchem}`])).toBe(true);
   });
@@ -118,6 +118,16 @@ describe("a manifest's preamble lines", () => {
     expect(isDefinitionsOnly([String.raw`\newcounter{c}[section]`])).toBe(false);
     expect(isDefinitionsOnly([String.raw`\newcommand\a`])).toBe(false);
     expect(isDefinitionsOnly(["}", "\\newcommand\\a{x}"])).toBe(false);
+  });
+
+  it("are not when TeX reads a name differently, or a command could be replaced", () => {
+    // Outside \makeatletter, `\a@{…}` is `\a`, then `@`, and the group runs.
+    expect(isDefinitionsOnly([String.raw`\newcommand\foo@{\typeout{ran}}`])).toBe(false);
+    expect(isDefinitionsOnly([String.raw`\newcommand{\foo@}{x}`])).toBe(false);
+    expect(isDefinitionsOnly(["\\makeatletter", String.raw`\newcommand\foo@{x}`, "\\makeatother", String.raw`\newcommand\bar@{x}`])).toBe(false);
+    expect(isDefinitionsOnly(["\\makeatletter", String.raw`\newcommand{\foo@}{x}`, "\\makeatother"])).toBe(true);
+    // \DeclareRobustCommand silently replaces a command the document has.
+    expect(isDefinitionsOnly([String.raw`\DeclareRobustCommand\maketitle{}`])).toBe(false);
   });
 
   it("are not when anything else is there", () => {

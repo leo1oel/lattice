@@ -45,15 +45,19 @@ Each file is `{"name": "scheme.pdf", "data": "<base64>"}`. A paste is untrusted
 input, since any web page can put this on the clipboard, so a manifest never
 names a path on disk. `source` must be a drawing format or `.svg`, `outputs` are `.tex`,
 `.pdf`, `.pdf_tex`, `.png`, `.jpg`, `.svg` or `.eps`, `entry` is a `.tex`, and
-all the files together are at most 64 MB.
+all the files together are at most 64 MB. A paste carries at most 32 files,
+no two with the same name (case aside), and each name holds only letters,
+digits, spaces, `.`, `_` and `-`.
 
 `preamble` is added without asking only if it holds nothing but definitions at
-its top level: `\providecommand`, `\newcommand`, `\DeclareRobustCommand`,
-`\DeclareMathOperator`, `\NewDocumentCommand` and `\ProvideDocumentCommand`,
-each naming one command and followed by exactly its own arguments;
-`\definecolor`, `\newcounter` and `\usepackage` with plain names and no
-options; and `\makeatletter` or `\ExplSyntaxOn` around them. Anything else,
-a brace group of its own included, is shown first and added only on a yes.
+its top level: `\providecommand`, `\newcommand`, `\DeclareMathOperator`,
+`\NewDocumentCommand` and `\ProvideDocumentCommand`, each naming one command
+and followed by exactly its own arguments; `\definecolor`, `\newcounter` and
+`\usepackage` with plain names and no options; and `\makeatletter` or
+`\ExplSyntaxOn` around them. A name with `@` counts only after
+`\makeatletter`, as TeX reads it. Anything else, a brace group of its own or
+`\DeclareRobustCommand` (which silently replaces a command the document has)
+included, is shown first and added only on a yes.
 The entry file is compiled as it is, like any other project file.
 
 ## What Lattice does on paste
