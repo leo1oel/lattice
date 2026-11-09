@@ -280,14 +280,16 @@ describe("LaTeX editor extensions", () => {
     }
   });
 
-  // CodeMirror drops a source once Backspace empties its query or starts at
-  // its slot, and never reactivates on Backspace, so a long delete used to
-  // leave the citation menu shut while the cursor was still in a key slot.
+  // CodeMirror drops a source when a Backspace starts at the slot's start or
+  // empties its query, and Backspace never reactivates one, so a long delete
+  // used to leave the citation menu shut while the cursor was still in a slot.
   it("keeps citation choices open while backspacing through keys", async () => {
     const view = productionLatexView(["alpha2024", "beta2025"]);
-    view.dispatch({ changes: { from: 0, insert: "\\cite{alpha2024,be}" }, selection: { anchor: 18 } });
     view.focus();
-    startCompletion(view);
+    // Opened by typing, as a writer does; that menu is not explicit.
+    typeText(view, "\\cite");
+    typeBracket(view, "{");
+    typeText(view, "alpha2024,be");
     await vi.waitFor(() => expect(labels(view)).toEqual(["beta2025"]));
     for (const [expected, choices] of [
       ["\\cite{alpha2024,b}", ["beta2025"]],
@@ -302,7 +304,7 @@ describe("LaTeX editor extensions", () => {
     for (let i = 0; i < "alpha202".length; i++) press(view, "Backspace");
     expect(doc(view)).toBe("\\cite{}");
     await vi.waitFor(() => expect(labels(view)).toEqual(["alpha2024", "beta2025"]));
-    press(view, "Escape");
+    // Deleting the brace pair leaves the slot, so nothing reopens.
     press(view, "Backspace");
     expect(doc(view)).toBe("\\cite");
     expect(completionStatus(view.state)).toBeNull();
