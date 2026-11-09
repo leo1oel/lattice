@@ -66,7 +66,9 @@ fn check_document(
 }
 
 fn is_svg(path: &Path) -> bool {
-    path.extension().and_then(|kind| kind.to_str()).is_some_and(|kind| kind.eq_ignore_ascii_case("svg"))
+    path.extension()
+        .and_then(|kind| kind.to_str())
+        .is_some_and(|kind| kind.eq_ignore_ascii_case("svg"))
 }
 
 /// The document as text, or a refusal: the scan must read the same characters
@@ -150,7 +152,8 @@ fn links_of(text: &str) -> Result<Vec<String>, String> {
             Event::Empty(element) => attribute_links(&element, &mut links)?,
             Event::End(_) => in_style = false,
             Event::Text(text) if in_style => {
-                let css = text.xml_content(XmlVersion::Implicit1_0).map_err(|_| NOT_PLAIN.to_string())?;
+                let css =
+                    text.xml_content(XmlVersion::Implicit1_0).map_err(|_| NOT_PLAIN.to_string())?;
                 style_links(&css, &mut links)?;
             }
             Event::CData(data) if in_style => {
@@ -171,8 +174,9 @@ fn attribute_links(element: &BytesStart, links: &mut Vec<String>) -> Result<(), 
         let attribute = attribute.map_err(|_| NOT_PLAIN.to_string())?;
         let name = local(attribute.key.as_ref());
         // The parser's own value: `&#00000000047;` is `/` however it is written.
-        let value =
-            attribute.normalized_value(XmlVersion::Implicit1_0).map_err(|_| NOT_PLAIN.to_string())?;
+        let value = attribute
+            .normalized_value(XmlVersion::Implicit1_0)
+            .map_err(|_| NOT_PLAIN.to_string())?;
         match name.as_slice() {
             // `xml:base` moves every relative link in the element's subtree.
             b"base" => return Err(OUTSIDE.to_string()),
@@ -211,7 +215,10 @@ enum Target {
     /// Nothing to read: the drawing itself, or data it carries.
     Harmless,
     /// A path inside the project, with its folder relative to the project.
-    Inside { folder: String, path: PathBuf },
+    Inside {
+        folder: String,
+        path: PathBuf,
+    },
     Outside,
 }
 

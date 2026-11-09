@@ -20,15 +20,15 @@ use super::editable_figure::{
 use super::manifest::read_manifest;
 use super::paths::{relative_to, safe_path, validate_entry_name};
 use crate::util::err;
-use serde::Serialize;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use render::{run_tool, tool_for, Tool};
-use svg_links::check_svg_links;
+use serde::Serialize;
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use svg_links::check_svg_links;
 use uuid::Uuid;
 
 /// The most of the text block's height a figure may take, leaving room for its caption.
@@ -485,7 +485,8 @@ pub enum FigureRefresh {
 /// collaborator's, so this holds to the same line as shell escape: trusted
 /// projects only, and only a drawing someone here rendered by hand.
 fn may_render_unattended(root: &Path, source: &str) -> bool {
-    read_manifest(root).is_ok_and(|manifest| manifest.trusted) && hand_rendered(root).contains(source)
+    read_manifest(root).is_ok_and(|manifest| manifest.trusted)
+        && hand_rendered(root).contains(source)
 }
 
 /// A rendered update waiting to be written. Rendering takes no project lease:

@@ -252,7 +252,10 @@ fn an_svg_reads_nothing_outside_the_project() {
         "<style>@import \"/etc/x.css\";</style>",
         "<style>@import url(https://example.com/x.css);</style>",
     ] {
-        assert!(check_svg_links(root, "figures", svg(unsafe_link).as_bytes()).is_err(), "{unsafe_link}");
+        assert!(
+            check_svg_links(root, "figures", svg(unsafe_link).as_bytes()).is_err(),
+            "{unsafe_link}"
+        );
     }
     let entity =
         "<!DOCTYPE svg [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><svg><text>&x;</text></svg>";
@@ -317,7 +320,10 @@ mod links {
         let victim = fixture.outside("victim.pdf", "keep");
         fs::remove_file(fixture.path("figures/a.pdf")).unwrap();
         symlink(&victim, fixture.path("figures/a.pdf")).unwrap();
-        assert_eq!(refresh(&fixture.root, "figures/a.svg", &fake_render), Ok(FigureRefresh::Rendered));
+        assert_eq!(
+            refresh(&fixture.root, "figures/a.svg", &fake_render),
+            Ok(FigureRefresh::Rendered)
+        );
         assert_eq!(fs::read_to_string(&victim).unwrap(), "keep");
         assert!(!fixture.path("figures/a.pdf").symlink_metadata().unwrap().is_symlink());
     }
@@ -407,11 +413,13 @@ mod refused_drawings {
         // UTF-16 and gzip hid every link from a scan of the bytes.
         assert!(!renders("utf16", &utf16(&svg(OUTSIDE))));
         assert!(!renders("utf16-plain", &utf16(&svg("<rect/>"))));
-        let mut encoder =
-            flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         std::io::Write::write_all(&mut encoder, svg(OUTSIDE).as_bytes()).unwrap();
         assert!(!renders("gzip", &encoder.finish().unwrap()));
-        assert!(!renders("utf16-declared", svg(OUTSIDE).replace("1.0\"?", "1.0\" encoding=\"UTF-16\"?").as_bytes()));
+        assert!(!renders(
+            "utf16-declared",
+            svg(OUTSIDE).replace("1.0\"?", "1.0\" encoding=\"UTF-16\"?").as_bytes()
+        ));
         assert!(!renders("nul", b"<svg><text>\0</text></svg>"));
     }
 
@@ -496,7 +504,11 @@ mod refused_drawings {
             let started = std::time::Instant::now();
             let _ = check_svg_links(root, "figures", text.as_bytes());
             let spent = started.elapsed();
-            assert!(spent < std::time::Duration::from_secs(1), "{spent:?} for {} bytes", text.len());
+            assert!(
+                spent < std::time::Duration::from_secs(1),
+                "{spent:?} for {} bytes",
+                text.len()
+            );
         }
     }
 }
@@ -519,7 +531,10 @@ mod unattended {
     fn pushed(label: &str) -> Fixture {
         let fixture = Fixture::project(label);
         fixture.write("figures/a.svg", "<svg><rect/></svg>");
-        fixture.write("figures/a.tex", "% editable-figure source: a.svg\n\\input{figures/a.pdf_tex}\n");
+        fixture.write(
+            "figures/a.tex",
+            "% editable-figure source: a.svg\n\\input{figures/a.pdf_tex}\n",
+        );
         fixture
     }
 
@@ -534,7 +549,10 @@ mod unattended {
         assert!(!fixture.path("figures/a.pdf").exists());
         // The user's own click renders it, and records the drawing as theirs,
         // so the next change to it follows on its own.
-        assert_eq!(refresh(&fixture.root, "figures/a.svg", &fake_render), Ok(FigureRefresh::Rendered));
+        assert_eq!(
+            refresh(&fixture.root, "figures/a.svg", &fake_render),
+            Ok(FigureRefresh::Rendered)
+        );
         assert!(hand_rendered(&fixture.root).contains("figures/a.svg"));
         let plan = prepare(&fixture.root, "figures/a.svg", true, &fake_render);
         assert!(matches!(plan, Ok(RefreshPlan::Ready(_))));
