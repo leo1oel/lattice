@@ -27,7 +27,7 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { toMessage } from "../app-utils";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { updatesItself } from "./updates-itself";
@@ -69,7 +69,8 @@ const updateModeSetting = sharedSetting(MODE_KEY, () => loadChoice<UpdateMode>(M
 type TauriUpdate = {
   version: string;
   currentVersion: string;
-  downloadAndInstall: (onEvent?: (event: DownloadEvent) => void) => Promise<void>;
+  /** The update as the backend holds it, for `install_update`. */
+  rid: number;
 };
 
 export type DownloadEvent =
@@ -91,8 +92,15 @@ async function claimUpdateInstall(version: string): Promise<UpdateClaim> {
   return invoke<UpdateClaim>("claim_update_install", { version }).catch(() => "claimed" as const);
 }
 
-function finishUpdateInstall(version: string, installed: boolean) {
-  void invoke("finish_update_install", { version, installed }).catch(() => undefined);
+/**
+ * Install the release this window claimed. The backend runs it and releases
+ * the claim when it ends, so a window closed or reloaded meanwhile cannot
+ * leave the claim held, nor let another window install alongside.
+ */
+function installInBackend(update: TauriUpdate, onEvent: (event: DownloadEvent) => void): Promise<void> {
+  const channel = new Channel<DownloadEvent>();
+  channel.onmessage = onEvent;
+  return invoke<void>("install_update", { version: update.version, rid: update.rid, onEvent: channel });
 }
 
 type RestartImpact = { terminalCommands: number; builds: number; agentTurns: number };
@@ -308,7 +316,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     let total = 0;
     let received = 0;
     try {
-      await update.downloadAndInstall((event) => {
+      await installInBackend(update, (event) => {
         if (event.event === "Started") {
           total = event.data?.contentLength ?? 0;
           if (total > 0) updateAppToastProgress(UPDATE_TOAST, 0);
@@ -325,13 +333,11 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
         }
       });
     } catch (reason) {
-      finishUpdateInstall(version, false);
       installingRef.current = false;
       installFailedRef.current = true;
       fail("install", reason);
       return;
     }
-    finishUpdateInstall(version, true);
     await installed();
   }, [fail, patch, restart]);
 

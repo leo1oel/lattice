@@ -269,6 +269,21 @@ describe("durable text and disk", () => {
     expect(docs.current().text).toBe("Mine");
   });
 
+  it("never takes a re-read of the file on screen over typing done while it read", async () => {
+    const docs = renderDocuments({ "main.tex": "Main" });
+    await docs.enter();
+    docs.touch("main.tex", "Agent wrote this");
+    const read = docs.hold("read_project_file", "main.tex");
+    // Selecting the file already open (an outline entry, a SyncTeX jump) reads it again.
+    let reselected!: Promise<unknown>;
+    act(() => { reselected = docs.current().openFile("main.tex"); });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "main.tex" })));
+    docs.type("Main, typed");
+    read.resolve(undefined);
+    await act(() => reselected);
+    expect(docs.current()).toMatchObject({ text: "Main, typed", dirty: true });
+  });
+
   it("tells the source editor which text came from outside the writer's editing, to keep it out of their undo", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
     const docs = renderDocuments({ "main.tex": "a\nb\nc" });

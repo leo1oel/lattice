@@ -41,7 +41,7 @@ const CEILINGS: Record<string, number> = {
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.
   "src/app/use-overleaf-workspace.ts": 1,
-  "src/app/use-build-pipeline.ts": 4,
+  "src/app/use-build-pipeline.ts": 2,
   "src/app/use-reference-import.ts": 2,
   "src/app/use-editor-comments.ts": 0,
   "src/app/use-tex-setup.ts": 1,

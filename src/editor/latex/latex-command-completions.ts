@@ -15,6 +15,7 @@ import { msg } from "@lingui/core/macro";
 import { Text, type EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { i18n } from "../../i18n";
+import { hoverAnchor } from "../hover-anchor";
 import { beginEnvironmentClose } from "./latex-environments";
 import { shouldInsertCommandBraces } from "./latex-symbols";
 import { mathRegionInDocument } from "./math-region";
@@ -243,11 +244,11 @@ export function latexCommandHover(state: EditorState, pos: number) {
     pos: hit.from,
     end: hit.to,
     above: true,
-    create() {
+    create(view: EditorView) {
       const dom = document.createElement("div");
       dom.className = "texlab-hover-card";
       dom.textContent = `${hit.entry.name}\n${detailOf(hit.entry)}`;
-      return { dom };
+      return { dom, getCoords: hoverAnchor(view, pos) };
     },
   };
 }

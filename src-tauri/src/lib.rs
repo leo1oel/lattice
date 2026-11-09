@@ -463,7 +463,7 @@ pub fn run() {
             ipc::windows::open_app_log_dir,
             save_before_close::restart_lattice,
             app_restart::claim_update_install,
-            app_restart::finish_update_install,
+            app_restart::install_update,
             app_restart::set_agent_turn_running,
             app_restart::restart_impact,
             ipc::windows::set_window_material,

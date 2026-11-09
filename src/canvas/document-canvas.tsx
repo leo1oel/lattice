@@ -74,6 +74,7 @@ import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
 import { useSourceSession } from "./use-source-session";
 import { usePaperPdf } from "./use-paper-pdf";
 import { followPaperSourceLink } from "./paper-source-link-click";
+import { reopenDiscardedNote } from "./reopen-discarded-note";
 import { SPLIT_MINIMUMS, splitGridTemplate, useSplitLayout } from "./use-split-layout";
 
 type StructuredDocumentKind = "board" | "spreadsheet" | "presentation";
@@ -427,11 +428,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       dedupeKey: "annotation-draft-discarded",
       primaryAction: {
         label: t`Undo`,
-        onClick: () => {
-          const view = primaryViewRef.current;
-          if (!view || latestRef.current.document.activeFile !== draft.path) return;
-          openCommentComposer(view, { ...draft, error: null });
-        },
+        onClick: () => reopenDiscardedNote(primaryViewRef.current, latestRef.current.document.activeFile, draft, openCommentComposer),
       },
     });
   };
@@ -1060,7 +1057,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
             editable={props.document.editorEditable && isLatexSourcePath(activeFile)}
             viewRef={primaryViewRef}
           />
-          <ReviewModeBars projectRoot={props.preferences.projectRoot} />
+          <ReviewModeBars />
           <AnnotationReviewLayer
             bridge={props.review.annotationRounds.reviewBridge}
             activeFile={activeFile}

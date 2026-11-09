@@ -14,6 +14,7 @@ import { i18n } from "../../i18n";
 import { paperBylineAuthors, paperSourceLabel } from "../../papers/paper-identity";
 import { citationHealthParts, citationHealthTitle } from "../../project/citation-health";
 import { element } from "../dom-utils";
+import { hoverAnchor } from "../hover-anchor";
 import { citationUsesSection } from "./citation-card-uses";
 import type { CitationReasonsApi } from "./citation-reason-editor";
 import { compiledLabels } from "./compiled-labels";
@@ -231,16 +232,8 @@ export function citationTooltips(
         const close = () => view.dispatch({ effects: closeHoverTooltips });
         return {
           dom: citationCard(view, citation, data, { keyboard: false, close, onGotoDefinition, target, reasons }),
-          // CodeMirror hosts every hover card in one popover anchored at the
-          // earliest `pos` among them, but each card keeps its own range: this
-          // one goes once the pointer leaves the key and is outside the
-          // popover. Under a comment, that earliest `pos` is where the
-          // comment starts, often a few wrapped rows above the key, so moving
-          // up toward the popover crossed commented text, which kept the
-          // comment and dropped the citation before the pointer arrived.
-          // Placed by the key instead (the host takes the one `getCoords` its
-          // cards give), the popover rises straight from it.
-          getCoords: () => view.coordsAtPos(target.from, 1) ?? { left: 0, right: 0, top: 0, bottom: 0 },
+          // Rises straight from the key, even under a comment (hover-anchor.ts).
+          getCoords: hoverAnchor(view, target.from),
         };
       },
     };
@@ -404,7 +397,7 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
         if (equation) dom.append(equationPreview(equation, data.katexMacros, () => destroyed));
         else if (reference.snippet) dom.append(element("pre", "", reference.snippet));
         dom.append(element("em", "", reference.path));
-        return { dom, destroy: () => { destroyed = true; } };
+        return { dom, getCoords: hoverAnchor(view, target.from), destroy: () => { destroyed = true; } };
       },
     };
   });
@@ -430,7 +423,7 @@ export function graphicsTooltips(live: () => LatexEditorLiveData, loadImage: (pa
         let destroyed = false;
         const dom = createHoverCard("reference-hover-card", view, 180);
         dom.append(figurePreview(resolved, resolved, loadImage, () => destroyed), element("em", "", resolved));
-        return { dom, destroy: () => { destroyed = true; } };
+        return { dom, getCoords: hoverAnchor(view, target.from), destroy: () => { destroyed = true; } };
       },
     };
   });

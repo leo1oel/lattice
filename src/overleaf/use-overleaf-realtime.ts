@@ -343,7 +343,11 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
     stopAfterDisconnect(message);
     setStatus("error");
     setDetail(message);
-    void invoke("overleaf_rt_disconnect", { projectRoot }).catch(() => {});
+    // Disconnecting on purpose emits no `disconnected` event, so ask for the
+    // reconnect here; otherwise one rejection ends live editing for the session.
+    void invoke("overleaf_rt_disconnect", { projectRoot }).catch(() => {}).finally(() => {
+      if (connectionRoot.current === projectRoot) requestReconnectRef.current(message);
+    });
   }, [setDetail, setStatus, stopAfterDisconnect]);
 
   /**
@@ -874,12 +878,14 @@ export function useOverleafRealtime(options: OverleafRealtimeOptions) {
         projectRoot: target.projectRoot, docId: target.docId, version: reserved.version, position, quote, threadId,
       });
     } catch (reason) {
-      fail(String(reason), target.projectRoot);
+      // A lost answer (say a 10 s ack timeout) is an unknown outcome like any
+      // other send's: replay it, never fail the connection over it.
+      if (documents.current.get(target.docId)?.waiting) markOutcomeUnknown(target.docId, reason);
       throw reason;
     }
     // Show it straight away rather than waiting for the round trip.
     patchOpenDoc(target.docId, (current) => ({ comments: [...current.comments, { threadId, position, quote }] }));
-  }, [fail, patchOpenDoc, publishUnacknowledged, t]);
+  }, [markOutcomeUnknown, patchOpenDoc, publishUnacknowledged, t]);
 
   return {
     status,

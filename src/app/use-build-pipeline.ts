@@ -19,6 +19,7 @@ import type { LivePreviewBuildHooks } from "../live-preview/use-live-preview";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
 import { adoptRootDocument } from "./adopt-root-document";
 import { buildOutcome, rejectedBuildOutcome, type BuildOutcome } from "./build-outcome";
+import { enqueueBuild, IDLE_QUEUE, type QueuedBuild } from "./build-queue";
 import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
 import { createQuietBuilds } from "../live-preview/quiet-builds";
@@ -39,11 +40,9 @@ type BuildOptions = {
   automatic?: boolean;
   /** Runs without the Build button's spinner or the PDF's "Updating…" (quiet-builds.ts). */
   quiet?: boolean;
+  /** Clean auxiliary files first: Clean and rebuild asked while another build held the pipeline. */
+  clean?: boolean;
 };
-
-/** A build asked for while another runs; `force: null` means nothing is queued. */
-type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociations: boolean };
-const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, consumeAgentAssociations: false };
 
 type Ref<T> = { readonly current: T };
 
@@ -290,9 +289,7 @@ export function useBuildPipeline({
     // A build asked for any other way shows, and so does the quiet one it waits on.
     if (!options?.quiet || !buildingRef.current) setQuiet(options?.quiet === true);
     if (buildingRef.current) {
-      queue.force = (queue.force ?? false) || force;
-      queue.sound ||= options?.sound === true;
-      queue.consumeAgentAssociations ||= options?.consumeAgentAssociations === true;
+      enqueueBuild(queue, force, options);
       return;
     }
     setBuilding(true);
@@ -323,6 +320,7 @@ export function useBuildPipeline({
     Object.assign(queue, IDLE_QUEUE);
     try {
       let currentForce = force;
+      let cleanFirst = options?.clean === true;
       const takeQueuedBuild = () => {
         if (queue.force === null) return false;
         trace.finish("cancelled", t`Build superseded`);
@@ -331,10 +329,17 @@ export function useBuildPipeline({
         shouldPlayCompletionSound ||= queue.sound;
         shouldNavigateToError = queue.sound;
         shouldConsumeAgentAssociations = queue.consumeAgentAssociations;
+        cleanFirst = queue.clean;
         Object.assign(queue, IDLE_QUEUE);
         return true;
       };
       do {
+        // Cleaning was held back while the previous pass ran; a forced build
+        // alone keeps the stale .aux that the writer asked to get rid of.
+        if (cleanFirst) {
+          cleanFirst = false;
+          if (!await cleanAuxiliaryFiles(setCleaning)) continue;
+        }
         // Associate only work present at the start of this pass. A checkpoint
         // arriving during an in-flight build remains pending for the queued
         // pass, rather than being credited to stale output.
@@ -558,9 +563,8 @@ export function useBuildPipeline({
     if (!project || cleaning) return;
     // The active build owns the backend until it settles. Preserve the clean
     // rebuild intent in its queue rather than cleaning files out from under it.
-    if (buildingRef.current || await cleanAuxiliaryFiles(setCleaning)) {
-      await runBuild(true, { requested: true, sound: true });
-    }
+    if (buildingRef.current) await runBuild(true, { requested: true, sound: true, clean: true });
+    else if (await cleanAuxiliaryFiles(setCleaning)) await runBuild(true, { requested: true, sound: true });
   }, [buildingRef, cleaning, project, runBuild]);
 
   const dismissDiagnostics = useCallback((diagnostics: CompileDiagnostic[]) => {

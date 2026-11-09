@@ -178,7 +178,10 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // build Stop clearing its queue and the slow-build notice, the agent frame's
 // per-load readiness, compile repair's restart and unlock), +1.3 KB with the
 // repair run itself already loaded on demand (1,422,354 -> 1,423,643 bytes).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.358 * 1024 * 1024);
+// Raised from 1.358 MiB the same day for the audit's S11-S23 fixes (#720),
+// small guards spread over a dozen eager modules with no one import to defer,
+// +0.6 KB on top of S6-S10 (1,423,643 -> 1,424,228 bytes).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.359 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

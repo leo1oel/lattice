@@ -71,6 +71,9 @@ export async function runAddQueue(
   publish(items.map((item) => ({ ...item, state: "waiting" })));
   try {
     for (const item of items) {
+      // The project it was adding to closed: its rows belong to no open sheet,
+      // and left as "waiting" they would read as a batch still running (with
+      // a Stop that does nothing) in the next project's sheet. Drop them.
       if (!current()) return;
       if (cancelled) {
         update(item.id, { state: "cancelled" });
@@ -91,6 +94,6 @@ export async function runAddQueue(
     }
   } finally {
     running = false;
-    publish([...queue]);
+    publish(current() ? [...queue] : []);
   }
 }

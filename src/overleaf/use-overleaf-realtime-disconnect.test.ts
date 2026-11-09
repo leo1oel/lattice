@@ -122,3 +122,39 @@ describe("a dropped connection", () => {
 });
 
 const invokeCount = (command: string) => vi.mocked(invoke).mock.calls.filter(([called]) => called === command).length;
+
+describe("a failure that is not a dropped socket", () => {
+  const target = { projectRoot: "/tmp/project", docId: DOC_A, path: "a.tex" };
+
+  it("checks a comment anchor whose answer was lost instead of ending live editing", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = await mountLive({ onRemoteText: () => true });
+    const original = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "overleaf_rt_send_comment") throw new Error("Timed out waiting for Overleaf");
+      return original(command, args);
+    });
+
+    await act(async () => {
+      await expect(view.result.current.anchorComment(target, "thread-1", 0, "alpha")).rejects.toThrow(/Timed out/);
+    });
+
+    expect(view.result.current.status).toBe("live");
+    expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "overleaf_rt_disconnect")).toBe(false);
+    // The replay that settles the unknown outcome rejoins the document.
+    await waitFor(() => expect(joinsOf(DOC_A).length).toBeGreaterThan(1));
+  });
+
+  it("reconnects after Overleaf rejects an update it addressed to no document", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = await mountLive({ onRemoteText: () => true });
+    const connects = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_rt_connect").length;
+    expect(connects()).toBe(1);
+
+    act(() => emit({ type: "otError", message: "Overleaf could not apply the update" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_100); });
+
+    await waitFor(() => expect(connects()).toBe(2));
+    await waitFor(() => expect(view.result.current.status).toBe("live"));
+  });
+});
