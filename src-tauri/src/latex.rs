@@ -41,10 +41,12 @@ mod compile_root;
 mod diagnostic_paths;
 mod engine_mismatch;
 mod figure_preview;
+mod outdated_lineno;
 mod pinned;
 mod preamble_format;
 mod prewarm;
 mod rc_failure;
+mod search_paths;
 mod shown_pdf;
 mod submission_review;
 mod synctex;
@@ -89,9 +91,10 @@ fn default_root_document(manifest: &ProjectManifest) -> Result<&RootDocument, St
 
 /// latexmk for a root document named relative to `root`, which holds the
 /// project's rc file. `-cd` typesets in the document's own folder, as
-/// Overleaf, TeXShop and LaTeX Workshop do: its `\input`s resolve from there,
-/// and its PDF, SyncTeX map, .aux and .log land beside it, where everything
-/// here reads them. From `root` instead, a document in a subfolder left its
+/// TeXShop and LaTeX Workshop do: its `\input`s resolve from there, and its
+/// PDF, SyncTeX map, .aux and .log land beside it, where everything here
+/// reads them. Overleaf typesets in the project folder instead, so a build
+/// also searches that (`search_paths`). From `root` instead, a document in a subfolder left its
 /// fresh PDF at the top while the preview showed whatever stale one sat
 /// beside it. latexmk still reads `root`'s rc file before it changes folder.
 ///

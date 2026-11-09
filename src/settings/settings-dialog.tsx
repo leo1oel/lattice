@@ -159,6 +159,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "acknowledgements", label: t`Acknowledgements`, icon: "chat" },
     ] },
   ] as const;
+  // The TeX doctor's package check (run in the background daily) found updates.
+  const texUpdatesAvailable = !props.texPackageUpdates.report?.error && Boolean(props.texPackageUpdates.report?.packages.length);
   const settingsNavItems = settingsNavGroups
     .flatMap((group): ReadonlyArray<{ tab: SettingsTab; label: string }> => group.items);
   const settingsViewportRef = useRef<HTMLDivElement>(null);
@@ -329,6 +331,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
                   >
                     <AnimatedProductIcon kind={item.icon} size={15} />
                     <span title={item.label}>{item.label}</span>
+                    {item.tab === "doctor" && texUpdatesAvailable && <span className="settings-nav-badge" role="img" aria-label={t`Updates available`} />}
                     <ChevronRight className="settings-nav-chevron" size={14} strokeWidth={1.6} aria-hidden="true" />
                   </button>
                 ))}

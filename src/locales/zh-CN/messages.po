@@ -8539,6 +8539,10 @@ msgstr "行高"
 msgid "Line number"
 msgstr "行号"
 
+#: src/build/build-log-messages.ts
+msgid "Line numbers may be drawn over the text: your TeX has lineno 5.7, which has a known bug. Update TeX packages to fix it."
+msgstr "行号可能会压在正文上：你的 TeX 中的 lineno 是 5.7 版，它有一个已知问题。更新 TeX 组件即可修复。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Line under an expression"
 msgstr "表达式下方加横线"
@@ -14784,6 +14788,7 @@ msgstr "TeX 组件更新进度"
 msgid "TeX packages"
 msgstr "TeX 组件"
 
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "TeX packages updated. Build again to use them."
 msgstr "TeX 组件已更新。重新编译即可使用。"
@@ -16827,6 +16832,7 @@ msgstr "立即更新"
 msgid "Update table"
 msgstr "更新表格"
 
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Update TeX packages"
 msgstr "更新 TeX 组件"
@@ -16856,6 +16862,7 @@ msgstr "已更新到 Lattice {running}"
 msgid "Updates {fields}"
 msgstr "更新{fields}"
 
+#: src/settings/settings-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Updates available"
 msgstr "有可用更新"
@@ -16877,6 +16884,7 @@ msgid "Updates the .bib entry and every \\cite"
 msgstr "会同步改 .bib 和所有 \\cite"
 
 #: src/build/tex-install-dialog.tsx
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Updating LaTeX packages…"
 msgstr "正在更新 LaTeX 组件…"
@@ -17190,6 +17198,7 @@ msgid "Waiting"
 msgstr "等待中"
 
 #: src/build/tex-install-dialog.tsx
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"

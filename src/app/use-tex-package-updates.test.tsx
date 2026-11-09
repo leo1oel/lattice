@@ -122,7 +122,7 @@ describe("useTexPackageUpdates", () => {
     const staleCheck = deferred<TexPackageUpdatesReport>();
     tauri.invoke.mockReturnValueOnce(staleCheck.promise).mockResolvedValueOnce(undefined).mockResolvedValueOnce(CURRENT);
     const { result } = renderHook(() => useTexPackageUpdates());
-    let checking!: Promise<void>;
+    let checking!: Promise<unknown>;
     act(() => { checking = result.current.check(); });
     await act(() => result.current.update());
     staleCheck.resolve(outdated(true));

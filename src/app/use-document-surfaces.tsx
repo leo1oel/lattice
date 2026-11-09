@@ -407,6 +407,7 @@ export function useDocumentSurfaces({
               onExpandedChange={buildPipeline.setDiagnosticsExpanded}
               onSelect={(diagnostic) => void build.openCompileDiagnostic(diagnostic)}
               onInstallDependency={texSetup.installDependency}
+              texPackageUpdates={texSetup.packageUpdates}
               onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
               onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
               onFixAll={() => { synara.requestRuntime(); void compileRepair.start(lastBuild.diagnostics); }}
