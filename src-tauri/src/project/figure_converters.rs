@@ -290,14 +290,23 @@ fn figure_of(root: &Path, source: &str) -> Result<Figure, String> {
 /// A private folder the program writes into, removed when dropped.
 struct Scratch(PathBuf);
 
+/// The figure is the project's, and `/tmp` is shared on Linux, so the folder
+/// is the user's own. Windows gives each user their own temp folder already.
+#[cfg(unix)]
+fn create_private_dir(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    fs::DirBuilder::new().mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(path: &Path) -> io::Result<()> {
+    fs::create_dir(path)
+}
+
 impl Scratch {
     fn new() -> Result<Self, String> {
         let path = std::env::temp_dir().join(format!("lattice-figure-{}", Uuid::new_v4()));
-        let mut builder = fs::DirBuilder::new();
-        // The figure is the project's, and /tmp is shared on Linux.
-        #[cfg(unix)]
-        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
-        builder.create(&path).map_err(err)?;
+        create_private_dir(&path).map_err(err)?;
         Ok(Self(path))
     }
 
