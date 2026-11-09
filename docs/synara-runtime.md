@@ -250,7 +250,8 @@ The repair model can read and edit the project through its ordinary provider too
 The task does not replace the active conversation and can be opened from **View repair** when approval is needed.
 Oversized batches are rejected explicitly rather than truncated (1000 diagnostics, 8 KiB per message, 1 MiB request body, and the provider's 120,000-character prompt limit).
 Lattice temporarily disables editor writes while the repair runs and rejects repair in read-only projects.
-Cancellation waits for a terminal provider state; switching projects cancels the outgoing repair and discards its late results.
+Cancellation waits for a terminal provider state; a repair still running 10 seconds after Cancel offers **Unlock anyway**, which releases the editor while the task may still be writing (`STOP_GRACE_MS` in `src/build/use-compile-repair.ts`).
+The editor is released without a terminal state only when the agent service the task started in goes away (a sidecar that exited and was started again announces `synara-runtime-restarted` like a requested restart; the relay adds that service's token to the start answer as `runtimeSession`, so a restart the start itself caused is not mistaken for one) or answers that it does not know the task (the repair route's poll and cancel answer an unknown thread with a plain-text `Not Found` 404, which the relay reports as `agent_task_unknown`); switching projects cancels the outgoing repair and discards its late results.
 Each click runs one repair attempt, with no automatic build-fix loop; remaining diagnostics stay visible after recompilation.
 
 **Proofread** (the LaTeX selection toolbar, or ⌘⌥P) is a second user-initiated flow over the same relay.

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
@@ -26,7 +26,7 @@ describe("batch repair controls", () => {
     vi.mocked(invoke).mockRejectedValueOnce("The workspace already has an active writer.");
     function RepairPanel() {
       const repair = useCompileRepair({
-        projectRoot: "/paper", rootDocument: "main.tex", runtimeMode: "auto", enabled: true,
+        projectRoot: "/paper", rootDocument: "main.tex", agent: { permissionMode: "auto", agentSession: null }, enabled: true,
         save: async () => true, onComplete: async () => {},
       });
       return <CompileDiagnosticsPanel {...props} repair={repair.state} fixDisabled={repair.busy}
@@ -35,7 +35,8 @@ describe("batch repair controls", () => {
     try {
       render(<RepairPanel />);
       await act(async () => { fireEvent.click(screen.getByRole("button", { name: "一键修复" })); });
-      expect(screen.getByRole("status")).toHaveTextContent("AI 助手正忙，请先结束它的任务再点“一键修复”");
+      // The run loads on the first Fix all (compile-repair-run.ts).
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("AI 助手正忙，请先结束它的任务再点“一键修复”"));
       expect(screen.getByRole("button", { name: "一键修复" })).toBeEnabled();
       expect(screen.queryByText("The workspace already has an active writer.")).not.toBeInTheDocument();
     } finally {
@@ -65,6 +66,22 @@ describe("batch repair controls", () => {
       repair={{ status: "compiling", threadId: "repair" }} />);
     expect(screen.getByRole("status")).toHaveTextContent("Recompiling…");
     expect(screen.queryByRole("button", { name: "Cancel repair" })).not.toBeInTheDocument();
+  });
+
+  it("offers Unlock anyway, with its warning, only for a repair that has not stopped since Cancel", () => {
+    const onUnlockRepair = vi.fn();
+    const { rerender } = render(<CompileDiagnosticsPanel {...props} onCancelRepair={vi.fn()} onUnlockRepair={onUnlockRepair}
+      repair={{ status: "running", threadId: "repair" }} />);
+    expect(screen.queryByRole("button", { name: "Unlock anyway" })).not.toBeInTheDocument();
+    rerender(<CompileDiagnosticsPanel {...props} onCancelRepair={vi.fn()} onUnlockRepair={onUnlockRepair}
+      repair={{ status: "running", threadId: "repair", stopping: true }} />);
+    expect(screen.getByText("Stopping…")).toBeInTheDocument();
+    expect(screen.getByText(/the agent may still be editing this file/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Unlock anyway" }));
+    expect(onUnlockRepair).toHaveBeenCalledTimes(1);
+    rerender(<CompileDiagnosticsPanel {...props} onUnlockRepair={onUnlockRepair}
+      repair={{ status: "failed", threadId: "repair", stopping: true, message: "Lost track." }} />);
+    expect(screen.queryByRole("button", { name: "Unlock anyway" })).not.toBeInTheDocument();
   });
 
   it("keeps approval and error details accessible, and respects write restrictions", () => {

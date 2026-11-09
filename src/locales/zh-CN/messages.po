@@ -2079,7 +2079,7 @@ msgstr "批注与高亮"
 msgid "Anonymous"
 msgstr "匿名"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 msgstr "已经在修复了，请等它完成"
 
@@ -5636,6 +5636,10 @@ msgstr "键盘方案"
 msgid "Editor status"
 msgstr "状态"
 
+#: src/build/use-compile-repair.ts
+msgid "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
+msgstr "编辑器已解锁，但修复可能仍在运行。请打开 Agent 查看修复进行到了哪一步。"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Edits"
 msgstr "编辑"
@@ -8131,6 +8135,10 @@ msgstr "Lattice 无法写入 {file}"
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 msgstr "Lattice 当前登录的是 {0}。要打开其他 Overleaf 服务器上的项目，请在 设置 → Overleaf 中登录那台服务器。"
+
+#: src/build/use-compile-repair.ts
+msgid "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
+msgstr "Lattice 已失去对修复任务的跟踪，编辑器已恢复可编辑。请打开 Agent 查看修复进行到了哪一步。"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
@@ -12163,11 +12171,11 @@ msgstr "重开标签"
 msgid "Reopened"
 msgstr "已重新打开"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair cancelled."
 msgstr "已取消修复"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair failed."
 msgstr "修复失败"
 
@@ -12179,7 +12187,7 @@ msgstr "修复完成"
 msgid "Repair has no active turn."
 msgstr "修正当前没有进行中的轮次。"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 msgstr "AI 助手正忙，请先结束它的任务再点“一键修复”"
 
@@ -13075,7 +13083,7 @@ msgstr "保存模板"
 msgid "Save the open file first."
 msgstr "请先保存当前打开的文件。"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Save the project before repairing."
 msgstr "请先保存再修复"
 
@@ -14085,6 +14093,10 @@ msgstr "以下文件的静态解析范围有限："
 msgid "Status"
 msgstr "状态"
 
+#: src/app/use-build-pipeline.ts
+msgid "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+msgstr "已编译 {minutes} 分钟仍未完成。文档中可能有内容陷入了死循环；如果一直不结束，请停止编译。"
+
 #. placeholder {0}: result.detail
 #: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
@@ -14098,6 +14110,7 @@ msgstr "Overleaf 上仍在"
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "还在等。请取消、关掉 Overleaf 窗口后再连一次"
 
+#: src/app/use-build-pipeline.ts
 #: src/papers/add-papers-sheet.tsx
 msgid "Stop"
 msgstr "停止"
@@ -14132,6 +14145,7 @@ msgstr "停止跟踪修订？"
 msgid "Stopped after 2 minutes"
 msgstr "2 分钟后已停止"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "正在停止…"
@@ -15274,11 +15288,15 @@ msgstr "渲染后的网页仍没有可靠的引用信息，请改为提供官方
 msgid "The repair agent needs an answer. Open the repair thread to respond."
 msgstr "AI 有问题要问你，请打开修复对话"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+msgstr "修复还没有停止，AI 可能仍在修改这个文件。只有现在确实要编辑时，才选择“仍然解锁”。"
+
 #: src/build/compile-repair-messages.ts
 msgid "The repair request failed."
 msgstr "修复请求失败"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "The repair service did not return a task."
 msgstr "修复服务没响应"
 
@@ -16310,6 +16328,10 @@ msgstr "取消关联"
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlinked. {target} stays as it is."
 msgstr "已取消关联，{target} 保持不变。"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Unlock anyway"
+msgstr "仍然解锁"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."

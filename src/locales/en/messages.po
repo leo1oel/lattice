@@ -2079,7 +2079,7 @@ msgstr "Annotations and highlights"
 msgid "Anonymous"
 msgstr "Anonymous"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 msgstr "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 
@@ -5636,6 +5636,10 @@ msgstr "Editor keymap"
 msgid "Editor status"
 msgstr "Editor status"
 
+#: src/build/use-compile-repair.ts
+msgid "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
+msgstr "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Edits"
 msgstr "Edits"
@@ -8131,6 +8135,10 @@ msgstr "Lattice couldn’t write {file}"
 #: src/overleaf/overleaf-pasted-link.tsx
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 msgstr "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
+
+#: src/build/use-compile-repair.ts
+msgid "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
+msgstr "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
@@ -12163,11 +12171,11 @@ msgstr "Reopen the closed tab"
 msgid "Reopened"
 msgstr "Reopened"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair cancelled."
 msgstr "Repair cancelled."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair failed."
 msgstr "Repair failed."
 
@@ -12179,7 +12187,7 @@ msgstr "Repair finished"
 msgid "Repair has no active turn."
 msgstr "Repair has no active turn."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 msgstr "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 
@@ -13075,7 +13083,7 @@ msgstr "Save template"
 msgid "Save the open file first."
 msgstr "Save the open file first."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
 
@@ -14085,6 +14093,10 @@ msgstr "Static coverage is limited in:"
 msgid "Status"
 msgstr "Status"
 
+#: src/app/use-build-pipeline.ts
+msgid "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+msgstr "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+
 #. placeholder {0}: result.detail
 #: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
@@ -14098,6 +14110,7 @@ msgstr "Still on Overleaf"
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
+#: src/app/use-build-pipeline.ts
 #: src/papers/add-papers-sheet.tsx
 msgid "Stop"
 msgstr "Stop"
@@ -14132,6 +14145,7 @@ msgstr "Stop tracking changes?"
 msgid "Stopped after 2 minutes"
 msgstr "Stopped after 2 minutes"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "Stopping…"
@@ -15274,11 +15288,15 @@ msgstr "The rendered page still has no reliable citation metadata. Supply its of
 msgid "The repair agent needs an answer. Open the repair thread to respond."
 msgstr "The repair agent needs an answer. Open the repair thread to respond."
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+msgstr "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+
 #: src/build/compile-repair-messages.ts
 msgid "The repair request failed."
 msgstr "The repair request failed."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "The repair service did not return a task."
 msgstr "The repair service did not return a task."
 
@@ -16310,6 +16328,10 @@ msgstr "Unlink"
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlinked. {target} stays as it is."
 msgstr "Unlinked. {target} stays as it is."
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Unlock anyway"
+msgstr "Unlock anyway"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."

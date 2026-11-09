@@ -173,7 +173,12 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // per-occurrence citation reasons (#704) took main to 1,420,180 bytes, and
 // Format document's stale-result guard plus the Overleaf reject resync, both
 // fixes for corruption, add 1.2 KB more (1,416,180 -> 1,417,394 bytes alone).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.357 * 1024 * 1024);
+// Raised from 1.357 MiB the same day for the implicit-state audit's S6-S10
+// fixes, whose states live in hooks App runs at startup (Overleaf reconnect,
+// build Stop clearing its queue and the slow-build notice, the agent frame's
+// per-load readiness, compile repair's restart and unlock), +1.3 KB with the
+// repair run itself already loaded on demand (1,422,354 -> 1,423,643 bytes).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.358 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

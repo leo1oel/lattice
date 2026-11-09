@@ -13,13 +13,17 @@ describe("host file writes for the agent panel", () => {
     vi.setSystemTime(new Date("2026-11-08T10:00:00.000Z"));
     sent = [];
   });
+  const collect = (message: HostFileWritesMessage) => {
+    sent.push(message);
+    return true;
+  };
   afterEach(() => {
     setHostFileWritesSink(null);
     vi.useRealTimers();
   });
 
   it("coalesces a burst into one message per project, with each path's write time", () => {
-    setHostFileWritesSink((message) => sent.push(message));
+    setHostFileWritesSink(collect);
     noteHostFileWrites("/paper", ["main.tex"]);
     vi.advanceTimersByTime(100);
     noteHostFileWrites("/paper", ["main.tex", "sec/intro.tex"]);
@@ -37,7 +41,7 @@ describe("host file writes for the agent panel", () => {
   });
 
   it("drops paths that are not inside the project", () => {
-    setHostFileWritesSink((message) => sent.push(message));
+    setHostFileWritesSink(collect);
     noteHostFileWrites("/paper", ["/etc/passwd", "../other/main.tex", "a/../b.tex"]);
     noteHostFileWrites(null, ["main.tex"]);
     vi.advanceTimersByTime(1_000);
@@ -48,15 +52,27 @@ describe("host file writes for the agent panel", () => {
     noteHostFileWrites("/paper", ["old.tex"]);
     vi.advanceTimersByTime(121_000);
     noteHostFileWrites("/paper", ["main.tex"]);
-    setHostFileWritesSink((message) => sent.push(message));
+    setHostFileWritesSink(collect);
     vi.advanceTimersByTime(250);
     expect(sent.flatMap((message) => message.writes.map((write) => write.path))).toEqual(["main.tex"]);
   });
 
   it("splits a large sync across several messages", () => {
-    setHostFileWritesSink((message) => sent.push(message));
+    setHostFileWritesSink(collect);
     noteHostFileWrites("/paper", Array.from({ length: 450 }, (_, index) => `f${index}.tex`));
     vi.advanceTimersByTime(250);
     expect(sent.map((message) => message.writes.length)).toEqual([200, 200, 50]);
+  });
+
+  it("keeps a project's writes that the ready panel refused for that project's next panel", () => {
+    // The open panel belongs to /other; /paper's writes wait for /paper's panel.
+    setHostFileWritesSink((message) => message.workspaceRoot === "/other" && collect(message));
+    noteHostFileWrites("/paper", ["main.tex"]);
+    noteHostFileWrites("/other", ["notes.tex"]);
+    vi.advanceTimersByTime(250);
+    expect(sent.map((message) => message.workspaceRoot)).toEqual(["/other"]);
+    setHostFileWritesSink(collect);
+    vi.advanceTimersByTime(250);
+    expect(sent.map((message) => message.workspaceRoot)).toEqual(["/other", "/paper"]);
   });
 });

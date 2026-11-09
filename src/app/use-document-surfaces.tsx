@@ -409,6 +409,7 @@ export function useDocumentSurfaces({
               fixDisabled={!build.repairWritable || building || compileRepair.busy}
               repair={compileRepair.state}
               onCancelRepair={() => void compileRepair.cancel()}
+              onUnlockRepair={compileRepair.unlock}
               onOpenRepair={() => {
                 const threadId = compileRepair.state?.threadId;
                 if (!threadId) return;

@@ -493,7 +493,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const compileRepair = useCompileRepair({
     projectRoot: project?.root,
     rootDocument: build?.rootDocument,
-    runtimeMode: synara.permissionMode,
+    agent: synara,
     enabled: repairWritable && !building,
     save: async () => {
       if (!flush()) return false;

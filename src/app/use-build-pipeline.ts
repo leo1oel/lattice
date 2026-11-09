@@ -3,11 +3,12 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
-import { diagnosticsFingerprint, missingTexDependencyFile, sortDiagnostics, type CompileDiagnostic } from "../build/compile-diagnostics";
+import { diagnosticsFingerprint, missingTexDependencyFile, type CompileDiagnostic } from "../build/compile-diagnostics";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
 import { scheduleFirstPage } from "../project/first-pages";
-import { logAction } from "../telemetry/app-notify";
+import { logAction, notifyWarning } from "../telemetry/app-notify";
+import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { clearTimer, restartTimer, subscribeTauriEvent, useRefState } from "./effect-helpers";
@@ -23,6 +24,8 @@ import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "
 import { createQuietBuilds } from "../live-preview/quiet-builds";
 import type { BuildPreferences } from "../settings/app-settings";
 import { createWatchedBuilds } from "./watched-builds";
+import { useDiagnosticCycle } from "./use-diagnostic-cycle";
+import { cleanAuxiliaryFiles } from "./clean-auxiliary-files";
 
 export type { BuildOutcome } from "./build-outcome";
 export type { BuildProgressStore } from "./build-progress";
@@ -51,21 +54,13 @@ type LiveBase = { token: number | null; quiet: boolean };
 type RunningBuild = { settled: Promise<void>; revision: number };
 
 /**
- * Delete LaTeX auxiliary files while `cleaning` is held; false when it failed.
- * No confirmation: every file it removes is one the next build writes again.
+ * How long one pass runs before the writer is told it may be stuck (a macro
+ * that recurses forever, a figure that never finishes) and offered Stop. Only
+ * a notice: a large document can legitimately take this long, so nothing is
+ * stopped for it.
  */
-async function cleanAuxiliaryFiles(setCleaning: (cleaning: boolean) => void): Promise<boolean> {
-  setCleaning(true);
-  try {
-    await invoke("clean_project");
-    return true;
-  } catch (reason) {
-    showError(toMessage(reason));
-    return false;
-  } finally {
-    setCleaning(false);
-  }
-}
+const SLOW_BUILD_MINUTES = 10;
+const SLOW_BUILD_NOTICE = "build-still-running";
 
 /**
  * LaTeX builds and the PDF preview they feed: one build at a time with later
@@ -117,7 +112,6 @@ export function useBuildPipeline({
   /** Fingerprint of the diagnostics the reader last dismissed, so an unchanged
    *  set stays dismissed through the recompiles that autosave keeps firing. */
   const dismissedDiagnosticsRef = useRef<string | null>(null);
-  const diagnosticCursorRef = useRef<{ build: BuildResult | null; index: number }>({ build: null, index: 0 });
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const pdfFingerprintRef = useRef<string | null>(null);
@@ -258,6 +252,18 @@ export function useBuildPipeline({
   ), [buildingRef, progress, projectRef]);
 
   const { takePendingCompiles, reportCompiles } = agent;
+  /**
+   * Stop ends the stuck pass and everything waiting behind it: a queued pass
+   * started the moment the stopped one came back and, from the same inputs,
+   * usually hung again. The Agent hears its queued compiles did not happen.
+   */
+  const abortBuild = useCallback(async () => {
+    if (!buildingRef.current) return;
+    quietBuilds.cancel();
+    if (queueRef.current.consumeAgentAssociations) reportCompiles(takePendingCompiles(), null);
+    Object.assign(queueRef.current, IDLE_QUEUE);
+    await invoke<boolean>("abort_build").catch((reason) => showError(toMessage(reason)));
+  }, [buildingRef, quietBuilds, reportCompiles, takePendingCompiles]);
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
     if (options?.automatic && quietBuilds.defer()) return;
     const queue = queueRef.current;
@@ -353,6 +359,14 @@ export function useBuildPipeline({
         // Each pass starts its sequence afresh; the backend fills it in as latexmk runs.
         const progressId = ++progressIdRef.current;
         progress.set({ steps: [], startedAt: performance.now() });
+        const slowNotice = setTimeout(() => {
+          const minutes = SLOW_BUILD_MINUTES;
+          notifyWarning(t`Build`, t`Still building after ${minutes} minutes. Something in the document may be looping; stop the build if it does not finish.`, {
+            timeoutMs: 0,
+            dedupeKey: SLOW_BUILD_NOTICE,
+            primaryAction: { label: t`Stop`, onClick: abortBuild },
+          });
+        }, SLOW_BUILD_MINUTES * 60_000);
         // A failure after the project moved on belongs to nobody: the pass is simply skipped.
         const result = await diagnosticInvoke<BuildResult>(
           "build_project", { force: currentForce, projectRoot, documentPath, progressId }, { operationId: trace.id },
@@ -361,6 +375,9 @@ export function useBuildPipeline({
           compiledRef.current = null;
           reportCompiles(agentCompileAssociations, null);
           throw reason;
+        }).finally(() => {
+          clearTimeout(slowNotice);
+          dismissAppToastByDedupeKey(SLOW_BUILD_NOTICE);
         });
         if (!result || !scopeIsCurrent()) continue;
         reportCompiles(agentCompileAssociations, result);
@@ -491,7 +508,7 @@ export function useBuildPipeline({
   }, [
     activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef,
     quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, t,
-    takePendingCompiles, watchedBuilds,
+    takePendingCompiles, watchedBuilds, abortBuild,
   ]);
   // Everything else that changes an input — the agent, a terminal, an
   // Overleaf pull, a rename in the tree, another editor — reaches the project
@@ -532,11 +549,6 @@ export function useBuildPipeline({
     return compiledIsCurrent();
   }, [compiledIsCurrent, runBuild]);
 
-  const abortBuild = useCallback(async () => {
-    if (!buildingRef.current) return;
-    await invoke<boolean>("abort_build").catch((reason) => showError(toMessage(reason)));
-  }, [buildingRef]);
-
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;
     if (await cleanAuxiliaryFiles(setCleaning)) showNotice(t`Build files cleaned`, t`Build`);
@@ -556,21 +568,7 @@ export function useBuildPipeline({
     setDiagnosticsDismissed(true);
   }, []);
 
-  /**
-   * Step to the next or previous diagnostic of the current build in the order
-   * the panel lists them, wrapping. A new build restarts the walk at its first
-   * diagnostic (or its last, stepping back).
-   */
-  const cycleDiagnostic = useCallback((direction: 1 | -1) => {
-    const diagnostics = sortDiagnostics(build?.diagnostics ?? []);
-    if (!diagnostics.length) return;
-    const walking = diagnosticCursorRef.current.build === build;
-    const next = walking
-      ? (diagnosticCursorRef.current.index + direction + diagnostics.length) % diagnostics.length
-      : direction === 1 ? 0 : diagnostics.length - 1;
-    diagnosticCursorRef.current = { build, index: next };
-    void openDiagnosticRef.current(diagnostics[next]);
-  }, [build, openDiagnosticRef]);
+  const cycleDiagnostic = useDiagnosticCycle(build, openDiagnosticRef);
 
   // One object for as long as its members hold still: App hands it to the
   // compiled titlebar, which re-rendered its build controls on every keystroke

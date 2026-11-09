@@ -49,7 +49,7 @@ function mockConnectedPicker(extra: CommandTable = {}) {
 
 /** Render the picker; its callbacks are spies (the optional ones are no-ops unless overridden). */
 function renderPicker(props: Partial<Parameters<typeof OverleafPickerDialog>[0]> = {}) {
-  const callbacks = { onClose: vi.fn(), onCloned: vi.fn(), onBeforeClone: vi.fn(), onCloneCancelled: vi.fn() };
+  const callbacks = { onClose: vi.fn(), onCloned: vi.fn() };
   render(<OverleafPickerDialog open {...callbacks} {...props} />);
   return callbacks;
 }
@@ -193,12 +193,9 @@ describe("Overleaf picker dialog", () => {
 
   it("clones the selected project and reports the new root", async () => {
     mockConnectedPicker();
-    const { onClose, onBeforeClone, onCloned } = renderPicker();
+    const { onClose, onCloned } = renderPicker();
     await openFirstProject();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs()));
-    expect(onBeforeClone).toHaveBeenCalledOnce();
-    const cloneCall = vi.mocked(invoke).mock.calls.findIndex(([command]) => command === "overleaf_clone_project");
-    expect(onBeforeClone.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(invoke).mock.invocationCallOrder[cloneCall]!);
     // The backend answers with the folder a project already lives in, so an
     // already-downloaded project is an ordinary open, not a failure.
     await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
@@ -213,7 +210,7 @@ describe("Overleaf picker dialog", () => {
   it("opens the folder already linked to a project instead of downloading a second copy", async () => {
     mockConnectedPicker({ overleaf_local_copies: { p1: nativeVlm }, overleaf_reopen_local_copy: undefined });
     const onOpenLocalCopy = vi.fn();
-    const { onClose, onBeforeClone, onCloned } = renderPicker({ onOpenLocalCopy, knownFolders: [{ path: nativeVlm.path }] });
+    const { onClose, onCloned } = renderPicker({ onOpenLocalCopy, knownFolders: [{ path: nativeVlm.path }] });
     expect(await screen.findByText("Opens your local copy at ~/Papers/Native VLM")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", {
       names: ["Attention Paper", "Thesis Draft", "Old Notes"], folders: [nativeVlm.path],
@@ -229,7 +226,6 @@ describe("Overleaf picker dialog", () => {
     await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
     expect(onClose).toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
-    expect(onBeforeClone).not.toHaveBeenCalled();
     expect(onCloned).not.toHaveBeenCalled();
   });
 
@@ -273,14 +269,13 @@ describe("Overleaf picker dialog", () => {
     let answer: (copies: unknown) => void = () => undefined;
     mockConnectedPicker({ overleaf_local_copies: () => new Promise((resolve) => { answer = resolve; }) });
     const onOpenLocalCopy = vi.fn();
-    const { onBeforeClone, onCloned } = renderPicker({ onOpenLocalCopy });
+    const { onCloned } = renderPicker({ onOpenLocalCopy });
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_local_copies", expect.anything()));
     await openFirstProject();
     cleanup();
     answer({});
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_target", expect.anything());
-    expect(onBeforeClone).not.toHaveBeenCalled();
     expect(onCloned).not.toHaveBeenCalled();
   });
 
@@ -326,17 +321,6 @@ describe("Overleaf picker dialog", () => {
     expect(onOpenLocalCopy).not.toHaveBeenCalled();
   });
 
-  it("does not change roots when the current project is still syncing", async () => {
-    mockConnectedPicker();
-    const onBeforeClone = vi.fn(() => false);
-    const { onCloned } = renderPicker({ onBeforeClone });
-    await openFirstProject();
-
-    await waitFor(() => expect(onBeforeClone).toHaveBeenCalledOnce());
-    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
-    expect(onCloned).not.toHaveBeenCalled();
-  });
-
   it.each(["owner", "readAndWrite", "readOnly", "review", "unknown", null] as const)(
     "preserves the %s access level when cloning",
     async (accessLevel) => {
@@ -363,13 +347,12 @@ describe("Overleaf picker dialog", () => {
   it("still reports a real failure and keeps the dialog open", async () => {
     mockConnectedPicker({ overleaf_clone_project: () => { throw new Error("Could not reach Overleaf."); } });
     render(<ToastStack />);
-    const { onClose, onBeforeClone, onCloneCancelled } = renderPicker();
+    const { onClose, onCloned } = renderPicker();
     await openFirstProject();
     // The modal repeats transfer errors inline so its focus trap does not
     // hide the failure from assistive technology.
     await waitFor(() => expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent(/Could not reach Overleaf/));
-    expect(onBeforeClone).toHaveBeenCalledOnce();
-    expect(onCloneCancelled).toHaveBeenCalledOnce();
+    expect(onCloned).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 

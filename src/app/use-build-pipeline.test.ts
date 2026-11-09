@@ -4,12 +4,14 @@ import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
+import { clearAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import { useBuildPipeline } from "./use-build-pipeline";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../project/first-pages", () => ({ scheduleFirstPage: vi.fn() }));
 afterEach(() => {
   cleanup();
+  clearAppLogs();
   vi.mocked(invoke).mockReset();
 });
 
@@ -33,6 +35,13 @@ function result(overrides: Partial<BuildResult> = {}): BuildResult {
     steps: [], pages: null, synctex: null, ...overrides,
   };
 }
+
+/** What a stopped build comes back as. */
+const stoppedResult = () => result({
+  success: false, durationMs: 2_500,
+  diagnostics: [{ level: "error", message: "Build stopped.", code: "build-cancelled", params: { seconds: "2.5" } }],
+});
+const invokeCount = (command: string) => vi.mocked(invoke).mock.calls.filter(([called]) => called === command).length;
 
 /** Each PDF a build reads back is a new one. */
 let pdfWrites = 0;
@@ -191,6 +200,83 @@ describe("the build outcome the Build button reports", () => {
     });
     expect(view.result.current.building).toBe(false);
     expect(view.result.current.outcome).toBeNull();
+  });
+
+  // S8 in the implicit-state audit: autosave queued a pass behind the stuck
+  // build, and Stop started it the moment the stopped one came back.
+  it("stops the pass queued behind a stuck build too", async () => {
+    const finishes: Array<(value: BuildResult) => void> = [];
+    const view = renderPipeline(() => new Promise((resolve) => { finishes.push(resolve); }));
+    let running!: Promise<void>;
+    act(() => { running = view.result.current.runBuild(false, { requested: true }); });
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    await act(() => view.result.current.abortBuild());
+    await act(async () => {
+      finishes[0]!(stoppedResult());
+      await running;
+    });
+    expect(invokeCount("build_project")).toBe(1);
+    expect(view.result.current.building).toBe(false);
+  });
+
+  // A pass that has run for ten minutes may be stuck, or may be a large
+  // document: the writer is told and offered Stop, and nothing is stopped for them.
+  const TEN_MINUTES = 10 * 60_000;
+  const slowNotice = () => getVisibleAppToastIds()
+    .map((id) => ({ entry: getAppLogEntry(id), options: getAppToastOptions(id) }))
+    .find(({ entry }) => entry?.title.startsWith("Still building after 10 minutes"));
+
+  it("offers Stop on a pass still running after ten minutes, which stops it and what is queued behind it", async () => {
+    vi.useFakeTimers();
+    try {
+      const finishes: Array<(value: BuildResult) => void> = [];
+      const view = renderPipeline(() => new Promise((resolve) => { finishes.push(resolve); }));
+      let running!: Promise<void>;
+      act(() => { running = view.result.current.runBuild(false, { requested: true }); });
+      await act(() => view.result.current.runBuild(false, { automatic: true }));
+      await act(() => vi.advanceTimersByTimeAsync(TEN_MINUTES - 1_000));
+      expect(slowNotice()).toBeUndefined();
+      await act(() => vi.advanceTimersByTimeAsync(1_000));
+      const notice = slowNotice();
+      expect(notice?.entry?.level).toBe("warning");
+      expect(invokeCount("abort_build")).toBe(0);
+      await act(() => vi.advanceTimersByTimeAsync(TEN_MINUTES));
+      expect(invokeCount("abort_build")).toBe(0);
+      expect(view.result.current.building).toBe(true);
+      expect(notice?.options?.primaryAction?.label).toBe("Stop");
+      await act(async () => { await notice?.options?.primaryAction?.onClick(); });
+      expect(invokeCount("abort_build")).toBe(1);
+      await act(async () => {
+        finishes[0]!(stoppedResult());
+        await running;
+      });
+      expect(invokeCount("build_project")).toBe(1);
+      expect(view.result.current.building).toBe(false);
+      expect(view.result.current.outcome).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("completes a slow pass that finishes after ten minutes, and takes the notice down", async () => {
+    vi.useFakeTimers();
+    try {
+      let finish!: (value: BuildResult) => void;
+      const view = renderPipeline(() => new Promise((resolve) => { finish = resolve; }));
+      let running!: Promise<void>;
+      act(() => { running = view.result.current.runBuild(false, { requested: true }); });
+      await act(() => vi.advanceTimersByTimeAsync(TEN_MINUTES + 60_000));
+      expect(slowNotice()).toBeDefined();
+      await act(async () => {
+        finish(result({ durationMs: TEN_MINUTES + 60_000 }));
+        await running;
+      });
+      expect(invokeCount("abort_build")).toBe(0);
+      expect(slowNotice()).toBeUndefined();
+      expect(view.result.current.outcome).toMatchObject({ status: "succeeded", seconds: 660 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("forgets the last outcome when the workspace moves to another project", async () => {
