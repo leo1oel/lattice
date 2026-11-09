@@ -8,11 +8,12 @@
  * later so a run of either is one build. A newer build stops the older one
  * in Lattice's host. The marked PDF on screen stays until the next one is
  * ready; when one cannot be made (latexdiff fails on a construct, or is not
- * installed) the paper's own PDF comes back with the reason.
+ * installed) the paper's own PDF comes back with the reason, in the
+ * interface language.
  */
 import { useEffect, useReducer, useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import { pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
 import { reviewMode } from "./review-mode-store";
 
@@ -68,7 +69,7 @@ export function useMarkedPdf(projectRoot: string, pdfUrl: string | null): Marked
           dispatch({ kind: "built", url, root: projectRoot });
         } catch (reason) {
           // A newer build stopped this one; that build answers instead.
-          if (!cancelled) dispatch({ kind: "failed", error: toMessage(reason) });
+          if (!cancelled) dispatch({ kind: "failed", error: hostErrorMessage(reason) });
         }
       })();
     }, MARKED_PDF_DELAY_MS);

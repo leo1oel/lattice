@@ -164,7 +164,7 @@ export function ProjectPdfPanel({
       {pdf.pdfTop}
       {marked.error && (
         <InlineMessage level="warning" className="review-pdf-message">
-          {t`The changes could not be marked in the PDF, so it shows the paper without them.`} {marked.error}
+          {t`The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks.`} {marked.error}
         </InlineMessage>
       )}
       <LivePreviewSessionContext value={liveSession}>

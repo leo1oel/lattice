@@ -47,8 +47,8 @@ paths. Paths are project-relative; the project is a short hash (`project`).
 - Export PDF with changes marked, and review mode's PDF with changes marked,
   log each latexdiff and latexmk command line they run (paths and options,
   never file contents), how long it ran and how it ended, under
-  `lattice::changes_pdf`; review mode's failed attempts are under
-  `lattice::review_pdf`.
+  `lattice::changes_pdf`, with each failed attempt and each change shown
+  unmarked because its marks stopped the build.
 
 ## More detail
 

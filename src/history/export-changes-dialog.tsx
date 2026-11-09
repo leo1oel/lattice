@@ -33,7 +33,7 @@ export type ChangesPdfOptions = {
   onlyChangedPages: boolean;
 };
 
-type ChangesPdf = { path: string; simplified: boolean };
+type ChangesPdf = { path: string; simplified: boolean; unmarked: number };
 
 /** The last choices, for the next export this session. */
 let lastOptions: ChangesPdfOptions = { colour: true, keepDeleted: true, marginBars: true, onlyChangedPages: false };
@@ -133,7 +133,9 @@ export function ExportChangesDialog(props: {
   const savedNotice = (result: ChangesPdf) => ({
     detail: result.simplified
       ? t`Maths, figures and citations are left unmarked: the fully marked document did not build.`
-      : undefined,
+      : result.unmarked > 0
+        ? t`Some changes are shown without marks: marked, they kept the PDF from building.`
+        : undefined,
     primaryAction: props.onOpenFile ? { label: t`Open`, onClick: () => props.onOpenFile?.(result.path) } : undefined,
     secondaryAction: {
       label: t`Show in Finder`,
