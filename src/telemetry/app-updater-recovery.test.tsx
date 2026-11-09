@@ -70,6 +70,8 @@ function backend(installs: (Error | null)[] = []) {
   });
 }
 
+type Settle = { resolve: (update: typeof UPDATE) => void; reject: (reason: Error) => void };
+
 const commands = (name: string) => tauri.invoke.mock.calls.filter(([command]) => command === name).length;
 
 function renderUpdater() {
@@ -166,7 +168,43 @@ describe("a download that fails", () => {
 
     await waitFor(() => expect(toast()).toHaveTextContent("Lattice update failed"));
     expect(commands("install_update")).toBe(1);
-    await waitFor(() => expect(installEvent()).toMatchObject({ outcome: "cancelled", attempts: 2 }));
+    // The second download never started.
+    await waitFor(() => expect(installEvent()).toMatchObject({ outcome: "cancelled", attempts: 1 }));
+  });
+});
+
+describe("a check that settles after an install started", () => {
+  it.each([
+    ["finds the update", (check: Settle) => check.resolve(UPDATE)],
+    ["fails", (check: Settle) => check.reject(new Error("network unreachable"))],
+  ])("leaves the download's toast alone when it %s", async (_, settle) => {
+    const api = await offered([new Error("disk full")]);
+    await run(() => api.current.install());
+    await waitFor(() => expect(toast()).toHaveTextContent("Lattice update failed"));
+
+    let check!: Settle;
+    tauri.check.mockReturnValueOnce(new Promise((resolve, reject) => { check = { resolve, reject }; }));
+    let checking!: Promise<void>;
+    act(() => { checking = api.current.check(false); });
+    await waitFor(() => expect(api.current.phase).toBe("checking"));
+
+    let finishDownload!: () => void;
+    const answer = tauri.invoke.getMockImplementation()!;
+    tauri.invoke.mockImplementation((command: string, args?: unknown) => (
+      command === "install_update" ? new Promise<void>((resolve) => { finishDownload = resolve; }) : answer(command, args)
+    ));
+    fireEvent.click(screen.getByRole("button", { name: "Try again", hidden: true }));
+    await waitFor(() => expect(api.current.phase).toBe("downloading"));
+
+    await act(async () => {
+      settle(check);
+      await checking;
+    });
+    expect(api.current.phase).toBe("downloading");
+    expect(toast()).toHaveTextContent("Downloading update…");
+
+    await act(async () => { finishDownload(); });
+    await waitFor(() => expect(api.current.phase).toBe("restarting"));
   });
 });
 

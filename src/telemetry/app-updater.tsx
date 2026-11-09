@@ -220,8 +220,9 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   const installedRef = useRef(false);
   /** A restart is being checked for running work, or under way. */
   const restartingRef = useRef(false);
-  /** Stops the retries of the check or install under way, mid-wait. */
-  const retriesRef = useRef<AbortController | null>(null);
+  /** Stop the retries of the check, or the install, under way, mid-wait. */
+  const checkRetriesRef = useRef<AbortController | null>(null);
+  const installRetriesRef = useRef<AbortController | null>(null);
   const modeRef = useLatestRef(mode);
 
   const patch = useCallback((next: Partial<UpdaterState>) => {
@@ -236,7 +237,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
    * session. Dismissing the failure toast does not: that update is kept.
    */
   const dismiss = useCallback(() => {
-    retriesRef.current?.abort();
+    installRetriesRef.current?.abort();
     pendingRef.current = null;
     installFailedRef.current = false;
     installedRef.current = false;
@@ -331,15 +332,14 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     const showDownloading = (detail: string, options: AppToastOptions) => showUpdateToast("info", i18n._(msg`Downloading update…`), detail, options);
     showDownloading(versionLine, { timeoutMs: 0, progress: "indeterminate" });
     const retries = new AbortController();
-    retriesRef.current = retries;
+    installRetriesRef.current = retries;
     const report = loadRecovery().then((recovery) => recovery.startInstallEvent({ version, mode: modeRef.current }), () => null);
-    let attempts = 1;
+    let attempts = 0;
     let total = 0;
     let received = 0;
-    const attempt = () => installInBackend(update, (event) => {
+    const onDownloadEvent = (event: DownloadEvent) => {
       if (event.event === "Started") {
         total = event.data?.contentLength ?? 0;
-        received = 0;
         if (total > 0) updateAppToastProgress(UPDATE_TOAST, 0);
       } else if (event.event === "Progress") {
         received += event.data.chunkLength;
@@ -352,10 +352,16 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
         patch({ phase: "installing", progress: 1 });
         showUpdateToast("info", i18n._(msg`Installing…`), versionLine, { timeoutMs: 0, progress: "indeterminate" });
       }
-    });
+    };
+    const attempt = () => {
+      attempts += 1;
+      total = 0;
+      received = 0;
+      return installInBackend(update, onDownloadEvent);
+    };
     try {
       await attempt().catch(async (first: unknown) => (await loadRecovery()).retryInstall(first, {
-        version, signal: retries.signal, cancel: () => retries.abort(), attempt, claim: claimUpdateInstall, onRetry: (next) => { attempts = next; }, showDownloading,
+        version, signal: retries.signal, cancel: () => retries.abort(), attempt, claim: claimUpdateInstall, showDownloading,
       }));
     } catch (reason) {
       installingRef.current = false;
@@ -402,7 +408,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     if (!updatesItself() || installingRef.current || installedRef.current) return;
     if (pendingRef.current && !installFailedRef.current) return;
     const retries = new AbortController();
-    retriesRef.current = retries;
+    checkRetriesRef.current = retries;
     try {
       const checkForUpdate = await loadUpdateCheck();
       if (!silent) patch({ phase: "checking" });
@@ -410,6 +416,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
       const update = (await checkForUpdate().catch(async (first: unknown) => (
         (await loadRecovery()).retryTransient(first, checkForUpdate, { signal: retries.signal })
       ))) as TauriUpdate | null;
+      if (installingRef.current || installedRef.current) return;
       if (update?.version && update.version !== update.currentVersion) {
         pendingRef.current = update;
         installFailedRef.current = false;
@@ -427,7 +434,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
       // stay quiet unless someone asked. An update held after a failed install
       // is still on offer, whatever this check ran into.
       const held = pendingRef.current;
-      if (silent) return;
+      if (silent || installingRef.current || installedRef.current) return;
       if (held) showOffer(held.version);
       else fail("check", reason, announce ? { detail: toMessage(reason), options: {} } : undefined);
     }
@@ -453,7 +460,10 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   const readyToRestart = state.phase === "ready";
   useEffect(() => setNativeUpdateMenu(updatesItself() ? (readyToRestart ? "restart" : "check") : null), [readyToRestart]);
   // Retries waiting when this provider goes stop with it.
-  useEffect(() => () => retriesRef.current?.abort(), []);
+  useEffect(() => () => {
+    checkRetriesRef.current?.abort();
+    installRetriesRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (!autoCheck) return;

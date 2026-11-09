@@ -115,7 +115,6 @@ export function retryInstall(first: unknown, install: {
   cancel: () => void;
   attempt: () => Promise<void>;
   claim: (version: string) => Promise<"claimed" | "busy" | "installed">;
-  onRetry: (attempt: number) => void;
   /** Puts the update's toast up as "Downloading update…" with this detail and options. */
   showDownloading: (detail: string, options: AppToastOptions) => void;
 }): Promise<void> {
@@ -134,7 +133,6 @@ export function retryInstall(first: unknown, install: {
   }, {
     signal: install.signal,
     onRetry: (next) => {
-      install.onRetry(next);
       downloading(i18n._(msg`Trying again (${next} of 3)…`), install.cancel);
     },
   });
