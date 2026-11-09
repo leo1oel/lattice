@@ -4,6 +4,7 @@ use super::build_log::{
     advice, is_stale_previous_invocation_log, log_conference_template, pages_written,
     parse_diagnostics, parse_format_diagnostics, skipped_recompile, trim_log,
 };
+use super::build_stall::{self, Progress, StallLimits};
 use super::build_steps::BuildSteps;
 use super::compile_root::{choose_compile_root, is_one_off_root};
 use super::preamble_format::{self, Prepared};
@@ -25,7 +26,7 @@ use std::time::Instant;
 mod active;
 pub(crate) use active::begin_active;
 pub use active::{abort, is_running, ActiveBuild};
-use active::{finish_active, terminate, BuildSession};
+use active::{finish_active, stop_stalled, terminate, was_stalled, BuildSession};
 
 /// Run `command` as this project's build and capture its output, reporting
 /// whether it was cancelled. The error texts prefix the spawn/wait error.
@@ -34,8 +35,14 @@ use active::{finish_active, terminate, BuildSession};
 /// passes latexmk announces reach `steps` while it runs; the step still open
 /// when the process exits ends with it.
 pub(super) fn run_tracked(
+    command: Command, active: &ActiveBuild, steps: &BuildSteps, start_error: &str, wait_error: &str,
+) -> Result<(Output, bool), String> {
+    run_watched(command, active, steps, start_error, wait_error, build_stall::STALL_LIMITS)
+}
+
+fn run_watched(
     mut command: Command, active: &ActiveBuild, steps: &BuildSteps, start_error: &str,
-    wait_error: &str,
+    wait_error: &str, stall_limits: StallLimits,
 ) -> Result<(Output, bool), String> {
     commands::in_new_process_group(&mut command).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
@@ -51,28 +58,49 @@ pub(super) fn run_tracked(
         }
     }
     let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
+    let progress = Progress::new();
     let (stdout, stderr) = std::thread::scope(|scope| {
-        let stdout = scope.spawn(|| read_lines(stdout, steps));
-        let stderr = scope.spawn(|| read_lines(stderr, steps));
-        (stdout.join().unwrap_or_default(), stderr.join().unwrap_or_default())
+        let stdout = scope.spawn(|| read_lines(stdout, steps, &progress));
+        let stderr = scope.spawn(|| read_lines(stderr, steps, &progress));
+        scope.spawn(|| progress.stalled_for(stall_limits).then(|| stop_stalled(active)));
+        let read = (stdout.join().unwrap_or_default(), stderr.join().unwrap_or_default());
+        progress.finish();
+        read
     });
     let status = child.wait().map_err(|error| format!("{wait_error}{error}"))?;
     steps.finish();
     Ok((Output { status, stdout, stderr }, finish_active(active)))
 }
 
-/// Everything `pipe` carries until it closes, each line shown to `steps` as it lands.
-fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps) -> Vec<u8> {
+/// Everything `pipe` carries until it closes, each line shown to `steps` as
+/// it lands and each chunk to `progress` as it arrives.
+fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps, progress: &Progress) -> Vec<u8> {
     let mut bytes = Vec::new();
     let Some(pipe) = pipe else { return bytes };
     let mut reader = BufReader::new(pipe);
+    let mut unfinished = Vec::new();
+    let mut line_start = 0;
     loop {
-        let start = bytes.len();
-        match reader.read_until(b'\n', &mut bytes) {
-            Ok(0) | Err(_) => return bytes,
-            Ok(_) => steps.line(&bytes[start..]),
+        let read = match reader.fill_buf() {
+            Ok([]) => break,
+            Ok(chunk) => {
+                progress.note(&mut unfinished, chunk);
+                bytes.extend_from_slice(chunk);
+                chunk.len()
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        };
+        reader.consume(read);
+        while let Some(end) = bytes[line_start..].iter().position(|byte| *byte == b'\n') {
+            steps.line(&bytes[line_start..=line_start + end]);
+            line_start += end + 1;
         }
     }
+    if line_start < bytes.len() {
+        steps.line(&bytes[line_start..]);
+    }
+    bytes
 }
 
 pub fn clean(root: &Path) -> Result<String, String> {
@@ -305,6 +333,9 @@ fn run_latexmk_with(
     drop(step);
     let log = commands::combined_output(&output);
     if cancelled {
+        if was_stalled(active) {
+            return Ok(build_stall::stalled_build(steps.started(), &log, &document));
+        }
         return Ok(cancelled_build(steps.started(), &log, &document));
     }
 
@@ -434,6 +465,8 @@ mod diagnostics_tests;
 mod error_mode_tests;
 #[cfg(test)]
 mod latexmkrc_tests;
+#[cfg(test)]
+mod stall_tests;
 #[cfg(test)]
 mod stop_tests;
 
