@@ -101,4 +101,13 @@ describe("HTML block preview", () => {
     await waitFor(() => expect(document.querySelector(".lx-md-html-preview")).toHaveAttribute("data-blank"));
     expect(document.querySelector(".lx-md-html-preview")).toHaveAttribute("data-empty-label", "Nothing to show");
   });
+
+  it("says when a drawing is too complex to preview instead of drawing it", async () => {
+    const chain = Array.from({ length: 6 }, (_, level) => `<g id="l${level + 1}">${`<use href="#l${level}"/>`.repeat(10)}</g>`).join("");
+    renderEditor(`<svg width="9" height="9"><defs><g id="l0"><rect width="1" height="1"/></g>${chain}</defs><use href="#l6"/></svg>\n`);
+    await waitFor(() => expect(document.querySelector(".lx-md-html-preview")).toHaveAttribute("data-blank"));
+    expect(document.querySelector(".lx-md-html-preview")).toHaveAttribute("data-empty-label", "Too complex to preview");
+    expect(shadow()?.querySelector("svg")).toBeNull();
+  });
 });
+

@@ -94,4 +94,20 @@ describe("HTML across blocks", () => {
     const { doc, baseline } = open(text);
     expect(serializeMarkdown(doc, baseline).text).toBe(text);
   });
+
+  it.each([
+    ["unclosed tags", "<a ".repeat(40_000)],
+    ["unclosed tags with attributes", "<a b=x ".repeat(40_000)],
+    ["unclosed comments", "<!--".repeat(40_000)],
+    ["unclosed CDATA", "<![CDATA[".repeat(40_000)],
+  ])("opens 100 KB of %s in linear time", (_label, junk) => {
+    const text = `# Notes\n\n<div ${junk}\n`;
+    expect(text.length).toBeGreaterThan(100_000);
+    const started = performance.now();
+    const { doc, baseline } = open(text);
+    // Quadratic matching took over ten seconds here; linear takes milliseconds.
+    expect(performance.now() - started).toBeLessThan(1_500);
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+  });
 });
+

@@ -24,19 +24,22 @@ import { sanitizeHtmlPreview } from "./html-sanitize";
 // eslint-disable-next-line lingui/no-unlocalized-strings -- a stylesheet
 const SHADOW_STYLE = ":host{display:block}svg,img{max-width:100%;height:auto}table{border-collapse:collapse}";
 
-function HtmlSurface({ source }: { source: string }) {
+function HtmlSurface({ source, emptyLabel, tooComplexLabel }: { source: string; emptyLabel: string; tooComplexLabel: string }) {
   const host = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = host.current;
     if (!element) return;
     const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
-    const fragment = sanitizeHtmlPreview(source);
+    const preview = sanitizeHtmlPreview(source);
+    const fragment = preview?.kind === "drawn" ? preview.fragment : null;
     const style = document.createElement("style");
     style.textContent = SHADOW_STYLE;
-    // Markup that sanitizes to nothing visible says so instead of leaving a blank box.
-    element.parentElement?.toggleAttribute("data-blank", !fragment?.textContent?.trim() && !fragment?.querySelector("svg, img, hr, table"));
+    // Markup that draws nothing visible (or is refused as too costly) says so instead of leaving a blank box.
+    const frame = element.parentElement;
+    frame?.toggleAttribute("data-blank", !fragment?.textContent?.trim() && !fragment?.querySelector("svg, img, hr, table"));
+    frame?.setAttribute("data-empty-label", preview?.kind === "too-complex" ? tooComplexLabel : emptyLabel);
     root.replaceChildren(style, ...(fragment ? [fragment] : []));
-  }, [source]);
+  }, [emptyLabel, source, tooComplexLabel]);
   return <div ref={host} className="lx-md-html-surface" data-lattice-html-preview="" />;
 }
 
@@ -102,7 +105,6 @@ export function HtmlBlockView({ node, editor, getPos }: NodeViewProps) {
         <div
           className="lx-md-html-preview"
           contentEditable={false}
-          data-empty-label={t`Nothing to show`}
           onMouseDown={(event) => {
             // A <summary> still opens its <details>; anywhere else edits the source.
             if (event.button !== 0 || event.nativeEvent.composedPath().some((target) => (target as Element).localName === "summary")) return;
@@ -110,7 +112,7 @@ export function HtmlBlockView({ node, editor, getPos }: NodeViewProps) {
             editSource();
           }}
         >
-          <HtmlSurface source={source} />
+          <HtmlSurface source={source} emptyLabel={t`Nothing to show`} tooComplexLabel={t`Too complex to preview`} />
         </div>
       )}
       <NodeViewContent<"pre"> as="pre" className="lx-md-raw-source" spellCheck={false} hidden={!sourceShown} />

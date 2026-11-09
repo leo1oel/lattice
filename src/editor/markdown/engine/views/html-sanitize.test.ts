@@ -5,12 +5,33 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 import { describe, expect, it } from "vitest";
-import { sanitizeHtmlPreview } from "./html-sanitize";
+import { MAX_RENDERED_NODES, sanitizeHtmlPreview } from "./html-sanitize";
 
 function sanitized(source: string): HTMLElement {
+  const preview = sanitizeHtmlPreview(source);
+  if (preview?.kind !== "drawn") throw new Error(`not drawn: ${preview?.kind}`);
   const holder = document.createElement("div");
-  holder.append(sanitizeHtmlPreview(source)!);
+  holder.append(preview.fragment);
   return holder;
+}
+
+/** Groups that each `<use>` the previous one ten times: 10^levels rects from about a kilobyte. */
+function useChain(levels: number): string {
+  let defs = `<g id="l0"><rect width="1" height="1"/></g>`;
+  for (let level = 1; level <= levels; level += 1) {
+    defs += `<g id="l${level}">${`<use href="#l${level - 1}"/>`.repeat(10)}</g>`;
+  }
+  return `<svg width="9" height="9"><defs>${defs}</defs><use href="#l${levels}"/></svg>`;
+}
+
+/** Markers whose shapes carry the previous marker at every vertex. */
+function markerChain(levels: number): string {
+  const points = Array.from({ length: 10 }, (_, index) => `${index},${index % 2}`).join(" ");
+  let defs = `<marker id="m0"><circle r="1"/></marker>`;
+  for (let level = 1; level <= levels; level += 1) {
+    defs += `<marker id="m${level}"><polyline points="${points}" marker-mid="url(#m${level - 1})"/></marker>`;
+  }
+  return `<svg width="9" height="9"><defs>${defs}</defs><polyline points="${points}" marker-mid="url(#m${levels})"/></svg>`;
 }
 
 const FIGURE = `<div>
@@ -74,5 +95,29 @@ describe("HTML preview sanitizer", () => {
     expect(html.querySelector("ellipse")!.getAttribute("style")).toBe("fill:url(#ok)");
     expect(html.textContent).toContain("site");
     expect(html.innerHTML).not.toMatch(/e\.test|javascript:/);
+  });
+
+  it("drops inline filters, whose paint cost the markup controls", () => {
+    const html = sanitized(`<div style="filter:blur(200px) drop-shadow(0 0 90px red)">a</div><div style="backdrop-filter:blur(9px)">b</div>
+      <div style="-webkit-box-reflect:below">c</div><div style="color:red">d</div>`);
+    const styles = [...html.querySelectorAll("div")].map((div) => div.getAttribute("style"));
+    expect(styles).toEqual([null, null, null, "color:red"]);
+  });
+
+  it("does not draw markup whose references would expand past the budget", () => {
+    expect(sanitizeHtmlPreview(useChain(3))?.kind).toBe("drawn");
+    expect(useChain(6).length).toBeLessThan(2_000);
+    expect(10 ** 6).toBeGreaterThan(MAX_RENDERED_NODES);
+    expect(sanitizeHtmlPreview(useChain(6))?.kind).toBe("too-complex");
+    expect(sanitizeHtmlPreview(markerChain(2))?.kind).toBe("drawn");
+    expect(sanitizeHtmlPreview(markerChain(6))?.kind).toBe("too-complex");
+  });
+
+  it("refuses a reference cycle and stays fast on deep nesting", () => {
+    expect(sanitizeHtmlPreview(`<svg><g id="a"><use href="#b"/></g><g id="b"><use href="#a"/></g></svg>`)?.kind).toBe("too-complex");
+    expect(sanitizeHtmlPreview(`<svg><g id="a"><use href="#a"/></g></svg>`)?.kind).toBe("too-complex");
+    const started = performance.now();
+    sanitizeHtmlPreview(`${"<div>".repeat(1_500)}x${"</div>".repeat(1_500)}`);
+    expect(performance.now() - started).toBeLessThan(2_000);
   });
 });

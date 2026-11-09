@@ -16436,6 +16436,10 @@ msgstr "TODOs"
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 
+#: src/editor/markdown/engine/views/html-preview.tsx
+msgid "Too complex to preview"
+msgstr "Too complex to preview"
+
 #: src/components/ui/color-picker.tsx
 msgid "Too dark for black text"
 msgstr "Too dark for black text"

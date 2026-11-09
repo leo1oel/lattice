@@ -7,6 +7,12 @@
  * filters; the rules below narrow its defaults to plain HTML structure and
  * SVG drawing.
  *
+ * A file can also hang the app without any script: SVG references (`<use>`,
+ * markers) stamp their target out again, so a kilobyte of chained `<use>`s
+ * draws a million shapes, and a stack of CSS blurs costs seconds per paint.
+ * Filters are dropped, and a drawing whose references expand past a budget is
+ * not drawn at all.
+ *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 import DOMPurify, { type Config, type DOMPurify as Purifier } from "dompurify";
@@ -60,6 +66,8 @@ const RASTER_DATA_URL = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp);base64,[a-
 /** `url(…)` is only a reference inside the drawing (`url(#arrow)`), never a fetch. */
 const CSS_URL = /url\s*\(\s*(['"]?)([^'")]*)\1\s*\)/gi;
 const CSS_FETCH = /@import|image-set\s*\(|expression\s*\(|\burl\s*\(|\\/i;
+/** Inline-style effects whose paint cost the markup controls (a few blurs take seconds). */
+const CSS_COSTLY = /filter\s*:|box-reflect/i;
 
 function attributeAllowed(element: Element, name: string, value: string): boolean {
   const tag = element.localName;
@@ -70,6 +78,7 @@ function attributeAllowed(element: Element, name: string, value: string): boolea
   if (name === "src") return tag === "img" && RASTER_DATA_URL.test(value.trim());
   // Every url() must be a local fragment; anything else that could fetch is dropped.
   const withoutLocal = value.replace(CSS_URL, (whole, _quote, target: string) => (/^#[\w:.-]+$/.test(target.trim()) ? "" : whole));
+  if (name === "style" && CSS_COSTLY.test(value)) return false;
   return !CSS_FETCH.test(withoutLocal);
 }
 
@@ -85,9 +94,66 @@ function instance(): Purifier {
   return purifier;
 }
 
+/** Beyond this many drawn nodes, references counted as many times as they stamp, the markup is not drawn. */
+export const MAX_RENDERED_NODES = 50_000;
+/** Deeper than this, the walk below stops and counts the markup as over the budget. */
+const MAX_DEPTH = 1_000;
+const LOCAL_URL = /url\(\s*['"]?#([\w:.-]+)/g;
+const MARKER_PROPERTY = /(?:^|[;\s])marker(?:-mid)?\s*:/i;
+
+/** How many times a reference in `attribute` stamps its target: once, or once per vertex for a mid marker. */
+function stamps(element: Element, attribute: Attr): number {
+  if (attribute.name !== "marker-mid" && !(attribute.name === "style" && MARKER_PROPERTY.test(attribute.value))) return 1;
+  const numbers = (element.getAttribute("points") ?? element.getAttribute("d") ?? "").match(/-?\d*\.?\d+/g)?.length ?? 2;
+  return Math.max(1, Math.ceil(numbers / 2)) + 2;
+}
+
+/**
+ * The nodes the renderer draws for `fragment`: each element, plus its local
+ * references' targets as often as they are stamped. Memoized per element, so
+ * the count itself stays linear; a reference cycle is infinite.
+ */
+function renderedNodes(fragment: DocumentFragment): number {
+  const byId = new Map<string, Element>();
+  for (const element of fragment.querySelectorAll("[id]")) if (!byId.has(element.id)) byId.set(element.id, element);
+  const memo = new Map<Element, number>();
+  const visiting = new Set<Element>();
+  const cost = (element: Element): number => {
+    const known = memo.get(element);
+    if (known !== undefined) return known;
+    if (visiting.has(element) || visiting.size > MAX_DEPTH) return Infinity;
+    visiting.add(element);
+    let total = 1;
+    for (const child of element.children) {
+      total += cost(child);
+      if (total > MAX_RENDERED_NODES) break;
+    }
+    for (const attribute of element.attributes) {
+      if (total > MAX_RENDERED_NODES) break;
+      const href = attribute.name === "href" || attribute.name === "xlink:href" ? /^#(.+)$/.exec(attribute.value.trim())?.[1] : undefined;
+      const targets = href ? [href] : [...attribute.value.matchAll(LOCAL_URL)].map((match) => match[1]!);
+      for (const id of targets) {
+        const target = byId.get(id);
+        if (target) total += stamps(element, attribute) * cost(target);
+      }
+    }
+    visiting.delete(element);
+    memo.set(element, total);
+    return total;
+  };
+  let total = 0;
+  for (const child of fragment.children) {
+    total += cost(child);
+    if (total > MAX_RENDERED_NODES) break;
+  }
+  return total;
+}
+
+export type HtmlPreview = { kind: "drawn"; fragment: DocumentFragment } | { kind: "too-complex" };
+
 /** The HTML as a fragment safe to place in the preview, or null when no DOM is available. */
-export function sanitizeHtmlPreview(source: string): DocumentFragment | null {
+export function sanitizeHtmlPreview(source: string): HtmlPreview | null {
   if (typeof window === "undefined") return null;
-  const result = instance().sanitize(source, CONFIG);
-  return result as unknown as DocumentFragment;
+  const fragment = instance().sanitize(source, CONFIG) as unknown as DocumentFragment;
+  return renderedNodes(fragment) > MAX_RENDERED_NODES ? { kind: "too-complex" } : { kind: "drawn", fragment };
 }

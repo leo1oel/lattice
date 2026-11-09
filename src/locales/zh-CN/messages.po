@@ -16436,6 +16436,10 @@ msgstr "待办"
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "这些修改合起来会改到 LaTeX，请少选几处或重新校对"
 
+#: src/editor/markdown/engine/views/html-preview.tsx
+msgid "Too complex to preview"
+msgstr "过于复杂，无法预览"
+
 #: src/components/ui/color-picker.tsx
 msgid "Too dark for black text"
 msgstr "颜色过深，黑字难以阅读"

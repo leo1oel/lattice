@@ -26,8 +26,13 @@ const VOID_ELEMENTS = new Set([
   "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
 ]);
 
-/** A tag, a comment, or a CDATA section; attribute values may hold `>`. */
-const TAG = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<(\/?)([A-Za-z][\w:-]*)((?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*(\/?)>/g;
+/**
+ * A tag, a comment, or a CDATA section; attribute values may hold `>`. Linear
+ * on hostile input: an attribute name never contains `<`, so a run of `<a <a …`
+ * with no `>` fails at each `<` instead of rescanning to the end, and an
+ * unclosed comment or CDATA section runs to the end (as an HTML parser reads it).
+ */
+const TAG = /<!--[\s\S]*?(?:-->|$)|<!\[CDATA\[[\s\S]*?(?:\]\]>|$)|<(\/?)([A-Za-z][\w:-]*)((?:\s+[^\s"'>/=<]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*(\/?)>/g;
 
 /** How many siblings one element may span before it is left as separate blocks. */
 const MAX_SPAN = 400;
