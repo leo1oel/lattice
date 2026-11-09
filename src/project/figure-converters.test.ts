@@ -22,8 +22,8 @@ describe("figure converters", () => {
   });
 
   it("leaves every other drop to the usual path", () => {
-    expect(dropDrawingFile(["/a.png"], { x: 0, y: 0 })).toBe(false);
-    expect(dropDrawingFile(["/a.svg", "/b.svg"], { x: 0, y: 0 })).toBe(false);
+    expect(dropDrawingFile(["/a.png"], { x: 0, y: 0 }, "/p")).toBe(false);
+    expect(dropDrawingFile(["/a.svg", "/b.svg"], { x: 0, y: 0 }, "/p")).toBe(false);
   });
 
   it("finds the drawing of an entry with a page line, and no other", () => {

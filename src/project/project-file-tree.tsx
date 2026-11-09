@@ -379,7 +379,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
         run: () => { if (path !== props.mainDocument) props.onSetMainDocument(path); },
       }] : []),
       ...(figureEntry ? [{ icon: PenTool, label: t`Edit figure source`, group: true, run: () => void openDrawingOf(figureEntry) }] : []),
-      ...(!directory && isConvertibleDrawing(path) ? [{ icon: PenTool, label: t`Use as editable figure`, group: true, run: () => void makeEditableFigure(path) }] : []),
+      ...(!directory && isConvertibleDrawing(path) ? [{ icon: PenTool, label: t`Use as editable figure`, group: true, run: () => void makeEditableFigure(path, props.projectKey) }] : []),
       { icon: Pencil, label: t`Rename`, group: true, run: () => model.startRenaming(item.path) },
       {
         icon: Copy,

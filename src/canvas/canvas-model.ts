@@ -226,6 +226,8 @@ type CanvasAssets = Readonly<{
   onPasteImageFile: (file: File) => boolean | void;
   /** A figure pasted with its drawing's source file (an editable-figure manifest), for `view` to include. */
   onPasteEditableFigure?: (manifest: EditableFigureManifest, view: EditorView) => void;
+  /** A drawing file (.svg, .drawio) pasted from the file manager, made a figure for `view`. */
+  onPasteDrawingFile?: (file: File, view: EditorView) => void;
   nativeFigureDropActive: boolean;
   fileDropTargetActive: boolean;
 }>;

@@ -130,6 +130,26 @@ Lattice renders it again and the watcher rebuilds the document. Only those two
 programs run, from their standard locations: a project cannot name one. Without
 the program a notice says to install it.
 
+A drawing can come from anywhere, so the program runs on it with limits:
+
+- It writes into a scratch folder outside the project, one conversion at a
+  time, and is stopped, with everything it started, after 90 seconds. Its
+  files come into the project the way a pasted figure's do: as new files that
+  never follow a link or take over a file someone else made. Only the
+  figure's own files, beside an entry that names the drawing, are replaced.
+- The drawing must be a real file inside the project (no symbolic link), and
+  its file and folder names may not hold line breaks or TeX's special
+  characters, which would reach the entry. A drawing pasted or dropped from
+  elsewhere is renamed to fit.
+- Inkscape embeds the images an SVG links to in the PDF it writes, so an SVG
+  that links to anything but a file inside the project (an absolute path, a
+  `file:` or web address, a way out with `..`, an XML entity, an embedded SVG
+  or style sheet) is refused; embed the image or keep it in the project.
+  draw.io may still load web images a diagram names, as it does when the
+  diagram is opened in draw.io.
+- Inkscape's `.pdf_tex` sets the drawing's text as LaTeX, so a label is TeX the
+  document runs on every build, like any other `.tex` file in the project.
+
 ## For authors of drawing tools
 
 Any program can offer this without talking to Lattice:

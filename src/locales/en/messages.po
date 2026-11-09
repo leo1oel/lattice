@@ -777,6 +777,10 @@ msgstr "{name} is not a UTF-8 text file."
 msgid "{name} is not in a file right now."
 msgstr "{name} is not in a file right now."
 
+#: src/platform/host-errors-project.ts
+msgid "{name} is not on this computer yet. Download it from your cloud drive and try again."
+msgstr "{name} is not on this computer yet. Download it from your cloud drive and try again."
+
 #: src/terminal/terminal-window.ts
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} is still running. Closing stops it."
@@ -1020,6 +1024,14 @@ msgstr "{todoCount} marker"
 msgid "{todoCount} markers"
 msgstr "{todoCount} markers"
 
+#: src/platform/host-errors-project.ts
+msgid "{tool} could not convert the figure. {tail}"
+msgstr "{tool} could not convert the figure. {tail}"
+
+#: src/platform/host-errors-project.ts
+msgid "{tool} took too long to convert the figure."
+msgstr "{tool} took too long to convert the figure."
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{total} file would change"
 msgstr "{total} file would change"
@@ -1059,6 +1071,10 @@ msgstr "{warnings} warning"
 #: src/build/build-result-text.ts
 msgid "{warnings} warnings"
 msgstr "{warnings} warnings"
+
+#: src/platform/host-errors-project.ts
+msgid "{what} is not a drawing Lattice can convert."
+msgstr "{what} is not a drawing Lattice can convert."
 
 #: src/project/deadline-card.tsx
 msgid "{when} your time ({zone})"
@@ -7597,6 +7613,10 @@ msgstr "Inspect and replace"
 msgid "Install"
 msgstr "Install"
 
+#: src/platform/host-errors-project.ts
+msgid "Install {tool} to update this figure."
+msgstr "Install {tool} to update this figure."
+
 #: src/settings/settings-dialog.tsx
 msgid "Install automatically"
 msgstr "Install automatically"
@@ -12317,6 +12337,10 @@ msgstr "Rename"
 msgid "Rename {meaning}"
 msgstr "Rename {meaning}"
 
+#: src/platform/host-errors-project.ts
+msgid "Rename {source}: a figure's file and folder names cannot hold line breaks or TeX's special characters."
+msgstr "Rename {source}: a figure's file and folder names cannot hold line breaks or TeX's special characters."
+
 #: src/project/project-dialogs.tsx
 msgid "Rename citation key"
 msgstr "Rename citation key"
@@ -15149,6 +15173,10 @@ msgstr "The conference's own citation export and Crossref disagree on: {0}. The 
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
 
+#: src/platform/host-errors-project.ts
+msgid "The converted figure could not be read."
+msgstr "The converted figure could not be read."
+
 #: src/platform/host-errors-workspace.ts
 msgid "The copy is not UTF-8 text."
 msgstr "The copy is not UTF-8 text."
@@ -15220,6 +15248,10 @@ msgstr "The downloaded {what} failed its security check."
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
+
+#: src/platform/host-errors-project.ts
+msgid "The drawing is too large to convert."
+msgstr "The drawing is too large to convert."
 
 #: src/app/use-reference-import.ts
 msgid "The entry for {citationCommand} already matches its sources."
@@ -15990,6 +16022,10 @@ msgstr "This document drifted from Overleaf's copy, so live editing stopped. Syn
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 msgstr "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
+
+#: src/platform/host-errors-project.ts
+msgid "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project."
+msgstr "This drawing links to a file outside the project. Embed the image in the drawing, or keep it inside the project."
 
 #: src/app/remove-reference-action.ts
 msgid "This entry is cited in {count} places."

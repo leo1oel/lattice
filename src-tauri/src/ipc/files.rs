@@ -235,18 +235,20 @@ pub async fn open_figure_source(
 /// Renders a drawing in the project with its program and writes the entry that includes it.
 #[tauri::command]
 pub async fn make_editable_figure(
-    state: State<'_, AppState>, window: Window, path: String,
+    state: State<'_, AppState>, window: Window, path: String, project_root: String,
 ) -> Result<project::ImportedFigure, String> {
-    let root = current_root(&state, &window)?;
+    let _lease = state.lease(&project_root, Lease::Shared).await;
+    let root = pinned_root(&state, &window, &project_root, "the figure could be made")?;
     run_blocking("Figure conversion", move || project::make_editable_figure(&root, &path)).await
 }
 
 /// A drawing dropped from the file manager: brought into the project and made a figure.
 #[tauri::command]
 pub async fn drop_drawing_file(
-    state: State<'_, AppState>, window: Window, path: String,
+    state: State<'_, AppState>, window: Window, path: String, project_root: String,
 ) -> Result<project::ImportedFigure, String> {
-    let root = current_root(&state, &window)?;
+    let _lease = state.lease(&project_root, Lease::Shared).await;
+    let root = pinned_root(&state, &window, &project_root, "the figure could be made")?;
     run_blocking("Figure conversion", move || project::import_drawing_path(&root, &path)).await
 }
 
@@ -259,9 +261,10 @@ pub async fn clipboard_file_path() -> Result<Option<String>, String> {
 /// A drawing pasted as a file: saved in the project and made a figure.
 #[tauri::command]
 pub async fn paste_drawing_file(
-    state: State<'_, AppState>, window: Window, name: String, data: String,
+    state: State<'_, AppState>, window: Window, name: String, data: String, project_root: String,
 ) -> Result<project::ImportedFigure, String> {
-    let root = current_root(&state, &window)?;
+    let _lease = state.lease(&project_root, Lease::Shared).await;
+    let root = pinned_root(&state, &window, &project_root, "the figure could be made")?;
     run_blocking("Figure conversion", move || project::import_drawing_file(&root, &name, &data))
         .await
 }
@@ -269,9 +272,10 @@ pub async fn paste_drawing_file(
 /// Renders a figure's drawing again after it changed; false when it is no figure's source.
 #[tauri::command]
 pub async fn refresh_figure_source(
-    state: State<'_, AppState>, window: Window, path: String,
+    state: State<'_, AppState>, window: Window, path: String, project_root: String,
 ) -> Result<bool, String> {
-    let root = current_root(&state, &window)?;
+    let _lease = state.lease(&project_root, Lease::Shared).await;
+    let root = pinned_root(&state, &window, &project_root, "the figure could be made")?;
     run_blocking("Figure conversion", move || project::refresh_figure_source(&root, &path)).await
 }
 

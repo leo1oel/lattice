@@ -18,9 +18,9 @@ export function pagedDrawingOf(entryPath: string, entryText: string): string | n
 }
 
 /** Renders the drawing, then puts the figure into the editor last in use. */
-export async function makeEditableFigure(path: string): Promise<void> {
+export async function makeEditableFigure(path: string, projectRoot: string): Promise<void> {
   try {
-    const figure = await invoke<ImportedFigure>("make_editable_figure", { path });
+    const figure = await invoke<ImportedFigure>("make_editable_figure", { path, projectRoot });
     const [{ lastFigureEditor }, { insertImportedFigure }] = await Promise.all([
       import("../editor/insert/editable-figure-paste-handler"),
       import("../app/editable-figure-paste"),
@@ -40,13 +40,13 @@ function base64Of(bytes: Uint8Array): string {
 }
 
 /** A drawing file pasted into the editor: saved under `figures/`, rendered, and put in `view`. */
-export async function pasteDrawingFile(file: File, view: EditorView): Promise<void> {
+export async function pasteDrawingFile(file: File, view: EditorView, projectRoot: string): Promise<void> {
   try {
     // Where the system names the file, use it: a webview may give the name but not the bytes.
     const copied = await invoke<string | null>("clipboard_file_path").catch(() => null);
     const figure = copied?.endsWith(`/${file.name}`)
-      ? await invoke<ImportedFigure>("drop_drawing_file", { path: copied })
-      : await invoke<ImportedFigure>("paste_drawing_file", { name: file.name, data: base64Of(new Uint8Array(await file.arrayBuffer())) });
+      ? await invoke<ImportedFigure>("drop_drawing_file", { path: copied, projectRoot })
+      : await invoke<ImportedFigure>("paste_drawing_file", { name: file.name, data: base64Of(new Uint8Array(await file.arrayBuffer())), projectRoot });
     const { insertImportedFigure } = await import("../app/editable-figure-paste");
     await insertImportedFigure(view, figure);
   } catch (reason) {
@@ -55,9 +55,9 @@ export async function pasteDrawingFile(file: File, view: EditorView): Promise<vo
 }
 
 /** A drawing dropped from the file manager onto the editor at `point`. */
-export async function dropDrawingAt(path: string, point: { x: number; y: number }): Promise<void> {
+export async function dropDrawingAt(path: string, point: { x: number; y: number }, projectRoot: string): Promise<void> {
   try {
-    const figure = await invoke<ImportedFigure>("drop_drawing_file", { path });
+    const figure = await invoke<ImportedFigure>("drop_drawing_file", { path, projectRoot });
     const [{ lastFigureEditor }, { insertImportedFigure }] = await Promise.all([
       import("../editor/insert/editable-figure-paste-handler"),
       import("../app/editable-figure-paste"),

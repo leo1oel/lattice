@@ -95,7 +95,10 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
     ...(latexSource ? [
       latex(),
       trackFigureEditor,
-      editableFigurePaste((manifest, view) => live.props().assets.onPasteEditableFigure?.(manifest, view)),
+      editableFigurePaste(
+        (manifest, view) => live.props().assets.onPasteEditableFigure?.(manifest, view),
+        (file, view) => live.props().assets.onPasteDrawingFile?.(file, view),
+      ),
       ...latexEditorExtensions({
         live: editorLiveData(live),
         currentPath: path,

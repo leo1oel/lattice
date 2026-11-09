@@ -30,7 +30,7 @@ const MAX_FIGURE_FILES: usize = 32;
 const WRITE_ATTEMPTS: usize = 8;
 
 /// Numbered names tried for one file before giving up.
-const MAX_NAME_NUMBER: u32 = 10_000;
+pub(super) const MAX_NAME_NUMBER: u32 = 10_000;
 
 fn extension_of(path: &Path) -> String {
     path.extension().and_then(|value| value.to_str()).unwrap_or_default().to_ascii_lowercase()
@@ -119,7 +119,7 @@ fn check_types(named: &[(String, Vec<u8>)], entry: &str) -> Result<(), String> {
 }
 
 /// Whether anything is at `path`, a link that leads nowhere included.
-fn taken(path: &Path) -> bool {
+pub(super) fn taken(path: &Path) -> bool {
     path.symlink_metadata().is_ok()
 }
 
@@ -137,14 +137,14 @@ fn renamed(name: &str, stem: &str, next: &str) -> String {
 }
 
 /// `name`, then `name-2`, `name-3`, … (before the extension).
-fn numbered(name: &str) -> impl Iterator<Item = String> + '_ {
+pub(super) fn numbered(name: &str) -> impl Iterator<Item = String> + '_ {
     let (base, rest) =
         name.rfind('.').filter(|&dot| dot > 0).map_or((name, ""), |dot| name.split_at(dot));
     std::iter::once(name.to_string())
         .chain((2..MAX_NAME_NUMBER).map(move |number| format!("{base}-{number}{rest}")))
 }
 
-const NO_FREE_NAME: &str = "No free name was found for the figure.";
+pub(super) const NO_FREE_NAME: &str = "No free name was found for the figure.";
 
 /// Where each file goes. Files carrying the entry's stem move together, so the
 /// entry's references hold; any other file finds a free name of its own, since
@@ -184,7 +184,7 @@ fn plan_names(
 }
 
 /// Creates a new file, never through a link and never over anything.
-fn write_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
+pub(super) fn write_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
     OpenOptions::new().write(true).create_new(true).open(path)?.write_all(bytes)
 }
 

@@ -21,15 +21,15 @@ const failed = (reason: unknown) => notifyError(i18n._(msg`Could not update the 
 const actions = () => import("./figure-converters-actions");
 
 /** Renders the drawing, then puts the figure into the editor last in use. */
-export const makeEditableFigure = (path: string) => actions().then(({ makeEditableFigure: make }) => make(path));
+export const makeEditableFigure = (path: string, projectRoot: string) => actions().then(({ makeEditableFigure: make }) => make(path, projectRoot));
 
 /** Saves a pasted drawing file under `figures/`, renders it, and puts the figure in `view`. */
-export const pasteDrawingFile = (file: File, view: EditorView) => actions().then(({ pasteDrawingFile: paste }) => paste(file, view));
+export const pasteDrawingFile = (file: File, view: EditorView, projectRoot: string) => actions().then(({ pasteDrawingFile: paste }) => paste(file, view, projectRoot));
 
 /** A drawing dropped from the file manager onto the editor at `point`; false for anything else, left to the usual drop. */
-export function dropDrawingFile(paths: readonly string[], point: { x: number; y: number }): boolean {
+export function dropDrawingFile(paths: readonly string[], point: { x: number; y: number }, projectRoot: string): boolean {
   if (paths.length !== 1 || !isConvertibleDrawing(paths[0])) return false;
-  void actions().then(({ dropDrawingAt }) => dropDrawingAt(paths[0], point));
+  void actions().then(({ dropDrawingAt }) => dropDrawingAt(paths[0], point, projectRoot));
   return true;
 }
 
@@ -57,13 +57,13 @@ export function perKeyDebounce(delayMs: number, run: (key: string) => void) {
 export function useFigureSourceRefresh(root: string) {
   useEffect(() => {
     const refreshes = perKeyDebounce(REFRESH_DELAY_MS, (path) => {
-      void invoke<boolean>("refresh_figure_source", { path }).catch(failed);
+      void invoke<boolean>("refresh_figure_source", { path, projectRoot: root }).catch(failed);
     });
     // Editing an entry's page line chooses another page of its drawing.
     const entries = perKeyDebounce(REFRESH_DELAY_MS, (path) => {
       void invoke<string>("read_project_file", { path }).then(async (text) => {
         const source = (await actions()).pagedDrawingOf(path, text);
-        if (source) return invoke<boolean>("refresh_figure_source", { path: source });
+        if (source) return invoke<boolean>("refresh_figure_source", { path: source, projectRoot: root });
       }).catch(failed);
     });
     const stop = onProjectFilesChanged(root, (paths) => {
