@@ -31,7 +31,7 @@ Your project stays an ordinary folder on disk, so it works offline, opens in any
 
 ## Write
 
-Source and PDF side by side, with completion and diagnostics as you type, SyncTeX jumps both ways and one-click builds with your own TeX Live.
+Source and PDF side by side (or the PDF in a window of its own, for a second screen), with completion and diagnostics as you type, SyncTeX jumps both ways and one-click builds with your own TeX Live.
 An outline rail follows your sections, `\cite` keys show their reference on hover, and six highlighters with meanings mark what still needs work.
 Start from a NeurIPS, ICML, ICLR, ACL, CVPR or AAAI template or one of two thesis classes, and **Export for arXiv** writes one ZIP that builds on its own.
 Dock any panel anywhere, keep Writing and Reading layouts, or save your own workspaces.
