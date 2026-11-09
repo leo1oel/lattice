@@ -39,6 +39,8 @@ const BASIC_SCRIPT: &str =
     concat!(include_str!("installer-prelude.sh"), "\n", include_str!("basictex.sh"));
 const DEPENDENCY_SCRIPT: &str =
     concat!(include_str!("installer-prelude.sh"), "\n", include_str!("dependency.sh"));
+const UPDATE_SCRIPT: &str =
+    concat!(include_str!("installer-prelude.sh"), "\n", include_str!("update.sh"));
 
 /// The managed uv release for the Mac this build runs on: Lattice ships one
 /// app for Apple silicon and one for Intel, each downloading its own uv.
@@ -95,6 +97,14 @@ pub(super) fn dependency_script(
         .replace("__REPOSITORY__", &repository.map(shell_quote).unwrap_or_else(|| "''".into()))
 }
 
+/// The script that updates tlmgr and every package of the TeX at `tlmgr`.
+pub(super) fn package_update_script(root: &Path, tlmgr: &Path) -> String {
+    UPDATE_SCRIPT
+        .replace("__INSTALLER_NAME__", "TeX package update")
+        .replace("__ROOT_PATH__", &shell_quote(&root.to_string_lossy()))
+        .replace("__TLMGR_PATH__", &shell_quote(&tlmgr.to_string_lossy()))
+}
+
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
@@ -109,8 +119,10 @@ pub(super) fn installer_stage_progress(stage: &str) -> Option<f64> {
         _ => 0.0,
     };
     match stage {
-        "installing-base" => Some(0.68),
-        "installing-packages" => Some(0.72 + fraction * 0.21),
+        "installing-base" => Some(0.6),
+        "updating-base" => Some(0.64 + fraction * 0.1),
+        "installing-packages" => Some(0.74 + fraction * 0.19),
+        "updating-packages" => Some(0.15 + fraction * 0.8),
         "installing-dependency" => Some(0.42 + fraction * 0.48),
         "verifying" => Some(0.95),
         "complete" => Some(1.0),
@@ -158,6 +170,34 @@ pub(super) fn install_error(stderr: &str) -> String {
         format!("BasicTeX installation failed.\n{detail}")
     }
 }
+
+/// What a BasicTeX install that succeeded wrote to its original stdout: the
+/// package update step's failure, which leaves a working but stale TeX.
+pub(super) fn install_warning(stdout: &str) -> Option<String> {
+    let detail = install_error_detail(stdout);
+    (!detail.is_empty()).then(|| format!("{BASE_UPDATE_FAILED}\n{detail}"))
+}
+
+/// The first line of `install_warning`, which the app translates.
+const BASE_UPDATE_FAILED: &str = "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor.";
+
+/// Why a package update failed: a first line the app translates, then the
+/// installer's own words.
+pub(super) fn package_update_error(stderr: &str) -> String {
+    if cancelled_authorization(stderr) {
+        return PACKAGE_UPDATE_CANCELLED.into();
+    }
+    let detail = install_error_detail(stderr);
+    if detail.is_empty() {
+        PACKAGE_UPDATE_FAILED.into()
+    } else {
+        format!("{PACKAGE_UPDATE_FAILED}\n{detail}")
+    }
+}
+
+const PACKAGE_UPDATE_CANCELLED: &str =
+    "Administrator approval was cancelled, so nothing was updated.";
+const PACKAGE_UPDATE_FAILED: &str = "TeX Live's package manager could not update the packages.";
 
 /// Why a missing-package install failed: a first line the app translates
 /// (`DEPENDENCY_INSTALL_CANCELLED` or a `DEPENDENCY_INSTALL_FAILURES` summary),
@@ -386,6 +426,7 @@ mod tests {
         let scripts = [
             basic_tex_script(Path::new("/tmp/Ada's/BasicTeX.pkg"), root, true),
             dependency_script(root, Path::new("/Library/TeX/texbin/tlmgr"), "newtx", None),
+            package_update_script(root, Path::new("/Library/TeX/texbin/tlmgr")),
         ];
         for script in &scripts {
             assert!(!script.contains("__"), "unfilled placeholder in:\n{script}");
@@ -408,6 +449,156 @@ mod tests {
         for unexpected in ["REPOSITORY_ARGS", "sudo", "Terminal"] {
             assert!(!DEPENDENCY_SCRIPT.contains(unexpected), "{unexpected}");
         }
+        assert!(scripts[2].contains("TLMGR='/Library/TeX/texbin/tlmgr'\n"));
+    }
+
+    /// A stand-in for tlmgr in `dir` that records each command line in
+    /// `calls`. `update --all` prints tlmgr's counter lines, which pad the
+    /// current number to the width of the total (`[ 1/12, …]`), and after
+    /// each one records what STATUS then says in `statuses`; with
+    /// `fail_update_all` it fails the way an unreachable repository does.
+    /// Every run first records what STATUS says in `stages`.
+    struct StubTlmgr {
+        path: std::path::PathBuf,
+        calls: std::path::PathBuf,
+        statuses: std::path::PathBuf,
+        stages: std::path::PathBuf,
+    }
+
+    impl StubTlmgr {
+        fn new(dir: &Path, root: &Path, fail_update_all: bool) -> Self {
+            let calls = dir.join("calls");
+            let statuses = dir.join("statuses");
+            let stages = dir.join("stages");
+            let update_all = if fail_update_all {
+                "echo 'tlmgr: TLPDB::from_file could not get texlive.tlpdb' >&2\n    exit 1"
+                    .to_string()
+            } else {
+                format!(
+                    "last=\"$(cat {status})\"\n    \
+                     for n in 1 12; do\n      \
+                     printf '[%2d/12, ??:??/??:??] update: package%d\\n' \"$n\" \"$n\"\n      \
+                     for _ in $(seq 300); do\n        \
+                     current=\"$(cat {status})\"\n        \
+                     [[ \"$current\" != \"$last\" ]] && break\n        \
+                     sleep 0.01\n      \
+                     done\n      \
+                     printf '%s\\n' \"$current\" >> {statuses}\n      \
+                     last=\"$current\"\n    \
+                     done",
+                    status = shell_quote(&root.join("status").to_string_lossy()),
+                    statuses = shell_quote(&statuses.to_string_lossy()),
+                )
+            };
+            let script = format!(
+                "#!/bin/bash\nprintf '%s\\n' \"$*\" >> {calls}\ncat {status} >> {stages}\ncase \"$*\" in\n  *'update --all')\n    {update_all}\n    ;;\nesac\n",
+                calls = shell_quote(&calls.to_string_lossy()),
+                status = shell_quote(&root.join("status").to_string_lossy()),
+                stages = shell_quote(&stages.to_string_lossy()),
+            );
+            let path = dir.join("tlmgr");
+            fs::write(&path, script).unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+            Self { path, calls, statuses, stages }
+        }
+
+        fn lines(path: &Path) -> Vec<String> {
+            fs::read_to_string(path).unwrap_or_default().lines().map(String::from).collect()
+        }
+    }
+
+    /// Runs an installer script the way `privileged_command` does.
+    fn run_installer(script: &str) -> std::process::Output {
+        std::process::Command::new("/bin/bash").arg("-c").arg(script).output().unwrap()
+    }
+
+    #[test]
+    fn package_update_script_updates_tlmgr_then_every_package_with_progress() {
+        let workspace = crate::test_support::TempDir::new("package-update-test");
+        let root = workspace.join("root");
+        let tlmgr = StubTlmgr::new(&workspace, &root, false);
+
+        let output = run_installer(&package_update_script(&root, &tlmgr.path));
+
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert_eq!(StubTlmgr::lines(&tlmgr.calls), ["update --self", "update --all"]);
+        // Every counter line, padded or not, moves the progress the app polls.
+        assert_eq!(
+            StubTlmgr::lines(&tlmgr.statuses),
+            ["updating-packages 1 12", "updating-packages 12 12"]
+        );
+        assert!(output.stdout.is_empty() && output.stderr.is_empty());
+        assert!(!root.exists());
+    }
+
+    #[test]
+    fn package_update_script_reports_a_failed_update_with_tlmgrs_words() {
+        let workspace = crate::test_support::TempDir::new("package-update-failure-test");
+        let root = workspace.join("root");
+        let tlmgr = StubTlmgr::new(&workspace, &root, true);
+
+        let output = run_installer(&package_update_script(&root, &tlmgr.path));
+
+        assert!(!output.status.success());
+        // The configured repository, then each fallback mirror.
+        let calls = StubTlmgr::lines(&tlmgr.calls);
+        assert_eq!(calls.len(), 4, "{calls:?}");
+        assert!(calls[1..].iter().all(|call| call.ends_with("update --all")), "{calls:?}");
+        let error = package_update_error(&String::from_utf8_lossy(&output.stderr));
+        assert!(
+            error.starts_with(&format!(
+                "{PACKAGE_UPDATE_FAILED}\nUpdating the installed LaTeX packages failed.\n"
+            )),
+            "{error}"
+        );
+        assert!(error.contains("could not get texlive.tlpdb"), "{error}");
+        assert!(!root.exists());
+    }
+
+    /// The BasicTeX install as shipped, with INSTALL_BASE 0 and TEXBIN a
+    /// folder holding only the stub tlmgr. The prelude's contract for a step
+    /// that may fail without failing the install, and the intent's: a failed
+    /// package update leaves the install going on to the required packages
+    /// and exiting 0, and its warning reaches the original stdout, not LOG
+    /// or stderr.
+    #[test]
+    fn basic_tex_install_goes_on_after_a_failed_package_update_and_warns() {
+        let workspace = crate::test_support::TempDir::new("basic-tex-warning-test");
+        let root = workspace.join("root");
+        let texbin = workspace.join("texbin");
+        fs::create_dir(&texbin).unwrap();
+        let tlmgr = StubTlmgr::new(&texbin, &root, true);
+        let shipped = basic_tex_script(&workspace.join("BasicTeX.pkg"), &root, false);
+        let system_texbin = "TEXBIN=\"/Library/TeX/texbin\"\n";
+        assert_eq!(shipped.matches(system_texbin).count(), 1);
+        let script = shipped.replace(
+            system_texbin,
+            &format!("TEXBIN={}\n", shell_quote(&texbin.to_string_lossy())),
+        );
+        assert!(!script.contains("/Library/TeX"));
+
+        let output = run_installer(&script);
+
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert!(output.stderr.is_empty(), "{}", String::from_utf8_lossy(&output.stderr));
+        let calls = StubTlmgr::lines(&tlmgr.calls);
+        assert_eq!(calls.first().map(String::as_str), Some("update --self"), "{calls:?}");
+        assert!(calls.last().is_some_and(|call| call.starts_with("install latexmk ")), "{calls:?}");
+        // update --self, update --all from each repository, then the install.
+        let stages = StubTlmgr::lines(&tlmgr.stages);
+        assert_eq!(stages.len(), 5, "{stages:?}");
+        assert!(stages[..4].iter().all(|stage| stage == "updating-base"), "{stages:?}");
+        assert_eq!(stages[4], "installing-packages");
+        let warning = install_warning(&String::from_utf8_lossy(&output.stdout)).unwrap();
+        assert!(
+            warning.starts_with(&format!(
+                "{BASE_UPDATE_FAILED}\nUpdating the installed LaTeX packages failed.\n"
+            )),
+            "{warning}"
+        );
+        assert!(warning.contains("could not get texlive.tlpdb"), "{warning}");
+        assert!(!root.exists());
     }
 
     #[test]
@@ -469,10 +660,47 @@ mod tests {
 
     #[test]
     fn package_install_progress_advances_with_tlmgr_output() {
-        assert_eq!(installer_stage_progress("installing-packages"), Some(0.72));
-        assert_eq!(installer_stage_progress("installing-packages 5 10"), Some(0.825));
-        assert_eq!(installer_stage_progress("installing-packages 10 10"), Some(0.9299999999999999));
-        assert_eq!(installer_stage_progress("installing-dependency 1 2"), Some(0.6599999999999999));
+        let progress = |stage| (installer_stage_progress(stage).unwrap() * 1000.0).round() / 1000.0;
+        // A full install never goes backwards: base, its update, then the
+        // required packages.
+        let full = [
+            "installing-base",
+            "updating-base",
+            "updating-base 254 254",
+            "installing-packages",
+            "installing-packages 5 10",
+            "installing-packages 10 10",
+        ]
+        .map(progress);
+        assert_eq!(full, [0.6, 0.64, 0.74, 0.74, 0.835, 0.93]);
+        assert_eq!(progress("installing-dependency 1 2"), 0.66);
+        assert_eq!(progress("updating-packages"), 0.15);
+        assert_eq!(progress("updating-packages 127 254"), 0.55);
+    }
+
+    #[test]
+    fn package_update_problems_keep_tlmgrs_words() {
+        assert_eq!(install_warning(""), None);
+        let warning = install_warning(
+            "Updating the installed LaTeX packages failed.\rtlmgr: TLPDB::from_file could not get texlive.tlpdb\r",
+        )
+        .unwrap();
+        assert!(warning.starts_with(BASE_UPDATE_FAILED), "{warning}");
+        assert!(warning.ends_with("\nUpdating the installed LaTeX packages failed.\ntlmgr: TLPDB::from_file could not get texlive.tlpdb"), "{warning}");
+
+        assert_eq!(
+            package_update_error("execution error: User canceled. (-128)"),
+            PACKAGE_UPDATE_CANCELLED
+        );
+        let error = package_update_error(
+            "7:75: execution error: Updating the installed LaTeX packages failed.\n\
+             tlmgr: package repository unreachable. (1)\n",
+        );
+        assert!(
+            error.starts_with(&format!("{PACKAGE_UPDATE_FAILED}\nUpdating the installed")),
+            "{error}"
+        );
+        assert!(!error.contains("execution error"));
     }
 
     #[test]

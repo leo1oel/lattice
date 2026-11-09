@@ -1749,6 +1749,10 @@ msgstr "已调整，链接和选中文字的对比度为 {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "已取消管理员授权，未安装任何内容。"
 
+#: src/build/tex-package-updates.ts
+msgid "Administrator approval was cancelled, so nothing was updated."
+msgstr "已取消管理员授权，未更新任何内容。"
+
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/app-overleaf-dialogs.tsx
@@ -2205,6 +2209,7 @@ msgid "Applying…"
 msgstr "正在同步…"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Approve the macOS prompt to continue"
 msgstr "请在 macOS 弹窗中点“允许”"
 
@@ -2426,6 +2431,10 @@ msgstr "BasicTeX 安装进度"
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installed"
 msgstr "BasicTeX 已安装"
+
+#: src/build/tex-package-updates.ts
+msgid "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor."
+msgstr "BasicTeX 已安装，但其 LaTeX 组件未能更新。稍后可在 设置 → TeX 检查 中更新。"
 
 #: src/platform/host-errors-setup.ts
 msgid "BasicTeX is installed, but Lattice could not finish installing the required LaTeX packages.\n"
@@ -2897,6 +2906,7 @@ msgid "Callout"
 msgstr "提示框"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Can take up to 15 minutes"
 msgstr "最多 15 分钟"
 
@@ -4692,8 +4702,14 @@ msgid "Couldn’t check for Lattice updates"
 msgstr "检查更新失败"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/tex-package-check-problem.ts
+#: src/settings/tex-package-updates-row.tsx
 msgid "Couldn’t check for updates"
 msgstr "检查更新失败"
+
+#: src/settings/tex-package-check-problem.ts
+msgid "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
+msgstr "无法检查更新。请检查网络连接，然后重新运行 TeX 检查。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Couldn’t check the connection. Still linked to {linkedHost}"
@@ -7266,6 +7282,10 @@ msgstr "会议论文"
 msgid "In progress"
 msgstr "进行中"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "In Terminal:"
+msgstr "在终端中运行："
+
 #: src/onboarding/get-started-steps.ts
 msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
 msgstr "在编辑器里按 ⌘⇧K，从本项目的论文里选一篇，或在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
@@ -8200,6 +8220,10 @@ msgstr "Linux 版 Lattice 不会自行更新。请到 GitHub 发布页下载新�
 msgctxt "comment source"
 msgid "Lattice only"
 msgstr "仅 Lattice"
+
+#: src/platform/host-errors-setup.ts
+msgid "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
+msgstr "Lattice 只更新它安装的 BasicTeX。请在终端中运行：{command}"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
@@ -10169,6 +10193,10 @@ msgstr "Linux 版暂不支持一键安装 TeX"
 #: src/platform/host-errors-setup.ts
 msgid "One-click TeX package install is not available on Linux yet."
 msgstr "Linux 版暂不支持一键安装 TeX 宏包"
+
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX package update is not available on Linux yet."
+msgstr "Linux 版暂不支持一键更新 TeX 组件"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can be exported with its changes marked."
@@ -14619,6 +14647,10 @@ msgstr "TeX 检查"
 msgid "TeX Live’s package manager could not install the package."
 msgstr "TeX Live 组件管理器未能安装此组件。"
 
+#: src/build/tex-package-updates.ts
+msgid "TeX Live’s package manager could not update the packages."
+msgstr "TeX Live 组件管理器未能更新组件。"
+
 #: src/platform/host-errors-setup.ts
 msgid "TeX Live's package manager is not installed."
 msgstr "未安装 TeX Live 的组件管理器（tlmgr）"
@@ -14626,6 +14658,18 @@ msgstr "未安装 TeX Live 的组件管理器（tlmgr）"
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager needs an update, and the update did not finish."
 msgstr "TeX Live 组件管理器需要更新，但更新未能完成。"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX package update progress"
+msgstr "TeX 组件更新进度"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX packages"
+msgstr "TeX 组件"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX packages updated. Build again to use them."
+msgstr "TeX 组件已更新。重新编译即可使用。"
 
 #. placeholder {0}: diagnostic.message
 #: src/build/compile-diagnostics-panel.tsx
@@ -15977,6 +16021,7 @@ msgid "This terminal has closed."
 msgstr "此终端已关闭"
 
 #: src/build/tex-setup.ts
+#: src/settings/tex-package-check-problem.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
 
@@ -16561,6 +16606,7 @@ msgid "Up double arrow"
 msgstr "上双线箭头"
 
 #: src/papers/linked-library-sheet.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Up to date"
 msgstr "已是最新"
 
@@ -16592,6 +16638,10 @@ msgstr "立即更新"
 msgid "Update table"
 msgstr "更新表格"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "Update TeX packages"
+msgstr "更新 TeX 组件"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "已更新"
@@ -16613,6 +16663,18 @@ msgstr "已更新到 Lattice {running}"
 msgid "Updates {fields}"
 msgstr "更新{fields}"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available"
+msgstr "有可用更新"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available ({count}): {named}"
+msgstr "有可用更新（{count} 个）：{named}"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available ({count}): {named}, and {more} more"
+msgstr "有可用更新（{count} 个）：{named}，以及另外 {more} 个"
+
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
 msgstr "会同步改所有 \\ref"
@@ -16620,6 +16682,11 @@ msgstr "会同步改所有 \\ref"
 #: src/project/project-dialogs.tsx
 msgid "Updates the .bib entry and every \\cite"
 msgstr "会同步改 .bib 和所有 \\cite"
+
+#: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updating LaTeX packages…"
+msgstr "正在更新 LaTeX 组件…"
 
 #: src/pdf/pdf-loading.tsx
 msgid "Updating…"
@@ -16930,6 +16997,7 @@ msgid "Waiting"
 msgstr "等待中"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"
 

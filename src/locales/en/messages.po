@@ -1749,6 +1749,10 @@ msgstr "Adjusted so links and selected text read at {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "Administrator approval was cancelled, so nothing was installed."
 
+#: src/build/tex-package-updates.ts
+msgid "Administrator approval was cancelled, so nothing was updated."
+msgstr "Administrator approval was cancelled, so nothing was updated."
+
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/app-overleaf-dialogs.tsx
@@ -2205,6 +2209,7 @@ msgid "Applying…"
 msgstr "Applying…"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Approve the macOS prompt to continue"
 msgstr "Approve the macOS prompt to continue"
 
@@ -2426,6 +2431,10 @@ msgstr "BasicTeX installation progress"
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installed"
 msgstr "BasicTeX installed"
+
+#: src/build/tex-package-updates.ts
+msgid "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor."
+msgstr "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor."
 
 #: src/platform/host-errors-setup.ts
 msgid "BasicTeX is installed, but Lattice could not finish installing the required LaTeX packages.\n"
@@ -2897,6 +2906,7 @@ msgid "Callout"
 msgstr "Callout"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Can take up to 15 minutes"
 msgstr "Can take up to 15 minutes"
 
@@ -4692,8 +4702,14 @@ msgid "Couldn’t check for Lattice updates"
 msgstr "Couldn’t check for Lattice updates"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/tex-package-check-problem.ts
+#: src/settings/tex-package-updates-row.tsx
 msgid "Couldn’t check for updates"
 msgstr "Couldn’t check for updates"
+
+#: src/settings/tex-package-check-problem.ts
+msgid "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
+msgstr "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Couldn’t check the connection. Still linked to {linkedHost}"
@@ -7266,6 +7282,10 @@ msgstr "In proceedings"
 msgid "In progress"
 msgstr "In progress"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "In Terminal:"
+msgstr "In Terminal:"
+
 #: src/onboarding/get-started-steps.ts
 msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
 msgstr "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
@@ -8200,6 +8220,10 @@ msgstr "Lattice on Linux doesn’t update itself. Download new versions from Git
 msgctxt "comment source"
 msgid "Lattice only"
 msgstr "Lattice only"
+
+#: src/platform/host-errors-setup.ts
+msgid "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
+msgstr "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
@@ -10169,6 +10193,10 @@ msgstr "One-click TeX install is not available on Linux yet."
 #: src/platform/host-errors-setup.ts
 msgid "One-click TeX package install is not available on Linux yet."
 msgstr "One-click TeX package install is not available on Linux yet."
+
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX package update is not available on Linux yet."
+msgstr "One-click TeX package update is not available on Linux yet."
 
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can be exported with its changes marked."
@@ -14619,6 +14647,10 @@ msgstr "TeX doctor"
 msgid "TeX Live’s package manager could not install the package."
 msgstr "TeX Live’s package manager could not install the package."
 
+#: src/build/tex-package-updates.ts
+msgid "TeX Live’s package manager could not update the packages."
+msgstr "TeX Live’s package manager could not update the packages."
+
 #: src/platform/host-errors-setup.ts
 msgid "TeX Live's package manager is not installed."
 msgstr "TeX Live's package manager is not installed."
@@ -14626,6 +14658,18 @@ msgstr "TeX Live's package manager is not installed."
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager needs an update, and the update did not finish."
 msgstr "TeX Live’s package manager needs an update, and the update did not finish."
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX package update progress"
+msgstr "TeX package update progress"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX packages"
+msgstr "TeX packages"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX packages updated. Build again to use them."
+msgstr "TeX packages updated. Build again to use them."
 
 #. placeholder {0}: diagnostic.message
 #: src/build/compile-diagnostics-panel.tsx
@@ -15977,6 +16021,7 @@ msgid "This terminal has closed."
 msgstr "This terminal has closed."
 
 #: src/build/tex-setup.ts
+#: src/settings/tex-package-check-problem.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 
@@ -16561,6 +16606,7 @@ msgid "Up double arrow"
 msgstr "Up double arrow"
 
 #: src/papers/linked-library-sheet.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Up to date"
 msgstr "Up to date"
 
@@ -16592,6 +16638,10 @@ msgstr "Update now"
 msgid "Update table"
 msgstr "Update table"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "Update TeX packages"
+msgstr "Update TeX packages"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "Updated"
@@ -16613,6 +16663,18 @@ msgstr "Updated to Lattice {running}"
 msgid "Updates {fields}"
 msgstr "Updates {fields}"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available"
+msgstr "Updates available"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available ({count}): {named}"
+msgstr "Updates available ({count}): {named}"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available ({count}): {named}, and {more} more"
+msgstr "Updates available ({count}): {named}, and {more} more"
+
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
 msgstr "Updates every \\ref to it"
@@ -16620,6 +16682,11 @@ msgstr "Updates every \\ref to it"
 #: src/project/project-dialogs.tsx
 msgid "Updates the .bib entry and every \\cite"
 msgstr "Updates the .bib entry and every \\cite"
+
+#: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updating LaTeX packages…"
+msgstr "Updating LaTeX packages…"
 
 #: src/pdf/pdf-loading.tsx
 msgid "Updating…"
@@ -16930,6 +16997,7 @@ msgid "Waiting"
 msgstr "Waiting"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
 

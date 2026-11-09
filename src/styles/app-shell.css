@@ -564,6 +564,10 @@ input[type="search"]:focus-visible {
 .doctor-checklist li.bad > svg { color: var(--status-danger); }
 .doctor-checklist li strong { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
 .doctor-checklist .doctor-check-detail { grid-column: 2; margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.4; overflow-wrap: anywhere; }
+.doctor-checklist li.warn { grid-column: 1 / -1; border-color: color-mix(in srgb, var(--status-warning) 26%, var(--border-subtle)); background: color-mix(in srgb, var(--status-warning) 6%, var(--surface-app)); }
+.doctor-checklist li.warn > svg { color: var(--status-warning); }
+.doctor-package-updates { display: grid; gap: var(--space-4); margin-top: var(--space-5); }
+.doctor-package-update-detail { margin: var(--space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--editor-font); font-size: var(--type-micro-size); user-select: text; }
 .doctor-checklist .doctor-check-result { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .table-generator-form, .project-replace label { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
 .project-replace label { grid-template-columns: 1fr; }

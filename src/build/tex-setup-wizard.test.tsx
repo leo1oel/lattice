@@ -9,6 +9,7 @@ import {
   type DoctorReportLike,
 } from "./tex-setup";
 import { TexSetupWizard } from "./tex-setup-wizard";
+import * as notify from "../telemetry/app-notify";
 
 type Channel = { onmessage: ((message: unknown) => void) | null };
 const tauri = vi.hoisted(() => ({ invoke: vi.fn(), channel: null as Channel | null }));
@@ -118,6 +119,25 @@ describe("tex setup wizard helpers", () => {
     await act(async () => finishInstall());
     expect(onRecheck).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("finishes an install whose package update failed with a warning, not a failure", async () => {
+    const warnings = vi.spyOn(notify, "notifyWarning");
+    tauri.invoke.mockResolvedValue(
+      "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor.\n"
+      + "Updating the installed LaTeX packages failed.\ntlmgr: could not get texlive.tlpdb",
+    );
+    const { onClose } = renderWizard(report(check("latexmk", false)), vi.fn(async () => report(...READY)));
+
+    fireEvent.click(screen.getByRole("button", { name: "Install Basic TeX (1 GB)" }));
+
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(warnings).toHaveBeenCalledWith(
+      "LaTeX setup",
+      "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor.",
+      { detail: "Updating the installed LaTeX packages failed.\ntlmgr: could not get texlive.tlpdb" },
+    );
+    warnings.mockRestore();
   });
 
   it("shows the concrete doctor failure and keeps install available", async () => {

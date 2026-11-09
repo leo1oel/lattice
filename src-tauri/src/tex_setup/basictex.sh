@@ -64,14 +64,27 @@ fi
 repair_basictex_permissions
 
 CURRENT_STEP="Updating the TeX Live package manager"
-status installing-packages
+status updating-base
 tlmgr_with_fallback update --self
+# The BasicTeX package is a snapshot, and tlmgr install never touches the
+# packages it already holds, so a fresh install would keep that snapshot's
+# bugs (lineno 5.7 misplaces two-column line numbers on LaTeX 2025-06 and
+# later). Compiling does not need the update, so a failed one is handed to
+# the app as a warning instead of failing the install.
+CURRENT_STEP="Updating the installed LaTeX packages"
+if ! tlmgr_with_fallback update --all 2>&1 | relay_progress updating-base; then
+  {
+    printf '%s failed.\n' "${CURRENT_STEP}"
+    log_diagnostic
+  } >&4
+fi
 # latexmk is intentionally not part of the BasicTeX base package. The
 # collections and Type1 fonts cover Lattice's bundled conference templates;
 # AAAI's style also needs newtx (whose map reads kastrup's binhex.tex), and
 # the Chinese thesis classes need ctex with xeCJK and zhnumber, bibunits, and
 # the XITS and STIX Two math fonts.
 CURRENT_STEP="Installing the required LaTeX packages"
+status installing-packages
 tlmgr_with_fallback install \
   latexmk \
   biber \
