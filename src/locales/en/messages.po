@@ -3766,6 +3766,10 @@ msgstr "Click in the text, then press ⌘⇧K"
 msgid "Click in the text, then press Ctrl+Shift+K"
 msgstr "Click in the text, then press Ctrl+Shift+K"
 
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "Click to copy the LaTeX command"
+msgstr "Click to copy the LaTeX command"
+
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
 msgstr "Click to keep the original"
@@ -4162,6 +4166,10 @@ msgstr "Components"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Composition / ring"
 msgstr "Composition / ring"
+
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "Compound key"
+msgstr "Compound key"
 
 #: src/canvas/proofread-card.tsx
 msgid "concision"
@@ -8164,6 +8172,10 @@ msgstr "LaTeX"
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
 msgstr "LaTeX build driver"
+
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "LaTeX command copied"
+msgstr "LaTeX command copied"
 
 #: src/canvas/proofread-card.tsx
 msgid "LaTeX commands"

@@ -13,6 +13,8 @@ const REFERENCE_COMMANDS = "ref|eqref|pageref|autoref|cref|Cref";
 /* eslint-enable lingui/no-unlocalized-strings */
 const OPEN_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)$`);
 const OPEN_REFERENCE = new RegExp(`\\\\(?:${REFERENCE_COMMANDS})\\*?\\{([^}]*)$`);
+const OPEN_COMPOUND = /\\(?:cmpd\*?|refcmpd|labelcmpd)(?:\[[^\][{}]*\])?\{([^}]*)$/;
+const OPEN_MARK = /\\rcmpd\{([^}]*)$/;
 const OPEN_INCLUDE = /\\(?:includegraphics|include|input)(?:\[[^\]]*\])?\{([^}]*)$/;
 const BRACED_COMMANDS = new RegExp(`\\\\(?:${CITATION_COMMANDS}|${REFERENCE_COMMANDS}|label|input|include)$`);
 export const CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)\\}`, "g");
@@ -57,6 +59,9 @@ export const citationCompletionRange = (before: string, cursor: number) =>
   completionRange(OPEN_CITATION, before, cursor, true);
 export const referenceCompletionRange = (before: string, cursor: number) =>
   completionRange(OPEN_REFERENCE, before, cursor, true);
+export const compoundCompletionRange = (before: string, cursor: number) =>
+  completionRange(OPEN_COMPOUND, before, cursor, true);
+export const markCompletionRange = (before: string, cursor: number) => completionRange(OPEN_MARK, before, cursor, false);
 export const includeCompletionRange = (before: string, cursor: number) =>
   completionRange(OPEN_INCLUDE, before, cursor, false);
 

@@ -3766,6 +3766,10 @@ msgstr "在正文里点一下，再按 ⌘⇧K"
 msgid "Click in the text, then press Ctrl+Shift+K"
 msgstr "点击正文，然后按 Ctrl+Shift+K"
 
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "Click to copy the LaTeX command"
+msgstr "点击复制 LaTeX 命令"
+
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
 msgstr "点击保留原文"
@@ -4162,6 +4166,10 @@ msgstr "组件"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Composition / ring"
 msgstr "复合 / 环运算"
+
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "Compound key"
+msgstr "化合物键"
 
 #: src/canvas/proofread-card.tsx
 msgid "concision"
@@ -8164,6 +8172,10 @@ msgstr "LaTeX"
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
 msgstr "LaTeX 编译驱动"
+
+#: src/pdf/pdf-compound-key-hover.tsx
+msgid "LaTeX command copied"
+msgstr "LaTeX 命令已复制"
 
 #: src/canvas/proofread-card.tsx
 msgid "LaTeX commands"
