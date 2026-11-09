@@ -2989,7 +2989,7 @@ msgstr "正在取消…"
 msgid "Cancelled"
 msgstr "已取消"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Candidate does not match reference"
 msgstr "找到的记录对不上"
 
@@ -3220,7 +3220,7 @@ msgctxt "macOS menu bar"
 msgid "Check for Updates…"
 msgstr "检查更新…"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Check incomplete"
 msgstr "没查完"
 
@@ -5207,7 +5207,7 @@ msgstr "这个词是有意重复的吗？"
 msgid "Diff for {0}"
 msgstr "{0} 的改动"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Differs from the verified record"
 msgstr "与核实记录不一致"
 
@@ -5855,7 +5855,7 @@ msgstr "手动填写"
 msgid "Enter text to find."
 msgstr "请输入要查找的文字"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Entry changed"
 msgstr "条目已变"
 
@@ -6518,6 +6518,7 @@ msgstr "已整理排版"
 
 #: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Formatting"
 msgstr "格式"
 
@@ -7390,7 +7391,7 @@ msgstr "调整缩进"
 msgid "Indented blockquote for citations."
 msgstr "引用他人原话"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Independent metadata unavailable"
 msgstr "没有可核对的资料"
 
@@ -9685,7 +9686,7 @@ msgstr "没有匹配的论文"
 msgid "No matching paths"
 msgstr "没有匹配的路径"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "No matching publication found"
 msgstr "没找到这篇"
 
@@ -9869,6 +9870,7 @@ msgstr "没有待办"
 msgid "No unique matching publication"
 msgstr "找到多篇相似的，无法确定是哪篇"
 
+#: src/papers/audit-messages.ts
 #: src/papers/bibliography-audit.tsx
 msgid "No update found"
 msgstr "没有更新"
@@ -9926,7 +9928,7 @@ msgstr "不属于"
 msgid "Not built"
 msgstr "未编译"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not checked"
 msgstr "尚未检查"
 
@@ -10014,7 +10016,7 @@ msgstr "还没同步"
 msgid "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
 msgstr "不是 UTF-8 文本，转换为 UTF-8 后即可纳入检查：{encoded}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not verified"
 msgstr "未确认"
 
@@ -10173,7 +10175,7 @@ msgstr "学术写作中关闭：{0}"
 msgid "Off while Reduce transparency is on in System Settings"
 msgstr "系统已开“降低透明度”，此项暂停"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "官方核实没完成"
 
@@ -11758,6 +11760,10 @@ msgid "Published"
 msgstr "已发表"
 
 #: src/papers/bibliography-audit.tsx
+msgid "Published version or missing fields"
+msgstr "已发表版本或补全字段"
+
+#: src/papers/bibliography-audit.tsx
 msgid "Published version: {published}"
 msgstr "已正式发表：{published}"
 
@@ -12037,7 +12043,7 @@ msgstr "这条文献改过了，请重新检查"
 msgid "Reference check progress"
 msgstr "引用检查进度"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Reference lacks identifying metadata"
 msgstr "文献信息不全，无法核对"
 
@@ -12057,6 +12063,10 @@ msgstr "文献"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Refresh"
 msgstr "刷新"
+
+#: src/app/use-reference-import.ts
+msgid "Refresh entry"
+msgstr "更新条目"
 
 #: src/project/project-new-entries.ts
 msgid "Refresh file tree"
@@ -13995,7 +14005,7 @@ msgstr "部分改动没有标记：标记后 PDF 无法编译。"
 msgid "Some files are left out of label and citation checks"
 msgstr "有些文件未纳入标签和引用检查"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
 
@@ -14117,6 +14127,10 @@ msgstr "来源暂时不可用"
 #: src/project/local-templates.tsx
 msgid "Source URL"
 msgstr "来源网址"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Sources differ from your entry"
+msgstr "来源与你的条目不同"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
@@ -15123,6 +15137,10 @@ msgstr "下载的 {what} 未通过安全校验"
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "下载的更新未通过签名校验，因此未安装。请从发布页面下载 Lattice {version}。"
 
+#: src/app/use-reference-import.ts
+msgid "The entry for {citationCommand} already matches its sources."
+msgstr "{citationCommand} 的条目已与来源一致。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The Excel workbook is too large to export."
 msgstr "Excel 工作簿太大，无法导出"
@@ -15626,6 +15644,10 @@ msgstr "源码 gzip 无法读取：{error}"
 #: src/project/arxiv-export.ts
 msgid "The source spells file names in another case"
 msgstr "源文件里的文件名和磁盘上的大小写不一致"
+
+#: src/app/use-reference-import.ts
+msgid "The sources differ from the entry for {citationCommand}. Compare them in Check references."
+msgstr "来源与 {citationCommand} 的条目不同，请在“检查引用”里对照。"
 
 #: src/agent/agent-environment.ts
 msgid "The system proxy changed"
@@ -16708,7 +16730,7 @@ msgstr "修改批注…"
 msgid "Update applied"
 msgstr "已更新"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Update available"
 msgstr "有更新"
 
@@ -16736,6 +16758,10 @@ msgstr "更新于 {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "已用 {library} 更新 {target}。可在历史中撤销。"
+
+#: src/app/use-reference-import.ts
+msgid "Updated the entry for {citationCommand} from its sources."
+msgstr "已按来源更新 {citationCommand} 的条目。"
 
 #: src/app/whats-new.ts
 msgid "Updated to Lattice {running}"
@@ -17405,6 +17431,10 @@ msgstr "你的编辑会保留在文件中，待审阅的改动将不再标记。
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "你的修改留在这台 Mac 上，下次同步时上传"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Your entry and the source give different values, and either may be right, so Apply all leaves this one to you."
+msgstr "你的条目和来源给出的值不同，两者都可能对，所以批量应用会留给你自己决定。"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Your first paper in Lattice"

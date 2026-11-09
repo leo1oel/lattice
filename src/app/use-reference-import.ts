@@ -9,8 +9,9 @@ import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
 import { isTitleQuery } from "../papers/paper-source";
 import { addQueueRunning, cancelAddQueue, runAddQueue, type PaperAddItem } from "../papers/add-papers-queue";
+import { refreshCitedEntry } from "../papers/refresh-cited-entry";
 import { subscribeTauriEvent } from "./effect-helpers";
-import { showError, showNotice } from "./notify";
+import { showError, showNotice, showWarning } from "./notify";
 
 type ImportResult = {
   arxivId: string;
@@ -109,6 +110,28 @@ export function useReferenceImport({
     ...current, open: true, error: null, key: current.key + 1, mode, initial, resolveSeed, importRoot,
   })), []);
 
+  // The cited entry as Add papers would write it now (papers/refresh-cited-entry.ts).
+  const { dirty, save, activeFile, accept } = editor;
+  const refreshEntry = useCallback(async (root: string, key: string) => {
+    const bibliography = project?.root === root ? project.manifest.primaryBibliography : "";
+    const citationCommand = `\\cite{${key}}`;
+    try {
+      if (!bibliography || (dirty && !(await save()))) return;
+      const outcome = await refreshCitedEntry(root, bibliography, key);
+      if (projectRootRef.current !== root) return;
+      if (outcome.kind === "updated") {
+        onExternalEdits.current([bibliography]);
+        if (bibliography === activeFile) accept(bibliography, await invoke<string>("read_project_file", { path: bibliography }));
+        await refreshProject();
+        await refreshHistory();
+        showNotice(t`Updated the entry for ${citationCommand} from its sources.`);
+      } else if (outcome.kind === "current") showNotice(t`The entry for ${citationCommand} already matches its sources.`);
+      else showWarning(t`The sources differ from the entry for ${citationCommand}. Compare them in Check references.`);
+    } catch (reason) {
+      showError(toMessage(reason));
+    }
+  }, [accept, activeFile, dirty, onExternalEdits, project, projectRootRef, refreshHistory, refreshProject, save, t]);
+
   const importReference = useCallback(async (
     query: string,
     { notices = "all", label }: { notices?: ImportNotices; label?: string } = {},
@@ -173,6 +196,9 @@ export function useReferenceImport({
       // still needs saying; the sheet's rows say even those.
       const quiet = notices === "none"
         || (notices === "problems" && !result.cancelled && !result.alreadyImported && !result.fetchError);
+      // A paper cited before keeps its old entry; offer to bring it up to date.
+      const refresh = result.alreadyImported && result.citationKey && importRoot
+        ? { label: t`Refresh entry`, onClick: () => refreshEntry(importRoot, result.citationKey!) } : undefined;
       if (!quiet) showNotice(result.cancelled
         ? result.citationKey
           ? result.paperPath
@@ -191,7 +217,7 @@ export function useReferenceImport({
             : cited ? t`Imported “${title}” — cite it with ${citationCommand}.` : t`Imported “${title}”.`
           : cited
             ? t`Added “${title}” to the bibliography — cite it with ${citationCommand}. No full text to open.`
-            : t`Added “${title}” to the bibliography. No full text to open.`);
+            : t`Added “${title}” to the bibliography. No full text to open.`, undefined, refresh);
       return result;
     } catch (reason) {
       if (isTitleQuery(trimmed) && superseded()) return;
@@ -206,7 +232,7 @@ export function useReferenceImport({
       setAdding((current) => ({ ...current, label: null }));
       setStage(null);
     }
-  }, [projectRootRef, refreshHistory, refreshProject, showBibEntry, t, onExternalEdits, onMissingPaperTools]);
+  }, [projectRootRef, refreshHistory, refreshProject, showBibEntry, t, onExternalEdits, onMissingPaperTools, refreshEntry]);
 
   // Cancel stops the paper being imported and, in a batch, every one still waiting.
   const cancelImport = useCallback(() => {
@@ -299,7 +325,6 @@ export function useReferenceImport({
     });
   }, [onMissingPaperTools, setBibEntry]);
 
-  const { activeFile, dirty, save, accept } = editor;
   const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
     const { importRoot, mode } = bibEntry;
     if (!project || (importRoot !== null && importRoot !== project.root)) return;
