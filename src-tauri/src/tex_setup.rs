@@ -4,9 +4,12 @@
 //! script for it and the TeX Live packages Lattice needs, installs the
 //! app-managed uv, and then verifies everything as the signed-in user. The
 //! tools-only mode keeps a working TeX and installs just uv. A dependency
-//! install finds the one TeX Live package that provides a missing file.
+//! install finds the one TeX Live package that provides a missing file. A
+//! package update brings an installed BasicTeX's packages current, after the
+//! doctor's `check_package_updates` finds them out of date.
 //!
-//! `installer` holds the pins, scripts and output parsers; `macos` runs them
+//! `installer` holds the pins, scripts and output parsers, and
+//! `package_updates` what `tlmgr update --list` says; `macos` runs them
 //! on macOS. Other platforms expose the same commands but refuse one-click
 //! install until a Linux path exists. Downloads stay in `fetch`.
 
@@ -19,15 +22,18 @@ mod fetch;
 mod installer;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+mod package_updates;
 #[cfg(not(target_os = "macos"))]
 mod stub;
 
 pub(crate) use fetch::download as download_pinned;
 pub(crate) use installer::{create_private_file, PinnedDownload};
 #[cfg(target_os = "macos")]
-pub use macos::{install_dependency, install_tex};
+pub use macos::{check_package_updates, install_dependency, install_tex, update_packages};
+pub use package_updates::TexPackageUpdates;
 #[cfg(not(target_os = "macos"))]
-pub use stub::{install_dependency, install_tex};
+pub use stub::{check_package_updates, install_dependency, install_tex, update_packages};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

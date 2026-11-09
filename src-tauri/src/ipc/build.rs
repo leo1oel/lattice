@@ -384,8 +384,22 @@ pub async fn texlab_definition(
 pub async fn start_tex_install(
     mode: tex_setup::TexInstallMode,
     on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     run_blocking("TeX installer launch", move || tex_setup::install_tex(mode, &on_progress)).await
+}
+
+/// The doctor's package-update check: asks the TeX Live repository, so the
+/// Settings page runs it on its own, never the launch check.
+#[tauri::command]
+pub async fn check_tex_package_updates() -> Result<Option<tex_setup::TexPackageUpdates>, String> {
+    run_blocking("TeX package update check", || Ok(tex_setup::check_package_updates())).await
+}
+
+#[tauri::command]
+pub async fn start_tex_package_update(
+    on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
+) -> Result<(), String> {
+    run_blocking("TeX package update", move || tex_setup::update_packages(&on_progress)).await
 }
 
 #[tauri::command]

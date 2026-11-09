@@ -2,7 +2,9 @@
 # The shared start of every privileged installer script. ROOT is a fresh
 # folder this script creates and removes; the app polls STATUS for progress,
 # and on failure the failed step plus the telling lines of LOG go to the
-# original stderr, which the app shows.
+# original stderr, which the app shows. A step that may fail without failing
+# the install writes its warning to fd 4, the original stdout, which
+# `do shell script` hands back to the app on success.
 set -euo pipefail
 ROOT=__ROOT_PATH__
 STATUS="${ROOT}/status"
@@ -18,9 +20,26 @@ fi
 /bin/chmod 644 "${STATUS}"
 : > "${LOG}"
 exec 3>&2
+exec 4>&1
 
 cleanup() {
   /bin/rm -rf "${ROOT}"
+}
+
+# The telling lines of LOG: the last errors tlmgr or the installer logged,
+# else its last lines.
+log_diagnostic() {
+  local diagnostic
+  diagnostic="$(
+    /usr/bin/grep -Eai 'not present|not found|failed|failure|error|cannot|could not|unavailable|needs to be updated|older than|no space|denied|not permitted|read-only' "${LOG}" \
+      | /usr/bin/grep -Ev 'An error has occurred|See above messages|Exiting' \
+      | /usr/bin/tail -n 4
+  )" || true
+  if [[ -n "${diagnostic}" ]]; then
+    printf '%s\n' "${diagnostic}"
+  else
+    /usr/bin/tail -n 8 "${LOG}"
+  fi
 }
 
 fail() {
@@ -28,16 +47,7 @@ fail() {
   trap - ERR EXIT
   set +e
   printf '%s failed.\n' "${CURRENT_STEP}" >&3
-  DIAGNOSTIC="$(
-    /usr/bin/grep -Eai 'not present|not found|failed|failure|error|cannot|could not|unavailable|needs to be updated|older than|no space|denied|not permitted|read-only' "${LOG}" \
-      | /usr/bin/grep -Ev 'An error has occurred|See above messages|Exiting' \
-      | /usr/bin/tail -n 4
-  )"
-  if [[ -n "${DIAGNOSTIC}" ]]; then
-    printf '%s\n' "${DIAGNOSTIC}" >&3
-  else
-    /usr/bin/tail -n 8 "${LOG}" >&3
-  fi
+  log_diagnostic >&3
   cleanup
   exit "${code}"
 }

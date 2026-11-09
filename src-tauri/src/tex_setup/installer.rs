@@ -39,6 +39,8 @@ const BASIC_SCRIPT: &str =
     concat!(include_str!("installer-prelude.sh"), "\n", include_str!("basictex.sh"));
 const DEPENDENCY_SCRIPT: &str =
     concat!(include_str!("installer-prelude.sh"), "\n", include_str!("dependency.sh"));
+const UPDATE_SCRIPT: &str =
+    concat!(include_str!("installer-prelude.sh"), "\n", include_str!("update.sh"));
 
 /// The managed uv release for the Mac this build runs on: Lattice ships one
 /// app for Apple silicon and one for Intel, each downloading its own uv.
@@ -95,6 +97,14 @@ pub(super) fn dependency_script(
         .replace("__REPOSITORY__", &repository.map(shell_quote).unwrap_or_else(|| "''".into()))
 }
 
+/// The script that updates tlmgr and every package of the TeX at `tlmgr`.
+pub(super) fn package_update_script(root: &Path, tlmgr: &Path) -> String {
+    UPDATE_SCRIPT
+        .replace("__INSTALLER_NAME__", "TeX package update")
+        .replace("__ROOT_PATH__", &shell_quote(&root.to_string_lossy()))
+        .replace("__TLMGR_PATH__", &shell_quote(&tlmgr.to_string_lossy()))
+}
+
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
@@ -109,8 +119,10 @@ pub(super) fn installer_stage_progress(stage: &str) -> Option<f64> {
         _ => 0.0,
     };
     match stage {
-        "installing-base" => Some(0.68),
-        "installing-packages" => Some(0.72 + fraction * 0.21),
+        "installing-base" => Some(0.6),
+        "updating-base" => Some(0.64 + fraction * 0.1),
+        "installing-packages" => Some(0.74 + fraction * 0.19),
+        "updating-packages" => Some(0.15 + fraction * 0.8),
         "installing-dependency" => Some(0.42 + fraction * 0.48),
         "verifying" => Some(0.95),
         "complete" => Some(1.0),
@@ -158,6 +170,34 @@ pub(super) fn install_error(stderr: &str) -> String {
         format!("BasicTeX installation failed.\n{detail}")
     }
 }
+
+/// What a BasicTeX install that succeeded wrote to its original stdout: the
+/// package update step's failure, which leaves a working but stale TeX.
+pub(super) fn install_warning(stdout: &str) -> Option<String> {
+    let detail = install_error_detail(stdout);
+    (!detail.is_empty()).then(|| format!("{BASE_UPDATE_FAILED}\n{detail}"))
+}
+
+/// The first line of `install_warning`, which the app translates.
+const BASE_UPDATE_FAILED: &str = "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor.";
+
+/// Why a package update failed: a first line the app translates, then the
+/// installer's own words.
+pub(super) fn package_update_error(stderr: &str) -> String {
+    if cancelled_authorization(stderr) {
+        return PACKAGE_UPDATE_CANCELLED.into();
+    }
+    let detail = install_error_detail(stderr);
+    if detail.is_empty() {
+        PACKAGE_UPDATE_FAILED.into()
+    } else {
+        format!("{PACKAGE_UPDATE_FAILED}\n{detail}")
+    }
+}
+
+const PACKAGE_UPDATE_CANCELLED: &str =
+    "Administrator approval was cancelled, so nothing was updated.";
+const PACKAGE_UPDATE_FAILED: &str = "TeX Live's package manager could not update the packages.";
 
 /// Why a missing-package install failed: a first line the app translates
 /// (`DEPENDENCY_INSTALL_CANCELLED` or a `DEPENDENCY_INSTALL_FAILURES` summary),
@@ -378,6 +418,17 @@ mod tests {
         let order = ["umask 077", "/bin/cp", "umask 022", "/usr/sbin/installer"].map(position);
         assert!(order.is_sorted(), "{order:?}");
         assert!(position("umask 022") < position("tlmgr_with_fallback update --self"));
+        // The base packages are updated before the required ones install,
+        // and a failed update is a warning on fd 4, not a failed install.
+        let order = [
+            "tlmgr_with_fallback update --self",
+            "if ! tlmgr_with_fallback update --all 2>&1 | relay_progress updating-base; then",
+            "log_diagnostic\n  } >&4\nfi",
+            "tlmgr_with_fallback install",
+        ]
+        .map(position);
+        assert!(order.is_sorted(), "{order:?}");
+        assert!(position("exec 4>&1") < position("exec > \"${LOG}\" 2>&1"));
     }
 
     #[test]
@@ -386,6 +437,7 @@ mod tests {
         let scripts = [
             basic_tex_script(Path::new("/tmp/Ada's/BasicTeX.pkg"), root, true),
             dependency_script(root, Path::new("/Library/TeX/texbin/tlmgr"), "newtx", None),
+            package_update_script(root, Path::new("/Library/TeX/texbin/tlmgr")),
         ];
         for script in &scripts {
             assert!(!script.contains("__"), "unfilled placeholder in:\n{script}");
@@ -407,7 +459,17 @@ mod tests {
         }
         for unexpected in ["REPOSITORY_ARGS", "sudo", "Terminal"] {
             assert!(!DEPENDENCY_SCRIPT.contains(unexpected), "{unexpected}");
+            assert!(!UPDATE_SCRIPT.contains(unexpected), "{unexpected}");
         }
+        assert!(scripts[2].contains("TLMGR='/Library/TeX/texbin/tlmgr'\n"));
+        let position = |text: &str| UPDATE_SCRIPT.find(text).unwrap();
+        let order = [
+            "umask 022",
+            "tlmgr_with_fallback update --self",
+            "tlmgr_with_fallback update --all 2>&1 | relay_progress updating-packages",
+        ]
+        .map(position);
+        assert!(order.is_sorted(), "{order:?}");
     }
 
     #[test]
@@ -469,10 +531,47 @@ mod tests {
 
     #[test]
     fn package_install_progress_advances_with_tlmgr_output() {
-        assert_eq!(installer_stage_progress("installing-packages"), Some(0.72));
-        assert_eq!(installer_stage_progress("installing-packages 5 10"), Some(0.825));
-        assert_eq!(installer_stage_progress("installing-packages 10 10"), Some(0.9299999999999999));
-        assert_eq!(installer_stage_progress("installing-dependency 1 2"), Some(0.6599999999999999));
+        let progress = |stage| (installer_stage_progress(stage).unwrap() * 1000.0).round() / 1000.0;
+        // A full install never goes backwards: base, its update, then the
+        // required packages.
+        let full = [
+            "installing-base",
+            "updating-base",
+            "updating-base 254 254",
+            "installing-packages",
+            "installing-packages 5 10",
+            "installing-packages 10 10",
+        ]
+        .map(progress);
+        assert_eq!(full, [0.6, 0.64, 0.74, 0.74, 0.835, 0.93]);
+        assert_eq!(progress("installing-dependency 1 2"), 0.66);
+        assert_eq!(progress("updating-packages"), 0.15);
+        assert_eq!(progress("updating-packages 127 254"), 0.55);
+    }
+
+    #[test]
+    fn package_update_problems_keep_tlmgrs_words() {
+        assert_eq!(install_warning(""), None);
+        let warning = install_warning(
+            "Updating the installed LaTeX packages failed.\rtlmgr: TLPDB::from_file could not get texlive.tlpdb\r",
+        )
+        .unwrap();
+        assert!(warning.starts_with(BASE_UPDATE_FAILED), "{warning}");
+        assert!(warning.ends_with("\nUpdating the installed LaTeX packages failed.\ntlmgr: TLPDB::from_file could not get texlive.tlpdb"), "{warning}");
+
+        assert_eq!(
+            package_update_error("execution error: User canceled. (-128)"),
+            PACKAGE_UPDATE_CANCELLED
+        );
+        let error = package_update_error(
+            "7:75: execution error: Updating the installed LaTeX packages failed.\n\
+             tlmgr: package repository unreachable. (1)\n",
+        );
+        assert!(
+            error.starts_with(&format!("{PACKAGE_UPDATE_FAILED}\nUpdating the installed")),
+            "{error}"
+        );
+        assert!(!error.contains("execution error"));
     }
 
     #[test]

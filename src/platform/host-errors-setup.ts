@@ -48,6 +48,8 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   // Elsewhere one-click install is not built yet (tex_setup/stub.rs).
   ["tex_setup/stub.rs", "One-click TeX install is not available on Linux yet.", () => t`One-click TeX install is not available on Linux yet.`],
   ["tex_setup/stub.rs", "One-click TeX package install is not available on Linux yet.", () => t`One-click TeX package install is not available on Linux yet.`],
+  ["tex_setup/stub.rs", "One-click TeX package update is not available on Linux yet.", () => t`One-click TeX package update is not available on Linux yet.`],
+  ["tex_setup/macos.rs", "Lattice only updates the BasicTeX it installs. In Terminal: {UPDATE_COMMAND}", ([command]) => t`Lattice only updates the BasicTeX it installs. In Terminal: ${command}`],
   ["tex_setup/macos.rs", "Could not request permission to install {name}: {error}", ([what, error]) => t`Could not request permission to install ${what}: ${error}`],
   ["tex_setup/macos.rs", "Could not locate your macOS Application Support folder.", () => t`Could not locate your macOS Application Support folder.`],
   ["tex_setup/macos.rs", "Automatic uv installation is not available for this Mac architecture ({}).", ([arch]) => t`Automatic uv installation is not available for this Mac architecture (${arch}).`],
