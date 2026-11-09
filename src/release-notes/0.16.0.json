@@ -1,0 +1,132 @@
+{
+  "version": "0.16.0",
+  "date": "2026-11-09",
+  "highlights": [
+    {
+      "icon": "plug",
+      "title": {
+        "en": "Import papers from Zotero",
+        "zh": "从 Zotero 导入论文"
+      },
+      "body": {
+        "en": "Add papers can now browse your Zotero library, including its collections and sub-collections, and bring in the papers you pick.",
+        "zh": "“添加论文”现在可以浏览你的 Zotero 文献库，包括其中的分类和子分类，并导入你选中的论文。"
+      }
+    },
+    {
+      "icon": "git",
+      "title": {
+        "en": "Safer, faster Overleaf collaboration",
+        "zh": "Overleaf 协作更安全、更快"
+      },
+      "body": {
+        "en": "Your co-authors' edits survive conflict saves, remote deletes and restores. Typing at the same time as a co-author stays in live editing instead of falling back to a full sync, and Lattice sends its sync edits to Overleaf as live edits too. Syncing fetches only the files that changed instead of the whole project, and a co-author's live typing no longer rebuilds the PDF on every keystroke.",
+        "zh": "保存冲突、远端删除和恢复文件时，合作者的修改都会保留。和合作者同时输入时会继续保持实时编辑，不再退回完整同步；Lattice 同步的修改也会以实时编辑的方式发送到 Overleaf。同步时只获取有改动的文件，不再下载整个项目；合作者实时输入时，也不会每敲一个键就重新编译一次 PDF。"
+      }
+    },
+    {
+      "icon": "message",
+      "title": {
+        "en": "Review comments beside the PDF",
+        "zh": "在 PDF 旁查看评论"
+      },
+      "body": {
+        "en": "Read and answer comments in a column next to the PDF, and comment on a PDF passage from any source file in one step.",
+        "zh": "在 PDF 旁边的一栏里阅读和回复评论；无论打开的是哪个源文件，都能一步给 PDF 中的段落添加评论。"
+      }
+    },
+    {
+      "icon": "undo",
+      "title": {
+        "en": "Review history with tracked changes",
+        "zh": "用修订模式审阅历史"
+      },
+      "body": {
+        "en": "A review mode in History shows changes as tracked edits you can accept or reject, with the changes marked in the PDF.",
+        "zh": "历史记录新增审阅模式：改动以修订的形式显示，可以逐条接受或拒绝，PDF 中也会标出这些改动。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Better citations",
+        "zh": "更好用的引用"
+      },
+      "body": {
+        "en": "Notes link to the exact page of the cited paper, and you can add an optional \"why I cited this\" reason to each citation.",
+        "zh": "笔记会链接到被引论文的具体页码；每处引用还可以选择写下“为什么引用它”的理由。"
+      }
+    },
+    {
+      "icon": "menu",
+      "title": {
+        "en": "More ways to set up and write",
+        "zh": "更多设置与写作方式"
+      },
+      "body": {
+        "en": "Choose the font, size and line height of the source and Markdown editors in Settings, clone a Git repository into a new project, and use Vim's :w, :q and :wq. There is also a new CVPR 2027 Rebuttal template.",
+        "zh": "可以在设置中选择源码编辑器和 Markdown 编辑器的字体、字号与行高；可以把 Git 仓库克隆为新项目；Vim 的 :w、:q 和 :wq 也能用了。另外新增了 CVPR 2027 Rebuttal 模板。"
+      }
+    },
+    {
+      "title": {
+        "en": "Lattice for Intel Macs",
+        "zh": "Lattice 支持 Intel Mac"
+      },
+      "body": {
+        "en": "Each release now includes a signed, notarized Intel (x64) Mac build.",
+        "zh": "每个版本现在都附带经过签名和公证的 Intel（x64）Mac 版本。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Undoing an AI assistant edit keeps your co-authors' edits, and turns overlapping changes into conflicts instead of overwriting them.",
+      "zh": "撤销 AI 助手的修改时会保留合作者的修改；有重叠的改动会标记为冲突，而不会被覆盖。"
+    },
+    {
+      "en": "Annotations and bibliography edits are never saved over stale or unread text, and an audit of hidden state bugs fixed more cases like it.",
+      "zh": "批注和参考文献的修改不会再覆盖过时或尚未读取的内容；一次针对隐藏状态问题的排查还修复了更多类似情况。"
+    },
+    {
+      "en": "Overleaf reconnect, switching projects, stopping a build, Fix all and reloading the AI assistant panel no longer get stuck.",
+      "zh": "Overleaf 重新连接、切换项目、停止编译、“一键修复”以及重新加载 AI 助手面板时不会再卡住。"
+    },
+    {
+      "en": "Format document results and Overleaf's rejected edits stay tied to the right text.",
+      "zh": "“整理排版”的结果和被 Overleaf 拒绝的修改会对应到正确的文本。"
+    },
+    {
+      "en": "Files that still have conflict markers are not merged again, and fallback uploads to Overleaf are checked against their own history.",
+      "zh": "仍带有冲突标记的文件不会再被重复合并；向 Overleaf 的备用上传会对照它自己的历史进行校验。"
+    },
+    {
+      "en": "Bibliography upgrades apply entry by entry instead of tidying the whole file.",
+      "zh": "参考文献升级会逐条应用，不再整理整个文件。"
+    },
+    {
+      "en": "A citation card under a comment stays reachable.",
+      "zh": "被评论遮住的引用卡片现在也能点到。"
+    },
+    {
+      "en": "Citation suggestions stay open while you backspace through keys. Thanks to @ajay-mk.",
+      "zh": "用退格键删除引用键时，引用建议会保持显示。感谢 @ajay-mk。"
+    },
+    {
+      "en": "The AI assistant explains when your Codex is too old to list GPT-6 Astra.",
+      "zh": "Codex 版本太旧、无法列出 GPT-6 Astra 时，AI 助手会说明原因。"
+    },
+    {
+      "en": "Linux users are told when a new release is out. Thanks to @knightnemo.",
+      "zh": "有新版本发布时会通知 Linux 用户。感谢 @knightnemo。"
+    },
+    {
+      "en": "The empty annotations panel is redrawn without \"Return to file\", the Git drawer's empty states are centred, and the in-app Lattice mark uses the icon's olive and sage.",
+      "zh": "空的批注面板重新设计，去掉了“返回文件”；Git 抽屉的空状态改为居中显示；应用内的 Lattice 标志改用图标的橄榄绿和鼠尾草绿。"
+    },
+    {
+      "en": "Developers: steadier perf-bench startup and Linux AppImage end-to-end tests.",
+      "zh": "开发者：perf-bench 启动和 Linux AppImage 端到端测试更稳定。"
+    }
+  ]
+}
