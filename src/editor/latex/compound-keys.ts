@@ -4,8 +4,9 @@
  * whether a run of PDF text reads as a compound number.
  */
 
-const COMPOUND_NUMBER = /^(?:[A-Z]{0,3}\d+(?:[.-]\d+)*[a-z]*|[A-Za-z]|[IVXLC]+[a-z]?|[ivxlc]{2,})$/;
-const COMPOUND_COMMAND = /\\(?:cmpd\*?|refcmpd|labelcmpd)(?:\[[^\]]*\])?\{([^{}]*)\}/g;
+// No class here may cross a brace or bracket: one that can rescans to the end
+// of the text from every `\cmpd[` or `\chemnum@cmpd {`, which is quadratic.
+const COMPOUND_COMMAND = /\\(?:cmpd\*?|refcmpd|labelcmpd)(?:\[[^\][{}]*\])?\{([^{}]*)\}/g;
 const MARK_COMMAND = /\\rcmpd\{([^{}]*)\}/g;
 const UNESCAPED_COMMENT = /(?<!\\)%.*$/;
 /** Sources are untrusted, and a key is written back into a document or the clipboard: nothing in one may be LaTeX. */
@@ -15,9 +16,24 @@ const MAX_KEYS = 5000;
 
 const isSafeKey = (key: string) => SAFE_KEY.test(key);
 
-/** Whether `text` is one number such as 1, 2a, 3.1, 4-2 or IV, punctuation around it aside. */
-export function looksLikeCompoundNumber(text: string): boolean {
-  return COMPOUND_NUMBER.test(text.trim().replace(/^[([]+/, "").replace(/[)\],.;:]+$/, ""));
+/** A format, only after a key and a sub: as in a drawing, `x.num` is the sub named `num`. */
+const STYLE_SUFFIX = /(?<=^[^.]+\.[^.]+)\.(?:num|dash|letter)$/;
+
+/** The key chemnum records a number under: `key.sub.num` is written, `key.sub` recorded. */
+export const numberedKey = (key: string) => key.replace(STYLE_SUFFIX, "");
+
+/** A run of PDF text as the number it may be: `(2a),` reads `2a`. */
+export const printedNumber = (text: string) => text.trim().replace(/^[([]+/, "").replace(/[)\],.;:]+$/, "");
+
+/**
+ * Of the keys a source line names, those the last build numbered as the PDF
+ * text reads. SyncTeX gives only the line, which also typesets citation
+ * numbers, references and years: only a number the build gave one of its
+ * compounds is one.
+ */
+export function keysNumbered(text: string, keys: readonly string[], numbers: ReadonlyMap<string, string>): string[] {
+  const number = printedNumber(text);
+  return number ? keys.filter((key) => numbers.get(numberedKey(key)) === number) : [];
 }
 
 /** What `\\rcmpd` names on `line`: the text of a drawing's `[[…]]` marks. */
@@ -40,9 +56,6 @@ export const compoundCommand = (key: string, isMark = false) => (
   isMark || /^[AaIi]:/.test(key) ? String.raw`\rcmpd{${key}}` : String.raw`\cmpd{${key}}`
 );
 
-/** Whether `text` is one letter, which only a series of small letters writes. */
-export const isLoneSmallLetter = (text: string) => /^[a-z]$/.test(text.trim());
-
 /** Every distinct compound key the sources name, in order of first appearance. */
 export function compoundKeysIn(sources: string[]): string[] {
   return [...new Set(sources.flatMap((source) => source.split(/\r?\n/).flatMap(compoundKeysOnLine)))].slice(0, MAX_KEYS);
@@ -61,24 +74,21 @@ const labelPart = (value: string) => (value.includes("\\") ? "" : plainNumber(va
 export function parseCompoundNumbers(aux: string): Map<string, string> {
   const numbers = new Map<string, string>();
   const parents = new Map<string, { head: string; separator: string; post: string }>();
-  const compound = /\\chemnum@cmpd\s*\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{[^{}]*\}\{([^{}]*)\}/g;
+  const compound = /\\chemnum@cmpd\s*\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{[^{}]*\}\{([^{}]*)\}/g;
   for (const [, key, counter, shown, pre, post, separator] of aux.matchAll(compound)) {
     const head = labelPart(pre) + (plainNumber(shown) || plainNumber(counter));
     parents.set(key, { head, separator: labelPart(separator), post: labelPart(post) });
     numbers.set(key, head + labelPart(post));
   }
-  for (const [, key, sub, , letter] of aux.matchAll(/\\chemnum@subcmpd\s*\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}/g)) {
+  for (const [, key, sub, , letter] of aux.matchAll(/\\chemnum@subcmpd\s*\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}/g)) {
     const parent = parents.get(key);
     if (parent) numbers.set(`${key}.${sub}`, parent.head + parent.separator + plainNumber(letter) + parent.post);
   }
-  for (const [, series, key, label] of aux.matchAll(/\\cmpdser@aux\s*\{([AaIi])\}\{([^}]*)\}\{([^}]*)\}/g)) {
+  for (const [, series, key, label] of aux.matchAll(/\\cmpdser@aux\s*\{([AaIi])\}\{([^{}]*)\}\{([^{}]*)\}/g)) {
     numbers.set(`${series}:${key}`, plainNumber(label));
   }
   return numbers;
 }
-
-/** A format, only after a key and a sub: as in a drawing, `x.num` is the sub named `num`. */
-const STYLE_SUFFIX = /(?<=^[^.]+\.[^.]+)\.(?:num|dash|letter)$/;
 
 export type CompoundEntry = { key: string; number?: string };
 
@@ -87,11 +97,11 @@ export function compoundEntries(keys: string[], numbers: Map<string, string>): C
   const order = new Intl.Collator("en", { numeric: true });
   const styled = keys.filter((key) => STYLE_SUFFIX.test(key));
   // `key.sub.num` is the key a writer sees; chemnum records it as `key.sub`.
-  const hidden = new Set(styled.map((key) => key.replace(STYLE_SUFFIX, "")));
+  const hidden = new Set(styled.map(numberedKey));
   return [...new Set([...keys, ...numbers.keys()])]
     .filter((key) => isSafeKey(key) && !hidden.has(key))
     .slice(0, MAX_KEYS)
-    .map((key) => ({ key, number: numbers.get(key.replace(STYLE_SUFFIX, "")) }))
+    .map((key) => ({ key, number: numbers.get(numberedKey(key)) }))
     .sort((a, b) => (
       a.number && b.number ? order.compare(a.number, b.number)
         : a.number ? -1 : b.number ? 1 : order.compare(a.key, b.key)

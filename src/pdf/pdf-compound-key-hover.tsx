@@ -2,6 +2,10 @@
  * Resting the pointer on a compound number in the compiled PDF shows its
  * chemnum key, for writing `\cmpd{key}` in the text. The number is traced back
  * by reverse SyncTeX to its source line, which names the key.
+ *
+ * A number is a compound's only when the last build's `.aux` gave a compound
+ * that number: a project without chemnum records listens to nothing, and the
+ * citation numbers, references and years of a line with a compound show none.
  */
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -9,11 +13,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { useLingui } from "@lingui/react/macro";
 import type { SyncTexTarget } from "../app-types";
+import type { CompiledBuild } from "../editor/latex/compiled-labels";
+import { compiledCompoundNumbers } from "../editor/latex/compound-project";
 import { LeavesOnClose } from "../components/ui/exit-picture";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { notifyCopied } from "../telemetry/app-notify";
-import { isLoneSmallLetter, compoundCommand, compoundKeysOnLine, compoundMarksOnLine, looksLikeCompoundNumber } from "../editor/latex/compound-keys";
+import { compoundCommand, compoundKeysOnLine, compoundMarksOnLine, keysNumbered, printedNumber } from "../editor/latex/compound-keys";
 import { addListeners } from "./pdf-viewer-utils";
 
 const REST_MS = 250;
@@ -25,9 +31,10 @@ const CLICK_SLOP_PX = 4;
 /** Around the number and its card: the path between them, which keeps the card open. */
 const BRIDGE_PADDING_PX = 16;
 const GLYPH_SPANS = ".textLayer span:not(.markedContent):not(.endOfContent)";
+/** A link's own hover card and click (a citation, a reference) are its, not a compound's. */
+const onLink = (target: EventTarget | null) => target instanceof Element && target.closest("a") !== null;
 
 type Hit = { span: HTMLElement; keys: string[]; marks: string[] };
-
 
 /** The text-layer span under the point, on `page`. */
 function spanAt(page: HTMLElement, x: number, y: number): HTMLElement | undefined {
@@ -61,9 +68,17 @@ function inBridge(span: Element, card: Element | null, x: number, y: number): bo
     && y >= Math.min(a.top, b.top) - BRIDGE_PADDING_PX && y <= Math.max(a.bottom, b.bottom) + BRIDGE_PADDING_PX;
 }
 
-export function PdfCompoundKeyHover({ host }: { host: HTMLElement }) {
+export function PdfCompoundKeyHover({ host, projectRoot, build }: {
+  host: HTMLElement;
+  projectRoot: string;
+  /** The build the PDF shows, whose `.aux` numbers its compounds; none before a build. */
+  build: CompiledBuild | undefined;
+}) {
   const { t } = useLingui();
   const [hit, setHit] = useReducer((_: Hit | null, next: Hit | null) => next, null);
+  const [numbers, setNumbers] = useReducer(
+    (_: ReadonlyMap<string, string> | null, next: ReadonlyMap<string, string> | null) => next, null,
+  );
   const shown = useRef<Hit | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -87,23 +102,35 @@ export function PdfCompoundKeyHover({ host }: { host: HTMLElement }) {
   const copyLatest = useLatestRef(copy);
 
   useEffect(() => {
+    let disposed = false;
+    const read = build ? compiledCompoundNumbers(projectRoot, build) : Promise.resolve(new Map<string, string>());
+    void read.then(
+      (found) => { if (!disposed) setNumbers(found.size ? found : null); },
+      () => { if (!disposed) setNumbers(null); },
+    );
+    return () => { disposed = true; };
+  }, [projectRoot, build]);
+
+  useEffect(() => {
+    if (!numbers) return;
+    const printed = new Set(numbers.values());
     let restTimer: ReturnType<typeof setTimeout> | undefined;
     let clickTimer: ReturnType<typeof setTimeout> | undefined;
     let pressedAt: { x: number; y: number } | null = null;
     const latest = { request: 0 };
     const look = async (target: EventTarget | null, x: number, y: number) => {
-      const page = target instanceof Element ? target.closest<HTMLElement>("[data-page-number]") : null;
-      const span = page ? spanAt(page, x, y) : undefined;
       const current = latest.request + 1;
       latest.request = current;
       const open = shown.current;
-      if (open && (span === open.span || inBridge(open.span, cardRef.current, x, y))) { cancelClose(); return; }
-      if (!page || !span || !looksLikeCompoundNumber(span.textContent ?? "")) { closeSoon(); return; }
+      if (open && inBridge(open.span, cardRef.current, x, y)) { cancelClose(); return; }
+      const page = target instanceof Element && !onLink(target) ? target.closest<HTMLElement>("[data-page-number]") : null;
+      const span = page ? spanAt(page, x, y) : undefined;
+      const text = span?.textContent ?? "";
+      if (!page || !span || !printed.has(printedNumber(text))) { closeSoon(); return; }
       cancelClose();
       // No SyncTeX data, or a file it cannot read, simply has no key to show.
       const { keys: found, marks } = await keysAt(page, x, y).catch(() => ({ keys: [] as string[], marks: [] as string[] }));
-      // A lone small letter is a compound only where a small-letter series says so.
-      const keys = isLoneSmallLetter(span.textContent ?? "") ? found.filter((key) => /^[ai]:/.test(key)) : found;
+      const keys = keysNumbered(text, found, numbers);
       if (current !== latest.request) return;
       if (keys.length) show({ span, keys, marks });
       else closeSoon();
@@ -124,7 +151,7 @@ export function PdfCompoundKeyHover({ host }: { host: HTMLElement }) {
       const still = pressedAt !== null && Math.hypot(event.clientX - pressedAt.x, event.clientY - pressedAt.y) <= CLICK_SLOP_PX;
       const box = open?.span.getBoundingClientRect();
       const onNumber = box && event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
-      if (event.detail === 1 && !event.metaKey && !event.ctrlKey && still && onNumber && open?.keys.length === 1) {
+      if (event.detail === 1 && !event.metaKey && !event.ctrlKey && still && onNumber && !onLink(event.target) && open?.keys.length === 1) {
         const [key] = open.keys;
         clickTimer = setTimeout(() => copyLatest.current(key, open.marks.includes(key)), SINGLE_CLICK_MS);
         return;
@@ -143,7 +170,7 @@ export function PdfCompoundKeyHover({ host }: { host: HTMLElement }) {
       cancelClose();
       for (const remove of removeListeners) remove();
     };
-  }, [host, cancelClose, closeSoon, show, copyLatest]);
+  }, [host, numbers, cancelClose, closeSoon, show, copyLatest]);
 
   useEffect(() => {
     const card = cardRef.current;

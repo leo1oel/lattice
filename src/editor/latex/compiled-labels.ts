@@ -42,11 +42,14 @@ export function parseAux(aux: string): { labels: Map<string, CompiledLabel>; inp
 
 /** A document's chapters read for their numbers: the `.aux` is the build's output, so it is bounded too. */
 const MAX_AUX_INPUTS = 300;
+/** A document can write anything to its `.aux`; a longer one is read as empty, numbering nothing. */
+const MAX_AUX_CHARS = 4_000_000;
 
 /** The text of the last build's `.aux` files: the root document's, beside it, and each chapter's it names. */
 export async function compiledAuxTexts(projectRoot: string | undefined, build: CompiledBuild): Promise<string[]> {
   const directory = build.rootDocument.includes("/") ? build.rootDocument.replace(/[^/]*$/, "") : "";
-  const read = (path: string) => invoke<string>("read_project_file", { path, projectRoot }).catch(() => "");
+  const read = (path: string) => invoke<string>("read_project_file", { path, projectRoot })
+    .then((text) => (text.length > MAX_AUX_CHARS ? "" : text), () => "");
   const main = await read(build.rootDocument.replace(/\.tex$/i, ".aux"));
   return [main, ...await Promise.all(parseAux(main).inputs.slice(0, MAX_AUX_INPUTS).map((path) => read(`${directory}${path}`)))];
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compoundCommand, compoundMarksOnLine, isLoneSmallLetter, compoundEntries, compoundKeysIn, compoundKeysOnLine, looksLikeCompoundNumber, parseCompoundNumbers } from "./compound-keys";
+import { compoundCommand, compoundMarksOnLine, compoundEntries, compoundKeysIn, compoundKeysOnLine, keysNumbered, parseCompoundNumbers } from "./compound-keys";
 
 const AUX = String.raw`\chemnum@cmpd {ketone}{1}{1}{}{}{}{}{\bfseries }
 \chemnum@cmpd {alcohol}{2}{2}{}{}{}{}{\bfseries }
@@ -8,12 +8,18 @@ const AUX = String.raw`\chemnum@cmpd {ketone}{1}{1}{}{}{}{}{\bfseries }
 \chemnum@check `;
 
 describe("compound keys", () => {
-  it.each(["1", "2a", "3.1", "4-2", "1.2.3a", "IV", "ii", "S5", "A", " 12 ", "(1)", "2a,"])("reads %j as a compound number", (text) => {
-    expect(looksLikeCompoundNumber(text)).toBe(true);
-  });
-
-  it.each(["", "ketone", "85%", "1 gives", "2A", "Scheme"])("does not read %j as one", (text) => {
-    expect(looksLikeCompoundNumber(text)).toBe(false);
+  it("takes PDF text as a compound's only where the build gave that compound the number", () => {
+    const numbers = new Map([["ketone", "1"], ["alcohol", "2"], ["alcohol.OMe", "2a"], ["amine.a", "3.1"], ["a:x", "b"]]);
+    const line = ["ketone", "alcohol", "alcohol.OMe", "amine.a.num", "a:x"];
+    expect(keysNumbered("(2a),", line, numbers)).toEqual(["alcohol.OMe"]);
+    expect(keysNumbered(" 1 ", line, numbers)).toEqual(["ketone"]);
+    expect(keysNumbered("3.1", line, numbers)).toEqual(["amine.a.num"]);
+    expect(keysNumbered("b", line, numbers)).toEqual(["a:x"]);
+    // A citation number, a year or a word on the same source line names none.
+    expect(keysNumbered("[12]", line, numbers)).toEqual([]);
+    expect(keysNumbered("2023", line, numbers)).toEqual([]);
+    expect(keysNumbered("a", line, numbers)).toEqual([]);
+    expect(keysNumbered("", line, new Map([["", ""]]))).toEqual([]);
   });
 
   it("finds the key of a figure's number line", () => {
@@ -44,9 +50,6 @@ describe("compound keys", () => {
     expect(compoundCommand("ketone")).toBe(String.raw`\cmpd{ketone}`);
     const numbers = parseCompoundNumbers(String.raw`\cmpdser@aux{A}{cat}{B}` + "\n" + String.raw`\cmpdser@aux{i}{x}{ii}`);
     expect(Object.fromEntries(numbers)).toEqual({ "A:cat": "B", "i:x": "ii" });
-    expect(looksLikeCompoundNumber("b")).toBe(true);
-    expect(isLoneSmallLetter("b")).toBe(true);
-    expect(isLoneSmallLetter("ii")).toBe(false);
   });
 
   it("shows a key with a style suffix as written, with the number chemnum records for it", () => {
@@ -96,6 +99,19 @@ describe("keys are data", () => {
   it("drops anything that would be LaTeX when written back", () => {
     expect(compoundKeysOnLine(String.raw`\cmpd{a\input} \rcmpd{b#c} \cmpd{ok.sub} \rcmpd{A:cat}`)).toEqual(["ok.sub", "A:cat"]);
     expect(compoundKeysOnLine(`\\\\cmpd{${"x".repeat(201)}}`)).toEqual([]);
+  });
+
+  it("reads crafted sources and build records in linear time", () => {
+    // Each of these rescanned to the end of the text from every start when a
+    // pattern's class could cross a brace or bracket: 80k characters took
+    // 140-420 ms, and the 2 MB a source may hold minutes.
+    const size = 400_000;
+    const started = performance.now();
+    parseCompoundNumbers("\\chemnum@cmpd {".repeat(size / 15));
+    parseCompoundNumbers("\\chemnum@subcmpd {".repeat(size / 18));
+    parseCompoundNumbers("\\cmpdser@aux {A}{".repeat(size / 18));
+    compoundKeysIn(["\\cmpd[".repeat(size / 6)]);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   it("drops such keys from a build's records too, and bounds the list", () => {

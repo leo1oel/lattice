@@ -7,6 +7,7 @@ import { isPreviewableSourceFilePath } from "../app-utils";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import { ChunkGate } from "../components/chunk-gate";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
+import type { CompiledBuild } from "../editor/latex/compiled-labels";
 import type { CitationInfo } from "../editor/latex/latex-text";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
@@ -27,6 +28,8 @@ import { PdfInWindowPlaceholder, ProjectPdfWindow, type ProjectPdfWindowControl 
 /** The compiled project PDF: its build, SyncTeX in both directions and its pages. */
 export type ProjectPdf = Readonly<{
   pdfUrl: string | null;
+  /** The build the PDF came from, whose `.aux` names its chemnum compounds. */
+  compiledBuild?: CompiledBuild;
   pdfBytes?: ArrayBuffer | null;
   /** Builds the project from the PDF panel while it has no PDF yet. */
   onBuildProject?: () => void;
@@ -227,7 +230,7 @@ export function ProjectPdfPanel({
           )}
         </SavedViewState>
       </Suspense></ChunkGate>
-      <PdfCompoundKeyHover host={host} />
+      <PdfCompoundKeyHover host={host} projectRoot={projectRoot} build={pdf.compiledBuild} />
       <PdfFigureSourceOpen host={host} />
       </LivePreviewSessionContext>
     </div>,

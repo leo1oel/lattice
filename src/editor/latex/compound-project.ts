@@ -16,6 +16,20 @@ export type CompoundProject = {
   placeLines: Map<string, string>;
 };
 
+let numbersCache: { root: string | undefined; build: CompiledBuild; numbers: Promise<Map<string, string>> } | null = null;
+
+/**
+ * What chemnum numbered in the last build, read once per build. Empty for a
+ * project that does not use chemnum, which is how the PDF knows to look for
+ * no compound at all.
+ */
+export function compiledCompoundNumbers(projectRoot: string | undefined, build: CompiledBuild): Promise<Map<string, string>> {
+  if (numbersCache && numbersCache.root === projectRoot && numbersCache.build === build) return numbersCache.numbers;
+  const numbers = compiledAuxTexts(projectRoot, build).then((texts) => parseCompoundNumbers(texts.join("\n")));
+  numbersCache = { root: projectRoot, build, numbers };
+  return numbers;
+}
+
 export async function readCompoundProject(
   projectPaths: readonly string[], projectRoot: string | undefined, build: CompiledBuild | undefined,
 ): Promise<CompoundProject> {
