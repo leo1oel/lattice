@@ -3,6 +3,11 @@
 //! nothing, so progress is any output other than text the run has printed
 //! already. It is judged on chunks as they arrive: with `max_print_line` this
 //! high TeX keeps `[1] [2] (./a.aux)` on one line until a warning or the end.
+//!
+//! Silence gets longer than repetition. A heavy TikZ page, LuaLaTeX building
+//! its font database on a first run ("This can take several minutes") and
+//! biber unpacking itself all print nothing for a while and then finish; a
+//! run that keeps printing only what it printed before is looping.
 
 use super::build::cancelled_build;
 use super::build_log::advice;
@@ -12,9 +17,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-/// How long a run may go without progress. Long enough for a heavy page of
-/// TikZ, which prints nothing until it is done.
-pub(super) const STALL_LIMIT: Duration = Duration::from_secs(120);
+/// How long a run may go without progress, by whether it is still printing.
+#[derive(Clone, Copy)]
+pub(super) struct StallLimits {
+    /// Printing, but only text it printed already: a loop.
+    pub(super) repeating: Duration,
+    /// Printing nothing at all: maybe a heavy page, maybe waiting for input.
+    pub(super) silent: Duration,
+}
+
+pub(super) const STALL_LIMITS: StallLimits =
+    StallLimits { repeating: Duration::from_secs(120), silent: Duration::from_secs(300) };
 const POLL: Duration = Duration::from_millis(100);
 /// Distinct lines remembered; past it, every line counts as new.
 const MAX_SEEN_LINES: usize = 50_000;
@@ -30,7 +43,10 @@ fn starts_a_step(line: &[u8]) -> bool {
 
 /// The state a run's readers and its watchdog share.
 pub(super) struct Progress {
+    /// When the run last printed something new.
     last: Mutex<Instant>,
+    /// When the run last printed anything, new or not.
+    heard: Mutex<Instant>,
     seen: Mutex<BTreeSet<Vec<u8>>>,
     finished: AtomicBool,
 }
@@ -39,6 +55,7 @@ impl Progress {
     pub(super) fn new() -> Self {
         Self {
             last: Mutex::new(Instant::now()),
+            heard: Mutex::new(Instant::now()),
             seen: Mutex::new(BTreeSet::new()),
             finished: AtomicBool::new(false),
         }
@@ -67,26 +84,46 @@ impl Progress {
             }
         }
         drop(seen);
+        let now = Instant::now();
+        if let Ok(mut heard) = self.heard.lock() {
+            *heard = now;
+        }
         if moved {
             if let Ok(mut last) = self.last.lock() {
-                *last = Instant::now();
+                *last = now;
             }
         }
+    }
+
+    /// Whether the run printed something new at or after `instant`.
+    #[cfg(test)]
+    pub(super) fn moved_since(&self, instant: Instant) -> bool {
+        self.last.lock().is_ok_and(|last| *last >= instant)
     }
 
     pub(super) fn finish(&self) {
         self.finished.store(true, Ordering::Relaxed);
     }
 
-    /// Waits for the run to finish; true if it stalled for `limit` first.
-    pub(super) fn stalled_for(&self, limit: Duration) -> bool {
+    /// Waits for the run to finish; true if it stalled past `limits` first.
+    pub(super) fn stalled_for(&self, limits: StallLimits) -> bool {
         while !self.finished.load(Ordering::Relaxed) {
-            if self.last.lock().is_ok_and(|last| last.elapsed() >= limit) {
+            if self.stalled(limits) {
                 return true;
             }
             std::thread::sleep(POLL);
         }
         false
+    }
+
+    fn stalled(&self, limits: StallLimits) -> bool {
+        let (Ok(last), Ok(heard)) = (self.last.lock(), self.heard.lock()) else { return false };
+        // A repeat this recent (10 s of the 120) means it is still printing.
+        // One that went quiet after repeating a warning may be on a heavy
+        // page: silence decides then.
+        let still_printing = heard.elapsed() < limits.repeating / 12;
+        let looping = still_printing && last.elapsed() >= limits.repeating;
+        looping || heard.elapsed() >= limits.silent
     }
 }
 
@@ -176,12 +213,39 @@ mod tests {
         assert!(unknown.diagnostics[0].message.ends_with("Look for an unfinished command."));
     }
 
+    const SHORT: Duration = Duration::from_secs(12);
+    const LONG: Duration = Duration::from_secs(60);
+
+    /// A run that last printed something new `new` ago and anything `any` ago.
+    fn quiet_for(new: u64, any: u64) -> Progress {
+        let progress = Progress::new();
+        *progress.last.lock().unwrap() = Instant::now() - Duration::from_secs(new);
+        *progress.heard.lock().unwrap() = Instant::now() - Duration::from_secs(any);
+        progress
+    }
+
     #[test]
     fn stalls_only_without_progress() {
-        let progress = Progress::new();
-        assert!(progress.stalled_for(Duration::ZERO));
+        let progress = quiet_for(0, 0);
+        assert!(
+            progress.stalled_for(StallLimits { repeating: Duration::ZERO, silent: Duration::ZERO })
+        );
         progress.finish();
-        assert!(!progress.stalled_for(Duration::from_secs(5)));
+        assert!(!progress.stalled_for(StallLimits { repeating: SHORT, silent: SHORT }));
+    }
+
+    #[test]
+    fn silence_is_given_longer_than_repetition() {
+        let limits = StallLimits { repeating: SHORT, silent: LONG };
+        // Still printing the same error: a loop.
+        assert!(quiet_for(13, 0).stalled(limits));
+        assert!(!quiet_for(11, 0).stalled(limits));
+        // Quiet for longer than a loop gets, but maybe a heavy page.
+        assert!(!quiet_for(13, 2).stalled(limits));
+        assert!(!quiet_for(30, 30).stalled(limits));
+        // A warning repeated, then a long quiet page.
+        assert!(!quiet_for(40, 20).stalled(limits));
+        assert!(quiet_for(61, 61).stalled(limits));
     }
 
     #[test]

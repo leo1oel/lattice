@@ -4,7 +4,7 @@ use super::build_log::{
     advice, is_stale_previous_invocation_log, log_conference_template, pages_written,
     parse_diagnostics, parse_format_diagnostics, skipped_recompile, trim_log,
 };
-use super::build_stall::{self, Progress};
+use super::build_stall::{self, Progress, StallLimits};
 use super::build_steps::BuildSteps;
 use super::compile_root::{choose_compile_root, is_one_off_root};
 use super::preamble_format::{self, Prepared};
@@ -21,7 +21,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 mod active;
 pub(crate) use active::begin_active;
@@ -37,12 +37,12 @@ use active::{finish_active, stop_stalled, terminate, was_stalled, BuildSession};
 pub(super) fn run_tracked(
     command: Command, active: &ActiveBuild, steps: &BuildSteps, start_error: &str, wait_error: &str,
 ) -> Result<(Output, bool), String> {
-    run_watched(command, active, steps, start_error, wait_error, build_stall::STALL_LIMIT)
+    run_watched(command, active, steps, start_error, wait_error, build_stall::STALL_LIMITS)
 }
 
 fn run_watched(
     mut command: Command, active: &ActiveBuild, steps: &BuildSteps, start_error: &str,
-    wait_error: &str, stall_limit: Duration,
+    wait_error: &str, stall_limits: StallLimits,
 ) -> Result<(Output, bool), String> {
     commands::in_new_process_group(&mut command).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
@@ -62,7 +62,7 @@ fn run_watched(
     let (stdout, stderr) = std::thread::scope(|scope| {
         let stdout = scope.spawn(|| read_lines(stdout, steps, &progress));
         let stderr = scope.spawn(|| read_lines(stderr, steps, &progress));
-        scope.spawn(|| progress.stalled_for(stall_limit).then(|| stop_stalled(active)));
+        scope.spawn(|| progress.stalled_for(stall_limits).then(|| stop_stalled(active)));
         let read = (stdout.join().unwrap_or_default(), stderr.join().unwrap_or_default());
         progress.finish();
         read
