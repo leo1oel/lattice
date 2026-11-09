@@ -202,6 +202,24 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.outcome).toBeNull();
   });
 
+  // A stalled build would stall again on the same inputs: autosave and the
+  // watcher wait for any input to change, whichever file it is in.
+  it("holds automatic builds after a stall until an input changes", async () => {
+    let answer = result({ success: false, diagnostics: [{ level: "error", message: "Stalled.", code: "build-stalled", params: { seconds: "120" } }] });
+    const view = renderPipeline(async () => answer);
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    answer = result();
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    expect(invokeCount("build_project")).toBe(1);
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(invokeCount("build_project")).toBe(2);
+    answer = result({ success: false, diagnostics: [{ level: "error", message: "Stalled.", code: "build-stalled", params: { seconds: "120" } }] });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    act(() => view.result.current.markInputsChanged(["chapters/intro.tex"]));
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    expect(invokeCount("build_project")).toBe(4);
+  });
+
   // S8 in the implicit-state audit: autosave queued a pass behind the stuck
   // build, and Stop started it the moment the stopped one came back.
   it("stops the pass queued behind a stuck build too", async () => {

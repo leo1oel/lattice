@@ -196,11 +196,13 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // a hook App runs so an approved update outlives Settings, +2.4 KB
 // (1,428,755 -> 1,431,207 bytes, a local build).
 // Raised from 1.365 MiB for the reference check's fix groups and Refresh entry (#750), +1.8 KB (1,433,109 bytes, a local build).
-// Raised from 1.367 MiB for the experimental Windows host (#702): the host
-// check behind the Ctrl/Alt/Shift key labels, the window's client-area
-// minimum, the Agent notice and update gating run at startup; its LaTeX setup
-// dialog and F11/Esc fullscreen keys load on demand (windows-host-ui.ts),
-// +1.0 KB (1,433,109 -> 1,434,066 bytes, a local build).
+// Raised from 1.367 MiB for the build stall (#747): automatic builds hold after
+// a stall, which the build pipeline decides at startup, +0.3 KB (1,433,439 bytes).
+// The experimental Windows host (#702) fits under it: the host check behind
+// the Ctrl/Alt/Shift key labels, the window's client-area minimum, the Agent
+// notice and update gating run at startup; its LaTeX setup dialog and F11/Esc
+// fullscreen keys load on demand (windows-host-ui.ts), +1.0 KB
+// (1,433,439 -> 1,434,396 bytes, a local build).
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.368 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
