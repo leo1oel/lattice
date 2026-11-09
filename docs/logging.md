@@ -5,7 +5,7 @@ Lattice writes one log, `lattice.log`, in
 five old files. Settings → Logs → Open log folder shows the folder, and Export
 there builds a redacted bundle for a bug report; Help → Report a Problem… saves
 the same bundle to the folder's `reports/` and opens a new GitHub issue with
-only the Lattice and macOS versions filled in. The agent sidecar keeps its
+only the Lattice version, macOS version and architecture filled in. The agent sidecar keeps its
 own logs; see [`synara-runtime.md`](synara-runtime.md).
 
 ## Wide events
