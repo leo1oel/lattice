@@ -2353,7 +2353,7 @@ msgstr "Automatic build"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "Automatic checks LaTeX as academic writing and other files as everyday prose"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
 msgstr "Automatic paper-tool installation isn’t available in this experimental Windows build."
 
@@ -3196,8 +3196,8 @@ msgid "Check accent example"
 msgstr "Check accent example"
 
 #: src/app/project-index-load.ts
-#: src/build/tex-setup-wizard.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "Check again"
@@ -5422,7 +5422,7 @@ msgstr "Download paper"
 msgid "Download PDF"
 msgstr "Download PDF"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Download TeX Live"
 msgstr "Download TeX Live"
 
@@ -7577,6 +7577,7 @@ msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "Install later"
 
@@ -7586,10 +7587,12 @@ msgid "Install LaTeX"
 msgstr "Install LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "Install LaTeX to compile"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "Install LaTeX tools"
@@ -7614,6 +7617,7 @@ msgid "Install paper tools"
 msgstr "Install paper tools"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
@@ -7629,7 +7633,7 @@ msgstr "Install TeX Live for Windows (https://tug.org/texlive/windows.html), the
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 
-#: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
 msgstr "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
 

@@ -6,7 +6,7 @@ import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { clearTimer, disposeWhenSettled, restartTimer, type TimerRef } from "./effect-helpers";
 import { APP_WINDOW_MIN_HEIGHT, minimumWindowWidth } from "./window-layout";
 
-function getCurrentWindowSafely() {
+export function getCurrentWindowSafely() {
   try {
     return getCurrentWindow();
   } catch {
@@ -100,6 +100,9 @@ export function useWindowTitle(title: string) {
   useEffect(() => () => writeWindowTitle((launch) => launch), []);
 }
 
+/** Windows-only keys and dialogs, kept out of the startup bundle. */
+const loadWindowsHostUi = () => import("../platform/windows-host-ui");
+
 export function useFullscreen(): boolean {
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -117,20 +120,15 @@ export function useFullscreen(): boolean {
   }, []);
   useEffect(() => {
     if (!isWindowsHost()) return;
-    const appWindow = getCurrentWindowSafely();
-    if (typeof appWindow?.setFullscreen !== "function") return;
-    const keydown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
-      if (event.key === "F11") {
-        event.preventDefault();
-        void appWindow.isFullscreen().then(value => appWindow.setFullscreen(!value)).catch(() => {});
-      } else if (event.key === "Escape" && isFullscreen) {
-        event.preventDefault();
-        void appWindow.setFullscreen(false).catch(() => {});
-      }
+    let live = true;
+    let stop = () => {};
+    void loadWindowsHostUi().then((ui) => {
+      if (live) stop = ui.watchFullscreenKeys(isFullscreen);
+    });
+    return () => {
+      live = false;
+      stop();
     };
-    window.addEventListener("keydown", keydown);
-    return () => window.removeEventListener("keydown", keydown);
   }, [isFullscreen]);
   return isFullscreen;
 }

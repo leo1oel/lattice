@@ -2353,7 +2353,7 @@ msgstr "自动编译"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "“自动”会把 LaTeX 按学术写作检查，其他文件按日常文字检查"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
 msgstr "此 Windows 实验版本暂不支持自动安装论文工具。"
 
@@ -3196,8 +3196,8 @@ msgid "Check accent example"
 msgstr "抑扬符示例"
 
 #: src/app/project-index-load.ts
-#: src/build/tex-setup-wizard.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "重新检查"
@@ -5422,7 +5422,7 @@ msgstr "下载论文"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Download TeX Live"
 msgstr "下载 TeX Live"
 
@@ -7577,6 +7577,7 @@ msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "稍后安装"
 
@@ -7586,10 +7587,12 @@ msgid "Install LaTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 才能编译"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX"
@@ -7614,6 +7617,7 @@ msgid "Install paper tools"
 msgstr "安装论文工具"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "安装论文工具"
 
@@ -7629,7 +7633,7 @@ msgstr "安装 Windows 版 TeX Live（https://tug.org/texlive/windows.html），
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
 msgstr "安装 Windows 版 TeX Live 后重新检查。没有 LaTeX 也可以继续编辑。"
 

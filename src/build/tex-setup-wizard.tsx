@@ -1,8 +1,7 @@
 import { isWindowsHost } from "../platform/host-platform";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   isOnlyPaperToolsMissing,
   missingTexToolNames,
@@ -21,6 +20,9 @@ import { buttonClassName } from "../components/ui/button-styles";
 import { logAction, notifyWarning } from "../telemetry/app-notify";
 import { texPackageUpdateMessage } from "./tex-package-updates";
 import { toMessage } from "../app-utils";
+
+// Windows has no one-click installer; its dialog loads only there.
+const WindowsTexSetupDialog = lazy(() => import("../platform/windows-host-ui").then((module) => ({ default: module.WindowsTexSetupDialog })));
 
 /** Notification source label for the LaTeX install wizard. */
 const TEX_SETUP_SOURCE = "LaTeX setup";
@@ -55,23 +57,9 @@ export function TexSetupWizard(props: {
 
   if (isWindowsHost()) {
     return (
-      <TexInstallDialog
-        label={t`Install LaTeX tools`}
-        title={paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}
-        description={paperToolsOnly
-          ? t`Automatic paper-tool installation isn’t available in this experimental Windows build.`
-          : t`Install TeX Live for Windows, then check again. You can keep editing without LaTeX.`}
-        closeDisabled={false}
-        onClose={props.onClose}
-        progress={null}
-        error={null}
-      >
-        <div className="modal-actions">
-          <Button variant="ghost" onClick={props.onClose}>{t`Install later`}</Button>
-          <Button disabled={props.checking} onClick={() => void props.onRecheck()}>{t`Check again`}</Button>
-          {!paperToolsOnly && <Button variant="primary" onClick={() => void openUrl("https://tug.org/texlive/windows.html")}>{t`Download TeX Live`}</Button>}
-        </div>
-      </TexInstallDialog>
+      <Suspense fallback={null}>
+        <WindowsTexSetupDialog paperToolsOnly={paperToolsOnly} checking={props.checking} onClose={props.onClose} onRecheck={props.onRecheck} />
+      </Suspense>
     );
   }
 

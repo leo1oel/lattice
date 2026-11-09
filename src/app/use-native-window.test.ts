@@ -71,6 +71,9 @@ it("F11 toggles native fullscreen in both directions on Windows", async () => {
   nativeWindow.setFullscreen.mockImplementation(async (next) => { fullscreen = next; });
   try {
     renderHook(useFullscreen);
+    // The keys load on demand; the hook's own import of the module settles first.
+    await import("../platform/windows-host-ui");
+    await Promise.resolve();
     fireEvent.keyDown(window, { key: "F11" });
     await waitFor(() => expect(nativeWindow.setFullscreen).toHaveBeenLastCalledWith(true));
     fireEvent.keyDown(window, { key: "F11" });

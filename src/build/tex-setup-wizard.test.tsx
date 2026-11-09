@@ -161,7 +161,8 @@ it("on Windows, links to TeX Live and lets the user keep editing without running
   try {
     tauri.invoke.mockClear();
     const { onClose, onRecheck } = renderWizard(report(check("latexmk", false)));
-    expect(screen.getByRole("button", { name: "Download TeX Live" })).toBeInTheDocument();
+    // The Windows dialog loads on demand.
+    expect(await screen.findByRole("button", { name: "Download TeX Live" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
     expect(onRecheck).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Install later" }));
