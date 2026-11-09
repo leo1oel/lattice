@@ -1,0 +1,65 @@
+/* A comment's passage, in the source (.cm-editor-comment, editor-comments.ts)
+   and on the PDF (.pdf-annotation-mark, pdf-annotations.tsx): one colour for
+   one comment on both sides. A local annotation is an amber highlighter
+   stroke, blue while the agent's proposal waits and violet while its question
+   does; an Overleaf thread carries its author's colour inline in the same two
+   properties (comment-mark-colors.ts), which win over these. The rule is
+   declared where the ink is, so an inline ink recolours it too. */
+.cm-editor-comment,
+.pdf-annotation-mark {
+  --comment-mark-ink: var(--annotation-ink);
+  --comment-mark-tint: var(--annotation-highlight);
+  --comment-mark-rule: color-mix(in srgb, var(--comment-mark-ink) 70%, transparent);
+}
+:is(.cm-editor-comment, .pdf-annotation-mark)[data-annotation-status="proposed"] {
+  --comment-mark-ink: var(--annotation-proposed-ink);
+  --comment-mark-tint: color-mix(in srgb, var(--annotation-proposed-ink) 10%, transparent);
+}
+:is(.cm-editor-comment, .pdf-annotation-mark)[data-annotation-status="asked"] {
+  --comment-mark-ink: var(--annotation-asked-ink);
+  --comment-mark-tint: color-mix(in srgb, var(--annotation-asked-ink) 10%, transparent);
+}
+
+/* --- In the source -------------------------------------------------------- */
+.source-editor .cm-editor-comment {
+  border-radius: 2px;
+  background: var(--comment-mark-tint);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: help;
+}
+.source-editor .cm-editor-comment:not(.cm-annotation) { border-bottom: 2px solid var(--comment-mark-ink); }
+/* The band reaches below the descenders before its rule, so the rule never
+   cuts a g or a y: vertical padding on an inline mark paints without moving
+   the line. Square but for a hair, as on the PDF. */
+.source-editor .cm-annotation {
+  padding-block: 0 0.16em;
+  border-radius: 1px;
+  box-shadow: inset 0 -1.5px 0 var(--comment-mark-rule);
+}
+/* Resolved from its card: the mark fades with the card before it is taken away. */
+.source-editor .cm-editor-comment.cm-editor-comment-resolving {
+  background-color: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
+  transition: background-color var(--motion-moderate-exit), border-color var(--motion-moderate-exit), box-shadow var(--motion-moderate-exit);
+}
+
+/* --- On the PDF ----------------------------------------------------------- */
+.pdf-annotation-mark { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+/* One band per line, the height of the line's type, its rule along the
+   bottom below the descenders: the same tint and rule the source draws. */
+.pdf-annotation-highlight {
+  position: absolute;
+  border-radius: 1px;
+  background: var(--comment-mark-tint);
+  box-shadow: inset 0 -1.5px 0 var(--comment-mark-rule);
+  transition: background-color var(--motion-fast);
+}
+/* The passage under the pointer, and the open card's while it is read,
+   deepen in their own colour. */
+.pdf-annotation-mark:is([data-hovered], [data-active]) .pdf-annotation-highlight {
+  background: color-mix(in srgb, var(--comment-mark-rule) 45%, var(--comment-mark-tint));
+}
+/* Resolved from its card: the highlight and pin fade with the card before they are taken away. */
+.pdf-annotation-mark[data-resolving] { opacity: 0; transition: opacity var(--motion-moderate-exit); }
