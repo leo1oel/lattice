@@ -1,1 +1,0 @@
-import{t as e}from"./app-BogCp1iz.js";await e();
