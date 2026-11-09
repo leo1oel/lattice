@@ -403,12 +403,13 @@ mod tests {
 
     #[test]
     fn confirmed_papers_can_correct_venues_without_collapsing_findings() {
-        for (before, remote) in [
-            ("@inproceedings{awm,title={Agent Workflow Memory},author={Wang, Zora Zhiruo and Mao, Jiayuan and Fried, Daniel and Neubig, Graham},booktitle={ICLR},year={2025}}", "@inproceedings{x,title={Agent Workflow Memory},author={Zora Zhiruo Wang and Jiayuan Mao and Daniel Fried and Graham Neubig},booktitle={ICML},year={2025}}"),
-            ("@inproceedings{memp,title={Memp: Exploring Agent Procedural Memory},author={Runnan Fang and Yuan Liang},booktitle={ACL},year={2026},doi={10.18653/v1/2026.findings-acl.866}}", "@inproceedings{x,title={Memp: Exploring Agent Procedural Memory},author={Runnan Fang and Yuan Liang},booktitle={Findings of the Association for Computational Linguistics: ACL 2026},year={2026},doi={10.18653/v1/2026.findings-acl.866}}"),
+        for (before, remote, venue) in [
+            ("@inproceedings{awm,title={Agent Workflow Memory},author={Wang, Zora Zhiruo and Mao, Jiayuan and Fried, Daniel and Neubig, Graham},booktitle={ICLR},year={2025}}", "@inproceedings{x,title={Agent Workflow Memory},author={Zora Zhiruo Wang and Jiayuan Mao and Daniel Fried and Graham Neubig},booktitle={ICML},year={2025}}", "International Conference on Machine Learning (ICML)"),
+            ("@inproceedings{memp,title={Memp: Exploring Agent Procedural Memory},author={Runnan Fang and Yuan Liang},booktitle={ACL},year={2026},doi={10.18653/v1/2026.findings-acl.866}}", "@inproceedings{x,title={Memp: Exploring Agent Procedural Memory},author={Runnan Fang and Yuan Liang},booktitle={Findings of the Association for Computational Linguistics: ACL 2026},year={2026},doi={10.18653/v1/2026.findings-acl.866}}", "Findings of the Association for Computational Linguistics: ACL (Findings of ACL)"),
         ] {
             let after = compare_title_entry(before, remote).after.unwrap();
-            assert_eq!(fields(&after)["booktitle"], fields(remote)["booktitle"]);
+            // A corrected venue is proposed by its canonical name.
+            assert_eq!(fields(&after)["booktitle"], venue);
             if remote.contains("findings-acl") {
                 assert!(compare_title_entry(&after, &remote.replace("Findings of the Association for Computational Linguistics: ACL 2026", "ACL")).after.is_none());
             }

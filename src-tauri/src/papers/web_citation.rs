@@ -4,7 +4,9 @@
 //! publisher's field values and bypass bibcite's resolution.
 
 use super::bibliography::{run_bibcite_input, ScratchBibliography};
-use super::citation::{normalized_paper_title, paper_titles_match, unused_key};
+use super::citation::{
+    normalized_paper_title, paper_titles_match, supplied_citation_key, unused_key,
+};
 use super::{http_client, is_web_url, read_capped};
 use crate::citation_audit::entry_fields;
 use crate::firecrawl::ScrapedPage;
@@ -247,49 +249,6 @@ pub(crate) fn alphaxiv_bibtex(paper: &crate::alphaxiv::Paper) -> Result<String, 
     Ok(format!("{head},\n{}\n}}\n", fields.collect::<Vec<_>>().join("\n")))
 }
 
-/// Same key policy as bibcite-cli 0.6.11's normalize.make_key / _finalize.
-/// Supplied BibTeX bypasses that policy upstream, so apply it here without
-/// round-tripping publisher fields through bibcite's lossy normalization.
-pub(super) fn supplied_citation_key(raw: &str) -> String {
-    use unicode_normalization::UnicodeNormalization;
-    const STOPWORDS: &str = "i me my myself we our ours ourselves you your yours yourself yourselves he him his himself she her hers herself it its itself they them their theirs themselves what which who whom this that these those am is are was were be been being have has had having do does did doing a an the and but if or because as until while of at by for with about against between into through during before after above below to from up down in out on off over under again further then once here there when where why how all any both each few more most other some such no nor not only own same so than too very s t can will just don should now";
-    let (_, start, end) = project::bibliography_entry_spans(raw).into_iter().next().unwrap();
-    let fields = entry_fields(&raw[start..end]);
-    let hash = |value: &str| -> String {
-        value
-            .nfkd()
-            .filter(char::is_ascii)
-            .flat_map(char::to_lowercase)
-            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
-            .collect()
-    };
-    let field = |name: &str| fields.get(name).map(String::as_str).filter(|value| !value.is_empty());
-    let separator = Regex::new(r"(?i)\s+and\s+").unwrap();
-    let author = field("author").unwrap_or("anonymous");
-    let first = separator.split(author.trim()).next().unwrap().trim().trim_matches(['{', '}']);
-    let surname = first
-        .split_once(',')
-        .map(|(last, _)| last)
-        .unwrap_or_else(|| first.split_whitespace().last().unwrap_or("anon"));
-    let surname = hash(surname);
-    let year = field("year").unwrap_or("XXXX");
-    let words: Vec<String> = fields
-        .get("title")
-        .map(String::as_str)
-        .unwrap_or_default()
-        .split_whitespace()
-        .map(hash)
-        .filter(|word| !word.is_empty())
-        .collect();
-    let word = words
-        .iter()
-        .find(|word| !STOPWORDS.split_whitespace().any(|stop| stop == word.as_str()))
-        .or_else(|| words.first())
-        .map(String::as_str)
-        .unwrap_or("paper");
-    format!("{}{year}{word}", if surname.is_empty() { "anon" } else { &surname })
-}
-
 /// Let bibcite validate/normalize the supplied record without tidying the
 /// user's bibliography. Merge by URL here: bibcite's title-only dedupe would
 /// otherwise collapse a report and its identically titled blog into one entry.
@@ -319,7 +278,10 @@ pub(super) fn merge_supplied_bibtex(
         None => unused_key(&entries, &supplied_citation_key(raw)),
     };
     let (_, start, end) = project::bibliography_entry_spans(raw).into_iter().next().unwrap();
-    let supplied = &raw[start..end];
+    // The local cleanup Check citations would otherwise propose (protected
+    // mixed-case title words, repeated authors) applies to webpage records too.
+    let protected = crate::citation_audit::protect_bibtex(&raw[start..end]);
+    let supplied = protected.as_str();
     let opening = supplied.find(['{', '(']).unwrap();
     let comma = supplied.find(',').unwrap();
     let head = &supplied[..opening + 1];
@@ -343,7 +305,12 @@ pub(super) fn merge_supplied_bibtex(
     }) {
         fields.remove("note");
     }
+    let unchanged = fields.clone();
     fields.extend(project::parse_bibliography_fields_syntax(entry_body(supplied).unwrap()));
+    if fields == unchanged {
+        // Nothing to enrich: keep the entry exactly as it is written.
+        return Ok((before.to_string(), key, true));
+    }
     let body = fields
         .iter()
         .map(|(name, value)| format!("  {name} = {value}"))
@@ -467,7 +434,8 @@ mod tests {
         let (unchanged, key, exists) = merge_supplied_bibtex(SUPPLIED_BLOG, SUPPLIED_BLOG).unwrap();
         assert!(exists);
         assert_eq!(key, "mirros2026sspace");
-        assert!(unchanged.contains("month = {September}"));
+        // A re-import with nothing new leaves the entry exactly as written.
+        assert_eq!(unchanged, SUPPLIED_BLOG);
         let before = "@misc{team2026sspace,title={S-Space: Exploring Spatial Workspace in Multimodal Models},url={https://mirros.ai/report/s-space.pdf}}\n";
         let (added, key, existing) = merge_supplied_bibtex(before, SUPPLIED_BLOG).unwrap();
         assert!(!existing);

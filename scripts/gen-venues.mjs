@@ -1,5 +1,7 @@
-// Generate src/papers/venues.ts — a snapshot of bibcite's canonical venue list used by
-// the bibliography-entry editor's venue autocomplete. The venue's category
+// Generate src/papers/venues.ts — a snapshot of bibcite's canonical venue list,
+// plus Lattice's own additions in scripts/venues-overlay.bib. It is the one venue
+// vocabulary: the bibliography-entry editor's venue autocomplete offers it, and
+// the citation audit (src-tauri/src/citation_audit/venue.rs) proposes its names. The venue's category
 // decides the BibTeX entry type (journal -> @article, conference/workshop ->
 // @inproceedings), so picking a venue can set the type automatically.
 //
@@ -14,6 +16,7 @@ const root = projectRoot;
 const bibcite = process.argv[2] || resolve(root, "..", "bibcite");
 const stringsPath = resolve(bibcite, "src", "bibcite", "data", "strings.bib");
 const venuesPyPath = resolve(bibcite, "src", "bibcite", "venues.py");
+const overlayPath = resolve(root, "scripts", "venues-overlay.bib");
 
 // Pull `"key": "value"` pairs out of a `NAME = { … }` block in venues.py so the
 // aliases/overrides stay in sync with bibcite instead of being hand-copied.
@@ -25,7 +28,9 @@ function pyDict(source, name) {
   return out;
 }
 
-const stringsText = readFileSync(stringsPath, "utf8");
+// The overlay starts with its own section header, so appending it keeps every
+// venue's category.
+const stringsText = `${readFileSync(stringsPath, "utf8")}\n${readFileSync(overlayPath, "utf8")}`;
 const venuesPy = readFileSync(venuesPyPath, "utf8");
 const CATEGORY_OVERRIDES = pyDict(venuesPy, "CATEGORY_OVERRIDES"); // macro -> category
 const EXTRA_ALIASES = pyDict(venuesPy, "EXTRA_ALIASES"); // phrase -> macro
@@ -68,11 +73,14 @@ const venues = [...byName.values()]
 const rows = venues.map(({ name, entryType, search }) =>
   `  { name: ${JSON.stringify(name)}, entryType: ${JSON.stringify(entryType)}, search: ${JSON.stringify(search)} },`);
 
-const out = `// Snapshot of bibcite's canonical venues (${venues.length} entries), used by the
-// bibliography-entry editor's venue autocomplete. The category from bibcite sets
-// the entry type: journal -> @article, conference/workshop -> @inproceedings.
+const out = `// Snapshot of bibcite's canonical venues plus Lattice's overlay (${venues.length} entries),
+// used by the bibliography-entry editor's venue autocomplete and read by the
+// citation audit (src-tauri/src/citation_audit/venue.rs), so both name a venue
+// the same way. The category sets the entry type: journal -> @article,
+// conference/workshop -> @inproceedings.
 //
-// Generated from bibcite's data/strings.bib — regenerate with:
+// Generated from bibcite's data/strings.bib and scripts/venues-overlay.bib —
+// regenerate with:
 //   node scripts/gen-venues.mjs [path/to/bibcite]
 // Do not edit by hand.
 
@@ -88,4 +96,4 @@ ${rows.join("\n")}
 `;
 
 writeFileSync(resolve(root, "src", "papers", "venues.ts"), out);
-console.log(`wrote src/papers/venues.ts — ${venues.length} venues from ${stringsPath}`);
+console.log(`wrote src/papers/venues.ts — ${venues.length} venues from ${stringsPath} and ${overlayPath}`);

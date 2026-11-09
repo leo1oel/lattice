@@ -1,0 +1,16 @@
+% Lattice's additions to bibcite's data/strings.bib, merged in by
+% scripts/gen-venues.mjs. Same @string format and section headers as bibcite;
+% a name already in bibcite's table merges with it instead of repeating.
+% The citation audit reads the generated src/papers/venues.ts too, so a venue
+% added here is both an Add papers suggestion and a name the audit proposes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Conferences
+@string{EACL = "Proceedings of the Conference of the European Chapter of the Association for Computational Linguistics (EACL)"}
+% ACL Anthology names each Findings volume after its conference and year
+% ("Findings of the Association for Computational Linguistics: EMNLP 2026");
+% the year belongs in the entry's year field.
+@string{FindingsACL = "Findings of the Association for Computational Linguistics: ACL (Findings of ACL)"}
+@string{FindingsEMNLP = "Findings of the Association for Computational Linguistics: EMNLP (Findings of EMNLP)"}
+@string{FindingsNAACL = "Findings of the Association for Computational Linguistics: NAACL (Findings of NAACL)"}
+@string{FindingsEACL = "Findings of the Association for Computational Linguistics: EACL (Findings of EACL)"}
+@string{FindingsAACL = "Findings of the Association for Computational Linguistics: AACL-IJCNLP (Findings of AACL)"}
