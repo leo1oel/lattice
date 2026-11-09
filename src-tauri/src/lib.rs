@@ -670,6 +670,7 @@ pub fn run() {
             literature_credentials::set_literature_contact,
             literature_credentials::test_literature_credential,
             diagnostic_logs::collect_diagnostic_logs,
+            diagnostic_logs::save_problem_report,
             browser_host::dialogs::browser_dialog_open,
             browser_host::dialogs::browser_dialog_save,
             macos_window::set_pdf_copy_text,

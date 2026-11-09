@@ -3,7 +3,9 @@
 Lattice writes one log, `lattice.log`, in
 `~/Library/Logs/app.leo1oel.researchwriter/`. It rotates at 2 MB and keeps
 five old files. Settings → Logs → Open log folder shows the folder, and Export
-there builds a redacted bundle for a bug report. The agent sidecar keeps its
+there builds a redacted bundle for a bug report; Help → Report a Problem… saves
+the same bundle to the folder's `reports/` and opens a new GitHub issue with
+only the Lattice version, macOS version and architecture filled in. The agent sidecar keeps its
 own logs; see [`synara-runtime.md`](synara-runtime.md).
 
 ## Wide events
@@ -24,6 +26,7 @@ Each operation that matters writes **one** line when it finishes, under
 | `synara.start` | the agent sidecar starts or restarts: port mode, health polls |
 | `browser.session` | an Open in browser session ends: how, tab reconnects, messages relayed |
 | `pdf.session` | a PDF viewer closes a document: range reads, bytes read, time to first bytes |
+| `app.update_install` | an app update's download and install ends: `to_version`, `mode`, `attempts` (transient failures are retried), `bytes` downloaded, and `http_status` when the failure names one |
 
 Every event has `event`, `outcome` (`success`, `error`, `failed`, `cancelled`,
 or `abandoned` when it never finished) and `duration_ms`. A step's time is
