@@ -457,16 +457,19 @@ mod tests {
     /// current number to the width of the total (`[ 1/12, …]`), and after
     /// each one records what STATUS then says in `statuses`; with
     /// `fail_update_all` it fails the way an unreachable repository does.
+    /// Every run first records what STATUS says in `stages`.
     struct StubTlmgr {
         path: std::path::PathBuf,
         calls: std::path::PathBuf,
         statuses: std::path::PathBuf,
+        stages: std::path::PathBuf,
     }
 
     impl StubTlmgr {
         fn new(dir: &Path, root: &Path, fail_update_all: bool) -> Self {
             let calls = dir.join("calls");
             let statuses = dir.join("statuses");
+            let stages = dir.join("stages");
             let update_all = if fail_update_all {
                 "echo 'tlmgr: TLPDB::from_file could not get texlive.tlpdb' >&2\n    exit 1"
                     .to_string()
@@ -488,14 +491,16 @@ mod tests {
                 )
             };
             let script = format!(
-                "#!/bin/bash\nprintf '%s\\n' \"$*\" >> {calls}\ncase \"$*\" in\n  *'update --all')\n    {update_all}\n    ;;\nesac\n",
+                "#!/bin/bash\nprintf '%s\\n' \"$*\" >> {calls}\ncat {status} >> {stages}\ncase \"$*\" in\n  *'update --all')\n    {update_all}\n    ;;\nesac\n",
                 calls = shell_quote(&calls.to_string_lossy()),
+                status = shell_quote(&root.join("status").to_string_lossy()),
+                stages = shell_quote(&stages.to_string_lossy()),
             );
             let path = dir.join("tlmgr");
             fs::write(&path, script).unwrap();
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
-            Self { path, calls, statuses }
+            Self { path, calls, statuses, stages }
         }
 
         fn lines(path: &Path) -> Vec<String> {
@@ -551,39 +556,40 @@ mod tests {
         assert!(!root.exists());
     }
 
-    /// The prelude's contract for a step that may fail without failing the
-    /// install, as BasicTeX's package update uses it: the script goes on and
-    /// exits 0, and the warning reaches the original stdout, not LOG or stderr.
+    /// The BasicTeX install as shipped, with INSTALL_BASE 0 and TEXBIN a
+    /// folder holding only the stub tlmgr. The prelude's contract for a step
+    /// that may fail without failing the install, and the intent's: a failed
+    /// package update leaves the install going on to the required packages
+    /// and exiting 0, and its warning reaches the original stdout, not LOG
+    /// or stderr.
     #[test]
-    fn installer_step_allowed_to_fail_hands_its_warning_to_stdout() {
-        let workspace = crate::test_support::TempDir::new("installer-warning-test");
+    fn basic_tex_install_goes_on_after_a_failed_package_update_and_warns() {
+        let workspace = crate::test_support::TempDir::new("basic-tex-warning-test");
         let root = workspace.join("root");
-        let tlmgr = StubTlmgr::new(&workspace, &root, true);
-        let script = format!(
-            "{prelude}\nTLMGR={tlmgr}\n\
-             CURRENT_STEP=\"Updating the installed LaTeX packages\"\n\
-             if ! tlmgr_with_fallback update --all 2>&1 | relay_progress updating-base; then\n\
-             {{\n\
-             printf '%s failed.\\n' \"${{CURRENT_STEP}}\"\n\
-             log_diagnostic\n\
-             }} >&4\n\
-             fi\n\
-             CURRENT_STEP=\"Installing the required LaTeX packages\"\n\
-             tlmgr_with_fallback install latexmk 2>&1 | relay_progress installing-packages\n",
-            prelude = include_str!("installer-prelude.sh")
-                .replace("__INSTALLER_NAME__", "BasicTeX")
-                .replace("__ROOT_PATH__", &shell_quote(&root.to_string_lossy())),
-            tlmgr = shell_quote(&tlmgr.path.to_string_lossy()),
+        let texbin = workspace.join("texbin");
+        fs::create_dir(&texbin).unwrap();
+        let tlmgr = StubTlmgr::new(&texbin, &root, true);
+        let shipped = basic_tex_script(&workspace.join("BasicTeX.pkg"), &root, false);
+        let system_texbin = "TEXBIN=\"/Library/TeX/texbin\"\n";
+        assert_eq!(shipped.matches(system_texbin).count(), 1);
+        let script = shipped.replace(
+            system_texbin,
+            &format!("TEXBIN={}\n", shell_quote(&texbin.to_string_lossy())),
         );
+        assert!(!script.contains("/Library/TeX"));
 
         let output = run_installer(&script);
 
         assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
         assert!(output.stderr.is_empty(), "{}", String::from_utf8_lossy(&output.stderr));
-        assert_eq!(
-            StubTlmgr::lines(&tlmgr.calls).last().map(String::as_str),
-            Some("install latexmk")
-        );
+        let calls = StubTlmgr::lines(&tlmgr.calls);
+        assert_eq!(calls.first().map(String::as_str), Some("update --self"), "{calls:?}");
+        assert!(calls.last().is_some_and(|call| call.starts_with("install latexmk ")), "{calls:?}");
+        // update --self, update --all from each repository, then the install.
+        let stages = StubTlmgr::lines(&tlmgr.stages);
+        assert_eq!(stages.len(), 5, "{stages:?}");
+        assert!(stages[..4].iter().all(|stage| stage == "updating-base"), "{stages:?}");
+        assert_eq!(stages[4], "installing-packages");
         let warning = install_warning(&String::from_utf8_lossy(&output.stdout)).unwrap();
         assert!(
             warning.starts_with(&format!(
@@ -592,6 +598,7 @@ mod tests {
             "{warning}"
         );
         assert!(warning.contains("could not get texlive.tlpdb"), "{warning}");
+        assert!(!root.exists());
     }
 
     #[test]
