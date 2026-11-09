@@ -1,7 +1,8 @@
 /* Linked library (linked-library-sheet.tsx), in the Add papers sheet's frame:
    the linked file and what it updates, then the tabs and the raised list of
    changes, each a ticked row over the fields it changes, here → library. */
-.linked-library-source { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; padding: var(--space-5) var(--space-6); border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); }
+/* A border, as on .add-papers-rows: the scrolling body clips an outset ring. */
+.linked-library-source { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; padding: var(--space-5) var(--space-6); border-radius: var(--radius-panel); border: 1px solid var(--border-subtle); background: var(--surface-panel-raised); }
 .linked-library-source-icon { color: var(--text-secondary); }
 .linked-library-source-text { min-width: 0; display: grid; gap: var(--space-1); }
 .linked-library-source-text > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--weight-medium); }
