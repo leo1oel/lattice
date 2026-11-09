@@ -153,8 +153,18 @@ export function citationIcon(completion: Completion): Node | null {
   return template.content.firstChild;
 }
 
-export function openCitationAtCursor(view: EditorView) {
+/**
+ * Opens the citation menu at a caret in a citation slot. `edit` is a Backspace
+ * through a key; otherwise the caret was only placed (a click, an arrow key,
+ * focus returning), and the menu opens only in an empty slot: a key already
+ * written there is what its hover card is for, and a menu opened under that
+ * card stacked the two.
+ */
+export function openCitationAtCursor(view: EditorView, cause: "edit" | "caret") {
   const { empty, head } = view.state.selection.main;
   if (!view.hasFocus || !empty || completionStatus(view.state) !== null) return;
-  if (citationCompletionRange(textBefore(view.state, head), head)) startCompletion(view);
+  const range = citationCompletionRange(textBefore(view.state, head), head);
+  if (!range) return;
+  if (cause === "caret" && (range.query || KEY_CHARACTER.test(view.state.sliceDoc(head, head + 1)))) return;
+  startCompletion(view);
 }

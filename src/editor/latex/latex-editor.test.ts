@@ -268,6 +268,29 @@ describe("LaTeX editor extensions", () => {
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
   });
 
+  // A written key is what its hover card is for; a menu opened by merely
+  // placing the caret in it stacked under the card and flipped with it.
+  it("opens no citation choices for a caret placed in a written key, until the key is edited", async () => {
+    const view = productionLatexView(["alpha2024", "alphabet2020", "beta2025"]);
+    const source = "See \\citep{alpha2024,beta2025}.";
+    view.dispatch({ changes: { from: 0, insert: source } });
+    view.focus();
+    const alpha = source.indexOf("alpha2024");
+    const beta = source.indexOf("beta2025");
+    // A click, an arrow key and focus returning, inside and at either end of each key.
+    for (const anchor of [alpha, alpha + 3, alpha + "alpha2024".length, beta + 4, beta + "beta2025".length]) {
+      view.dispatch({ selection: { anchor } });
+      fireEvent.click(view.contentDOM.querySelector(".cm-line")!);
+      view.contentDOM.blur();
+      view.focus();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(completionStatus(view.state), `caret at ${anchor}`).toBeNull();
+    }
+    view.dispatch({ selection: { anchor: alpha + "alpha".length } });
+    typeText(view, "b");
+    await vi.waitFor(() => expect(labels(view)).toEqual(["alphabet2020"]));
+  });
+
   it("reopens an unchanged citation cursor after focus returns from another control", async () => {
     const view = productionLatexView(["alpha2024"]);
     const input = document.body.appendChild(document.createElement("input"));

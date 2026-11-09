@@ -954,16 +954,19 @@ button.citation-card-title:hover, button.citation-card-title:focus-visible { tex
 .citation-card-uses { align-self: stretch; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
 .citation-card-uses[hidden] { display: none; }
 .citation-card-uses-heading { color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.citation-card-uses-frame { position: relative; margin: 0 calc(-1 * var(--space-3)); }
 .citation-card-uses-list {
   max-height: 176px;
-  margin: 0 calc(-1 * var(--space-3));
+  margin: 0;
   padding: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: none;
   list-style: none;
   display: flex;
   flex-direction: column;
 }
+.citation-card-uses-list::-webkit-scrollbar { display: none; }
 .citation-card-use { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
 .citation-card-use-jump {
   position: relative;

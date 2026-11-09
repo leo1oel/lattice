@@ -1,8 +1,8 @@
 /** Hover cards for citation keys (also opened from the keyboard), `\ref` labels and `\includegraphics` paths, with a figure preview when one exists. */
-import { closeCompletion } from "@codemirror/autocomplete";
+import { closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import {
-  closeHoverTooltips, hoverTooltip, showTooltip, type Command, type EditorView, type Rect, type Tooltip,
+  closeHoverTooltips, EditorView, hoverTooltip, showTooltip, type Command, type Rect, type Tooltip,
 } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -219,7 +219,9 @@ export function citationTooltips(
   reasons?: CitationReasonsContext,
 ): Extension {
   return [keyboardCard, hoverTooltip((view, position) => {
-    if (reasons?.api.editing(view.state)) return null;
+    // The suggestion menu and the card would stack over the same key, and
+    // the card would vanish as the pointer crossed into the menu.
+    if (reasons?.api.editing(view.state) || completionStatus(view.state) !== null) return null;
     const target = citationHoverTarget(view.state.doc.toString(), position);
     const data = live();
     const citation = target && citationFor(data, target.key);
@@ -237,6 +239,11 @@ export function citationTooltips(
         };
       },
     };
+  }), EditorView.updateListener.of((update) => {
+    // Typing into the key under a card opens the menu; the menu takes its place.
+    if (completionStatus(update.state) !== null && completionStatus(update.startState) === null) {
+      update.view.dispatch({ effects: closeHoverTooltips });
+    }
   })];
 }
 
@@ -256,7 +263,7 @@ export function citationCardAtCursor(
     const data = live();
     const citation = target && citationFor(data, target.key);
     if (!target || !citation) return false;
-    // The caret in a key opens the citation menu; the card takes its place.
+    // A menu open from typing in the key gives way to the card.
     closeCompletion(view);
     const close = () => {
       if (view.state.field(keyboardCard, false)) view.dispatch({ effects: setKeyboardCard.of(null) });

@@ -8,6 +8,7 @@
 import type { EditorView } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
+import { appendVerticalScrollbar } from "../../components/ui/dom-scrollbar";
 import { i18n } from "../../i18n";
 import { baseName } from "../../lib/base-name";
 import type { SymbolOccurrence } from "../../project/references-panel";
@@ -129,7 +130,12 @@ export function citationUsesSection(
   const section = element("div", "citation-card-uses");
   const heading = element("span", "citation-card-uses-heading");
   const list = element("ul", "citation-card-uses-list");
-  section.append(heading, list);
+  // The list draws Lattice's overlay scrollbar, not WebKit's: its own native
+  // bar reserved a track beside the rows and showed whenever the card did.
+  const frame = element("div", "citation-card-uses-frame");
+  frame.append(list);
+  appendVerticalScrollbar(list, frame);
+  section.append(heading, frame);
   const source = view.state.doc.toString();
   const placed = reasons?.placed(view.state);
   const here = currentPath
