@@ -95,7 +95,7 @@ describe("editor comment decorations", () => {
   it("builds unresolved comment decorations with per-author colors", () => {
     const open = comment();
     expect(buildCommentDecorations(SOURCE, "main.tex", [open, { ...open, id: "resolved", resolved: true }]).size).toBe(1);
-    expect(commentMarkStyle(open)).toContain("border-bottom: 2px solid");
+    expect(commentMarkStyle(open)).toContain("--comment-mark-ink: ");
     expect(commentMarkStyle(open)).not.toEqual(commentMarkStyle({ ...open, authorId: "author-b" }));
   });
 

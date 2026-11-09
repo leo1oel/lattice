@@ -87,16 +87,13 @@
 .pdf-comment-slot[data-hovered] .comment-preview,
 .pdf-comment-slot-preview:hover > .comment-preview { box-shadow: var(--elevation-popover); }
 
-/* The open card's passage stays lit on the page while it is read. */
-.pdf-annotation-mark[data-active] .pdf-annotation-highlight { background: color-mix(in srgb, var(--annotation-highlight-edge) 45%, var(--annotation-highlight)); }
-/* An Overleaf thread has no number: its pin is a dot in its author's colour. */
+/* An Overleaf thread has no number: its pin is a dot in its passage's colour (comment-marks.css). */
 .pdf-annotation-pin[data-kind="thread"] {
   min-width: calc(10px * var(--pin-scale));
   width: calc(10px * var(--pin-scale));
   height: calc(10px * var(--pin-scale));
   padding: 0;
-  --pin-color: var(--annotation-ink);
-  background: var(--pin-color);
+  background: var(--comment-mark-ink);
 }
 
 /* The folded column's way back, in the pages' top corner. */

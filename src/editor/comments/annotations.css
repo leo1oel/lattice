@@ -540,23 +540,9 @@
 }
 
 /* --- On the PDF --------------------------------------------------------- */
-.pdf-annotation-mark { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-/* One band per line, the height of the line's type, its rule along the
-   bottom below the descenders, square but for a hair of rounding: the same
-   tint and rule the source draws (.cm-annotation in editor-workspace.css). */
-.pdf-annotation-highlight {
-  position: absolute;
-  border-radius: 1px;
-  background: var(--annotation-highlight);
-  box-shadow: inset 0 -1.5px 0 var(--annotation-highlight-edge);
-  transition: background-color var(--motion-fast);
-}
-/* The passage under the pointer deepens, and the text over it takes a pointer: a click opens its card. */
-.pdf-annotation-mark[data-hovered] .pdf-annotation-highlight { background: color-mix(in srgb, var(--annotation-highlight-edge) 45%, var(--annotation-highlight)); }
+/* Its highlight's colour and states: comment-marks.css. A passage under the pointer takes a pointer: a click opens its card. */
 [data-annotation-hover] .textLayer,
 [data-annotation-hover] .textLayer * { cursor: pointer; }
-/* Resolved from its card: the highlight and pin fade with the card before they are taken away. */
-.pdf-annotation-mark[data-resolving] { opacity: 0; transition: opacity var(--motion-moderate-exit); }
 /* An annotation's card and its preview, above the passage on its page (pdf-annotations.tsx). */
 .pdf-comment-popup { position: absolute; z-index: 7; display: flex; flex-direction: column; }
 .pdf-comment-popup > .comment-card { width: 100%; max-width: none; min-height: 0; flex: 0 1 auto; }

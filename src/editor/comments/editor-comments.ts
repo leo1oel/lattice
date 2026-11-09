@@ -3,22 +3,21 @@ import { RangeSet, StateEffect, StateField, type Extension, type StateEffectType
 import {
   activateHover, closeHoverTooltip, Decoration, EditorView, gutter, GutterMarker, hoverTooltip, type DecorationSet,
 } from "@codemirror/view";
-import { peerColorForKey } from "../../components/ui/collab-colors";
 import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 import { annotationStatus, resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
+import { commentMarkProperties } from "./comment-mark-colors";
 import "./annotation-gutter.css";
+import "./comment-marks.css";
 
 export const setEditorCommentsEffect = StateEffect.define<EditorComment[]>();
 
 export type EditorCommentDraft = Pick<EditorComment, "path" | "from" | "to" | "quote" | "prefix" | "suffix">;
 export const setEditorCommentDraftEffect = StateEffect.define<EditorCommentDraft | null>();
 
+/** An Overleaf thread's mark style: its author's colour, as the PDF marks it too (comment-mark-colors.ts). */
 export function commentMarkStyle(comment: EditorComment): string {
-  const { color, colorLight } = comment.authorColor ?? peerColorForKey(comment.authorId || comment.authorName);
-  const markStyle = `background-color: ${colorLight}; border-bottom: 2px solid ${color}; border-radius: 2px; `
-    + "box-decoration-break: clone; -webkit-box-decoration-break: clone";
-  return markStyle;
+  return Object.entries(commentMarkProperties(comment)).map(([name, value]) => `${name}: ${value}`).join("; ");
 }
 
 type AnchoredComment = { comment: EditorComment; from: number; to: number };
@@ -35,7 +34,8 @@ function anchoredComments(source: string, path: string, comments: EditorComment[
 /**
  * A local annotation reads as an amber highlighter stroke, in the blue of a
  * proposal or the violet of a question while the agent's answer waits; an
- * Overleaf thread keeps its author's colour.
+ * Overleaf thread keeps its author's colour. The PDF marks each in the same
+ * colour (comment-marks.css).
  */
 export function buildCommentDecorations(source: string, path: string, comments: EditorComment[]): DecorationSet {
   return decorationsFor(anchoredComments(source, path, comments));
