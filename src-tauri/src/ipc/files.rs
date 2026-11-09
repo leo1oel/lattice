@@ -209,24 +209,22 @@ pub async fn import_clipboard_image(
     .await
 }
 
-/// Opens a figure's source file in the program the system has for it.
-/// False, without opening it, when its type needs the person's say-so.
+/// Shows a figure's source file: a drawing opens in the program the system
+/// has for it, any other file is only revealed in the file manager.
 #[tauri::command]
 pub async fn open_figure_source(
-    state: State<'_, AppState>, window: Window, path: String, allow_other: bool,
-) -> Result<bool, String> {
+    state: State<'_, AppState>, window: Window, path: String,
+) -> Result<(), String> {
+    use project::FigureSourceOpening::{Open, Reveal};
     use tauri_plugin_opener::OpenerExt;
     let root = current_root(&state, &window)?;
     let opener = tauri::Manager::app_handle(&window).clone();
     run_blocking("Opening the figure", move || {
-        let Some(file) = project::figure_source_to_open(&root, &path, allow_other)? else {
-            return Ok(false);
-        };
-        opener
-            .opener()
-            .open_path(file.to_string_lossy(), None::<&str>)
-            .map(|()| true)
-            .map_err(crate::util::err)
+        match project::figure_source_to_open(&root, &path)? {
+            Open(file) => opener.opener().open_path(file.to_string_lossy(), None::<&str>),
+            Reveal(file) => opener.opener().reveal_item_in_dir(file),
+        }
+        .map_err(crate::util::err)
     })
     .await
 }

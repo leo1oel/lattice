@@ -77,7 +77,8 @@ pub(crate) use bibliography::{
 pub use citation_lookup::resolve_citation_query;
 pub use create::{create_tutorial, create_with_venue, Venue};
 pub use editable_figure::{
-    figure_source_to_open, import_editable_figure, FigureManifest, ImportedFigure,
+    figure_source_to_open, import_editable_figure, FigureManifest, FigureSourceOpening,
+    ImportedFigure,
 };
 pub use entries::{create_entry, create_open_slide_deck, delete_entry, move_entry, rename_entry};
 pub(crate) use history::retain_open_history;

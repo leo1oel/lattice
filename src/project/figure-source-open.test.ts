@@ -1,40 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { figureEntryBeside, isDrawingFile, openDrawingOf, openFigureSource } from "./figure-source-open";
 
-const { invoke, confirmAction, notifyError } = vi.hoisted(() => ({ invoke: vi.fn(), confirmAction: vi.fn(), notifyError: vi.fn() }));
+const { invoke, notifyError } = vi.hoisted(() => ({ invoke: vi.fn(), notifyError: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-vi.mock("../app-utils", () => ({ confirmAction, toMessage: (reason: unknown) => String(reason) }));
+vi.mock("../app-utils", () => ({ toMessage: (reason: unknown) => String(reason) }));
 vi.mock("../telemetry/app-notify", () => ({ notifyError }));
 
 const opened = () => invoke.mock.calls.filter(([command]) => command === "open_figure_source").map(([, args]) => args);
 
 describe("opening a figure's source", () => {
-  beforeEach(() => { invoke.mockReset(); confirmAction.mockReset(); notifyError.mockReset(); });
+  beforeEach(() => { invoke.mockReset(); notifyError.mockReset(); });
 
-  it("opens a drawing the host accepts without asking", async () => {
-    invoke.mockResolvedValue(true);
+  it("leaves what happens to the host, and says when it fails", async () => {
+    invoke.mockResolvedValueOnce(undefined);
     await openFigureSource("figures/a.reactio");
-    expect(opened()).toEqual([{ path: "figures/a.reactio", allowOther: false }]);
-    expect(confirmAction).not.toHaveBeenCalled();
-  });
-
-  it("asks for an unknown type and remembers a yes for its extension", async () => {
-    invoke.mockResolvedValueOnce(false).mockResolvedValue(true);
-    confirmAction.mockResolvedValue(true);
-    await openFigureSource("figures/a.xyz1");
-    expect(opened()).toEqual([{ path: "figures/a.xyz1", allowOther: false }, { path: "figures/a.xyz1", allowOther: true }]);
-    await openFigureSource("figures/b.XYZ1");
-    expect(opened().at(-1)).toEqual({ path: "figures/b.XYZ1", allowOther: true });
-    expect(confirmAction).toHaveBeenCalledTimes(1);
-  });
-
-  it("opens nothing on a no, and says when the host refuses", async () => {
-    invoke.mockResolvedValueOnce(false);
-    confirmAction.mockResolvedValue(false);
-    await openFigureSource("a.xyz2");
-    expect(opened()).toHaveLength(1);
-    invoke.mockRejectedValueOnce(new Error("a.sh cannot be opened from a figure."));
-    await openFigureSource("a.sh");
+    expect(opened()).toEqual([{ path: "figures/a.reactio" }]);
+    expect(notifyError).not.toHaveBeenCalled();
+    invoke.mockRejectedValueOnce(new Error("a.reactio could not be found."));
+    await openFigureSource("a.reactio");
     expect(notifyError).toHaveBeenCalledTimes(1);
   });
 
@@ -46,7 +29,7 @@ describe("opening a figure's source", () => {
       throw new Error("missing");
     });
     await expect(openDrawingOf("missing.tex", "plain.tex", "figures/a.tex")).resolves.toBe(true);
-    expect(opened()).toEqual([{ path: "figures/a.reactio", allowOther: false }]);
+    expect(opened()).toEqual([{ path: "figures/a.reactio" }]);
     await expect(openDrawingOf("plain.tex")).resolves.toBe(false);
   });
 

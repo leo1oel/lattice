@@ -4,14 +4,14 @@ import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 import {
   editableFigureBlockSnippet, editableFigureChanges, editableFigureFromHtml, editableFigureInclude, figureSourcePath, includedTexPaths,
-  insideFigureHolder, missingPreambleInsertions, pastesFigureBlock, preambleFiles, type ImportedFigure,
+  insideFigureHolder, isDefinitionsOnly, missingPreambleInsertions, pastesFigureBlock, preambleFiles, type ImportedFigure,
 } from "./editable-figure";
 
 const manifest = {
   version: 1,
   name: "scheme",
-  source: { path: "/Users/me/scheme.reactio" },
-  outputs: [{ path: "/Users/me/scheme.pdf" }, { name: "scheme.tex", data: "JQ==" }],
+  source: { name: "scheme.reactio", data: "e30=" },
+  outputs: [{ name: "scheme.pdf", data: "JQ==" }, { name: "scheme.tex", data: "JQ==" }],
   entry: "scheme.tex",
   packages: ["graphicx", "tikz", "chemnum"],
 };
@@ -95,6 +95,22 @@ describe("editable figure insertion", () => {
     const { changes, unplaced } = editableFigureChanges("\\section{Results}\n", { from: 0, to: 0 }, figure);
     expect(changes).toHaveLength(1);
     expect(unplaced).toEqual(["\\usepackage{graphicx}", "\\usepackage{tikz}", "\\usepackage{chemnum}", PATH]);
+  });
+});
+
+describe("a manifest's preamble lines", () => {
+  it("are definitions when nothing runs at the top level", () => {
+    expect(isDefinitionsOnly(["\\providecommand\\a[1]{\\textbf{#1}}", "\\newcommand{\\b}{x} % note", "\\definecolor{c}{rgb}{1,0,0}"])).toBe(true);
+    expect(isDefinitionsOnly(["\\makeatletter", "\\providecommand\\x@y[3]{}", "\\makeatother"])).toBe(true);
+    expect(isDefinitionsOnly(["\\ExplSyntaxOn", "\\DeclareRobustCommand \\rcmpd [1]", "  { \\seq_item:Nn \\l_tmpa_seq { 2 } }", "\\ExplSyntaxOff"])).toBe(true);
+  });
+
+  it("are not when anything else is there", () => {
+    expect(isDefinitionsOnly(["\\input{/etc/passwd}"])).toBe(false);
+    expect(isDefinitionsOnly(["\\newcommand\\a{x}\\a"])).toBe(false);
+    expect(isDefinitionsOnly(["\\renewcommand\\section{x}"])).toBe(false);
+    expect(isDefinitionsOnly(["text"])).toBe(false);
+    expect(isDefinitionsOnly(["\\newcommand\\a{"])).toBe(false);
   });
 });
 

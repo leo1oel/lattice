@@ -1,21 +1,14 @@
 /** Opening a figure's source, loaded when used: see figure-source-open.ts. */
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { confirmAction, toMessage } from "../app-utils";
+import { toMessage } from "../app-utils";
 import { i18n } from "../i18n";
 import { notifyError } from "../telemetry/app-notify";
 
-/** File types the person has agreed to open from figures, for this session. */
-const agreedExtensions = new Set<string>();
-
+/** The host opens a drawing format and only reveals anything else in the file manager. */
 export async function openFigureSource(source: string): Promise<void> {
-  const extension = source.slice(source.lastIndexOf(".") + 1).toLowerCase();
   try {
-    if (await invoke<boolean>("open_figure_source", { path: source, allowOther: agreedExtensions.has(extension) })) return;
-    const name = source.slice(source.lastIndexOf("/") + 1);
-    if (!await confirmAction({ message: i18n._(msg`Open ${name} in its default app?`) })) return;
-    agreedExtensions.add(extension);
-    await invoke("open_figure_source", { path: source, allowOther: true });
+    await invoke("open_figure_source", { path: source });
   } catch (reason) {
     notifyError(i18n._(msg`Could not open the drawing`), toMessage(reason));
   }

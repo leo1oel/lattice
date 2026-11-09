@@ -8,8 +8,8 @@
  */
 import type { ChangeSpec } from "@codemirror/state";
 
-/** One file of a figure: a path on disk, or its name and base64 bytes. */
-type EditableFigureFile = { path?: string; name?: string; data?: string };
+/** One file of a figure: its name and base64 bytes. A paste is untrusted, so it can never name a path to read. */
+type EditableFigureFile = { name: string; data: string };
 
 export type EditableFigureManifest = {
   version: number;
@@ -28,7 +28,7 @@ export type ImportedFigure = { directory: string; entry: string; source: string;
 const isFile = (value: unknown): value is EditableFigureFile => {
   if (!value || typeof value !== "object") return false;
   const file = value as Record<string, unknown>;
-  return typeof file.path === "string" || (typeof file.name === "string" && typeof file.data === "string");
+  return typeof file.name === "string" && typeof file.data === "string";
 };
 
 /** The manifest in a clipboard HTML fragment, or null when it holds none (or one this version cannot read). */
@@ -171,6 +171,47 @@ const definedCommands = (block: readonly string[]) => [...block.join("\n").match
 function definesAll(text: string, block: readonly string[]): boolean {
   const code = blankComments(text);
   return definedCommands(block).every((command) => new RegExp(`\\\\(?:providecommand|newcommand|DeclareRobustCommand|def)\\*?\\s*\\{?\\${command}(?![A-Za-z])`).test(code));
+}
+
+/** What a block may do at its top level without being shown first: define things, and switch the modes definitions are written in. */
+const PREAMBLE_DEFINER = /^(?:providecommand|newcommand|DeclareRobustCommand|NewDocumentCommand|ProvideDocumentCommand|definecolor|newcounter|DeclareMathOperator)$/;
+const PREAMBLE_MODE = /^(?:makeatletter|makeatother|ExplSyntaxOn|ExplSyntaxOff)$/;
+
+/** Whether a manifest's preamble lines only define things: everything at the top level is a definition, whose body runs only if called. */
+export function isDefinitionsOnly(block: readonly string[]): boolean {
+  const code = blankComments(block.join("\n"));
+  let depth = 0;
+  let namesCommand = false;
+  let index = 0;
+  while (index < code.length) {
+    const char = code[index];
+    if (char === "\\") {
+      const word = /^\\(?:[A-Za-z@]+|[\s\S])/.exec(code.slice(index))?.[0] ?? "\\";
+      index += word.length;
+      if (depth > 0) continue;
+      const name = word.slice(1);
+      if (namesCommand) namesCommand = false;
+      else if (PREAMBLE_DEFINER.test(name)) namesCommand = true;
+      else if (!PREAMBLE_MODE.test(name)) return false;
+      continue;
+    }
+    index += 1;
+    if (char === "{") {
+      depth += 1;
+      namesCommand = false;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth < 0) return false;
+    } else if (depth === 0 && !/[\s*[\]0-9]/.test(char)) {
+      return false;
+    }
+  }
+  return depth === 0;
+}
+
+/** Whether pasting `figure` would add preamble lines that must be shown first. */
+export function preambleNeedsConfirmation(source: string, known: string, figure: ImportedFigure): boolean {
+  return Boolean(figure.preamble?.length) && !definesAll(`${source}\n${known}`, figure.preamble ?? []) && !isDefinitionsOnly(figure.preamble ?? []);
 }
 
 /** Project files a root document's preamble brings in, whose definitions count as its own. */

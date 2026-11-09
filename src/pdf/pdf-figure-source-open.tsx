@@ -32,11 +32,17 @@ export function PdfFigureSourceOpen({ host }: { host: HTMLElement }) {
       const page = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-page-number]") : null;
       if (!page) return;
       // Ahead of the viewer's own double-click, the jump to the source line.
+      // Whether a figure is here takes a host call, so off a figure that
+      // double-click is given back, as a plain one this listener lets through.
       event.stopPropagation();
       event.preventDefault();
-      void figureSourceAt(page, event.clientX, event.clientY)
+      const { target, clientX, clientY } = event;
+      void figureSourceAt(page, clientX, clientY)
         .catch(() => null)
-        .then((source) => source ? openFigureSource(source) : undefined);
+        .then((source) => {
+          if (source) return openFigureSource(source);
+          target?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX, clientY, detail: 2 }));
+        });
     },
   }, { capture: true }), [host]);
 
