@@ -15,10 +15,7 @@ use std::thread::JoinHandle;
 /// parent directory doubles as a place for fixture tools.
 pub(super) struct TestProject {
     pub(super) root: PathBuf,
-    #[cfg(unix)]
     pub(super) parent: TempDir,
-    #[cfg(windows)]
-    _parent: TempDir,
 }
 
 impl TestProject {
@@ -26,13 +23,7 @@ impl TestProject {
         let parent = TempDir::new("papers");
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("references.bib"), bibliography).unwrap();
-        Self {
-            root,
-            #[cfg(unix)]
-            parent,
-            #[cfg(windows)]
-            _parent: parent,
-        }
+        Self { root, parent }
     }
 
     /// Write a project file, creating its directories; returns its path.
