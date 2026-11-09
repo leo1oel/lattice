@@ -91,7 +91,9 @@ pub(super) fn import_pdf_citation(
 mod tests {
     use super::*;
     use crate::papers::import::import_reference;
-    use crate::papers::library::{list_papers, read_paper};
+    #[cfg(unix)]
+    use crate::papers::library::list_papers;
+    use crate::papers::library::read_paper;
     use crate::papers::test_support::{serve_once, TestProject};
     #[cfg(unix)]
     use crate::{
@@ -105,6 +107,7 @@ mod tests {
 
     /// A complete one-page PDF, with asymmetric title/body and enough text to
     /// distinguish successful conversion from an empty placeholder.
+    #[cfg(unix)]
     fn one_page_pdf() -> Vec<u8> {
         let stream = format!(
             "BT /F1 22 Tf 50 750 Td (Direct PDF Study) Tj /F1 12 Tf {} ET",

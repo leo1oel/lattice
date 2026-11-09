@@ -147,7 +147,28 @@ fn folders_remembered_at_once_are_all_kept() {
 
 #[test]
 fn display_paths_use_the_home_folder_as_a_tilde() {
-    let home = PathBuf::from(std::env::var_os("HOME").unwrap());
+    let home = crate::host_paths::home_dir().unwrap();
     assert_eq!(display_path(&home.join("Papers/Native VLM")), "~/Papers/Native VLM");
     assert_eq!(display_path(Path::new("/Volumes/Work/Paper")), "/Volumes/Work/Paper");
+}
+
+#[test]
+fn display_paths_do_not_abbreviate_a_sibling_of_the_home_folder() {
+    let home = Path::new("/Users/ada");
+    assert_eq!(display_path_from_home(home, home), "~");
+    assert_eq!(display_path_from_home(Path::new("/Users/ada/Papers"), home), "~/Papers");
+    assert_eq!(display_path_from_home(Path::new("/Users/adam/Papers"), home), "/Users/adam/Papers");
+}
+
+#[cfg(windows)]
+#[test]
+fn display_paths_handle_windows_verbatim_home_paths() {
+    assert_eq!(
+        display_path_from_home(Path::new(r"\\?\C:\Users\ada\Papers"), Path::new(r"C:\Users\ada")),
+        "~/Papers"
+    );
+    assert_eq!(
+        display_path_from_home(Path::new(r"C:\Users\adam\Papers"), Path::new(r"C:\Users\ada")),
+        "C:/Users/adam/Papers"
+    );
 }

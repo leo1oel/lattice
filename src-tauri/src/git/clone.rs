@@ -131,6 +131,14 @@ pub fn clone(
             return Err(CloneError::GitMissing);
         }
     };
+    let _process_group = match commands::track_process_group(&mut child) {
+        Ok(group) => group,
+        Err(error) => {
+            forget(window, id);
+            remove_partial_clone(destination, existed);
+            return Err(CloneError::Failed(error.to_string()));
+        }
+    };
     if let Some((_, pid, cancelled)) = CLONES
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -139,7 +147,7 @@ pub fn clone(
     {
         *pid = child.id();
         if *cancelled {
-            commands::signal_process_group(*pid, libc::SIGTERM);
+            commands::signal_process_group(*pid, commands::TERM_SIGNAL);
         }
     }
     // Everything git said that was not progress, for telling a failure.
@@ -198,7 +206,7 @@ pub fn cancel(window: &str) {
         // Before git has started there is nothing to signal; it is stopped
         // as soon as it does.
         if *pid != 0 {
-            commands::signal_process_group(*pid, libc::SIGTERM);
+            commands::signal_process_group(*pid, commands::TERM_SIGNAL);
         }
     }
 }
@@ -206,15 +214,20 @@ pub fn cancel(window: &str) {
 /// A session of its own: no controlling terminal for git or ssh to prompt
 /// on, and one process group [`cancel`] can signal.
 fn detach_from_terminal(command: &mut std::process::Command) {
-    use std::os::unix::process::CommandExt;
-    // SAFETY: setsid is async-signal-safe and touches no memory.
-    unsafe {
-        command.pre_exec(|| {
-            if libc::setsid() == -1 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
+    #[cfg(windows)]
+    crate::platform_windows::configure(command);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // SAFETY: setsid is async-signal-safe and touches no memory.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
     }
 }
 

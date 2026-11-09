@@ -148,7 +148,7 @@ fn adopt_folder(root: &Path) -> Result<ProjectManifest, String> {
             .find(|entry| entry.path().extension().is_some_and(|ext| ext == "bib"))
         {
             manifest.primary_bibliography =
-                entry.path().strip_prefix(root).map_err(err)?.to_string_lossy().to_string();
+                entry.path().strip_prefix(root).map_err(err)?.to_string_lossy().replace('\\', "/");
         }
     }
     write_manifest(root, &manifest)?;
@@ -598,8 +598,10 @@ mod tests {
     fn opening_a_folder_claims_only_root_documents_it_has() {
         let fixture = Fixture::folder("markdown-only", "notes");
         fixture.write("ideas.md", "# Ideas\n");
+        fixture.write("sources/refs.bib", "@misc{notes}\n");
         let roots = || root_paths(&open(&fixture.root).unwrap().manifest).len();
         assert_eq!(roots(), 0);
+        assert_eq!(open(&fixture.root).unwrap().manifest.primary_bibliography, "sources/refs.bib");
 
         // Adding LaTeX later is still detected on the next open.
         fixture.write("paper.tex", ARTICLE);

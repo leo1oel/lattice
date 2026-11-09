@@ -201,7 +201,7 @@ fn origin(label: &str) -> Option<(TempDir, String)> {
         ],
     );
     git(&scratch, &["clone", "--quiet", "--bare", "work", "paper.git"]);
-    let url = format!("file://{}", scratch.join("paper.git").display());
+    let url = tauri::Url::from_file_path(scratch.join("paper.git")).unwrap().to_string();
     Some((scratch, url))
 }
 
@@ -262,7 +262,7 @@ fn refuses_a_bad_url_and_a_missing_parent_before_running_git() {
 #[test]
 fn a_missing_repository_leaves_no_folder_behind() {
     let Some((scratch, _)) = origin("missing") else { return };
-    let url = format!("file://{}", scratch.join("nope.git").display());
+    let url = tauri::Url::from_file_path(scratch.join("nope.git")).unwrap().to_string();
     let dest = destination(&scratch, "nope");
     let error = clone("clone-missing", &url, &dest, |_| {}).unwrap_err();
     assert!(matches!(error, CloneError::NotFound(_)), "{error:?}");

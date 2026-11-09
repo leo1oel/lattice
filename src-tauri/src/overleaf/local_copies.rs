@@ -88,11 +88,25 @@ pub fn remember_local_copy(config_dir: &Path, root: &Path) {
 }
 
 fn display_path(path: &Path) -> String {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    match home.as_deref().and_then(|home| path.strip_prefix(home).ok()) {
-        Some(rest) if rest.as_os_str().is_empty() => "~".to_string(),
-        Some(rest) => format!("~/{}", rest.display()),
-        None => path.display().to_string(),
+    match crate::host_paths::home_dir() {
+        Some(home) => display_path_from_home(path, &home),
+        None => path.to_string_lossy().into_owned(),
+    }
+}
+
+fn display_path_from_home(path: &Path, home: &Path) -> String {
+    #[cfg(windows)]
+    let (path, home) = (
+        PathBuf::from(crate::host_paths::tex_path(path)),
+        PathBuf::from(crate::host_paths::tex_path(home)),
+    );
+    match path.strip_prefix(home) {
+        Ok(relative) if relative.as_os_str().is_empty() => "~".into(),
+        Ok(relative) => format!(
+            "~/{}",
+            relative.iter().map(|part| part.to_string_lossy()).collect::<Vec<_>>().join("/")
+        ),
+        Err(_) => path.to_string_lossy().into_owned(),
     }
 }
 

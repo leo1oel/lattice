@@ -8,7 +8,8 @@ use crate::util::err;
 use chrono::{Datelike, Local, NaiveDate, TimeZone, Timelike};
 use std::fs::{self, File};
 use std::io::{self, Read};
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use walkdir::WalkDir;
@@ -67,7 +68,7 @@ pub fn export_project_zip(root: &Path, zip_path: &Path) -> Result<(), String> {
 fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
     // The archive may be written inside the project (possibly through a
     // symlinked folder); it must not contain itself.
-    let archive = file.metadata().map_err(err)?;
+    let archive = crate::platform_fs::identity(&file).map_err(err)?;
     // Where builds put the PDF (see `latex::compiled_pdf_path`). A folder
     // without a manifest has no build to leave out.
     let build_pdf = read_manifest(root).ok().and_then(|manifest| {
@@ -91,16 +92,20 @@ fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
         }
         let name = (relative.to_str())
             .ok_or_else(|| format!("{} is not a UTF-8 path.", relative.display()))?;
+        let name = name.replace('\\', "/");
+        let name = name.as_str();
         let metadata = entry.metadata().map_err(err)?;
         let options = SimpleFileOptions::default()
-            .unix_permissions(metadata.permissions().mode())
             .last_modified_time(zip_time(metadata.modified().ok()))
             .large_file(metadata.len() >= u64::from(u32::MAX));
+        #[cfg(unix)]
+        let options = options.unix_permissions(metadata.permissions().mode());
         if metadata.is_dir() {
             writer.add_directory(format!("{name}/"), options).map_err(err)?;
         } else if !excluded_file(name)
             && build_pdf.as_deref() != Some(entry.path())
-            && (metadata.dev(), metadata.ino()) != (archive.dev(), archive.ino())
+            && crate::platform_fs::identity(&File::open(entry.path()).map_err(err)?).map_err(err)?
+                != archive
         {
             writer.start_file(name, options).map_err(err)?;
             io::copy(&mut File::open(entry.path()).map_err(err)?, &mut writer).map_err(err)?;
@@ -165,6 +170,11 @@ pub(crate) fn safe_zip_entry_name<R: Read + ?Sized>(
         || file.enclosed_name().is_none()
         || trimmed.starts_with('/')
         || trimmed.split('/').any(|part| part == ".." || part.is_empty());
+    #[cfg(windows)]
+    let unsafe_path = unsafe_path
+        || trimmed
+            .split('/')
+            .any(|part| !crate::platform_windows::valid_name(std::ffi::OsStr::new(part)));
     (!unsafe_path).then(|| trimmed.to_string())
 }
 
@@ -230,6 +240,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
         if let Some(modified) = file.last_modified().and_then(system_time) {
             let _ = out.set_modified(modified);
         }
+        #[cfg(unix)]
         if let Some(mode) = file.unix_mode().map(|mode| mode & 0o777).filter(|&mode| mode != 0) {
             fs::set_permissions(&target, fs::Permissions::from_mode(mode | 0o600)).map_err(err)?;
         }
@@ -367,8 +378,8 @@ mod tests {
     fn export_skips_dangling_links_and_link_loops() {
         let fixture = Fixture::empty("export-zip-links");
         fixture.write("a.tex", "x\n");
-        std::os::unix::fs::symlink("nowhere", fixture.path("dangling")).unwrap();
-        std::os::unix::fs::symlink(".", fixture.path("loop")).unwrap();
+        crate::test_support::symlink("nowhere", fixture.path("dangling")).unwrap();
+        crate::test_support::symlink(".", fixture.path("loop")).unwrap();
         let exports = Fixture::empty("export-zip-links-out");
         let zip_path = exports.path("paper.zip");
         export_project_zip(&fixture.root, &zip_path).unwrap();
@@ -380,7 +391,7 @@ mod tests {
         let fixture = Fixture::empty("export-zip-symlinked-out");
         fixture.write("main.tex", "x\n");
         let elsewhere = Fixture::empty("export-zip-elsewhere");
-        std::os::unix::fs::symlink(&elsewhere.root, fixture.path("out")).unwrap();
+        crate::test_support::symlink(&elsewhere.root, fixture.path("out")).unwrap();
         let zip_path = fixture.root.join("out/paper.zip");
         export_project_zip(&fixture.root, &zip_path).unwrap();
         assert_eq!(names(&zip_path), ["main.tex", "out/"]);
@@ -399,6 +410,7 @@ mod tests {
         let snapshot = import_project_zip(&zip_path, &parent.root).unwrap();
         let main = PathBuf::from(&snapshot.root).join("main.tex");
         assert_eq!(fs::read_to_string(&main).unwrap(), "ok");
+        #[cfg(unix)]
         assert_eq!(fs::metadata(&main).unwrap().permissions().mode() & 0o600, 0o600);
     }
 
@@ -425,6 +437,7 @@ mod tests {
         fixture.write("paper/main.tex", "\\documentclass{article}\n");
         fixture.write("paper/build.sh", "#!/bin/sh\n");
         let script = fixture.path("paper/build.sh");
+        #[cfg(unix)]
         fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
         let old = SystemTime::now() - Duration::from_secs(86_400 * 30);
         File::options().write(true).open(&script).unwrap().set_modified(old).unwrap();
@@ -440,6 +453,7 @@ mod tests {
         let main = fs::read_to_string(project.join("main.tex")).unwrap();
         assert_eq!(main, "\\documentclass{article}\n");
         let script = fs::metadata(project.join("build.sh")).unwrap();
+        #[cfg(unix)]
         assert_eq!(script.permissions().mode() & 0o777, 0o755);
         let drift = script.modified().unwrap().duration_since(old).unwrap_or_default();
         assert!(drift <= Duration::from_secs(2), "{drift:?}");

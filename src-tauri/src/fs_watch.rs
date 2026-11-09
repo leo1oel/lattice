@@ -217,13 +217,10 @@ mod tests {
 
         outside.write("figures/plots/loss.png", b"\x89PNG");
         outside.write("figures/table.tex", "\\begin{tabular}");
-        let copied = std::process::Command::new("cp")
-            .arg("-R")
-            .arg(outside.join("figures"))
-            .arg(root.join("figures"))
-            .status()
-            .unwrap();
-        assert!(copied.success());
+        std::fs::create_dir_all(root.join("figures/plots")).unwrap();
+        for file in ["figures/plots/loss.png", "figures/table.tex"] {
+            std::fs::copy(outside.join(file), root.join(file)).unwrap();
+        }
         // FSEvents names every file the copy wrote. inotify watches a new
         // folder only once it is reported, so a copy that fills it first can
         // arrive as the folder alone, which still rescans the tree.

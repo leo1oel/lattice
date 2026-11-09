@@ -4,7 +4,10 @@ use super::bundle::PaperMetadata;
 use crate::project;
 use crate::test_support::TempDir;
 use std::fs;
-use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::path::Path;
+use std::path::PathBuf;
+#[cfg(unix)]
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 
@@ -52,8 +55,10 @@ impl TestProject {
 /// the tests that invoke bibcite with the ones that replace it with a fixture
 /// binary, or parallel test execution can edit an unrelated bibliography
 /// through a fixture's deliberately narrow CLI contract.
+#[cfg(unix)]
 static TOOL_OVERRIDE_LOCK: Mutex<()> = Mutex::new(());
 
+#[cfg(unix)]
 pub(super) fn tool_lock() -> MutexGuard<'static, ()> {
     TOOL_OVERRIDE_LOCK.lock().unwrap_or_else(PoisonError::into_inner)
 }

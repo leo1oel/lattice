@@ -192,3 +192,12 @@ describe("Tauri security boundary", () => {
     );
   });
 });
+
+
+it("limits the Windows fullscreen permission to native workspace windows", () => {
+  const windows = readJson<{ platforms: string[]; windows: string[]; permissions: string[]; remote?: unknown }>("src-tauri/capabilities/windows-window-controls.json");
+  expect(windows.platforms).toEqual(["windows"]);
+  expect(windows.windows).toEqual(["main", "project-*"]);
+  expect(windows.permissions).toEqual(["core:window:allow-set-fullscreen"]);
+  expect(windows.remote).toBeUndefined();
+});

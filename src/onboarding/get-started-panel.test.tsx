@@ -290,3 +290,15 @@ describe("GetStartedPanel", () => {
     expect(screen.getByText("6/6")).toBeInTheDocument();
   });
 });
+
+it("offers Windows setup without a Mac installer or unsupported Agent step", () => {
+  const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Windows NT 10.0");
+  try {
+    markGetStartedStep("agent");
+    renderPanel({}, doctor(["pdflatex"]));
+    expect(screen.getByText(/Install TeX Live for Windows/)).toBeInTheDocument();
+    expect(screen.queryByText(/BasicTeX is about/)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-step="agent"]')).toBeNull();
+    expect(screen.getByText("0/5")).toBeInTheDocument();
+  } finally { userAgent.mockRestore(); }
+});

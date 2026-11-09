@@ -59,6 +59,10 @@ fn resolve_project_path(root: &Path, relative: &str, mode: Resolve) -> Result<Pa
     }
     let mut cursor = root.canonicalize().map_err(err)?;
     let components = relative_path.components().collect::<Vec<_>>();
+    #[cfg(windows)]
+    if components.iter().any(|part| matches!(part, Component::Normal(name) if !crate::platform_windows::valid_name(name))) {
+        return Err(OUTSIDE_PROJECT.into());
+    }
     for (index, component) in components.iter().enumerate() {
         let Component::Normal(name) = component else {
             continue;

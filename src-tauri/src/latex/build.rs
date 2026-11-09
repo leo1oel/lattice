@@ -46,6 +46,8 @@ fn run_watched(
 ) -> Result<(Output, bool), String> {
     commands::in_new_process_group(&mut command).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
+    let _process_group = commands::track_process_group(&mut child)
+        .map_err(|error| format!("{start_error}{error}"))?;
     let pid = child.id();
     match begin_active(active, pid) {
         // Stopped between two of the build's processes: this one ends at once.

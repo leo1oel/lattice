@@ -1,3 +1,4 @@
+import { isWindowsHost } from "../platform/host-platform";
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
@@ -5,7 +6,7 @@ import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { clearTimer, disposeWhenSettled, restartTimer, type TimerRef } from "./effect-helpers";
 import { APP_WINDOW_MIN_HEIGHT, minimumWindowWidth } from "./window-layout";
 
-function getCurrentWindowSafely() {
+export function getCurrentWindowSafely() {
   try {
     return getCurrentWindow();
   } catch {
@@ -45,9 +46,15 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
       // Chained, so a runtime without the monitor API lands in the catch too.
       void Promise.resolve().then(() => currentMonitor()).then((monitor) => {
         if (!active) return;
-        const screenWidth = monitor ? monitor.workArea.size.width / monitor.scaleFactor : Infinity;
+        const windows = isWindowsHost();
+        // Win32 workArea includes the frame and caption, while setMinSize
+        // takes client dimensions. A too-tall minimum prevents maximizing on
+        // laptops with display scaling, even though the layout can shrink.
+        const screenWidth = monitor ? monitor.workArea.size.width / monitor.scaleFactor - (windows ? 16 : 0) : Infinity;
+        const screenHeight = monitor ? monitor.workArea.size.height / monitor.scaleFactor - (windows ? 48 : 0) : Infinity;
         const width = minimumWindowWidth({ layoutMinWidth: layoutMin, interfaceScale, screenWidth });
-        return appWindow.setMinSize(new LogicalSize(width, APP_WINDOW_MIN_HEIGHT));
+        const height = windows && Number.isFinite(screenHeight) ? Math.max(1, Math.min(APP_WINDOW_MIN_HEIGHT, Math.floor(screenHeight))) : APP_WINDOW_MIN_HEIGHT;
+        return appWindow.setMinSize(new LogicalSize(width, height));
       }).catch(() => {
         // Browser previews and older desktop capabilities may not expose this.
       });
@@ -93,6 +100,9 @@ export function useWindowTitle(title: string) {
   useEffect(() => () => writeWindowTitle((launch) => launch), []);
 }
 
+/** Windows-only keys and dialogs, kept out of the startup bundle. */
+const loadWindowsHostUi = () => import("../platform/windows-host-ui");
+
 export function useFullscreen(): boolean {
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -108,6 +118,18 @@ export function useFullscreen(): boolean {
       stop();
     };
   }, []);
+  useEffect(() => {
+    if (!isWindowsHost()) return;
+    let live = true;
+    let stop = () => {};
+    void loadWindowsHostUi().then((ui) => {
+      if (live) stop = ui.watchFullscreenKeys(isFullscreen);
+    });
+    return () => {
+      live = false;
+      stop();
+    };
+  }, [isFullscreen]);
   return isFullscreen;
 }
 

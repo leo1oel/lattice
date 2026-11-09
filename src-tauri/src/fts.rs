@@ -8,6 +8,7 @@ use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{ErrorKind, Read};
+#[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex, Weak};
@@ -242,7 +243,10 @@ fn read_stable_source(path: &Path) -> IndexResult<(String, Stamp)> {
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes).map_err(IndexError::other)?;
         let after = fs::metadata(path).map_err(IndexError::other)?;
-        if same_file_generation(&before, &after) {
+        if same_file_generation(&before, &after)
+            && crate::platform_fs::identity(&file).map_err(IndexError::other)?
+                == crate::platform_fs::path_identity(path).map_err(IndexError::other)?
+        {
             return Ok((String::from_utf8(bytes).unwrap_or_default(), file_stamp(&before)));
         }
     }
@@ -250,8 +254,11 @@ fn read_stable_source(path: &Path) -> IndexResult<(String, Stamp)> {
 }
 
 fn same_file_generation(before: &fs::Metadata, after: &fs::Metadata) -> bool {
-    file_stamp(before) == file_stamp(after)
-        && (before.dev(), before.ino()) == (after.dev(), after.ino())
+    #[cfg(unix)]
+    let same_identity = (before.dev(), before.ino()) == (after.dev(), after.ino());
+    #[cfg(windows)]
+    let same_identity = before.created().ok() == after.created().ok();
+    file_stamp(before) == file_stamp(after) && same_identity
 }
 
 /// Every searchable file the Project pane shows.
@@ -281,7 +288,7 @@ fn searchable_stamps_under(root: &Path, relative: &Path) -> IndexResult<HashMap<
             continue;
         }
         let relative = entry.path().strip_prefix(root).map_err(IndexError::other)?;
-        let relative = relative.to_string_lossy().to_string();
+        let relative = relative.to_string_lossy().replace('\\', "/");
         if project::searchable_text_path(&relative) {
             if let Ok(metadata) = fs::metadata(root.join(&relative)) {
                 stamps.insert(relative, file_stamp(&metadata));
@@ -327,7 +334,7 @@ fn update_path(conn: &Connection, root: &Path, relative: &Path) -> IndexResult<(
                 return sync_stamps(conn, root, current, Some(relative));
             }
             delete_prefix(conn, relative)?;
-            let relative = relative.to_string_lossy();
+            let relative = relative.to_string_lossy().replace('\\', "/");
             if metadata.is_file() && project::searchable_text_path(&relative) {
                 index_file(conn, root, &relative)?;
             }
@@ -380,12 +387,12 @@ fn delete_file(conn: &Connection, relative: &str) -> IndexResult<()> {
 
 /// Remove `prefix` and everything beneath it.
 fn delete_prefix(conn: &Connection, prefix: &Path) -> IndexResult<()> {
-    let prefix = prefix.to_string_lossy();
-    let descendants = format!("{}{}", prefix, std::path::MAIN_SEPARATOR);
+    let prefix = prefix.to_string_lossy().replace('\\', "/");
+    let descendants = format!("{prefix}/");
     for table in INDEX_TABLES {
         conn.execute(
             &format!("DELETE FROM {table} WHERE path = ?1 OR substr(path, 1, length(?2)) = ?2"),
-            params![prefix.as_ref(), descendants],
+            params![prefix, descendants],
         )?;
     }
     Ok(())

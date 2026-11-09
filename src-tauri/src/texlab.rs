@@ -11,7 +11,7 @@ use crate::wide_event::{self, Failure};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -485,36 +485,11 @@ fn read_message(stdout: &mut impl BufRead) -> Result<Value, String> {
 }
 
 fn path_to_uri(path: &Path) -> String {
-    let mut uri = String::from("file://");
-    for component in canonical(path).components() {
-        if matches!(component, Component::Normal(_) | Component::Prefix(_)) {
-            uri.push('/');
-            uri.push_str(&crate::util::url_encode(&component.as_os_str().to_string_lossy()));
-        }
-    }
-    if uri == "file://" {
-        uri.push('/');
-    }
-    uri
+    tauri::Url::from_file_path(canonical(path)).map(|url| url.to_string()).unwrap_or_default()
 }
 
 fn uri_to_path(uri: &str) -> Option<PathBuf> {
-    let bytes = uri.strip_prefix("file://")?.as_bytes();
-    let mut out = String::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        let hex = |offset: usize| (bytes[index + offset] as char).to_digit(16);
-        if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(hi), Some(lo)) = (hex(1), hex(2)) {
-                out.push(((hi << 4) | lo) as u8 as char);
-                index += 3;
-                continue;
-            }
-        }
-        out.push(bytes[index] as char);
-        index += 1;
-    }
-    Some(PathBuf::from(out))
+    tauri::Url::parse(uri).ok()?.to_file_path().ok()
 }
 
 /// The diagnostics a `textDocument/publishDiagnostics` notification carries
@@ -588,7 +563,14 @@ fn map_definition(result: Option<&Value>, root: &Path) -> Option<TexlabLocation>
     };
     let line = start("line")?;
     let column = start("character").unwrap_or(1);
-    let path = uri_to_path(uri)?
+    let path = uri_to_path(uri)?;
+    // File URLs use ordinary drive paths, while the session root may carry
+    // Windows' canonical verbatim prefix. Compare like path forms.
+    #[cfg(windows)]
+    let path = canonical(&path);
+    #[cfg(windows)]
+    let root = canonical(root);
+    let path = path
         .strip_prefix(root)
         .ok()
         .map(|value| value.to_string_lossy().replace('\\', "/"))
@@ -747,7 +729,8 @@ mod tests {
 
     #[test]
     fn maps_uris_completion_and_definition_payloads() {
-        let uri = path_to_uri(Path::new("/tmp/my paper/main.tex"));
+        let root = crate::test_support::TempDir::new("texlab-uri");
+        let uri = path_to_uri(&root.join("my paper/main.tex"));
         assert!(uri.starts_with("file:///") && uri.ends_with("/my%20paper/main.tex"), "{uri}");
 
         let completions = map_completions(Some(&json!([
@@ -769,12 +752,15 @@ mod tests {
         })));
         assert_eq!(hover.unwrap().contents, "Package amsmath");
 
+        let paper = root.join("paper");
+        std::fs::create_dir_all(paper.join("sections")).unwrap();
+        std::fs::write(paper.join("sections/intro.tex"), "Introduction").unwrap();
         let location = map_definition(
             Some(&json!({
-                "uri": "file:///tmp/paper/sections/intro.tex",
+                "uri": path_to_uri(&root.join("paper/sections/intro.tex")),
                 "range": { "start": { "line": 4, "character": 0 }, "end": { "line": 4, "character": 1 } }
             })),
-            Path::new("/tmp/paper"),
+            &canonical(&paper),
         )
         .unwrap();
         assert_eq!(location.path, "sections/intro.tex");

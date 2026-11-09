@@ -209,7 +209,7 @@ msgid "{0} of {1} selected"
 msgstr "已选 {0} / {1} 项"
 
 #. placeholder {0}: done.size
-#. placeholder {1}: GET_STARTED_STEPS.length
+#. placeholder {1}: stepIds.length
 #: src/onboarding/get-started-panel.tsx
 msgid "{0} of {1} steps done"
 msgstr "已完成 {0}/{1} 步"
@@ -1776,6 +1776,10 @@ msgstr "AI 助手正在修改，已答复 {0}/{1}"
 msgid "Agent isn’t available on Linux yet"
 msgstr "Linux 版暂不支持 AI 助手"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent isn’t available on Windows yet"
+msgstr "Windows 暂不支持AI 助手"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "AI 权限：{label}"
@@ -2349,10 +2353,18 @@ msgstr "自动编译"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "“自动”会把 LaTeX 按学术写作检查，其他文件按日常文字检查"
 
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
+msgstr "此 Windows 实验版本暂不支持自动安装论文工具。"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Automatic updates"
 msgstr "自动更新"
+
+#: src/settings/settings-dialog.tsx
+msgid "Automatic updates aren’t available in this experimental Windows build."
+msgstr "此 Windows 实验版本暂不支持自动更新。"
 
 #: src/platform/host-errors-setup.ts
 msgid "Automatic uv installation is not available for this Mac architecture ({arch})."
@@ -3185,6 +3197,7 @@ msgstr "抑扬符示例"
 
 #: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "重新检查"
@@ -3724,6 +3737,10 @@ msgstr "清空终端"
 #: src/onboarding/get-started-steps.ts
 msgid "Click in the text, then press ⌘⇧K"
 msgstr "在正文里点一下，再按 ⌘⇧K"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Click in the text, then press Ctrl+Shift+K"
+msgstr "点击正文，然后按 Ctrl+Shift+K"
 
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
@@ -4673,6 +4690,10 @@ msgstr "无法启动实时预览引擎：{error}"
 msgid "Could not start: {message}"
 msgstr "无法启动：{message}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not supervise the Windows terminal process tree."
+msgstr "无法管理 Windows 终端的进程树。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "无法解压 rtex 安装包：{error}"
@@ -5333,6 +5354,10 @@ msgstr "双击任意一句"
 msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
 msgstr "双击 PDF 里任意一句，光标会跳到写出它的那一行，在源码里按 ⌘⇧J 跳回 PDF。"
 
+#: src/onboarding/get-started-steps.ts
+msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press Ctrl+Shift+J to jump back."
+msgstr "双击 PDF 中的任意句子即可跳转到对应源码行，按 Ctrl+Shift+J 跳回 PDF。"
+
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
 msgstr "双击以重命名"
@@ -5396,6 +5421,10 @@ msgstr "下载论文"
 #: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
+
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Download TeX Live"
+msgstr "下载 TeX Live"
 
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
@@ -5640,8 +5669,16 @@ msgid "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it
 msgstr "改一下 main.tex 里的 \\title 这一行并按 ⌘S，旁边的 PDF 大约一秒后就会更新。"
 
 #: src/onboarding/get-started-steps.ts
+msgid "Edit the title line in main.tex and press Ctrl+S to update the PDF beside it."
+msgstr "修改 main.tex 中的标题行，然后按 Ctrl+S 更新旁边的 PDF。"
+
+#: src/onboarding/get-started-steps.ts
 msgid "Edit the title, then press ⌘S"
 msgstr "改好标题，按 ⌘S"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Edit the title, then press Ctrl+S"
+msgstr "修改标题，然后按 Ctrl+S"
 
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -7291,6 +7328,10 @@ msgstr "在终端中运行："
 msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
 msgstr "在编辑器里按 ⌘⇧K，从本项目的论文里选一篇，或在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
 
+#: src/onboarding/get-started-steps.ts
+msgid "In the editor, press Ctrl+Shift+K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
+msgstr "在编辑器中按 Ctrl+Shift+K 选择项目中的论文，或在论文面板通过 arXiv ID、DOI 或标题添加论文。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
 msgstr "较新的版本里，{chain} 用 \\input 互相读入，latexdiff 会永远停不下来。请删掉让它们绕成一圈的那个 \\input，然后再导出。"
@@ -7537,6 +7578,7 @@ msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "稍后安装"
 
@@ -7546,10 +7588,12 @@ msgid "Install LaTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 才能编译"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX"
@@ -7574,12 +7618,29 @@ msgid "Install paper tools"
 msgstr "安装论文工具"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "安装论文工具"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "安装所需工具"
+
+#: src/platform/host-errors-setup.ts
+msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
+msgstr "安装 Windows 版 TeX Live（https://tug.org/texlive/windows.html），然后重启 Lattice。"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
+msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
+
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
+msgstr "安装 Windows 版 TeX Live 后重新检查。没有 LaTeX 也可以继续编辑。"
+
+#: src/platform/host-errors-setup.ts
+msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
+msgstr "使用 TeX Live Manager 或 MiKTeX Console 安装缺失的宏包，然后重新编译。"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -14192,6 +14253,10 @@ msgid "Start an environment"
 msgstr "开始环境"
 
 #: src/onboarding/get-started-steps.ts
+msgid "Start from a venue template, open a folder on this computer, or bring a project from Overleaf."
+msgstr "从会议模板开始，打开此计算机上的文件夹，或从 Overleaf 导入项目。"
+
+#: src/onboarding/get-started-steps.ts
 msgid "Start from a venue template, open a folder on this Mac, or bring a project from Overleaf."
 msgstr "用会议模板新建、打开这台 Mac 上的文件夹，或从 Overleaf 导入项目。"
 
@@ -16086,6 +16151,10 @@ msgstr "请更新 Lattice 后使用校对"
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
+msgstr "此 Windows 版本暂时无法防止AI 助手直接修改 .bib 文件。可在终端面板中使用 Claude Code 或 Codex。依赖内置AI 助手的功能暂不可用。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in the Lattice app."
