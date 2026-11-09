@@ -7,8 +7,9 @@
  * Some Markdown only shows its shape across several mdast nodes, so a list of
  * sibling blocks is first grouped into ranges (`documentBlocks`): an MDX
  * component with everything up to its closing tag, a table-layout comment with
- * the table it describes, and a `\[ … \]` display formula that CommonMark
- * reads as a paragraph (or, with a lone `=` line, as a setext heading).
+ * the table it describes, a `\[ … \]` display formula that CommonMark
+ * reads as a paragraph (or, with a lone `=` line, as a setext heading), and an
+ * HTML element whose blank lines split it into several HTML blocks.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
@@ -17,6 +18,7 @@ import { decodeNamedCharacterReference } from "decode-named-character-reference"
 import type { Code, List, ListItem, PhrasingContent, RootContent, Table } from "mdast";
 import { decodeNumericCharacterReference } from "micromark-util-decode-numeric-character-reference";
 import { ANCHOR_SOURCE, type RawBlockKind } from "./engine-schema";
+import { htmlElementRange, svgParagraph } from "./html-blocks";
 import {
   CALLOUT, COMPONENTS_WITH_BODY, MODELLED_COMPONENTS, findClosingTag, readOpenTag, type ComponentProp,
 } from "./mdx-components";
@@ -95,6 +97,12 @@ export function documentBlocks(children: RootContent[], source: string, limit: n
       index += 1;
       continue;
     }
+    const html = htmlElementRange(children, index, source);
+    if (html) {
+      ranges.push({ from, to: html.to, json: rawBlock("html", source.slice(from, html.to)) });
+      index = html.last;
+      continue;
+    }
     const display = displayMathRange(children, index, context);
     if (display) {
       ranges.push({ from, to: display.to, json: display.json });
@@ -111,6 +119,8 @@ function blockToDocument(node: RootContent, context: Context): JSONContent {
   const source = sliceOf(node, context);
   // A converter anchor line is inline HTML, so CommonMark reads it as a paragraph.
   if (node.type === "paragraph" && ANCHOR_SOURCE.test(source)) return rawBlock("anchor", source);
+  // A one-line `<svg>…</svg>` is inline HTML to CommonMark, but it is a drawing.
+  if (svgParagraph(node, context.source)) return rawBlock("html", source);
   if (node.type === "html") {
     const image = htmlImage(source);
     if (image) return { type: "paragraph", content: [image] };
