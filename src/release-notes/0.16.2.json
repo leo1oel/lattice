@@ -1,0 +1,54 @@
+{
+  "version": "0.16.2",
+  "date": "2026-11-09",
+  "highlights": [
+    {
+      "title": {
+        "en": "PDF preview in its own window",
+        "zh": "在独立窗口中预览 PDF"
+      },
+      "body": {
+        "en": "Open the compiled PDF in a separate window, for example on a second monitor, with SyncTeX working both ways between the source and that window.",
+        "zh": "可以在单独的窗口中打开编译好的 PDF，比如放到第二台显示器上；源码和该窗口之间的 SyncTeX 双向跳转都可以使用。"
+      }
+    },
+    {
+      "title": {
+        "en": "Keep TeX up to date",
+        "zh": "让 TeX 保持最新"
+      },
+      "body": {
+        "en": "New BasicTeX installs update their base packages, and the TeX doctor flags outdated packages with a one-click update.",
+        "zh": "新安装的 BasicTeX 会更新基础宏包；TeX 诊断会标出过时的宏包，并提供一键更新。"
+      }
+    },
+    {
+      "title": {
+        "en": "Steadier updates",
+        "zh": "更新更稳定"
+      },
+      "body": {
+        "en": "A brief download error (such as a 502 or a timeout) is retried, and if an update still fails you can try again or open the release page. Settings… (⌘,) and Check for Updates… are now in the Lattice menu, and Report a Problem… is in the Help menu.",
+        "zh": "短暂的下载错误（如 502 或超时）会自动重试；如果更新仍然失败，可以重试或打开发布页面。“设置…”（⌘,）和“检查更新…”已加入 Lattice 菜单，“报告问题…”已加入帮助菜单。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "CVPR review-mode line numbers are no longer drawn over the text.",
+      "zh": "CVPR 审稿模式的行号不会再盖住正文。"
+    },
+    {
+      "en": "Accepting a citation suggestion after an unclosed \\cite{ keeps the rest of the line. Thanks to @ajay-mk.",
+      "zh": "在未闭合的 \\cite{ 后接受引用建议时，会保留这一行的其余内容。感谢 @ajay-mk。"
+    },
+    {
+      "en": "In Add papers, the added paper's card keeps its borders, and a long citation key is shortened instead of overflowing.",
+      "zh": "在“添加论文”中，已添加论文的卡片边框不再被裁掉，过长的引用键会被截断而不是溢出。"
+    },
+    {
+      "en": "Open Slide 2.3.2: slide thumbnails and the overview grid are left-aligned.",
+      "zh": "Open Slide 2.3.2：幻灯片缩略图和概览网格改为左对齐。"
+    }
+  ]
+}
