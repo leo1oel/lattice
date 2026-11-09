@@ -1,8 +1,11 @@
-// Snapshot of bibcite's canonical venues (173 entries), used by the
-// bibliography-entry editor's venue autocomplete. The category from bibcite sets
-// the entry type: journal -> @article, conference/workshop -> @inproceedings.
+// Snapshot of bibcite's canonical venues plus Lattice's overlay (178 entries),
+// used by the bibliography-entry editor's venue autocomplete and read by the
+// citation audit (src-tauri/src/citation_audit/venue.rs), so both name a venue
+// the same way. The category sets the entry type: journal -> @article,
+// conference/workshop -> @inproceedings.
 //
-// Generated from bibcite's data/strings.bib — regenerate with:
+// Generated from bibcite's data/strings.bib and scripts/venues-overlay.bib —
+// regenerate with:
 //   node scripts/gen-venues.mjs [path/to/bibcite]
 // Do not edit by hand.
 
@@ -59,6 +62,11 @@ export const VENUES: Venue[] = [
   { name: "European Conference on Computational Learning Theory (EuroCOLT)", entryType: "inproceedings", search: "eurocolt european conference on computational learning theory eurocolt" },
   { name: "European Conference on Computer Vision -- Workshops (ECCVW)", entryType: "inproceedings", search: "eccvw european conference on computer vision workshops eccvw" },
   { name: "European Conference on Computer Vision (ECCV)", entryType: "inproceedings", search: "eccv european conference on computer vision eccv" },
+  { name: "Findings of the Association for Computational Linguistics: AACL-IJCNLP (Findings of AACL)", entryType: "inproceedings", search: "findingsaacl findings of the association for computational linguistics aacl ijcnlp findings of aacl" },
+  { name: "Findings of the Association for Computational Linguistics: ACL (Findings of ACL)", entryType: "inproceedings", search: "findingsacl findings of the association for computational linguistics acl findings of acl" },
+  { name: "Findings of the Association for Computational Linguistics: EACL (Findings of EACL)", entryType: "inproceedings", search: "findingseacl findings of the association for computational linguistics eacl findings of eacl" },
+  { name: "Findings of the Association for Computational Linguistics: EMNLP (Findings of EMNLP)", entryType: "inproceedings", search: "findingsemnlp findings of the association for computational linguistics emnlp findings of emnlp" },
+  { name: "Findings of the Association for Computational Linguistics: NAACL (Findings of NAACL)", entryType: "inproceedings", search: "findingsnaacl findings of the association for computational linguistics naacl findings of naacl" },
   { name: "Foundations and Trends in Computer Graphics and Vision", entryType: "article", search: "ftcgv foundations and trends in computer graphics and vision" },
   { name: "ICLR Blogposts", entryType: "inproceedings", search: "iclrblog iclr blogposts" },
   { name: "IEEE Access", entryType: "article", search: "ieeea ieee access" },
@@ -160,7 +168,7 @@ export const VENUES: Venue[] = [
   { name: "Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies (IMWUT)", entryType: "article", search: "imwut proceedings of the acm on interactive mobile wearable and ubiquitous technologies imwut" },
   { name: "Proceedings of the Annual Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics (NAACL)", entryType: "inproceedings", search: "naacl proceedings of the annual conference of the nations of the americas chapter of the association for computational linguistics naacl naacl naacl hlt north american chapter association for computational linguistics" },
   { name: "Proceedings of the Annual Meeting of the Association for Computational Linguistics (ACL)", entryType: "inproceedings", search: "acl proceedings of the annual meeting of the association for computational linguistics acl acl association for computational linguistics" },
-  { name: "Proceedings of the Conference of the European Chapter of the Association for Computational Linguistics (EACL)", entryType: "inproceedings", search: "eacl proceedings of the conference of the european chapter of the association for computational linguistics eacl eacl conference european chapter association for computational linguistics" },
+  { name: "Proceedings of the Conference of the European Chapter of the Association for Computational Linguistics (EACL)", entryType: "inproceedings", search: "eacl proceedings of the conference of the european chapter of the association for computational linguistics eacl" },
   { name: "Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP)", entryType: "inproceedings", search: "emnlp proceedings of the conference on empirical methods in natural language processing emnlp emnlp empirical methods natural language processing" },
   { name: "Proceedings of the IEEE", entryType: "article", search: "pieee proceedings of the ieee" },
   { name: "Proceedings of the Royal Society A", entryType: "article", search: "prsa proceedings of the royal society a" },

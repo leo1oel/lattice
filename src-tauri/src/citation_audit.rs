@@ -13,7 +13,8 @@
 //!
 //! Shared rules: `identity` decides whether two records describe the same
 //! paper, `proposal` turns remote metadata and local repairs into a
-//! replacement, `bibcite` runs the CLI, and `bibtex` reads one entry's text.
+//! replacement, `venue` names venues from the app's one venue vocabulary,
+//! `bibcite` runs the CLI, and `bibtex` reads one entry's text.
 use crate::citation_health::{self, CitationHealth};
 use crate::project::{self, normalize_doi};
 use crate::project_fs::ProjectDir;
@@ -34,6 +35,7 @@ mod proceedings;
 mod proposal;
 mod publication;
 mod scan;
+mod venue;
 
 pub use apply::apply;
 pub use batch::check_batch;
@@ -48,6 +50,7 @@ use bibcite::*;
 use bibtex::*;
 use identity::*;
 use proposal::*;
+use venue::{canonical_venue, same_canonical_venue};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
