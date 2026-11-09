@@ -53,3 +53,14 @@ fn a_stop_with_no_build_running_is_not_recorded() {
         run_tracked(command, &active, &BuildSteps::silent(), "start: ", "wait: ").unwrap();
     assert!(!cancelled);
 }
+
+#[test]
+fn a_build_between_two_processes_counts_as_running() {
+    let active = ActiveBuild::default();
+    assert!(!is_running(&active));
+    let session = BuildSession::open(&active);
+    // A restart now would cut off the rerun still to come.
+    assert!(is_running(&active));
+    drop(session);
+    assert!(!is_running(&active));
+}

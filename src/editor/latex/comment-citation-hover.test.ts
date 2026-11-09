@@ -5,6 +5,7 @@ import { createEditorComment } from "../comments/editor-comment-data";
 import { CommentCardHosts, editorCommentsExtension } from "../comments/editor-comments";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationTooltips, referenceTooltips } from "./latex-hover-cards";
+import { overleafTrackChangesExtension } from "../../overleaf/overleaf-editor-extensions";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(async () => undefined) }));
@@ -84,7 +85,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function openEditor() {
+/**
+ * `suggested` adds an Overleaf suggestion over the whole paragraph, whose card
+ * covers the hovered row and opens after the key's card, in the same popover.
+ */
+function openEditor({ suggested = false } = {}) {
   const PARAGRAPH = paragraph();
   DOC = `${INTRO}\n${PARAGRAPH}`;
   const from = DOC.indexOf(PARAGRAPH);
@@ -104,6 +109,10 @@ function openEditor() {
         editorCommentsExtension("main.tex", { getComments: () => [comment], cards: new CommentCardHosts() }),
         citationTooltips(() => data),
         referenceTooltips(() => data),
+        suggested ? overleafTrackChangesExtension({
+          authorName: () => "Ann", canAct: () => true, onAccept: vi.fn(), onReject: vi.fn(),
+          getChanges: () => [{ id: "s1", position: from, text: PARAGRAPH, deletion: false, userId: "a", timestamp: null, hue: 200 }],
+        }) : [],
       ],
     }),
   });
@@ -130,6 +139,7 @@ const parts = () => ({
   comment: !!popover()?.querySelector(".cm-editor-comment-card-host"),
   card: !!popover()?.querySelector(CARDS[card].selector),
 });
+const suggestionShown = () => !!popover()?.querySelector(".cm-tracked-change-tooltip");
 
 describe.each(Object.keys(CARDS) as Card[])("a %s card inside a commented passage", (kind) => {
   beforeEach(() => { card = kind; });
@@ -153,6 +163,24 @@ describe.each(Object.keys(CARDS) as Card[])("a %s card inside a commented passag
     pointAt(view, box.left + 20, box.top + 20);
     pointAt(view, box.right - 20, box.top + 60);
     expect(parts()).toEqual({ comment: true, card: true });
+  });
+
+  it("keeps the card when a suggestion's wider card opens after it", () => {
+    const view = openEditor({ suggested: true });
+    const key = coordsAt(DOC.indexOf(CARDS[card].key) + 3);
+    const startY = (key.top + key.bottom) / 2;
+    pointAt(view, key.left, startY);
+    expect(parts()).toEqual({ comment: true, card: true });
+    expect(suggestionShown()).toBe(true);
+
+    // The suggestion starts rows above the key; the popover must still rise from the key.
+    const box = popover()!.getBoundingClientRect();
+    expect(box.left).toBeLessThanOrEqual(key.left);
+    expect(box.right).toBeGreaterThanOrEqual(key.right);
+    for (let y = startY; y >= box.bottom - 10; y -= 4) {
+      pointAt(view, key.left, y);
+      expect(parts(), `pointer at y=${y}`).toEqual({ comment: true, card: true });
+    }
   });
 
   it("closes both once the pointer leaves the passage and the popover", () => {

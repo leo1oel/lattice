@@ -323,7 +323,7 @@ export function reviewModeExtension(path: string, store: ReviewModeStore = revie
       above: true,
       arrow: true,
       create: () => ({
-        getCoords: hoverAnchor(view, start),
+        getCoords: hoverAnchor(view, pos),
         dom: buildTrackedChangeTooltipDom(cards, {
           authorName: () => i18n._(msg({ message: "You", context: "the writer, as the author of a tracked change" })),
           describe: (change) => describeHunk(base, view.state.doc.toString(), value.hunks[Number(change.id.split(":")[1])]),

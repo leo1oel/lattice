@@ -248,7 +248,7 @@ export function latexCommandHover(state: EditorState, pos: number) {
       const dom = document.createElement("div");
       dom.className = "texlab-hover-card";
       dom.textContent = `${hit.entry.name}\n${detailOf(hit.entry)}`;
-      return { dom, getCoords: hoverAnchor(view, hit.from) };
+      return { dom, getCoords: hoverAnchor(view, pos) };
     },
   };
 }

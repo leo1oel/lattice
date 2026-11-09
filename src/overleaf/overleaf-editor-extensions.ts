@@ -376,7 +376,7 @@ export function overleafTrackChangesExtension(options: TrackedChangeTooltipActio
       above: true,
       arrow: true,
       // Under a comment too, the popover hangs from here (hover-anchor.ts).
-      create: () => ({ dom: buildTrackedChangeTooltipDom(hits, actions), resize: false, getCoords: hoverAnchor(view, start) }),
+      create: () => ({ dom: buildTrackedChangeTooltipDom(hits, actions), resize: false, getCoords: hoverAnchor(view, pos) }),
     };
   });
 

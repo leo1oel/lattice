@@ -13,8 +13,10 @@
  * it only when every card that gives one gives the very same function;
  * two different closures and it falls back to the earliest `pos` again. So
  * every Lattice card takes its `getCoords` from here: one function per view,
- * reading the position of the card created last, which is the one the
- * pointer just reached. The comment card gives none, and so follows it.
+ * reading the position the card created last gave. Each gives where the
+ * pointer is, or the start of the narrow token under it, never the start of
+ * a wider range (a suggestion, a TexLab span), which can sit rows above. The
+ * comment card gives none, and so follows it.
  */
 import type { EditorView, Rect } from "@codemirror/view";
 

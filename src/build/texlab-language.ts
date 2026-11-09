@@ -140,7 +140,7 @@ export function texlabHover(
           const dom = document.createElement("div");
           dom.className = "texlab-hover-card";
           dom.textContent = hover.contents;
-          return { dom, getCoords: hoverAnchor(view, from) };
+          return { dom, getCoords: hoverAnchor(view, pos) };
         },
       };
     });

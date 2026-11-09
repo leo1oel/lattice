@@ -44,9 +44,11 @@ pub fn abort(active: &ActiveBuild) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Whether latexmk is running for this project: a restart would stop it.
+/// Whether a build is under way for this project, between its processes
+/// included: a restart would stop it.
 pub fn is_running(active: &ActiveBuild) -> bool {
-    state(active).pid.is_some()
+    let guard = state(active);
+    guard.pid.is_some() || guard.builds > 0
 }
 
 /// latexmk and every pass it starts share the process group made at spawn.
