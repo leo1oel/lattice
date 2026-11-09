@@ -9,7 +9,10 @@ use std::fs;
 /// current number to the width of the total (`[ 1/12, …]`), and after
 /// each one records what STATUS then says in `statuses`; with
 /// `fail_update_all` it fails the way an unreachable repository does.
-/// Every run first records what STATUS says in `stages`.
+/// Every run first records what STATUS says in `stages`. `status()`
+/// rewrites STATUS by truncating it first, so a read can land between the
+/// truncate and the write and see it empty; the stub, like the app's
+/// poller, waits past such a read rather than taking it for the next stage.
 struct StubTlmgr {
     path: std::path::PathBuf,
     calls: std::path::PathBuf,
@@ -31,7 +34,7 @@ impl StubTlmgr {
                  printf '[%2d/12, ??:??/??:??] update: package%d\\n' \"$n\" \"$n\"\n      \
                  for _ in $(seq 300); do\n        \
                  current=\"$(cat {status})\"\n        \
-                 [[ \"$current\" != \"$last\" ]] && break\n        \
+                 [[ -n \"$current\" && \"$current\" != \"$last\" ]] && break\n        \
                  sleep 0.01\n      \
                  done\n      \
                  printf '%s\\n' \"$current\" >> {statuses}\n      \
