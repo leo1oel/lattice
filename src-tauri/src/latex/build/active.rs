@@ -12,6 +12,7 @@ pub struct ActiveBuildState {
     /// format, latexmk, reruns), so between two of them `pid` is None: a Stop
     /// there must still stop the build, and stays set until it ends.
     builds: u32,
+    stalled: bool,
 }
 
 /// Shared handle for the in-flight latexmk process group. Each project owns
@@ -83,6 +84,21 @@ pub(super) fn finish_active(active: &ActiveBuild) -> bool {
     }
 }
 
+/// Stops a run that made no progress, for the build to report as a stall.
+pub(super) fn stop_stalled(active: &ActiveBuild) {
+    let mut guard = state(active);
+    guard.stalled = true;
+    guard.cancelled = true;
+    if let Some(pid) = guard.pid.take() {
+        terminate(pid);
+    }
+}
+
+/// Whether the build just reported as cancelled was stopped for stalling.
+pub(super) fn was_stalled(active: &ActiveBuild) -> bool {
+    std::mem::take(&mut state(active).stalled)
+}
+
 /// Holds a build open across its processes; a Stop made meanwhile ends with it.
 pub(super) struct BuildSession<'a>(&'a ActiveBuild);
 
@@ -91,6 +107,8 @@ impl<'a> BuildSession<'a> {
         let mut guard = state(active);
         if guard.builds == 0 {
             guard.cancelled = false;
+            // Not every process reports its stall: it must not colour a later Stop.
+            guard.stalled = false;
         }
         guard.builds += 1;
         Self(active)
