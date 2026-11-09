@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withoutCounterPrefix, compoundCommand, compoundMarksOnLine, compoundEntries, compoundKeysIn, compoundKeysOnLine, keysNumbered, parseCompoundNumbers } from "./compound-keys";
+import { withoutCounterPrefix, compoundCommand, compoundMarksOnLine, compoundEntries, compoundKeysIn, compoundKeysOnLine, keysNumbered, parseCompoundNumbers, printedNumber } from "./compound-keys";
 
 const AUX = String.raw`\chemnum@cmpd {ketone}{1}{1}{}{}{}{}{\bfseries }
 \chemnum@cmpd {alcohol}{2}{2}{}{}{}{}{\bfseries }
@@ -144,5 +144,23 @@ describe("a number printed with a chapter in its own run of text", () => {
     const plain = parseCompoundNumbers(String.raw`\chemnum@cmpd {a}{1}{1}{}{}{}{}{\bfseries }`);
     expect(keysNumbered("4-1", ["a"], plain)).toEqual([]);
     expect(withoutCounterPrefix("4-1", plain)).toBe("");
+  });
+});
+
+describe("printedNumber", () => {
+  it("drops the brackets and punctuation around a printed number", () => {
+    expect(printedNumber(" (2a), ")).toBe("2a");
+    expect(printedNumber("[3.1];")).toBe("3.1");
+    expect(printedNumber("((1)).:")).toBe("1");
+    expect(printedNumber("2a)!")).toBe("2a)!");
+    expect(printedNumber("),.;:")).toBe("");
+    expect(printedNumber("")).toBe("");
+  });
+
+  it("stays linear on a long punctuation run that is not at the end", () => {
+    const text = `${")".repeat(100_000)}!`;
+    const started = performance.now();
+    expect(printedNumber(text)).toBe(text);
+    expect(performance.now() - started).toBeLessThan(50);
   });
 });

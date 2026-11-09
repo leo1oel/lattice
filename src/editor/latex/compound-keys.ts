@@ -23,7 +23,16 @@ const STYLE_SUFFIX = /(?<=^[^.]+\.[^.]+)\.(?:num|dash|letter)$/;
 export const numberedKey = (key: string) => key.replace(STYLE_SUFFIX, "");
 
 /** A run of PDF text as the number it may be: `(2a),` reads `2a`. */
-export const printedNumber = (text: string) => text.trim().replace(/^[([]+/, "").replace(/[)\],.;:]+$/, "");
+export const printedNumber = (text: string) => {
+  const opened = text.trim().replace(/^[([]+/, "");
+  // A backward scan, not `/[)\],.;:]+$/`: that regex retries from every
+  // punctuation run start, so a long run not at the end (`)))…!`) is quadratic
+  // on the WebView main thread.
+  let end = opened.length;
+  while (end > 0 && TRAILING_PUNCTUATION.has(opened[end - 1])) end--;
+  return opened.slice(0, end);
+};
+const TRAILING_PUNCTUATION = new Set([")", "]", ",", ".", ";", ":"]);
 
 /** What chemnum numbered: `counterPrefixed` holds the keys whose `pre-label-code` prints a counter, such as `\\thechapter-`. */
 export type CompoundNumbers = ReadonlyMap<string, string> & { counterPrefixed?: ReadonlySet<string> };
