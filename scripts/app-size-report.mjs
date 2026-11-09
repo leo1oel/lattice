@@ -295,8 +295,11 @@ export async function checkAppSizeBudgets(
 // 7 MiB), and only about 3 MiB of it is reachable from that editor alone.
 // v0.11.8 raised it from 320 MiB: Synara 1.0.8 with Open Slide 2.3.1 built
 // at 320.1 MiB on disk. v0.15.0 raised it from 330 MiB: Synara 1.1.0 grew the
-// sidecar about 1.9 MB and the release built at 330.8 MiB on disk.
-const INSTALLED_APP_BUDGET_BYTES = 333 * 1024 * 1024;
+// sidecar about 1.9 MB and the release built at 330.8 MiB on disk. v0.16.1
+// raised it from 333 MiB: the v0.16 features (Zotero import, PDF comment
+// column, history review, Overleaf live sync) grew the app binary from 61.7 to
+// 63.1 MiB, and the v0.16.0 build reached 333.2 MiB on disk.
+const INSTALLED_APP_BUDGET_BYTES = 335 * 1024 * 1024;
 // The Intel Mac app (macos-intel.yml), built on an Intel host, carries x86_64
 // builds of the app, Node and the runtimes' native packages, all larger: the
 // first one built at 335.8 MiB on disk on 2026-11-07.
