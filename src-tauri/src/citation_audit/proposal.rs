@@ -21,36 +21,6 @@ const MERGED_FIELDS: [&str; 11] = [
 
 // Local repairs must remain available even when a remote candidate is rejected.
 // They modify the current entry, never fields from that rejected candidate.
-pub(crate) fn prepare_import(raw: &str) -> Result<String, String> {
-    // A fetched record is one entry plus surrounding whitespace; read and
-    // rebuild the entry itself so its last field survives the merge.
-    let raw = raw.trim();
-    let mut checked = publication::refine_import(result("checked", "", raw));
-    // Crossref names the proceedings of an arXiv import. For NeurIPS and ICLR
-    // the conference's own export then settles the fields it covers (LLaVA's
-    // publisher is Curran Associates, not Crossref's depositor).
-    if checked.after.is_some() && checked.candidate.is_none() {
-        checked = proceedings::refine(raw, checked);
-        if checked.official.is_some() {
-            checked = publication::refine_import(checked);
-        }
-    }
-    if let Some(candidate) = &checked.candidate {
-        let doi = fields(&candidate.bibtex).get("doi").cloned().unwrap_or_default();
-        let source = checked.sources.last().map(|row| row.source.as_str()).unwrap_or("Crossref");
-        return Err(format!("A published record was found ({doi}, from {source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added."));
-    }
-    // A verified correction that could not be merged must not be dropped
-    // silently: the import would store the very metadata it was correcting.
-    if checked.status == "unavailable"
-        && checked.after.is_none()
-        && checked.sources.iter().any(|row| row.outcome == "selected")
-    {
-        return Err(format!("{} Verified publication metadata could not be merged into the fetched record; no citation was added.", checked.message));
-    }
-    Ok(canonical_venues(cleanup_result(checked).after.as_deref().unwrap_or(raw)))
-}
-
 pub(crate) fn protect_bibtex(raw: &str) -> String {
     cleanup_result(result("checked", "", raw)).after.unwrap_or_else(|| raw.into())
 }
@@ -89,9 +59,12 @@ pub(super) fn merge_metadata(before: &str, remote: &str, published: bool) -> Aud
                     || drops_short_name(&a, &b)
             } else if *name == "url" {
                 // A link to the paper's own DOI is as good as the landing page
-                // a source names; the entry editor fills one in for a DOI.
+                // a source names; the entry editor fills one in for a DOI. An
+                // arXiv link (DBLP's for an ICLR paper) never replaces the
+                // proceedings or publisher page an entry already links.
                 same_value(name, &a, &b)
                     || normalize_doi(&a).is_some_and(|doi| entry_doi(&other) == Some(doi))
+                    || (is_arxiv_url(&b) && !a.trim().is_empty() && !is_arxiv_url(&a))
             } else {
                 same_venue.contains(name) || same_value(name, &a, &b)
             };
@@ -229,6 +202,7 @@ pub(super) fn cleanup_result(checked: AuditResult) -> AuditResult {
     cleaned.publication_reason = checked.publication_reason;
     cleaned.official = checked.official;
     cleaned.disagreements = checked.disagreements;
+    cleaned.withheld = checked.withheld;
     // Keep an incomplete health verdict when combining with a remote update.
     if checked.after.is_some() && checked.status == "unavailable" {
         cleaned.status = checked.status;
@@ -421,6 +395,11 @@ pub(super) fn same_value(field: &str, a: &str, b: &str) -> bool {
         "url" if normalize_doi(a).is_some() => normalize_doi(a) == normalize_doi(b),
         _ => normalize_text(a) == normalize_text(b),
     }
+}
+
+fn is_arxiv_url(url: &str) -> bool {
+    let url = url.trim().to_ascii_lowercase();
+    ["arxiv.org/", "doi.org/10.48550/"].iter().any(|host| url.contains(host))
 }
 
 /// A page range in BibTeX's `first--last` form, whatever dash a source used.

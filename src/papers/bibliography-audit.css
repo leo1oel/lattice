@@ -81,6 +81,8 @@
 .bibliography-audit-group { margin: var(--space-8) 0 var(--space-2); padding: 0 var(--space-4); display: flex; align-items: center; gap: var(--space-3); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .bibliography-audit-group:first-child { margin-top: var(--space-2); }
 .bibliography-audit-group > span { color: var(--text-secondary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
+/* A fix group inside "Fixes to review": what Apply all takes, then what it leaves. */
+.bibliography-audit-subgroup { margin: var(--space-4) 0 var(--space-1); padding: 0 var(--space-4); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-regular); }
 
 /* A row: select, what kind of finding, the reference, and its one action. */
 /* A row lights and its hairlines give way as the Papers rows do (app-shell.css):
