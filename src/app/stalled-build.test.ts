@@ -1,18 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { automaticBuildWouldStall, forgetBuildStall, noteBuildOutcome } from "./stalled-build";
+import { createStallHold } from "./stalled-build";
 
 describe("automatic builds after a stall", () => {
-  it("wait for an edit, and resume after any other result", () => {
-    noteBuildOutcome([{ code: "build-stalled" }], "text");
-    expect(automaticBuildWouldStall("text")).toBe(true);
-    expect(automaticBuildWouldStall("edited")).toBe(false);
-    noteBuildOutcome([{ code: "other" }], "text");
-    expect(automaticBuildWouldStall("text")).toBe(false);
-  });
-
-  it("resume when any project file changes, the open text staying the same", () => {
-    noteBuildOutcome([{ code: "build-stalled" }], "text");
-    forgetBuildStall();
-    expect(automaticBuildWouldStall("text")).toBe(false);
+  it("wait for the inputs to change, and resume after any other result", () => {
+    const hold = createStallHold();
+    hold.note([{ code: "build-stalled" }], 3);
+    expect(hold.holds(3)).toBe(true);
+    expect(hold.holds(4)).toBe(false);
+    hold.note([{ code: "other" }], 3);
+    expect(hold.holds(3)).toBe(false);
   });
 });

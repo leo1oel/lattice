@@ -19,7 +19,6 @@
  */
 import { isBuildOutput } from "../build/build-inputs";
 import { normalizeProjectRelativePath, onProjectFilesChanged } from "../project/project-files-changed";
-import { forgetBuildStall } from "./stalled-build";
 
 /** How long the writes must pause before they build: an Agent's edits come in quick runs of tool calls. */
 export const WATCHED_BUILD_IDLE_MS = 1_500;
@@ -105,7 +104,6 @@ export function createWatchedBuilds() {
           else unknown = true;
         }
         if (!changed) return;
-        forgetBuildStall();
         pipeline.inputsChanged();
         if (pipeline.automatic()) schedule();
       });
@@ -116,7 +114,6 @@ export function createWatchedBuilds() {
     },
     /** The app wrote `paths` itself: the watcher's next report of each is that write's echo. */
     saved(paths: readonly string[]): void {
-      forgetBuildStall();
       const now = Date.now();
       for (const path of paths) {
         const file = normalizeProjectRelativePath(path);

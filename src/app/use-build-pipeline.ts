@@ -21,8 +21,8 @@ import { enqueueBuild, IDLE_QUEUE, type QueuedBuild } from "./build-queue";
 import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
 import { createQuietBuilds } from "../live-preview/quiet-builds";
-import { automaticBuildWouldStall, noteBuildOutcome } from "./stalled-build";
 import { createWatchedBuilds } from "./watched-builds";
+import { createStallHold } from "./stalled-build";
 import { useDiagnosticCycle } from "./use-diagnostic-cycle";
 import { cleanAuxiliaryFiles } from "./clean-auxiliary-files";
 import type { BuildOptions, BuildPipelineInputs } from "./build-pipeline-inputs";
@@ -63,6 +63,7 @@ export function useBuildPipeline({
   const [quietBuilds] = useState(createQuietBuilds);
   useEffect(() => quietBuilds.cancel, [quietBuilds]);
   const [watchedBuilds] = useState(createWatchedBuilds);
+  const [stallHold] = useState(createStallHold);
   const [progress] = useState(createProgressStore);
   /** Names each pass to the backend, which tags its progress with it; a late report from an earlier pass is not this one's. */
   const progressIdRef = useRef(0);
@@ -228,7 +229,7 @@ export function useBuildPipeline({
     await invoke<boolean>("abort_build").catch((reason) => showError(toMessage(reason)));
   }, [buildingRef, quietBuilds, reportCompiles, takePendingCompiles]);
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
-    if (options?.automatic && (automaticBuildWouldStall(sourceRef.current) || quietBuilds.defer())) return;
+    if (options?.automatic && (stallHold.holds(inputRevisionRef.current) || quietBuilds.defer())) return;
     const queue = queueRef.current;
     // A project with no LaTeX document has nothing to compile. Autosave, a
     // synctex jump and opening the project all reach here, and each of them
@@ -366,7 +367,7 @@ export function useBuildPipeline({
         ]);
         if (!scopeIsCurrent()) continue;
         setBuild(result);
-        noteBuildOutcome(result.diagnostics, sourceAtBuild);
+        stallHold.note(result.diagnostics, revisionAtBuild);
         watchedBuilds.passWrote(result.outputs);
         // A stopped build fails with build-cancelled: not an error.
         const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
@@ -476,7 +477,7 @@ export function useBuildPipeline({
     }
   }, [
     activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef,
-    quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, t,
+    quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, stallHold, t,
     takePendingCompiles, watchedBuilds, abortBuild,
   ]);
   // Everything else that changes an input — the agent, a terminal, an
