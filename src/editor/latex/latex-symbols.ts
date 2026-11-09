@@ -4,7 +4,7 @@
  * file an argument names.
  */
 import {
-  LABEL, findProjectPath, findProjectPathIgnoringCase, findTexPath, foldCase, normalizeProjectPath, rootFolder, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
+  LABEL, findPathCandidate, foldCase, normalizeProjectPath, rootFolder, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
 } from "./latex-text";
 
 /* eslint-disable lingui/no-unlocalized-strings -- regular-expression alternations of LaTeX command names */
@@ -19,7 +19,8 @@ export const CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]
 export const REFERENCE = new RegExp(`\\\\(?:${REFERENCE_COMMANDS})\\*?\\{([^}]*)\\}`, "g");
 export const INCLUDE = /\\(?:input|include)\{([^}]*)\}/g;
 export const GRAPHICS = /\\includegraphics(?:\[[^\]]*\])?\{((?:\\detokenize\{[^}]*\}|[^}]+))\}/g;
-const GRAPHICS_EXTENSIONS = ["", ".pdf", ".png", ".jpg", ".jpeg", ".svg", ".eps", ".webp"];
+// graphicx tries the extensions it knows; the bare name, last, finds a file saved without one.
+const GRAPHICS_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".svg", ".eps", ".webp", ""];
 
 export type KeySpan = { from: number; to: number; key: string };
 
@@ -125,22 +126,27 @@ export function unwrapLatexPath(raw: string): string {
 /**
  * The project paths an unwrapped argument may name, in the order they are
  * tried: the path as written or with the extension TeX or graphicx adds, a
- * figure under each `\graphicspath` root too.
+ * figure under each `\graphicspath` root too. graphicx tries each extension
+ * in the build folder and then in each root, so extensions come first.
  */
 function pathCandidates(path: string, kind: "tex" | "graphics", graphicsRoots: string[]) {
   if (kind === "tex") {
     return (path.endsWith(".tex") ? [""] : ["", ".tex"]).map((extension) => ({ candidate: `${path}${extension}`, extension }));
   }
-  const extensions = path.includes(".") ? [""] : GRAPHICS_EXTENSIONS;
-  return ["", ...graphicsRoots.map((root) => `${root}/`)].flatMap((prefix) => extensions.map((extension) => ({
+  // Only the file name says whether an extension was given: `./figures/plot` has none.
+  const extensions = path.slice(path.lastIndexOf("/") + 1).includes(".") ? [""] : GRAPHICS_EXTENSIONS;
+  const prefixes = ["", ...graphicsRoots.map((root) => `${root}/`)];
+  return extensions.flatMap((extension) => prefixes.map((prefix) => ({
     candidate: `${prefix}${path}${extension}`.replace(/\/+/g, "/"),
     extension,
   })));
 }
 
 /**
- * A URL resolves to itself; anything else must name a project file. A `.tex`
- * path is read from the root document `rootPath`'s folder, as TeX reads it.
+ * A URL resolves to itself; anything else must name a project file, read
+ * from the root document `rootPath`'s folder as TeX reads it (`findPathCandidate`).
+ * A figure is no different: `\includegraphics` paths, and `\graphicspath`
+ * roots, are read from the same folder.
  */
 export function resolveProjectPath(
   raw: string,
@@ -151,11 +157,7 @@ export function resolveProjectPath(
 ): string | null {
   const path = unwrapLatexPath(raw);
   if (!path || /^https?:/.test(path)) return path || null;
-  for (const { candidate } of pathCandidates(path, kind, graphicsRoots)) {
-    const found = kind === "tex" ? findTexPath(candidate, projectPaths, rootPath) : findProjectPath(candidate, projectPaths);
-    if (found) return found;
-  }
-  return null;
+  return findPathCandidate(pathCandidates(path, kind, graphicsRoots), projectPaths, rootPath)?.file ?? null;
 }
 
 /**
@@ -174,18 +176,14 @@ export function miscasedProjectPath(
 ): { file: string; path: string | null } | null {
   const path = unwrapLatexPath(raw);
   if (!path || /^https?:/.test(path)) return null;
-  for (const { candidate, extension } of pathCandidates(path, kind, graphicsRoots)) {
-    const file = kind === "tex"
-      ? findTexPath(candidate, projectPaths, rootPath, true)
-      : findProjectPathIgnoringCase(candidate, projectPaths);
-    if (!file) continue;
-    // The file ends with the candidate, folded, and folding keeps lengths,
-    // so the written path sits just before the extension the lookup added.
-    const end = file.length - extension.length;
-    const respelled = file.slice(end - path.length, end);
-    return { file, path: respelled !== path && foldCase(respelled) === foldCase(path) ? respelled : null };
-  }
-  return null;
+  const found = findPathCandidate(pathCandidates(path, kind, graphicsRoots), projectPaths, rootPath, true);
+  if (!found) return null;
+  const { file, extension } = found;
+  // The file ends with the candidate, folded, and folding keeps lengths,
+  // so the written path sits just before the extension the lookup added.
+  const end = file.length - extension.length;
+  const respelled = file.slice(end - path.length, end);
+  return { file, path: respelled !== path && foldCase(respelled) === foldCase(path) ? respelled : null };
 }
 
 export function symbolAt(text: string, position: number): SymbolTarget | null {
@@ -209,7 +207,7 @@ export function definitionTargetAt(
   const citation = citationHoverTarget(text, position);
   if (citation) return { kind: "citation", key: citation.key };
   const figure = argumentAt(text, GRAPHICS, position, unwrapLatexPath);
-  if (figure) return { kind: "asset", path: resolveProjectPath(figure, projectPaths, "graphics", graphicsRoots) ?? figure };
+  if (figure) return { kind: "asset", path: resolveProjectPath(figure, projectPaths, "graphics", graphicsRoots, rootPath) ?? figure };
   const include = argumentAt(text, INCLUDE, position, trim);
   if (!include) return null;
   const file = include.endsWith(".tex") ? include : `${include}.tex`;

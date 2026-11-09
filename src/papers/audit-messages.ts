@@ -156,3 +156,30 @@ export function auditSourceOutcome(status: string, outcome: string): string {
   const message = SOURCE_OUTCOMES[outcome];
   return message ? i18n._(message) : i18n._(msg`Unknown source response`);
 }
+
+/** Source outcomes that mean the source never answered, rather than answered "no". */
+const SILENT_OUTCOMES = new Set([
+  "rate_limited", "queue_busy", "daily_quota", "blocked", "timeout", "connection_failed", "network",
+  "unauthorized", "malformed", "forbidden", "upstream_rate_limit", "server_error", "unavailable",
+]);
+export const isSilent = (outcome: string) => SILENT_OUTCOMES.has(outcome) || (outcome.startsWith("batch_") && outcome !== "batch_reused");
+
+/** A check result's status, as its row's mark names it. */
+export function auditStatusLabel(result: { status: string; publicationReason?: string } | undefined, inline: boolean): string {
+  if (!result) return i18n._(msg`Not checked`);
+  const reason = result.publicationReason;
+  if (result.status === "update") return inline ? i18n._(msg`Differs from the verified record`) : i18n._(msg`Update available`);
+  if (reason === "missing_identity") return i18n._(msg`Reference lacks identifying metadata`);
+  if (reason === "no_match") return i18n._(msg`No matching publication found`);
+  if (result.status === "unavailable") {
+    switch (reason) {
+      case "identity_conflict": return i18n._(msg`Candidate does not match reference`);
+      case "metadata_unavailable": return i18n._(msg`Independent metadata unavailable`);
+      case "sources_unavailable": return i18n._(msg`Some sources unavailable`);
+      case "official_unavailable": return i18n._(msg`Official verification incomplete`);
+      default: return i18n._(msg`Check incomplete`);
+    }
+  }
+  if (result.status === "skipped") return i18n._(msg`Not verified`);
+  return result.status === "conflict" ? i18n._(msg`Entry changed`) : i18n._(msg`No update found`);
+}

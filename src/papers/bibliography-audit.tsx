@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -25,7 +25,9 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { useProgressiveRows } from "../hooks/use-progressive-rows";
 import { loadAuditReport, saveAuditReport } from "./bibliography-audit-storage";
 import { auditKey, auditReport, carryOver } from "./audit-carry-over";
-import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, auditSourceOutcome, type CodedAuditIssue } from "./audit-messages";
+import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, auditSourceOutcome, auditStatusLabel, isSilent, type CodedAuditIssue } from "./audit-messages";
+import { Disclosure } from "./audit-disclosure";
+import { fixGroup, type FixGroup } from "./audit-groups";
 import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-check-keys";
 import { bibFieldName, correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
 import "./bibliography-audit.css";
@@ -75,6 +77,8 @@ export type AuditResult = {
  */
 type Bucket = "fix" | "review" | "incomplete" | "unchecked" | "kept" | "verified";
 const BUCKET_ORDER: readonly Bucket[] = ["fix", "review", "incomplete", "unchecked", "kept", "verified"];
+/** Fixes in the order Apply all takes them, then the ones it leaves. */
+const GROUP_ORDER: readonly FixGroup[] = ["published", "cosmetic", "disputed"];
 /** The findings J, K and S walk through, and Apply or Keep mine finishes. */
 const ACTIONABLE = new Set<Bucket>(["fix", "review"]);
 /** A reference row's usual height, for the list not drawn yet. */
@@ -89,14 +93,6 @@ const without = (indexes: Iterable<number>) => (previous: Set<number>) => {
   return next;
 };
 
-/** A collapsed section with the drawer's rotating chevron. */
-function Disclosure(props: { className: string; summary: ReactNode; open?: boolean; children: ReactNode }) {
-  return <details className={props.className} open={props.open}>
-    <summary><ChevronRight size={12} className="bibliography-audit-chevron" />{props.summary}</summary>
-    {props.children}
-  </details>;
-}
-
 /**
  * Wide enough for the review queue's two panes: the list beside the finding
  * it has open. The sheet is the large dialog's width, so this follows the
@@ -104,12 +100,6 @@ function Disclosure(props: { className: string; summary: ReactNode; open?: boole
  */
 const queueWidth = mediaQueryStore("(min-width: 800px)");
 
-/** Source outcomes that mean the source never answered, rather than answered "no". */
-const SILENT_OUTCOMES = new Set([
-  "rate_limited", "queue_busy", "daily_quota", "blocked", "timeout", "connection_failed", "network",
-  "unauthorized", "malformed", "forbidden", "upstream_rate_limit", "server_error", "unavailable",
-]);
-const isSilent = (outcome: string) => SILENT_OUTCOMES.has(outcome) || (outcome.startsWith("batch_") && outcome !== "batch_reused");
 
 // This component stays mounted when hidden so a large audit doesn't block
 // editing. Changing projects unmounts it and stops scheduling further work.
@@ -335,7 +325,9 @@ export function BibliographyAudit(props: {
   /** A publisher's notice (a retraction, an expression of concern) on the work itself. */
   const hasNotice = (result?: AuditResult) => !!result?.health && !["unknown", "unavailable"].includes(result.health.kind);
   // Inline references are edited by hand; their verified record is shown for comparison only.
-  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && !hasCandidate(results[index]) && results[index].status !== "conflict" && !applied.has(index) && !scan?.entries[index]?.inline);
+  const groupOf = (index: number): FixGroup => fixGroup(results[index]?.changes ?? []);
+  // A disputed value (both records plausible) waits for the writer; the rest apply together.
+  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && !hasCandidate(results[index]) && results[index].status !== "conflict" && !applied.has(index) && !scan?.entries[index]?.inline && groupOf(index) !== "disputed");
 
   const total = scan?.entries.length ?? 0;
   const bucketOf = (index: number): Bucket => {
@@ -353,8 +345,9 @@ export function BibliographyAudit(props: {
   const counts = BUCKET_ORDER.reduce((tally, bucket) => ({ ...tally, [bucket]: buckets.filter(value => value === bucket).length }), {} as Record<Bucket, number>);
   // A filter whose last finding was resolved falls back to everything.
   const shownView = view !== "all" && counts[view] === 0 ? "all" : view;
+  const groupRank = (index: number) => buckets[index] === "fix" ? GROUP_ORDER.indexOf(groupOf(index)) : 0;
   const shown = scan ? BUCKET_ORDER.flatMap(bucket => shownView === "all" || shownView === bucket
-    ? scan.entries.flatMap((_, index) => buckets[index] === bucket ? [index] : [])
+    ? scan.entries.flatMap((_, index) => buckets[index] === bucket ? [index] : []).sort((a, b) => groupRank(a) - groupRank(b))
     : []) : [];
   const actionable = shown.filter(index => ACTIONABLE.has(buckets[index]));
   // Nothing left to act on: the queue opens on the finished report, not a verified row.
@@ -434,18 +427,6 @@ export function BibliographyAudit(props: {
   if (!props.open) return null;
   const completed = Object.values(results).filter(result => !busy || (result.checkedAt && result.checkedAt >= checkStartedAt)).length;
   const progressTotal = busy ? checkCount : total;
-  const statusLabel = (result: AuditResult | undefined, inline: boolean) => !result ? t`Not checked`
-    : result.status === "update" ? inline ? t`Differs from the verified record` : t`Update available`
-      : result.publicationReason === "missing_identity" ? t`Reference lacks identifying metadata`
-        : result.publicationReason === "no_match" ? t`No matching publication found`
-      : result.status === "unavailable" ? result.publicationReason === "identity_conflict" ? t`Candidate does not match reference`
-        : result.publicationReason === "metadata_unavailable" ? t`Independent metadata unavailable`
-          : result.publicationReason === "sources_unavailable" ? t`Some sources unavailable`
-            : result.publicationReason === "official_unavailable" ? t`Official verification incomplete`
-            : t`Check incomplete`
-        : result.status === "skipped" ? t`Not verified`
-          : result.status === "conflict" ? t`Entry changed`
-            : t`No update found`;
   const fieldLabels: Record<string, string> = {
     title: t`Title`, author: t`Authors`, year: t`Year`, journal: t`Journal`,
     booktitle: t`Booktitle`, publisher: t`Publisher`, volume: t`Volume`,
@@ -476,6 +457,9 @@ export function BibliographyAudit(props: {
   const reasonLabels: Record<string, string> = {
     ...fieldLabels, insufficient_identity: t`Insufficient identifying metadata`,
     record: t`Record identity`, arxiv: t`arXiv identifier`,
+  };
+  const groupNames: Record<FixGroup, string> = {
+    published: t`Published version or missing fields`, cosmetic: t`Formatting`, disputed: t`Sources differ from your entry`,
   };
   const bucketNames: Record<Bucket, string> = {
     fix: t`Fixes to review`, review: t`Need your eyes`, incomplete: t`Inconclusive`,
@@ -516,7 +500,7 @@ export function BibliographyAudit(props: {
       const reasons = result.candidate?.reasons;
       return Array.isArray(reasons) && reasons.length
         ? t`${joinList(reasons.map(reason => reasonLabels[reason] ?? reason))} differ from a source's record`
-        : statusLabel(result, !!entry.inline);
+        : auditStatusLabel(result, !!entry.inline);
     }
     if (bucket === "fix") {
       const fields = joinList(result.changes.map(change => fieldText(change.field).toLocaleLowerCase(i18n.locale)));
@@ -536,7 +520,7 @@ export function BibliographyAudit(props: {
     }
     if (result.status === "conflict") return t`Changed since the last check`;
     const silent = [...new Set((result.sources ?? []).filter(source => isSilent(source.outcome)).map(source => sourceName(source.source)))];
-    return silent.length ? t`No answer from ${joinList(silent)}` : statusLabel(result, !!entry.inline);
+    return silent.length ? t`No answer from ${joinList(silent)}` : auditStatusLabel(result, !!entry.inline);
   };
 
   // Each state has its own shape as well as its colour (see `.bibliography-audit-mark`).
@@ -634,6 +618,7 @@ export function BibliographyAudit(props: {
       ? result.candidate : undefined;
     return <div className="bibliography-audit-detail">
       {bucket === "fix" && !entry.inline && <>
+        {groupOf(index) === "disputed" && <p className="bibliography-audit-note">{t`Your entry and the source give different values, and either may be right, so Apply all leaves this one to you.`}</p>}
         {typesetCard(typesetBibFix(entry.bibtex, result.after!, result.changes))}
         <div className="bibliography-audit-detail-actions">
           {/* eslint-disable-next-line lingui/no-unlocalized-strings -- key names for assistive tech, from REFERENCE_CHECK_SHORTCUTS */}
@@ -798,12 +783,15 @@ export function BibliographyAudit(props: {
       const summary = summaryOf(index);
       const checking = isChecking(index);
       // The mark's name, as its tooltip and for a screen reader unless the summary already says it.
-      const status = checking ? t`Checking…` : isApplied ? t`Update applied` : bucket === "kept" ? t`Kept as written` : statusLabel(result, !!entry.inline);
+      const status = checking ? t`Checking…` : isApplied ? t`Update applied` : bucket === "kept" ? t`Kept as written` : auditStatusLabel(result, !!entry.inline);
       const health = result?.health;
       const notice = health && !["unknown", "unavailable"].includes(health.kind);
       const head = shownView === "all" && (position === 0 || buckets[shown[position - 1]] !== bucket);
+      const previous = shown[position - 1];
+      const subhead = bucket === "fix" && !entry.inline && (previous === undefined || buckets[previous] !== "fix" || groupOf(previous) !== groupOf(index));
       return <Fragment key={`${entry.path}:${entry.key}:${index}`}>
         {head && <h3 className="bibliography-audit-group">{mark(bucket)}{bucketNames[bucket]}<span>{counts[bucket]}</span></h3>}
+        {subhead && <h4 className="bibliography-audit-subgroup">{groupNames[groupOf(index)]}</h4>}
         <article className="bibliography-audit-row" data-bucket={bucket} data-open={open || undefined} data-selecting={selected.size > 0 || undefined}>
           <Checkbox className="bibliography-audit-check" aria-label={t`Select ${entry.key}`} checked={selected.has(index)} disabled={!selectable} onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(index); else next.delete(index); return next; })} />
           <span className="bibliography-audit-glyph" title={status}>{mark(checking ? "checking" : bucket)}{status !== summary && <span className="sr-only">{status}</span>}</span>

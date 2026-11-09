@@ -114,8 +114,8 @@ export function pathDiagnostics(
   }
   for (const { from, content } of argumentsOf(text, GRAPHICS)) {
     const raw = content.trim();
-    if (!raw || resolveProjectPath(raw, projectPaths, "graphics", graphicsRoots)) continue;
-    const miscased = miscasedProjectPath(raw, projectPaths, "graphics", graphicsRoots);
+    if (!raw || resolveProjectPath(raw, projectPaths, "graphics", graphicsRoots, rootPath)) continue;
+    const miscased = miscasedProjectPath(raw, projectPaths, "graphics", graphicsRoots, rootPath);
     if (miscased) {
       diagnostics.push(caseDiagnostic(from, content, miscased));
       continue;

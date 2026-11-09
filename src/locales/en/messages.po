@@ -2981,7 +2981,7 @@ msgstr "Cancellation requested; waiting for the provider to stop."
 msgid "Cancelled"
 msgstr "Cancelled"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Candidate does not match reference"
 msgstr "Candidate does not match reference"
 
@@ -3212,7 +3212,7 @@ msgctxt "macOS menu bar"
 msgid "Check for Updates…"
 msgstr "Check for Updates…"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Check incomplete"
 msgstr "Check incomplete"
 
@@ -5191,7 +5191,7 @@ msgstr "Did you mean to repeat this word?"
 msgid "Diff for {0}"
 msgstr "Diff for {0}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Differs from the verified record"
 msgstr "Differs from the verified record"
 
@@ -5835,7 +5835,7 @@ msgstr "Enter manually"
 msgid "Enter text to find."
 msgstr "Enter text to find."
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Entry changed"
 msgstr "Entry changed"
 
@@ -6497,6 +6497,7 @@ msgstr "Formatted with latexindent."
 
 #: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Formatting"
 msgstr "Formatting"
 
@@ -7369,7 +7370,7 @@ msgstr "Indent or outdent"
 msgid "Indented blockquote for citations."
 msgstr "Indented blockquote for citations."
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Independent metadata unavailable"
 msgstr "Independent metadata unavailable"
 
@@ -9660,7 +9661,7 @@ msgstr "No matching papers"
 msgid "No matching paths"
 msgstr "No matching paths"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "No matching publication found"
 msgstr "No matching publication found"
 
@@ -9844,6 +9845,7 @@ msgstr "No TODO markers found"
 msgid "No unique matching publication"
 msgstr "No unique matching publication"
 
+#: src/papers/audit-messages.ts
 #: src/papers/bibliography-audit.tsx
 msgid "No update found"
 msgstr "No update found"
@@ -9901,7 +9903,7 @@ msgstr "Not an element of"
 msgid "Not built"
 msgstr "Not built"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not checked"
 msgstr "Not checked"
 
@@ -9989,7 +9991,7 @@ msgstr "Not synced yet"
 msgid "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
 msgstr "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Not verified"
 msgstr "Not verified"
 
@@ -10148,7 +10150,7 @@ msgstr "Off for academic writing: {0}"
 msgid "Off while Reduce transparency is on in System Settings"
 msgstr "Off while Reduce transparency is on in System Settings"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Official verification incomplete"
 msgstr "Official verification incomplete"
 
@@ -11728,6 +11730,10 @@ msgid "Published"
 msgstr "Published"
 
 #: src/papers/bibliography-audit.tsx
+msgid "Published version or missing fields"
+msgstr "Published version or missing fields"
+
+#: src/papers/bibliography-audit.tsx
 msgid "Published version: {published}"
 msgstr "Published version: {published}"
 
@@ -12007,7 +12013,7 @@ msgstr "Reference changed since the last check. Check this reference again."
 msgid "Reference check progress"
 msgstr "Reference check progress"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Reference lacks identifying metadata"
 msgstr "Reference lacks identifying metadata"
 
@@ -12027,6 +12033,10 @@ msgstr "References"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Refresh"
 msgstr "Refresh"
+
+#: src/app/use-reference-import.ts
+msgid "Refresh entry"
+msgstr "Refresh entry"
 
 #: src/project/project-new-entries.ts
 msgid "Refresh file tree"
@@ -13965,7 +13975,7 @@ msgstr "Some changes are shown without marks: marked, they kept the PDF from bui
 msgid "Some files are left out of label and citation checks"
 msgstr "Some files are left out of label and citation checks"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
 
@@ -14087,6 +14097,10 @@ msgstr "Source temporarily unavailable"
 #: src/project/local-templates.tsx
 msgid "Source URL"
 msgstr "Source URL"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Sources differ from your entry"
+msgstr "Sources differ from your entry"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
@@ -15101,6 +15115,10 @@ msgstr "The downloaded {what} failed its security check."
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 msgstr "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 
+#: src/app/use-reference-import.ts
+msgid "The entry for {citationCommand} already matches its sources."
+msgstr "The entry for {citationCommand} already matches its sources."
+
 #: src/platform/host-errors-workspace.ts
 msgid "The Excel workbook is too large to export."
 msgstr "The Excel workbook is too large to export."
@@ -15580,6 +15598,10 @@ msgstr "The source gzip is unreadable: {error}"
 #: src/project/arxiv-export.ts
 msgid "The source spells file names in another case"
 msgstr "The source spells file names in another case"
+
+#: src/app/use-reference-import.ts
+msgid "The sources differ from the entry for {citationCommand}. Compare them in Check references."
+msgstr "The sources differ from the entry for {citationCommand}. Compare them in Check references."
 
 #: src/agent/agent-environment.ts
 msgid "The system proxy changed"
@@ -16650,7 +16672,7 @@ msgstr "Update annotation…"
 msgid "Update applied"
 msgstr "Update applied"
 
-#: src/papers/bibliography-audit.tsx
+#: src/papers/audit-messages.ts
 msgid "Update available"
 msgstr "Update available"
 
@@ -16678,6 +16700,10 @@ msgstr "updated {0}"
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated {target} from {library}. Undo it from History."
 msgstr "Updated {target} from {library}. Undo it from History."
+
+#: src/app/use-reference-import.ts
+msgid "Updated the entry for {citationCommand} from its sources."
+msgstr "Updated the entry for {citationCommand} from its sources."
 
 #: src/app/whats-new.ts
 msgid "Updated to Lattice {running}"
@@ -17347,6 +17373,10 @@ msgstr "Your edits stay in the files. The changes waiting for review are no long
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "Your edits stay on this Mac until the next sync"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Your entry and the source give different values, and either may be right, so Apply all leaves this one to you."
+msgstr "Your entry and the source give different values, and either may be right, so Apply all leaves this one to you."
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Your first paper in Lattice"

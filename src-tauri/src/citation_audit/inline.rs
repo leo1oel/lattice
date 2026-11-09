@@ -340,7 +340,8 @@ pub(super) fn check(
     };
     // No local cleanup: it would turn a failed lookup into an "update" that
     // only re-braces the record this module wrote.
-    let mut checked = publication::refine(check::look_up(root, expanded.clone(), s2_batch_status)?);
+    let mut checked =
+        publication::refine(check::look_up(Some(root), expanded.clone(), s2_batch_status)?);
     checked.before = before;
     if !checked.verified() && checked.after.is_none() {
         return Ok(checked);

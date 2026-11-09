@@ -26,15 +26,46 @@ pub fn check_entry(
         }
         None => return Ok(result("conflict", "The bibliography entry no longer exists.", "")),
     };
-    let checked = look_up(root, before, s2_batch_status)?;
+    let checked = look_up(Some(root), before, s2_batch_status)?;
     Ok(publication::refine(cleanup_result(checked)))
+}
+
+/// The record a lookup fetched (a DOI, arXiv, pasted, Zotero or webpage
+/// record) as Add papers writes it: put through this check's own chain, with
+/// the verified proposal applied. Adding and checking cannot then disagree
+/// about what the sources say, so an entry added through Lattice passes Check
+/// citations with no proposals. A conflicting candidate is refused; a source
+/// that did not answer leaves the record as fetched, which the check then
+/// reports as inconclusive rather than wrong.
+pub(crate) fn prepare_import(raw: &str) -> Result<String, String> {
+    // A fetched record is one entry plus surrounding whitespace; read and
+    // rebuild the entry itself so its last field survives the merge.
+    let raw = raw.trim();
+    // No project yet: the DOI's citation health is the check's to report.
+    let checked = publication::refine_import(cleanup_result(look_up(None, raw.into(), None)?));
+    if let Some(candidate) = &checked.candidate {
+        let doi = fields(&candidate.bibtex).get("doi").cloned().unwrap_or_default();
+        let source = checked.sources.last().map(|row| row.source.as_str()).unwrap_or("Crossref");
+        return Err(format!("A published record was found ({doi}, from {source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added."));
+    }
+    // A verified correction that could not be merged must not be dropped
+    // silently: the import would store the very metadata it was correcting.
+    if checked.status == "unavailable"
+        && checked.after.is_none()
+        && checked.sources.iter().any(|row| row.outcome == "selected")
+        && checked.publication_reason.as_deref() != Some("official_unavailable")
+    {
+        return Err(format!("{} Verified publication metadata could not be merged into the fetched record; no citation was added.", checked.message));
+    }
+    Ok(canonical_venues(checked.after.as_deref().unwrap_or(raw)))
 }
 
 /// Look `before` up by its strongest identity, retrying once after a
 /// provider failure. The result is unrefined: no local cleanup, no
-/// publisher record yet.
+/// publisher record yet. `root` holds the citation-health cache; without one
+/// (a record not yet in any project) health is not part of the verdict.
 pub(super) fn look_up(
-    root: &Path, before: String, s2_batch_status: Option<&str>,
+    root: Option<&Path>, before: String, s2_batch_status: Option<&str>,
 ) -> Result<AuditResult, String> {
     let mut checked = lookup(root, before.clone(), s2_batch_status)?;
     if provider_failed(&checked) {
@@ -62,7 +93,7 @@ fn provider_failed(checked: &AuditResult) -> bool {
         })
 }
 
-fn lookup(root: &Path, before: String, s2: Option<&str>) -> Result<AuditResult, String> {
+fn lookup(root: Option<&Path>, before: String, s2: Option<&str>) -> Result<AuditResult, String> {
     let local = fields(&before);
     let arxiv = local.contains_key("eprint")
         || local.values().any(|v| v.to_ascii_lowercase().contains("arxiv"));
@@ -119,8 +150,8 @@ fn lookup_title(before: String, local: &BTreeMap<String, String>, s2: Option<&st
     }
 }
 
-fn lookup_doi(root: &Path, before: String, doi: &str, s2: Option<&str>) -> AuditResult {
-    let health = citation_health::lookup(root, [doi.to_string()]).remove(doi);
+fn lookup_doi(root: Option<&Path>, before: String, doi: &str, s2: Option<&str>) -> AuditResult {
+    let health = root.map(|root| citation_health::lookup(root, [doi.to_string()]).remove(doi));
     let metadata =
         audit_command(s2).and_then(|command| run_bibcite(&["get", "--json", doi], Some(command)));
     let mut checked = match metadata.as_ref().map_err(Clone::clone).and_then(parse_get_output) {
@@ -130,7 +161,9 @@ fn lookup_doi(root: &Path, before: String, doi: &str, s2: Option<&str>) -> Audit
     if let Ok(output) = &metadata {
         checked.sources = metadata_sources(output, &checked);
     }
-    checked.record_health(health);
+    if let Some(health) = health {
+        checked.record_health(health);
+    }
     checked
 }
 
