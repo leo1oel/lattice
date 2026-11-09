@@ -188,7 +188,7 @@ rather than a fact:
 | `format_latex.rs` | Formatting a LaTeX document with latexindent. |
 | `harper.rs` | Harper grammar and spell linting, on the Rust side because its WASM Worker never starts under WKWebView; it also holds the academic profile's rule list. |
 | `doctor.rs` | The TeX doctor: which tools a build needs are present, and whether the project's own requirements are met. |
-| `tex_setup.rs` + `tex_setup/` | One-click TeX and required-tool installs, including the privileged installer scripts. |
+| `tex_setup.rs` + `tex_setup/` | One-click TeX and required-tool installs, including the privileged installer scripts, and the Settings TeX doctor's package-update check and update for the BasicTeX Lattice installed (`package_updates.rs`, `update.sh`; the row is `src/settings/tex-package-updates-row.tsx`). |
 | `live_preview.rs` + `live_preview/` | The LuaLaTeX live preview's host: downloading the pinned rtex release on demand, one supervised `rtex serve` per project, and the font, image and fallback-PDF files its renderer reads. |
 | `terminal.rs` + `terminal/` | The Terminal panel's shells: a login shell per tab on its own pseudo-terminal (`pty.rs`), its output streamed in batches with flow control (`session.rs`), ended with its tab, its window's project, the window or Lattice; `caller.rs` lets only a workspace window's own Lattice page reach them. Commands in `ipc/terminal.rs`. |
 | `pdf_fonts.rs` | Inspecting embedded PDF fonts without poppler. |
