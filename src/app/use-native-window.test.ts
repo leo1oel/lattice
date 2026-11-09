@@ -8,7 +8,7 @@ const nativeWindow = vi.hoisted(() => ({
   setFullscreen: vi.fn(async (_value: boolean) => {}),
   onResized: vi.fn(async () => () => {}),
   setMinSize: vi.fn(async (_size: { width: number; height: number }) => {}),
-  onMoved: vi.fn(async () => () => {}),
+  onMoved: vi.fn(async (_handler: () => void) => () => {}),
   // A 1440 pt Retina screen: AppKit reports its visible area in device pixels.
   currentMonitor: vi.fn(async () => ({ scaleFactor: 2, workArea: { size: { width: 2880, height: 1800 } } })),
 }));
@@ -51,6 +51,30 @@ describe("useWindowMinimumSize", () => {
   it("clamps the zoomed minimum at interface zoom 1.35 to the screen's visible width", async () => {
     renderHook(() => useWindowMinimumSize(1.35, liveMinimum(1100)));
     await waitFor(() => expect(lastMinimum()).toEqual({ width: 1440, height: APP_WINDOW_MIN_HEIGHT }));
+  });
+
+  it("does not re-send an unchanged minimum when the window moves, which would un-maximize it on Windows", async () => {
+    let moved = () => {};
+    nativeWindow.onMoved.mockImplementationOnce(async (handler) => { moved = handler; return () => {}; });
+    renderHook(() => useWindowMinimumSize(1, liveMinimum(1100)));
+    await waitFor(() => expect(nativeWindow.setMinSize).toHaveBeenCalledTimes(1));
+    // Maximizing fires a move; the hook re-measures after it settles (200 ms).
+    moved();
+    await waitFor(() => expect(nativeWindow.currentMonitor).toHaveBeenCalledTimes(2));
+    // Let the re-measure's own continuation run before asserting it sent nothing.
+    await nativeWindow.currentMonitor.mock.results[1]!.value;
+    await Promise.resolve();
+    expect(nativeWindow.setMinSize).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the minimum again when a move lands on a screen with a different width", async () => {
+    let moved = () => {};
+    nativeWindow.onMoved.mockImplementationOnce(async (handler) => { moved = handler; return () => {}; });
+    renderHook(() => useWindowMinimumSize(1.35, liveMinimum(1100)));
+    await waitFor(() => expect(lastMinimum()).toEqual({ width: 1440, height: APP_WINDOW_MIN_HEIGHT }));
+    nativeWindow.currentMonitor.mockResolvedValueOnce({ scaleFactor: 2, workArea: { size: { width: 2400, height: 1800 } } });
+    moved();
+    await waitFor(() => expect(lastMinimum()).toEqual({ width: 1200, height: APP_WINDOW_MIN_HEIGHT }));
   });
 });
 
