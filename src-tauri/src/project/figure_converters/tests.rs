@@ -71,11 +71,16 @@ fn a_page_name_cannot_end_the_comment_line() {
 
 #[test]
 fn names_that_would_break_the_entry_are_refused() {
-    let fixture = Fixture::project("figure-unsafe-names");
-    fixture.write("figures/a\nb.svg", "<svg/>");
-    assert!(figure_of(&fixture.root, "figures/a\nb.svg").unwrap_err().starts_with("Rename "));
-    fixture.write("x}\\def{/a.svg", "<svg/>");
-    assert!(figure_of(&fixture.root, "x}\\def{/a.svg").is_err());
+    // Windows cannot name a file so.
+    #[cfg(unix)]
+    {
+        let fixture = Fixture::project("figure-unsafe-names");
+        fixture.write("figures/a\nb.svg", "<svg/>");
+        assert!(figure_of(&fixture.root, "figures/a\nb.svg").unwrap_err().starts_with("Rename "));
+        fixture.write("x}\\def{/a.svg", "<svg/>");
+        assert!(figure_of(&fixture.root, "x}\\def{/a.svg").is_err());
+    }
+    assert!(!stays_on_line("a\nb.svg") && !tex_safe("x}\\def{"));
     assert_eq!(copy_name("-R&D {draft}\u{2028}.SVG"), "R_D _draft__.svg");
     assert_eq!(copy_name(".hidden.drawio"), "hidden.drawio");
 }
