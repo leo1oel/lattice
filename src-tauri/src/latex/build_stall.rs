@@ -1,12 +1,13 @@
 //! Stops a TeX run that has stopped getting anywhere. A runaway macro can loop
-//! for ever, some while printing the same error again and again, so what
-//! counts is progress in the output, not output: a finished page, a file
-//! opened, or latexmk moving on. Waiting for terminal input prints nothing and
-//! is caught the same way.
+//! for ever printing the same error, and waiting for terminal input prints
+//! nothing, so progress is any output other than text the run has printed
+//! already. It is judged on chunks as they arrive: with `max_print_line` this
+//! high TeX keeps `[1] [2] (./a.aux)` on one line until a warning or the end.
 
 use super::build::cancelled_build;
 use super::build_log::advice;
 use super::BuildResult;
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -15,42 +16,58 @@ use std::time::{Duration, Instant};
 /// TikZ, which prints nothing until it is done.
 pub(super) const STALL_LIMIT: Duration = Duration::from_secs(120);
 const POLL: Duration = Duration::from_millis(100);
+/// Distinct lines remembered; past it, every line counts as new.
+const MAX_SEEN_LINES: usize = 50_000;
 
-/// Whether a line of TeX or latexmk output shows the run moving forward.
-pub(super) fn is_progress(line: &[u8]) -> bool {
-    let text = String::from_utf8_lossy(line);
-    let text = text.trim_start();
-    if text.starts_with('!') || text.starts_with("l.") || text.starts_with("./") {
-        return false;
-    }
-    text.starts_with("Latexmk:")
-        || text.starts_with("Run number")
-        || opens_a_file(text)
-        || shipped_a_page(text)
+fn trimmed(line: &[u8]) -> &[u8] {
+    line.trim_ascii()
 }
 
-fn opens_a_file(text: &str) -> bool {
-    text.contains("(./") || text.contains("(/")
-}
-
-/// TeX's `[12]`, also with what it wrote into the page: `[12{map}]`.
-fn shipped_a_page(text: &str) -> bool {
-    text.split('[').skip(1).any(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+/// latexmk starting another step: the next pass may print the same text again.
+fn starts_a_step(line: &[u8]) -> bool {
+    line.starts_with(b"Latexmk:") || line.starts_with(b"Run number") || line.starts_with(b"Rule '")
 }
 
 /// The state a run's readers and its watchdog share.
 pub(super) struct Progress {
     last: Mutex<Instant>,
+    seen: Mutex<BTreeSet<Vec<u8>>>,
     finished: AtomicBool,
 }
 
 impl Progress {
     pub(super) fn new() -> Self {
-        Self { last: Mutex::new(Instant::now()), finished: AtomicBool::new(false) }
+        Self {
+            last: Mutex::new(Instant::now()),
+            seen: Mutex::new(BTreeSet::new()),
+            finished: AtomicBool::new(false),
+        }
     }
 
-    pub(super) fn note(&self, line: &[u8]) {
-        if is_progress(line) {
+    /// Takes the next `chunk` of one stream; `tail` is that stream's unfinished line.
+    pub(super) fn note(&self, tail: &mut Vec<u8>, chunk: &[u8]) {
+        let Ok(mut seen) = self.seen.lock() else { return };
+        let mut moved = false;
+        for piece in chunk.split_inclusive(|byte| *byte == b'\n') {
+            tail.extend_from_slice(piece);
+            let line = trimmed(tail);
+            if tail.last() == Some(&b'\n') {
+                if starts_a_step(line) {
+                    seen.clear();
+                }
+                moved |= !line.is_empty()
+                    && (seen.len() >= MAX_SEEN_LINES || seen.insert(line.to_vec()));
+                tail.clear();
+            } else if !line.is_empty() {
+                // Unfinished: new unless a line seen before begins with it.
+                moved |= !seen
+                    .range(line.to_vec()..)
+                    .next()
+                    .is_some_and(|known| known.starts_with(line));
+            }
+        }
+        drop(seen);
+        if moved {
             if let Ok(mut last) = self.last.lock() {
                 *last = Instant::now();
             }
@@ -88,9 +105,15 @@ pub(super) fn last_position(log: &str) -> Option<String> {
 pub(super) fn stalled_build(
     started: Instant, partial_log: &str, root_document: &str,
 ) -> BuildResult {
-    let place = last_position(partial_log).unwrap_or_default();
+    let place = last_position(partial_log);
     let seconds = format!("{:.0}", started.elapsed().as_secs_f32());
-    let message = format!("TeX stopped making progress, so the build was stopped after {seconds}s. Look for an unfinished command just before {place}.");
+    let stopped =
+        format!("TeX stopped making progress, so the build was stopped after {seconds} s.");
+    let message = match &place {
+        Some(place) => format!("{stopped} Look for an unfinished command just before {place}."),
+        None => format!("{stopped} Look for an unfinished command."),
+    };
+    let place = place.unwrap_or_default();
     let mut result = cancelled_build(started, partial_log, root_document);
     result.diagnostics = vec![advice(
         "error",
@@ -105,31 +128,52 @@ pub(super) fn stalled_build(
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_repeating_error_is_not_progress() {
-        for line in [
-            "./main.tex:83: Package chemnum Error: The property `' for compound `\\begin ' is undefined",
-            "! Missing \\endcsname inserted.",
-            "l.83 \\begin",
-            "The control sequence marked <to be read again> should",
-            "",
-        ] {
-            assert!(!is_progress(line.as_bytes()), "{line}");
-        }
+    /// Whether this chunk counted, on a clock already run out.
+    fn moves(progress: &Progress, tail: &mut Vec<u8>, chunk: &str) -> bool {
+        *progress.last.lock().unwrap() = Instant::now() - Duration::from_secs(10);
+        progress.note(tail, chunk.as_bytes());
+        progress.last.lock().unwrap().elapsed() < Duration::from_secs(5)
     }
 
     #[test]
-    fn pages_files_and_latexmk_are_progress() {
-        for line in [
-            "[12]",
-            "text [3{/usr/map}]",
-            "(./chapter.tex",
-            "(/usr/share/a.sty",
-            "Latexmk: Run number 2",
-            "Run number 1 of rule",
-        ] {
-            assert!(is_progress(line.as_bytes()), "{line}");
+    fn a_repeating_error_is_not_progress_even_split_into_chunks() {
+        let progress = Progress::new();
+        let tail = &mut Vec::new();
+        assert!(moves(&progress, tail, "./main.tex:83: Package chemnum Error\nl.83 \\begin\n"));
+        assert!(!moves(&progress, tail, "./main.tex:83: Package chemnum Error\n"));
+        assert!(!moves(&progress, tail, "./main.tex:83: Pack"));
+        assert!(!moves(&progress, tail, "age chemnum Error\nl.83 \\begin\n"));
+        assert!(!moves(&progress, tail, "\n  \n"));
+    }
+
+    #[test]
+    fn any_new_output_is_progress_without_a_newline() {
+        let progress = Progress::new();
+        let tail = &mut Vec::new();
+        for chunk in ["(./main.aux)", " [1]", " [2]", " (./c.tex"] {
+            assert!(moves(&progress, tail, chunk), "{chunk}");
         }
+        assert!(moves(&progress, tail, "\nINFO - Found 2000 citekeys\n"));
+        assert!(moves(&progress, tail, "luaotfload | db : Reloading system fonts\n"));
+    }
+
+    #[test]
+    fn a_further_pass_may_print_the_same_text() {
+        let progress = Progress::new();
+        let tail = &mut Vec::new();
+        assert!(moves(&progress, tail, "Overfull box on page one\n"));
+        assert!(!moves(&progress, tail, "Overfull box on page one\n"));
+        assert!(moves(&progress, tail, "Run number 2 of rule 'pdflatex'\n"));
+        assert!(moves(&progress, tail, "Overfull box on page one\n"));
+    }
+
+    #[test]
+    fn says_where_only_when_it_knows() {
+        let started = Instant::now();
+        let known = stalled_build(started, "./main.tex:77: x\n", "main.tex");
+        assert!(known.diagnostics[0].message.ends_with("just before main.tex:77."));
+        let unknown = stalled_build(started, "no position", "main.tex");
+        assert!(unknown.diagnostics[0].message.ends_with("Look for an unfinished command."));
     }
 
     #[test]

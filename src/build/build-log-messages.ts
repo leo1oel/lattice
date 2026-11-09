@@ -61,6 +61,7 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
     case "build-stalled": {
       const seconds = params.seconds ?? "";
       const place = params.place ?? "";
+      if (!place) return i18n._(msg`TeX stopped making progress, so the build was stopped after ${seconds} s. Look for an unfinished command.`);
       return i18n._(msg`TeX stopped making progress, so the build was stopped after ${seconds} s. Look for an unfinished command just before ${place}.`);
     }
     case "pdf-fonts-not-times":

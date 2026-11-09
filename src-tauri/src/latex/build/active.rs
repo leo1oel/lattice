@@ -107,6 +107,8 @@ impl<'a> BuildSession<'a> {
         let mut guard = state(active);
         if guard.builds == 0 {
             guard.cancelled = false;
+            // Not every process reports its stall: it must not colour a later Stop.
+            guard.stalled = false;
         }
         guard.builds += 1;
         Self(active)

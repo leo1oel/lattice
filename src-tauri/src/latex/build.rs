@@ -72,21 +72,35 @@ fn run_watched(
     Ok((Output { status, stdout, stderr }, finish_active(active)))
 }
 
-/// Everything `pipe` carries until it closes, each line shown to `steps` as it lands.
+/// Everything `pipe` carries until it closes, each line shown to `steps` as
+/// it lands and each chunk to `progress` as it arrives.
 fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps, progress: &Progress) -> Vec<u8> {
     let mut bytes = Vec::new();
     let Some(pipe) = pipe else { return bytes };
     let mut reader = BufReader::new(pipe);
+    let mut unfinished = Vec::new();
+    let mut line_start = 0;
     loop {
-        let start = bytes.len();
-        match reader.read_until(b'\n', &mut bytes) {
-            Ok(0) | Err(_) => return bytes,
-            Ok(_) => {
-                progress.note(&bytes[start..]);
-                steps.line(&bytes[start..]);
+        let read = match reader.fill_buf() {
+            Ok([]) => break,
+            Ok(chunk) => {
+                progress.note(&mut unfinished, chunk);
+                bytes.extend_from_slice(chunk);
+                chunk.len()
             }
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        };
+        reader.consume(read);
+        while let Some(end) = bytes[line_start..].iter().position(|byte| *byte == b'\n') {
+            steps.line(&bytes[line_start..=line_start + end]);
+            line_start += end + 1;
         }
     }
+    if line_start < bytes.len() {
+        steps.line(&bytes[line_start..]);
+    }
+    bytes
 }
 
 pub fn clean(root: &Path) -> Result<String, String> {

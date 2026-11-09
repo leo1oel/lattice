@@ -14681,7 +14681,11 @@ msgstr "TeX 组件已更新。重新编译即可使用。"
 
 #: src/build/build-log-messages.ts
 msgid "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command just before {place}."
-msgstr "TeX 不再有进展，构建已在 {seconds} 秒后停止。请在 {place} 之前查找未写完的命令。"
+msgstr "TeX 不再有进展，编译已在 {seconds} 秒后停止。请在 {place} 之前查找未写完的命令。"
+
+#: src/build/build-log-messages.ts
+msgid "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command."
+msgstr "TeX 不再有进展，编译已在 {seconds} 秒后停止。请查找未写完的命令。"
 
 #. placeholder {0}: diagnostic.message
 #: src/build/compile-diagnostics-panel.tsx

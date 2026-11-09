@@ -14683,6 +14683,10 @@ msgstr "TeX packages updated. Build again to use them."
 msgid "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command just before {place}."
 msgstr "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command just before {place}."
 
+#: src/build/build-log-messages.ts
+msgid "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command."
+msgstr "TeX stopped making progress, so the build was stopped after {seconds} s. Look for an unfinished command."
+
 #. placeholder {0}: diagnostic.message
 #: src/build/compile-diagnostics-panel.tsx
 msgid "TeX: {0}"
