@@ -34,6 +34,8 @@ mod inline;
 mod proceedings;
 mod proposal;
 mod publication;
+#[cfg(test)]
+mod round_trip_tests;
 mod scan;
 mod venue;
 
@@ -43,6 +45,17 @@ pub(crate) use bibtex::{fields as entry_fields, single_entry_key};
 pub use check::check_entry;
 pub(crate) use identity::metadata_identity_matches;
 pub(crate) use proposal::{prepare_import, protect_bibtex};
+
+/// A record handed over whole (pasted, from Zotero, a chosen candidate or the
+/// entry editor) with the verified-source merge and cleanup a DOI import gets,
+/// so Check citations then finds nothing to add. When a source disagrees with
+/// the record, the writer's record is kept for the check to show.
+pub(crate) fn prepare_supplied(raw: &str) -> String {
+    prepare_import(raw)
+        .ok()
+        .filter(|prepared| project::bibliography_entry_spans(prepared).len() == 1)
+        .unwrap_or_else(|| raw.trim().to_string())
+}
 pub use scan::scan;
 // The stages share these through `use super::*`.
 use apply::registered_entry;
@@ -50,7 +63,7 @@ use bibcite::*;
 use bibtex::*;
 use identity::*;
 use proposal::*;
-use venue::{canonical_venue, same_canonical_venue};
+use venue::{canonical_venue, canonical_venues, same_canonical_venue};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -48,7 +48,7 @@ pub(crate) fn prepare_import(raw: &str) -> Result<String, String> {
     {
         return Err(format!("{} Verified publication metadata could not be merged into the fetched record; no citation was added.", checked.message));
     }
-    Ok(cleanup_result(checked).after.unwrap_or_else(|| raw.into()))
+    Ok(canonical_venues(cleanup_result(checked).after.as_deref().unwrap_or(raw)))
 }
 
 pub(crate) fn protect_bibtex(raw: &str) -> String {
@@ -87,6 +87,11 @@ pub(super) fn merge_metadata(before: &str, remote: &str, published: bool) -> Aud
                 (a.contains('{') && normalize_title(&a) == normalize_title(&b))
                     || words(&a) == words(&b)
                     || drops_short_name(&a, &b)
+            } else if *name == "url" {
+                // A link to the paper's own DOI is as good as the landing page
+                // a source names; the entry editor fills one in for a DOI.
+                same_value(name, &a, &b)
+                    || normalize_doi(&a).is_some_and(|doi| entry_doi(&other) == Some(doi))
             } else {
                 same_venue.contains(name) || same_value(name, &a, &b)
             };

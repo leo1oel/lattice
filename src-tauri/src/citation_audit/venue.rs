@@ -11,6 +11,7 @@
 //! acronym embedded in a longer string: bibcite's looser matching collapses
 //! "Findings of the ACL: EMNLP 2026" into EMNLP, and a wrong canonical name is
 //! worse than keeping the source's own string.
+use super::*;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
@@ -217,6 +218,34 @@ pub(super) fn canonical_venue(venue: &str, year: Option<u32>) -> Option<&'static
 pub(super) fn same_canonical_venue(local: &str, remote: &str, year: Option<u32>) -> bool {
     canonical_venue(local, year)
         .is_some_and(|local| candidates(remote).iter().any(|name| in_year(name, year) == local))
+}
+
+/// `entry` with a journal or booktitle that names a canonical venue written
+/// by that name, so an import stores the venue as Add papers suggests it
+/// ("Proceedings of the 18th Conference of the {E}uropean Chapter ..." as
+/// "... (EACL)"). Check citations treats either spelling as the same venue.
+pub(super) fn canonical_venues(entry: &str) -> String {
+    let values = fields(entry);
+    let year = field_value(&values, "year").parse().ok();
+    let mut expressions = field_expressions(entry);
+    let mut changed = false;
+    for name in ["journal", "booktitle"] {
+        let Some(canonical) = values.get(name).and_then(|venue| canonical_venue(venue, year))
+        else {
+            continue;
+        };
+        if values[name] != canonical {
+            expressions.insert(name.into(), format!("{{{canonical}}}"));
+            changed = true;
+        }
+    }
+    let spans = project::bibliography_entry_spans(entry);
+    match spans.first().filter(|_| changed && spans.len() == 1) {
+        Some((key, _, _)) if values.keys().all(|key| expressions.contains_key(key)) => {
+            render_entry(&entry_type(entry), key, expressions)
+        }
+        _ => entry.to_string(),
+    }
 }
 
 #[cfg(test)]
