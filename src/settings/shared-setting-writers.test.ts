@@ -19,6 +19,7 @@ const PERSISTED_KEYS: Record<string, string> = {
   SETTINGS_TAB_KEY: "where this window last left Settings",
   SPLIT_RATIO_KEY: "this window's layout, which the next window starts from",
   BIB_LIST_RATIO_KEY: "this window's layout, which the next window starts from",
+  PDF_COMMENT_COLUMN_WIDTH_KEY: "this window's layout, which the next window starts from",
   SUBMISSION_TEMPLATES_KEY: "follow-up: saved whole from the list this window loaded",
   LAST_KEY: "the highlighter pen this window last used",
   CUSTOM_KEY: "follow-up: highlighters.ts saves its custom colours from this window's copy",

@@ -503,6 +503,8 @@ export default function PdfAnnotationLayer({
         <PdfCommentColumn
           area={column.area}
           docked={column.docked}
+          width={column.width}
+          onResize={column.resize}
           recordRef={recordRef}
           marks={placedMarks}
           places={places}

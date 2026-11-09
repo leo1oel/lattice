@@ -12514,6 +12514,10 @@ msgstr "Reset panel layout"
 msgid "Reset view"
 msgstr "Reset view"
 
+#: src/pdf/pdf-comment-column.tsx
+msgid "Resize comments"
+msgstr "Resize comments"
+
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and asset preview"
 msgstr "Resize editor and asset preview"
