@@ -434,14 +434,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .lx-md-emoji-picker { display: none;
 .lx-md-editor .lx-md-surface .lx-md-generated-contents { display: none; }
 .lx-md-editor .lx-md-surface :is(h1, h2, h3, h4, h5, h6)[id] { scroll-margin-top: var(--space-12); }
 
-/* A pinned header row covers the rows it rides over (R-CHR-9). */
-.lx-md-editor .lx-md-surface table > tbody > tr:first-child > th {
-  position: relative;
-  /* Above body cells, including a first column kept in view while a wide table scrolls sideways. */
-  z-index: 2;
-  background: linear-gradient(var(--lx-md-block-surface-strong), var(--lx-md-block-surface-strong)), var(--editor-bg);
-}
-
 /* --- Passive view of a large read-only document (R-PERF-1) ---------------------- */
 
 .lx-md-editor .lx-md-passive-bar {

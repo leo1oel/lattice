@@ -78,7 +78,7 @@ function documentEdge(event: KeyboardEvent): -1 | 0 | 1 {
 }
 
 /** Where the editor scrolls: the document pane, or the nearest scrolling ancestor. */
-export function scrollerOf(element: HTMLElement): HTMLElement | null {
+function scrollerOf(element: HTMLElement): HTMLElement | null {
   for (let parent = element.parentElement; parent; parent = parent.parentElement) {
     const { overflowY } = getComputedStyle(parent);
     if (overflowY === "auto" || overflowY === "scroll" || parent.classList.contains("editor-doc-scroll")) return parent;
@@ -98,14 +98,6 @@ export function mayDrawInWindow(text: string): boolean {
   let lines = 1;
   for (let index = text.indexOf("\n"); index >= 0 && lines < MIN_BLOCKS; index = text.indexOf("\n", index + 1)) lines += 1;
   return lines >= MIN_BLOCKS;
-}
-
-/** Whether a transaction moved the window: the drawn blocks changed without an edit. */
-export function blockWindowMoved(state: EditorState, previous: EditorState): boolean {
-  if (state.doc !== previous.doc) return false;
-  const now = blockWindowKey.getState(state)?.window;
-  const before = blockWindowKey.getState(previous)?.window;
-  return now?.from !== before?.from || now?.to !== before?.to;
 }
 
 const drawnCache = new WeakMap<WindowState, readonly Window[]>();

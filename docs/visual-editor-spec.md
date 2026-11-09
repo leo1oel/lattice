@@ -200,7 +200,7 @@ rule in `.oxlintrc.json` keep Open Knowledge code from coming back.
 | Publication (R-PUB) | R-PUB-1–18, 21 and 22; the host-level R-PUB-19–20 are unchanged host code | — |
 | Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, thematic breaks; Callout and Accordion with their properties (R-BLK-1, 2); images with alignment, resizing and zoom (R-BLK-3); display math (R-BLK-4); Mermaid previews (R-BLK-5); footnotes (R-BLK-6); code blocks with their chrome (R-BLK-7); tables with handles, merge and split, and row and column drag reorder (R-BLK-11); headings with slug ids and the section rail (R-BLK-13); the generated paper Contents hidden in reading mode (R-BLK-14); paper figures (R-BLK-15); unknown components as source (R-BLK-16); task-list input rules, mixed task lists and list movement (R-BLK-19) | — |
 | Inline (R-INL) | Marks including highlight and underline, links (opened on a click, R-INL-3; typed `[text](url)`), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source; wiki links and citation chips with their suggestions, drops and editors (R-INL-6, 7) | — |
-| Chrome (R-CHR) | Accessible textbox surface; slash menu (R-CHR-1, §12); selection toolbar with Comment and View in source, and Comment alone when read-only (R-CHR-2); find and replace (R-CHR-3); link editor and hover (R-CHR-4); block controls and drag, with the host holding the view around an added block (R-CHR-5); native selection hidden only for a node selection (R-CHR-6); emoji (R-CHR-7); frozen table headers outside paper reading mode (R-CHR-9) | — |
+| Chrome (R-CHR) | Accessible textbox surface; slash menu (R-CHR-1, §12); selection toolbar with Comment and View in source, and Comment alone when read-only (R-CHR-2); find and replace (R-CHR-3); link editor and hover (R-CHR-4); block controls and drag, with the host holding the view around an added block (R-CHR-5); native selection hidden only for a node selection (R-CHR-6); emoji (R-CHR-7) | — |
 | Source mapping (R-SRC) | The caret in Markdown coordinates (R-SRC-1); collaborators' carets, omitted where they have no exact place, and table coordinates (R-SRC-2–4); comments anchored in Markdown offsets, their composer, highlights and thread cards, also read-only (R-SRC-5–7, 9); tracked changes with Accept and Reject (R-SRC-8); frontmatter offsets stay the host's (R-SRC-10); block source labels and View in source (R-SRC-11); the selection as Markdown (R-SRC-12); mapping scoped to one block (R-SRC-13) | — |
 | Performance (R-PERF) | Per-keystroke plugin work limited to the blocks an edit touched; the passive view of a large read-only document, with links, paper fragments, immediate formulas and deferred images (R-PERF-1–6); a long document drawn only near the viewport, with selection, IME, find and jumps working on the whole document (R-PERF-3); images read near the viewport through the project image host (R-PERF-7); formulas drawn at once in the complete editor (R-PERF-8); no remounts (R-PERF-9); publication within the sync policy (R-PERF-10) | — |
 
@@ -227,8 +227,7 @@ rule in `.oxlintrc.json` keep Open Knowledge code from coming back.
   the whole corpus checks that every mapped caret lands on its own character
   both ways. `lattice-visual-review.test.tsx` drives carets, collaborators'
   carets, comments, tracked changes, View in source, selection context and
-  the section rail; `lattice-visual-passive.test.tsx` the passive view;
-  `frozen-headers.test.tsx` the pinned header rows.
+  the section rail; `lattice-visual-passive.test.tsx` the passive view.
 - Until phase 3 removed it, a quarantined differential harness ran the same
   corpus through the vendored editor as a black-box oracle: the engine had to
   open editable every document the old editor did, write it back byte for
@@ -423,11 +422,6 @@ here, with the requirement it rests on.
   rail is Lattice's own. In paper reading mode a level-2 "Contents" whose
   list holds only in-page links (or plain entries) is the converter's, and is
   hidden from view and from the rail.
-- **Frozen headers (R-CHR-9, R-BLK-11).** Header rows move by Web
-  Animations, so the document's DOM is never written; a scroll timeline
-  drives them where supported, scroll events elsewhere. The header travels
-  one pixel per pixel scrolled until it reaches the last row or the scroll
-  ends. Paper reading mode has none.
 - **Table reorder (R-BLK-11).** Only in tables without merged cells: a body
   row moves among body rows (the header stays first), a column moves with its
   alignment. A handle press without a drag opens its menu.
@@ -1721,9 +1715,8 @@ user types, commits title fields on Enter, and has no advanced or align section 
 generic icon and color pickers are dropped; keep-list blocks need only their own fields.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1874,1913,2975`.
 
-**R-CHR-9: Frozen table headers** stay pinned while scrolling (scroll-driven, with a WebKit
-fallback). Their animations are cancelled when a document replacement drops the table.
-Derived from: `src/editor/markdown/frozen-table-headers.test.ts:38,48,55`; `src/editor/markdown/frozen-table-headers-lifecycle.test.ts:69`.
+**R-CHR-9: Table header rows stay in the document flow** (retired: frozen headers that
+followed the scroll read as a header drifting over the rows).
 
 ---
 
