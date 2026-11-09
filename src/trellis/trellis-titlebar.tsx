@@ -4,15 +4,13 @@
  * maximizes and resets the layout, and the layout switch (the named
  * workspaces; see trellis-workspace-switch). In the middle, the command
  * palette's search field. On the right, beside the canvas tools, a chip per
- * hidden panel, and one that brings back a PDF moved into its own window. The
- * PDF also comes up from each .tex panel's Build button.
+ * hidden panel. The PDF also comes up from each .tex panel's Build button.
  * Eager but light: it drives the workspace only through the controller.
  */
 import { memo, useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   Bot, Check, FileText, Focus, FolderTree, LayoutPanelLeft, Library, Maximize2, Minimize2, RotateCcw, Search,
-  SquareArrowOutUpRight,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -21,9 +19,8 @@ import { Tip } from "../components/icon-tip";
 import { Keycaps } from "../components/ui/keycaps";
 import { agentEntryProps } from "../agent/agent-entry";
 import {
-  TOOL_KINDS, useCurrentWorkspace, useTrellisApp, useWorkspaces, type TrellisController, type TrellisSingleton,
+  TOOL_KINDS, useCurrentWorkspace, useWorkspaces, type TrellisController, type TrellisSingleton,
 } from "./trellis-controller";
-import { dockPdf, usePdfWindowOpen } from "../app/pdf-window-state";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { PANEL_ICONS, PRESETS } from "./trellis-icons";
 import { LayoutSwitch } from "./trellis-workspace-switch";
@@ -219,8 +216,6 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
   const preset = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().preset);
   const workspaces = useWorkspaces(controller);
   const workspace = useCurrentWorkspace(controller);
-  const projectRoot = useTrellisApp(controller, (app) => app.projectRoot);
-  const pdfWindow = usePdfWindowOpen(projectRoot);
   const ws = () => controller.ws;
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
   const presetLabels = { writing: t`Writing`, reading: t`Reading` };
@@ -229,9 +224,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
   const searchRef = useRef<HTMLButtonElement>(null);
   // The workspaces' names are content to fit as much as the chips are; their
   // order is not (a move must not unfold the switch and remount its open menu).
-  const content = [
-    i18n.locale, ...workspaces.map((entry) => entry.name).sort(), "", ...hidden.map((entry) => entry.title), pdfWindow ? "pdf-window" : "",
-  ].join("\n");
+  const content = [i18n.locale, ...workspaces.map((entry) => entry.name).sort(), "", ...hidden.map((entry) => entry.title)].join("\n");
   const folds = useFolds(barRef, chipsRef, content, onSearch ? 2 : 1);
   const searchFolded = Boolean(onSearch) && folds >= 1;
   const compact = folds >= (onSearch ? 2 : 1);
@@ -333,16 +326,8 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
           </button>
         </Tip>
       )}
-      {(hidden.length > 0 || pdfWindow) && (
+      {hidden.length > 0 && (
         <div ref={chipsRef} className="trellis-titlebar-hidden" aria-label={t`Hidden panels`}>
-          {pdfWindow && (
-            <Tip label={t`Return to workspace`}>
-              <button type="button" className="trellis-hidden-chip trellis-pdf-window-chip" onClick={() => dockPdf(controller, projectRoot)}>
-                <SquareArrowOutUpRight size={12} aria-hidden="true" />
-                {t`PDF window`}
-              </button>
-            </Tip>
-          )}
           {hidden.map((entry) => (
             <Tip key={entry.panelId} label={spaceMixedScript(t`Restore ${entry.title}`)}>
               <button

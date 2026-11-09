@@ -11183,10 +11183,6 @@ msgstr "PDF URL must not contain credentials"
 msgid "PDF URL must use HTTP or HTTPS"
 msgstr "PDF URL must use HTTP or HTTPS"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "PDF window"
-msgstr "PDF window"
-
 #: src/history/export-changes-dialog.tsx
 msgid "PDF with changes marked"
 msgstr "PDF with changes marked"
@@ -12719,7 +12715,6 @@ msgstr "Return to {name}"
 
 #: src/canvas/project-pdf-window.tsx
 #: src/pdf/pdf-window-page.tsx
-#: src/trellis/trellis-titlebar.tsx
 msgid "Return to workspace"
 msgstr "Return to workspace"
 

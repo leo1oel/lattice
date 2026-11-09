@@ -26,9 +26,10 @@ export const PDF_WINDOW_FRAME_EVENT = "pdf-window-frame";
 export type PdfWindowState = {
   projectRoot: string;
   /**
-   * Names the compiled PDF the owner shows, changing with each build that
-   * changes it; null while there is none. The window reads the PDF again
-   * (`read_compiled_pdf`) when this changes.
+   * The fingerprint (`pdfBytesFingerprint`) of the compiled PDF the owner
+   * shows; null while there is none. The window reads the PDF again
+   * (`read_compiled_pdf`) when this changes, and shows what it read only when
+   * it is these bytes: the next build may already be rewriting the file.
    */
   pdfKey: string | null;
   syncTarget: PdfSyncTarget | null;

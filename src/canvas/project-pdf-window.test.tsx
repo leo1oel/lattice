@@ -3,6 +3,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PdfWindowState } from "../pdf/pdf-window-protocol";
 import { pdfWindowFrame, rememberPdfWindowFrame } from "../app/pdf-window-state";
+import { pdfBytesFingerprint } from "../pdf/pdf-bytes";
 import { ProjectPdfWindow } from "./project-pdf-window";
 
 const tauri = vi.hoisted(() => ({
@@ -38,13 +39,31 @@ function sentStates(): PdfWindowState[] {
   return tauri.emitTo.mock.calls.filter(([, event]) => event === "pdf-window:state").map(([, , state]) => state as PdfWindowState);
 }
 
+/** The bytes of the compiled PDF shown at `url` (`blob:build-<n>`). */
+const pdfBytes = new Map<string, ArrayBuffer>();
+function bytesAt(url: string): ArrayBuffer {
+  let bytes = pdfBytes.get(url);
+  if (!bytes) {
+    bytes = new Uint8Array([37, 80, 68, 70, pdfBytes.size + 1]).buffer;
+    pdfBytes.set(url, bytes);
+  }
+  return bytes;
+}
+
+/** The key the window is sent for the PDF shown at `url`: the fingerprint of its bytes, which the window checks what it reads against. */
+function keyOf(url: string): string {
+  return pdfBytesFingerprint(bytesAt(url));
+}
+
 function props(overrides: { pdfUrl?: string | null; target?: { id: string; page: number } | null } = {}) {
+  const pdfUrl = overrides.pdfUrl === undefined ? "blob:build-1" : overrides.pdfUrl;
   const view: ComponentProps<typeof ProjectPdfWindow> = {
     projectRoot: ROOT,
     previewPath: "main.tex",
     control: { open: true, title: "main.pdf — Transformer", onOpen: vi.fn(), onDock: vi.fn() },
     pdf: {
-      pdfUrl: overrides.pdfUrl === undefined ? "blob:build-1" : overrides.pdfUrl,
+      pdfUrl,
+      pdfBytes: pdfUrl ? bytesAt(pdfUrl) : null,
       pdfSyncTarget: overrides.target ? { ...overrides.target, x: 72, y: 500, width: 200, height: 12 } : null,
       canForwardSync: true,
       locatingPdf: false,
@@ -99,7 +118,7 @@ describe("the PDF panel's separate window", () => {
     expect(tauri.emitTo.mock.calls[0][0]).toBe("pdf-1");
     expect(sentStates()[0]).toMatchObject({
       projectRoot: ROOT,
-      pdfKey: "blob:build-1",
+      pdfKey: keyOf("blob:build-1"),
       canForwardSync: true,
       openableCitations: ["vaswani2017"],
       outline: { available: true },
@@ -117,7 +136,7 @@ describe("the PDF panel's separate window", () => {
     await act(async () => rerender(<ProjectPdfWindow {...props({ pdfUrl: "blob:build-2" })} />));
     await act(async () => rerender(<ProjectPdfWindow {...props({ pdfUrl: "blob:build-2", target: { id: "jump-1", page: 5 } })} />));
     expect(sentStates().map((state) => [state.pdfKey, state.syncTarget?.id ?? null])).toEqual([
-      ["blob:build-1", null], ["blob:build-2", null], ["blob:build-2", "jump-1"],
+      [keyOf("blob:build-1"), null], [keyOf("blob:build-2"), null], [keyOf("blob:build-2"), "jump-1"],
     ]);
 
     await hear("pdf-window:action", { window: "pdf-1", kind: "ready" });
@@ -180,6 +199,23 @@ describe("the PDF panel's separate window", () => {
     await act(async () => opened("pdf-2"));
     expect(tauri.invoke).toHaveBeenLastCalledWith("close_pdf_window", { label: "pdf-2" });
     expect(sentStates()).toHaveLength(1);
+  });
+
+  it("leaves open the window a later mount was given while an earlier one was still opening it", async () => {
+    // The backend answers a second request from this window with the label
+    // it is still building for the first.
+    let opened!: (label: string) => void;
+    tauri.invoke.mockImplementationOnce(() => new Promise((resolve) => { opened = resolve; }));
+    const early = render(<ProjectPdfWindow {...props()} />);
+    early.unmount();
+    tauri.invoke.mockImplementationOnce(async () => "pdf-3");
+    const { unmount } = await act(async () => render(<ProjectPdfWindow {...props()} />));
+    await act(async () => opened("pdf-3"));
+    expect(tauri.invoke).not.toHaveBeenCalledWith("close_pdf_window", expect.anything());
+    expect(tauri.emitTo.mock.calls.map(([label]) => label)).toEqual(["pdf-3"]);
+
+    unmount();
+    expect(tauri.invoke).toHaveBeenLastCalledWith("close_pdf_window", { label: "pdf-3" });
   });
 
   it("goes back to the panel when the window cannot open", async () => {

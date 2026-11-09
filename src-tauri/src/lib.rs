@@ -107,6 +107,13 @@ pub(crate) fn is_workspace_window(label: &str) -> bool {
         || label.strip_prefix("project-").is_some_and(|rest| !rest.is_empty())
 }
 
+/// Whether the window-state plugin remembers and restores the window
+/// `label`. Not a browser bridge, which must stay hidden (the plugin's restore
+/// shows it), nor a PDF window, placed per project instead (pdf_window.rs).
+fn window_state_tracks(label: &str) -> bool {
+    !label.starts_with("browser-") && !pdf_window::is_pdf_window(label)
+}
+
 /// Whether Lattice keeps running once its last window has closed. A Mac app
 /// outlives its windows until ⌘Q (the Dock icon opens a window again,
 /// `reopen`); a browser tab that still needs the host keeps it running
@@ -405,12 +412,7 @@ pub fn run() {
         // builder says `visible(false)`, so bridge windows must stay outside
         // this lifecycle entirely.
         .plugin(
-            tauri_plugin_window_state::Builder::default()
-                // PDF windows are placed per project instead (pdf_window.rs).
-                .with_filter(|label| {
-                    !label.starts_with("browser-") && !pdf_window::is_pdf_window(label)
-                })
-                .build(),
+            tauri_plugin_window_state::Builder::default().with_filter(window_state_tracks).build(),
         )
         .on_window_event(on_window_event)
         .on_page_load(on_page_load)
@@ -708,7 +710,9 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_workspace_window, keeps_running_without_windows, log_level};
+    use super::{
+        is_workspace_window, keeps_running_without_windows, log_level, window_state_tracks,
+    };
 
     #[test]
     fn closing_the_last_window_leaves_lattice_running_on_a_mac() {
@@ -725,6 +729,16 @@ mod tests {
         }
         for label in ["project-", "browser-1", "overleaf-login", "presenter", "mainly"] {
             assert!(!is_workspace_window(label), "{label}");
+        }
+    }
+
+    #[test]
+    fn window_state_skips_bridge_and_pdf_windows() {
+        for label in ["main", "project-2"] {
+            assert!(window_state_tracks(label), "{label}");
+        }
+        for label in ["browser-1", "pdf-1"] {
+            assert!(!window_state_tracks(label), "{label}");
         }
     }
 

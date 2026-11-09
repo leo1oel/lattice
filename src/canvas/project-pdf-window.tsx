@@ -15,6 +15,7 @@ import { Tip } from "../components/icon-tip";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { pdfBytesFingerprint } from "../pdf/pdf-bytes";
 import {
   PDF_WINDOW_ACTION_EVENT, PDF_WINDOW_CLOSED_EVENT, PDF_WINDOW_FRAME_EVENT, PDF_WINDOW_STATE_EVENT,
   runPdfWindowAction, type PdfWindowAction, type PdfWindowState,
@@ -55,6 +56,13 @@ function labelReducer(_label: string | null, action: { type: "opened"; label: st
 function closeWindow(label: string) {
   void invoke("close_pdf_window", { label }).catch(() => undefined);
 }
+
+/**
+ * The mounted ProjectPdfWindows on this page. A workspace window has one PDF
+ * window, so a mount opening while an earlier one is still opening is given
+ * the same label: the earlier one, unmounted by then, must leave it open.
+ */
+let mounted = 0;
 
 /** The PDF toolbar's button that moves the compiled PDF into a window of its own. */
 export function OpenPdfWindowButton({ onOpen }: { onOpen: () => void }) {
@@ -105,6 +113,7 @@ export function ProjectPdfWindow(props: ProjectPdfWindowProps) {
   useEffect(() => {
     let disposed = false;
     let opened: string | null = null;
+    mounted += 1;
     void invoke<string>("open_pdf_window", {
       title: latest.current.control.title,
       frame: pdfWindowFrame(projectRoot),
@@ -112,7 +121,7 @@ export function ProjectPdfWindow(props: ProjectPdfWindowProps) {
     })
       .then((windowLabel) => {
         if (disposed) {
-          closeWindow(windowLabel);
+          if (mounted === 0) closeWindow(windowLabel);
           return;
         }
         opened = windowLabel;
@@ -125,6 +134,7 @@ export function ProjectPdfWindow(props: ProjectPdfWindowProps) {
       });
     return () => {
       disposed = true;
+      mounted -= 1;
       if (opened) closeWindow(opened);
     };
   }, [latest, projectRoot]);
@@ -187,7 +197,7 @@ function sendState(label: string, props: ProjectPdfWindowProps) {
   const { projectRoot, previewPath, pdf, citations, outline, viewState } = props;
   const state: PdfWindowState = {
     projectRoot,
-    pdfKey: pdf.pdfUrl,
+    pdfKey: pdf.pdfUrl && pdf.pdfBytes ? pdfBytesFingerprint(pdf.pdfBytes) : null,
     syncTarget: pdf.pdfSyncTarget,
     canForwardSync: pdf.canForwardSync,
     locatingPdf: pdf.locatingPdf,

@@ -361,7 +361,9 @@ pub(crate) fn build_menu<R: Runtime>(
 /// A margin review choice goes to the window it was made in, which keeps it
 /// as its own and sends the menu back with the new check; Undo and Redo go
 /// to the focused window's focused editor, and an interface size change and
-/// What's New to the focused window. Quit asks every window to save first.
+/// What's New to the focused window. A PDF window's commands go to its owner
+/// (`command_window`), which comes forward for one that shows something there.
+/// Quit asks every window to save first.
 pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     use tauri::{Emitter, Manager};
 
@@ -385,11 +387,25 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         }
         return;
     }
+    let focused_command_window = || {
+        let focused = crate::macos_window::focused_window_label()?;
+        let owner = app.state::<crate::app_state::AppState>().pdf_windows.owner(&focused);
+        command_window(&focused, owner).map(|label| (label != focused, label))
+    };
+    let raise = |label: &str| {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    };
     if let Some((name, payload)) = file_menu_event(id) {
         // Only a window with Lattice's page runs commands; the Overleaf
         // sign-in in front has none.
-        let Some(label) = crate::macos_window::focused_window_label() else { return };
+        let Some((from_pdf, label)) = focused_command_window() else { return };
         if crate::is_workspace_window(&label) {
+            if from_pdf {
+                raise(&label);
+            }
             let _ = app.emit_to(tauri::EventTarget::webview_window(label), name, payload);
         }
         return;
@@ -405,12 +421,27 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
     } else {
         return;
     };
-    let Some(label) = crate::macos_window::focused_window_label() else { return };
+    let Some((from_pdf, label)) = focused_command_window() else { return };
     if name == EDIT_HISTORY_EVENT && !asks_page_for_edit_history(&label) {
         send_native_edit_history(app, payload == "redo");
         return;
     }
+    if from_pdf && name == WHATS_NEW {
+        raise(&label);
+    }
     let _ = app.emit_to(tauri::EventTarget::webview_window(label), name, payload);
+}
+
+/// The window whose page runs a menu command made in the window `focused`:
+/// that window, or for a PDF window the workspace window that owns it
+/// (`owner`), which holds the project, its editors and the settings the
+/// command acts on. None for a PDF window whose owner is gone.
+fn command_window(focused: &str, owner: Option<String>) -> Option<String> {
+    if crate::pdf_window::is_pdf_window(focused) {
+        owner
+    } else {
+        Some(focused.to_string())
+    }
 }
 
 /// The event and payload a File ▸ project item or Open Recent entry sends.
@@ -582,6 +613,15 @@ mod tests {
         assert!(asks_page_for_edit_history("main"));
         assert!(asks_page_for_edit_history("project-2"));
         assert!(!asks_page_for_edit_history("overleaf-login"));
+    }
+
+    #[test]
+    fn a_pdf_windows_menu_commands_go_to_its_owner() {
+        // The PDF window's page has no project, editor or menu listeners.
+        assert_eq!(command_window("pdf-3", Some("project-2".into())).as_deref(), Some("project-2"));
+        assert_eq!(command_window("pdf-3", None), None);
+        assert_eq!(command_window("main", None).as_deref(), Some("main"));
+        assert_eq!(command_window("overleaf-login", None).as_deref(), Some("overleaf-login"));
     }
 
     #[test]

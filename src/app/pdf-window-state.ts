@@ -4,8 +4,8 @@
  * another; and where that window was last left. Both are remembered per
  * project in this Mac's storage. The panel stays the default.
  *
- * Detaching closes the PDF panel so the documents get its room, and the
- * titlebar shows a chip that brings it back. While detached, what would bring
+ * Detaching closes the PDF panel so the documents get its room; the window's
+ * Return to workspace and the palette bring it back. While detached, what would bring
  * the panel up (a build, a jump to the PDF) leaves it to the window: see
  * `showProjectPdf`. The window itself is opened, fed and closed by
  * `src/canvas/project-pdf-window.tsx`, which the PDF panel's chunk renders.

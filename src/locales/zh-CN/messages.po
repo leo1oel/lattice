@@ -11183,10 +11183,6 @@ msgstr "PDF 链接中不能包含账号或密码"
 msgid "PDF URL must use HTTP or HTTPS"
 msgstr "PDF 链接必须使用 HTTP 或 HTTPS"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "PDF window"
-msgstr "PDF 窗口"
-
 #: src/history/export-changes-dialog.tsx
 msgid "PDF with changes marked"
 msgstr "标出修改的 PDF"
@@ -12719,7 +12715,6 @@ msgstr "返回 {name}"
 
 #: src/canvas/project-pdf-window.tsx
 #: src/pdf/pdf-window-page.tsx
-#: src/trellis/trellis-titlebar.tsx
 msgid "Return to workspace"
 msgstr "放回工作区"
 

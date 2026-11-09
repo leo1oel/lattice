@@ -182,11 +182,11 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // small guards spread over a dozen eager modules with no one import to defer,
 // +0.6 KB on top of S6-S10 (1,423,643 -> 1,424,228 bytes). Raised from 1.359
 // MiB for the PDF's separate window (#725): whether each project's PDF is in
-// its own window, the titlebar chip and palette entry that bring it back, the
-// guards that keep a build or a jump from reopening the panel, and the window
-// page's start in main.tsx; the bridge and the window's page load on demand,
-// +3.4 KB (1,424,228 -> 1,427,633 bytes).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.3625 * 1024 * 1024);
+// its own window, the palette entry that moves it there and back, the guards
+// that keep a build or a jump from reopening the panel, and the window page's
+// start in main.tsx; the bridge and the window's page load on demand, +2.6 KB
+// (1,424,228 -> 1,426,861 bytes).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.361 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pdfBytesFingerprint } from "./pdf-bytes";
 import type { PdfWindowState } from "./pdf-window-protocol";
 import { PdfWindowPage } from "./pdf-window-page";
 
@@ -42,10 +43,20 @@ vi.mock("./pdf-viewer", () => ({
   },
 }));
 
+/** The bytes of the `build`th compiled PDF the mocked `read_compiled_pdf` reads. */
+function compiled(build: number): ArrayBuffer {
+  return new Uint8Array([37, 80, 68, 70, build]).buffer;
+}
+
+/** The key the owner sends for the `build`th PDF it shows: the protocol's fingerprint of its bytes. */
+function key(build: number): string {
+  return pdfBytesFingerprint(compiled(build));
+}
+
 function state(overrides: Partial<PdfWindowState> = {}): PdfWindowState {
   return {
     projectRoot: "/papers/transformer",
-    pdfKey: "blob:build-1",
+    pdfKey: key(1),
     syncTarget: null,
     canForwardSync: true,
     locatingPdf: false,
@@ -73,7 +84,7 @@ beforeEach(() => {
   host.listeners.clear();
   host.emit.mockClear();
   host.invoke.mockReset();
-  host.invoke.mockImplementation(async () => new Uint8Array([37, 80, 68, 70, ++urls]).buffer);
+  host.invoke.mockImplementation(async () => compiled(++urls));
   URL.createObjectURL = vi.fn(() => `blob:window-${urls}`);
   URL.revokeObjectURL = vi.fn();
 });
@@ -106,13 +117,36 @@ describe("the PDF window's page", () => {
     await receive(state({ building: true }));
     expect(host.invoke).toHaveBeenCalledTimes(1);
 
-    await receive(state({ pdfKey: "blob:build-2" }));
+    await receive(state({ pdfKey: key(2) }));
     expect(host.invoke).toHaveBeenCalledTimes(2);
     expect(host.viewer?.url).toBe("blob:window-2");
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:window-1");
 
-    await receive(state({ pdfKey: "blob:build-2", syncTarget: { id: "jump-1", page: 4, x: 0, y: 0, width: 1, height: 1 } }));
+    await receive(state({ pdfKey: key(2), syncTarget: { id: "jump-1", page: 4, x: 0, y: 0, width: 1, height: 1 } }));
     expect(host.viewer?.syncTarget?.id).toBe("jump-1");
+  });
+
+  it("keeps the PDF its owner shows when the next build is already rewriting the file", async () => {
+    await act(async () => {
+      render(<PdfWindowPage />);
+    });
+    await receive(state());
+    expect(host.viewer?.url).toBe("blob:window-1");
+
+    // The owner now shows build 3, but the file on disk is build 2 (or half of it).
+    await receive(state({ pdfKey: key(3) }));
+    expect(host.invoke).toHaveBeenCalledTimes(2);
+    expect(host.viewer?.url).toBe("blob:window-1");
+    expect(new Uint8Array(host.viewer!.pdfBytes!)).toEqual(new Uint8Array(compiled(1)));
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("shows no PDF, rather than another build's, when the first read is not the one its owner shows", async () => {
+    await act(async () => {
+      render(<PdfWindowPage />);
+    });
+    await receive(state({ pdfKey: key(2) }));
+    expect(host.viewer).toMatchObject({ url: null, pdfBytes: null });
   });
 
   it("sends what the reader does to its owner, signed with its label", async () => {

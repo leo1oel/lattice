@@ -186,6 +186,14 @@ pub async fn open_pdf_window(
         state.pdf_windows.forget(&label);
         return Err(format!("Could not open the PDF in a new window: {error}"));
     }
+    // Closed while it was being built (the PDF docked, the owner's page
+    // reloaded or closed): nothing would address or close it again.
+    if state.pdf_windows.owner(&label).as_deref() != Some(owner) {
+        if let Some(open) = app.get_webview_window(&label) {
+            let _ = open.destroy();
+        }
+        return Err("The PDF window was closed while it opened.".to_string());
+    }
     Ok(label)
 }
 

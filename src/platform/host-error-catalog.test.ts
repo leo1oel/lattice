@@ -108,6 +108,7 @@ const UNTRANSLATED: Record<string, string> = {
   "ipc/overleaf_realtime.rs: Invalid Overleaf checkpoint version.": "the interface sends Overleaf's own version back",
   "synara.rs: Invalid agent task action.": "the agent panel sends one of the known actions",
   "synara/preferences.rs: The disabled agent skills must contain only names.": "the settings page writes the list of names itself",
+  "pdf_window.rs: The PDF window was closed while it opened.": "only the page that closed it hears it, and that page has let it go",
 };
 
 /** Files under `src-tauri/src` holding only tests: `#[cfg(test)] mod name;` declares each. */

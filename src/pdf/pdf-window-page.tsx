@@ -25,7 +25,7 @@ import { PdfPreviewLoading } from "../canvas/canvas-lazy-editors";
 import { DocumentOutline } from "../canvas/document-outline";
 import { Tip } from "../components/icon-tip";
 import { useAppearance } from "../settings/use-appearance";
-import { pdfBytesToObjectUrl } from "./pdf-bytes";
+import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "./pdf-bytes";
 import { PdfPreview } from "./pdf-viewer";
 import {
   PDF_WINDOW_ACTION_EVENT, PDF_WINDOW_STATE_EVENT, type PdfWindowAction, type PdfWindowState,
@@ -64,10 +64,10 @@ function compiledPdfReducer(state: CompiledPdf, action: CompiledPdfAction): Comp
 }
 
 /**
- * The compiled PDF named by `pdfKey`, read again whenever the key changes.
- * Until the next one is read the last stays on screen, as a rebuild shows in
- * the docked viewer; a key of null (no PDF yet) shows none. `waiting` while
- * the first is being read.
+ * The compiled PDF whose fingerprint is `pdfKey`, read again whenever the key
+ * changes. Until the next one is read the last stays on screen, as a rebuild
+ * shows in the docked viewer; a key of null (no PDF yet) shows none.
+ * `waiting` while the first is being read.
  */
 function useCompiledPdf(projectRoot: string | null, pdfKey: string | null): { pdf: LoadedPdf | null; waiting: boolean } {
   const [{ loaded, failedKey }, dispatch] = useReducer(compiledPdfReducer, { loaded: null, failedKey: null });
@@ -75,7 +75,11 @@ function useCompiledPdf(projectRoot: string | null, pdfKey: string | null): { pd
     if (!projectRoot || !pdfKey) return;
     let current = true;
     void invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot }).then((bytes) => {
-      if (current) dispatch({ type: "read", pdf: { key: pdfKey, url: pdfBytesToObjectUrl(bytes), bytes } });
+      if (!current) return;
+      // The next build is already rewriting the file: the PDF it writes
+      // comes with a key of its own.
+      if (pdfBytesFingerprint(bytes) !== pdfKey) dispatch({ type: "failed", key: pdfKey });
+      else dispatch({ type: "read", pdf: { key: pdfKey, url: pdfBytesToObjectUrl(bytes), bytes } });
     }, () => {
       // Gone between the build and this read (cleaned, or the project
       // closed): no PDF until the next build sends another key.
