@@ -14,7 +14,7 @@ import { logAction, notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useRefState, whenIdle } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isGetStartedShown } from "../onboarding/get-started-progress";
-import { useTexPackageUpdates } from "./use-tex-package-updates";
+import { useDailyTexPackageCheck, useTexPackageUpdates } from "./use-tex-package-updates";
 
 /**
  * The TeX toolchain check ("doctor"), the setup wizard, and on-demand installs
@@ -40,6 +40,7 @@ export function useTexSetup(rebuild: () => void) {
   const installAttemptRef = useRef(0);
   const rebuildRef = useLatestRef(rebuild);
   const packageUpdates = useTexPackageUpdates();
+  useDailyTexPackageCheck(packageUpdates.check);
 
   // Idle-deferred: run_doctor shells out to probe the TeX toolchain, and
   // nothing needs its report during first paint. Launch only reads it: what

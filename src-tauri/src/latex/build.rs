@@ -9,8 +9,8 @@ use super::build_steps::BuildSteps;
 use super::compile_root::{choose_compile_root, is_one_off_root};
 use super::preamble_format::{self, Prepared};
 use super::{
-    arxiv, bib_log, compiled_document, diagnostic_paths, engine_mismatch, latexmk, prewarm,
-    shown_pdf, synctex_missing,
+    arxiv, bib_log, compiled_document, diagnostic_paths, engine_mismatch, latexmk, outdated_lineno,
+    prewarm, search_paths, shown_pdf, synctex_missing,
 };
 use crate::commands;
 use crate::latex::BuildResult;
@@ -320,6 +320,7 @@ fn run_latexmk_with(
     if force {
         command.arg("-g");
     }
+    search_paths::search_project_folder(&mut command, &document);
     command.arg(&document);
     wide_event::record("engine", manifest.engine.as_str());
     wide_event::add("latexmk_runs", 1);
@@ -385,6 +386,7 @@ fn run_latexmk_with(
         warning.file = Some(document.clone());
         diagnostics.push(warning);
     }
+    diagnostics.extend(outdated_lineno::outdated_lineno(&tex_log));
     Ok(BuildResult {
         success,
         has_pdf: pdf_bytes.is_some(),
@@ -467,6 +469,8 @@ mod diagnostics_tests;
 mod error_mode_tests;
 #[cfg(test)]
 mod latexmkrc_tests;
+#[cfg(test)]
+mod project_folder_tests;
 #[cfg(test)]
 mod stall_tests;
 #[cfg(test)]

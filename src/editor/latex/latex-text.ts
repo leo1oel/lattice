@@ -113,32 +113,39 @@ export function rootFolder(rootPath: string): string {
   return rootPath.slice(0, rootPath.lastIndexOf("/") + 1);
 }
 
-/**
- * The project file a path names where TeX (latexmk `-cd`) reads it: the root
- * document's folder, whichever file holds the command. That is the only
- * place a `..` path can mean. `ignoreCase` matches as macOS's disk does.
- */
-function inRootFolder(candidate: string, projectPaths: readonly string[], rootPath: string, ignoreCase: boolean) {
-  const path = normalizeProjectPath(`${rootFolder(rootPath)}${candidate}`);
+/** `path`, a project path, as it is written in `projectPaths`; `ignoreCase` matches as macOS's disk does. */
+function projectFile(path: string | null, projectPaths: readonly string[], ignoreCase: boolean) {
   if (!path) return null;
   const index = (ignoreCase ? foldedProjectPaths(projectPaths) : projectPaths).indexOf(ignoreCase ? foldCase(path) : path);
   return index < 0 ? null : projectPaths[index];
 }
 
 /**
- * A leniency for a file TeX would not find: the path read from the project
- * folder, else the one project file that ends with it. A copy in `arxiv-v1/`
- * must not stand in for the one the build reads, so when several end with
- * it, none is chosen. A written `.` or `..` pins the folder, so such a path
- * gets no leniency.
+ * The project file a path names where TeX reads it. latexmk `-cd` typesets
+ * in the root document's folder, whichever file holds the command, so that
+ * comes first and is the only place a `./` or `../` path can mean: kpathsea
+ * searches no path for a name written relative to the working folder. A root
+ * in a subfolder also searches the project folder next, as Overleaf, which
+ * typesets there, finds it (the build's `TEXINPUTS`, `latex/search_paths.rs`).
+ */
+function onTexSearchPath(candidate: string, projectPaths: readonly string[], rootPath: string, ignoreCase: boolean) {
+  const folder = rootFolder(rootPath);
+  const beside = projectFile(normalizeProjectPath(`${folder}${candidate}`), projectPaths, ignoreCase);
+  if (beside || !folder || /^\.\.?\//.test(candidate)) return beside;
+  return projectFile(normalizeProjectPath(candidate), projectPaths, ignoreCase);
+}
+
+/**
+ * A leniency for a file TeX would not find: the one project file that ends
+ * with the path. A copy in `arxiv-v1/` must not stand in for the one the
+ * build reads, so when several end with it, none is chosen. A written `.` or
+ * `..` pins the folder, so such a path gets no leniency.
  */
 function elsewhere(candidate: string, projectPaths: readonly string[], ignoreCase: boolean) {
   const fromProject = normalizeProjectPath(candidate);
   if (!fromProject || candidate.split("/").some((part) => part === "." || part === "..")) return null;
   const paths = ignoreCase ? foldedProjectPaths(projectPaths) : projectPaths;
   const wanted = ignoreCase ? foldCase(fromProject) : fromProject;
-  const inProject = paths.indexOf(wanted);
-  if (inProject >= 0) return projectPaths[inProject];
   let found = -1;
   for (const [index, path] of paths.entries()) {
     if (!path.endsWith(`/${wanted}`)) continue;
@@ -150,9 +157,9 @@ function elsewhere(candidate: string, projectPaths: readonly string[], ignoreCas
 
 /**
  * The first of `candidates` (a path with each extension or search folder
- * TeX tries, in TeX's order) found in the root document's folder; only when
- * none is there, the first found by `elsewhere`. So a file TeX would not
- * read never wins over one it would.
+ * TeX tries, in TeX's order) found on TeX's search path (`onTexSearchPath`);
+ * only when none is there, the first found by `elsewhere`. So a file TeX
+ * would not read never wins over one it would.
  */
 export function findPathCandidate<T extends { candidate: string }>(
   candidates: readonly T[],
@@ -163,7 +170,7 @@ export function findPathCandidate<T extends { candidate: string }>(
   // An absolute path names a file on disk, never one in the project.
   const relative = candidates.filter((item) => !item.candidate.startsWith("/"));
   for (const item of relative) {
-    const file = inRootFolder(item.candidate, projectPaths, rootPath, ignoreCase);
+    const file = onTexSearchPath(item.candidate, projectPaths, rootPath, ignoreCase);
     if (file) return { ...item, file };
   }
   for (const item of relative) {

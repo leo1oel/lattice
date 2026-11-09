@@ -45,6 +45,7 @@ const DIRECT_WRITERS: Record<string, string> = {
   "trellis/trellis-layout.ts": "each project's layout",
   "trellis/trellis-workspaces.ts": "the saved workspace layouts",
   "editor/comments/editor-comment-data.ts": "the comment author id, written once when first needed",
+  "app/use-tex-package-updates.ts": "when the daily TeX package check last got an answer, read again at each launch",
 };
 
 const sources = readdirSync("src", { recursive: true, encoding: "utf8" })

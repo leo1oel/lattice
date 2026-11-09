@@ -8518,6 +8518,10 @@ msgstr "Line height"
 msgid "Line number"
 msgstr "Line number"
 
+#: src/build/build-log-messages.ts
+msgid "Line numbers may be drawn over the text: your TeX has lineno 5.7, which has a known bug. Update TeX packages to fix it."
+msgstr "Line numbers may be drawn over the text: your TeX has lineno 5.7, which has a known bug. Update TeX packages to fix it."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Line under an expression"
 msgstr "Line under an expression"
@@ -14754,6 +14758,7 @@ msgstr "TeX package update progress"
 msgid "TeX packages"
 msgstr "TeX packages"
 
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "TeX packages updated. Build again to use them."
 msgstr "TeX packages updated. Build again to use them."
@@ -16753,6 +16758,7 @@ msgstr "Update now"
 msgid "Update table"
 msgstr "Update table"
 
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Update TeX packages"
 msgstr "Update TeX packages"
@@ -16782,6 +16788,7 @@ msgstr "Updated to Lattice {running}"
 msgid "Updates {fields}"
 msgstr "Updates {fields}"
 
+#: src/settings/settings-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Updates available"
 msgstr "Updates available"
@@ -16803,6 +16810,7 @@ msgid "Updates the .bib entry and every \\cite"
 msgstr "Updates the .bib entry and every \\cite"
 
 #: src/build/tex-install-dialog.tsx
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Updating LaTeX packages…"
 msgstr "Updating LaTeX packages…"
@@ -17116,6 +17124,7 @@ msgid "Waiting"
 msgstr "Waiting"
 
 #: src/build/tex-install-dialog.tsx
+#: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"

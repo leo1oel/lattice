@@ -650,6 +650,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .settings-nav .animated-product-icon--sparkle { transform: translateY(-1px); }
 .settings-nav :is(.settings-nav-group, .settings-search-results) > button:hover { background: var(--border-subtle); color: var(--text-primary); }
 .settings-nav-group > button.active { background: var(--control-active-soft); color: var(--control-active); font-weight: 600; }
+/* A page that wants a look (the TeX doctor with package updates): a dot at the row's end. */
+.settings-nav-badge { width: 6px; height: 6px; margin-inline-start: auto; flex: none; border-radius: 50%; background: var(--status-warning); }
 /* The pages sit on the sheet, a step under the dialog, so their cards can
    lift off it. */
 .settings-content { min-width: 0; background: var(--surface-panel); }
