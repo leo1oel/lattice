@@ -10,6 +10,10 @@ import { marginReviewAvailable, marginReviewMode, subscribeMarginReview, type Ma
 /** Titles for the macOS menu bar, in the shape `set_native_locale` accepts. */
 export type NativeMenuLabels = {
   about: string;
+  /** Lattice ▸ Check for Updates…, or Restart to Update… once one is installed; null where Lattice does not update itself. */
+  checkForUpdates: string | null;
+  /** Lattice ▸ Settings… (⌘,), the command table's `settings`. */
+  settings: string;
   services: string;
   hide: string;
   hideOthers: string;
@@ -49,6 +53,8 @@ export type NativeMenuLabels = {
   closeWindow: string;
   help: string;
   whatsNew: string;
+  /** Help ▸ Report a Problem…, the command table's `report-problem`. */
+  reportProblem: string;
   /** View → Margin review, while this window shows a linked Overleaf project's source; its choice is this window's. */
   marginReview?: { title: string; auto: string; markers: string; off: string; mode: MarginReviewMode };
 };
@@ -57,6 +63,17 @@ export type NativeMenuLabels = {
 export type NativeFileMenu = Pick<NativeMenuLabels, "recentProjects" | "projectOpen">;
 
 let fileMenu: NativeFileMenu = { recentProjects: [], projectOpen: false };
+
+/** What Lattice ▸ Check for Updates… does in this window: check, restart into an installed update, or nothing. */
+export type NativeUpdateMenu = "check" | "restart" | null;
+
+let updateMenu: NativeUpdateMenu = null;
+
+/** Set by the updater (app-updater.tsx); resent like File's items. */
+export function setNativeUpdateMenu(next: NativeUpdateMenu): void {
+  updateMenu = next;
+  syncNativeLocaleIfChanged();
+}
 
 /**
  * Put this window's project and recent projects in File's items. The menu
@@ -76,6 +93,10 @@ export function nativeMenuLabels(): NativeMenuLabels {
   const name = "Lattice";
   return {
     about: i18n._(msg({ context: "macOS menu bar", message: `About ${name}` })),
+    checkForUpdates: updateMenu === "restart"
+      ? i18n._(msg({ context: "macOS menu bar", message: "Restart to Update…" }))
+      : updateMenu ? i18n._(msg({ context: "macOS menu bar", message: "Check for Updates…" })) : null,
+    settings: i18n._(msg({ context: "macOS menu bar", message: "Settings…" })),
     services: i18n._(msg({ context: "macOS menu bar", message: "Services" })),
     hide: i18n._(msg({ context: "macOS menu bar", message: `Hide ${name}` })),
     hideOthers: i18n._(msg({ context: "macOS menu bar", message: "Hide Others" })),
@@ -111,6 +132,7 @@ export function nativeMenuLabels(): NativeMenuLabels {
     closeWindow: i18n._(msg({ context: "macOS menu bar", message: "Close Window" })),
     help: i18n._(msg({ context: "macOS menu bar", message: "Help" })),
     whatsNew: i18n._(msg({ context: "macOS menu bar", message: `What’s New in ${name}` })),
+    reportProblem: i18n._(msg({ context: "macOS menu bar", message: "Report a Problem…" })),
     ...marginReviewAvailable() ? {
       marginReview: {
         title: i18n._(msg({ context: "macOS menu bar", message: "Margin Review" })),
@@ -159,7 +181,7 @@ function syncQuietly(): void {
 // window shows margin review, and checked as this window has it. So do
 // File's project items, which follow this window's project.
 const currentLocaleKey = () =>
-  `${i18n.locale}|${loadAppearance().interfaceLanguage}|${marginReviewAvailable() ? marginReviewMode() : ""}|${JSON.stringify(fileMenu)}`;
+  `${i18n.locale}|${loadAppearance().interfaceLanguage}|${marginReviewAvailable() ? marginReviewMode() : ""}|${JSON.stringify(fileMenu)}|${updateMenu}`;
 
 /**
  * Resend when the locale, the saved preference, this window's margin review

@@ -176,7 +176,7 @@ rather than a fact:
 | `commands.rs` + `commands/` | Finding and running external processes the way a GUI-launched app has to; `commands/python_tools.rs` pins the Python CLIs run through the app-managed uvx. |
 | `wide_event.rs` | One wide, structured log event per operation (see [`logging.md`](logging.md)). |
 | `command_diagnostics.rs` | Puts the frontend's operation and request ids on a long command's wide event. |
-| `diagnostic_logs.rs` | The support bundle: bounded, redacted tails of the app and sidecar logs. |
+| `diagnostic_logs.rs` | The support bundle: bounded, redacted tails of the app and sidecar logs; Help ▸ Report a Problem… saving its redacted export. |
 | `project.rs` + `project/` | Everything Lattice does to a project folder: creation, manifest, paths, the transaction history, tree, search, archives. |
 | `project_fs.rs` | Race-free mutations beneath an already selected project root. |
 | `fs_watch.rs` | The project filesystem watcher (FSEvents plus a debounce thread). |

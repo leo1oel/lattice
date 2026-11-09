@@ -1,5 +1,7 @@
 {
   "about": "关于 Lattice",
+  "checkForUpdates": "检查更新…",
+  "settings": "设置…",
   "services": "服务",
   "hide": "隐藏 Lattice",
   "hideOthers": "隐藏其他",
@@ -39,5 +41,6 @@
   "closeTab": "关闭标签页",
   "closeWindow": "关闭窗口",
   "help": "帮助",
-  "whatsNew": "Lattice 新功能"
+  "whatsNew": "Lattice 新功能",
+  "reportProblem": "报告问题…"
 }

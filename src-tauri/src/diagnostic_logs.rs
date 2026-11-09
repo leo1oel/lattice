@@ -1,14 +1,18 @@
-//! The support bundle: bounded, redacted tails of the app and sidecar logs.
+//! The support bundle: bounded, redacted tails of the app and sidecar logs,
+//! and Help ▸ Report a Problem…'s saved copy of the in-app log export.
 
 use regex::Regex;
 use serde::Serialize;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use tauri::Manager;
 
 const MAX_LOG_BYTES: u64 = 128 * 1024;
+/// Far above any real export (the in-app log keeps 300 entries of at most
+/// 4,000 characters), so only a runaway page is refused.
+const MAX_REPORT_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +58,67 @@ fn collect(app: &tauri::AppHandle) -> Result<DiagnosticLogBundle, String> {
         platform: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
     })
+}
+
+/// What a problem report's new-issue page names: the Mac it came from.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProblemReport {
+    /// The macOS version (`15.1`), or `None` where it is unknown.
+    os_version: Option<String>,
+    arch: String,
+}
+
+/// Save Help ▸ Report a Problem…'s redacted log export (the page builds it as
+/// Settings › Logs › Export does) under Lattice's log folder and show it in
+/// Finder, so the reporter can attach it to the issue. The backend picks the
+/// path, so the page cannot write anywhere else; the contents are redacted
+/// once more here as a backstop.
+#[tauri::command]
+pub async fn save_problem_report(
+    app: tauri::AppHandle, contents: String,
+) -> Result<ProblemReport, String> {
+    use tauri_plugin_opener::OpenerExt;
+
+    if contents.len() > MAX_REPORT_BYTES {
+        return Err("The diagnostic log is too large to save.".to_string());
+    }
+    let home = app.path().home_dir().ok();
+    let folder = crate::ipc::windows::app_log_dir(&app)?.join("reports");
+    let (path, os_version) = crate::ipc::run_blocking("Saving the diagnostic log", move || {
+        let path =
+            write_report(&folder, &redact(&contents, home.as_deref()), chrono::Local::now())?;
+        Ok((path, os_version()))
+    })
+    .await?;
+    app.opener()
+        .reveal_item_in_dir(&path)
+        .map_err(|error| format!("Could not show the diagnostic log in Finder: {error}"))?;
+    Ok(ProblemReport { os_version, arch: std::env::consts::ARCH.to_string() })
+}
+
+fn write_report(
+    folder: &Path, contents: &str, now: chrono::DateTime<chrono::Local>,
+) -> Result<PathBuf, String> {
+    std::fs::create_dir_all(folder)
+        .map_err(|error| format!("Could not create the report folder: {error}"))?;
+    let path = folder.join(format!("lattice-diagnostics-{}.json", now.format("%Y-%m-%d-%H%M%S")));
+    std::fs::write(&path, contents)
+        .map_err(|error| format!("Could not save the diagnostic log: {error}"))?;
+    Ok(path)
+}
+
+#[cfg(target_os = "macos")]
+fn os_version() -> Option<String> {
+    let output =
+        std::process::Command::new("/usr/bin/sw_vers").arg("-productVersion").output().ok()?;
+    let version = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    (output.status.success() && !version.is_empty()).then_some(version)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn os_version() -> Option<String> {
+    None
 }
 
 fn collect_file(
@@ -170,6 +235,25 @@ pub(crate) mod tests {
         std::os::unix::fs::symlink(&*outside, root.join("linked")).unwrap();
         let error = read_allowed_tail(&root, &root.join("linked/secret.log")).unwrap_err();
         assert!(error.contains("outside"));
+    }
+
+    #[test]
+    fn a_problem_report_is_saved_under_its_folder_by_time() {
+        let root = TempDir::new("diagnostic");
+        let folder = root.join("reports");
+        let now = chrono::Local::now();
+        let path = write_report(&folder, "{}", now).unwrap();
+        assert!(path.starts_with(&folder));
+        let name = path.file_name().unwrap().to_str().unwrap().to_string();
+        assert_eq!(name, format!("lattice-diagnostics-{}.json", now.format("%Y-%m-%d-%H%M%S")));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn names_the_macos_version() {
+        let version = os_version().expect("sw_vers answers on macOS");
+        assert!(version.split('.').all(|part| part.parse::<u32>().is_ok()), "{version}");
     }
 
     #[test]
