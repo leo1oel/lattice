@@ -984,6 +984,10 @@ msgstr "{size} of {limit}"
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size} of {limit}; leave out large figures"
 
+#: src/platform/host-errors-project.ts
+msgid "{source} could not be found."
+msgstr "{source} could not be found."
+
 #: src/project/deadline-card.tsx
 msgid "{span} left"
 msgstr "{span} left"
@@ -1667,6 +1671,10 @@ msgstr "Add to note"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
 msgstr "Add to Papers"
+
+#: src/app/editable-figure-paste.ts
+msgid "Add to the main document's preamble: {lines}"
+msgstr "Add to the main document's preamble: {lines}"
 
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
@@ -4415,6 +4423,10 @@ msgstr "Could not decode file bytes: {error}"
 msgid "Could not decode the clipboard image: {error}"
 msgstr "Could not decode the clipboard image: {error}"
 
+#: src/platform/host-errors-project.ts
+msgid "Could not decode the figure: {error}"
+msgstr "Could not decode the figure: {error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not delete {path}: {error}"
 msgstr "Could not delete {path}: {error}"
@@ -4491,6 +4503,10 @@ msgstr "Could not open a new Lattice window: {error}"
 #: src/project/paper-library.tsx
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
+
+#: src/project/figure-source-run.ts
+msgid "Could not open the drawing"
+msgstr "Could not open the drawing"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
@@ -5636,6 +5652,10 @@ msgstr "Edit deadline"
 msgid "Edit document"
 msgstr "Edit document"
 
+#: src/project/project-file-tree.tsx
+msgid "Edit figure source"
+msgstr "Edit figure source"
+
 #: src/app/use-command-table.ts
 msgid "Edit HTML"
 msgstr "Edit HTML"
@@ -6171,6 +6191,7 @@ msgstr "Figure inventory"
 msgid "Figure preview could not be loaded."
 msgstr "Figure preview could not be loaded."
 
+#: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 msgid "Figures"
 msgstr "Figures"
@@ -9617,6 +9638,10 @@ msgstr "No file changes recorded for this update"
 msgid "No files match “{trimmedQuery}”"
 msgstr "No files match “{trimmedQuery}”"
 
+#: src/platform/host-errors-project.ts
+msgid "No free name was found for the figure."
+msgstr "No free name was found for the figure."
+
 #: src/papers/bib-entry-detail.tsx
 msgid "No full text to download"
 msgstr "No full text to download"
@@ -10320,6 +10345,7 @@ msgstr "Only the listed graphics arguments will change. Image files stay in plac
 
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
+#: src/project/figure-source-run.ts
 msgid "Open"
 msgstr "Open"
 
@@ -10331,6 +10357,10 @@ msgstr "Open"
 #: src/app/use-command-table.ts
 msgid "Open {name}"
 msgstr "Open {name}"
+
+#: src/project/figure-source-run.ts
+msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
+msgstr "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
@@ -15209,9 +15239,41 @@ msgstr "The exported paper must use the .pdf extension."
 msgid "The exported workbook must use the .xlsx extension."
 msgstr "The exported workbook must use the .xlsx extension."
 
+#: src/platform/host-errors-project.ts
+msgid "The figure carries a file type Lattice does not import."
+msgstr "The figure carries a file type Lattice does not import."
+
+#: src/platform/host-errors-project.ts
+msgid "The figure carries too many files."
+msgstr "The figure carries too many files."
+
+#: src/platform/host-errors-project.ts
+msgid "The figure is too large to import."
+msgstr "The figure is too large to import."
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names a file without a usable name."
+msgstr "The figure names a file without a usable name."
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names no file to include."
+msgstr "The figure names no file to include."
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names one file twice."
+msgstr "The figure names one file twice."
+
 #: src/project/figure-inventory.ts
 msgid "The figure source changed. Refresh and preview again."
 msgstr "The figure source changed. Refresh and preview again."
+
+#: src/platform/host-errors-project.ts
+msgid "The figure's file to include is not among its files."
+msgstr "The figure's file to include is not among its files."
+
+#: src/platform/host-errors-project.ts
+msgid "The figure's file to include is not text."
+msgstr "The figure's file to include is not text."
 
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
@@ -15938,6 +16000,18 @@ msgstr "This figure is too large to preview inside Lattice (50 MB maximum)."
 #: src/project/figure-inventory.ts
 msgid "This figure path cannot be inserted safely."
 msgstr "This figure path cannot be inserted safely."
+
+#: src/app/editable-figure-paste.ts
+msgid "This figure wants to add these lines to the preamble. Add them?\n"
+"\n"
+"{lines}"
+msgstr "This figure wants to add these lines to the preamble. Add them?\n"
+"\n"
+"{lines}"
+
+#: src/platform/host-errors-project.ts
+msgid "This figure was made for a newer version of the editable-figure format."
+msgstr "This figure was made for a newer version of the editable-figure format."
 
 #: src/canvas/editor-status-bar.tsx
 msgid "This file"

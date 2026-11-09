@@ -984,6 +984,10 @@ msgstr "{size}，上限 {limit}"
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size}，上限 {limit}；请移除较大的图片"
 
+#: src/platform/host-errors-project.ts
+msgid "{source} could not be found."
+msgstr "找不到 {source}。"
+
 #: src/project/deadline-card.tsx
 msgid "{span} left"
 msgstr "还剩 {span}"
@@ -1667,6 +1671,10 @@ msgstr "加到笔记"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
 msgstr "加入论文库"
+
+#: src/app/editable-figure-paste.ts
+msgid "Add to the main document's preamble: {lines}"
+msgstr "请在主文档的导言区添加：{lines}"
 
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
@@ -4415,6 +4423,10 @@ msgstr "无法解码文件内容：{error}"
 msgid "Could not decode the clipboard image: {error}"
 msgstr "无法解码剪贴板图片：{error}"
 
+#: src/platform/host-errors-project.ts
+msgid "Could not decode the figure: {error}"
+msgstr "无法解码图形：{error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not delete {path}: {error}"
 msgstr "无法删除 {path}：{error}"
@@ -4491,6 +4503,10 @@ msgstr "无法打开新的 Lattice 窗口：{error}"
 #: src/project/paper-library.tsx
 msgid "Could not open the article in your browser"
 msgstr "浏览器打不开原文"
+
+#: src/project/figure-source-run.ts
+msgid "Could not open the drawing"
+msgstr "无法打开绘图"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
@@ -5636,6 +5652,10 @@ msgstr "编辑截止时间"
 msgid "Edit document"
 msgstr "编辑文档"
 
+#: src/project/project-file-tree.tsx
+msgid "Edit figure source"
+msgstr "编辑图的源文件"
+
 #: src/app/use-command-table.ts
 msgid "Edit HTML"
 msgstr "编辑 HTML"
@@ -6171,6 +6191,7 @@ msgstr "插图使用检查"
 msgid "Figure preview could not be loaded."
 msgstr "图片预览加载失败"
 
+#: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 msgid "Figures"
 msgstr "图片"
@@ -9617,6 +9638,10 @@ msgstr "这次更新没有文件改动"
 msgid "No files match “{trimmedQuery}”"
 msgstr "没有文件包含“{trimmedQuery}”"
 
+#: src/platform/host-errors-project.ts
+msgid "No free name was found for the figure."
+msgstr "找不到可用于该图形的文件名。"
+
 #: src/papers/bib-entry-detail.tsx
 msgid "No full text to download"
 msgstr "没有可下载的全文"
@@ -10320,6 +10345,7 @@ msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
 
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-project-picker.tsx
+#: src/project/figure-source-run.ts
 msgid "Open"
 msgstr "打开"
 
@@ -10331,6 +10357,10 @@ msgstr "待处理"
 #: src/app/use-command-table.ts
 msgid "Open {name}"
 msgstr "打开 {name}"
+
+#: src/project/figure-source-run.ts
+msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
+msgstr "用默认应用打开 {name}？SVG 文件常会在网页浏览器中打开，浏览器会运行其中的脚本。"
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
@@ -15209,9 +15239,41 @@ msgstr "导出的论文须使用 .pdf 扩展名"
 msgid "The exported workbook must use the .xlsx extension."
 msgstr "导出的工作簿须使用 .xlsx 扩展名"
 
+#: src/platform/host-errors-project.ts
+msgid "The figure carries a file type Lattice does not import."
+msgstr "该图形包含 Lattice 不导入的文件类型。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure carries too many files."
+msgstr "这个图带的文件太多。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure is too large to import."
+msgstr "该图形太大，无法导入。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names a file without a usable name."
+msgstr "该图形中有文件没有可用的名称。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names no file to include."
+msgstr "该图形没有指明要包含的文件。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure names one file twice."
+msgstr "这个图有两个文件同名。"
+
 #: src/project/figure-inventory.ts
 msgid "The figure source changed. Refresh and preview again."
 msgstr "插图源文已更改，请刷新后重新预览。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure's file to include is not among its files."
+msgstr "图中要包含的文件不在其文件之列。"
+
+#: src/platform/host-errors-project.ts
+msgid "The figure's file to include is not text."
+msgstr "该图形要包含的文件不是文本。"
 
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
@@ -15938,6 +16000,18 @@ msgstr "图片太大，无法在 Lattice 中预览（上限 50 MB）"
 #: src/project/figure-inventory.ts
 msgid "This figure path cannot be inserted safely."
 msgstr "无法安全插入此图片路径。"
+
+#: src/app/editable-figure-paste.ts
+msgid "This figure wants to add these lines to the preamble. Add them?\n"
+"\n"
+"{lines}"
+msgstr "此图形要将以下内容添加到导言区。是否添加？\n"
+"\n"
+"{lines}"
+
+#: src/platform/host-errors-project.ts
+msgid "This figure was made for a newer version of the editable-figure format."
+msgstr "此图是用更新版本的可编辑图格式制作的。"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "This file"

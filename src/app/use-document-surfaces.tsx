@@ -22,6 +22,7 @@ import { ChunkGate } from "../components/chunk-gate";
 import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
 import type { LivePreview } from "../live-preview/use-live-preview";
+import { pasteEditableFigureLazily } from "./paste-editable-figure-lazily";
 import { canDownloadPaper, citationSourceUrl } from "../papers/paper-source";
 import type { TrellisController } from "../trellis/trellis-controller";
 import type { EditorPosition, ProjectManifest, ProjectSnapshot } from "../app-types";
@@ -84,7 +85,7 @@ export function useDocumentSurfaces({
   preferences: Omit<DocumentCanvasProps["preferences"], "projectRoot" | "spellingWords" | "grammarIgnores" | "onIgnoreGrammar">;
   library: Pick<
     ReturnType<typeof useProjectLibrary>,
-    "papers" | "citationKeys" | "citations" | "unusedSymbols" | "bibliographyIndexPending" | "projectWordCount"
+    "papers" | "citationKeys" | "citations" | "unusedSymbols" | "bibliographyIndexPending" | "projectWordCount" | "refreshProject"
   >;
   latex: ReturnType<typeof useLatexStructure>;
   texlabDiagnostics: ReturnType<typeof useTexlabDiagnostics>;
@@ -331,6 +332,7 @@ export function useDocumentSurfaces({
         },
         onPrepareFigure: tree.prepareLatexFigure,
         onPasteImageFile: tree.pasteImageFile,
+        onPasteEditableFigure: (manifest, view) => pasteEditableFigureLazily(view, manifest, { projectRoot: project.root, refreshProject: library.refreshProject }),
         nativeFigureDropActive: tree.drops.editor,
         fileDropTargetActive: tree.drops.fileTarget,
       }}

@@ -18,7 +18,8 @@
 //!   files they scan and names the ones it cannot.
 //! - [`search`] — project search, TODO markers, and find/replace.
 //! - [`entries`], [`imports`], [`assets`], [`archive`] — Project-pane file
-//!   operations, drops and uploads, figure previews, and ZIP packs.
+//!   operations, drops and uploads, figure previews, and ZIP packs;
+//!   [`editable_figure`] — figures pasted with their drawing's source file.
 //! - [`history`] — undoable transactions and the history log.
 //! - [`review_mode`] — review mode's bases, the text tracked changes are
 //!   shown against.
@@ -32,6 +33,7 @@ mod assets;
 mod bibliography;
 mod citation_lookup;
 mod create;
+mod editable_figure;
 mod editor_save;
 mod entries;
 mod history;
@@ -74,6 +76,10 @@ pub(crate) use bibliography::{
 };
 pub use citation_lookup::resolve_citation_query;
 pub use create::{create_tutorial, create_with_venue, Venue};
+pub use editable_figure::{
+    figure_source_to_open, import_editable_figure, FigureManifest, FigureSourceOpening,
+    ImportedFigure,
+};
 pub use entries::{create_entry, create_open_slide_deck, delete_entry, move_entry, rename_entry};
 pub(crate) use history::retain_open_history;
 pub use history::{

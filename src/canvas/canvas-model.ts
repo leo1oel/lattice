@@ -10,6 +10,7 @@ import type { CompileDiagnostic } from "../build/compile-diagnostics";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { GrammarIgnores, IgnoreGrammar } from "../editor/harper-spellcheck";
 import type { CompiledBuild } from "../editor/latex/compiled-labels";
+import type { EditableFigureManifest } from "../editor/insert/editable-figure";
 import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
@@ -223,6 +224,8 @@ type CanvasAssets = Readonly<{
   onOpenSlideAgentRequest?: OpenSlideWorkspaceProps["onAgentRequest"];
   onPrepareFigure: (path: string) => Promise<string | null>;
   onPasteImageFile: (file: File) => boolean | void;
+  /** A figure pasted with its drawing's source file (an editable-figure manifest), for `view` to include. */
+  onPasteEditableFigure?: (manifest: EditableFigureManifest, view: EditorView) => void;
   nativeFigureDropActive: boolean;
   fileDropTargetActive: boolean;
 }>;
