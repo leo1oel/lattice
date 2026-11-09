@@ -206,6 +206,22 @@ describe("LaTeX editor extensions", () => {
     expect(doc(view)).toBe("\\citep{left2023,  alpha2024extended  ,right2025}");
   });
 
+  // The bracket pairing leaves a `{` typed before a word open, and the prose
+  // after it is not a key: only a key in a key list that closes is replaced.
+  it.each([
+    ["Prior work \\cite{|Smith et al. showed this.", "Prior work \\cite{vaswani2017Smith et al. showed this."],
+    ["proposed \\cite{|recently.\nWe follow it.", "proposed \\cite{vaswani2017recently.\nWe follow it."],
+    ["\\cite{alpha,\n  vas|wani\n}", "\\cite{alpha,\n  vaswani2017\n}"],
+    ["\\cite{|Smith, Jones and Lee showed this.", "\\cite{vaswani2017Smith, Jones and Lee showed this."],
+    ["\\cite{vas|wani, % to check\n  smith}", "\\cite{vaswani2017, % to check\n  smith}"],
+  ])("accepting a citation in %j gives %j", async (marked, expected) => {
+    const view = latexView(marked.replace("|", ""), marked.indexOf("|"), { citationKeys: ["vaswani2017"] });
+    startCompletion(view);
+    await vi.waitFor(() => expect(labels(view)).toEqual(["vaswani2017"]));
+    press(view, "Enter");
+    expect(doc(view)).toBe(expected);
+  });
+
   it("lets an immediately pressed arrow and Enter choose a citation", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     const view = latexView("\\cite{}", 6, { citationKeys: ["vaswani2017attention", "dosovitskiy2021image"] });
