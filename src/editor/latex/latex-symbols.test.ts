@@ -3,6 +3,8 @@ import {
   citationCompletionRange,
   citationHoverTarget,
   citationNotePage,
+  compoundCompletionRange,
+  markCompletionRange,
   definitionTargetAt,
   graphicsHoverTarget,
   includeCompletionRange,
@@ -28,12 +30,20 @@ describe("LaTeX symbols", () => {
     [citationCompletionRange, "Text \\section{intro", 19, null],
     [referenceCompletionRange, "See \\ref{", 9, { from: 9, query: "" }],
     [referenceCompletionRange, "See \\cref{fig:", 14, { from: 10, query: "fig:" }],
+    [compoundCompletionRange, "See \\cmpd{", 10, { from: 10, query: "" }],
+    [compoundCompletionRange, "See \\cmpd*{a, ke", 16, { from: 14, query: "ke" }],
+    [compoundCompletionRange, "See \\refcmpd{k", 14, { from: 13, query: "k" }],
     [includeCompletionRange, "\\input{", 7, { from: 7, query: "" }],
     [includeCompletionRange, "\\include{sec", 12, { from: 9, query: "sec" }],
     [includeCompletionRange, "\\includegraphics[width=\\linewidth]{fig", 37, { from: 34, query: "fig" }],
     [includeCompletionRange, "\\section{intro", 14, null],
   ])("finds the completion slot in %#", (range, before, cursor, expected) => {
     expect(range(before, cursor)).toEqual(expected);
+  });
+
+  it("finds the slot of a mark's text", () => {
+    expect(markCompletionRange("See \\rcmpd{A:ca", 15)).toEqual({ from: 11, query: "A:ca" });
+    expect(markCompletionRange("See \\cmpd{", 10)).toBeNull();
   });
 
   it("identifies the exact bibliography key hovered inside a citation", () => {

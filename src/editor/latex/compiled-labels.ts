@@ -40,21 +40,24 @@ export function parseAux(aux: string): { labels: Map<string, CompiledLabel>; inp
   return { labels, inputs: [...aux.matchAll(/\\@input\{([^}]+\.aux)\}/g)].map((match) => match[1]) };
 }
 
+/** A document's chapters read for their numbers: the `.aux` is the build's output, so it is bounded too. */
+const MAX_AUX_INPUTS = 300;
+
+/** The text of the last build's `.aux` files: the root document's, beside it, and each chapter's it names. */
+export async function compiledAuxTexts(projectRoot: string | undefined, build: CompiledBuild): Promise<string[]> {
+  const directory = build.rootDocument.includes("/") ? build.rootDocument.replace(/[^/]*$/, "") : "";
+  const read = (path: string) => invoke<string>("read_project_file", { path, projectRoot }).catch(() => "");
+  const main = await read(build.rootDocument.replace(/\.tex$/i, ".aux"));
+  return [main, ...await Promise.all(parseAux(main).inputs.slice(0, MAX_AUX_INPUTS).map((path) => read(`${directory}${path}`)))];
+}
+
 let cache: { root: string | undefined; build: CompiledBuild; labels: Promise<Map<string, CompiledLabel>> } | null = null;
 
-/**
- * The last build's label numbers and pages, read once per build. TeX writes
- * the root document's `.aux` beside it and names each chapter's from there.
- * A build that wrote none (or a project never built) numbers nothing.
- */
+/** The last build's label numbers and pages, read once per build. A project never built numbers nothing. */
 export function compiledLabels(projectRoot: string | undefined, build: CompiledBuild): Promise<Map<string, CompiledLabel>> {
   if (cache && cache.root === projectRoot && cache.build === build) return cache.labels;
-  const directory = build.rootDocument.includes("/") ? build.rootDocument.replace(/[^/]*$/, "") : "";
-  const read = (path: string) => invoke<string>("read_project_file", { path, projectRoot }).then(parseAux, () => null);
-  const labels = read(build.rootDocument.replace(/\.tex$/i, ".aux")).then(async (main) => {
-    const chapters = await Promise.all((main?.inputs ?? []).map((path) => read(`${directory}${path}`)));
-    return new Map([main, ...chapters].flatMap((aux) => [...aux?.labels ?? []]));
-  });
+  const labels = compiledAuxTexts(projectRoot, build)
+    .then((texts) => new Map(texts.flatMap((text) => [...parseAux(text).labels])));
   cache = { root: projectRoot, build, labels };
   return labels;
 }

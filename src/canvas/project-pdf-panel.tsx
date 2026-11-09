@@ -13,6 +13,7 @@ import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
 import { DocumentOutline } from "./document-outline";
+import { PdfCompoundKeyHover } from "../pdf/pdf-compound-key-hover";
 import { PdfFigureSourceOpen } from "../pdf/pdf-figure-source-open";
 import { SavedViewState } from "./saved-view-state";
 import { LivePreviewSessionContext } from "../live-preview/live-preview-context";
@@ -226,6 +227,7 @@ export function ProjectPdfPanel({
           )}
         </SavedViewState>
       </Suspense></ChunkGate>
+      <PdfCompoundKeyHover host={host} />
       <PdfFigureSourceOpen host={host} />
       </LivePreviewSessionContext>
     </div>,

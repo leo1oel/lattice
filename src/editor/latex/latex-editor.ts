@@ -18,7 +18,7 @@ import { harperSpellcheck, type GrammarIgnores, type HarperProse, type IgnoreGra
 import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
 import { deferIncludeJump, figureSourceDoubleClick } from "./figure-source-gesture";
 import {
-  citationCompletions, citationIcon, includeCompletions, macroCompletions, openCitationAtCursor, referenceCompletions,
+  citationCompletions, citationIcon, compoundCompletions, includeCompletions, macroCompletions, openCitationAtCursor, referenceCompletions,
   textBefore,
 } from "./latex-completions";
 import type { CompiledBuild } from "./compiled-labels";
@@ -435,6 +435,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       override: [
         citationCompletions(live),
         referenceCompletions(live),
+        compoundCompletions(live),
         includeCompletions(live),
         macroCompletions(live),
         ...(options.texlab ? [texlabCompletionSource(texlabPath)] : []),
