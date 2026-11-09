@@ -1,7 +1,7 @@
 /** What the project knows about its compounds: read from its `.tex` files and the last build's `.aux`. */
 import { invoke } from "@tauri-apps/api/core";
 import { compiledAuxTexts, parseAux, type CompiledBuild, type CompiledLabel } from "./compiled-labels";
-import { parseCompoundNumbers } from "./compound-keys";
+import { parseCompoundNumbers, type CompoundNumbers } from "./compound-keys";
 import { compoundPlaces, placeLine, type CompoundSource } from "./compound-places";
 
 /** How many of a project's `.tex` files a compound list reads. */
@@ -16,14 +16,14 @@ export type CompoundProject = {
   placeLines: Map<string, string>;
 };
 
-let numbersCache: { root: string | undefined; build: CompiledBuild; numbers: Promise<Map<string, string>> } | null = null;
+let numbersCache: { root: string | undefined; build: CompiledBuild; numbers: Promise<CompoundNumbers> } | null = null;
 
 /**
  * What chemnum numbered in the last build, read once per build. Empty for a
  * project that does not use chemnum, which is how the PDF knows to look for
  * no compound at all.
  */
-export function compiledCompoundNumbers(projectRoot: string | undefined, build: CompiledBuild): Promise<Map<string, string>> {
+export function compiledCompoundNumbers(projectRoot: string | undefined, build: CompiledBuild): Promise<CompoundNumbers> {
   if (numbersCache && numbersCache.root === projectRoot && numbersCache.build === build) return numbersCache.numbers;
   const numbers = compiledAuxTexts(projectRoot, build).then((texts) => parseCompoundNumbers(texts.join("\n")));
   numbersCache = { root: projectRoot, build, numbers };

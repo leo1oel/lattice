@@ -25,15 +25,35 @@ export const numberedKey = (key: string) => key.replace(STYLE_SUFFIX, "");
 /** A run of PDF text as the number it may be: `(2a),` reads `2a`. */
 export const printedNumber = (text: string) => text.trim().replace(/^[([]+/, "").replace(/[)\],.;:]+$/, "");
 
+/** What chemnum numbered: `counterPrefixed` holds the keys whose `pre-label-code` prints a counter, such as `\\thechapter-`. */
+export type CompoundNumbers = ReadonlyMap<string, string> & { counterPrefixed?: ReadonlySet<string> };
+
+/** A printed counter and its separator, in front of a number set in the same run of text: the `1-` of `1-2a`. */
+const COUNTER_PREFIX = /^(?:\d+|[ivxlc]+|[IVXLC]+|[A-Z])[-.]/;
+
+/**
+ * A run of PDF text without the counter in front, when the build gave some
+ * compound such a prefix, which the `.aux` holds only as a macro; else "".
+ */
+export function withoutCounterPrefix(text: string, numbers: CompoundNumbers): string {
+  if (!numbers.counterPrefixed?.size) return "";
+  const number = printedNumber(text);
+  return number.replace(COUNTER_PREFIX, "") === number ? "" : number.replace(COUNTER_PREFIX, "");
+}
+
 /**
  * Of the keys a source line names, those the last build numbered as the PDF
  * text reads. SyncTeX gives only the line, which also typesets citation
  * numbers, references and years: only a number the build gave one of its
  * compounds is one.
  */
-export function keysNumbered(text: string, keys: readonly string[], numbers: ReadonlyMap<string, string>): string[] {
+export function keysNumbered(text: string, keys: readonly string[], numbers: CompoundNumbers): string[] {
   const number = printedNumber(text);
-  return number ? keys.filter((key) => numbers.get(numberedKey(key)) === number) : [];
+  const bare = withoutCounterPrefix(text, numbers);
+  return number ? keys.filter((key) => {
+    const assigned = numbers.get(numberedKey(key));
+    return assigned === number || Boolean(bare && assigned === bare && numbers.counterPrefixed?.has(numberedKey(key)));
+  }) : [];
 }
 
 /** What `\\rcmpd` names on `line`: the text of a drawing's `[[…]]` marks. */
@@ -71,18 +91,22 @@ const labelPart = (value: string) => (value.includes("\\") ? "" : plainNumber(va
  * prefix and suffix (`pre-label-code`, `post-label-code`), and `key.sub` with
  * the sub's letter after the number and any `post-main-label-code`.
  */
-export function parseCompoundNumbers(aux: string): Map<string, string> {
-  const numbers = new Map<string, string>();
+export function parseCompoundNumbers(aux: string): Map<string, string> & { counterPrefixed: Set<string> } {
+  const counterPrefixed = new Set<string>();
+  const numbers = Object.assign(new Map<string, string>(), { counterPrefixed });
   const parents = new Map<string, { head: string; separator: string; post: string }>();
   const compound = /\\chemnum@cmpd\s*\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\{[^{}]*\}\{([^{}]*)\}/g;
   for (const [, key, counter, shown, pre, post, separator] of aux.matchAll(compound)) {
     const head = labelPart(pre) + (plainNumber(shown) || plainNumber(counter));
+    if (/\\the[a-z]+/.test(pre)) counterPrefixed.add(key);
     parents.set(key, { head, separator: labelPart(separator), post: labelPart(post) });
     numbers.set(key, head + labelPart(post));
   }
   for (const [, key, sub, , letter] of aux.matchAll(/\\chemnum@subcmpd\s*\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}/g)) {
     const parent = parents.get(key);
-    if (parent) numbers.set(`${key}.${sub}`, parent.head + parent.separator + plainNumber(letter) + parent.post);
+    if (!parent) continue;
+    numbers.set(`${key}.${sub}`, parent.head + parent.separator + plainNumber(letter) + parent.post);
+    if (counterPrefixed.has(key)) counterPrefixed.add(`${key}.${sub}`);
   }
   for (const [, series, key, label] of aux.matchAll(/\\cmpdser@aux\s*\{([AaIi])\}\{([^{}]*)\}\{([^{}]*)\}/g)) {
     numbers.set(`${series}:${key}`, plainNumber(label));

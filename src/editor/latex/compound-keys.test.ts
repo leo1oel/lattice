@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compoundCommand, compoundMarksOnLine, compoundEntries, compoundKeysIn, compoundKeysOnLine, keysNumbered, parseCompoundNumbers } from "./compound-keys";
+import { withoutCounterPrefix, compoundCommand, compoundMarksOnLine, compoundEntries, compoundKeysIn, compoundKeysOnLine, keysNumbered, parseCompoundNumbers } from "./compound-keys";
 
 const AUX = String.raw`\chemnum@cmpd {ketone}{1}{1}{}{}{}{}{\bfseries }
 \chemnum@cmpd {alcohol}{2}{2}{}{}{}{}{\bfseries }
@@ -118,5 +118,31 @@ describe("keys are data", () => {
     expect(compoundEntries(["good"], new Map([["bad\\\\x", "1"], ["fine", "2"]])).map((entry) => entry.key)).toEqual(["fine", "good"]);
     const many = Array.from({ length: 6000 }, (_, index) => `\\\\cmpd{k${index}}`).join("\n");
     expect(compoundKeysIn([many])).toHaveLength(5000);
+  });
+});
+
+describe("a number printed with a chapter in its own run of text", () => {
+  // As chemnum writes it for pre-label-code=\textbf{\thechapter-}.
+  const aux = String.raw`\chemnum@cmpd {a}{1}{1}{\textbf {\thechapter -}}{}{}{}{\bfseries }
+\chemnum@cmpd {b}{2}{2}{\textbf {\thechapter -}}{}{}{}{\bfseries }
+\chemnum@subcmpd {b}{x}{1}{a}`;
+  const numbers = parseCompoundNumbers(aux);
+
+  it("is the compound's, sub-compounds too", () => {
+    expect(keysNumbered("1-1,", ["a", "b"], numbers)).toEqual(["a"]);
+    expect(keysNumbered("2-2a", ["b.x", "a"], numbers)).toEqual(["b.x"]);
+    expect(keysNumbered("1", ["a"], numbers)).toEqual(["a"]);
+  });
+
+  it("does not match what the line also prints", () => {
+    expect(keysNumbered("2023", ["a", "b"], numbers)).toEqual([]);
+    expect(keysNumbered("1-3", ["a", "b"], numbers)).toEqual([]);
+    expect(withoutCounterPrefix("[1]", numbers)).toBe("");
+  });
+
+  it("needs a macro prefix: a plain build's 4-1 is only its own number", () => {
+    const plain = parseCompoundNumbers(String.raw`\chemnum@cmpd {a}{1}{1}{}{}{}{}{\bfseries }`);
+    expect(keysNumbered("4-1", ["a"], plain)).toEqual([]);
+    expect(withoutCounterPrefix("4-1", plain)).toBe("");
   });
 });

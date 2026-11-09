@@ -19,7 +19,7 @@ import { LeavesOnClose } from "../components/ui/exit-picture";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { notifyCopied } from "../telemetry/app-notify";
-import { compoundCommand, compoundKeysOnLine, compoundMarksOnLine, keysNumbered, printedNumber } from "../editor/latex/compound-keys";
+import { compoundCommand, compoundKeysOnLine, compoundMarksOnLine, keysNumbered, printedNumber, withoutCounterPrefix, type CompoundNumbers } from "../editor/latex/compound-keys";
 import { addListeners } from "./pdf-viewer-utils";
 
 const REST_MS = 250;
@@ -77,7 +77,7 @@ export function PdfCompoundKeyHover({ host, projectRoot, build }: {
   const { t } = useLingui();
   const [hit, setHit] = useReducer((_: Hit | null, next: Hit | null) => next, null);
   const [numbers, setNumbers] = useReducer(
-    (_: ReadonlyMap<string, string> | null, next: ReadonlyMap<string, string> | null) => next, null,
+    (_: CompoundNumbers | null, next: CompoundNumbers | null) => next, null,
   );
   const shown = useRef<Hit | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -126,7 +126,7 @@ export function PdfCompoundKeyHover({ host, projectRoot, build }: {
       const page = target instanceof Element && !onLink(target) ? target.closest<HTMLElement>("[data-page-number]") : null;
       const span = page ? spanAt(page, x, y) : undefined;
       const text = span?.textContent ?? "";
-      if (!page || !span || !printed.has(printedNumber(text))) { closeSoon(); return; }
+      if (!page || !span || !(printed.has(printedNumber(text)) || printed.has(withoutCounterPrefix(text, numbers)))) { closeSoon(); return; }
       cancelClose();
       // No SyncTeX data, or a file it cannot read, simply has no key to show.
       const { keys: found, marks } = await keysAt(page, x, y).catch(() => ({ keys: [] as string[], marks: [] as string[] }));
