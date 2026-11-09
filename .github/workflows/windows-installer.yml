@@ -78,7 +78,8 @@ jobs:
         with:
           workspaces: src-tauri
           shared-key: x86_64-pc-windows-msvc-installer
-          save-if: ${{ github.event_name == 'workflow_run' }}
+          # PR caches are confined to GitHub's PR ref, never the release ref.
+          cache-on-failure: true
 
       # Hosted Windows runners supply MSVC/SDK and WebView2. No Synara clone,
       # private fonts, signing keys or new secrets are needed for this target.

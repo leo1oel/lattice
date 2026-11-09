@@ -80,8 +80,12 @@ On a disposable Windows runner, the workflow:
    presentation inventory, Agent-free manifest and loose-font rules.
 3. Runs Open Slide's existing module-graph check with the **installed Node**.
 4. Starts the **installed executable** from its installation directory and
-   drives its real WebView2/IPC through Playwright CDP. Debugging is enabled
-   only for this test child process, never by the app or installer.
+   drives its real WebView2/IPC through Playwright CDP. On elevated hosted
+   runners, WebView2 150+ ignores environment overrides, so a temporary HKLM
+   additional-arguments value enables a loopback port for `research-writer.exe`
+   only. The test refuses an existing value and removes its own value in
+   `finally`; the script refuses to run outside a disposable Windows runner.
+   No wildcard policy, application debug hook or installer setting is added.
 5. Opens and reads the tutorial, verifies the Agent is unavailable, enters and
    leaves native fullscreen with F11, round-trips Unicode file replacement,
    executes a real ConPTY shell command and resize, and starts Open Slide

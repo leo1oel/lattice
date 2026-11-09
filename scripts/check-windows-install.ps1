@@ -36,6 +36,13 @@ try {
     node scripts/windows-installed-e2e.mjs --app $app --artifacts $Artifacts
     if ($LASTEXITCODE -ne 0) { throw 'Installed app checks failed.' }
 } finally {
+    foreach ($base in @($env:LOCALAPPDATA, $env:APPDATA)) {
+        $logs = Join-Path $base 'app.leo1oel.researchwriter/logs'
+        if (Test-Path -LiteralPath $logs) {
+            Get-ChildItem -LiteralPath $logs -File -Filter '*.log' -Recurse |
+                Copy-Item -Destination $Artifacts -Force -ErrorAction SilentlyContinue
+        }
+    }
     if ($installed) {
         $uninstaller = Join-Path $installRoot 'uninstall.exe'
         if (-not (Test-Path -LiteralPath $uninstaller)) { throw 'Uninstaller is missing.' }

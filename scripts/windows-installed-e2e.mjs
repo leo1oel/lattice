@@ -1,12 +1,12 @@
 // CI-only: drive the installed WebView2, never a dev server or a mock backend.
-// CDP is enabled only in this child process; it is not an installer setting.
+// CDP is scoped to this test app on a disposable runner, never to its installer.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { chromium } from "playwright-core";
-import { freePort } from "./lib/util.mjs";
+import { freePort, projectRoot } from "./lib/util.mjs";
 
 if (process.platform !== "win32" || process.env.GITHUB_ACTIONS !== "true") {
   throw new Error("Installed-app checks run only on a disposable Windows Actions runner.");
@@ -19,20 +19,19 @@ mkdirSync(artifacts, { recursive: true });
 const port = await freePort();
 let browser;
 let page;
-const child = spawn(executable, [], {
-  cwd: dirname(executable), windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
-  env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
-    WEBVIEW2_USER_DATA_FOLDER: join(artifacts, "webview-profile") },
-});
+let child;
+let startupError;
+let policyAcquired = false;
+const policy = (mode) => execFileSync("pwsh.exe", ["-NoProfile", "-NonInteractive", "-File",
+  join(projectRoot, "scripts/windows-webview2-test-policy.ps1"), "-Mode", mode, "-Port", String(port)], { stdio: "inherit", windowsHide: true });
 let output = "";
-child.stdout.on("data", (bytes) => { output += bytes; });
-child.stderr.on("data", (bytes) => { output += bytes; });
 const checks = [];
 async function until(label, action, timeout = 60_000) {
   const deadline = Date.now() + timeout;
   let error;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`Lattice exited with ${child.exitCode}`);
+    if (startupError) throw startupError;
+    if (child && child.exitCode !== null) throw new Error(`Lattice exited with ${child.exitCode}`);
     try { const value = await action(); if (value) return value; } catch (caught) { error = caught; }
     await new Promise((done) => setTimeout(done, 250));
   }
@@ -41,6 +40,16 @@ async function until(label, action, timeout = 60_000) {
 const invoke = (command, args = {}) => page.evaluate(({ command, args }) => globalThis.__TAURI_INTERNALS__.invoke(command, args), { command, args });
 const ok = (message) => { checks.push(message); console.log(`ok: ${message}`); };
 try {
+  policy("Acquire");
+  policyAcquired = true;
+  child = spawn(executable, [], {
+    cwd: dirname(executable), stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
+      WEBVIEW2_USER_DATA_FOLDER: join(artifacts, "webview-profile") },
+  });
+  child.once("error", (error) => { startupError = error; });
+  child.stdout.on("data", (bytes) => { output += bytes; });
+  child.stderr.on("data", (bytes) => { output += bytes; });
   await until("WebView2 startup", () => fetch(`http://127.0.0.1:${port}/json/version`).then((response) => response.ok));
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
   page = await until("native app page", async () => browser.contexts().flatMap((context) => context.pages()).find((candidate) => candidate.url().includes("tauri.localhost")));
@@ -114,6 +123,7 @@ try {
   writeFileSync(join(artifacts, "process.log"), output);
   if (page) await invoke("plugin:window|close", { label: "main" }).catch(() => {});
   if (browser) await browser.close().catch(() => {});
-  if (child.exitCode === null) await new Promise((done) => { child.once("exit", done); setTimeout(done, 10_000).unref(); });
-  if (child.exitCode === null) child.kill();
+  if (child && child.exitCode === null) await new Promise((done) => { child.once("exit", done); setTimeout(done, 10_000).unref(); });
+  if (child && child.exitCode === null) child.kill();
+  if (policyAcquired) policy("Release");
 }
