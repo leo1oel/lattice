@@ -39,6 +39,9 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
     if (typeof appWindow?.setMinSize !== "function") return;
     let active = true;
     let applied: number | null = null;
+    // Re-sending an unchanged minimum still makes the OS re-clamp the window,
+    // which un-maximizes it: maximizing fires onMoved, which re-applied it.
+    let appliedSize = "";
     const apply = (force: boolean) => {
       const layoutMin = layoutMinWidth.get();
       if (!force && layoutMin === applied) return;
@@ -54,6 +57,9 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
         const screenHeight = monitor ? monitor.workArea.size.height / monitor.scaleFactor - (windows ? 48 : 0) : Infinity;
         const width = minimumWindowWidth({ layoutMinWidth: layoutMin, interfaceScale, screenWidth });
         const height = windows && Number.isFinite(screenHeight) ? Math.max(1, Math.min(APP_WINDOW_MIN_HEIGHT, Math.floor(screenHeight))) : APP_WINDOW_MIN_HEIGHT;
+        const key = `${width}x${height}`;
+        if (key === appliedSize) return;
+        appliedSize = key;
         return appWindow.setMinSize(new LogicalSize(width, height));
       }).catch(() => {
         // Browser previews and older desktop capabilities may not expose this.
