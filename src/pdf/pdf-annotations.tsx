@@ -8,6 +8,8 @@ import { PdfAnnotationComposer } from "../canvas/pdf-annotation-composer";
 import {
   annotationStatus, editorCommentAuthorDisplayName, resolveCommentAnchor, type AnnotationIntent, type AnnotationStatus, type EditorComment, type PdfRect,
 } from "../editor/comments/editor-comment-data";
+import { commentMarkProperties } from "../editor/comments/comment-mark-colors";
+import "../editor/comments/comment-marks.css";
 import { notifyInfo } from "../telemetry/app-notify";
 import { addListeners } from "./pdf-viewer-utils";
 import { pdfPageView } from "./pdf-slick";
@@ -321,6 +323,8 @@ export default function PdfAnnotationLayer({
       layer.className = "pdf-annotation-mark";
       layer.dataset.annotationStatus = mark.status;
       layer.dataset.annotationId = mark.id;
+      // The colour the source marks this comment in (comment-mark-colors.ts).
+      for (const [name, value] of Object.entries(commentMarkProperties(mark.annotation))) layer.style.setProperty(name, value);
       for (const rect of place.rects) {
         const box = document.createElement("div");
         box.className = "pdf-annotation-highlight";
@@ -346,7 +350,6 @@ export default function PdfAnnotationLayer({
         } else {
           const name = editorCommentAuthorDisplayName(mark.annotation.authorName, t`Anonymous`);
           pin.dataset.kind = "thread";
-          pin.style.setProperty("--pin-color", mark.annotation.authorColor?.color ?? "");
           pin.setAttribute("aria-label", t`Comment by ${name}`);
         }
         pin.setAttribute("aria-haspopup", "dialog");
