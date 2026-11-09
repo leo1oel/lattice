@@ -1,1 +1,0 @@
-import{Qr as e,Zr as t}from"./editor-CF4lInOV.js";e();export{t as groovy};

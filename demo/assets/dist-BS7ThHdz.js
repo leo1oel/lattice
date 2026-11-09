@@ -1,0 +1,1 @@
+import{Sa as e,xa as t}from"./editor-Dcr8rkFQ.js";t();export{e as wast};

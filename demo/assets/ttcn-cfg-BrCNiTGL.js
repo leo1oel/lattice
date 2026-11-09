@@ -1,1 +1,0 @@
-import{Gt as e,Kt as t}from"./editor-CF4lInOV.js";e();export{t as ttcnCfg};

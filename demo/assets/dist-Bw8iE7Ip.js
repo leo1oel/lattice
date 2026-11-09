@@ -1,0 +1,1 @@
+import{ds as e,vs as t}from"./editor-Dcr8rkFQ.js";e();export{t as snippet};

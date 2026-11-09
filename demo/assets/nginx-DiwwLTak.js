@@ -1,0 +1,1 @@
+import{mr as e,pr as t}from"./editor-Dcr8rkFQ.js";t();export{e as nginx};

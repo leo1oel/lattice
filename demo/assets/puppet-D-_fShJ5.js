@@ -1,0 +1,1 @@
+import{Un as e,Wn as t}from"./editor-Dcr8rkFQ.js";e();export{t as puppet};

@@ -1,1 +1,0 @@
-import{Sn as e,xn as t}from"./editor-CF4lInOV.js";t();export{e as smalltalk};

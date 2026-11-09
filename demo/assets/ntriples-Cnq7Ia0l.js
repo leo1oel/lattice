@@ -1,1 +1,0 @@
-import{lr as e,ur as t}from"./editor-CF4lInOV.js";e();export{t as ntriples};

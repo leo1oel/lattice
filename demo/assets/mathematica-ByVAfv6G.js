@@ -1,0 +1,1 @@
+import{Mr as e,jr as t}from"./editor-Dcr8rkFQ.js";t();export{e as mathematica};

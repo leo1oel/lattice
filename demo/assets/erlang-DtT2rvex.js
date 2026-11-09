@@ -1,1 +1,0 @@
-import{di as e,fi as t}from"./editor-CF4lInOV.js";t();export{e as erlang};

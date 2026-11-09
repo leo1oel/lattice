@@ -1,0 +1,1 @@
+import{Ja as e,Xa as t}from"./editor-Dcr8rkFQ.js";e();export{t as python};

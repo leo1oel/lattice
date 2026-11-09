@@ -1,0 +1,1 @@
+import{Bo as e,zo as t}from"./editor-Dcr8rkFQ.js";t();export{e as javascript};

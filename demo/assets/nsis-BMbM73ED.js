@@ -1,1 +1,0 @@
-import{dr as e,fr as t}from"./editor-CF4lInOV.js";e();export{t as nsis};

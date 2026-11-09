@@ -1,1 +1,0 @@
-import{Hi as e,Ui as t}from"./editor-CF4lInOV.js";t();export{e as cobol};

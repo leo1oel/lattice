@@ -1,1 +1,0 @@
-import"./ui-B3hxYQLa.js";import{n as e,t}from"./bib-entry-dialog-C42C74fg.js";e();export{t as BibEntryDialog};

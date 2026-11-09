@@ -1,0 +1,1 @@
+import{Qn as e,Zn as t}from"./editor-Dcr8rkFQ.js";t();export{e as powerShell};

@@ -1,0 +1,1 @@
+import{Gt as e,Kt as t}from"./editor-Dcr8rkFQ.js";e();export{t as ttcnCfg};

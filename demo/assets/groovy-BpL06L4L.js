@@ -1,0 +1,1 @@
+import{Qr as e,Zr as t}from"./editor-Dcr8rkFQ.js";e();export{t as groovy};

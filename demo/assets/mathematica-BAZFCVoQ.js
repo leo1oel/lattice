@@ -1,1 +1,0 @@
-import{Mr as e,jr as t}from"./editor-CF4lInOV.js";t();export{e as mathematica};

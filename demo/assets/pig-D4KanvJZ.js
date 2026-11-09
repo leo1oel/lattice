@@ -1,1 +1,0 @@
-import{$n as e,er as t}from"./editor-CF4lInOV.js";e();export{t as pig};

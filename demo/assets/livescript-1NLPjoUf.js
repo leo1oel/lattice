@@ -1,0 +1,1 @@
+import{Fr as e,Ir as t}from"./editor-Dcr8rkFQ.js";e();export{t as liveScript};
