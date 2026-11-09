@@ -28,7 +28,10 @@
 
 /* `clip`, not `hidden`: a grid item that is a scroll container may shrink
    below its content, which cut a long list off with nothing to scroll. */
-.add-papers-rows { margin: 0; padding: 0; list-style: none; border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); overflow: clip; }
+/* A real border, not an outset ring: the list sits flush against the
+   scrolling body's edges, and the body's overflow clips anything painted
+   outside its box, so a box-shadow ring loses its top and sides. */
+.add-papers-rows { margin: 0; padding: 0; list-style: none; border-radius: var(--radius-panel); border: 1px solid var(--border-subtle); background: var(--surface-panel-raised); overflow: clip; }
 .add-papers-rows > li + li { border-top: 1px solid var(--border-subtle); }
 .add-papers-row { padding: var(--space-5) var(--space-6); display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; }
 .add-papers-rows > li[data-state="duplicate"] .add-papers-main { opacity: .62; }
