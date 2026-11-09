@@ -380,7 +380,7 @@ fn linked_project(parent: &Path, name: &str) -> PathBuf {
     fs::create_dir(parent.join("real")).unwrap();
     let real = project::create(&parent.join("real"), name).unwrap();
     let link = parent.join("link");
-    std::os::unix::fs::symlink(&real, &link).unwrap();
+    crate::test_support::symlink(&real, &link).unwrap();
     link
 }
 

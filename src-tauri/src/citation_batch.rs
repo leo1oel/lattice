@@ -66,7 +66,7 @@ pub(crate) fn lookup(ids: &[String]) -> Result<BTreeMap<String, Paper>, Failure>
     let root = std::env::var_os("XDG_CACHE_HOME")
         .filter(|s| !s.is_empty())
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".cache")))
+        .or_else(|| crate::host_paths::home_dir().map(|p| p.join(".cache")))
         .ok_or(Failure::QueueBusy)?;
     pace(&root.join("bibcite/requests.sqlite3"), &crate::util::sha256_hex(&key))
         .map_err(|_| Failure::QueueBusy)?;

@@ -15,6 +15,7 @@ fn repo(label: &str) -> Option<TempDir> {
     git(&root, &["init"]);
     git(&root, &["config", "user.email", "lattice@example.com"]);
     git(&root, &["config", "user.name", "Lattice"]);
+    git(&root, &["config", "core.autocrlf", "false"]);
     Some(root)
 }
 

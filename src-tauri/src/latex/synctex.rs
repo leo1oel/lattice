@@ -51,7 +51,7 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
             return Ok(target);
         }
     }
-    Ok(SyncTexTarget { path: relative.to_string_lossy().to_string(), line })
+    Ok(SyncTexTarget { path: relative.to_string_lossy().replace('\\', "/"), line })
 }
 
 pub fn forward_search(
@@ -125,7 +125,7 @@ impl Inputs {
         let recorded = synctex.and_then(|synctex| {
             input_names(synctex)
                 .map(|name| Path::new(name).components().collect::<PathBuf>())
-                .find(|name| name.is_absolute() && name.file_stem() == pdf.file_stem())
+                .find(|name| name.has_root() && name.file_stem() == pdf.file_stem())
                 .and_then(|document| document.parent().map(Path::to_path_buf))
         });
         Self { folder: pdf.parent().unwrap_or(pdf).to_path_buf(), recorded }

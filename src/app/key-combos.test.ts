@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { comboKeys, comboText, parseKeyName } from "./key-combos";
 
 describe("key combinations", () => {
@@ -25,4 +25,13 @@ describe("key combinations", () => {
   it("draws a character typed with Shift as that character", () => {
     expect(comboText({ key: "?", mod: true, shift: true })).toBe("⌘?");
   });
+});
+
+it("draws Windows modifier names and keeps shortcut modifiers intact", () => {
+  const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Windows NT 10.0");
+  try {
+    expect(comboText({ key: "s", mod: true })).toBe("Ctrl+S");
+    expect(comboText({ key: "j", mod: true, shift: true })).toBe("Ctrl+Shift+J");
+    expect(comboText({ key: "p", mod: true, alt: true })).toBe("Ctrl+Alt+P");
+  } finally { userAgent.mockRestore(); }
 });

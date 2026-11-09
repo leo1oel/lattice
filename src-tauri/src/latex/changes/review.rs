@@ -105,13 +105,18 @@ fn mirror(source: &Path, target: &Path, link: Option<&str>) -> Result<(), String
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }
-        if project::is_reviewable_path(&relative.to_string_lossy()) || link.is_none() {
+        // Copy resources on Windows so review builds need no symlink privilege.
+        if project::is_reviewable_path(&relative.to_string_lossy())
+            || link.is_none()
+            || cfg!(windows)
+        {
             let text = fs::read(entry.path()).map_err(|error| error.to_string())?;
             if fs::read(&destination).ok().as_deref() != Some(text.as_slice()) {
                 let _ = fs::remove_file(&destination);
                 fs::write(&destination, text).map_err(|error| error.to_string())?;
             }
         } else if fs::symlink_metadata(&destination).is_err() {
+            #[cfg(unix)]
             std::os::unix::fs::symlink(entry.path(), &destination)
                 .map_err(|error| format!("Could not link {}: {error}", relative.display()))?;
         }
@@ -133,10 +138,11 @@ mod tests {
         let target = TempDir::new("review-mirror-target");
         mirror(&root, &target, Some("main-changes.")).unwrap();
         assert!(!fs::symlink_metadata(target.join("main.tex")).unwrap().file_type().is_symlink());
-        assert!(fs::symlink_metadata(target.join("figures/plot.pdf"))
-            .unwrap()
-            .file_type()
-            .is_symlink());
+        assert_eq!(
+            fs::symlink_metadata(target.join("figures/plot.pdf")).unwrap().file_type().is_symlink(),
+            cfg!(unix)
+        );
+        assert_eq!(fs::read(target.join("figures/plot.pdf")).unwrap(), b"%PDF");
         assert!(!target.join(".research").exists());
 
         // An edit since reaches the copy on the next build.
@@ -154,8 +160,11 @@ mod tests {
         root.write("main-changes.log", "exported log");
         let target = TempDir::new("review-outputs-target");
         // A link an earlier build left behind is taken away too.
-        std::os::unix::fs::symlink(root.join("main-changes.log"), target.join("main-changes.log"))
-            .unwrap();
+        crate::test_support::symlink(
+            root.join("main-changes.log"),
+            target.join("main-changes.log"),
+        )
+        .unwrap();
         mirror(&root, &target, Some("main-changes.")).unwrap();
         assert!(fs::symlink_metadata(target.join("main-changes.pdf")).is_err());
         assert!(fs::symlink_metadata(target.join("main-changes.log")).is_err());

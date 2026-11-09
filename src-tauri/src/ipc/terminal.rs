@@ -125,6 +125,8 @@ mod tests {
     use tauri::webview::InvokeRequest;
     use tauri::{App, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
+    const LOCAL_PAGE: &str =
+        if cfg!(windows) { "http://tauri.localhost" } else { "tauri://localhost" };
     const REFUSED: &str = "The terminal is only available in a Lattice window.";
     const CLOSED: &str = "This terminal has closed.";
 
@@ -186,14 +188,11 @@ mod tests {
             &main,
             "terminal_running_command",
             json!({ "id": 99 }),
-            "tauri://localhost",
-            Some("tauri://localhost"),
+            LOCAL_PAGE,
+            Some(LOCAL_PAGE),
         );
         assert_eq!(reached, Err(CLOSED.to_string()));
-        assert_eq!(
-            call(&main, "terminal_close", json!({ "id": 99 }), "tauri://localhost", None),
-            Ok(())
-        );
+        assert_eq!(call(&main, "terminal_close", json!({ "id": 99 }), LOCAL_PAGE, None), Ok(()));
     }
 
     #[test]
@@ -219,13 +218,13 @@ mod tests {
             WebviewUrl::External("https://www.overleaf.com/login".parse().unwrap()),
         );
         for (webview, frame, origin) in [
-            (&browser, "tauri://localhost", Some("tauri://localhost")),
-            (&navigated, "tauri://localhost", Some("tauri://localhost")),
-            (&other, "tauri://localhost", None),
+            (&browser, LOCAL_PAGE, Some(LOCAL_PAGE)),
+            (&navigated, LOCAL_PAGE, Some(LOCAL_PAGE)),
+            (&other, LOCAL_PAGE, None),
             // A frame inside Lattice's page on another origin: the Synara
             // panel or an Open Slide deck on loopback, a sandboxed preview.
-            (&main, "tauri://localhost", Some("http://127.0.0.1:51234")),
-            (&main, "tauri://localhost", Some("null")),
+            (&main, LOCAL_PAGE, Some("http://127.0.0.1:51234")),
+            (&main, LOCAL_PAGE, Some("null")),
         ] {
             for (cmd, body) in [
                 ("terminal_open", open.clone()),

@@ -209,7 +209,7 @@ msgid "{0} of {1} selected"
 msgstr "{0} of {1} selected"
 
 #. placeholder {0}: done.size
-#. placeholder {1}: GET_STARTED_STEPS.length
+#. placeholder {1}: stepIds.length
 #: src/onboarding/get-started-panel.tsx
 msgid "{0} of {1} steps done"
 msgstr "{0} of {1} steps done"
@@ -1784,6 +1784,10 @@ msgstr "Agent is revising, {0} of {1} answered"
 msgid "Agent isn’t available on Linux yet"
 msgstr "Agent isn’t available on Linux yet"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent isn’t available on Windows yet"
+msgstr "Agent isn’t available on Windows yet"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
@@ -2357,10 +2361,18 @@ msgstr "Automatic build"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "Automatic checks LaTeX as academic writing and other files as everyday prose"
 
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
+msgstr "Automatic paper-tool installation isn’t available in this experimental Windows build."
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Automatic updates"
 msgstr "Automatic updates"
+
+#: src/settings/settings-dialog.tsx
+msgid "Automatic updates aren’t available in this experimental Windows build."
+msgstr "Automatic updates aren’t available in this experimental Windows build."
 
 #: src/platform/host-errors-setup.ts
 msgid "Automatic uv installation is not available for this Mac architecture ({arch})."
@@ -3193,6 +3205,7 @@ msgstr "Check accent example"
 
 #: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "Check again"
@@ -3732,6 +3745,10 @@ msgstr "Clear terminal"
 #: src/onboarding/get-started-steps.ts
 msgid "Click in the text, then press ⌘⇧K"
 msgstr "Click in the text, then press ⌘⇧K"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Click in the text, then press Ctrl+Shift+K"
+msgstr "Click in the text, then press Ctrl+Shift+K"
 
 #: src/canvas/proofread-card.tsx
 msgid "Click to keep the original"
@@ -4689,6 +4706,10 @@ msgstr "Could not start the live preview engine: {error}"
 msgid "Could not start: {message}"
 msgstr "Could not start: {message}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not supervise the Windows terminal process tree."
+msgstr "Could not supervise the Windows terminal process tree."
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "Could not unpack the rtex archive: {error}"
@@ -5349,6 +5370,10 @@ msgstr "Double-click a sentence"
 msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
 msgstr "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
 
+#: src/onboarding/get-started-steps.ts
+msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press Ctrl+Shift+J to jump back."
+msgstr "Double-click any sentence in the PDF to land on the line that wrote it, and press Ctrl+Shift+J to jump back."
+
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
 msgstr "Double-click to rename"
@@ -5412,6 +5437,10 @@ msgstr "Download paper"
 #: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "Download PDF"
+
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Download TeX Live"
+msgstr "Download TeX Live"
 
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
@@ -5660,8 +5689,16 @@ msgid "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it
 msgstr "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it update in about a second."
 
 #: src/onboarding/get-started-steps.ts
+msgid "Edit the title line in main.tex and press Ctrl+S to update the PDF beside it."
+msgstr "Edit the title line in main.tex and press Ctrl+S to update the PDF beside it."
+
+#: src/onboarding/get-started-steps.ts
 msgid "Edit the title, then press ⌘S"
 msgstr "Edit the title, then press ⌘S"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Edit the title, then press Ctrl+S"
+msgstr "Edit the title, then press Ctrl+S"
 
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -7312,6 +7349,10 @@ msgstr "In Terminal:"
 msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
 msgstr "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
 
+#: src/onboarding/get-started-steps.ts
+msgid "In the editor, press Ctrl+Shift+K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
+msgstr "In the editor, press Ctrl+Shift+K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
+
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
 msgstr "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
@@ -7558,6 +7599,7 @@ msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "Install later"
 
@@ -7567,10 +7609,12 @@ msgid "Install LaTeX"
 msgstr "Install LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "Install LaTeX to compile"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "Install LaTeX tools"
@@ -7595,12 +7639,29 @@ msgid "Install paper tools"
 msgstr "Install paper tools"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "Install required tools"
+
+#: src/platform/host-errors-setup.ts
+msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
+msgstr "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
+
+#: src/onboarding/get-started-steps.ts
+msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
+msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
+
+#: src/platform/windows-tex-setup-dialog.tsx
+msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
+msgstr "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
+
+#: src/platform/host-errors-setup.ts
+msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
+msgstr "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -14222,6 +14283,10 @@ msgid "Start an environment"
 msgstr "Start an environment"
 
 #: src/onboarding/get-started-steps.ts
+msgid "Start from a venue template, open a folder on this computer, or bring a project from Overleaf."
+msgstr "Start from a venue template, open a folder on this computer, or bring a project from Overleaf."
+
+#: src/onboarding/get-started-steps.ts
 msgid "Start from a venue template, open a folder on this Mac, or bring a project from Overleaf."
 msgstr "Start from a venue template, open a folder on this Mac, or bring a project from Overleaf."
 
@@ -16160,6 +16225,10 @@ msgstr "This version of the agent runtime cannot proofread yet. Update Lattice t
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
+
+#: src/agent/synara-loading-surface.tsx
+msgid "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
+msgstr "This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable."
 
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in the Lattice app."

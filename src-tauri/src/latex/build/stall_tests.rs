@@ -1,14 +1,18 @@
 use super::*;
 use crate::test_support::TempDir;
+#[cfg(unix)]
 use std::time::Duration;
 
-/// The same limit for a loop and for silence.
+/// The same limit for a loop and for silence. The stall tests run `/bin/sh`
+/// scripts, so they are Unix only.
+#[cfg(unix)]
 fn limits(millis: u64) -> StallLimits {
     let limit = Duration::from_millis(millis);
     StallLimits { repeating: limit, silent: limit }
 }
 
 #[test]
+#[cfg(unix)]
 fn a_process_that_only_repeats_errors_is_stopped() {
     let mut command = Command::new("/bin/sh");
     command.args(["-c", "while :; do echo './m.tex:1: Error'; sleep 0.05; done"]);
@@ -20,6 +24,7 @@ fn a_process_that_only_repeats_errors_is_stopped() {
 }
 
 #[test]
+#[cfg(unix)]
 fn a_run_shipping_pages_on_one_line_is_not_stopped() {
     let mut command = Command::new("/bin/sh");
     command.args([
@@ -35,6 +40,7 @@ fn a_run_shipping_pages_on_one_line_is_not_stopped() {
 }
 
 #[test]
+#[cfg(unix)]
 fn a_silent_process_is_stopped() {
     let mut command = Command::new("/bin/sh");
     command.args(["-c", "sleep 30"]);
@@ -53,6 +59,7 @@ fn a_stall_nobody_reported_does_not_colour_the_next_build() {
 }
 
 #[test]
+#[cfg(unix)]
 fn a_quiet_stretch_is_given_longer_than_a_loop() {
     let mut command = Command::new("/bin/sh");
     command.args(["-c", "echo start; sleep 0.6; echo done"]);

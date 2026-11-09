@@ -39,7 +39,7 @@ pub(super) fn locate_in_project(root: &Path, document: &str, diagnostics: &mut [
 /// file outside the project, such as TeX Live's own, which stays as TeX named
 /// it.
 fn project_path(folder: &Path, file: &str) -> Option<String> {
-    if Path::new(file).is_absolute() {
+    if Path::new(file).has_root() {
         return None;
     }
     let mut parts: Vec<&str> =

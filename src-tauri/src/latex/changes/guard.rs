@@ -87,7 +87,7 @@ impl ChangesExports {
     fn supersede(state: &mut Exports) -> u64 {
         state.latest += 1;
         if let Some((_, group)) = state.child.take() {
-            commands::signal_process_group(group, libc::SIGKILL);
+            commands::signal_process_group(group, crate::commands::KILL_SIGNAL);
         }
         state.latest
     }
@@ -113,6 +113,7 @@ impl ChangesExports {
         // looks to see what ran (docs/logging.md).
         log::info!(target: "lattice::changes_pdf", "{name} starting: {}", shown(&command));
         let mut child = command.spawn()?;
+        let _process_group = commands::track_process_group(&mut child)?;
         {
             let mut state = self.lock();
             if state.latest != export {
@@ -177,7 +178,7 @@ impl ChangesExports {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 impl ChangesExports {
     fn is_current(&self, export: u64) -> bool {
         self.lock().latest == export
@@ -213,21 +214,25 @@ fn shown(command: &Command) -> String {
     parts.push(command.get_program().to_string_lossy().into_owned());
     parts.extend(command.get_args().map(|argument| argument.to_string_lossy().into_owned()));
     let line = parts.join(" ");
-    match std::env::var("HOME") {
-        Ok(home) if !home.is_empty() => line.replace(&home, "~"),
+    match crate::host_paths::home_dir() {
+        Some(home) => crate::host_paths::redact_home(&line, &home.to_string_lossy()),
         _ => line,
     }
 }
 
 /// Kill the child's whole group, then reap the leader.
 fn kill(child: &mut Child) {
-    commands::signal_process_group(child.id(), libc::SIGKILL);
+    commands::signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
     let _ = child.kill();
     let _ = child.wait();
 }
 
 /// The physical footprint of every process in `group`, in bytes.
 fn group_footprint(group: u32) -> u64 {
+    #[cfg(windows)]
+    {
+        crate::platform_windows::tree_memory(group)
+    }
     #[cfg(target_os = "macos")]
     {
         let Ok(group) = i32::try_from(group) else { return 0 };
@@ -259,6 +264,7 @@ fn group_footprint(group: u32) -> u64 {
     }
 }
 
+#[cfg(unix)]
 fn footprint(pid: libc::pid_t) -> u64 {
     #[cfg(target_os = "macos")]
     {
@@ -290,7 +296,7 @@ fn page_size() -> u64 {
     u64::try_from(size).unwrap_or(4096)
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::test_support::TempDir;

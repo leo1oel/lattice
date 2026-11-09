@@ -65,6 +65,8 @@ pub(super) fn run_bibcite(args: &[&str], command: Option<Command>) -> Result<Out
     commands::in_new_process_group(&mut command);
     let mut child =
         command.spawn().map_err(|e| crate::papers::uv_tool_spawn_error("bibcite", &e))?;
+    let _process_group =
+        commands::track_process_group(&mut child).map_err(|error| error.to_string())?;
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
         if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
@@ -80,8 +82,7 @@ pub(super) fn run_bibcite(args: &[&str], command: Option<Command>) -> Result<Out
         if Instant::now() >= deadline {
             // uv may launch the CLI as a child; stop the whole isolated group
             // so a timeout does not leave provider requests running.
-            #[cfg(unix)]
-            commands::signal_process_group(child.id(), libc::SIGKILL);
+            commands::signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
             let _ = child.kill();
             let _ = child.wait();
             return Err("bibcite timed out after 60 seconds".into());

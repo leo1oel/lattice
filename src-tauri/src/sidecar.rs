@@ -17,7 +17,7 @@ pub(crate) struct NodeRuntime {
 
 impl NodeRuntime {
     pub(crate) fn resolve(standalone_bin: &Path) -> Self {
-        Self { executable: standalone_bin.join("node") }
+        Self { executable: standalone_bin.join(if cfg!(windows) { "node.exe" } else { "node" }) }
     }
 
     /// Run the entry point in a fresh process group, so
@@ -30,7 +30,7 @@ impl NodeRuntime {
 /// SIGTERM a sidecar's process group, allow a two-second grace period, then
 /// SIGKILL whatever is left.
 pub(crate) fn terminate_process_group(child: &mut Child) {
-    signal_process_group(child.id(), libc::SIGTERM);
+    signal_process_group(child.id(), crate::commands::TERM_SIGNAL);
     let deadline = Instant::now() + Duration::from_secs(2);
     while Instant::now() < deadline {
         if matches!(child.try_wait(), Ok(Some(_))) {
@@ -38,7 +38,7 @@ pub(crate) fn terminate_process_group(child: &mut Child) {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
-    signal_process_group(child.id(), libc::SIGKILL);
+    signal_process_group(child.id(), crate::commands::KILL_SIGNAL);
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -51,6 +51,13 @@ mod tests {
     #[test]
     fn sidecars_run_on_the_standalone_node() {
         let runtime = NodeRuntime::resolve(Path::new("/resources/synara-runtime/bin"));
-        assert_eq!(runtime.executable, Path::new("/resources/synara-runtime/bin/node"));
+        assert_eq!(
+            runtime.executable,
+            Path::new("/resources/synara-runtime/bin").join(if cfg!(windows) {
+                "node.exe"
+            } else {
+                "node"
+            })
+        );
     }
 }

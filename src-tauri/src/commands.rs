@@ -16,7 +16,7 @@ use std::process::{Command, Output};
 
 mod python_tools;
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(crate) use python_tools::UvTool;
 pub use python_tools::{
     arxiv2md_cache_dir, prewarm_literature_tools, ARXIV2MD, ARXIV_SOURCE2MD, BIBCITE,
@@ -25,6 +25,9 @@ pub use python_tools::{
 #[cfg_attr(test, allow(unused_imports))]
 pub(crate) use python_tools::app_cache_dir;
 pub(crate) use python_tools::{bibcite_output_cancellable, redact_bibcite_output};
+
+pub(crate) const KILL_SIGNAL: libc::c_int = 9;
+pub(crate) const TERM_SIGNAL: libc::c_int = 15;
 
 pub const MANAGED_UV_VERSION: &str = "0.12.3";
 
@@ -35,19 +38,55 @@ pub fn command(name: &str) -> Command {
 /// `command` with the search path `command()` hands its children.
 pub(crate) fn with_child_path(mut command: Command) -> Command {
     command.env("PATH", child_path());
+    #[cfg(windows)]
+    crate::platform_windows::configure(&mut command);
     command
 }
 
 /// Start the child as the leader of a new process group, so everything it
 /// launches can be signalled together with `signal_process_group`.
 pub(crate) fn in_new_process_group(command: &mut Command) -> &mut Command {
+    #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(command, 0);
+    #[cfg(windows)]
+    crate::platform_windows::configure(command);
     command
+}
+
+/// Own the Windows job until this operation finishes. Unix already retains
+/// descendants through the process-group id established before spawning.
+pub(crate) struct ProcessGroup {
+    #[cfg(windows)]
+    _job: crate::platform_windows::TrackedGroup,
+}
+pub(crate) fn track_process_group(
+    child: &mut std::process::Child,
+) -> std::io::Result<ProcessGroup> {
+    #[cfg(windows)]
+    return match crate::platform_windows::track_group(child.id()) {
+        Ok(job) => Ok(ProcessGroup { _job: job }),
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(error)
+        }
+    };
+    #[cfg(unix)]
+    {
+        let _ = child;
+        Ok(ProcessGroup {})
+    }
 }
 
 /// Send `signal` to a group started by `in_new_process_group`. The negative
 /// pid names the group, which the child leads, so it cannot reach Lattice.
 pub(crate) fn signal_process_group(pid: u32, signal: libc::c_int) {
+    #[cfg(windows)]
+    {
+        let _ = signal;
+        crate::platform_windows::terminate_tree(pid);
+    }
+    #[cfg(unix)]
     if let Ok(group) = i32::try_from(pid) {
         unsafe {
             libc::kill(-group, signal);
@@ -83,6 +122,10 @@ pub fn managed_tools_dir() -> Option<PathBuf> {
 
 /// This build's own folder under Application Support.
 pub(crate) fn app_support_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    return env::var_os("LOCALAPPDATA")
+        .map(|root| PathBuf::from(root).join(crate::app_identity::identifier()));
+    #[cfg(not(windows))]
     env::var_os("HOME").map(|home| {
         PathBuf::from(home)
             .join("Library/Application Support")
@@ -94,7 +137,16 @@ pub(crate) fn app_support_dir() -> Option<PathBuf> {
 pub fn managed_uv_tool_status(name: &str) -> Result<PathBuf, String> {
     let path = managed_tools_dir()
         .ok_or_else(|| "Could not locate your macOS Application Support folder.".to_string())?
-        .join(name);
+        .join(executable_name(name));
+    #[cfg(windows)]
+    let path = if !path.is_file() {
+        bundled_tools_dir()
+            .map(|root| root.join(executable_name(name)))
+            .filter(|path| path.is_file())
+            .unwrap_or(path)
+    } else {
+        path
+    };
     uv_tool_status_at(&path, name)?;
     Ok(path)
 }
@@ -106,7 +158,7 @@ pub(crate) fn uv_tool_status_at(path: &Path, name: &str) -> Result<(), String> {
     {
         return Err(format!("{} is not a regular executable file.", path.display()));
     }
-    let output = Command::new(path)
+    let output = with_child_path(Command::new(path))
         .arg("--version")
         .output()
         .map_err(|error| format!("{} could not run: {error}", path.display()))?;
@@ -131,12 +183,39 @@ pub(crate) fn uv_tool_status_at(path: &Path, name: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn executable_name(name: &str) -> OsString {
+    #[cfg(windows)]
+    if Path::new(name).extension().is_none() {
+        return format!("{name}.exe").into();
+    }
+    name.into()
+}
+
 pub fn resolve(name: &str) -> PathBuf {
+    let names = {
+        #[cfg(windows)]
+        {
+            if Path::new(name).extension().is_none() {
+                vec![
+                    format!("{name}.exe"),
+                    format!("{name}.cmd"),
+                    format!("{name}.bat"),
+                    name.to_string(),
+                ]
+            } else {
+                vec![name.to_string()]
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            vec![name.to_string()]
+        }
+    };
     command_directories()
         .into_iter()
-        .map(|directory| directory.join(name))
+        .flat_map(|directory| names.iter().map(move |name| directory.join(name)))
         .find(|path| is_executable(path))
-        .unwrap_or_else(|| PathBuf::from(name))
+        .unwrap_or_else(|| PathBuf::from(executable_name(name)))
 }
 
 pub fn available(name: &str) -> bool {
@@ -144,10 +223,20 @@ pub fn available(name: &str) -> bool {
 }
 
 fn is_executable(path: &Path) -> bool {
-    path.is_file() && rustix::fs::access(path, rustix::fs::Access::EXEC_OK).is_ok()
+    #[cfg(unix)]
+    {
+        path.is_file() && rustix::fs::access(path, rustix::fs::Access::EXEC_OK).is_ok()
+    }
+    #[cfg(windows)]
+    {
+        path.is_file()
+            && path.extension().is_some_and(|ext| {
+                ["exe", "com", "cmd", "bat"].iter().any(|known| ext.eq_ignore_ascii_case(known))
+            })
+    }
 }
 
-fn child_path() -> OsString {
+pub(crate) fn child_path() -> OsString {
     env::join_paths(command_directories())
         .unwrap_or_else(|_| env::var_os("PATH").unwrap_or_else(|| OsString::from("/usr/bin:/bin")))
 }
@@ -161,7 +250,11 @@ fn bundled_tools_dir() -> Option<PathBuf> {
     if tauri::is_dev() {
         return Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("synara-runtime/bin"));
     }
+    #[cfg(windows)]
+    return env::current_exe().ok()?.parent().map(|root| root.join("synara-runtime/bin"));
+    #[cfg(not(windows))]
     let contents = env::current_exe().ok()?.parent()?.parent()?.to_path_buf();
+    #[cfg(not(windows))]
     Some(contents.join("Resources/synara-runtime/bin"))
 }
 
@@ -174,14 +267,31 @@ fn command_directories() -> Vec<PathBuf> {
     // Known TeX locations next: a GUI launch's PATH rarely includes
     // /Library/TeX/texbin, even after MacTeX/BasicTeX install. Rediscovered on
     // every call so Recheck works without quitting after a fresh install.
-    directories.push(PathBuf::from("/Library/TeX/texbin"));
-    directories.extend(discover_texlive_bins(Path::new("/usr/local/texlive")));
-    directories.extend(discover_texlive_bins(Path::new("/opt/homebrew/texlive")));
-    directories
-        .extend(["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"].map(PathBuf::from));
-    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
-        directories.extend([home.join(".local/bin"), home.join(".cargo/bin")]);
-        directories.extend(discover_texlive_bins(&home.join("Library/TinyTeX")));
+    directories.extend(tex_directories());
+    #[cfg(unix)]
+    {
+        directories
+            .extend(["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"].map(PathBuf::from));
+        if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+            directories.extend([home.join(".local/bin"), home.join(".cargo/bin")]);
+        }
+    }
+    #[cfg(windows)]
+    {
+        for (variable, suffix) in [
+            ("USERPROFILE", ".cargo/bin"),
+            ("USERPROFILE", ".local/bin"),
+            ("APPDATA", "npm"),
+            ("LOCALAPPDATA", "Programs/Git/cmd"),
+            ("ProgramFiles", "Git/cmd"),
+            ("ProgramFiles", "PowerShell/7"),
+            ("SystemRoot", "System32"),
+            ("SystemRoot", "System32/WindowsPowerShell/v1.0"),
+        ] {
+            if let Some(root) = env::var_os(variable) {
+                directories.push(PathBuf::from(root).join(suffix));
+            }
+        }
     }
     if let Some(path) = env::var_os("PATH") {
         directories.extend(env::split_paths(&path));
@@ -196,12 +306,42 @@ fn command_directories() -> Vec<PathBuf> {
 /// Where TeX installs its programs, among the directories above: what a
 /// terminal's shell adds to its search path (terminal/pty.rs).
 pub(crate) fn tex_directories() -> Vec<PathBuf> {
+    #[cfg(windows)]
+    return windows_tex_directories();
+    #[cfg(not(windows))]
     let mut directories = vec![PathBuf::from("/Library/TeX/texbin")];
-    directories.extend(discover_texlive_bins(Path::new("/usr/local/texlive")));
-    directories.extend(discover_texlive_bins(Path::new("/opt/homebrew/texlive")));
-    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
-        directories.extend(discover_texlive_bins(&home.join("Library/TinyTeX")));
+    #[cfg(not(windows))]
+    {
+        directories.extend(discover_texlive_bins(Path::new("/usr/local/texlive")));
+        directories.extend(discover_texlive_bins(Path::new("/opt/homebrew/texlive")));
+        if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+            directories.extend(discover_texlive_bins(&home.join("Library/TinyTeX")));
+        }
+        directories
     }
+}
+
+#[cfg(windows)]
+fn windows_tex_directories() -> Vec<PathBuf> {
+    let mut directories = Vec::new();
+    for name in ["ProgramFiles", "LOCALAPPDATA"] {
+        if let Some(root) = env::var_os(name).map(PathBuf::from) {
+            directories.push(root.join("MiKTeX/miktex/bin/x64"));
+            directories.push(root.join("Programs/MiKTeX/miktex/bin/x64"));
+            directories.push(root.join("Programs/TinyTeX/bin/windows"));
+        }
+    }
+    if let Some(root) = env::var_os("APPDATA") {
+        directories.push(PathBuf::from(root).join("TinyTeX/bin/windows"));
+    }
+    if let Some(root) = env::var_os("ProgramData") {
+        directories.push(PathBuf::from(root).join("MiKTeX/miktex/bin/x64"));
+    }
+    let drive = env::var_os("SystemDrive").unwrap_or_else(|| "C:".into());
+    directories.extend(discover_texlive_bins(&PathBuf::from(format!(
+        "{}\\texlive",
+        drive.to_string_lossy()
+    ))));
     directories
 }
 
@@ -222,22 +362,29 @@ fn discover_texlive_bins(root: &Path) -> Vec<PathBuf> {
 
 /// The login PATH macOS assembles from /etc/paths and /etc/paths.d.
 fn macos_path_helper_directories() -> Vec<PathBuf> {
-    let Ok(output) = Command::new("/usr/libexec/path_helper").arg("-s").output() else {
-        return Vec::new();
-    };
-    // PATH="/a:/b:/c"; export PATH;
-    let text = String::from_utf8_lossy(&output.stdout);
-    match text.split_once("PATH=\"").and_then(|(_, rest)| rest.split_once('"')) {
-        Some((path, _)) if output.status.success() => env::split_paths(path).collect(),
-        _ => Vec::new(),
+    #[cfg(not(target_os = "macos"))]
+    return Vec::new();
+    #[cfg(target_os = "macos")]
+    {
+        let Ok(output) = Command::new("/usr/libexec/path_helper").arg("-s").output() else {
+            return Vec::new();
+        };
+        // PATH="/a:/b:/c"; export PATH;
+        let text = String::from_utf8_lossy(&output.stdout);
+        match text.split_once("PATH=\"").and_then(|(_, rest)| rest.split_once('"')) {
+            Some((path, _)) if output.status.success() => env::split_paths(path).collect(),
+            _ => Vec::new(),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
+    #[cfg(unix)]
     #[test]
     fn resolves_only_executable_files() {
         assert!(available("sh"));
@@ -267,6 +414,7 @@ mod tests {
             "Lattice-owned tools must have PATH precedence"
         );
         assert!(env::split_paths(path).any(|entry| Some(entry) == bundled_tools_dir()));
+        #[cfg(target_os = "macos")]
         assert!(env::split_paths(path).any(|entry| entry == Path::new("/Library/TeX/texbin")));
     }
 }

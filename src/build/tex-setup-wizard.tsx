@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { isWindowsHost } from "../platform/host-platform";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import {
@@ -19,6 +20,9 @@ import { buttonClassName } from "../components/ui/button-styles";
 import { logAction, notifyWarning } from "../telemetry/app-notify";
 import { texPackageUpdateMessage } from "./tex-package-updates";
 import { toMessage } from "../app-utils";
+
+// Windows has no one-click installer; its dialog loads only there.
+const WindowsTexSetupDialog = lazy(() => import("../platform/windows-host-ui").then((module) => ({ default: module.WindowsTexSetupDialog })));
 
 /** Notification source label for the LaTeX install wizard. */
 const TEX_SETUP_SOURCE = "LaTeX setup";
@@ -50,6 +54,14 @@ export function TexSetupWizard(props: {
   if (!props.open) return null;
 
   const busy = props.checking || installing;
+
+  if (isWindowsHost()) {
+    return (
+      <Suspense fallback={null}>
+        <WindowsTexSetupDialog paperToolsOnly={paperToolsOnly} checking={props.checking} onClose={props.onClose} onRecheck={props.onRecheck} />
+      </Suspense>
+    );
+  }
 
   const startInstall = async () => {
     setInstalling(true);

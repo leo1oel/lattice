@@ -30,6 +30,7 @@ mod fs_watch;
 mod fts;
 mod git;
 mod harper;
+mod host_paths;
 mod http;
 mod ipc;
 mod latex;
@@ -58,10 +59,17 @@ mod pdf_pages;
 mod pdf_window;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
+mod platform_fs;
+#[cfg(windows)]
+mod platform_windows;
 mod presentation;
 #[cfg(target_os = "macos")]
 mod process_inspector;
 mod project;
+#[cfg(unix)]
+mod project_fs;
+#[cfg(windows)]
+#[path = "project_fs_windows.rs"]
 mod project_fs;
 mod research_env;
 mod review_pdf;
@@ -87,6 +95,8 @@ mod traffic_lights;
 mod util;
 mod web_metadata;
 mod wide_event;
+#[cfg(all(test, windows))]
+mod windows_tests;
 #[cfg(target_os = "linux")]
 mod xlib_threads;
 mod zotero;
@@ -125,23 +135,6 @@ fn browser_host_launch() -> bool {
     std::env::args_os().any(|argument| argument == BROWSER_HOST_ARG)
 }
 
-/// The traffic lights sit over the web content, which draws its own title bar.
-fn overlay_title_bar<'a, R: Runtime, M: Manager<R>>(
-    builder: WebviewWindowBuilder<'a, R, M>,
-) -> WebviewWindowBuilder<'a, R, M> {
-    #[cfg(target_os = "macos")]
-    {
-        builder
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .hidden_title(true)
-            .accept_first_mouse(true)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        builder
-    }
-}
-
 /// A desktop workspace window: the launch window (`center`) or a project
 /// window, which the window-state plugin places. The main window in
 /// tauri.conf.json has `create: false` so it gets this same constrained popup
@@ -160,7 +153,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
             }
         });
     let builder = if center { builder.center() } else { builder };
-    let window = overlay_title_bar(builder).build()?;
+    let window = title_bar::overlay(builder).build()?;
     traffic_lights::install_traffic_light_alignment(&window);
     macos_window::apply_window_material(&window, &macos_window::WindowMaterial::at_launch());
     macos_window::render_at_display_refresh_rate(&window);
@@ -400,7 +393,7 @@ pub fn run() {
     // key). Not on Linux: the AppImage is released without an updater archive
     // and latest.json has no Linux entry, so Linux copies update by hand
     // (docs/release-process.md). A separate check offers the releases page.
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let app = builder
         .plugin(tauri_plugin_process::init())

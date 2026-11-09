@@ -59,6 +59,12 @@ impl PreambleFormat {
     /// latexmk hands the command to the shell, so the path is quoted.
     pub fn latexmk_arg(&self) -> String {
         let format = self.directory.join(JOB);
+        #[cfg(windows)]
+        return format!(
+            "-pdflatex=pdflatex -fmt=\"{}\" %O %S",
+            crate::host_paths::tex_path(&format)
+        );
+        #[cfg(not(windows))]
         format!("-pdflatex=pdflatex -fmt='{}' %O %S", format.display())
     }
 
@@ -482,10 +488,9 @@ mod tests {
         let fls = "PWD /p\nINPUT /tex/article.cls\nINPUT ./macros.sty\nINPUT macros.sty\n\
             OUTPUT /cache/preamble.log\nINPUT /tex/article.cls\nOUTPUT /cache/preamble.fmt\n";
         let recorded = recorded(fls);
-        let paths =
-            |list: &[PathBuf]| list.iter().map(|p| p.display().to_string()).collect::<Vec<_>>();
-        assert_eq!(paths(&recorded.inputs), ["/tex/article.cls", "/p/macros.sty"]);
-        assert_eq!(paths(&recorded.outputs), ["/cache/preamble.log", "/cache/preamble.fmt"]);
+        let paths = |paths: &[&str]| paths.iter().map(PathBuf::from).collect::<Vec<_>>();
+        assert_eq!(recorded.inputs, paths(&["/tex/article.cls", "/p/macros.sty"]));
+        assert_eq!(recorded.outputs, paths(&["/cache/preamble.log", "/cache/preamble.fmt"]));
     }
 
     #[test]
