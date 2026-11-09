@@ -80,7 +80,7 @@ export function persistSetting(key: string, value: string): void {
   safely(() => localStorage.setItem(key, value), undefined);
 }
 
-function readNumber(key: string, fallback: number, minimum: number, maximum: number): number {
+export function readNumber(key: string, fallback: number, minimum: number, maximum: number): number {
   return safely(() => clamp(Number(localStorage.getItem(key)) || fallback, minimum, maximum), fallback);
 }
 

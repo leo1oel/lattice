@@ -12514,6 +12514,10 @@ msgstr "重置布局"
 msgid "Reset view"
 msgstr "重置视图"
 
+#: src/pdf/pdf-comment-column.tsx
+msgid "Resize comments"
+msgstr "调整评论栏宽度"
+
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and asset preview"
 msgstr "调整编辑器与资源预览大小"
