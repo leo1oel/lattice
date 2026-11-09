@@ -6,6 +6,8 @@ import {
   diffToOps,
   OtDesyncError,
   OtDocument,
+  preciseOps,
+  rebaseOnto,
   transformBoth,
   transformSpan,
   type OtOp,
@@ -126,6 +128,50 @@ describe("transformBoth", () => {
   });
 });
 
+// Expected texts are worked out by hand from what each side typed, placed as
+// ShareJS's text type places them: an insert inside text the other side
+// deleted lands where that text was, and our own insert goes first at a tie.
+describe("rebaseOnto", () => {
+  const base = "one two three";
+  const remoteText = "one 2 three";
+
+  it("keeps both sides' edits when the writer's typing spans a co-author's change on the same line", () => {
+    // The writer capitalises both ends; the co-author meanwhile replaces the middle word.
+    // Transforming one line-wide span over theirs used to give "ONE two THREE2".
+    expect(rebaseOnto(base, "ONE two THREE", diffToOps(base, remoteText), remoteText)).toBe("ONE 2 THREE");
+  });
+
+  it("keeps a keystroke typed inside the word a co-author replaced, where the word was", () => {
+    const replaced = [{ p: 4, d: "two" }, { p: 4, i: "2" }];
+    expect(rebaseOnto(base, "one twLo three", replaced, remoteText)).toBe("one L2 three");
+    expect(rebaseOnto(base, "one twLo three", replaced, remoteText, [{ p: 6, i: "L" }])).toBe("one L2 three");
+  });
+
+  it("carries typing elsewhere, or meeting the co-author's change at a point", () => {
+    expect(rebaseOnto(base, "one two three four", [{ p: 0, i: "zero " }], "zero one two three")).toBe("zero one two three four");
+    // The writer deletes "two " where the co-author types "2 " in front of it.
+    expect(rebaseOnto(base, "one three", [{ p: 4, i: "2 " }], "one 2 two three")).toBe("one 2 three");
+    // Both type at one spot: the writer's text goes first, as the server will place it.
+    expect(rebaseOnto(base, "one two! three", [{ p: 7, i: "?" }], "one two? three")).toBe("one two!? three");
+  });
+
+  it("places the typing where the editor says it was made, which a diff of repeated letters cannot tell", () => {
+    // An "a" typed at the start of "aa", while the co-author types "X" between the two.
+    expect(rebaseOnto("aa", "aaa", [{ p: 1, i: "X" }], "aXa", [{ p: 0, i: "a" }])).toBe("aaXa");
+    // Typing that does not turn the base into the text is not believed.
+    expect(rebaseOnto("aa", "aaa", [{ p: 1, i: "X" }], "aXa", [{ p: 0, i: "b" }])).toBe("aXaa");
+  });
+});
+
+describe("preciseOps", () => {
+  it("narrows a changed line to the characters that changed, one op per run", () => {
+    expect(preciseOps("AAAA BBBB CCCC", "AAA_ BBBB _CCC")).toEqual([
+      { p: 3, d: "A" }, { p: 3, i: "_" }, { p: 10, d: "C" }, { p: 10, i: "_" },
+    ]);
+    expect(applyOps("one two three", preciseOps("one two three", "ONE two THREE"))).toBe("ONE two THREE");
+  });
+});
+
 describe("composeOps", () => {
   it.each([
     ["sequential inserts", "hello", [{ p: 5, i: " world" }], [{ p: 11, i: "!" }]],
@@ -214,10 +260,12 @@ class FakeServer {
   get version() { return this.history.length; }
 
   submit({ ops, version }: Send): Send {
-    // Transform against everything accepted since the client's version; the
-    // server's own history takes priority.
+    // Transform against everything accepted since the client's version, as
+    // the left side: ShareJS's `transform(op, other, 'left')`, which the
+    // document updater runs (and the Rust mock transcribes). At a tie the
+    // later arrival lands first.
     let incoming = ops;
-    for (const accepted of this.history.slice(version)) incoming = transformBoth(accepted, incoming)[1];
+    for (const accepted of this.history.slice(version)) incoming = transformBoth(incoming, accepted)[0];
     this.text = apply(this.text, incoming);
     // The version reported back is the one the operation applied AT, not the
     // one the document moved to — measured against overleaf.com, where a

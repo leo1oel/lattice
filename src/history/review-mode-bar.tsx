@@ -9,7 +9,7 @@
  * this draws into each one on screen, so the bar is the design system's
  * buttons rather than hand-built DOM.
  */
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronUp, FileDiff, ListChecks, ListX, PenOff, X } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
@@ -24,10 +24,9 @@ import { REVIEW_HUE } from "./review-mode-diff";
 import { reviewMode } from "./review-mode-store";
 import "./review-mode.css";
 
-/** Every review bar on screen, each drawn into its editor's panel; and review mode read for the project. */
-export function ReviewModeBars({ projectRoot }: { projectRoot: string }) {
+/** Every review bar on screen, each drawn into its editor's panel (the canvas toolbar reads review mode for the project). */
+export function ReviewModeBars() {
   const panels = useSyncExternalStore(reviewPanels.subscribe, reviewPanels.get);
-  useEffect(() => void reviewMode.load(projectRoot || null), [projectRoot]);
   return <>{panels.map((panel) => createPortal(<ReviewBar panel={panel} />, panel.dom, panel.path))}</>;
 }
 

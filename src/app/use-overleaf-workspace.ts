@@ -9,21 +9,16 @@ import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useStoreSlice } from "../hooks/use-store-slice";
 import { useSharedSetting } from "../settings/shared-setting";
-import { isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
+import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useOverleafRemoteDeletes } from "./use-overleaf-remote-deletes";
 import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
 import {
-  bridgeFields, createOverleafConnectionStore, type OverleafConnectionStore, type OverleafLinkFor,
+  bridgeFields, createOverleafConnectionStore, type OverleafConnectionStore,
 } from "../overleaf/overleaf-connection-store";
 import { overleafRemoteDeletePolicy, overleafSyncModeSetting } from "../overleaf/overleaf-sync-settings";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
-import {
-  isOverleafProjectRefusal,
-  OVERLEAF_NOT_CONNECTED,
-  OVERLEAF_REFUSAL_RETRIES,
-  OVERLEAF_SESSION_EXPIRED,
-} from "../overleaf/overleaf-realtime-model";
-import { mentionsAny } from "../platform/ipc-error-phrases";
+import { isOverleafProjectRefusal, OVERLEAF_REFUSAL_RETRIES } from "../overleaf/overleaf-realtime-model";
+import { isOverleafSignedOut, isTransientOverleafTransportFailure } from "./overleaf-sync-failures";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
 import { useOverleafComments } from "../overleaf/use-overleaf-comments";
@@ -34,8 +29,10 @@ import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import { reviewMode } from "../history/review-mode-store";
 import { applyOverleafRemoteText } from "./overleaf-remote-text";
+import { readOverleafLink } from "./read-overleaf-link";
+import type { AcceptExpectation } from "./use-document-store";
 import type {
-  AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
+  AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject,
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
@@ -50,22 +47,6 @@ type OverleafSyncOptions = {
   /** Whole-file editors normally stay protected; these paths are ready to flush. */
   includeWholeFilePaths?: readonly string[];
 };
-
-/* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
-/** overleaf/api.rs's error for a request that never reached Overleaf. */
-export const OVERLEAF_UNREACHABLE = "Could not reach Overleaf";
-/** reqwest's own text for a body cut off mid-read; a test in overleaf/api.rs pins it. */
-export const RESPONSE_BODY_UNDECODABLE = "error decoding response body";
-/* eslint-enable lingui/no-unlocalized-strings */
-
-function isTransientOverleafTransportFailure(reason: unknown): boolean {
-  return mentionsAny(toMessage(reason), [OVERLEAF_UNREACHABLE, RESPONSE_BODY_UNDECODABLE]);
-}
-
-/** The backend's session-expired and not-connected errors (overleaf_rt.rs), however a sync step wraps them. */
-function isOverleafSignedOut(reason: unknown): boolean {
-  return mentionsAny(toMessage(reason), [OVERLEAF_SESSION_EXPIRED, OVERLEAF_NOT_CONNECTED]);
-}
 
 /** How often live mode asks Overleaf whether anything changed. */
 const OVERLEAF_LIVE_POLL_MS = 3_000;
@@ -85,15 +66,6 @@ const OVERLEAF_CHANNEL_POLL_MS = 45_000;
  */
 const minimumSyncGap = (channelLive: boolean) => (channelLive ? 30_000 : 12_000);
 
-async function readOverleafLink(root: string): Promise<OverleafLinkFor | null> {
-  const [status, link] = await Promise.all([invoke<OverleafStatus>("overleaf_status"), invoke<OverleafLink | null>("overleaf_link")]);
-  return link ? {
-    root,
-    link: { ...link, host: link.host.trim() || status.host.trim() },
-    active: status.connected && !link.paused && overleafLinkMatchesSession(status.host, link.host),
-  } : null;
-}
-
 /**
  * Everything the Overleaf bridge borrows from App. App owns the three sync-gate
  * refs because its project transitions, declared long before this hook runs,
@@ -112,7 +84,7 @@ export type OverleafWorkspaceDeps = {
   sourceRef: RefObject<string>;
   savedSourceRef: RefObject<string>;
   /** Show durable text for the open file, only while its buffer still holds `expect` (a compare-and-swap). */
-  accept: (path: string, content: string, expect: { text: string; saved: string }) => boolean;
+  accept: (path: string, content: string, expect: AcceptExpectation) => boolean;
   editorPosition: EditorPosition | null;
   editorPositionRef: RefObject<EditorPosition | null>;
   build: BuildResult | null;
@@ -795,8 +767,11 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   // Live mode also pushes, keyed off *saves*: autosave clears the dirty flag
   // long before any sensible push delay, so watching dirty text cancelled it.
+  // Keyed off whether there is a link, not the link object: every sync re-reads
+  // it anew, and a re-run cancelled the push after the saved paths were taken.
+  const overleafLinked = overleafLink !== null;
   useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "live" || saveGeneration === 0) return;
+    if (!overleafLinked || overleafSyncMode !== "live" || saveGeneration === 0) return;
     const savedPaths = captureSavedPaths();
     const wholeFilePaths = savedPaths.filter(isWholeFileEditorPath);
     if (wholeFilePaths.length) {
@@ -810,8 +785,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     // Whole-file saves wait for a document boundary (or the idle fallback)
     // instead of a project download after every serialized control change.
     if (!savedPaths.some((path) => !isWholeFileEditorPath(path))) return;
-    return schedulePush();
-  }, [captureSavedPaths, flushBoundaryPathsSoon, overleafLink, overleafSyncMode, saveGeneration, savedPathsRef, schedulePush, wholeFileEditingPathsRef]);
+    return schedulePush(() => (overleafSyncingRef.current ? "wait" : "go"));
+  }, [captureSavedPaths, flushBoundaryPathsSoon, overleafLinked, overleafSyncMode, overleafSyncingRef, saveGeneration, savedPathsRef, schedulePush, wholeFileEditingPathsRef]);
 
   // Manual mode never syncs on its own; it only badges incoming work.
   useEffect(() => {

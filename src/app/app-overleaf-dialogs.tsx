@@ -65,8 +65,6 @@ export const AppOverleafDialogs = memo(function AppOverleafDialogs({
       <OverleafPickerDialog
         open
         onClose={() => setOverleafPickerOpen(false)}
-        onBeforeClone={lifecycle.startProjectTransition}
-        onCloneCancelled={lifecycle.cancelProjectTransition}
         onCloned={(root) => {
           setOverleafPickerOpen(false);
           void lifecycle.revealNewProject(t`Opening the Overleaf project…`, async () => root);

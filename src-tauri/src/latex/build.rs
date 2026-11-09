@@ -20,7 +20,6 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
 #[derive(Debug, Default)]
@@ -104,10 +103,15 @@ pub(super) fn run_tracked(
     let _process_group = commands::track_process_group(&mut child)
         .map_err(|error| format!("{start_error}{error}"))?;
     let pid = child.id();
-    if let Err(error) = begin_active(active, pid) {
-        terminate(pid);
-        let _ = child.wait_with_output();
-        return Err(error);
+    match begin_active(active, pid) {
+        // Stopped between two of the build's processes: this one ends at once.
+        Ok(true) => terminate(pid),
+        Ok(false) => {}
+        Err(error) => {
+            terminate(pid);
+            let _ = child.wait_with_output();
+            return Err(error);
+        }
     }
     let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
     let (stdout, stderr) = std::thread::scope(|scope| {
@@ -181,7 +185,9 @@ fn missing_root(document: &str) -> String {
 pub fn build(
     root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
+    let session = BuildSession::open(active);
     let mut result = build_passes(root, force, active, open_document, steps)?;
+    drop(session);
     result.one_off = is_one_off_root(root);
     result.steps = steps.take();
     result.synctex = result.has_pdf.then(|| !synctex_missing(root));
@@ -491,6 +497,8 @@ mod diagnostics_tests;
 mod error_mode_tests;
 #[cfg(test)]
 mod latexmkrc_tests;
+#[cfg(test)]
+mod stop_tests;
 
 #[cfg(test)]
 mod tests {
@@ -672,7 +680,7 @@ mod tests {
         // An unrelated panic taken while this lock is held poisons it for the
         // rest of the session; that must not turn every later build into
         // "cancelled".
-        let poisoner = Arc::clone(&active);
+        let poisoner = std::sync::Arc::clone(&active);
         let _ = std::thread::spawn(move || {
             let _guard = poisoner.lock().unwrap();
             panic!("poison the build lock");

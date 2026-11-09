@@ -12,6 +12,7 @@ import type { SearchDialog } from "./app-search-dialogs";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
 import { comboText } from "./key-combos";
 import { showNotice } from "./notify";
+import { pdfInWindow } from "./pdf-window-state";
 import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
 import { documentKind, paperDocumentPath, readPaperDocuments, type OpenDocuments } from "./use-open-documents";
 import type { useProjectSearch } from "./use-project-search";
@@ -154,7 +155,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         void (async () => {
           // The build follows the active document (it may be a root of its own), so the panel's file goes first.
           if (documents.live.file.current !== key && documentKind(key, assetPaths) === "file") await documents.openFile(key);
-          trellis.showPdfFor(options?.beside);
+          if (!pdfInWindow(trellis)) trellis.showPdfFor(options?.beside);
           if (options?.clean) await buildPipeline.cleanAndRebuild();
           else await compile(false, true);
         })();

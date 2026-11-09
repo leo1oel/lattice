@@ -12,6 +12,7 @@ pub(crate) mod git;
 pub(crate) mod history;
 pub(crate) mod live_preview;
 pub(crate) mod overleaf;
+pub(crate) mod overleaf_comments;
 pub(crate) mod overleaf_history;
 pub(crate) mod overleaf_realtime;
 pub(crate) mod papers;

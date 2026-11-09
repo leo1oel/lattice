@@ -15,6 +15,7 @@ import { Decoration, EditorView, hoverTooltip, ViewPlugin, WidgetType, type Deco
 import { msg } from "@lingui/core/macro";
 import { formatCommentTimestamp } from "../editor/comments/editor-comments";
 import { element } from "../editor/dom-utils";
+import { hoverAnchor } from "../editor/hover-anchor";
 import { i18n } from "../i18n";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import { hueColor } from "../components/ui/collab-colors";
@@ -368,12 +369,14 @@ export function overleafTrackChangesExtension(options: TrackedChangeTooltipActio
     // Anchor to the hovered line rather than the whole span's start — see
     // editor-comments.ts's hover tooltip for why a multi-line span needs this.
     const line = view.state.doc.lineAt(pos);
+    const start = Math.max(from, line.from);
     return {
-      pos: Math.max(from, line.from),
+      pos: start,
       end: Math.min(to, line.to),
       above: true,
       arrow: true,
-      create: () => ({ dom: buildTrackedChangeTooltipDom(hits, actions), resize: false }),
+      // Under a comment too, the popover hangs from here (hover-anchor.ts).
+      create: () => ({ dom: buildTrackedChangeTooltipDom(hits, actions), resize: false, getCoords: hoverAnchor(view, pos) }),
     };
   });
 

@@ -43,6 +43,8 @@ import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
 import { highlightPaint } from "./latex-highlight-paint";
 import { prefersReducedMotion } from "../../lib/reduced-motion";
+import type { CitationReasonData } from "./citation-reasons";
+import { citationReasons } from "./citation-reason-editor";
 
 export const latexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "500" },
@@ -72,7 +74,7 @@ export const latexHighlightStyle = HighlightStyle.define([
 export const latexIndexChanged = StateEffect.define<null>();
 
 /** Project data the editor reads at use time, so extensions need not be rebuilt as it changes. */
-export type LatexEditorLiveData = {
+export type LatexEditorLiveData = CitationReasonData & {
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -412,10 +414,13 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     handler(target);
     return true;
   };
+  const reasons = currentPath ? citationReasons(live, currentPath) : null;
+  const reasonsContext = reasons ? { currentPath, api: reasons.api } : undefined;
   return [
     ...textEditorExtensions(options.spellcheck ? "latex" : false, options.live, options.onPasteImage),
     highlightPaint(),
-    citationTooltips(live, onGotoDefinition),
+    reasons?.extension ?? [],
+    citationTooltips(live, onGotoDefinition, reasonsContext),
     referenceTooltips(live, options.loadReferenceImage),
     options.loadReferenceImage ? graphicsTooltips(live, options.loadReferenceImage) : [],
     texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
@@ -452,7 +457,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       click(event, view) {
         if (!(event.metaKey || event.ctrlKey)) {
           // Clicking an unchanged cursor after Escape is an explicit reopen.
-          if (event.target instanceof Node && view.contentDOM.contains(event.target)) openCitationAtCursor(view);
+          if (event.target instanceof Node && view.contentDOM.contains(event.target)) openCitationAtCursor(view, "caret");
           return false;
         }
         const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -480,7 +485,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       gotoDefinition: (view) => gotoDefinition(view, view.state.selection.main.head),
       findReferences: symbolCommand(onFindReferences),
       renameSymbol: symbolCommand(onRenameSymbol),
-      citationCard: citationCardAtCursor(live, onGotoDefinition),
+      citationCard: citationCardAtCursor(live, onGotoDefinition, reasonsContext),
       wrapEnvironment: onWrapEnvironment,
       renameEnvironment: onRenameEnvironment,
     }))),
@@ -489,8 +494,14 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     EditorView.updateListener.of((update) => {
       // Cursor/focus entry is independent of typing. Ignore document edits
       // (autocomplete already handles them), including accepting a completion.
-      // Escape and background updates must not reopen a dismissed menu.
-      if (!update.docChanged && (update.selectionSet || update.focusChanged)) openCitationAtCursor(update.view);
+      // Background updates and Escape alone must not reopen a dismissed menu.
+      // Only an empty slot opens on caret entry (see openCitationAtCursor).
+      if (!update.docChanged && (update.selectionSet || update.focusChanged)) openCitationAtCursor(update.view, "caret");
+      // CodeMirror drops a source when a Backspace starts at the slot's start
+      // or empties its query, and Backspace never reactivates one, so deleting
+      // back into a citation key left the menu shut. Reopen it while the cursor
+      // is in a slot; like typing, this also reopens a menu Escape dismissed.
+      if (update.transactions.some((transaction) => transaction.isUserEvent("delete.backward"))) openCitationAtCursor(update.view, "edit");
       const completed = update.transactions.some((transaction) => transaction.isUserEvent("input.complete"));
       const typed = completed || update.transactions.some((transaction) => transaction.isUserEvent("input.type"));
       const { empty, head } = update.state.selection.main;

@@ -45,6 +45,28 @@ pub(super) fn input_loop(folder: &Path, document: &str) -> Option<Vec<String>> {
     walk.visit(Read { file, base })
 }
 
+/// Every file the flattening pastes in, from `document` itself, each once
+/// and in the order it is reached, relative to `folder`.
+pub(super) fn flattened(folder: &Path, document: &str) -> Vec<String> {
+    let file = folder.join(document);
+    let base = file.parent().unwrap_or(folder).to_path_buf();
+    let (mut seen, mut files, mut pending) =
+        (HashSet::new(), Vec::new(), vec![Read { file, base }]);
+    while let Some(read) = pending.pop() {
+        let identity = fs::canonicalize(&read.file).unwrap_or_else(|_| read.file.clone());
+        let Ok(text) = fs::read(&read.file) else { continue };
+        if !seen.insert(identity) {
+            continue;
+        }
+        let shown = read.file.strip_prefix(folder).unwrap_or(&read.file);
+        files.push(shown.to_string_lossy().replace('\\', "/"));
+        pending.extend(
+            includes(&String::from_utf8_lossy(&text), &read.base, folder).into_iter().rev(),
+        );
+    }
+    files
+}
+
 struct Walk<'a> {
     folder: &'a Path,
     /// Files whose whole tree was walked without a loop: each is read once,
@@ -192,6 +214,11 @@ mod tests {
             ("macros.tex", "% \\input{main}\n"),
         ]);
         assert_eq!(input_loop(&root, "main.tex"), None);
+        // What the flattening reads, each file once, in the order it pastes them in.
+        assert_eq!(
+            flattened(&root, "main.tex"),
+            ["main.tex", "intro.tex", "macros.tex", "method.tex"]
+        );
     }
 
     #[test]

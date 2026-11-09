@@ -8,11 +8,14 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup } from "../components/ui/settings-row";
 import type { DoctorReport } from "../app-types";
 import { doctorCheckDetail, doctorCheckLabel } from "../build/tex-doctor-messages";
+import type { TexPackageUpdates } from "../app/use-tex-package-updates";
+import { TexPackageUpdatesActions, TexPackageUpdatesCheck } from "./tex-package-updates-row";
 
 export type DoctorSettingsProps = {
   doctorReport: DoctorReport | null;
   doctorBusy: boolean;
   doctorNotice: string;
+  texPackageUpdates: TexPackageUpdates;
   onRunDoctor: () => void;
   onOpenTexSetup: () => void;
 };
@@ -50,7 +53,9 @@ export function DoctorSettings(props: DoctorSettingsProps) {
                   {!check.ok && <span className="doctor-check-detail">{doctorCheckDetail(check)}</span>}
                 </li>
               ))}
+              <TexPackageUpdatesCheck updates={props.texPackageUpdates} />
             </ul>
+            <TexPackageUpdatesActions updates={props.texPackageUpdates} disabled={props.doctorBusy} />
             {!report.ok && installAction}
           </>
         )}

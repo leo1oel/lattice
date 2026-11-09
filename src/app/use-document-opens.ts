@@ -125,9 +125,10 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
           await save();
           return;
         }
+        const read = textRef.current;
         const content = await invoke<string>("read_project_file", { path, projectRoot: current?.root });
-        if (intentRef.current === loadGeneration && fileRef.current === path && content !== textRef.current) {
-          accept(path, content);
+        // Only over the buffer the read began from: typing meanwhile is newer.
+        if (intentRef.current === loadGeneration && content !== textRef.current && accept(path, content, { text: read, saved: read })) {
           await recordDiskVersion(path);
         }
       };
@@ -209,7 +210,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       pushNavigation(path, 1);
     }
   }, [
-    accept, depsRef, fileRef, flushAndCheckDirty, flushRef, intentRef, loadFile, paperBuffersDirty,
+    accept, depsRef, flushAndCheckDirty, flushRef, intentRef, loadFile, paperBuffersDirty,
     projectRef, pushNavigation, recordDiskVersion, renderedRef, requestLine, save, savedRef, setMode, setOpening, setTabsSettledRoot,
     showTab, textRef, viewStateRef,
   ]);

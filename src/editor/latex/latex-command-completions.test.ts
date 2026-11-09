@@ -65,7 +65,7 @@ describe("built-in LaTeX hover", () => {
   const hoverText = (source: string) => {
     const pos = source.indexOf("|");
     const tooltip = latexCommandHover(EditorState.create({ doc: source.replace("|", "") }), pos);
-    return tooltip ? (tooltip.create().dom.textContent ?? "") : null;
+    return tooltip ? (tooltip.create({} as never).dom.textContent ?? "") : null;
   };
 
   it("describes a known command or environment", () => {

@@ -105,7 +105,7 @@ describe("the PDF's comment column", () => {
     await screen.findByRole("button", { name: "Annotation 2" });
     await waitFor(() => expect(slotOf(upper.id)).toBeTruthy());
     // Docked beside the pages, which give it their width.
-    expect(pdf.area.hasAttribute("data-comment-column")).toBe(true);
+    expect(pdf.area.getAttribute("data-comment-column")).toBe("docked");
     // Down the column in the order of their marks down the page.
     expect([...column().querySelectorAll<HTMLElement>(".pdf-comment-slot")].map((slot) => slot.dataset.commentId)).toEqual([upper.id, lower.id]);
     for (const note of [upper, lower]) {
@@ -165,6 +165,39 @@ describe("the PDF's comment column", () => {
     expect(slotOf(added.id)).toBeTruthy();
   });
 
+  it("widens by its left edge, dragged or from the keyboard, and keeps the width for the next PDF", async () => {
+    localStorage.removeItem("lattice.pdf-comment-column-width.v1");
+    const pdf = preview(900);
+    const note = pdfNote(1, 0.1, "Say by what.");
+    renderLayer(pdf, roundsDouble(), [note]);
+    await waitFor(() => expect(slotOf(note.id)).toBeTruthy());
+    const grip = within(column()).getByRole("separator", { name: "Resize comments" });
+    const width = () => pdf.area.style.getPropertyValue("--pdf-comment-column-chosen-width");
+    expect(width()).toBe("280px");
+
+    fireEvent.pointerDown(grip, { button: 0, clientX: 600, pointerId: 1 });
+    fireEvent.pointerMove(grip, { clientX: 500, pointerId: 1 });
+    expect(width()).toBe("380px");
+    // The pages keep their 360px: the drag stops where they would get less.
+    fireEvent.pointerMove(grip, { clientX: 100, pointerId: 1 });
+    expect(width()).toBe("540px");
+    fireEvent.pointerMove(grip, { clientX: 520, pointerId: 1 });
+    fireEvent.pointerUp(grip, { pointerId: 1 });
+    expect(grip.getAttribute("aria-valuenow")).toBe("360");
+    expect(localStorage.getItem("lattice.pdf-comment-column-width.v1")).toBe("360");
+
+    fireEvent.keyDown(grip, { key: "ArrowLeft" });
+    expect(width()).toBe("376px");
+    cleanup();
+    document.body.replaceChildren();
+
+    const next = preview(900);
+    renderLayer(next, roundsDouble(), [pdfNote(1, 0.1, "Say by what.")]);
+    await waitFor(() => expect(column()).toBeTruthy());
+    expect(next.area.style.getPropertyValue("--pdf-comment-column-chosen-width")).toBe("376px");
+    localStorage.removeItem("lattice.pdf-comment-column-width.v1");
+  });
+
   it("folds away on a narrow PDF and opens over the pages when asked for", async () => {
     const pdf = preview(480);
     const note = pdfNote(1, 0.1, "Say by what.");
@@ -172,8 +205,11 @@ describe("the PDF's comment column", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Show comments" }));
     await waitFor(() => expect(slotOf(note.id)).toBeTruthy());
-    // Over the pages: they keep their width.
-    expect(pdf.area.hasAttribute("data-comment-column")).toBe(false);
+    // Over the pages: they keep their width, and their scrollbar moves to the column's edge.
+    expect(pdf.area.getAttribute("data-comment-column")).toBe("floating");
+    // Its marks hidden under it, the cards list down from the top in a scroller of their own.
+    expect(slotOf(note.id)!.style.top).toBe("");
+    expect(slotOf(note.id)!.closest('[data-slot="scroll-area"]')).toBeTruthy();
 
     fireEvent.click(within(column()).getByRole("button", { name: "Hide comments" }));
     expect(screen.queryByRole("complementary", { name: "Comments" })).toBeNull();

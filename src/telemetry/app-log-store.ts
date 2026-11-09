@@ -431,6 +431,11 @@ export function getVisibleAppToastIds(): readonly string[] {
   return visibleToastIds;
 }
 
+/** Every entry in the log, newest first. */
+export function getAppLogEntries(): readonly AppLogEntry[] {
+  return entries;
+}
+
 export function useAppLogSnapshot(): AppLogEntry[] {
   return useSyncExternalStore(subscribe, () => entries, () => entries);
 }

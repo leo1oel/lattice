@@ -107,7 +107,8 @@ export function LiteratureDiscoveryPanel(props: {
   /** A query handed over from the Papers box, searched as the panel opens. */
   initialQuery?: string;
   onClose: () => void;
-  onImportArxiv: (arxivId: string) => Promise<void> | void;
+  /** Answers whether the paper was added: an import already running, or superseded, adds nothing. */
+  onImportArxiv: (arxivId: string) => Promise<boolean>;
   onAddBib: (query: string) => void;
   /** Versionless arXiv ids already in the library, shown as done. */
   importedIds: Set<string>;
@@ -223,10 +224,13 @@ export function LiteratureDiscoveryPanel(props: {
   };
 
   const importArxiv = (work: LiteratureHit, key: string) => {
+    // One import at a time: a second one is dropped, and was told "Imported".
+    if (busyId) return;
     setBusyId(key);
     setError("");
-    Promise.resolve(props.onImportArxiv(work.arxivId!))
-      .then(() => {
+    props.onImportArxiv(work.arxivId!)
+      .then((imported) => {
+        if (!imported) return;
         notifySuccess(LITERATURE_SOURCE, t`Imported arXiv:${work.arxivId}`);
         setJustImported((current) => new Set(current).add(baseArxivId(work.arxivId!)));
       })
@@ -348,7 +352,7 @@ export function LiteratureDiscoveryPanel(props: {
                       <button
                         type="button"
                         className="literature-add"
-                        disabled={busy}
+                        disabled={busyId !== null}
                         aria-label={t({ message: `Add ${{ title: work.title }} to Papers` })}
                         onClick={addToPapers}
                       >
@@ -385,7 +389,7 @@ export function LiteratureDiscoveryPanel(props: {
                   </dl>
                   <div className="literature-preview-actions">
                     {imported ? inPapers : work.arxivId ? (
-                      <Button variant="tinted" size="compact" disabled={busy} onClick={addToPapers}>
+                      <Button variant="tinted" size="compact" disabled={busyId !== null} onClick={addToPapers}>
                         {busy ? <InfinityLoader size={12} /> : <Plus size={13} aria-hidden="true" />}
                         {t`Add to Papers`}
                       </Button>

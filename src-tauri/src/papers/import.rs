@@ -304,9 +304,9 @@ fn bibcite_query_for_input(
 fn add_citation(path: &Path, query: &str, cancel: &AtomicBool) -> Result<String, String> {
     let before = fs::read_to_string(path).map_err(err)?;
     if query.trim_start().starts_with('@') {
-        // The title resolver (or the user's review) already chose this exact
-        // record. Keep its fields and identity; no second network resolution.
+        // A chosen record keeps its identity; its fields are only verified.
         validate_resolved_identity("", query)?;
+        let query = &crate::citation_audit::prepare_supplied(query);
         let entry = project::parse_bibliography(query).remove(0);
         let webpage = entry.url.as_deref().is_some_and(|url| {
             is_web_url(url)

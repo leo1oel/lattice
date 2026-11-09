@@ -21,7 +21,9 @@ import type { PaperSourceCitation } from "../papers/paper-source";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { SwitchState } from "./after-switch";
 import type { DeckHosts } from "./open-slide-deck-pool";
+import type { OtOp } from "../overleaf/ot";
 import type { SaveSlot } from "./save-slot";
+import type { CitationReasonData } from "../editor/latex/citation-reasons";
 
 /**
  * What App hands DocumentCanvas, one model per domain. Grouping names who
@@ -51,7 +53,8 @@ type CanvasDocument = Readonly<{
   settledSource?: string;
   markdownPreviewSource?: string;
   activeFile: string;
-  setSource: (value: string) => void;
+  /** `base`, when given, is the source the edit was made on, and `typed` the edit (see `typeFileText`). */
+  setSource: (value: string, base?: string, typed?: OtOp[]) => void;
   /** Whether `value` is the source as it came from outside the writer's editing (an agent, a collaborator), which is no undo step. */
   isOutsideSource?: (value: string) => boolean;
   onSave: () => Promise<boolean>;
@@ -99,7 +102,7 @@ type CanvasPreferences = Readonly<{
 }>;
 
 /** The project's citation, label, macro and path index, and the paper library behind it. */
-type CanvasBibliography = Readonly<{
+type CanvasBibliography = Readonly<CitationReasonData & {
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
   /** A .bib reference's paper, opened from the reference list: downloaded first when only cited. */

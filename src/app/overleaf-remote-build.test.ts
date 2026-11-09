@@ -16,6 +16,7 @@ import { createOverleafConnectionStore } from "../overleaf/overleaf-connection-s
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
 import type { BuildPreferences } from "../settings/app-settings";
 import { applyOverleafRemoteText } from "./overleaf-remote-text";
+import type { AcceptExpectation } from "./use-document-store";
 import { useBuildPipeline } from "./use-build-pipeline";
 import { WATCHED_BUILD_IDLE_MS } from "./watched-builds";
 
@@ -65,10 +66,14 @@ async function renderCollaboration(autoBuildMode: BuildPreferences["autoBuildMod
     activeFileRef: ref("main.tex"),
     sourceRef: ref("alpha"),
     savedSourceRef: ref("alpha"),
-    accept: (path: string, content: string, expect?: "clean" | { text?: string; saved?: string }) => {
-      if (typeof expect !== "object" || editor.sourceRef.current !== expect.text
-        || editor.savedSourceRef.current !== expect.saved || path !== editor.activeFileRef.current) return false;
-      editor.sourceRef.current = editor.savedSourceRef.current = content;
+    accept: (path: string, content: string, expect?: "clean" | AcceptExpectation) => {
+      if (typeof expect !== "object" || path !== editor.activeFileRef.current) return false;
+      if (expect.text !== undefined && editor.sourceRef.current !== expect.text) return false;
+      if (expect.saved !== undefined && editor.savedSourceRef.current !== expect.saved) return false;
+      const shown = expect.show ? expect.show(editor.sourceRef.current) : content;
+      if (shown === null) return false;
+      editor.savedSourceRef.current = content;
+      editor.sourceRef.current = shown;
       return true;
     },
     // App's Build button, which a remote edit used to press (App.tsx `compile`).

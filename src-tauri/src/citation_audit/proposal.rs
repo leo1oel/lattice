@@ -48,7 +48,7 @@ pub(crate) fn prepare_import(raw: &str) -> Result<String, String> {
     {
         return Err(format!("{} Verified publication metadata could not be merged into the fetched record; no citation was added.", checked.message));
     }
-    Ok(cleanup_result(checked).after.unwrap_or_else(|| raw.into()))
+    Ok(canonical_venues(cleanup_result(checked).after.as_deref().unwrap_or(raw)))
 }
 
 pub(crate) fn protect_bibtex(raw: &str) -> String {
@@ -56,7 +56,24 @@ pub(crate) fn protect_bibtex(raw: &str) -> String {
 }
 
 pub(super) fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
-    let (local, other) = (fields(before), fields(remote));
+    let (local, mut other) = (fields(before), fields(remote));
+    // A source's venue is proposed by its canonical name, and is no change at
+    // all when the entry already cites that venue in any spelling: "Advances
+    // in Neural Information Processing Systems 35" restates "(NeurIPS)".
+    let year = |values: &BTreeMap<String, String>| field_value(values, "year").parse().ok();
+    let venue_year = year(&other).or_else(|| year(&local));
+    let mut same_venue = BTreeSet::new();
+    for name in ["journal", "booktitle"] {
+        let Some(value) = other.get(name) else {
+            continue;
+        };
+        if local.get(name).is_some_and(|v| same_canonical_venue(v, value, venue_year)) {
+            same_venue.insert(name);
+        }
+        if let Some(canonical) = canonical_venue(value, venue_year) {
+            other.insert(name.into(), canonical.into());
+        }
+    }
     let words = |value: &str| {
         value.replace(['{', '}'], "").split_whitespace().map(str::to_string).collect::<Vec<_>>()
     };
@@ -70,8 +87,13 @@ pub(super) fn merge_metadata(before: &str, remote: &str, published: bool) -> Aud
                 (a.contains('{') && normalize_title(&a) == normalize_title(&b))
                     || words(&a) == words(&b)
                     || drops_short_name(&a, &b)
-            } else {
+            } else if *name == "url" {
+                // A link to the paper's own DOI is as good as the landing page
+                // a source names; the entry editor fills one in for a DOI.
                 same_value(name, &a, &b)
+                    || normalize_doi(&a).is_some_and(|doi| entry_doi(&other) == Some(doi))
+            } else {
+                same_venue.contains(name) || same_value(name, &a, &b)
             };
             !b.is_empty() && !equivalent
         })

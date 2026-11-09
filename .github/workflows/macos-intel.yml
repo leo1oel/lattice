@@ -44,7 +44,6 @@ on:
       - "scripts/add-updater-platform.mjs"
       - "scripts/prepare-synara-sidecar.mjs"
       - "scripts/check-font-leaks.mjs"
-      - "scripts/app-size-report.mjs"
       - "scripts/lib/runtime-prune.mjs"
   workflow_dispatch:
 

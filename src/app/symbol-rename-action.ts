@@ -23,7 +23,7 @@ export type ReferenceHits = {
  */
 export async function submitSymbolRename(target: RenameTarget, name: string, {
   activeFile, loadFile, applyBibliographyIndex, refreshUnusedSymbols, refreshHistory, forgetIncludedSources,
-  setReferenceHits, showSymbolReferences, updateCanvasRequest, setRenameError, setRenameTarget,
+  setReferenceHits, showSymbolReferences, updateCanvasRequest, setRenameError, setRenameTarget, renameCitationKey,
 }: {
   activeFile: string;
   loadFile: (path: string) => Promise<unknown>;
@@ -36,6 +36,8 @@ export async function submitSymbolRename(target: RenameTarget, name: string, {
   updateCanvasRequest: UpdateCanvasRequest;
   setRenameError: (error: string | null) => void;
   setRenameTarget: (target: RenameTarget | null) => void;
+  /** Move the citation reasons on key `from` to key `to`. */
+  renameCitationKey: (from: string, to: string) => void;
 }): Promise<void> {
   try {
     if (target.kind === "label" || target.kind === "citation") {
@@ -44,6 +46,7 @@ export async function submitSymbolRename(target: RenameTarget, name: string, {
         oldName: target.kind === "label" ? target.label : target.key,
         newName: name,
       });
+      if (target.kind === "citation") renameCitationKey(target.key, name);
       applyBibliographyIndex(await loadBibliographyIndex());
       await refreshUnusedSymbols();
       await refreshHistory();

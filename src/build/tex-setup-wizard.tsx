@@ -18,7 +18,8 @@ import { Button } from "../components/ui/button";
 import { MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { buttonClassName } from "../components/ui/button-styles";
-import { logAction } from "../telemetry/app-notify";
+import { logAction, notifyWarning } from "../telemetry/app-notify";
+import { texPackageUpdateMessage } from "./tex-package-updates";
 import { toMessage } from "../app-utils";
 
 /** Notification source label for the LaTeX install wizard. */
@@ -82,7 +83,8 @@ export function TexSetupWizard(props: {
     try {
       const onProgress = new Channel<TexInstallProgress>();
       onProgress.onmessage = (progress) => setInstallProgress(progress);
-      await invoke("start_tex_install", { mode: paperToolsOnly ? "toolsOnly" : "full", onProgress });
+      // A working install whose package update failed (installer.rs `install_warning`).
+      const warning = await invoke<string | null>("start_tex_install", { mode: paperToolsOnly ? "toolsOnly" : "full", onProgress });
       setInstallProgress({ stage: "complete", progress: 1 });
       const installedProduct = paperToolsOnly ? t`The required tools` : "BasicTeX";
       const report = await props.onRecheck();
@@ -106,6 +108,10 @@ export function TexSetupWizard(props: {
         paperToolsOnly ? t`Required paper tools installed` : t`BasicTeX installed`,
         paperToolsOnly && props.paperToolsNeeded ? { detail: t`Try that again now` } : undefined,
       );
+      if (warning) {
+        const { summary, detail } = texPackageUpdateMessage(warning);
+        notifyWarning(TEX_SETUP_SOURCE, summary, { detail });
+      }
       props.onClose();
     } catch (reason) {
       setInstallError(toMessage(reason));

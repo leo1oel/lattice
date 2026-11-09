@@ -83,7 +83,11 @@ export const AppSettingsDialog = memo(function AppSettingsDialog({
         doctorReport={texSetup.doctorReport}
         doctorBusy={texSetup.doctorBusy}
         doctorNotice={texSetup.doctorNotice}
-        onRunDoctor={() => { void texSetup.runDoctor(); }}
+        texPackageUpdates={texSetup.packageUpdates}
+        onRunDoctor={() => {
+          void texSetup.runDoctor();
+          void texSetup.packageUpdates.check();
+        }}
         onOpenTexSetup={() => void texSetup.openWizard()}
         onCleanProject={() => { void buildPipeline.cleanProject(); }}
         cleaning={buildPipeline.cleaning}

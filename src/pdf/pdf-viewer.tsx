@@ -41,6 +41,7 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  type LucideIcon,
 } from "lucide-react";
 import { Tip } from "../components/icon-tip";
 import {
@@ -363,7 +364,7 @@ export function PdfPreview({
   loadErrorHint,
   outline,
   toolbarStart,
-  toolbarEnd,
+  toolbarAction,
   notice = null,
   onBuild,
   building = false,
@@ -398,8 +399,12 @@ export function PdfPreview({
   outline?: ReactNode;
   /** Context-specific actions rendered before the page controls. */
   toolbarStart?: ReactNode;
-  /** Context-specific icon actions rendered before the save control. */
-  toolbarEnd?: ReactNode;
+  /**
+   * A context-specific action before the save control, such as moving the PDF
+   * into a window of its own. Like saving, a narrow toolbar moves it into the
+   * overflow menu, so it never crowds the controls kept on the row.
+   */
+  toolbarAction?: { label: string; icon: LucideIcon; run: () => void };
   /** A short status shown over the pages, such as the file having been removed. */
   notice?: string | null;
   /** Builds the project, offered while there is no PDF yet. */
@@ -732,7 +737,10 @@ export function PdfPreview({
             <ToolbarButton label={fitHeight.label} icon={fitHeight.icon}
               className={`pdf-search-fold${fitMode === "height" ? " active" : ""}${shownFit === "height" ? "" : " pdf-overflow"}`}
               aria-pressed={fitMode === "height"} disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
-            {toolbarEnd}
+            {toolbarAction && (
+              <ToolbarButton label={toolbarAction.label} icon={<toolbarAction.icon size={14} />}
+                className="pdf-overflow" onClick={toolbarAction.run} />
+            )}
             {showSave && (
               <Tip label={saveName}>
                 <MotionButton className="pdf-overflow" disabled={!canSave || savingPdf} onClick={download}>
@@ -761,6 +769,7 @@ export function PdfPreview({
                   { label: t`Next PDF location`, icon: <CornerUpRight />, disabled: !availability.forward, run: () => navigate("forward") },
                 ],
                 [
+                  ...(toolbarAction ? [{ label: toolbarAction.label, icon: <toolbarAction.icon />, run: toolbarAction.run }] : []),
                   ...(showSave ? [{ label: saveName, icon: <Download />, disabled: !canSave || savingPdf, run: download }] : []),
                   ...(reviewHost && annotationRounds ? [{
                     label: t`Export review PDF…`, icon: <MessageSquareShare />, disabled: !hasLocalAnnotations, run: annotationRounds.openReviewPdf,

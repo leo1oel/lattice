@@ -197,11 +197,9 @@ async function preparePresentationRuntime() {
     "lucide-open-slide.mjs",
     "locale-copy.mjs",
     "prebundled-dependencies.mjs",
-    // pnpm applies the package.json's patchedDependencies during the install.
-    "patches",
   ];
   for (const file of runtimeFiles) {
-    cpSync(join(source, file), join(stage, file), { recursive: true });
+    cpSync(join(source, file), join(stage, file));
   }
   run(
     "pnpm",
@@ -215,12 +213,7 @@ async function preparePresentationRuntime() {
   writeFileSync(
     join(stage, "manifest.json"),
     JSON.stringify(
-      {
-        openSlideVersion: packageVersion("@open-slide/core"),
-        // Set while the runtime is patched to an unreleased upstream commit.
-        openSlideCommit: readJson(join(stage, "package.json")).openSlideCommit,
-        viteVersion: packageVersion("vite"),
-      },
+      { openSlideVersion: packageVersion("@open-slide/core"), viteVersion: packageVersion("vite") },
       null,
       2,
     ),

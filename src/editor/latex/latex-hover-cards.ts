@@ -1,11 +1,10 @@
 /** Hover cards for citation keys (also opened from the keyboard), `\ref` labels and `\includegraphics` paths, with a figure preview when one exists. */
-import { closeCompletion } from "@codemirror/autocomplete";
+import { closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import {
-  closeHoverTooltips, hoverTooltip, showTooltip, type Command, type EditorView, type Rect, type Tooltip,
+  closeHoverTooltips, EditorView, hoverTooltip, showTooltip, type Command, type Rect, type Tooltip,
 } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
-import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { PaperSummary } from "../../app-types";
 import { comboText } from "../../app/key-combos";
@@ -14,11 +13,14 @@ import infinityLoaderUrl from "../../components/ui/infinity-loader.svg";
 import { i18n } from "../../i18n";
 import { paperBylineAuthors, paperSourceLabel } from "../../papers/paper-identity";
 import { citationHealthParts, citationHealthTitle } from "../../project/citation-health";
-import type { SymbolOccurrence } from "../../project/references-panel";
 import { element } from "../dom-utils";
+import { hoverAnchor } from "../hover-anchor";
+import { citationUsesSection } from "./citation-card-uses";
+import type { CitationReasonsApi } from "./citation-reason-editor";
 import { compiledLabels } from "./compiled-labels";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationHoverTarget, graphicsHoverTarget, referenceHoverTarget, resolveProjectPath } from "./latex-symbols";
+import { visibleLatexSource } from "./latex-visible-source";
 import { referenceKindLabel, type CitationInfo, type DefinitionTarget, type ReferenceInfo } from "./latex-text";
 import { mathRegionAt } from "./math-region";
 
@@ -31,24 +33,6 @@ function createHoverCard(className: string, view: EditorView, minWidth: number):
 export function citationTooltipSpace(bounds: Rect): Rect {
   const inset = 8;
   return { left: bounds.left + inset, right: bounds.right - inset, top: bounds.top + inset, bottom: bounds.bottom - inset };
-}
-
-/** Where the manuscript cites each key, scanned once per project and saved revision. */
-let usageScan: { root: string | undefined; revision: unknown; counts: Promise<Map<string, number> | null> } | null = null;
-
-function citationUses(data: LatexEditorLiveData, key: string): Promise<number | null> {
-  if (!usageScan || usageScan.root !== data.projectRoot || usageScan.revision !== data.citationUsageRevision) {
-    const counts = invoke<SymbolOccurrence[]>("list_citation_usages").then((list) => {
-      const byKey = new Map<string, number>();
-      for (const { symbol } of list) {
-        const id = symbol.toLocaleLowerCase();
-        byKey.set(id, (byKey.get(id) ?? 0) + 1);
-      }
-      return byKey;
-    }).catch(() => null);
-    usageScan = { root: data.projectRoot, revision: data.citationUsageRevision, counts };
-  }
-  return usageScan.counts.then((counts) => counts && (counts.get(key.toLocaleLowerCase()) ?? 0));
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -119,12 +103,19 @@ function citationCard(
   view: EditorView,
   citation: CitationInfo,
   data: LatexEditorLiveData,
-  host: { keyboard: boolean; close: () => void; onGotoDefinition?: (target: DefinitionTarget) => void; page?: number },
+  host: {
+    keyboard: boolean;
+    close: () => void;
+    onGotoDefinition?: (target: DefinitionTarget) => void;
+    /** The key's span here, and the page its note names. */
+    target: { from: number; to: number; page?: number };
+    reasons?: CitationReasonsContext;
+  },
 ): HTMLDivElement {
   const dom = createHoverCard("citation-hover-card", view, 160);
   const { onOpenCitation } = data;
   const openPaper: CardAction | undefined = onOpenCitation && data.canOpenCitation?.(citation.key)
-    ? { label: i18n._(msg`Open paper`), lead: true, run: () => { host.close(); onOpenCitation(citation.key, host.page); } }
+    ? { label: i18n._(msg`Open paper`), lead: true, run: () => { host.close(); onOpenCitation(citation.key, host.target.page); } }
     : undefined;
   const { onGotoDefinition } = host;
   const gotoEntry: CardAction | undefined = onGotoDefinition
@@ -156,23 +147,37 @@ function citationCard(
   const facts = element("div", "citation-card-facts");
   const health = healthFact(paper);
   if (health) facts.append(health);
-  // The count arrives after the card opens; until then it holds no place.
-  const uses = fact("");
-  uses.hidden = true;
-  facts.append(uses);
-  void citationUses(data, citation.key).then((count) => {
-    if (!count) return;
-    const times = i18n.number(count);
-    const label = i18n._(msg`Cited ${times}× here`);
-    uses.replaceChildren(element("span", "", label));
-    uses.title = label;
-    uses.hidden = false;
-  });
   const source = paperSourceLabel({ arxivId: citation.arxivId ?? "", doi: citation.doi, url: citation.url });
   if (source) facts.append(fact(source));
   dom.append(facts);
+  const { reasons } = host;
+  const canOpen = Boolean(onOpenCitation && data.canOpenCitation?.(citation.key));
+  dom.append(citationUsesSection(view, citation.key, {
+    data,
+    currentPath: reasons?.currentPath ?? "",
+    reasons: reasons?.api,
+    hovered: host.target,
+    openPage: canOpen ? (page) => { host.close(); onOpenCitation?.(citation.key, page); } : undefined,
+    jump: (use) => {
+      host.close();
+      if (use.from !== undefined && use.to !== undefined) {
+        view.dispatch({ selection: { anchor: use.from, head: use.to }, scrollIntoView: true });
+        view.focus();
+      } else data.onOpenCitationUse?.(use.path, use.line);
+    },
+  }));
 
-  const actions: CardAction[] = [openPaper, gotoEntry].filter((action) => action !== undefined);
+  const read = citationHoverTarget(visibleLatexSource(view.state.doc.toString()), host.target.from);
+  const whyCited: CardAction | undefined = reasons && data.onSaveCitationReason && read
+    ? {
+      label: i18n._(msg`Why cited`),
+      run: () => {
+        host.close();
+        reasons.api.edit(view, { from: host.target.from, to: host.target.to, key: citation.key });
+      },
+    }
+    : undefined;
+  const actions: CardAction[] = [openPaper, whyCited, gotoEntry].filter((action) => action !== undefined);
   const copyLabel = i18n._(msg`Copy key`);
   actions.push({
     label: copyLabel,
@@ -204,9 +209,19 @@ const keyboardCard = StateField.define<Tooltip | null>({
   provide: (field) => showTooltip.from(field),
 });
 
+/** The open file and its citation reasons, which the card lists and edits. */
+export type CitationReasonsContext = { currentPath: string; api: CitationReasonsApi };
+
 /** The card on hover, and the field that holds the one ⌥⌘K opens (see `citationCardAtCursor`). */
-export function citationTooltips(live: () => LatexEditorLiveData, onGotoDefinition?: (target: DefinitionTarget) => void): Extension {
+export function citationTooltips(
+  live: () => LatexEditorLiveData,
+  onGotoDefinition?: (target: DefinitionTarget) => void,
+  reasons?: CitationReasonsContext,
+): Extension {
   return [keyboardCard, hoverTooltip((view, position) => {
+    // The suggestion menu and the card would stack over the same key, and
+    // the card would vanish as the pointer crossed into the menu.
+    if (reasons?.api.editing(view.state) || completionStatus(view.state) !== null) return null;
     const target = citationHoverTarget(view.state.doc.toString(), position);
     const data = live();
     const citation = target && citationFor(data, target.key);
@@ -218,20 +233,17 @@ export function citationTooltips(live: () => LatexEditorLiveData, onGotoDefiniti
       create() {
         const close = () => view.dispatch({ effects: closeHoverTooltips });
         return {
-          dom: citationCard(view, citation, data, { keyboard: false, close, onGotoDefinition, page: target.page }),
-          // CodeMirror hosts every hover card in one popover anchored at the
-          // earliest `pos` among them, but each card keeps its own range: this
-          // one goes once the pointer leaves the key and is outside the
-          // popover. Under a comment, that earliest `pos` is where the
-          // comment starts, often a few wrapped rows above the key, so moving
-          // up toward the popover crossed commented text, which kept the
-          // comment and dropped the citation before the pointer arrived.
-          // Placed by the key instead (the host takes the one `getCoords` its
-          // cards give), the popover rises straight from it.
-          getCoords: () => view.coordsAtPos(target.from, 1) ?? { left: 0, right: 0, top: 0, bottom: 0 },
+          dom: citationCard(view, citation, data, { keyboard: false, close, onGotoDefinition, target, reasons }),
+          // Rises straight from the key, even under a comment (hover-anchor.ts).
+          getCoords: hoverAnchor(view, target.from),
         };
       },
     };
+  }), EditorView.updateListener.of((update) => {
+    // Typing into the key under a card opens the menu; the menu takes its place.
+    if (completionStatus(update.state) !== null && completionStatus(update.startState) === null) {
+      update.view.dispatch({ effects: closeHoverTooltips });
+    }
   })];
 }
 
@@ -244,13 +256,14 @@ export function citationTooltips(live: () => LatexEditorLiveData, onGotoDefiniti
 export function citationCardAtCursor(
   live: () => LatexEditorLiveData,
   onGotoDefinition?: (target: DefinitionTarget) => void,
+  reasons?: CitationReasonsContext,
 ): Command {
   return (view) => {
     const target = citationHoverTarget(view.state.doc.toString(), view.state.selection.main.head);
     const data = live();
     const citation = target && citationFor(data, target.key);
     if (!target || !citation) return false;
-    // The caret in a key opens the citation menu; the card takes its place.
+    // A menu open from typing in the key gives way to the card.
     closeCompletion(view);
     const close = () => {
       if (view.state.field(keyboardCard, false)) view.dispatch({ effects: setKeyboardCard.of(null) });
@@ -261,7 +274,7 @@ export function citationCardAtCursor(
         end: target.to,
         above: true,
         create() {
-          const dom = citationCard(view, citation, data, { keyboard: true, close, onGotoDefinition, page: target.page });
+          const dom = citationCard(view, citation, data, { keyboard: true, close, onGotoDefinition, target, reasons });
           dom.addEventListener("keydown", (event) => {
             if (event.key !== "Escape") return;
             event.preventDefault();
@@ -391,7 +404,7 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
         if (equation) dom.append(equationPreview(equation, data.katexMacros, () => destroyed));
         else if (reference.snippet) dom.append(element("pre", "", reference.snippet));
         dom.append(element("em", "", reference.path));
-        return { dom, destroy: () => { destroyed = true; } };
+        return { dom, getCoords: hoverAnchor(view, target.from), destroy: () => { destroyed = true; } };
       },
     };
   });
@@ -417,7 +430,7 @@ export function graphicsTooltips(live: () => LatexEditorLiveData, loadImage: (pa
         let destroyed = false;
         const dom = createHoverCard("reference-hover-card", view, 180);
         dom.append(figurePreview(resolved, resolved, loadImage, () => destroyed), element("em", "", resolved));
-        return { dom, destroy: () => { destroyed = true; } };
+        return { dom, getCoords: hoverAnchor(view, target.from), destroy: () => { destroyed = true; } };
       },
     };
   });

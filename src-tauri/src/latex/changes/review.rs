@@ -20,8 +20,7 @@
 //! new build stopping the one before it.
 
 use super::{
-    build_marked, changes_name, input_loop, latexdiff_output, with_markup, ChangesExports,
-    ChangesPdfOptions, Failed, Runner,
+    changes_name, input_loop, mark_and_build, ChangesExports, ChangesPdfOptions, Runner, Versions,
 };
 use crate::latex::default_root_document;
 use crate::{commands, project};
@@ -53,7 +52,6 @@ pub fn review_changes_pdf(
     }
     let build = root.join(project::REVIEW_DIRECTORY).join("build");
     let (older, newer) = (build.join("older"), build.join("newer"));
-    let marked = changes_name(&document, "tex");
     let outputs = changes_name(document.rsplit('/').next().unwrap_or(&document), "");
     let _ = fs::remove_dir_all(&older);
     mirror(&bases, &older, None)?;
@@ -78,25 +76,9 @@ pub fn review_changes_pdf(
     }
     let latexdiff = commands::resolve("latexdiff");
     let run = Runner { exports, export, capture: &build };
-    let mut first_failure = None;
-    for simplified in [false, true] {
-        let attempt =
-            latexdiff_output(&run, &latexdiff, &older, &newer, &document, OPTIONS, simplified)
-                .and_then(|tex| {
-                    fs::write(newer.join(&marked), with_markup(&tex, OPTIONS))
-                        .map_err(|error| Failed::Attempt(error.to_string()))
-                })
-                .and_then(|()| build_marked(&run, &newer, &marked, &manifest));
-        match attempt {
-            Ok(pdf) => return fs::read(&pdf).map_err(|error| error.to_string()),
-            Err(Failed::Export(reason)) => return Err(reason),
-            Err(Failed::Attempt(reason)) => {
-                log::warn!(target: "lattice::review_pdf", "attempt (simplified: {simplified}) failed: {reason}");
-                first_failure.get_or_insert(reason);
-            }
-        }
-    }
-    Err(first_failure.unwrap_or_default())
+    let versions = Versions { older: &older, newer: &newer, document: &document };
+    let built = mark_and_build(&run, &latexdiff, versions, OPTIONS, &manifest)?;
+    fs::read(&built.pdf).map_err(|error| error.to_string())
 }
 
 /// Put `source`'s files under `target`: the paper's LaTeX copied (only when it
@@ -227,5 +209,35 @@ mod tests {
             "{marked}"
         );
         assert!(!root.join("main-changes.pdf").exists() && !root.join("main.pdf").exists());
+    }
+
+    /// The captain's paper: the base has no `.bbl` (review mode keeps only
+    /// `.tex` and `.bib`), the project has the one its last build wrote, and
+    /// latexdiff flattened that in as added text, marking natbib's
+    /// `\csname urlstyle\endcsname`: "Missing \endcsname inserted", with
+    /// plainer markup too. Both sides now flatten the same bibliography.
+    #[test]
+    #[ignore = "requires latexdiff and a working pdfLaTeX installation"]
+    fn a_bibliography_the_base_lacks_is_not_marked() {
+        let root = TempDir::new("review-bbl");
+        project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+        let paper = |body: &str| {
+            format!("\\documentclass{{article}}\n\\usepackage[numbers]{{natbib}}\n\\begin{{document}}\n{body}~\\citep{{he2016}}.\n\\bibliographystyle{{plainnat}}\n\\bibliography{{refs}}\n\\end{{document}}\n")
+        };
+        root.write("main.tex", paper("Residual networks train deep models"));
+        root.write("refs.bib", "@article{he2016,title={Deep residual learning},author={He, Kaiming},journal={CVPR},year={2016}}\n");
+        project::start_review(&root).unwrap();
+        root.write("main.tex", paper("Residual networks train very deep models"));
+        // What BibTeX wrote for the paper's own build, natbib's header first.
+        root.write("main.bbl", "\\begin{thebibliography}{1}\n\\providecommand{\\natexlab}[1]{#1}\n\\providecommand{\\url}[1]{\\texttt{#1}}\n\\expandafter\\ifx\\csname urlstyle\\endcsname\\relax\n  \\providecommand{\\doi}[1]{doi: #1}\\else\n  \\providecommand{\\doi}{doi: \\begingroup \\urlstyle{rm}\\Url}\\fi\n\n\\bibitem[He(2016)]{he2016}\nKaiming He.\n\\newblock Deep residual learning.\n\\newblock \\emph{CVPR}, 2016.\n\n\\end{thebibliography}\n");
+        let exports = ChangesExports::default();
+        let pdf = review_changes_pdf(&root, &exports, exports.begin()).unwrap();
+        assert!(pdf.starts_with(b"%PDF-"));
+        let marked =
+            fs::read_to_string(root.join(".research/review/build/newer/main-changes.tex")).unwrap();
+        assert!(marked.contains(r"\DIFadd{very }"), "{marked}");
+        // The bibliography is BibTeX's, so none of it is marked.
+        let bibliography = &marked[marked.find("\\begin{thebibliography}").unwrap()..];
+        assert!(!bibliography.contains("\\DIF"), "{bibliography}");
     }
 }

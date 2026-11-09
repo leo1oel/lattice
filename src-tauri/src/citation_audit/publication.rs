@@ -371,7 +371,7 @@ mod tests {
         assert!(!accepts(before, &remote, "10.1234/wrong"));
         assert_eq!(
             fields(&merge_metadata(before, &remote, true).after.unwrap())["booktitle"],
-            "2009 IEEE Conference on Computer Vision and Pattern Recognition"
+            "IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)"
         );
     }
 }

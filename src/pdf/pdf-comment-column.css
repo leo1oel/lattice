@@ -1,10 +1,19 @@
 /* The PDF's comments beside its pages (pdf-comment-column.tsx). Docked, the
    column is a margin of the pages' own ground, closed by a hairline, and the
    pages give it their width (a fitted zoom follows). Folded on a narrow PDF,
-   it opens as a floating panel over the pages' right side. */
-.pdf-scroll-area { --pdf-comment-column-width: 280px; }
-.pdf-scroll-area[data-comment-column] > .pdf-viewer-host { inset-inline-end: var(--pdf-comment-column-width); }
+   it opens as a floating panel over the pages' right side. Either way it is
+   as wide as the writer dragged it (--pdf-comment-column-chosen-width, written
+   by use-pdf-comment-column.ts), short of what the pages must keep, and the
+   pages' scrollbars end at its edge rather than drawing over its cards. */
+.pdf-scroll-area {
+  --pdf-comment-column-chosen-width: 280px;
+  --pdf-comment-column-width: min(var(--pdf-comment-column-chosen-width), 100% - var(--space-12));
+}
+.pdf-scroll-area[data-comment-column="docked"] { --pdf-comment-column-width: min(var(--pdf-comment-column-chosen-width), 100% - 360px); }
+.pdf-scroll-area[data-comment-column="docked"] > .pdf-viewer-host { inset-inline-end: var(--pdf-comment-column-width); }
 .pdf-scroll-area[data-comment-column] > .overlay-scrollbar[data-orientation="vertical"] { inset-inline-end: var(--pdf-comment-column-width); }
+.pdf-scroll-area[data-comment-column] > .overlay-scrollbar[data-orientation="horizontal"] { inset-inline-end: var(--pdf-comment-column-width); width: auto; }
+.pdf-scroll-area[data-comment-column] > .overlay-scrollbar[data-orientation="horizontal"][data-cross-axis] { inset-inline-end: calc(var(--pdf-comment-column-width) + 10px); }
 
 .pdf-comment-column {
   position: absolute;
@@ -12,22 +21,32 @@
   inset-inline-end: 0;
   z-index: 6;
   width: var(--pdf-comment-column-width);
-  max-width: calc(100% - var(--space-12));
   display: flex;
   flex-direction: column;
   background: var(--surface-panel);
   box-shadow: var(--elevation-floating);
 }
 .pdf-comment-column[data-docked] {
-  max-width: none;
   background: transparent;
   box-shadow: inset 1px 0 0 var(--border-subtle);
 }
+/* Over the hairline, so the whole edge takes the drag (app-shell.css draws the grip). */
+.pdf-comment-column > .pdf-comment-column-resizer {
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  inset-inline-start: 0;
+  height: auto;
+  transform: translateX(-50%);
+}
+.pdf-comment-column-resizer:active { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
+.pdf-comment-column:has(> .pdf-comment-column-resizer:active) .pdf-comment-slot { transition: none; }
+/* A drawer's header (workspace-panels.css .drawer-header): the close button
+   centred in a 40px row, clear of the toolbar's line above. */
 .pdf-comment-column-head {
   flex: none;
-  height: var(--control-height-compact);
-  padding-block: var(--space-2);
-  padding-inline: var(--space-5) var(--space-3);
+  height: 40px;
+  padding-inline: var(--space-6) var(--space-4);
 }
 .pdf-comment-column-count {
   color: var(--text-secondary);
@@ -44,6 +63,16 @@
   inset-inline: var(--space-4);
   transition: top var(--motion-moderate);
 }
+/* Opened over the pages, the cards list down from the top and scroll on
+   their own, under the app's overlay scrollbar (scroll-area.tsx). */
+.pdf-comment-column-list { flex: 1; min-height: 0; }
+.pdf-comment-column-list-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-6);
+}
+.pdf-comment-column-list .pdf-comment-slot { position: static; transition: none; }
 .pdf-comment-slot > .comment-card { width: 100%; min-width: 0; max-width: none; }
 .pdf-comment-slot-preview { border-radius: var(--radius-surface); cursor: pointer; }
 /* A resting card is the comment's preview, a step quieter than the open one;

@@ -60,7 +60,7 @@ describe("texlabCompletionSource", () => {
 });
 
 describe("texlabHover", () => {
-  const description = (tooltip: Tooltip | null) => tooltip && (tooltip.create(null as never).dom.textContent ?? "");
+  const description = (tooltip: Tooltip | null) => tooltip && (tooltip.create({} as never).dom.textContent ?? "");
   const hoverAt = (source: string, texlab: boolean) => {
     const pos = source.indexOf("|");
     const state = EditorState.create({ doc: source.replace("|", "") });

@@ -7,9 +7,12 @@
 //! project nor its own build output is touched until the finished PDF is
 //! copied in beside the paper's (`main.tex` → `main-changes.pdf`).
 //!
-//! latexdiff is not robust against every macro, so a document whose marked
-//! version does not build is tried once more with plainer markup: maths,
-//! figures and citations unmarked. Only when that fails too is it an error.
+//! latexdiff is not robust against every macro. Both versions flatten the
+//! same bibliography, and a change whose marks stop TeX is shown unmarked
+//! while the rest keep theirs (`repair`). A document whose marked version
+//! still does not build is tried once more with plainer markup: maths,
+//! figures and citations unmarked. Only when that fails too is it an error,
+//! naming the file and line where TeX stopped.
 //!
 //! Neither latexdiff nor the build may run away (#658): each runs under the
 //! time and memory limits in `guard`, and stops when the writer cancels, the
@@ -20,11 +23,13 @@
 
 mod guard;
 mod input_loop;
+mod repair;
 mod review;
 
 use super::build::engine_args;
 use super::build_log::parse_diagnostics;
 use super::{default_root_document, latexmk};
+use crate::models::{Diagnostic, ProjectManifest};
 use crate::{commands, git, project};
 pub use guard::ChangesExports;
 use guard::{Limits, Ran, Stop, BUILD_LIMITS, LATEXDIFF_LIMITS};
@@ -55,6 +60,8 @@ pub struct ChangesPdf {
     pub path: String,
     /// The first attempt did not build, and this one marks only the prose.
     pub simplified: bool,
+    /// Changes shown without marks, because marked they stopped the build.
+    pub unmarked: usize,
 }
 
 const LATEXDIFF_MISSING: &str = "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again.";
@@ -63,6 +70,10 @@ const LATEXDIFF_MISSING: &str = "latexdiff is not installed. It comes with MacTe
 const PREAMBLE_END: &str = "%DIF END PREAMBLE EXTENSION ADDED BY LATEXDIFF";
 
 const CANCELLED: &str = "The export with changes marked was cancelled.";
+
+/// How many times one attempt shows a change unmarked and builds again
+/// before it gives up: each is a build of the paper.
+const MOST_REPAIRS: usize = 5;
 
 /// Why an attempt did not produce the PDF.
 enum Failed {
@@ -114,27 +125,53 @@ pub fn export_changes_pdf(
         return Err(LATEXDIFF_MISSING.to_string());
     }
     let run = Runner { exports, export, capture: &scratch.0 };
+    let versions = Versions { older: &older, newer: &newer, document: &document };
+    let built = mark_and_build(&run, &latexdiff, versions, options, &manifest)?;
+    let saved = changes_name(&document, "pdf");
+    let target = project::safe_path(root, &saved)?;
+    fs::copy(&built.pdf, &target).map_err(|error| format!("Could not save {saved}: {error}"))?;
+    // Keep it out of version history, like the paper's own PDF.
+    let _ = project::ensure_ignore_line(&root.join(".gitignore"), &format!("/{saved}"));
+    Ok(ChangesPdf { path: saved, simplified: built.simplified, unmarked: built.unmarked })
+}
 
-    let marked = changes_name(&document, "tex");
+/// The two versions latexdiff compares, written out, and the root document's path in each.
+#[derive(Clone, Copy)]
+struct Versions<'a> {
+    older: &'a Path,
+    newer: &'a Path,
+    document: &'a str,
+}
+
+/// The marked PDF, and what it gave up to build.
+struct Built {
+    pdf: PathBuf,
+    simplified: bool,
+    unmarked: usize,
+}
+
+/// latexdiff, then the build in the newer version's folder: every change
+/// marked first, then with plainer markup. The reason the first attempt
+/// failed is the error when neither builds.
+fn mark_and_build(
+    run: &Runner, latexdiff: &Path, versions: Versions, options: ChangesPdfOptions,
+    manifest: &ProjectManifest,
+) -> Result<Built, String> {
+    repair::same_bibliography(versions.older, versions.newer, versions.document)?;
     let mut first_failure = None;
     for simplified in [false, true] {
-        let attempt =
-            latexdiff_output(&run, &latexdiff, &older, &newer, &document, options, simplified)
-                .and_then(|tex| {
-                    fs::write(newer.join(&marked), with_markup(&tex, options))
-                        .map_err(|error| Failed::Attempt(error.to_string()))
-                })
-                .and_then(|()| build_marked(&run, &newer, &marked, &manifest));
+        let attempt = latexdiff_output(
+            run,
+            latexdiff,
+            versions.older,
+            versions.newer,
+            versions.document,
+            options,
+            simplified,
+        )
+        .and_then(|tex| build_repairing(run, versions, with_markup(&tex, options), manifest));
         match attempt {
-            Ok(pdf) => {
-                let saved = changes_name(&document, "pdf");
-                let target = project::safe_path(root, &saved)?;
-                fs::copy(&pdf, &target)
-                    .map_err(|error| format!("Could not save {saved}: {error}"))?;
-                // Keep it out of version history, like the paper's own PDF.
-                let _ = project::ensure_ignore_line(&root.join(".gitignore"), &format!("/{saved}"));
-                return Ok(ChangesPdf { path: saved, simplified });
-            }
+            Ok((pdf, unmarked)) => return Ok(Built { pdf, simplified, unmarked }),
             Err(Failed::Export(reason)) => return Err(reason),
             Err(Failed::Attempt(reason)) => {
                 log::warn!(target: "lattice::changes_pdf", "attempt (simplified: {simplified}) failed: {reason}");
@@ -143,6 +180,49 @@ pub fn export_changes_pdf(
         }
     }
     Err(first_failure.unwrap_or_default())
+}
+
+/// Build the marked document `tex`. When TeX stops inside a change's marks,
+/// that change is shown unmarked and the build runs again, up to
+/// `MOST_REPAIRS` times; the PDF, and how many changes lost their marks.
+fn build_repairing(
+    run: &Runner, versions: Versions, mut tex: String, manifest: &ProjectManifest,
+) -> Result<(PathBuf, usize), Failed> {
+    let marked = changes_name(versions.document, "tex");
+    let marked_name =
+        Path::new(&marked).file_name().map(|name| name.to_string_lossy().into_owned());
+    let (mut unmarked, mut repairs) = (0, 0);
+    loop {
+        fs::write(versions.newer.join(&marked), &tex)
+            .map_err(|error| Failed::Attempt(error.to_string()))?;
+        let error = match build_marked(run, versions.newer, &marked, manifest)? {
+            Ok(pdf) => return Ok((pdf, unmarked)),
+            Err(error) => error,
+        };
+        let in_marked = error.as_ref().filter(|error| error.file == marked_name);
+        let repaired = in_marked
+            .and_then(|error| error.line)
+            .filter(|_| repairs < MOST_REPAIRS)
+            .and_then(|line| repair::unmark_at(&tex, line));
+        match repaired {
+            Some((repaired, count)) => {
+                log::warn!(target: "lattice::changes_pdf", "{count} change(s) shown unmarked: {}", error.as_ref().map_or("", |error| error.message.as_str()));
+                tex = repaired;
+                unmarked += count;
+                repairs += 1;
+            }
+            None => {
+                let (newer, document) = (versions.newer, versions.document);
+                return Err(Failed::Attempt(repair::build_failure(
+                    newer,
+                    document,
+                    &marked,
+                    &tex,
+                    error.as_ref(),
+                )));
+            }
+        }
+    }
 }
 
 /// `paper/main.tex` → `paper/main-changes.<extension>`.
@@ -238,10 +318,11 @@ fn markup_definitions(options: ChangesPdfOptions) -> String {
 }
 
 /// Build the marked document in the newer version's folder, as the paper is
-/// built; the PDF's path, or the first error the log names.
+/// built; the PDF's path, or the first error the log names (`None` when it
+/// names none). `Err` only when latexmk could not start or was stopped.
 fn build_marked(
-    run: &Runner, newer: &Path, marked: &str, manifest: &crate::models::ProjectManifest,
-) -> Result<PathBuf, Failed> {
+    run: &Runner, newer: &Path, marked: &str, manifest: &ProjectManifest,
+) -> Result<Result<PathBuf, Option<Diagnostic>>, Failed> {
     let mut command = latexmk(newer);
     command
         .args(["-interaction=nonstopmode", "-file-line-error", "-halt-on-error"])
@@ -255,15 +336,10 @@ fn build_marked(
     })?;
     let pdf = newer.join(marked).with_extension("pdf");
     if output.status.success() && pdf.is_file() {
-        return Ok(pdf);
+        return Ok(Ok(pdf));
     }
     let log = commands::combined_output(&output);
-    let first_error =
-        parse_diagnostics(&log).into_iter().find(|diagnostic| diagnostic.level == "error");
-    Err(Failed::Attempt(match first_error {
-        Some(error) => format!("The PDF with changes marked did not build: {}", error.message),
-        None => "The PDF with changes marked did not build.".to_string(),
-    }))
+    Ok(Err(parse_diagnostics(&log).into_iter().find(|diagnostic| diagnostic.level == "error")))
 }
 
 /// One export's children, run under its limits and stopped with it.
@@ -498,6 +574,33 @@ mod tests {
             !export_changes_pdf(&root, from.trim(), None, plain, &exports, exports.begin())
                 .unwrap()
                 .simplified
+        );
+    }
+
+    /// A change whose marks stop TeX is shown unmarked and the build runs
+    /// again; the other changes keep their marks.
+    #[test]
+    #[ignore = "requires a working pdfLaTeX installation"]
+    fn a_change_whose_marks_stop_tex_loses_only_its_own() {
+        let newer = TempDir::new("changes-repair");
+        newer.write("main.tex", "x");
+        let tex = format!(
+            "\\documentclass{{article}}\n\\RequirePackage[normalem]{{ulem}}\n\\RequirePackage{{color}}\n\\providecommand{{\\DIFadd}}[1]{{{{\\protect\\color{{blue}}\\uwave{{#1}}}}}}\n\\providecommand{{\\DIFdel}}[1]{{{{\\protect\\color{{red}}\\sout{{#1}}}}}}\n{PREAMBLE_END}\n\\begin{{document}}\nKept \\DIFadd{{marked}}.\n\\expandafter\\ifx\\csname \\DIFadd{{urlstyle}}\\endcsname\\relax\\fi\n\\end{{document}}\n"
+        );
+        let (exports, capture) =
+            (ChangesExports::default(), TempDir::new("changes-repair-capture"));
+        let run = Runner { exports: &exports, export: exports.begin(), capture: &capture };
+        let versions = Versions { older: &newer, newer: &newer, document: "main.tex" };
+        let manifest = project::default_manifest("paper");
+        let Ok((pdf, unmarked)) = build_repairing(&run, versions, tex, &manifest) else {
+            panic!("the marked document did not build");
+        };
+        assert!(fs::read(pdf).unwrap().starts_with(b"%PDF-"));
+        assert_eq!(unmarked, 1);
+        let built = fs::read_to_string(newer.join("main-changes.tex")).unwrap();
+        assert!(
+            built.contains("Kept \\DIFadd{marked}.")
+                && built.contains("\\csname urlstyle\\endcsname")
         );
     }
 }

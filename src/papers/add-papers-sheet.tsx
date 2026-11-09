@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { BookMarked, Check, CircleAlert, CircleDot, Link2, PenLine, Plus } from "lucide-react";
+import { BookMarked, Check, CircleAlert, CircleDot, Library, Link2, PenLine, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { addQueueRunning, clearAddQueue, getAddQueue, subscribeAddQueue, type PaperAddItem } from "./add-papers-queue";
 import { Button } from "../components/ui/button";
@@ -27,6 +27,7 @@ import {
   type PastedReference, type ReferenceKind,
 } from "./paper-add";
 import { paperShortAuthors } from "./paper-identity";
+import { ZoteroBrowser, type ZoteroBrowserHandle, type ZoteroPaper } from "./zotero-browser";
 import "./add-papers-sheet.css";
 import { joinPhrases } from "../i18n";
 
@@ -64,7 +65,7 @@ export function AddPapersSheet(props: {
   /** An import holds the pipeline: the Papers box's, Find literature's, or this sheet's batch. */
   importing: boolean;
   onResolve: (query: string) => Promise<ResolvedCitationDraft>;
-  onAdd: (items: Array<Pick<PaperAddItem, "id" | "input" | "label">>) => void;
+  onAdd: (items: Array<Pick<PaperAddItem, "id" | "input" | "label" | "pdf">>) => void;
   onStop: () => void;
   onEnterManually: () => void;
   /** Open the linked library: a reference manager's .bib, whose changes come in on request. */
@@ -88,6 +89,10 @@ export function AddPapersSheet(props: {
     return () => window.clearTimeout(timer);
   }, [settled, text]);
   const references = useMemo(() => parsePastedReferences(settled), [settled]);
+  // The Zotero library, browsed in place of the paste box (zotero-browser.tsx).
+  const [zotero, setZotero] = useState(false);
+  const [zoteroTicked, setZoteroTicked] = useState(0);
+  const zoteroRef = useRef<ZoteroBrowserHandle>(null);
   const [lookups, setLookups] = useState<Record<string, Lookup>>({});
   // Lookups sent and not yet answered; their rows read as looking up meanwhile.
   const pendingRef = useRef(new Set<string>());
@@ -175,13 +180,31 @@ export function AddPapersSheet(props: {
   const failed = count("failed");
   const addable = rows.filter((row) => row.state === "new" && row.importInput);
   const shown = tab === "all" ? rows : rows.filter((row) => row.state === tab);
-  const tabs: Array<[Tab, string]> = [["all", t`All`], ["new", t`New`], ["duplicate", t`Already in Papers`], ["choose", t`Choose one`]];
+  // A tab with nothing in it is left out (All aside, and the one in view).
+  const tabs: Array<[Tab, string]> = ([["all", t`All`], ["new", t`New`], ["duplicate", t`Already in Papers`], ["choose", t`Several matches`]] as Array<[Tab, string]>)
+    .filter(([id]) => id === "all" || id === tab || counts[id] > 0);
   const kindLabels: Record<ReferenceKind, string> = { arxiv: "arXiv", doi: "DOI", url: t`Link`, bibtex: "BibTeX", title: t`Title` };
 
   const add = () => {
     if (!addable.length || adding || importingElsewhere) return;
     setAddedFrom(addable);
-    props.onAdd(addable.map((row) => ({ id: row.reference.id, input: row.importInput ?? row.reference.input, label: row.title })));
+    props.onAdd(addable.map((row) => ({
+      id: row.reference.id,
+      input: row.importInput ?? row.reference.input,
+      label: row.title,
+    })));
+  };
+  // Ticked Zotero papers go to the same queue, each with its PDF attachment;
+  // the sheet then shows them being added.
+  const addFromZotero = (papers: ZoteroPaper[]) => {
+    if (!papers.length || adding || importingElsewhere) return;
+    const id = (paper: ZoteroPaper) => `zotero:${paper.item.citationKey}`;
+    setAddedFrom(papers.map((paper): Row => ({
+      reference: { id: id(paper), kind: "bibtex", input: paper.item.bibtex, label: paper.item.citationKey },
+      state: "new", title: paper.title, byline: paper.byline,
+    })));
+    props.onAdd(papers.map((paper) => ({ id: id(paper), input: paper.item.bibtex, label: paper.title, pdf: paper.item.pdf ?? undefined })));
+    setZotero(false);
   };
   const moveTab = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowRight: 1, ArrowLeft: -1, Home: -Infinity, End: Infinity }[event.key];
@@ -265,8 +288,22 @@ export function AddPapersSheet(props: {
   };
 
   return (
-    <SheetDialog className="add-papers-sheet" label={t`Add papers`} dirty={Boolean(text.trim()) && !queued} onClose={onClose}>
+    <SheetDialog
+      className="add-papers-sheet"
+      label={t`Add papers`}
+      dirty={(Boolean(text.trim()) && !queued) || (zotero && !batch && zoteroTicked > 0)}
+      onClose={onClose}
+      onEscapeKeyDown={(event) => {
+        // Escape steps back inside the Zotero browser before it closes the sheet.
+        if (!zotero || batch) return;
+        event.preventDefault();
+        if (!zoteroRef.current?.escape()) setZotero(false);
+      }}
+    >
       <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={t`Add papers`} onClose={onClose} />
+      {zotero && !batch ? (
+        <ZoteroBrowser handle={zoteroRef} papers={props.papers} busy={importingElsewhere || adding} onAdd={addFromZotero} onTicked={setZoteroTicked} onBack={() => setZotero(false)} />
+      ) : (<>
       <div className="add-papers-body">
         {!batch && (
           <label className="add-papers-paste">
@@ -302,9 +339,13 @@ export function AddPapersSheet(props: {
               <Link2 size={13} aria-hidden="true" />
               {t`Linked library…`}
             </Button>
+            <Button variant="ghost" size="compact" onClick={() => setZotero(true)}>
+              <Library size={13} aria-hidden="true" />
+              {t`Zotero…`}
+            </Button>
           </div>
         )}
-        {!listed.length ? (
+        {!(batch ?? rows).length ? (
           <div className="add-papers-empty">
             <ResearchArt drawing={CATALOGUE_DRAWER} />
           </div>
@@ -402,6 +443,7 @@ export function AddPapersSheet(props: {
           </>
         )}
       </div>
+      </>)}
     </SheetDialog>
   );
 }
@@ -412,7 +454,8 @@ function CiteCopy({ citationKey }: { citationKey: string }) {
   const command = `\\cite{${citationKey}}`;
   return (
     <CopyButton className="add-papers-cite" text={command} iconSize={11} title={t`Copy \\cite command`} aria-label={t`Copy ${command}`}>
-      <code>{citationKey}</code>
+      {/* A long key truncates; hovering it shows the whole key (the button copies it whole). */}
+      <code title={citationKey}>{citationKey}</code>
     </CopyButton>
   );
 }

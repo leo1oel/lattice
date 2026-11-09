@@ -17,7 +17,11 @@ export type HostFileWritesMessage = {
   writes: Array<{ path: string; writtenAt: string }>;
 };
 
-type Sink = (message: HostFileWritesMessage) => void;
+/**
+ * Hands a report to the ready panel frame; false when that frame cannot take
+ * it (another project's panel), so the writes stay pending for the next one.
+ */
+type Sink = (message: HostFileWritesMessage) => boolean;
 
 /** Coalesces a burst (a sync's pulls, realtime keystrokes) into one message. */
 const FLUSH_DELAY_MS = 250;
@@ -40,19 +44,21 @@ function flush() {
   if (!sink) return;
   const cutoff = Date.now() - UNSENT_RETENTION_MS;
   for (const [workspaceRoot, paths] of pending) {
-    const writes = [...paths]
-      .filter(([, writtenAt]) => writtenAt >= cutoff)
-      .map(([path, writtenAt]) => ({ path, writtenAt: new Date(writtenAt).toISOString() }));
-    for (let start = 0; start < writes.length; start += MAX_WRITES_PER_MESSAGE) {
-      sink({
+    for (const [path, writtenAt] of paths) if (writtenAt < cutoff) paths.delete(path);
+    const writes = [...paths].map(([path, writtenAt]) => ({ path, writtenAt: new Date(writtenAt).toISOString() }));
+    let delivered = true;
+    for (let start = 0; delivered && start < writes.length; start += MAX_WRITES_PER_MESSAGE) {
+      delivered = sink({
         type: LATTICE_HOST_FILE_WRITES,
         version: 1,
         workspaceRoot,
         writes: writes.slice(start, start + MAX_WRITES_PER_MESSAGE),
       });
     }
+    // A refused report is kept whole: resending a part the panel already took
+    // only refreshes the same paths on its turn.
+    if (delivered || !paths.size) pending.delete(workspaceRoot);
   }
-  pending.clear();
 }
 
 function schedule() {
@@ -79,7 +85,11 @@ export function noteHostFileWrites(workspaceRoot: string | null | undefined, pat
   if (noted) schedule();
 }
 
-/** The ready panel frame's postMessage, or null while there is none. */
+/**
+ * The ready panel frame's postMessage, or null while there is none: the host
+ * clears it the moment the frame starts reloading, so a write noted then waits
+ * here for the reloaded panel instead of going to a document that is unloading.
+ */
 export function setHostFileWritesSink(next: Sink | null) {
   sink = next;
   if (sink && pending.size) schedule();

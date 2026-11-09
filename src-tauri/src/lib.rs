@@ -50,6 +50,7 @@ mod macos_window;
 mod macos_window;
 mod models;
 mod native_locale;
+mod open_slide_presenter;
 mod openalex;
 mod overleaf;
 mod overleaf_rt;
@@ -57,6 +58,7 @@ mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
 mod pdf_pages;
+mod pdf_window;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
 mod platform_fs;
@@ -99,6 +101,7 @@ mod wide_event;
 mod windows_tests;
 #[cfg(target_os = "linux")]
 mod xlib_threads;
+mod zotero;
 
 use app_state::AppState;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
@@ -112,6 +115,13 @@ const MAIN_WINDOW_LABEL: &str = "main";
 pub(crate) fn is_workspace_window(label: &str) -> bool {
     label == MAIN_WINDOW_LABEL
         || label.strip_prefix("project-").is_some_and(|rest| !rest.is_empty())
+}
+
+/// Whether the window-state plugin remembers and restores the window
+/// `label`. Not a browser bridge, which must stay hidden (the plugin's restore
+/// shows it), nor a PDF window, placed per project instead (pdf_window.rs).
+fn window_state_tracks(label: &str) -> bool {
+    !label.starts_with("browser-") && !pdf_window::is_pdf_window(label)
 }
 
 /// Whether Lattice keeps running once its last window has closed. A Mac app
@@ -157,7 +167,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
         .min_inner_size(640.0, 680.0)
         .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF))
         .on_new_window(|url, _| {
-            if is_open_slide_presenter_url(&url) {
+            if open_slide_presenter::is_presenter_url(&url) {
                 tauri::webview::NewWindowResponse::Allow
             } else {
                 tauri::webview::NewWindowResponse::Deny
@@ -199,6 +209,7 @@ fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
 }
 
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    pdf_window::on_window_event(window, event);
     if let tauri::WindowEvent::Focused(is_focused) = event {
         macos_window::set_window_focused(window.label(), *is_focused);
     }
@@ -236,6 +247,12 @@ fn on_page_load<R: Runtime>(
     webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
 ) {
     if payload.event() == tauri::webview::PageLoadEvent::Started {
+        // A PDF window's page shows its owner's project and owns none of this.
+        if pdf_window::is_pdf_window(webview.label()) {
+            return;
+        }
+        // The new page opens its PDF window again if its project keeps one.
+        pdf_window::close_owned(webview.app_handle(), webview.label());
         // The new page enables saving before close again once it can.
         save_before_close::forget(webview.app_handle(), webview.label());
         git::clone::cancel(webview.label());
@@ -407,9 +424,7 @@ pub fn run() {
         // builder says `visible(false)`, so bridge windows must stay outside
         // this lifecycle entirely.
         .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| !label.starts_with("browser-"))
-                .build(),
+            tauri_plugin_window_state::Builder::default().with_filter(window_state_tracks).build(),
         )
         .on_window_event(on_window_event)
         .on_page_load(on_page_load)
@@ -473,7 +488,7 @@ pub fn run() {
             ipc::windows::open_app_log_dir,
             save_before_close::restart_lattice,
             app_restart::claim_update_install,
-            app_restart::finish_update_install,
+            app_restart::install_update,
             app_restart::set_agent_turn_running,
             app_restart::restart_impact,
             ipc::windows::set_window_material,
@@ -482,6 +497,8 @@ pub fn run() {
             ipc::windows::align_traffic_lights,
             ipc::windows::title_bar_double_click,
             ipc::windows::sample_screen_color,
+            pdf_window::open_pdf_window,
+            pdf_window::close_pdf_window,
             ipc::files::list_project_tree_with_hidden,
             ipc::files::stat_project_file,
             ipc::files::find_moved_project_file,
@@ -550,6 +567,8 @@ pub fn run() {
             ipc::papers::search_paper_library,
             ipc::papers::read_paper,
             ipc::papers::read_paper_blog_local,
+            ipc::papers::zotero_library,
+            ipc::papers::attach_zotero_pdf,
             ipc::build::build_project,
             ipc::build::compile_repair,
             ipc::build::agent_text_task,
@@ -578,6 +597,8 @@ pub fn run() {
             ipc::build::texlab_definition,
             ipc::build::start_tex_install,
             ipc::build::start_tex_dependency_install,
+            ipc::build::check_tex_package_updates,
+            ipc::build::start_tex_package_update,
             ipc::live_preview::live_preview_status,
             ipc::live_preview::live_preview_install,
             ipc::live_preview::live_preview_remove,
@@ -633,13 +654,14 @@ pub fn run() {
             ipc::overleaf::overleaf_accept_changes,
             ipc::overleaf::overleaf_change_authors,
             ipc::overleaf::overleaf_delete_entity,
-            ipc::overleaf::overleaf_threads,
-            ipc::overleaf::overleaf_comment_anchors,
-            ipc::overleaf::overleaf_edit_message,
-            ipc::overleaf::overleaf_delete_message,
-            ipc::overleaf::overleaf_reply_to_thread,
-            ipc::overleaf::overleaf_resolve_thread,
-            ipc::overleaf::overleaf_delete_thread,
+            ipc::overleaf_comments::overleaf_threads,
+            ipc::overleaf_comments::overleaf_comment_anchors,
+            ipc::overleaf_comments::overleaf_edit_message,
+            ipc::overleaf_comments::overleaf_delete_message,
+            ipc::overleaf_comments::overleaf_reply_to_thread,
+            ipc::overleaf_comments::overleaf_comment_in_document,
+            ipc::overleaf_comments::overleaf_resolve_thread,
+            ipc::overleaf_comments::overleaf_delete_thread,
             ipc::overleaf::overleaf_preview,
             ipc::overleaf::overleaf_set_paused,
             ipc::overleaf::overleaf_probe,
@@ -660,6 +682,7 @@ pub fn run() {
             literature_credentials::set_literature_contact,
             literature_credentials::test_literature_credential,
             diagnostic_logs::collect_diagnostic_logs,
+            diagnostic_logs::save_problem_report,
             browser_host::dialogs::browser_dialog_open,
             browser_host::dialogs::browser_dialog_save,
             macos_window::set_pdf_copy_text,
@@ -703,7 +726,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_open_slide_presenter_url, is_workspace_window, keeps_running_without_windows, log_level,
+        is_workspace_window, keeps_running_without_windows, log_level, window_state_tracks,
     };
 
     #[test]
@@ -725,6 +748,16 @@ mod tests {
     }
 
     #[test]
+    fn window_state_skips_bridge_and_pdf_windows() {
+        for label in ["main", "project-2"] {
+            assert!(window_state_tracks(label), "{label}");
+        }
+        for label in ["browser-1", "pdf-1"] {
+            assert!(!window_state_tracks(label), "{label}");
+        }
+    }
+
+    #[test]
     fn lattice_log_overrides_the_build_default_level() {
         assert_eq!(log_level(Some("debug")), log::LevelFilter::Debug);
         assert_eq!(log_level(Some(" WARN ")), log::LevelFilter::Warn);
@@ -732,22 +765,5 @@ mod tests {
             if cfg!(debug_assertions) { log::LevelFilter::Debug } else { log::LevelFilter::Info };
         assert_eq!(log_level(Some("verbose")), default);
         assert_eq!(log_level(None), default);
-    }
-
-    #[test]
-    fn only_authenticated_loopback_presenter_pages_can_open_popup_windows() {
-        let allowed: tauri::Url = "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk%2Fpresenter"
-            .parse()
-            .unwrap();
-        assert!(is_open_slide_presenter_url(&allowed));
-
-        for rejected in [
-            "https://example.com/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk%2Fpresenter",
-            "http://127.0.0.1:43123/__lattice/bootstrap?next=%2Fs%2Ftalk%2Fpresenter",
-            "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk",
-            "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fsettings",
-        ] {
-            assert!(!is_open_slide_presenter_url(&rejected.parse().unwrap()), "{rejected}");
-        }
     }
 }

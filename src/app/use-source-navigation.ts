@@ -17,12 +17,13 @@ import { isProjectAssetFilePath, resolveKnownWholeFileProjectPath } from "../app
 import { showingErrors } from "./notify";
 import { submitSymbolRename, type ReferenceHits } from "./symbol-rename-action";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
+import type { EditorComments } from "./use-editor-comments";
 import type { OpenDocuments } from "./use-open-documents";
 import type { useProjectLibrary } from "./use-project-library";
 import type { useProjectTree } from "./use-project-tree";
 
 export function useSourceNavigation({
-  project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree, openProjectPathRef,
+  project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree, openProjectPathRef, editorComments,
 }: {
   project: ProjectSnapshot | null;
   projectRef: RefObject<ProjectSnapshot | null>;
@@ -34,10 +35,12 @@ export function useSourceNavigation({
   tree: Pick<ReturnType<typeof useProjectTree>, "openFileFromClick" | "openAssetFromClick">;
   /** Where the agent's links reach `openMarkdownProjectPath`: the Synara host is set up before it. */
   openProjectPathRef: RefObject<(path: string) => void>;
+  editorComments: Pick<EditorComments, "renameCitationKey">;
 }) {
   const { t } = useLingui();
   const { file: activeFile, text: source, openFile, openAsset, openPaper, load: loadFile } = documents;
   const { applyBibliographyIndex, refreshUnusedSymbols, refreshHistory } = library;
+  const { renameCitationKey } = editorComments;
   const { openFileFromClick: openProjectFileFromClick, openAssetFromClick: openProjectAssetFromClick } = tree;
   const [referenceHits, setReferenceHits] = useState<ReferenceHits | null>(null);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
@@ -107,11 +110,11 @@ export function useSourceNavigation({
     if (!renameTarget) return;
     await submitSymbolRename(renameTarget, name, {
       activeFile, loadFile, applyBibliographyIndex, refreshUnusedSymbols, refreshHistory, forgetIncludedSources,
-      setReferenceHits, showSymbolReferences, updateCanvasRequest, setRenameError, setRenameTarget,
+      setReferenceHits, showSymbolReferences, updateCanvasRequest, setRenameError, setRenameTarget, renameCitationKey,
     });
   }, [
     activeFile, forgetIncludedSources, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, showSymbolReferences,
-    updateCanvasRequest, applyBibliographyIndex,
+    updateCanvasRequest, applyBibliographyIndex, renameCitationKey,
   ]);
 
   const findSymbolReferences = useCallback((target: SymbolTarget) => showingErrors(

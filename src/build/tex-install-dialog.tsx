@@ -14,6 +14,7 @@ function useStageCopy(): Record<TexInstallStage, readonly [stage: string, detail
     downloading: [t`Downloading BasicTeX…`, ""],
     authorizing: [t`Waiting for administrator approval…`, t`Approve the macOS prompt to continue`],
     "installing-base": [t`Installing BasicTeX…`, ""],
+    "updating-base": [t`Updating LaTeX packages…`, t`Can take up to 15 minutes`],
     "installing-packages": [t`Installing LaTeX packages…`, t`Can take up to 15 minutes`],
     "installing-tools": [t`Installing required tools…`, ""],
     verifying: [t`Verifying installation…`, ""],

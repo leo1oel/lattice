@@ -11,15 +11,21 @@ const deferred = <T,>() => {
   return { promise, resolve };
 };
 
-type RepairOptions = Parameters<typeof useCompileRepair>[0];
+type RepairOptions = Omit<Parameters<typeof useCompileRepair>[0], "agent"> & {
+  runtimeMode: Parameters<typeof useCompileRepair>[0]["agent"]["permissionMode"];
+  agentSession: string | null;
+};
 
 /** Render the hook with defaults; `rerender` merges option changes over them. */
 function renderRepair(options: Partial<RepairOptions> = {}) {
   const onComplete = vi.fn(async () => {});
-  const hook = renderHook((changes: Partial<RepairOptions>) => useCompileRepair({
-    projectRoot: "/paper", rootDocument: undefined, runtimeMode: "auto", enabled: true,
-    save: async () => true, onComplete, ...options, ...changes,
-  }), { initialProps: {} });
+  const hook = renderHook((changes: Partial<RepairOptions>) => {
+    const { runtimeMode, agentSession, ...rest }: RepairOptions = {
+      projectRoot: "/paper", rootDocument: undefined, runtimeMode: "auto", agentSession: null, enabled: true,
+      save: async () => true, onComplete, ...options, ...changes,
+    };
+    return useCompileRepair({ ...rest, agent: { permissionMode: runtimeMode, agentSession } });
+  }, { initialProps: {} });
   return { ...hook, onComplete };
 }
 
@@ -159,6 +165,146 @@ describe("user-triggered compile repair", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); await work; });
     expect(result.current.busy).toBe(false);
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  // S9 in the implicit-state audit: an agent restarted mid-repair answers
+  // every status with an error (or not at all), and polling retried forever
+  // with the editor read-only and Cancel unable to reach the task.
+  const LOST = "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got.";
+  // The relay's answer when the service does not know the thread (synara.rs TASK_UNKNOWN).
+  it("gives up on a task the agent service no longer knows", async () => {
+    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => { throw "agent_task_unknown"; } });
+    const { result, onComplete } = renderRepair();
+    await act(async () => { await result.current.start([diagnostic]); });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toEqual({ status: "failed", threadId: "repair-1", message: LOST });
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  // A transport failure or a slow Cancel does not prove the provider stopped
+  // writing: only a terminal status, a restart or an unknown task releases the editor.
+  it("keeps the editor locked through status failures, before and after Cancel", async () => {
+    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => { throw new Error("connection refused"); } });
+    const { result } = renderRepair();
+    await act(async () => { void result.current.start([diagnostic]); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(result.current.busy).toBe(true);
+    await act(async () => { await result.current.cancel(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(result.current.busy).toBe(true);
+    expect(result.current.state?.message).toContain("connection refused");
+  });
+
+  it("keeps following the task and shows why when Cancel cannot reach the service", async () => {
+    mockRepair({
+      start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }),
+      cancel: () => { throw new Error("The agent service is unavailable."); },
+    });
+    const { result } = renderRepair();
+    await act(async () => { void result.current.start([diagnostic]); });
+    await act(async () => { await result.current.cancel(); });
+    expect(result.current.busy).toBe(true);
+    expect(result.current.state?.message).toContain("The agent service is unavailable.");
+  });
+
+  it("offers an unlock once a cancelled task has not stopped, and releases the editor only when asked", async () => {
+    mockRepair({ start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }), cancel: () => ({}) });
+    const { result } = renderRepair();
+    await act(async () => { void result.current.start([diagnostic]); });
+    expect(result.current.state?.stopping).toBeFalsy();
+    await act(async () => { await result.current.cancel(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(9_000); });
+    expect(result.current.state?.stopping).toBeFalsy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(result.current.state).toMatchObject({ status: "running", stopping: true });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(result.current.busy).toBe(true);
+    expect(result.current.state?.stopping).toBe(true);
+    vi.mocked(invoke).mockClear();
+    act(() => { result.current.unlock(); });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toEqual({
+      status: "failed", threadId: "repair-1",
+      message: "Editor unlocked while the repair may still be running. Open Agent to see how far it got.",
+    });
+    expect(invoke).toHaveBeenCalledWith("compile_repair", { action: "cancel", projectRoot: "/paper", threadId: "repair-1" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(invoke).not.toHaveBeenCalledWith("compile_repair", expect.objectContaining({ action: "status" }));
+  });
+
+  // A restarted service reloads the task's persisted session, which may still
+  // say running: the restart itself is the signal.
+  it("releases the editor when the agent service restarts under a running repair", async () => {
+    mockRepair({ start: () => ({ threadId: "repair-1", runtimeSession: "token-1" }), status: () => ({ status: "running" }) });
+    const { result, rerender } = renderRepair({ agentSession: "token-1" });
+    await act(async () => { void result.current.start([diagnostic]); });
+    rerender({ agentSession: null });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
+    expect(invoke).toHaveBeenCalledWith("compile_repair", { action: "cancel", projectRoot: "/paper", threadId: "repair-1" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
+  });
+
+  // The task is done once it reports completed: a restart during the
+  // recompile that follows has no task left to lose.
+  it("reports a completed repair as completed when the agent service restarts during its recompile", async () => {
+    const recompiled = deferred<void>();
+    mockRepair({ start: () => ({ threadId: "repair-1", runtimeSession: "token-1" }), status: () => ({ status: "completed" }) });
+    const { result, rerender } = renderRepair({ agentSession: "token-1", onComplete: () => recompiled.promise });
+    let work!: Promise<void>;
+    await act(async () => { work = result.current.start([diagnostic]); });
+    expect(result.current.state?.status).toBe("compiling");
+    rerender({ agentSession: null });
+    act(() => { result.current.unlock(); });
+    expect(result.current.state?.status).toBe("compiling");
+    await act(async () => { recompiled.resolve(); await work; });
+    expect(result.current.state).toEqual({ status: "completed", threadId: "repair-1" });
+    expect(invoke).not.toHaveBeenCalledWith("compile_repair", expect.objectContaining({ action: "cancel" }));
+  });
+
+  // Fix all asks for the runtime and starts the repair at once, so the
+  // service's identity often arrives only after the repair began.
+  it("follows the agent service that becomes known after the repair started, and its restart", async () => {
+    mockRepair({ start: () => ({ threadId: "repair-1", runtimeSession: "token-1" }), status: () => ({ status: "running" }) });
+    const { result, rerender } = renderRepair({ agentSession: null });
+    await act(async () => { void result.current.start([diagnostic]); });
+    rerender({ agentSession: "token-1" });
+    expect(result.current.busy).toBe(true);
+    rerender({ agentSession: null });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
+  });
+
+  // A sidecar that exited on its own is started again by the repair's start
+  // request, which announces the restart: the window moves from the dead
+  // service to null to the one that took the task, which is no loss.
+  it("keeps a repair whose start restarted the agent service, and gives it up when that service goes", async () => {
+    const started = deferred<unknown>();
+    mockRepair({ start: () => started.promise, status: () => ({ status: "running" }) });
+    const { result, rerender } = renderRepair({ agentSession: "token-1" });
+    await act(async () => { void result.current.start([diagnostic]); });
+    rerender({ agentSession: null });
+    await act(async () => { started.resolve({ threadId: "repair-1", runtimeSession: "token-2" }); });
+    rerender({ agentSession: "token-2" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(result.current.busy).toBe(true);
+    expect(invoke).not.toHaveBeenCalledWith("compile_repair", expect.objectContaining({ action: "cancel" }));
+    rerender({ agentSession: null });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toMatchObject({ status: "failed", message: LOST });
+  });
+
+  it("gives up on a task Cancel finds the agent service no longer knows", async () => {
+    mockRepair({
+      start: () => ({ threadId: "repair-1" }), status: () => ({ status: "running" }),
+      cancel: () => { throw "agent_task_unknown"; },
+    });
+    const { result } = renderRepair();
+    await act(async () => { void result.current.start([diagnostic]); });
+    await act(async () => { await result.current.cancel(); });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.state).toEqual({ status: "failed", threadId: "repair-1", message: LOST });
   });
 
   it("does not start in a read-only project or after save failure", async () => {

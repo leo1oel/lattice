@@ -119,7 +119,7 @@ pub fn return_to_desktop(
     browser.return_to_desktop(&app, &state, window.label())
 }
 
-fn app_log_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn app_log_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_log_dir()

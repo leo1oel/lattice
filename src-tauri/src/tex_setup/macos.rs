@@ -4,9 +4,13 @@
 
 use super::installer::{
     basic_tex_script, dependency_install_error, dependency_script, extract_uv_archive,
-    install_error, installer_stage_progress, privileged_command, tex_live_package_for_file,
-    tex_live_year, valid_tex_dependency_name, BASIC_TEX, BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES,
-    REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
+    install_error, install_warning, installer_stage_progress, package_update_error,
+    package_update_script, privileged_command, tex_live_package_for_file, tex_live_year,
+    valid_tex_dependency_name, BASIC_TEX, BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS,
+    UV, UV_ARCHIVE_ROOT,
+};
+use super::package_updates::{
+    is_basic_tex_root, parse_update_list, update_list_failure, TexPackageUpdates, UPDATE_COMMAND,
 };
 use super::{TexInstallMode, TexInstallProgress};
 use crate::commands;
@@ -18,12 +22,14 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
 
 type Progress = Channel<TexInstallProgress>;
 
-pub fn install_tex(mode: TexInstallMode, on_progress: &Progress) -> Result<(), String> {
+/// Install TeX (or only the required tools). `Ok(Some(warning))` is a working
+/// install whose package update failed.
+pub fn install_tex(mode: TexInstallMode, on_progress: &Progress) -> Result<Option<String>, String> {
     let _install_guard = InstallGuard::acquire()?;
     let workspace = Workspace::create()?;
     if mode == TexInstallMode::ToolsOnly {
@@ -37,7 +43,7 @@ pub fn install_tex(mode: TexInstallMode, on_progress: &Progress) -> Result<(), S
         verify_reusable_tex_as_current_user()?;
         verify_uv_as_current_user()?;
         send_progress(on_progress, "complete", 1.0);
-        return Ok(());
+        return Ok(None);
     }
 
     let package_path = workspace.0.join("BasicTeX.pkg");
@@ -65,11 +71,133 @@ pub fn install_tex(mode: TexInstallMode, on_progress: &Progress) -> Result<(), S
     send_progress(on_progress, "downloading", 0.55);
 
     let script = basic_tex_script(&package_path, &root_path, install_base);
-    run_privileged_installer(&script, &root_path, on_progress, Privileged::BasicTex)?;
+    let output = run_privileged_installer(&script, &root_path, on_progress, Privileged::BasicTex)?;
+    let warning = install_warning(&output);
+    if let Some(warning) = &warning {
+        log::warn!(target: "lattice::tex-setup", "{warning}");
+    }
     ensure_uv_installed(&workspace.0, on_progress, 0.94, 0.97)?;
     send_progress(on_progress, "verifying", 0.98);
     verify_tex_install_as_current_user()?;
     verify_uv_as_current_user()?;
+    send_progress(on_progress, "complete", 1.0);
+    Ok(warning)
+}
+
+/// How long the doctor waits for the repository's package list, across every
+/// repository it tries: it answers a Settings page, offline included.
+const UPDATE_LIST_TIMEOUT: Duration = Duration::from_secs(45);
+const FALLBACK_REPOSITORIES: [&str; 2] = [
+    "https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet",
+    "https://mirrors.ustc.edu.cn/CTAN/systems/texlive/tlnet",
+];
+
+/// The installed packages with updates, `None` without a tlmgr to ask.
+/// Runs as the signed-in user: listing changes nothing.
+pub fn check_package_updates() -> Option<TexPackageUpdates> {
+    let tlmgr = commands::resolve("tlmgr");
+    if !tlmgr.is_file() {
+        return None;
+    }
+    let managed = managed_tex(&tlmgr);
+    let deadline = Instant::now() + UPDATE_LIST_TIMEOUT;
+    let mut failures = Vec::new();
+    for repository in std::iter::once(None).chain(FALLBACK_REPOSITORIES.map(Some)) {
+        let mut command = Command::new(&tlmgr);
+        if let Some(repository) = repository {
+            command.args(["--repository", repository]);
+        }
+        command.args(["update", "--list", "--machine-readable"]);
+        match output_before(command, deadline) {
+            Ok(output) if output.status.success() => {
+                let packages = parse_update_list(&String::from_utf8_lossy(&output.stdout));
+                return Some(TexPackageUpdates { managed, packages, error: None });
+            }
+            Ok(output) => failures.push(
+                update_list_failure(&String::from_utf8_lossy(&output.stderr))
+                    .unwrap_or_else(|| command_failure_detail(&output)),
+            ),
+            Err(error) => {
+                failures.push(error);
+                break;
+            }
+        }
+    }
+    failures.dedup();
+    let error = Some(failures.join("\n"));
+    Some(TexPackageUpdates { managed, packages: Vec::new(), error })
+}
+
+/// Whether the TeX at `tlmgr` is a BasicTeX tree, by the kpsewhich beside it.
+fn managed_tex(tlmgr: &Path) -> bool {
+    let Some(kpsewhich) = tlmgr.parent().map(|parent| parent.join("kpsewhich")) else {
+        return false;
+    };
+    Command::new(kpsewhich).arg("-var-value=TEXMFROOT").output().is_ok_and(|output| {
+        output.status.success() && is_basic_tex_root(&String::from_utf8_lossy(&output.stdout))
+    })
+}
+
+/// `command`'s output, killing it (and whatever it started) at `deadline`.
+fn output_before(mut command: Command, deadline: Instant) -> Result<Output, String> {
+    commands::in_new_process_group(&mut command);
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not run tlmgr: {error}"))?;
+    // Read both pipes while waiting: a full pipe would stall tlmgr.
+    let drain = |pipe: Option<Box<dyn Read + Send>>| {
+        thread::spawn(move || {
+            let mut bytes = Vec::new();
+            if let Some(mut pipe) = pipe {
+                let _ = pipe.read_to_end(&mut bytes);
+            }
+            bytes
+        })
+    };
+    let stdout = drain(child.stdout.take().map(|pipe| Box::new(pipe) as _));
+    let stderr = drain(child.stderr.take().map(|pipe| Box::new(pipe) as _));
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(100)),
+            result => {
+                commands::signal_process_group(child.id(), libc::SIGKILL);
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(match result {
+                    Err(error) => format!("Could not wait for tlmgr: {error}"),
+                    _ => format!(
+                        "The TeX Live repository did not answer within {} seconds.",
+                        UPDATE_LIST_TIMEOUT.as_secs()
+                    ),
+                });
+            }
+        }
+    };
+    let stdout = stdout.join().unwrap_or_default();
+    let stderr = stderr.join().unwrap_or_default();
+    Ok(Output { status, stdout, stderr })
+}
+
+/// Update tlmgr and every installed package of the BasicTeX Lattice manages,
+/// behind the same administrator prompt as the install.
+pub fn update_packages(on_progress: &Progress) -> Result<(), String> {
+    let _install_guard = InstallGuard::acquire()?;
+    let tlmgr = commands::resolve("tlmgr");
+    if !tlmgr.is_file() {
+        return Err("TeX Live's package manager is not installed.".into());
+    }
+    if !managed_tex(&tlmgr) {
+        return Err(format!(
+            "Lattice only updates the BasicTeX it installs. In Terminal: {UPDATE_COMMAND}"
+        ));
+    }
+    let root_path = privileged_root("lattice-tex-update-root");
+    let script = package_update_script(&root_path, &tlmgr);
+    run_privileged_installer(&script, &root_path, on_progress, Privileged::PackageUpdate)?;
     send_progress(on_progress, "complete", 1.0);
     Ok(())
 }
@@ -354,16 +482,19 @@ enum Privileged<'a> {
     BasicTex,
     /// The package for this missing file.
     Dependency(&'a str),
+    PackageUpdate,
 }
 
 /// Run `script` as root behind the administrator prompt, relaying the stages
-/// it writes to `<root>/status` as progress.
+/// it writes to `<root>/status` as progress. Returns what the script wrote to
+/// its original stdout (fd 4 in installer-prelude.sh).
 fn run_privileged_installer(
     script: &str, root: &Path, on_progress: &Progress, install: Privileged<'_>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let (name, authorization_progress) = match install {
         Privileged::BasicTex => ("BasicTeX", 0.58),
         Privileged::Dependency(missing_file) => (missing_file, 0.2),
+        Privileged::PackageUpdate => ("the TeX package update", 0.1),
     };
     send_progress(on_progress, "authorizing", authorization_progress);
     let mut child = Command::new("/usr/bin/osascript")
@@ -376,7 +507,7 @@ fn run_privileged_installer(
             "end run",
         ])
         .arg(privileged_command(script))
-        .stdout(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| format!("Could not request permission to install {name}: {error}"))?;
@@ -402,16 +533,23 @@ fn run_privileged_installer(
         thread::sleep(Duration::from_millis(250));
     };
 
+    // Both stay small (a warning, the failed step's diagnostic), so reading
+    // them after exit cannot stall the script on a full pipe.
+    let mut stdout = String::new();
+    if let Some(mut pipe) = child.stdout.take() {
+        let _ = pipe.read_to_string(&mut stdout);
+    }
     let mut stderr = String::new();
     if let Some(mut pipe) = child.stderr.take() {
         let _ = pipe.read_to_string(&mut stderr);
     }
     if exit.success() {
-        return Ok(());
+        return Ok(stdout);
     }
     Err(match install {
         Privileged::BasicTex => install_error(&stderr),
         Privileged::Dependency(_) => dependency_install_error(&stderr),
+        Privileged::PackageUpdate => package_update_error(&stderr),
     })
 }
 
@@ -430,10 +568,6 @@ fn active_tex_live_year(tlmgr: &Path) -> Option<i32> {
 fn find_tex_live_package(
     tlmgr: &Path, missing_file: &str,
 ) -> Result<(String, Option<&'static str>), String> {
-    const FALLBACK_REPOSITORIES: [&str; 2] = [
-        "https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet",
-        "https://mirrors.ustc.edu.cn/CTAN/systems/texlive/tlnet",
-    ];
     let search_pattern = format!("/{}$", regex::escape(missing_file));
     let mut failures = Vec::new();
     for repository in std::iter::once(None).chain(FALLBACK_REPOSITORIES.map(Some)) {

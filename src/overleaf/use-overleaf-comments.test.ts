@@ -69,6 +69,26 @@ describe("useOverleafComments", () => {
     expect(anchor).toHaveBeenCalledWith(target, expect.any(String), 4, "text");
   });
 
+  it("comments on a document not open through the backend alone, re-reading once it is placed", async () => {
+    mockInvoke({ overleaf_comment_in_document: "placed", overleaf_threads: [], overleaf_comment_anchors: [] });
+    const anchor = vi.fn(async () => undefined);
+    const { result } = renderHook(() => useOverleafComments({ enabled: true, projectRoot: "/tmp/project", anchor }));
+    await waitFor(() => expect(invokeCalls("overleaf_threads")).toHaveLength(1));
+    const target = { projectRoot: "/tmp/project", docId: ELSEWHERE, path: "abstract.tex" };
+    let placement: unknown;
+    await act(async () => { placement = await result.current.createInDocument(target, "We show it.", 3, "show", "Cite it."); });
+    expect(placement).toBe("placed");
+    const [call] = invokeCalls("overleaf_comment_in_document");
+    expect(call).toEqual({
+      projectRoot: "/tmp/project", docId: ELSEWHERE, source: "We show it.", from: 3, quote: "show",
+      threadId: expect.stringMatching(/^[0-9a-f]{24}$/), content: "Cite it.",
+    });
+    // Neither the open document's anchor nor a separate message post: the backend did both.
+    expect(anchor).not.toHaveBeenCalled();
+    expect(invokeCalls("overleaf_reply_to_thread")).toHaveLength(0);
+    expect(invokeCalls("overleaf_threads")).toHaveLength(2);
+  });
+
   type Comments = ReturnType<typeof useOverleafComments>;
   it.each([
     ["resolves against the thread's own document, not the open one", (hook: Comments) => hook.setResolved("t-elsewhere", true),

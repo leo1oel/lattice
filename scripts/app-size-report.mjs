@@ -169,8 +169,33 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // function had not, ~22 KB more (1,382,409 -> 1,404,478 bytes). Raised from
 // 1.35 MiB on 2026-10-30 when the open documents moved into a Zustand store:
 // zustand (~1 KB) and the store with its compiled hook, +3.3 KB
-// (1,414,200 -> 1,417,523 bytes).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.355 * 1024 * 1024);
+// (1,414,200 -> 1,417,523 bytes). Raised from 1.355 MiB on 2026-11-08: the
+// per-occurrence citation reasons (#704) took main to 1,420,180 bytes, and
+// Format document's stale-result guard plus the Overleaf reject resync, both
+// fixes for corruption, add 1.2 KB more (1,416,180 -> 1,417,394 bytes alone).
+// Raised from 1.357 MiB the same day for the implicit-state audit's S6-S10
+// fixes, whose states live in hooks App runs at startup (Overleaf reconnect,
+// build Stop clearing its queue and the slow-build notice, the agent frame's
+// per-load readiness, compile repair's restart and unlock), +1.3 KB with the
+// repair run itself already loaded on demand (1,422,354 -> 1,423,643 bytes).
+// Raised from 1.358 MiB the same day for the audit's S11-S23 fixes (#720),
+// small guards spread over a dozen eager modules with no one import to defer,
+// +0.6 KB on top of S6-S10 (1,423,643 -> 1,424,228 bytes). Raised from 1.359
+// MiB for the PDF's separate window (#725): whether each project's PDF is in
+// its own window, the palette entry that moves it there and back, the guards
+// that keep a build or a jump from reopening the panel, and the window page's
+// start in main.tsx; the bridge and the window's page load on demand, +2.6 KB
+// (1,424,228 -> 1,426,861 bytes).
+// Raised from 1.361 MiB on 2026-11-09 for the updater's recovery (#730) and
+// the app menu's Check for Updates… / Settings… / Report a Problem… (#731):
+// the retries, the failure wording, the install's log line and the report
+// export load on demand, but the provider that offers a held update again,
+// answers the menu and keeps its title, and the menu's labels, run at
+// startup, +1.9 KB on top of #725 (1,426,861 -> 1,428,755 bytes).
+// Raised again the same day for the TeX doctor's package-update state (#726),
+// a hook App runs so an approved update outlives Settings, +2.4 KB
+// (1,428,755 -> 1,431,207 bytes, a local build).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.365 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.
@@ -284,8 +309,12 @@ export async function checkAppSizeBudgets(
 // 7 MiB), and only about 3 MiB of it is reachable from that editor alone.
 // v0.11.8 raised it from 320 MiB: Synara 1.0.8 with Open Slide 2.3.1 built
 // at 320.1 MiB on disk. v0.15.0 raised it from 330 MiB: Synara 1.1.0 grew the
-// sidecar about 1.9 MB and the release built at 330.8 MiB on disk.
-const INSTALLED_APP_BUDGET_BYTES = 333 * 1024 * 1024;
+// sidecar about 1.9 MB and the release built at 330.8 MiB on disk. v0.16.1
+// raised it from 333 MiB: the v0.16 features (Zotero import, PDF comment
+// column, history review, Overleaf live sync) grew the app binary from 61.7 to
+// 63.1 MiB, and the v0.16.0 build reached 333.2 MiB on disk. 2026-11-09: set
+// to 400 MiB (captain's call) so routine growth stops blocking releases and PRs.
+const INSTALLED_APP_BUDGET_BYTES = 400 * 1024 * 1024;
 // The Intel Mac app (macos-intel.yml), built on an Intel host, carries x86_64
 // builds of the app, Node and the runtimes' native packages, all larger: the
 // first one built at 335.8 MiB on disk on 2026-11-07.

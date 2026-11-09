@@ -1,6 +1,6 @@
 /** Completion sources for citation keys, labels, project paths, and project macros. */
 import { completionStatus, startCompletion, type Completion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
-import type { EditorState } from "@codemirror/state";
+import type { EditorState, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationCompletionRange, includeCompletionRange, referenceCompletionRange } from "./latex-symbols";
@@ -15,19 +15,56 @@ export const textBefore = (state: EditorState, position: number, size = 600) =>
 const matchesQuery = (query: string, ...fields: string[]) =>
   !query || fields.some((field) => field.toLocaleLowerCase().includes(query));
 
+const KEY_CHARACTER = /[^,{}%\s]/;
+
+/**
+ * Where the key under the cursor ends, when the rest of the argument is a
+ * key list that closes: keys separated by commas, with whitespace, line
+ * breaks and `%` comments between them, then `}`. Anything else means the
+ * `{` was left open before prose (the bracket pairing does not close one
+ * typed before a word), so nothing after the cursor is replaced. The scan
+ * stops at the first character that breaks that grammar.
+ */
+function keyEnd(doc: Text, position: number): number {
+  let end = position;
+  // After a comma a new key may start; after a key or gap only `,` or `}`
+  // may follow, so another word there is prose.
+  let state: "cursorKey" | "afterComma" | "laterKey" | "awaitingSeparator" = "cursorKey";
+  let inComment = false;
+  for (const chunks = doc.iterRange(position); !chunks.next().done;) {
+    for (const character of chunks.value) {
+      if (inComment) {
+        inComment = character !== "\n";
+        continue;
+      }
+      if (KEY_CHARACTER.test(character)) {
+        if (state === "awaitingSeparator") return position;
+        if (state === "cursorKey") end += character.length;
+        else state = "laterKey";
+        continue;
+      }
+      if (character === "}") return end;
+      if (state === "cursorKey" || state === "laterKey") state = "awaitingSeparator";
+      if (character === ",") state = "afterComma";
+      else if (character === "%") inComment = true;
+      else if (!/\s/.test(character)) return position;
+    }
+  }
+  return position;
+}
+
 export function citationCompletions(live: () => LatexEditorLiveData) {
   return (context: CompletionContext): CompletionResult | null => {
     const range = citationCompletionRange(textBefore(context.state, context.pos), context.pos);
     if (!range) return null;
     const { citations, citationKeys } = live();
     const query = range.query.toLocaleLowerCase();
-    // Clicking inside an existing key must replace its suffix too. Stop at
-    // the current entry's boundary and preserve surrounding whitespace.
-    const after = context.state.sliceDoc(context.pos, context.state.doc.lineAt(context.pos).to);
-    const suffix = /^[^,{}]*/.exec(after)![0].trimEnd();
+    // Clicking inside an existing key must replace its suffix too, but only
+    // a key the argument goes on to close or separate. The bracket pairing
+    // leaves a `{` typed before a word open, and that prose is not a key.
     return {
       from: range.from,
-      to: context.pos + suffix.length,
+      to: keyEnd(context.state.doc, context.pos),
       // We filter titles as well as keys. CodeMirror's default label-only
       // filter would discard title matches; recompute on each edit instead.
       filter: false,
@@ -116,8 +153,18 @@ export function citationIcon(completion: Completion): Node | null {
   return template.content.firstChild;
 }
 
-export function openCitationAtCursor(view: EditorView) {
+/**
+ * Opens the citation menu at a caret in a citation slot. `edit` is a Backspace
+ * through a key; otherwise the caret was only placed (a click, an arrow key,
+ * focus returning), and the menu opens only in an empty slot: a key already
+ * written there is what its hover card is for, and a menu opened under that
+ * card stacked the two.
+ */
+export function openCitationAtCursor(view: EditorView, cause: "edit" | "caret") {
   const { empty, head } = view.state.selection.main;
   if (!view.hasFocus || !empty || completionStatus(view.state) !== null) return;
-  if (citationCompletionRange(textBefore(view.state, head), head)) startCompletion(view);
+  const range = citationCompletionRange(textBefore(view.state, head), head);
+  if (!range) return;
+  if (cause === "caret" && (range.query || KEY_CHARACTER.test(view.state.sliceDoc(head, head + 1)))) return;
+  startCompletion(view);
 }

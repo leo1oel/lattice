@@ -62,6 +62,10 @@ pub(super) struct PaperMetadata {
     /// matches its `url` field against this.
     #[serde(default)]
     pub(super) source_url: String,
+    /// The citation a bundle belongs to when nothing else names it: a local
+    /// PDF from Zotero has neither an arXiv id nor a URL to join on.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(super) citation_key: String,
     #[serde(default)]
     pub(super) paper_sha256: String,
     #[serde(default)]
@@ -83,6 +87,7 @@ impl PaperMetadata {
             converter: converter.to_string(),
             source: source.to_string(),
             source_url: source_url.to_string(),
+            citation_key: String::new(),
             paper_sha256: sha256_hex(markdown),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
         }
@@ -92,7 +97,7 @@ impl PaperMetadata {
         serde_json::from_str(&fs::read_to_string(dir.join("metadata.json")).ok()?).ok()
     }
 
-    fn write(&self, dir: &Path) -> Result<(), String> {
+    pub(super) fn write(&self, dir: &Path) -> Result<(), String> {
         let json = serde_json::to_string_pretty(self).map_err(err)?;
         fs::write(dir.join("metadata.json"), format!("{json}\n")).map_err(err)
     }
@@ -390,7 +395,7 @@ pub(super) fn fetch_web_bundle(
 /// Build a bundle in a scratch directory beside the library. Everything up to
 /// the final swap happens there, and a failure on any path must not strand a
 /// `.fetch-*` directory in the project.
-fn build_in_scratch(
+pub(super) fn build_in_scratch(
     root: &Path, build: impl FnOnce(&Path) -> Result<(), String>,
 ) -> Result<(), String> {
     let papers_root = project::safe_path(root, ".research/papers")?;
@@ -405,7 +410,7 @@ fn build_in_scratch(
 /// Replace `dir` with the finished bundle, restoring the old one if the move
 /// fails. A backup that cannot be deleted is left behind rather than failing
 /// a fetch whose bundle is already in place.
-fn swap_in_bundle(output_dir: &Path, dir: &Path) -> Result<(), String> {
+pub(super) fn swap_in_bundle(output_dir: &Path, dir: &Path) -> Result<(), String> {
     fs::create_dir_all(dir.parent().unwrap()).map_err(err)?;
     match swap_in_dir(output_dir, dir, &format!("old-{}", Uuid::new_v4())) {
         Ok(()) | Err(DirSwapError::RemoveBackup(_)) => Ok(()),
@@ -414,7 +419,7 @@ fn swap_in_bundle(output_dir: &Path, dir: &Path) -> Result<(), String> {
     }
 }
 
-fn bundle_result(key: &str, dir: &Path, reused: bool) -> FetchResult {
+pub(super) fn bundle_result(key: &str, dir: &Path, reused: bool) -> FetchResult {
     let path = |file: &str| format!(".research/papers/{key}/{file}");
     FetchResult {
         arxiv_id: key.to_string(),

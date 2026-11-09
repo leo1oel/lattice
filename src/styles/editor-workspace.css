@@ -948,6 +948,129 @@ button.citation-card-title:hover, button.citation-card-title:focus-visible { tex
 }
 .citation-card-actions .ui-button { padding-inline: var(--space-4); }
 .citation-card-actions kbd { color: var(--text-secondary); font: inherit; }
+/* "Cited N× here": a row per occurrence, its section over why it cites
+   the paper (citation-card-uses). The hovered occurrence carries a quiet
+   bar; a long list scrolls inside the card rather than lengthening it. */
+.citation-card-uses { align-self: stretch; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
+.citation-card-uses[hidden] { display: none; }
+.citation-card-uses-heading { color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.citation-card-uses-frame { position: relative; margin: 0 calc(-1 * var(--space-3)); }
+.citation-card-uses-list {
+  max-height: 176px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.citation-card-uses-list::-webkit-scrollbar { display: none; }
+.citation-card-use { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.citation-card-use-jump {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-compact);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-hairline);
+}
+.citation-card-use-jump:hover { background: var(--control-hover-surface); }
+.citation-card-use-jump:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: calc(0px - var(--focus-ring-width)); }
+.citation-card-use-jump[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: var(--space-2);
+  inset-inline-start: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--control-active);
+}
+.citation-card-use-where { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.citation-card-use-section { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.citation-card-use-line { flex: none; margin-inline-start: auto; color: var(--text-secondary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; }
+.citation-card-use-why { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
+.citation-card-use-role,
+.citation-role-chip {
+  flex: none;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-compact);
+  background: var(--control-hover-surface);
+  color: var(--text-primary);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  white-space: nowrap;
+}
+.citation-card-use-role[data-role="supporting"] { background: var(--status-success-soft); color: var(--status-success); }
+.citation-card-use-role[data-role="counterexample"] { background: var(--status-warning-soft); color: var(--status-warning); }
+.citation-card-use-note {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.citation-card-use-page {
+  flex: none;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-compact);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  font-variant-numeric: tabular-nums;
+}
+button.citation-card-use-page { cursor: pointer; }
+button.citation-card-use-page:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.citation-card-use-page:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+/* "Why cited": the popover over a cite key (citation-reason-editor) with the
+   key, the five roles as one choice that wraps in a narrow editor, the
+   optional line, and its actions. */
+.citation-reason-popover {
+  width: min(320px, calc(100vw - 32px));
+  padding: var(--space-5) var(--space-6);
+  font-family: var(--ui-font);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.source-editor .cm-tooltip.citation-reason-popover { border: 0; }
+.citation-reason-head { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
+.citation-reason-head .citation-card-key { margin: 0; }
+.citation-reason-title { flex: none; font-weight: var(--weight-medium); }
+.citation-reason-roles { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.citation-role-chip {
+  padding: var(--gap-hairline) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  cursor: pointer;
+}
+.citation-role-chip:hover { background: var(--control-hover-surface); }
+.citation-role-chip[aria-checked="true"] { border-color: var(--control-active-border); background: var(--control-tinted-surface); color: var(--control-active); }
+.citation-role-chip:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.citation-reason-note { width: 100%; }
+.citation-reason-actions { display: flex; align-items: center; gap: var(--space-2); }
+.citation-reason-spacer { flex: 1; }
+.citation-reason-remove { color: var(--status-danger); }
 .reference-hover-card { width: min(360px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
 .reference-hover-card small, .reference-hover-card strong, .reference-hover-card em { display: block; }
 .reference-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); text-transform: capitalize; }

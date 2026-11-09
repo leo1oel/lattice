@@ -41,7 +41,7 @@ const CEILINGS: Record<string, number> = {
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.
   "src/app/use-overleaf-workspace.ts": 1,
-  "src/app/use-build-pipeline.ts": 4,
+  "src/app/use-build-pipeline.ts": 2,
   "src/app/use-reference-import.ts": 2,
   "src/app/use-editor-comments.ts": 0,
   "src/app/use-tex-setup.ts": 1,
@@ -102,7 +102,6 @@ const CEILINGS: Record<string, number> = {
 const BASELINE: Record<string, number> = {
   "src/app/use-project-state.ts": 2,
   "src/build/tex-setup-wizard.tsx": 3,
-  "src/build/use-compile-repair.ts": 5,
   "src/canvas/codemirror-scrollbar.tsx": 1,
   "src/canvas/use-markdown-mode-handoff.ts": 1,
   "src/canvas/use-markdown-split-scroll.ts": 1,
@@ -129,7 +128,8 @@ const BASELINE: Record<string, number> = {
   "src/overleaf/use-overleaf-history.ts": 1,
   "src/overleaf/use-overleaf-login.ts": 1,
   "src/overleaf/use-overleaf-project-snapshot.ts": 1,
-  "src/overleaf/use-overleaf-realtime.ts": 3,
+  "src/overleaf/use-overleaf-realtime-connection.ts": 1,
+  "src/overleaf/use-overleaf-realtime.ts": 2,
   "src/overleaf/use-overleaf-track-changes.ts": 1,
   "src/papers/bib-entry-dialog.tsx": 1,
   "src/papers/bibliography-audit.tsx": 1,

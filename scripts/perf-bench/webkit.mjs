@@ -7,7 +7,7 @@
  *
  * WebKit has no counterpart of Chromium's Performance.getMetrics, so the
  * report-only recalc and layout counts are absent; the probe's counts
- * (commits, renders, hooks, mutations) are what this engine gates, against
+ * (commits, updates, renders, hooks, mutations) are what this engine gates, against
  * scripts/perf-bench/budgets-webkit.json.
  *
  * Needs the browser once: `pnpm exec playwright-core install webkit`.

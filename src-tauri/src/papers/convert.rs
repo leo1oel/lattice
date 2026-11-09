@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use uuid::Uuid;
 
-const MAX_DOWNLOAD_BYTES: usize = 100 * 1024 * 1024;
+pub(super) const MAX_DOWNLOAD_BYTES: usize = 100 * 1024 * 1024;
 const CONVERTER_TIMEOUT: Duration = Duration::from_secs(600);
 
 /// Converted markdown, with the converter and `source` label its bundle
@@ -222,8 +222,12 @@ fn pdf_fallback(
 }
 
 pub(super) fn download_pdf_text(url: &str) -> Result<String, String> {
-    let bytes = download_pdf_bytes(url)?;
-    let body = anydoc::to_markdown_bytes(&bytes, anydoc::Format::Pdf)
+    pdf_text(&download_pdf_bytes(url)?)
+}
+
+/// The text layer of a PDF as markdown, refused when there is next to none.
+pub(super) fn pdf_text(bytes: &[u8]) -> Result<String, String> {
+    let body = anydoc::to_markdown_bytes(bytes, anydoc::Format::Pdf)
         .map_err(|error| format!("PDF conversion failed: {error}"))?;
     if body.trim().len() < 200 {
         return Err(

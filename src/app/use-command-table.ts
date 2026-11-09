@@ -49,8 +49,10 @@ import type { ReferenceImport } from "./use-reference-import";
 import type { useSyncTexNavigation } from "./use-synctex-navigation";
 import type { ToolDrawers } from "./use-tool-drawers";
 import type { useWhatsNew } from "./use-whats-new";
+import { detachPdf, dockPdf, pdfWindowOpen, pdfWindowsAvailable } from "./pdf-window-state";
 
 const loadFormatDocument = () => import("./format-document");
+const loadReportProblem = () => import("./report-problem");
 
 /** What File ▸ Close Tab (⌘W) sends the window it was used in (native_locale.rs). */
 const CLOSE_TAB_EVENT = "close-tab";
@@ -121,8 +123,8 @@ export function useCommandTable({
   // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
   "use no memo";
   const { t, i18n } = useLingui();
-  const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, save } = documents;
-  const { openFile, openAsset, edit: editFile } = documents;
+  const { file: activeFile, paper: activePaper, asset: activeAsset, save } = documents;
+  const { openFile, openAsset } = documents;
   const { building, cleanAndRebuild, cleanProject, abortBuild, cycleDiagnostic } = buildPipeline;
   const { revealSourceInPdf } = syncTex;
   const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
@@ -139,7 +141,12 @@ export function useCommandTable({
     { kind: "palette"; recentCommands: string[]; recentFiles: string[] } | { kind: "shortcuts" } | null
   >(null);
 
-  const formatFocusedDocument = () => void loadFormatDocument().then(({ formatDocument }) => formatDocument(activeFile, source, editFile));
+  // Pinned at the keypress, not when the lazy module arrives: the result
+  // belongs to the file and text the writer asked to format.
+  const formatFocusedDocument = () => {
+    const target = documents.pinText();
+    void loadFormatDocument().then(({ formatDocument }) => formatDocument(target));
+  };
   const commandSurface = paletteSurface({ file: activeFile, paper: activePaper !== null, asset: Boolean(activeAsset) });
   // The welcome screen keeps the shortcuts listening, so a command that needs
   // a project, a text editor or LaTeX source says so and is neither listed
@@ -185,6 +192,10 @@ export function useCommandTable({
     // Only ever wanted while a build runs, so never worth remembering.
     { id: "stop-build", when: building, label: t`Stop build`, group: "build", recent: false, run: () => void abortBuild() },
     { id: "sync-pdf", when: latexSource && syncTex.canForwardSync, label: t`Jump to PDF`, group: "navigate", ...REVEAL_IN_PDF_KEY, run: () => void revealSourceInPdf() },
+    // The PDF in a window of its own, for a second screen, and back (pdf-window-state.ts).
+    project && pdfWindowOpen(project.root)
+      ? { id: "pdf-window", label: t`Return the PDF to the workspace`, group: "layout", run: () => dockPdf(trellis, project.root) }
+      : { id: "pdf-window", when: project !== null && pdfWindowsAvailable(), label: t`Open the PDF in a separate window`, group: "layout", run: () => project && detachPdf(trellis, project.root) },
     { id: "quick-open", when: inProject, label: t`Quick open file`, group: "navigate", key: "p", run: () => setSearchDialog("quick-open") },
     { id: "goto-line", when: textEditor, label: t`Go to line`, group: "navigate", key: "g", run: () => setSearchDialog("goto-line") },
     { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, group: "navigate", key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
@@ -330,6 +341,8 @@ export function useCommandTable({
     { id: "whats-new", label: t`What’s new in Lattice`, detail: RUNNING_VERSION, group: "project", run: () => whatsNew.setOpen(true) },
     { id: "tutorial", label: t`Open guided tutorial`, group: "project", run: () => void openTutorialProject() },
     { id: "doctor", label: t`Run TeX doctor`, group: "project", run: () => openSettings("doctor") },
+    // Help ▸ Report a Problem… runs it too (native_locale.rs).
+    { id: "report-problem", when: !browserHosted, label: t`Report a problem`, group: "project", run: () => void loadReportProblem().then(({ reportProblem }) => reportProblem()) },
     {
       id: "browser", group: "project", run: () => void moveWorkspace(),
       ...(browserHosted
@@ -357,8 +370,9 @@ export function useCommandTable({
     (handler) => listenInThisWindow(CLOSE_TAB_EVENT, handler),
     () => runCommandRef.current("close-tab"),
   ), [runCommandRef]);
-  // File's project items (native_locale.rs) run the commands above, so the
-  // menu, the palette and the keys do one thing; Open Recent opens a project
+  // File's project items, Lattice ▸ Settings… and Help ▸ Report a Problem…
+  // (native_locale.rs) run the commands above, so the menu, the palette and
+  // the keys do one thing; Open Recent opens a project
   // as the title's switcher does, and lists the same ones.
   useEffect(() => subscribeTauriEvent<string>(
     (handler) => listenInThisWindow(FILE_COMMAND_EVENT, handler),

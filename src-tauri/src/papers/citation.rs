@@ -4,7 +4,7 @@
 //! that two works are the same.
 
 use super::ids::{arxiv_base_id, explicit_arxiv_id, parse_arxiv_id, same_arxiv_work};
-use super::web_citation::{fetch_web_html, supplied_citation_key};
+use super::web_citation::fetch_web_html;
 use super::{http_client, is_web_url, send_checked};
 use crate::citation_audit::{entry_fields, single_entry_key};
 use crate::models::CitationInfo;
@@ -178,6 +178,49 @@ pub(crate) fn verify_title_citation(query: &str, raw: &str) -> Result<(), String
         return Err("The candidate's title or authors conflict with its source metadata. No citation was added.".into());
     }
     Ok(())
+}
+
+/// Same key policy as bibcite-cli 0.6.11's normalize.make_key / _finalize.
+/// Supplied BibTeX bypasses that policy upstream, so apply it here without
+/// round-tripping publisher fields through bibcite's lossy normalization.
+pub(super) fn supplied_citation_key(raw: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    const STOPWORDS: &str = "i me my myself we our ours ourselves you your yours yourself yourselves he him his himself she her hers herself it its itself they them their theirs themselves what which who whom this that these those am is are was were be been being have has had having do does did doing a an the and but if or because as until while of at by for with about against between into through during before after above below to from up down in out on off over under again further then once here there when where why how all any both each few more most other some such no nor not only own same so than too very s t can will just don should now";
+    let (_, start, end) = project::bibliography_entry_spans(raw).into_iter().next().unwrap();
+    let fields = entry_fields(&raw[start..end]);
+    let hash = |value: &str| -> String {
+        value
+            .nfkd()
+            .filter(char::is_ascii)
+            .flat_map(char::to_lowercase)
+            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+            .collect()
+    };
+    let field = |name: &str| fields.get(name).map(String::as_str).filter(|value| !value.is_empty());
+    let separator = Regex::new(r"(?i)\s+and\s+").unwrap();
+    let author = field("author").unwrap_or("anonymous");
+    let first = separator.split(author.trim()).next().unwrap().trim().trim_matches(['{', '}']);
+    let surname = first
+        .split_once(',')
+        .map(|(last, _)| last)
+        .unwrap_or_else(|| first.split_whitespace().last().unwrap_or("anon"));
+    let surname = hash(surname);
+    let year = field("year").unwrap_or("XXXX");
+    let words: Vec<String> = fields
+        .get("title")
+        .map(String::as_str)
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(hash)
+        .filter(|word| !word.is_empty())
+        .collect();
+    let word = words
+        .iter()
+        .find(|word| !STOPWORDS.split_whitespace().any(|stop| stop == word.as_str()))
+        .or_else(|| words.first())
+        .map(String::as_str)
+        .unwrap_or("paper");
+    format!("{}{year}{word}", if surname.is_empty() { "anon" } else { &surname })
 }
 
 #[cfg(test)]

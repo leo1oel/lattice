@@ -15,7 +15,7 @@
 
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
-import { changedRuns, splitLines } from "./changed-runs";
+import { changedRuns, splitLines, type ChangedRun } from "./changed-runs";
 
 /** One OT operation: insert `i` or delete `d`, both at character offset `p`. */
 export type OtOp = { p: number; i?: string; d?: string };
@@ -31,13 +31,24 @@ export type OtOp = { p: number; i?: string; d?: string };
  * (./changed-runs), so changes made far apart in one send stay separate ops.
  */
 export function diffToOps(before: string, after: string): OtOp[] {
-  return changeOps(before, after, 0, true);
+  return changeOps(before, after, 0, true, false);
+}
+
+/**
+ * `diffToOps`, with each changed run of lines narrowed to the characters
+ * that changed in it: what merging needs, where a span from a line's first
+ * change to its last would also stand for the unchanged text between them.
+ */
+export function preciseOps(before: string, after: string): OtOp[] {
+  return changeOps(before, after, 0, true, true);
 }
 
 /** At most this many lines added or removed are matched up line by line; see `changedRuns`. */
 const MAX_CHANGED_LINES = 400;
+/** At most this many characters added or removed in one run are matched up one by one. */
+const MAX_CHANGED_CHARS = 400;
 
-function changeOps(before: string, after: string, at: number, byLine: boolean): OtOp[] {
+function changeOps(before: string, after: string, at: number, byLine: boolean, byChar: boolean): OtOp[] {
   if (before === after) return [];
   let prefix = 0;
   const maxPrefix = Math.min(before.length, after.length);
@@ -55,23 +66,15 @@ function changeOps(before: string, after: string, at: number, byLine: boolean): 
   const inserted = after.slice(prefix, after.length - suffix);
   const [removedLines, insertedLines] = [splitLines(removed), splitLines(inserted)];
   // A pure insertion or deletion is one run however many lines it spans.
-  const runs = byLine && removed && inserted && (removedLines.length > 1 || insertedLines.length > 1)
+  const lineRuns = byLine && removed && inserted && (removedLines.length > 1 || insertedLines.length > 1)
     ? changedRuns(removedLines, insertedLines, MAX_CHANGED_LINES)
     : null;
-  if (runs && runs.length > 1) {
-    // Each run is trimmed on its own, and lands where the runs before it left
-    // the text: ops apply one after another.
-    const starts = [0];
-    for (const line of removedLines) starts.push(starts.at(-1)! + line.length);
-    const ops: OtOp[] = [];
-    let shift = 0;
-    for (const run of runs) {
-      const was = removedLines.slice(run.aFrom, run.aTo).join("");
-      const is = insertedLines.slice(run.bFrom, run.bTo).join("");
-      ops.push(...changeOps(was, is, at + prefix + starts[run.aFrom]! + shift, false));
-      shift += is.length - was.length;
-    }
-    return ops;
+  if (lineRuns && lineRuns.length > 1) return runOps(removedLines, insertedLines, lineRuns, at + prefix, byChar);
+  if (byChar && removed && inserted) {
+    // Split by code point, so no run cuts a character in half.
+    const [removedChars, insertedChars] = [Array.from(removed), Array.from(inserted)];
+    const charRuns = changedRuns(removedChars, insertedChars, MAX_CHANGED_CHARS);
+    if (charRuns && charRuns.length > 1) return runOps(removedChars, insertedChars, charRuns, at + prefix, false);
   }
   // Delete first: the insert's position is then expressed against the text
   // that remains, which is what the server expects.
@@ -79,6 +82,25 @@ function changeOps(before: string, after: string, at: number, byLine: boolean): 
     ...(removed ? [{ p: at + prefix, d: removed }] : []),
     ...(inserted ? [{ p: at + prefix, i: inserted }] : []),
   ];
+}
+
+/**
+ * Ops for `runs` of `removed` pieces that became `inserted` ones, the
+ * removed pieces starting at `at`. Each run is trimmed on its own, and lands
+ * where the runs before it left the text: ops apply one after another.
+ */
+function runOps(removed: string[], inserted: string[], runs: ChangedRun[], at: number, byChar: boolean): OtOp[] {
+  const starts = [0];
+  for (const piece of removed) starts.push(starts.at(-1)! + piece.length);
+  const ops: OtOp[] = [];
+  let shift = 0;
+  for (const run of runs) {
+    const was = removed.slice(run.aFrom, run.aTo).join("");
+    const is = inserted.slice(run.bFrom, run.bTo).join("");
+    ops.push(...changeOps(was, is, at + starts[run.aFrom]! + shift, false, byChar));
+    shift += is.length - was.length;
+  }
+  return ops;
 }
 
 const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
@@ -268,6 +290,24 @@ export function transformBoth(left: OtOp[], right: OtOp[]): [OtOp[], OtOp[]] {
   return [leftOp, newRightOp];
 }
 
+/**
+ * `current` is `base` with local typing on top; `remote`, ops on `base`,
+ * turned it into `remoteText`. Return `remoteText` with that typing on top,
+ * placed the way the server will place it once it arrives there (see
+ * `OtDocument.remote` for why local work goes on the left): typing inside
+ * text the other side removed stays, where that text was. `typing` is the
+ * typing as it was made, when known; otherwise it is worked out to the
+ * character (`preciseOps`), as a diff spanning a line's first and last
+ * change would put back what the other side removed in between. Null when
+ * the ops do not fit the texts, and nothing should be guessed.
+ */
+export function rebaseOnto(base: string, current: string, remote: OtOp[], remoteText: string, typing?: OtOp[]): string | null {
+  if (current === base) return remoteText;
+  const local = typing && applyOps(base, typing) === current ? typing : preciseOps(base, current);
+  const [typed] = transformBoth(local, remote);
+  return applyOps(remoteText, typed);
+}
+
 /** Combine two operations that apply one after the other into a single one. */
 export function composeOps(first: OtOp[], second: OtOp[]): OtOp[] {
   const result = first.slice();
@@ -327,9 +367,9 @@ export class OtDocument {
     return this.submitted;
   }
 
-  /** Record that the operation in flight went out on connection `publicId`. */
-  noteSubmitted(publicId: string) {
-    if (this.inflight && !this.submitted.includes(publicId)) this.submitted.push(publicId);
+  /** Record that the operation in flight went out on connection `publicId`, once Overleaf has named it. */
+  noteSubmitted(publicId: string | null) {
+    if (publicId && this.inflight && !this.submitted.includes(publicId)) this.submitted.push(publicId);
   }
 
   /**
@@ -445,14 +485,16 @@ export class OtDocument {
       const current = this.version;
       throw new OtDesyncError(i18n._(msg`Overleaf sent version ${version} while this document is at ${current}.`));
     }
-    // The incoming operation is already in the server's history, so it takes
-    // precedence and ours is transformed as the later one — exactly as the
-    // server will when ours arrives, or two inserts at one spot would order
-    // differently here and never converge.
+    // Ours goes on the left, as ShareJS's own client puts it: when ours
+    // reaches the server, the server transforms it as the left side against
+    // everything applied since (`transform(op, other, 'left')`), so at a tie —
+    // both typing at one spot — ours lands first there and has to land first
+    // here, or the two copies order those inserts differently and never
+    // converge. The next hash Overleaf checks would then reject the document.
     let incoming = ops;
-    if (this.inflight) [incoming, this.inflight] = transformBoth(incoming, this.inflight);
+    if (this.inflight) [this.inflight, incoming] = transformBoth(this.inflight, incoming);
     if (this.pending) {
-      [incoming, this.pending] = transformBoth(incoming, this.pending);
+      [this.pending, incoming] = transformBoth(this.pending, incoming);
       // Cancelled out entirely (see `acknowledge`): nothing is left to send.
       if (this.pending.length === 0) this.pending = null;
     }

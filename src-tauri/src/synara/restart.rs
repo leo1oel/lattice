@@ -15,7 +15,8 @@ use tauri::{Emitter, Manager};
 /// Payload `{ stale }`: whether the running sidecar's proxy settings now
 /// differ from the system's.
 const ENVIRONMENT_CHANGED_EVENT: &str = "synara-environment-changed";
-/// The sidecar stopped for a restart; windows using it start it again.
+/// The sidecar was restarted, on request or after it exited; windows using it
+/// ask for the new one.
 const RESTARTED_EVENT: &str = "synara-runtime-restarted";
 
 #[derive(Clone, serde::Serialize)]
@@ -60,6 +61,13 @@ impl SynaraRuntime {
     }
 }
 
+/// Tell every window the sidecar was restarted, so each asks for the new one.
+pub(super) fn announce(app: Option<&tauri::AppHandle>) {
+    if let Some(app) = app {
+        let _ = app.emit(RESTARTED_EVENT, ());
+    }
+}
+
 /// The variables an agent start would use now, redacted, and whether the
 /// running sidecar started with different ones. Reads the login shell, which
 /// can take seconds.
@@ -86,7 +94,7 @@ pub async fn synara_agent_environment(app: tauri::AppHandle) -> Result<Environme
 pub async fn synara_restart(app: tauri::AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<SynaraRuntime>().shutdown();
-        let _ = app.emit(RESTARTED_EVENT, ());
+        announce(Some(&app));
     })
     .await
     .map_err(|error| format!("Agent restart worker failed: {error}"))

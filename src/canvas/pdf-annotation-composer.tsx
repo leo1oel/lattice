@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { hostErrorMessage } from "../app-utils";
+import { showError } from "../app/notify";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
 import type { CommentDestination } from "../app/use-editor-comments";
 import { useExitPicture } from "../components/ui/exit-picture";
@@ -43,6 +44,16 @@ export function PdfAnnotationComposer(props: {
   // below on `rounds` and `mapped`, so a bare re-render would not re-read it.
   const [destinationAtSave, setDestinationAtSave] = useState<CommentDestination | null>(null);
   const { rounds } = props;
+  // Overleaf is taking a comment on a file not open; Save waits for it.
+  const [saving, setSaving] = useState(false);
+  // An answer arriving after the note closed (a new note replaced it) must
+  // not act for it (`onDone` would close whatever note is open by then); one
+  // that did not land says so in a toast instead.
+  const closedRef = useRef(false);
+  useEffect(() => {
+    closedRef.current = false;
+    return () => { closedRef.current = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,20 +71,77 @@ export function PdfAnnotationComposer(props: {
   // Under the selection on its page, kept there as the PDF scrolls or zooms.
   usePdfAnchoredPopup(popupRef, selection, COMPOSER_PLACE);
   // A click outside closes it (and still selects, or presses, where it lands).
-  useDismissOnOutsidePointer(popupRef, () => props.onDismiss({ body, intent }));
+  // Not while Overleaf is taking the comment: the request cannot be called
+  // back, so "Note discarded" would be untrue and its Undo would post twice.
+  const dismiss = () => {
+    if (!saving) props.onDismiss({ body, intent });
+  };
+  useDismissOnOutsidePointer(popupRef, dismiss);
 
   const name = mapped ? baseName(mapped.path) : null;
   const location = mapped ? t`PDF p.${selection.page} → ${name}:${mapped.line}` : t`PDF p.${selection.page} → …`;
   // In a project linked to Overleaf the note becomes an Overleaf comment on
-  // the span SyncTeX found, which collaborators see; Overleaf takes one only
-  // on the file the live channel holds, so a passage elsewhere says why not.
+  // the span SyncTeX found, which collaborators see: in the open file, or in
+  // any other, which Overleaf is asked to take in the background ("other-file").
   const destination = destinationAtSave ?? (mapped ? rounds.pdfNoteDestination(mapped.path) : null);
   const toOverleaf = destination !== null && destination !== "annotation";
-  const notLive = destination === "other-file"
-    ? t`Overleaf takes a comment only on the file open in the editor, and this passage is in ${name}. Double-click it to open ${name}, then select it again.`
-    : destination === "offline"
-      ? t`This comment would go to Overleaf, but ${name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again.`
-      : null;
+  const notLive = destination === "offline"
+    ? t`This comment would go to Overleaf, but ${name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again.`
+    : null;
+  /**
+   * Comment on a file the editor does not have open, staying here until
+   * Overleaf has it. When Overleaf's copy reads differently around the
+   * passage, the file opens beside the PDF at it and the note stays, so Save
+   * places it in the file as the editor then holds it. Built here rather than
+   * in `rounds`, which loads with the app, so the PDF alone pays for it.
+   */
+  const commentInDocument = (place: MappedPdfSelection) => {
+    const session = rounds.pdfNoteSession();
+    const docId = session?.deps.store.docIdOf(place.path);
+    const projectRoot = session?.deps.projectRootRef.current;
+    if (!session || !docId || !projectRoot) {
+      setError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
+      return;
+    }
+    const { deps, generation } = session;
+    const quote = place.source.slice(place.from, place.to);
+    if (!quote.trim()) {
+      setError(t`There is no text to comment on in this selection.`);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    deps.store.createInDocument({ projectRoot, docId, path: place.path }, place.source, place.from, quote, body.trim()).then((placement) => {
+      // Not once the project changed meanwhile: there is no file of it left to open.
+      if (placement === "notFound" && rounds.pdfNoteSession()?.generation !== generation) {
+        throw new Error(t`The project closed before the comment was saved.`);
+      }
+      return placement;
+    }).then(
+      (placement) => {
+        if (placement === "placed") {
+          if (!closedRef.current) props.onDone();
+          return;
+        }
+        void deps.openProjectFile(place.path, { line: place.line, revealSource: false });
+        if (closedRef.current) {
+          showError(t`Your note on ${name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there.`);
+          return;
+        }
+        setSaving(false);
+        setError(t`Overleaf's copy of ${name} reads differently here, so it is open beside the PDF now. Check the passage there, then save again.`);
+      },
+      (reason: unknown) => {
+        const message = hostErrorMessage(reason);
+        if (closedRef.current) {
+          showError(t`Your note on ${name} did not reach Overleaf: ${message}`);
+          return;
+        }
+        setSaving(false);
+        setError(message);
+      },
+    );
+  };
   return (
     <div
       ref={popupRef}
@@ -89,17 +157,21 @@ export function PdfAnnotationComposer(props: {
         body={body}
         intent={intent}
         error={error ?? notLive}
-        ready={Boolean(mapped) && !notLive}
+        ready={Boolean(mapped) && !notLive && !saving}
         canRevise={!toOverleaf}
         overleaf={toOverleaf}
         onBodyChange={setBody}
         onIntentChange={setIntent}
-        onCancel={() => props.onDismiss({ body, intent })}
+        onCancel={dismiss}
         onSave={(revise) => {
           if (!mapped) return;
           const destinationNow = rounds.pdfNoteDestination(mapped.path);
-          if (destinationNow === "other-file" || destinationNow === "offline") {
+          if (destinationNow === "offline") {
             setDestinationAtSave(destinationNow);
+            return;
+          }
+          if (destinationNow === "other-file") {
+            commentInDocument(mapped);
             return;
           }
           const outcome = rounds.createFromPdf(selection, mapped, body, intent, revise);
@@ -110,6 +182,7 @@ export function PdfAnnotationComposer(props: {
       {/* While SyncTeX maps the words, the location reads "→ …" and Save
           waits; the search itself is said only to assistive technology. */}
       {!mapped && !error && <LoadingAnnouncement message={t`Finding it in the source…`} />}
+      {saving && <LoadingAnnouncement message={t`Commenting on ${name} on Overleaf…`} />}
     </div>
   );
 }

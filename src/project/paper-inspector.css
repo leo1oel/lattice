@@ -75,3 +75,18 @@
 .paper-inspector-health[data-kind="retracted"] > .paper-inspector-flag { color: color-mix(in srgb, var(--status-danger) 80%, var(--text-primary)); }
 button.paper-inspector-flag { padding: 0 var(--space-1); margin-inline: calc(-1 * var(--space-1)); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-1); background: transparent; font: inherit; font-weight: var(--weight-medium); }
 button.paper-inspector-flag:hover { background: var(--control-hover-surface); }
+/* Why a use cites the paper: its role as a quiet chip, then the writer's line. */
+.paper-inspector-uses .paper-inspector-why { display: flex; align-items: baseline; gap: var(--space-3); font-family: var(--ui-font); }
+.paper-inspector-uses .paper-inspector-role {
+  flex: none;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-compact);
+  background: var(--control-hover-surface);
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+}
+.paper-inspector-uses .paper-inspector-role[data-role="supporting"] { background: var(--status-success-soft); color: var(--status-success); }
+.paper-inspector-uses .paper-inspector-role[data-role="counterexample"] { background: var(--status-warning-soft); color: var(--status-warning); }
+.paper-inspector-uses .paper-inspector-reason { color: var(--text-secondary); font-family: var(--ui-font); font-size: var(--type-caption-size); }

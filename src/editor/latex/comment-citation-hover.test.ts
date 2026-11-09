@@ -1,10 +1,13 @@
+import { autocompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type Rect } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEditorComment } from "../comments/editor-comment-data";
 import { CommentCardHosts, editorCommentsExtension } from "../comments/editor-comments";
 import type { LatexEditorLiveData } from "./latex-editor";
-import { citationTooltips } from "./latex-hover-cards";
+import { citationCompletions } from "./latex-completions";
+import { citationTooltips, referenceTooltips } from "./latex-hover-cards";
+import { overleafTrackChangesExtension } from "../../overleaf/overleaf-editor-extensions";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(async () => undefined) }));
@@ -19,9 +22,20 @@ const COLUMN = 10, ROW = 20, COLUMNS = 50, LEFT = 100, TOP = 100, CARD = { width
 
 /** The text before the commented paragraph fills two rows, so there is room above it. */
 const INTRO = "%".repeat(COLUMNS * 2 - 1);
-/** The cite sits on the paragraph's third row, past the right edge of a card that hangs from where the comment starts. */
-const PARAGRAPH = `${"word ".repeat(26)}and \\cite{lee2026} for sparse inputs.`;
-const DOC = `${INTRO}\n${PARAGRAPH}`;
+/**
+ * The key sits on the paragraph's third row, past the right edge of a card
+ * that hangs from where the comment starts. Every Lattice hover card shares
+ * the popover with the comment the same way (hover-anchor.ts); `\ref` stands
+ * in for the rest, which used to vanish here while the citation card stayed.
+ */
+const CARDS = {
+  citation: { command: "\\cite{lee2026}", key: "lee2026", selector: ".citation-hover-card" },
+  reference: { command: "\\ref{fig:lee}", key: "fig:lee", selector: ".reference-hover-card" },
+};
+type Card = keyof typeof CARDS;
+let card: Card = "citation";
+const paragraph = () => `${"word ".repeat(26)}and ${CARDS[card].command} for sparse inputs.`;
+let DOC = "";
 
 /** Each line starts a new row, then wraps every `COLUMNS` characters. */
 function rowsOf(doc: string) {
@@ -73,7 +87,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function openEditor() {
+/**
+ * `suggested` adds an Overleaf suggestion over the whole paragraph, whose card
+ * covers the hovered row and opens after the key's card, in the same popover.
+ */
+function openEditor({ suggested = false, menu = false } = {}) {
+  const PARAGRAPH = paragraph();
+  DOC = `${INTRO}\n${PARAGRAPH}`;
   const from = DOC.indexOf(PARAGRAPH);
   const comment = createEditorComment({
     path: "main.tex", source: DOC, from, to: from + PARAGRAPH.length, body: "Check this claim.", authorId: "a", authorName: "Ann", number: 1,
@@ -81,7 +101,7 @@ function openEditor() {
   if (!comment) throw new Error("no comment");
   const data: LatexEditorLiveData = {
     citationKeys: ["lee2026"], citations: [{ key: "lee2026", title: "A Study of Collaborative Writing", authors: "Lee, Alice", year: "2026", venue: "CHI" }],
-    references: [], unusedLabels: [], unusedCitations: [], localMacros: [], graphicsRoots: [], projectPaths: [], spellingWords: [],
+    references: [{ label: "fig:lee", kind: "figure", title: "Sparse inputs", snippet: "", path: "main.tex", line: 9 }], unusedLabels: [], unusedCitations: [], localMacros: [], graphicsRoots: [], projectPaths: [], spellingWords: [],
   };
   const view = new EditorView({
     parent: document.body,
@@ -90,6 +110,12 @@ function openEditor() {
       extensions: [
         editorCommentsExtension("main.tex", { getComments: () => [comment], cards: new CommentCardHosts() }),
         citationTooltips(() => data),
+        referenceTooltips(() => data),
+        menu ? autocompletion({ override: [citationCompletions(() => data)] }) : [],
+        suggested ? overleafTrackChangesExtension({
+          authorName: () => "Ann", canAct: () => true, onAccept: vi.fn(), onReject: vi.fn(),
+          getChanges: () => [{ id: "s1", position: from, text: PARAGRAPH, deletion: false, userId: "a", timestamp: null, hue: 200 }],
+        }) : [],
       ],
     }),
   });
@@ -114,39 +140,92 @@ function pointAt(view: EditorView, x: number, y: number) {
 const popover = () => document.querySelector<HTMLElement>(".cm-tooltip-hover");
 const parts = () => ({
   comment: !!popover()?.querySelector(".cm-editor-comment-card-host"),
-  citation: !!popover()?.querySelector(".citation-hover-card"),
+  card: !!popover()?.querySelector(CARDS[card].selector),
 });
+const suggestionShown = () => !!popover()?.querySelector(".cm-tracked-change-tooltip");
 
-describe("a citation inside a commented passage", () => {
-  it("keeps the comment and the citation card while the pointer travels from the key into the popover", () => {
+describe.each(Object.keys(CARDS) as Card[])("a %s card inside a commented passage", (kind) => {
+  beforeEach(() => { card = kind; });
+
+  it("keeps the comment and the card while the pointer travels from the key into the popover", () => {
     const view = openEditor();
-    const key = coordsAt(DOC.indexOf("lee2026") + 3);
+    const key = coordsAt(DOC.indexOf(CARDS[card].key) + 3);
     const startY = (key.top + key.bottom) / 2;
     pointAt(view, key.left, startY);
-    expect(parts()).toEqual({ comment: true, citation: true });
+    expect(parts()).toEqual({ comment: true, card: true });
 
     // Straight up from the key and into the popover, which rises from it.
     const box = popover()!.getBoundingClientRect();
     for (let y = startY; y >= box.bottom - 10; y -= 4) {
       pointAt(view, key.left, y);
-      expect(parts(), `pointer at y=${y}`).toEqual({ comment: true, citation: true });
+      expect(parts(), `pointer at y=${y}`).toEqual({ comment: true, card: true });
     }
     expect(box.left).toBeLessThanOrEqual(key.left);
     expect(box.right).toBeGreaterThanOrEqual(key.right);
     // Resting anywhere on it keeps both.
     pointAt(view, box.left + 20, box.top + 20);
     pointAt(view, box.right - 20, box.top + 60);
-    expect(parts()).toEqual({ comment: true, citation: true });
+    expect(parts()).toEqual({ comment: true, card: true });
+  });
+
+  it("keeps the card when a suggestion's wider card opens after it", () => {
+    const view = openEditor({ suggested: true });
+    const key = coordsAt(DOC.indexOf(CARDS[card].key) + 3);
+    const startY = (key.top + key.bottom) / 2;
+    pointAt(view, key.left, startY);
+    expect(parts()).toEqual({ comment: true, card: true });
+    expect(suggestionShown()).toBe(true);
+
+    // The suggestion starts rows above the key; the popover must still rise from the key.
+    const box = popover()!.getBoundingClientRect();
+    expect(box.left).toBeLessThanOrEqual(key.left);
+    expect(box.right).toBeGreaterThanOrEqual(key.right);
+    for (let y = startY; y >= box.bottom - 10; y -= 4) {
+      pointAt(view, key.left, y);
+      expect(parts(), `pointer at y=${y}`).toEqual({ comment: true, card: true });
+    }
   });
 
   it("closes both once the pointer leaves the passage and the popover", () => {
     const view = openEditor();
-    const key = coordsAt(DOC.indexOf("lee2026") + 3);
+    const key = coordsAt(DOC.indexOf(CARDS[card].key) + 3);
     pointAt(view, key.left, (key.top + key.bottom) / 2);
-    expect(parts()).toEqual({ comment: true, citation: true });
+    expect(parts()).toEqual({ comment: true, card: true });
 
     // Below the document's last row, away from the popover.
     pointAt(view, 900, 700);
     expect(popover()).toBeNull();
+  });
+});
+
+// The suggestion menu opened under the card stacked the two over the key, and
+// the card vanished as the pointer moved down onto the menu.
+describe("a citation card and the citation suggestion menu", () => {
+  beforeEach(() => { card = "citation"; });
+
+  const hoverKey = (view: EditorView) => {
+    const key = coordsAt(DOC.indexOf("lee2026") + 3);
+    pointAt(view, key.left, (key.top + key.bottom) / 2);
+  };
+  const openMenu = async (view: EditorView) => {
+    view.dispatch({ selection: { anchor: DOC.indexOf("lee2026") + 3 } });
+    startCompletion(view);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(completionStatus(view.state)).toBe("active");
+  };
+
+  it("shows no card over a key while the menu is open", async () => {
+    const view = openEditor({ menu: true });
+    await openMenu(view);
+    hoverKey(view);
+    expect(parts().card).toBe(false);
+  });
+
+  it("closes the card when the menu opens under it", async () => {
+    const view = openEditor({ menu: true });
+    hoverKey(view);
+    expect(parts().card).toBe(true);
+    await openMenu(view);
+    expect(parts().card).toBe(false);
   });
 });

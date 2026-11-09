@@ -13,10 +13,12 @@ export function SheetDialog(props: {
   className?: string;
   dirty?: boolean;
   onClose: () => void;
+  /** Escape before it closes the sheet: a sheet with a step to go back to takes it by preventing it. */
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
   children: ReactNode;
 }) {
   return (
-    <ModalDialog label={props.label} keepOnOutsideClick={props.dirty} onClose={props.onClose}>
+    <ModalDialog label={props.label} keepOnOutsideClick={props.dirty} onClose={props.onClose} onEscapeKeyDown={props.onEscapeKeyDown}>
       <div className={`modal sheet-dialog native-hover-scrollbar ${props.className ?? ""}`.trim()}>
         {props.children}
       </div>

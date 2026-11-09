@@ -11,6 +11,7 @@ import { isVanished, useDocumentStore, type OpenDocumentsDeps } from "./use-docu
 import { useDocumentTreeChanges } from "./use-document-tree-changes";
 import { settleVanished } from "./vanished-file-wait";
 import { useWorkspaceLayout } from "./use-workspace-layout";
+import type { OtOp } from "../overleaf/ot";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView } from "./paper-documents";
 export type { SaveStatus } from "./save-activity";
@@ -51,6 +52,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     intentRef, viewIntentRef, setOpening, setNavIndex, navLockRef,
     persistenceReadyRoot, tabsSettledRoot, flushRef, captureViewportRef, viewStates, vanishedRef,
     showFileText, closePaper, paperBuffersDirty, addTab, flush, bufferText, flushAndCheckDirty, recordDiskVersion, accept, isOutsideText,
+    typeFileText,
   } = store;
   const { save, saveStatus, saveActivityRef } = useDocumentSave(store);
   const opens = useDocumentOpens(store, save);
@@ -232,6 +234,26 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     return handle;
   }, [intentRef, setOpening]);
 
+  /**
+   * The open file and its text now (deferred visual edits published), and a
+   * replace that lands only while that same file of this project still holds
+   * exactly that text: for slow work computed from the text, such as Format
+   * document, whose result must never go into whatever is open when it returns
+   * or overwrite what was typed meanwhile. False when it did not land.
+   */
+  const pinText = useCallback(() => {
+    const ownsProject = captureProjectScope();
+    flush();
+    const path = fileRef.current;
+    const text = textRef.current;
+    const replace = (next: string) => {
+      if (!flush() || !ownsProject() || fileRef.current !== path || textRef.current !== text) return false;
+      setText(next);
+      return true;
+    };
+    return { path, text, replace };
+  }, [captureProjectScope, fileRef, flush, setText, textRef]);
+
   /** True while nothing newer was opened or chosen in this project. */
   const scope = useCallback(() => {
     const ownsProject = captureProjectScope();
@@ -268,7 +290,9 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       path: paperPath ?? file,
       text: paper ? paperText : text,
       previewText: paper ? (paperView === "blog" ? paperBlog ?? "" : stripFrontmatter(paperMarkdown)) : undefined,
-      setText: paper ? setPaperText : setText,
+      setText: paper ? setPaperText : (value: string, base?: string, typed?: OtOp[]) => (
+        base === undefined ? setText(value) : typeFileText(value, base, typed)
+      ),
       isOutsideText,
       onLeave: onEditorLeave,
       onLeaveForPdf,
@@ -288,9 +312,9 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     // Buffers.
     /** The last write to disk, for the status bar's save slot. */
     saveStatus,
-    flush, save, bufferText, hasUnsavedEdits, edit: setText, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
+    flush, save, bufferText, hasUnsavedEdits, edit: setText, pinText, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.
-    enter, remove, move,
+    projectRoot, enter, remove, move,
   };
 }
 

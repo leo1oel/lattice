@@ -229,6 +229,11 @@ msgstr "{0} packages"
 msgid "{0} pages"
 msgstr "{0} pages"
 
+#. placeholder {0}: ticked.length
+#: src/papers/zotero-browser.tsx
+msgid "{0} papers selected"
+msgstr "{0} papers selected"
+
 #. placeholder {0}: peers.length
 #: src/overleaf/overleaf-presence.tsx
 msgid "{0} people on Overleaf now"
@@ -325,6 +330,10 @@ msgstr "{builds} compiles"
 #: src/project/arxiv-export.ts
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}; arXiv builds with pdfLaTeX"
+
+#: src/telemetry/update-recovery.ts
+msgid "{cause}. Try again, or download Lattice {version} from the releases page."
+msgstr "{cause}. Try again, or download Lattice {version} from the releases page."
 
 #: src/platform/host-errors-workspace.ts
 msgid "{chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop."
@@ -862,6 +871,10 @@ msgstr "{paragraphs} changed paragraphs"
 msgid "{passing} of {0} checks pass"
 msgstr "{passing} of {0} checks pass"
 
+#: src/app/format-document.ts
+msgid "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
+msgstr "{path} changed while it was being formatted, so the result was not applied. Run Format document again."
+
 #: src/history/conflict-resolver.tsx
 msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 msgstr "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
@@ -1198,6 +1211,10 @@ msgstr "1 page remaining"
 msgid "1 paper"
 msgstr "1 paper"
 
+#: src/papers/zotero-browser.tsx
+msgid "1 paper selected"
+msgstr "1 paper selected"
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 person on Overleaf now"
@@ -1357,6 +1374,10 @@ msgstr "A panel crashed"
 #: src/platform/host-errors-workspace.ts
 msgid "A part of the path is not a folder."
 msgstr "A part of the path is not a folder."
+
+#: src/platform/host-errors-papers.ts
+msgid "A PDF can only be attached to a cited paper."
+msgstr "A PDF can only be attached to a cited paper."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "A pending Overleaf move also changes its name."
@@ -1544,7 +1565,9 @@ msgid "Add “{projectWord}” to project dictionary"
 msgstr "Add “{projectWord}” to project dictionary"
 
 #. placeholder {0}: addable.length
+#. placeholder {0}: ticked.length
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add {0} papers"
 msgstr "Add {0} papers"
 
@@ -1553,6 +1576,7 @@ msgid "Add {title} to Papers"
 msgstr "Add {title} to Papers"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Add 1 paper"
 msgstr "Add 1 paper"
 
@@ -1567,6 +1591,10 @@ msgstr "Add a citation"
 #: src/editor/editor-keymap.ts
 msgid "Add a cursor above or below"
 msgstr "Add a cursor above or below"
+
+#: src/editor/latex/citation-reason-editor.ts
+msgid "Add a note"
+msgstr "Add a note"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
@@ -1611,6 +1639,7 @@ msgstr "Add or edit a link"
 #: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Add papers"
 msgstr "Add papers"
@@ -1719,6 +1748,10 @@ msgstr "Adjusted so links and selected text read at {ratio}:1"
 #: src/build/tex-setup.ts
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "Administrator approval was cancelled, so nothing was installed."
+
+#: src/build/tex-package-updates.ts
+msgid "Administrator approval was cancelled, so nothing was updated."
+msgstr "Administrator approval was cancelled, so nothing was updated."
 
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
@@ -2058,7 +2091,7 @@ msgstr "Annotations and highlights"
 msgid "Anonymous"
 msgstr "Anonymous"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 msgstr "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."
 
@@ -2067,6 +2100,7 @@ msgid "Another file in this project"
 msgstr "Another file in this project"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/update-recovery.ts
 msgid "Another Lattice window is installing this update."
 msgstr "Another Lattice window is installing this update."
 
@@ -2075,6 +2109,7 @@ msgid "Another package or the template already loads {name}. Pass your options w
 msgstr "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage."
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Another paper is being added"
 msgstr "Another paper is being added"
 
@@ -2178,6 +2213,7 @@ msgid "Applying…"
 msgstr "Applying…"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Approve the macOS prompt to continue"
 msgstr "Approve the macOS prompt to continue"
 
@@ -2241,6 +2277,10 @@ msgstr "Asterisk operator"
 #: src/project/manuscript-checklist.tsx
 msgid "At the limit"
 msgstr "At the limit"
+
+#: src/app/report-problem.ts
+msgid "Attach the file shown in Finder to the bug report."
+msgstr "Attach the file shown in Finder to the bug report."
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
@@ -2340,6 +2380,7 @@ msgid "Azure"
 msgstr "Azure"
 
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Back"
 msgstr "Back"
 
@@ -2367,6 +2408,11 @@ msgstr "Back to Overleaf sign-in"
 #: src/editor/markdown/engine/views/footnote-views.tsx
 msgid "Back to reference"
 msgstr "Back to reference"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Background"
+msgstr "Background"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bar over an expression"
@@ -2397,6 +2443,10 @@ msgstr "BasicTeX installation progress"
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installed"
 msgstr "BasicTeX installed"
+
+#: src/build/tex-package-updates.ts
+msgid "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor."
+msgstr "BasicTeX is installed, but its LaTeX packages could not be updated. Update them later from Settings → TeX doctor."
 
 #: src/platform/host-errors-setup.ts
 msgid "BasicTeX is installed, but Lattice could not finish installing the required LaTeX packages.\n"
@@ -2868,6 +2918,7 @@ msgid "Callout"
 msgstr "Callout"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Can take up to 15 minutes"
 msgstr "Can take up to 15 minutes"
 
@@ -2885,6 +2936,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
@@ -2908,6 +2960,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/project/project-replace-dialog.tsx
 #: src/project/submission-items.tsx
 #: src/telemetry/app-log.tsx
+#: src/telemetry/update-recovery.ts
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -3167,6 +3220,11 @@ msgstr "Check English spelling"
 msgid "Check for updates"
 msgstr "Check for updates"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Check for Updates…"
+msgstr "Check for Updates…"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Check incomplete"
 msgstr "Check incomplete"
@@ -3300,6 +3358,10 @@ msgstr "Choose a file or folder to move."
 msgid "Choose a file to save the PDF to."
 msgstr "Choose a file to save the PDF to."
 
+#: src/papers/zotero-browser.tsx
+msgid "Choose a folder"
+msgstr "Choose a folder"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "Choose a folder or ZIP containing LaTeX source files."
@@ -3393,10 +3455,6 @@ msgstr "Choose image to upload"
 msgid "Choose location"
 msgstr "Choose location"
 
-#: src/papers/add-papers-sheet.tsx
-msgid "Choose one"
-msgstr "Choose one"
-
 #: src/platform/host-errors-project.ts
 msgid "Choose pdf, xelatex, or lualatex."
 msgstr "Choose pdf, xelatex, or lualatex."
@@ -3452,6 +3510,10 @@ msgstr "Choose whether to keep or remove manuscript citations."
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose your library's .bib file"
 msgstr "Choose your library's .bib file"
+
+#: src/papers/zotero-browser.tsx
+msgid "Choose Zotero folder…"
+msgstr "Choose Zotero folder…"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/project/clone-repository-dialog.tsx
@@ -3591,7 +3653,7 @@ msgstr "Cited"
 msgid "Cited {count}× in this paper"
 msgstr "Cited {count}× in this paper"
 
-#: src/editor/latex/latex-hover-cards.ts
+#: src/editor/latex/citation-card-uses.ts
 msgid "Cited {times}× here"
 msgstr "Cited {times}× here"
 
@@ -3845,6 +3907,10 @@ msgstr "Code block title"
 msgid "Code theme"
 msgstr "Code theme"
 
+#: src/papers/zotero-browser.tsx
+msgid "Collapse {name}"
+msgstr "Collapse {name}"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
 msgstr "Collapsible"
@@ -3953,6 +4019,10 @@ msgstr "Comment source"
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Commenting on {name} on Overleaf…"
+msgstr "Commenting on {name} on Overleaf…"
+
 #: src/canvas/proofread-card.tsx
 msgid "comments"
 msgstr "comments"
@@ -4022,6 +4092,11 @@ msgstr "Compared with now"
 #: src/history/compare-versions.tsx
 msgid "Comparing…"
 msgstr "Comparing…"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Comparison"
+msgstr "Comparison"
 
 #: src/papers/citation-candidates.tsx
 msgid "Compatible author names"
@@ -4325,6 +4400,10 @@ msgid "Could not copy the source link"
 msgstr "Could not copy the source link"
 
 #: src/platform/host-errors-workspace.ts
+msgid "Could not create the report folder: {error}"
+msgstr "Could not create the report folder: {error}"
+
+#: src/platform/host-errors-workspace.ts
 msgid "Could not create the ZIP archive: {error}"
 msgstr "Could not create the ZIP archive: {error}"
 
@@ -4429,6 +4508,10 @@ msgstr "Could not open the Overleaf realtime connection: {error}"
 msgid "Could not open the Overleaf sign-in window: {error}"
 msgstr "Could not open the Overleaf sign-in window: {error}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not open the PDF in a new window: {error}"
+msgstr "Could not open the PDF in a new window: {error}"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not open the project because its Overleaf host is invalid."
 msgstr "Could not open the project because its Overleaf host is invalid."
@@ -4486,7 +4569,7 @@ msgstr "Could not read the arXiv title lookup: {error}"
 msgid "Could not read:"
 msgstr "Could not read:"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 msgstr "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 
@@ -4566,6 +4649,10 @@ msgstr "Could not save {failedPath}"
 msgid "Could not save {name}"
 msgstr "Could not save {name}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not save the diagnostic log: {error}"
+msgstr "Could not save the diagnostic log: {error}"
+
 #: src/app/use-document-save.ts
 msgid "Could not save the project"
 msgstr "Could not save the project"
@@ -4582,6 +4669,10 @@ msgstr "Could not search the TeX Live repository: {error}"
 #: src/app/use-project-tree.ts
 msgid "Could not show that item in Finder. {message}"
 msgstr "Could not show that item in Finder. {message}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not show the diagnostic log in Finder: {error}"
+msgstr "Could not show the diagnostic log in Finder: {error}"
 
 #: src/platform/host-errors-papers.ts
 msgid "Could not start {tool}: {error}"
@@ -4632,8 +4723,14 @@ msgid "Couldn’t check for Lattice updates"
 msgstr "Couldn’t check for Lattice updates"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/tex-package-check-problem.ts
+#: src/settings/tex-package-updates-row.tsx
 msgid "Couldn’t check for updates"
 msgstr "Couldn’t check for updates"
+
+#: src/settings/tex-package-check-problem.ts
+msgid "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
+msgstr "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Couldn’t check the connection. Still linked to {linkedHost}"
@@ -4711,9 +4808,18 @@ msgstr "Couldn’t reopen “{unopenedName}”. Its folder may have been moved o
 msgid "Couldn’t save"
 msgstr "Couldn’t save"
 
+#: src/app/report-problem.ts
+msgid "Couldn’t save the diagnostic log"
+msgstr "Couldn’t save the diagnostic log"
+
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
 msgstr "Couldn’t start the paper tools"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Counterexample"
+msgstr "Counterexample"
 
 #: src/agent/agent-composer-prompt.ts
 msgid "Create a presentation about"
@@ -5061,6 +5167,10 @@ msgstr "Details"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "Determinant-style matrix"
+
+#: src/app/report-problem.ts
+msgid "Diagnostic log saved"
+msgstr "Diagnostic log saved"
 
 #: src/editor/codemirror-host.tsx
 #: src/settings/settings-dialog.tsx
@@ -5618,6 +5728,10 @@ msgstr "Editor keymap"
 msgid "Editor status"
 msgstr "Editor status"
 
+#: src/build/use-compile-repair.ts
+msgid "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
+msgstr "Editor unlocked while the repair may still be running. Open Agent to see how far it got."
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Edits"
 msgstr "Edits"
@@ -5874,6 +5988,10 @@ msgstr "Excel workbook exported"
 #: src/app/focus-mode-bar.tsx
 msgid "Exit focus"
 msgstr "Exit focus"
+
+#: src/papers/zotero-browser.tsx
+msgid "Expand {name}"
+msgstr "Expand {name}"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
@@ -6346,6 +6464,10 @@ msgstr "folded code"
 msgid "Folded lines"
 msgstr "Folded lines"
 
+#: src/papers/zotero-browser.tsx
+msgid "Folders"
+msgstr "Folders"
+
 #: src/settings/editor-font-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Font"
@@ -6588,6 +6710,14 @@ msgstr "Git workspace didn’t load"
 #: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"
 msgstr "GitHub Releases"
+
+#: src/telemetry/update-recovery.ts
+msgid "GitHub’s download server timed out (504). Try again, or download Lattice {version} from the releases page."
+msgstr "GitHub’s download server timed out (504). Try again, or download Lattice {version} from the releases page."
+
+#: src/telemetry/update-recovery.ts
+msgid "GitHub’s download server was unavailable ({code}). Try again, or download Lattice {version} from the releases page."
+msgstr "GitHub’s download server was unavailable ({code}). Try again, or download Lattice {version} from the releases page."
 
 #: src/platform/host-errors-project.ts
 msgid "Give the checked date as a day."
@@ -7177,6 +7307,7 @@ msgid "In Lattice, this panel shows the project's Git changes and pull requests,
 msgstr "In Lattice, this panel shows the project's Git changes and pull requests, and what each Agent turn changed."
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/papers/zotero-browser.tsx
 msgid "In Papers"
 msgstr "In Papers"
 
@@ -7187,6 +7318,10 @@ msgstr "In proceedings"
 #: src/telemetry/app-log.tsx
 msgid "In progress"
 msgstr "In progress"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "In Terminal:"
+msgstr "In Terminal:"
 
 #: src/onboarding/get-started-steps.ts
 msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
@@ -7246,6 +7381,10 @@ msgstr "Include raw diagnostic text"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Include replies"
 msgstr "Include replies"
+
+#: src/papers/zotero-browser.tsx
+msgid "Include subfolders"
+msgstr "Include subfolders"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -8063,15 +8202,15 @@ msgstr "Lattice {version} is ready"
 msgid "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 msgstr "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 
@@ -8096,9 +8235,17 @@ msgstr "Lattice could not read the project’s labels and citations: {error}"
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice could not write to the TeX installation folder."
 
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't find a Zotero library on this Mac."
+msgstr "Lattice couldn't find a Zotero library on this Mac."
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
 msgstr "Lattice couldn’t open this window"
+
+#: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't read the Zotero library: {reason}"
+msgstr "Lattice couldn't read the Zotero library: {reason}"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
@@ -8113,6 +8260,14 @@ msgstr "Lattice couldn’t write {file}"
 msgid "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 msgstr "Lattice is signed in to {0}. To open projects from another Overleaf server, sign in to it in Settings → Overleaf."
 
+#: src/telemetry/app-updater.tsx
+msgid "Lattice is up to date"
+msgstr "Lattice is up to date"
+
+#: src/build/use-compile-repair.ts
+msgid "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
+msgstr "Lattice lost track of the repair task, so the editor is writable again. Open Agent to see how far the repair got."
+
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
 msgid "Lattice on Linux doesn’t update itself. Download new versions from GitHub Releases."
@@ -8122,6 +8277,10 @@ msgstr "Lattice on Linux doesn’t update itself. Download new versions from Git
 msgctxt "comment source"
 msgid "Lattice only"
 msgstr "Lattice only"
+
+#: src/platform/host-errors-setup.ts
+msgid "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
+msgstr "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
@@ -8313,6 +8472,7 @@ msgstr "Line"
 #. placeholder {0}: hit.line
 #. placeholder {0}: hunk.line
 #. placeholder {0}: passage.line
+#: src/editor/latex/citation-card-uses.ts
 #: src/history/compare-versions.tsx
 #: src/history/conflict-resolver.tsx
 #: src/project/todo-scavenger-panel.tsx
@@ -8925,6 +9085,11 @@ msgstr "Metadata source"
 msgid "Metadata source (cached)"
 msgstr "Metadata source (cached)"
 
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Method"
+msgstr "Method"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Middle table rule"
 msgstr "Middle table rule"
@@ -9075,6 +9240,10 @@ msgstr "Multiple existing citations match this paper. Resolve the duplicates bef
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Multiset union"
 msgstr "Multiset union"
+
+#: src/papers/zotero-browser.tsx
+msgid "My Library"
+msgstr "My Library"
 
 #: src/project/local-templates.tsx
 msgid "My templates"
@@ -9526,6 +9695,10 @@ msgstr "No matches found."
 msgid "No matching files"
 msgstr "No matching files"
 
+#: src/papers/zotero-browser.tsx
+msgid "No matching folders"
+msgstr "No matching folders"
+
 #: src/telemetry/app-log.tsx
 msgid "No matching logs"
 msgstr "No matching logs"
@@ -9535,6 +9708,7 @@ msgid "No matching pages"
 msgstr "No matching pages"
 
 #: src/editor/markdown/engine/chrome/references.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
@@ -9602,6 +9776,10 @@ msgstr "No Overleaf host configured."
 #: src/platform/host-errors-overleaf.ts
 msgid "No Overleaf project selected."
 msgstr "No Overleaf project selected."
+
+#: src/papers/zotero-browser.tsx
+msgid "No papers in this folder"
+msgstr "No papers in this folder"
 
 #: src/project/project-find-dialog.tsx
 msgid "No papers match “{trimmedQuery}”"
@@ -9764,6 +9942,10 @@ msgstr "North-east arrow"
 msgid "North-west arrow"
 msgstr "North-west arrow"
 
+#: src/platform/host-errors-papers.ts
+msgid "Not a PDF: {path}"
+msgstr "Not a PDF: {path}"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Not added"
 msgstr "Not added"
@@ -9881,6 +10063,7 @@ msgstr "not written"
 msgid "Not yet"
 msgstr "Not yet"
 
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "Note"
@@ -10068,6 +10251,10 @@ msgstr "One-click TeX install is not available on Linux yet."
 msgid "One-click TeX package install is not available on Linux yet."
 msgstr "One-click TeX package install is not available on Linux yet."
 
+#: src/platform/host-errors-setup.ts
+msgid "One-click TeX package update is not available on Linux yet."
+msgstr "One-click TeX package update is not available on Linux yet."
+
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can be exported with its changes marked."
 msgstr "Only a LaTeX document can be exported with its changes marked."
@@ -10075,6 +10262,10 @@ msgstr "Only a LaTeX document can be exported with its changes marked."
 #: src/platform/host-errors-workspace.ts
 msgid "Only a LaTeX document can show its changes marked."
 msgstr "Only a LaTeX document can show its changes marked."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Only a Lattice window can open the PDF in a window of its own."
+msgstr "Only a Lattice window can open the PDF in a window of its own."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
@@ -10261,6 +10452,10 @@ msgstr "Open in Lattice app"
 msgid "Open in Overleaf"
 msgstr "Open in Overleaf"
 
+#: src/canvas/project-pdf-panel.tsx
+msgid "Open in separate window"
+msgstr "Open in separate window"
+
 #: src/overleaf/overleaf-pasted-link.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Open invitation"
@@ -10302,6 +10497,10 @@ msgstr "Open page"
 msgid "Open paper"
 msgstr "Open paper"
 
+#: src/editor/latex/citation-card-uses.ts
+msgid "Open paper at page {target}"
+msgstr "Open paper at page {target}"
+
 #: src/project/project-find-dialog.tsx
 msgid "Open paper result: {paperTitle}"
 msgstr "Open paper result: {paperTitle}"
@@ -10318,6 +10517,10 @@ msgstr "Open project history"
 msgctxt "macOS menu bar"
 msgid "Open Recent"
 msgstr "Open Recent"
+
+#: src/telemetry/update-recovery.ts
+msgid "Open releases page"
+msgstr "Open releases page"
 
 #: src/app/use-command-table.ts
 msgid "Open settings"
@@ -10396,6 +10599,10 @@ msgstr "Open the linked Overleaf project before changing its sync setting."
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the linked Overleaf project first."
 msgstr "Open the linked Overleaf project first."
+
+#: src/app/use-command-table.ts
+msgid "Open the PDF in a separate window"
+msgstr "Open the PDF in a separate window"
 
 #: src/trellis/trellis-document-views.tsx
 msgid "Open the reader"
@@ -10509,7 +10716,7 @@ msgstr "Overleaf"
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
 msgstr "Overleaf acknowledged version {version} while this document is at {current}."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
 msgstr "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
 
@@ -10538,11 +10745,11 @@ msgstr "Overleaf comments and chat, {count} waiting"
 msgid "Overleaf could not create the project ({status}): {detail}"
 msgstr "Overleaf could not create the project ({status}): {detail}"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file."
 msgstr "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf could not replay from the last version Lattice trusts"
 msgstr "Overleaf could not replay from the last version Lattice trusts"
 
@@ -10595,7 +10802,7 @@ msgstr "Overleaf history keeps a copy"
 msgid "Overleaf is still preparing file uploads. Try syncing again in a moment."
 msgstr "Overleaf is still preparing file uploads. Try syncing again in a moment."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 msgstr "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 
@@ -10607,7 +10814,7 @@ msgstr "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 msgstr "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "Overleaf live editing reconnected."
 msgstr "Overleaf live editing reconnected."
 
@@ -10708,10 +10915,6 @@ msgstr "Overleaf sync is finishing. Try switching projects again in a moment."
 msgid "Overleaf sync paused"
 msgstr "Overleaf sync paused"
 
-#: src/canvas/pdf-annotation-composer.tsx
-msgid "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
-msgstr "Overleaf takes a comment only on the file open in the editor, and this passage is in {name}. Double-click it to open {name}, then select it again."
-
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf turned this request away, though the session is still valid."
 msgstr "Overleaf turned this request away, though the session is still valid."
@@ -10735,6 +10938,10 @@ msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
 #: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: waiting on conflict resolution in {files}."
 msgstr "Overleaf: waiting on conflict resolution in {files}."
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Overleaf's copy of {name} reads differently here, so it is open beside the PDF now. Check the passage there, then save again."
+msgstr "Overleaf's copy of {name} reads differently here, so it is open beside the PDF now. Check the passage there, then save again."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf's full history needs a paid plan on this project."
@@ -10778,9 +10985,15 @@ msgid "owner"
 msgstr "owner"
 
 #. placeholder {0}: place.page
+#. placeholder {0}: use.page
 #: src/canvas/paper-selection-actions.tsx
+#: src/editor/latex/citation-card-uses.ts
 msgid "p. {0}"
 msgstr "p. {0}"
+
+#: src/project/paper-inspector.tsx
+msgid "p. {page}"
+msgstr "p. {page}"
 
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
@@ -10891,6 +11104,7 @@ msgstr "Paper tones"
 #: src/app/command-palette.tsx
 #: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -11944,6 +12158,7 @@ msgstr "Reload panel"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
+#: src/editor/latex/citation-reason-editor.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/live-preview/live-preview-settings.tsx
 #: src/project/deadline-card.tsx
@@ -12108,11 +12323,11 @@ msgstr "Reopen the closed tab"
 msgid "Reopened"
 msgstr "Reopened"
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair cancelled."
 msgstr "Repair cancelled."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair failed."
 msgstr "Repair failed."
 
@@ -12124,7 +12339,7 @@ msgstr "Repair finished"
 msgid "Repair has no active turn."
 msgstr "Repair has no active turn."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 msgstr "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again."
 
@@ -12280,6 +12495,16 @@ msgstr "Reply to {author}"
 msgid "Reply…"
 msgstr "Reply…"
 
+#: src/app/report-problem.ts
+#: src/app/use-command-table.ts
+msgid "Report a problem"
+msgstr "Report a problem"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Report a Problem…"
+msgstr "Report a Problem…"
+
 #: src/project/clone-repository-dialog.tsx
 msgid "Repository URL"
 msgstr "Repository URL"
@@ -12345,6 +12570,10 @@ msgstr "Reset panel layout"
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Reset view"
 msgstr "Reset view"
+
+#: src/pdf/pdf-comment-column.tsx
+msgid "Resize comments"
+msgstr "Resize comments"
 
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and asset preview"
@@ -12459,6 +12688,11 @@ msgstr "Restart now"
 #: src/telemetry/app-updater.tsx
 msgid "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
 msgstr "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Restart to Update…"
+msgstr "Restart to Update…"
 
 #: src/telemetry/app-updater.tsx
 msgid "Restarting now stops {running}."
@@ -12626,9 +12860,18 @@ msgstr "Retrieved record information"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/app/use-command-table.ts
+msgid "Return the PDF to the workspace"
+msgstr "Return the PDF to the workspace"
+
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Return to {name}"
 msgstr "Return to {name}"
+
+#: src/canvas/project-pdf-window.tsx
+#: src/pdf/pdf-window-page.tsx
+msgid "Return to workspace"
+msgstr "Return to workspace"
 
 #: src/app/use-trellis-bridge.ts
 #: src/pdf/pdf-viewer.tsx
@@ -12792,6 +13035,10 @@ msgstr "Right normal subgroup eq"
 msgid "Right vertical bar"
 msgstr "Right vertical bar"
 
+#: src/editor/latex/citation-reason-editor.ts
+msgid "Role"
+msgstr "Role"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Roman text"
 msgstr "Roman text"
@@ -12895,6 +13142,7 @@ msgstr "Saturation and brightness"
 #: src/app/vanished-file.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/latex/citation-reason-editor.ts
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -13015,7 +13263,7 @@ msgstr "Save template"
 msgid "Save the open file first."
 msgstr "Save the open file first."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
 
@@ -13174,6 +13422,10 @@ msgstr "Search files and papers…"
 msgid "Search files, papers and commands"
 msgstr "Search files, papers and commands"
 
+#: src/papers/zotero-browser.tsx
+msgid "Search folders"
+msgstr "Search folders"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "Search literature"
@@ -13197,6 +13449,10 @@ msgstr "Search or import papers"
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Search Overleaf projects"
 msgstr "Search Overleaf projects"
+
+#: src/papers/zotero-browser.tsx
+msgid "Search papers"
+msgstr "Search papers"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
@@ -13271,6 +13527,7 @@ msgstr "Select a paragraph, choose Annotate, write what should change, then Save
 
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
+#: src/papers/zotero-browser.tsx
 msgid "Select all"
 msgstr "Select all"
 
@@ -13436,6 +13693,15 @@ msgstr "Settings"
 #: src/settings/settings-dialog.tsx
 msgid "Settings sections"
 msgstr "Settings sections"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Settings…"
+msgstr "Settings…"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Several matches"
+msgstr "Several matches"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
@@ -13748,6 +14014,10 @@ msgstr "Smile relation"
 msgid "Soft {name}"
 msgstr "Soft {name}"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Some changes are shown without marks: marked, they kept the PDF from building."
+msgstr "Some changes are shown without marks: marked, they kept the PDF from building."
+
 #: src/app/project-index-load.ts
 msgid "Some files are left out of label and citation checks"
 msgstr "Some files are left out of label and citation checks"
@@ -14016,6 +14286,10 @@ msgstr "Static coverage is limited in:"
 msgid "Status"
 msgstr "Status"
 
+#: src/app/use-build-pipeline.ts
+msgid "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+msgstr "Still building after {minutes} minutes. Something in the document may be looping; stop the build if it does not finish."
+
 #. placeholder {0}: result.detail
 #: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
@@ -14029,6 +14303,7 @@ msgstr "Still on Overleaf"
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
+#: src/app/use-build-pipeline.ts
 #: src/papers/add-papers-sheet.tsx
 msgid "Stop"
 msgstr "Stop"
@@ -14063,6 +14338,7 @@ msgstr "Stop tracking changes?"
 msgid "Stopped after 2 minutes"
 msgstr "Stopped after 2 minutes"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "Stopping…"
@@ -14155,6 +14431,11 @@ msgstr "Superset"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "Superset or equal"
+
+#: src/editor/latex/citation-roles.ts
+msgctxt "why a passage cites a paper"
+msgid "Supporting"
+msgstr "Supporting"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
@@ -14435,6 +14716,10 @@ msgstr "TeX doctor"
 msgid "TeX Live’s package manager could not install the package."
 msgstr "TeX Live’s package manager could not install the package."
 
+#: src/build/tex-package-updates.ts
+msgid "TeX Live’s package manager could not update the packages."
+msgstr "TeX Live’s package manager could not update the packages."
+
 #: src/platform/host-errors-setup.ts
 msgid "TeX Live's package manager is not installed."
 msgstr "TeX Live's package manager is not installed."
@@ -14442,6 +14727,18 @@ msgstr "TeX Live's package manager is not installed."
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager needs an update, and the update did not finish."
 msgstr "TeX Live’s package manager needs an update, and the update did not finish."
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX package update progress"
+msgstr "TeX package update progress"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX packages"
+msgstr "TeX packages"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "TeX packages updated. Build again to use them."
+msgstr "TeX packages updated. Build again to use them."
 
 #. placeholder {0}: diagnostic.message
 #: src/build/compile-diagnostics-panel.tsx
@@ -14741,8 +15038,8 @@ msgid "The candidate's title or authors conflict with its source metadata. No ci
 msgstr "The candidate's title or authors conflict with its source metadata. No citation was added."
 
 #: src/canvas/project-pdf-panel.tsx
-msgid "The changes could not be marked in the PDF, so it shows the paper without them."
-msgstr "The changes could not be marked in the PDF, so it shows the paper without them."
+msgid "The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks."
+msgstr "The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks."
 
 #: src/platform/host-errors-papers.ts
 msgid "The citation contains conflicting arXiv identifiers."
@@ -14781,7 +15078,7 @@ msgstr "The compiled output is not a valid PDF."
 msgid "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
 msgstr "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
 
@@ -14800,6 +15097,10 @@ msgstr "The correct plural is “{plural}”."
 #: src/history/conflict-resolver.tsx
 msgid "The current text removed this part."
 msgstr "The current text removed this part."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The diagnostic log is too large to save."
+msgstr "The diagnostic log is too large to save."
 
 #: src/platform/host-errors-workspace.ts
 msgid "The disk is full."
@@ -14841,9 +15142,17 @@ msgstr "The document never loads Times: add {command} after the template, then B
 msgid "the documents area"
 msgstr "the documents area"
 
+#: src/telemetry/update-recovery.ts
+msgid "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
+msgstr "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
+
 #: src/platform/host-errors-setup.ts
 msgid "The downloaded {what} failed its security check."
 msgstr "The downloaded {what} failed its security check."
+
+#: src/telemetry/update-recovery.ts
+msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
+msgstr "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
 
 #: src/platform/host-errors-workspace.ts
 msgid "The Excel workbook is too large to export."
@@ -14961,7 +15270,7 @@ msgstr "The live preview PDF is not in its build folder."
 msgid "The lookup returned no record."
 msgstr "The lookup returned no record."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
 msgstr "the network became available"
 
@@ -15079,6 +15388,10 @@ msgstr "The passage changed after the agent read it. Try again to have it read t
 msgid "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
 msgstr "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
 
+#: src/canvas/project-pdf-window.tsx
+msgid "The PDF is in a separate window"
+msgstr "The PDF is in a separate window"
+
 #: src/platform/host-errors-papers.ts
 msgid "The PDF is larger than the 100 MB conversion limit."
 msgstr "The PDF is larger than the 100 MB conversion limit."
@@ -15095,6 +15408,10 @@ msgstr "The PDF is missing {count} Chinese, Japanese or Korean characters ({samp
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 msgstr "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 
+#: src/platform/host-errors-papers.ts
+msgid "The PDF is not on this Mac: {path}"
+msgstr "The PDF is not on this Mac: {path}"
+
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
@@ -15107,6 +15424,14 @@ msgstr "The PDF was built on {0}."
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build: {detail}"
 msgstr "The PDF with changes marked did not build: {detail}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build: TeX stopped at line {line} of {file} ({detail})."
+msgstr "The PDF with changes marked did not build: TeX stopped at line {line} of {file} ({detail})."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build: TeX stopped near “{text}” ({detail})."
+msgstr "The PDF with changes marked did not build: TeX stopped near “{text}” ({detail})."
 
 #: src/platform/host-errors-workspace.ts
 msgid "The PDF with changes marked did not build."
@@ -15139,6 +15464,10 @@ msgstr "The project changed before Overleaf could finish connecting."
 #: src/platform/host-errors-workspace.ts
 msgid "The project changed before the action could start."
 msgstr "The project changed before the action could start."
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "The project closed before the comment was saved."
+msgstr "The project closed before the comment was saved."
 
 #: src/app/use-apply-open-slide-mutation.ts
 msgid "The project closed before the Open Slide edit could be saved."
@@ -15192,11 +15521,15 @@ msgstr "The rendered page still has no reliable citation metadata. Supply its of
 msgid "The repair agent needs an answer. Open the repair thread to respond."
 msgstr "The repair agent needs an answer. Open the repair thread to respond."
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+msgstr "The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now."
+
 #: src/build/compile-repair-messages.ts
 msgid "The repair request failed."
 msgstr "The repair request failed."
 
-#: src/build/use-compile-repair.ts
+#: src/build/compile-repair-run.ts
 msgid "The repair service did not return a task."
 msgstr "The repair service did not return a task."
 
@@ -15351,6 +15684,10 @@ msgstr "The tutorial's whiteboard: a map of how attention connects queries, keys
 msgid "The two versions read the same"
 msgstr "The two versions read the same"
 
+#: src/telemetry/update-recovery.ts
+msgid "The update file is missing from GitHub’s download server (404). Download Lattice {version} from the releases page."
+msgstr "The update file is missing from GitHub’s download server (404). Download Lattice {version} from the releases page."
+
 #: src/platform/host-errors-papers.ts
 msgid "The upgrade changes the identity of ''{key}''. No changes were saved."
 msgstr "The upgrade changes the identity of ''{key}''. No changes were saved."
@@ -15420,6 +15757,10 @@ msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "There exists"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "There is no text to comment on in this selection."
+msgstr "There is no text to comment on in this selection."
 
 #: src/build/tex-setup.ts
 msgid "There is not enough disk space to install the package. Free up some space, then try again."
@@ -15535,7 +15876,7 @@ msgstr "This diagram could not be rendered."
 msgid "This document changed in the same place"
 msgstr "This document changed in the same place"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it."
 msgstr "This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it."
 
@@ -15572,6 +15913,7 @@ msgid "This file is not a PDF."
 msgstr "This file is not a PDF."
 
 #: src/app/use-editor-comments.ts
+#: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
 
@@ -15756,6 +16098,7 @@ msgid "This terminal has closed."
 msgstr "This terminal has closed."
 
 #: src/build/tex-setup.ts
+#: src/settings/tex-package-check-problem.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 
@@ -15786,6 +16129,10 @@ msgstr "This workspace is already open in the Lattice app."
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in your browser."
 msgstr "This workspace is already open in your browser."
+
+#: src/platform/host-errors-papers.ts
+msgid "this Zotero database (schema {schema}) has no {table}.{column}"
+msgstr "this Zotero database (schema {schema}) has no {table}.{column}"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -15994,7 +16341,9 @@ msgstr "Try"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/papers/zotero-browser.tsx
 #: src/project/paper-library-status.tsx
+#: src/telemetry/update-recovery.ts
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
 msgstr "Try again"
@@ -16004,6 +16353,7 @@ msgid "Try again…"
 msgstr "Try again…"
 
 #: src/canvas/project-pdf-panel.tsx
+#: src/pdf/pdf-window-page.tsx
 msgid "Try building the project again"
 msgstr "Try building the project again"
 
@@ -16014,6 +16364,10 @@ msgstr "Try now"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "Try that again now"
+
+#: src/telemetry/update-recovery.ts
+msgid "Trying again ({next} of 3)…"
+msgstr "Trying again ({next} of 3)…"
 
 #: src/project/project-dialogs.tsx
 msgid "Tsinghua University thesis ({name})"
@@ -16223,6 +16577,10 @@ msgstr "Unlink"
 msgid "Unlinked. {target} stays as it is."
 msgstr "Unlinked. {target} stays as it is."
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Unlock anyway"
+msgstr "Unlock anyway"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."
 msgstr "Unmatched {found}."
@@ -16329,6 +16687,7 @@ msgid "Up double arrow"
 msgstr "Up double arrow"
 
 #: src/papers/linked-library-sheet.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Up to date"
 msgstr "Up to date"
 
@@ -16360,6 +16719,10 @@ msgstr "Update now"
 msgid "Update table"
 msgstr "Update table"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "Update TeX packages"
+msgstr "Update TeX packages"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "Updated"
@@ -16381,6 +16744,18 @@ msgstr "Updated to Lattice {running}"
 msgid "Updates {fields}"
 msgstr "Updates {fields}"
 
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available"
+msgstr "Updates available"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available ({count}): {named}"
+msgstr "Updates available ({count}): {named}"
+
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updates available ({count}): {named}, and {more} more"
+msgstr "Updates available ({count}): {named}, and {more} more"
+
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
 msgstr "Updates every \\ref to it"
@@ -16388,6 +16763,11 @@ msgstr "Updates every \\ref to it"
 #: src/project/project-dialogs.tsx
 msgid "Updates the .bib entry and every \\cite"
 msgstr "Updates the .bib entry and every \\cite"
+
+#: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
+msgid "Updating LaTeX packages…"
+msgstr "Updating LaTeX packages…"
 
 #: src/pdf/pdf-loading.tsx
 msgid "Updating…"
@@ -16585,6 +16965,7 @@ msgid "Version {0} is ready to install"
 msgstr "Version {0} is ready to install"
 
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/update-recovery.ts
 msgid "Version {version}"
 msgstr "Version {version}"
 
@@ -16697,6 +17078,7 @@ msgid "Waiting"
 msgstr "Waiting"
 
 #: src/build/tex-install-dialog.tsx
+#: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
 
@@ -16794,6 +17176,11 @@ msgstr "Who"
 #: src/pdf/pdf-viewer.tsx
 msgid "Whole word"
 msgstr "Whole word"
+
+#: src/editor/latex/citation-reason-editor.ts
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Why cited"
+msgstr "Why cited"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Width"
@@ -17032,6 +17419,14 @@ msgstr "Your invitation to “{0}” is waiting on Overleaf"
 msgid "Your name"
 msgstr "Your name"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: {message}"
+msgstr "Your note on {name} did not reach Overleaf: {message}"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Your note on {name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there."
+msgstr "Your note on {name} did not reach Overleaf: its copy reads differently there, so the file is open beside the PDF now. Comment on the passage there."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "your Overleaf account"
@@ -17092,3 +17487,15 @@ msgstr "Zoom out"
 #: src/settings/settings-search-index.ts
 msgid "zoom scale bigger smaller"
 msgstr "zoom scale bigger smaller"
+
+#: src/papers/zotero-browser.tsx
+msgid "Zotero folders"
+msgstr "Zotero folders"
+
+#: src/platform/host-errors-papers.ts
+msgid "Zotero has no file on this Mac for this attachment."
+msgstr "Zotero has no file on this Mac for this attachment."
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Zotero…"
+msgstr "Zotero…"

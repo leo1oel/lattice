@@ -173,6 +173,8 @@ export function CompileDiagnosticsPanel(props: {
   fixDisabled?: boolean;
   repair?: CompileRepairState | null;
   onCancelRepair?: () => void;
+  /** Release the editor from a repair that has not stopped since Cancel (CompileRepairState.stopping). */
+  onUnlockRepair?: () => void;
   onOpenRepair?: () => void;
   onDismiss: () => void;
   /** The text of a project file a diagnostic names, for the excerpt and the suggestion; null when not at hand. */
@@ -198,7 +200,9 @@ export function CompileDiagnosticsPanel(props: {
   // The same sentence the Build button's tip gives for this build.
   const title = diagnostics.length || !props.success ? buildHeadline(props.success, summary, props.wrotePdf) : t`Build notes`;
   const busy = props.repair && !["completed", "failed"].includes(props.repair.status);
-  const progress = props.repair?.status === "compiling" ? t`Recompiling…`
+  const stopping = busy && props.repair?.stopping;
+  const progress = stopping ? t`Stopping…`
+    : props.repair?.status === "compiling" ? t`Recompiling…`
     : props.repair?.status === "awaiting-approval" ? t`Needs approval` : t`Repairing…`;
 
   return (
@@ -216,6 +220,9 @@ export function CompileDiagnosticsPanel(props: {
             {props.repair?.status !== "compiling" && props.onCancelRepair && (
               <IconButton label={t`Cancel repair`} size="compact" onClick={props.onCancelRepair}><Square size={11} /></IconButton>
             )}
+            {stopping && props.onUnlockRepair && (
+              <Button variant="ghost" size="compact" onClick={props.onUnlockRepair}>{t`Unlock anyway`}</Button>
+            )}
           </div>
         ) : (summary.error + summary.warning > 0 && props.onFixAll) && (
           <Button variant="ghost" size="compact" className="compile-repair-action" disabled={props.fixDisabled} onClick={props.onFixAll}>
@@ -232,6 +239,9 @@ export function CompileDiagnosticsPanel(props: {
         </IconButton>
         <CloseButton label={t`Dismiss diagnostics`} size="compact" onClick={props.onDismiss} />
       </div>
+      {stopping && props.onUnlockRepair && (
+        <p className="compile-repair-detail">{t`The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now.`}</p>
+      )}
       {props.repair?.message && (
         <p className="compile-repair-detail" role="status">{compileRepairMessage(props.repair.message)}</p>
       )}

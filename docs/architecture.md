@@ -265,14 +265,14 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~700 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **226** commands in
+lifecycle and the child runtimes, and registers **240** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
 
 The command handlers live in `src-tauri/src/ipc/`, one module per area of the
 app (`workspace`, `files`, `history`, `search`, `build`, `git`, `bibliography`,
-`papers`, `overleaf`, `overleaf_realtime`, `windows`). A handler is a thin
+`papers`, `overleaf`, `overleaf_realtime`, `overleaf_comments`, `windows`). A handler is a thin
 shell: resolve the calling window's project (`ipc::current_root`, or
 `pinned_root` / `scoped_root` when the request names the project it was made
 for), take the project lease the operation needs (`AppState::lease`), and run
@@ -280,7 +280,7 @@ the domain call on the blocking pool (`ipc::run_blocking` / `in_project`).
 Behaviour belongs in the domain modules. A few self-contained services keep
 their commands beside their state: `synara.rs`, `presentation.rs`,
 `browser_host/dialogs.rs`, `literature_credentials.rs`, `link_preview.rs`,
-`diagnostic_logs.rs`, `macos_window.rs`.
+`diagnostic_logs.rs`, `macos_window.rs`, `pdf_window.rs`.
 
 Which project each window shows, and the per-project resources that must not be
 shared between windows (the active build, the TexLab pool, the Overleaf
@@ -293,9 +293,9 @@ Practical consequence: to find what a button does, grep the command name in
 
 | `ipc` module | Commands | Examples |
 | --- | --- | --- |
-| `overleaf` + `overleaf_history` + `overleaf_realtime` | 47 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
+| `overleaf` + `overleaf_history` + `overleaf_realtime` + `overleaf_comments` | 48 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops`, `overleaf_comment_in_document` |
 | `files` | 29 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
-| `build` | 27 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
+| `build` | 30 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
@@ -351,7 +351,8 @@ that header before changing anything under `overleaf_rt/`.
 which folders already hold a linked copy, so Open from Overleaf reopens one
 instead of downloading a second (`overleaf/local_copies.rs`),
 the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`; a sync's edits to documents go as live
-operations instead, `overleaf/doc_push.rs`), history and review (`overleaf/review.rs`),
+operations instead, `overleaf/doc_push.rs`, and so does a comment on a document the editor does not
+have open, `overleaf/doc_comment.rs`), history and review (`overleaf/review.rs`),
 and a real three-way merge (`overleaf/sync.rs`). The merge keeps a pristine copy of every text file as of
 the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,
@@ -386,7 +387,7 @@ creates it.
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
 | `.research/review/` | `project/review_mode.rs` (`REVIEW_DIRECTORY`) | review mode, present only while it is on: `review.json` (when it was turned on, the files it left out), `base/` (each `.tex`/`.bib` file's base, mirroring the project's paths) and `build/` (the PDF with the changes marked; `latex/changes/review.rs`); deleted when review mode is turned off; never committed (see the gitignore files below), synced to Overleaf (all of `.research/` stays local) or written by `write_bytes` |
-| `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
+| `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds; also citation reasons, annotations with a `citation` field (key and role) that take no number |
 | `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
 | `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |
 | `.research/pdf-annotations.json` | — | PDF annotations from older builds; no longer read or written |
@@ -434,7 +435,7 @@ regression is not visible in a dev build.
 
 | Budget | Value | Constant |
 | --- | --- | --- |
-| Eager JavaScript (all `<script>` in `index.html`) | `1.355 * 1024 * 1024` = 1,420,820 bytes | `EAGER_JS_BUDGET_BYTES` |
+| Eager JavaScript (all `<script>` in `index.html`) | `1.365 * 1024 * 1024` = 1,431,306 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
 | Staged Open Slide runtime (file bytes) | 66 MiB on Apple silicon Macs, 68 MiB on Intel Macs, 69 MiB on Linux (larger x86_64 and ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |

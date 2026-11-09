@@ -45,10 +45,6 @@ import { initialPickerState, reducePicker, type DownloadProgress } from "./overl
 type PickerProps = {
   open: boolean;
   onClose: () => void;
-  /** Claims the project switch; may wait out an in-flight sync, so await it. */
-  onBeforeClone?: () => boolean | Promise<boolean>;
-  /** Restore the old project identity when the root-changing request fails. */
-  onCloneCancelled?: () => void;
   onCloned: (root: string) => void;
   /**
    * Open a folder already linked to the chosen project, raising its window
@@ -155,7 +151,11 @@ Lattice will create a new Overleaf project from the files that normally sync. La
     dispatch({ type: "publishing", publishing: false });
   };
 
-  /** Download `project` into its folder, or answer null when the user backed out first. */
+  /**
+   * Download `project` into its folder. Downloading binds nothing: where the
+   * new root opens (this window when empty, a new one otherwise) is decided
+   * afterwards by `onCloned`, so the project open here is never touched.
+   */
   const download = async (project: OverleafProject) => {
     // A folder of this name already holding files, with no link to any
     // Overleaf project, is what Stop syncing leaves behind. Downloading a
@@ -172,7 +172,6 @@ Files that differ are kept side by side. Nothing is overwritten`,
       confirmLabel: t`Link this folder`,
       cancelLabel: t`Download a new copy`,
     });
-    if (await props.onBeforeClone?.() === false) return null;
     return invoke<string>("overleaf_clone_project", {
       projectId: project.id,
       name: project.name,
@@ -186,12 +185,10 @@ Files that differ are kept side by side. Nothing is overwritten`,
     try {
       const root = await download(project);
       dispatch({ type: "cloning", project: null });
-      if (root === null) return;
       props.onCloned(root);
       onClose();
     } catch (reason) {
       dispatch({ type: "cloning", project: null });
-      props.onCloneCancelled?.();
       await handleFailure(reason, (detail) => {
         dispatch({ type: "transferFailed", error: detail });
         notifyError(OVERLEAF_SOURCE, t`Could not open the Overleaf project`, { detail });

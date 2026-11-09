@@ -218,9 +218,11 @@ describe("CompareVersions", () => {
       to: null,
       options: { colour: false, keepDeleted: true, marginBars: true, onlyChangedPages: true },
     }]);
-    finish({ path: "main-changes.pdf", simplified: false });
+    // Two changes stopped TeX marked, so they are shown without marks.
+    finish({ path: "main-changes.pdf", simplified: false, unmarked: 2 });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(formatAppLogs()).toContain("Saved main-changes.pdf");
+    expect(formatAppLogs()).toContain("Some changes are shown without marks");
   });
 
   it("numbers the preview's citations on through every passage", async () => {

@@ -13,6 +13,8 @@ export type PaperAddItem = {
   input: string;
   /** What the pending row names it by. */
   label: string;
+  /** The Zotero attachment whose PDF becomes its text (zotero-browser.tsx). */
+  pdf?: string;
   state: "waiting" | "adding" | "added" | "failed" | "cancelled";
   citationKey?: string;
   /** Why it failed, or what was added without its full text. */
@@ -57,8 +59,8 @@ export function clearAddQueue() {
  * the batch began in is still open; once it is not, the batch stops.
  */
 export async function runAddQueue(
-  items: ReadonlyArray<Pick<PaperAddItem, "id" | "input" | "label">>,
-  importOne: (item: Pick<PaperAddItem, "input" | "label">) => Promise<PaperAddOutcome>,
+  items: ReadonlyArray<Pick<PaperAddItem, "id" | "input" | "label" | "pdf">>,
+  importOne: (item: Pick<PaperAddItem, "input" | "label" | "pdf">) => Promise<PaperAddOutcome>,
   current: () => boolean,
 ) {
   if (running || !items.length) return;
@@ -69,6 +71,9 @@ export async function runAddQueue(
   publish(items.map((item) => ({ ...item, state: "waiting" })));
   try {
     for (const item of items) {
+      // The project it was adding to closed: its rows belong to no open sheet,
+      // and left as "waiting" they would read as a batch still running (with
+      // a Stop that does nothing) in the next project's sheet. Drop them.
       if (!current()) return;
       if (cancelled) {
         update(item.id, { state: "cancelled" });
@@ -89,6 +94,6 @@ export async function runAddQueue(
     }
   } finally {
     running = false;
-    publish([...queue]);
+    publish(current() ? [...queue] : []);
   }
 }

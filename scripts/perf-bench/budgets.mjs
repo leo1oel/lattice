@@ -5,7 +5,7 @@
  */
 
 /** Every count the benchmark measures and reports. */
-export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mutations"];
+export const COUNTS = ["commits", "updates", "renders", "hooks", "recalcs", "layouts", "mutations"];
 
 /**
  * Counts that depend on frame timing, so the same build measures them
@@ -29,6 +29,15 @@ export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mut
  * - `markdown-preview-scroll` commits, renders and hooks: Base UI's scroll
  *   area re-renders when a scroll burst starts and 500 ms after it ends, and
  *   how many bursts 40 notches make depends on stalls (139–259 renders).
+ * - `startup` commits: the load's updates come from independent async
+ *   sources (lazy chunks arriving, backend answers started from different
+ *   effects, PDF.js progress, animation-frame, resize- and mutation-observer
+ *   callbacks), and whether two of them share a commit depends on where
+ *   React's 5 ms render slices and the frames fall. Main's runs of
+ *   2026-11-08 split or merged seven such pairs independently: 25–29
+ *   commits across 20 runs of one build (CI read 27 against a ceiling of 26
+ *   on four pull requests that did not touch startup), with the same 139–140
+ *   updates in every run. `updates` gates the load instead.
  * - `startup` mutations: Trellis measures a panel's header by writing each
  *   state of its action row to the DOM, again whenever the row changes size.
  *   On a busy machine the Project and Papers panels' actions arrive a frame
@@ -40,6 +49,13 @@ export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mut
  *   depends on the machine (10,909–11,356 across runs of one build).
  */
 const REPORT_ONLY = ["recalcs", "layouts"];
+/**
+ * Counts gated only in these scenarios, reported in every other one. `updates`
+ * (state and store hooks a scenario's commits changed) does not depend on how
+ * React batched them, so it gates a scenario whose commits do; elsewhere the
+ * commits already gate the same work.
+ */
+const GATED_ONLY_IN = { updates: ["startup"] };
 const REPORT_ONLY_BY_SCENARIO = {
   "latex-typing": ["commits"],
   "long-tex-typing": ["commits"],
@@ -48,7 +64,7 @@ const REPORT_ONLY_BY_SCENARIO = {
   "pdf-scroll": ["mutations"],
   "source-scroll": ["mutations"],
   "markdown-preview-scroll": ["commits", "renders", "hooks", "mutations"],
-  startup: ["mutations"],
+  startup: ["commits", "mutations"],
   "tab-drag": ["mutations"],
 };
 /**
@@ -71,7 +87,7 @@ export const gatedCounts = (scenario, engine = "chromium") => {
     ...(REPORT_ONLY_BY_SCENARIO[scenario] ?? []),
     ...(REPORT_ONLY_BY_ENGINE[engine]?.[scenario] ?? []),
   ];
-  return COUNTS.filter((key) => !reportOnly.includes(key));
+  return COUNTS.filter((key) => !reportOnly.includes(key) && (GATED_ONLY_IN[key]?.includes(scenario) ?? true));
 };
 
 /**

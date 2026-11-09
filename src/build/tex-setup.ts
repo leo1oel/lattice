@@ -11,7 +11,7 @@ export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorChe
 export const TEX_INSTALL_SIZE_HINT = "1 GB";
 
 export type TexInstallProgress = {
-  stage: "downloading" | "authorizing" | "installing-base" | "installing-packages" | "installing-tools" | "verifying" | "complete";
+  stage: "downloading" | "authorizing" | "installing-base" | "updating-base" | "installing-packages" | "installing-tools" | "verifying" | "complete";
   progress: number;
 };
 
