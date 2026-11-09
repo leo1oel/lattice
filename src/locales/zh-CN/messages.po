@@ -5694,6 +5694,7 @@ msgid "Edit figure source"
 msgstr "编辑图的源文件"
 
 #: src/app/use-command-table.ts
+#: src/editor/markdown/engine/views/html-preview.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
 
@@ -7146,6 +7147,7 @@ msgid "How to connect Claude Code or Codex"
 msgstr "怎样连接 Claude Code 或 Codex"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/html-preview.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "HTML"
 msgstr "HTML"
@@ -10218,6 +10220,7 @@ msgstr "没有要改的，{leftOver}"
 msgid "Nothing to rerun"
 msgstr "无需重新编译"
 
+#: src/editor/markdown/engine/views/html-preview.tsx
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
 msgstr "没有内容"
@@ -13924,6 +13927,10 @@ msgstr "显示更早的历史"
 msgid "Show outline"
 msgstr "显示大纲"
 
+#: src/editor/markdown/engine/views/html-preview.tsx
+msgid "Show preview"
+msgstr "显示预览"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
@@ -16428,6 +16435,10 @@ msgstr "待办"
 #: src/canvas/proofread-layer.tsx
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "这些修改合起来会改到 LaTeX，请少选几处或重新校对"
+
+#: src/editor/markdown/engine/views/html-preview.tsx
+msgid "Too complex to preview"
+msgstr "过于复杂，无法预览"
 
 #: src/components/ui/color-picker.tsx
 msgid "Too dark for black text"

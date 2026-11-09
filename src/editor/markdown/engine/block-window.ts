@@ -92,14 +92,6 @@ export function mayDrawInWindow(text: string): boolean {
   return lines >= MIN_BLOCKS;
 }
 
-/** Whether a transaction moved the window: the drawn blocks changed without an edit. */
-export function blockWindowMoved(state: EditorState, previous: EditorState): boolean {
-  if (state.doc !== previous.doc) return false;
-  const now = blockWindowKey.getState(state)?.window;
-  const before = blockWindowKey.getState(previous)?.window;
-  return now?.from !== before?.from || now?.to !== before?.to;
-}
-
 const drawnCache = new WeakMap<WindowState, readonly Window[]>();
 
 /**

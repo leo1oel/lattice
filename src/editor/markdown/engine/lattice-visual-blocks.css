@@ -645,6 +645,17 @@
   overflow-wrap: anywhere;
 }
 .lx-md-editor .lx-md-raw[data-kind="frontmatter"] { background: none; border-style: dashed; }
+/* Block HTML: the drawing, contained so nothing it lays out leaves the box; its header shows on hover. */
+.lx-md-editor .lx-md-raw-header { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.lx-md-editor .lx-md-raw-header .lx-md-raw-label { margin-bottom: 0; }
+.lx-md-editor .lx-md-raw-toggle { margin-left: auto; }
+.lx-md-editor .lx-md-raw[data-preview="true"] { background: none; border-color: transparent; }
+.lx-md-editor .lx-md-raw[data-preview="true"] .lx-md-raw-header { position: absolute; inset: var(--space-2) var(--space-2) auto auto; z-index: 1; margin: 0; opacity: 0; }
+.lx-md-editor .lx-md-raw[data-preview="true"]:is(:hover, :focus-within) { border-color: var(--lx-md-block-border); }
+.lx-md-editor .lx-md-raw[data-preview="true"]:is(:hover, :focus-within) .lx-md-raw-header { opacity: 1; }
+.lx-md-editor :is(.ProseMirror-selectednode > .lx-md-raw, .lx-md-raw.ProseMirror-selectednode)[data-preview="true"] { border-color: var(--control-active-border); }
+.lx-md-editor .lx-md-html-preview { position: relative; overflow: auto; contain: layout paint; cursor: text; }
+.lx-md-editor .lx-md-html-preview[data-blank]::after { content: attr(data-empty-label); color: var(--lx-md-chrome-text); font: var(--type-micro-weight) var(--type-micro-size) / var(--type-micro-line-height) var(--ui-font); }
 .lx-md-editor .lx-md-anchor { height: 0; margin: 0; overflow: hidden; scroll-margin-top: var(--space-16); }
 
 .lx-md-editor .lx-md-surface .lx-md-raw-inline {

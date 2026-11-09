@@ -25,6 +25,9 @@ function onSettled(listen: (handler: () => void) => Promise<() => void>, delayMs
   };
 }
 
+/** Marks a minimum held back because the window is maximized. */
+const HELD = Symbol("held");
+
 /** A live value the window minimum follows without re-rendering its owner. */
 export type LiveValue<T> = { subscribe(listener: () => void): () => void; get(): T };
 
@@ -39,13 +42,26 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
     if (typeof appWindow?.setMinSize !== "function") return;
     let active = true;
     let applied: number | null = null;
+    // Re-sending an unchanged minimum still makes the OS re-clamp the window,
+    // which un-maximizes it: maximizing fires onMoved, which re-applied it.
+    let appliedSize = "";
     const apply = (force: boolean) => {
       const layoutMin = layoutMinWidth.get();
       if (!force && layoutMin === applied) return;
       applied = layoutMin;
       // Chained, so a runtime without the monitor API lands in the catch too.
-      void Promise.resolve().then(() => currentMonitor()).then((monitor) => {
-        if (!active) return;
+      void Promise.resolve().then(async () => {
+        // Setting the minimum makes tao re-apply the size, which un-maximizes the window on
+        // Windows (closing a file shrinks the layout minimum and lands here). A maximized
+        // window already fills the screen the minimum is clamped to, so the new minimum
+        // waits for the restore (see the resize listener below).
+        if (typeof appWindow.isMaximized === "function" && await appWindow.isMaximized()) {
+          appliedSize = "";
+          return HELD;
+        }
+        return currentMonitor();
+      }).then((monitor) => {
+        if (!active || monitor === HELD) return;
         const windows = isWindowsHost();
         // Win32 workArea includes the frame and caption, while setMinSize
         // takes client dimensions. A too-tall minimum prevents maximizing on
@@ -54,6 +70,9 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
         const screenHeight = monitor ? monitor.workArea.size.height / monitor.scaleFactor - (windows ? 48 : 0) : Infinity;
         const width = minimumWindowWidth({ layoutMinWidth: layoutMin, interfaceScale, screenWidth });
         const height = windows && Number.isFinite(screenHeight) ? Math.max(1, Math.min(APP_WINDOW_MIN_HEIGHT, Math.floor(screenHeight))) : APP_WINDOW_MIN_HEIGHT;
+        const key = `${width}x${height}`;
+        if (key === appliedSize) return;
+        appliedSize = key;
         return appWindow.setMinSize(new LogicalSize(width, height));
       }).catch(() => {
         // Browser previews and older desktop capabilities may not expose this.
@@ -65,10 +84,15 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
     const stop = typeof appWindow.onMoved === "function"
       ? onSettled((handler) => appWindow.onMoved(handler), 200, () => apply(true))
       : () => {};
+    // A minimum held back while maximized lands once the window is restored.
+    const stopResized = typeof appWindow.onResized === "function"
+      ? onSettled((handler) => appWindow.onResized(handler), 200, () => apply(true))
+      : () => {};
     return () => {
       active = false;
       unsubscribe();
       stop();
+      stopResized();
     };
   }, [interfaceScale, layoutMinWidth]);
 }

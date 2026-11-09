@@ -6,9 +6,10 @@ import { APP_WINDOW_MIN_HEIGHT } from "./window-layout";
 const nativeWindow = vi.hoisted(() => ({
   isFullscreen: vi.fn(async () => false),
   setFullscreen: vi.fn(async (_value: boolean) => {}),
-  onResized: vi.fn(async () => () => {}),
+  onResized: vi.fn(async (_handler: () => void) => () => {}),
   setMinSize: vi.fn(async (_size: { width: number; height: number }) => {}),
-  onMoved: vi.fn(async () => () => {}),
+  onMoved: vi.fn(async (_handler: () => void) => () => {}),
+  isMaximized: vi.fn(async () => false),
   // A 1440 pt Retina screen: AppKit reports its visible area in device pixels.
   currentMonitor: vi.fn(async () => ({ scaleFactor: 2, workArea: { size: { width: 2880, height: 1800 } } })),
 }));
@@ -51,6 +52,49 @@ describe("useWindowMinimumSize", () => {
   it("clamps the zoomed minimum at interface zoom 1.35 to the screen's visible width", async () => {
     renderHook(() => useWindowMinimumSize(1.35, liveMinimum(1100)));
     await waitFor(() => expect(lastMinimum()).toEqual({ width: 1440, height: APP_WINDOW_MIN_HEIGHT }));
+  });
+
+  it("does not re-send an unchanged minimum when the window moves, which would un-maximize it on Windows", async () => {
+    let moved = () => {};
+    nativeWindow.onMoved.mockImplementationOnce(async (handler) => { moved = handler; return () => {}; });
+    renderHook(() => useWindowMinimumSize(1, liveMinimum(1100)));
+    await waitFor(() => expect(nativeWindow.setMinSize).toHaveBeenCalledTimes(1));
+    // Maximizing fires a move; the hook re-measures after it settles (200 ms).
+    moved();
+    await waitFor(() => expect(nativeWindow.currentMonitor).toHaveBeenCalledTimes(2));
+    // Let the re-measure's own continuation run before asserting it sent nothing.
+    await nativeWindow.currentMonitor.mock.results[1]!.value;
+    await Promise.resolve();
+    expect(nativeWindow.setMinSize).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the minimum again when a move lands on a screen with a different width", async () => {
+    let moved = () => {};
+    nativeWindow.onMoved.mockImplementationOnce(async (handler) => { moved = handler; return () => {}; });
+    renderHook(() => useWindowMinimumSize(1.35, liveMinimum(1100)));
+    await waitFor(() => expect(lastMinimum()).toEqual({ width: 1440, height: APP_WINDOW_MIN_HEIGHT }));
+    nativeWindow.currentMonitor.mockResolvedValueOnce({ scaleFactor: 2, workArea: { size: { width: 2400, height: 1800 } } });
+    moved();
+    await waitFor(() => expect(lastMinimum()).toEqual({ width: 1200, height: APP_WINDOW_MIN_HEIGHT }));
+  });
+
+  it("holds a changed minimum while maximized, since setting it would un-maximize the window, and sends it after the restore", async () => {
+    let resized = () => {};
+    nativeWindow.onResized.mockImplementationOnce(async (handler) => { resized = handler; return () => {}; });
+    const layout = liveMinimum(1100);
+    renderHook(() => useWindowMinimumSize(1, layout));
+    await waitFor(() => expect(lastMinimum()).toEqual({ width: 1100, height: APP_WINDOW_MIN_HEIGHT }));
+    nativeWindow.isMaximized.mockResolvedValue(true);
+    try {
+      // Closing a file narrows the layout's minimum while the window is maximized.
+      layout.set(900);
+      await waitFor(() => expect(nativeWindow.isMaximized).toHaveBeenCalledTimes(2));
+      await nativeWindow.isMaximized.mock.results[1]!.value;
+      await Promise.resolve();
+      expect(nativeWindow.setMinSize).toHaveBeenCalledTimes(1);
+    } finally { nativeWindow.isMaximized.mockResolvedValue(false); }
+    resized();
+    await waitFor(() => expect(lastMinimum()).toEqual({ width: 900, height: APP_WINDOW_MIN_HEIGHT }));
   });
 });
 

@@ -2,7 +2,8 @@
  * Source the visual engine keeps verbatim (spec R-BLK-16, R-RT-17): unknown
  * components, block HTML, link definitions, frontmatter. The source is the
  * block's own editable text, so editing it edits the file; a small label says
- * what it is. A converter anchor is an invisible scroll target (R-RT-14).
+ * what it is. A converter anchor is an invisible scroll target (R-RT-14);
+ * block HTML shows rendered until the caret enters it (html-preview.tsx).
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
@@ -10,10 +11,13 @@ import { useLingui } from "@lingui/react/macro";
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { rawAnchorId } from "../block-anchors";
 import type { RawBlockKind } from "../engine-schema";
+import { HtmlBlockView } from "./html-preview";
 
-export function RawBlockView({ node }: NodeViewProps) {
+export function RawBlockView(props: NodeViewProps) {
+  const { node } = props;
   const { t } = useLingui();
   const kind = node.attrs.kind as RawBlockKind;
+  if (kind === "html") return <HtmlBlockView {...props} />;
   if (kind === "anchor") {
     return (
       <NodeViewWrapper className="lx-md-anchor" id={rawAnchorId(node)} aria-hidden="true">

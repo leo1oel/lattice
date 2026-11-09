@@ -5694,6 +5694,7 @@ msgid "Edit figure source"
 msgstr "Edit figure source"
 
 #: src/app/use-command-table.ts
+#: src/editor/markdown/engine/views/html-preview.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
@@ -7146,6 +7147,7 @@ msgid "How to connect Claude Code or Codex"
 msgstr "How to connect Claude Code or Codex"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/html-preview.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "HTML"
 msgstr "HTML"
@@ -10218,6 +10220,7 @@ msgstr "Nothing to fix, {leftOver}"
 msgid "Nothing to rerun"
 msgstr "Nothing to rerun"
 
+#: src/editor/markdown/engine/views/html-preview.tsx
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
 msgstr "Nothing to show"
@@ -13924,6 +13927,10 @@ msgstr "Show older history"
 msgid "Show outline"
 msgstr "Show outline"
 
+#: src/editor/markdown/engine/views/html-preview.tsx
+msgid "Show preview"
+msgstr "Show preview"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
@@ -16428,6 +16435,10 @@ msgstr "TODOs"
 #: src/canvas/proofread-layer.tsx
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
+
+#: src/editor/markdown/engine/views/html-preview.tsx
+msgid "Too complex to preview"
+msgstr "Too complex to preview"
 
 #: src/components/ui/color-picker.tsx
 msgid "Too dark for black text"
