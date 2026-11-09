@@ -1,0 +1,1 @@
+import{t as e}from"./app-BmkH1sut.js";await e();

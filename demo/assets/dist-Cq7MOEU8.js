@@ -1,0 +1,1 @@
+import{va as e,ya as t}from"./editor-CF4lInOV.js";e();export{t as xml};

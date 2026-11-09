@@ -1,0 +1,1 @@
+import{nr as e,tr as t}from"./editor-CF4lInOV.js";t();export{e as perl};

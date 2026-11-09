@@ -1,1 +1,0 @@
-import{fr as e,pr as t}from"./editor-CIMZpBq1.js";e();export{t as nginx};

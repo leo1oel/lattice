@@ -1,0 +1,1 @@
+import{Xn as e,Yn as t}from"./editor-CF4lInOV.js";t();export{e as properties};

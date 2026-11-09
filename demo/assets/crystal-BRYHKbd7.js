@@ -1,0 +1,1 @@
+import{Ii as e,Li as t}from"./editor-CF4lInOV.js";t();export{e as crystal};

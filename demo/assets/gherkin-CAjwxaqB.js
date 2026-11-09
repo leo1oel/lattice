@@ -1,1 +1,0 @@
-import{$r as e,Qr as t}from"./editor-CIMZpBq1.js";e();export{t as gherkin};

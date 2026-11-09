@@ -1,0 +1,1 @@
+import{Xr as e,Yr as t}from"./editor-CF4lInOV.js";e();export{t as haskell};

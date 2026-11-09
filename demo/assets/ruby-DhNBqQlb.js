@@ -1,0 +1,1 @@
+import{Mn as e,jn as t}from"./editor-CF4lInOV.js";t();export{e as ruby};

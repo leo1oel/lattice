@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e,t){let i=r.get(e);if(!i){let a={pos:t,getCoords:()=>e.coordsAtPos(Math.min(a.pos,e.state.doc.length),1)??n};r.set(e,a),i=a}return i.pos=t,i.getCoords}var n,r;function i(){return(i=e((()=>{n={left:0,right:0,top:0,bottom:0},r=new WeakMap})))()}export{i as n,t};

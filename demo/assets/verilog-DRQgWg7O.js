@@ -1,0 +1,1 @@
+import{Nt as e,Pt as t}from"./editor-CF4lInOV.js";e();export{t as verilog};

@@ -1,1 +1,0 @@
-import{Ya as e,qa as t}from"./editor-CIMZpBq1.js";t();export{e as python};

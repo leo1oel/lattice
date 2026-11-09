@@ -1,0 +1,1 @@
+import{Fr as e,Ir as t}from"./editor-CF4lInOV.js";e();export{t as liveScript};

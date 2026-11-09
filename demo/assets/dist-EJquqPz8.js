@@ -1,0 +1,1 @@
+import{Bo as e,zo as t}from"./editor-CF4lInOV.js";t();export{e as javascript};

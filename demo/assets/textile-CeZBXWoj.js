@@ -1,0 +1,1 @@
+import{nn as e,tn as t}from"./editor-CF4lInOV.js";t();export{e as textile};

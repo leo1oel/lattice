@@ -1,1 +1,0 @@
-import{Hi as e,Vi as t}from"./editor-CIMZpBq1.js";e();export{t as cobol};

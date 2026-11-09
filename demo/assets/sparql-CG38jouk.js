@@ -1,0 +1,1 @@
+import{_n as e,vn as t}from"./editor-CF4lInOV.js";e();export{t as sparql};

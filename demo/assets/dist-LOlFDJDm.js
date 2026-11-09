@@ -1,0 +1,1 @@
+import{Co as e,xo as t}from"./editor-CF4lInOV.js";e();export{t as go};

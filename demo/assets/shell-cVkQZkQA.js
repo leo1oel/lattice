@@ -1,1 +1,0 @@
-import{Tn as e,wn as t}from"./editor-CIMZpBq1.js";t();export{e as shell};

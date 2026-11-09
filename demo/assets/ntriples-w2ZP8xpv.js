@@ -1,1 +1,0 @@
-import{cr as e,lr as t}from"./editor-CIMZpBq1.js";e();export{t as ntriples};

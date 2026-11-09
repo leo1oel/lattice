@@ -1,0 +1,1 @@
+import{Lt as e,Rt as t}from"./editor-CF4lInOV.js";e();export{t as vbScript};

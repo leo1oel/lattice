@@ -1,1 +1,0 @@
-import{ni as e,ri as t}from"./editor-CIMZpBq1.js";t();export{e as fortran};

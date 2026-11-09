@@ -1,0 +1,1 @@
+import{Mt as e,jt as t}from"./editor-CF4lInOV.js";t();export{e as vhdl};

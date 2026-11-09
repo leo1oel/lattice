@@ -1,0 +1,1 @@
+import{Ga as e,Wa as t}from"./editor-CF4lInOV.js";t();export{e as rust};

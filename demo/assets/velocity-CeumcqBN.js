@@ -1,0 +1,1 @@
+import{Ft as e,It as t}from"./editor-CF4lInOV.js";e();export{t as velocity};

@@ -1,1 +1,0 @@
-import{Bi as e,zi as t}from"./editor-CIMZpBq1.js";e();export{t as coffeeScript};

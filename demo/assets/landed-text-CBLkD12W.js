@@ -1,1 +1,0 @@
-import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(e){r={text:e,at:Date.now()}}function n(e){return r?Date.now()-r.at>i?(r=null,!1):e(r.text)?(r=null,!0):!1:!1}var r,i;function a(){return(a=e((()=>{r=null,i=1e4})))()}export{t as n,n as r,a as t};

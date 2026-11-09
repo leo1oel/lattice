@@ -1,0 +1,1 @@
+import{Ja as e,Xa as t}from"./editor-CF4lInOV.js";e();export{t as python};

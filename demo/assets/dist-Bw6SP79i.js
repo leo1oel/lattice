@@ -1,1 +1,0 @@
-import{ba as e,xa as t}from"./editor-CIMZpBq1.js";e();export{t as wast};

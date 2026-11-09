@@ -1,0 +1,1 @@
+import{vo as e,yo as t}from"./editor-CF4lInOV.js";e();export{t as java};

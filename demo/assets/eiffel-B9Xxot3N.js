@@ -1,1 +1,0 @@
-import{hi as e,mi as t}from"./editor-CIMZpBq1.js";e();export{t as eiffel};

@@ -1,0 +1,1 @@
+import{gi as e,hi as t}from"./editor-CF4lInOV.js";e();export{t as eiffel};

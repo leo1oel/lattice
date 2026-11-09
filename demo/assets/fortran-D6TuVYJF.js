@@ -1,0 +1,1 @@
+import{ii as e,ri as t}from"./editor-CF4lInOV.js";e();export{t as fortran};

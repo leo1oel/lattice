@@ -1,0 +1,1 @@
+import{jo as e,ko as t}from"./editor-CF4lInOV.js";e();export{t as angular};

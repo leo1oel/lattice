@@ -1,1 +1,0 @@
-import{ci as e,li as t}from"./editor-CIMZpBq1.js";t();export{e as factor};

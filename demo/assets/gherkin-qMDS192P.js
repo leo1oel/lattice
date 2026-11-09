@@ -1,0 +1,1 @@
+import{$r as e,ei as t}from"./editor-CF4lInOV.js";t();export{e as gherkin};

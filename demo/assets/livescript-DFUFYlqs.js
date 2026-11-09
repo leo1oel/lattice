@@ -1,1 +1,0 @@
-import{Fr as e,Pr as t}from"./editor-CIMZpBq1.js";t();export{e as liveScript};

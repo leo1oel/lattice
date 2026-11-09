@@ -1,0 +1,1 @@
+import{li as e,ui as t}from"./editor-CF4lInOV.js";t();export{e as factor};
