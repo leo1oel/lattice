@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import type { BuildResult, ProjectSnapshot } from "../app-types";
+import type { BuildResult } from "../app-types";
 import { toMessage } from "../app-utils";
 import { diagnosticsFingerprint, missingTexDependencyFile, type CompileDiagnostic } from "../build/compile-diagnostics";
 import { isMissingTexBuildError } from "../build/tex-setup";
@@ -14,8 +14,6 @@ import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { clearTimer, restartTimer, subscribeTauriEvent, useRefState } from "./effect-helpers";
 import { listenInThisWindow } from "./window-events";
 import { showError, showNotice } from "./notify";
-import type { AgentCompileAssociation } from "./use-agent-checkpoints";
-import type { LivePreviewBuildHooks } from "../live-preview/use-live-preview";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
 import { adoptRootDocument } from "./adopt-root-document";
 import { buildOutcome, rejectedBuildOutcome, type BuildOutcome } from "./build-outcome";
@@ -24,28 +22,13 @@ import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } fr
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
 import { createQuietBuilds } from "../live-preview/quiet-builds";
 import { automaticBuildWouldStall, noteBuildOutcome } from "./stalled-build";
-import type { BuildPreferences } from "../settings/app-settings";
 import { createWatchedBuilds } from "./watched-builds";
 import { useDiagnosticCycle } from "./use-diagnostic-cycle";
 import { cleanAuxiliaryFiles } from "./clean-auxiliary-files";
+import type { BuildOptions, BuildPipelineInputs } from "./build-pipeline-inputs";
 
 export type { BuildOutcome } from "./build-outcome";
 export type { BuildProgressStore } from "./build-progress";
-
-type BuildOptions = {
-  immediatePreview?: boolean;
-  requested?: boolean;
-  sound?: boolean;
-  consumeAgentAssociations?: boolean;
-  /** Autosave asked: waits while the live preview is live (quiet-builds.ts). */
-  automatic?: boolean;
-  /** Runs without the spinner or "Updating…" (quiet-builds.ts). */
-  quiet?: boolean;
-  /** Clean auxiliary files first: asked while another build ran. */
-  clean?: boolean;
-};
-
-type Ref<T> = { readonly current: T };
 
 /** The live preview's name for the files a build read, and whether it ran quietly. */
 type LiveBase = { token: number | null; quiet: boolean };
@@ -71,27 +54,7 @@ export function useBuildPipeline({
   project, projectRef, setProject, projectGenerationRef,
   activeFileRef, sourceRef, savedSourceRef,
   agent, openDiagnosticRef, onMissingTex, livePreview, autoBuildModeRef,
-}: {
-  project: ProjectSnapshot | null;
-  projectRef: Ref<ProjectSnapshot | null>;
-  setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
-  projectGenerationRef: Ref<number>;
-  activeFileRef: Ref<string>;
-  sourceRef: Ref<string>;
-  savedSourceRef: Ref<string>;
-  agent: {
-    takePendingCompiles: () => AgentCompileAssociation[];
-    reportCompiles: (associations: AgentCompileAssociation[], result: BuildResult | null) => void;
-  };
-  openDiagnosticRef: Ref<(diagnostic: CompileDiagnostic) => Promise<void>>;
-  onMissingTex: () => void;
-  /**
-   * The LuaLaTeX live preview while it runs: told what each build compiled,
-   * so it stops painting edits once the PDF on screen holds them.
-   */
-  livePreview?: Ref<LivePreviewBuildHooks | null>;
-  autoBuildModeRef: Ref<BuildPreferences["autoBuildMode"]>;
-}) {
+}: BuildPipelineInputs) {
   const { t } = useLingui();
   const [build, setBuild] = useState<BuildResult | null>(null);
   const [outcome, setOutcome] = useState<BuildOutcome | null>(null);
