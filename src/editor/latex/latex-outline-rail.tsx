@@ -183,6 +183,12 @@ export function LatexOutlineRail({ view, path, source, nodes, rootPath, label, p
         rootRef.current?.toggleAttribute("data-narrow", narrow);
         if (narrow) setOpen(false);
       }
+      // CodeMirror's top panels (the search and replace bar) stack above the
+      // scroller and shrink it, which lands here. The rail sits above them
+      // (--z-editor-popover), so it starts below them instead of covering the
+      // bar's close button (#794).
+      const panels = Math.max(0, Math.round(scroller.getBoundingClientRect().top - view.dom.getBoundingClientRect().top));
+      rootRef.current?.style.setProperty("--outline-rail-panels", `${panels}px`);
       scheduleRead();
     });
     resize.observe(scroller);
