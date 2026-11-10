@@ -16,7 +16,7 @@ const PROJECT = {
   root: "/project",
   manifest: { rootDocuments: [{ path: "main.tex", name: "main", isDefault: true }, { path: "SI.tex", name: "SI", isDefault: false }] },
 } as unknown as ProjectSnapshot;
-const pdf = (text: string) => new TextEncoder().encode(`%PDF-1.5 ${text}`).buffer;
+const pdf = (text: string) => new TextEncoder().encode(`%PDF-1.5 ${text}`).buffer as ArrayBuffer;
 const LIVE = { token: null, quiet: false };
 
 function renderPreview() {

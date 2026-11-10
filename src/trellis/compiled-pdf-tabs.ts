@@ -18,6 +18,7 @@
  */
 import type { LayoutDocument, LayoutNode, PanelNode, ViewInfo, WorkspaceHandle } from "@danfessler/trellis";
 import { SmallStore } from "./trellis-small-store";
+import type { TrellisController } from "./trellis-controller";
 
 export const ROOT_PDF = "root-pdf";
 export const rootPdfId = (document: string) => `${ROOT_PDF}:${document}`;
@@ -70,11 +71,21 @@ export class CompiledPdfTabs {
   /** The `root-pdf` tabs mounted now; App renders a viewer into each one on screen. */
   readonly mounted = new SmallStore<{ tabs: readonly RootPdfTab[] }>({ tabs: [] });
 
-  constructor(private readonly env: {
-    ws: () => WorkspaceHandle | null;
-    /** Bring the live tab up where a closed one belongs (the controller's `showPanel`). */
-    showLive: () => void;
-  }) {}
+  constructor(private readonly controller: Pick<TrellisController, "ws" | "ui" | "bridge" | "showPanel">) {}
+
+  private ws(): WorkspaceHandle | null {
+    return this.controller.ws;
+  }
+
+  /** Bring the live tab up where a closed one belongs; in focus mode the PDF stays as the writer set it. */
+  private showLive() {
+    if (!this.controller.ui.get().focus) this.controller.showPanel("pdf", { focus: false });
+  }
+
+  /** Build `document`, as its tab's menu and its empty state offer. */
+  build(document: string) {
+    this.controller.bridge?.build(document);
+  }
 
   /** The element a `root-pdf` tab adopts, which App portals its viewer into. */
   host(document: string): HTMLDivElement {
@@ -109,19 +120,19 @@ export class CompiledPdfTabs {
 
   /** The live tab's name once other documents have tabs too; null leaves it "PDF". */
   liveLabel(): string | null {
-    const ws = this.env.ws();
+    const ws = this.ws();
     const documents = ws ? this.documents(ws) : [];
     return this.live && documents.length > 1 && documents[0] === this.live ? pdfTabLabel(this.live, documents) : null;
   }
 
   label(document: string): string {
-    const ws = this.env.ws();
+    const ws = this.ws();
     return pdfTabLabel(document, ws ? this.documents(ws) : [document]);
   }
 
   /** A view that is a compiled PDF's tab, to receive the live tab when it is closed. */
   anyTab(): string | null {
-    const ws = this.env.ws();
+    const ws = this.ws();
     return ws ? this.views(ws).find((view) => view.placement !== "hidden")?.id ?? null : null;
   }
 
@@ -143,7 +154,7 @@ export class CompiledPdfTabs {
   }
 
   private place(previous: string | null, document: string, requested: boolean) {
-    const ws = this.env.ws();
+    const ws = this.ws();
     if (!ws) return;
     const live = ws.view("pdf");
     const own = ws.view(rootPdfId(document));
@@ -173,7 +184,7 @@ export class CompiledPdfTabs {
       // A closed live tab comes back for a build asked for, or, among the other
       // documents' tabs, for any build of a document whose tab was not closed.
       if (!requested && (this.closed.has(document) || !this.anyTab())) return;
-      this.env.showLive();
+      this.showLive();
     }
     this.closed.delete(document);
     // In front for a build asked for, in its own tab's place when that was, or as a new tab.

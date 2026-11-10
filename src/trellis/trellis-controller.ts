@@ -305,10 +305,7 @@ export class TrellisController {
   /** Preview and pinned tabs, and which tab makes room (see trellis-tab-policy.ts). */
   readonly tabs = new DocumentTabs(() => this.ws);
   /** A tab per compiled root document beside the live PDF (see compiled-pdf-tabs.ts). */
-  readonly pdfTabs = new CompiledPdfTabs({
-    ws: () => this.ws,
-    showLive: () => { if (!this.ui.get().focus) this.showPanel("pdf", { focus: false }); },
-  });
+  readonly pdfTabs = new CompiledPdfTabs(this);
   bridge: TrellisBridge | null = null;
   ws: WorkspaceHandle | null = null;
   private pointerPanel: string | null = null;

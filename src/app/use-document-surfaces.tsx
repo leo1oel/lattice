@@ -478,7 +478,6 @@ export function useDocumentSurfaces({
         canForwardSync: syncTex.canForwardSyncDocument,
         onForwardSync: (document) => void syncTex.revealSourceInDocument(document),
         onSource: (document, page, x, y, word) => void syncTex.revealPdfSource(page, x, y, word, document),
-        onBuild: (document) => trellis.bridge?.build(document),
       }}
     />
   );

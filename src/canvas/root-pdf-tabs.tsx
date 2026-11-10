@@ -34,8 +34,6 @@ export type RootPdfs = Readonly<{
   canForwardSync: boolean;
   onForwardSync: (document: string) => void;
   onSource: (document: string, page: number, x: number, y: number, word: SyncTexWord | null) => void;
-  /** Build `document` (its tab shows no PDF until it has been built here). */
-  onBuild: (document: string) => void;
 }>;
 
 type Shared = Readonly<{
@@ -121,7 +119,7 @@ function RootPdfTab({ projectRoot, rootPdfs, citations, review, selection, viewS
                   canForwardSync={rootPdfs.canForwardSync && Boolean(read.url)}
                   onForwardSync={() => rootPdfs.onForwardSync(document)}
                   loadErrorHint={t`Try building the project again`}
-                  onBuild={() => rootPdfs.onBuild(document)}
+                  onBuild={() => rootPdfs.tabs.build(document)}
                   onSource={(page, x, y, word) => rootPdfs.onSource(document, page, x, y, word)}
                   onTextSelect={selection.onPdfTextSelect}
                   annotations={review.annotations}

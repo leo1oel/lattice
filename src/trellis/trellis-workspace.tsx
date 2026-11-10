@@ -551,7 +551,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         {/* Another compiled root document's last PDF, in a tab of its own (compiled-pdf-tabs.ts). */}
         <ViewType<RootPdfParams>
           id={ROOT_PDF} title={(view) => controller.pdfTabs.label(view.params.document)} icon={PANEL_ICONS.pdf} minSize={pdfMinSize}
-          scaling={false} menu={(view) => [{ id: "build", label: t`Build`, run: () => controller.bridge?.build(view.params.document) }]}
+          scaling={false} menu={(view) => [{ id: "build", label: t`Build`, run: () => controller.pdfTabs.build(view.params.document) }]}
           tabbar={focusMode ? "never" : undefined}
         >
           <RootPdfView controller={controller} />
