@@ -6,6 +6,7 @@ import { paperPdfUrl, type PaperSourceCitation } from "../papers/paper-source";
 import { sourceQuoteDomRange } from "../papers/source-quote";
 import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { notifyError } from "../telemetry/app-notify";
+import { paperPdfReading } from "../papers/paper-pdf-reading";
 import type { CanvasMode, PaperSourceRequest, PaperSummary, VisualMarkdownViewState } from "../app-types";
 import { toMessage } from "../app-utils";
 import { loadPdfPreviewModule, loadPdfQuotePageModule } from "./canvas-lazy-modules";
@@ -107,7 +108,10 @@ export function usePaperPdf({
     setPdfView(null);
   }, []);
   // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
-  // Choosing one while the PDF is open exits the alternate PDF surface.
+  // Choosing one while the PDF is open exits the alternate PDF surface (and
+  // App marks the Paper as read as text again). Another document coming in
+  // front only leaves the PDF: a Paper read as its PDF keeps it set aside
+  // (papers/paper-pdf-reading.ts), and opens it again when it is back (below).
   useEffect(() => closePdf(), [activeFile, closePdf, mode]);
   useEffect(() => {
     const viewport = previewViewportRef.current;
@@ -140,6 +144,7 @@ export function usePaperPdf({
     const path = `.research/papers/${activePaper.arxivId}/paper.md`;
     setQuoteFallback({ paperId: activePaper.arxivId, path, returnPath: activeFile, quote });
     setPdfView(null);
+    paperPdfReading.set(activePaper.arxivId, null);
     onOpenMarkdownPath(path);
   }, [activeFile, activePaper, onOpenMarkdownPath]);
   const openPdf = useCallback((quote: PdfSourceQuote | null = null) => {
@@ -148,6 +153,7 @@ export function usePaperPdf({
     const viewport = previewViewportRef.current;
     if (viewport) returnViewportRef.current = { path: activeFile, ...capturePreviewViewport(viewport) };
     const request = ++requestRef.current;
+    if (activePaperId) paperPdfReading.set(activePaperId, { ...pdfSource, path: activeFile });
     const cached = bytesRef.current;
     const bytes = cached?.key === pdfSource.key ? cached.bytes : null;
     setPdfView({
@@ -166,11 +172,20 @@ export function usePaperPdf({
       updateView(pdfSource.key, { error: true });
       fallbackToQuote(quote);
     });
-  }, [activeFile, fallbackToQuote, flushVisualMarkdown, pdfSource, previewViewportRef, updateView]);
+  }, [activeFile, activePaperId, fallbackToQuote, flushVisualMarkdown, pdfSource, previewViewportRef, updateView]);
   // Answered once its Paper is in front, after the effects above, so the PDF
   // this opens is not closed again by the open's own file change.
   // On the next frame, once the Paper's own first render has painted.
+  // With no request, a Paper read as its PDF when another document came in
+  // front (or kept beside one) shows its PDF again as it comes back. One
+  // effect for both keeps the documents' startup renders to the hooks they
+  // had (perf-bench counts them).
   useEffect(() => {
+    if (!sourceRequest && activePaperId && pdfSource && pdfView?.key !== pdfSource.key
+      && paperPdfReading.get(activePaperId)?.key === pdfSource.key) {
+      openPdf();
+      return;
+    }
     if (!sourceRequest || !activePaperId || sourceRequest.arxivId !== activePaperId) return;
     const frame = requestAnimationFrame(() => {
       onSourceRequestHandled(sourceRequest.id);
@@ -180,7 +195,7 @@ export function usePaperPdf({
       else if (quote.first) fallbackToQuote(quote);
     });
     return () => cancelAnimationFrame(frame);
-  }, [activePaperId, fallbackToQuote, onSourceRequestHandled, openPdf, pdfSource, sourceRequest]);
+  }, [activePaperId, fallbackToQuote, onSourceRequestHandled, openPdf, pdfSource, pdfView, sourceRequest]);
   const capturePdf = useCallback((bytes: ArrayBuffer) => {
     if (!pdfSource) return;
     bytesRef.current = { key: pdfSource.key, bytes };
@@ -218,6 +233,11 @@ export function usePaperPdf({
     /** Where the reader came from before a quote fell back into this full text, while it is shown. */
     quoteReturnPath: quoteFallback?.paperId === activePaperId && quoteFallback?.path === activeFile ? quoteFallback.returnPath : null,
     clearQuoteFallback: () => setQuoteFallback(null),
-    returnViewportRef, openPdf, closePdf, capturePdf, rememberPage, fallbackToQuote, openInBrowser, locateQuote,
+    // The writer's own way back to the text: the Paper is read as text again.
+    closePdf: () => {
+      closePdf();
+      if (activePaperId) paperPdfReading.set(activePaperId, null);
+    },
+    returnViewportRef, openPdf, capturePdf, rememberPage, fallbackToQuote, openInBrowser, locateQuote,
   };
 }

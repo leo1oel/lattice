@@ -12,6 +12,7 @@ import { useDocumentTreeChanges } from "./use-document-tree-changes";
 import { settleVanished } from "./vanished-file-wait";
 import { useWorkspaceLayout } from "./use-workspace-layout";
 import type { OtOp } from "../overleaf/ot";
+import { paperPdfReading } from "../papers/paper-pdf-reading";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView } from "./paper-documents";
 export type { SaveStatus } from "./save-activity";
@@ -182,6 +183,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       if (openPaperDirty && !(await save())) return;
       if (!isCurrentViewRequest()) return;
       if (openPaperNow) {
+        // The writer chose its text: the Paper is no longer read as its PDF.
+        paperPdfReading.set(openPaperNow.arxivId, null);
         captureViewportRef.current?.();
         setMode(next);
         return;

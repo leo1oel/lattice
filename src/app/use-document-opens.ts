@@ -14,6 +14,7 @@ import {
 } from "./open-document-intents";
 import type { DocumentStore } from "./use-document-store";
 import { baseName } from "../lib/base-name";
+import { paperPdfReading } from "../papers/paper-pdf-reading";
 
 export type DocumentOpens = ReturnType<typeof useDocumentOpens>;
 
@@ -223,6 +224,8 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
   const choosePaperView = useCallback((view: PaperView) => {
     const shown = renderedRef.current.paper;
     if (shown) paperViewsRef.current.set(shown.arxivId, view);
+    // The writer chose its text: the Paper is no longer read as its PDF.
+    if (shown) paperPdfReading.set(shown.arxivId, null);
     if (view === renderedRef.current.paperView) return;
     // Publish the old NodeView while its path still owns the callback, then change identity.
     if (flushRef.current?.() === false) return;

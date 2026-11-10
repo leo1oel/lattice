@@ -21,6 +21,7 @@
  * Trellis at runtime.
  */
 import type { WorkspaceHandle } from "@danfessler/trellis";
+import type { BesideAsk } from "./open-beside";
 
 /** A file view's params: its document, and whether its tab is a preview or pinned. */
 export type FileParams = { key: string; preview?: boolean; pinned?: boolean };
@@ -56,6 +57,8 @@ export function chooseEvictions(
 export class DocumentTabs {
   /** The document the last quick look asked for, until App's open of it lands. */
   private previewKey: string | null = null;
+  /** The last open to the side asked for, until App's open of it lands (open-beside.ts). */
+  private besideAsk: BesideAsk | null = null;
   private readonly used = new Map<string, number>();
   /** The documents edited this session: never closed to make room. */
   readonly held = new Set<string>();
@@ -87,6 +90,27 @@ export class DocumentTabs {
     if (quick) return "preview";
     if (revealed) this.keep(now.activeKey);
     return "open";
+  }
+
+  /** The next open of `ask.key` goes to the side of the panel it was asked from. */
+  beside(ask: BesideAsk) {
+    this.besideAsk = ask;
+  }
+
+  /** The open to the side waiting for `key`, if one is. */
+  besideFor(key: string): BesideAsk | null {
+    return this.besideAsk?.key === key ? this.besideAsk : null;
+  }
+
+  /**
+   * The open to the side for `key`, now that a document became active: the
+   * ask ends either way, since another document in front means the open it
+   * waited for went elsewhere or was overtaken.
+   */
+  takeBeside(key: string): BesideAsk | null {
+    const ask = this.besideFor(key);
+    this.besideAsk = null;
+    return ask;
   }
 
   /** The document became the active one: the most recently used. */

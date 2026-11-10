@@ -5480,6 +5480,7 @@ msgid "Download paper"
 msgstr "Download paper"
 
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-document-views.tsx
 msgid "Download PDF"
 msgstr "Download PDF"
 
@@ -10728,6 +10729,11 @@ msgstr "Open this project on Overleaf"
 msgid "Open this repository on GitHub"
 msgstr "Open this repository on GitHub"
 
+#: src/project/paper-row.tsx
+#: src/project/project-file-tree.tsx
+msgid "Open to the side"
+msgstr "Open to the side"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Open…"
@@ -15593,6 +15599,7 @@ msgid "The PDF is not on this Mac: {path}"
 msgstr "The PDF is not on this Mac: {path}"
 
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-document-views.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
 

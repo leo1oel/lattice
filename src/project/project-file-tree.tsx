@@ -5,7 +5,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { ContextMenuItem as PierreContextMenuItem, ContextMenuOpenContext, FileTreeDropTarget } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import {
-  Check, ClipboardPaste, Copy, Eye, FilePlay, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil, RotateCw, PenTool } from "lucide-react";
+  Check, ClipboardPaste, Columns2, Copy, Eye, FilePlay, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil, RotateCw, PenTool } from "lucide-react";
 import { ContextMenu, ContextMenuTrigger } from "../components/ui/context-menu";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { absoluteProjectPath } from "../app-utils";
@@ -16,6 +16,7 @@ import { useProjectTreeClipboard } from "./project-tree-clipboard";
 import { isConvertibleDrawing, makeEditableFigure, useFigureSourceRefresh } from "./figure-converters";
 import { figureEntryBeside, isDrawingFile, openDrawingOf, openFigureSource } from "./figure-source-open";
 import { ProjectTreeBackgroundMenu, ProjectTreeItemMenu, type MenuAction } from "./project-tree-context-menu";
+import { openToTheSide } from "../trellis/open-beside";
 import { PIERRE_TREE_CSS } from "./project-tree-css";
 import {
   isDirectoryNode,
@@ -365,8 +366,18 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     ));
     const figureEntry = directory ? null : figureEntryBeside(path, tree.paths);
     // Grouped as make, change, locate, view; a folder's imports make things too.
+    // A PDF opens beside the document in front, to read the two side by side.
+    const beside: MenuAction[] = !directory && /\.pdf$/i.test(path) ? [{
+      icon: Columns2,
+      label: t`Open to the side`,
+      run: () => {
+        if (trellisRef.current) openToTheSide(trellisRef.current, path);
+        props.onAsset(path);
+      },
+    }] : [];
     const actions: MenuAction[] = [
-      ...creationActions(directory ? path : parentDirectory(path)),
+      ...beside,
+      ...creationActions(directory ? path : parentDirectory(path)).map((action, index) => (index || !beside.length ? action : { ...action, group: true })),
       ...(directory ? [
         { icon: ImagePlus, label: t`Import images here`, disabled: props.assetImporting, run: () => props.onImportAssets(path) },
         { icon: ClipboardPaste, label: t`Paste clipboard image as figure`, run: () => props.onPasteImage(path) },
