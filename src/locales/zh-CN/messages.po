@@ -5472,6 +5472,7 @@ msgid "Download paper"
 msgstr "下载论文"
 
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-document-views.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
 
@@ -10716,6 +10717,11 @@ msgstr "在 Overleaf 打开"
 msgid "Open this repository on GitHub"
 msgstr "在 GitHub 打开"
 
+#: src/project/paper-row.tsx
+#: src/project/project-file-tree.tsx
+msgid "Open to the side"
+msgstr "在侧边打开"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Open…"
@@ -15581,6 +15587,7 @@ msgid "The PDF is not on this Mac: {path}"
 msgstr "这台 Mac 上找不到这个 PDF：{path}"
 
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-document-views.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载太慢，请重试或在浏览器打开"
 

@@ -3,6 +3,7 @@ import type { ViewInfo, WorkspaceHandle } from "@danfessler/trellis-react";
 import type { TrellisController } from "./trellis-controller";
 import { NAVIGATORS, withDocumentPanel } from "./trellis-workspaces";
 import { openDocumentTab } from "./trellis-document-tabs";
+import { besideTarget, placeBeside } from "./open-beside";
 
 /**
  * Keep document panels in step with App's tabs: a tab App opens gets a panel,
@@ -27,7 +28,12 @@ export function useTabSync(controller: TrellisController, ws: WorkspaceHandle | 
       // In the Reading layout a document keeps to its side instead: papers
       // join the paper being read (with the library), everything else the
       // notes, and a first note gets a panel of its own beside the paper.
+      const isReading = (key: string) => controller.isReading(key);
+      // Opened to the side: the other side's panel, else the panel it was
+      // asked from, which it then leaves for a new split (open-beside.ts).
       const anchorPanel = (key: string) => {
+        const beside = controller.tabs.besideFor(key);
+        if (beside) return besideTarget(ws.views(), beside.from, isReading) ?? beside.from;
         if (controller.ui.get().preset === "reading") {
           const reading = controller.isReading(key);
           const library = ws.view("papers");
@@ -76,8 +82,10 @@ export function useTabSync(controller: TrellisController, ws: WorkspaceHandle | 
       lastTabsReady = tabsReady;
       lastReveal = revealRequest;
       if (!activeKey || !activeChanged) return;
-      const info = byKey.get(activeKey) ?? (tabsReady ? open(activeKey) : null);
-      if (!info) return;
+      const shown = byKey.get(activeKey) ?? (tabsReady ? open(activeKey) : null);
+      if (!shown) return;
+      const beside = controller.tabs.takeBeside(activeKey);
+      const info = beside ? placeBeside(ws, shown, beside, isReading) : shown;
       if (info.placement === "hidden") ws.focus(info.id);
       else if (!info.selected) {
         // Selecting alone leaves DOM focus on the view it covers, which then

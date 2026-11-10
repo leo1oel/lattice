@@ -3,13 +3,16 @@
  * an open deck's own host, and for every other document a read-only snapshot
  * or a sleeping card (see trellis-workspace.tsx).
  */
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { useCloseGuard, useView, useViewBadge } from "@danfessler/trellis-react";
 import { BookOpen } from "lucide-react";
-import { confirmAction, isOpenSlideDeckPath } from "../app-utils";
+import { arxivIdFromTabKey, confirmAction, isOpenSlideDeckPath } from "../app-utils";
 import { Tip } from "../components/icon-tip";
 import { ProjectAssetPreview } from "../canvas/project-asset-preview";
+import { PdfPreview, PdfPreviewLoading } from "../canvas/canvas-lazy-editors";
+import { paperPdfReading, type PaperPdfReading } from "../papers/paper-pdf-reading";
 import type { AssetPreview } from "../app-types";
 import { useTrellisApp, type TrellisController } from "./trellis-controller";
 import { fileIcon } from "./trellis-icons";
@@ -40,14 +43,82 @@ function SleepingDocument({ controller, fileKey }: { controller: TrellisControll
 }
 
 /**
+ * Paging, zooming or searching a PDF read beside the document in front keeps
+ * that document active: the focus Trellis reports for it would otherwise
+ * activate the PDF's own document and replace this viewer, and the field just
+ * clicked, with the live host. Native capture listeners, so they run after
+ * the workspace root's release and before the deferred activation (React's
+ * would run ahead of the root's). Its tab stays the way to open it itself.
+ */
+function useHoldReading(controller: TrellisController, fileKey: string) {
+  return useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    const hold = () => controller.holdReading(fileKey);
+    element.addEventListener("pointerdown", hold, true);
+    element.addEventListener("focusin", hold, true);
+    return () => {
+      element.removeEventListener("pointerdown", hold, true);
+      element.removeEventListener("focusin", hold, true);
+    };
+  }, [controller, fileKey]);
+}
+
+/**
  * A Paper that is not the active document, drawn read-only where it was being
  * read, so the Reading layout keeps it legible beside the notes being
  * written. It scrolls in place, and the place it is left at is where the full
- * reader, brought back by its header's button, picks up.
+ * reader, brought back by its header's button, picks up. A Paper being read
+ * as its original PDF shows that PDF instead.
  */
 function PaperSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
-  if (!useBesideActive(controller, panelId)) return <SleepingDocument controller={controller} fileKey={fileKey} />;
+  const besideActive = useBesideActive(controller, panelId);
+  const pdf = useSyncExternalStore(paperPdfReading.subscribe, () => paperPdfReading.get(arxivIdFromTabKey(fileKey)));
+  if (!besideActive) return <SleepingDocument controller={controller} fileKey={fileKey} />;
+  if (pdf) return <PaperPdfSnapshot key={pdf.key} controller={controller} fileKey={fileKey} pdf={pdf} />;
   return <PaperSnapshotContent controller={controller} fileKey={fileKey} />;
+}
+
+/**
+ * A Paper's original PDF beside the document in front, for reading it
+ * against another PDF: where the reader left it, and paged, zoomed and
+ * searched in place, with its place saved where the reader picks it up.
+ */
+function PaperPdfSnapshot({ controller, fileKey, pdf }: { controller: TrellisController; fileKey: string; pdf: PaperPdfReading }) {
+  const { t } = useLingui();
+  // A PDF from anywhere but arXiv streams through the backend, as the reader's does.
+  const [url, setUrl] = useState<string | null | undefined>(pdf.generic ? undefined : pdf.url);
+  useEffect(() => {
+    if (!pdf.generic) return;
+    let disposed = false;
+    void invoke<string>("paper_pdf_preview_url", { url: pdf.url }).then((value) => {
+      if (!disposed) setUrl(value);
+    }, () => {
+      if (!disposed) setUrl(null);
+    });
+    return () => { disposed = true; };
+  }, [pdf.generic, pdf.url]);
+  const holdReading = useHoldReading(controller, fileKey);
+  if (url === null) return <SleepingDocument controller={controller} fileKey={fileKey} />;
+  return (
+    <div ref={holdReading} className="trellis-pdf-snapshot">
+      <div className="canvas-body">
+        <AfterSwitch state={controller.switchState}>
+          {url ? (
+            <Suspense fallback={<PdfPreviewLoading />}>
+              <PdfPreview
+                url={url}
+                fileName={pdf.fileName}
+                initialViewState={controller.bridge?.viewState(pdf.path)?.pdf}
+                onViewState={(state) => controller.bridge?.rememberViewState(pdf.path, { pdf: state })}
+                saveLabel={t`Download PDF`}
+                timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
+              />
+            </Suspense>
+          ) : <PdfPreviewLoading />}
+        </AfterSwitch>
+      </div>
+    </div>
+  );
 }
 
 function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
@@ -113,22 +184,7 @@ function AssetSnapshot({ controller, fileKey, panelId }: { controller: TrellisCo
     });
     return () => { disposed = true; };
   }, [besideActive, controller, fileKey, recheck]);
-  // Paging, zooming or searching the PDF beside the notes keeps the notes
-  // active: the focus Trellis reports for it would otherwise activate the PDF
-  // and replace this viewer, and the field just clicked, with the live host.
-  // Native capture listeners, so they run after the workspace root's release
-  // and before the deferred activation (React's would run ahead of the root's).
-  // Its tab stays the way to open the PDF itself.
-  const holdReading = useCallback((element: HTMLDivElement | null) => {
-    if (!element) return;
-    const hold = () => controller.holdReading(fileKey);
-    element.addEventListener("pointerdown", hold, true);
-    element.addEventListener("focusin", hold, true);
-    return () => {
-      element.removeEventListener("pointerdown", hold, true);
-      element.removeEventListener("focusin", hold, true);
-    };
-  }, [controller, fileKey]);
+  const holdReading = useHoldReading(controller, fileKey);
   if (!besideActive || asset === null) return <SleepingDocument controller={controller} fileKey={fileKey} />;
   if (!asset) return null;
   return (

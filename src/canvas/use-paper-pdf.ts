@@ -6,6 +6,8 @@ import { paperPdfUrl, type PaperSourceCitation } from "../papers/paper-source";
 import { sourceQuoteDomRange } from "../papers/source-quote";
 import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { notifyError } from "../telemetry/app-notify";
+import { paperPdfReading } from "../papers/paper-pdf-reading";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import type { CanvasMode, PaperSourceRequest, PaperSummary, VisualMarkdownViewState } from "../app-types";
 import { toMessage } from "../app-utils";
 import { loadPdfPreviewModule, loadPdfQuotePageModule } from "./canvas-lazy-modules";
@@ -102,13 +104,31 @@ export function usePaperPdf({
     // Start the viewer chunk now so a later PDF click waits only for the remote source.
     if (pdfSource) void loadPdfPreviewModule();
   }, [activePaperId, pdfSource]);
-  const closePdf = useCallback(() => {
+  const leavePdf = useCallback(() => {
     requestRef.current += 1;
     setPdfView(null);
   }, []);
+  // The writer's own way back to the text: the Paper is read as text again.
+  const closePdf = useCallback(() => {
+    leavePdf();
+    if (activePaperId) paperPdfReading.set(activePaperId, null);
+  }, [activePaperId, leavePdf]);
   // Blog/Paper and Edit/Split/Preview remain the owners of Markdown state.
-  // Choosing one while the PDF is open exits the alternate PDF surface.
-  useEffect(() => closePdf(), [activeFile, closePdf, mode]);
+  // Choosing one while the PDF is open exits the alternate PDF surface, and
+  // the Paper is read as text again. Another document coming in front only
+  // leaves the PDF: the Paper keeps it set aside, and opens it again when it
+  // is back (below). App opens a Paper with its reading file and layout in
+  // one render, so a change between two of its own files, or of layout
+  // while it stays in front, is the writer's.
+  const shownFileRef = useRef(activeFile);
+  useEffect(() => {
+    const previous = shownFileRef.current;
+    shownFileRef.current = activeFile;
+    leavePdf();
+    // A Paper's reading files share its folder.
+    const folder = (path: string) => path.slice(0, path.lastIndexOf("/") + 1);
+    if (activePaperId && folder(previous) === folder(activeFile)) paperPdfReading.set(activePaperId, null);
+  }, [activeFile, activePaperId, leavePdf, mode]);
   useEffect(() => {
     const viewport = previewViewportRef.current;
     if (!quoteFallback || quoteFallback.paperId !== activePaperId || quoteFallback.path !== activeFile || !viewport) return;
@@ -140,6 +160,7 @@ export function usePaperPdf({
     const path = `.research/papers/${activePaper.arxivId}/paper.md`;
     setQuoteFallback({ paperId: activePaper.arxivId, path, returnPath: activeFile, quote });
     setPdfView(null);
+    paperPdfReading.set(activePaper.arxivId, null);
     onOpenMarkdownPath(path);
   }, [activeFile, activePaper, onOpenMarkdownPath]);
   const openPdf = useCallback((quote: PdfSourceQuote | null = null) => {
@@ -148,6 +169,7 @@ export function usePaperPdf({
     const viewport = previewViewportRef.current;
     if (viewport) returnViewportRef.current = { path: activeFile, ...capturePreviewViewport(viewport) };
     const request = ++requestRef.current;
+    if (activePaperId) paperPdfReading.set(activePaperId, { ...pdfSource, path: activeFile });
     const cached = bytesRef.current;
     const bytes = cached?.key === pdfSource.key ? cached.bytes : null;
     setPdfView({
@@ -166,7 +188,13 @@ export function usePaperPdf({
       updateView(pdfSource.key, { error: true });
       fallbackToQuote(quote);
     });
-  }, [activeFile, fallbackToQuote, flushVisualMarkdown, pdfSource, previewViewportRef, updateView]);
+  }, [activeFile, activePaperId, fallbackToQuote, flushVisualMarkdown, pdfSource, previewViewportRef, updateView]);
+  // A Paper read as its PDF when another document came in front (or kept
+  // open beside one) shows its PDF again as it comes back.
+  const reopenRef = useLatestRef(openPdf);
+  useEffect(() => {
+    if (activePaperId && pdfSource && paperPdfReading.get(activePaperId)?.key === pdfSource.key) reopenRef.current();
+  }, [activePaperId, pdfSource, reopenRef]);
   // Answered once its Paper is in front, after the effects above, so the PDF
   // this opens is not closed again by the open's own file change.
   // On the next frame, once the Paper's own first render has painted.

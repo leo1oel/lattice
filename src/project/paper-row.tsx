@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowUpRight, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, Pencil } from "lucide-react";
+import { ArrowUpRight, Columns2, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, Pencil } from "lucide-react";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
 import { Badge } from "../components/ui/badge";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
 import { RollingValue } from "../components/ui/rolling-value";
-import { paperKey } from "../app-utils";
+import { paperKey, paperTabKey } from "../app-utils";
 import type { PaperSummary } from "../app-types";
 import { formatCount } from "../i18n";
 import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
@@ -17,6 +17,8 @@ import { beginPaperDrag } from "../papers/paper-drag";
 import { citationHealthLabel, citationHealthParts, citationHealthTitle } from "./citation-health";
 import { paperReadingState, readablePaper } from "./paper-library-view";
 import type { PaperLineHit, PaperTextMatch } from "./paper-library-search";
+import { useTrellisController } from "../trellis/trellis-controller";
+import { openToTheSide } from "../trellis/open-beside";
 import { PaperTextHits } from "./paper-text-hits";
 
 export type PaperFetchState = "loading" | "success";
@@ -84,6 +86,7 @@ export function PaperRow(props: PaperRowProps) {
   const { t } = useLingui();
   const { paper, index, rowId, fetchState, venue, uses, match, active, selected, wide, recent, observe, position, groupSize } = props;
   const readable = readablePaper(paper);
+  const trellis = useTrellisController();
   const readingState = paperReadingState(paper);
   const healthLabel = citationHealthLabel(paper.citationHealth);
   const health = citationHealthParts(paper.citationHealth);
@@ -241,9 +244,9 @@ export function PaperRow(props: PaperRowProps) {
       </span>
     </div>
   );
-  // The right-click menu opens the paper's web page, and one with a
-  // local file reveals it as a tree file's menu does; a paper with
-  // neither stays bare.
+  // The right-click menu opens a paper to read beside the document in
+  // front, opens its web page, and one with a local file reveals it as a
+  // tree file's menu does; a paper with neither stays bare.
   const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
   return (
     <>
@@ -251,6 +254,16 @@ export function PaperRow(props: PaperRowProps) {
         <ContextMenu>
           <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
           <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
+            {readable && trellis && (
+              <ContextMenuItem
+                onSelect={() => {
+                  openToTheSide(trellis, paperTabKey(paper.arxivId));
+                  props.onActivate(paper);
+                }}
+              >
+                <Columns2 size={14} />{t`Open to the side`}
+              </ContextMenuItem>
+            )}
             {link && (
               <ContextMenuItem onSelect={() => props.onOpenLink(link)}>
                 <ExternalLink size={14} />{t`Open link in browser`}
