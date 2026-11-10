@@ -52,13 +52,18 @@ export function startOverleafLivePoll(poll: OverleafLivePoll): () => void {
     if (stopped || running) return;
     clearTimer(timer);
     const owed = transportRetry.current || externalChanges.current.size > 0;
-    // Off screen the loop rests: no probe and no timer until the window is
-    // shown again, which ticks at once (as focus does). Without this an idle
-    // window behind others asked Overleaf every 3 s while its live channel
-    // was down, for as long as it stayed open. Our own unsent work is the
-    // exception: a sync owed for a failed transfer or a disk write keeps its
-    // retries going, so collaborators still get it.
-    if (windowHidden() && !owed) return;
+    // Off screen the loop rests: no probe until the window is shown again,
+    // which ticks at once (as focus does). Without this an idle window behind
+    // others asked Overleaf every 3 s while its live channel was down, for as
+    // long as it stayed open. Our own unsent work is the exception: a sync
+    // owed for a failed transfer or a disk write keeps its retries going, so
+    // collaborators still get it. The timer stays armed while resting, only
+    // to look at those refs, so work that becomes owed off screen (a sync
+    // that fails in transit after an agent's write) is still retried.
+    if (windowHidden() && !owed) {
+      restartTimer(timer, wait, () => void tick());
+      return;
+    }
     running = true;
     try {
       if (!syncing.current) {

@@ -51,3 +51,28 @@ it("rests a visible-only poll while the window is hidden and checks at once when
     vi.useRealTimers();
   }
 });
+
+it("leaves the return to a caller's focus check when the catch-up tick is off", () => {
+  vi.useFakeTimers();
+  let visibility: DocumentVisibilityState = "visible";
+  const descriptor = vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+  const show = (next: DocumentVisibilityState) => {
+    visibility = next;
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+  try {
+    const tick = vi.fn();
+    const stop = visibleInterval(tick, 1000, { catchUp: false });
+    show("hidden");
+    vi.advanceTimersByTime(10_000);
+    show("visible");
+    expect(tick).not.toHaveBeenCalled();
+    // The period resumes from the moment the window is back.
+    vi.advanceTimersByTime(1000);
+    expect(tick).toHaveBeenCalledTimes(1);
+    stop();
+  } finally {
+    descriptor.mockRestore();
+    vi.useRealTimers();
+  }
+});

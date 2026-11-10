@@ -744,8 +744,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (!stopped) setOverleafRemoteChanges(probe.changed);
     }, () => undefined);
     void check();
-    // Off screen, nobody sees the badge: check again when the window is back.
-    const stopPolling = visibleInterval(() => void check(), 30_000);
+    // Off screen, nobody sees the badge: focus checks again when the window is back.
+    const stopPolling = visibleInterval(() => void check(), 30_000, { catchUp: false });
     window.addEventListener("focus", check);
     return () => {
       stopped = true;

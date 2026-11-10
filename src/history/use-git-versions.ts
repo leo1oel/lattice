@@ -110,7 +110,7 @@ export function useGitVersions(props: {
     const stopListening = props.projectRoot ? onProjectFilesChanged(props.projectRoot, refresh) : () => undefined;
     // Git commits can also arrive while the app is unfocused or its watcher
     // is unavailable. Only poll while the timeline is mounted and on screen.
-    const stopPolling = visibleInterval(refresh, 30_000);
+    const stopPolling = visibleInterval(refresh, 30_000, { catchUp: false });
     window.addEventListener("focus", refresh);
     return () => {
       cancelLoad();

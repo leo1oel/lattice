@@ -132,9 +132,11 @@ export function onWindowShown(listener: () => void): () => void {
 /**
  * `setInterval` for polls that only matter on screen: no ticks (and no
  * wakeups) while the window is hidden, and one tick at once when it is shown
- * again, so what changed meanwhile shows without waiting a period.
+ * again, so what changed meanwhile shows without waiting a period. A caller
+ * that already checks on window focus passes `catchUp: false`: showing the
+ * window focuses it too, and both ticks would run the same check twice.
  */
-export function visibleInterval(tick: () => void, ms: number): () => void {
+export function visibleInterval(tick: () => void, ms: number, { catchUp = true } = {}): () => void {
   let timer: number | null = null;
   const start = () => {
     if (timer === null) timer = window.setInterval(tick, ms);
@@ -148,7 +150,7 @@ export function visibleInterval(tick: () => void, ms: number): () => void {
       stop();
     } else if (timer === null) {
       start();
-      tick();
+      if (catchUp) tick();
     }
   };
   if (!windowHidden()) start();

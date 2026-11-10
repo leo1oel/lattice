@@ -474,4 +474,29 @@ describe("Overleaf live polling off screen", () => {
       vi.useRealTimers();
     }
   });
+
+  it("still retries a sync that fails in transit after the loop went to rest", async () => {
+    let visibility: DocumentVisibilityState = "visible";
+    const descriptor = vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+    try {
+      const { fixture, realtime, advance, suspend } = mountWorkspace("live");
+      await waitFor(() => expect(realtime().liveFile).toBe(true));
+      await act(() => {
+        visibility = "hidden";
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await advance(100_000);
+      // An agent writes while the window is hidden; its push fails in transit.
+      fixture.edit("agent wrote while hidden");
+      fixture.failOnce();
+      suspend();
+      await advance(2_600);
+      expect(fixture.server()).toBe("old caption");
+      await advance(100_000);
+      expect(fixture.server()).toBe("agent wrote while hidden");
+    } finally {
+      descriptor.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

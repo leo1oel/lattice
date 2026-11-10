@@ -111,7 +111,7 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
       }
       checking = true;
       stale = null;
-      const refreshGeneration = ++projectRefreshGenerationRef.current;
+      const refreshGeneration = scope === "all" ? ++projectRefreshGenerationRef.current : projectRefreshGenerationRef.current;
       try {
         const [snapshotResult, gitStatusResult] = await Promise.allSettled([
           scope === "all" ? invoke<ProjectSnapshot>("refresh_project") : Promise.resolve(null),
@@ -156,8 +156,8 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
       void refresh(onlyGitStateChanged(paths) ? "git" : "all");
     });
     // The fallback poll rests while the window is off screen; coming back
-    // checks at once (and focus, through onProjectTreeStale, does too).
-    const stopPolling = visibleInterval(() => { void refresh(); }, 30_000);
+    // checks through focus (onProjectTreeStale), not a second catch-up tick.
+    const stopPolling = visibleInterval(() => { void refresh(); }, 30_000, { catchUp: false });
     return () => {
       stopped = true;
       stopListening();

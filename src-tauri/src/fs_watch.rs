@@ -23,8 +23,11 @@ use tauri::Emitter;
 const DEBOUNCE: Duration = Duration::from_millis(300);
 /// The longest a steady stream of events waits before it is reported anyway,
 /// so a folder written without pause (an experiment logging into the
-/// project) still refreshes the windows now and then.
-const MAX_BURST: Duration = Duration::from_secs(2);
+/// project) still refreshes the windows now and then. Each report rescans
+/// the whole project tree, so the cap is long: a tree lagging up to 30 s
+/// behind a continuous stream is cheaper than a full rescan every few
+/// seconds, and any quiet gap of `DEBOUNCE` still reports at once.
+const MAX_BURST: Duration = Duration::from_secs(30);
 
 struct WatchBatch {
     paths: Vec<PathBuf>,
@@ -71,6 +74,50 @@ fn relevant(event: &Event, root: &Path) -> bool {
     })
 }
 
+/// What a watcher callback hands the debounce thread, or `None` to drop it.
+fn batch_for(event: Result<Event, notify::Error>, root: &Path) -> Option<WatchBatch> {
+    match event {
+        // The backend dropped events and asks for a rescan: the same as a
+        // watcher error, for the index and for the windows. FSEvents names
+        // the paths it lost; an inotify queue overflow names none.
+        Ok(event) if event.need_rescan() && (event.paths.is_empty() || relevant(&event, root)) => {
+            Some(WatchBatch { paths: Vec::new(), reconcile: true })
+        }
+        Ok(event) if relevant(&event, root) => {
+            Some(WatchBatch { paths: event.paths, reconcile: false })
+        }
+        Ok(_) => None,
+        Err(_) => Some(WatchBatch { paths: Vec::new(), reconcile: true }),
+    }
+}
+
+/// Absorb the burst that began with `first`: keep taking batches from `recv`
+/// until things go quiet for `DEBOUNCE` or the burst has run `MAX_BURST`.
+/// `None` once the channel disconnects. `now` and `recv` are the clock and
+/// the channel, passed in so a test can run the real timings on a fake clock.
+fn drain_burst(
+    first: WatchBatch, now: impl Fn() -> Instant,
+    mut recv: impl FnMut(Duration) -> Result<WatchBatch, RecvTimeoutError>,
+) -> Option<WatchBatch> {
+    let WatchBatch { mut paths, mut reconcile } = first;
+    let burst = now() + MAX_BURST;
+    loop {
+        let wait = DEBOUNCE.min(burst.saturating_duration_since(now()));
+        match recv(wait) {
+            Ok(batch) => {
+                paths.extend(batch.paths);
+                reconcile |= batch.reconcile;
+                if now() >= burst {
+                    break;
+                }
+            }
+            Err(RecvTimeoutError::Timeout) => break,
+            Err(RecvTimeoutError::Disconnected) => return None,
+        }
+    }
+    Some(WatchBatch { paths, reconcile })
+}
+
 fn payload_paths(root: &Path, paths: &[PathBuf], reconcile: bool) -> Option<Vec<String>> {
     if reconcile || paths.is_empty() {
         return None;
@@ -100,19 +147,9 @@ pub fn spawn<R: tauri::Runtime>(
     let (sender, receiver) = mpsc::channel::<WatchBatch>();
     let filter_root = root.clone();
     let mut watcher = notify::recommended_watcher(move |event: Result<Event, notify::Error>| {
-        let batch = match event {
-            // FSEvents dropped events under these paths and asks for a rescan:
-            // the same as a watcher error, for the index and for the windows.
-            Ok(event) if event.need_rescan() && relevant(&event, &filter_root) => {
-                WatchBatch { paths: Vec::new(), reconcile: true }
-            }
-            Ok(event) if relevant(&event, &filter_root) => {
-                WatchBatch { paths: event.paths, reconcile: false }
-            }
-            Ok(_) => return,
-            Err(_) => WatchBatch { paths: Vec::new(), reconcile: true },
-        };
-        let _ = sender.send(batch);
+        if let Some(batch) = batch_for(event, &filter_root) {
+            let _ = sender.send(batch);
+        }
     })
     .map_err(|error| error.to_string())?;
     watcher.watch(&root, RecursiveMode::Recursive).map_err(|error| error.to_string())?;
@@ -129,30 +166,15 @@ pub fn spawn<R: tauri::Runtime>(
         reconcile_index();
         // After that the index follows the watcher's reports. A whole-project
         // reconcile runs again only when the watcher says it lost events (an
-        // error, an FSEvents rescan): on a timer it rescanned every file of a
+        // error, a backend rescan): on a timer it rescanned every file of a
         // large project each minute while nothing changed.
         loop {
-            let WatchBatch { mut paths, mut reconcile } = match receiver.recv() {
-                Ok(batch) => batch,
-                Err(_) => return,
+            let Ok(first) = receiver.recv() else { return };
+            let Some(WatchBatch { paths, reconcile }) =
+                drain_burst(first, Instant::now, |wait| receiver.recv_timeout(wait))
+            else {
+                return;
             };
-            // Drain the burst: keep absorbing events until things go quiet or
-            // the burst has run long enough to report.
-            let burst = Instant::now() + MAX_BURST;
-            loop {
-                let wait = DEBOUNCE.min(burst.saturating_duration_since(Instant::now()));
-                match receiver.recv_timeout(wait) {
-                    Ok(batch) => {
-                        paths.extend(batch.paths);
-                        reconcile |= batch.reconcile;
-                        if Instant::now() >= burst {
-                            break;
-                        }
-                    }
-                    Err(RecvTimeoutError::Timeout) => break,
-                    Err(RecvTimeoutError::Disconnected) => return,
-                }
-            }
             let changed_paths = payload_paths(&root, &paths, reconcile);
             let update = if reconcile {
                 crate::fts::reconcile(&root)
@@ -255,6 +277,65 @@ mod tests {
             let event = event_for(paths.iter().map(|path| root.join(path)).collect());
             assert_eq!(relevant(&event, &root), expected, "{paths:?}");
         }
+    }
+
+    #[test]
+    fn rescans_when_the_backend_lost_events_even_without_paths() {
+        use notify::event::{EventKind, Flag};
+        let root = PathBuf::from("/tmp/project");
+        let rescan = |paths: &[&str]| {
+            let mut event = Event::new(EventKind::Other).set_flag(Flag::Rescan);
+            event.paths = paths.iter().map(|path| root.join(path)).collect();
+            batch_for(Ok(event), &root).map(|batch| batch.reconcile)
+        };
+        // inotify reports a queue overflow as a rescan naming no path.
+        assert_eq!(rescan(&[]), Some(true));
+        assert_eq!(rescan(&["figures"]), Some(true));
+        // Lost events only under app-private state leave the project alone.
+        assert_eq!(rescan(&[".research/cache"]), None);
+        let error = notify::Error::generic("watch failed");
+        assert_eq!(batch_for(Err(error), &root).map(|batch| batch.reconcile), Some(true));
+    }
+
+    /// Drive `drain_burst` with the real timings on a fake clock: a batch
+    /// arrives `gap` after the previous one, for ever. Returns how long the
+    /// burst was held and how many paths it reported.
+    fn drain_with_arrivals_every(gap: Duration) -> (Duration, usize) {
+        use std::cell::Cell;
+        let start = Instant::now();
+        let clock = Cell::new(start);
+        let first = WatchBatch { paths: vec![PathBuf::from("/tmp/project/log.txt")], reconcile: false };
+        let drained = drain_burst(first, || clock.get(), |wait| {
+            if gap <= wait {
+                clock.set(clock.get() + gap);
+                Ok(WatchBatch { paths: vec![PathBuf::from("/tmp/project/log.txt")], reconcile: false })
+            } else {
+                clock.set(clock.get() + wait);
+                Err(RecvTimeoutError::Timeout)
+            }
+        })
+        .unwrap();
+        (clock.get() - start, drained.paths.len())
+    }
+
+    #[test]
+    fn holds_a_steady_stream_for_thirty_seconds_and_flushes_after_a_quiet_gap() {
+        // An experiment logging every 200 ms never pauses for the 300 ms
+        // debounce: it is reported once 30 s have passed, not before.
+        let (held, paths) = drain_with_arrivals_every(Duration::from_millis(200));
+        assert!(held >= Duration::from_secs(30), "reported after {held:?}");
+        assert!(held < Duration::from_millis(30_200), "held for {held:?}");
+        assert_eq!(paths, 151);
+        // A write followed by a pause is reported once the debounce runs out.
+        let (held, paths) = drain_with_arrivals_every(Duration::from_millis(400));
+        assert_eq!(held, Duration::from_millis(300));
+        assert_eq!(paths, 1);
+    }
+
+    #[test]
+    fn stops_draining_when_the_watcher_is_gone() {
+        let first = WatchBatch { paths: Vec::new(), reconcile: false };
+        assert!(drain_burst(first, Instant::now, |_| Err(RecvTimeoutError::Disconnected)).is_none());
     }
 
     #[test]

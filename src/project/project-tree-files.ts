@@ -135,8 +135,8 @@ export function useProjectTreeFiles(projectKey: string, files: FileNode[], onErr
       if (!onlyGitStateChanged(paths)) void refresh();
     });
     // The fallback poll also supports watcher-less hosts; it rests while the
-    // window is off screen.
-    const stopPolling = visibleInterval(() => void refresh(), 30_000);
+    // window is off screen, and focus (onProjectTreeStale) checks on return.
+    const stopPolling = visibleInterval(() => void refresh(), 30_000, { catchUp: false });
     return () => { disposed = true; stopListening(); stopPolling(); };
   }, [showHidden, projectKey, files, onErrorRef]);
   const tree = useMemo(() => projectTreeEntries(showHidden
