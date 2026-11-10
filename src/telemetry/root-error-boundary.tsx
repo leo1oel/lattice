@@ -6,6 +6,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Button } from "../components/ui/button";
 import { addAppLog } from "./app-log-store";
 import { crashSaveSettled, saveOnCrash } from "./crash-save";
+import { OutdatedVersionHint } from "./outdated-version-hint";
 import { translateOr } from "./early-i18n";
 
 /*
@@ -98,6 +99,7 @@ export function RootErrorFallback({
       <section className="root-error-card" role="alert" aria-labelledby="root-error-title">
         <h1 id="root-error-title">{fallbackText("heading")}</h1>
         <p>{fallbackText("body")}</p>
+        <OutdatedVersionHint />
         <div className="root-error-actions">
           <Button variant="primary" onClick={() => void restart()}>
             {fallbackText("restart")}

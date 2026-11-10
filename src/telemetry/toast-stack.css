@@ -155,6 +155,7 @@
   -webkit-line-clamp: 4;
 }
 /* A toast's actions are compact Buttons, the step dense chrome uses. */
+.app-toast-update { margin-top: var(--space-3); }
 .app-toast-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
 
 .app-toast-progress-row { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-3); }

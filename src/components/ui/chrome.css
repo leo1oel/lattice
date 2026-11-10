@@ -687,6 +687,8 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   .ui-inline-message.warning .ui-inline-message-icon { color: var(--status-warning); }
   .ui-inline-message.error .ui-inline-message-icon { color: var(--status-danger); }
   .ui-inline-message-copy { min-width: 0; }
+  /* "A newer Lattice may fix this" (outdated-version.tsx): its Update now sits after the sentence, wrapping under it when narrow. */
+  .outdated-version-hint .ui-inline-message-copy { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
 
   .ui-switch {
     width: var(--control-width-switch);

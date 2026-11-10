@@ -36,6 +36,7 @@ import { listenInThisWindow } from "../app/window-events";
 import { setNativeUpdateMenu } from "../app/native-locale";
 import { version as RUNNING_VERSION } from "../../package.json";
 import { useLinuxReleaseNotice } from "./linux-release-notice";
+import { publishKnownUpdate } from "./outdated-version";
 import { loadChoice } from "../settings/app-settings";
 import { sharedSetting, useSharedSetting } from "../settings/shared-setting";
 import {
@@ -191,7 +192,8 @@ const FAILURE_TITLES: Record<UpdateErrorKind, MessageDescriptor> = {
 const UPDATE_TOAST = "app-update";
 
 function showUpdateToast(level: AppLogLevel, title: string, detail: string, toastOptions: AppToastOptions) {
-  addAppLog({ level, source: i18n._(msg`App updater`), title, detail, dedupeKey: UPDATE_TOAST, toastOptions });
+  // The updater's own failure already offers the update: no "update to fix this" line under it.
+  addAppLog({ level, source: i18n._(msg`App updater`), title, detail, dedupeKey: UPDATE_TOAST, toastOptions: { ...toastOptions, updateHint: false } });
 }
 
 /** The installed update, waiting for a restart. Closing it is Later: the update applies at the next launch. */
@@ -473,6 +475,21 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   }, [autoCheck, check, intervalMs]);
 
   const restartNow = useCallback(() => restart(), [restart]);
+
+  /**
+   * A failure's "Update now" (outdated-version.tsx): restart into an installed
+   * update, install the held one, or — the offer was put away — check again,
+   * which offers it anew.
+   */
+  const updateNow = useCallback(async () => {
+    if (installedRef.current) return restart();
+    if (pendingRef.current) return installUpdate(true);
+    await runCheck(false, true);
+  }, [installUpdate, restart, runCheck]);
+  // `version` outlives a dismissed offer, so a later failure still says a newer
+  // release exists. Not cleared on unmount: the crash page outlives this provider.
+  const { phase, version: latest } = state;
+  useEffect(() => publishKnownUpdate(latest ? { running: RUNNING_VERSION, latest, phase, updateNow } : null), [latest, phase, updateNow]);
 
   return { ...state, mode, setMode, check, install, restart: restartNow, dismiss };
 }

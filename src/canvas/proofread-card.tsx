@@ -9,6 +9,7 @@ import { Button } from "../components/ui/button";
 import { InlineEdits, type InlineEdit } from "../components/ui/inline-edits";
 import { InlineMessage } from "../components/ui/inline-message";
 import { SegmentedControl } from "../components/ui/segmented-control";
+import { OutdatedVersionHint } from "../telemetry/outdated-version-hint";
 
 export type ProofreadCardState =
   | { status: "loading" }
@@ -152,6 +153,7 @@ export function ProofreadCard(props: {
       )}
       {held.length > 0 && <HeldNotice count={held.length} kinds={[...new Set(held.map((edit) => edit.kind))]} />}
       {state.status === "error" && <InlineMessage level="error" className="proofread-card-error">{state.message}</InlineMessage>}
+      {state.status === "error" && <OutdatedVersionHint className="proofread-card-error" />}
       <div className="proofread-card-actions">
         {offered > 0 ? (
           <>
