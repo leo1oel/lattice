@@ -168,7 +168,7 @@ export function editableFigureBlockSnippet(figure: Pick<ImportedFigure, "directo
 const definedCommands = (block: readonly string[]) => [...block.join("\n").matchAll(/\\(?:providecommand|newcommand|renewcommand|DeclareRobustCommand)\*?\s*\{?(\\[A-Za-z]+)/g)].map((match) => match[1]);
 
 /** Whether `text` already defines every command the block does, comments aside. */
-function definesAll(text: string, block: readonly string[]): boolean {
+export function definesAll(text: string, block: readonly string[]): boolean {
   const code = blankComments(text);
   return definedCommands(block).every((command) => new RegExp(`\\\\(?:providecommand|newcommand|DeclareRobustCommand|def)\\*?\\s*\\{?\\${command}(?![A-Za-z])`).test(code));
 }

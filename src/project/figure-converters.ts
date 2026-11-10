@@ -5,6 +5,7 @@
  */
 import type { EditorView } from "@codemirror/view";
 import { useEffect } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { toMessage } from "../app-utils";
@@ -14,11 +15,13 @@ import { onProjectFilesChanged } from "./project-files-changed";
 
 const CONVERTIBLE_DRAWING = /\.(?:svg|drawio|dio)$/i;
 const REFRESH_DELAY_MS = 800;
+const NO_DOCUMENTS: readonly string[] = [];
 
 export const isConvertibleDrawing = (path: string) => CONVERTIBLE_DRAWING.test(path);
 
 const failed = (reason: unknown) => notifyError(i18n._(msg`Could not update the figure`), toMessage(reason));
 const actions = () => import("./figure-converters-actions");
+const needsActions = () => import("./figure-needs-actions");
 
 /** Renders the drawing, then puts the figure into the editor last in use. */
 export const makeEditableFigure = (path: string, projectRoot: string) => actions().then(({ makeEditableFigure: make }) => make(path, projectRoot));
@@ -88,8 +91,13 @@ function refreshDrawing(path: string, root: string): Promise<unknown> {
   }).catch(failed);
 }
 
-/** Renders a figure's drawing again each time the file changes on disk. The new output starts the usual build. */
-export function useFigureSourceRefresh(root: string) {
+/**
+ * Renders a figure's drawing again each time the file changes on disk. The new
+ * output starts the usual build. A changed entry file also brings what it now
+ * needs into the preamble of `rootDocuments` (figure-needs-actions.ts).
+ */
+export function useFigureSourceRefresh(root: string, rootDocuments: readonly string[] = NO_DOCUMENTS) {
+  const rootDocumentsRef = useLatestRef(rootDocuments);
   useEffect(() => {
     const refreshes = perKeyDebounce(REFRESH_DELAY_MS, (path) => {
       void refreshDrawing(path, root);
@@ -97,6 +105,10 @@ export function useFigureSourceRefresh(root: string) {
     // Editing an entry's page line chooses another page of its drawing.
     const entries = perKeyDebounce(REFRESH_DELAY_MS, (path) => {
       void invoke<string>("read_project_file", { path }).then(async (text) => {
+        if (text.startsWith("% editable-figure source: ")) {
+          const { completeFigureNeeds } = await needsActions();
+          await completeFigureNeeds(path, text, root, rootDocumentsRef.current);
+        }
         const source = (await actions()).pagedDrawingOf(path, text);
         if (source) return refreshDrawing(source, root);
       }).catch(failed);
@@ -108,5 +120,5 @@ export function useFigureSourceRefresh(root: string) {
       }
     });
     return () => { stop(); refreshes.stop(); entries.stop(); };
-  }, [root]);
+  }, [root, rootDocumentsRef]);
 }

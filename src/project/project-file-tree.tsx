@@ -52,6 +52,8 @@ export type ProjectFileTreeProps = {
   revealRequest: { paths: string[]; serial: number } | null;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
+  /** The project's root documents, which a changed figure's needs go into. */
+  rootDocuments?: readonly string[];
   gitStatus: GitFileStatus[];
   activeFile: string;
   activeAssetPath: string;
@@ -108,7 +110,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   const { t, i18n } = useLingui();
   const { showHidden, toggleHidden, tree } = useProjectTreeFiles(props.projectKey, props.files, props.onError);
   const gitStatus = useMemo(() => toPierreGitStatus(props.gitStatus), [props.gitStatus]);
-  useFigureSourceRefresh(props.projectKey);
+  useFigureSourceRefresh(props.projectKey, props.rootDocuments);
   const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
   const propsRef = useLatestRef(props);
   const treeRef = useLatestRef(tree);

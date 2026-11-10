@@ -92,6 +92,31 @@ entry:
 % editable-figure source: scheme.reactio
 ```
 
+## When the drawing changes
+
+A drawing saved again may need more than it did when it was pasted: numbers
+added to a scheme make its entry a `tikzpicture` with `\cmpd`, which needs
+`tikz`, `chemnum` and perhaps a definition. The entry can say so in the
+`% editable-figure` lines right after its first line, one preamble line per
+comment line:
+
+```latex
+% editable-figure source: scheme.reactio
+% editable-figure packages: graphicx tikz chemnum
+% editable-figure preamble: \providecommand\mymark[1]{\textbf{#1}}
+```
+
+When an entry file changes on disk, Lattice adds to each root document that
+includes it (directly or through the files it includes) what it lacks, as a
+paste would: the packages it states, and the packages its code plainly uses
+(`\includegraphics`, a `tikzpicture`, `\cmpd`), after the last package line,
+and the preamble lines before `\begin{document}`, unless the document or a
+file its preamble loads already defines every command they define. An entry
+can come from anyone (a clone, an Overleaf collaborator), so preamble lines
+that do more than define are never added: a notice shows them instead. The
+write is a merge, like an editor save, and a notice names what was added
+(`src/editor/insert/figure-needs.ts`, `src/project/figure-needs-actions.ts`).
+
 ## Opening the drawing
 
 Cmd+double-click (Ctrl+double-click on Windows and Linux) on a figure in the
@@ -177,6 +202,9 @@ Any program can offer this without talking to Lattice:
    `% editable-figure source: scheme.reactio`, relative to the entry. This is
    what Cmd/Ctrl+double-click reads; give the source file one of the drawing
    formats above so it opens without asking.
+   Below it, `% editable-figure packages:` and `% editable-figure preamble:`
+   lines can name what the entry needs, so a document gets it when the
+   figure changes (see "When the drawing changes").
 4. **Update on save.** When the source is saved, write the outputs again
    beside it under the same names. Lattice watches the project and rebuilds on
    its own. Only overwrite an entry whose first line names that source.
