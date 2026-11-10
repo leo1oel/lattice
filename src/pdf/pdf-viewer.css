@@ -67,6 +67,12 @@
 .pdf-scroll-area-viewport.pdfSlick { scrollbar-width: none; }
 .pdf-scroll-area-viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .pdf-scroll-area-viewport.pdf-viewer-staging { visibility: hidden; pointer-events: none; }
+/* The viewer places its own scroll: a zoom keeps the point under the pointer
+   (use-pdf-zoom.ts) and the page window swaps pages for spacers of the same
+   size (pdf-slick.ts). WebKit's scroll anchoring (on since macOS 27's
+   WKWebView) moved it again after a zoom, to hold a page near the top where
+   it was, so the view jumped by pages from where it was zoomed (#776). */
+.pdf-scroll-area-viewport { overflow-anchor: none; }
 .pdf-preview .pdfViewer { min-width: 100%; min-height: 100%; }
 .pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto var(--space-5); background: var(--pdf-page-surface); box-shadow: var(--pdf-page-shadow); }
 /* A page is a containing block only while it holds layers (canvas, text,

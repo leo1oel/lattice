@@ -73,6 +73,13 @@ describe("PDF scroll viewport", () => {
     const webkitBar = rules.find((rule) => rule.selectorText === ".pdf-scroll-area-viewport::-webkit-scrollbar")
     expect(webkitBar?.style.getPropertyValue("display")).toBe("none")
   })
+
+  // #776: macOS 27's WKWebView anchors scrolling. After a Ctrl/⌘-wheel zoom
+  // had put the point under the pointer back in place, it scrolled the pane
+  // again to hold a page near the top where it was before the zoom.
+  it("leaves its scroll position to the viewer, not to scroll anchoring", () => {
+    expect(declared(viewport, "overflow-anchor")).toBe("none")
+  })
 })
 
 describe("PDF selection highlight", () => {
