@@ -35,13 +35,15 @@ function findEntryEnd(source: string, openIndex: number): EntryBounds | null {
       comment = true;
       continue;
     }
+    // A `"` delimits a value only outside braces, and braces nest inside a
+    // quoted value too (Zotero writes `shorttitle = {Review for "{{X}}}`).
     if (character === '"' && braceDepth === 0) {
       quoted = !quoted;
       continue;
     }
-    if (quoted) continue;
     if (character === "{") braceDepth += 1;
     else if (character === "}" && braceDepth > 0) braceDepth -= 1;
+    else if (quoted) continue;
     else if (braceDepth === 0 && character === open) delimiterDepth += 1;
     else if (braceDepth === 0 && character === close) {
       delimiterDepth -= 1;
@@ -95,9 +97,10 @@ function topLevelCommas(body: string, outer: "{" | "("): number[] | null {
       quoted = !quoted;
       continue;
     }
-    if (quoted) continue;
     if (character === "{") braces += 1;
-    else if (character === "}") braces -= 1;
+    // A stray `}` in a quoted value is read as text, as `findEntryEnd` does.
+    else if (character === "}" && (braces > 0 || !quoted)) braces -= 1;
+    else if (quoted) continue;
     else if (outer === "(" && character === "(" && braces === 0) parentheses += 1;
     else if (outer === "(" && character === ")" && braces === 0) parentheses -= 1;
     else if (character === "," && braces === 0 && parentheses === 0) commas.push(index);

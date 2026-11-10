@@ -58,21 +58,7 @@ fn scan_entries(bibliography: &str) -> Vec<BibRecord<'_>> {
         let key = bibliography[key_start..position].trim().to_string();
         position += 1;
         let body_start = position;
-        let (mut depth, mut quoted) = (1usize, false);
-        while position < bytes.len() {
-            let byte = bytes[position];
-            if byte == b'"' && bytes[position - 1] != b'\\' {
-                quoted = !quoted;
-            } else if !quoted && byte == opening {
-                depth += 1;
-            } else if !quoted && byte == closing {
-                depth -= 1;
-                if depth == 0 {
-                    break;
-                }
-            }
-            position += 1;
-        }
+        position = entry_close(bytes, body_start, closing).unwrap_or(bytes.len());
         cursor = position.saturating_add(1);
         if !key.is_empty() && !matches!(entry_type.as_str(), "comment" | "preamble" | "string") {
             records.push(BibRecord {
@@ -84,6 +70,38 @@ fn scan_entries(bibliography: &str) -> Vec<BibRecord<'_>> {
         }
     }
     records
+}
+
+/// Index of the delimiter that closes the entry whose text after its opening
+/// `{` or `(` starts at `from`, or `None` when the entry never closes.
+///
+/// BibTeX's rules: braces nest everywhere, inside a quoted value too. A `"`
+/// delimits a value only at the top level of the entry (brace depth 0); inside
+/// braces it is a literal, so Zotero's `shorttitle = {Review for "{{X}}}`
+/// does not open a string that swallows every later entry. `\"` at the top
+/// level is not a delimiter either, a leniency for hand-written files.
+pub(crate) fn entry_close(bytes: &[u8], from: usize, closing: u8) -> Option<usize> {
+    // A `@type(…)` entry closes at the `)` balancing its top-level parentheses.
+    let (mut braces, mut parentheses, mut quoted) = (0usize, 0usize, false);
+    for (position, &byte) in bytes.iter().enumerate().skip(from) {
+        match byte {
+            b'"' if braces == 0 && (position == 0 || bytes[position - 1] != b'\\') => {
+                quoted = !quoted;
+            }
+            b'{' => braces += 1,
+            b'}' if braces > 0 => braces -= 1,
+            _ if quoted || braces > 0 => {}
+            b'(' if closing == b')' => parentheses += 1,
+            _ if byte == closing => {
+                if parentheses == 0 {
+                    return Some(position);
+                }
+                parentheses -= 1;
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 pub(crate) fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
@@ -252,25 +270,27 @@ pub(crate) fn bibliography_field_spans(body: &str) -> Vec<BibFieldSpan> {
     fields
 }
 
-/// The value inside a `{…}` (nesting-aware) or `"…"` (backslash-escaped)
-/// expression starting at `*position`, leaving `*position` past its end.
+/// The value inside a `{…}` (nesting-aware) or `"…"` (closed by a `"` outside
+/// any braces and not backslash-escaped) expression starting at `*position`,
+/// leaving `*position` past its end.
 /// An unterminated value runs to the end of the body.
 fn delimited_value(body: &str, position: &mut usize, braced: bool) -> String {
     let bytes = body.as_bytes();
     *position += 1;
     let start = *position;
-    let mut depth = 1usize;
+    // Braces nest inside a quoted value too, and a `"` within them is a literal.
+    let mut depth = usize::from(braced);
     while *position < bytes.len() {
         let closes = match bytes[*position] {
-            b'{' if braced => {
+            b'{' => {
                 depth += 1;
                 false
             }
-            b'}' if braced => {
-                depth -= 1;
-                depth == 0
+            b'}' => {
+                depth = depth.saturating_sub(1);
+                braced && depth == 0
             }
-            b'"' if !braced => *position == start || bytes[*position - 1] != b'\\',
+            b'"' if !braced => depth == 0 && (*position == start || bytes[*position - 1] != b'\\'),
             _ => false,
         };
         if closes {
@@ -489,6 +509,37 @@ mod tests {
         let nested = "@article{k, title = {Deep {Nets}}, year = {2020}}\n";
         let (s, e) = bib_entry_span(nested, "k").unwrap();
         assert_eq!(&nested[s..e], nested.trim_end());
+    }
+
+    /// Issue #772: Zotero writes a lone `"` inside a braced value. Only a `"`
+    /// outside braces delimits a value, and braces still nest inside one.
+    #[test]
+    fn a_quote_inside_braces_is_a_literal_and_braces_nest_inside_quotes() {
+        let zotero = concat!(
+            "@article{a2024,\n",
+            "  title = {Review for \"{{The Possibility Space Concept}} in {{Neuroscience}}},\n",
+            "  year = {2024},\n",
+            "}\n",
+            "@article{b2024,\n  title = {Later},\n  doi = {10.1234/later},\n}\n",
+        );
+        let parsed = parse_bibliography(zotero);
+        let keys = parsed.iter().map(|entry| entry.key.as_str()).collect::<Vec<_>>();
+        assert_eq!(keys, ["a2024", "b2024"]);
+        assert_eq!(parsed[0].title, "Review for \"The Possibility Space Concept in Neuroscience");
+        assert_eq!(parsed[0].year, "2024");
+        assert_eq!(parsed[1].doi.as_deref(), Some("10.1234/later"));
+
+        let quoted = concat!(
+            "@misc{q, title = \"A {\"B, C\"} D\", note = \"x}y\", year = 2020}\n",
+            "@misc(p, title = {Close ) inside}, year = 2021)\n",
+            "@misc{r, title = \"Last\"}\n",
+        );
+        let parsed = parse_bibliography(quoted);
+        let keys = parsed.iter().map(|entry| entry.key.as_str()).collect::<Vec<_>>();
+        assert_eq!(keys, ["q", "p", "r"]);
+        assert_eq!((parsed[0].title.as_str(), parsed[0].year.as_str()), ("A \"B, C\" D", "2020"));
+        assert_eq!((parsed[1].title.as_str(), parsed[1].year.as_str()), ("Close ) inside", "2021"));
+        assert_eq!(parsed[2].title, "Last");
     }
 
     #[test]

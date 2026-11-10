@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBibDocument } from "./bib-format";
+import { bibEntryKeys, formatBibDocument } from "./bib-format";
 
 describe("formatBibDocument", () => {
   const unchanged = (source: string) => [source, source];
@@ -22,6 +22,10 @@ describe("formatBibDocument", () => {
     ["supports parenthesis entries and delimiters nested in values",
       "@inproceedings( key ,title={Functions (and commas, too)},note=\"close ) here\",year=2026,)",
       ["@inproceedings(key,", "  title = {Functions (and commas, too)},", '  note = "close ) here",', "  year = 2026,", ")"].join("\n")],
+    // Issue #772: a `"` inside braces is text, and braces nest inside quotes.
+    ["reads a quote inside braces as text and braces inside quotes as nested",
+      "@article{a,shorttitle={Review for \"{{X}} in {{Y}}},year=2024}\n\n@misc{b,title=\"A {\"B, C\"} D\",year=1}",
+      ["@article{a,", '  shorttitle = {Review for "{{X}} in {{Y}}},', "  year = 2024", "}", "", "@misc{b,", '  title = "A {"B, C"} D",', "  year = 1", "}"].join("\n")],
     ["normalizes whitespace-only gaps between conventional entries",
       "@article{a,title={A}}\n \t\n\n\n@book{b,title={B}}",
       "@article{a,\n  title = {A}\n}\n\n@book{b,\n  title = {B}\n}"],
@@ -32,6 +36,11 @@ describe("formatBibDocument", () => {
     expect(formatBibDocument(source)).toBe(expected);
     // Formatting is idempotent.
     expect(formatBibDocument(expected)).toBe(expected);
+  });
+
+  it("lists every key after a quote inside braces", () => {
+    const source = "@article{a, shorttitle = {Review for \"{{X}} in {{Y}}}}\n@misc{b, title = \"A {\"B\"} C\"}\n@book{c, title = {C}}\n";
+    expect(bibEntryKeys(source)).toEqual(["a", "b", "c"]);
   });
 
   it("uses CRLF throughout newly formatted entries", () => {
