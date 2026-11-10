@@ -112,6 +112,23 @@ describe("a PDF tab per compiled root document", () => {
     expect(strip()).toEqual(["live", "supplement/SI.tex", "figures/plot.tex*"]);
   });
 
+  // The agent's checkpoint build of the live document, while the writer reads another document's tab.
+  it("leaves the reader on another document's tab when the live document is rebuilt without a request", async () => {
+    const { ws, strip, built } = await openProject();
+    await built("main.tex");
+    await built("supplement/SI.tex");
+    await built("main.tex");
+    expect(strip()).toEqual(["live", "supplement/SI.tex*"]);
+    await built("main.tex");
+    expect(strip()).toEqual(["live", "supplement/SI.tex*"]);
+    // Closed by the writer, the live tab stays closed through such builds.
+    await act(async () => { await ws.close("pdf"); });
+    await built("main.tex");
+    expect(strip()).toEqual(["supplement/SI.tex*"]);
+    await built("main.tex", true);
+    expect(strip()).toEqual(["supplement/SI.tex", "live*"]);
+  });
+
   it("leaves a tab the writer closed closed through autosave's builds, until a build asked for", async () => {
     const { ws, strip, built } = await openProject();
     await built("main.tex");

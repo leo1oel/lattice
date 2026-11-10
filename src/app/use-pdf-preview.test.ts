@@ -55,7 +55,9 @@ describe("usePdfPreview", () => {
     expect(view.result.current.shown).not.toBe(shown);
   });
 
-  it("shows the default root document's PDF on disk when a project opens, and forgets the last project's", async () => {
+  // The backend reads a one-off root's PDF (a subfiles chapter) while one
+  // stands, so what is on disk is no document's until a build names it.
+  it("shows the PDF on disk when a project opens, unnamed until a build says whose it is, and forgets the last project's", async () => {
     vi.mocked(invoke).mockResolvedValue(pdf("on disk"));
     const view = renderPreview();
     act(() => view.result.current.show(pdf("other"), 0, true, LIVE, "SI.tex", false));
@@ -63,11 +65,31 @@ describe("usePdfPreview", () => {
     await act(async () => { view.result.current.reset("/project", onRead); });
     expect(invoke).toHaveBeenCalledWith("read_compiled_pdf", { projectRoot: "/project" });
     expect(onRead).toHaveBeenCalledOnce();
-    expect(view.result.current.shown).toEqual({ document: "main.tex", requested: false });
-    expect(view.result.current.shownBytes.has("SI.tex")).toBe(false);
-    expect(view.result.current.pdfUrl).toBeTruthy();
+    expect(view.result.current.shown).toBeNull();
+    expect(view.result.current.shownBytes.size).toBe(0);
+    const url = view.result.current.pdfUrl;
+    expect(url).toBeTruthy();
     // A build from before the reset shows nothing.
     act(() => view.result.current.show(pdf("late"), 0, true, LIVE, "SI.tex", false));
-    expect(view.result.current.shown?.document).toBe("main.tex");
+    expect(view.result.current.shown).toBeNull();
+    expect(view.result.current.pdfUrl).toBe(url);
+    // latexmk found nothing to do: the same pages, now named.
+    act(() => view.result.current.show(pdf("on disk"), 1, true, LIVE, "chapters/one.tex", false));
+    expect(view.result.current.pdfUrl).toBe(url);
+    expect(view.result.current.shown).toEqual({ document: "chapters/one.tex", requested: false });
+    expect(view.result.current.shownBytes.has("main.tex")).toBe(false);
+  });
+
+  it("keeps a delayed rebuild's pages for its document's tab when another document's build lands first", () => {
+    const view = renderPreview();
+    act(() => view.result.current.show(pdf("main 1"), 0, true, LIVE, "main.tex", false));
+    // An autosave rebuild of the manuscript, waiting out the debounce.
+    const newer = pdf("main 2");
+    act(() => view.result.current.show(newer, 0, false, LIVE, "main.tex", false));
+    act(() => view.result.current.show(pdf("SI"), 0, false, LIVE, "SI.tex", true));
+    expect(view.result.current.shown).toEqual({ document: "SI.tex", requested: true });
+    expect(view.result.current.shownBytes.get("main.tex")).toBe(newer);
+    act(() => { vi.advanceTimersByTime(1_200); });
+    expect(view.result.current.shown).toEqual({ document: "SI.tex", requested: true });
   });
 });

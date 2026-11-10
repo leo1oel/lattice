@@ -30,11 +30,6 @@ function previewReducer(state: PreviewState, action: PreviewAction): PreviewStat
   return { ...state, shown: action.shown };
 }
 
-const defaultRoot = (project: ProjectSnapshot | null | undefined) => {
-  const documents = project?.manifest.rootDocuments ?? [];
-  return (documents.find((document) => document.isDefault) ?? documents[0])?.path ?? null;
-};
-
 /** Now showing `bytes` (at `url`) of `document`. */
 function displayPdf(
   held: PreviewHeld, displayed: { current: ArrayBuffer | null }, dispatch: (action: PreviewAction) => void,
@@ -44,7 +39,14 @@ function displayPdf(
   held.url = url;
   dispatch({ type: "url", url });
   displayed.current = bytes;
-  if (!bytes || !document) return;
+  if (bytes && document) nameShown(held, dispatch, { bytes, document, requested });
+}
+
+/** The PDF on screen is `document`'s `bytes`. */
+function nameShown(
+  held: PreviewHeld, dispatch: (action: PreviewAction) => void,
+  { bytes, document, requested }: { bytes: ArrayBuffer; document: string; requested: boolean },
+) {
   held.shownBytes.set(document, bytes);
   if (requested || document !== held.document) dispatch({ type: "shown", shown: { document, requested } });
   held.document = document;
@@ -84,22 +86,24 @@ export function usePdfPreview({ livePreview, projectRef }: {
   // Stable for the hook's life: the build pipeline keys its callbacks on them.
   const { show, reset } = useStableHandlers({
     show: (bytes: ArrayBuffer, generation: number, immediate: boolean, live: LiveBase, document: string, requested: boolean) => {
+      if (generation !== generationRef.current) return;
       const held = heldRef.current;
       // LaTeX rewrites PDF metadata on every compile, so bytes almost always
       // change. Debounce preview updates for autosave compiles so pdf.js is
       // not destroyed mid-load on every keystroke pause.
       const pending = held.pending;
+      if (pending && pending.document !== document) held.shownBytes.set(pending.document, pending.bytes);
       held.pending = { bytes, live, document, requested: requested || (pending?.requested === true && pending.document === document) };
       clearTimer(held.timer);
       const apply = () => {
         const next = held.pending;
-        if (generation !== generationRef.current || !next) return;
+        if (!next) return;
         const fingerprint = pdfBytesFingerprint(next.bytes);
         held.pending = null;
         // The same pages as on screen: they hold what this build compiled now.
         if (fingerprint === held.fingerprint) {
           livePreview?.current?.baseShown(next.live.token);
-          if (next.requested) dispatch({ type: "shown", shown: { document: next.document, requested: true } });
+          nameShown(held, dispatch, next);
           return;
         }
         held.fingerprint = fingerprint;
@@ -114,7 +118,9 @@ export function usePdfPreview({ livePreview, projectRef }: {
     /**
      * Drop the outgoing project's preview, invalidating any in-flight build's,
      * and show the PDF already on disk, if any, while latexmk checks for
-     * changes. `onRead` hears the fingerprint of what was read.
+     * changes. Which document it is of stays unnamed until a build says: the
+     * backend reads a one-off root's PDF (a chapter, a figure) while one
+     * stands. `onRead` hears the fingerprint of what was read.
      */
     reset: (projectRoot: string, onRead: (fingerprint: string) => void) => {
       const generation = ++generationRef.current;
@@ -133,7 +139,7 @@ export function usePdfPreview({ livePreview, projectRef }: {
           const fingerprint = pdfBytesFingerprint(pdfBytes);
           held.fingerprint = fingerprint;
           onRead(fingerprint);
-          displayPdf(held, displayedPdfBytesRef, dispatch, { bytes: pdfBytes, url: pdfBytesToObjectUrl(pdfBytes), document: defaultRoot(projectRef.current), requested: false });
+          displayPdf(held, displayedPdfBytesRef, dispatch, { bytes: pdfBytes, url: pdfBytesToObjectUrl(pdfBytes), document: null, requested: false });
         })
         .catch(() => {
           // A new or cleaned project has no cached PDF; the initial build
