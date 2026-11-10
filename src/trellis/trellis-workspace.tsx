@@ -45,6 +45,7 @@ import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import { installLayoutHandlers, RESET_UNDO_TOAST, type ResetUndo } from "./trellis-layout-handlers";
 import { useTabSync } from "./use-tab-sync";
 import { useHibernation } from "./use-hibernation";
+import { observeTabStripFades } from "./trellis-tab-fades";
 import "./trellis.css";
 
 // Before any workspace exists: Trellis writes some labels once, at creation.
@@ -255,8 +256,10 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     });
     const stopPdf = observePdfToolbarMinimum(controller);
     const stopHolding = holdWidthsWhileResizing(ws.element);
+    const stopFades = observeTabStripFades(ws.element, (listener) => ws.subscribe(listener));
     return () => {
       unsubscribe();
+      stopFades();
       offMeasured();
       stopPdf();
       stopHolding();

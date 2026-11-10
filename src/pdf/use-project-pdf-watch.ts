@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { changesReach, onProjectFilesChanged } from "../project/project-files-changed";
+import { visibleInterval } from "../app/effect-helpers";
 
 /** How often an open project PDF is checked against the file on disk when no watcher event says so first. */
 export const PDF_RECHECK_MS = 2500;
@@ -28,12 +29,13 @@ export function useProjectPdfWatch(
   useEffect(() => {
     if (!projectRoot || !path) return;
     const check = () => recheckRef.current();
-    const timer = window.setInterval(check, missing ? 2 * PDF_RECHECK_MS : PDF_RECHECK_MS);
+    // The poll rests while the window is off screen and checks once it is back.
+    const stopPolling = visibleInterval(check, missing ? 2 * PDF_RECHECK_MS : PDF_RECHECK_MS);
     const stopListening = onProjectFilesChanged(projectRoot, (paths) => {
       if (changesReach(paths, path)) check();
     });
     return () => {
-      window.clearInterval(timer);
+      stopPolling();
       stopListening();
     };
   }, [missing, path, projectRoot, recheckRef]);

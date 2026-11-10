@@ -445,3 +445,33 @@ describe("projectOverleafEditorComments", () => {
     expect(comments.map(({ id, path, from }) => ({ id, path, from }))).toEqual([{ id: "overleaf:new", path: "main.tex", from: 3 }]);
   });
 });
+
+describe("Overleaf live polling off screen", () => {
+  it("rests while the window is hidden and checks at once when it is shown", async () => {
+    let visibility: DocumentVisibilityState = "visible";
+    const descriptor = vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+    const show = (next: DocumentVisibilityState) => act(() => {
+      visibility = next;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    try {
+      const { realtime, advance } = mountWorkspace("live");
+      await waitFor(() => expect(realtime().status).toBe("live"));
+      const probes = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_probe").length;
+      await advance(100_000);
+      const before = probes();
+      expect(before).toBeGreaterThan(0);
+
+      await show("hidden");
+      await advance(10 * 60_000);
+      expect(probes()).toBe(before);
+
+      await show("visible");
+      await advance(0);
+      expect(probes()).toBe(before + 1);
+    } finally {
+      descriptor.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+});

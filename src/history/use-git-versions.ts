@@ -15,6 +15,7 @@ import { confirmAction, hostErrorMessage } from "../app-utils";
 import { logAction } from "../telemetry/app-notify";
 import { onProjectFilesChanged } from "../project/project-files-changed";
 import { AUTO_COMMIT_MESSAGES } from "./version-messages";
+import { visibleInterval } from "../app/effect-helpers";
 
 export type GitVersionsPhase = "loading" | "unavailable" | "no-repo" | "ready" | "error";
 
@@ -108,13 +109,13 @@ export function useGitVersions(props: {
     const refresh = () => { void load(); };
     const stopListening = props.projectRoot ? onProjectFilesChanged(props.projectRoot, refresh) : () => undefined;
     // Git commits can also arrive while the app is unfocused or its watcher
-    // is unavailable. Only poll while the timeline is mounted.
-    const timer = window.setInterval(refresh, 30_000);
+    // is unavailable. Only poll while the timeline is mounted and on screen.
+    const stopPolling = visibleInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
     return () => {
       cancelLoad();
       stopListening();
-      window.clearInterval(timer);
+      stopPolling();
       window.removeEventListener("focus", refresh);
     };
   }, [load, props.projectRoot]);

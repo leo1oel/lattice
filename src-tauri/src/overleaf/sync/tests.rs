@@ -2,7 +2,7 @@ use super::*;
 use crate::overleaf::link::{load_state, state_path};
 use crate::overleaf::review::HistoryFrom;
 use crate::overleaf::test_support::*;
-use serde_json::json;
+use serde_json::{json, Value};
 
 mod case_collisions;
 mod changes;
@@ -10,6 +10,7 @@ mod conflicts;
 mod deletions;
 mod prefetch;
 mod preview;
+mod probe;
 mod relocations;
 mod send;
 
@@ -56,38 +57,6 @@ fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
     let kept_overleaf = plan(&after, theirs);
     assert!(kept_overleaf.push.is_empty());
     assert!(kept_overleaf.pull.is_empty() && kept_overleaf.conflict.is_empty());
-}
-
-#[test]
-fn overleaf_sync_records_only_a_remote_version_that_precedes_its_snapshot() {
-    // - "recheck fails": /updates answers 404 while the download succeeds, an
-    //   intermittent best-effort history failure; the saved 42 survives, but a
-    //   successful probe made immediately before the sync is stronger evidence
-    //   and becomes the new baseline.
-    // - "pull": the zip contains version 11 and a collaborator reaches 12
-    //   while the sync is finishing. Recording 12 would make the next probe
-    //   say the stale local copy is current.
-    // - "push": the first two reads prove the remote stayed at 11 until
-    //   upload, but the server does not say which version belongs to that
-    //   upload, so a later 12 must be verified rather than silently claimed.
-    let (base, edited) = (b"base body".as_slice(), b"edited".as_slice());
-    for (label, versions, remote, local, observed, recorded, moved, next) in [
-        ("recheck fails", vec![], base, base, None, Some(42), (0, 0), None),
-        ("recheck fails after a probe", vec![], base, base, Some(43), Some(43), (0, 0), None),
-        ("pull", vec![11, 12], edited, base, None, Some(11), (1, 0), Some(12)),
-        ("push", vec![11, 11, 12], base, edited, None, None, (0, 1), Some(12)),
-    ] {
-        let server = Mock { versions, ..Mock::project(&[("main.tex", remote)]) }.serve();
-        let (config, root) = linked(&server, &[("main.tex", local)], &[("main.tex", base)]);
-        edit_state(&root, |state| state.remote_version = Some(42));
-        let result = sync(&config, &root, NO_LIVE, observed).unwrap();
-        assert_eq!((result.pulled.len(), result.pushed.len()), moved, "{label}");
-        assert_eq!(remote_version(&root), recorded, "{label}");
-        if let Some(next) = next {
-            let probed = probe(&config, &root, None).unwrap();
-            assert_eq!((probed.changed, probed.remote_version), (true, Some(next)), "{label}");
-        }
-    }
 }
 
 #[test]

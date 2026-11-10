@@ -21,9 +21,10 @@ use tauri::Emitter;
 
 /// Quiet period before a burst of events becomes one refresh.
 const DEBOUNCE: Duration = Duration::from_millis(300);
-/// A bounded, off-search-path scan catches events missed by the OS watcher and
-/// changes made while Lattice was not running.
-const RECONCILE_INTERVAL: Duration = Duration::from_secs(60);
+/// The longest a steady stream of events waits before it is reported anyway,
+/// so a folder written without pause (an experiment logging into the
+/// project) still refreshes the windows now and then.
+const MAX_BURST: Duration = Duration::from_secs(2);
 
 struct WatchBatch {
     paths: Vec<PathBuf>,
@@ -100,6 +101,11 @@ pub fn spawn<R: tauri::Runtime>(
     let filter_root = root.clone();
     let mut watcher = notify::recommended_watcher(move |event: Result<Event, notify::Error>| {
         let batch = match event {
+            // FSEvents dropped events under these paths and asks for a rescan:
+            // the same as a watcher error, for the index and for the windows.
+            Ok(event) if event.need_rescan() && relevant(&event, &filter_root) => {
+                WatchBatch { paths: Vec::new(), reconcile: true }
+            }
             Ok(event) if relevant(&event, &filter_root) => {
                 WatchBatch { paths: event.paths, reconcile: false }
             }
@@ -121,28 +127,25 @@ pub fn spawn<R: tauri::Runtime>(
         // catches edits made while the project was closed without delaying
         // either project open or the first search.
         reconcile_index();
-        let mut next_reconcile = Instant::now() + RECONCILE_INTERVAL;
+        // After that the index follows the watcher's reports. A whole-project
+        // reconcile runs again only when the watcher says it lost events (an
+        // error, an FSEvents rescan): on a timer it rescanned every file of a
+        // large project each minute while nothing changed.
         loop {
-            let until_reconcile =
-                |deadline: Instant| deadline.saturating_duration_since(Instant::now());
-            let WatchBatch { mut paths, mut reconcile } =
-                match receiver.recv_timeout(until_reconcile(next_reconcile)) {
-                    Ok(batch) => batch,
-                    Err(RecvTimeoutError::Timeout) => {
-                        reconcile_index();
-                        next_reconcile = Instant::now() + RECONCILE_INTERVAL;
-                        continue;
-                    }
-                    Err(RecvTimeoutError::Disconnected) => return,
-                };
+            let WatchBatch { mut paths, mut reconcile } = match receiver.recv() {
+                Ok(batch) => batch,
+                Err(_) => return,
+            };
             // Drain the burst: keep absorbing events until things go quiet or
-            // the periodic reconcile falls due.
+            // the burst has run long enough to report.
+            let burst = Instant::now() + MAX_BURST;
             loop {
-                match receiver.recv_timeout(DEBOUNCE.min(until_reconcile(next_reconcile))) {
+                let wait = DEBOUNCE.min(burst.saturating_duration_since(Instant::now()));
+                match receiver.recv_timeout(wait) {
                     Ok(batch) => {
                         paths.extend(batch.paths);
                         reconcile |= batch.reconcile;
-                        if Instant::now() >= next_reconcile {
+                        if Instant::now() >= burst {
                             break;
                         }
                     }
@@ -150,7 +153,6 @@ pub fn spawn<R: tauri::Runtime>(
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
-            reconcile |= Instant::now() >= next_reconcile;
             let changed_paths = payload_paths(&root, &paths, reconcile);
             let update = if reconcile {
                 crate::fts::reconcile(&root)
@@ -159,9 +161,6 @@ pub fn spawn<R: tauri::Runtime>(
             };
             if let Err(error) = update {
                 eprintln!("Could not update the project search index: {error}");
-            }
-            if reconcile {
-                next_reconcile = Instant::now() + RECONCILE_INTERVAL;
             }
             // Broadcast; each window filters by its own project root.
             let _ = app.emit(
