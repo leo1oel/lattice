@@ -33,10 +33,21 @@ describe("usePdfZoom", () => {
     expect(fireEvent.wheel(root, { deltaY: 10, clientX: 50, clientY: 50 })).toBe(true);
     expect(viewer.style.transform).toBe("");
     // A cancelled wheel returns false: the page does not scroll and WebKit does not zoom the window.
-    expect(fireEvent.wheel(root, { metaKey: true, deltaY: -10, clientX: 50, clientY: 50 })).toBe(false);
-    expect(viewer.style.transform).toBe(`scale(${Number(Math.exp(0.1).toFixed(3))})`);
-    expect(fireEvent.wheel(root, { ctrlKey: true, deltaY: -10, clientX: 50, clientY: 50 })).toBe(false);
-    expect(viewer.style.transform).toBe(`scale(${Number(Math.exp(0.2).toFixed(3))})`);
+    expect(fireEvent.wheel(root, { metaKey: true, deltaY: -2, clientX: 50, clientY: 50 })).toBe(false);
+    expect(viewer.style.transform).toBe(`scale(${Number(Math.exp(0.02).toFixed(3))})`);
+    expect(fireEvent.wheel(root, { ctrlKey: true, deltaY: -2, clientX: 50, clientY: 50 })).toBe(false);
+    expect(viewer.style.transform).toBe(`scale(${Number(Math.exp(0.04).toFixed(3))})`);
+  });
+
+  it.each([[-120, 0], [-3, 1], [-1, 2]])("bounds a coarse wheel event (%s, mode %s) to a fine zoom step", (deltaY, deltaMode) => {
+    const { root, viewer } = mountZoom();
+    Object.defineProperty(root, "clientHeight", { value: 800 });
+    fireEvent.wheel(root, { ctrlKey: true, deltaY, deltaMode, clientX: 50, clientY: 50 });
+    const scale = Number(viewer.style.transform.slice(6, -1));
+    expect(scale).toBeGreaterThan(1);
+    expect(scale).toBeLessThanOrEqual(1.052);
+    fireEvent.wheel(root, { ctrlKey: true, deltaY: -deltaY, deltaMode });
+    expect(Number(viewer.style.transform.slice(6, -1))).toBeCloseTo(1, 2);
   });
 
   it("keeps a pinch over the PDF from also zooming the workspace around it", () => {

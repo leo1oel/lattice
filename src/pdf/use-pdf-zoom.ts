@@ -4,6 +4,7 @@ import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { applyPdfZoom, pdfPageView, type ViewerRecord } from "./pdf-slick";
 import { addListeners, clampPdfScale, PDF_MIN_SCALE } from "./pdf-viewer-utils";
 import type { ActiveViewerRef, PdfViewState } from "./use-pdf-view";
+import { usePdfAutoscroll } from "./use-pdf-autoscroll";
 
 const PDF_REFIT_SETTLE_MS = 120;
 /**
@@ -62,6 +63,7 @@ function reachClip(record: ViewerRecord, anchor: HTMLElement, base: number, view
 
 /** Zoom buttons, the scrollable zoom value, pinch/ctrl-wheel zoom around the pointer, and fit modes. */
 export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view: PdfViewState) {
+  usePdfAutoscroll(recordRef, generation);
   const { viewRef, fitMode, setScale, setFitMode } = view;
   const hasViewer = generation > 0;
   const zoomLabelRef = useRef<HTMLLabelElement | null>(null);
@@ -197,7 +199,13 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
       wheel: (event: WheelEvent) => {
         if (!event.ctrlKey && !event.metaKey) return;
         event.preventDefault();
-        previewZoom(currentScale() * Math.exp(-event.deltaY * 0.01), event.clientX, event.clientY);
+        // WebView2 mouse notches commonly arrive as 100+ pixels, while
+        // trackpad pinches use small pixel deltas. Keep those fine deltas,
+        // normalize line/page units, and cap each event to about 5%.
+        const mode = event.deltaMode;
+        const pixels = event.deltaY * (mode === 1 ? 16 : mode === 2 ? area.clientHeight : 1);
+        const delta = Math.max(-5, Math.min(5, pixels));
+        previewZoom(currentScale() * Math.exp(-delta * 0.01), event.clientX, event.clientY);
       },
       // Kept as a browser fallback for engines that expose WebKit gesture events.
       gesturestart: (event: Event) => {
