@@ -76,41 +76,42 @@ describe("the daily background package check", () => {
   afterEach(() => { vi.useRealTimers(); });
 
   const check = (report: TexPackageUpdatesReport | null) => vi.fn(() => Promise.resolve(report));
+  const ignoreReport = () => {};
 
   it("checks once after launch, and not again the same day", async () => {
     const first = check({ managed: true, packages: [{ name: "lineno", installed: "5.7", available: "5.9" }] });
-    const launch = renderHook(() => useDailyTexPackageCheck(first));
+    const launch = renderHook(() => useDailyTexPackageCheck(first, ignoreReport));
     expect(first).not.toHaveBeenCalled();
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(first).toHaveBeenCalledTimes(1);
     launch.unmount();
 
     const again = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(again));
+    renderHook(() => useDailyTexPackageCheck(again, ignoreReport));
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(again).not.toHaveBeenCalled();
 
     vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
     const nextDay = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(nextDay));
+    renderHook(() => useDailyTexPackageCheck(nextDay, ignoreReport));
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(nextDay).toHaveBeenCalledTimes(1);
   });
 
   it("tries again on the next launch when the repository did not answer", async () => {
     const offline = check({ managed: true, packages: [], error: "offline" });
-    const launch = renderHook(() => useDailyTexPackageCheck(offline));
+    const launch = renderHook(() => useDailyTexPackageCheck(offline, ignoreReport));
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     launch.unmount();
     const next = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(next));
+    renderHook(() => useDailyTexPackageCheck(next, ignoreReport));
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(next).toHaveBeenCalledTimes(1);
   });
 
   it("closed before the delay, checks nothing", async () => {
     const early = check({ managed: true, packages: [] });
-    renderHook(() => useDailyTexPackageCheck(early)).unmount();
+    renderHook(() => useDailyTexPackageCheck(early, ignoreReport)).unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY_MS); });
     expect(early).not.toHaveBeenCalled();
   });

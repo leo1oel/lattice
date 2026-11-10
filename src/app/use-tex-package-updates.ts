@@ -53,10 +53,10 @@ function reducer(state: TexPackageUpdatesState, action: Action): TexPackageUpdat
 /**
  * The TeX doctor's package-update check and the one-click update. The check
  * asks the TeX Live repository, so the launch check never waits on it: the
- * doctor page runs it, and `useDailyTexPackageCheck` once a day in the
- * background. A finished update checks again, so the row reflects what is
- * left, and keeps its result until a later check; a check while an update
- * runs would only see the old packages.
+ * doctor page runs it, and `useDailyTexPackageCheck` (from
+ * `useTexUpdateReminder`) once a day in the background. A finished update
+ * checks again, so the row reflects what is left, and keeps its result until
+ * a later check; a check while an update runs would only see the old packages.
  */
 export function useTexPackageUpdates() {
   const [state, dispatch] = useReducer(reducer, IDLE);
@@ -115,8 +115,12 @@ function lastCheck(): number {
  * updates (lineno 5.7's misplaced line numbers, #726) shows them on Settings'
  * TeX doctor without the writer opening it first. Only a check the
  * repository answered counts: offline, it tries again on the next launch.
+ * `onChecked` hears each answer (the reminder toast's cue); keep it stable.
  */
-export function useDailyTexPackageCheck(check: () => Promise<TexPackageUpdatesReport | null>) {
+export function useDailyTexPackageCheck(
+  check: () => Promise<TexPackageUpdatesReport | null>,
+  onChecked: (report: TexPackageUpdatesReport | null) => void,
+) {
   useEffect(() => {
     // A perf-lab run measures the editor, not tlmgr.
     if (import.meta.env.VITE_PERF_LAB === "1" && window.__latticeLab) return;
@@ -125,6 +129,7 @@ export function useDailyTexPackageCheck(check: () => Promise<TexPackageUpdatesRe
     const timer = globalThis.setTimeout(() => {
       void check().then((report) => {
         if (disposed || !report || report.error) return;
+        onChecked(report);
         try {
           localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
         } catch {
@@ -136,5 +141,5 @@ export function useDailyTexPackageCheck(check: () => Promise<TexPackageUpdatesRe
       disposed = true;
       globalThis.clearTimeout(timer);
     };
-  }, [check]);
+  }, [check, onChecked]);
 }
