@@ -11,8 +11,10 @@
  * where the live tab stood, and the live tab takes the arriving document's
  * tab (or a new one beside), so each tab keeps its place and its file name.
  *
- * A tab the writer closes stays closed until that document is built again on
- * request: autosave's builds update open tabs and never bring one back.
+ * Only a build the writer asks for brings a tab forward or back: any other
+ * build (autosave, the agent's, a sync's) updates open tabs in place, adds a
+ * tab in back for a document that had none, and never changes which tab is
+ * in front or reopens one the writer closed.
  * Switching tabs builds nothing. Eager, as the controller that holds it:
  * nothing from Trellis at runtime.
  */
@@ -28,9 +30,9 @@ export type RootPdfParams = { document: string };
 /** A `root-pdf` tab mounted in the workspace, as App renders into it. */
 export type RootPdfTab = Readonly<{ document: string; visible: boolean }>;
 
-type Slot = { panel: string; index: number; selected: boolean; hidden: boolean };
+type Slot = { panel: string; index: number; selected: boolean; hidden: boolean; front: string };
 
-/** Where view `id` sits in `doc`: its panel, its place among the tabs, and whether it is in front. */
+/** Where view `id` sits in `doc`: its panel, its place among the tabs, whether it is in front, and the panel's tab that is. */
 export function slotOf(doc: LayoutDocument, id: string): Slot | null {
   const find = (node: LayoutNode | null | undefined): PanelNode | null => {
     if (!node) return null;
@@ -45,7 +47,7 @@ export function slotOf(doc: LayoutDocument, id: string): Slot | null {
   const docked = find(doc.root) ?? doc.floating.find((entry) => entry.panel.views.includes(id))?.panel;
   const panel = docked ?? doc.hidden.find((entry) => entry.panel.views.includes(id))?.panel;
   if (!panel) return null;
-  return { panel: panel.id, index: panel.views.indexOf(id), selected: panel.selected === id, hidden: !docked };
+  return { panel: panel.id, index: panel.views.indexOf(id), selected: panel.selected === id, hidden: !docked, front: panel.selected };
 }
 
 /**
@@ -63,10 +65,6 @@ export class CompiledPdfTabs {
   /** The document whose PDF the live tab shows, once one is known. */
   private live: string | null = null;
   private root = "";
-  /** Documents whose tab the writer closed (see the module comment). */
-  private readonly closed = new Set<string>();
-  /** Tabs closed here, by a trade of places, not by the writer. */
-  private readonly quiet = new Set<string>();
   private readonly hosts = new Map<string, HTMLDivElement>();
   /** The `root-pdf` tabs mounted now; App renders a viewer into each one on screen. */
   readonly mounted = new SmallStore<{ tabs: readonly RootPdfTab[] }>({ tabs: [] });
@@ -103,10 +101,6 @@ export class CompiledPdfTabs {
     return ws.views({ type: ROOT_PDF });
   }
 
-  private documentOf(view: ViewInfo): string {
-    return String(view.params.document ?? "");
-  }
-
   /**
    * Every document with a tab: the live one, then the others. Read from the
    * layout's records, not `ws.views()`: tab titles are computed from this,
@@ -138,15 +132,13 @@ export class CompiledPdfTabs {
 
   /**
    * The pipeline's PDF is now `document`'s, in project `root`; `requested`
-   * when the writer asked for the build (it reopens a tab they closed and
-   * brings it to the front).
+   * when the writer asked for the build (it brings the live tab back and to
+   * the front).
    */
   shown(root: string, document: string, { requested = false }: { requested?: boolean } = {}) {
     if (root !== this.root) {
       this.root = root;
       this.live = null;
-      this.closed.clear();
-      this.quiet.clear();
     }
     const previous = this.live;
     this.live = document;
@@ -159,12 +151,14 @@ export class CompiledPdfTabs {
     const live = ws.view("pdf");
     const own = ws.view(rootPdfId(document));
     let keepReading = false;
+    let front: string | null = null;
     if (live && previous && previous !== document && !ws.view(rootPdfId(previous))) {
       // The document leaving keeps a tab where the live one stood.
       const left = slotOf(ws.getDocument(), "pdf");
       if (left && !left.hidden) {
-        // Still showing the document they were reading when the arriving one has a tab of its own in back.
-        keepReading = left.selected && Boolean(own) && !requested && !slotOf(ws.getDocument(), own!.id)?.selected;
+        // A build not asked for leaves the reader on the document they were reading, unless the arriving one's own tab was in front.
+        keepReading = left.selected && !requested && !(own && slotOf(ws.getDocument(), own.id)?.selected);
+        front = left.front;
         ws.open(ROOT_PDF, {
           id: rootPdfId(previous), params: { document: previous }, focus: false, placement: { into: left.panel, index: left.index },
         });
@@ -176,29 +170,18 @@ export class CompiledPdfTabs {
       if (live) ws.dock("pdf", { into: slot.panel, index: slot.index });
       else ws.open("pdf", { id: "pdf", focus: false, placement: { into: slot.panel, index: slot.index } });
     }
-    if (own) {
-      this.quiet.add(own.id);
-      void ws.close(own.id, { force: true });
-    }
+    if (own) void ws.close(own.id, { force: true });
     if (!ws.view("pdf")) {
-      // A closed live tab comes back for a build asked for, or, among the other
-      // documents' tabs, for any build of a document whose tab was not closed.
-      if (!requested && (this.closed.has(document) || !this.anyTab())) return;
+      // A closed live tab comes back only for a build asked for.
+      if (!requested) return;
       this.showLive();
     }
-    this.closed.delete(document);
-    // In front for a build asked for, in its own tab's place when that was, or as a new tab.
-    const arrived = !own && previous !== null && previous !== document;
+    // In front for a build asked for, or in its own tab's place when that was;
+    // otherwise the tab the reader had in front stays there.
     const view = ws.view("pdf");
     if (keepReading) ws.select(rootPdfId(previous!));
-    else if (view && view.placement !== "hidden" && (requested || slot?.selected || arrived)) ws.select("pdf");
-  }
-
-  /** Trellis closed a compiled PDF's tab: the writer's close keeps it closed through autosave's builds. */
-  onClose(view: ViewInfo) {
-    if (this.quiet.delete(view.id)) return;
-    const document = view.type === ROOT_PDF ? this.documentOf(view) : this.live;
-    if (document) this.closed.add(document);
+    else if (view && view.placement !== "hidden" && (requested || slot?.selected)) ws.select("pdf");
+    else if (front && ws.view(front)) ws.select(front);
   }
 
   /** A `root-pdf` tab mounted, moved on or off screen, or (null) unmounted. */

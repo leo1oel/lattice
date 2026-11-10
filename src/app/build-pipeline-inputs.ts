@@ -35,6 +35,8 @@ export type BuildOptions = {
   immediatePreview?: boolean;
   requested?: boolean;
   sound?: boolean;
+  /** The writer started it (Build, ⌘S, a PDF tab's menu): its PDF comes forward, as a sounded build's does. */
+  bringForward?: boolean;
   consumeAgentAssociations?: boolean;
   /** Autosave asked: it waits for a pause while the live preview is live (quiet-builds.ts). */
   automatic?: boolean;

@@ -398,7 +398,6 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       : null;
     if (kept) handle?.setDocument(kept, { animate: false });
     if (quietCloses.current.delete(view.id)) return;
-    if (view.type === "pdf" || view.type === ROOT_PDF) controller.pdfTabs.onClose(view);
     if (view.type === "file") {
       void controller.bridge?.closeTab(String(view.params.key ?? ""));
     } else if ((TOOL_KINDS as readonly string[]).includes(view.type)) {

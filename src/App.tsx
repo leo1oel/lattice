@@ -355,13 +355,14 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     compile: async (
       force = false,
       sound = false,
-      options?: { consumeAgentAssociations?: boolean },
+      options?: { consumeAgentAssociations?: boolean; bringForward?: boolean },
     ) => {
       if (!project) return;
       await runBuild(force, {
         immediatePreview: true,
         requested: true,
         sound,
+        bringForward: options?.bringForward,
         consumeAgentAssociations: options?.consumeAgentAssociations,
       });
     },
@@ -372,7 +373,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       options?: { consumeAgentAssociations?: boolean },
     ) => {
       showProjectPdf(trellis);
-      return compile(force, sound, options);
+      return compile(force, sound, { ...options, bringForward: true });
     },
     openCompileDiagnostic: async (diagnostic: CompileDiagnostic) => {
       if (!project) return;

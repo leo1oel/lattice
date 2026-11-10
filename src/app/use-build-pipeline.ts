@@ -210,7 +210,8 @@ export function useBuildPipeline({
     let shouldPlayCompletionSound = options?.sound === true;
     // Only explicit UI builds opt into sound (even when audio is muted).
     // Background failures must not steal the caret while an edit is unfinished.
-    let explicit = options?.sound === true;
+    let shouldNavigateToError = options?.sound === true;
+    let bringForward = shouldNavigateToError || options?.bringForward === true;
     let shouldConsumeAgentAssociations = options?.consumeAgentAssociations === true;
     let completionSound: "success" | "error" | null = null;
     // Nothing is queued while no build runs (`force` is only set behind the lock), so this clears flags alone.
@@ -224,7 +225,8 @@ export function useBuildPipeline({
         trace = logAction(t`Build`, t`Build`, queue.force ? t`clean rebuild` : t`queued`, BUILD_OPERATION);
         currentForce = queue.force;
         shouldPlayCompletionSound ||= queue.sound;
-        explicit = queue.sound;
+        shouldNavigateToError = queue.sound;
+        bringForward = queue.sound || queue.bringForward;
         shouldConsumeAgentAssociations = queue.consumeAgentAssociations;
         cleanFirst = queue.clean;
         Object.assign(queue, IDLE_QUEUE);
@@ -349,7 +351,7 @@ export function useBuildPipeline({
         // the buffer matches what is on disk — waiting is just the PDF lagging.
         if (pdfBytes) {
           const immediate = immediatePreview || sourceRef.current === savedSourceRef.current;
-          showPreview(pdfBytes, previewGeneration, immediate, liveAtBuild, result.rootDocument, explicit);
+          showPreview(pdfBytes, previewGeneration, immediate, liveAtBuild, result.rootDocument, bringForward);
         }
         if (!result.success) {
           const firstError = result.diagnostics.find((item) => missingTexDependencyFile(item.message))
@@ -359,7 +361,7 @@ export function useBuildPipeline({
           const navigationError = result.diagnostics.find((item) => (
             item.level === "error" && Boolean(item.file || item.line)
           )) ?? firstError;
-          if (explicit && navigationError) void openDiagnosticRef.current(navigationError);
+          if (shouldNavigateToError && navigationError) void openDiagnosticRef.current(navigationError);
           trace.fail(t`LaTeX compilation failed.`, {
             detail: firstError?.message ?? "",
             copyText: [result.log, ...result.diagnostics.map((item) => item.message)].join("\n"),

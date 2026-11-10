@@ -73,16 +73,24 @@ describe("a PDF tab per compiled root document", () => {
   it("keeps the document built before in its own tab, named for its file, where the live tab stood", async () => {
     const { tabs, strip, built } = await openProject();
     await built("main.tex");
-    await built("supplement/SI.tex");
+    await built("supplement/SI.tex", true);
     expect(strip()).toEqual(["main.tex", "live*"]);
     expect(tabs.liveLabel()).toBe("SI.pdf");
     expect(tabs.label("main.tex")).toBe("main.pdf");
   });
 
+  it("adds the document built before in back for a build not asked for, and leaves the reader on it", async () => {
+    const { tabs, strip, built } = await openProject();
+    await built("main.tex");
+    await built("supplement/SI.tex");
+    expect(strip()).toEqual(["main.tex*", "live"]);
+    expect(tabs.liveLabel()).toBe("SI.pdf");
+  });
+
   it("updates a rebuilt document's own tab in its place, and keeps the reader on the tab they were reading", async () => {
     const { ws, strip, built } = await openProject();
     await built("main.tex");
-    await built("supplement/SI.tex");
+    await built("supplement/SI.tex", true);
     // An autosave build of the manuscript while the supplement is read.
     await built("main.tex");
     expect(strip()).toEqual(["live", "supplement/SI.tex*"]);
@@ -95,7 +103,7 @@ describe("a PDF tab per compiled root document", () => {
   it("shows a rebuilt document when its own tab was the one in front", async () => {
     const { ws, strip, built } = await openProject();
     await built("main.tex");
-    await built("supplement/SI.tex");
+    await built("supplement/SI.tex", true);
     act(() => ws.select(rootPdfId("main.tex")));
     await built("main.tex");
     expect(strip()).toEqual(["live*", "supplement/SI.tex"]);
@@ -104,19 +112,19 @@ describe("a PDF tab per compiled root document", () => {
   it("opens a third document's tab beside the live one, and keeps every tab's place and name", async () => {
     const { tabs, strip, built } = await openProject();
     await built("main.tex");
-    await built("supplement/SI.tex");
-    await built("figures/plot.tex");
+    await built("supplement/SI.tex", true);
+    await built("figures/plot.tex", true);
     expect(strip()).toEqual(["main.tex", "supplement/SI.tex", "live*"]);
     expect(tabs.liveLabel()).toBe("plot.pdf");
-    await built("main.tex");
-    expect(strip()).toEqual(["live", "supplement/SI.tex", "figures/plot.tex*"]);
+    await built("main.tex", true);
+    expect(strip()).toEqual(["live*", "supplement/SI.tex", "figures/plot.tex"]);
   });
 
   // The agent's checkpoint build of the live document, while the writer reads another document's tab.
   it("leaves the reader on another document's tab when the live document is rebuilt without a request", async () => {
     const { ws, strip, built } = await openProject();
     await built("main.tex");
-    await built("supplement/SI.tex");
+    await built("supplement/SI.tex", true);
     await built("main.tex");
     expect(strip()).toEqual(["live", "supplement/SI.tex*"]);
     await built("main.tex");
@@ -129,21 +137,31 @@ describe("a PDF tab per compiled root document", () => {
     expect(strip()).toEqual(["supplement/SI.tex", "live*"]);
   });
 
-  it("leaves a tab the writer closed closed through autosave's builds, until a build asked for", async () => {
+  // An autosave build of a standalone figure never built before, while the writer reads the supplement's tab.
+  it("adds a never-built document's tab in back for a build not asked for, without moving the reader", async () => {
+    const { strip, built } = await openProject();
+    await built("main.tex");
+    await built("supplement/SI.tex", true);
+    await built("main.tex");
+    expect(strip()).toEqual(["live", "supplement/SI.tex*"]);
+    await built("figures/plot.tex");
+    expect(strip()).toEqual(["main.tex", "live", "supplement/SI.tex*"]);
+  });
+
+  it("leaves a closed live tab closed through builds not asked for, of any document, until a build asked for", async () => {
     const { ws, strip, built } = await openProject();
     await built("main.tex");
-    await built("supplement/SI.tex");
+    await built("supplement/SI.tex", true);
     // The writer closes the live tab (the supplement's).
     await act(async () => { await ws.close("pdf"); });
     expect(strip()).toEqual(["main.tex*"]);
     await built("supplement/SI.tex");
     expect(strip()).toEqual(["main.tex*"]);
+    // A document that never had a tab, built automatically, brings no tab back either.
+    await built("figures/plot.tex");
+    expect(strip()).toEqual(["main.tex*"]);
     await built("supplement/SI.tex", true);
     expect(strip()).toEqual(["main.tex", "live*"]);
-    // A closed tab of the document leaving is not brought back for it.
-    await act(async () => { await ws.close(rootPdfId("main.tex")); });
-    await built("figures/plot.tex");
-    expect(strip()).toEqual(["supplement/SI.tex", "live*"]);
   });
 
   it("gives the live tab the place of a restored tab of the document now live", async () => {

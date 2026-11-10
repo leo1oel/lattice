@@ -347,6 +347,18 @@ describe("which builds bring the PDF tabs forward", () => {
     expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: true });
   });
 
+  // ⌘S builds without the sound, and without jumping to an error, yet the writer asked for it.
+  it("marks a build the writer started without its sound as asked for, and it still does not jump to an error", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const openDiagnostic = vi.fn(async () => {});
+    const view = renderPipeline(async () => result({
+      hasPdf: true, success: false, diagnostics: [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 3 }],
+    }), { openDiagnostic });
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, bringForward: true }));
+    expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: true });
+    expect(openDiagnostic).not.toHaveBeenCalled();
+  });
+
   it("does not carry a press of Build over to the automatic pass queued behind it", async () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
     const passes: Array<(value: BuildResult) => void> = [];
