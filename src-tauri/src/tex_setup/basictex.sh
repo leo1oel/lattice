@@ -80,9 +80,11 @@ if ! tlmgr_with_fallback update --all 2>&1 | relay_progress updating-base; then
 fi
 # latexmk is intentionally not part of the BasicTeX base package. The
 # collections and Type1 fonts cover Lattice's bundled conference templates;
-# AAAI's style also needs newtx (whose map reads kastrup's binhex.tex), and
-# the Chinese thesis classes need ctex with xeCJK and zhnumber, bibunits, and
-# the XITS and STIX Two math fonts.
+# AAAI's style also needs newtx (whose map reads kastrup's binhex.tex), the
+# ACM template needs the acmart class with the Libertine (and its mweights),
+# Inconsolata and newtx fonts it typesets in, and the Chinese thesis classes
+# need ctex with xeCJK and zhnumber, bibunits, and the XITS and STIX Two math
+# fonts. The IEEE templates bundle IEEEtran, which needs nothing more.
 CURRENT_STEP="Installing the required LaTeX packages"
 status installing-packages
 tlmgr_with_fallback install \
@@ -102,6 +104,10 @@ tlmgr_with_fallback install \
   csquotes \
   newtx \
   kastrup \
+  acmart \
+  libertine \
+  mweights \
+  inconsolata \
   ctex \
   xecjk \
   zhnumber \

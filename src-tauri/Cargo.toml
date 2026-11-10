@@ -1,6 +1,6 @@
 [package]
 name = "research-writer"
-version = "0.16.9"
+version = "0.16.10"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
@@ -126,6 +126,7 @@ tantivy = { version = "0.27", default-features = false, features = ["mmap", "lz4
 jieba-rs = "0.11"
 notify = "8"
 scraper = "0.27"
+spellbook = "0.4.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Provider CLIs are ordinary child processes and do not use CFNetwork, so a
@@ -135,6 +136,9 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = [
   "std",
   "NSArray",
+  "NSAttributedString",
+  "NSDictionary",
+  "NSRange",
   "NSGeometry",
   "NSString",
   "NSURL",
@@ -146,6 +150,8 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
   "objc2-core-foundation",
   "NSAccessibility",
   "NSAppearance",
+  "NSApplication",
+  "NSAttributedString",
   "NSButton",
   "NSColor",
   "NSColorSampler",

@@ -445,3 +445,58 @@ describe("projectOverleafEditorComments", () => {
     expect(comments.map(({ id, path, from }) => ({ id, path, from }))).toEqual([{ id: "overleaf:new", path: "main.tex", from: 3 }]);
   });
 });
+
+describe("Overleaf live polling off screen", () => {
+  it("rests while the window is hidden and checks at once when it is shown", async () => {
+    let visibility: DocumentVisibilityState = "visible";
+    const descriptor = vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+    const show = (next: DocumentVisibilityState) => act(() => {
+      visibility = next;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    try {
+      const { realtime, advance } = mountWorkspace("live");
+      await waitFor(() => expect(realtime().status).toBe("live"));
+      const probes = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_probe").length;
+      await advance(100_000);
+      const before = probes();
+      expect(before).toBeGreaterThan(0);
+
+      await show("hidden");
+      await advance(10 * 60_000);
+      expect(probes()).toBe(before);
+
+      await show("visible");
+      await advance(0);
+      expect(probes()).toBe(before + 1);
+    } finally {
+      descriptor.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("still retries a sync that fails in transit after the loop went to rest", async () => {
+    let visibility: DocumentVisibilityState = "visible";
+    const descriptor = vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+    try {
+      const { fixture, realtime, advance, suspend } = mountWorkspace("live");
+      await waitFor(() => expect(realtime().liveFile).toBe(true));
+      await act(() => {
+        visibility = "hidden";
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await advance(100_000);
+      // An agent writes while the window is hidden; its push fails in transit.
+      fixture.edit("agent wrote while hidden");
+      fixture.failOnce();
+      suspend();
+      await advance(2_600);
+      expect(fixture.server()).toBe("old caption");
+      await advance(100_000);
+      expect(fixture.server()).toBe("agent wrote while hidden");
+    } finally {
+      descriptor.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+});

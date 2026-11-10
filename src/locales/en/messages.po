@@ -52,6 +52,10 @@ msgstr "“{destinationName}” already exists there. Choose another location"
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 
+#: src/editor/harper-spellcheck.ts
+msgid "“{problem}” isn't in the {languageName} dictionary"
+msgstr "“{problem}” isn't in the {languageName} dictionary"
+
 #: src/app/use-reference-import.ts
 msgid "“{title}” is already in Papers — cite it with {citationCommand}."
 msgstr "“{title}” is already in Papers — cite it with {citationCommand}."
@@ -720,6 +724,10 @@ msgstr "{meaning}, {color}"
 msgid "{meaning}, {color}, the pen's colour"
 msgstr "{meaning}, {color}, the pen's colour"
 
+#: src/editor/document-spelling.ts
+msgid "{megabytes} MB from wooorm/dictionaries, licensed {license}. Until it arrives, spelling in this document isn't checked."
+msgstr "{megabytes} MB from wooorm/dictionaries, licensed {license}. Until it arrives, spelling in this document isn't checked."
+
 #: src/project/deadline-card.tsx
 msgid "{minutes} minutes"
 msgstr "{minutes} minutes"
@@ -789,9 +797,27 @@ msgstr "{name} is still running. Closing stops it."
 msgid "{name} is too large to open in the editor"
 msgstr "{name} is too large to open in the editor"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} on GitHub"
+msgstr "{name} on GitHub"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name} properties"
+
+#: src/editor/document-spelling.ts
+msgid "{name} spelling is now checked"
+msgstr "{name} spelling is now checked"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} Website"
+msgstr "{name} Website"
+
+#: src/settings/spelling-languages-row.tsx
+msgid "{name}, licensed {license}"
+msgstr "{name}, licensed {license}"
 
 #: src/papers/paper-identity.ts
 msgid "{names} +{more}"
@@ -1323,6 +1349,10 @@ msgstr "A copy must keep a text file's extension, such as .tex or .txt."
 msgid "A deck from another project is open in another window"
 msgstr "A deck from another project is open in another window"
 
+#: src/settings/spelling-languages-row.tsx
+msgid "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
+msgstr "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
+
 #: src/project/figure-converters.ts
 msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 msgstr "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
@@ -1567,6 +1597,10 @@ msgstr "Acknowledgements"
 #: src/project/submission-review.tsx
 msgid "Acknowledgements and thanks"
 msgstr "Acknowledgements and thanks"
+
+#: src/project/project-dialogs.tsx
+msgid "ACM paper ({name})"
+msgstr "ACM paper ({name})"
 
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
@@ -3245,11 +3279,6 @@ msgstr "Check decimal places (0–8), label (letters, digits, colon, dot, dash o
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
-msgid "Check English spelling"
-msgstr "Check English spelling"
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
 msgid "Check for updates"
 msgstr "Check for updates"
 
@@ -3273,6 +3302,11 @@ msgstr "Check references"
 #: src/papers/bibliography-audit.tsx
 msgid "Check selected"
 msgstr "Check selected"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Check spelling"
+msgstr "Check spelling"
 
 #: src/settings/settings-search-index.ts
 msgid "Check spelling in prose"
@@ -4822,6 +4856,10 @@ msgstr "Couldn’t check the LaTeX tools"
 msgid "Couldn’t copy the details. Expand Technical details and copy them manually."
 msgstr "Couldn’t copy the details. Expand Technical details and copy them manually."
 
+#: src/editor/document-spelling.ts
+msgid "Couldn't download the {name} spelling dictionary"
+msgstr "Couldn't download the {name} spelling dictionary"
+
 #: src/app/use-reference-import.ts
 msgid "Couldn't find a bibliography entry for {citationCommand}."
 msgstr "Couldn't find a bibliography entry for {citationCommand}."
@@ -5509,6 +5547,11 @@ msgstr "Download paper"
 msgid "Download PDF"
 msgstr "Download PDF"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/spelling-languages-row.tsx
+msgid "Downloaded dictionaries"
+msgstr "Downloaded dictionaries"
+
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Downloaded paper files will be kept."
@@ -5548,6 +5591,10 @@ msgstr "Downloading rtex… {percent}%"
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading TeX Live…"
 msgstr "Downloading TeX Live…"
+
+#: src/editor/document-spelling.ts
+msgid "Downloading the {name} spelling dictionary"
+msgstr "Downloading the {name} spelling dictionary"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
@@ -7221,6 +7268,14 @@ msgstr "ICML packages"
 #: src/editor/latex/highlighters.ts
 msgid "Idea"
 msgstr "Idea"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE conference paper ({name})"
+msgstr "IEEE conference paper ({name})"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE journal article ({name})"
+msgstr "IEEE journal article ({name})"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
@@ -9316,10 +9371,6 @@ msgstr "More PDF actions"
 msgid "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
 msgstr "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
 
-#: src/platform/host-errors-setup.ts
-msgid "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
-msgstr "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
-
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "Most cited here"
@@ -9715,6 +9766,10 @@ msgstr "No Crossref update metadata found (checked {checkedDate})"
 msgid "No diagnostics"
 msgstr "No diagnostics"
 
+#: src/settings/spelling-languages-row.tsx
+msgid "No dictionary downloaded yet"
+msgstr "No dictionary downloaded yet"
+
 #: src/trellis/trellis-panel-views.tsx
 msgid "No document open"
 msgstr "No document open"
@@ -9997,6 +10052,10 @@ msgstr "No sections yet"
 #: src/app/shortcut-sheet.tsx
 msgid "No shortcut matches “{0}”"
 msgstr "No shortcut matches “{0}”"
+
+#: src/editor/document-spelling.ts
+msgid "No spelling dictionary for “{name}”"
+msgstr "No spelling dictionary for “{name}”"
 
 #: src/platform/host-errors-workspace.ts
 msgid "No such file or folder."
@@ -10844,6 +10903,11 @@ msgstr "Other colours"
 #: src/settings/editor-font-settings.tsx
 msgid "Other font…"
 msgstr "Other font…"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/spelling-languages-row.tsx
+msgid "Other languages"
+msgstr "Other languages"
 
 #: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
@@ -13866,6 +13930,15 @@ msgstr "Settings…"
 msgid "Several matches"
 msgstr "Several matches"
 
+#: src/app/use-tex-setup.ts
+msgid "Several packages provide this file"
+msgstr "Several packages provide this file"
+
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Several TeX Live packages provide {0}. Choose the one to install."
+msgstr "Several TeX Live packages provide {0}. Choose the one to install."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "Sharp"
@@ -14331,6 +14404,14 @@ msgstr "Spade suit"
 #: src/canvas/proofread-card.tsx
 msgid "spelling"
 msgstr "spelling"
+
+#: src/editor/document-spelling.ts
+msgid "Spelling"
+msgstr "Spelling"
+
+#: src/editor/document-spelling.ts
+msgid "Spelling in {name} isn't checked. Lattice tries again the next time it opens. {error}"
+msgstr "Spelling in {name} isn't checked. Lattice tries again the next time it opens. {error}"
 
 #: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -15343,6 +15424,10 @@ msgstr "The current text removed this part."
 msgid "The diagnostic log is too large to save."
 msgstr "The diagnostic log is too large to save."
 
+#: src/editor/document-spelling.ts
+msgid "The dictionary is licensed {license}."
+msgstr "The dictionary is licensed {license}."
+
 #: src/platform/host-errors-workspace.ts
 msgid "The disk is full."
 msgstr "The disk is full."
@@ -16204,6 +16289,10 @@ msgstr "This document drifted from Overleaf's copy, so live editing stopped. Syn
 msgid "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 msgstr "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 
+#: src/editor/document-spelling.ts
+msgid "This document's babel or polyglossia language has no dictionary in Lattice, so its spelling isn't checked."
+msgstr "This document's babel or polyglossia language has no dictionary in Lattice, so its spelling isn't checked."
+
 #: src/platform/host-errors-project.ts
 msgid "This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG."
 msgstr "This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG."
@@ -16914,8 +17003,8 @@ msgid "Unknown source response"
 msgstr "Unknown source response"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
-msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, ieee-conference, ieee-journal, acm, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, ieee-conference, ieee-journal, acm, thuthesis, ustcthesis, blank, or chinese-article."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"

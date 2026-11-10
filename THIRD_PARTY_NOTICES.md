@@ -175,6 +175,13 @@ Both directories bundle files copied unchanged from the templates' official rele
 
 Every file ships byte-for-byte; the LPPL requires a modified file to be renamed and its changes identified, so do not edit them in place.
 
+## IEEE and ACM templates (`src-tauri/templates/ieee-conference/`, `src-tauri/templates/ieee-journal/`, `src-tauri/templates/acm/`)
+
+- **IEEEtran** 1.8b (https://ctan.org/pkg/ieeetran, the class IEEE's author templates use): both IEEE directories bundle `IEEEtran.cls` (Copyright (c) 1993-2000 by Gerry Murray, Silvano Balemi, Jon Dixon, Peter Nüchter and Juergen von Hagen; Copyright (c) 2001-2015 by Michael Shell) and `IEEEtran.bst` (Copyright (c) 2003-2015 Michael Shell), copied unchanged from TeX Live's `ieeetran` package. Both are distributed under the LaTeX Project Public License, version 1.3 (https://www.latex-project.org/lppl/). Each `main.tex` is a short Lattice skeleton adapted from the package's `bare_conf.tex` or `bare_jrnl.tex` (V1.4b, Michael Shell, also LPPL 1.3), renamed and with a header naming its source.
+- **acmart** 2.21 (https://ctan.org/pkg/acmart, Copyright 2016-2026, Association for Computing Machinery, LPPL 1.3 or later) is not bundled: the ACM template's projects load it from TeX Live, which `tex_setup/basictex.sh` installs. Its `main.tex` is a short Lattice skeleton adapted from the package's `sigconf` sample, using the class's documented interface, with the `ACM-Reference-Format` bibliography style from the same package.
+
+Each directory's `UPSTREAM.md` records the TeX Live archive, its SHA-256 and the SHA-256 of every copied file. The sample `references.bib` files are Lattice's own. The IEEEtran files ship byte-for-byte; the LPPL requires a modified file to be renamed and its changes identified, so do not edit them in place.
+
 ## Realtime TeX live preview renderer (`src/live-preview/`)
 
 The LuaLaTeX live preview draws rtex's display lists with code adapted from the [Realtime TeX VS Code plugin](https://github.com/HenryXiaoYang/realtime-tex-vsc-plugin) (`webview/render.ts`, `webview/model.ts`, `webview/opentype.d.ts`, `src/fontKey.ts`, `src/type1.ts`, `src/edits.ts`, `src/protocol.ts`, `src/resources.ts`). Each adapted file names its source in its header.
@@ -288,6 +295,10 @@ The Synara web client staged into the sidecar (`synara-runtime/server/dist/clien
 
 Modifications: `react-icons` converts each icon's SVG path data into a React component. Neither icon set has been otherwise changed. The licensors provide the icons as-is and make no warranties; see section 5 of the license.
 
+## Spelling dictionaries (downloaded on first use, not shipped)
+
+Spell checking in languages other than English reads Hunspell dictionaries with [`spellbook`](https://github.com/helix-editor/spellbook) (MPL-2.0, attributed in the generated section below). The dictionaries themselves are **not part of the app**: when a document's babel or polyglossia language first needs one, Lattice downloads that language's `index.aff`, `index.dic` and `license` from [wooorm/dictionaries](https://github.com/wooorm/dictionaries) at the revision pinned in `src-tauri/src/spelling/dictionaries.json`, checks each file against the SHA-256 recorded there, and keeps them in the app's data folder with the licence text they came with. Each dictionary keeps its own licence (MPL, LGPL, GPL, BSD and others; the SPDX expression is recorded per language in that file, and the app shows it before and after the download, and in Settings). The dictionaries come from LibreOffice and other upstream projects; see each language's folder in wooorm/dictionaries for its origin and authors.
+
 ## Known attribution gaps (TODO)
 
 Everything below is **shipped in the app or the repository but is not yet
@@ -366,6 +377,7 @@ The Synara sidecar has its own findings block further down; it is kept separate 
 | `option-ext@0.2.0` | crates | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `selectors@0.36.1` | crates | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `selectors@0.38.0` | crates | `MPL-2.0` | weak-copyleft — file-level copyleft |
+| `spellbook@0.4.2` | crates | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `lightningcss@1.32.0` | npm | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `lightningcss@1.33.0` | npm | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `@fontsource-variable/inter@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
@@ -8442,7 +8454,7 @@ the licensed code:
 
 The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo metadata`. `dev-dependencies` are excluded — they compile for `cargo test` and are never linked into a shipped binary. Target platforms are *not* filtered, so this covers the macOS, Linux and Windows builds alike.
 
-**999 packages.**
+**1000 packages.**
 
 | Declared license | Packages |
 | --- | --- |
@@ -8455,7 +8467,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `Unicode-3.0` | 18 |
 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | 12 |
 | `Unlicense OR MIT` | 11 |
-| `MPL-2.0` | 9 |
+| `MPL-2.0` | 10 |
 | `Apache-2.0/MIT` | 8 |
 | `BSD-3-Clause` | 8 |
 | `ISC` | 8 |
@@ -8490,7 +8502,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT OR Zlib OR Apache-2.0` | 1 |
 | `zlib-acknowledgement OR MIT` | 1 |
 
-### License texts (119 distinct texts across 999 packages)
+### License texts (119 distinct texts across 1000 packages)
 
 #### 1. MIT OR Apache-2.0 (+18 other declarations) — 516 package(s), from `licenses/upstream/crates/tracel-llvm-bundler@20.1.4-7/LICENSE-MIT`
 
@@ -10292,11 +10304,11 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
-#### 19. MPL-2.0 — 6 package(s), from `LICENSE`
+#### 19. MPL-2.0 — 7 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`colored@3.1.1`, `cssparser-macros@0.6.1`, `cssparser-macros@0.7.1`, `cssparser@0.36.0`, `cssparser@0.37.0`, `dtoa-short@0.3.5`
+`colored@3.1.1`, `cssparser-macros@0.6.1`, `cssparser-macros@0.7.1`, `cssparser@0.36.0`, `cssparser@0.37.0`, `dtoa-short@0.3.5`, `spellbook@0.4.2`
 
 </details>
 

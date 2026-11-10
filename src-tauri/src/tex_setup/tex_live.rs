@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 /// `basictex.sh` installs on macOS, for the same reasons (a test keeps the two
 /// lists in step), and `latexindent` as well, which a Mac gets from MacTeX and
 /// without which format-on-save would fail after a one-click install here.
-pub(super) const REQUIRED_PACKAGES: [&str; 23] = [
+pub(super) const REQUIRED_PACKAGES: [&str; 27] = [
     "latexmk",
     "biber",
     "texcount",
@@ -43,6 +43,10 @@ pub(super) const REQUIRED_PACKAGES: [&str; 23] = [
     "bibunits",
     "xits",
     "stix2-otf",
+    "acmart",
+    "libertine",
+    "mweights",
+    "inconsolata",
     "latexindent",
 ];
 
@@ -661,9 +665,9 @@ mod tests {
         let (list, _) = list.split_once("2>&1").unwrap();
         let mac: Vec<&str> =
             list.lines().map(|line| line.trim().trim_end_matches('\\').trim()).collect();
-        assert_eq!(mac, REQUIRED_PACKAGES[..22]);
+        assert_eq!(mac, REQUIRED_PACKAGES[..26]);
         // Windows adds only latexindent (a Mac's MacTeX has it).
-        assert_eq!(REQUIRED_PACKAGES[22..], ["latexindent"]);
+        assert_eq!(REQUIRED_PACKAGES[26..], ["latexindent"]);
     }
 
     /// A zip of `entries` (`None` makes a folder, `Some(Err(()))` a symlink).

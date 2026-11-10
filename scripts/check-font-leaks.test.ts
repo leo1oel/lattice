@@ -129,6 +129,28 @@ describe("built app check", () => {
   });
 });
 
+describe("experimental Windows downloads", () => {
+  it("permits only the namespaced installer, checksum, metadata and instructions", () => {
+    const root = scratchDirectory();
+    for (const suffix of ["-setup.exe", ".sha256", ".build-info.json", ".README.txt"]) {
+      write(root, `Lattice_1.2.3_windows-x64-experimental${suffix}`, "not a font");
+    }
+    expect(checkAssets(root)).toEqual([]);
+    write(root, "Lattice_1.2.3_windows-x64-experimental.ttf", font("true", "font"));
+    expect(checkAssets(root)).toHaveLength(2);
+  });
+  it("checks installed files and does not allow loose fonts outside the runtimes", () => {
+    const root = scratchDirectory();
+    const installed = path.join(root, "Lattice");
+    write(installed, "research-writer.exe", "MZ executable");
+    write(installed, "presentation-runtime/fonts/Inter.ttf", font("true", "inter"));
+    expect(checkBundle(installed, new Set(), "windows")).toEqual([]);
+    write(installed, "loose.ttf", font("true", "loose"));
+    expect(checkBundle(installed, new Set(), "windows")).toHaveLength(1);
+    expect(() => checkBundle(root, new Set(), "windows")).toThrow(/no research-writer.exe/);
+  });
+});
+
 describe("website build check", () => {
   it("finds Timeless by name or by content, and lets the open-licensed faces ship", () => {
     const root = scratchDirectory();

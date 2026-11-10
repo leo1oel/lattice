@@ -40,6 +40,27 @@ describe("TexDependencyInstaller", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("asks which package to install when several provide the file", async () => {
+    const { onClose, onRetry } = renderInstaller({
+      progress: { stage: "searching-packages", progress: 0.02 },
+      installing: false,
+      error: null,
+      packages: ["arabtex", "ledmac"],
+    });
+    expect(screen.getByText("Several TeX Live packages provide newtxmath.sty. Choose the one to install.")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ledmac" }));
+    expect(onRetry).toHaveBeenCalledWith("newtxmath.sty", "ledmac");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledOnce();
+
+    cleanup();
+    await activateAppLocale("zh-CN");
+    renderInstaller({ progress: { stage: "searching-packages", progress: 0.02 }, installing: false, error: null, packages: ["arabtex", "ledmac"] });
+    expect(screen.getByText("TeX Live 中有多个组件提供 newtxmath.sty，请选择要安装的组件")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消" })).toBeInTheDocument();
+  });
+
   // A conference template's own .sty is the commonest failure; the third
   // audit found its summary still English in a Chinese interface.
   it("shows a failure the host wrote in the interface language", async () => {

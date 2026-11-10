@@ -282,19 +282,15 @@
    title inside the same tab, never the tab. */
 .lattice-trellis [data-trellis-part="tab"]:not([data-selected], :hover) > [data-trellis-part="tab-close"] { flex-shrink: 1000; min-width: 0; overflow: hidden; }
 /* Past the 480px cap the strip scrolls; a fade on the clipped side reads as
-   "more tabs" instead of a tab cut off by the actions. The scroll timeline is
-   inactive (no fade) while everything fits. */
-@property --lattice-tabs-fade-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
-@property --lattice-tabs-fade-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
-@keyframes lattice-tabs-fade {
-  0% { --lattice-tabs-fade-start: 0px; --lattice-tabs-fade-end: var(--space-8); }
-  8%, 92% { --lattice-tabs-fade-start: var(--space-8); --lattice-tabs-fade-end: var(--space-8); }
-  100% { --lattice-tabs-fade-start: var(--space-8); --lattice-tabs-fade-end: 0px; }
-}
-.lattice-trellis [data-trellis-part="tabs"] {
+   "more tabs" instead of a tab cut off by the actions. trellis-tab-fades.ts
+   marks the sides that hide tabs; a strip that fits carries no mask at all.
+   (Not a scroll-driven animation: WebKit runs one every frame, scrolled or
+   not.) */
+.lattice-trellis [data-trellis-part="tabs"] { --lattice-tabs-fade-start: 0px; --lattice-tabs-fade-end: 0px; }
+.lattice-trellis [data-trellis-part="tabs"][data-fade-start] { --lattice-tabs-fade-start: var(--space-8); }
+.lattice-trellis [data-trellis-part="tabs"][data-fade-end] { --lattice-tabs-fade-end: var(--space-8); }
+.lattice-trellis [data-trellis-part="tabs"]:is([data-fade-start], [data-fade-end]) {
   mask-image: linear-gradient(to right, transparent, #000 var(--lattice-tabs-fade-start), #000 calc(100% - var(--lattice-tabs-fade-end)), transparent);
-  animation: lattice-tabs-fade linear both;
-  animation-timeline: scroll(self inline);
 }
 .lattice-trellis [data-trellis-part="panel-menu"],
 .lattice-trellis [data-trellis-part="accessories"] { flex-shrink: 0; }

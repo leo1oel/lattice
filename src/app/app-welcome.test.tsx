@@ -400,7 +400,7 @@ describe("welcome screen", () => {
   });
 
   it.each([
-    ["persists the editor spellcheck setting when it is turned off", "Editor & builds", "Check English spelling", "editorSpellcheck"],
+    ["persists the editor spellcheck setting when it is turned off", "Editor & builds", "Check spelling", "editorSpellcheck"],
     ["lets the user mute the small set of interface sounds", undefined, "Interface sounds", "interfaceSounds"],
   ])("%s", async (_name, section, label, setting) => {
     renderApp();
@@ -431,10 +431,10 @@ describe("welcome screen", () => {
 
     fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
     fireEvent.change(await screen.findByRole("searchbox", { name: "Command palette" }), { target: { value: "spelling" } });
-    expect(screen.getByRole("option", { name: /Check English spelling/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /^Check spelling/ })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText("Check English spelling")).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText("Check spelling")).toHaveFocus());
   });
 
   it("finds a setting by name and opens its row with focus, keeping drafts and Synara's pages as they are", async () => {

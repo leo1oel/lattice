@@ -182,14 +182,18 @@ export function CreateProjectDialog(props: {
               {PROJECT_VENUES.map(({ id, label: name, edition, preprint, rebuttal }) => (
                 // The trigger shows the chosen item, so its edition and draft
                 // mode are part of the name: ICLR's and CVPR's styles have no
-                // preprint mode, a rebuttal is named apart from its paper, and
-                // a thesis is named by its university.
+                // preprint mode, a rebuttal is named apart from its paper, a
+                // thesis is named by its university, and the IEEE and ACM
+                // templates by their publisher and format.
                 <SelectItem key={id} value={id}>
                   {id === "thuthesis" ? t`Tsinghua University thesis (${name})`
                     : id === "ustcthesis" ? t`USTC thesis (${name})`
-                      : rebuttal ? t`${name} ${edition} Rebuttal`
-                        : edition === undefined ? t`${name} (preprint)`
-                          : preprint ? t`${name} ${edition} (preprint)` : t`${name} ${edition}`}
+                    : id === "ieee-conference" ? t`IEEE conference paper (${name})`
+                    : id === "ieee-journal" ? t`IEEE journal article (${name})`
+                    : id === "acm" ? t`ACM paper (${name})`
+                    : rebuttal ? t`${name} ${edition} Rebuttal`
+                    : edition === undefined ? t`${name} (preprint)`
+                    : preprint ? t`${name} ${edition} (preprint)` : t`${name} ${edition}`}
                 </SelectItem>
               ))}
             </SelectContent>

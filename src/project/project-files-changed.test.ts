@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { listen, type EventCallback } from "@tauri-apps/api/event";
-import { changesReach, onProjectFilesChanged } from "./project-files-changed";
+import { changesReach, onlyGitStateChanged, onProjectFilesChanged } from "./project-files-changed";
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 afterEach(() => vi.mocked(listen).mockReset());
@@ -65,4 +65,13 @@ it("reaches a file through its own path, a folder holding it, or an unknown set"
   // A path that cannot be placed in the project may be anything.
   expect(changesReach(["../elsewhere"], "figures/plot.pdf")).toBe(true);
   expect(changesReach(["figures/plot.pdf.tmp", "figures-old", "notes.md"], "figures/plot.pdf")).toBe(false);
+});
+
+it("tells a burst inside .git/ alone from one that touches the project", () => {
+  expect(onlyGitStateChanged([".git/index", "./.git/refs/heads/main", ".git"])).toBe(true);
+  expect(onlyGitStateChanged([".git/index", "main.tex"])).toBe(false);
+  expect(onlyGitStateChanged([".github/workflows/ci.yml"])).toBe(false);
+  // No paths means anything may have changed.
+  expect(onlyGitStateChanged(null)).toBe(false);
+  expect(onlyGitStateChanged([])).toBe(false);
 });

@@ -14,6 +14,15 @@ Releases target **Apple Silicon macOS** (`--target aarch64-apple-darwin`,
 when its own checks pass; neither ever delays or blocks the Apple silicon
 release.
 
+An independent **experimental Windows x64 NSIS installer** can also be attached
+after its own install, native-app and uninstall checks pass. See
+[Windows installer](windows-installer.md) and
+`.github/workflows/windows-installer.yml`. It uses open-licensed fonts, is
+unsigned, keeps the Agent disabled and provides manual updates only. Its
+namespaced installer, checksum, build information and SmartScreen instructions
+are public release assets. It never delays the Mac release or edits its assets,
+notes or updater metadata. Authenticode and Windows updater work remain separate.
+
 ## Cut a release
 
 ```bash

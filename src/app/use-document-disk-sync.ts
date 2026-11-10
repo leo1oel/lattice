@@ -10,6 +10,7 @@ import { sameDiskVersion, type DiskStat } from "./read-document";
 import { isVanished, type DocumentStore } from "./use-document-store";
 import type { DocumentTreeChanges } from "./use-document-tree-changes";
 import { loadVanishedFile, settleVanished } from "./vanished-file-wait";
+import { visibleInterval } from "./effect-helpers";
 
 /** How often the open file is checked for an edit made behind the editor. */
 const DISK_POLL_MS = 2500;
@@ -90,14 +91,15 @@ export function useDocumentDiskSync(
       accept(file, content);
       if (depsRef.current.autoBuild.enabled) depsRef.current.autoBuild.afterDiskEdit();
     };
-    const timer = window.setInterval(() => {
+    // Off screen the poll rests; the window coming back checks at once.
+    const stopPolling = visibleInterval(() => {
       void poll().catch(() => {
         // Ignore transient filesystem races while the editor is open.
       });
     }, DISK_POLL_MS);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [
     accept, asset, autoBuildEnabled, depsRef, diskVersionRef, file, paper, project, saveActivityRef, savedRef, textRef,

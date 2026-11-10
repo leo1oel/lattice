@@ -858,7 +858,7 @@ fn a_missing_package_is_found_installed_and_verified_with_tex_live() {
     *fake.listing.borrow_mut() = SEARCH.into();
     *fake.provides.borrow_mut() = Some(("newtxmath.sty".into(), provided(&fake, "newtxmath.sty")));
     let (result, events) =
-        with_flow(&fake, &never(), |flow| flow.install_dependency("newtxmath.sty"));
+        with_flow(&fake, &never(), |flow| flow.install_dependency("newtxmath.sty", None));
     result.unwrap();
     assert_progress_is_sane(&events);
     let log = fake.log();
@@ -873,24 +873,32 @@ fn a_package_that_is_already_there_installs_nothing() {
     fake.existing_tex_live(2026, true);
     std::fs::write(provided(&fake, "algorithm.sty"), "x").unwrap();
     let (result, events) =
-        with_flow(&fake, &never(), |flow| flow.install_dependency("algorithm.sty"));
+        with_flow(&fake, &never(), |flow| flow.install_dependency("algorithm.sty", None));
     result.unwrap();
     assert_eq!(events.last().unwrap(), &("complete".to_string(), 1.0));
     assert!(!fake.log().contains("tlmgr "), "{}", fake.log());
 }
 
 #[test]
-fn an_unknown_or_ambiguous_package_is_an_error_and_nothing_is_installed() {
+fn an_unknown_package_is_an_error_and_a_tie_asks_the_writer_with_nothing_installed() {
     let fake = Fake::new();
     fake.existing_tex_live(2026, true);
     *fake.listing.borrow_mut() = SEARCH.into();
-    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_dependency("custom.sty"));
+    let (result, _) =
+        with_flow(&fake, &never(), |flow| flow.install_dependency("custom.sty", None));
     assert!(result.unwrap_err().starts_with("No TeX Live package provides custom.sty."));
     *fake.listing.borrow_mut() = "a:\n    x/shared.sty\nb:\n    y/shared.sty\n".into();
-    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_dependency("shared.sty"));
-    assert!(result
-        .unwrap_err()
-        .starts_with("More than one TeX Live package provides shared.sty: a, b."));
+    let (result, _) =
+        with_flow(&fake, &never(), |flow| flow.install_dependency("shared.sty", None));
+    assert_eq!(
+        result.unwrap(),
+        TexDependencyInstall::ChoosePackage { packages: vec!["a".into(), "b".into()] }
+    );
+    assert!(!fake.log().contains("tlmgr install"), "{}", fake.log());
+    // A pick that is not one of the tied packages is not installed either.
+    let (result, _) =
+        with_flow(&fake, &never(), |flow| flow.install_dependency("shared.sty", Some("zzz")));
+    assert!(matches!(result.unwrap(), TexDependencyInstall::ChoosePackage { .. }));
     assert!(!fake.log().contains("tlmgr install"), "{}", fake.log());
 }
 
@@ -901,7 +909,8 @@ fn the_search_and_install_fall_back_to_a_mirror_when_the_default_is_unreachable(
     *fake.listing.borrow_mut() = SEARCH.into();
     *fake.tlmgr_runs.borrow_mut() = queue(&[Run::NetworkFailure]).into_inner();
     *fake.provides.borrow_mut() = Some(("newtxmath.sty".into(), provided(&fake, "newtxmath.sty")));
-    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_dependency("newtxmath.sty"));
+    let (result, _) =
+        with_flow(&fake, &never(), |flow| flow.install_dependency("newtxmath.sty", None));
     result.unwrap();
     let log = fake.log();
     let mirror = tex_live::FALLBACK_REPOSITORIES[0];
@@ -917,7 +926,8 @@ fn a_failed_package_install_names_the_cause() {
     *fake.listing.borrow_mut() = SEARCH.into();
     // The search works; the install is refused.
     *fake.tlmgr_runs.borrow_mut() = queue(&[Run::Succeed, Run::OtherFailure]).into_inner();
-    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_dependency("newtxmath.sty"));
+    let (result, _) =
+        with_flow(&fake, &never(), |flow| flow.install_dependency("newtxmath.sty", None));
     let error = result.unwrap_err();
     assert!(error.starts_with("The package repository does not have this package.\n"), "{error}");
 }
@@ -941,7 +951,7 @@ fn a_missing_package_is_installed_through_miktex_in_user_mode() {
         "algorithms|texmf/tex/latex/algorithms/algorithm.sty\nother|x/y.sty\n".into();
     *fake.provides.borrow_mut() = Some(("algorithm.sty".into(), provided(&fake, "algorithm.sty")));
     let (result, events) =
-        with_flow(&fake, &never(), |flow| flow.install_dependency("algorithm.sty"));
+        with_flow(&fake, &never(), |flow| flow.install_dependency("algorithm.sty", None));
     result.unwrap();
     assert_progress_is_sane(&events);
     let log = fake.log();
@@ -961,7 +971,8 @@ fn a_miktex_package_nobody_provides_is_an_error() {
     std::fs::write(bin.join("miktex.exe"), "").unwrap();
     fake.resolved.borrow_mut().insert("kpsewhich", bin.join("kpsewhich.exe"));
     *fake.listing.borrow_mut() = "algorithms|x/algorithm.sty\n".into();
-    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_dependency("custom.sty"));
+    let (result, _) =
+        with_flow(&fake, &never(), |flow| flow.install_dependency("custom.sty", None));
     assert!(result.unwrap_err().starts_with("No MiKTeX package provides custom.sty."));
     assert!(!fake.log().contains("packages install"));
 }
@@ -969,7 +980,7 @@ fn a_miktex_package_nobody_provides_is_an_error() {
 #[test]
 fn without_any_tex_there_is_no_package_manager_to_ask() {
     let fake = Fake::new();
-    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_dependency("x.sty"));
+    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_dependency("x.sty", None));
     assert_eq!(result.unwrap_err(), "TeX Live's package manager is not installed.");
 }
 

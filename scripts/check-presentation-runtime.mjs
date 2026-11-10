@@ -44,12 +44,12 @@ function importedUrls(source) {
   return urls;
 }
 
-export async function checkPresentationRuntime(runtimeRoot) {
+export async function checkPresentationRuntime(runtimeRoot, nodeExecutable = process.execPath) {
   const workspace = mkdtempSync(join(tmpdir(), "lattice-presentation-check-"));
   const shadow = join(workspace, "workspace");
   cpSync(join(projectRoot, "src-tauri/templates/tutorial"), shadow, { recursive: true });
   let stderr = "";
-  const child = spawn(process.execPath, [join(runtimeRoot, "server.mjs")], {
+  const child = spawn(nodeExecutable, [join(runtimeRoot, "server.mjs")], {
     cwd: shadow,
     env: {
       ...process.env,

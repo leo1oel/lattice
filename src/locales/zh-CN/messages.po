@@ -52,6 +52,10 @@ msgstr "那里已有“{destinationName}”，请换一个位置"
 msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
 msgstr "“{path}”和磁盘上的 {file} 大小写不一致，Overleaf 和 arXiv 可能找不到它"
 
+#: src/editor/harper-spellcheck.ts
+msgid "“{problem}” isn't in the {languageName} dictionary"
+msgstr "“{problem}”不在{languageName}词典中"
+
 #: src/app/use-reference-import.ts
 msgid "“{title}” is already in Papers — cite it with {citationCommand}."
 msgstr "“{title}”已在论文库，用 {citationCommand} 引用"
@@ -720,6 +724,10 @@ msgstr "{meaning}，{color}"
 msgid "{meaning}, {color}, the pen's colour"
 msgstr "{meaning}，{color}，当前画笔颜色"
 
+#: src/editor/document-spelling.ts
+msgid "{megabytes} MB from wooorm/dictionaries, licensed {license}. Until it arrives, spelling in this document isn't checked."
+msgstr "来自 wooorm/dictionaries，{megabytes} MB，许可证为 {license}。下载完成前，不检查此文档的拼写。"
+
 #: src/project/deadline-card.tsx
 msgid "{minutes} minutes"
 msgstr "{minutes} 分钟"
@@ -789,9 +797,27 @@ msgstr "{name} 仍在运行，关闭会将其停止。"
 msgid "{name} is too large to open in the editor"
 msgstr "{name} 太大，无法在编辑器中打开"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} on GitHub"
+msgstr "{name} 的 GitHub 仓库"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name}设置"
+
+#: src/editor/document-spelling.ts
+msgid "{name} spelling is now checked"
+msgstr "现已检查{name}拼写"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} Website"
+msgstr "{name} 网站"
+
+#: src/settings/spelling-languages-row.tsx
+msgid "{name}, licensed {license}"
+msgstr "{name}，许可证为 {license}"
 
 #: src/papers/paper-identity.ts
 msgid "{names} +{more}"
@@ -1323,6 +1349,10 @@ msgstr "副本须保留文本文件的扩展名，如 .tex 或 .txt"
 msgid "A deck from another project is open in another window"
 msgstr "另一个窗口里开着别的项目的幻灯片"
 
+#: src/settings/spelling-languages-row.tsx
+msgid "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
+msgstr "如果文档的 babel 或 polyglossia 语言不是英语，则按该语言检查拼写。首次需要时会从 wooorm/dictionaries 下载其词典。"
+
 #: src/project/figure-converters.ts
 msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 msgstr "绘图可能来自任何人，因此 Lattice 只在你要求时才运行绘图程序。若想让插图随绘图自动更新，请在本项目设置中打开「允许 shell escape」。"
@@ -1567,6 +1597,10 @@ msgstr "致谢"
 #: src/project/submission-review.tsx
 msgid "Acknowledgements and thanks"
 msgstr "致谢与感谢脚注"
+
+#: src/project/project-dialogs.tsx
+msgid "ACM paper ({name})"
+msgstr "ACM 论文（{name}）"
 
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
@@ -3245,11 +3279,6 @@ msgstr "请检查小数位数（0–8）、标签（字母、数字、冒号、�
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
-msgid "Check English spelling"
-msgstr "检查英文拼写"
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
 msgid "Check for updates"
 msgstr "检查更新"
 
@@ -3273,6 +3302,11 @@ msgstr "检查引用"
 #: src/papers/bibliography-audit.tsx
 msgid "Check selected"
 msgstr "检查所选"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Check spelling"
+msgstr "检查拼写"
 
 #: src/settings/settings-search-index.ts
 msgid "Check spelling in prose"
@@ -4822,6 +4856,10 @@ msgstr "无法检查 LaTeX 工具"
 msgid "Couldn’t copy the details. Expand Technical details and copy them manually."
 msgstr "没能复制，请展开“详细信息”手动复制"
 
+#: src/editor/document-spelling.ts
+msgid "Couldn't download the {name} spelling dictionary"
+msgstr "无法下载{name}拼写词典"
+
 #: src/app/use-reference-import.ts
 msgid "Couldn't find a bibliography entry for {citationCommand}."
 msgstr "找不到 {citationCommand} 对应的文献"
@@ -5509,6 +5547,11 @@ msgstr "下载论文"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/spelling-languages-row.tsx
+msgid "Downloaded dictionaries"
+msgstr "已下载的词典"
+
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Downloaded paper files will be kept."
@@ -5548,6 +5591,10 @@ msgstr "正在下载 rtex… {percent}%"
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading TeX Live…"
 msgstr "正在下载 TeX Live…"
+
+#: src/editor/document-spelling.ts
+msgid "Downloading the {name} spelling dictionary"
+msgstr "正在下载{name}拼写词典"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
@@ -7221,6 +7268,14 @@ msgstr "ICML 宏包"
 #: src/editor/latex/highlighters.ts
 msgid "Idea"
 msgstr "想法"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE conference paper ({name})"
+msgstr "IEEE 会议论文（{name}）"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE journal article ({name})"
+msgstr "IEEE 期刊论文（{name}）"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
@@ -9316,10 +9371,6 @@ msgstr "更多"
 msgid "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
 msgstr "有多个 MiKTeX 组件提供 {file}：{packages}。未自动安装任何组件。"
 
-#: src/platform/host-errors-setup.ts
-msgid "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
-msgstr "TeX Live 中有多个组件提供 {file}：{packages}。未自动安装任何组件"
-
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "本文引用最多"
@@ -9715,6 +9766,10 @@ msgstr "Crossref 没有更新记录（{checkedDate} 查）"
 msgid "No diagnostics"
 msgstr "没有问题"
 
+#: src/settings/spelling-languages-row.tsx
+msgid "No dictionary downloaded yet"
+msgstr "尚未下载任何词典"
+
 #: src/trellis/trellis-panel-views.tsx
 msgid "No document open"
 msgstr "尚未打开文档"
@@ -9997,6 +10052,10 @@ msgstr "还没有章节"
 #: src/app/shortcut-sheet.tsx
 msgid "No shortcut matches “{0}”"
 msgstr "没有“{0}”相关的快捷键"
+
+#: src/editor/document-spelling.ts
+msgid "No spelling dictionary for “{name}”"
+msgstr "没有“{name}”的拼写词典"
 
 #: src/platform/host-errors-workspace.ts
 msgid "No such file or folder."
@@ -10844,6 +10903,11 @@ msgstr "其他颜色"
 #: src/settings/editor-font-settings.tsx
 msgid "Other font…"
 msgstr "其他字体…"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/spelling-languages-row.tsx
+msgid "Other languages"
+msgstr "其他语言"
 
 #: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
@@ -13866,6 +13930,15 @@ msgstr "设置…"
 msgid "Several matches"
 msgstr "有多条匹配"
 
+#: src/app/use-tex-setup.ts
+msgid "Several packages provide this file"
+msgstr "多个组件都提供此文件"
+
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Several TeX Live packages provide {0}. Choose the one to install."
+msgstr "TeX Live 中有多个组件提供 {0}，请选择要安装的组件"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "升号"
@@ -14331,6 +14404,14 @@ msgstr "黑桃"
 #: src/canvas/proofread-card.tsx
 msgid "spelling"
 msgstr "拼写"
+
+#: src/editor/document-spelling.ts
+msgid "Spelling"
+msgstr "拼写"
+
+#: src/editor/document-spelling.ts
+msgid "Spelling in {name} isn't checked. Lattice tries again the next time it opens. {error}"
+msgstr "不检查{name}拼写。Lattice 下次打开时会重试。{error}"
 
 #: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -15343,6 +15424,10 @@ msgstr "现在的文本删掉了这部分。"
 msgid "The diagnostic log is too large to save."
 msgstr "诊断日志太大，无法保存。"
 
+#: src/editor/document-spelling.ts
+msgid "The dictionary is licensed {license}."
+msgstr "该词典的许可证为 {license}。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The disk is full."
 msgstr "磁盘空间已满"
@@ -16204,6 +16289,10 @@ msgstr "文档和 Overleaf 不一致，实时协作已停，同步时会自动�
 msgid "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 msgstr "启动时文档不一致，已停止实时协作，同步时会自动对齐"
 
+#: src/editor/document-spelling.ts
+msgid "This document's babel or polyglossia language has no dictionary in Lattice, so its spelling isn't checked."
+msgstr "Lattice 没有此文档 babel 或 polyglossia 语言的词典，因此不检查其拼写。"
+
 #: src/platform/host-errors-project.ts
 msgid "This drawing is not plain, uncompressed XML text, so Lattice cannot check what it links to. Save it as plain SVG."
 msgstr "此绘图不是未压缩的纯 XML 文本，Lattice 无法检查它链接了哪些文件。请把它另存为纯 SVG。"
@@ -16914,8 +17003,8 @@ msgid "Unknown source response"
 msgstr "来源返回未知结果"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
-msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、cvpr-rebuttal、aaai、thuthesis、ustcthesis、blank 或 chinese-article"
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, ieee-conference, ieee-journal, acm, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、cvpr-rebuttal、aaai、ieee-conference、ieee-journal、acm、thuthesis、ustcthesis、blank 或 chinese-article"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"

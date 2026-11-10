@@ -1,0 +1,54 @@
+% IEEE journal article, from IEEEtran's bare_jrnl.tex (IEEEtran 1.8b).
+% Use [journal,compsoc] for IEEE Computer Society journals and
+% [journal,comsoc] for IEEE Communications Society journals.
+\documentclass[journal]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+
+\begin{document}
+
+\title{LATTICE_PROJECT_TITLE}
+
+\author{First~Author,~\IEEEmembership{Member,~IEEE,}
+        and~Second~Author% <- this % stops a space
+\thanks{F. Author and S. Author are with the Department, Institution,
+City, Country (e-mail: author@example.com).}% <- this % stops a space
+\thanks{Manuscript received Month Day, Year; revised Month Day, Year.}}
+
+% The running heads: journal name on the left, short author list and title
+% on the right.
+\markboth{IEEE Transactions on Journal Name}%
+{Author \MakeLowercase{\textit{et al.}}: Short Title}
+
+\maketitle
+
+\begin{abstract}
+Briefly summarize the problem, method, and main result.
+\end{abstract}
+
+\begin{IEEEkeywords}
+first keyword, second keyword, third keyword
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{M}{otivate} the problem and state the article's main
+contribution, building on prior work~\cite{shell2015ieeetran,kopka2004guide}.
+
+\section{Related Work}
+Position the contribution against the most relevant prior work.
+
+\section{Method}
+Describe the proposed method.
+
+\section{Experiments}
+Present the evaluation setup and results.
+
+\section{Conclusion}
+Summarize the findings and limitations.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

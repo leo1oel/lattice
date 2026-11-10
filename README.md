@@ -103,6 +103,12 @@ Official builds are signed, notarized by Apple, and update themselves.
 Make it executable (`chmod +x Lattice_*.AppImage`) and run it; it builds with the TeX Live from your distribution's packages.
 On Linux, Lattice checks for new releases and links to GitHub Releases, but does not update itself; download each new release yourself. The built-in Agent is not available yet.
 
+Windows (experimental). Releases that pass their Windows checks also carry an
+unsigned x64 `windows-x64-experimental-setup.exe`, with a SHA-256 checksum and
+setup instructions. SmartScreen may warn about the unknown publisher. The Agent
+and automatic updates are unavailable; install TeX Live separately. See the
+[Windows guide](docs/windows-host.md) for requirements and limitations.
+
 ## Contributing
 
 To build from source, see [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture docs](docs/README.md).

@@ -5,6 +5,7 @@
 //! `ipc`, a few self-contained features register their own, and the behaviour
 //! behind them lives in the domain modules below.
 
+mod about_links;
 mod agent_literature;
 mod alphaxiv;
 mod app_identity;
@@ -42,6 +43,8 @@ mod literature_credentials;
 mod literature_service;
 mod live_preview;
 #[cfg(target_os = "macos")]
+mod macos_about;
+#[cfg(target_os = "macos")]
 mod macos_window;
 #[cfg(not(target_os = "macos"))]
 #[path = "macos_window_stub.rs"]
@@ -75,6 +78,7 @@ mod research_env;
 mod review_pdf;
 mod save_before_close;
 mod sidecar;
+mod spelling;
 mod synara;
 mod terminal;
 #[cfg(test)]
@@ -573,6 +577,10 @@ pub fn run() {
             ipc::build::submission_review,
             ipc::build::harper_lint,
             ipc::build::harper_rules,
+            ipc::spelling::spelling_document_language,
+            ipc::spelling::spelling_install_dictionary,
+            ipc::spelling::spelling_lint,
+            ipc::spelling::spelling_dictionaries,
             ipc::build::format_latex,
             ipc::build::texlab_diagnostics,
             ipc::build::texlab_completion,

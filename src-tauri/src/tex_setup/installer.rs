@@ -277,37 +277,8 @@ pub(super) fn tex_live_year(version_output: &str) -> Option<i32> {
         .and_then(|year| year.parse().ok())
 }
 
-/// The one package in `tlmgr search --global --file` output that ships
-/// `missing_file`; none or several is an error, never a guess.
-pub(super) fn tex_live_package_for_file(
-    search_output: &str, missing_file: &str,
-) -> Result<String, String> {
-    let mut current_package: Option<&str> = None;
-    let mut owners = Vec::new();
-    for line in search_output.lines() {
-        let trimmed = line.trim();
-        if !line.starts_with(char::is_whitespace) {
-            current_package = trimmed.strip_suffix(':').filter(|package| is_safe_name(package));
-        } else if trimmed.ends_with(&format!("/{missing_file}")) {
-            if let Some(package) = current_package.filter(|package| !owners.contains(package)) {
-                owners.push(package);
-            }
-        }
-    }
-    match owners.as_slice() {
-        [package] => Ok((*package).to_string()),
-        [] => Err(format!(
-            "No TeX Live package provides {missing_file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
-        )),
-        _ => Err(format!(
-            "More than one TeX Live package provides {missing_file}: {}. Nothing was installed automatically.",
-            owners.join(", ")
-        )),
-    }
-}
-
 /// Names that pass through the privileged installer: no shell or path syntax.
-fn is_safe_name(name: &str) -> bool {
+pub(super) fn is_safe_name(name: &str) -> bool {
     !name.is_empty()
         && name.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte))
 }
@@ -594,24 +565,6 @@ mod tests {
             Some(2026)
         );
         assert_eq!(tex_live_year("tlmgr is unavailable"), None);
-    }
-
-    #[test]
-    fn dependency_installer_looks_up_the_one_owning_tex_live_package() {
-        let search_output = "newtx:\n    texmf-dist/tex/latex/newtx/newtxmath.sty\n    \
-            texmf-dist/tex/latex/newtx/newtxtext.sty\nother-package:\n    \
-            texmf-dist/tex/latex/other/other.sty\n";
-        assert_eq!(tex_live_package_for_file(search_output, "newtxmath.sty").unwrap(), "newtx");
-        // None or several owners is an error, never a guess.
-        let ambiguous = "first:\n    texmf-dist/tex/latex/first/shared.sty\nsecond:\n    \
-            texmf-dist/tex/latex/second/shared.sty\n";
-        for (output, file, expected) in [
-            (ambiguous, "shared.sty", "More than one"),
-            ("unrelated:\n    texmf-dist/other.sty\n", "custom.sty", "conference-template file"),
-        ] {
-            let error = tex_live_package_for_file(output, file).unwrap_err();
-            assert!(error.contains(expected), "{error}");
-        }
     }
 
     #[test]

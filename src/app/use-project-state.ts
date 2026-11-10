@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitFileStatus, GitStatus, ProjectSnapshot } from "../app-types";
-import { onProjectTreeStale } from "../project/project-files-changed";
+import { onlyGitStateChanged, onProjectTreeStale } from "../project/project-files-changed";
 import { jsonEqual } from "../lib/equality";
+import { visibleInterval } from "./effect-helpers";
 
 /**
  * The open project's snapshot and its imperative identity. `projectRef`, what
@@ -78,6 +79,8 @@ export function useProjectState() {
 export type ProjectState = ReturnType<typeof useProjectState>;
 
 type ProjectGitStatus = { projectRoot: string; files: GitFileStatus[]; remoteUrl: string | null };
+/** What a refresh reads: the tree and the git status, or the status alone. */
+type RefreshScope = "all" | "git";
 
 /**
  * Keep the tree and git status fresh while the Project sidebar shows them.
@@ -96,19 +99,22 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
     let checking = false;
     // A prompt that lands while a scan is out may describe what that scan
     // already missed (a copy still landing), so it runs one more after it.
-    let stale = false;
-    const refresh = async () => {
+    let stale: RefreshScope | null = null;
+    // "git" reads the status alone: a burst inside `.git/` (a commit, a
+    // stage, the post-build auto-commit) cannot change the tree, and the full
+    // reopen rescans every file of the project.
+    const refresh = async (scope: RefreshScope = "all") => {
       if (projectTreeMutationCountRef.current > 0) return;
       if (checking) {
-        stale = true;
+        stale = stale === "all" || scope === "all" ? "all" : "git";
         return;
       }
       checking = true;
-      stale = false;
-      const refreshGeneration = ++projectRefreshGenerationRef.current;
+      stale = null;
+      const refreshGeneration = scope === "all" ? ++projectRefreshGenerationRef.current : projectRefreshGenerationRef.current;
       try {
         const [snapshotResult, gitStatusResult] = await Promise.allSettled([
-          invoke<ProjectSnapshot>("refresh_project"),
+          scope === "all" ? invoke<ProjectSnapshot>("refresh_project") : Promise.resolve(null),
           invoke<GitStatus>("git_status"),
         ]);
         const currentProject = projectRef.current;
@@ -118,6 +124,7 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
           && refreshGeneration === projectRefreshGenerationRef.current
           && currentProject
           && snapshotResult.status === "fulfilled"
+          && snapshotResult.value
           && snapshotResult.value.root === currentProject.root
           && JSON.stringify(snapshotResult.value.files) !== JSON.stringify(currentProject.files)
         ) {
@@ -139,18 +146,22 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
         // The next poll retries after transient filesystem races.
       } finally {
         checking = false;
-        if (stale && !stopped) void refresh();
+        if (stale && !stopped) void refresh(stale);
       }
     };
     void refresh();
     // Watcher-less operation degrades to the fallback poll below.
     void invoke("watch_project").catch(() => {});
-    const stopListening = onProjectTreeStale(initialProject.root, () => void refresh());
-    const timer = window.setInterval(() => { void refresh(); }, 30_000);
+    const stopListening = onProjectTreeStale(initialProject.root, (paths) => {
+      void refresh(onlyGitStateChanged(paths) ? "git" : "all");
+    });
+    // The fallback poll rests while the window is off screen; coming back
+    // checks through focus (onProjectTreeStale), not a second catch-up tick.
+    const stopPolling = visibleInterval(() => { void refresh(); }, 30_000, { catchUp: false });
     return () => {
       stopped = true;
       stopListening();
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, [enabled, project?.root, projectRef, projectRefreshGenerationRef, projectTreeMutationCountRef, setProject]);
   /** Only the open project's status; a stale root reads as clean. */

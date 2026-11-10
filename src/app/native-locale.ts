@@ -55,6 +55,9 @@ export type NativeMenuLabels = {
   whatsNew: string;
   /** Help ▸ Report a Problem…, the command table's `report-problem`. */
   reportProblem: string;
+  /** The project's website and repository, linked from Help and the About panel. */
+  website: string;
+  github: string;
   /** View → Margin review, while this window shows a linked Overleaf project's source; its choice is this window's. */
   marginReview?: { title: string; auto: string; markers: string; off: string; mode: MarginReviewMode };
 };
@@ -133,6 +136,8 @@ export function nativeMenuLabels(): NativeMenuLabels {
     help: i18n._(msg({ context: "macOS menu bar", message: "Help" })),
     whatsNew: i18n._(msg({ context: "macOS menu bar", message: `What’s New in ${name}` })),
     reportProblem: i18n._(msg({ context: "macOS menu bar", message: "Report a Problem…" })),
+    website: i18n._(msg({ context: "macOS menu bar", message: `${name} Website` })),
+    github: i18n._(msg({ context: "macOS menu bar", message: `${name} on GitHub` })),
     ...marginReviewAvailable() ? {
       marginReview: {
         title: i18n._(msg({ context: "macOS menu bar", message: "Margin Review" })),

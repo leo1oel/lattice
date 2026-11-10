@@ -86,4 +86,20 @@ describe("project tree refresh", () => {
     expect(await findProjectTreeItem("figures/")).toBeInTheDocument();
     expect(queryProjectTreeItem("notes.md")).not.toBeNull();
   });
+
+  it("reads only the git status when the watcher saw Git's own state change", async () => {
+    // A commit, a stage or the post-build auto-commit writes under .git/,
+    // which the tree leaves out: rescanning every project file for it was
+    // wasted on a large project.
+    await openProject();
+    const scans = invokeCalls("refresh_project").length;
+    const statuses = invokeCalls("git_status").length;
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: [".git/index", ".git/refs/heads/main"] });
+    await waitFor(() => expect(invokeCalls("git_status").length).toBeGreaterThan(statuses));
+    await act(async () => {});
+    expect(invokeCalls("refresh_project").length).toBe(scans);
+
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: [".git/index", "main.tex"] });
+    await waitFor(() => expect(invokeCalls("refresh_project").length).toBeGreaterThan(scans));
+  });
 });

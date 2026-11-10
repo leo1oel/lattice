@@ -3,7 +3,7 @@
 use tauri::ipc::Channel;
 
 #[cfg(not(windows))]
-use super::TexInstallMode;
+use super::{TexDependencyInstall, TexInstallMode};
 use super::{TexInstallProgress, TexPackageUpdates};
 
 type Progress = Channel<TexInstallProgress>;
@@ -16,7 +16,9 @@ pub fn install_tex(
 }
 
 #[cfg(not(windows))]
-pub fn install_dependency(_missing_file: &str, _on_progress: &Progress) -> Result<(), String> {
+pub fn install_dependency(
+    _missing_file: &str, _package: Option<&str>, _on_progress: &Progress,
+) -> Result<TexDependencyInstall, String> {
     Err("One-click TeX package install is not available on Linux yet.".into())
 }
 

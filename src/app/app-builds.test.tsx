@@ -73,6 +73,26 @@ describe("builds and the PDF reader", () => {
     expect(formatAppLogs()).toContain("[SUCCESS] [LaTeX 设置] LaTeX 组件已安装");
   });
 
+  it("installs the package the writer picks when several provide the file", async () => {
+    renderApp({
+      ...projectCommands(),
+      start_tex_dependency_install: (args: { package: string | null }) => Promise.resolve(
+        args.package ? { kind: "installed" } : { kind: "choosePackage", packages: ["arabtex", "ledmac"] }),
+      build_project: failedBuild(
+        "Missing LaTeX dependency `afoot.sty`. BasicTeX does not include every package available on Overleaf.",
+        "LaTeX Error: File `afoot.sty' not found.\n",
+      ),
+    });
+    const diagnostics = await screen.findByLabelText("Compile diagnostics");
+    fireEvent.click(within(diagnostics).getByRole("button", { name: "Install" }));
+    const dialog = await screen.findByRole("dialog", { name: "Install missing package" });
+    const buildCallsBeforeInstall = invokeCalls("build_project").length;
+    fireEvent.click(await within(dialog).findByRole("button", { name: "ledmac" }));
+    await expectInvoked("start_tex_dependency_install", expect.objectContaining({ missingFile: "afoot.sty", package: "ledmac" }));
+    await waitFor(() => expect(invokeCalls("build_project").length).toBeGreaterThan(buildCallsBeforeInstall));
+    expect(screen.queryByRole("dialog", { name: "Install missing package" })).not.toBeInTheDocument();
+  });
+
   it("does not open TeX setup when latexmk reports a missing project style", async () => {
     renderApp({
       ...projectCommands(projectSnapshot({ name: "CVPR paper" }), "\\usepackage[review]{cvpr}"),

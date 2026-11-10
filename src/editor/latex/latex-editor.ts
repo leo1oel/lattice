@@ -288,6 +288,8 @@ export function textEditorExtensions(
   spellcheck: HarperProse | false = false,
   live?: { current: LatexEditorLiveData },
   onPasteImage?: (file: File) => boolean | void,
+  /** The LaTeX document's project path, whose preamble names its language. */
+  currentPath?: string,
 ): Extension[] {
   return [
     EditorView.lineWrapping,
@@ -307,7 +309,7 @@ export function textEditorExtensions(
     highlightSelectionMatches(),
     tooltips({ tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()) }),
     popupMotionTooltips,
-    ...(spellcheck ? [harperSpellcheck(live, spellcheck)] : []),
+    ...(spellcheck ? [harperSpellcheck(live, spellcheck, currentPath)] : []),
     ...(onPasteImage ? [EditorView.domEventHandlers({
       paste(event) {
         const file = [...event.clipboardData?.items ?? []].find((item) => item.type.startsWith("image/"))?.getAsFile();
@@ -418,7 +420,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
   const reasons = currentPath ? citationReasons(live, currentPath) : null;
   const reasonsContext = reasons ? { currentPath, api: reasons.api } : undefined;
   return [
-    ...textEditorExtensions(options.spellcheck ? "latex" : false, options.live, options.onPasteImage),
+    ...textEditorExtensions(options.spellcheck ? "latex" : false, options.live, options.onPasteImage, currentPath),
     highlightPaint(),
     reasons?.extension ?? [],
     citationTooltips(live, onGotoDefinition, reasonsContext),

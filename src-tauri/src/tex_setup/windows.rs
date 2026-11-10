@@ -14,11 +14,15 @@
 //! tests against stand-in programs and a scratch machine (`tests.rs`).
 
 use super::installer::{
-    dependency_install_error, tex_live_package_for_file, tex_live_year, valid_tex_dependency_name,
-    PinnedDownload, REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS,
+    dependency_install_error, tex_live_year, valid_tex_dependency_name, PinnedDownload,
+    REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS,
 };
+use super::package_providers::{tex_live_package_for_file, TexLiveProviders};
 use super::run::{self, Ended};
-use super::{miktex, tex_live, uv_zip, windows_pins, TexInstallMode, TexInstallProgress};
+use super::{
+    miktex, tex_live, uv_zip, windows_pins, TexDependencyInstall, TexInstallMode,
+    TexInstallProgress,
+};
 use crate::util::{swap_in_dir, DirSwapError};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -82,16 +86,19 @@ pub fn install_tex(
         .map(|()| None)
 }
 
+/// `package` is the writer's pick among several TeX Live packages that tie as
+/// providers of the file; it only counts when it is one of them. A MiKTeX file
+/// with several owners stays an error: MiKTeX has no ranking to fall back on.
 pub fn install_dependency(
-    missing_file: &str, on_progress: &Channel<TexInstallProgress>,
-) -> Result<(), String> {
+    missing_file: &str, package: Option<&str>, on_progress: &Channel<TexInstallProgress>,
+) -> Result<TexDependencyInstall, String> {
     if !valid_tex_dependency_name(missing_file) {
         return Err("Invalid missing TeX dependency name.".into());
     }
     let _guard = InstallGuard::acquire()?;
     let send = |stage: &str, progress: f64| send_progress(on_progress, stage, progress);
     Flow { host: &system::SystemHost, progress: &send, cancel: &CANCEL }
-        .install_dependency(missing_file)
+        .install_dependency(missing_file, package)
 }
 
 fn send_progress(channel: &Channel<TexInstallProgress>, stage: &str, progress: f64) {
@@ -623,7 +630,9 @@ impl Flow<'_> {
         }
     }
 
-    fn install_dependency(&self, missing_file: &str) -> Result<(), String> {
+    fn install_dependency(
+        &self, missing_file: &str, choice: Option<&str>,
+    ) -> Result<TexDependencyInstall, String> {
         let Some(distribution) = self.distribution() else {
             return Err("TeX Live's package manager is not installed.".into());
         };
@@ -634,12 +643,17 @@ impl Flow<'_> {
         };
         if self.verify_tex_dependency(kpsewhich, missing_file).is_ok() {
             self.send("complete", 1.0);
-            return Ok(());
+            return Ok(TexDependencyInstall::Installed);
         }
         self.send("searching-packages", 0.02);
         match &distribution {
             Distribution::TexLive { tlmgr, .. } => {
-                self.install_tex_live_package(tlmgr, missing_file)?
+                // Nothing is installed while the writer still has to pick.
+                if let Some(packages) =
+                    self.install_tex_live_package(tlmgr, missing_file, choice)?
+                {
+                    return Ok(TexDependencyInstall::ChoosePackage { packages });
+                }
             }
             Distribution::Miktex { miktex, .. } => {
                 self.install_miktex_package(miktex, missing_file)?
@@ -648,7 +662,7 @@ impl Flow<'_> {
         self.send("verifying-dependency", 0.95);
         self.verify_tex_dependency(kpsewhich, missing_file)?;
         self.send("complete", 1.0);
-        Ok(())
+        Ok(TexDependencyInstall::Installed)
     }
 
     /// The distribution the `kpsewhich` a build would run belongs to.
@@ -663,8 +677,21 @@ impl Flow<'_> {
         tlmgr.is_file().then_some(Distribution::TexLive { tlmgr, kpsewhich })
     }
 
-    fn install_tex_live_package(&self, tlmgr: &Path, missing_file: &str) -> Result<(), String> {
-        let (package, repository) = self.find_tex_live_package(tlmgr, missing_file)?;
+    /// Install the package providing `missing_file`; `Ok(Some(packages))` when
+    /// several tie and `choice` is not one of them, with nothing installed.
+    fn install_tex_live_package(
+        &self, tlmgr: &Path, missing_file: &str, choice: Option<&str>,
+    ) -> Result<Option<Vec<String>>, String> {
+        let (providers, repository) = self.find_tex_live_package(tlmgr, missing_file)?;
+        let package = match providers {
+            TexLiveProviders::One(package) => package,
+            TexLiveProviders::Several(packages) => {
+                match choice.filter(|pick| packages.iter().any(|package| package == pick)) {
+                    Some(pick) => pick.to_string(),
+                    None => return Ok(Some(packages)),
+                }
+            }
+        };
         self.send("installing-dependency", 0.2);
         // While the repository holds a newer tlmgr, tlmgr refuses every
         // install until it updates itself; when it is current this changes
@@ -689,14 +716,15 @@ impl Flow<'_> {
             (0.3, 0.9),
         )
         .map(drop)
-        .map_err(failure_message)
+        .map_err(failure_message)?;
+        Ok(None)
     }
 
     /// The package providing `missing_file`, and the fallback repository it
     /// was found in (`None` for the one the user configured).
     fn find_tex_live_package(
         &self, tlmgr: &Path, missing_file: &str,
-    ) -> Result<(String, Option<&'static str>), String> {
+    ) -> Result<(TexLiveProviders, Option<&'static str>), String> {
         let search_pattern = format!("/{}$", regex::escape(missing_file));
         let mut failures = Vec::new();
         for repository in std::iter::once(None).chain(tex_live::FALLBACK_REPOSITORIES.map(Some)) {
@@ -713,7 +741,7 @@ impl Flow<'_> {
             if output.status.success() {
                 let search_output = String::from_utf8_lossy(&output.stdout);
                 return tex_live_package_for_file(&search_output, missing_file)
-                    .map(|package| (package, repository));
+                    .map(|providers| (providers, repository));
             }
             failures.push(command_failure_detail(&output));
         }

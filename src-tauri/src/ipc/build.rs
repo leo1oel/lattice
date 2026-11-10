@@ -412,10 +412,11 @@ pub async fn start_tex_package_update(
 
 #[tauri::command]
 pub async fn start_tex_dependency_install(
-    missing_file: String, on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
-) -> Result<(), String> {
+    missing_file: String, package: Option<String>,
+    on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
+) -> Result<tex_setup::TexDependencyInstall, String> {
     run_blocking("TeX package installer launch", move || {
-        tex_setup::install_dependency(&missing_file, &on_progress)
+        tex_setup::install_dependency(&missing_file, package.as_deref(), &on_progress)
     })
     .await
 }

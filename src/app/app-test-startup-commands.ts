@@ -6,5 +6,7 @@ export function mockAppCommand(command: string) {
   if (command === "list_local_templates") return [];
   // Every project entry reads its annotations; an unanswered read would refuse annotation saves.
   if (command === "list_annotations") return { annotations: [], rounds: [] };
+  // An English document, which Harper checks.
+  if (command === "spelling_document_language") return null;
   throw new Error(`Unexpected command: ${command}`);
 }

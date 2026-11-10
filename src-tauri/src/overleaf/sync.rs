@@ -9,39 +9,17 @@
 //! committing to one, and the staged sync, so there is only ever one set of
 //! rules to keep honest.
 
-use super::api::{
-    csrf_token, expect_success, http_client, latest_update_version, DownloadGate, Remote,
-};
+use super::api::{csrf_token, http_client, DownloadGate, Remote};
 use super::case_collisions::{self, CaseCollision};
 use super::files::*;
 use super::link::{now_iso, save_state, Refusal, SyncState, PAUSED};
 use super::review::HistoryFrom;
 use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED, SESSION_STILL_VALID};
-use crate::util::err;
 use crate::wide_event::{self, Failure};
 use reqwest::blocking::Client;
-use serde::Serialize;
-use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
-
-/// Result of the cheap remote-change check that live mode polls.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OverleafProbe {
-    /// True when Overleaf has moved on since our last sync.
-    pub changed: bool,
-    /// True when a requested local check found files that differ from the last
-    /// sync. Ordinary polling leaves this false so it stays a cheap network
-    /// version check rather than rereading the project every few seconds.
-    pub local_changed: bool,
-    /// False when this instance does not tell us a version, in which case
-    /// `changed` is meaningless and polling cannot be used to drive syncing.
-    pub version_known: bool,
-    pub remote_version: Option<i64>,
-    pub last_sync: Option<String>,
-}
 
 // ---- Planning ---------------------------------------------------------------
 
@@ -748,47 +726,13 @@ fn sync_files(
 
 // ---- Probe ---------------------------------------------------------------------
 
-/// Cheap "did anything change over there?" check.
-///
-/// Overleaf's history API reports the project's newest version in a small JSON
-/// payload, so this can run every few seconds — unlike a full sync, which
-/// downloads the whole project as a zip. Live mode polls this and only syncs
-/// for real when the version moved.
-pub fn probe(
-    config_dir: &Path, root: &Path, local_live_paths: Option<&BTreeSet<String>>,
-) -> Result<OverleafProbe, String> {
-    let remote = Remote::open(config_dir, root)?;
-    let state = &remote.state;
-    let local_changed = !state.pending_relocations.is_empty()
-        || local_live_paths
-            .map(|live| local_files_changed(root, state, live))
-            .transpose()?
-            .unwrap_or(false);
-    let response = remote.get("/updates?min_count=1", 15)?;
-    let body: Value = expect_success(response, "for the project history")?.json().map_err(err)?;
-    let remote_version = latest_update_version(&body);
-    Ok(OverleafProbe {
-        changed: match (remote_version, state.remote_version) {
-            (Some(remote), Some(known)) => remote != known,
-            // First look with a usable version: sync once to set the baseline.
-            (Some(_), None) => true,
-            // No version to compare. Saying "changed" here would download the
-            // whole project on every poll, which is what earned a 429.
-            (None, _) => false,
-        },
-        local_changed,
-        version_known: remote_version.is_some(),
-        remote_version,
-        last_sync: remote.state.last_sync,
-    })
-}
-
 mod changes;
 mod download;
 mod history_evidence;
 mod outcome;
 mod prefetch;
 mod preview;
+mod probe;
 mod relocations;
 mod remote_delete;
 mod send;
@@ -799,6 +743,7 @@ use outcome::{newly_held, record_result};
 pub use outcome::{OverleafConflict, OverleafSyncResult};
 pub use prefetch::{prefetch, Prefetched};
 pub use preview::{preview, OverleafPreview};
+pub use probe::{probe, OverleafProbe};
 pub use relocations::sync_relocations;
 pub use remote_delete::{delete_unchanged, RemoteDelete};
 

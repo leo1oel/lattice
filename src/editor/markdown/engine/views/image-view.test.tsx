@@ -74,3 +74,32 @@ it("shows the usual loading box for an image never decoded", async () => {
   });
   expect(loading.getAttribute("style")).toBeNull();
 });
+
+it("shimmers only while an image's bytes are being read", async () => {
+  // jsdom has no IntersectionObserver, so every image counts as near the viewport.
+  const near = renderImage("![Plot](figures/new.png)", () => new Promise<string | null>(() => undefined));
+  await waitFor(() => expect(near.container.querySelector(".lx-md-image-loading")?.hasAttribute("data-loading")).toBe(true));
+  near.unmount();
+
+  // Far out of view: nothing is read, so the box stays still.
+  class Unseen {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() { return []; }
+  }
+  vi.stubGlobal("IntersectionObserver", Unseen);
+  try {
+    const onLoadAsset = vi.fn(() => new Promise<string | null>(() => undefined));
+    const far = renderImage("![Plot](figures/far.png)", onLoadAsset);
+    const loading = await waitFor(() => {
+      const element = far.container.querySelector<HTMLElement>(".lx-md-image-loading");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    expect(loading.hasAttribute("data-loading")).toBe(false);
+    expect(onLoadAsset).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

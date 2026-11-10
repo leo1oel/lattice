@@ -4,6 +4,9 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type { DoctorReport } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { TexDependencyInstallStatus } from "../build/tex-dependency-installer";
+
+/** What `start_tex_dependency_install` returns when it does not fail (`TexDependencyInstall` in tex_setup.rs). */
+type TexDependencyInstallOutcome = { kind: "installed" } | { kind: "choosePackage"; packages: string[] };
 import {
   isOnlyPaperToolsMissing,
   isRequiredSetupMissing,
@@ -132,7 +135,8 @@ export function useTexSetup(rebuild: () => void) {
     else setWizardOpen(true);
   }, [runDoctor]);
 
-  const installDependency = useCallback((missingFile: string) => {
+  // `texPackage` is the writer's pick after the host found several providers.
+  const installDependency = useCallback((missingFile: string, texPackage?: string) => {
     if (installRef.current?.installing) return;
     const attempt = ++installAttemptRef.current;
     publishInstall({
@@ -148,9 +152,16 @@ export function useTexSetup(rebuild: () => void) {
     };
     const onProgress = new Channel<TexDependencyInstallProgress>();
     onProgress.onmessage = (progress) => update({ progress });
-    void invoke("start_tex_dependency_install", { missingFile, onProgress })
-      .then(() => {
+    void invoke<TexDependencyInstallOutcome>("start_tex_dependency_install", { missingFile, package: texPackage ?? null, onProgress })
+      .then((outcome) => {
         if (installAttemptRef.current !== attempt) return;
+        if (outcome?.kind === "choosePackage") {
+          update({ installing: false, packages: outcome.packages });
+          // Log-only: the install sheet asks the question, no toast needed.
+          trace.note(t`Several packages provide this file`, outcome.packages.join(", "));
+          trace.finish("cancelled");
+          return;
+        }
         installAttemptRef.current += 1;
         publishInstall(null);
         trace.ok(t`LaTeX package installed`, { detail: missingFile });
