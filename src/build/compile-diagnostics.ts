@@ -163,12 +163,20 @@ export function diagnosticsFingerprint(diagnostics: CompileDiagnostic[]): string
     .join("\u0001");
 }
 
-/** How many diagnostics a build reported at each severity. */
-export type DiagnosticCounts = Record<DiagnosticSeverity, number>;
+/**
+ * How many diagnostics a build reported at each severity. `capped`: the build
+ * listed only its first located diagnostics (build_log.rs), so these are
+ * lower bounds.
+ */
+export type DiagnosticCounts = Record<DiagnosticSeverity, number> & { capped?: boolean };
 
 export function summarizeDiagnostics(diagnostics: readonly CompileDiagnostic[]): DiagnosticCounts {
-  const summary = { error: 0, warning: 0, info: 0 };
-  for (const diagnostic of diagnostics) summary[diagnosticSeverity(diagnostic.level)] += 1;
+  const summary: DiagnosticCounts = { error: 0, warning: 0, info: 0 };
+  for (const diagnostic of diagnostics) {
+    // The cap's own note is about the list, not one more thing the build found.
+    if (diagnostic.code === "diagnostics-capped") summary.capped = true;
+    else summary[diagnosticSeverity(diagnostic.level)] += 1;
+  }
   return summary;
 }
 

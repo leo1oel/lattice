@@ -175,6 +175,8 @@ export function CompileDiagnosticsPanel(props: {
   onUndoEngineSwitch?: (engine: string) => void;
   onFixAll?: () => void;
   fixDisabled?: boolean;
+  /** Project-relative path of the compiled document: TeX names files in the log from its folder. */
+  rootDocument?: string;
   repair?: CompileRepairState | null;
   onCancelRepair?: () => void;
   /** Release the editor from a repair that has not stopped since Cancel (CompileRepairState.stopping). */
@@ -291,7 +293,7 @@ export function CompileDiagnosticsPanel(props: {
                       const missingFile = diagnostic.params?.missingFile ?? missingTexDependencyFile(diagnostic.message);
                       const previousEngine = diagnostic.params?.previous;
                       const explained = explainDiagnostic(diagnostic, {
-                        log: props.log, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0,
+                        log: props.log, rootDocument: props.rootDocument, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0,
                         sameAfter: diagnostics.slice(diagnostics.indexOf(diagnostic) + 1)
                           .filter((other) => other.file === diagnostic.file && other.line === diagnostic.line && other.message === diagnostic.message).length,
                       });
@@ -410,7 +412,10 @@ export function CompileDiagnosticsPanel(props: {
       )}
       {props.repair?.threadId && props.onOpenRepair && (
         <div className="compile-repair-footer">
-          {props.repair.status === "completed" && <span role="status">{t`Repair finished`}</span>}
+          {props.repair.status === "completed" && (
+            // The rebuild after the repair is what this panel shows: errors still here were not fixed.
+            <span role="status">{summary.error > 0 ? t`Repair finished, but the build still has errors` : t`Repair finished`}</span>
+          )}
           <Button variant="ghost" size="compact" onClick={props.onOpenRepair}>{t`View repair`}</Button>
         </div>
       )}

@@ -407,6 +407,7 @@ export function useDocumentSurfaces({
             <CompileDiagnosticsPanel
               diagnostics={lastBuild.diagnostics}
               log={lastBuild.log}
+              rootDocument={lastBuild.rootDocument}
               success={lastBuild.success}
               wrotePdf={buildOutcome?.status === "failed" && buildOutcome.wrotePdf}
               expanded={buildPipeline.diagnosticsExpanded}

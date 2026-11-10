@@ -314,15 +314,16 @@ const ENTRIES: Entry[] = [
  * when the source itself used it, `\eg ->e.g.\xspace` when a macro did. Above
  * the `l.<n>` line, LaTeX's help text ends with no control sequence.
  */
-function stoppedAt(log: string, diagnostic: CompileDiagnostic, sameAfter: number): string | undefined {
+function stoppedAt(log: string, diagnostic: CompileDiagnostic, sameAfter: number, rootDocument: string): string | undefined {
   const { file, line, message } = diagnostic;
   if (!file || !line) return undefined;
+  const folder = rootDocument.split("/").slice(0, -1);
   const lines = log.split("\n");
   const errors = lines.flatMap((text, index) => {
     const located = /^([^:]+):(\d+):\s*(.*)$/.exec(text);
     if (!located || Number(located[2]) !== line || located[3]!.trim() !== message.trim()) return [];
     const path = located[1]!.replace(/\\/g, "/").replace(/^"|"$/g, "");
-    return path === file || path.endsWith(`/${file}`) ? [index] : [];
+    return path === file || path.endsWith(`/${file}`) || fromFolder(folder, path) === file ? [index] : [];
   });
   const at = errors[errors.length - 1 - sameAfter];
   if (at === undefined) return undefined;
@@ -332,6 +333,23 @@ function stoppedAt(log: string, diagnostic: CompileDiagnostic, sameAfter: number
     if (command) return command;
   }
   return undefined;
+}
+
+/**
+ * `path`, as TeX named it from the root document's `folder`, from the project
+ * root: the diagnostic's file was rebased the same way (diagnostic_paths.rs),
+ * so `sec/a.tex` in the log is `cvpr/sec/a.tex` for `cvpr/main.tex`.
+ */
+function fromFolder(folder: readonly string[], path: string): string | undefined {
+  if (path.startsWith("/")) return undefined;
+  const parts = [...folder];
+  for (const part of path.split("/")) {
+    if (part === "..") {
+      if (!parts.length) return undefined;
+      parts.pop();
+    } else if (part && part !== ".") parts.push(part);
+  }
+  return parts.join("/");
 }
 
 /** The failing line and one either side, with `token` located on the failing one. */
@@ -355,7 +373,14 @@ function excerptAround(source: string, line: number | undefined, token?: string)
  */
 export function explainDiagnostic(
   diagnostic: CompileDiagnostic,
-  { log, source, afterError, sameAfter = 0 }: { log: string; source: string | null; afterError: boolean; sameAfter?: number },
+  { log, rootDocument = "", source, afterError, sameAfter = 0 }: {
+    log: string;
+    /** Project-relative path of the compiled document; the log names files from its folder. */
+    rootDocument?: string;
+    source: string | null;
+    afterError: boolean;
+    sameAfter?: number;
+  },
 ): ExplainedDiagnostic | null {
   if (diagnostic.code) return null;
   const message = diagnostic.message.trim().replace(/^(?:LaTeX|Package \S+) (?:Error|Warning):\s*/, "");
@@ -364,7 +389,7 @@ export function explainDiagnostic(
   for (const entry of ENTRIES) {
     const match = entry.pattern.exec(message);
     if (!match) continue;
-    const token = stoppedAt(log, diagnostic, sameAfter);
+    const token = stoppedAt(log, diagnostic, sameAfter, rootDocument);
     const failingLine = source && errorLine ? source.split("\n")[errorLine - 1] : undefined;
     const onLine = token !== undefined && failingLine !== undefined && tokenOffset(failingLine, token) >= 0;
     const explained = entry.explain(match, { stoppedAt: token, onLine, source: source ?? "", afterError });

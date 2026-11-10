@@ -66,6 +66,10 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
     }
     case "lineno-outdated":
       return i18n._(msg`Line numbers may be drawn over the text: your TeX has lineno 5.7, which has a known bug. Update TeX packages to fix it.`);
+    case "diagnostics-capped": {
+      const { shown = "", total = "" } = params;
+      return i18n._(msg`Only the first ${shown} of ${total} errors and warnings are listed. The raw build log has the rest.`);
+    }
     case "pdf-fonts-not-times":
       return pdfFontsText(params, params.upToDate === "true");
     default:
