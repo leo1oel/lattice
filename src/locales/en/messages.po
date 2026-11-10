@@ -10500,6 +10500,10 @@ msgstr "Open {name}"
 msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 msgstr "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 
+#: src/app/use-editor-comments.ts
+msgid "Open {name} to comment on it."
+msgstr "Open {name} to comment on it."
+
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
 msgid "Open {path} at line {0}"
@@ -16228,7 +16232,6 @@ msgstr "This file changed outside live editing. Local work was kept; regular Ove
 msgid "This file is not a PDF."
 msgstr "This file is not a PDF."
 
-#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
@@ -17744,6 +17747,14 @@ msgstr "Your answer…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: {message}"
+msgstr "Your comment on {name} did not reach Overleaf: {message}"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
+msgstr "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
 
 #: src/history/review-mode-store.ts
 msgid "Your edits stay in the files. The changes waiting for review are no longer marked."

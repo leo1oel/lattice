@@ -1,5 +1,7 @@
 //! Commenting on a document the editor does not have open, the way a comment
-//! made on the PDF lands on whichever file its passage came from.
+//! made on the PDF lands on whichever file its passage came from, or does not
+//! hold live just then: the open file the live channel let go of after an
+//! outside write, until a sync settles it, or while the channel reconnects.
 //!
 //! Overleaf anchors a comment with an update on the live channel, and its
 //! real-time server applies an update only to a document the sending

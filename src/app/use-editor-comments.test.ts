@@ -165,6 +165,60 @@ it("sends a PDF note to Overleaf only for the live file, and keeps one for a fil
   expect(destinationIn(docs, { status: "live", docId: "doc-v2", liveFile: true }, false)("main_v2.tex")).toBe("annotation");
 });
 
+// Reported: a comment on a Markdown file the Agent had just
+// rewritten was refused with "not live with Overleaf, reconnect". The editor
+// had let go of the file until a sync settled the Agent's write; Overleaf
+// takes the comment anyway, on a connection of the backend's own. Nothing
+// here depends on the file type: a .tex file in the same state is the same.
+it.each(["cvpr/outline.md", "sections/intro.tex"])("posts an editor comment on %s to Overleaf whether or not the editor holds it live", async (path) => {
+  const source = "The reader sees every visual token.\n";
+  const from = source.indexOf("visual token");
+  const note = { ...comment("new"), path, from, to: from + 12, quote: "visual token", body: "Name the encoder." };
+  const target = { projectRoot: "/project", docId: "doc", path };
+  const comments = { create: vi.fn(async () => "thread"), createInDocument: vi.fn(async () => "placed") };
+  const commentsOn = (realtime: { status: string; docId: string | null; liveFile: boolean }) => {
+    const overleaf = {
+      overleafLink: { projectId: "p" }, overleafComments: { threads: [], anchors: new Map(), ...comments },
+      overleafCommentsRef: { current: { threads: [] } }, overleafDocPaths: new Map([["doc", path]]), overleafRealtime: realtime,
+      overleafEditorComments: [], setOverleafCollabOpen: vi.fn(), setOverleafCollabTab: vi.fn(),
+    } as unknown as Parameters<typeof useEditorComments>[0]["overleaf"];
+    return renderHook(() => useEditorComments({
+      project: { root: "/project" } as unknown as ProjectSnapshot, projectRootRef: { current: "/project" },
+      activeFileRef: { current: path }, openProjectFile: vi.fn(), overleaf, author: { id: "me", name: "Me" },
+      openSources: () => new Map([[path, source]]), agentOptionsRef: { current: null },
+    })).result.current;
+  };
+
+  // Held live: anchored in the editor's own document.
+  expect(commentsOn({ status: "live", docId: "doc", liveFile: true }).create(note)).toBe("overleaf");
+  expect(comments.create).toHaveBeenCalledWith(target, from, "visual token", "Name the encoder.");
+
+  // Let go of after an outside write, or while the channel reconnects: still a thread on Overleaf.
+  for (const realtime of [{ status: "live", docId: null, liveFile: false }, { status: "connecting", docId: null, liveFile: false }]) {
+    comments.createInDocument.mockClear();
+    const store = commentsOn(realtime);
+    await act(async () => {
+      expect(store.create(note)).toBe("overleaf");
+    });
+    expect(comments.createInDocument).toHaveBeenCalledWith(target, source, from, "visual token", "Name the encoder.");
+  }
+  expect(showError).not.toHaveBeenCalled();
+  expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
+
+  // What went wrong, when it does, rather than a reconnect nothing needs.
+  const name = path.split("/").pop();
+  comments.createInDocument.mockResolvedValueOnce("notFound");
+  const handedToSync = commentsOn({ status: "live", docId: null, liveFile: false });
+  await act(async () => { handedToSync.create(note); });
+  expect(showError).toHaveBeenLastCalledWith(
+    `Your comment on ${name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced.`,
+  );
+  comments.createInDocument.mockRejectedValueOnce(new Error("Overleaf could not be reached."));
+  const reconnecting = commentsOn({ status: "connecting", docId: null, liveFile: false });
+  await act(async () => { reconnecting.create(note); });
+  expect(showError).toHaveBeenLastCalledWith(`Your comment on ${name} did not reach Overleaf: Overleaf could not be reached.`);
+});
+
 // A save replaces the whole of annotations.json, so state that was never read
 // from it must not be saved over it (implicit-state audit S1).
 it("saves nothing until the project's annotations have been read", async () => {
