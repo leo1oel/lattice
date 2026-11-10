@@ -1,1 +1,0 @@
-import{Hr as e,Ur as t}from"./editor-Dcr8rkFQ.js";t();export{e as idl};

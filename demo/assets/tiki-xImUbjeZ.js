@@ -1,1 +1,0 @@
-import{Qt as e,Zt as t}from"./editor-Dcr8rkFQ.js";t();export{e as tiki};

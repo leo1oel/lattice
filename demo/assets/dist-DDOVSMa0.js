@@ -1,0 +1,1 @@
+import{Bo as e,zo as t}from"./editor-Rc5JCsi3.js";t();export{e as javascript};

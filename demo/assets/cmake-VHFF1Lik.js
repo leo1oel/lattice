@@ -1,0 +1,1 @@
+import{Gi as e,Wi as t}from"./editor-Rc5JCsi3.js";e();export{t as cmake};

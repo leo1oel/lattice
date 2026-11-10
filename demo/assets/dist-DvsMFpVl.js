@@ -1,0 +1,1 @@
+import{va as e,ya as t}from"./editor-Rc5JCsi3.js";e();export{t as xml};

@@ -1,0 +1,1 @@
+import{Hr as e,Ur as t}from"./editor-Rc5JCsi3.js";t();export{e as idl};

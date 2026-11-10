@@ -1,1 +1,0 @@
-import{Ut as e,Wt as t}from"./editor-Dcr8rkFQ.js";e();export{t as ttcn};

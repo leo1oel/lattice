@@ -1,1 +1,0 @@
-import{Nt as e,Pt as t}from"./editor-Dcr8rkFQ.js";e();export{t as verilog};

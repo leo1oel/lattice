@@ -1,0 +1,1 @@
+import{jo as e,ko as t}from"./editor-Rc5JCsi3.js";e();export{t as angular};

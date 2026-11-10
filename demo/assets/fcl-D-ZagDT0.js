@@ -1,0 +1,1 @@
+import{ci as e,si as t}from"./editor-Rc5JCsi3.js";e();export{t as fcl};

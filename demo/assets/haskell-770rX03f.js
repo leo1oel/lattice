@@ -1,0 +1,1 @@
+import{Xr as e,Yr as t}from"./editor-Rc5JCsi3.js";e();export{t as haskell};

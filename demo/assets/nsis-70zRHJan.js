@@ -1,0 +1,1 @@
+import{dr as e,fr as t}from"./editor-Rc5JCsi3.js";e();export{t as nsis};
