@@ -175,6 +175,13 @@ Both directories bundle files copied unchanged from the templates' official rele
 
 Every file ships byte-for-byte; the LPPL requires a modified file to be renamed and its changes identified, so do not edit them in place.
 
+## IEEE and ACM templates (`src-tauri/templates/ieee-conference/`, `src-tauri/templates/ieee-journal/`, `src-tauri/templates/acm/`)
+
+- **IEEEtran** 1.8b (https://ctan.org/pkg/ieeetran, the class IEEE's author templates use): both IEEE directories bundle `IEEEtran.cls` (Copyright (c) 1993-2000 by Gerry Murray, Silvano Balemi, Jon Dixon, Peter Nüchter and Juergen von Hagen; Copyright (c) 2001-2015 by Michael Shell) and `IEEEtran.bst` (Copyright (c) 2003-2015 Michael Shell), copied unchanged from TeX Live's `ieeetran` package. Both are distributed under the LaTeX Project Public License, version 1.3 (https://www.latex-project.org/lppl/). Each `main.tex` is a short Lattice skeleton adapted from the package's `bare_conf.tex` or `bare_jrnl.tex` (V1.4b, Michael Shell, also LPPL 1.3), renamed and with a header naming its source.
+- **acmart** 2.21 (https://ctan.org/pkg/acmart, Copyright 2016-2026, Association for Computing Machinery, LPPL 1.3 or later) is not bundled: the ACM template's projects load it from TeX Live, which `tex_setup/basictex.sh` installs. Its `main.tex` is a short Lattice skeleton adapted from the package's `sigconf` sample, using the class's documented interface, with the `ACM-Reference-Format` bibliography style from the same package.
+
+Each directory's `UPSTREAM.md` records the TeX Live archive, its SHA-256 and the SHA-256 of every copied file. The sample `references.bib` files are Lattice's own. The IEEEtran files ship byte-for-byte; the LPPL requires a modified file to be renamed and its changes identified, so do not edit them in place.
+
 ## Realtime TeX live preview renderer (`src/live-preview/`)
 
 The LuaLaTeX live preview draws rtex's display lists with code adapted from the [Realtime TeX VS Code plugin](https://github.com/HenryXiaoYang/realtime-tex-vsc-plugin) (`webview/render.ts`, `webview/model.ts`, `webview/opentype.d.ts`, `src/fontKey.ts`, `src/type1.ts`, `src/edits.ts`, `src/protocol.ts`, `src/resources.ts`). Each adapted file names its source in its header.

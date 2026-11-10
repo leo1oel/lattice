@@ -1,0 +1,63 @@
+% ACM paper on acmart, the class every ACM publication uses (TeX Live's
+% acmart package). [sigconf] is the two-column conference proceedings
+% format. For an anonymous submission add review and anonymous:
+% \documentclass[sigconf,review,anonymous]{acmart}
+% For a single-column manuscript, as some venues and journals ask for at
+% submission, use \documentclass[manuscript,review,anonymous]{acmart}.
+% Journals use acmsmall, acmlarge or acmtog in place of sigconf.
+\documentclass[sigconf]{acmart}
+
+% The rights block and conference details come from your rights
+% confirmation email; until then these placeholders are printed.
+\setcopyright{acmlicensed}
+\copyrightyear{2027}
+\acmYear{2027}
+\acmDOI{XXXXXXX.XXXXXXX}
+\acmConference[Conference acronym 'XX]{Conference title from your rights
+  confirmation email}{Month Day--Day, Year}{City, Country}
+\acmISBN{978-1-4503-XXXX-X/2027/MM}
+
+\begin{document}
+
+\title{LATTICE_PROJECT_TITLE}
+
+\author{Author Name}
+\email{author@example.com}
+\affiliation{%
+  \institution{Institution}
+  \city{City}
+  \country{Country}
+}
+
+\begin{abstract}
+Briefly summarize the problem, method, and main result.
+\end{abstract}
+
+% Generate the CCS concepts for your paper at https://dl.acm.org/ccs and
+% paste the \ccsdesc lines (and the CCSXML block) here.
+\ccsdesc[500]{Do Not Use This Code~Generate the Correct Terms for Your Paper}
+
+\keywords{first keyword, second keyword, third keyword}
+
+\maketitle
+
+\section{Introduction}
+Motivate the problem and state the paper's main contribution, building on
+prior work~\cite{acmart,kopka2004guide}.
+
+\section{Related Work}
+Position the contribution against the most relevant prior work.
+
+\section{Method}
+Describe the proposed method.
+
+\section{Experiments}
+Present the evaluation setup and results.
+
+\section{Conclusion}
+Summarize the findings and limitations.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}

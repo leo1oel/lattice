@@ -1568,6 +1568,10 @@ msgstr "致谢"
 msgid "Acknowledgements and thanks"
 msgstr "致谢与感谢脚注"
 
+#: src/project/project-dialogs.tsx
+msgid "ACM paper ({name})"
+msgstr "ACM 论文（{name}）"
+
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
 msgid "Activity"
@@ -7198,6 +7202,14 @@ msgstr "ICML 宏包"
 #: src/editor/latex/highlighters.ts
 msgid "Idea"
 msgstr "想法"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE conference paper ({name})"
+msgstr "IEEE 会议论文（{name}）"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE journal article ({name})"
+msgstr "IEEE 期刊论文（{name}）"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
@@ -16789,8 +16801,8 @@ msgid "Unknown source response"
 msgstr "来源返回未知结果"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
-msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、cvpr-rebuttal、aaai、thuthesis、ustcthesis、blank 或 chinese-article"
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, ieee-conference, ieee-journal, acm, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、cvpr-rebuttal、aaai、ieee-conference、ieee-journal、acm、thuthesis、ustcthesis、blank 或 chinese-article"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"

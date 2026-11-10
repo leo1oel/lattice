@@ -1568,6 +1568,10 @@ msgstr "Acknowledgements"
 msgid "Acknowledgements and thanks"
 msgstr "Acknowledgements and thanks"
 
+#: src/project/project-dialogs.tsx
+msgid "ACM paper ({name})"
+msgstr "ACM paper ({name})"
+
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
 msgid "Activity"
@@ -7198,6 +7202,14 @@ msgstr "ICML packages"
 #: src/editor/latex/highlighters.ts
 msgid "Idea"
 msgstr "Idea"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE conference paper ({name})"
+msgstr "IEEE conference paper ({name})"
+
+#: src/project/project-dialogs.tsx
+msgid "IEEE journal article ({name})"
+msgstr "IEEE journal article ({name})"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
@@ -16789,8 +16801,8 @@ msgid "Unknown source response"
 msgstr "Unknown source response"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
-msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, ieee-conference, ieee-journal, acm, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, cvpr-rebuttal, aaai, ieee-conference, ieee-journal, acm, thuthesis, ustcthesis, blank, or chinese-article."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"
