@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { SmallStore } from "../trellis/trellis-small-store";
 import type { CompiledPdfTabs, RootPdfTab } from "../trellis/compiled-pdf-tabs";
 import { RootPdfTabs, type RootPdfs } from "./root-pdf-tabs";
+import type { ShownVersions } from "../app/use-pdf-preview";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => { throw new Error("not built here"); }) }));
 // The viewer, reduced to the PDF it is handed.
@@ -38,15 +39,16 @@ function renderTabs() {
     build: vi.fn(),
   } as unknown as CompiledPdfTabs;
   const shownBytes = new Map<string, ArrayBuffer>();
-  const rootPdfs = (shownUrl: string | null): RootPdfs => ({
-    tabs, shown: null, shownBytes, shownUrl, syncTarget: null, canForwardSync: false, onForwardSync: () => {}, onSource: () => {},
+  // Everything but the versions stays the same object from render to render, as App's memoized inputs do.
+  const base = {
+    tabs, shown: null, shownBytes, syncTarget: null, canForwardSync: false, onForwardSync: () => {}, onSource: () => {},
     switchState: { subscribe: () => () => {}, switching: () => false } as unknown as RootPdfs["switchState"],
-  });
-  const props = (shownUrl: string | null): ComponentProps<typeof RootPdfTabs> => ({
-    projectRoot: "/p", rootPdfs: rootPdfs(shownUrl),
-    citations: {} as never, review: {} as never, viewState: {}, onLeaveEditor: () => {},
+  };
+  const shared = {
+    projectRoot: "/p", citations: {} as never, review: {} as never, viewState: {}, onLeaveEditor: () => {},
     selection: { onPdfTextSelect: () => {}, onContextSurfaceActivate: () => {} } as never,
-  });
+  };
+  const props = (shownVersions: ShownVersions): ComponentProps<typeof RootPdfTabs> => ({ ...shared, rootPdfs: { ...base, shownVersions } });
   return { shownBytes, props };
 }
 
@@ -55,18 +57,18 @@ describe("a compiled document's own PDF tab", () => {
   it("shows its document's newest build as soon as that build is shown", async () => {
     const { shownBytes, props } = renderTabs();
     shownBytes.set("SI.tex", pdf("first"));
-    const view = render(<RootPdfTabs {...props("blob:live-1")} />);
+    const view = render(<RootPdfTabs {...props({ "SI.tex": 1 })} />);
     const first = (await screen.findByTestId("root-pdf")).getAttribute("data-url");
     expect(first).toBeTruthy();
 
     shownBytes.set("SI.tex", pdf("second, longer"));
-    act(() => view.rerender(<RootPdfTabs {...props("blob:live-2")} />));
+    act(() => view.rerender(<RootPdfTabs {...props({ "SI.tex": 2 })} />));
     const second = screen.getByTestId("root-pdf").getAttribute("data-url");
     expect(second).not.toBe(first);
     expect(invoke).not.toHaveBeenCalled();
 
     // Another document's build shown: this tab keeps its PDF, without loading it again.
-    act(() => view.rerender(<RootPdfTabs {...props("blob:live-3")} />));
+    act(() => view.rerender(<RootPdfTabs {...props({ "SI.tex": 2, "main.tex": 3 })} />));
     expect(screen.getByTestId("root-pdf").getAttribute("data-url")).toBe(second);
   });
 });

@@ -13,7 +13,7 @@ import { loadPdfPreviewModule } from "./canvas-lazy-modules";
 import { SavedViewState } from "./saved-view-state";
 import type { ProjectPdfCitations, ProjectPdfReview, ProjectPdfSelection, ProjectPdfViewState } from "./project-pdf-panel";
 import type { CompiledPdfTabs } from "../trellis/compiled-pdf-tabs";
-import type { ShownPdf } from "../app/use-pdf-preview";
+import type { ShownPdf, ShownVersions } from "../app/use-pdf-preview";
 import type { SwitchState } from "./after-switch";
 
 /**
@@ -29,12 +29,8 @@ export type RootPdfs = Readonly<{
   switchState: SwitchState;
   /** Each document's bytes as shown this session; without them, the copy kept of its last build here is read. */
   shownBytes: ReadonlyMap<string, ArrayBuffer>;
-  /**
-   * The live PDF's URL, a new one for each build shown. Read by nothing: it
-   * is what makes this object new when `shownBytes` (one Map, mutated)
-   * gains a build, since the React Compiler keeps it otherwise.
-   */
-  shownUrl: string | null;
+  /** The version of each document's bytes in `shownBytes`: a tab reads its document's again when it changes. */
+  shownVersions: ShownVersions;
   /** The last jump's target, in the tab of `document` (null: the live PDF's, not any of these). */
   syncTarget: { document: string | null; target: PdfSyncTarget } | null;
   canForwardSync: boolean;
@@ -73,14 +69,6 @@ export function RootPdfTabs(props: Shared) {
   ));
 }
 
-/**
- * `document`'s bytes as last shown. Through `rootPdfs`, not its Map: the
- * React Compiler caches `rootPdfs.shownBytes.get(document)` for as long as
- * the Map is the same one, which it is for the session, while `rootPdfs` is
- * new each time a build is shown (`shownUrl`).
- */
-const shownBytesOf = (rootPdfs: RootPdfs, document: string) => rootPdfs.shownBytes.get(document);
-
 /** A PDF read for a tab: its URL once read, or null when this copy has not built the document. */
 type Read = { document: string; url: string | null } | null;
 
@@ -90,7 +78,8 @@ function RootPdfTab({ projectRoot, rootPdfs, citations, review, selection, viewS
 }) {
   const { t } = useLingui();
   const [read, setRead] = useReducer((_: Read, next: Read) => next, null);
-  const bytes = shownBytesOf(rootPdfs, document);
+  const { shownBytes } = rootPdfs;
+  const version = rootPdfs.shownVersions[document];
   useEffect(() => {
     let live = true;
     let url: string | null = null;
@@ -99,14 +88,15 @@ function RootPdfTab({ projectRoot, rootPdfs, citations, review, selection, viewS
       url = bytes ? pdfBytesToObjectUrl(bytes) : null;
       setRead({ document, url });
     };
+    const shown = shownBytes.get(document);
     // Never the PDF beside the document: a sync may have brought in a collaborator's.
-    if (bytes) show(bytes);
+    if (shown) show(shown);
     else void invoke<ArrayBuffer>("read_kept_pdf", { projectRoot, document }).then(show, () => show(null));
     return () => {
       live = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [bytes, document, projectRoot]);
+  }, [document, projectRoot, shownBytes, version]);
   const activate = () => {
     selection.onContextSurfaceActivate("pdf");
     onLeaveEditor();

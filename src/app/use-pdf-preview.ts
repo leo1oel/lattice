@@ -21,13 +21,31 @@ export type ShownPdf = Readonly<{ document: string; requested: boolean }>;
 /** A pending preview: the bytes, and what they were built from. */
 type Pending = { bytes: ArrayBuffer; live: LiveBase; document: string; requested: boolean };
 
-/** The preview's URL, and whose PDF it is. */
-type PreviewState = Readonly<{ url: string | null; shown: ShownPdf | null }>;
-type PreviewAction = { type: "url"; url: string | null } | { type: "shown"; shown: ShownPdf | null };
+/**
+ * Each document's version of its bytes in `shownBytes` (one Map, changed in
+ * place): a new number each time they change, so the document's own tab reads
+ * them again. Numbers only grow, even across a project's reset.
+ */
+export type ShownVersions = Readonly<Record<string, number>>;
+
+/** The preview's URL, whose PDF it is, and the versions of each document's shown bytes. */
+type PreviewState = Readonly<{ url: string | null; shown: ShownPdf | null; versions: ShownVersions; serial: number }>;
+type PreviewAction =
+  | { type: "url"; url: string | null }
+  | { type: "shown"; shown: ShownPdf | null }
+  | { type: "bytes"; document: string | null };
 
 function previewReducer(state: PreviewState, action: PreviewAction): PreviewState {
   if (action.type === "url") return state.url === action.url ? state : { ...state, url: action.url };
-  return { ...state, shown: action.shown };
+  if (action.type === "shown") return { ...state, shown: action.shown };
+  const serial = state.serial + 1;
+  return { ...state, serial, versions: action.document === null ? {} : { ...state.versions, [action.document]: serial } };
+}
+
+/** `document`'s shown bytes are now `bytes`. */
+function keepBytes(held: PreviewHeld, dispatch: (action: PreviewAction) => void, document: string, bytes: ArrayBuffer) {
+  held.shownBytes.set(document, bytes);
+  dispatch({ type: "bytes", document });
 }
 
 /** Now showing `bytes` (at `url`) of `document`. */
@@ -47,7 +65,7 @@ function nameShown(
   held: PreviewHeld, dispatch: (action: PreviewAction) => void,
   { bytes, document, requested }: { bytes: ArrayBuffer; document: string; requested: boolean },
 ) {
-  held.shownBytes.set(document, bytes);
+  keepBytes(held, dispatch, document, bytes);
   if (requested || document !== held.document) dispatch({ type: "shown", shown: { document, requested } });
   held.document = document;
 }
@@ -75,7 +93,7 @@ export function usePdfPreview({ livePreview, projectRef }: {
   livePreview?: Ref<LivePreviewBuildHooks | null>;
   projectRef: Ref<ProjectSnapshot | null>;
 }) {
-  const [{ url: pdfUrl, shown }, dispatch] = useReducer(previewReducer, { url: null, shown: null });
+  const [{ url: pdfUrl, shown, versions: shownVersions }, dispatch] = useReducer(previewReducer, { url: null, shown: null, versions: {}, serial: 0 });
   /** Each document's bytes as last shown this session, for its own tab (read when the tab mounts). */
   const shownBytes = useMemo(() => new Map<string, ArrayBuffer>(), []);
   const heldRef = useRef<PreviewHeld>({ url: null, fingerprint: null, document: null, shownBytes, timer: { current: null }, pending: null });
@@ -92,7 +110,7 @@ export function usePdfPreview({ livePreview, projectRef }: {
       // change. Debounce preview updates for autosave compiles so pdf.js is
       // not destroyed mid-load on every keystroke pause.
       const pending = held.pending;
-      if (pending && pending.document !== document) held.shownBytes.set(pending.document, pending.bytes);
+      if (pending && pending.document !== document) keepBytes(held, dispatch, pending.document, pending.bytes);
       held.pending = { bytes, live, document, requested: requested || (pending?.requested === true && pending.document === document) };
       clearTimer(held.timer);
       const apply = () => {
@@ -128,6 +146,7 @@ export function usePdfPreview({ livePreview, projectRef }: {
       held.fingerprint = null;
       held.document = null;
       held.shownBytes.clear();
+      dispatch({ type: "bytes", document: null });
       held.pending = null;
       clearTimer(held.timer);
       displayPdf(held, displayedPdfBytesRef, dispatch, { bytes: null, url: null, document: null, requested: false });
@@ -148,5 +167,5 @@ export function usePdfPreview({ livePreview, projectRef }: {
     },
   });
 
-  return { pdfUrl, shown, displayedPdfBytesRef, generationRef, show, reset, shownBytes };
+  return { pdfUrl, shown, displayedPdfBytesRef, generationRef, show, reset, shownBytes, shownVersions };
 }

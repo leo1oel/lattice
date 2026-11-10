@@ -83,13 +83,21 @@ describe("usePdfPreview", () => {
   it("keeps a delayed rebuild's pages for its document's tab when another document's build lands first", () => {
     const view = renderPreview();
     act(() => view.result.current.show(pdf("main 1"), 0, true, LIVE, "main.tex", false));
+    const shownFirst = view.result.current.shownVersions["main.tex"];
+    expect(shownFirst).toBeDefined();
     // An autosave rebuild of the manuscript, waiting out the debounce.
     const newer = pdf("main 2");
     act(() => view.result.current.show(newer, 0, false, LIVE, "main.tex", false));
     act(() => view.result.current.show(pdf("SI"), 0, false, LIVE, "SI.tex", true));
     expect(view.result.current.shown).toEqual({ document: "SI.tex", requested: true });
     expect(view.result.current.shownBytes.get("main.tex")).toBe(newer);
+    // The manuscript's own tab hears that its bytes changed, though they were never shown.
+    const kept = view.result.current.shownVersions["main.tex"];
+    expect(kept).not.toBe(shownFirst);
     act(() => { vi.advanceTimersByTime(1_200); });
     expect(view.result.current.shown).toEqual({ document: "SI.tex", requested: true });
+    // A rebuild of the supplement leaves the manuscript's version as it was.
+    act(() => view.result.current.show(pdf("SI 2"), 0, true, LIVE, "SI.tex", false));
+    expect(view.result.current.shownVersions["main.tex"]).toBe(kept);
   });
 });

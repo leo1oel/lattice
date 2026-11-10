@@ -76,7 +76,7 @@ export function useBuildPipeline({
   const dismissedDiagnosticsRef = useRef<string | null>(null);
 
   const {
-    pdfUrl, shown: shownPdf, shownBytes: shownPdfBytes, displayedPdfBytesRef, generationRef: previewGenerationRef, show: showPreview, reset: resetPreview,
+    pdfUrl, shown: shownPdf, shownBytes: shownPdfBytes, shownVersions: shownPdfVersions, displayedPdfBytesRef, generationRef: previewGenerationRef, show: showPreview, reset: resetPreview,
   } = usePdfPreview({ livePreview, projectRef });
 
   /**
@@ -497,6 +497,7 @@ export function useBuildPipeline({
     /** Whose PDF the preview shows, for the compiled documents' tabs; and each one's last shown bytes. */
     shownPdf,
     shownPdfBytes,
+    shownPdfVersions,
     displayedPdfBytesRef,
     resetForProject,
     resetQueue,
@@ -508,7 +509,7 @@ export function useBuildPipeline({
     cleanAndRebuild,
   }), [
     abortBuild, build, building, displayedPdfBytesRef, progress, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
-    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl, quiet, shownPdf, shownPdfBytes,
+    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl, quiet, shownPdf, shownPdfBytes, shownPdfVersions,
     resetForProject, resetQueue, runBuild,
   ]);
 }
