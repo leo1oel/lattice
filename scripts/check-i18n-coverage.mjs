@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { parseAllowlist, parsePo } from "./lib/po-catalog.mjs";
 import { oxlintEntry, projectRoot } from "./lib/util.mjs";
 
 const root = projectRoot;
@@ -44,29 +45,7 @@ for (const file of shippingFiles) {
 // every language (a product or format name). Those are listed, one source
 // string per line, in the allowlist; an entry that no longer exists fails too,
 // so the list only ever shrinks to what is still needed.
-function parsePo(text) {
-  const entries = [];
-  let entry = null;
-  let field = null;
-  // Windows checkouts get CRLF line endings.
-  for (const line of text.split(/\r?\n/)) {
-    const start = line.match(/^(msgid|msgstr) (".*")$/);
-    if (start) {
-      if (start[1] === "msgid") entries.push(entry = { msgid: "", msgstr: "" });
-      field = start[1];
-      entry[field] = JSON.parse(start[2]);
-    } else if (entry && field && line.startsWith("\"")) {
-      entry[field] += JSON.parse(line);
-    } else {
-      field = null;
-    }
-  }
-  return entries.filter((item) => item.msgid);
-}
-
-const allowed = new Set((await readFile(allowlistPath, "utf8"))
-  .split(/\r?\n/)
-  .filter((line) => line.trim() && !line.startsWith("#")));
+const allowed = parseAllowlist(await readFile(allowlistPath, "utf8"));
 const entries = parsePo(await readFile(catalogPath, "utf8"));
 const chinese = /[㐀-鿿]/;
 for (const { msgid, msgstr } of entries) {
