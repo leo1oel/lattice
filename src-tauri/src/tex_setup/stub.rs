@@ -2,7 +2,7 @@
 
 use tauri::ipc::Channel;
 
-use super::{TexInstallMode, TexInstallProgress, TexPackageUpdates};
+use super::{TexDependencyInstall, TexInstallMode, TexInstallProgress, TexPackageUpdates};
 
 type Progress = Channel<TexInstallProgress>;
 
@@ -15,7 +15,9 @@ pub fn install_tex(
     Err("One-click TeX install is not available on Linux yet.".into())
 }
 
-pub fn install_dependency(_missing_file: &str, _on_progress: &Progress) -> Result<(), String> {
+pub fn install_dependency(
+    _missing_file: &str, _package: Option<&str>, _on_progress: &Progress,
+) -> Result<TexDependencyInstall, String> {
     #[cfg(windows)]
     return Err(
         "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."

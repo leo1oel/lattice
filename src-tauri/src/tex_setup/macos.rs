@@ -5,14 +5,14 @@
 use super::installer::{
     basic_tex_script, dependency_install_error, dependency_script, extract_uv_archive,
     install_error, install_warning, installer_stage_progress, package_update_error,
-    package_update_script, privileged_command, tex_live_package_for_file, tex_live_year,
-    valid_tex_dependency_name, BASIC_TEX, BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS,
-    UV, UV_ARCHIVE_ROOT,
+    package_update_script, privileged_command, tex_live_year, valid_tex_dependency_name, BASIC_TEX,
+    BASIC_TEX_YEAR, REUSABLE_TEX_ENGINES, REUSABLE_TEX_TOOLS, UV, UV_ARCHIVE_ROOT,
 };
+use super::package_providers::{tex_live_package_for_file, TexLiveProviders};
 use super::package_updates::{
     is_basic_tex_root, parse_update_list, update_list_failure, TexPackageUpdates, UPDATE_COMMAND,
 };
-use super::{TexInstallMode, TexInstallProgress};
+use super::{TexDependencyInstall, TexInstallMode, TexInstallProgress};
 use crate::commands;
 use crate::util::{swap_in_dir, DirSwapError};
 use std::fs;
@@ -202,7 +202,13 @@ pub fn update_packages(on_progress: &Progress) -> Result<(), String> {
     Ok(())
 }
 
-pub fn install_dependency(missing_file: &str, on_progress: &Progress) -> Result<(), String> {
+/// Install the TeX Live package providing `missing_file`. When the
+/// repository leaves several equally likely providers, nothing is installed
+/// and they come back for the writer to pick; the pick returns as `package`,
+/// which only counts when it is one of them.
+pub fn install_dependency(
+    missing_file: &str, package: Option<&str>, on_progress: &Progress,
+) -> Result<TexDependencyInstall, String> {
     if !valid_tex_dependency_name(missing_file) {
         return Err("Invalid missing TeX dependency name.".into());
     }
@@ -218,11 +224,20 @@ pub fn install_dependency(missing_file: &str, on_progress: &Progress) -> Result<
         .ok_or_else(|| "kpsewhich was not found beside tlmgr.".to_string())?;
     if verify_tex_dependency(&kpsewhich, missing_file).is_ok() {
         send_progress(on_progress, "complete", 1.0);
-        return Ok(());
+        return Ok(TexDependencyInstall::Installed);
     }
 
     send_progress(on_progress, "searching-packages", 0.02);
-    let (package, repository) = find_tex_live_package(&tlmgr, missing_file)?;
+    let (providers, repository) = find_tex_live_package(&tlmgr, missing_file)?;
+    let package = match providers {
+        TexLiveProviders::One(package) => package,
+        TexLiveProviders::Several(packages) => {
+            match package.filter(|choice| packages.iter().any(|package| package == choice)) {
+                Some(choice) => choice.to_string(),
+                None => return Ok(TexDependencyInstall::ChoosePackage { packages }),
+            }
+        }
+    };
     let root_path = privileged_root("lattice-tex-dependency-root");
     let script = dependency_script(&root_path, &tlmgr, &package, repository);
     run_privileged_installer(
@@ -234,7 +249,7 @@ pub fn install_dependency(missing_file: &str, on_progress: &Progress) -> Result<
     send_progress(on_progress, "verifying-dependency", 0.95);
     verify_tex_dependency(&kpsewhich, missing_file)?;
     send_progress(on_progress, "complete", 1.0);
-    Ok(())
+    Ok(TexDependencyInstall::Installed)
 }
 
 fn send_progress(channel: &Progress, stage: &str, progress: f64) {
@@ -563,11 +578,11 @@ fn active_tex_live_year(tlmgr: &Path) -> Option<i32> {
     tex_live_year(&version)
 }
 
-/// The package providing `missing_file`, and the fallback repository it was
-/// found in (`None` for the one the user configured).
+/// The packages providing `missing_file`, and the fallback repository they
+/// were found in (`None` for the one the user configured).
 fn find_tex_live_package(
     tlmgr: &Path, missing_file: &str,
-) -> Result<(String, Option<&'static str>), String> {
+) -> Result<(TexLiveProviders, Option<&'static str>), String> {
     let search_pattern = format!("/{}$", regex::escape(missing_file));
     let mut failures = Vec::new();
     for repository in std::iter::once(None).chain(FALLBACK_REPOSITORIES.map(Some)) {
@@ -582,7 +597,7 @@ fn find_tex_live_package(
         if output.status.success() {
             let search_output = String::from_utf8_lossy(&output.stdout);
             return tex_live_package_for_file(&search_output, missing_file)
-                .map(|package| (package, repository));
+                .map(|providers| (providers, repository));
         }
         failures.push(command_failure_detail(&output));
     }
