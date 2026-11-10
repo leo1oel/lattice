@@ -781,6 +781,10 @@ msgstr "{name} copy"
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
 
+#: src/app/use-editor-comments.ts
+msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+msgstr "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} is loaded twice with different options"
@@ -800,6 +804,10 @@ msgstr "{name} is not on this computer yet. Download it from your cloud drive an
 #: src/terminal/terminal-window.ts
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} is still running. Closing stops it."
+
+#: src/app/use-editor-comments.ts
+msgid "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
+msgstr "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
 
 #: src/app/file-open-failure.ts
 msgid "{name} is too large to open in the editor"
@@ -4103,6 +4111,7 @@ msgstr "Comment source"
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
+#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Commenting on {name} on Overleaf…"
 msgstr "Commenting on {name} on Overleaf…"
@@ -4112,6 +4121,7 @@ msgid "comments"
 msgstr "comments"
 
 #: src/app/use-editor-comments.ts
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-collab.tsx
 #: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts
@@ -10512,6 +10522,10 @@ msgstr "Open {name}"
 msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 msgstr "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 
+#: src/app/use-editor-comments.ts
+msgid "Open {name} to comment on it."
+msgstr "Open {name} to comment on it."
+
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
 msgid "Open {path} at line {0}"
@@ -16244,7 +16258,6 @@ msgstr "This file changed outside live editing. Local work was kept; regular Ove
 msgid "This file is not a PDF."
 msgstr "This file is not a PDF."
 
-#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
@@ -17439,6 +17452,10 @@ msgstr "Volume"
 msgid "Waiting"
 msgstr "Waiting"
 
+#: src/app/use-editor-comments.ts
+msgid "Waiting for {name} to finish syncing with Overleaf…"
+msgstr "Waiting for {name} to finish syncing with Overleaf…"
+
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
@@ -17760,6 +17777,14 @@ msgstr "Your answer…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: {message}"
+msgstr "Your comment on {name} did not reach Overleaf: {message}"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
+msgstr "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
 
 #: src/history/review-mode-store.ts
 msgid "Your edits stay in the files. The changes waiting for review are no longer marked."

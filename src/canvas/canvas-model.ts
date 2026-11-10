@@ -7,7 +7,7 @@ import type {
 } from "../app-types";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
-import type { EditorComment } from "../editor/comments/editor-comment-data";
+import type { EditorComment, NoteProgress } from "../editor/comments/editor-comment-data";
 import type { GrammarIgnores, IgnoreGrammar } from "../editor/harper-spellcheck";
 import type { CompiledBuild } from "../editor/latex/compiled-labels";
 import type { EditableFigureManifest } from "../editor/insert/editable-figure";
@@ -190,8 +190,8 @@ type CanvasReview = Readonly<{
   activeEditorCommentId: string | null;
   commentAuthorName: string;
   commentAuthorId: string;
-  /** Saves a new note: the local annotation it became, "overleaf" when sent as an Overleaf thread, or null when refused. */
-  onCreateEditorComment: (comment: EditorComment) => EditorComment | "overleaf" | null;
+  /** Saves a new note: the local annotation it became, "overleaf" when sent as an Overleaf thread (`report` follows it), or null when refused. */
+  onCreateEditorComment: (comment: EditorComment, report: (progress: NoteProgress) => void) => EditorComment | "overleaf" | null;
   /** The revision rounds over the local annotations: the review card, Revise, the PDF's marks. */
   annotationRounds: AnnotationRounds;
   onOpenEditorComments: () => void;

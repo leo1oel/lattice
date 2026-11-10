@@ -1,5 +1,7 @@
 //! Commenting on a document the editor does not have open, the way a comment
-//! made on the PDF lands on whichever file its passage came from.
+//! made on the PDF lands on whichever file its passage came from, or does not
+//! hold live just then: the open file the live channel let go of after an
+//! outside write, until a sync settles it, or while the channel reconnects.
 //!
 //! Overleaf anchors a comment with an update on the live channel, and its
 //! real-time server applies an update only to a document the sending
@@ -27,7 +29,7 @@ use std::path::Path;
 use std::sync::mpsc::Receiver;
 use tauri::async_runtime as rt;
 
-/// What became of a comment on a document the editor does not have open.
+/// What became of a comment on a document the editor does not hold live.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CommentPlacement {

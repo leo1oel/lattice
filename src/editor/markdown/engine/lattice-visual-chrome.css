@@ -435,6 +435,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .lx-md-emoji-picker { display: none;
   white-space: pre-wrap;
 }
 .lx-md-comment-error { margin: 0; color: var(--status-danger); font-size: var(--type-caption-size); }
+.lx-md-comment-status { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); }
 .lx-md-comment-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
 
 /* --- Headings ------------------------------------------------------------------ */

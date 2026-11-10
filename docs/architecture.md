@@ -352,7 +352,7 @@ which folders already hold a linked copy, so Open from Overleaf reopens one
 instead of downloading a second (`overleaf/local_copies.rs`),
 the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`; a sync's edits to documents go as live
 operations instead, `overleaf/doc_push.rs`, and so does a comment on a document the editor does not
-have open, `overleaf/doc_comment.rs`), history and review (`overleaf/review.rs`),
+hold live, `overleaf/doc_comment.rs`), history and review (`overleaf/review.rs`),
 and a real three-way merge (`overleaf/sync.rs`). The merge keeps a pristine copy of every text file as of
 the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,

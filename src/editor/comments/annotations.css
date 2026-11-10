@@ -728,3 +728,8 @@
    surface the panel sits on: a Trellis panel's, or a drawer's. */
 .annotations-empty { --art-paper: var(--lattice-panel-surface, var(--surface-input)); }
 .editor-comments-drawer .annotations-empty { --art-paper: var(--surface-input); }
+.annotation-form-status {
+  margin: 0;
+  color: var(--text-secondary);
+  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
+}

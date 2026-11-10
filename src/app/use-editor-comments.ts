@@ -2,13 +2,15 @@ import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { OpenProjectFile, ProjectSnapshot } from "../app-types";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage, toMessage } from "../app-utils";
+import { baseName } from "../lib/base-name";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import {
   createEditorCommentReply,
   nextAnnotationNumber,
   type AnnotationRound,
   type EditorComment,
+  type NoteProgress,
 } from "../editor/comments/editor-comment-data";
 import { publishMarginReviewComments } from "../overleaf/margin-review-files";
 import { showError } from "./notify";
@@ -19,11 +21,11 @@ import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 type Ref<T> = { readonly current: T };
 
 /**
- * Where a note on a file goes: an annotation of this project's, or a thread on
- * Overleaf. A thread is anchored through the live channel: in the open file
- * when the channel holds it ("overleaf"), or by joining the file's document
- * in the background ("other-file", `createInDocument`). While nothing is live
- * ("offline") it can go nowhere yet.
+ * Where a note made on the PDF goes: an annotation of this project's, or a
+ * thread on Overleaf. A thread is anchored through the live channel: in the
+ * open file when the channel holds it ("overleaf"), or by joining the file's
+ * document in the background ("other-file", `createInDocument`). While nothing
+ * is live ("offline") it can go nowhere yet.
  */
 export type CommentDestination = "annotation" | "overleaf" | "other-file" | "offline";
 
@@ -38,6 +40,39 @@ function withAnnotations(change: (annotations: EditorComment[]) => EditorComment
     const annotations = change(current.annotations);
     return annotations === current.annotations ? current : { ...current, annotations };
   };
+}
+
+/** How long a comment waits for the sync owed its file to bring Overleaf's copy up to the passage. */
+const SYNC_WAIT_MS = 30_000;
+
+/**
+ * Resolves "settled" once `owed` stops holding; nothing announces it. The
+ * writer is waiting, so the sync runs now, as Sync runs it, rather than after
+ * the automatic syncs' rate limit; one already running is waited out first,
+ * then one is asked for. "unsynced" when the one asked for ended with the
+ * file still owed (it failed, or the file changed again meanwhile), and
+ * "syncing" when a sync is still running after `SYNC_WAIT_MS`.
+ */
+function syncSettled(owed: () => boolean, syncing: () => boolean, sync: () => Promise<void>) {
+  const deadline = Date.now() + SYNC_WAIT_MS;
+  let asked: { ended: boolean } | null = null;
+  return new Promise<"settled" | "unsynced" | "syncing">((resolve) => {
+    const check = () => {
+      if (!owed()) resolve("settled");
+      else if (asked?.ended) resolve("unsynced");
+      else if (Date.now() >= deadline) resolve("syncing");
+      else {
+        if (!asked && !syncing()) {
+          const request = { ended: false };
+          asked = request;
+          const end = () => { request.ended = true; };
+          void sync().then(end, end);
+        }
+        window.setTimeout(check, 250);
+      }
+    };
+    check();
+  });
 }
 
 /** How many annotation saves this session has sent, which orders them (`save_annotations`). */
@@ -98,7 +133,7 @@ export function useEditorComments({
   const openGenerationRef = useRef(0);
   const {
     overleafLink, overleafComments, overleafCommentsRef, overleafDocPaths, overleafRealtime, overleafEditorComments,
-    setOverleafCollabOpen, setOverleafCollabTab,
+    overleafSyncOwed, overleafSyncRef, overleafSyncingRef, setOverleafCollabOpen, setOverleafCollabTab,
   } = overleaf;
 
   /**
@@ -252,13 +287,6 @@ export function useEditorComments({
     if (created) update(commentId, (item) => ({ replies: [...item.replies, created] }));
   }, [author.id, author.name, overleafCommentsRef, update]);
 
-  /**
-   * Add a note the editor or the PDF composed; see the module note for which
-   * kind it becomes. A local annotation takes the next pin number. Resolves
-   * to the annotation as saved, "overleaf" when it was sent as an Overleaf
-   * thread, or null when it was refused (saying why), so the composer keeps
-   * what was typed.
-   */
   const docIdOf = useCallback((path: string) => (
     [...overleafDocPaths.entries()].find(([, docPath]) => docPath === path)?.[0] ?? null
   ), [overleafDocPaths]);
@@ -275,7 +303,29 @@ export function useEditorComments({
     return overleafRealtime.status === "live" ? "other-file" : "offline";
   }, [docIdOf, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, overleafRealtime.status, project]);
 
-  const create = useCallback((comment: EditorComment): EditorComment | "overleaf" | null => {
+  /**
+   * Add a note the editor or the PDF composed; see the module note for which
+   * kind it becomes. A local annotation takes the next pin number. Returns the
+   * annotation as saved, "overleaf" when it is being sent as an Overleaf
+   * thread, whose progress `report` follows to the end (null once Overleaf
+   * has it, else why not, so the composer keeps what was typed), or null
+   * when it was refused (saying why).
+   *
+   * A document of the linked project takes the comment as an Overleaf thread
+   * whether or not the editor holds it live. The editor lets go of its file
+   * for a while in ordinary use: an outside write (the Agent revising it, say)
+   * hands it to regular sync until a sync settles it, and a reconnect or a
+   * co-author's text arriving takes it out of live editing for a moment.
+   * Refusing the comment meanwhile told the writer to reconnect when nothing
+   * needed it. Overleaf anchors a thread on any document a connection has
+   * joined, so the backend joins it on a connection of its own, as for a note
+   * made on the PDF, and places the passage through whatever separates its
+   * copy from the open buffer, which the comment's offsets count into. A
+   * passage the outside write brought is in Overleaf's copy only once that
+   * sync has settled, so a comment on it has that sync run now, waits for it
+   * and tries again.
+   */
+  const create = useCallback((comment: EditorComment, report: (progress: NoteProgress) => void): EditorComment | "overleaf" | null => {
     const docId = docIdOf(comment.path);
     if (!overleafLink || !docId || !project) {
       const annotation = { ...comment, number: nextAnnotationNumber(stateRef.current.annotations) };
@@ -283,15 +333,45 @@ export function useEditorComments({
       setActiveId(annotation.id);
       return annotation;
     }
-    if (!overleafRealtime.liveFile || overleafRealtime.docId !== docId) {
-      showError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
+    const target = { projectRoot: project.root, docId, path: comment.path };
+    const name = baseName(comment.path);
+    const failed = (reason: unknown) => {
+      const message = hostErrorMessage(reason);
+      report({ saving: null, error: t`Your comment on ${name} did not reach Overleaf: ${message}` });
+    };
+    if (overleafRealtime.liveFile && overleafRealtime.docId === docId) {
+      report({ saving: t`Commenting on ${name} on Overleaf…`, error: null });
+      void overleafComments.create(target, comment.from, comment.quote, comment.body).then(() => report(null), failed);
+      return "overleaf";
+    }
+    const source = openSources().get(comment.path);
+    if (source === undefined) {
+      showError(t`Open ${name} to comment on it.`);
       return null;
     }
-    void overleafComments
-      .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
-      .catch((reason) => showError(toMessage(reason)));
+    const place = () => overleafComments.createInDocument(target, source, comment.from, comment.quote, comment.body);
+    const placeOnceSynced = async () => {
+      const placement = await place();
+      if (placement === "placed" || !overleafSyncOwed(comment.path)) return placement;
+      report({ saving: t`Waiting for ${name} to finish syncing with Overleaf…`, error: null });
+      const settled = await syncSettled(
+        () => overleafSyncOwed(comment.path), () => overleafSyncingRef.current, () => overleafSyncRef.current(),
+      );
+      return settled === "settled" ? place() : settled;
+    };
+    report({ saving: t`Commenting on ${name} on Overleaf…`, error: null });
+    void placeOnceSynced().then((placement) => {
+      if (placement === "placed") report(null);
+      else if (placement === "notFound") {
+        report({ saving: null, error: t`Your comment on ${name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced.` });
+      } else if (placement === "unsynced") {
+        report({ saving: null, error: t`${name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment.` });
+      } else {
+        report({ saving: null, error: t`${name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes.` });
+      }
+    }, failed);
     return "overleaf";
-  }, [docIdOf, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, commit, t]);
+  }, [docIdOf, openSources, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, overleafSyncOwed, overleafSyncRef, overleafSyncingRef, project, commit, t]);
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);

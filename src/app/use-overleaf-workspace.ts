@@ -41,6 +41,7 @@ import { overleafSyncWarnings } from "./overleaf-sync-warnings";
 import { reportSyncOutcome } from "./overleaf-sync-outcome";
 import { overleafSyncSummary } from "./overleaf-sync-summary";
 import { unsettledPaths } from "./overleaf-sync-unsettled";
+import { useBuildAutoversion } from "./use-build-autoversion";
 
 type OverleafSyncOptions = {
   auto?: boolean;
@@ -143,6 +144,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // batch it owns. A completed older pass must not retire the newer work.
   const externalChangesRef = useRef(new Map<string, symbol>());
   const [externalChangeGeneration, bumpExternalChangeGeneration] = useReducer(increment, 0);
+  const overleafSyncOwed = useCallback((path: string) => externalChangesRef.current.has(path), []);
   const resumeRealtimePathsRef = useRef<(paths: readonly string[]) => void>(() => {});
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
@@ -158,7 +160,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   /** Path → Overleaf's id and kind, which is what its endpoints take. */
   const overleafEntitiesRef = useRef<Map<string, { id: string; kind: string }>>(new Map());
   const lastAutoSyncRef = useRef(0);
-  const lastAutoVersionRef = useRef(0);
   /** Every automatic sync stamps the rate-limit clock before it starts. */
   const autoSync = useCallback((options: Omit<OverleafSyncOptions, "auto"> = {}) => {
     lastAutoSyncRef.current = Date.now();
@@ -754,17 +755,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     };
   }, [overleafLink, overleafSyncMode, project?.root, setOverleafRemoteChanges]);
 
-  // Version successful builds of linked projects at most every 2 minutes.
-  // Unlinked projects never get surprise commits in a repo managed by hand.
-  useEffect(() => {
-    if (!build?.success || !overleafLink) return;
-    const now = Date.now();
-    if (now - lastAutoVersionRef.current < 120_000) return;
-    lastAutoVersionRef.current = now;
-    void invoke<string | null>("git_auto_commit", {
-      message: AUTO_COMMIT_MESSAGES.autoSaved, author: null,
-    }).catch(() => {});
-  }, [build, overleafLink]);
+  useBuildAutoversion(build, overleafLink);
 
   return {
     overleafLink, overleafProjectLinked, overleafSyncing,
@@ -776,13 +767,15 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     overleafCollabTab, setOverleafCollabTab,
     conflictPath, setConflictPath,
     /** Read by callers that must reach the newest sync without re-subscribing. */
-    overleafSyncRef,
+    overleafSyncRef, overleafSyncingRef,
     refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync, settleRemoteDeletes,
     openCurrentOverleafProject, jumpToOverleafPeer,
     overleafRealtime, overleafPresence, overleafChat, overleafComments,
     /** The comment handlers in App reach the newest actions through this ref. */
     overleafCommentsRef,
     overleafTrackChanges, overleafDocPaths, overleafEditorComments, overleafActiveCursors,
+    /** Whether an outside write handed `path` to a sync that has not settled it yet. */
+    overleafSyncOwed,
   };
 }
 

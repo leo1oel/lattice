@@ -781,6 +781,10 @@ msgstr "{name} 副本"
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} 没保存成功，仍要关闭并丢弃修改？"
 
+#: src/app/use-editor-comments.ts
+msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+msgstr "{name} 没能完成与 Overleaf 的同步，评论还没加上。请重新同步后再添加评论。"
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} 以不同选项加载了两次"
@@ -800,6 +804,10 @@ msgstr "{name} 还不在这台电脑上。请先从云盘下载，然后重试�
 #: src/terminal/terminal-window.ts
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} 仍在运行，关闭会将其停止。"
+
+#: src/app/use-editor-comments.ts
+msgid "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
+msgstr "{name} 仍在与 Overleaf 同步，评论还没加上。请等同步完成后再试。"
 
 #: src/app/file-open-failure.ts
 msgid "{name} is too large to open in the editor"
@@ -4103,6 +4111,7 @@ msgstr "评论来源"
 msgid "Comment visibility"
 msgstr "评论筛选"
 
+#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Commenting on {name} on Overleaf…"
 msgstr "正在把评论发到 Overleaf 上的 {name}…"
@@ -4112,6 +4121,7 @@ msgid "comments"
 msgstr "注释"
 
 #: src/app/use-editor-comments.ts
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-collab.tsx
 #: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts
@@ -10512,6 +10522,10 @@ msgstr "打开 {name}"
 msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 msgstr "用默认应用打开 {name}？SVG 文件常会在网页浏览器中打开，浏览器会运行其中的脚本。"
 
+#: src/app/use-editor-comments.ts
+msgid "Open {name} to comment on it."
+msgstr "请先打开 {name} 再评论"
+
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
 msgid "Open {path} at line {0}"
@@ -16244,7 +16258,6 @@ msgstr "此文件在别处被改过，已保留本机修改，同步时会对齐
 msgid "This file is not a PDF."
 msgstr "此文件不是 PDF"
 
-#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "此文件没在实时协作中，请重连后再评论"
@@ -17439,6 +17452,10 @@ msgstr "卷号"
 msgid "Waiting"
 msgstr "等待中"
 
+#: src/app/use-editor-comments.ts
+msgid "Waiting for {name} to finish syncing with Overleaf…"
+msgstr "正在等待 {name} 与 Overleaf 同步完成…"
+
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
@@ -17760,6 +17777,14 @@ msgstr "你的回答…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "你的颜色"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: {message}"
+msgstr "你在 {name} 上的评论没有发到 Overleaf：{message}"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
+msgstr "你在 {name} 上的评论没有发到 Overleaf：所选文字在上次同步后改过，Overleaf 上的这份文件这里和本地不一样。等文件同步后再试。"
 
 #: src/history/review-mode-store.ts
 msgid "Your edits stay in the files. The changes waiting for review are no longer marked."

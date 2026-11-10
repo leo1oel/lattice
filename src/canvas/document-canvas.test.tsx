@@ -47,7 +47,7 @@ vi.mock("./canvas-lazy-modules", async () => {
     path?: string; source?: string; initialViewState?: { camera?: { x: number; y: number; z: number } };
     editorComments?: Array<{ id: string; from: number; to: number }>; activeEditorCommentId?: string | null;
     onEligibilityChange?: (reason: string | null) => void; onEditorCommentClick?: (id: string) => void;
-    onCreateComment?: (from: number, to: number, body: string) => void; theme?: string;
+    onCreateComment?: (from: number, to: number, body: string, report: () => void) => void; theme?: string;
     revealRequest?: { id: string; target: unknown } | null; onRevealHandled?: (id: string) => void;
     synchronizeSourceScroll?: boolean; onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   }) => {
@@ -76,7 +76,7 @@ vi.mock("./canvas-lazy-modules", async () => {
       {props.editorComments?.map((comment) => (
         <button key={comment.id} data-testid={`thread-${comment.id}`} onClick={() => props.onEditorCommentClick?.(comment.id)} />
       ))}
-      {props.onCreateComment && <button data-testid="preview-create-comment" onClick={() => props.onCreateComment?.(2, 7, "Preview comment")} />}
+      {props.onCreateComment && <button data-testid="preview-create-comment" onClick={() => props.onCreateComment?.(2, 7, "Preview comment", vi.fn())} />}
       {props.onEligibilityChange && (
         <button data-testid={`${testId}-report-lossy`} onClick={() => props.onEligibilityChange?.("Visual editing is unavailable here.")} />
       )}
@@ -256,7 +256,7 @@ async function primarySourceView() {
  * selection toolbar. jsdom has no text layout, so the editor reports `bounds`
  * and the selection sits wherever `coords` says.
  */
-async function composeCommentOnBold(bounds: DOMRect, coords: () => { left: number; right: number; top: number; bottom: number }) {
+async function composeCommentOnBold(bounds: DOMRect, coords: () => ReturnType<EditorView["coordsAtPos"]>) {
   const view = await primarySourceView();
   vi.spyOn(view.dom.closest(".source-editor")!, "getBoundingClientRect").mockReturnValue(bounds);
   vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(bounds);
@@ -463,7 +463,7 @@ describe("DocumentCanvas / mode", () => {
     await waitFor(() => expect(composer).toBeVisible());
     expect(within(composer).getByRole("textbox")).toHaveValue("Keep this draft");
     fireEvent.click(within(composer).getByRole("button", { name: /^Save(?! and)/ }));
-    expect(props.review.onCreateEditorComment).toHaveBeenCalledWith(expect.objectContaining({ quote: "bold", body: "Keep this draft", from: 6, to: 10 }));
+    expect(vi.mocked(props.review.onCreateEditorComment).mock.calls[0][0]).toMatchObject({ quote: "bold", body: "Keep this draft", from: 6, to: 10 });
   });
 
   it("keeps the selection toolbar off a panel that replaced the editor", async () => {
@@ -542,7 +542,7 @@ describe("DocumentCanvas / mode", () => {
     fireEvent.click(screen.getByTestId(`thread-${remote.id}`));
     expect(props.review.onReplyEditorComment).toHaveBeenCalledWith(remote.id);
     fireEvent.click(screen.getByTestId("preview-create-comment"));
-    expect(props.review.onCreateEditorComment).toHaveBeenCalledWith(expect.objectContaining({ path: "notes.md", from: prefix.length + 2, to: prefix.length + 7, quote: "local", body: "Preview comment" }));
+    expect(vi.mocked(props.review.onCreateEditorComment).mock.calls[0][0]).toMatchObject({ path: "notes.md", from: prefix.length + 2, to: prefix.length + 7, quote: "local", body: "Preview comment" });
     rerenderWith({ review: { editorComments: [{ ...remote, body: "Updated reply", resolved: true }] } });
     expect(comments()).toEqual([{ ...remote, from: 12, to: 18, body: "Updated reply", resolved: true }]);
   });
