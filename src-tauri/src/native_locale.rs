@@ -8,9 +8,7 @@
 //! wins harmlessly.
 
 use serde::Deserialize;
-use tauri::menu::{
-    AboutMetadata, CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
-};
+use tauri::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Runtime};
 
 /// Translated titles for the app menu. Predefined items keep their native
@@ -23,6 +21,10 @@ use tauri::{AppHandle, Runtime};
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) struct MenuLabels {
     about: String,
+    /// The project's repository and website, linked from the About panel and
+    /// the Help menu.
+    github: String,
+    website: String,
     /// Lattice ▸ Check for Updates…, or Restart to Update… once an update is
     /// installed and waiting; `None` where Lattice does not update itself.
     /// The page's updater answers it (src/telemetry/app-updater.tsx).
@@ -177,11 +179,6 @@ fn close_action(id: &str, label: &str) -> Option<CloseAction> {
     }
 }
 
-/// The attribution Trellis's license asks shipped apps to show.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub(crate) const TRELLIS_ATTRIBUTION: &str =
-    "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
-
 /// Tauri's default macOS menu (`Menu::default`), with translated titles. The
 /// Window and Help submenus keep Tauri's ids so they stay registered as
 /// NSApp's windows and help menus.
@@ -190,17 +187,6 @@ pub(crate) fn build_menu<R: Runtime>(
     app: &AppHandle<R>, labels: &MenuLabels,
 ) -> tauri::Result<Menu<R>> {
     let package = app.package_info();
-    let config = app.config();
-    let about = AboutMetadata {
-        name: Some(package.name.clone()),
-        version: Some(package.version.to_string()),
-        copyright: config.bundle.copyright.clone(),
-        authors: config.bundle.publisher.clone().map(|publisher| vec![publisher]),
-        // Trellis's license (commercial tier) requires this attribution; the
-        // non-commercial tier asks for it too. See NOTICE.
-        credits: Some(TRELLIS_ATTRIBUTION.to_string()),
-        ..Default::default()
-    };
     // The project title menu's actions, where a Mac user looks for them
     // first. The page binds ⇧⌘N, ⌘O and ⌘, too and sees them first, as with
     // ⌘W below, so one key runs its command once.
@@ -217,7 +203,7 @@ pub(crate) fn build_menu<R: Runtime>(
         app,
         package.name.clone(),
         true,
-        &[&PredefinedMenuItem::about(app, Some(labels.about.as_str()), Some(about))?],
+        &[&crate::about_links::about_item(app, &labels.about, &labels.website, &labels.github)?],
     )?;
     if let Some(title) = &labels.check_for_updates {
         app_menu.append(&MenuItem::with_id(app, CHECK_FOR_UPDATES, title, true, None::<&str>)?)?;
@@ -377,6 +363,10 @@ pub(crate) fn build_menu<R: Runtime>(
             &page_command("report-problem", &labels.report_problem, true, None)?,
         ],
     )?;
+    help_menu.append(&PredefinedMenuItem::separator(app)?)?;
+    for item in crate::about_links::help_items(app, &labels.website, &labels.github)? {
+        help_menu.append(&item)?;
+    }
     Menu::with_items(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu],
@@ -394,6 +384,9 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
     let id = event.id().as_ref();
     if id == QUIT {
         crate::save_before_close::quit(app);
+        return;
+    }
+    if crate::about_links::handle_menu_event(app, id) {
         return;
     }
     if id == CLOSE_TAB || id == CLOSE_WINDOW {

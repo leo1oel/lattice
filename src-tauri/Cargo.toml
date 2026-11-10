@@ -135,6 +135,9 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = [
   "std",
   "NSArray",
+  "NSAttributedString",
+  "NSDictionary",
+  "NSRange",
   "NSGeometry",
   "NSString",
   "NSURL",
@@ -146,6 +149,8 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
   "objc2-core-foundation",
   "NSAccessibility",
   "NSAppearance",
+  "NSApplication",
+  "NSAttributedString",
   "NSButton",
   "NSColor",
   "NSColorSampler",

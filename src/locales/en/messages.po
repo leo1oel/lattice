@@ -789,9 +789,19 @@ msgstr "{name} is still running. Closing stops it."
 msgid "{name} is too large to open in the editor"
 msgstr "{name} is too large to open in the editor"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} on GitHub"
+msgstr "{name} on GitHub"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name} properties"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} Website"
+msgstr "{name} Website"
 
 #: src/papers/paper-identity.ts
 msgid "{names} +{more}"

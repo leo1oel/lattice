@@ -5,6 +5,7 @@
 //! `ipc`, a few self-contained features register their own, and the behaviour
 //! behind them lives in the domain modules below.
 
+mod about_links;
 mod agent_literature;
 mod alphaxiv;
 mod app_identity;
@@ -41,6 +42,8 @@ mod literature;
 mod literature_credentials;
 mod literature_service;
 mod live_preview;
+#[cfg(target_os = "macos")]
+mod macos_about;
 #[cfg(target_os = "macos")]
 mod macos_window;
 #[cfg(not(target_os = "macos"))]
