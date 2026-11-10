@@ -9293,10 +9293,6 @@ msgstr "更多状态"
 msgid "More PDF actions"
 msgstr "更多"
 
-#: src/platform/host-errors-setup.ts
-msgid "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
-msgstr "TeX Live 中有多个组件提供 {file}：{packages}。未自动安装任何组件"
-
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "本文引用最多"
@@ -13834,6 +13830,15 @@ msgstr "设置…"
 #: src/papers/add-papers-sheet.tsx
 msgid "Several matches"
 msgstr "有多条匹配"
+
+#: src/app/use-tex-setup.ts
+msgid "Several packages provide this file"
+msgstr "多个组件都提供此文件"
+
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Several TeX Live packages provide {0}. Choose the one to install."
+msgstr "TeX Live 中有多个组件提供 {0}，请选择要安装的组件"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"

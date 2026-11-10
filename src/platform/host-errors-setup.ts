@@ -19,11 +19,10 @@ function bundledPart(what: string): string {
 }
 
 export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
-  // A missing package (tex_setup/installer.rs, tex_setup/macos.rs). The
+  // A missing package (tex_setup/package_providers.rs, tex_setup/macos.rs). The
   // first line is the summary the install sheet shows; what follows it is
   // tlmgr's or kpsewhich's own output, kept as written.
-  ["tex_setup/installer.rs", "No TeX Live package provides {missing_file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder.", ([file]) => t`No TeX Live package provides ${file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder.`],
-  ["tex_setup/installer.rs", "More than one TeX Live package provides {missing_file}: {}. Nothing was installed automatically.", ([file, packages]) => t`More than one TeX Live package provides ${file}: ${packages}. Nothing was installed automatically.`],
+  ["tex_setup/package_providers.rs", "No TeX Live package provides {missing_file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder.", ([file]) => t`No TeX Live package provides ${file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder.`],
   ["tex_setup/macos.rs", "Invalid missing TeX dependency name.", () => t`Invalid missing TeX dependency name.`],
   ["tex_setup/macos.rs", "TeX Live's package manager is not installed.", () => t`TeX Live's package manager is not installed.`],
   ["tex_setup/macos.rs", "The TeX Live repository could not be searched.\n{}", ([detail]) => t`The TeX Live repository could not be searched.\n${detail}`],

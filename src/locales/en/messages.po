@@ -9293,10 +9293,6 @@ msgstr "More editor status"
 msgid "More PDF actions"
 msgstr "More PDF actions"
 
-#: src/platform/host-errors-setup.ts
-msgid "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
-msgstr "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
-
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "Most cited here"
@@ -13834,6 +13830,15 @@ msgstr "Settings…"
 #: src/papers/add-papers-sheet.tsx
 msgid "Several matches"
 msgstr "Several matches"
+
+#: src/app/use-tex-setup.ts
+msgid "Several packages provide this file"
+msgstr "Several packages provide this file"
+
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Several TeX Live packages provide {0}. Choose the one to install."
+msgstr "Several TeX Live packages provide {0}. Choose the one to install."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
