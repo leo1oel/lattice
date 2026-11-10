@@ -1,7 +1,7 @@
 name: Release
 
 # Push a version tag (e.g. v0.1.38) to build, sign, and publish a GitHub
-# Release for Apple Silicon macOS. tauri-action also generates latest.json,
+# Release for Apple silicon macOS. tauri-action also generates latest.json,
 # which the in-app updater reads to offer updates to installed copies.
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   release:
-    # macos-latest is Apple Silicon (arm64), which is all we target.
+    # macos-latest is Apple silicon (arm64), which is all we target.
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -75,7 +75,7 @@ jobs:
 
           cat >> "$notes_path" <<'EOF'
 
-          ## Install (Apple Silicon Mac)
+          ## Install (Apple silicon Mac)
 
           Download the **.dmg** below, open it, and drag Lattice to Applications.
 
@@ -272,7 +272,7 @@ jobs:
           prerelease: false
           # Generate and upload latest.json so the in-app updater can find updates.
           uploadUpdaterJson: true
-          # Apple Silicon only. This makes the updater platform key darwin-aarch64.
+          # Apple silicon only. This makes the updater platform key darwin-aarch64.
           args: --target aarch64-apple-darwin
 
       # The fonts may only reach users inside the app's web assets, which the

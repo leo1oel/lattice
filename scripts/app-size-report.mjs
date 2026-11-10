@@ -218,7 +218,7 @@ const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 // The Open Slide runtime is staged for the host it is built on. Its Linux
 // copy carries the larger ELF builds of rolldown, lightningcss and Tailwind's
 // oxide: 70,781,079 bytes against macOS's 67,427,917 on 2026-11-07. The
-// Intel Mac copy's x86_64 builds of the same packages are larger too:
+// Intel-based Mac copy's x86_64 builds of the same packages are larger too:
 // 69,915,321 bytes on 2026-11-07. Keys are `${platform}-${arch}` or a
 // platform alone.
 const PRESENTATION_RUNTIME_BUDGET_BYTES = {
@@ -330,7 +330,7 @@ export async function checkAppSizeBudgets(
 // 63.1 MiB, and the v0.16.0 build reached 333.2 MiB on disk. 2026-11-09: set
 // to 400 MiB (captain's call) so routine growth stops blocking releases and PRs.
 const INSTALLED_APP_BUDGET_BYTES = 400 * 1024 * 1024;
-// The Intel Mac app (macos-intel.yml), built on an Intel host, carries x86_64
+// The Intel-based Mac app (macos-intel.yml), built on an Intel host, carries x86_64
 // builds of the app, Node and the runtimes' native packages, all larger: the
 // first one built at 335.8 MiB on disk on 2026-11-07.
 const INSTALLED_INTEL_APP_BUDGET_BYTES = 340 * 1024 * 1024;

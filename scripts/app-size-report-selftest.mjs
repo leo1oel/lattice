@@ -139,7 +139,7 @@ for (const [overrides, error] of [
   const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides }, { platform: "darwin", arch: "arm64" });
   await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
 }
-// The Intel Mac stages larger x86_64 builds of the same runtime, under a budget of its own.
+// The Intel-based Mac stages larger x86_64 builds of the same runtime, under a budget of its own.
 for (const [presentationRuntimeBytes, error] of [[68 * MiB, null], [68 * MiB + 1, /Presentation runtime is \d+ bytes; budget is 71303168$/]]) {
   const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], presentationRuntimeBytes }, { platform: "darwin", arch: "x64" });
   await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
