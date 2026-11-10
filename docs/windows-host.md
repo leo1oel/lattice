@@ -23,7 +23,7 @@ live preview is still macOS-only.
 
 ## Installer builds and checks
 
-See [the Windows installer implementation](windows-installer-proposal.md) for
+See [the Windows installer implementation](windows-installer.md) for
 triggers, isolated install/uninstall checks, public release assets and limits.
 PR/manual builds provide a checked Actions ZIP (GitHub login required, 14-day
 retention); only a successful upstream release can publish permanent assets.

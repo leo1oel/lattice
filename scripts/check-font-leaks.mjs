@@ -26,12 +26,15 @@
  *                     `--appimage-extract` (squashfs-root): the same rules as
  *                     an .app, with the runtimes where Tauri puts resources on
  *                     Linux (usr/lib/Lattice/).
+ *   windows DIRECTORY an installed experimental Windows app (the directory
+ *                     holding research-writer.exe): the same rules, with the
+ *                     runtimes beside the executable.
  *
  * A font is recognized by its extension or its signature, so a renamed copy
  * is caught too. Output names paths only; it never prints file contents.
  * The repository itself is checked by src/platform/font-license-guard.test.ts.
  *
- * Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP | appdir DIRECTORY
+ * Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP | appdir DIRECTORY | windows DIRECTORY
  * Exit codes: 0 clean · 1 a finding · 2 usage or I/O error.
  */
 
@@ -148,7 +151,7 @@ export function checkSite(site, timelessHashes) {
 
 function main([mode, target, ...rest]) {
   if (!target || rest.length > 0 || !["assets", "site", "app", "appdir", "windows"].includes(mode)) {
-    process.stderr.write("Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP | appdir DIRECTORY\n");
+    process.stderr.write("Usage: node scripts/check-font-leaks.mjs assets DIRECTORY | site DIRECTORY | app APP | appdir DIRECTORY | windows DIRECTORY\n");
     return 2;
   }
   const fontsDirectory = process.env.LATTICE_PRIVATE_FONTS_DIR || null;

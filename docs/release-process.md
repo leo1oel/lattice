@@ -16,7 +16,7 @@ release.
 
 An independent **experimental Windows x64 NSIS installer** can also be attached
 after its own install, native-app and uninstall checks pass. See
-[Windows installer](windows-installer-proposal.md) and
+[Windows installer](windows-installer.md) and
 `.github/workflows/windows-installer.yml`. It uses open-licensed fonts, is
 unsigned, keeps the Agent disabled and provides manual updates only. Its
 namespaced installer, checksum, build information and SmartScreen instructions

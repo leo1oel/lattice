@@ -123,8 +123,6 @@ function deviceHelperTreeMatches(source, candidate) {
   );
 }
 
-
-
 // Pi and OpenCode are left out of the bundle: the fork installs one on demand, from the
 // integrity-pinned lockfile in apps/server/providerRuntimes/<runtime>/, when the user
 // picks that provider (apps/server/src/provider/providerRuntimes.ts). Together with
