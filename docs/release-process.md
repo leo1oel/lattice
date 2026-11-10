@@ -163,15 +163,20 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
 1. **build** (`ubuntu-22.04`, so the AppImage's glibc floor is 22.04's):
    `pnpm tauri build --bundles appimage` with the same pinned Synara source,
    licensed fonts, Firecrawl key and tldraw key as the Mac build, then
+   `.github/scripts/unbundle-wayland-client.sh`, which rebuilds the AppImage
+   without the `libwayland-client` linuxdeploy bundled from 22.04 (the host's
+   Mesa needs the host's own, or WebKit cannot create its EGL display and the
+   window stays empty), then
    `check-font-leaks.mjs assets` on the AppImage alone (an allowed asset name,
    not a font) and `check-font-leaks.mjs appdir` on its extracted contents
    (no Timeless file outside the binary, no font outside the bundled
    runtimes under `usr/lib/Lattice/`).
-2. **smoke** (Docker guests `ubuntu:22.04`, `ubuntu:24.04`, `fedora:45`,
-   with GTK 3, Mesa and Xvfb): `.github/scripts/smoke-appimage.sh` extracts
-   the AppImage, requires every bundled ELF to resolve its libraries and its
-   glibc/libstdc++ versions, and requires the app to still be running 20 s
-   after launch under Xvfb.
+2. **smoke** (Docker guests `ubuntu:22.04`, `ubuntu:24.04`, `ubuntu:26.04`,
+   `fedora:45`, with GTK 3, Mesa and Xvfb): `.github/scripts/smoke-appimage.sh`
+   extracts the AppImage, requires every bundled ELF to resolve its libraries
+   and its glibc/libstdc++ versions, and requires the app to still be running
+   20 s after launch under Xvfb, with WebKit's web process still running at
+   15 s (when it dies, the app stays up with an empty window).
 3. **e2e** (`ubuntu-22.04`, TeX Live from apt): `tauri-driver` with
    WebKitGTK's `WebKitWebDriver` launches the AppImage itself under Xvfb, and
    `scripts/linux-e2e.mjs` checks that the first launch opens the tutorial,
@@ -202,7 +207,7 @@ and checks out the tag's commit for the scripts it runs, so a fix to the
 workflow or to the code, merged on `main`, takes effect at the next tagged
 release; until then that release has no AppImage.
 A pull request that changes the packaging (the workflow, the smoke script,
-`scripts/linux-e2e.mjs`, `scripts/check-font-leaks.mjs` or the runtime pruning
+`unbundle-wayland-client.sh`, `scripts/linux-e2e.mjs`, `scripts/check-font-leaks.mjs` or the runtime pruning
 in `scripts/lib/runtime-prune.mjs`) runs steps 1–3
 with the open-licensed fonts and no baked-in keys, and attaches nothing; so
 does a manual `workflow_dispatch` run.

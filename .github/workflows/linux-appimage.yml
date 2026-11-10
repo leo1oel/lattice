@@ -13,9 +13,11 @@ name: Linux AppImage
 # attached only when every check below passed:
 #
 # - build: the AppImage from the release's commit, with the same secrets the
-#   Mac build bakes in, and its contents checked for loose fonts;
-# - smoke: extracted on Ubuntu 22.04 and 24.04 and Fedora 45, every bundled
-#   ELF resolves its libraries, and it launches and stays up under Xvfb;
+#   Mac build bakes in, its bundled libwayland-client taken out so Mesa gets
+#   the host's, and its contents checked for loose fonts;
+# - smoke: extracted on Ubuntu 22.04, 24.04 and 26.04 and Fedora 45, every
+#   bundled ELF resolves its libraries, and it launches and stays up under
+#   Xvfb with WebKit's web process running;
 # - e2e: tauri-driver drives the AppImage itself under Xvfb: it opens the
 #   tutorial, builds it, draws the PDF, rebuilds on Build, and the Agent panel
 #   says the Agent is not available on Linux yet (scripts/linux-e2e.mjs).
@@ -39,6 +41,7 @@ on:
     paths:
       - ".github/workflows/linux-appimage.yml"
       - ".github/scripts/smoke-appimage.sh"
+      - ".github/scripts/unbundle-wayland-client.sh"
       - "scripts/linux-e2e.mjs"
       - "scripts/check-font-leaks.mjs"
       - "scripts/lib/runtime-prune.mjs"
@@ -74,14 +77,15 @@ jobs:
       # Tauri's WebKitGTK stack and D-Bus for the Secret Service keyring, as
       # ci.yml's rust-linux job installs them; then what the AppImage bundler
       # runs: linuxdeploy is itself an AppImage (FUSE 2), it patches RPATHs
-      # with patchelf, sniffs files with `file`, and copies the host's xdg-open.
+      # with patchelf, sniffs files with `file`, and copies the host's xdg-open;
+      # and squashfs-tools, to rebuild the AppImage without libwayland-client.
       - name: Install the Linux build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential libayatana-appindicator3-dev libdbus-1-dev \
             librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config \
-            file libfuse2 patchelf xdg-utils
+            file libfuse2 patchelf squashfs-tools xdg-utils
 
       - uses: ./.github/actions/setup-pnpm
 
@@ -174,6 +178,15 @@ jobs:
           echo "name=$(basename "${found[0]}")" >> "$GITHUB_OUTPUT"
           ls -la "${found[0]}"
 
+      # Mesa's EGL driver comes from the host and must get the host's
+      # libwayland-client: with Ubuntu 22.04's, Mesa built against Wayland
+      # 1.24 or later cannot load, and WebKit leaves the window empty
+      # (.github/scripts/unbundle-wayland-client.sh).
+      - name: Take libwayland-client out of the AppImage
+        env:
+          APPIMAGE: ${{ steps.appimage.outputs.path }}
+        run: bash .github/scripts/unbundle-wayland-client.sh "$APPIMAGE"
+
       # The AppImage is a release asset, so it passes the release's own asset
       # check (its name is an allowed one and it is not a font), and its
       # contents pass the built-app check the Mac bundle does.
@@ -205,7 +218,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ["ubuntu:22.04", "ubuntu:24.04", "fedora:45"]
+        image: ["ubuntu:22.04", "ubuntu:24.04", "ubuntu:26.04", "fedora:45"]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -342,7 +355,7 @@ jobs:
           Download the **.AppImage** below, make it executable
           (`chmod +x Lattice_*.AppImage`), and run it. It needs an x86_64
           distribution at least as new as Ubuntu 22.04 (tested on Ubuntu
-          22.04 and 24.04 and Fedora 45), and your own TeX Live from the
+          22.04, 24.04 and 26.04 and Fedora 45), and your own TeX Live from the
           distribution's packages. If FUSE 2 is missing, run it with
           `--appimage-extract-and-run`.
 
