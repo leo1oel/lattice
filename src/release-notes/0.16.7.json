@@ -1,0 +1,17 @@
+{
+  "version": "0.16.7",
+  "date": "2026-11-10",
+  "highlights": [
+    {
+      "title": {
+        "en": "Claude Fable 5.2 in the AI assistant",
+        "zh": "AI 助手支持 Claude Fable 5.2"
+      },
+      "body": {
+        "en": "Pick Claude Fable 5.2 in the model picker, with a 1M-token context, effort up to Max, and fast mode. If your Claude Code is older than 2.1.321, the model is shown greyed out with \"Needs Claude Code 2.1.321+\".",
+        "zh": "在模型选择器中选择 Claude Fable 5.2，支持 1M token 上下文、最高 Max 的思考强度和快速模式。如果你的 Claude Code 版本低于 2.1.321，该模型会显示为灰色，并提示“Needs Claude Code 2.1.321+”。"
+      }
+    }
+  ],
+  "fixes": []
+}
