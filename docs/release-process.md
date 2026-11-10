@@ -223,6 +223,9 @@ From the release's commit, on GitHub's runners:
    `codesign`/`spctl`/`stapler` verification as the Apple silicon release.
    Each `stapler` call goes through `.github/scripts/retry-stapler.sh`,
    which retries the CloudKit ticket lookup the Intel runners have dropped.
+   `tauri build` staples the app once and ignores a failure, so before the
+   DMG is notarized `.github/scripts/staple-dmg-app.sh` staples the app
+   inside it when its ticket is missing (v0.16.6's first attempt).
    The app's own downloads follow its architecture: the managed `uv`
    (`src-tauri/src/tex_setup/installer.rs`) and rtex for live preview
    (`src-tauri/src/live_preview/install.rs`) pin one archive per CPU.
@@ -245,6 +248,11 @@ The Apple silicon asset names are unchanged, so the website's main Download
 and the `darwin-aarch64` updater URLs keep working; the website links the
 `_x64.dmg` separately. As with Linux, a re-run uses the original workflow file
 and the tag's code, so a fix merged on `main` takes effect at the next release.
+`macos-intel-retry.yml` re-runs a release's Intel run once when its first
+attempt fails: the failed jobs when one failed, or the whole run when GitHub
+failed it without creating smoke and attach (v0.16.4's "Internal server
+error", which `gh run rerun --failed` refuses). An attempt whose attach
+succeeded is left alone, and a second failure stays red.
 A pull request that changes this packaging, or a manual `workflow_dispatch`
 run, runs build and smoke with the open-licensed fonts, no baked-in keys and
 no updater key (so no updater archive) — signed and notarized when the

@@ -100,3 +100,32 @@ describe("the macOS Intel workflow", () => {
     expect(envs.flatMap((env) => Object.keys(env ?? {}))).not.toContain("LATTICE_FLAVOR");
   });
 });
+
+// A release's Intel run whose first attempt fails is re-run once, including
+// one GitHub failed without creating smoke and attach (v0.16.4).
+describe("the macOS Intel retry workflow", () => {
+  const retry = parse(read(".github/workflows/macos-intel-retry.yml")) as Workflow;
+  const intelRun = (workflowRun: Record<string, Value>) => ({
+    event_name: "workflow_run",
+    event: { workflow_run: { name: intel.name, event: "workflow_run", conclusion: "failure", run_attempt: 1, ...workflowRun } },
+  });
+
+  it("follows the macOS Intel workflow and may re-run it, nothing more", () => {
+    expect(retry.on.workflow_run).toEqual({ workflows: [intel.name], types: ["completed"] });
+    expect(retry.permissions).toEqual({ actions: "write" });
+  });
+
+  it("re-runs a release's failed first attempt", () => {
+    expect(runWorkflow(retry, intelRun({}), {}).jobs).toEqual(["rerun"]);
+  });
+
+  it.each([
+    ["a passing attempt", { conclusion: "success" }],
+    ["the skipped run after a failed Release", { conclusion: "skipped" }],
+    ["a second attempt, whose failure is real", { run_attempt: 2 }],
+    ["a pull request's run", { event: "pull_request" }],
+    ["a run by hand", { event: "workflow_dispatch" }],
+  ])("leaves %s alone", (_, workflowRun) => {
+    expect(runWorkflow(retry, intelRun(workflowRun), {}).jobs).toEqual([]);
+  });
+});
