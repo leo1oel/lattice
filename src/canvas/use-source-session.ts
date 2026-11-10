@@ -24,7 +24,7 @@ import { pointerSelecting, pointerSelectionSettled } from "../editor/pointer-sel
 import { setOverleafCursorsEffect } from "../overleaf/overleaf-editor-extensions";
 import { isHarperProseFilePath } from "../app-utils";
 import { useCommittedRef } from "../hooks/use-latest-ref";
-import type { AnnotationDraft } from "./annotation-composer";
+import { useAnnotationDraft } from "./use-annotation-draft";
 import type { DocumentCanvasProps } from "./canvas-model";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import type { OtOp } from "../overleaf/ot";
@@ -73,14 +73,7 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
   const completionActiveRef = useRef(false);
 
   /** The annotation note being written, and (weakly, as above) the view it was opened in. */
-  const [draft, setDraft] = useState<AnnotationDraft | null>(null);
-  const [draftView, setDraftView] = useState<WeakRef<EditorView> | null>(null);
-  const draftRef = useCommittedRef(draft);
-  const amendDraft = useCallback((change: Partial<AnnotationDraft>) => setDraft((current) => current && { ...current, ...change }), []);
-  const openDraft = useCallback((inView: EditorView, next: AnnotationDraft) => {
-    setDraftView(new WeakRef(inView));
-    setDraft(next);
-  }, []);
+  const { draft, setDraft, draftRef, draftView, amendDraft, openDraft, releaseDraft, reportTo } = useAnnotationDraft();
 
   const comments = useMemo(() => editorComments.filter((comment) => comment.path === path), [editorComments, path]);
   const commentsRef = useCommittedRef(comments);
@@ -205,7 +198,7 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
       const shownPath = latestRef.current.document.activeFile;
       optionsRef.current.onEditorUpdate(update, shownPath);
       if (shownPath) reportPosition(update.view, shownPath);
-      if (range.empty) setDraft(null);
+      if (range.empty) releaseDraft();
     },
   };
 
@@ -227,6 +220,7 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     draft,
     setDraft,
     amendDraft,
+    reportTo,
     /** The view the note was opened in, fixed while it is open. */
     draftView,
     openDraft,

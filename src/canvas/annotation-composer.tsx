@@ -26,6 +26,8 @@ const REVISE_KEYS = comboText(parseKeyName("Mod-Shift-Enter"));
 
 /** A note being written on a source selection, before it is saved. */
 export type AnnotationDraft = {
+  /** Which note this is, numbered as it opens: what saving it reports answers this note alone. */
+  id: number;
   path: string;
   from: number;
   to: number;

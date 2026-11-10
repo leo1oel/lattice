@@ -416,7 +416,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     }
     const { body, intent } = commentComposer;
     const note = { path: activeFile, source: editorSource, from: range.from, to: range.to, body, intent, revise };
-    annotateSelection(props.review, note, (progress) => progress ? amendDraft(progress) : closeCommentComposer());
+    annotateSelection(props.review, note, session.reportTo(commentComposer.id));
   };
   const breadcrumb = useMemo(
     () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(settledSource, session.position.line, activeFile) : [],

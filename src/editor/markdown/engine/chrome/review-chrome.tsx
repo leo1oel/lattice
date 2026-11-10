@@ -32,6 +32,7 @@ import type { NoteProgress } from "../../../comments/editor-comment-data";
 import { commentCardId, commentDraft, setCommentDraft } from "../source-overlays";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
+import { notifyError } from "../../../../telemetry/app-notify";
 import { useDismissOnOutsidePointer } from "../../../../hooks/use-dismiss-on-outside-pointer";
 
 function place(element: HTMLElement, anchor: { getBoundingClientRect: () => DOMRect }, placement: "top" | "bottom" = "top") {
@@ -240,6 +241,13 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
   // Set while Overleaf is taking the comment, which cannot be called back:
   // the composer holds it until it lands or fails, keeping what was typed.
   const savingRef = useRef(false);
+  // Torn down with its editor (a tab or view switch) while Overleaf was
+  // still taking the comment: what the send reports then has no composer.
+  const goneRef = useRef(false);
+  useEffect(() => {
+    goneRef.current = false;
+    return () => { goneRef.current = true; };
+  }, []);
   const [dialog, setDialog] = useState<HTMLDivElement | null>(null);
   // Words left in a composer closed by Escape or a click outside, with the
   // Markdown range they were written on: reopening on that range restores them.
@@ -311,7 +319,10 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
     }
     host.props().onCreateComment?.(anchored.from, anchored.to, text, (next) => {
       savingRef.current = Boolean(next?.saving);
-      if (editor.isDestroyed) return;
+      if (goneRef.current) {
+        if (next?.error) notifyError(t`Comments`, next.error);
+        return;
+      }
       if (next) setProgress(next);
       else finish();
     });

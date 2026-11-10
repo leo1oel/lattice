@@ -10,7 +10,7 @@ import type { AnnotationDraft } from "./annotation-composer";
  */
 export function reopenDiscardedNote(
   view: EditorView | null, activeFile: string, draft: AnnotationDraft,
-  open: (view: EditorView, draft: AnnotationDraft) => void,
+  open: (view: EditorView, draft: Omit<AnnotationDraft, "id">) => void,
 ) {
   // Only into the file it was written on.
   if (!view || activeFile !== draft.path) return;

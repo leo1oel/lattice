@@ -767,7 +767,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     overleafCollabTab, setOverleafCollabTab,
     conflictPath, setConflictPath,
     /** Read by callers that must reach the newest sync without re-subscribing. */
-    overleafSyncRef,
+    overleafSyncRef, overleafSyncingRef,
     refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync, settleRemoteDeletes,
     openCurrentOverleafProject, jumpToOverleafPeer,
     overleafRealtime, overleafPresence, overleafChat, overleafComments,

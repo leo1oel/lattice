@@ -12,6 +12,9 @@ import type { Editor } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { LatticeVisualMarkdownEditor } from "./lattice-visual-editor";
+import { notifyError } from "../../../telemetry/app-notify";
+
+vi.mock("../../../telemetry/app-notify", async (actual) => ({ ...await actual<object>(), notifyError: vi.fn() }));
 
 type Props = VisualMarkdownEditorProps;
 
@@ -117,6 +120,22 @@ describe("the comment composer (R-SRC-7)", () => {
     fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
     act(() => report(null));
     expect(screen.queryByRole("dialog", { name: "Add comment" })).toBeNull();
+  });
+
+  // Switching tab or to Source tears the editor down while Overleaf is still
+  // taking the comment; a failure then has no composer to land on.
+  it("says in a toast why a comment did not land once its editor is gone", async () => {
+    let report: Parameters<NonNullable<Props["onCreateComment"]>>[3] = () => {};
+    const { editor } = renderEditor({ text: "One Hello two", onCreateComment: (_from, _to, _body, given) => { report = given; } });
+    select(editor, 5, 10);
+    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Name it." } });
+    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    act(() => report({ saving: "Commenting on notes.md on Overleaf…", error: null }));
+    cleanup();
+    report({ saving: null, error: "Overleaf could not be reached." });
+    expect(notifyError).toHaveBeenCalledWith("Comments", "Overleaf could not be reached.");
   });
 
   it("follows edits made while the comment is written", async () => {

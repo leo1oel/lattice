@@ -43,16 +43,28 @@ function withAnnotations(change: (annotations: EditorComment[]) => EditorComment
 }
 
 /** How long a comment waits for the sync owed its file to bring Overleaf's copy up to the passage. */
-const SYNC_WAIT_MS = 15_000;
+const SYNC_WAIT_MS = 30_000;
 
-/** Resolves true once `owed` stops holding, false if it still holds after `SYNC_WAIT_MS`; nothing announces it. */
-function syncSettled(owed: () => boolean) {
+/**
+ * Resolves true once `owed` stops holding, false if it still holds after
+ * `SYNC_WAIT_MS`; nothing announces it. The writer is waiting, so the sync
+ * runs now, as Sync runs it, rather than after the automatic syncs' rate
+ * limit; one already running is waited out first, then asked for once.
+ */
+function syncSettled(owed: () => boolean, syncing: () => boolean, sync: () => void) {
   const deadline = Date.now() + SYNC_WAIT_MS;
+  let asked = false;
   return new Promise<boolean>((resolve) => {
     const check = () => {
       if (!owed()) resolve(true);
       else if (Date.now() >= deadline) resolve(false);
-      else window.setTimeout(check, 250);
+      else {
+        if (!asked && !syncing()) {
+          asked = true;
+          sync();
+        }
+        window.setTimeout(check, 250);
+      }
     };
     check();
   });
@@ -116,7 +128,7 @@ export function useEditorComments({
   const openGenerationRef = useRef(0);
   const {
     overleafLink, overleafComments, overleafCommentsRef, overleafDocPaths, overleafRealtime, overleafEditorComments,
-    overleafSyncOwed, setOverleafCollabOpen, setOverleafCollabTab,
+    overleafSyncOwed, overleafSyncRef, overleafSyncingRef, setOverleafCollabOpen, setOverleafCollabTab,
   } = overleaf;
 
   /**
@@ -305,7 +317,8 @@ export function useEditorComments({
    * made on the PDF, and places the passage through whatever separates its
    * copy from the open buffer, which the comment's offsets count into. A
    * passage the outside write brought is in Overleaf's copy only once that
-   * sync has settled, so a comment on it waits for the sync and tries again.
+   * sync has settled, so a comment on it has that sync run now, waits for it
+   * and tries again.
    */
   const create = useCallback((comment: EditorComment, report: (progress: NoteProgress) => void): EditorComment | "overleaf" | null => {
     const docId = docIdOf(comment.path);
@@ -336,7 +349,10 @@ export function useEditorComments({
       const placement = await place();
       if (placement === "placed" || !overleafSyncOwed(comment.path)) return placement;
       report({ saving: t`Waiting for ${name} to finish syncing with Overleaf…`, error: null });
-      return await syncSettled(() => overleafSyncOwed(comment.path)) ? place() : "unsynced";
+      const settled = await syncSettled(
+        () => overleafSyncOwed(comment.path), () => overleafSyncingRef.current, () => void overleafSyncRef.current(),
+      );
+      return settled ? place() : "unsynced";
     };
     report({ saving: t`Commenting on ${name} on Overleaf…`, error: null });
     void placeOnceSynced().then((placement) => {
@@ -348,7 +364,7 @@ export function useEditorComments({
       }
     }, failed);
     return "overleaf";
-  }, [docIdOf, openSources, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, overleafSyncOwed, project, commit, t]);
+  }, [docIdOf, openSources, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, overleafSyncOwed, overleafSyncRef, overleafSyncingRef, project, commit, t]);
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);

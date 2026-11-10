@@ -4109,6 +4109,7 @@ msgid "comments"
 msgstr "comments"
 
 #: src/app/use-editor-comments.ts
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-collab.tsx
 #: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts

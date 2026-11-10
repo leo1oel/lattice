@@ -182,19 +182,22 @@ describe.each(["cvpr/outline.md", "sections/intro.tex"])("an editor comment on %
 
   /** The comment store over a project whose channel is in `realtime`, and whose sync owes `path` while `owed` holds. */
   function commentsOn(realtime: { status: string; docId: string | null; liveFile: boolean }, owed = { current: false }) {
+    const syncing = { current: false };
+    const sync = vi.fn(async () => {});
     const comments = { create: vi.fn(async () => "thread"), createInDocument: vi.fn(async (): Promise<"placed" | "notFound"> => "placed") };
     const overleaf = {
       overleafLink: { projectId: "p" }, overleafComments: { threads: [], anchors: new Map(), ...comments },
       overleafCommentsRef: { current: { threads: [] } }, overleafDocPaths: new Map([["doc", path]]), overleafRealtime: realtime,
       overleafEditorComments: [], setOverleafCollabOpen: vi.fn(), setOverleafCollabTab: vi.fn(),
       overleafSyncOwed: (owedPath: string) => owedPath === path && owed.current,
+      overleafSyncRef: { current: sync }, overleafSyncingRef: syncing,
     } as unknown as Parameters<typeof useEditorComments>[0]["overleaf"];
     const store = renderHook(() => useEditorComments({
       project: { root: "/project" } as unknown as ProjectSnapshot, projectRootRef: { current: "/project" },
       activeFileRef: { current: path }, openProjectFile: vi.fn(), overleaf, author: { id: "me", name: "Me" },
       openSources: () => new Map([[path, source]]), agentOptionsRef: { current: null },
     })).result.current;
-    return { store, comments };
+    return { store, comments, sync, syncing };
   }
   const handedToSync = { status: "live", docId: null, liveFile: false };
 
@@ -218,15 +221,24 @@ describe.each(["cvpr/outline.md", "sections/intro.tex"])("an editor comment on %
     expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
   });
 
-  it("waits for the sync owed the file when Overleaf's copy does not hold the passage yet, then places it", async () => {
+  // The automatic syncs keep a rate limit of up to 30 s between them, which
+  // the writer waiting on the composer would sit through: the comment has
+  // the owed sync run now, as Sync does, once any running sync is done.
+  it("has the sync owed the file run now when Overleaf's copy does not hold the passage yet, then places it", async () => {
     vi.useFakeTimers();
     const owed = { current: true };
-    const { store, comments } = commentsOn(handedToSync, owed);
+    const { store, comments, sync, syncing } = commentsOn(handedToSync, owed);
+    syncing.current = true;
     comments.createInDocument.mockImplementation(async () => (owed.current ? "notFound" : "placed"));
     const report = vi.fn();
     await act(async () => { store.create(note, report); });
     expect(report.mock.calls).toEqual([[sending], [waiting]]);
     await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(sync).not.toHaveBeenCalled();
+    // The running sync left the file owed: one more is asked for, and only one.
+    syncing.current = false;
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(sync).toHaveBeenCalledTimes(1);
     expect(comments.createInDocument).toHaveBeenCalledTimes(1);
     owed.current = false;
     await act(() => vi.advanceTimersByTimeAsync(1_000));
@@ -240,7 +252,9 @@ describe.each(["cvpr/outline.md", "sections/intro.tex"])("an editor comment on %
     comments.createInDocument.mockResolvedValue("notFound");
     const report = vi.fn();
     await act(async () => { store.create(note, report); });
-    await act(() => vi.advanceTimersByTimeAsync(15_000));
+    await act(() => vi.advanceTimersByTimeAsync(29_000));
+    expect(report).toHaveBeenLastCalledWith(waiting);
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(comments.createInDocument).toHaveBeenCalledTimes(1);
     expect(report).toHaveBeenLastCalledWith({
       saving: null, error: `${name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes.`,

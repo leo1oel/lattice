@@ -1,5 +1,5 @@
 import {
-  deferred, dirNode, fileNode, invokeCalls, MAIN_DOCUMENT, overleafSession, overleafSyncResult, persistLayout, projectSnapshot,
+  deferred, dirNode, fileNode, invokeCalls, MAIN_DOCUMENT, overleafProbe, overleafSession, overleafSyncResult, persistLayout, projectSnapshot,
   visualEditorOf, emitTauriEvent, expectInvoked, type Commands,
 } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
@@ -19,13 +19,21 @@ const BODY = "Name the encoder here.";
 
 type CommentArgs = { docId: string; quote: string };
 
+/** Overleaf places a comment only on words its copy holds. */
+const placedIfHeld = ({ docId, quote }: CommentArgs, remote: Record<string, string>) => (
+  remote[DOCS.find((doc) => doc.id === docId)!.path].includes(quote) ? "placed" : "notFound"
+);
+
 /**
  * A live-synced project with the outline open, which the Agent rewrites on
  * disk; the outline's sync to Overleaf waits for `upload`. `remote` is
  * Overleaf's copy of each file: what joining its document reads, and what the
- * sync replaces with Lattice's text once it is let through.
+ * sync replaces with Lattice's text once it is let through. With
+ * `syncedFirst`, an automatic sync, let through at once, ran just before.
  */
-async function rewriteOpenOutline(commentInDocument: (args: CommentArgs, remote: Record<string, string>) => unknown) {
+async function rewriteOpenOutline(
+  commentInDocument: (args: CommentArgs, remote: Record<string, string>) => unknown, { syncedFirst = false } = {},
+) {
   const files: Record<string, string> = {
     "main.tex": "\\documentclass{article}",
     [OUTLINE]: "# Outline\n\nThe reader sees every token.\n",
@@ -35,6 +43,8 @@ async function rewriteOpenOutline(commentInDocument: (args: CommentArgs, remote:
   const pathOf = (args: unknown) => (args as { path: string }).path;
   const byId = Object.fromEntries(DOCS.map((doc) => [doc.id, doc.path]));
   const upload = deferred();
+  if (syncedFirst) upload.resolve();
+  let probes = 0;
   const commands: Commands = {
     read_project_file: (args) => files[pathOf(args)] ?? "",
     stat_project_file: (args) => ({ exists: true, mtimeMs: mtimes[pathOf(args)] ?? 1, fileId: pathOf(args) }),
@@ -62,6 +72,8 @@ async function rewriteOpenOutline(commentInDocument: (args: CommentArgs, remote:
       return overleafSyncResult({ pushed: [OUTLINE] });
     },
     overleaf_comment_in_document: (args) => commentInDocument(args as CommentArgs, remote),
+    // The first probe on opening finds Overleaf ahead, which is what starts a sync then.
+    overleaf_probe: () => overleafProbe({ changed: syncedFirst && probes++ === 0 }),
   };
   persistLayout(ROOT, { openTabs: [OUTLINE], activeFile: OUTLINE, canvasMode: "split" });
   renderOverleafPaper(commands, {
@@ -74,6 +86,7 @@ async function rewriteOpenOutline(commentInDocument: (args: CommentArgs, remote:
   const left = () => invokeCalls("overleaf_rt_leave_doc", (args) => (args as { docId: string }).docId === "outline").length;
   await waitFor(() => expect(invokeCalls("overleaf_rt_join_doc", (args) => (args as { docId: string }).docId === "outline"))
     .toHaveLength(1), { timeout: 15_000 });
+  if (syncedFirst) await waitFor(() => expect(invokeCalls("overleaf_sync")).toHaveLength(1), { timeout: 6_000 });
 
   // The Agent rewrites the open file on disk; the next poll takes it in and
   // hands the file to regular sync.
@@ -115,10 +128,7 @@ describe("Overleaf comments", () => {
   // connection of the backend's own. Overleaf's copy holds the Agent's words
   // only once that sync uploads them, so the comment waits for it.
   it("posts a comment on a file the live channel let go of after an outside write, once its sync settles", async () => {
-    // Overleaf places a comment only on words its copy holds.
-    const { files, upload, surface } = await rewriteOpenOutline(({ docId, quote }, remote) => (
-      remote[DOCS.find((doc) => doc.id === docId)!.path].includes(quote) ? "placed" : "notFound"
-    ));
+    const { files, upload, surface } = await rewriteOpenOutline(placedIfHeld);
     const composer = await commentOnQuote(surface);
 
     const source = files[OUTLINE];
@@ -135,6 +145,18 @@ describe("Overleaf comments", () => {
     expect(formatAppLogs()).not.toMatch(/not live with Overleaf|did not reach Overleaf/);
     // Not kept as a Lattice-only annotation: collaborators on Overleaf see it.
     expect(invokeCalls("save_annotations")).toEqual([]);
+  }, 60_000);
+
+  // Automatic syncs keep up to 30 s apart. One that ran just before the
+  // Agent's write would hold the write's own sync, and the comment waiting on
+  // it, past the wait: the writer's comment has that sync run now, as Sync does.
+  it("has the sync owed the file run now when an automatic sync just ran", async () => {
+    const { surface } = await rewriteOpenOutline(placedIfHeld, { syncedFirst: true });
+    await commentOnQuote(surface);
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add comment" })).toBeNull(), { timeout: 10_000 });
+    expect(invokeCalls("overleaf_sync")).toHaveLength(2);
+    expect(invokeCalls("overleaf_comment_in_document")).toHaveLength(2);
   }, 60_000);
 
   it("keeps the comment and what was typed when Overleaf cannot be reached", async () => {
