@@ -27,6 +27,18 @@ export function requestProjectTreeRefresh(): void {
 }
 
 /**
+ * Whether a watcher burst touched only Git's own state (`.git/`): a commit, a
+ * stage, a fetch. Those change what the source-control badge shows but never
+ * the project tree, which leaves `.git` out.
+ */
+export function onlyGitStateChanged(paths: readonly string[] | null): boolean {
+  return paths !== null && paths.length > 0 && paths.every((path) => {
+    const file = normalizeProjectRelativePath(path);
+    return file === ".git" || !!file?.startsWith(".git/");
+  });
+}
+
+/**
  * Call `onStale` whenever the tree of the project at `root` may no longer
  * match the disk: the watcher reported a burst, someone asked for a Refresh,
  * the project was opened again, or the window came back to the front. The
@@ -34,20 +46,23 @@ export function requestProjectTreeRefresh(): void {
  * backstop for whatever the watcher missed (an FSEvents overflow, a volume it
  * does not cover). Each is only a prompt to rescan; it does not say, as a
  * watcher burst with no paths does, that every project file may have changed.
+ * A watcher burst passes the paths it names (see onlyGitStateChanged); every
+ * other prompt passes null.
  */
-export function onProjectTreeStale(root: string, onStale: () => void): () => void {
+export function onProjectTreeStale(root: string, onStale: (paths: readonly string[] | null) => void): () => void {
   const stopWatching = onProjectFilesChanged(root, onStale);
+  const prompt = () => onStale(null);
   // Opening the project again raises the window that already shows it.
   const stopReopened = subscribeTauriEvent<{ root: string }>("project-reopened", (payload) => {
-    if (payload.root === root) onStale();
+    if (payload.root === root) prompt();
   });
-  treeRefreshRequests.addEventListener("refresh", onStale);
-  window.addEventListener("focus", onStale);
+  treeRefreshRequests.addEventListener("refresh", prompt);
+  window.addEventListener("focus", prompt);
   return () => {
     stopWatching();
     stopReopened();
-    treeRefreshRequests.removeEventListener("refresh", onStale);
-    window.removeEventListener("focus", onStale);
+    treeRefreshRequests.removeEventListener("refresh", prompt);
+    window.removeEventListener("focus", prompt);
   };
 }
 

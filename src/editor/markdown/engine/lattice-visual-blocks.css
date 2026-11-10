@@ -402,8 +402,9 @@
   border-radius: var(--radius-control);
   background: linear-gradient(90deg, var(--lx-md-block-surface), var(--lx-md-block-surface-strong), var(--lx-md-block-surface));
   background-size: 200% 100%;
-  animation: lx-md-shimmer 1.4s ease-in-out infinite;
 }
+/* Only a box whose bytes are being read shimmers (image-view.tsx). */
+.lx-md-editor .lx-md-image-loading[data-loading] { animation: lx-md-shimmer 1.4s ease-in-out infinite; }
 .lx-md-editor .lx-md-image-missing {
   display: inline-flex;
   align-items: center;

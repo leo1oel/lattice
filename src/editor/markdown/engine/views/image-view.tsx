@@ -125,8 +125,12 @@ export function ImageView(props: NodeViewProps) {
               </Zoom>
             )
             // An image drawn before keeps its box while its bytes are away, so
-            // releasing or reloading it moves nothing around it.
-            : <span className="lx-md-image-loading" aria-hidden="true" style={reserved} />}
+            // releasing or reloading it moves nothing around it. It shimmers
+            // only while a read is on its way (near the viewport): a box far
+            // out of view, or released there, waits for nothing, and an
+            // endless animation on it would keep WebKit redrawing every frame
+            // for as long as the note is open.
+            : <span className="lx-md-image-loading" aria-hidden="true" data-loading={nearViewport ? "" : undefined} style={reserved} />}
         {editable && (
           <>
             <span className="lx-md-image-toolbar">

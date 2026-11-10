@@ -5,7 +5,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { showError, showNotice, showWarning } from "./notify";
-import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
+import { clearTimer, restartTimer, visibleInterval } from "./effect-helpers";
+import { minimumSyncGap, startOverleafLivePoll } from "./overleaf-live-poll";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useStoreSlice } from "../hooks/use-store-slice";
 import { useSharedSetting } from "../settings/shared-setting";
@@ -48,23 +49,12 @@ type OverleafSyncOptions = {
   includeWholeFilePaths?: readonly string[];
 };
 
-/** How often live mode asks Overleaf whether anything changed. */
-const OVERLEAF_LIVE_POLL_MS = 3_000;
 /** Quiet time after a save before local work is pushed up. */
 const OVERLEAF_PUSH_DEBOUNCE_MS = 2_500;
 /** Let editor cleanup writes settle before syncing a file that just became inactive. */
 const OVERLEAF_WHOLE_FILE_SETTLE_MS = 1_000;
 /** A long quiet edit still gets a durable remote checkpoint. */
 const OVERLEAF_WHOLE_FILE_IDLE_MS = 60_000;
-/** Cadence when Overleaf gives us no cheap way to detect a change. */
-const OVERLEAF_BLIND_POLL_MS = 120_000;
-/** Cadence once the channel carries documents: only figures and new files remain, and each "yes" is a full download. */
-const OVERLEAF_CHANNEL_POLL_MS = 45_000;
-/**
- * Floor between full syncs: Overleaf answers 429 past ten project downloads a
- * minute, and a collaborator typing moves the version on every poll.
- */
-const minimumSyncGap = (channelLive: boolean) => (channelLive ? 30_000 : 12_000);
 
 /**
  * Everything the Overleaf bridge borrows from App. App owns the three sync-gate
@@ -511,61 +501,14 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     return clearProjectSyncState;
   }, [project?.root, savedPathsRef]);
 
-  // Live mode keeps a linked project current: "has your history moved?" is a
-  // small JSON call every few seconds; the full sync follows only on a yes.
+  // Live mode keeps a linked project current (overleaf-live-poll.ts).
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "live" || !project?.root) return;
-    const projectRoot = project.root;
-    let stopped = false;
-    const timer: TimerRef = { current: null };
-    let running = false;
-    // Backs off when Overleaf pushes back, and stays slow without a version to compare.
-    const baseWait = () => overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_POLL_MS : OVERLEAF_LIVE_POLL_MS;
-    let wait = baseWait();
-    const tick = async () => {
-      if (stopped || running) return;
-      clearTimer(timer);
-      running = true;
-      try {
-        if (!overleafSyncingRef.current) {
-          // A refused probe is a probe without a version: sync on the slow
-          // clock, and let the sync count the refusals and report them.
-          const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot }).catch((reason: unknown) => {
-            if (isOverleafProjectRefusal(toMessage(reason)) && overleafRefusalsRef.current < OVERLEAF_REFUSAL_RETRIES) return null;
-            throw reason;
-          });
-          wait = probe?.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
-          const sinceLastSync = Date.now() - lastAutoSyncRef.current;
-          const gapElapsed = sinceLastSync >= minimumSyncGap(overleafChannelLiveRef.current);
-          const retry = overleafTransportRetryRef.current || externalChangesRef.current.size > 0;
-          if (stopped) return;
-          if (retry && gapElapsed) {
-            await autoSync();
-          } else if (!probe?.versionKnown) {
-            // No change signal: sync on a slow clock instead.
-            if (sinceLastSync >= OVERLEAF_BLIND_POLL_MS) await autoSync();
-          } else if (probe.changed && gapElapsed) {
-            await autoSync({ observedRemoteVersion: probe.remoteVersion });
-          }
-        }
-      } catch (reason) {
-        // A 429 means we are asking too often: ease off sharply.
-        wait = /429|Too Many Requests/i.test(String(reason))
-          ? Math.min(wait * 4, 5 * 60_000)
-          : Math.min(Math.max(wait * 2, baseWait()), 60_000);
-      }
-      running = false;
-      if (!stopped) restartTimer(timer, wait, () => void tick());
-    };
-    void tick();
-    // Coming back from the browser is when stale content is most obvious.
-    const onFocus = () => void tick();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      stopped = true;
-      clearTimer(timer);
-      window.removeEventListener("focus", onFocus);
-    };
+    return startOverleafLivePoll({
+      projectRoot: project.root, autoSync, channelLive: overleafChannelLiveRef, syncing: overleafSyncingRef,
+      transportRetry: overleafTransportRetryRef, externalChanges: externalChangesRef,
+      refusals: overleafRefusalsRef, lastAutoSync: lastAutoSyncRef,
+    });
   }, [autoSync, overleafLink, overleafSyncMode, overleafSyncingRef, project?.root]);
 
   // Editing through Overleaf's own channel.
@@ -801,11 +744,12 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (!stopped) setOverleafRemoteChanges(probe.changed);
     }, () => undefined);
     void check();
-    const timer = window.setInterval(() => void check(), 30_000);
+    // Off screen, nobody sees the badge: focus checks again when the window is back.
+    const stopPolling = visibleInterval(() => void check(), 30_000, { catchUp: false });
     window.addEventListener("focus", check);
     return () => {
       stopped = true;
-      window.clearInterval(timer);
+      stopPolling();
       window.removeEventListener("focus", check);
     };
   }, [overleafLink, overleafSyncMode, project?.root, setOverleafRemoteChanges]);

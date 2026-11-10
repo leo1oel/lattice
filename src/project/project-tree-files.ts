@@ -8,8 +8,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type { GitStatusEntry } from "@pierre/trees";
 import type { FileNode, GitFileStatus } from "../app-types";
 import { fromPierrePath, toPierreDirectoryPath } from "./navigator-drag";
-import { onProjectTreeStale } from "./project-files-changed";
+import { onlyGitStateChanged, onProjectTreeStale } from "./project-files-changed";
 import { jsonEqual } from "../lib/equality";
+import { visibleInterval } from "../app/effect-helpers";
 
 /**
  * The Rust scanner only emits "directory"; "folder" survives because the App
@@ -129,10 +130,14 @@ export function useProjectTreeFiles(projectKey: string, files: FileNode[], onErr
       }
     };
     void refresh();
-    const stopListening = onProjectTreeStale(projectKey, () => void refresh());
-    // The fallback poll also supports watcher-less hosts.
-    const timer = window.setInterval(() => void refresh(), 30_000);
-    return () => { disposed = true; stopListening(); window.clearInterval(timer); };
+    // Git's own writes never change this tree (it leaves `.git` out).
+    const stopListening = onProjectTreeStale(projectKey, (paths) => {
+      if (!onlyGitStateChanged(paths)) void refresh();
+    });
+    // The fallback poll also supports watcher-less hosts; it rests while the
+    // window is off screen, and focus (onProjectTreeStale) checks on return.
+    const stopPolling = visibleInterval(() => void refresh(), 30_000, { catchUp: false });
+    return () => { disposed = true; stopListening(); stopPolling(); };
   }, [showHidden, projectKey, files, onErrorRef]);
   const tree = useMemo(() => projectTreeEntries(showHidden
     ? (expandedTree?.root === projectKey ? expandedTree.files : files)

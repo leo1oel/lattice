@@ -113,6 +113,55 @@ export function restartTimer(timer: TimerRef, delay: number, run: () => void) {
 }
 
 /**
+ * Whether the window is off screen: minimized, on another Space, or covered
+ * (WebKit's page visibility). Nobody sees a poll's answer then, so polls wait.
+ */
+export function windowHidden(): boolean {
+  return document.visibilityState === "hidden";
+}
+
+/** Call `listener` each time the window comes back on screen. */
+export function onWindowShown(listener: () => void): () => void {
+  const onChange = () => {
+    if (!windowHidden()) listener();
+  };
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
+}
+
+/**
+ * `setInterval` for polls that only matter on screen: no ticks (and no
+ * wakeups) while the window is hidden, and one tick at once when it is shown
+ * again, so what changed meanwhile shows without waiting a period. A caller
+ * that already checks on window focus passes `catchUp: false`: showing the
+ * window focuses it too, and both ticks would run the same check twice.
+ */
+export function visibleInterval(tick: () => void, ms: number, { catchUp = true } = {}): () => void {
+  let timer: number | null = null;
+  const start = () => {
+    if (timer === null) timer = window.setInterval(tick, ms);
+  };
+  const stop = () => {
+    if (timer !== null) window.clearInterval(timer);
+    timer = null;
+  };
+  const onChange = () => {
+    if (windowHidden()) {
+      stop();
+    } else if (timer === null) {
+      start();
+      if (catchUp) tick();
+    }
+  };
+  if (!windowHidden()) start();
+  document.addEventListener("visibilitychange", onChange);
+  return () => {
+    stop();
+    document.removeEventListener("visibilitychange", onChange);
+  };
+}
+
+/**
  * Stable forwarders over handlers whose identity changes every render: each
  * returned function keeps its identity for the caller's lifetime and calls the
  * latest committed handler, so a memoized child given them re-renders only
