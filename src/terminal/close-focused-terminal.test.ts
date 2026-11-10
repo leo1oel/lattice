@@ -9,15 +9,15 @@ vi.mock("./terminal-load", () => ({
 
 const { closeFocusedTerminal } = await import("./close-focused-terminal");
 
-const VIEWS = [
-  { id: "doc-main", type: "file" },
-  { id: "terminal", type: "terminal" },
-];
-
-function controllerOn(focusedView: string | null) {
+function controllerOn(focusedView: string | null, terminal: { placement?: string; visible?: boolean } = {}) {
+  const views = [
+    { id: "doc-main", type: "file", placement: "docked", visible: true },
+    { id: "terminal", type: "terminal", placement: "docked", visible: true, ...terminal },
+  ];
   const close = vi.fn(async () => true);
   const ws = {
-    views: (filter?: { type?: string }) => VIEWS.filter((view) => !filter?.type || view.type === filter.type),
+    views: (filter?: { type?: string }) => views.filter((view) => !filter?.type || view.type === filter.type),
+    view: (id: string) => views.find((view) => view.id === id) ?? null,
     getSnapshot: () => ({ focusedView }),
     close,
   };
@@ -51,5 +51,15 @@ describe("closeFocusedTerminal", () => {
     }
     expect(closeActiveTerminal).not.toHaveBeenCalled();
     expect(closeFocusedTerminal(new TrellisController())).toBe(false);
+  });
+
+  it("leaves ⌘W to the documents when the focused Terminal is off screen", () => {
+    closeActiveTerminal.mockClear();
+    for (const terminal of [{ placement: "hidden", visible: false }, { visible: false }]) {
+      const { controller, close } = controllerOn("terminal", terminal);
+      expect(closeFocusedTerminal(controller)).toBe(false);
+      expect(close).not.toHaveBeenCalled();
+    }
+    expect(closeActiveTerminal).not.toHaveBeenCalled();
   });
 });

@@ -10,14 +10,18 @@ import { loadTerminalPanel } from "./terminal-load";
 /**
  * Close the terminal tab in front when the Terminal panel has focus, asking
  * first when a command still runs, or the panel itself once no tab is left
- * in it. False when the focus is elsewhere, for ⌘W to close a document.
+ * in it. False when the focus is elsewhere or the panel is off screen, for
+ * ⌘W to close a document.
  */
 export function closeFocusedTerminal(controller: Pick<TrellisController, "ws">): boolean {
   const ws = controller.ws;
   const focused = ws?.getSnapshot().focusedView;
   if (!ws || !focused) return false;
+  // Trellis keeps the focus on a panel Ctrl+` has hidden, so only a Terminal
+  // on screen takes ⌘W; a hidden one leaves it to the documents.
   const panel = ws.views({ type: "terminal" }).find((view) => view.id === focused);
-  if (!panel) return false;
+  const view = panel && ws.view(panel.id);
+  if (!panel || !view || view.placement === "hidden" || !view.visible) return false;
   if (!loadTerminalPanel.loaded()?.closeActiveTerminal()) void ws.close(panel.id);
   return true;
 }
