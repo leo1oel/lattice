@@ -70,8 +70,8 @@
     },
     {
       "title": {
-        "en": "Lattice for Intel Macs",
-        "zh": "Lattice 支持 Intel Mac"
+        "en": "Lattice for Intel-based Macs",
+        "zh": "Lattice 支持 Intel-based Mac"
       },
       "body": {
         "en": "Each release now includes a signed, notarized Intel (x64) Mac build.",
