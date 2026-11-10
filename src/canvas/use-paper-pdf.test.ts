@@ -55,16 +55,14 @@ describe("a Paper read as its PDF", () => {
     expect(reader.result.current.pdfView).toBeNull();
   });
 
-  it("is read as text again after the writer picks its other reading or another layout", () => {
+  it("stays on its text once App marks it so for the writer's other reading or layout", () => {
     const reader = renderReader({ activePaper: paper, activeFile: fullText, mode: "pdf" });
     act(() => reader.result.current.openPdf());
+    // As App's Blog/Paper and Edit/Split/Preview do, before the change lands.
+    act(() => paperPdfReading.set(paper.arxivId, null));
     reader.rerender({ activePaper: paper, activeFile: blog, mode: "pdf" });
     expect(reader.result.current.pdfView).toBeNull();
-    expect(paperPdfReading.get(paper.arxivId)).toBeUndefined();
-
-    act(() => reader.result.current.openPdf());
     reader.rerender({ activePaper: paper, activeFile: blog, mode: "split" });
     expect(reader.result.current.pdfView).toBeNull();
-    expect(paperPdfReading.get(paper.arxivId)).toBeUndefined();
   });
 });
