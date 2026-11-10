@@ -1,0 +1,54 @@
+{
+  "version": "0.16.10",
+  "date": "2026-11-10",
+  "highlights": [
+    {
+      "title": {
+        "en": "Spell checking in your document's language",
+        "zh": "按文档语言检查拼写"
+      },
+      "body": {
+        "en": "Lattice reads the document language from babel or polyglossia. Other languages get spell checking with a dictionary downloaded on first use; English keeps spelling and grammar checks. Thanks to @quark67.",
+        "zh": "Lattice 会从 babel 或 polyglossia 读取文档语言。其他语言首次使用时会下载词典并检查拼写；英文仍同时检查拼写和语法。感谢 @quark67。"
+      }
+    },
+    {
+      "title": {
+        "en": "New project templates",
+        "zh": "新增项目模板"
+      },
+      "body": {
+        "en": "IEEE conference, IEEE journal and ACM (acmart).",
+        "zh": "新增 IEEE 会议、IEEE 期刊和 ACM（acmart）模板。"
+      }
+    },
+    {
+      "title": {
+        "en": "Experimental Windows installer",
+        "zh": "实验性 Windows 安装包"
+      },
+      "body": {
+        "en": "Each release now includes an unsigned Windows x64 installer. It is experimental; read docs/windows-installer.md in the Lattice repository before installing. Thanks to @LucasDavidTPE.",
+        "zh": "每个版本现在都附带未签名的 Windows x64 安装包。该安装包仍处于实验阶段，安装前请先阅读 Lattice 仓库中的 docs/windows-installer.md。感谢 @LucasDavidTPE。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "\"Install missing package\" no longer gives up when several TeX Live packages provide the same file (such as IEEEtran.cls); Lattice lets you choose which one to install.",
+      "zh": "多个 TeX Live 包提供同一文件（如 IEEEtran.cls）时，“安装缺失的包”不再直接放弃，而是让你选择要安装的包。"
+    },
+    {
+      "en": "Lower idle CPU use: no always-running animations, Overleaf checks pause while the window is hidden, and continuous file writes trigger fewer full project rescans.",
+      "zh": "降低空闲时的 CPU 占用：不再有持续运行的动画，窗口隐藏时暂停 Overleaf 检查，连续写入文件时减少整个项目的重新扫描。"
+    },
+    {
+      "en": "About Lattice and the Help menu link to the GitHub repository and the website. Thanks to @quark67.",
+      "zh": "“关于 Lattice”和帮助菜单中加入了 GitHub 仓库和官网的链接。感谢 @quark67。"
+    },
+    {
+      "en": "On Windows, the Overleaf sign-in window no longer opens blank. Thanks to @ivanvykopal.",
+      "zh": "在 Windows 上，Overleaf 登录窗口不再显示空白。感谢 @ivanvykopal。"
+    }
+  ]
+}
