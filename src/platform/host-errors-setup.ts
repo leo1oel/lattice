@@ -46,8 +46,6 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["tex_setup/fetch.rs", "The {name} download was interrupted: {error}", ([what, error]) => t`The ${what} download was interrupted: ${error}`],
   ["tex_setup/fetch.rs", "The downloaded {} failed its security check.", ([what]) => t`The downloaded ${what} failed its security check.`],
   // Elsewhere one-click install is not built yet (tex_setup/stub.rs).
-  ["tex_setup/stub.rs", "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice.", () => t`Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice.`],
-  ["tex_setup/stub.rs", "Install the missing package with TeX Live Manager or MiKTeX Console, then build again.", () => t`Install the missing package with TeX Live Manager or MiKTeX Console, then build again.`],
   ["tex_setup/stub.rs", "One-click TeX install is not available on Linux yet.", () => t`One-click TeX install is not available on Linux yet.`],
   ["tex_setup/stub.rs", "One-click TeX package install is not available on Linux yet.", () => t`One-click TeX package install is not available on Linux yet.`],
   ["tex_setup/stub.rs", "One-click TeX package update is not available on Linux yet.", () => t`One-click TeX package update is not available on Linux yet.`],
@@ -60,6 +58,37 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["tex_setup/installer.rs", "The uv archive contained an unexpected entry: {}", ([entry]) => t`The uv archive contained an unexpected entry: ${entry}`],
   ["tex_setup/installer.rs", "The uv archive contained an invalid {name} entry.", ([name]) => t`The uv archive contained an invalid ${name} entry.`],
   ["tex_setup/installer.rs", "The uv archive did not contain the expected executables.", () => t`The uv archive did not contain the expected executables.`],
+
+  // Installing TeX Live and the paper tools on Windows (tex_setup/windows.rs,
+  // tex_setup/tex_live.rs, tex_setup/run.rs): per user, no administrator, and
+  // stoppable.
+  ["tex_setup/windows.rs", "The TeX installation was cancelled.", () => t`The TeX installation was cancelled.`],
+  ["tex_setup/windows.rs", "This Lattice version includes TeX Live {}. Update Lattice to install the current TeX Live release.", ([year]) => t`This Lattice version includes TeX Live ${year}. Update Lattice to install the current TeX Live release.`],
+  ["tex_setup/windows.rs", "TeX Live installed, but its package manager is missing.", () => t`TeX Live installed, but its package manager is missing.`],
+  ["tex_setup/windows.rs", "No supported LaTeX engine could be run as your Windows user.", () => t`No supported LaTeX engine could be run as your Windows user.`],
+  ["tex_setup/windows.rs", "TeX Live was installed, but required file {required_file} could not be found.\n{}", ([file, detail]) => t`TeX Live was installed, but required file ${file} could not be found.\n${detail}`],
+  ["tex_setup/windows.rs", "TeX Live was installed, but Lattice could not look up required file {required_file}.\n{error}", ([file, error]) => t`TeX Live was installed, but Lattice could not look up required file ${file}.\n${error}`],
+  ["tex_setup/windows.rs", "TeX Live was installed, but Lattice could not read required file {required_file}.\nResolved file: {resolved}\n{error}", ([file, resolved, error]) => t`TeX Live was installed, but Lattice could not read required file ${file}.\nResolved file: ${resolved}\n${error}`],
+  ["tex_setup/windows.rs", "Could not search the MiKTeX packages: {error}", ([error]) => t`Could not search the MiKTeX packages: ${error}`],
+  ["tex_setup/windows.rs", "The MiKTeX packages could not be searched.\n{}", ([detail]) => t`The MiKTeX packages could not be searched.\n${detail}`],
+  ["tex_setup/miktex.rs", "No MiKTeX package provides {missing_file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder.", ([file]) => t`No MiKTeX package provides ${file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder.`],
+  ["tex_setup/miktex.rs", "More than one MiKTeX package provides {missing_file}: {}. Nothing was installed automatically.", ([file, packages]) => t`More than one MiKTeX package provides ${file}: ${packages}. Nothing was installed automatically.`],
+  ["tex_setup/tex_live.rs", "TeX Live installation failed. Please try again.", () => t`TeX Live installation failed. Please try again.`],
+  ["tex_setup/tex_live.rs", "TeX Live installation failed.\n{detail}", ([detail]) => t`TeX Live installation failed.\n${detail}`],
+  ["tex_setup/tex_live.rs", "TeX Live is installed, but Lattice could not finish installing the required LaTeX packages.\n{detail}", ([detail]) => t`TeX Live is installed, but Lattice could not finish installing the required LaTeX packages.\n${detail}`],
+  ["tex_setup/tex_live.rs", "Could not read the TeX Live installer archive: {error}", ([error]) => t`Could not read the TeX Live installer archive: ${error}`],
+  ["tex_setup/tex_live.rs", "Could not inspect the TeX Live installer archive: {error}", ([error]) => t`Could not inspect the TeX Live installer archive: ${error}`],
+  ["tex_setup/tex_live.rs", "Could not unpack the TeX Live installer: {error}", ([error]) => t`Could not unpack the TeX Live installer: ${error}`],
+  ["tex_setup/tex_live.rs", "The TeX Live installer archive contained an unsafe path: {name}", ([name]) => t`The TeX Live installer archive contained an unsafe path: ${name}`],
+  ["tex_setup/tex_live.rs", "The TeX Live installer archive contained an unexpected entry: {name}", ([name]) => t`The TeX Live installer archive contained an unexpected entry: ${name}`],
+  ["tex_setup/tex_live.rs", "The TeX Live installer archive contained a link at {name}", ([name]) => t`The TeX Live installer archive contained a link at ${name}`],
+  ["tex_setup/tex_live.rs", "The TeX Live installer archive did not contain its installer.", () => t`The TeX Live installer archive did not contain its installer.`],
+  ["tex_setup/run.rs", "Could not start {}: {error}", ([program, error]) => t`Could not start ${program}: ${error}`],
+  ["tex_setup/run.rs", "Could not wait for {}: {error}", ([program, error]) => t`Could not wait for ${program}: ${error}`],
+  ["tex_setup/windows.rs", "TeX Live was installed, but Lattice's templates need files it could not find: {}. Click Install TeX Live again, or install their packages with tlmgr.", ([files]) => t`TeX Live was installed, but Lattice's templates need files it could not find: ${files}. Click Install TeX Live again, or install their packages with tlmgr.`],
+  ["tex_setup/tex_live.rs", "TeX Live cannot be installed automatically: your user folder's path has characters its installer cannot read, and Windows has no short name for it. Install TeX Live yourself (tug.org/texlive/windows.html), then recheck setup.", () => t`TeX Live cannot be installed automatically: your user folder's path has characters its installer cannot read, and Windows has no short name for it. Install TeX Live yourself (tug.org/texlive/windows.html), then recheck setup.`],
+  ["tex_setup/fetch.rs", "The downloaded {} is larger than expected, so it was refused.", ([what]) => t`The downloaded ${what} is larger than expected, so it was refused.`],
+  ["tex_setup/fetch.rs", "The download was cancelled.", () => t`The download was cancelled.`],
 
   // The document a build compiles (latex/build.rs names its argument;
   // latex/pinned.rs and texcount.rs write the positional form)

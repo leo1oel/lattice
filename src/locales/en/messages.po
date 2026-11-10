@@ -4512,6 +4512,10 @@ msgstr "Could not hand this file back to Overleaf sync ({detail}). Syncing remai
 msgid "Could not inspect the installed rtex: {error}"
 msgstr "Could not inspect the installed rtex: {error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not inspect the TeX Live installer archive: {error}"
+msgstr "Could not inspect the TeX Live installer archive: {error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not install rtex: {error}"
 msgstr "Could not install rtex: {error}"
@@ -4614,6 +4618,10 @@ msgstr "Could not read {path}: {error}"
 msgid "Could not read the arXiv title lookup: {error}"
 msgstr "Could not read the arXiv title lookup: {error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not read the TeX Live installer archive: {error}"
+msgstr "Could not read the TeX Live installer archive: {error}"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
 msgstr "Could not read:"
@@ -4711,6 +4719,10 @@ msgid "Could not save the report on this device. Keep this window open to retain
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
 
 #: src/platform/host-errors-setup.ts
+msgid "Could not search the MiKTeX packages: {error}"
+msgstr "Could not search the MiKTeX packages: {error}"
+
+#: src/platform/host-errors-setup.ts
 msgid "Could not search the TeX Live repository: {error}"
 msgstr "Could not search the TeX Live repository: {error}"
 
@@ -4722,6 +4734,10 @@ msgstr "Could not show that item in Finder. {message}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not show the diagnostic log in Finder: {error}"
 msgstr "Could not show the diagnostic log in Finder: {error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not start {program}: {error}"
+msgstr "Could not start {program}: {error}"
 
 #: src/platform/host-errors-papers.ts
 msgid "Could not start {tool}: {error}"
@@ -4747,6 +4763,10 @@ msgstr "Could not supervise the Windows terminal process tree."
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "Could not unpack the rtex archive: {error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not unpack the TeX Live installer: {error}"
+msgstr "Could not unpack the TeX Live installer: {error}"
+
 #: src/project/figure-converters-actions.ts
 #: src/project/figure-converters.ts
 msgid "Could not update the figure"
@@ -4763,6 +4783,10 @@ msgstr "Could not upload the project to Overleaf: {error}"
 #: src/platform/host-errors-setup.ts
 msgid "Could not verify {file}: {error}"
 msgstr "Could not verify {file}: {error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not wait for {program}: {error}"
+msgstr "Could not wait for {program}: {error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not write {path}: {error}"
@@ -7711,17 +7735,9 @@ msgstr "Install TeX Live"
 msgid "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
 msgstr "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
 
-#: src/platform/host-errors-setup.ts
-msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
-msgstr "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
-
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
-
-#: src/platform/host-errors-setup.ts
-msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
-msgstr "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9297,6 +9313,10 @@ msgid "More PDF actions"
 msgstr "More PDF actions"
 
 #: src/platform/host-errors-setup.ts
+msgid "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
+msgstr "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
+
+#: src/platform/host-errors-setup.ts
 msgid "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
 msgstr "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
 
@@ -9848,6 +9868,10 @@ msgstr "No matching settings"
 msgid "No messages yet"
 msgstr "No messages yet"
 
+#: src/platform/host-errors-setup.ts
+msgid "No MiKTeX package provides {file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+msgstr "No MiKTeX package provides {file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "No note"
 msgstr "No note"
@@ -9985,6 +10009,10 @@ msgstr "No suggestions in this file"
 #: src/platform/host-errors-setup.ts
 msgid "No supported LaTeX engine could be run as your macOS user."
 msgstr "No supported LaTeX engine could be run as your macOS user."
+
+#: src/platform/host-errors-setup.ts
+msgid "No supported LaTeX engine could be run as your Windows user."
+msgstr "No supported LaTeX engine could be run as your Windows user."
 
 #: src/editor/latex/symbol-palette.ts
 msgid "No symbol matches “{query}”."
@@ -14855,6 +14883,20 @@ msgstr "Test connection"
 msgid "TeX doctor"
 msgstr "TeX doctor"
 
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live cannot be installed automatically: your user folder's path has characters its installer cannot read, and Windows has no short name for it. Install TeX Live yourself (tug.org/texlive/windows.html), then recheck setup."
+msgstr "TeX Live cannot be installed automatically: your user folder's path has characters its installer cannot read, and Windows has no short name for it. Install TeX Live yourself (tug.org/texlive/windows.html), then recheck setup."
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installation failed.\n"
+"{detail}"
+msgstr "TeX Live installation failed.\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installation failed. Please try again."
+msgstr "TeX Live installation failed. Please try again."
+
 #: src/build/tex-setup-wizard.tsx
 msgid "TeX Live installation progress"
 msgstr "TeX Live installation progress"
@@ -14862,6 +14904,40 @@ msgstr "TeX Live installation progress"
 #: src/build/tex-setup-wizard.tsx
 msgid "TeX Live installed"
 msgstr "TeX Live installed"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installed, but its package manager is missing."
+msgstr "TeX Live installed, but its package manager is missing."
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live is installed, but Lattice could not finish installing the required LaTeX packages.\n"
+"{detail}"
+msgstr "TeX Live is installed, but Lattice could not finish installing the required LaTeX packages.\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice could not look up required file {file}.\n"
+"{error}"
+msgstr "TeX Live was installed, but Lattice could not look up required file {file}.\n"
+"{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice could not read required file {file}.\n"
+"Resolved file: {resolved}\n"
+"{error}"
+msgstr "TeX Live was installed, but Lattice could not read required file {file}.\n"
+"Resolved file: {resolved}\n"
+"{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice's templates need files it could not find: {files}. Click Install TeX Live again, or install their packages with tlmgr."
+msgstr "TeX Live was installed, but Lattice's templates need files it could not find: {files}. Click Install TeX Live again, or install their packages with tlmgr."
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but required file {file} could not be found.\n"
+"{detail}"
+msgstr "TeX Live was installed, but required file {file} could not be found.\n"
+"{detail}"
 
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager could not install the package."
@@ -15307,6 +15383,10 @@ msgstr "The document never loads Times: add {command} after the template, then B
 msgid "the documents area"
 msgstr "the documents area"
 
+#: src/platform/host-errors-setup.ts
+msgid "The download was cancelled."
+msgstr "The download was cancelled."
+
 #: src/telemetry/update-recovery.ts
 msgid "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
 msgstr "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
@@ -15314,6 +15394,10 @@ msgstr "The download was interrupted: the connection timed out or dropped. Try a
 #: src/platform/host-errors-setup.ts
 msgid "The downloaded {what} failed its security check."
 msgstr "The downloaded {what} failed its security check."
+
+#: src/platform/host-errors-setup.ts
+msgid "The downloaded {what} is larger than expected, so it was refused."
+msgstr "The downloaded {what} is larger than expected, so it was refused."
 
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
@@ -15474,6 +15558,12 @@ msgstr "The live preview PDF is not in its build folder."
 #: src/papers/add-papers-sheet.tsx
 msgid "The lookup returned no record."
 msgstr "The lookup returned no record."
+
+#: src/platform/host-errors-setup.ts
+msgid "The MiKTeX packages could not be searched.\n"
+"{detail}"
+msgstr "The MiKTeX packages could not be searched.\n"
+"{detail}"
 
 #: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
@@ -15869,6 +15959,26 @@ msgid "The terminal is only available in a Lattice window."
 msgstr "The terminal is only available in a Lattice window."
 
 #: src/platform/host-errors-setup.ts
+msgid "The TeX installation was cancelled."
+msgstr "The TeX installation was cancelled."
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained a link at {name}"
+msgstr "The TeX Live installer archive contained a link at {name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained an unexpected entry: {name}"
+msgstr "The TeX Live installer archive contained an unexpected entry: {name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained an unsafe path: {name}"
+msgstr "The TeX Live installer archive contained an unsafe path: {name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive did not contain its installer."
+msgstr "The TeX Live installer archive did not contain its installer."
+
+#: src/platform/host-errors-setup.ts
 msgid "The TeX Live repository could not be searched.\n"
 "{detail}"
 msgstr "The TeX Live repository could not be searched.\n"
@@ -16186,6 +16296,10 @@ msgstr "This is the earliest version"
 #: src/platform/host-errors-setup.ts
 msgid "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
 msgstr "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
+
+#: src/platform/host-errors-setup.ts
+msgid "This Lattice version includes TeX Live {year}. Update Lattice to install the current TeX Live release."
+msgstr "This Lattice version includes TeX Live {year}. Update Lattice to install the current TeX Live release."
 
 #: src/platform/host-errors-workspace.ts
 msgid "This Lattice window is already opening in your browser."

@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import {
   isConferenceFontsMissing,
   isMissingTexBuildError,
@@ -156,17 +156,48 @@ describe("tex setup wizard helpers", () => {
 });
 
 
-it("on Windows, links to TeX Live and lets the user keep editing without running the macOS installer", async () => {
-  const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-  try {
-    tauri.invoke.mockClear();
-    const { onClose, onRecheck } = renderWizard(report(check("latexmk", false)));
-    // The Windows dialog loads on demand.
-    expect(await screen.findByRole("button", { name: "Download TeX Live" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
-    expect(onRecheck).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Install later" }));
-    expect(onClose).toHaveBeenCalled();
-    expect(tauri.invoke).not.toHaveBeenCalledWith("start_tex_install", expect.anything());
-  } finally { userAgent.mockRestore(); }
+describe("on Windows", () => {
+  const WINDOWS = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+  const CANCELLED = "The TeX installation was cancelled.";
+  let userAgent: MockInstance | undefined;
+  beforeEach(() => {
+    userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(WINDOWS);
+    tauri.invoke.mockReset();
+  });
+  afterEach(() => userAgent?.mockRestore());
+
+  it("installs TeX Live from the dialog, with no BasicTeX wording", async () => {
+    tauri.invoke.mockResolvedValue(null);
+    const { onClose } = renderWizard(report(check("latexmk", false)), vi.fn(async () => report(...READY)));
+    expect(screen.queryByRole("button", { name: /Basic TeX/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Install TeX Live (1 GB)" }));
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", expect.objectContaining({ mode: "full" }));
+  });
+
+  it("offers Cancel only while installing, and a cancelled install shows no error", async () => {
+    // This project's TS lib has no Promise.withResolvers, so keep the reject by hand.
+    let reject: (reason: unknown) => void = () => {};
+    const install = new Promise<unknown>((_, fail) => { reject = fail; });
+    tauri.invoke.mockImplementation((command: string) => command === "start_tex_install"
+      ? install
+      : Promise.resolve(true));
+    renderWizard(report(check("latexmk", false)));
+    expect(screen.queryByRole("button", { name: "Cancel installation" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Install TeX Live (1 GB)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel installation" }));
+    expect(tauri.invoke).toHaveBeenCalledWith("cancel_tex_install");
+    await act(async () => { reject(CANCELLED); });
+    await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Cancel installation" })).not.toBeInTheDocument());
+    expect(screen.queryByText(CANCELLED)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Install TeX Live (1 GB)" })).toBeEnabled();
+  });
+
+  it("shows another failure's message and keeps install available", async () => {
+    tauri.invoke.mockRejectedValue("TeX Live installation failed. Please try again.");
+    renderWizard(report(check("latexmk", false)));
+    fireEvent.click(screen.getByRole("button", { name: "Install TeX Live (1 GB)" }));
+    expect(await screen.findByText(/TeX Live installation failed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Install TeX Live (1 GB)" })).toBeEnabled();
+  });
 });
