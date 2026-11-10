@@ -88,8 +88,8 @@
    Only canvases: the text layer, the marks and the annotations are siblings
    of the canvas, so they keep their own colours. On the canvas itself, not
    its wrapper, so the filter rides each canvas's own compositing layer. */
-.pdf-preview[data-dark-pages] .pdfViewer :is(.canvasWrapper canvas, .page > canvas.live-preview-page-layer) { filter: var(--pdf-dark-page-filter); }
-.pdf-preview[data-dark-pages] .pdfViewer.removePageBorders .page { background: var(--pdf-dark-page-surface); }
+:root[data-pdf-dark-pages] .pdf-preview .pdfViewer :is(.canvasWrapper canvas, .page > canvas.live-preview-page-layer) { filter: var(--pdf-dark-page-filter); }
+:root[data-pdf-dark-pages] .pdf-preview .pdfViewer.removePageBorders .page { background: var(--pdf-dark-page-surface); }
 /* Glyph spans stay unselectable so Command-A in the editor (or anywhere else
    in the webview) cannot wash the page blue. They opt into selection only
    while the user is dragging or holding a range that started in this layer. */

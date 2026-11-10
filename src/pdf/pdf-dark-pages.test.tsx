@@ -19,40 +19,48 @@ vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: {}, PDFDataRangeTransport: c
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
 
 const KEY = "lattice.pdf-dark-pages.v1";
+const root = document.documentElement;
 
 describe("dark PDF pages", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    // Another window's reset: the root attribute follows it.
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: null })));
+  });
   afterEach(cleanup);
 
-  it("is off until turned on, then darkens every viewer and is remembered for the next", () => {
+  it("is off until turned on, then darkens every viewer's pages and is remembered for the next", () => {
     const view = render(<>
       <PdfPreview url="https://example.test/main.pdf" />
       <PdfPreview url="https://example.test/paper.pdf" />
     </>);
-    const previews = [...view.container.querySelectorAll(".pdf-preview")];
-    const [toggle] = view.getAllByRole("button", { name: "Dark pages" });
+    const [toggle, other] = view.getAllByRole("button", { name: "Dark pages" });
     expect(toggle).toHaveAttribute("aria-pressed", "false");
-    expect(previews.filter((preview) => preview.hasAttribute("data-dark-pages"))).toHaveLength(0);
+    expect(root).not.toHaveAttribute("data-pdf-dark-pages");
 
     fireEvent.click(toggle!);
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect(toggle).toHaveClass("active");
-    expect(previews.filter((preview) => preview.hasAttribute("data-dark-pages"))).toHaveLength(2);
+    expect(root).toHaveAttribute("data-pdf-dark-pages");
+    for (const button of [toggle, other]) {
+      expect(button).toHaveAttribute("aria-pressed", "true");
+      expect(button).toHaveClass("active");
+    }
     expect(localStorage.getItem(KEY)).toBe("true");
 
     view.unmount();
     const next = render(<PdfPreview url="https://example.test/main.pdf" />);
-    expect(next.container.querySelector(".pdf-preview")).toHaveAttribute("data-dark-pages");
+    expect(root).toHaveAttribute("data-pdf-dark-pages");
+    expect(next.getByRole("button", { name: "Dark pages" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("follows a choice made in another window, such as the PDF's own", () => {
-    localStorage.setItem(KEY, "true");
     const view = render(<PdfPreview url="https://example.test/main.pdf" />);
-    const preview = view.container.querySelector(".pdf-preview")!;
-    expect(preview).toHaveAttribute("data-dark-pages");
+    localStorage.setItem(KEY, "true");
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: KEY, newValue: "true" })));
+    expect(root).toHaveAttribute("data-pdf-dark-pages");
+    expect(view.getByRole("button", { name: "Dark pages" })).toHaveAttribute("aria-pressed", "true");
 
     localStorage.setItem(KEY, "false");
     act(() => window.dispatchEvent(new StorageEvent("storage", { key: KEY, newValue: "false" })));
-    expect(preview).not.toHaveAttribute("data-dark-pages");
+    expect(root).not.toHaveAttribute("data-pdf-dark-pages");
   });
 });

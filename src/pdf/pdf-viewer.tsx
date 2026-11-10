@@ -75,8 +75,8 @@ import { usePdfLocationHistory, usePdfViewState, type ActiveViewerRef, type PdfV
 import { usePdfZoom } from "./use-pdf-zoom";
 import { measurePdfSearchFold, type PdfSearchFold } from "./pdf-toolbar-min-width";
 import { PdfOverflowMenu } from "./pdf-overflow-menu";
-import { pdfDarkPagesSetting, togglePdfDarkPages } from "./pdf-dark-pages";
-import { useSharedSetting } from "../settings/shared-setting";
+import { pdfDarkPagesSetting, togglePdfDarkPages, watchPdfDarkPages } from "./pdf-dark-pages";
+import { PdfDarkPagesButton } from "./pdf-dark-pages-button";
 import "@pdfslick/core/dist/pdf_viewer.css";
 import "./pdf-viewer.css";
 
@@ -89,6 +89,8 @@ export type PdfPageLayerProps = { recordRef: ActiveViewerRef; generation: number
 const ReviewPdfSheet = lazy(() => import("./review-pdf-sheet"));
 const NO_ANNOTATIONS: readonly EditorComment[] = [];
 const noSubscription = () => () => {};
+// Every viewer's pages follow one root attribute (pdf-dark-pages.ts).
+watchPdfDarkPages();
 const notOpen = () => false;
 
 /** Notification source label for the PDF preview. */
@@ -308,8 +310,6 @@ export function PdfPreview({
   const source = pdfSource(url, pdfBytes, projectFile);
   const loadKey = source.key;
   const [savingPdf, setSavingPdf] = useState(false);
-  // Every viewer's and every window's (pdf-dark-pages.ts).
-  const [darkPages] = useSharedSetting(pdfDarkPagesSetting);
 
   const view = usePdfViewState(recordRef, initialViewState, initialPage, callbacks);
   const { pageNumber, scale, fitMode, viewRef, setPageNumber } = view;
@@ -496,7 +496,6 @@ export function PdfPreview({
     <div
       ref={previewRef}
       className="pdf-preview"
-      data-dark-pages={darkPages || undefined}
       data-trellis-owns-gestures=""
       tabIndex={-1}
       onPointerDownCapture={focusPdfSurface}
@@ -613,8 +612,7 @@ export function PdfPreview({
             <ToolbarButton label={fitHeight.label} icon={fitHeight.icon}
               className={`pdf-search-fold${fitMode === "height" ? " active" : ""}${shownFit === "height" ? "" : " pdf-overflow"}`}
               aria-pressed={fitMode === "height"} disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
-            <ToolbarButton label={darkPagesLabel} icon={<Moon size={14} />} className={`pdf-overflow${darkPages ? " active" : ""}`}
-              aria-pressed={darkPages} onMouseDown={keepFocus} onClick={togglePdfDarkPages} />
+            <PdfDarkPagesButton label={darkPagesLabel} />
             {toolbarAction && (
               <ToolbarButton label={toolbarAction.label} icon={<toolbarAction.icon size={14} />}
                 className="pdf-overflow" onClick={toolbarAction.run} />
@@ -642,7 +640,7 @@ export function PdfPreview({
                     label: fit.label, icon: fit.icon, checked: foldedFit === fit.mode, disabled: !hasActiveViewer, run: () => toggleFit(fit.mode),
                   }))
                   : [{ label: otherFit.label, icon: otherFit.icon, disabled: !hasActiveViewer, run: () => toggleFit(otherFit.mode) }],
-                [{ label: darkPagesLabel, icon: <Moon />, checked: darkPages, run: togglePdfDarkPages }],
+                [{ label: darkPagesLabel, icon: <Moon />, checked: overflowOpen && pdfDarkPagesSetting.get(), run: togglePdfDarkPages }],
                 [
                   { label: t`Previous PDF location`, icon: <CornerUpLeft />, disabled: !availability.back, run: () => navigate("back") },
                   { label: t`Next PDF location`, icon: <CornerUpRight />, disabled: !availability.forward, run: () => navigate("forward") },

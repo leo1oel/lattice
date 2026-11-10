@@ -711,7 +711,7 @@
    annotation highlights and pins — takes the dark theme's inks under either
    theme: the light theme's would sink into the page. Restated here, not
    derived, because these roles resolve once at :root. */
-.pdf-preview[data-dark-pages] .pdfViewer .page {
+:root[data-pdf-dark-pages] .pdf-preview .pdfViewer .page {
   --control-active: var(--dark-page-mark);
   --annotation-ink: var(--dark-page-annotation);
   --annotation-proposed-ink: var(--dark-page-proposed);

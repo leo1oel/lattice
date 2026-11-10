@@ -12,6 +12,11 @@
  * cost: a photograph's lightness flips too. Everything Lattice draws over the
  * pages (highlights, SyncTeX marks, annotations, the selection) sits outside
  * the canvas and keeps its own colours.
+ *
+ * The choice is drawn as one attribute on the root element, which the
+ * stylesheets key on, rather than as React state in each viewer: a viewer
+ * re-renders often, and reading the setting there cost a hook call per
+ * render from the first frame. Only the toolbar's toggle subscribes.
  */
 import { sharedSetting } from "../settings/shared-setting";
 
@@ -26,6 +31,21 @@ function loadPdfDarkPages(): boolean {
 }
 
 export const pdfDarkPagesSetting = sharedSetting(PDF_DARK_PAGES_KEY, loadPdfDarkPages);
+
+let watching = false;
+
+/**
+ * Keeps the root's `data-pdf-dark-pages` in step with the setting, here and
+ * in other windows. Called once the viewer's module loads, so a window that
+ * never shows a PDF never reads the setting.
+ */
+export function watchPdfDarkPages() {
+  if (watching) return;
+  watching = true;
+  const draw = () => document.documentElement.toggleAttribute("data-pdf-dark-pages", pdfDarkPagesSetting.get());
+  pdfDarkPagesSetting.subscribe(draw);
+  draw();
+}
 
 /** Turns dark pages on or off in every PDF viewer and window. */
 export const togglePdfDarkPages = () => pdfDarkPagesSetting.set((dark) => !dark);
