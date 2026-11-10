@@ -1,0 +1,40 @@
+{
+  "version": "0.16.9",
+  "date": "2026-11-10",
+  "highlights": [
+    {
+      "title": {
+        "en": "Know when your TeX packages are out of date",
+        "zh": "TeX 包过期提醒"
+      },
+      "body": {
+        "en": "Lattice tells you when your TeX packages are out of date and offers a one-click update.",
+        "zh": "TeX 包过期时，Lattice 会提醒你，并提供一键更新。"
+      }
+    },
+    {
+      "title": {
+        "en": "Newer default model in the AI assistant",
+        "zh": "AI 助手默认使用更新的模型"
+      },
+      "body": {
+        "en": "\"sonnet\" and \"haiku\" now mean Sonnet 5.5 and Haiku 5.5, the default model is Sonnet 5.5, and Opus 5.5 and Fable 5.2 show their real default effort.",
+        "zh": "“sonnet” 和 “haiku” 现在指 Sonnet 5.5 和 Haiku 5.5，默认模型为 Sonnet 5.5，Opus 5.5 和 Fable 5.2 会显示真实的默认推理强度。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "In an Overleaf project, the PDF your build makes is no longer synced to or from Overleaf, so a collaborator's PDF can no longer replace yours when the main document sits in a subfolder (such as cvpr/main.tex). If the PDF is replaced anyway, Lattice rebuilds instead of showing someone else's PDF.",
+      "zh": "在 Overleaf 项目中，你编译生成的 PDF 不再与 Overleaf 同步；主文档位于子文件夹（如 cvpr/main.tex）时，合作者的 PDF 不会再覆盖你的 PDF。即使 PDF 被替换，Lattice 也会重新编译，而不是显示别人的 PDF。"
+    },
+    {
+      "en": "Ctrl/⌘ + wheel zoom in the PDF keeps the point under the pointer instead of jumping to another page. Thanks to @Livioni.",
+      "zh": "在 PDF 中用 Ctrl/⌘ + 滚轮缩放时，指针下的位置保持不动，不再跳到其他页。感谢 @Livioni。"
+    },
+    {
+      "en": "Drag-selecting text past the edge of the editor scrolls smoothly. Thanks to @wchen99998.",
+      "zh": "拖选文本超出编辑器边缘时，滚动更加流畅。感谢 @wchen99998。"
+    }
+  ]
+}
