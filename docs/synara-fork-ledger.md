@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-09 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**799 files, +75,416 / −8,800 lines**. It carries embedded-workspace UI, a skills manager,
+**805 files, +75,735 / −8,808 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -142,6 +142,12 @@ Untracked files are sized before anything is hashed. A file over 16 MiB is left 
 The "Write the message for me" preview (`previewCommitContext`) stages into a copied index the same way, and now uses the same scratch store.
 `apps/server/src/git/Layers/GitCore.scratchObjects.test.ts` pins this with real Git in temporary repositories. The tests assert that the real object directory gains no loose object, pack or `tmp_pack`: when the add is interrupted mid-pack (the reporter's control), when it hits a lowered timeout, and when the size limits apply.
 Garbage left by earlier pins is not removed: `git count-objects -vH` shows it, and `git gc --prune=now` clears it once no Git process is using the repository.
+
+The Claude tab of the model picker now leads with Claude Fable 5.2 (`claude-fable-5-2`), above Fable 5.1, Fable 5 and Opus 5.5 (fork `0a34d659ebb0fdf059fdb5f12b79a9543725f839`, [fork PR 15](https://github.com/leo1oel/synara/pull/15)).
+The tab lists the fork's static Claude catalog (`packages/contracts/src/model.ts`), so each new Claude model is ours to add. Fable 5.2 takes Fable 5.1's settings (Low through Max effort with High the default, a 1M context window, thinking always on) plus fast mode, which Anthropic's docs list for 5.2 and not for 5.1.
+A bare `fable` now resolves to Fable 5.2, as Claude Code's own alias does from 2.1.321, so a chat saved with `fable` runs 5.2; an explicit Fable 5.1 selection stays on 5.1. Pi's repaired Anthropic catalog and Cursor's 1M-variant fallback list Fable 5.2 too.
+Claude Code learns Fable 5.2 only in 2.1.321. When the Claude status probe reports an older version, the tab says "Update Claude Code to 2.1.321+ to use Fable 5.2" (zh-CN "将 Claude Code 升级到 2.1.321+ 以使用 Fable 5.2") in the same status line as the Codex note above, and the Fable 5.2 row is greyed with "Needs Claude Code 2.1.321+" (zh-CN "需要 Claude Code 2.1.321+") and cannot be picked. Without this, a turn on the older CLI failed and was recorded as "Not available to your account".
+The minimum lives in `CLAUDE_MODEL_MINIMUM_CLI_VERSIONS` in the fork's `ComposerModelPicker.logic.ts`, beside the Astra check, which now shares its version comparer; an unknown version shows nothing. `ComposerModelPicker.claudeCliVersion.browser.tsx` pins both cases. No in-app Lattice session was needed for this catalog addition and picker note.
 
 ## Synara 0.9.1 compatibility
 
