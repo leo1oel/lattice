@@ -2244,6 +2244,7 @@ msgstr "Applying figure changes…"
 msgid "Applying…"
 msgstr "Applying…"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Approve the macOS prompt to continue"
@@ -2949,6 +2950,7 @@ msgstr "Call for papers URL or note"
 msgid "Callout"
 msgstr "Callout"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Can take up to 15 minutes"
@@ -8184,6 +8186,10 @@ msgstr "last update unknown"
 msgid "Last, First and Last, First"
 msgstr "Last, First and Last, First"
 
+#: src/app/use-tex-update-reminder.ts
+msgid "Later"
+msgstr "Later"
+
 #: src/app/shortcut-groups.ts
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
@@ -8248,6 +8254,7 @@ msgid "LaTeX package installed"
 msgstr "LaTeX package installed"
 
 #: src/app/use-tex-setup.ts
+#: src/app/use-tex-update-reminder.ts
 msgid "LaTeX setup"
 msgstr "LaTeX setup"
 
@@ -14869,6 +14876,7 @@ msgstr "TeX package update progress"
 msgid "TeX packages"
 msgstr "TeX packages"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "TeX packages updated. Build again to use them."
@@ -16938,6 +16946,7 @@ msgstr "Update now"
 msgid "Update table"
 msgstr "Update table"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Update TeX packages"
@@ -16981,6 +16990,14 @@ msgstr "Updates available ({count}): {named}"
 msgid "Updates available ({count}): {named}, and {more} more"
 msgstr "Updates available ({count}): {named}, and {more} more"
 
+#: src/app/use-tex-update-reminder.ts
+msgid "Updates available ({count}). In Terminal: {TEX_PACKAGE_UPDATE_COMMAND}"
+msgstr "Updates available ({count}). In Terminal: {TEX_PACKAGE_UPDATE_COMMAND}"
+
+#: src/app/use-tex-update-reminder.ts
+msgid "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
+msgstr "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
+
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
 msgstr "Updates every \\ref to it"
@@ -16989,6 +17006,7 @@ msgstr "Updates every \\ref to it"
 msgid "Updates the .bib entry and every \\cite"
 msgstr "Updates the .bib entry and every \\cite"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
@@ -17307,6 +17325,7 @@ msgstr "Volume"
 msgid "Waiting"
 msgstr "Waiting"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
@@ -17681,6 +17700,10 @@ msgstr "Your Overleaf session expired. Sign in again"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
 msgstr "Your project files are safe"
+
+#: src/app/use-tex-update-reminder.ts
+msgid "Your TeX packages are out of date"
+msgstr "Your TeX packages are out of date"
 
 #: src/papers/bibliography-audit.tsx
 #: src/papers/linked-library-sheet.tsx

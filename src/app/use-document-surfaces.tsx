@@ -58,6 +58,7 @@ import type { useSourceNavigation } from "./use-source-navigation";
 import type { SynaraHost } from "./use-synara-host";
 import type { useSyncTexNavigation } from "./use-synctex-navigation";
 import type { TexSetup } from "./use-tex-setup";
+import { useTexUpdateReminder } from "./use-tex-update-reminder";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { sameIgnoringCase } from "../lib/equality";
 
@@ -135,6 +136,8 @@ export function useDocumentSurfaces({
     fetchAndOpenPaper: paperActions.fetchAndOpenPaper,
   });
   const pdfWindowOpen = usePdfWindowOpen(project?.root);
+  // Here because it waits out a running build; App has no room for it.
+  useTexUpdateReminder(texSetup.packageUpdates, build.pipeline.building);
   if (!project) return null;
   const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, save } = documents;
   const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;

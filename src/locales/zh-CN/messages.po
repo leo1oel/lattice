@@ -2244,6 +2244,7 @@ msgstr "正在应用插图更改…"
 msgid "Applying…"
 msgstr "正在同步…"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Approve the macOS prompt to continue"
@@ -2949,6 +2950,7 @@ msgstr "征稿链接或说明"
 msgid "Callout"
 msgstr "提示框"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Can take up to 15 minutes"
@@ -8184,6 +8186,10 @@ msgstr "更新时间未知"
 msgid "Last, First and Last, First"
 msgstr "姓, 名 and 姓, 名"
 
+#: src/app/use-tex-update-reminder.ts
+msgid "Later"
+msgstr "稍后"
+
 #: src/app/shortcut-groups.ts
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
@@ -8248,6 +8254,7 @@ msgid "LaTeX package installed"
 msgstr "LaTeX 组件已安装"
 
 #: src/app/use-tex-setup.ts
+#: src/app/use-tex-update-reminder.ts
 msgid "LaTeX setup"
 msgstr "LaTeX 设置"
 
@@ -14869,6 +14876,7 @@ msgstr "TeX 组件更新进度"
 msgid "TeX packages"
 msgstr "TeX 组件"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "TeX packages updated. Build again to use them."
@@ -16938,6 +16946,7 @@ msgstr "立即更新"
 msgid "Update table"
 msgstr "更新表格"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Update TeX packages"
@@ -16981,6 +16990,14 @@ msgstr "有可用更新（{count} 个）：{named}"
 msgid "Updates available ({count}): {named}, and {more} more"
 msgstr "有可用更新（{count} 个）：{named}，以及另外 {more} 个"
 
+#: src/app/use-tex-update-reminder.ts
+msgid "Updates available ({count}). In Terminal: {TEX_PACKAGE_UPDATE_COMMAND}"
+msgstr "有可用更新（{count} 个）。在终端中运行：{TEX_PACKAGE_UPDATE_COMMAND}"
+
+#: src/app/use-tex-update-reminder.ts
+msgid "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
+msgstr "有可用更新（{count} 个）。更新时需要输入 Mac 密码，可能需要几分钟。"
+
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
 msgstr "会同步改所有 \\ref"
@@ -16989,6 +17006,7 @@ msgstr "会同步改所有 \\ref"
 msgid "Updates the .bib entry and every \\cite"
 msgstr "会同步改 .bib 和所有 \\cite"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
@@ -17307,6 +17325,7 @@ msgstr "卷号"
 msgid "Waiting"
 msgstr "等待中"
 
+#: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
@@ -17681,6 +17700,10 @@ msgstr "登录已过期，请重新登录"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
 msgstr "你的文件都在，没有丢失"
+
+#: src/app/use-tex-update-reminder.ts
+msgid "Your TeX packages are out of date"
+msgstr "TeX 组件已过时"
 
 #: src/papers/bibliography-audit.tsx
 #: src/papers/linked-library-sheet.tsx
