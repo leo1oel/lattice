@@ -2386,10 +2386,6 @@ msgstr "自动编译"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "“自动”会把 LaTeX 按学术写作检查，其他文件按日常文字检查"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
-msgstr "此 Windows 实验版本暂不支持自动安装论文工具。"
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Automatic updates"
@@ -3010,6 +3006,10 @@ msgstr "取消创建"
 msgid "Cancel download"
 msgstr "取消下载"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Cancel installation"
+msgstr "取消安装"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "取消修复"
@@ -3231,7 +3231,6 @@ msgstr "抑扬符示例"
 
 #: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "重新检查"
@@ -5486,10 +5485,6 @@ msgstr "下载论文"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Download TeX Live"
-msgstr "下载 TeX Live"
-
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Downloaded paper files will be kept."
@@ -5525,6 +5520,10 @@ msgstr "只需下载一次 rtex，约 4 MB。下载期间编译照常进行。�
 #: src/live-preview/live-preview-settings.tsx
 msgid "Downloading rtex… {percent}%"
 msgstr "正在下载 rtex… {percent}%"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Downloading TeX Live…"
+msgstr "正在下载 TeX Live…"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
@@ -7660,7 +7659,6 @@ msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "稍后安装"
 
@@ -7670,12 +7668,10 @@ msgid "Install LaTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 才能编译"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX"
@@ -7700,13 +7696,20 @@ msgid "Install paper tools"
 msgstr "安装论文工具"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "安装论文工具"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "安装所需工具"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live"
+msgstr "安装 TeX Live"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
+msgstr "安装 TeX Live（{TEX_INSTALL_SIZE_HINT}）"
 
 #: src/platform/host-errors-setup.ts
 msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
@@ -7715,10 +7718,6 @@ msgstr "安装 Windows 版 TeX Live（https://tug.org/texlive/windows.html），
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
-
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
-msgstr "安装 Windows 版 TeX Live 后重新检查。没有 LaTeX 也可以继续编辑。"
 
 #: src/platform/host-errors-setup.ts
 msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
@@ -7735,6 +7734,10 @@ msgstr "正在安装 LaTeX 组件…"
 #: src/build/tex-install-dialog.tsx
 msgid "Installing required tools…"
 msgstr "正在安装所需工具…"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Installing TeX Live…"
+msgstr "正在安装 TeX Live…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Installing update…"
@@ -14851,6 +14854,14 @@ msgstr "测试连接"
 #: src/settings/settings-search-index.ts
 msgid "TeX doctor"
 msgstr "TeX 检查"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installation progress"
+msgstr "TeX Live 安装进度"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installed"
+msgstr "TeX Live 已安装"
 
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager could not install the package."

@@ -2386,10 +2386,6 @@ msgstr "Automatic build"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "Automatic checks LaTeX as academic writing and other files as everyday prose"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
-msgstr "Automatic paper-tool installation isn’t available in this experimental Windows build."
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Automatic updates"
@@ -3010,6 +3006,10 @@ msgstr "Cancel creation"
 msgid "Cancel download"
 msgstr "Cancel download"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Cancel installation"
+msgstr "Cancel installation"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "Cancel repair"
@@ -3231,7 +3231,6 @@ msgstr "Check accent example"
 
 #: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "Check again"
@@ -5486,10 +5485,6 @@ msgstr "Download paper"
 msgid "Download PDF"
 msgstr "Download PDF"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Download TeX Live"
-msgstr "Download TeX Live"
-
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Downloaded paper files will be kept."
@@ -5525,6 +5520,10 @@ msgstr "Downloading rtex once, about 4 MB. Builds work as usual meanwhile. You c
 #: src/live-preview/live-preview-settings.tsx
 msgid "Downloading rtex… {percent}%"
 msgstr "Downloading rtex… {percent}%"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Downloading TeX Live…"
+msgstr "Downloading TeX Live…"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
@@ -7660,7 +7659,6 @@ msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "Install later"
 
@@ -7670,12 +7668,10 @@ msgid "Install LaTeX"
 msgstr "Install LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "Install LaTeX to compile"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "Install LaTeX tools"
@@ -7700,13 +7696,20 @@ msgid "Install paper tools"
 msgstr "Install paper tools"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "Install required tools"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live"
+msgstr "Install TeX Live"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
+msgstr "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
 
 #: src/platform/host-errors-setup.ts
 msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
@@ -7715,10 +7718,6 @@ msgstr "Install TeX Live for Windows (https://tug.org/texlive/windows.html), the
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
-
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
-msgstr "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
 
 #: src/platform/host-errors-setup.ts
 msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
@@ -7735,6 +7734,10 @@ msgstr "Installing LaTeX packages…"
 #: src/build/tex-install-dialog.tsx
 msgid "Installing required tools…"
 msgstr "Installing required tools…"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Installing TeX Live…"
+msgstr "Installing TeX Live…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Installing update…"
@@ -14851,6 +14854,14 @@ msgstr "Test connection"
 #: src/settings/settings-search-index.ts
 msgid "TeX doctor"
 msgstr "TeX doctor"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installation progress"
+msgstr "TeX Live installation progress"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installed"
+msgstr "TeX Live installed"
 
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager could not install the package."
