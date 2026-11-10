@@ -40,6 +40,7 @@ import { SegmentedControl } from "../components/ui/segmented-control";
 import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep } from "./interface-scale";
 import { CodeThemeSettingsGroup } from "./code-theme-settings";
 import { GrammarSettingsGroup } from "./grammar-settings";
+import { SpellingLanguagesRow } from "./spelling-languages-row";
 import type { GrammarIgnores } from "../editor/harper-spellcheck";
 import { ThemeSettingsGroup } from "./theme-settings";
 import type { WindowBacking } from "./use-appearance";
@@ -518,10 +519,11 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
         </SettingsRow>
         <SwitchField
           data-setting="spellcheck"
-          label={t`Check English spelling`}
+          label={t`Check spelling`}
           checked={props.appearance.editorSpellcheck}
           onChange={(editorSpellcheck) => patchAppearance(props, { editorSpellcheck })}
         />
+        <SpellingLanguagesRow />
         <SettingsRow
           className="settings-project-dictionary-row"
           data-setting="project-dictionary"

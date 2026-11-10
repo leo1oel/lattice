@@ -78,6 +78,7 @@ mod research_env;
 mod review_pdf;
 mod save_before_close;
 mod sidecar;
+mod spelling;
 mod synara;
 mod terminal;
 #[cfg(test)]
@@ -576,6 +577,10 @@ pub fn run() {
             ipc::build::submission_review,
             ipc::build::harper_lint,
             ipc::build::harper_rules,
+            ipc::spelling::spelling_document_language,
+            ipc::spelling::spelling_install_dictionary,
+            ipc::spelling::spelling_lint,
+            ipc::spelling::spelling_dictionaries,
             ipc::build::format_latex,
             ipc::build::texlab_diagnostics,
             ipc::build::texlab_completion,

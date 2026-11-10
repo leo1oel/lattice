@@ -72,7 +72,7 @@ pub use submission_review::{review_submission, SubmissionReview};
 pub use synctex::{
     body_pages, forward_search, heading_pages, inverse_search, BodySpan, SourceLine,
 };
-pub(crate) use venue::document_venue;
+pub(crate) use venue::{document_venue, strip_comment};
 
 /// The document a build compiles: the one marked default, else the first.
 pub(crate) fn default_root(manifest: &ProjectManifest) -> Option<&RootDocument> {
