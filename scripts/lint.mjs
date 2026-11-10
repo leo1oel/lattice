@@ -8,8 +8,7 @@
 // the change that removes warnings is the one that lowers the cap and no
 // later change can spend the slack on new ones.
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
-import { projectRoot } from "./lib/util.mjs";
+import { oxlintEntry, projectRoot } from "./lib/util.mjs";
 
 const args = process.argv.slice(2);
 const capIndex = args.indexOf("--max-warnings");
@@ -22,8 +21,7 @@ if (capIndex < 0 || !Number.isInteger(cap)) {
 // The unix format prints one `path:line:col: message [Severity/rule]` line per
 // diagnostic and a `N problems` summary, so the count is read off the same
 // output the reader sees, and no second lint pass is needed.
-const oxlint = join(projectRoot, "node_modules/.bin/oxlint");
-const result = spawnSync(oxlint, ["--format", "unix", ...args], {
+const result = spawnSync(process.execPath, [oxlintEntry, "--format", "unix", ...args], {
   cwd: projectRoot,
   encoding: "utf8",
   stdio: ["ignore", "pipe", "inherit"],

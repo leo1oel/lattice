@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { projectRoot } from "./lib/util.mjs";
+import { oxlintEntry, projectRoot } from "./lib/util.mjs";
 
 const root = projectRoot;
 const allowlistPath = path.join(root, "scripts/i18n-unlocalized-baseline.txt");
@@ -15,7 +15,7 @@ const failures = [];
 // silently let English back into the zh-CN interface. Oxlint prints its
 // resolved config but not per file, so this applies the overrides in order,
 // as Oxlint does: a later matching override replaces an earlier setting.
-const config = JSON.parse(execFileSync(path.join(root, "node_modules/.bin/oxlint"), ["--print-config"], {
+const config = JSON.parse(execFileSync(process.execPath, [oxlintEntry, "--print-config"], {
   cwd: root,
   encoding: "utf8",
 }));
@@ -48,7 +48,8 @@ function parsePo(text) {
   const entries = [];
   let entry = null;
   let field = null;
-  for (const line of text.split("\n")) {
+  // Windows checkouts get CRLF line endings.
+  for (const line of text.split(/\r?\n/)) {
     const start = line.match(/^(msgid|msgstr) (".*")$/);
     if (start) {
       if (start[1] === "msgid") entries.push(entry = { msgid: "", msgstr: "" });
@@ -64,7 +65,7 @@ function parsePo(text) {
 }
 
 const allowed = new Set((await readFile(allowlistPath, "utf8"))
-  .split("\n")
+  .split(/\r?\n/)
   .filter((line) => line.trim() && !line.startsWith("#")));
 const entries = parsePo(await readFile(catalogPath, "utf8"));
 const chinese = /[㐀-鿿]/;
