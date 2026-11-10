@@ -181,8 +181,10 @@ pub async fn overleaf_status(app: AppHandle) -> Result<overleaf::OverleafStatus,
 /// then captures the session cookie — no manual copying for the common case.
 /// `title` is the window title and `back_label` the "return to the login
 /// page" control's text, both in the interface language.
+// Async: a synchronous command builds the window on the main thread, and on Windows
+// WebView2 creation waits on that same thread, so the window stays blank forever.
 #[tauri::command]
-pub fn overleaf_begin_login(
+pub async fn overleaf_begin_login(
     app: AppHandle, host: Option<String>, title: String, back_label: String,
 ) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window(LOGIN_WINDOW) {
