@@ -84,9 +84,9 @@ try {
   // leave the shell waiting before it executes the first command.
   await page.keyboard.press("Control+Backquote");
   const terminal = page.locator(".terminal-screen .xterm-helper-textarea").first();
-  await terminal.waitFor({ state: "attached" });
-  await until("PowerShell prompt in the installed terminal", async () =>
-    /PS [^>]*>/.test(await page.locator(".terminal-screen").first().textContent()));
+  await terminal.waitFor({ state: "visible" });
+  // The WebGL renderer draws the prompt into a canvas, not DOM text.
+  // The command result below establishes shell readiness without scraping it.
   await terminal.focus();
   await page.keyboard.type("[IO.File]::WriteAllText((Join-Path (Get-Location) 'terminal-proof.txt'), 'Lattice ConPTY works')", { delay: 5 });
   await page.keyboard.press("Enter");
