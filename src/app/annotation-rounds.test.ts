@@ -138,9 +138,11 @@ describe("AnnotationRounds / revise scope", () => {
     const from = SOURCE.indexOf(passage(2));
     const review = { commentAuthorId: "ada", commentAuthorName: "Ada", onCreateEditorComment: store.create, annotationRounds: rounds };
 
-    expect(annotateSelection(review, {
+    const report = vi.fn();
+    annotateSelection(review, {
       path: "main.tex", source: SOURCE, from, to: from + passage(2).length, body: "", intent: "shorten", revise: true,
-    })).toBe(true);
+    }, report);
+    expect(report).toHaveBeenCalledWith(null);
 
     expect(await asked()).toEqual([passage(2)]);
     expect(proposed()).toEqual([passage(2)]);
@@ -168,7 +170,9 @@ describe("AnnotationRounds / revise scope", () => {
     const mapped = { path: "main.tex", line: 3, from, to: from + passage(2).length, source: SOURCE };
     const selection = { page: 1, rects: [], text: passage(2), point: { x: 0, y: 0 } };
 
-    expect(annotateSelection(review, { path: "main.tex", source: SOURCE, from, to: mapped.to, body: "Tighten", revise: true })).toBe(false);
+    const report = vi.fn();
+    annotateSelection(review, { path: "main.tex", source: SOURCE, from, to: mapped.to, body: "Tighten", revise: true }, report);
+    expect(report).not.toHaveBeenCalled();
     expect(rounds.createFromPdf(selection, mapped, "Tighten", undefined, true)).toBe("refused");
     expect(reviseAnnotationWithAgent).not.toHaveBeenCalled();
   });

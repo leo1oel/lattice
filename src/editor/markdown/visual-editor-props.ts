@@ -8,7 +8,7 @@
 import type { PaperSummary } from "../../app-types";
 import type { PresenceCursor, TrackedChangeTooltipActions } from "../../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
-import type { EditorComment } from "../comments/editor-comment-data";
+import type { EditorComment, NoteProgress } from "../comments/editor-comment-data";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 
 /** Where a jump sends the visual editor: a 1-based line of its text, or a comment's anchor. */
@@ -46,8 +46,12 @@ export type VisualMarkdownEditorProps = {
   activeEditorCommentId?: string | null;
   onEditorCommentClick?: (id: string) => void;
   overleafTrackChangeActions?: TrackedChangeTooltipActions;
-  /** Saves a note on `[from, to)`; false when it was not made, so the composer keeps it. */
-  onCreateComment?: (from: number, to: number, body: string) => boolean;
+  /**
+   * Saves a note on `[from, to)`. `report` hears null once it is made, so the
+   * composer closes, and how a note sent to Overleaf is getting on until then;
+   * nothing when it was not made, so the composer keeps it.
+   */
+  onCreateComment?: (from: number, to: number, body: string, report: (progress: NoteProgress) => void) => void;
   editable?: boolean;
   /**
    * A jump to land on once the text it names is shown: the target is

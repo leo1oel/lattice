@@ -797,6 +797,10 @@ msgstr "{name} 还不在这台电脑上。请先从云盘下载，然后重试�
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} 仍在运行，关闭会将其停止。"
 
+#: src/app/use-editor-comments.ts
+msgid "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
+msgstr "{name} 仍在与 Overleaf 同步，评论还没加上。请等同步完成后再试。"
+
 #: src/app/file-open-failure.ts
 msgid "{name} is too large to open in the editor"
 msgstr "{name} 太大，无法在编辑器中打开"
@@ -4095,6 +4099,7 @@ msgstr "评论来源"
 msgid "Comment visibility"
 msgstr "评论筛选"
 
+#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Commenting on {name} on Overleaf…"
 msgstr "正在把评论发到 Overleaf 上的 {name}…"
@@ -17425,6 +17430,10 @@ msgstr "卷号"
 #: src/papers/add-papers-sheet.tsx
 msgid "Waiting"
 msgstr "等待中"
+
+#: src/app/use-editor-comments.ts
+msgid "Waiting for {name} to finish syncing with Overleaf…"
+msgstr "正在等待 {name} 与 Overleaf 同步完成…"
 
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx

@@ -39,7 +39,7 @@ describe("the comment composer (R-SRC-7)", () => {
   it.each([
     [false, "submit"], [true, "submit"], [false, "cancel"], [true, "escape"], [false, "outside"],
   ] as const)("marks the selection while a comment is written (pending edit: %s, then %s)", async (pendingEdit, action) => {
-    const onCreateComment = vi.fn();
+    const onCreateComment = vi.fn<NonNullable<Props["onCreateComment"]>>((_from, _to, _body, report) => report(null));
     const { editor } = renderEditor({ onCreateComment });
     select(editor, 1, 6);
     const button = await screen.findByRole("button", { name: "Comment" });
@@ -59,7 +59,7 @@ describe("the comment composer (R-SRC-7)", () => {
     else {
       fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Please clarify this." } });
       fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
-      expect(onCreateComment).toHaveBeenCalledWith(pendingEdit ? 4 : 0, pendingEdit ? 9 : 5, "Please clarify this.");
+      expect(onCreateComment).toHaveBeenCalledWith(pendingEdit ? 4 : 0, pendingEdit ? 9 : 5, "Please clarify this.", expect.any(Function));
     }
     if (action !== "submit") expect(onCreateComment).not.toHaveBeenCalled();
     expect(surface().querySelector(".lx-md-comment-draft")).toBeNull();
@@ -92,6 +92,33 @@ describe("the comment composer (R-SRC-7)", () => {
     expect(box).toHaveValue("");
   });
 
+  // A comment sent to Overleaf is not back yet: the composer holds it, with
+  // what was typed, until it lands, and says why when it does not.
+  it("holds the comment while the host is sending it, and keeps it with the reason when it fails", async () => {
+    let report: Parameters<NonNullable<Props["onCreateComment"]>>[3] = () => {};
+    const { editor } = renderEditor({ text: "One Hello two", onCreateComment: (_from, _to, _body, given) => { report = given; } });
+    select(editor, 5, 10);
+    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
+    const composer = await screen.findByRole("dialog", { name: "Add comment" });
+    const box = within(composer).getByRole("textbox", { name: "Comment" });
+    fireEvent.change(box, { target: { value: "Name it." } });
+    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    act(() => report({ saving: "Waiting for notes.md to sync…", error: null }));
+    expect(within(composer).getByRole("status")).toHaveTextContent("Waiting for notes.md to sync…");
+    expect(within(composer).getByRole("button", { name: "Add comment" })).toBeDisabled();
+    fireEvent.keyDown(box, { key: "Escape" });
+    fireEvent.pointerDown(surface());
+    expect(screen.getByRole("dialog", { name: "Add comment" })).toBe(composer);
+
+    act(() => report({ saving: null, error: "Overleaf could not be reached." }));
+    expect(within(composer).getByRole("alert")).toHaveTextContent("Overleaf could not be reached.");
+    expect(box).toHaveValue("Name it.");
+    expect(within(composer).getByRole("button", { name: "Add comment" })).toBeEnabled();
+    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    act(() => report(null));
+    expect(screen.queryByRole("dialog", { name: "Add comment" })).toBeNull();
+  });
+
   it("follows edits made while the comment is written", async () => {
     const onCreateComment = vi.fn();
     const { editor } = renderEditor({ text: "One Hello two", onCreateComment });
@@ -103,7 +130,7 @@ describe("the comment composer (R-SRC-7)", () => {
     });
     fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Still here." } });
     fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
-    expect(onCreateComment).toHaveBeenCalledWith(8, 13, "Still here.");
+    expect(onCreateComment).toHaveBeenCalledWith(8, 13, "Still here.", expect.any(Function));
   });
 
   it("refuses a selection whose text changed while the comment was written", async () => {
@@ -139,7 +166,7 @@ describe("the comment composer (R-SRC-7)", () => {
     fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Clarify." } });
     fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
     const from = whole ? 0 : text.indexOf("A paragraph");
-    expect(onCreateComment).toHaveBeenCalledWith(from, from + quote.length, "Clarify.");
+    expect(onCreateComment).toHaveBeenCalledWith(from, from + quote.length, "Clarify.", expect.any(Function));
     expect(onChange).not.toHaveBeenCalled();
   });
 });

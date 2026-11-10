@@ -585,7 +585,10 @@ export class AnnotationRounds {
       intent, pdf: { page: selection.page, rects: selection.rects, text: selection.text },
     });
     if (!comment) return "stale";
-    const created = deps.store.create(comment);
+    // The note closes as it is sent; what goes wrong after says so in a toast.
+    const created = deps.store.create(comment, (progress) => {
+      if (progress?.error) showError(progress.error);
+    });
     if (created === null) return "refused";
     if (created !== "overleaf" && revise) this.revise([created.id]);
     return "saved";

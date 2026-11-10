@@ -37,6 +37,8 @@ export type AnnotationDraft = {
   body: string;
   intent?: AnnotationIntent;
   error: string | null;
+  /** What a note sent to Overleaf is waiting for; the note stays until it lands. */
+  saving?: string | null;
 };
 
 /**
@@ -52,6 +54,8 @@ export function AnnotationForm(props: {
   body: string;
   intent?: AnnotationIntent;
   error: string | null;
+  /** What saving is waiting for, shown until it is done. */
+  status?: string | null;
   /** False while there is nowhere to save to yet (the PDF selection is still being mapped). */
   ready?: boolean;
   /** The agent can be asked now; otherwise only Save is offered. */
@@ -107,6 +111,7 @@ export function AnnotationForm(props: {
         ))}
       </div>}
       {props.error && <p role="alert" className="annotation-form-error">{props.error}</p>}
+      {props.status && <p role="status" className="annotation-form-status">{props.status}</p>}
       <div className="annotation-form-actions">
         <Button size="compact" variant="tinted" disabled={!saveable} onClick={() => props.onSave(false)}>
           {props.overleaf ? t`Comment on Overleaf` : t`Save`} <kbd>{SAVE_KEYS}</kbd>
@@ -141,7 +146,11 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
   const draftRef = useLatestRef(draft);
   // It grows from the text it quotes as every popup does, and leaves on the popup exit.
   useExitPicture([popupRef]);
-  useDismissOnOutsidePointer(popupRef, () => onCancel(true));
+  // Not while Overleaf is taking the note: the request cannot be called back.
+  const cancel = (outside: boolean) => {
+    if (!draft.saving) onCancel(outside);
+  };
+  useDismissOnOutsidePointer(popupRef, () => cancel(true));
   useLayoutEffect(() => {
     const popup = popupRef.current;
     const host = view?.dom.closest(".source-editor");
@@ -192,10 +201,12 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
         body={draft.body}
         intent={draft.intent}
         error={draft.error}
+        status={draft.saving}
+        ready={!draft.saving}
         canRevise={canRevise}
         onBodyChange={(body) => onChange({ body })}
         onIntentChange={(intent) => onChange({ intent })}
-        onCancel={() => onCancel(false)}
+        onCancel={() => cancel(false)}
         onSave={onSave}
       />
     </div>

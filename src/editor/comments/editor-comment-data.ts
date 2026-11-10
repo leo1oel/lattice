@@ -105,6 +105,13 @@ export type AnnotationRound = {
 };
 
 /**
+ * How a note sent to Overleaf is getting on, for the composer that stays open
+ * with it meanwhile: what it is waiting for (`saving`), or why it did not
+ * land (`error`), after which it can be sent again; null once Overleaf has it.
+ */
+export type NoteProgress = { saving: string | null; error: string | null } | null;
+
+/**
  * Where an annotation stands, as its card and pin show it: `asked` is the
  * agent waiting on the writer, `rejected` a proposal turned down (the note
  * stays open), `accepted` and `resolved` are done.

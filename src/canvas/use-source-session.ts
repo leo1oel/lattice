@@ -76,6 +76,7 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
   const [draft, setDraft] = useState<AnnotationDraft | null>(null);
   const [draftView, setDraftView] = useState<WeakRef<EditorView> | null>(null);
   const draftRef = useCommittedRef(draft);
+  const amendDraft = useCallback((change: Partial<AnnotationDraft>) => setDraft((current) => current && { ...current, ...change }), []);
   const openDraft = useCallback((inView: EditorView, next: AnnotationDraft) => {
     setDraftView(new WeakRef(inView));
     setDraft(next);
@@ -225,6 +226,7 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     commentCards,
     draft,
     setDraft,
+    amendDraft,
     /** The view the note was opened in, fixed while it is open. */
     draftView,
     openDraft,

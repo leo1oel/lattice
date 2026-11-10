@@ -10,6 +10,7 @@ import {
   nextAnnotationNumber,
   type AnnotationRound,
   type EditorComment,
+  type NoteProgress,
 } from "../editor/comments/editor-comment-data";
 import { publishMarginReviewComments } from "../overleaf/margin-review-files";
 import { showError } from "./notify";
@@ -39,6 +40,22 @@ function withAnnotations(change: (annotations: EditorComment[]) => EditorComment
     const annotations = change(current.annotations);
     return annotations === current.annotations ? current : { ...current, annotations };
   };
+}
+
+/** How long a comment waits for the sync owed its file to bring Overleaf's copy up to the passage. */
+const SYNC_WAIT_MS = 15_000;
+
+/** Resolves true once `owed` stops holding, false if it still holds after `SYNC_WAIT_MS`; nothing announces it. */
+function syncSettled(owed: () => boolean) {
+  const deadline = Date.now() + SYNC_WAIT_MS;
+  return new Promise<boolean>((resolve) => {
+    const check = () => {
+      if (!owed()) resolve(true);
+      else if (Date.now() >= deadline) resolve(false);
+      else window.setTimeout(check, 250);
+    };
+    check();
+  });
 }
 
 /** How many annotation saves this session has sent, which orders them (`save_annotations`). */
@@ -99,7 +116,7 @@ export function useEditorComments({
   const openGenerationRef = useRef(0);
   const {
     overleafLink, overleafComments, overleafCommentsRef, overleafDocPaths, overleafRealtime, overleafEditorComments,
-    setOverleafCollabOpen, setOverleafCollabTab,
+    overleafSyncOwed, setOverleafCollabOpen, setOverleafCollabTab,
   } = overleaf;
 
   /**
@@ -271,9 +288,11 @@ export function useEditorComments({
 
   /**
    * Add a note the editor or the PDF composed; see the module note for which
-   * kind it becomes. A local annotation takes the next pin number. Resolves to the annotation as saved,
-   * "overleaf" when it was sent as an Overleaf thread, or null when it was
-   * refused (saying why), so the composer keeps what was typed.
+   * kind it becomes. A local annotation takes the next pin number. Returns the
+   * annotation as saved, "overleaf" when it is being sent as an Overleaf
+   * thread, whose progress `report` follows to the end (null once Overleaf
+   * has it, else why not, so the composer keeps what was typed), or null
+   * when it was refused (saying why).
    *
    * A document of the linked project takes the comment as an Overleaf thread
    * whether or not the editor holds it live. The editor lets go of its file
@@ -284,9 +303,11 @@ export function useEditorComments({
    * needed it. Overleaf anchors a thread on any document a connection has
    * joined, so the backend joins it on a connection of its own, as for a note
    * made on the PDF, and places the passage through whatever separates its
-   * copy from the open buffer, which the comment's offsets count into.
+   * copy from the open buffer, which the comment's offsets count into. A
+   * passage the outside write brought is in Overleaf's copy only once that
+   * sync has settled, so a comment on it waits for the sync and tries again.
    */
-  const create = useCallback((comment: EditorComment): EditorComment | "overleaf" | null => {
+  const create = useCallback((comment: EditorComment, report: (progress: NoteProgress) => void): EditorComment | "overleaf" | null => {
     const docId = docIdOf(comment.path);
     if (!overleafLink || !docId || !project) {
       const annotation = { ...comment, number: nextAnnotationNumber(stateRef.current.annotations) };
@@ -295,30 +316,39 @@ export function useEditorComments({
       return annotation;
     }
     const target = { projectRoot: project.root, docId, path: comment.path };
+    const name = baseName(comment.path);
+    const failed = (reason: unknown) => {
+      const message = hostErrorMessage(reason);
+      report({ saving: null, error: t`Your comment on ${name} did not reach Overleaf: ${message}` });
+    };
     if (overleafRealtime.liveFile && overleafRealtime.docId === docId) {
-      void overleafComments.create(target, comment.from, comment.quote, comment.body)
-        .catch((reason) => showError(toMessage(reason)));
+      report({ saving: t`Commenting on ${name} on Overleaf…`, error: null });
+      void overleafComments.create(target, comment.from, comment.quote, comment.body).then(() => report(null), failed);
       return "overleaf";
     }
-    const name = baseName(comment.path);
     const source = openSources().get(comment.path);
     if (source === undefined) {
       showError(t`Open ${name} to comment on it.`);
       return null;
     }
-    void overleafComments.createInDocument(target, source, comment.from, comment.quote, comment.body).then(
-      (placement) => {
-        if (placement === "notFound") {
-          showError(t`Your comment on ${name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced.`);
-        }
-      },
-      (reason) => {
-        const message = hostErrorMessage(reason);
-        showError(t`Your comment on ${name} did not reach Overleaf: ${message}`);
-      },
-    );
+    const place = () => overleafComments.createInDocument(target, source, comment.from, comment.quote, comment.body);
+    const placeOnceSynced = async () => {
+      const placement = await place();
+      if (placement === "placed" || !overleafSyncOwed(comment.path)) return placement;
+      report({ saving: t`Waiting for ${name} to finish syncing with Overleaf…`, error: null });
+      return await syncSettled(() => overleafSyncOwed(comment.path)) ? place() : "unsynced";
+    };
+    report({ saving: t`Commenting on ${name} on Overleaf…`, error: null });
+    void placeOnceSynced().then((placement) => {
+      if (placement === "placed") report(null);
+      else if (placement === "notFound") {
+        report({ saving: null, error: t`Your comment on ${name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced.` });
+      } else {
+        report({ saving: null, error: t`${name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes.` });
+      }
+    }, failed);
     return "overleaf";
-  }, [docIdOf, openSources, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, commit, t]);
+  }, [docIdOf, openSources, overleafComments, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, overleafSyncOwed, project, commit, t]);
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);

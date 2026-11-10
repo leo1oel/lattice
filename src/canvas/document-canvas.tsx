@@ -155,7 +155,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   const { viewRef: primaryViewRef, viewPathRef: primaryViewPathRef, insertionViewRef: editorViewRef } = session;
   const primaryScrollbarView = session.view;
   const {
-    draft: commentComposer, setDraft: setCommentComposer, openDraft: openCommentComposer, selectedText, comments: commentsForActiveFile,
+    draft: commentComposer, setDraft: setCommentComposer, amendDraft, openDraft: openCommentComposer, selectedText, comments: commentsForActiveFile,
   } = session;
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const registerPrimaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
@@ -411,13 +411,12 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     }
     const range = resolveCommentAnchor(editorSource, commentComposer);
     if (!range) {
-      const error = t`The selected text changed. Select it again before commenting.`;
-      setCommentComposer((current) => current ? { ...current, error } : current);
+      amendDraft({ error: t`The selected text changed. Select it again before commenting.` });
       return;
     }
     const { body, intent } = commentComposer;
     const note = { path: activeFile, source: editorSource, from: range.from, to: range.to, body, intent, revise };
-    if (annotateSelection(props.review, note)) closeCommentComposer();
+    annotateSelection(props.review, note, (progress) => progress ? amendDraft(progress) : closeCommentComposer());
   };
   const breadcrumb = useMemo(
     () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(settledSource, session.position.line, activeFile) : [],
@@ -924,9 +923,9 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
           overleafChanges={markdownVisualChanges}
           overleafTrackChangeActions={props.review.overleafTrackChangeActions}
           editorComments={markdownVisualComments}
-          onCreateComment={(from, to, body) => annotateSelection(props.review, {
+          onCreateComment={(from, to, body, report) => annotateSelection(props.review, {
             path: activeFile, source: props.document.source, from: markdownPreviewStart + from, to: markdownPreviewStart + to, body,
-          })}
+          }, report)}
           editable={props.document.editorEditable}
           onCaretChange={(row, column) => reportVisualCaret(activeFile, row + markdownPreviewLineOffset + 1, column)}
         />
@@ -1050,7 +1049,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
               view={session.draftView?.deref() ?? null}
               anchorKey={`${activeFile}\n${editorKey}`}
               canRevise
-              onChange={(change) => setCommentComposer((current) => current ? { ...current, ...change } : current)}
+              onChange={amendDraft}
               onCancel={dismissCommentComposer}
               onSave={saveCommentComposer}
             />

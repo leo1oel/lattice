@@ -1,5 +1,5 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
@@ -68,7 +68,7 @@ it("deletes a comment at once and its undo puts it back where it was, keeping la
   const undo = lastUndo();
 
   // Something else changes before the undo; the undo must not lose it.
-  act(() => view.result.current.create(comment("d")));
+  act(() => view.result.current.create(comment("d"), vi.fn()));
   act(() => undo());
   expect(ids(view.result.current.comments)).toEqual(["a", "b", "c", "d"]);
   expect(saved().at(-1)).toEqual(["a", "b", "c", "d"]);
@@ -170,53 +170,97 @@ it("sends a PDF note to Overleaf only for the live file, and keeps one for a fil
 // had let go of the file until a sync settled the Agent's write; Overleaf
 // takes the comment anyway, on a connection of the backend's own. Nothing
 // here depends on the file type: a .tex file in the same state is the same.
-it.each(["cvpr/outline.md", "sections/intro.tex"])("posts an editor comment on %s to Overleaf whether or not the editor holds it live", async (path) => {
+describe.each(["cvpr/outline.md", "sections/intro.tex"])("an editor comment on %s, linked to Overleaf", (path) => {
   const source = "The reader sees every visual token.\n";
   const from = source.indexOf("visual token");
   const note = { ...comment("new"), path, from, to: from + 12, quote: "visual token", body: "Name the encoder." };
   const target = { projectRoot: "/project", docId: "doc", path };
-  const comments = { create: vi.fn(async () => "thread"), createInDocument: vi.fn(async () => "placed") };
-  const commentsOn = (realtime: { status: string; docId: string | null; liveFile: boolean }) => {
+  const name = path.split("/").pop();
+  const sending = { saving: `Commenting on ${name} on Overleaf…`, error: null };
+  const waiting = { saving: `Waiting for ${name} to finish syncing with Overleaf…`, error: null };
+  afterEach(() => vi.useRealTimers());
+
+  /** The comment store over a project whose channel is in `realtime`, and whose sync owes `path` while `owed` holds. */
+  function commentsOn(realtime: { status: string; docId: string | null; liveFile: boolean }, owed = { current: false }) {
+    const comments = { create: vi.fn(async () => "thread"), createInDocument: vi.fn(async (): Promise<"placed" | "notFound"> => "placed") };
     const overleaf = {
       overleafLink: { projectId: "p" }, overleafComments: { threads: [], anchors: new Map(), ...comments },
       overleafCommentsRef: { current: { threads: [] } }, overleafDocPaths: new Map([["doc", path]]), overleafRealtime: realtime,
       overleafEditorComments: [], setOverleafCollabOpen: vi.fn(), setOverleafCollabTab: vi.fn(),
+      overleafSyncOwed: (owedPath: string) => owedPath === path && owed.current,
     } as unknown as Parameters<typeof useEditorComments>[0]["overleaf"];
-    return renderHook(() => useEditorComments({
+    const store = renderHook(() => useEditorComments({
       project: { root: "/project" } as unknown as ProjectSnapshot, projectRootRef: { current: "/project" },
       activeFileRef: { current: path }, openProjectFile: vi.fn(), overleaf, author: { id: "me", name: "Me" },
       openSources: () => new Map([[path, source]]), agentOptionsRef: { current: null },
     })).result.current;
-  };
-
-  // Held live: anchored in the editor's own document.
-  expect(commentsOn({ status: "live", docId: "doc", liveFile: true }).create(note)).toBe("overleaf");
-  expect(comments.create).toHaveBeenCalledWith(target, from, "visual token", "Name the encoder.");
-
-  // Let go of after an outside write, or while the channel reconnects: still a thread on Overleaf.
-  for (const realtime of [{ status: "live", docId: null, liveFile: false }, { status: "connecting", docId: null, liveFile: false }]) {
-    comments.createInDocument.mockClear();
-    const store = commentsOn(realtime);
-    await act(async () => {
-      expect(store.create(note)).toBe("overleaf");
-    });
-    expect(comments.createInDocument).toHaveBeenCalledWith(target, source, from, "visual token", "Name the encoder.");
+    return { store, comments };
   }
-  expect(showError).not.toHaveBeenCalled();
-  expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
+  const handedToSync = { status: "live", docId: null, liveFile: false };
 
-  // What went wrong, when it does, rather than a reconnect nothing needs.
-  const name = path.split("/").pop();
-  comments.createInDocument.mockResolvedValueOnce("notFound");
-  const handedToSync = commentsOn({ status: "live", docId: null, liveFile: false });
-  await act(async () => { handedToSync.create(note); });
-  expect(showError).toHaveBeenLastCalledWith(
-    `Your comment on ${name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced.`,
-  );
-  comments.createInDocument.mockRejectedValueOnce(new Error("Overleaf could not be reached."));
-  const reconnecting = commentsOn({ status: "connecting", docId: null, liveFile: false });
-  await act(async () => { reconnecting.create(note); });
-  expect(showError).toHaveBeenLastCalledWith(`Your comment on ${name} did not reach Overleaf: Overleaf could not be reached.`);
+  it("anchors it in the editor's own document while the editor holds it live, holding the composer until Overleaf has it", async () => {
+    const { store, comments } = commentsOn({ status: "live", docId: "doc", liveFile: true });
+    const report = vi.fn();
+    await act(async () => { expect(store.create(note, report)).toBe("overleaf"); });
+    expect(comments.create).toHaveBeenCalledWith(target, from, "visual token", "Name the encoder.");
+    expect(report.mock.calls).toEqual([[sending], [null]]);
+  });
+
+  it("posts it through the backend when the editor let go of the file, or while the channel reconnects", async () => {
+    for (const realtime of [handedToSync, { status: "connecting", docId: null, liveFile: false }]) {
+      const { store, comments } = commentsOn(realtime);
+      const report = vi.fn();
+      await act(async () => { expect(store.create(note, report)).toBe("overleaf"); });
+      expect(comments.createInDocument).toHaveBeenCalledWith(target, source, from, "visual token", "Name the encoder.");
+      expect(report.mock.calls).toEqual([[sending], [null]]);
+    }
+    expect(showError).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
+  });
+
+  it("waits for the sync owed the file when Overleaf's copy does not hold the passage yet, then places it", async () => {
+    vi.useFakeTimers();
+    const owed = { current: true };
+    const { store, comments } = commentsOn(handedToSync, owed);
+    comments.createInDocument.mockImplementation(async () => (owed.current ? "notFound" : "placed"));
+    const report = vi.fn();
+    await act(async () => { store.create(note, report); });
+    expect(report.mock.calls).toEqual([[sending], [waiting]]);
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(comments.createInDocument).toHaveBeenCalledTimes(1);
+    owed.current = false;
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(comments.createInDocument).toHaveBeenCalledTimes(2);
+    expect(report).toHaveBeenLastCalledWith(null);
+  });
+
+  it("says what went wrong, keeping the composer, when the comment cannot land", async () => {
+    vi.useFakeTimers();
+    const { store, comments } = commentsOn(handedToSync, { current: true });
+    comments.createInDocument.mockResolvedValue("notFound");
+    const report = vi.fn();
+    await act(async () => { store.create(note, report); });
+    await act(() => vi.advanceTimersByTimeAsync(15_000));
+    expect(comments.createInDocument).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenLastCalledWith({
+      saving: null, error: `${name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes.`,
+    });
+
+    const settled = commentsOn(handedToSync);
+    settled.comments.createInDocument.mockResolvedValue("notFound");
+    await act(async () => { settled.store.create(note, report); });
+    expect(settled.comments.createInDocument).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenLastCalledWith({
+      saving: null,
+      error: `Your comment on ${name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced.`,
+    });
+
+    const unreachable = commentsOn({ status: "connecting", docId: null, liveFile: false });
+    unreachable.comments.createInDocument.mockRejectedValue(new Error("Overleaf could not be reached."));
+    await act(async () => { unreachable.store.create(note, report); });
+    expect(report).toHaveBeenLastCalledWith({ saving: null, error: `Your comment on ${name} did not reach Overleaf: Overleaf could not be reached.` });
+    expect(showError).not.toHaveBeenCalled();
+  });
 });
 
 // A save replaces the whole of annotations.json, so state that was never read
@@ -226,7 +270,7 @@ it("saves nothing until the project's annotations have been read", async () => {
   act(() => view.result.current.reset());
   let created: ReturnType<typeof view.result.current.create> = comment("x");
   act(() => {
-    created = view.result.current.create(comment("new"));
+    created = view.result.current.create(comment("new"), vi.fn());
   });
   expect(created).toBeNull();
   expect(saved()).toEqual([]);
@@ -234,7 +278,7 @@ it("saves nothing until the project's annotations have been read", async () => {
   expect(showError).toHaveBeenLastCalledWith("This project's annotations are still being read. Try again in a moment.");
 
   await act(() => view.result.current.load());
-  act(() => view.result.current.create(comment("new")));
+  act(() => view.result.current.create(comment("new"), vi.fn()));
   expect(saved().at(-1)).toEqual(["old-1", "old-2", "new"]);
 });
 
@@ -250,7 +294,7 @@ it("keeps a file it cannot read unsaved and says why, rather than reading it as 
     "This project's annotations could not be read, so changes to them are not saved: expected value at line 1 column 1",
   );
   act(() => {
-    view.result.current.create(comment("new"));
+    view.result.current.create(comment("new"), vi.fn());
   });
   expect(saved()).toEqual([]);
   expect(view.result.current.comments).toEqual([]);
@@ -272,7 +316,7 @@ it("drops a read that lands after another project opened", async () => {
     await loading;
   });
   act(() => {
-    view.result.current.create(comment("new"));
+    view.result.current.create(comment("new"), vi.fn());
   });
   expect(saved()).toEqual([]);
   expect(view.result.current.comments).toEqual([]);

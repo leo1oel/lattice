@@ -797,6 +797,10 @@ msgstr "{name} is not on this computer yet. Download it from your cloud drive an
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} is still running. Closing stops it."
 
+#: src/app/use-editor-comments.ts
+msgid "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
+msgstr "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
+
 #: src/app/file-open-failure.ts
 msgid "{name} is too large to open in the editor"
 msgstr "{name} is too large to open in the editor"
@@ -4095,6 +4099,7 @@ msgstr "Comment source"
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
+#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Commenting on {name} on Overleaf…"
 msgstr "Commenting on {name} on Overleaf…"
@@ -17425,6 +17430,10 @@ msgstr "Volume"
 #: src/papers/add-papers-sheet.tsx
 msgid "Waiting"
 msgstr "Waiting"
+
+#: src/app/use-editor-comments.ts
+msgid "Waiting for {name} to finish syncing with Overleaf…"
+msgstr "Waiting for {name} to finish syncing with Overleaf…"
 
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx

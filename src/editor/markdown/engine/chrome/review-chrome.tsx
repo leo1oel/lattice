@@ -28,6 +28,7 @@ import { Button } from "../../../../components/ui/button";
 import { hueColor } from "../../../../components/ui/collab-colors";
 import { Textarea } from "../../../../components/ui/textarea";
 import { CommentPreview } from "../../../comments/comment-card";
+import type { NoteProgress } from "../../../comments/editor-comment-data";
 import { commentCardId, commentDraft, setCommentDraft } from "../source-overlays";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
@@ -235,6 +236,10 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<"locate" | "changed" | null>(null);
   const [body, setBody] = useState("");
+  const [progress, setProgress] = useState<NoteProgress>(null);
+  // Set while Overleaf is taking the comment, which cannot be called back:
+  // the composer holds it until it lands or fails, keeping what was typed.
+  const savingRef = useRef(false);
   const [dialog, setDialog] = useState<HTMLDivElement | null>(null);
   // Words left in a composer closed by Escape or a click outside, with the
   // Markdown range they were written on: reopening on that range restores them.
@@ -242,7 +247,7 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
 
   // A comment request marks the selection and opens the composer for it.
   useEffect(() => {
-    if (request?.kind !== "comment") return;
+    if (request?.kind !== "comment" || savingRef.current) return;
     host.clear();
     const { selection } = editor.state;
     const whole = selection instanceof AllSelection;
@@ -252,6 +257,7 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
     const restore = !("error" in anchored) && kept?.from === anchored.from && kept.to === anchored.to;
     // Opening the composer from a request is this effect's whole job.
     setBody(restore ? kept.body : "");
+    setProgress(null);
     if ("error" in anchored) {
       setError(anchored.error ?? null);
       setDraft({ quote: "", whole });
@@ -271,11 +277,13 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
   const close = (refocus: boolean) => {
     setDraft(null);
     setError(null);
+    setProgress(null);
     editor.view.dispatch(setCommentDraft(editor.state.tr, null));
     if (refocus) editor.view.focus();
   };
   // Escape or a click outside: close, keeping what was written for the same passage.
   const dismiss = (refocus: boolean) => {
+    if (savingRef.current) return;
     const anchored = body.trim() ? anchorDraft(editor, host, draft) : null;
     keptRef.current = anchored && !("error" in anchored) ? { from: anchored.from, to: anchored.to, body } : null;
     close(refocus);
@@ -295,15 +303,20 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
   };
   const submit = () => {
     const text = body.trim();
-    if (!text) return;
+    if (!text || savingRef.current) return;
     const anchored = anchorDraft(editor, host, draft);
     if ("error" in anchored) {
       setError(anchored.error ?? "locate");
       return;
     }
-    if (host.props().onCreateComment?.(anchored.from, anchored.to, text) === false) return;
-    finish();
+    host.props().onCreateComment?.(anchored.from, anchored.to, text, (next) => {
+      savingRef.current = Boolean(next?.saving);
+      if (editor.isDestroyed) return;
+      if (next) setProgress(next);
+      else finish();
+    });
   };
+  const saving = Boolean(progress?.saving);
   return createPortal(
     <div
       ref={setDialog}
@@ -325,6 +338,8 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
             : t`Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment.`}
         </p>
       )}
+      {progress?.error && <p className="lx-md-comment-error" role="alert">{progress.error}</p>}
+      {progress?.saving && <p className="lx-md-comment-status" role="status">{progress.saving}</p>}
       <Textarea
         autoFocus
         aria-label={t`Comment`}
@@ -340,8 +355,8 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
         }}
       />
       <span className="lx-md-comment-actions">
-        <Button variant="ghost" size="compact" onClick={finish}>{t`Cancel`}</Button>
-        <Button variant="tinted" size="compact" disabled={!body.trim() || error === "locate"} onClick={submit}>{t`Add comment`}</Button>
+        <Button variant="ghost" size="compact" disabled={saving} onClick={finish}>{t`Cancel`}</Button>
+        <Button variant="tinted" size="compact" disabled={saving || !body.trim() || error === "locate"} onClick={submit}>{t`Add comment`}</Button>
       </span>
     </div>,
     document.body,
