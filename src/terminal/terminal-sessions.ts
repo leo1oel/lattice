@@ -72,6 +72,7 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
   private items: Internal<S>[] = [];
   private snapshot: Snapshot<S> = { sessions: [], active: null };
   private listeners = new Set<() => void>();
+  private lastExitListeners = new Set<() => void>();
   private nextKey = 1;
   private root = "";
 
@@ -86,6 +87,16 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
   };
 
   get = () => this.snapshot;
+
+  /**
+   * The last terminal's shell exited cleanly (`exit`, ⌃D) and took its tab
+   * with it, so none is left: the panel closes. Closing the last tab by hand
+   * does not call this; that panel waits for the writer.
+   */
+  onLastExit = (listener: () => void) => {
+    this.lastExitListeners.add(listener);
+    return () => { this.lastExitListeners.delete(listener); };
+  };
 
   /** The project the terminals run in. Another project ends every terminal of the last one. */
   get projectRoot() {
@@ -205,12 +216,14 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
   /**
    * The shell exited by itself (`exit`, ⌃D): a clean exit closes its tab, as
    * closing it would; any other keeps the tab and says how it ended, so a
-   * profile that fails at once does not just vanish.
+   * profile that fails at once does not just vanish. The last tab going
+   * this way closes the panel too (`onLastExit`).
    */
   private exited(item: Internal<S>, code: number | null) {
     if (item.closed) return;
     if (code === 0) {
       this.close(item.session.key);
+      if (!this.items.length) for (const listener of [...this.lastExitListeners]) listener();
       return;
     }
     this.update(item, { state: { kind: "exited", code } });
