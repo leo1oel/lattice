@@ -1,1 +1,0 @@
-import{a as e,i as t,n,o as r,r as i,s as a,t as o}from"./citation-reasons-BBG06ti5.js";e();export{o as anchorCitationReasons,n as annotationAnchor,i as citationSites,t as createCitationReason,r as panelCitationReasons,a as reanchoredReason};
