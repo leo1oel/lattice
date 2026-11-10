@@ -1,7 +1,7 @@
 name: macOS Intel retry
 
 # Re-runs a release's macOS Intel run once when its first attempt fails, so
-# Intel Macs get the release without anyone re-running it by hand.
+# Intel-based Macs get the release without anyone re-running it by hand.
 #
 # GitHub has failed a run whose build passed, with "Internal server error" in
 # place of creating smoke and attach (v0.16.4's first attempt): no job failed,
