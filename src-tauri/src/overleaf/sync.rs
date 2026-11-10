@@ -1,8 +1,8 @@
 //! Sync against Overleaf's copy of the project: the cheap remote-change probe,
 //! the plan that classifies every file, the sync that carries it out, and the
 //! dry-run preview of it. Where that copy comes from — the agreed one, only
-//! what changed, or the project ZIP — is in `changes`; the replay of local
-//! moves that must come first is in `relocations`.
+//! what changed, or the project ZIP (`download`) — is in `changes`; the
+//! replay of local moves that must come first is in `relocations`.
 //!
 //! Classification and execution are deliberately separate: the exact same
 //! decisions drive a real sync, the read-only preview the user sees before
