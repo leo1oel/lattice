@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDocument, layout as L, type LayoutDocument, type LayoutNode } from "@danfessler/trellis";
 import { TrellisController } from "./trellis-controller";
+import { beginFileDrag } from "./trellis-file-drag";
 import { defaultLayout, differsFromWorkspace, loadLayout, saveLayout } from "./trellis-layout";
 import TrellisWorkspace from "./trellis-workspace";
 import { arrangementOf, layoutShape, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
@@ -188,7 +189,7 @@ describe("a named workspace", () => {
     saveLayout("/a", { document: split(), workspace: id });
     const { controller, ws, unmount } = await open("/a", OPEN);
     let dragging = false;
-    act(() => { dragging = controller.beginFileDrag("refs.bib", { pointerId: 7 } as PointerEvent); });
+    act(() => { dragging = beginFileDrag(controller, "refs.bib", { pointerId: 7 } as PointerEvent); });
     expect(dragging).toBe(true);
     expect(ws.views({ type: "file" }).map((view) => view.params.key)).toContain("refs.bib");
     window.dispatchEvent(Object.assign(new Event("pointercancel"), { pointerId: 7 }));

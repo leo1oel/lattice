@@ -19,6 +19,7 @@ import type { LayoutPreset } from "./trellis-layout";
 import { WorkspaceLibrary } from "./trellis-workspaces";
 import { SmallStore, type Listener } from "./trellis-small-store";
 import { DocumentTabs } from "./trellis-tab-policy";
+import { CompiledPdfTabs } from "./compiled-pdf-tabs";
 import { terminalHome } from "../terminal/terminal-layout";
 import type { SwitchState } from "../canvas/after-switch";
 
@@ -303,6 +304,11 @@ export class TrellisController {
   readonly pendingDrops = new Set<string>();
   /** Preview and pinned tabs, and which tab makes room (see trellis-tab-policy.ts). */
   readonly tabs = new DocumentTabs(() => this.ws);
+  /** A tab per compiled root document beside the live PDF (see compiled-pdf-tabs.ts). */
+  readonly pdfTabs = new CompiledPdfTabs({
+    ws: () => this.ws,
+    showLive: () => { if (!this.ui.get().focus) this.showPanel("pdf", { focus: false }); },
+  });
   bridge: TrellisBridge | null = null;
   ws: WorkspaceHandle | null = null;
   private pointerPanel: string | null = null;
@@ -609,12 +615,12 @@ export class TrellisController {
 
   /**
    * Bring the PDF panel up for a build: a closed one comes back to the right
-   * of the document that asked for the build.
+   * of the document that asked for the build, or among the other PDFs' tabs.
    */
   showPdfFor(panelId?: string) {
     const ws = this.ws;
     if (!ws) return;
-    if (ws.view("pdf") || !panelId || this.ui.get().focus) {
+    if (ws.view("pdf") || this.pdfTabs.anyTab() || !panelId || this.ui.get().focus) {
       this.showPanel("pdf", { focus: false });
       return;
     }
@@ -631,7 +637,8 @@ export class TrellisController {
 
   /**
    * Where a closed panel comes back. Project and the Agent share a panel,
-   * Papers sits below them, the PDF right of the documents, Annotations with
+   * Papers sits below them, the PDF with the other PDFs' tabs (else right of
+   * the documents), Annotations with
    * the PDF (else right of the documents they annotate), the Terminal below
    * all, and other tools join the Project/Agent panel as tabs; with those
    * gone, beside the documents.
@@ -657,7 +664,7 @@ export class TrellisController {
       case "project": return into("agent") ?? near("papers", "top", 0.62) ?? besideDocuments("left", 0.3);
       case "agent": return into("project") ?? near("papers", "top", 0.62) ?? besideDocuments("left", 0.3);
       case "papers": return near("project", "bottom", 0.38) ?? near("agent", "bottom", 0.38) ?? besideDocuments("left", 0.25);
-      case "pdf": return besideDocuments("right", 0.42);
+      case "pdf": return into(this.pdfTabs.anyTab() ?? "") ?? besideDocuments("right", 0.42);
       case "comments": return into("pdf") ?? besideDocuments("right", 0.36);
       case "terminal": return terminalHome(ws);
       default: return into("agent") ?? into("project") ?? besideDocuments("right", 0.32);
@@ -716,7 +723,7 @@ export class TrellisController {
   }
 
   /** A view's tab element: its icon slot sits directly inside it. */
-  private tabOf(viewId: string): HTMLElement | null {
+  tabOf(viewId: string): HTMLElement | null {
     return this.ws?.surfaces().find((surface) => surface.view.id === viewId)?.icon.parentElement ?? null;
   }
 
@@ -730,76 +737,6 @@ export class TrellisController {
   /** Reveal a tool panel whose drawer is already open; an opening drawer reveals itself. */
   revealOpenTool(kind: TrellisToolKind) {
     if (this.openDrawers.get()[kind]) this.revealTool(kind);
-  }
-
-  /**
-   * Hand a pointer drag of a project file that left the Project panel to
-   * Trellis, so the file lands where Trellis's own drop targets say: beside a
-   * panel's edge, in a seam, or on a tab strip. The file
-   * joins the Project panel as a tab and a press on that tab starts Trellis's
-   * tab drag; the pointer is already away, so the tab lifts out at once.
-   * Released without a target, the tab falls back into the Project panel and
-   * is closed again. Returns false when there is no workspace to drag into.
-   */
-  beginFileDrag(key: string, pointer: PointerEvent): boolean {
-    const ws = this.ws;
-    const project = ws?.view("project");
-    if (!ws || !project || project.placement === "hidden") return false;
-    const existing = ws.views({ type: "file" }).find((view) => view.params.key === key);
-    if (existing?.placement === "hidden") return false;
-    const opened = !existing;
-    // The tab the Project panel shows now (Project, or a tool beside it) stays
-    // selected: the dragged file only passes through that panel.
-    const shown = ws.views().find((view) => view.panelId === project.panelId && view.selected)?.id ?? project.id;
-    this.pendingDrops.add(key);
-    const info = existing ?? ws.open("file", {
-      params: { key },
-      focus: false,
-      reuse: (view) => view.type === "file" && view.params.key === key,
-      placement: { into: project.panelId },
-    });
-    if (opened) ws.select(shown);
-    const tab = this.tabOf(info.id);
-    if (tab?.dataset.trellisPart !== "tab") {
-      if (opened) void ws.close(info.id, { force: true });
-      this.pendingDrops.delete(key);
-      return false;
-    }
-    const box = tab.getBoundingClientRect();
-    const finish = (dropped: boolean) => {
-      listening.abort();
-      // Trellis commits the drop on the same pointerup; read the outcome after it.
-      // The file's own tab closes while it is still a pending drop: not an App tab.
-      requestAnimationFrame(() => {
-        const view = ws.view(info.id);
-        const keepShown = () => {
-          const source = ws.view(shown);
-          if (source && !source.selected) ws.select(shown);
-        };
-        const cancelled = !view || !dropped || view.panelId === ws.view("project")?.panelId;
-        if (view && cancelled && opened) void ws.close(info.id, { force: true }).then(keepShown);
-        this.pendingDrops.delete(key);
-        if (!cancelled) this.activate(key);
-        keepShown();
-      });
-    };
-    const listening = new AbortController();
-    window.addEventListener("pointerup", (event) => { if (event.pointerId === pointer.pointerId) finish(true); }, { signal: listening.signal });
-    window.addEventListener("pointercancel", (event) => { if (event.pointerId === pointer.pointerId) finish(false); }, { signal: listening.signal });
-    window.addEventListener("keydown", (event) => { if (event.key === "Escape") finish(false); }, { signal: listening.signal, capture: true });
-    tab.dispatchEvent(new PointerEvent("pointerdown", {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      pointerId: pointer.pointerId,
-      pointerType: "mouse",
-      isPrimary: true,
-      button: 0,
-      buttons: 1,
-      clientX: box.left + Math.min(24, box.width / 2),
-      clientY: box.top + box.height / 2,
-    }));
-    return true;
   }
 
   /** Remember the panel crossed before entering the global titlebar. This is

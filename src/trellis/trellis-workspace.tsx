@@ -39,7 +39,8 @@ import { FileHeaderTools } from "./trellis-header-tools";
 import { terminalViewType } from "../terminal/terminal-view-type";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
-import { AgentView, HostSlot, NavigatorView, PdfView, SlotView, ToolView, WorkspaceEmpty } from "./trellis-panel-views";
+import { AgentView, HostSlot, NavigatorView, PdfView, RootPdfView, SlotView, ToolView, WorkspaceEmpty } from "./trellis-panel-views";
+import { ROOT_PDF, type RootPdfParams } from "./compiled-pdf-tabs";
 import { FileView } from "./trellis-document-views";
 import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import { installLayoutHandlers, RESET_UNDO_TOAST, type ResetUndo } from "./trellis-layout-handlers";
@@ -397,6 +398,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       : null;
     if (kept) handle?.setDocument(kept, { animate: false });
     if (quietCloses.current.delete(view.id)) return;
+    if (view.type === "pdf" || view.type === ROOT_PDF) controller.pdfTabs.onClose(view);
     if (view.type === "file") {
       void controller.bridge?.closeTab(String(view.params.key ?? ""));
     } else if ((TOOL_KINDS as readonly string[]).includes(view.type)) {
@@ -541,10 +543,18 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         </ViewType>
         {/* Focus mode drops the document and PDF panels' tab bars: the panel is the page. */}
         <ViewType
-          id="pdf" title={title("pdf")} singleton icon={PANEL_ICONS.pdf} minSize={pdfMinSize} scaling={false}
-          menu={actions("pdf")} tabbar={focusMode ? "never" : undefined}
+          id="pdf" title={() => controller.pdfTabs.liveLabel() ?? title("pdf")} singleton icon={PANEL_ICONS.pdf} minSize={pdfMinSize}
+          scaling={false} menu={actions("pdf")} tabbar={focusMode ? "never" : undefined}
         >
           <PdfView controller={controller} />
+        </ViewType>
+        {/* Another compiled root document's last PDF, in a tab of its own (compiled-pdf-tabs.ts). */}
+        <ViewType<RootPdfParams>
+          id={ROOT_PDF} title={(view) => controller.pdfTabs.label(view.params.document)} icon={PANEL_ICONS.pdf} minSize={pdfMinSize}
+          scaling={false} menu={(view) => [{ id: "build", label: t`Build`, run: () => controller.bridge?.build(view.params.document) }]}
+          tabbar={focusMode ? "never" : undefined}
+        >
+          <RootPdfView controller={controller} />
         </ViewType>
         <ViewType<FileParams>
           id="file"

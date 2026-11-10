@@ -15,7 +15,7 @@
  */
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
 import { annotationsAnswer, type MockAnnotation } from "../mock-backend/annotations";
-import { BUILD_STEPS, PREAMBLE_BUILD_STEPS, runningBuild, stageTypo, typoFailure, withError } from "../mock-backend/build";
+import { BUILD_STEPS, PREAMBLE_BUILD_STEPS, stageTypo, typoFailure, withError } from "../mock-backend/build";
 import { MOCK_MTIME, MockProject, copyBuffer, filesUnder, termMatcher } from "../mock-backend/project";
 import { installTauriInternals, NOT_HANDLED, windowAnswer, type Args } from "../mock-backend/tauri-internals";
 import { textTasks } from "../mock-backend/text-tasks";
@@ -25,6 +25,7 @@ import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-l
 import { bibliographyAnswer } from "./bench-bibliography";
 import { addNestedTree } from "./bench-nested-tree";
 import { overleafAnswer } from "./bench-overleaf";
+import { rootsAnswer } from "./bench-roots";
 import { terminalAnswer } from "./bench-terminal";
 import type { ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
@@ -462,6 +463,9 @@ const annotations = annotationsAnswer({
   zh: () => lang === "zh-CN",
 });
 
+// Builds and their PDFs, `?roots=1` and `?pdf=<url>` (bench-roots.ts).
+const roots = rootsAnswer({ params, files: () => current.files, mainPdf: fixture.compiledPdf, build: buildResult, tauri: () => tauri, root: () => current.root });
+
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   // `?overleaf=review` (or `long`, `expired`) links the open project to Overleaf (bench-overleaf.ts).
@@ -481,7 +485,7 @@ function answer(command: string, args: Args): unknown {
   if (bibliography !== NOT_HANDLED) return bibliography;
   // `?save=fail`: every write fails as a full disk does, for the save slot's failed state.
   if (command === "write_project_file" && params.get("save") === "fail") throw new Error("No space left on device (os error 28)");
-  for (const area of [(name: string, input: Args) => current.answer(name, input), windowAnswer, annotations]) {
+  for (const area of [(name: string, input: Args) => current.answer(name, input), windowAnswer, annotations, roots]) {
     const answered = area(command, args);
     if (answered !== NOT_HANDLED) return answered;
   }
@@ -504,13 +508,6 @@ function answer(command: string, args: Args): unknown {
       return current.tree();
     case "open_tutorial_project":
       return openTutorial();
-    case "build_project":
-      return params.get("build") === "running" ? runningBuild(tauri, current.root, args?.progressId) : buildResult();
-    // `?pdf=<url>` answers with that PDF instead, such as the tutorial compiled
-    // outside the checkout, for screenshots of a real page.
-    case "read_compiled_pdf":
-      if (params.get("pdf")) return fetch(params.get("pdf")!).then((response) => response.arrayBuffer());
-      return copyBuffer(fixture.compiledPdf);
     // `?signatures=<url>`: page signatures (src-tauri/src/pdf_pages.rs) of the
     // PDFs `?pdf=` answers with, computed outside the page and keyed by byte
     // length, so a rebuild can be shown in place. Without it the preview

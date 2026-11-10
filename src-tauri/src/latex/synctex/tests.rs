@@ -593,3 +593,26 @@ fn searches_both_ways_after_the_project_folder_moves_or_is_copied() {
         assert_eq!(body_pages(&root, &[span]).unwrap(), Some(1), "{how}");
     }
 }
+
+/// A root document's own preview tab searches that document's PDF and map,
+/// not the compiled document's, and only a LaTeX document of the project.
+#[test]
+fn a_named_document_searches_its_own_pdf() {
+    let root = TempDir::new("synctex-document");
+    project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+    root.write("main.tex", "\\documentclass{article}");
+    root.write("supplement/SI.tex", "\\documentclass{article}");
+    root.write("main.pdf", "%PDF-1.5");
+    root.write("main.synctex.gz", "map");
+    let unbuilt = "unbuilt";
+    assert_eq!(synced_pdf(&root, Some("supplement/SI.tex"), unbuilt).unwrap_err(), unbuilt);
+    root.write("supplement/SI.pdf", "%PDF-1.5");
+    assert_eq!(synced_pdf(&root, Some("supplement/SI.tex"), unbuilt).unwrap_err(), NO_SYNCTEX_DATA);
+    root.write("supplement/SI.synctex.gz", "map");
+    let (document, pdf) = synced_pdf(&root, Some("supplement/SI.tex"), unbuilt).unwrap();
+    assert_eq!((document.as_str(), pdf), ("supplement/SI.tex", PathBuf::from("supplement/SI.pdf")));
+    assert_eq!(synced_pdf(&root, None, unbuilt).unwrap().0, "main.tex");
+    for refused in ["../SI.tex", "/main.tex", "main.pdf", "main"] {
+        assert!(synced_pdf(&root, Some(refused), unbuilt).is_err(), "{refused}");
+    }
+}

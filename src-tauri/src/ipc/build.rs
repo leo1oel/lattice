@@ -194,6 +194,18 @@ pub async fn read_compiled_pdf(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// The PDF this copy last built of `document`, for its own preview tab
+/// (`latex::read_kept_pdf`).
+#[tauri::command]
+pub async fn read_kept_pdf(
+    state: State<'_, AppState>, window: Window, project_root: String, document: String,
+) -> Result<tauri::ipc::Response, String> {
+    let root = pinned_root(&state, &window, &project_root, "its PDF could be loaded")?;
+    let bytes =
+        run_blocking("Kept PDF read", move || latex::read_kept_pdf(&root, &document)).await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 #[tauri::command]
 pub async fn save_compiled_pdf(request: tauri::ipc::Request<'_>) -> Result<String, String> {
     let (path, bytes) = binary_save(
@@ -234,21 +246,29 @@ pub async fn save_review_pdf(
     .await
 }
 
+/// `document` names the root document whose PDF was clicked, when that is
+/// its own preview tab rather than the compiled document's.
 #[tauri::command]
 pub async fn synctex_edit(
-    state: State<'_, AppState>, window: Window, page: u32, x: f64, y: f64,
+    state: State<'_, AppState>, window: Window, page: u32, x: f64, y: f64, document: Option<String>,
 ) -> Result<SyncTexTarget, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("SyncTeX lookup", move || latex::inverse_search(&root, page, x, y)).await
+    run_blocking("SyncTeX lookup", move || {
+        latex::inverse_search_in(&root, page, x, y, document.as_deref())
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn synctex_view(
     state: State<'_, AppState>, window: Window, path: String, line: u32, column: u32,
+    document: Option<String>,
 ) -> Result<Option<PdfSyncTarget>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("The SyncTeX lookup", move || latex::forward_search(&root, &path, line, column))
-        .await
+    run_blocking("The SyncTeX lookup", move || {
+        latex::forward_search_in(&root, &path, line, column, document.as_deref())
+    })
+    .await
 }
 
 /// How many pages of the compiled PDF the manuscript's body takes.

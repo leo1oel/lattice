@@ -1,5 +1,6 @@
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
+import { syncTexDocument } from "../pdf/pdf-document-context";
 import type { OpenProjectFile, SyncTexTarget } from "../app-types";
 import { toMessage } from "../app-utils";
 import {
@@ -552,9 +553,10 @@ export class AnnotationRounds {
   /** Where a note made on the PDF and placed in `path` goes (see `CommentDestination`). */
   pdfNoteDestination = (path: string): CommentDestination => this.deps?.store.destination(path) ?? "annotation";
 
-  /** Where text selected on the PDF was written: SyncTeX's line, then the words around it. */
-  mapPdfSelection = async (selection: PdfTextSelection): Promise<MappedPdfSelection> => {
-    const target = await invoke<SyncTexTarget>("synctex_edit", { page: selection.page, x: selection.point.x, y: selection.point.y });
+  /** Where text selected on `document`'s PDF (null: the compiled one) was written: SyncTeX's line, then the words around it. */
+  mapPdfSelection = async (selection: PdfTextSelection, document: string | null = null): Promise<MappedPdfSelection> => {
+    const { page, point: { x, y } } = selection;
+    const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y, ...syncTexDocument(document) });
     const source = await this.readSource(target.path);
     if (source === null) throw new Error(i18n._(msg`Lattice could not read ${target.path}.`));
     const range = sourceRangeForPdfText(source, target.line, selection.text);

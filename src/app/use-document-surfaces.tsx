@@ -469,6 +469,17 @@ export function useDocumentSurfaces({
         onOpen: pdfWindowsAvailable() ? () => detachPdf(trellis, project.root) : undefined,
         onDock: () => dockPdf(trellis, project.root),
       }}
+      rootPdfs={{
+        tabs: trellis.pdfTabs,
+        shown: buildPipeline.shownPdf,
+        switchState: trellis.switchState,
+        shownBytes: buildPipeline.shownPdfBytes,
+        syncTarget: syncTex.syncTarget,
+        canForwardSync: syncTex.canForwardSyncDocument,
+        onForwardSync: (document) => void syncTex.revealSourceInDocument(document),
+        onSource: (document, page, x, y, word) => void syncTex.revealPdfSource(page, x, y, word, document),
+        onBuild: (document) => trellis.bridge?.build(document),
+      }}
     />
   );
 

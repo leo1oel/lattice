@@ -18,6 +18,7 @@
  * nothing from Trellis but types.
  */
 import { i18n } from "../i18n";
+import { ROOT_PDF } from "./compiled-pdf-tabs";
 import { msg } from "@lingui/core/macro";
 import type { LayoutDocument, LayoutNode, PanelNode, ViewRecord } from "@danfessler/trellis";
 import { sameIgnoringCase } from "../lib/equality";
@@ -120,11 +121,13 @@ export function withDocumentPanel(
 export function arrangementOf(layout: LayoutDocument): LayoutDocument {
   const doc = Object.values(layout.views).some(isDocumentView) ? layout : withDocumentPanel(layout, { id: newDocumentId(), key: "" }, { after: navigatorPanels(layout) });
   const views: Record<string, ViewRecord> = {};
-  for (const [id, record] of Object.entries(doc.views)) if (!isDocumentView(record)) views[id] = record;
+  // A compiled document's own PDF tab is the project's, like its documents, and never the workspace's.
+  for (const [id, record] of Object.entries(doc.views)) if (!isDocumentView(record) && record.type !== ROOT_PDF) views[id] = record;
   const panel = (target: PanelNode): PanelNode => {
     const { id: slot, record } = documentSlot(target.id);
     const members: string[] = [];
     for (const id of target.views) {
+      if (doc.views[id]?.type === ROOT_PDF) continue;
       if (!isDocumentView(doc.views[id])) members.push(id);
       else if (!members.includes(slot)) members.push(slot);
     }
