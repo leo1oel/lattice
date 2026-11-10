@@ -833,15 +833,15 @@ describe("PDFSlick viewer integration", () => {
       for (let tick = 0; tick < 3; tick += 1) {
         fireEvent.wheel(container, { ctrlKey: true, deltaY: -10, clientX: 300, clientY: 450 });
       }
-      expect(viewer.style.transform).toBe("scale(1.349)");
+      expect(viewer.style.transform).toBe("scale(1.162)");
       expect(viewer.style.transformOrigin).toBe("300px 1150px");
       // Clipped to the pages the preview can reach: all three here.
       expect(viewer.style.clipPath).toBe("inset(50px 0 750px 0)");
-      expect(zoomInput).toHaveValue("135");
+      expect(zoomInput).toHaveValue("116");
       expect(fitWidth).toHaveAttribute("aria-pressed", "false");
       expect(rescale).not.toHaveBeenCalled();
       await waitFor(() => expect(rescale).toHaveBeenCalledOnce());
-      expect(rescale.mock.lastCall?.[0]).toBeCloseTo(1.349 * 0.75);
+      expect(rescale.mock.lastCall?.[0]).toBeCloseTo(1.162 * 0.75);
       expect(viewer.style.transform).toBe("");
       expect(viewer.style.clipPath).toBe("");
       // The point under the pointer stays on the same spot of page 2.
@@ -855,13 +855,13 @@ describe("PDFSlick viewer integration", () => {
         // Outside the PDF: not this viewer's pinch.
         magnify({ event: "trackpad-magnify", id: 3, payload: { magnification: 0.1, x: 900, y: 400 } });
       });
-      expect(Number(/scale\((.+)\)/.exec(viewer.style.transform)?.[1])).toBeCloseTo(1.632 / 1.349);
+      expect(Number(/scale\((.+)\)/.exec(viewer.style.transform)?.[1])).toBeCloseTo(1.406 / 1.162);
       await waitFor(() => expect(rescale).toHaveBeenCalledTimes(2));
-      expect(rescale.mock.lastCall?.[0]).toBeCloseTo(1.632 * 0.75);
+      expect(rescale.mock.lastCall?.[0]).toBeCloseTo(1.406 * 0.75);
 
       fireEvent.click(view.getByRole("button", { name: "Zoom out" }));
       fireEvent.click(view.getByRole("button", { name: "Zoom out" }));
-      expect(zoomInput).toHaveValue("140");
+      expect(zoomInput).toHaveValue("120");
       // Fitting before the zoom applies cancels it.
       fireEvent.click(fitWidth);
       expect(viewer.style.transform).toBe("");
@@ -1061,8 +1061,8 @@ describe("PDFSlick viewer integration", () => {
     });
     for (let tick = 0; tick < 3; tick += 1) fireEvent.wheel(container, { ctrlKey: true, deltaY: -10 });
     await waitFor(() => expect(rescales).toHaveLength(2));
-    expect(rescales[0]).toBeCloseTo(1.349 * 0.75);
-    expect(rescales[1]).toBeCloseTo(1.349 * Math.exp(0.1) * 0.75, 2);
+    expect(rescales[0]).toBeCloseTo(1.162 * 0.75);
+    expect(rescales[1]).toBeCloseTo(1.222 * 0.75, 2);
   });
 
   it("preserves forward and reverse SyncTeX point coordinates", async () => {
