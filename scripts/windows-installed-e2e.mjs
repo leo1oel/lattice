@@ -90,8 +90,10 @@ try {
   await terminal.waitFor({ state: "attached" });
   // The WebGL renderer draws the prompt into a canvas, not DOM text.
   // The command result below establishes shell readiness without scraping it.
+  // PowerShell can expose the canonical Windows cwd with a provider prefix;
+  // .NET file APIs need ProviderPath, rather than the display path.
   await terminal.focus();
-  await page.keyboard.type("[IO.File]::WriteAllText((Join-Path (Get-Location) 'terminal-proof.txt'), 'Lattice ConPTY works')", { delay: 5 });
+  await page.keyboard.type("[IO.File]::WriteAllText(([IO.Path]::Combine($PWD.ProviderPath, 'terminal-proof.txt')), 'Lattice ConPTY works')", { delay: 5 });
   await page.keyboard.press("Enter");
   await until("real ConPTY command execution in project directory", async () => await invoke("read_project_file", { projectRoot: project.root, path: "terminal-proof.txt" }).catch(() => null) === "Lattice ConPTY works");
   // A viewport change exercises the panel's fit -> terminal_resize path.
@@ -100,7 +102,7 @@ try {
     await page.setViewportSize({ width, height: 800 });
     await terminal.focus();
     const file = `terminal-columns-${width}.txt`;
-    await page.keyboard.type(`[IO.File]::WriteAllText((Join-Path (Get-Location) '${file}'), [string][Console]::WindowWidth)`, { delay: 5 });
+    await page.keyboard.type(`[IO.File]::WriteAllText(([IO.Path]::Combine($PWD.ProviderPath, '${file}')), [string][Console]::WindowWidth)`, { delay: 5 });
     await page.keyboard.press("Enter");
     const value = await until("terminal reports its resized columns", async () =>
       await invoke("read_project_file", { projectRoot: project.root, path: file }).catch(() => null));
