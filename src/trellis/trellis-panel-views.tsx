@@ -93,6 +93,8 @@ export function EmptyState({ icon, art, title, children, onActivate, className }
 export function PdfView({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
   useReportPanel(controller, "pdf");
+  const recorded = useView<{ document?: string }>().params.document;
+  useEffect(() => { controller.pdfTabs.liveMounted(controller.app.get().projectRoot, recorded); }, [controller, recorded]);
   const live = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().pdfLive);
   return (
     <>

@@ -178,6 +178,58 @@ describe("a PDF tab per compiled root document", () => {
     expect(strip()).toEqual(["main.tex*", "live"]);
   });
 
+  // Split panes: a panel holding the live tab behind a document, and another holding the supplement's tab.
+  it("keeps the front tab of the panel the live tab leaves for the built document's place in another", async () => {
+    const { ws, built } = await openProject();
+    await built("main.tex");
+    await built("supplement/SI.tex", true);
+    await built("main.tex", true);
+    const pdfPanel = slotOf(ws.getDocument(), "pdf")!.panel;
+    act(() => ws.dock(rootPdfId("supplement/SI.tex"), { beside: pdfPanel, edge: "right" }));
+    const file = ws.views({ type: "file" })[0].id;
+    act(() => ws.dock(file, { into: pdfPanel }));
+    await act(async () => {});
+    expect(slotOf(ws.getDocument(), file)).toMatchObject({ panel: pdfPanel, selected: true });
+    expect(slotOf(ws.getDocument(), rootPdfId("supplement/SI.tex"))?.selected).toBe(true);
+
+    await built("supplement/SI.tex", true);
+    expect(slotOf(ws.getDocument(), file)).toMatchObject({ panel: pdfPanel, selected: true });
+    expect(slotOf(ws.getDocument(), rootPdfId("main.tex"))).toMatchObject({ panel: pdfPanel, selected: false });
+    expect(slotOf(ws.getDocument(), "pdf")?.panel).not.toBe(pdfPanel);
+    expect(slotOf(ws.getDocument(), "pdf")?.selected).toBe(true);
+  });
+
+  it("updates a document's tab in a hidden panel without a live tab, rather than dropping it", async () => {
+    const { ws, strip, built } = await openProject();
+    await built("main.tex");
+    await built("supplement/SI.tex", true);
+    await built("main.tex", true);
+    expect(strip()).toEqual(["live*", "supplement/SI.tex"]);
+    await act(async () => { await ws.close("pdf"); });
+    expect(strip()).toEqual(["supplement/SI.tex*"]);
+    act(() => ws.hide(rootPdfId("supplement/SI.tex")));
+    await act(async () => {});
+    await built("supplement/SI.tex");
+    expect(ws.view(rootPdfId("supplement/SI.tex"))?.placement).toBe("hidden");
+    expect(ws.view("pdf")).toBeNull();
+  });
+
+  // The live tab brought back from the panel menu, not by a build, still names its document for the next opening.
+  it("brings back the live document's tab on reopening when the live tab came back from the panel menu", async () => {
+    const first = await openProject();
+    await first.built("main.tex");
+    await first.built("supplement/SI.tex", true);
+    await act(async () => { await first.ws.close("pdf"); });
+    act(() => first.controller.showPanel("pdf", { focus: false }));
+    await act(async () => {});
+    expect(first.strip()).toEqual(["main.tex", "live*"]);
+    first.unmount();
+
+    const { strip, built } = await openProject();
+    await built("main.tex");
+    expect(strip()).toEqual(["live", "supplement/SI.tex*"]);
+  });
+
   // The issue's workflow across a restart: the manuscript, then the supplement, then quit and reopen.
   it("brings back the tab of the document the live tab showed when the project opens again", async () => {
     const first = await openProject();

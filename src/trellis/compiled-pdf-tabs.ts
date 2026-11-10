@@ -158,14 +158,14 @@ export class CompiledPdfTabs {
     const own = ws.view(rootPdfId(document));
     const ownSlot = own && slotOf(ws.getDocument(), own.id);
     let keepReading = false;
-    let front: string | null = null;
+    let left: Slot | null = null;
     if (live && previous && previous !== document && !ws.view(rootPdfId(previous))) {
       // The document leaving keeps a tab where the live one stood.
-      const left = slotOf(ws.getDocument(), "pdf");
-      if (left && !left.hidden) {
+      const stood = slotOf(ws.getDocument(), "pdf");
+      if (stood && !stood.hidden) {
+        left = stood;
         // A build not asked for leaves the reader on the document they were reading, unless the arriving one's own tab was in front.
         keepReading = left.selected && !requested && !ownSlot?.selected;
-        front = left.front;
         ws.open(ROOT_PDF, {
           id: rootPdfId(previous), params: { document: previous }, focus: false, placement: { into: left.panel, index: left.index },
         });
@@ -177,21 +177,35 @@ export class CompiledPdfTabs {
       if (live) ws.dock("pdf", { into: slot.panel, index: slot.index });
       else ws.open("pdf", { id: "pdf", focus: false, placement: { into: slot.panel, index: slot.index } });
     }
-    if (own) void ws.close(own.id, { force: true });
     if (!ws.view("pdf")) {
-      // A closed live tab comes back only for a build asked for.
+      // A closed live tab comes back only for a build asked for; the document's own tab stays meanwhile.
       if (!requested) return;
       this.showLive();
     }
+    if (own) void ws.close(own.id, { force: true });
     if (this.recorded() !== document) ws.setParams("pdf", { document });
     // Docked into the arriving document's place, the live tab came to the front of that panel.
     if (!requested && ownSlot && !ownSlot.selected && ws.view(ownSlot.front)) ws.select(ownSlot.front);
     // In front for a build asked for, or in its own tab's place when that was;
     // otherwise the tab the reader had in front stays there.
     const view = ws.view("pdf");
-    if (keepReading) ws.select(rootPdfId(previous!));
-    else if (view && view.placement !== "hidden" && (requested || ownSlot?.selected)) ws.select("pdf");
-    else if (front && ws.view(front)) ws.select(front);
+    const bringLive = Boolean(view && view.placement !== "hidden" && (requested || ownSlot?.selected));
+    if (keepReading) {
+      ws.select(rootPdfId(previous!));
+      return;
+    }
+    if (left && ws.view(left.front) && (!bringLive || slotOf(ws.getDocument(), "pdf")?.panel !== left.panel)) ws.select(left.front);
+    if (bringLive) ws.select("pdf");
+  }
+
+  /**
+   * The live tab mounted in project `root`, or its record changed to name
+   * `recorded`: however it came back (a build, the panel's menu, a layout),
+   * it names the document it shows, for the project's next opening.
+   */
+  liveMounted(root: string, recorded: unknown) {
+    const ws = this.ws();
+    if (ws && root === this.root && this.live && recorded !== this.live && ws.view("pdf")) ws.setParams("pdf", { document: this.live });
   }
 
   /** A `root-pdf` tab mounted, moved on or off screen, or (null) unmounted. */
