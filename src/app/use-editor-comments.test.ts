@@ -236,19 +236,41 @@ describe.each(["cvpr/outline.md", "sections/intro.tex"])("an editor comment on %
     await act(() => vi.advanceTimersByTimeAsync(5_000));
     expect(sync).not.toHaveBeenCalled();
     // The running sync left the file owed: one more is asked for, and only one.
+    let finish = () => {};
+    sync.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
     syncing.current = false;
     await act(() => vi.advanceTimersByTimeAsync(5_000));
     expect(sync).toHaveBeenCalledTimes(1);
     expect(comments.createInDocument).toHaveBeenCalledTimes(1);
     owed.current = false;
+    finish();
     await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(comments.createInDocument).toHaveBeenCalledTimes(2);
     expect(report).toHaveBeenLastCalledWith(null);
   });
 
+  // The sync asked for can end with the file still owed: Overleaf could not
+  // be reached, the save before it failed, or the Agent wrote again. Waiting
+  // on would only end in "still syncing", which would not be so.
+  it("says at once that the file did not sync when the sync it asked for ends with the file still owed", async () => {
+    vi.useFakeTimers();
+    const { store, comments, sync } = commentsOn(handedToSync, { current: true });
+    comments.createInDocument.mockResolvedValue("notFound");
+    const report = vi.fn();
+    await act(async () => { store.create(note, report); });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(sync).toHaveBeenCalledTimes(1);
+    expect(comments.createInDocument).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenLastCalledWith({
+      saving: null, error: `${name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment.`,
+    });
+  });
+
   it("says what went wrong, keeping the composer, when the comment cannot land", async () => {
     vi.useFakeTimers();
-    const { store, comments } = commentsOn(handedToSync, { current: true });
+    // A sync that is not done after the wait: the comment waits it out, asking for none.
+    const { store, comments, sync, syncing } = commentsOn(handedToSync, { current: true });
+    syncing.current = true;
     comments.createInDocument.mockResolvedValue("notFound");
     const report = vi.fn();
     await act(async () => { store.create(note, report); });
@@ -256,6 +278,7 @@ describe.each(["cvpr/outline.md", "sections/intro.tex"])("an editor comment on %
     expect(report).toHaveBeenLastCalledWith(waiting);
     await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(comments.createInDocument).toHaveBeenCalledTimes(1);
+    expect(sync).not.toHaveBeenCalled();
     expect(report).toHaveBeenLastCalledWith({
       saving: null, error: `${name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes.`,
     });

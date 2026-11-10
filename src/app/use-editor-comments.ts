@@ -46,22 +46,27 @@ function withAnnotations(change: (annotations: EditorComment[]) => EditorComment
 const SYNC_WAIT_MS = 30_000;
 
 /**
- * Resolves true once `owed` stops holding, false if it still holds after
- * `SYNC_WAIT_MS`; nothing announces it. The writer is waiting, so the sync
- * runs now, as Sync runs it, rather than after the automatic syncs' rate
- * limit; one already running is waited out first, then asked for once.
+ * Resolves "settled" once `owed` stops holding; nothing announces it. The
+ * writer is waiting, so the sync runs now, as Sync runs it, rather than after
+ * the automatic syncs' rate limit; one already running is waited out first,
+ * then one is asked for. "unsynced" when the one asked for ended with the
+ * file still owed (it failed, or the file changed again meanwhile), and
+ * "syncing" when a sync is still running after `SYNC_WAIT_MS`.
  */
-function syncSettled(owed: () => boolean, syncing: () => boolean, sync: () => void) {
+function syncSettled(owed: () => boolean, syncing: () => boolean, sync: () => Promise<void>) {
   const deadline = Date.now() + SYNC_WAIT_MS;
-  let asked = false;
-  return new Promise<boolean>((resolve) => {
+  let asked: { ended: boolean } | null = null;
+  return new Promise<"settled" | "unsynced" | "syncing">((resolve) => {
     const check = () => {
-      if (!owed()) resolve(true);
-      else if (Date.now() >= deadline) resolve(false);
+      if (!owed()) resolve("settled");
+      else if (asked?.ended) resolve("unsynced");
+      else if (Date.now() >= deadline) resolve("syncing");
       else {
         if (!asked && !syncing()) {
-          asked = true;
-          sync();
+          const request = { ended: false };
+          asked = request;
+          const end = () => { request.ended = true; };
+          void sync().then(end, end);
         }
         window.setTimeout(check, 250);
       }
@@ -350,15 +355,17 @@ export function useEditorComments({
       if (placement === "placed" || !overleafSyncOwed(comment.path)) return placement;
       report({ saving: t`Waiting for ${name} to finish syncing with Overleaf…`, error: null });
       const settled = await syncSettled(
-        () => overleafSyncOwed(comment.path), () => overleafSyncingRef.current, () => void overleafSyncRef.current(),
+        () => overleafSyncOwed(comment.path), () => overleafSyncingRef.current, () => overleafSyncRef.current(),
       );
-      return settled ? place() : "unsynced";
+      return settled === "settled" ? place() : settled;
     };
     report({ saving: t`Commenting on ${name} on Overleaf…`, error: null });
     void placeOnceSynced().then((placement) => {
       if (placement === "placed") report(null);
       else if (placement === "notFound") {
         report({ saving: null, error: t`Your comment on ${name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced.` });
+      } else if (placement === "unsynced") {
+        report({ saving: null, error: t`${name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment.` });
       } else {
         report({ saving: null, error: t`${name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes.` });
       }

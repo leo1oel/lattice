@@ -159,6 +159,24 @@ describe("Overleaf comments", () => {
     expect(invokeCalls("overleaf_comment_in_document")).toHaveLength(2);
   }, 60_000);
 
+  // The sync that would bring Overleaf's copy up to the passage fails: the
+  // comment says so as soon as it does, keeping what was typed, rather than
+  // waiting out the rest of the half minute to blame a sync no longer running.
+  it("keeps the comment and says the file did not sync when its sync fails", async () => {
+    const { upload, surface } = await rewriteOpenOutline(placedIfHeld);
+    const composer = await commentOnQuote(surface);
+    await within(composer).findByText("Waiting for outline.md to finish syncing with Overleaf…");
+
+    upload.promise.catch(() => {});
+    act(() => upload.reject(new Error("Overleaf could not be reached.")));
+    await waitFor(() => expect(within(composer).getByRole("alert")).toHaveTextContent(
+      "outline.md did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment.",
+    ), { timeout: 5_000 });
+    expect(within(composer).getByRole("textbox", { name: "Comment" })).toHaveValue(BODY);
+    expect(within(composer).getByRole("button", { name: "Add comment" })).toBeEnabled();
+    expect(invokeCalls("overleaf_comment_in_document")).toHaveLength(1);
+  }, 60_000);
+
   it("keeps the comment and what was typed when Overleaf cannot be reached", async () => {
     const { surface } = await rewriteOpenOutline(() => {
       throw new Error("Overleaf could not be reached.");

@@ -777,6 +777,10 @@ msgstr "{name} 副本"
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} 没保存成功，仍要关闭并丢弃修改？"
 
+#: src/app/use-editor-comments.ts
+msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+msgstr "{name} 没能完成与 Overleaf 的同步，评论还没加上。请重新同步后再添加评论。"
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} 以不同选项加载了两次"
