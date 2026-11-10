@@ -106,7 +106,8 @@ On Linux, Lattice checks for new releases and links to GitHub Releases, but does
 Windows (experimental). Releases that pass their Windows checks also carry an
 unsigned x64 `windows-x64-experimental-setup.exe`, with a SHA-256 checksum and
 setup instructions. SmartScreen may warn about the unknown publisher. The Agent
-and automatic updates are unavailable; install TeX Live separately. See the
+and automatic updates are unavailable; Lattice can install TeX Live for you from
+its setup dialog, or you can install it yourself. See the
 [Windows guide](docs/windows-host.md) for requirements and limitations.
 
 ## Contributing

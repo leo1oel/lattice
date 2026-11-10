@@ -25,9 +25,9 @@ writeFileSync(join(output, names.instructions), `Lattice ${version} — experime
   + "Do not disable SmartScreen or your antivirus.\n\n"
   + "Windows 10 1809 or later is required; Windows 11 is recommended. "
   + "The per-user installer uses Microsoft Edge WebView2 (the installer offers the official runtime when needed). "
-  + "Install TeX Live for Windows separately to compile LaTeX.\n\n"
+  + "To compile LaTeX, Lattice's setup dialog can install TeX Live for your user account (no administrator prompt), or install TeX Live or MiKTeX yourself.\n\n"
   + "The embedded Agent is unavailable. Automatic updates are disabled: download each new version manually. "
-  + "One-click TeX/paper-tool installation and rtex live preview are unavailable. "
+  + "The rtex live preview is unavailable. "
   + "Open-licensed interface fonts are used; no private font or product-license secrets are included.\n\n"
   + "Uninstall through Windows Settings > Apps > Lattice. Your projects remain your own files.\n");
 checkWindowsPackage(output, { version, sha: sourceCommit });
