@@ -5,6 +5,7 @@ import {
   buildPresenceCursorDecorations,
   buildTrackedChangeDecorations,
   buildTrackedChangeTooltipDom,
+  marginReviewExtension,
   measureCursorLabelPlacements,
   overleafCursorsExtension,
   overleafTrackChangesExtension,
@@ -214,4 +215,21 @@ describe("extensions fed by a live getter", () => {
       view.destroy();
     },
   );
+});
+
+it("adds its styles to the page once, however many editors mount it", () => {
+  // style-mod appends a theme's rules for every theme object it has not seen:
+  // one built per editor grew the page's rules with each file switch, and every
+  // later style recalc matched against all of them.
+  const pageRules = () => [...document.styleSheets, ...(document.adoptedStyleSheets ?? [])]
+    .reduce((total, sheet) => total + sheet.cssRules.length, 0);
+  const mountAll = () => mountView("hello", [
+    overleafCursorsExtension(),
+    overleafTrackChangesExtension({ ...actions(), getChanges: () => [] }),
+    marginReviewExtension(),
+  ]);
+  mountAll().destroy();
+  const after = pageRules();
+  for (let index = 0; index < 3; index += 1) mountAll().destroy();
+  expect(pageRules()).toBe(after);
 });
