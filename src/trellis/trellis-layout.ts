@@ -326,7 +326,10 @@ export function placesOf(doc: LayoutDocument): DocumentPlaces {
  * panel. Each keeps its view from `current` (so its tab survives), and a
  * panel shows the active document, else the one it last showed. A slot no
  * document fills stays, an empty document panel; with no slot at all, App's
- * tab sync gives the documents a panel of their own.
+ * tab sync gives the documents a panel of their own. A known limit: a
+ * workspace saved with no PDF panel drops the other compiled documents' PDF
+ * tabs (they join the live PDF's panel), and each comes back on its
+ * document's next build.
  */
 export function arrangeDocuments(
   doc: LayoutDocument,

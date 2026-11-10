@@ -27,7 +27,9 @@ describe("pdfTabLabel", () => {
 /** A project whose workspace has the default layout: the live PDF alone in its panel. */
 async function openProject() {
   const controller = new TrellisController();
+  const window = { open: false };
   controller.setBridge({
+    pdfInWindow: () => window.open,
     tabKind: () => "file",
     tabLabel: (key: string) => key,
     activate: () => {},
@@ -58,7 +60,7 @@ async function openProject() {
     act(() => tabs.shown("/p", document, { requested }));
     await act(async () => {});
   };
-  return { controller, ws, tabs, strip, built, unmount: view.unmount };
+  return { controller, ws, tabs, strip, built, window, unmount: view.unmount };
 }
 
 describe("a PDF tab per compiled root document", () => {
@@ -270,6 +272,21 @@ describe("a PDF tab per compiled root document", () => {
     expect(strip()).toEqual(["live*", "main.tex"]);
     expect(ws.view("pdf")?.params.document).toBe("SI.tex");
     expect(tabs.liveLabel()).toBeNull();
+  });
+
+  // Detaching the PDF closes its panel; builds then show in the window, and the panel's tabs stay as they were.
+  it("brings no PDF tab back while the PDF is in its own window, for a build asked for or not", async () => {
+    const { ws, strip, built, window } = await openProject();
+    await built("main.tex");
+    await built("supplement/SI.tex", true);
+    window.open = true;
+    await act(async () => { await ws.close("pdf"); });
+    expect(strip()).toEqual(["main.tex*"]);
+    await built("supplement/SI.tex", true);
+    expect(ws.view("pdf")).toBeNull();
+    await built("main.tex");
+    expect(ws.view("pdf")).toBeNull();
+    expect(strip()).toEqual(["main.tex*"]);
   });
 
   it("starts over in another project", async () => {

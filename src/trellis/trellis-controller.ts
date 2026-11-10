@@ -111,6 +111,8 @@ export type TrellisBridge = {
   shortcut: (command: string) => string | null;
   /** Build the project for `key` (made the active document first), and bring the PDF panel up. */
   build: (key: string, options?: { clean?: boolean; beside?: string }) => void;
+  /** Whether the project's PDF is in its own window, where builds show (src/app/pdf-window-state.ts). */
+  pdfInWindow: () => boolean;
   stopBuild: () => void;
   /** Open the last build's next problem in its source, as F8 does. */
   nextBuildProblem: () => void;

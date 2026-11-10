@@ -160,6 +160,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
           else await compile(false, true);
         })();
       },
+      pdfInWindow: () => pdfInWindow(trellis),
       stopBuild: () => void buildPipeline.abortBuild(),
       nextBuildProblem: () => buildPipeline.cycleDiagnostic(1),
       setViewMode: (mode) => documents.chooseMode(mode),
