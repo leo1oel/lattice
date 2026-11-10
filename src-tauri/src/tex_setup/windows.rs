@@ -64,8 +64,9 @@ impl Drop for InstallGuard {
 }
 
 /// End the install that is running: its processes stop and it returns
-/// [`CANCELLED`]. A download in flight finishes first (they are short); the
-/// installer and package manager stop at once. `false` when none is running.
+/// [`CANCELLED`]. A download in flight stops within a moment too (it reads on
+/// a thread of its own), and the installer and package manager have their whole
+/// process tree ended at once. `false` when none is running.
 pub fn cancel_install() -> bool {
     if INSTALL_RUNNING.load(Ordering::Acquire) {
         CANCEL.store(true, Ordering::Release);

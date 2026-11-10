@@ -216,9 +216,10 @@ pub(super) fn install_profile(texdir: &Path, year: i32) -> String {
 /// `-repository` the installer asks the `mirror.ctan.org` multiplexer, which
 /// redirects to any mirror, http and ftp ones included, for about a gigabyte of
 /// packages that nothing in Lattice can hash (the live `tlnet` changes daily).
-/// What protects those packages is TeX Live's own verification of the package
-/// database's checksums and signature, the same trust Lattice places in
-/// `tlmgr` for BasicTeX on macOS. Once TeX Live 2026 is frozen (after the 2027
+/// What protects those packages is TeX Live's own check of the package
+/// database's checksums, which it fetches over https. Its signature check needs
+/// `gpg`, and `install-tl.zip` ships no `gpg.exe`, so on most Windows machines
+/// only those checksums are verified. Once TeX Live 2026 is frozen (after the 2027
 /// release, when the year guard asks for a Lattice update anyway) the installer
 /// should read the immutable `…/historic/systems/texlive/2026/tlnet-final`
 /// instead, and its packages can be pinned as the installer archive is.

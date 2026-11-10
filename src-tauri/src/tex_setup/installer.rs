@@ -69,7 +69,7 @@ pub(super) const UV: PinnedDownload = PinnedDownload {
     name: "uv",
     source: "the required uv tool",
     artifact: "uv archive",
-    // Not measured for this build; the aarch64 one is 17.7 MB, so the same cap.
+    // 19,547,702 bytes at the pinned release; the cap leaves about a third more.
     max_bytes: 26_500_000,
 };
 /// The directory the uv archive unpacks into.
