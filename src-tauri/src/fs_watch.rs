@@ -304,16 +304,24 @@ mod tests {
         use std::cell::Cell;
         let start = Instant::now();
         let clock = Cell::new(start);
-        let first = WatchBatch { paths: vec![PathBuf::from("/tmp/project/log.txt")], reconcile: false };
-        let drained = drain_burst(first, || clock.get(), |wait| {
-            if gap <= wait {
-                clock.set(clock.get() + gap);
-                Ok(WatchBatch { paths: vec![PathBuf::from("/tmp/project/log.txt")], reconcile: false })
-            } else {
-                clock.set(clock.get() + wait);
-                Err(RecvTimeoutError::Timeout)
-            }
-        })
+        let first =
+            WatchBatch { paths: vec![PathBuf::from("/tmp/project/log.txt")], reconcile: false };
+        let drained = drain_burst(
+            first,
+            || clock.get(),
+            |wait| {
+                if gap <= wait {
+                    clock.set(clock.get() + gap);
+                    Ok(WatchBatch {
+                        paths: vec![PathBuf::from("/tmp/project/log.txt")],
+                        reconcile: false,
+                    })
+                } else {
+                    clock.set(clock.get() + wait);
+                    Err(RecvTimeoutError::Timeout)
+                }
+            },
+        )
         .unwrap();
         (clock.get() - start, drained.paths.len())
     }
