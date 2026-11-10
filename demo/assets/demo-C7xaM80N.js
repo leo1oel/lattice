@@ -1,0 +1,1 @@
+import{t as e}from"./app-BN_z8TMc.js";await e();
