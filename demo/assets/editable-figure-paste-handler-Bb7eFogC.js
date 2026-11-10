@@ -1,1 +1,0 @@
-import{i as e,n as t,r as n,t as r}from"./editable-figure-paste-handler-CMMnYCnk.js";t();export{r as editableFigurePaste,n as lastFigureEditor,e as trackFigureEditor};
