@@ -16,7 +16,7 @@
 //! must never keep another project's deck from opening.
 
 use crate::ipc::run_blocking;
-use crate::sidecar::{terminate_process_group, NodeRuntime};
+use crate::sidecar::{node_script_path, terminate_process_group, NodeRuntime};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
@@ -213,8 +213,10 @@ impl PresentationRuntime {
             }
         }
         Ok(Self {
-            node: NodeRuntime::resolve(&resources.join("synara-runtime/bin")),
-            entry_path: resources.join("presentation-runtime/server.mjs"),
+            node: NodeRuntime::resolve(&resources.join("synara-runtime").join("bin")),
+            entry_path: node_script_path(
+                &resources.join("presentation-runtime").join("server.mjs"),
+            ),
             shadow_parent,
             running: Arc::default(),
             pages: Arc::default(),
@@ -351,9 +353,12 @@ impl PresentationRuntime {
         self.node.configure(&mut command);
         command
             .arg(&self.entry_path)
-            .current_dir(shadow)
-            .env("OPEN_SLIDE_SHADOW_ROOT", shadow)
-            .env("OPEN_SLIDE_CACHE_ROOT", self.shadow_parent.join(format!("vite-cache-{VERSION}")))
+            .current_dir(node_script_path(shadow))
+            .env("OPEN_SLIDE_SHADOW_ROOT", node_script_path(shadow))
+            .env(
+                "OPEN_SLIDE_CACHE_ROOT",
+                node_script_path(&self.shadow_parent.join(format!("vite-cache-{VERSION}"))),
+            )
             .env("OPEN_SLIDE_CONTROL_TOKEN", control_token)
             // The pipe is a zero-polling parent-liveness signal. In dev mode
             // Tauri may replace this process without running normal shutdown;
