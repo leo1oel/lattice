@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-10 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**809 files, +76,768 / −8,831 lines**. It carries embedded-workspace UI, a skills manager,
+**814 files, +77,491 / −8,895 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -165,6 +165,15 @@ Server-only paths that take the static default (gateway-created threads, project
 A thread saved as a bare `sonnet`, `haiku` or `fable` reaches the composer as the full catalog id (the store's `normalizeModelSelection`), so on an older Claude Code it runs the newest model and fails with that message; this has been true of `fable` since fork PR 16 and is left for a follow-up.
 Opus 5.5 and Fable 5.2 now show Medium as their default effort, which is what Claude Code runs them at ("Fable 5.2, Opus 5.5, Sonnet 5.5, and Haiku 5.5 default to `medium`", code.claude.com/docs/en/model-config). Synara leaves the default effort unsent, so Medium still runs Claude Code's own default, and an explicit High is now sent as `high`; before, High was the default, so it was dropped and Claude Code ran medium. Opus 5 and Fable 5 and 5.1 keep High.
 No in-app Lattice session was needed: these are catalog, alias and default changes, and the fork's unit and browser tests cover them.
+
+Proofread, Polish, annotation revisions, compile repair and Git writing now run on a ready provider when the model chosen in Settings cannot run (fork `b1c152bb92d371b2674503c3ec1fe7423b3cb428`, [fork PR 19](https://github.com/leo1oel/synara/pull/19)).
+Before, a writer who had connected only Claude got "The agent could not proofread the selection: Codex CLI (codex) is required but not available.": Lattice sends no model, so the fork used the Proofreading model, then the Git writing model, and that defaults to Codex. The fork fell back only when a provider was turned off in Settings, never when it was missing or signed out.
+One fork helper, `resolveRunnableModelSelection` (`apps/server/src/provider/runnableModelSelection.ts`), now checks every such call against provider health, using the same rule as the composer (`isProviderUsable`, moved to the fork's `packages/shared/src/providerInstances.ts`):
+- **The Settings choice still wins** when its provider is enabled, installed and not signed out, so a writer who connected both keeps their choice. A Proofreading model that cannot run falls back to the Git writing model first.
+- **Otherwise the first ready provider runs it** on its default model: Codex, Claude, Cursor, OpenCode, Droid for text, or any built-in provider for compile repair. The text-task `model.source` is then `"fallback"`.
+- **With nothing ready**, `/api/lattice/text-task` and `/api/lattice/compile-repair` answer 503 with "No AI provider is connected. Connect Codex, Claude, Cursor, OpenCode or Droid in the Agent panel → Settings → Providers." Lattice shows that text in its proofread card in place of the raw CLI error, still in English. A localized card message is a follow-up.
+The fork does not prefer the provider of the writer's latest Agent-panel thread; it uses the fixed order above.
+No in-app Lattice session was needed: `latticeTextTaskHttpRoute.test.ts` reproduces the report (default settings, Codex missing, Claude ready) and fork unit tests cover compile repair and Git writing.
 
 ## Synara 0.9.1 compatibility
 
