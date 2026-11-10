@@ -30,6 +30,22 @@ pub(super) fn settle(root: &Path, document: &str, wrote_pdf: bool) -> bool {
     }
 }
 
+/// Whether the PDF of `document` is no longer the one the last build left:
+/// something other than a build wrote over it since. An Overleaf sync or a
+/// `git pull` that brings in a collaborator's PDF leaves the sources as they
+/// were, so latexmk finds nothing to do and the preview would show their
+/// build as this one's. `false` when no build has left a copy to compare.
+pub(super) fn replaced(root: &Path, document: &str) -> bool {
+    let pdf = root.join(document).with_extension("pdf");
+    let kept = root.join(DIRECTORY).join(document).with_extension("pdf");
+    let size = |path: &Path| fs::metadata(path).ok().filter(|meta| meta.is_file()).map(|m| m.len());
+    match (size(&pdf), size(&kept)) {
+        (Some(on_disk), Some(left)) if on_disk != left => true,
+        (Some(_), Some(_)) => fs::read(&pdf).ok() != fs::read(&kept).ok(),
+        _ => false,
+    }
+}
+
 /// Only the latest root document's PDF is kept: another one built since
 /// replaces it, so a project holds one copy at most.
 fn keep(root: &Path, pdf: &Path, kept: &Path) {
@@ -98,6 +114,22 @@ mod tests {
         root.write("paper/main.pdf", "%PDF-1.5 partial");
         assert!(!settle(&root, "paper/main.tex", false));
         assert_eq!(read("paper/main.pdf"), "%PDF-1.5 partial");
+    }
+
+    #[test]
+    fn a_pdf_written_over_since_the_last_build_reads_as_replaced() {
+        let root = TempDir::new("shown-pdf");
+        assert!(!replaced(&root, "cvpr/main.tex"), "no PDF and no copy");
+        root.write("cvpr/main.pdf", "%PDF-1.5 mine");
+        assert!(!replaced(&root, "cvpr/main.tex"), "no build has left a copy yet");
+        settle(&root, "cvpr/main.tex", true);
+        assert!(!replaced(&root, "cvpr/main.tex"));
+
+        // A collaborator's build, pulled in by a sync: same size, other bytes.
+        root.write("cvpr/main.pdf", "%PDF-1.5 them");
+        assert!(replaced(&root, "cvpr/main.tex"));
+        root.write("cvpr/main.pdf", "%PDF-1.5 theirs, longer");
+        assert!(replaced(&root, "cvpr/main.tex"));
     }
 
     #[test]

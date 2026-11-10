@@ -63,6 +63,7 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
         upgrade_manifest(&mut manifest);
         write_manifest(&root, &manifest)?;
     }
+    super::build_pdfs::ignore_root_document_pdfs(&root, &manifest)?;
 
     let step = wide_event::step("scan");
     let files = scan_tree(&root, TreeView::Project)?;
@@ -565,6 +566,7 @@ mod tests {
             "*-SAVE-ERROR",
             ".research/review/",
             "node_modules/",
+            "/main.pdf",
         ] {
             assert!(
                 ignore.lines().any(|existing| existing.trim() == line),

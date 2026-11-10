@@ -26,6 +26,7 @@ fn remote(host: &str) -> Remote {
             ..Default::default()
         },
         host: host.into(),
+        build_pdfs: Default::default(),
     }
 }
 

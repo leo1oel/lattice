@@ -120,6 +120,29 @@ fn is_compiled_pdf(path: &str, has: impl Fn(&str) -> bool) -> bool {
     }
 }
 
+/// The PDFs builds write for the project's root documents, at any depth
+/// (`project::root_document_pdfs`): this copy's build output, which never
+/// syncs in either direction. [`is_compiled_pdf`] only knows a PDF at the
+/// top by the `.tex` beside it, so `cvpr/main.pdf` went up as a figure, came
+/// back down over this copy's build from a collaborator's, and was shown as
+/// if built here. Read from this copy's manifest, so it also keeps such a
+/// file on Overleaf from coming down. Compared without case, as the disk is.
+#[derive(Clone, Debug, Default)]
+pub(super) struct BuildPdfs(BTreeSet<String>);
+
+impl BuildPdfs {
+    /// Empty for a folder with no manifest yet (a clone never opened here).
+    pub fn of(root: &Path) -> Self {
+        let manifest = crate::project::read_manifest(root).ok();
+        let pdfs = manifest.as_ref().map(crate::project::root_document_pdfs).unwrap_or_default();
+        Self(pdfs.iter().map(|path| path.to_ascii_lowercase()).collect())
+    }
+
+    pub fn contains(&self, path: &str) -> bool {
+        self.0.contains(&path.to_ascii_lowercase())
+    }
+}
+
 /// Paths (forward-slash relative) that never participate in sync, whatever
 /// else the project holds.
 pub(super) fn is_excluded(path: &str) -> bool {
@@ -226,6 +249,7 @@ pub(super) struct LocalFiles {
 /// Walk the project and load every syncable file (path → bytes).
 pub(super) fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
     let mut local = LocalFiles { files: BTreeMap::new(), oversized: Vec::new() };
+    let build_pdfs = BuildPdfs::of(root);
     let walker = walkdir::WalkDir::new(root).into_iter().filter_entry(|e| {
         let name = e.file_name().to_string_lossy();
         e.depth() == 0
@@ -242,7 +266,10 @@ pub(super) fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
         let Some(rel) = relative_slash_path(root, entry.path()) else {
             continue;
         };
-        if is_excluded(&rel) || is_compiled_pdf(&rel, |source| disk_path(root, source).is_file()) {
+        if is_excluded(&rel)
+            || build_pdfs.contains(&rel)
+            || is_compiled_pdf(&rel, |source| disk_path(root, source).is_file())
+        {
             continue;
         }
         // Checked from the directory entry, before reading: the whole project
@@ -267,8 +294,10 @@ pub(super) fn local_files_changed(
     root: &Path, state: &SyncState, live: &BTreeSet<String>,
 ) -> Result<bool, String> {
     let local = read_local_files(root)?.files;
-    let tracked_count =
-        state.files.keys().filter(|path| !is_excluded(path) && !live.contains(*path)).count();
+    let build_pdfs = BuildPdfs::of(root);
+    let tracked_count = (state.files.keys())
+        .filter(|path| !is_excluded(path) && !build_pdfs.contains(path) && !live.contains(*path))
+        .count();
     let local_count = local.keys().filter(|path| !live.contains(*path)).count();
     if tracked_count != local_count {
         return Ok(true);
@@ -384,6 +413,9 @@ pub(super) fn merge_three_way(root: &Path, rel: &str, remote: &[u8], local: &[u8
         Err(conflicted) => MergeOutcome::Conflicted(conflicted.into_bytes()),
     }
 }
+
+#[cfg(test)]
+mod build_pdf_tests;
 
 #[cfg(test)]
 mod tests {

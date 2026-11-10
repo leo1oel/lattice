@@ -67,7 +67,8 @@ pub fn preview(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>,
 ) -> Result<OverleafPreview, String> {
     let mut linked = Remote::open(config_dir, root)?;
-    linked.state.files.retain(|path, _| !is_excluded(path));
+    let build_pdfs = &linked.build_pdfs;
+    linked.state.files.retain(|path, _| !is_excluded(path) && !build_pdfs.contains(path));
     let client = sync_client()?;
     let mut local = read_local_files(root)?.files;
     let version = linked.version(&client);

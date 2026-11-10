@@ -408,7 +408,11 @@ Every open (`project/manifest.rs`) writes `.research/.gitignore` only if it is
 missing (an existing one is left as is), and `ensure_ignore_line` adds
 `.research/checkpoints/`, `.research/cache/`, `.research/review/` and the
 build-artifact list to the root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
-`.log` and `.fls` in the directory. Exporting a PDF with changes marked (`latex/changes.rs`) adds its `/<root>-changes.pdf` to the root `.gitignore` the same way.
+`.log` and `.fls` in the directory. It also adds each root document's PDF,
+anchored (`/cvpr/main.pdf`; `project/build_pdfs.rs`), so an adopted Overleaf or
+git clone never commits this copy's build. The same list keeps those PDFs out
+of Overleaf sync in both directions, at any depth (`BuildPdfs` in
+`overleaf/files.rs`). Exporting a PDF with changes marked (`latex/changes.rs`) adds its `/<root>-changes.pdf` to the root `.gitignore` the same way.
 
 Export (`export_project_zip`) excludes `.git/`, all of `.research/`, the
 root document's PDF and the usual TeX artifacts (`EXPORT_EXCLUDED_DIRS` and

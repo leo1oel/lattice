@@ -77,3 +77,25 @@ fn the_subfolder_s_own_file_wins_and_errors_point_at_the_project_s_top() {
         .collect();
     assert_eq!(errors, [("sections/intro.tex".to_string(), Some(1))]);
 }
+
+/// A collaborator's PDF that an Overleaf sync or a `git pull` writes over
+/// this copy's leaves the sources unchanged, so latexmk has nothing to do;
+/// the build must still put this copy's own PDF back before it is shown.
+#[test]
+#[ignore = "requires latexmk and pdfLaTeX"]
+fn a_pdf_written_over_by_someone_else_is_built_again() {
+    const PAPER: &str = "\\documentclass{article}\n\\begin{document}\nMine.\n\\end{document}\n";
+    let (root, _) = build(&[("cvpr/main.tex", PAPER)]);
+    let build_again = || {
+        super::build(&root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap()
+    };
+    // The build that leaves this copy's PDF on screen (`shown_pdf`).
+    assert!(build_again().success);
+
+    let theirs = b"%PDF-1.5 a collaborator's build";
+    fs::write(root.join("cvpr/main.pdf"), theirs).unwrap();
+    let result = build_again();
+    assert!(result.success, "{}", result.log);
+    let shown = fs::read(root.join("cvpr/main.pdf")).unwrap();
+    assert!(shown.starts_with(b"%PDF-") && shown != theirs, "{}", String::from_utf8_lossy(&shown));
+}

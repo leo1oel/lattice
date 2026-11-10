@@ -91,7 +91,7 @@ impl Uploader<'_> {
             .text("name", file_name.clone())
             .text("relativePath", rel.to_string())
             .part("qqfile", Part::bytes(bytes).file_name(file_name));
-        let Remote { host, session, state } = self.remote;
+        let Remote { host, session, state, .. } = self.remote;
         let request = (self.client.post(format!("{host}/project/{}/upload", state.project_id)))
             .query(&[("_csrf", self.csrf), ("folder_id", self.root_folder_id)])
             .header(COOKIE, &session.cookie)
