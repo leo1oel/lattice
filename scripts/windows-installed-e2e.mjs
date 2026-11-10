@@ -53,8 +53,29 @@ try {
   await until("WebView2 startup", () => fetch(`http://127.0.0.1:${port}/json/version`).then((response) => response.ok));
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
   page = await until("native app page", async () => browser.contexts().flatMap((context) => context.pages()).find((candidate) => candidate.url().includes("tauri.localhost")));
-  await until("tutorial or welcome screen", async () => await page.locator(".cm-editor").count() || await page.locator(".welcome-tutorial").count());
-  if (await page.locator(".welcome-tutorial").count()) await page.locator(".welcome-tutorial").click();
+  // A first launch opens the tutorial by itself. When that takes longer than
+  // the app's 1 s launch patience (a cold runner), the welcome screen shows
+  // meanwhile with Guided tutorial disabled under "Preparing tutorial…", then
+  // unmounts when the tutorial lands — clicking it then waits on a detached
+  // button until Playwright gives up. Press it only once it is enabled, i.e.
+  // the app settled on the welcome screen without opening the tutorial.
+  const tutorial = page.locator(".welcome-screen button.welcome-tutorial");
+  let busy = "";
+  const first = await until("tutorial editor or an enabled Guided tutorial button", async () => {
+    if (await page.locator(".cm-editor .cm-content").count()) return "editor";
+    if (!await tutorial.count()) return null;
+    if (await tutorial.isEnabled()) return "welcome";
+    busy = await page.locator(".welcome-screen .busy-label").innerText().catch(() => "") || busy;
+    return null;
+  }, 120_000).catch((error) => {
+    throw new Error(`${error.message}${busy ? ` (welcome screen busy: "${busy}")` : ""}`);
+  });
+  if (busy) console.log(`note: welcome screen was busy before the tutorial opened: "${busy}"`);
+  if (first === "welcome") {
+    console.log(`note: app settled on the welcome screen; pressing Guided tutorial`);
+    // If the tutorial lands in between, the button is gone; the editor wait decides.
+    await tutorial.click({ timeout: 10_000 }).catch((error) => console.log(`note: Guided tutorial click: ${error.message}`));
+  }
   await page.locator(".cm-editor .cm-content").first().waitFor({ timeout: 90_000 });
   const project = await invoke("initial_project");
   assert.ok(project?.root, "Tutorial must be bound to this window");
