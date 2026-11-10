@@ -70,9 +70,18 @@ echo "ldd: every bundled ELF resolves its libraries"
 # dies the app stays up with an empty window. That is how a Mesa newer than
 # the AppImage's libwayland-client fails (unbundle-wayland-client.sh), so the
 # web process must still be running too.
+#
+# The programs Lattice starts must get the host's libraries, not the
+# AppImage's (src-tauri/src/commands/appimage.rs): with Ubuntu 22.04's
+# libsystemd, Ubuntu 26.04's /usr/bin/env cannot start. The guest has no TeX,
+# so a latexmk that writes down its environment, started through
+# /usr/bin/env as TeX Live's is, stands in for it: setup's check and the
+# tutorial's first build both start it.
 if command -v xvfb-run >/dev/null; then
-  mkdir -p "$workdir/home"
-  HOME="$workdir/home" timeout 20 xvfb-run -a "$root/AppRun" >"$workdir/launch.out" 2>"$workdir/launch.err" &
+  mkdir -p "$workdir/home" "$workdir/tex" "$workdir/latexmk-env"
+  printf '#!/usr/bin/env sh\nenv >"%s/latexmk-env/$$"\n' "$workdir" >"$workdir/tex/latexmk"
+  chmod +x "$workdir/tex/latexmk"
+  PATH="$workdir/tex:$PATH" HOME="$workdir/home" timeout 20 xvfb-run -a "$root/AppRun" >"$workdir/launch.out" 2>"$workdir/launch.err" &
   launch=$!
   sleep 15
   web_process=no
@@ -98,7 +107,18 @@ if command -v xvfb-run >/dev/null; then
     cat "$workdir/launch.err" >&2
     exit 1
   fi
+  if [[ -z "$(ls -A "$workdir/latexmk-env")" ]]; then
+    echo "smoke failed: the latexmk Lattice starts never ran (with the AppImage's libraries, /usr/bin/env cannot start)" >&2
+    tail -n 60 "$workdir/launch.err" >&2
+    exit 1
+  fi
+  if leaked="$(grep -hF "$root" "$workdir/latexmk-env/"*)"; then
+    echo "smoke failed: the latexmk Lattice starts inherited the AppImage's folders:" >&2
+    echo "$leaked" >&2
+    exit 1
+  fi
   echo "launch: still running after 20 s under Xvfb, and so was WebKit's web process at 15 s"
+  echo "children: the latexmk it started ran through /usr/bin/env with none of the AppImage's folders"
 else
   echo "smoke failed: xvfb-run is not installed in this guest" >&2
   exit 1

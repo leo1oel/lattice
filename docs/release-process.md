@@ -176,7 +176,9 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
    extracts the AppImage, requires every bundled ELF to resolve its libraries
    and its glibc/libstdc++ versions, and requires the app to still be running
    20 s after launch under Xvfb, with WebKit's web process still running at
-   15 s (when it dies, the app stays up with an empty window).
+   15 s (when it dies, the app stays up with an empty window). A stand-in
+   `latexmk` the app starts must run through `/usr/bin/env` with none of the
+   AppImage's folders in its environment (`src-tauri/src/commands/appimage.rs`).
 3. **e2e** (`ubuntu-22.04`, TeX Live from apt): `tauri-driver` with
    WebKitGTK's `WebKitWebDriver` launches the AppImage itself under Xvfb, and
    `scripts/linux-e2e.mjs` checks that the first launch opens the tutorial,

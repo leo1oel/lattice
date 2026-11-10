@@ -17,7 +17,8 @@ name: Linux AppImage
 #   the host's, and its contents checked for loose fonts;
 # - smoke: extracted on Ubuntu 22.04, 24.04 and 26.04 and Fedora 45, every
 #   bundled ELF resolves its libraries, and it launches and stays up under
-#   Xvfb with WebKit's web process running;
+#   Xvfb with WebKit's web process running, and a program it starts gets the
+#   host's libraries, not the AppImage's;
 # - e2e: tauri-driver drives the AppImage itself under Xvfb: it opens the
 #   tutorial, builds it, draws the PDF, rebuilds on Build, and the Agent panel
 #   says the Agent is not available on Linux yet (scripts/linux-e2e.mjs).

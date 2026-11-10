@@ -6,7 +6,7 @@
 //! is svg_links.rs.
 
 use crate::commands::{
-    in_new_process_group, signal_process_group, track_process_group, KILL_SIGNAL,
+    host_environment, in_new_process_group, signal_process_group, track_process_group, KILL_SIGNAL,
 };
 use crate::util::err;
 use std::ffi::OsString;
@@ -107,7 +107,7 @@ pub(super) fn run_tool(tool: Tool, source: &Path, pdf: &Path, page: u32) -> Resu
     let program = find_tool(tool)?;
     let _turn = CONVERTING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut command = Command::new(program);
-    command
+    host_environment(&mut command)
         .args(convert_args(tool, source, pdf, page))
         // Anything the program writes beside its output stays in the scratch folder.
         .current_dir(pdf.parent().unwrap_or(pdf))
