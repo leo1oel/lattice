@@ -137,6 +137,44 @@ describe("terminal sessions", () => {
     expect(sessions.get().sessions[0].state).toEqual({ kind: "exited", code: 127 });
   });
 
+  it("the last shell exiting cleanly says so, once; closing a tab, a failed exit or a shell left running does not", async () => {
+    const { sessions, opened } = setup();
+    const lastExit = vi.fn();
+    sessions.onLastExit(lastExit);
+    const [a] = [sessions.open()!, sessions.open()!, sessions.open()!];
+    opened.forEach((request, index) => request.resolve(index + 1));
+    await settle();
+    // One clean exit with another terminal still open: the panel stays.
+    opened[1].onExit(0);
+    expect(lastExit).not.toHaveBeenCalled();
+    // The last one standing exits with an error: its tab stays, and so does the panel.
+    sessions.close(a.key);
+    opened[2].onExit(1);
+    expect(sessions.get().sessions).toHaveLength(1);
+    expect(lastExit).not.toHaveBeenCalled();
+    // Closing that last tab by hand leaves an empty panel waiting for the writer.
+    sessions.close(sessions.get().sessions[0].key);
+    expect(lastExit).not.toHaveBeenCalled();
+    // A fresh terminal whose shell exits cleanly is the last one going.
+    sessions.open();
+    opened[3].resolve(4);
+    await settle();
+    opened[3].onExit(0);
+    expect(sessions.get().sessions).toEqual([]);
+    expect(lastExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops telling a listener about the last exit once it unsubscribes", async () => {
+    const { sessions, opened } = setup();
+    const lastExit = vi.fn();
+    sessions.onLastExit(lastExit)();
+    sessions.open();
+    opened[0].resolve(1);
+    await settle();
+    opened[0].onExit(0);
+    expect(lastExit).not.toHaveBeenCalled();
+  });
+
   it("a shell that exited before the host answered stays exited, and gets none of the queued input", async () => {
     const { sessions, opened, calls } = setup();
     const session = sessions.open()!;
