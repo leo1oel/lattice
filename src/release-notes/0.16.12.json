@@ -1,0 +1,36 @@
+{
+  "version": "0.16.12",
+  "date": "2026-11-10",
+  "highlights": [
+    {
+      "title": {
+        "en": "Linux AppImage is back",
+        "zh": "Linux AppImage 回归"
+      },
+      "body": {
+        "en": "v0.16.11 shipped without an AppImage; this release has one again. Its window now draws on Ubuntu 26.04, Fedora 45 and Arch instead of staying blank. Thanks to @stefanbringuier.",
+        "zh": "v0.16.11 发布时缺少 AppImage，此版本重新提供。它的窗口现在可以在 Ubuntu 26.04、Fedora 45 和 Arch 上正常绘制，不再保持空白。感谢 @stefanbringuier。"
+      }
+    },
+    {
+      "title": {
+        "en": "⌘W closes the terminal",
+        "zh": "⌘W 关闭终端"
+      },
+      "body": {
+        "en": "In the focused Terminal panel, ⌘W closes the terminal, not the document or window, and asks first if a command is still running. Thanks to @ajay-mk.",
+        "zh": "在聚焦的终端面板中，⌘W 会关闭终端，而不是文档或窗口；如果有命令仍在运行，会先询问。感谢 @ajay-mk。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "The Terminal panel closes when its last shell exits. Thanks to @ajay-mk.",
+      "zh": "终端面板会在最后一个 shell 退出后关闭。感谢 @ajay-mk。"
+    },
+    {
+      "en": "Lint and the i18n guard run on Windows development setups. Thanks to @skytheacademic.",
+      "zh": "Lint 和 i18n 检查可以在 Windows 开发环境中运行。感谢 @skytheacademic。"
+    }
+  ]
+}
