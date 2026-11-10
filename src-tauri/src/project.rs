@@ -71,7 +71,7 @@ pub use bibliography::{
     CitationIndex,
 };
 pub(crate) use bibliography::{
-    bibliography_arxiv_id, bibliography_entry_spans, bibliography_field_spans,
+    bibliography_arxiv_id, bibliography_entry_spans, bibliography_field_spans, entry_close,
     iter_bibliography_sources, normalize_doi, parse_bibliography, parse_bibliography_fields_raw,
     parse_bibliography_fields_syntax,
 };

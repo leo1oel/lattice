@@ -111,6 +111,58 @@ fn merging_joins_only_the_same_work_and_never_rewrites_existing_entries() {
     assert!(!crate::citation_audit::metadata_identity_matches(doi_url, &other_doi));
 }
 
+/// Issue #772: a Zotero entry with a lone `"` inside a braced value hid
+/// every later entry, so imports could not find their own new key and
+/// duplicates of later entries were added again.
+const ZOTERO_QUOTE: &str = concat!(
+    "@article{possibility2024,\n",
+    "  shorttitle = {Review for \"{{The Possibility Space Concept}} in {{Neuroscience}}},\n",
+    "}\n",
+);
+
+#[test]
+fn entries_after_a_quote_inside_braces_still_count_for_duplicates() {
+    let later = "@misc{old,title={A Shared Title},author={Alice Smith},year={2025}}\n";
+    let before = format!("{ZOTERO_QUOTE}{later}");
+    let (merged, key, exists) =
+        merge_resolved_citation(&before, &later.replace("{old,", "{new,"), "new").unwrap();
+    assert_eq!((merged.as_str(), key.as_str(), exists), (before.as_str(), "old", true));
+    let other = later.replace("{old,", "{new,").replace("Shared", "Different");
+    let (merged, key, exists) = merge_resolved_citation(&before, &other, "new").unwrap();
+    assert_eq!((key.as_str(), exists), ("new", false));
+    assert_eq!(project::parse_bibliography(&merged).len(), 3);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_import_after_a_quote_inside_braces_finds_its_new_key() {
+    let _lock = tool_lock();
+    let project = TestProject::new(ZOTERO_QUOTE);
+    let _bibcite = ToolOverride::set(&commands::BIBCITE, &fake_bibcite(&project.parent));
+    // Cancelled once the download starts: the citation is already committed.
+    let cancel = AtomicBool::new(false);
+    let cancel_at = |reached: &str| {
+        if reached == "fulltext" {
+            cancel.store(true, Ordering::Release);
+        }
+    };
+    let result = import_reference(
+        &project.root,
+        "10.1234/example",
+        HistoryMode::Record,
+        &cancel_at,
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(result.citation_key.as_deref(), Some("stub2024"));
+    assert!(!result.already_imported);
+    let keys = project::parse_bibliography(&project.bibliography())
+        .into_iter()
+        .map(|entry| entry.key)
+        .collect::<Vec<_>>();
+    assert_eq!(keys, ["possibility2024", "stub2024"]);
+}
+
 #[test]
 fn resolved_snapshot_skips_search_and_preserves_metadata() {
     let raw = "@article{chosen, title={A Verified Study}, author={Smith, Ada}, year={2026}, doi={10.1234/chosen}, url={https://doi.org/10.1234/chosen}, month={September}, note={Preserve {nested} details}}";

@@ -45,25 +45,25 @@ pub(super) fn field_expressions(entry: &str) -> BTreeMap<String, String> {
             escaped = true;
             continue;
         }
+        // Braces nest inside a quoted value too; a `"` inside braces is a
+        // literal, and a stray `}` inside quotes is text.
         if byte == b'"' && depth == 0 {
             quoted = !quoted;
         }
-        if !quoted {
-            if byte == b'{' {
-                depth += 1;
-            }
-            if byte == b'}' {
-                depth -= 1;
-            }
-            if byte == b',' && depth == 0 {
-                if let Some((name, value)) = body[start..i].split_once('=') {
-                    let name = name.trim().to_ascii_lowercase();
-                    if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
-                        fields.insert(name, value.trim().into());
-                    }
+        if byte == b'{' {
+            depth += 1;
+        }
+        if byte == b'}' && (depth > 0 || !quoted) {
+            depth -= 1;
+        }
+        if !quoted && byte == b',' && depth == 0 {
+            if let Some((name, value)) = body[start..i].split_once('=') {
+                let name = name.trim().to_ascii_lowercase();
+                if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+                    fields.insert(name, value.trim().into());
                 }
-                start = i + 1;
             }
+            start = i + 1;
         }
     }
     fields
@@ -176,36 +176,9 @@ pub(crate) fn complete_entry(entry: &str) -> bool {
     let Some(start) = entry.find(['{', '(']) else {
         return false;
     };
-    let opening = entry.as_bytes()[start];
-    let closing = if opening == b'{' { b'}' } else { b')' };
-    let mut depth = 0i32;
-    let mut quoted = false;
-    let mut escaped = false;
-    for (i, byte) in entry.bytes().enumerate().skip(start) {
-        if escaped {
-            escaped = false;
-            continue;
-        }
-        if byte == b'\\' {
-            escaped = true;
-            continue;
-        }
-        if byte == b'"' {
-            quoted = !quoted;
-        }
-        if !quoted {
-            if byte == opening {
-                depth += 1;
-            }
-            if byte == closing {
-                depth -= 1;
-                if depth == 0 {
-                    return i + 1 == entry.len();
-                }
-            }
-        }
-    }
-    false
+    let closing = if entry.as_bytes()[start] == b'{' { b'}' } else { b')' };
+    project::entry_close(entry.as_bytes(), start + 1, closing)
+        .is_some_and(|close| close + 1 == entry.len())
 }
 
 #[cfg(test)]
@@ -218,6 +191,16 @@ mod tests {
         assert_eq!(normalize_doi("arxiv:1"), None);
         assert!(!complete_entry("@article{a,title={Broken}"));
         assert!(complete_entry("@article{a,title={Complete}}"));
+        // A `"` inside braces is a literal (issue #772); braces nest in quotes.
+        let zotero = "@article{a,shorttitle={Review for \"{{X}} in {{Y}}},year={2024}}";
+        assert!(complete_entry(zotero));
+        assert!(!complete_entry(&format!("{zotero}\n@misc{{b,title={{B}}}}")));
+        let quoted = "@misc{q,title=\"A {\"B, C\"} D\",year=2020}";
+        assert!(complete_entry(quoted));
+        assert_eq!(field_expressions(zotero)["year"], "{2024}");
+        let expressions = field_expressions(quoted);
+        assert_eq!(expressions["title"], "\"A {\"B, C\"} D\"");
+        assert_eq!(expressions["year"], "2020");
     }
 
     /// bibcite's `remove` rewrote untouched entries this way; their checks
