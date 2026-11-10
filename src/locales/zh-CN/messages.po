@@ -581,6 +581,10 @@ msgstr "{errors} 个错误"
 msgid "{errors} errors"
 msgstr "{errors} 个错误"
 
+#: src/build/build-result-text.ts
+msgid "{errors}+ errors"
+msgstr "{errors}+ 个错误"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "{failed} not found"
 msgstr "{failed} 篇没找到"
@@ -1101,6 +1105,10 @@ msgstr "{warnings} 个警告"
 #: src/build/build-result-text.ts
 msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
+
+#: src/build/build-result-text.ts
+msgid "{warnings}+ warnings"
+msgstr "{warnings}+ 个警告"
 
 #: src/platform/host-errors-project.ts
 msgid "{what} is not a drawing Lattice can convert."
@@ -10477,6 +10485,10 @@ msgstr ".research 下只能写入项目的附属文件"
 msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
 msgstr "这里只列出语法风格或你改动过的规则。共有 {ruleCount} 条规则，在筛选框中输入即可搜索全部规则。"
 
+#: src/build/build-log-messages.ts
+msgid "Only the first {shown} of {total} errors and warnings are listed. The raw build log has the rest."
+msgstr "共 {total} 个错误和警告，这里只列出前 {shown} 个。其余的见原始构建日志。"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
@@ -12534,6 +12546,10 @@ msgstr "修复失败"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Repair finished"
 msgstr "修复完成"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repair finished, but the build still has errors"
+msgstr "修复已结束，但构建仍有错误"
 
 #: src/build/compile-repair-messages.ts
 msgid "Repair has no active turn."

@@ -52,6 +52,21 @@ describe("explainDiagnostic", () => {
     expect(explainDiagnostic(undefinedCommand, { log: "Build output", source, afterError: true })).toBeNull();
   });
 
+  it("reads the log from the root document's folder, at the top level and in a subfolder", () => {
+    // TeX names `sec/a.tex` from the compiled document's folder; the diagnostic was rebased onto the project root.
+    const sectionLog = "sec/a.tex:86: Undefined control sequence.\nl.86 \\SuspendTagging\n                {x}";
+    const lines = Array.from({ length: 86 }, (_, index) => index === 85 ? "\\SuspendTagging{x}" : "text");
+    const options = { log: sectionLog, source: lines.join("\n"), afterError: true };
+    const topLevel = { ...undefinedCommand, file: "sec/a.tex", line: 86 };
+    expect(explainDiagnostic(topLevel, { ...options, rootDocument: "main.tex" })?.headline).toBe("Unknown command \\SuspendTagging");
+    const nested = { ...topLevel, file: "cvpr/sec/a.tex" };
+    expect(explainDiagnostic(nested, { ...options, rootDocument: "cvpr/main.tex" })?.headline).toBe("Unknown command \\SuspendTagging");
+    // A file beside the folder, named with `..`, is rebased the same way.
+    const shared = { ...topLevel, file: "shared/a.tex" };
+    const sharedLog = sectionLog.replace("sec/a.tex", "../shared/a.tex");
+    expect(explainDiagnostic(shared, { ...options, log: sharedLog, rootDocument: "cvpr/main.tex" })?.headline).toBe("Unknown command \\SuspendTagging");
+  });
+
   it("reads each error's own context, not the first one on the same line number", () => {
     const twice = [
       "./main.tex:4: Undefined control sequence.", "l.4 Neural \\cietp", "               {a} and \\reff{b}.",

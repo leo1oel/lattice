@@ -114,6 +114,9 @@ pub(super) fn conference_template_venue(name: &str) -> Option<&'static str> {
     CONFERENCE_STYLES.iter().find(|(prefix, _)| lower.starts_with(prefix)).map(|(_, venue)| *venue)
 }
 
+/// How many `file:line:` diagnostics one build lists.
+const LOCATED_CAP: usize = 40;
+
 pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     // Latexmk concatenates every pass; first-pass "undefined citation/ref" noise
     // should not inflate the warning count after a successful final run.
@@ -141,18 +144,31 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         diagnostic(file, capture[2].parse().ok(), level, message)
     };
 
-    let mut diagnostics: Vec<Diagnostic> = file_line
+    let mut located_lines = file_line
         .captures_iter(log)
         // A located package warning is read once, below, without its
         // `Package natbib Warning:` header.
-        .filter(|capture| !warning_on_line.is_match(&capture[0]))
-        .take(40)
+        .filter(|capture| !warning_on_line.is_match(&capture[0]));
+    let mut diagnostics: Vec<Diagnostic> = located_lines
+        .by_ref()
+        .take(LOCATED_CAP)
         .map(|capture| {
             let warns = capture[3].to_ascii_lowercase().contains("warning");
             located(&capture, if warns { "warning" } else { "error" })
         })
         .collect();
-    for capture in warning_on_line.captures_iter(log).take(40) {
+    // Past the cap the count would read as the whole story ("40 errors" when
+    // TeX reported 300), so say the list stops here.
+    let unlisted = located_lines.count();
+    let capped = (unlisted > 0).then(|| {
+        let total = (LOCATED_CAP + unlisted).to_string();
+        let shown = LOCATED_CAP.to_string();
+        let message = format!(
+            "Only the first {shown} of {total} errors and warnings are listed. The raw build log has the rest."
+        );
+        advice("info", "diagnostics-capped", &[("shown", &shown), ("total", &total)], message)
+    });
+    for capture in warning_on_line.captures_iter(log).take(LOCATED_CAP) {
         push_unique(&mut diagnostics, located(&capture, "warning"));
     }
     for error in prompt_errors(log) {
@@ -195,6 +211,7 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         !terminal_error
             && (diagnostic.level == "error" || !is_pass_noise_warning(&diagnostic.message))
     });
+    diagnostics.extend(capped);
     super::cjk_text::explain_cjk_text(log, &mut diagnostics);
     super::engine_mismatch::explain_pdftex_only_commands(log, &mut diagnostics);
     diagnostics
@@ -351,6 +368,22 @@ mod tests {
         let diagnostics = parse_diagnostics(log);
         let found = diagnostics.iter().find(|item| item.message.contains(needle));
         found.unwrap_or_else(|| panic!("nothing about {needle} in {diagnostics:?}")).message.clone()
+    }
+
+    #[test]
+    fn says_when_located_diagnostics_pass_the_cap() {
+        let log: String = (1..=45)
+            .map(|line| format!("./sec/a.tex:{line}: Undefined control sequence.\n"))
+            .collect();
+        let diagnostics = parse_diagnostics(&log);
+        assert_eq!(diagnostics.iter().filter(|item| item.level == "error").count(), 40);
+        let capped =
+            diagnostics.iter().find(|item| item.code == Some("diagnostics-capped")).unwrap();
+        assert_eq!(capped.params.get("total").map(String::as_str), Some("45"));
+        let under: String = (1..=40)
+            .map(|line| format!("./sec/a.tex:{line}: Undefined control sequence.\n"))
+            .collect();
+        assert!(parse_diagnostics(&under).iter().all(|item| item.code.is_none()));
     }
 
     #[test]
