@@ -18,9 +18,10 @@ use std::path::{Path, PathBuf};
 
 /// The packages Lattice needs on top of TeX Live's basic scheme: the ones
 /// `basictex.sh` installs on macOS, for the same reasons (a test keeps the two
-/// lists in step), and `latexindent` as well, which a Mac gets from MacTeX and
-/// without which format-on-save would fail after a one-click install here.
-pub(super) const REQUIRED_PACKAGES: [&str; 27] = [
+/// lists in step), plus two the Windows scheme-basic lacks: `latexindent`, which
+/// a Mac gets from MacTeX (format-on-save fails without it), and `synctex`,
+/// whose binary the doctor requires (BasicTeX ships it, scheme-basic does not).
+pub(super) const REQUIRED_PACKAGES: [&str; 28] = [
     "latexmk",
     "biber",
     "texcount",
@@ -48,6 +49,7 @@ pub(super) const REQUIRED_PACKAGES: [&str; 27] = [
     "xits",
     "stix2-otf",
     "latexindent",
+    "synctex",
 ];
 
 /// Package files the bundled templates and the tutorial load, checked after the
@@ -666,8 +668,8 @@ mod tests {
         let mac: Vec<&str> =
             list.lines().map(|line| line.trim().trim_end_matches('\\').trim()).collect();
         assert_eq!(mac, REQUIRED_PACKAGES[..26]);
-        // Windows adds only latexindent (a Mac's MacTeX has it).
-        assert_eq!(REQUIRED_PACKAGES[26..], ["latexindent"]);
+        // Windows adds latexindent (a Mac's MacTeX has it) and synctex (BasicTeX has it).
+        assert_eq!(REQUIRED_PACKAGES[26..], ["latexindent", "synctex"]);
     }
 
     /// A zip of `entries` (`None` makes a folder, `Some(Err(()))` a symlink).

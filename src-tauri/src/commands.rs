@@ -342,6 +342,11 @@ fn windows_tex_directories() -> Vec<PathBuf> {
         "{}\\texlive",
         drive.to_string_lossy()
     ))));
+    // The one-click install (tex_setup/tex_live.rs `install_location`) puts TeX
+    // Live here, under the user's profile, never in the shared `C:\texlive`.
+    if let Some(root) = env::var_os("LOCALAPPDATA") {
+        directories.extend(discover_texlive_bins(&PathBuf::from(root).join("Programs/texlive")));
+    }
     directories
 }
 
