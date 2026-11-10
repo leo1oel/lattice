@@ -161,6 +161,7 @@ export class CompiledPdfTabs {
   private place(previous: string | null, document: string, requested: boolean) {
     const ws = this.ws();
     // The PDF in its own window shows the build there: the panel's tabs stay as they are.
+    // A known limit: the document live before gets no tab of its own then; it comes back on its next build.
     if (!ws || this.controller.bridge?.pdfInWindow()) return;
     const live = ws.view("pdf");
     const own = ws.view(rootPdfId(document));

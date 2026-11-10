@@ -29,7 +29,11 @@ export type RootPdfs = Readonly<{
   switchState: SwitchState;
   /** Each document's bytes as shown this session; without them, the copy kept of its last build here is read. */
   shownBytes: ReadonlyMap<string, ArrayBuffer>;
-  /** The live PDF's URL, a new one for each build shown: an open tab of a document then reads its newest bytes. */
+  /**
+   * The live PDF's URL, a new one for each build shown. Read by nothing: it
+   * is what makes this object new when `shownBytes` (one Map, mutated)
+   * gains a build, since the React Compiler keeps it otherwise.
+   */
   shownUrl: string | null;
   /** The last jump's target, in the tab of `document` (null: the live PDF's, not any of these). */
   syncTarget: { document: string | null; target: PdfSyncTarget } | null;
@@ -70,9 +74,10 @@ export function RootPdfTabs(props: Shared) {
 }
 
 /**
- * `document`'s bytes as last shown. `shownBytes` is one Map for the session,
- * so this reads it again whenever `rootPdfs` is new (`shownUrl`: a build was
- * shown), not only when the Map is.
+ * `document`'s bytes as last shown. Through `rootPdfs`, not its Map: the
+ * React Compiler caches `rootPdfs.shownBytes.get(document)` for as long as
+ * the Map is the same one, which it is for the session, while `rootPdfs` is
+ * new each time a build is shown (`shownUrl`).
  */
 const shownBytesOf = (rootPdfs: RootPdfs, document: string) => rootPdfs.shownBytes.get(document);
 
