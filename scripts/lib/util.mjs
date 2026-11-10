@@ -62,6 +62,13 @@ function windowsNpmCli(nodeExecutable = process.execPath) {
   return cli;
 }
 
+/**
+ * Oxlint's JavaScript entry point, to run as `process.execPath` + this path.
+ * On Windows pnpm links only `oxlint.CMD`/`oxlint.ps1` shims into
+ * node_modules/.bin, which cannot be spawned without a shell.
+ */
+export const oxlintEntry = join(projectRoot, "node_modules/oxlint/bin/oxlint");
+
 /** Run a command and return its stdout as text; stderr is captured into the error. */
 export function capture(command, args, options = {}) {
   return execFileSync(command, args, {
