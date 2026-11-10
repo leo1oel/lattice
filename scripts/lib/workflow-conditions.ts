@@ -11,8 +11,8 @@ export type Value = string | number | boolean | null | { [key: string]: Value };
 
 /**
  * GitHub Actions expressions, as far as these workflows use them: property
- * paths, single-quoted strings, `!`, `==`, `!=`, `&&`, `||`, parentheses and
- * `startsWith`. As GitHub documents it, `&&` and `||` yield an operand, a
+ * paths, single-quoted strings, integers, `!`, `==`, `!=`, `&&`, `||`,
+ * parentheses and `startsWith`. As GitHub documents it, `&&` and `||` yield an operand, a
  * missing property is null, and strings compare ignoring case.
  */
 function evaluate(source: string, context: Record<string, Value>): Value {
@@ -38,6 +38,7 @@ function evaluate(source: string, context: Record<string, Value>): Value {
     if (token.startsWith("'")) return token.slice(1, -1).replaceAll("''", "'");
     if (token === "true" || token === "false") return token === "true";
     if (token === "null") return null;
+    if (/^\d+$/.test(token)) return Number(token);
     if (token === "startsWith") {
       take("(");
       const text = or();

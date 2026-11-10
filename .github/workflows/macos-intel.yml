@@ -13,7 +13,8 @@ name: macOS Intel
 # Intel failure leaves the published release without its _x64 assets and
 # latest.json without darwin-x86_64, nothing else: Intel copies then keep
 # their version until a release whose Intel build passes, while Apple silicon
-# copies update as before.
+# copies update as before. macos-intel-retry.yml re-runs a release's failed
+# first attempt once.
 #
 # - build: on macos-15-intel, so every Mach-O in the bundle is built for the
 #   host (prepare-synara-sidecar.mjs stages Node for rustc's host triple, the
@@ -40,7 +41,9 @@ on:
     paths:
       - ".github/workflows/macos-intel.yml"
       - ".github/scripts/check-macos-arch.sh"
+      - ".github/scripts/retry-stapler.sh"
       - ".github/scripts/smoke-macos-dmg.sh"
+      - ".github/scripts/staple-dmg-app.sh"
       - "scripts/add-updater-platform.mjs"
       - "scripts/prepare-synara-sidecar.mjs"
       - "scripts/check-font-leaks.mjs"
@@ -259,6 +262,16 @@ jobs:
 
       - name: Check that every binary is built for Intel
         run: .github/scripts/check-macos-arch.sh "src-tauri/target/$TARGET/release/bundle/macos/Lattice.app" x86_64
+
+      # tauri build staples the app's ticket once and ignores a failure, which
+      # left v0.16.6's first Intel DMG holding an app without one; the script
+      # staples it in the image when it is missing.
+      - name: Staple the app inside the disk image
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          dmg_path="$(find "src-tauri/target/$TARGET/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$dmg_path"
+          .github/scripts/staple-dmg-app.sh "$dmg_path" "$APPLE_SIGNING_IDENTITY"
 
       - name: Notarize the distributable disk image
         if: steps.signing.outputs.signed == 'true'
