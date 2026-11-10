@@ -200,4 +200,22 @@ describe("on Windows", () => {
     expect(await screen.findByText(/TeX Live installation failed/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Install TeX Live (1 GB)" })).toBeEnabled();
   });
+
+  it("lets the writer put the install off, but not while it runs", async () => {
+    // This project's TS lib has no Promise.withResolvers, so keep the reject by hand.
+    let reject: (reason: unknown) => void = () => {};
+    const install = new Promise<unknown>((_, fail) => { reject = fail; });
+    tauri.invoke.mockImplementation((command: string) => command === "start_tex_install"
+      ? install
+      : Promise.resolve(true));
+    const { onClose } = renderWizard(report(check("latexmk", false)));
+    expect(screen.getByRole("button", { name: "Install later" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Install later" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Install TeX Live (1 GB)" }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Install later" })).toBeDisabled());
+    await act(async () => { reject("TeX Live installation failed. Please try again."); });
+    // A failed install leaves the dialog closable.
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Install later" })).toBeEnabled());
+  });
 });

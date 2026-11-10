@@ -123,6 +123,9 @@ export function TexSetupWizard(props: {
   const cancel = windows && installing
     ? <Button variant="ghost" onClick={() => { void invoke("cancel_tex_install"); }}>{t`Cancel installation`}</Button>
     : null;
+  // Writing and reading work without TeX, so on Windows (as in its old dialog) even the
+  // full install may be put off: a failed install must not leave the dialog unclosable.
+  const canPutOff = paperToolsOnly || windows;
 
   return (
     <TexInstallDialog
@@ -133,7 +136,7 @@ export function TexSetupWizard(props: {
       description={paperToolsOnly
         ? t`Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it.`
         : undefined}
-      closeDisabled={!paperToolsOnly || installing}
+      closeDisabled={!canPutOff || installing}
       onClose={props.onClose}
       progress={installing ? {
         label: paperToolsOnly
@@ -144,7 +147,7 @@ export function TexSetupWizard(props: {
       } : null}
       error={installError}
     >
-      {paperToolsOnly
+      {canPutOff
         ? (
           <div className="modal-actions">
             <Button variant="ghost" onClick={props.onClose} disabled={installing}>{t`Install later`}</Button>
