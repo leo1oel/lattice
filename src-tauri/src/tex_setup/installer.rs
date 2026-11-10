@@ -16,6 +16,10 @@ pub(crate) struct PinnedDownload {
     pub source: &'static str,
     /// "The downloaded {artifact} failed its security check."
     pub artifact: &'static str,
+    /// The most bytes the download may be: about 1.5 times the pinned file's
+    /// size. A server (or a redirect) that sends more is refused as it
+    /// streams, instead of filling the disk before the digest says no.
+    pub max_bytes: u64,
 }
 
 pub(super) const BASIC_TEX: PinnedDownload = PinnedDownload {
@@ -25,6 +29,8 @@ pub(super) const BASIC_TEX: PinnedDownload = PinnedDownload {
     name: "BasicTeX",
     source: "BasicTeX",
     artifact: "BasicTeX package",
+    // 140,394,776 bytes at the pinned release, and half as much again.
+    max_bytes: 210_600_000,
 };
 pub(super) const BASIC_TEX_YEAR: i32 = 2026;
 
@@ -52,6 +58,8 @@ pub(super) const UV: PinnedDownload = PinnedDownload {
     name: "uv",
     source: "the required uv tool",
     artifact: "uv archive",
+    // 17,686,637 bytes at the pinned release, and half as much again.
+    max_bytes: 26_500_000,
 };
 #[cfg(not(target_arch = "aarch64"))]
 pub(super) const UV: PinnedDownload = PinnedDownload {
@@ -61,6 +69,8 @@ pub(super) const UV: PinnedDownload = PinnedDownload {
     name: "uv",
     source: "the required uv tool",
     artifact: "uv archive",
+    // Not measured for this build; the aarch64 one is 17.7 MB, so the same cap.
+    max_bytes: 26_500_000,
 };
 /// The directory the uv archive unpacks into.
 #[cfg(target_arch = "aarch64")]

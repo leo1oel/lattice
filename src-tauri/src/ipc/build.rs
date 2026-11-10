@@ -388,6 +388,13 @@ pub async fn start_tex_install(
     run_blocking("TeX installer launch", move || tex_setup::install_tex(mode, &on_progress)).await
 }
 
+/// Stop the TeX install that is running. `false` when none is (only the
+/// Windows installer can be cancelled).
+#[tauri::command]
+pub fn cancel_tex_install() -> bool {
+    tex_setup::cancel_install()
+}
+
 /// The doctor's package-update check: asks the TeX Live repository, so the
 /// launch check never waits on it; Settings runs it, and the app once a day in
 /// the background (`useDailyTexPackageCheck`).

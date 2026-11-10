@@ -579,6 +579,7 @@ pub fn run() {
             ipc::build::texlab_hover,
             ipc::build::texlab_definition,
             ipc::build::start_tex_install,
+            ipc::build::cancel_tex_install,
             ipc::build::start_tex_dependency_install,
             ipc::build::check_tex_package_updates,
             ipc::build::start_tex_package_update,

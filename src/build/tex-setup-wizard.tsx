@@ -1,5 +1,5 @@
 import { isWindowsHost } from "../platform/host-platform";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import {
@@ -7,7 +7,9 @@ import {
   missingTexToolNames,
   missingPaperToolNames,
   isRequiredSetupMissing,
+  TEX_INSTALL_CANCELLED,
   TEX_INSTALL_SIZE_HINT,
+  texDistributionName,
   type DoctorReportLike,
   type TexInstallProgress,
 } from "./tex-setup";
@@ -20,9 +22,6 @@ import { buttonClassName } from "../components/ui/button-styles";
 import { logAction, notifyWarning } from "../telemetry/app-notify";
 import { texPackageUpdateMessage } from "./tex-package-updates";
 import { toMessage } from "../app-utils";
-
-// Windows has no one-click installer; its dialog loads only there.
-const WindowsTexSetupDialog = lazy(() => import("../platform/windows-host-ui").then((module) => ({ default: module.WindowsTexSetupDialog })));
 
 /** Notification source label for the LaTeX install wizard. */
 const TEX_SETUP_SOURCE = "LaTeX setup";
@@ -37,6 +36,7 @@ export function TexSetupWizard(props: {
   onRecheck: () => Promise<DoctorReportLike | null>;
 }) {
   const { t } = useLingui();
+  const windows = isWindowsHost();
   const [installing, setInstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState<TexInstallProgress>({ stage: "downloading", progress: 0 });
   const [installError, setInstallError] = useState<string | null>(null);
@@ -55,26 +55,18 @@ export function TexSetupWizard(props: {
 
   const busy = props.checking || installing;
 
-  if (isWindowsHost()) {
-    return (
-      <Suspense fallback={null}>
-        <WindowsTexSetupDialog paperToolsOnly={paperToolsOnly} checking={props.checking} onClose={props.onClose} onRecheck={props.onRecheck} />
-      </Suspense>
-    );
-  }
-
   const startInstall = async () => {
     setInstalling(true);
     setInstallError(null);
     setInstallProgress({ stage: paperToolsOnly ? "installing-tools" : "downloading", progress: 0 });
-    const trace = logAction(TEX_SETUP_SOURCE, paperToolsOnly ? t`Install required paper tools` : t`Install BasicTeX`);
+    const trace = logAction(TEX_SETUP_SOURCE, paperToolsOnly ? t`Install required paper tools` : windows ? t`Install TeX Live` : t`Install BasicTeX`);
     try {
       const onProgress = new Channel<TexInstallProgress>();
       onProgress.onmessage = (progress) => setInstallProgress(progress);
       // A working install whose package update failed (installer.rs `install_warning`).
       const warning = await invoke<string | null>("start_tex_install", { mode: paperToolsOnly ? "toolsOnly" : "full", onProgress });
       setInstallProgress({ stage: "complete", progress: 1 });
-      const installedProduct = paperToolsOnly ? t`The required tools` : "BasicTeX";
+      const installedProduct = paperToolsOnly ? t`The required tools` : texDistributionName();
       const report = await props.onRecheck();
       if (!report) {
         throw new Error(t({
@@ -93,7 +85,7 @@ export function TexSetupWizard(props: {
         }));
       }
       trace.ok(
-        paperToolsOnly ? t`Required paper tools installed` : t`BasicTeX installed`,
+        paperToolsOnly ? t`Required paper tools installed` : windows ? t`TeX Live installed` : t`BasicTeX installed`,
         paperToolsOnly && props.paperToolsNeeded ? { detail: t`Try that again now` } : undefined,
       );
       if (warning) {
@@ -102,8 +94,12 @@ export function TexSetupWizard(props: {
       }
       props.onClose();
     } catch (reason) {
-      setInstallError(toMessage(reason));
-      trace.fail(reason);
+      if (toMessage(reason) === TEX_INSTALL_CANCELLED) {
+        trace.finish("cancelled");
+      } else {
+        setInstallError(toMessage(reason));
+        trace.fail(reason);
+      }
     } finally {
       setInstalling(false);
     }
@@ -118,9 +114,15 @@ export function TexSetupWizard(props: {
     >
       {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
       {/* The download's size is the one fact the dialog adds to its title. */}
-      {paperToolsOnly ? t`Install paper tools` : t`Install Basic TeX (${TEX_INSTALL_SIZE_HINT})`}
+      {paperToolsOnly
+        ? t`Install paper tools`
+        : windows ? t`Install TeX Live (${TEX_INSTALL_SIZE_HINT})` : t`Install Basic TeX (${TEX_INSTALL_SIZE_HINT})`}
     </MotionButton>
   );
+  // Only a Windows install can be stopped: the macOS one is a single prompted script.
+  const cancel = windows && installing
+    ? <Button variant="ghost" onClick={() => { void invoke("cancel_tex_install"); }}>{t`Cancel installation`}</Button>
+    : null;
 
   return (
     <TexInstallDialog
@@ -134,7 +136,9 @@ export function TexSetupWizard(props: {
       closeDisabled={!paperToolsOnly || installing}
       onClose={props.onClose}
       progress={installing ? {
-        label: paperToolsOnly ? t`Required tools installation progress` : t`BasicTeX installation progress`,
+        label: paperToolsOnly
+          ? t`Required tools installation progress`
+          : windows ? t`TeX Live installation progress` : t`BasicTeX installation progress`,
         percent: Math.round(installProgress.progress * 100),
         stage: installProgress.stage,
       } : null}
@@ -144,10 +148,13 @@ export function TexSetupWizard(props: {
         ? (
           <div className="modal-actions">
             <Button variant="ghost" onClick={props.onClose} disabled={installing}>{t`Install later`}</Button>
+            {cancel}
             {install}
           </div>
         )
-        : install}
+        : cancel
+          ? <div className="modal-actions">{cancel}{install}</div>
+          : install}
     </TexInstallDialog>
   );
 }
