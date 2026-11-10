@@ -226,7 +226,10 @@ impl Flow<'_> {
 
     fn install_full(&self) -> Result<(), String> {
         let existing = self.existing_tex_live().filter(|existing| {
-            existing.year >= windows_pins::TEX_LIVE_YEAR && is_writable(&existing.root)
+            existing.year >= windows_pins::TEX_LIVE_YEAR
+                && is_writable(&existing.root)
+                // A half-installed tree (an earlier cancel or failure) is not reused.
+                && tex_live::is_finished_install(&existing.root)
         });
         let (tlmgr, fresh) = match existing {
             Some(existing) => (existing.tlmgr, false),
@@ -828,8 +831,9 @@ fn is_writable(root: &Path) -> bool {
 }
 
 /// Delete the TeX Live tree a failed or cancelled install started at
-/// `location`, unless it is a working install (it has its package manager) or
-/// the path is not the one this installer makes (`…\texlive\<year>`, not a
+/// `location`, unless it is a finished install (`tlpkg/texlive.profile` is
+/// there: having `tlmgr.bat` is not enough, see [`tex_live::is_finished_install`])
+/// or the path is not the one this installer makes (`…\texlive\<year>`, not a
 /// link).
 fn remove_partial_install(location: &tex_live::Location) {
     let texdir = &location.texdir;
@@ -842,7 +846,7 @@ fn remove_partial_install(location: &tex_live::Location) {
     if ours
         && metadata.is_dir()
         && !metadata.file_type().is_symlink()
-        && !tex_live::tlmgr_path(texdir).is_file()
+        && !tex_live::is_finished_install(texdir)
     {
         let _ = fs::remove_dir_all(texdir);
     }

@@ -243,6 +243,16 @@ pub(super) fn tlmgr_in_bin(bin: &Path) -> PathBuf {
     bin.join("tlmgr.bat")
 }
 
+/// Whether the TeX Live tree at `texdir` was installed to its end. `install-tl`
+/// writes `tlpkg/texlive.profile` only in its final cleanup, after every
+/// package and the format building, so it says "finished" where `tlmgr.bat`
+/// does not: `texlive.infra.windows`, which ships `tlmgr.bat`, is package 127 of
+/// 135. A cancel or failure after it leaves a tree with a package manager that
+/// is still incomplete.
+pub(super) fn is_finished_install(texdir: &Path) -> bool {
+    texdir.join("tlpkg").join("texlive.profile").is_file()
+}
+
 /// Whether a failed run's last lines look like a network failure rather than
 /// something another mirror would not fix (a missing package, no disk space, a
 /// folder that cannot be written): only then is the next mirror tried.

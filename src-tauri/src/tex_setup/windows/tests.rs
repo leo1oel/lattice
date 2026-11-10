@@ -191,6 +191,8 @@ impl Fake {
         std::fs::write(bin.join("kpsewhich.exe"), "").unwrap();
         if writable {
             std::fs::create_dir_all(root.join("tlpkg")).unwrap();
+            // A finished install has the marker `install-tl` writes last.
+            std::fs::write(root.join("tlpkg").join("texlive.profile"), "").unwrap();
         }
         self.tl_year.set(year);
         self.resolved.borrow_mut().insert("tlmgr", tex_live::tlmgr_path(&root));
@@ -349,6 +351,10 @@ fn fake_entry() {
             let texdir = PathBuf::from(texdir);
             std::fs::create_dir_all(&texdir).unwrap();
             std::fs::write(texdir.join("partial.txt"), "half").unwrap();
+            // `tlmgr.bat` ships in package 127 of 135, long before the install ends.
+            let early_bin = texdir.join("bin").join("windows");
+            std::fs::create_dir_all(&early_bin).unwrap();
+            std::fs::write(early_bin.join("tlmgr.bat"), "").unwrap();
             println!("Installing [001/003, time/total: ??:??/??:??]: one [8k]");
             match run.as_str() {
                 "network" => fail("tlmgr: TLPDB::from_file could not get texlive.tlpdb"),
@@ -364,6 +370,9 @@ fn fake_entry() {
                     std::fs::create_dir_all(&bin).unwrap();
                     std::fs::write(bin.join("tlmgr.bat"), "").unwrap();
                     std::fs::remove_file(texdir.join("partial.txt")).unwrap();
+                    // Written only in the installer's final cleanup.
+                    std::fs::create_dir_all(texdir.join("tlpkg")).unwrap();
+                    std::fs::write(texdir.join("tlpkg").join("texlive.profile"), "").unwrap();
                 }
             }
         }
@@ -708,6 +717,55 @@ fn a_network_failure_tries_the_next_mirror_on_a_clean_tree() {
     );
     // The first attempt's half-written tree was removed, not built upon.
     assert!(!texdir_of(&fake).join("partial.txt").exists());
+}
+
+#[test]
+fn a_half_installed_tree_with_a_package_manager_is_removed_after_a_failure() {
+    let fake = Fake::new();
+    *fake.installer_runs.borrow_mut() = queue(&[Run::OtherFailure]).into_inner();
+    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_tex(TexInstallMode::Full));
+    result.unwrap_err();
+    // The stand-in installer left `tlmgr.bat` behind but no marker, as the real one does
+    // when it fails after installing `texlive.infra`.
+    assert!(!texdir_of(&fake).exists(), "a tree that never finished was kept");
+}
+
+#[test]
+fn a_half_installed_tree_is_replaced_not_reused_by_the_next_install() {
+    let fake = Fake::new();
+    let texdir = texdir_of(&fake);
+    let bin = tex_live::bin_dir(&texdir);
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::create_dir_all(texdir.join("tlpkg")).unwrap();
+    std::fs::write(tex_live::tlmgr_path(&texdir), "").unwrap();
+    std::fs::write(bin.join("kpsewhich.exe"), "").unwrap();
+    std::fs::write(texdir.join("old-half.txt"), "half").unwrap();
+    fake.tl_year.set(2026);
+    fake.resolved.borrow_mut().insert("tlmgr", tex_live::tlmgr_path(&texdir));
+    fake.resolved.borrow_mut().insert("kpsewhich", bin.join("kpsewhich.exe"));
+    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_tex(TexInstallMode::Full));
+    result.unwrap();
+    assert!(fake.log().contains("install-tl "), "the half tree was reused: {}", fake.log());
+    assert!(!texdir.join("old-half.txt").exists(), "the old half tree was built upon");
+    assert!(tex_live::is_finished_install(&texdir));
+}
+
+#[test]
+fn a_finished_install_at_the_install_folder_is_reused() {
+    let fake = Fake::new();
+    let texdir = texdir_of(&fake);
+    let bin = tex_live::bin_dir(&texdir);
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::create_dir_all(texdir.join("tlpkg")).unwrap();
+    std::fs::write(texdir.join("tlpkg").join("texlive.profile"), "").unwrap();
+    std::fs::write(tex_live::tlmgr_path(&texdir), "").unwrap();
+    std::fs::write(bin.join("kpsewhich.exe"), "").unwrap();
+    fake.tl_year.set(2026);
+    fake.resolved.borrow_mut().insert("tlmgr", tex_live::tlmgr_path(&texdir));
+    fake.resolved.borrow_mut().insert("kpsewhich", bin.join("kpsewhich.exe"));
+    let (result, _) = with_flow(&fake, &never(), |flow| flow.install_tex(TexInstallMode::Full));
+    result.unwrap();
+    assert!(!fake.log().contains("install-tl "), "a finished tree was reinstalled");
 }
 
 #[test]
