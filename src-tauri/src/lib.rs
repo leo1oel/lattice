@@ -453,6 +453,7 @@ pub fn run() {
             ipc::workspace::check_arxiv_package,
             ipc::workspace::cancel_arxiv_check,
             ipc::workspace::export_arxiv_package,
+            ipc::workspace::export_journal_figures,
             ipc::workspace::refresh_project,
             ipc::workspace::update_project_manifest,
             ipc::workspace::set_root_document,

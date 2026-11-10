@@ -1523,6 +1523,10 @@ msgid "a terminal command"
 msgstr "a terminal command"
 
 #: src/platform/host-errors-workspace.ts
+msgid "A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written."
+msgstr "A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written."
+
+#: src/platform/host-errors-workspace.ts
 msgid "A window could not save its edits, so Lattice did not restart."
 msgstr "A window could not save its edits, so Lattice did not restart."
 
@@ -3455,6 +3459,10 @@ msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "Choose a folder or ZIP containing LaTeX source files."
 
 #: src/platform/host-errors-workspace.ts
+msgid "Choose a folder outside the project for the export."
+msgstr "Choose a folder outside the project for the export."
+
+#: src/platform/host-errors-workspace.ts
 msgid "Choose a folder to extract the project into."
 msgstr "Choose a folder to extract the project into."
 
@@ -3578,6 +3586,10 @@ msgstr "Choose where to export the Excel workbook."
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
+
+#: src/project/journal-export.ts
+msgid "Choose where to put the figures for the journal"
+msgstr "Choose where to put the figures for the journal"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Choose where to save the copy."
@@ -6168,6 +6180,14 @@ msgstr "Export Excel"
 msgid "Export Excel workbook"
 msgstr "Export Excel workbook"
 
+#: src/project/journal-export.ts
+msgid "Export figures for a journal"
+msgstr "Export figures for a journal"
+
+#: src/app/journal-export-command.ts
+msgid "Export figures for a journal…"
+msgstr "Export figures for a journal…"
+
 #: src/project/arxiv-export-dialog.tsx
 msgid "Export for arXiv"
 msgstr "Export for arXiv"
@@ -6229,6 +6249,10 @@ msgstr "Export ZIP…"
 #: src/telemetry/app-log.tsx
 msgid "Export…"
 msgstr "Export…"
+
+#: src/project/journal-export.ts
+msgid "Exported {figures} and the paper that includes them"
+msgstr "Exported {figures} and the paper that includes them"
 
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exported {fileName}"
@@ -9780,6 +9804,10 @@ msgstr "No document open"
 #: src/build/compile-explain.ts
 msgid "No entry for {key}"
 msgstr "No entry for {key}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "No figure made from a drawing was found in the typeset paper."
+msgstr "No figure made from a drawing was found in the typeset paper."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "No figures found"
@@ -13610,6 +13638,11 @@ msgstr "Saving…"
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 
+#. Search words for the Export figures for a journal command, space-separated
+#: src/app/journal-export-command.ts
+msgid "Scheme TIFF submission ACS"
+msgstr "Scheme TIFF submission ACS"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
 msgstr "Script l"
@@ -14038,6 +14071,7 @@ msgstr "Show hidden files"
 #: src/app/file-open-failure.ts
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/journal-export.ts
 #: src/project/paper-row.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
@@ -16351,6 +16385,10 @@ msgstr "This package ships no license text of its own"
 msgid "This panel stopped working"
 msgstr "This panel stopped working"
 
+#: src/platform/host-errors-workspace.ts
+msgid "This paper has no figure made from a drawing to export."
+msgstr "This paper has no figure made from a drawing to export."
+
 #: src/app/use-paper-actions.ts
 msgid "This paper has no local reading or downloadable source."
 msgstr "This paper has no local reading or downloadable source."
@@ -16779,6 +16817,14 @@ msgstr "Typeset the bibliography"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset the title block"
 msgstr "Typeset the title block"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Typesetting the paper for the export stopped."
+msgstr "Typesetting the paper for the export stopped."
+
+#: src/project/journal-export.ts
+msgid "Typesetting the paper to cut out its figures…"
+msgstr "Typesetting the paper to cut out its figures…"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "Typesetting the whole document once. Typing shows here as soon as it finishes."

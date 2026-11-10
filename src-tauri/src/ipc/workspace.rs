@@ -216,6 +216,21 @@ pub async fn export_arxiv_package(
     .await
 }
 
+/// Write the journal export (each editable figure as Scheme1.pdf and .tiff,
+/// and the paper as a source pack that includes them) into a new folder in
+/// `parent_folder`, which the writer chose.
+#[tauri::command]
+pub async fn export_journal_figures(
+    state: State<'_, AppState>, window: Window, project_root: String,
+    options: latex::JournalOptions, parent_folder: String,
+) -> Result<latex::JournalExport, String> {
+    let root = pinned_root(&state, &window, &project_root, "its journal export could start")?;
+    run_blocking("Journal export", move || {
+        latex::export_journal(&root, Path::new(&parent_folder), options)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn refresh_project(
     state: State<'_, AppState>, window: Window,
