@@ -234,9 +234,17 @@ fn build_passes(
     // one rebuild that writes it — only when the run really skipped
     // typesetting, so an engine that cannot produce SyncTeX is not compiled
     // twice on every build.
-    if result.success && !force && skipped_recompile(&result.log) && synctex_missing(root) {
-        wide_event::record("synctex_rebuild", true);
-        result = run_latexmk(root, true, active, steps)?;
+    // So does a PDF that something else wrote over (`shown_pdf::replaced`).
+    if result.success && !force && skipped_recompile(&result.log) {
+        let rebuild = if synctex_missing(root) {
+            Some("synctex_rebuild")
+        } else {
+            shown_pdf::replaced(root, &result.root_document).then_some("replaced_pdf_rebuild")
+        };
+        if let Some(reason) = rebuild {
+            wide_event::record(reason, true);
+            result = run_latexmk(root, true, active, steps)?;
+        }
     }
     Ok(result)
 }

@@ -5,8 +5,7 @@
 
 use super::{fetch, remote_copy, sync_client, RemoteCopy, RemoteFiles};
 use crate::overleaf::api::{DownloadGate, DownloadProgress, Remote};
-use crate::overleaf::files::read_local_files;
-use crate::overleaf::link::SyncState;
+use crate::overleaf::files::{read_local_files, BuildPdf};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
@@ -17,6 +16,8 @@ pub struct Prefetched {
     pub(super) version: Option<i64>,
     /// The table of agreed hashes the download was taken against.
     files: BTreeMap<String, String>,
+    /// The build output the download left out (`BuildPdf`).
+    build_pdf: BuildPdf,
     pub(super) downloaded: RemoteFiles,
 }
 
@@ -32,11 +33,14 @@ impl Prefetched {
     /// went cannot, and nor can the paths a move remapped. So too a document
     /// the read ahead left on its agreed copy because the editor had it live
     /// (`RemoteFiles::unsettled`) and that is no longer live: that copy is
-    /// not Overleaf's.
+    /// not Overleaf's. Nor does a download that left out another root
+    /// document's PDF than the one Build compiles now: it would bring the new
+    /// one's down, and read the old one's as missing on Overleaf.
     pub(super) fn fits(
-        &self, state: &SyncState, live: &BTreeSet<String>, local: &BTreeMap<String, Vec<u8>>,
+        &self, linked: &Remote, live: &BTreeSet<String>, local: &BTreeMap<String, Vec<u8>>,
     ) -> Option<BTreeSet<String>> {
-        if !state.pending_relocations.is_empty() {
+        let state = &linked.state;
+        if !state.pending_relocations.is_empty() || self.build_pdf != linked.build_pdf {
             return None;
         }
         let stand_ins = &self.downloaded.unsettled;
@@ -92,5 +96,6 @@ pub fn prefetch(
         return Ok(None);
     }
     let downloaded = fetch(&linked, &client, copy, gate, progress)?;
-    Ok(Some(Prefetched { version, files: linked.state.files, downloaded }))
+    let (files, build_pdf) = (linked.state.files, linked.build_pdf);
+    Ok(Some(Prefetched { version, files, build_pdf, downloaded }))
 }

@@ -7,12 +7,21 @@
 //! SyncTeX reads these files from disk, so every click on that PDF failed
 //! until the error was fixed. Each build that writes a PDF leaves a copy here
 //! (an APFS clone, so neither time nor space until the next build rewrites
-//! the PDF), and a build that leaves none puts the copy back.
+//! the PDF), and a build that leaves none puts the copy back. Each root
+//! document's PDF is also remembered by hash, so a build notices one that
+//! something else wrote over since (`replaced`).
 
+use crate::util::sha256_hex;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 const DIRECTORY: &str = ".research/cache/shown-pdf";
+/// Each root document's PDF as this copy's last build of it left it, by
+/// SHA-256 (`replaced`). One entry per document, unlike the single copy
+/// above, so building another root document or a standalone figure in
+/// between never forgets it.
+const HASHES: &str = ".research/cache/build-pdf-hashes.json";
 /// A `-synctex=1` build compresses the map; an rc file's `-synctex=-1` does not.
 const SYNCTEX: [&str; 2] = ["synctex.gz", "synctex"];
 
@@ -24,9 +33,40 @@ pub(super) fn settle(root: &Path, document: &str, wrote_pdf: bool) -> bool {
     let kept = root.join(DIRECTORY).join(document).with_extension("pdf");
     if wrote_pdf {
         keep(root, &pdf, &kept);
+        record_hash(root, document, &pdf);
         false
     } else {
         !pdf.exists() && restore(&kept, &pdf)
+    }
+}
+
+/// Whether the PDF of `document` is no longer the one this copy's last build
+/// of it left: something other than a build wrote over it since. An Overleaf
+/// sync or a `git pull` that brings in a collaborator's PDF leaves the
+/// sources as they were, so latexmk finds nothing to do and the preview would
+/// show their build as this one's. `false` when no build here has recorded
+/// that document's PDF, so a first build never typesets twice.
+pub(super) fn replaced(root: &Path, document: &str) -> bool {
+    let Some(recorded) = read_hashes(root).remove(document) else { return false };
+    let pdf = root.join(document).with_extension("pdf");
+    fs::read(pdf).is_ok_and(|bytes| sha256_hex(bytes) != recorded)
+}
+
+fn read_hashes(root: &Path) -> BTreeMap<String, String> {
+    let raw = fs::read(root.join(HASHES)).unwrap_or_default();
+    serde_json::from_slice(&raw).unwrap_or_default()
+}
+
+/// Record `document`'s PDF, and forget documents whose `.tex` is gone.
+fn record_hash(root: &Path, document: &str, pdf: &Path) {
+    let Ok(bytes) = fs::read(pdf) else { return };
+    let mut hashes = read_hashes(root);
+    hashes.retain(|other, _| root.join(other).is_file());
+    hashes.insert(document.to_string(), sha256_hex(bytes));
+    let path = root.join(HASHES);
+    let Ok(json) = serde_json::to_vec_pretty(&hashes) else { return };
+    if path.parent().is_some_and(|parent| fs::create_dir_all(parent).is_ok()) {
+        let _ = fs::write(path, json);
     }
 }
 
@@ -98,6 +138,44 @@ mod tests {
         root.write("paper/main.pdf", "%PDF-1.5 partial");
         assert!(!settle(&root, "paper/main.tex", false));
         assert_eq!(read("paper/main.pdf"), "%PDF-1.5 partial");
+    }
+
+    #[test]
+    fn a_pdf_written_over_since_the_last_build_reads_as_replaced() {
+        let root = TempDir::new("shown-pdf");
+        assert!(!replaced(&root, "cvpr/main.tex"), "no PDF and no copy");
+        root.write("cvpr/main.pdf", "%PDF-1.5 mine");
+        assert!(!replaced(&root, "cvpr/main.tex"), "no build has left a copy yet");
+        settle(&root, "cvpr/main.tex", true);
+        assert!(!replaced(&root, "cvpr/main.tex"));
+
+        // A collaborator's build, pulled in by a sync: same size, other bytes.
+        root.write("cvpr/main.pdf", "%PDF-1.5 them");
+        assert!(replaced(&root, "cvpr/main.tex"));
+        root.write("cvpr/main.pdf", "%PDF-1.5 theirs, longer");
+        assert!(replaced(&root, "cvpr/main.tex"));
+    }
+
+    /// Building `arxiv/main.tex`, or a standalone figure, in between keeps
+    /// what `cvpr/main.tex`'s build left, where the single kept copy does not.
+    #[test]
+    fn each_root_documents_pdf_is_remembered_across_other_builds() {
+        let root = TempDir::new("shown-pdf");
+        for document in ["cvpr/main.tex", "arxiv/main.tex", "figures/plot.tex"] {
+            root.write(document, "\\documentclass{article}");
+            root.write(&document.replace(".tex", ".pdf"), format!("%PDF-1.5 {document}"));
+            settle(&root, document, true);
+        }
+        root.write("cvpr/main.pdf", "%PDF-1.5 a collaborator's");
+        assert!(replaced(&root, "cvpr/main.tex"));
+        assert!(!replaced(&root, "arxiv/main.tex"));
+        assert!(!replaced(&root, "figures/plot.tex"));
+
+        // A document deleted since is forgotten at the next build.
+        fs::remove_file(root.join("cvpr/main.tex")).unwrap();
+        settle(&root, "arxiv/main.tex", true);
+        assert!(!replaced(&root, "cvpr/main.tex"));
+        assert!(!read_hashes(&root).contains_key("cvpr/main.tex"));
     }
 
     #[test]

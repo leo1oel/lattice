@@ -364,7 +364,15 @@ history records a change to that path after the version the last sync
 downloaded, other than Lattice's own uploads, realtime edits and moves
 (`own_writes`); otherwise the local file is kept, a local edit to it goes up, and
 it is reported once per Overleaf copy (`settle_destructive`, `refused` in the
-state).
+state). The PDF of the default root document, the one Build compiles
+(`cvpr/main.tex` builds `cvpr/main.pdf`; `project/build_pdf.rs`), is this
+copy's build and stays out of sync in both directions, at any depth
+(`BuildPdf` in `overleaf/files.rs`). Other root documents' PDFs sync like
+any other file, so after the writer builds another root document, a
+collaborator's PDF can come down over the previous one's. A build of a
+document whose PDF no longer matches the hash its last build here recorded
+(`shown_pdf::replaced`) typesets again even when latexmk finds nothing to
+do, so the preview never shows that PDF as this copy's build.
 
 ---
 
@@ -382,7 +390,7 @@ creates it.
 | `.research/history/<id>.json` | `project/history.rs` | transaction history records (schema v2, `HISTORY_SCHEMA_VERSION`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
 | `.research/sessions/` | `project/create.rs` | agent session records |
 | `.research/checkpoints/` | agent runtime | turn checkpoints; capped at 100 per session / 256 MB (`project/history.rs`) |
-| `.research/cache/` | various | `fts.sqlite` (full-text index), `paper-index/` (the tantivy index of the cited papers' cached text; `papers/search_index.rs`), `citation-health-v1.json`, `linked-bibliography.json` (the linked library's source path, target `.bib` and last-imported baseline; `project/linked_bibliography.rs`), `shown-pdf/` (a copy of the last built PDF and its SyncTeX file, put back when a build leaves none; `latex/shown_pdf.rs`) |
+| `.research/cache/` | various | `fts.sqlite` (full-text index), `paper-index/` (the tantivy index of the cited papers' cached text; `papers/search_index.rs`), `citation-health-v1.json`, `linked-bibliography.json` (the linked library's source path, target `.bib` and last-imported baseline; `project/linked_bibliography.rs`), `shown-pdf/` (a copy of the last built PDF and its SyncTeX file, put back when a build leaves none; `latex/shown_pdf.rs`), `build-pdf-hashes.json` (the SHA-256 of each root document's PDF as this copy's last build of it left it, so a build that finds nothing to do still typesets again when something else wrote over that PDF; `latex/shown_pdf.rs`) |
 | `.research/licenses/` | `project/create.rs` | license texts for imported material |
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
