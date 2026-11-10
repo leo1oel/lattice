@@ -56,5 +56,6 @@
   // the package manager (see CONTRIBUTING.md), not a missing dependency. `typecheck`
   // is knip misreading `pnpm --dir literature-worker typecheck` in ci.yml as a
   // binary; it is a package script in that workspace.
-  "ignoreBinaries": ["mise", "typecheck"]
+  // Windows installed-app CI invokes the runner-provided PowerShell.
+  "ignoreBinaries": ["mise", "typecheck", "pwsh.exe"]
 }

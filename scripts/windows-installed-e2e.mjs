@@ -79,25 +79,33 @@ try {
   }
   ok("Unicode project writes and atomic replacement round-trip");
 
-  const callback = await page.evaluate(() => {
-    globalThis.__windowsSmokeOutput = "";
-    return globalThis.__TAURI_INTERNALS__.transformCallback((raw) => {
-      if (Array.isArray(raw.message) || raw.message instanceof ArrayBuffer) {
-        globalThis.__windowsSmokeOutput += new TextDecoder().decode(new Uint8Array(raw.message));
-      }
-    });
-  });
-  const terminal = await invoke("terminal_open", { projectRoot: project.root, cols: 100, rows: 30, onOutput: `__CHANNEL__:${callback}` });
-  try {
-    await invoke("terminal_resize", { id: terminal.id, cols: 80, rows: 24 });
-    await invoke("terminal_write", { id: terminal.id, data: "[IO.File]::WriteAllText((Join-Path (Get-Location) 'terminal-proof.txt'), 'Lattice ConPTY works')\r" });
-    await until("real ConPTY command execution in project directory", async () => await invoke("read_project_file", { projectRoot: project.root, path: "terminal-proof.txt" }).catch(() => null) === "Lattice ConPTY works");
-    await until("ConPTY output", () => page.evaluate(() => globalThis.__windowsSmokeOutput.length > 0));
-  } finally {
-    await invoke("terminal_close", { id: terminal.id });
-    await page.evaluate((id) => globalThis.__TAURI_INTERNALS__.unregisterCallback(id), callback);
+  // Use the shipped xterm screen: ConPTY/PSReadLine query the terminal
+  // during startup. A raw IPC consumer never answers those queries and can
+  // leave the shell waiting before it executes the first command.
+  await page.keyboard.press("Control+Backquote");
+  const terminal = page.locator(".terminal-screen .xterm-helper-textarea").first();
+  await terminal.waitFor({ state: "attached" });
+  await until("PowerShell prompt in the installed terminal", async () =>
+    /PS [^>]*>/.test(await page.locator(".terminal-screen").first().textContent()));
+  await terminal.focus();
+  await page.keyboard.type("[IO.File]::WriteAllText((Join-Path (Get-Location) 'terminal-proof.txt'), 'Lattice ConPTY works')", { delay: 5 });
+  await page.keyboard.press("Enter");
+  await until("real ConPTY command execution in project directory", async () => await invoke("read_project_file", { projectRoot: project.root, path: "terminal-proof.txt" }).catch(() => null) === "Lattice ConPTY works");
+  // A viewport change exercises the panel's fit -> terminal_resize path.
+  const columns = [];
+  for (const width of [960, 1200]) {
+    await page.setViewportSize({ width, height: 800 });
+    await terminal.focus();
+    const file = `terminal-columns-${width}.txt`;
+    await page.keyboard.type(`[IO.File]::WriteAllText((Join-Path (Get-Location) '${file}'), [string][Console]::WindowWidth)`, { delay: 5 });
+    await page.keyboard.press("Enter");
+    const value = await until("terminal reports its resized columns", async () =>
+      await invoke("read_project_file", { projectRoot: project.root, path: file }).catch(() => null));
+    columns.push(Number(value));
   }
-  ok("real ConPTY input, output, project directory and resize");
+  assert.ok(columns[1] > columns[0], `ConPTY must follow the terminal width: ${columns}`);
+  await page.screenshot({ path: join(artifacts, "terminal.png") });
+  ok("real terminal panel accepts input, renders output and resizes ConPTY in the project directory");
 
   // Readiness must be obtained through the installed host, whose resource
   // paths point at this installation rather than the source checkout.
