@@ -209,7 +209,7 @@ does a manual `workflow_dispatch` run.
 
 ### `macos-intel.yml`
 
-The Intel Mac-based build follows the Linux AppImage's pattern: `release.yml` does
+The Intel-based Mac build follows the Linux AppImage's pattern: `release.yml` does
 not mention it, and it starts from Release's `workflow_run` event only once a
 tag's Release run has **succeeded**. An Intel failure leaves the published
 release without its `_x64` assets and `latest.json` without `darwin-x86_64`:
