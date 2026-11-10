@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-09 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-10 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**805 files, +75,735 / −8,808 lines**. It carries embedded-workspace UI, a skills manager,
+**808 files, +76,477 / −8,819 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -145,9 +145,18 @@ Garbage left by earlier pins is not removed: `git count-objects -vH` shows it, a
 
 The Claude tab of the model picker now leads with Claude Fable 5.2 (`claude-fable-5-2`), above Fable 5.1, Fable 5 and Opus 5.5 (fork `0a34d659ebb0fdf059fdb5f12b79a9543725f839`, [fork PR 15](https://github.com/leo1oel/synara/pull/15)).
 The tab lists the fork's static Claude catalog (`packages/contracts/src/model.ts`), so each new Claude model is ours to add. Fable 5.2 takes Fable 5.1's settings (Low through Max effort with High the default, a 1M context window, thinking always on) plus fast mode, which Anthropic's docs list for 5.2 and not for 5.1.
-A bare `fable` now resolves to Fable 5.2, as Claude Code's own alias does from 2.1.321, so a chat saved with `fable` runs 5.2; an explicit Fable 5.1 selection stays on 5.1. Pi's repaired Anthropic catalog and Cursor's 1M-variant fallback list Fable 5.2 too.
+A bare `fable` resolves to Fable 5.2, as Claude Code's own alias does from 2.1.321 (on an older Claude Code it resolves to 5.1; see the fork PR 16 paragraph below); an explicit Fable 5.1 selection stays on 5.1. Pi's repaired Anthropic catalog and Cursor's 1M-variant fallback list Fable 5.2 too.
 Claude Code learns Fable 5.2 only in 2.1.321. When the Claude status probe reports an older version, the tab says "Update Claude Code to 2.1.321+ to use Fable 5.2" (zh-CN "将 Claude Code 升级到 2.1.321+ 以使用 Fable 5.2") in the same status line as the Codex note above, and the Fable 5.2 row is greyed with "Needs Claude Code 2.1.321+" (zh-CN "需要 Claude Code 2.1.321+") and cannot be picked. Without this, a turn on the older CLI failed and was recorded as "Not available to your account".
-The minimum lives in `CLAUDE_MODEL_MINIMUM_CLI_VERSIONS` in the fork's `ComposerModelPicker.logic.ts`, beside the Astra check, which now shares its version comparer; an unknown version shows nothing. `ComposerModelPicker.claudeCliVersion.browser.tsx` pins both cases. No in-app Lattice session was needed for this catalog addition and picker note.
+The minimum lives in `CLAUDE_MODEL_MINIMUM_CLI_VERSIONS` (moved to the fork's `packages/shared/src/model.ts` by fork PR 16), and the Astra check shares its version comparer; an unknown version shows nothing. `ComposerModelPicker.claudeCliVersion.browser.tsx` pins both cases. No in-app Lattice session was needed for this catalog addition and picker note.
+
+A thread or project whose model was saved as a bare `fable` now runs the newest Fable the installed Claude Code supports: Fable 5.1 below 2.1.321, Fable 5.2 from 2.1.321 or when the version is unknown (fork `ee78c3372`, [fork PR 16](https://github.com/leo1oel/synara/pull/16)). Before, it resolved to 5.2 on any Claude Code, so on an older one the turn failed with "Your Claude account can't use Fable 5.2" and the chat was switched to another model.
+The composer resolves the alias with `normalizeClaudeModelSlugForCliVersion` and the selected Claude instance's status `version`; a full model id never moves. Server-only paths (agent-created tasks, automations) pass the bare `fable` on to Claude Code, which resolves its own alias.
+When Claude Code refuses a model with a known minimum and the installed version is older, the turn now fails with the error code `claude_model_needs_newer_cli` and says which version it needs, for example "Claude Fable 5.2 needs Claude Code 2.1.321 or later; the installed one is 2.1.300. Run `claude update` in Terminal, then try again." The card and composer notice say "This model needs a newer Claude Code than the one installed. Run `claude update` in Terminal, then try again, or choose another model with Change model." (zh-CN "这个模型需要比当前安装的更新的 Claude Code。请在终端运行 `claude update` 后重试，或点「更改模型」换一个。").
+Nothing is recorded as account-unavailable in that case, so the row keeps "Needs Claude Code …+" and the chat keeps its model. The adapter reads `claude --version` only after such a refusal, at most once per session. A refusal on a new-enough or unknown Claude Code keeps the account handling.
+The Claude tab also lists Claude Sonnet 5.5 (`claude-sonnet-5-5`, needs Claude Code 2.1.284+) and Claude Haiku 5.5 (`claude-haiku-5-5`, needs 2.1.293+), greyed with the same "Needs Claude Code …+" label on an older Claude Code. Both offer Low through Max effort with Medium the default, plus Ultracode, a 1M context window, thinking always on and no fast mode; Pi's repaired Anthropic catalog lists both.
+The `sonnet` and `haiku` aliases and the Claude default (`claude-sonnet-5`) are unchanged. No in-app Lattice session was needed for this change.
+
+A vertical trackpad swipe that starts over a wide Markdown table in the agent transcript now scrolls the transcript (fork `d893cd1ae6648e2fcecc04e2d5590ce38e7f5eff`, [fork PR 17](https://github.com/leo1oel/synara/pull/17)). The table wrapper `.chat-markdown-table-scroll` lost its `overscroll-behavior-x: contain`: with it, WebKit claimed a whole swipe whose first movement leaned toward the edge the table rested on, so the rest of the swipe scrolled nothing. Code blocks and display math never had it. `ChatMarkdown.tableLayout.browser.tsx` checks that every horizontal scroller in the transcript leaves overscroll to the transcript.
 
 ## Synara 0.9.1 compatibility
 
