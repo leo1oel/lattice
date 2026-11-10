@@ -29,6 +29,8 @@ export type RootPdfs = Readonly<{
   switchState: SwitchState;
   /** Each document's bytes as shown this session; without them, the copy kept of its last build here is read. */
   shownBytes: ReadonlyMap<string, ArrayBuffer>;
+  /** The live PDF's URL, a new one for each build shown: an open tab of a document then reads its newest bytes. */
+  shownUrl: string | null;
   /** The last jump's target, in the tab of `document` (null: the live PDF's, not any of these). */
   syncTarget: { document: string | null; target: PdfSyncTarget } | null;
   canForwardSync: boolean;
@@ -67,6 +69,13 @@ export function RootPdfTabs(props: Shared) {
   ));
 }
 
+/**
+ * `document`'s bytes as last shown. `shownBytes` is one Map for the session,
+ * so this reads it again whenever `rootPdfs` is new (`shownUrl`: a build was
+ * shown), not only when the Map is.
+ */
+const shownBytesOf = (rootPdfs: RootPdfs, document: string) => rootPdfs.shownBytes.get(document);
+
 /** A PDF read for a tab: its URL once read, or null when this copy has not built the document. */
 type Read = { document: string; url: string | null } | null;
 
@@ -76,7 +85,7 @@ function RootPdfTab({ projectRoot, rootPdfs, citations, review, selection, viewS
 }) {
   const { t } = useLingui();
   const [read, setRead] = useReducer((_: Read, next: Read) => next, null);
-  const { shownBytes } = rootPdfs;
+  const bytes = shownBytesOf(rootPdfs, document);
   useEffect(() => {
     let live = true;
     let url: string | null = null;
@@ -85,7 +94,6 @@ function RootPdfTab({ projectRoot, rootPdfs, citations, review, selection, viewS
       url = bytes ? pdfBytesToObjectUrl(bytes) : null;
       setRead({ document, url });
     };
-    const bytes = shownBytes.get(document);
     // Never the PDF beside the document: a sync may have brought in a collaborator's.
     if (bytes) show(bytes);
     else void invoke<ArrayBuffer>("read_kept_pdf", { projectRoot, document }).then(show, () => show(null));
@@ -93,7 +101,7 @@ function RootPdfTab({ projectRoot, rootPdfs, citations, review, selection, viewS
       live = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [document, projectRoot, shownBytes]);
+  }, [bytes, document, projectRoot]);
   const activate = () => {
     selection.onContextSurfaceActivate("pdf");
     onLeaveEditor();

@@ -474,6 +474,7 @@ export function useDocumentSurfaces({
         shown: buildPipeline.shownPdf,
         switchState: trellis.switchState,
         shownBytes: buildPipeline.shownPdfBytes,
+        shownUrl: pdfUrl,
         syncTarget: syncTex.syncTarget,
         canForwardSync: syncTex.canForwardSyncDocument,
         onForwardSync: (document) => void syncTex.revealSourceInDocument(document),
