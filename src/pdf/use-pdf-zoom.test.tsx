@@ -50,6 +50,13 @@ describe("usePdfZoom", () => {
     expect(Number(viewer.style.transform.slice(6, -1))).toBeCloseTo(1, 2);
   });
 
+  it("keeps a Chromium Ctrl-wheel pinch event at its full scale", () => {
+    const { root, viewer } = mountZoom();
+    // Chromium reports a pinch as one Ctrl-wheel of -100 * ln(scale) pixels.
+    fireEvent.wheel(root, { ctrlKey: true, deltaY: -40, clientX: 50, clientY: 50 });
+    expect(viewer.style.transform).toBe(`scale(${Number(Math.exp(0.4).toFixed(3))})`);
+  });
+
   it("keeps a pinch over the PDF from also zooming the workspace around it", () => {
     const { workspace, root, viewer } = mountZoom();
     const workspaceZoom = vi.fn();

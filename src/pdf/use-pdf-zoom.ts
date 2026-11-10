@@ -199,12 +199,13 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
       wheel: (event: WheelEvent) => {
         if (!event.ctrlKey && !event.metaKey) return;
         event.preventDefault();
-        // WebView2 mouse notches commonly arrive as 100+ pixels, while
-        // trackpad pinches use small pixel deltas. Keep those fine deltas,
-        // normalize line/page units, and cap each event to about 5%.
+        // Trackpad pixel deltas (macOS ⌘-scroll) and Chromium's Ctrl-wheel
+        // pinch, sized so exp(-deltaY / 100) is the gesture's scale, keep that
+        // 1:1 rate; capping them slows a pinch. A notch-sized event (WebView2
+        // sends 100+ px a mouse notch, Firefox lines or pages) takes one ~5% step.
         const mode = event.deltaMode;
         const pixels = event.deltaY * (mode === 1 ? 16 : mode === 2 ? area.clientHeight : 1);
-        const delta = Math.max(-5, Math.min(5, pixels));
+        const delta = mode === 0 && Math.abs(pixels) < 50 ? pixels : Math.sign(pixels) * 5;
         previewZoom(currentScale() * Math.exp(-delta * 0.01), event.clientX, event.clientY);
       },
       // Kept as a browser fallback for engines that expose WebKit gesture events.
