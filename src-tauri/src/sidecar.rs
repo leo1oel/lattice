@@ -17,7 +17,8 @@ pub(crate) struct NodeRuntime {
 
 impl NodeRuntime {
     pub(crate) fn resolve(standalone_bin: &Path) -> Self {
-        Self { executable: standalone_bin.join(if cfg!(windows) { "node.exe" } else { "node" }) }
+        let executable = standalone_bin.join(if cfg!(windows) { "node.exe" } else { "node" });
+        Self { executable: node_script_path(&executable) }
     }
 
     /// Run the entry point in a fresh process group, so
@@ -25,6 +26,29 @@ impl NodeRuntime {
     pub(crate) fn configure(&self, command: &mut Command) {
         in_new_process_group(command);
     }
+}
+
+/// Node 24.20's JS realpath walk mishandles namespaced drive roots during
+/// entry-point resolution (lstat reports EISDIR on `D:`). Pass ordinary drive
+/// or UNC paths to Node, preserving UTF-16 and leaving other namespaces alone.
+pub(crate) fn node_script_path(path: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        let units: Vec<u16> = path.as_os_str().encode_wide().collect();
+        let prefix: Vec<u16> = r"\\?\".encode_utf16().collect();
+        let unc: Vec<u16> = r"\\?\UNC\".encode_utf16().collect();
+        if units.starts_with(&unc) {
+            let mut normal = vec![92, 92];
+            normal.extend_from_slice(&units[unc.len()..]);
+            return PathBuf::from(OsString::from_wide(&normal));
+        }
+        if units.starts_with(&prefix) && units.get(5) == Some(&58) {
+            return PathBuf::from(OsString::from_wide(&units[prefix.len()..]));
+        }
+    }
+    path.to_path_buf()
 }
 
 /// SIGTERM a sidecar's process group, allow a two-second grace period, then
@@ -59,5 +83,23 @@ mod tests {
                 "node"
             })
         );
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_path_tests {
+    use super::node_script_path;
+    use std::path::Path;
+
+    #[test]
+    fn node_entry_paths_preserve_unicode_and_unc_without_verbatim_roots() {
+        for (source, expected) in [
+            (r"\\?\D:\Lattice é 中文\server.mjs", r"D:\Lattice é 中文\server.mjs"),
+            (r"\\?\UNC\server\share\server.mjs", r"\\server\share\server.mjs"),
+            (r"D:\Lattice\server.mjs", r"D:\Lattice\server.mjs"),
+            (r"\\?\Volume{abc}\server.mjs", r"\\?\Volume{abc}\server.mjs"),
+        ] {
+            assert_eq!(node_script_path(Path::new(source)), Path::new(expected));
+        }
     }
 }

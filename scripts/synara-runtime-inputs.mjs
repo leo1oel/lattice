@@ -10,6 +10,7 @@ export const SYNARA_RUNTIME_INPUTS = [
   "scripts/prepare-synara-sidecar.mjs",
   "scripts/synara-codex-host.mjs",
   "scripts/lib/util.mjs",
+  "scripts/lib/node-runtime.mjs",
   "scripts/lib/codesign.mjs",
   "scripts/lib/runtime-prune.mjs",
   "scripts/lib/synara-server-prune.mjs",

@@ -10,7 +10,6 @@
 import {
   chmodSync,
   cpSync,
-  createWriteStream,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -22,11 +21,10 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
-import { pipeline } from "node:stream/promises";
-import { Readable } from "node:stream";
 import { codesign, signMachOTree, signingIdentity } from "./lib/codesign.mjs";
 import { pruneServerRuntime } from "./lib/synara-server-prune.mjs";
 import { capture, projectRoot, readJson, run, sha256, treeBytes, walkFiles, writeJson } from "./lib/util.mjs";
+import { NODE_RELEASES as TARGETS, prepareNodeRuntime } from "./lib/node-runtime.mjs";
 import { SYNARA_RUNTIME_INPUTS } from "./synara-runtime-inputs.mjs";
 import { patchCodexHostProcess } from "./synara-codex-host.mjs";
 
@@ -44,36 +42,6 @@ const deviceHelperFiles = [
   "Sources/DeviceHelper-Bridging-Header.h",
   "Sources/main.swift",
 ];
-
-// Per host triple: the npm platform directory prebuilt packages use, and the
-// pinned Node release archive with its SHA-256.
-const TARGETS = {
-  "aarch64-apple-darwin": {
-    platform: "darwin-arm64",
-    archive: "node-v24.20.0-darwin-arm64.tar.gz",
-    sha256: "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
-  },
-  "x86_64-apple-darwin": {
-    platform: "darwin-x64",
-    archive: "node-v24.20.0-darwin-x64.tar.gz",
-    sha256: "9e5b2644cf107befb6aefca676b96d3296bc10138096f022ed378d6233ed81f4",
-  },
-  "aarch64-unknown-linux-gnu": {
-    platform: "linux-arm64",
-    archive: "node-v24.20.0-linux-arm64.tar.gz",
-    sha256: "3515603e2487879a39bc75716f1a2affd027500c64ba50e845cf72cb33219013",
-  },
-  "x86_64-unknown-linux-gnu": {
-    platform: "linux-x64",
-    archive: "node-v24.20.0-linux-x64.tar.gz",
-    sha256: "855d581f8a4eb1a8117e3426de25fe02770592febcfb31369aee1ffbfee9e8ec",
-  },
-  "x86_64-pc-windows-msvc": {
-    platform: "win32-x64",
-    archive: "node-v24.20.0-win-x64.zip",
-    sha256: "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba",
-  },
-};
 
 const git = (args) => capture("git", args, { cwd: sourceRoot }).trim();
 const fileSha256 = (path) => sha256(readFileSync(path));
@@ -153,51 +121,6 @@ function deviceHelperTreeMatches(source, candidate) {
         readFileSync(join(source, path)).equals(readFileSync(join(candidate, path))),
     )
   );
-}
-
-async function download(url, output) {
-  mkdirSync(dirname(output), { recursive: true });
-  const response = await fetch(url, { redirect: "follow" });
-  if (!response.ok || !response.body) {
-    throw new Error(`Could not download ${url}: HTTP ${response.status}.`);
-  }
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(output));
-}
-
-async function prepareNodeRuntime(stageRoot) {
-  const archive = join(cacheRoot, release.archive);
-  if (!existsSync(archive) || fileSha256(archive) !== release.sha256) {
-    rmSync(archive, { force: true });
-    await download(`https://nodejs.org/dist/v${runtimeConfig.nodeVersion}/${release.archive}`, archive);
-  }
-  if (fileSha256(archive) !== release.sha256) {
-    rmSync(archive, { force: true });
-    throw new Error(`Node ${runtimeConfig.nodeVersion} failed its SHA-256 check.`);
-  }
-
-  const extractionRoot = mkdtempSync(join(cacheRoot, "node-extract-"));
-  try {
-    if (!release.archive.endsWith(".zip")) {
-      run("tar", ["-xzf", archive, "-C", extractionRoot]);
-    } else if (process.platform !== "win32") {
-      run("unzip", ["-q", archive, "-d", extractionRoot]);
-    } else {
-      const quote = (path) => `'${path.replaceAll("'", "''")}'`;
-      run("powershell", [
-        "-NoProfile",
-        "-Command",
-        `Expand-Archive -LiteralPath ${quote(archive)} -DestinationPath ${quote(extractionRoot)} -Force`,
-      ]);
-    }
-    const extractedRoot = join(extractionRoot, release.archive.replace(/\.tar\.gz$|\.zip$/g, ""));
-    mkdirSync(join(stageRoot, "bin"), { recursive: true });
-    cpSync(join(extractedRoot, nodeExecutable === "node.exe" ? "node.exe" : "bin/node"), join(stageRoot, "bin", nodeExecutable));
-    chmodSync(join(stageRoot, "bin", nodeExecutable), 0o755);
-    mkdirSync(join(stageRoot, "licenses"), { recursive: true });
-    cpSync(join(extractedRoot, "LICENSE"), join(stageRoot, "licenses/Node-LICENSE.txt"));
-  } finally {
-    rmSync(extractionRoot, { recursive: true, force: true });
-  }
 }
 
 // Pi and OpenCode are left out of the bundle: the fork installs one on demand, from the
@@ -581,7 +504,7 @@ mkdirSync(cacheRoot, { recursive: true });
 const stageRoot = mkdtempSync(join(dirname(runtimeRoot), ".synara-runtime-"));
 let synaraVersion;
 try {
-  await prepareNodeRuntime(stageRoot);
+  await prepareNodeRuntime(stageRoot, { cacheRoot, target, nodeVersion: runtimeConfig.nodeVersion });
   synaraVersion = installServerRuntime(stageRoot);
   restoreHelperExecutableBits(stageRoot);
   if (!deviceHelperTreeMatches(sourceDeviceHelperRoot, join(stageRoot, "server/dist/device-helper"))) {
