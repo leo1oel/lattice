@@ -47,6 +47,8 @@ pub struct TexInstallProgress {
 }
 
 /// How a missing-package install ended without an error.
+// Only `macos` installs packages; the other platforms' stub always refuses.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum TexDependencyInstall {
