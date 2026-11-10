@@ -10,12 +10,14 @@
  * - "Comment" opens "Add comment" for the selection, which stays marked while
  *   the comment is written and follows edits made meanwhile. The comment is
  *   anchored in Markdown offsets; a selection with no exact place, or whose
- *   text changed, is refused with a message.
+ *   text changed, is refused with a message. Escape or a click outside
+ *   closes it like a popover; words already written are kept and come back
+ *   when the same passage is commented on again. Cancel discards them.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- the Comment request and the composer it opens belong together */
-import { useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { Editor } from "@tiptap/core";
@@ -29,6 +31,7 @@ import { CommentPreview } from "../../../comments/comment-card";
 import { commentCardId, commentDraft, setCommentDraft } from "../source-overlays";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
+import { useDismissOnOutsidePointer } from "../../../../hooks/use-dismiss-on-outside-pointer";
 
 function place(element: HTMLElement, anchor: { getBoundingClientRect: () => DOMRect }, placement: "top" | "bottom" = "top") {
   void computePosition(anchor, element, {
@@ -233,6 +236,9 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
   const [error, setError] = useState<"locate" | "changed" | null>(null);
   const [body, setBody] = useState("");
   const [dialog, setDialog] = useState<HTMLDivElement | null>(null);
+  // Words left in a composer closed by Escape or a click outside, with the
+  // Markdown range they were written on: reopening on that range restores them.
+  const keptRef = useRef<{ from: number; to: number; body: string } | null>(null);
 
   // A comment request marks the selection and opens the composer for it.
   useEffect(() => {
@@ -242,9 +248,10 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
     const whole = selection instanceof AllSelection;
     editor.view.dispatch(setCommentDraft(editor.state.tr, { from: whole ? 0 : selection.from, to: whole ? editor.state.doc.content.size : selection.to }));
     const anchored = anchorDraft(editor, host, null);
+    const kept = keptRef.current;
+    const restore = !("error" in anchored) && kept?.from === anchored.from && kept.to === anchored.to;
     // Opening the composer from a request is this effect's whole job.
-    // eslint-disable-next-line react-hooks-js/set-state-in-effect
-    setBody("");
+    setBody(restore ? kept.body : "");
     if ("error" in anchored) {
       setError(anchored.error ?? null);
       setDraft({ quote: "", whole });
@@ -261,12 +268,30 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
     place(dialog, { getBoundingClientRect: () => new DOMRect(at.left, at.top, 1, at.bottom - at.top) }, "bottom");
   }, [dialog, draft, editor]);
 
-  if (!draft) return null;
-  const finish = () => {
+  const close = (refocus: boolean) => {
     setDraft(null);
     setError(null);
     editor.view.dispatch(setCommentDraft(editor.state.tr, null));
-    editor.view.focus();
+    if (refocus) editor.view.focus();
+  };
+  // Escape or a click outside: close, keeping what was written for the same passage.
+  const dismiss = (refocus: boolean) => {
+    const anchored = body.trim() ? anchorDraft(editor, host, draft) : null;
+    keptRef.current = anchored && !("error" in anchored) ? { from: anchored.from, to: anchored.to, body } : null;
+    close(refocus);
+  };
+  // The press still lands where it was aimed (the caret, a button), so the
+  // editor is not refocused under it.
+  useDismissOnOutsidePointer(draft ? dialog : null, () => dismiss(false));
+
+  if (!draft) return null;
+  // Cancel or a sent comment: what this passage kept is used up; words kept
+  // for another passage stay.
+  const finish = () => {
+    const anchored = anchorDraft(editor, host, draft);
+    const kept = keptRef.current;
+    if (kept && !("error" in anchored) && kept.from === anchored.from && kept.to === anchored.to) keptRef.current = null;
+    close(true);
   };
   const submit = () => {
     const text = body.trim();
@@ -280,7 +305,18 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
     finish();
   };
   return createPortal(
-    <div ref={setDialog} role="dialog" aria-label={t`Add comment`} className={`lx-md-comment-composer ${popupMotionClassName}`} style={{ position: "fixed", left: 0, top: 0 }}>
+    <div
+      ref={setDialog}
+      role="dialog"
+      aria-label={t`Add comment`}
+      className={`lx-md-comment-composer ${popupMotionClassName}`}
+      style={{ position: "fixed", left: 0, top: 0 }}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+        event.preventDefault();
+        dismiss(true);
+      }}
+    >
       {draft.quote && <blockquote className="lx-md-comment-quote">{draft.quote}</blockquote>}
       {error && (
         <p className="lx-md-comment-error" role="alert">
@@ -297,10 +333,7 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
         onChange={(event) => setBody(event.target.value)}
         onKeyDown={(event) => {
           if (event.nativeEvent.isComposing) return;
-          if (event.key === "Escape") {
-            event.preventDefault();
-            finish();
-          } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();
             submit();
           }
