@@ -1,4 +1,4 @@
-import { useCallback, useReducer, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { showError } from "../app/notify";
 import type { NoteProgress } from "../editor/comments/editor-comment-data";
@@ -7,8 +7,6 @@ import type { AnnotationDraft } from "./annotation-composer";
 
 /** The note, and (weakly, for the reason `useSourceSession`'s view is) the view it was opened in. */
 type DraftState = { draft: AnnotationDraft | null; view: WeakRef<EditorView> | null };
-type DraftChange = (current: DraftState) => DraftState;
-const applyChange = (current: DraftState, change: DraftChange) => change(current);
 const NO_DRAFT: DraftState = { draft: null, view: null };
 
 /**
@@ -18,10 +16,15 @@ const NO_DRAFT: DraftState = { draft: null, view: null };
  * another note nor the caret leaving the selection replaces it meanwhile.
  */
 export function useAnnotationDraft() {
-  const [{ draft, view: draftView }, change] = useReducer(applyChange, NO_DRAFT);
+  // State, not a reducer, and every change that alters nothing returns
+  // `current`: the caret's every move releases the note, and only useState
+  // skips such a no-op without re-rendering the canvas (source-scroll bench).
+  const [{ draft, view: draftView }, change] = useState(NO_DRAFT);
   const draftRef = useCommittedRef(draft);
   const countRef = useRef(0);
-  const setDraft = useCallback((next: AnnotationDraft | null) => change((current) => ({ ...current, draft: next })), []);
+  const setDraft = useCallback((next: AnnotationDraft | null) => change((current) => (
+    current.draft === next ? current : { ...current, draft: next }
+  )), []);
   const amendDraft = useCallback((update: Partial<AnnotationDraft>) => change((current) => (
     current.draft ? { ...current, draft: { ...current.draft, ...update } } : current
   )), []);
@@ -31,7 +34,7 @@ export function useAnnotationDraft() {
     change(() => ({ draft: { ...next, id }, view: new WeakRef(inView) }));
   }, [draftRef]);
   /** The selection went: the note closes with it, unless it is being saved. */
-  const releaseDraft = useCallback(() => change((current) => (current.draft?.saving ? current : { ...current, draft: null })), []);
+  const releaseDraft = useCallback(() => change((current) => (!current.draft || current.draft.saving ? current : { ...current, draft: null })), []);
   /**
    * Where what saving note `id` reports goes: onto that note while it is
    * open, null closing it, else a failure into a toast, so it is never lost
