@@ -78,24 +78,63 @@ fn the_subfolder_s_own_file_wins_and_errors_point_at_the_project_s_top() {
     assert_eq!(errors, [("sections/intro.tex".to_string(), Some(1))]);
 }
 
+const PAPER: &str = "\\documentclass{article}\n\\begin{document}\nMine.\n\\end{document}\n";
+const THEIRS: &[u8] = b"%PDF-1.5 a collaborator's build";
+
+fn build_open(root: &Path, open: Option<&str>) -> BuildResult {
+    let result =
+        super::build(root, false, &ActiveBuild::default(), open, &BuildSteps::silent()).unwrap();
+    assert!(result.success, "{}", result.log);
+    result
+}
+
+fn assert_built_here(root: &Path, pdf: &str) {
+    let shown = fs::read(root.join(pdf)).unwrap();
+    assert!(shown.starts_with(b"%PDF-") && shown != THEIRS, "{}", String::from_utf8_lossy(&shown));
+}
+
 /// A collaborator's PDF that an Overleaf sync or a `git pull` writes over
 /// this copy's leaves the sources unchanged, so latexmk has nothing to do;
 /// the build must still put this copy's own PDF back before it is shown.
 #[test]
 #[ignore = "requires latexmk and pdfLaTeX"]
 fn a_pdf_written_over_by_someone_else_is_built_again() {
-    const PAPER: &str = "\\documentclass{article}\n\\begin{document}\nMine.\n\\end{document}\n";
     let (root, _) = build(&[("cvpr/main.tex", PAPER)]);
-    let build_again = || {
-        super::build(&root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap()
-    };
     // The build that leaves this copy's PDF on screen (`shown_pdf`).
-    assert!(build_again().success);
+    build_open(&root, None);
 
-    let theirs = b"%PDF-1.5 a collaborator's build";
-    fs::write(root.join("cvpr/main.pdf"), theirs).unwrap();
-    let result = build_again();
-    assert!(result.success, "{}", result.log);
-    let shown = fs::read(root.join("cvpr/main.pdf")).unwrap();
-    assert!(shown.starts_with(b"%PDF-") && shown != theirs, "{}", String::from_utf8_lossy(&shown));
+    fs::write(root.join("cvpr/main.pdf"), THEIRS).unwrap();
+    build_open(&root, None);
+    assert_built_here(&root, "cvpr/main.pdf");
+}
+
+/// Opening and building `arxiv/main.tex` makes it the default, and hands
+/// `cvpr/main.pdf` back to Overleaf sync; a collaborator's that comes down
+/// over it is still found when `cvpr/main.tex` is built again.
+#[test]
+#[ignore = "requires latexmk and pdfLaTeX"]
+fn a_pdf_written_over_after_switching_roots_is_built_again() {
+    let (root, _) = build(&[("cvpr/main.tex", PAPER), ("arxiv/main.tex", PAPER)]);
+    build_open(&root, Some("cvpr/main.tex"));
+    assert_eq!(build_open(&root, Some("arxiv/main.tex")).root_document, "arxiv/main.tex");
+
+    fs::write(root.join("cvpr/main.pdf"), THEIRS).unwrap();
+    assert_eq!(build_open(&root, Some("cvpr/main.tex")).root_document, "cvpr/main.tex");
+    assert_built_here(&root, "cvpr/main.pdf");
+}
+
+/// A standalone figure built once in between leaves the paper the default,
+/// and the paper's PDF still known.
+#[test]
+#[ignore = "requires latexmk and pdfLaTeX"]
+fn a_pdf_written_over_after_a_one_off_build_is_built_again() {
+    const FIGURE: &str = "\\documentclass{standalone}\n\\begin{document}x\\end{document}\n";
+    let (root, _) = build(&[("cvpr/main.tex", PAPER), ("figures/plot.tex", FIGURE)]);
+    build_open(&root, None);
+    let figure = build_open(&root, Some("figures/plot.tex"));
+    assert!(figure.one_off && figure.root_document == "figures/plot.tex", "{figure:?}");
+
+    fs::write(root.join("cvpr/main.pdf"), THEIRS).unwrap();
+    assert_eq!(build_open(&root, None).root_document, "cvpr/main.tex");
+    assert_built_here(&root, "cvpr/main.pdf");
 }
