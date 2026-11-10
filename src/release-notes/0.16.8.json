@@ -1,0 +1,50 @@
+{
+  "version": "0.16.8",
+  "date": "2026-11-10",
+  "highlights": [
+    {
+      "title": {
+        "en": "Dark pages for PDFs",
+        "zh": "PDF 深色页面"
+      },
+      "body": {
+        "en": "Read any PDF with dark pages, from the PDF toolbar or the command palette.",
+        "zh": "在 PDF 工具栏或命令面板中开启，即可以深色页面阅读任意 PDF。"
+      }
+    },
+    {
+      "title": {
+        "en": "Two PDFs side by side",
+        "zh": "并排阅读两个 PDF"
+      },
+      "body": {
+        "en": "Open a PDF or a paper to the side to read it next to another, each with its own page and zoom.",
+        "zh": "把 PDF 或论文在侧边打开，与另一个 PDF 并排阅读，各自保留页码和缩放。"
+      }
+    },
+    {
+      "title": {
+        "en": "Newer Claude models in the AI assistant",
+        "zh": "AI 助手支持更新的 Claude 模型"
+      },
+      "body": {
+        "en": "Sonnet 5.5 and Haiku 5.5 are in the model picker, and a Claude Code that is too old for a model now says which version that model needs.",
+        "zh": "模型选择器中新增 Sonnet 5.5 和 Haiku 5.5；如果 Claude Code 版本过低，会提示该模型需要的版本。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "A stray \" inside a braced BibTeX field, as Zotero writes it, no longer hides every later entry or makes Add papers fail.",
+      "zh": "BibTeX 花括号字段中多出的 \"（Zotero 会这样写）不会再导致后面的条目全部消失，也不会让添加论文失败。"
+    },
+    {
+      "en": "In the AI assistant, the conversation scrolls with the pointer over a wide table.",
+      "zh": "在 AI 助手中，指针停在宽表格上时也能滚动对话。"
+    },
+    {
+      "en": "A saved Fable choice uses Fable 5.1 when Claude Code is older than 2.1.321.",
+      "zh": "Claude Code 版本低于 2.1.321 时，已保存的 Fable 选择会使用 Fable 5.1。"
+    }
+  ]
+}
