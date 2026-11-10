@@ -4,6 +4,9 @@ import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
+import {
+  documentSpellingLanguage, installDictionary, onDictionaryInstalled, reportUnavailableLanguage, spellingLanguageName,
+} from "./document-spelling";
 import { grammarFinding, loadGrammarRuleCatalog } from "./grammar-rule-text";
 import { grammarSettingsStore } from "./grammar-settings-store";
 
@@ -39,6 +42,12 @@ type HarperDiagnosticOptions = {
   prose?: HarperProse;
   ignores?: GrammarIgnores;
   onIgnore?: IgnoreGrammar;
+  /**
+   * The code of the document's language when it is not English: its
+   * spelling is checked with that dictionary (`spelling_lint`) and Harper,
+   * whose English lints would flag every word, does not run.
+   */
+  language?: string;
 };
 
 /** The project dictionary, the grammar settings or the project's ignores changed: lint again. */
@@ -332,6 +341,8 @@ export function createHarperDiagnostic(input: {
   rule?: string;
   sentence?: string;
   onIgnore?: IgnoreGrammar;
+  /** What checked it: Harper, or a language's Hunspell dictionary. */
+  source?: string;
 }): Diagnostic {
   const actions: Action[] = input.suggestions.slice(0, 1).map(({ kind, replacement }) => ({
     name: kind === "remove"
@@ -370,7 +381,7 @@ export function createHarperDiagnostic(input: {
     from: input.from,
     to: input.to,
     severity: isSpellingKind(input.kind) ? "error" : "warning",
-    source: "Harper",
+    source: input.source ?? "Harper",
     message: input.message,
     // Read when the tooltip opens, so it follows the interface language.
     ...(rule && { renderMessage: () => renderHarperMessage(rule, input.message) }),
@@ -437,17 +448,26 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
   if (source.trim().length === 0) return [];
   try {
     const { prose, syntaxMask } = maskLatexForHarper(source);
+    const projectWords = normalizeProjectWords(options.projectWords ?? []);
+    const { language } = options;
     // A finding's tooltip names its rule in the interface language, from a
     // table loaded on first use; have it ready before the first tooltip.
-    void loadGrammarRuleCatalog();
+    if (!language) void loadGrammarRuleCatalog();
     // The engine is harper-core on the Rust side (src-tauri/src/harper.rs) —
-    // the same engine harper.js wrapped, but off the WebView thread entirely.
+    // the same engine harper.js wrapped, but off the WebView thread entirely —
+    // or, for another language, its Hunspell dictionary (src-tauri/src/spelling).
     // Masking stays here so spans keep matching the document.
-    const lints = await invoke<HarperLintResult[]>("harper_lint", {
-      text: prose,
-      projectWords: normalizeProjectWords(options.projectWords ?? []),
-      options: harperOptions(options.prose ?? "latex", options.ignores?.rules ?? []),
-    });
+    const lints = language
+      ? await invoke<HarperLintResult[]>("spelling_lint", { code: language, text: prose, projectWords })
+      : await invoke<HarperLintResult[]>("harper_lint", {
+        text: prose,
+        projectWords,
+        options: harperOptions(options.prose ?? "latex", options.ignores?.rules ?? []),
+      });
+    // Harper reads Latin letters only; a dictionary reads its own script.
+    const letter = language ? /\p{L}/u : /[A-Za-z]/;
+    const word = language ? /^\p{L}[\p{L}\p{M}'’.-]*$/u : /^[A-Za-z][A-Za-z'’-]*$/;
+    const languageName = language ? spellingLanguageName(language) : "";
     const ignoredSentences = new Set(options.ignores?.sentences ?? []);
     return lints.flatMap((lint) => {
       const from = Math.max(0, Math.min(source.length, lint.start));
@@ -457,18 +477,21 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
       // can interpret a long masked command as excessive whitespace. Ignore
       // every lint that touches hidden LaTeX syntax; prose-only spans still map
       // directly to the original document.
-      if (to <= from || !/[A-Za-z]/.test(problem) || syntaxMask.slice(from, to).some(Boolean)) return [];
+      if (to <= from || !letter.test(problem) || syntaxMask.slice(from, to).some(Boolean)) return [];
       const sentence = grammarSentenceKey(source.slice(lint.sentenceStart, lint.sentenceEnd));
       if (ignoredSentences.has(sentence)) return [];
       return [createHarperDiagnostic({
         from,
         to,
-        message: lint.message,
+        message: language ? i18n._(msg`“${problem}” isn't in the ${languageName} dictionary`) : lint.message,
         kind: lint.kind,
         suggestions: lint.suggestions,
-        projectWord: isSpellingKind(lint.kind) && /^[A-Za-z][A-Za-z'’-]*$/.test(problem) ? problem : undefined,
+        projectWord: isSpellingKind(lint.kind) && word.test(problem) ? problem : undefined,
         onAddProjectWord: options.onAddProjectWord,
-        rule: lint.rule,
+        // A rule names a Harper finding in the interface language.
+        rule: language ? undefined : lint.rule,
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- the engine's name, like "Harper"
+        source: language ? "Hunspell" : undefined,
         sentence: sentence || undefined,
         onIgnore: options.onIgnore,
       })];
@@ -521,30 +544,56 @@ export function harperLintWindow(view: EditorView): { from: number; to: number }
   };
 }
 
-/** Lints every open editor again when the writer changes a grammar setting. */
-const grammarSettingsListener = ViewPlugin.define((view) => ({
-  destroy: grammarSettingsStore.subscribe((next, previous) => {
+/**
+ * Lints every open editor again when the writer changes a grammar setting,
+ * and when a language's dictionary finishes downloading.
+ */
+const grammarSettingsListener = ViewPlugin.define((view) => {
+  const relint = () => view.dispatch({ effects: harperConfigChanged.of(null) });
+  const unsubscribeSettings = grammarSettingsStore.subscribe((next, previous) => {
     if (next.dialect === previous.dialect && next.profile === previous.profile && next.rules === previous.rules) return;
-    view.dispatch({ effects: harperConfigChanged.of(null) });
-  }),
-}));
+    relint();
+  });
+  const unsubscribeDictionaries = onDictionaryInstalled(relint);
+  return {
+    destroy() {
+      unsubscribeSettings();
+      unsubscribeDictionaries();
+    },
+  };
+});
 
-/** Harper prose diagnostics for an editor, reading the project dictionary and ignores live. */
+/**
+ * Prose diagnostics for an editor, reading the project dictionary and ignores
+ * live: Harper's, or for a LaTeX document at `path` written in another
+ * language, that language's spelling.
+ */
 export function harperSpellcheck(live?: {
   current: {
+    projectRoot?: string;
     spellingWords: string[];
     onAddSpellingWord?: AddProjectWord;
     grammarIgnores?: GrammarIgnores;
     onIgnoreGrammar?: IgnoreGrammar;
   };
-}, prose: HarperProse = "latex"): Extension {
+}, prose: HarperProse = "latex", path?: string): Extension {
   return [grammarSettingsListener, linter(async (view) => {
     const data = live?.current;
     const onAdd = data?.onAddSpellingWord;
     const window = harperLintWindow(view) ?? { from: 0, to: view.state.doc.length };
     if (window.to <= window.from) return [];
+    const projectRoot = data?.projectRoot;
+    const language = prose === "latex" && projectRoot && path ? await documentSpellingLanguage(projectRoot, path) : null;
+    if (language && language.dictionary !== "installed") {
+      // Nothing is checked until the dictionary arrives (a download relints),
+      // and a language with none stays unchecked: never Harper's English.
+      if (language.dictionary === "missing") void installDictionary(language);
+      else reportUnavailableLanguage(language);
+      return [];
+    }
     const diagnostics = await harperDiagnostics(view.state.sliceDoc(window.from, window.to), {
       prose,
+      language: language?.code,
       ignores: data?.grammarIgnores,
       onIgnore: data?.onIgnoreGrammar,
       projectWords: data?.spellingWords ?? [],

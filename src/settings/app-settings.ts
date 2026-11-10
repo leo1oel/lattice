@@ -527,9 +527,9 @@ export function loadAppearance(): AppearanceSettings {
       proseLineHeight: normalizeLineHeight(value?.proseLineHeight, defaults.proseLineHeight),
       editorKeymap: oneOf(value?.editorKeymap, ["vim", "emacs"], defaults.editorKeymap),
       // Absent means "never chose", which now inherits the on-by-default
-      // behavior; only an explicit false keeps Harper quiet. Harper reports
-      // lints on Latin-letter spans only (see harper-spellcheck.ts), so
-      // non-English prose sees nothing from it.
+      // behavior; only an explicit false turns spell checking off. A LaTeX
+      // document in another language is checked with that language's
+      // dictionary instead of Harper (see document-spelling.ts).
       editorSpellcheck: value?.editorSpellcheck !== false,
       interfaceSounds: value?.interfaceSounds !== false,
       toastPosition: oneOf(value?.toastPosition, TOAST_POSITIONS, defaults.toastPosition),

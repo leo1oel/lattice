@@ -15,7 +15,7 @@ function search(query: string, hasProject = true, knownAuthorName: string | null
 describe("settings search", () => {
   it.each([
     ["sound", ["interface-sounds"]],
-    ["spell", ["spellcheck"]],
+    ["spell", ["spellcheck", "spelling-languages"]],
     ["keymap", ["editor-keymap"]],
     ["emacs", ["editor-keymap"]],
     ["xelatex", ["compile-engine"]],
@@ -53,7 +53,7 @@ describe("settings search", () => {
   it.each([
     ["提示音", ["interface-sounds"]],
     ["声音", ["interface-sounds"]],
-    ["拼写", ["spellcheck"]],
+    ["拼写", ["spellcheck", "spelling-languages"]],
     ["快捷键", ["editor-keymap"]],
     ["词库", ["project-dictionary"]],
     ["latexmkrc", ["compile-engine"]],

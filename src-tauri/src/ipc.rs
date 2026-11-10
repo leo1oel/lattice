@@ -17,6 +17,7 @@ pub(crate) mod overleaf_history;
 pub(crate) mod overleaf_realtime;
 pub(crate) mod papers;
 pub(crate) mod search;
+pub(crate) mod spelling;
 pub(crate) mod terminal;
 pub(crate) mod windows;
 pub(crate) mod workspace;

@@ -1,0 +1,336 @@
+{
+  "repository": "https://github.com/wooorm/dictionaries",
+  "revision": "8cfea406b505e4d7df52d5a19bce525df98c54ab",
+  "dictionaries": [
+    {
+      "code": "bg",
+      "folder": "bg",
+      "license": "(GPL-2.0 OR LGPL-2.1 OR MPL-1.1)",
+      "sizeKib": 1586,
+      "sha256": {
+        "index.aff": "cb6bfc56d6b1e70c812061086d7ec5ad6aaf6d35acd927a035f1cee0188ea477",
+        "index.dic": "44408b1ee50301e8f9a133b0ec92565bb8be49818c444d91821876d447f58906",
+        "license": "04f8571e50b57ddcd93e74416e1949325c899b902af36e83fa669b6205f56b2e"
+      }
+    },
+    {
+      "code": "ca",
+      "folder": "ca",
+      "license": "(GPL-2.0 OR LGPL-2.1)",
+      "sizeKib": 2857,
+      "sha256": {
+        "index.aff": "bfc7d8412c9450ec63e00d13f2153191a11d04868b14d51cf6c50eace71efdb2",
+        "index.dic": "e272aeff4b2d1a92b428a22b52c685292d04936e34dfe7786e27539175cbef2e",
+        "license": "0287b97b6dc8932f58d8d91dc8364aa0be78d6800517875a76624af7cc92782b"
+      }
+    },
+    {
+      "code": "cs",
+      "folder": "cs",
+      "license": "GPL-2.0",
+      "sizeKib": 3672,
+      "sha256": {
+        "index.aff": "175e02acb4786042a9c87e3cb6d3746e3a5b3079752118c2d4f0bb2c756ce72b",
+        "index.dic": "bbc0a495671c29337279182799e171c173a21ae8968c89dd0fb7c713b40c7832",
+        "license": "1bd9054040365c2c749565d791dc8fb1659a2566996c57b1f85031f6489c4b84"
+      }
+    },
+    {
+      "code": "cy",
+      "folder": "cy",
+      "license": "LGPL-3.0",
+      "sizeKib": 875,
+      "sha256": {
+        "index.aff": "757c350b84889c4d0711c93760509fe532863079262695c069550f9a9c1c5222",
+        "index.dic": "ef8f01db311cf17c617377d22b11f6752b01c65f5457820cc04d877bba6b92ff",
+        "license": "a36169950f39f4286fc7f941f48518ffba734b3e95de78356833c7ccd58ea2b2"
+      }
+    },
+    {
+      "code": "de",
+      "folder": "de",
+      "license": "(GPL-2.0 OR GPL-3.0)",
+      "sizeKib": 1110,
+      "sha256": {
+        "index.aff": "57fdd1b16aac2131003c91e0cf2a488becb970382a402a9ce089307301cb3ef0",
+        "index.dic": "b5c781a0cf6f285fb6b9b8ab02fbea104b987104a1efdda8a835837e89e3ec77",
+        "license": "03abf202c6e207d41f054083cafccbb174a30f6b330ea8dba3aeef0a279cb83e"
+      }
+    },
+    {
+      "code": "de-AT",
+      "folder": "de-AT",
+      "license": "(GPL-2.0 OR GPL-3.0)",
+      "sizeKib": 1114,
+      "sha256": {
+        "index.aff": "04ebc966a0b1130d8fc62886bb801e77bf7d6a11accf205954c364d3c0c68864",
+        "index.dic": "02cbbeb74af85497b861b5782413b6c8c8ffab5c9423ef2e92265599b9359870",
+        "license": "03abf202c6e207d41f054083cafccbb174a30f6b330ea8dba3aeef0a279cb83e"
+      }
+    },
+    {
+      "code": "de-CH",
+      "folder": "de-CH",
+      "license": "(GPL-2.0 OR GPL-3.0)",
+      "sizeKib": 1112,
+      "sha256": {
+        "index.aff": "11d773a903ece02c71b5094d71dcf3afe27cad0383cfe063fddbde26b8443785",
+        "index.dic": "abb1abcc1951abba255d4e6289e5d44293338ae29d1331dea16c75bd89a43e1c",
+        "license": "03abf202c6e207d41f054083cafccbb174a30f6b330ea8dba3aeef0a279cb83e"
+      }
+    },
+    {
+      "code": "el",
+      "folder": "el",
+      "license": "(GPL-2.0 OR LGPL-2.1 OR MPL-1.1)",
+      "sizeKib": 18986,
+      "sha256": {
+        "index.aff": "5d2e3580af6d3523ac4470335a4b05968e59dddc58e1a7f2b260c81342e80063",
+        "index.dic": "f08daefb302600beb1b345e4fd77f4ecf6617aa080a72efe6ae7eec0ad5b2ac7",
+        "license": "53970cbce0276c3cc4ba4fff842789e95fb167458d257568faa0ff5f68ffe61a"
+      }
+    },
+    {
+      "code": "eo",
+      "folder": "eo",
+      "license": "GPL-2.0",
+      "sizeKib": 389,
+      "sha256": {
+        "index.aff": "a668bb25baccb39a758692a94325c47195a70fe723fe9875d1b3a3b4545412a5",
+        "index.dic": "75b09812254cd6b49c2849ed3b92f1c252117906f5a2ce281d25e1798c437ac1",
+        "license": "e6d6a009505e345fe949e1310334fcb0747f28dae2856759de102ab66b722cb4"
+      }
+    },
+    {
+      "code": "es",
+      "folder": "es",
+      "license": "(GPL-3.0 OR LGPL-3.0 OR MPL-1.1)",
+      "sizeKib": 852,
+      "sha256": {
+        "index.aff": "892039d59db11d747061b81c3a92a52d48ba0e055b5835af1943cbd3c2fba85b",
+        "index.dic": "907f786a8ceb3456722b20ad91dd4dbe99c5c16e45015ea63155e36f26b06d2c",
+        "license": "a21581497f07b5e550e438d26890ea2b1704492357de67740613bd589b1c652a"
+      }
+    },
+    {
+      "code": "fr",
+      "folder": "fr",
+      "license": "MPL-2.0",
+      "sizeKib": 1395,
+      "sha256": {
+        "index.aff": "05a735d34c912e4e381ff08ee7c747923ccf5cf9dca81d8467982fa1ca51c2b7",
+        "index.dic": "984e933237bc1224a48f42828233be9b03228260ef67aa8e2bdddcd03a26230d",
+        "license": "0c785aebc7aae8aa00b8163e9b3219a8785a9900b71e85475204e48a5651ced4"
+      }
+    },
+    {
+      "code": "ga",
+      "folder": "ga",
+      "license": "GPL-2.0",
+      "sizeKib": 1565,
+      "sha256": {
+        "index.aff": "1c48edbeb0e4225e612bb92d21f819fec58c9121b236db5ac0bba458982623b7",
+        "index.dic": "3ca59ca30da8875020f83697d9f817d44b4efa02d78fe9fb52a2c5a86527349d",
+        "license": "37b50f1f97cae81339300b3d69f412f4ebb952b9f5ff09c66a3bccbd0ad57e36"
+      }
+    },
+    {
+      "code": "hr",
+      "folder": "hr",
+      "license": "(LGPL-2.1 OR SISSL)",
+      "sizeKib": 809,
+      "sha256": {
+        "index.aff": "230a7f0ca65159ecf8f3eea4afd79f7436415e83129b1d6b2424892074d8194d",
+        "index.dic": "fb436f3a758cd4faf9ef4cd5c2e6e2a1e3abe535ee183095a2f59fd18dad0731",
+        "license": "4edabc6989973eea67423ff9dedd133b33d032a09d821c70acaa43f49184e96c"
+      }
+    },
+    {
+      "code": "hu",
+      "folder": "hu",
+      "license": "(GPL-2.0 OR LGPL-2.1 OR MPL-1.1)",
+      "sizeKib": 3868,
+      "sha256": {
+        "index.aff": "da5cecde3c1afb67990030f1ffe8fb9859983c9305fc207abeb5475f8f002237",
+        "index.dic": "3ac7aa0a100cabadddb4ace6c72ea3dcd6a5535aef63c8bf94f14073a71decd5",
+        "license": "28df62764d790d0b4dd322a517f5a468f952ba03b9ea6ff5c18a45d0f2faf2d9"
+      }
+    },
+    {
+      "code": "is",
+      "folder": "is",
+      "license": "CC-BY-SA-3.0",
+      "sizeKib": 2699,
+      "sha256": {
+        "index.aff": "0168050c64a369c55b5aeb61f9dfe484d2aa7512d78bb3fa36779ea24b467c50",
+        "index.dic": "8447594fd7eb1d6d43725c4ca49b00d3f00c4c4f3ac2f2b6dfe3f56eb211d280",
+        "license": "a953a7bd6a7e45caf78dfff9ccce6a9f1e3ea2c2808ad88af28cce3890fad875"
+      }
+    },
+    {
+      "code": "it",
+      "folder": "it",
+      "license": "GPL-3.0",
+      "sizeKib": 1333,
+      "sha256": {
+        "index.aff": "5770cd3e16d494c045b4a9a4a9fcd7962577e642d0384a7129c020a12cdd2c79",
+        "index.dic": "b1348fbdb6f441ea9dd7e33b2cfcb96ead39ccd5e48bf894972774cd5aa86abb",
+        "license": "e48a7f7b3ec37ebb2c0d625528a7a677818de039bbae43e8f2c1dce6fd2a13e6"
+      }
+    },
+    {
+      "code": "lt",
+      "folder": "lt",
+      "license": "BSD-3-Clause",
+      "sizeKib": 1250,
+      "sha256": {
+        "index.aff": "79c6f8304490d1c8b27ec93e509b2f635d9bb21d45a2d41c15162b18c8ff897c",
+        "index.dic": "a751750b040623cf408cf1a3b6f6336141b55ac9519e54068dbeaa52eb395ccd",
+        "license": "c5c73b4e3743ed2b959c70e886c4acee20d8654002ccdabac0a51af977ee2a17"
+      }
+    },
+    {
+      "code": "lv",
+      "folder": "lv",
+      "license": "LGPL-2.1",
+      "sizeKib": 1929,
+      "sha256": {
+        "index.aff": "a11f646c6905d6c96f3218ada4a6cf84129c9e6169720ac1a17f1707940a2890",
+        "index.dic": "bf7d054e28bc5e44df19410f3ed9d5fd8d6a4d8c051676650388c4e8d65c3148",
+        "license": "9bfd51d5240995d95fe159be73bd34369dd9b97efc501118fd675e46c6089bdb"
+      }
+    },
+    {
+      "code": "nb",
+      "folder": "nb",
+      "license": "GPL-2.0",
+      "sizeKib": 5241,
+      "sha256": {
+        "index.aff": "515a1e5f32ffa555d253c827830420dc5bb1d9a59ea9f720729acb0874c6a8c3",
+        "index.dic": "e97fdf7f441b3c46e1d0761a8ad25fa1883d0977d70ea8cb04751cb1c47fa10e",
+        "license": "583b1f60fd05cd7dec21293ebfb1f9f1d5b50d217521ef4f76287b50f2824770"
+      }
+    },
+    {
+      "code": "nl",
+      "folder": "nl",
+      "license": "(BSD-3-Clause OR CC-BY-3.0)",
+      "sizeKib": 2476,
+      "sha256": {
+        "index.aff": "b430d9cf5f4170d9e5072397927e1402b34aa877d1f4c8fbc00dab6370d87312",
+        "index.dic": "be192fdc36efd39dde0fb9a5a113143e0a906782e81ed68a74a710edced378d0",
+        "license": "fd9e95c360245eab3c388885062820754785faa4123964994cfdecb950b71948"
+      }
+    },
+    {
+      "code": "nn",
+      "folder": "nn",
+      "license": "GPL-2.0",
+      "sizeKib": 3273,
+      "sha256": {
+        "index.aff": "e50821655063f5680a3e4cf775b0a69c87de74bd6d2bbbb5da14ff8de4633beb",
+        "index.dic": "eaf1dc7ee7c848358df9aa231640b054ca4e388f2a870185528e4b229626faa6",
+        "license": "85fbc8cb7925ce44e34d5c6a96abf2a8a45c4a66ab542044a6c827a44af9c526"
+      }
+    },
+    {
+      "code": "pl",
+      "folder": "pl",
+      "license": "(GPL-3.0 OR LGPL-3.0 OR MPL-2.0)",
+      "sizeKib": 4836,
+      "sha256": {
+        "index.aff": "de7b54a8fa37562d58b481cf3d87a63e3dcc2d74021f6403eb0e4f5df9ecc225",
+        "index.dic": "74b6155391025419967c26913541b55b36d58e80b1028037d4a0b8ddcb18d0b7",
+        "license": "8bb92c291eb431ffe32f7c42a719a0b54acf2851690fe12ca292e248a12a37e6"
+      }
+    },
+    {
+      "code": "pt-BR",
+      "folder": "pt",
+      "license": "(LGPL-3.0 OR MPL-2.0)",
+      "sizeKib": 5329,
+      "sha256": {
+        "index.aff": "a9f3621b94eb4d6838474bf9982027758e77dcb248815f49409b1a4a477dbd27",
+        "index.dic": "32e2edd83541d58613bcc83ef731a79aadf85ed57e977a16c6b5f711a7a36cee",
+        "license": "bb064f3db7ba5f5536da7d079773f692c5f928822e8aebc3d78259ff6cceb9e5"
+      }
+    },
+    {
+      "code": "pt-PT",
+      "folder": "pt-PT",
+      "license": "(GPL-2.0 OR LGPL-2.1 OR MPL-1.1)",
+      "sizeKib": 1533,
+      "sha256": {
+        "index.aff": "975a209fcc892cb382fa5f34a28c391a39668661ce373ae071287809c5fcae24",
+        "index.dic": "fcac21564163586df74ba88cde362bb75560548b35bcaa780558c8f97f43de04",
+        "license": "a5d807381c41a7186b235f17cdf472f53d83831cb05a2bae3c44581cc818570c"
+      }
+    },
+    {
+      "code": "ro",
+      "folder": "ro",
+      "license": "(GPL-2.0 OR LGPL-2.1 OR MPL-1.1)",
+      "sizeKib": 2204,
+      "sha256": {
+        "index.aff": "3ee127a667bdec829faee546ae32033e8f10f7c63117f9b572ef03ad9df2b76b",
+        "index.dic": "c26a9356f598a0ae89e7be650f6bdd9ba70acce66b41d7ab14c0c68639b6ed33",
+        "license": "854c3b7e6575da37d066d5a09945af336a8ecc62c5e3c1049e97504dc67cbd81"
+      }
+    },
+    {
+      "code": "ru",
+      "folder": "ru",
+      "license": "BSD-3-Clause",
+      "sizeKib": 3461,
+      "sha256": {
+        "index.aff": "38ce7d4af78e211e9bafe4bf7e3d6a2c420591136cb738ec6648f8fdf6524cd7",
+        "index.dic": "f6047416a0204adbecf3a451b874ec8a97ee37e2cbc714466ef04d8dbcc0d6fc",
+        "license": "262af2f6ad70a61e5ee1332ff44fa8ee50edca819cf33207d8ad6ba6a0c9be52"
+      }
+    },
+    {
+      "code": "sk",
+      "folder": "sk",
+      "license": "(GPL-2.0 OR LGPL-2.1 OR MPL-1.1)",
+      "sizeKib": 3517,
+      "sha256": {
+        "index.aff": "a79dc992b849aa2355db38eea9c4722239993639d77bc81c9c1aa79f213e723c",
+        "index.dic": "b6cdb6fb512c44881cc91329aea0b179840f5f9a3e6cb024c2ab8547f96f5d94",
+        "license": "04903300e57a64a9967f85cdc65038470165b56bd34843e161f89d1fb9bcc0cd"
+      }
+    },
+    {
+      "code": "sl",
+      "folder": "sl",
+      "license": "(GPL-3.0 OR LGPL-2.1)",
+      "sizeKib": 3026,
+      "sha256": {
+        "index.aff": "511043a4f9c64a966599e3d53fa1f4e9a172a87de4a7a0c2cf327098a3a605d1",
+        "index.dic": "5bac615dbd301ddbefbdaafdae242a89e46605916d77958df22778e770a95b9e",
+        "license": "80e3fb8a78bf7c3cf1c76679ff1f11d4cb100440c9362553636b02edca005eb8"
+      }
+    },
+    {
+      "code": "sv",
+      "folder": "sv",
+      "license": "LGPL-3.0",
+      "sizeKib": 2307,
+      "sha256": {
+        "index.aff": "ff8ddb979daa9f128e7489ece5edd666ada7af787933221543b7cecb2b3ed478",
+        "index.dic": "540ff8d0d9b05aae66dd919625d3a0bd25026d1e157027e6602e5dd11a07b645",
+        "license": "1314b6004bff32053ca25aca5fc419e905d75a6d49f9f9825baf4f02298af6d9"
+      }
+    },
+    {
+      "code": "uk",
+      "folder": "uk",
+      "license": "GPL-3.0",
+      "sizeKib": 8492,
+      "sha256": {
+        "index.aff": "4243327a3aa19c6db5a4fb2e0c4e3eba6ad26e7ccb8a3f4e634c28d9a2d18956",
+        "index.dic": "48cbe32567a2c3c98f83d437bcd84ad3c11310e9df4d6c15d888b1e67654be31",
+        "license": "d62f065830aa3739cc031156b9690805c7b2e811b4a178c8b4acd8725d561c94"
+      }
+    }
+  ]
+}
