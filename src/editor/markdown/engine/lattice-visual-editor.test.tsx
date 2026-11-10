@@ -168,6 +168,24 @@ describe("Lattice visual Markdown editor", () => {
     expect(within(composer).getByRole("textbox", { name: "Comment" })).toHaveValue("Clarify.");
   });
 
+  // Each report re-renders App; a drag changes the selection on every move (#777).
+  it("reports a selection being dragged out once, when the press ends", () => {
+    const onCaretChange = vi.fn();
+    const onSelectionMarkdown = vi.fn();
+    const { editor } = renderEditor({ text: "Hello world\n", onCaretChange, onSelectionMarkdown });
+    fireEvent.pointerDown(surface(), { button: 0 });
+    for (const to of [3, 6, 9]) {
+      act(() => {
+        editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, to)));
+      });
+    }
+    expect(onSelectionMarkdown).not.toHaveBeenCalled();
+    expect(onCaretChange).not.toHaveBeenCalled();
+    fireEvent.pointerUp(window);
+    expect(onSelectionMarkdown).toHaveBeenCalledExactlyOnceWith("Hello wo");
+    expect(onCaretChange).toHaveBeenCalledExactlyOnceWith(0, 8);
+  });
+
   it("keeps a read-only document read-only", () => {
     renderEditor({ text: "Hello\n", editable: false });
     expect(surface().getAttribute("contenteditable")).toBe("false");

@@ -1,0 +1,86 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 0fb53bd177b2ba028c445574bc40134f3686e555..6c9dc45a7af7e96d8d1de679c9319afbc3e09583 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -4800,19 +4800,33 @@ class MouseSelection {
+         doc.removeEventListener("mouseup", this.up);
+         this.view.inputState.mouseSelection = this.view.inputState.draggedContent = null;
+     }
++    // Lattice: scroll every frame, as far as the 50 ms steps went in the
++    // time since the last one. Stepping 20 times a second made a selection
++    // dragged past the edge judder, worst on a 120 Hz display.
+     setScrollSpeed(sx, sy) {
+         this.scrollSpeed = { x: sx, y: sy };
+         if (sx || sy) {
+-            if (this.scrolling < 0)
+-                this.scrolling = setInterval(() => this.scroll(), 50);
++            if (this.scrolling < 0) {
++                this.lastScroll = -1;
++                this.scrollCarry = { x: 0, y: 0 };
++                this.scrolling = this.view.win.requestAnimationFrame(time => this.scrollFrame(time));
++            }
+         }
+         else if (this.scrolling > -1) {
+-            clearInterval(this.scrolling);
++            this.view.win.cancelAnimationFrame(this.scrolling);
+             this.scrolling = -1;
+         }
+     }
+-    scroll() {
+-        let { x, y } = this.scrollSpeed;
++    scrollFrame(time) {
++        let elapsed = this.lastScroll < 0 ? 1000 / 60 : Math.min(100, time - this.lastScroll);
++        this.lastScroll = time;
++        this.scrolling = this.view.win.requestAnimationFrame(time => this.scrollFrame(time));
++        // Whole pixels, the rest carried to the next frame.
++        let carry = this.scrollCarry, x = carry.x + this.scrollSpeed.x * elapsed / 50, y = carry.y + this.scrollSpeed.y * elapsed / 50;
++        this.scrollCarry = { x: x - Math.trunc(x), y: y - Math.trunc(y) };
++        this.scroll(Math.trunc(x), Math.trunc(y));
++    }
++    scroll(x, y) {
+         if (x && this.scrollParents.x) {
+             this.scrollParents.x.scrollLeft += x;
+             x = 0;
+diff --git a/dist/index.js b/dist/index.js
+index 2507607388dd6f50deabe6b13133a3583103ac11..eb8c67e6507d85fb87a28cb089afb26ec75a4d27 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -4796,19 +4796,33 @@ class MouseSelection {
+         doc.removeEventListener("mouseup", this.up);
+         this.view.inputState.mouseSelection = this.view.inputState.draggedContent = null;
+     }
++    // Lattice: scroll every frame, as far as the 50 ms steps went in the
++    // time since the last one. Stepping 20 times a second made a selection
++    // dragged past the edge judder, worst on a 120 Hz display.
+     setScrollSpeed(sx, sy) {
+         this.scrollSpeed = { x: sx, y: sy };
+         if (sx || sy) {
+-            if (this.scrolling < 0)
+-                this.scrolling = setInterval(() => this.scroll(), 50);
++            if (this.scrolling < 0) {
++                this.lastScroll = -1;
++                this.scrollCarry = { x: 0, y: 0 };
++                this.scrolling = this.view.win.requestAnimationFrame(time => this.scrollFrame(time));
++            }
+         }
+         else if (this.scrolling > -1) {
+-            clearInterval(this.scrolling);
++            this.view.win.cancelAnimationFrame(this.scrolling);
+             this.scrolling = -1;
+         }
+     }
+-    scroll() {
+-        let { x, y } = this.scrollSpeed;
++    scrollFrame(time) {
++        let elapsed = this.lastScroll < 0 ? 1000 / 60 : Math.min(100, time - this.lastScroll);
++        this.lastScroll = time;
++        this.scrolling = this.view.win.requestAnimationFrame(time => this.scrollFrame(time));
++        // Whole pixels, the rest carried to the next frame.
++        let carry = this.scrollCarry, x = carry.x + this.scrollSpeed.x * elapsed / 50, y = carry.y + this.scrollSpeed.y * elapsed / 50;
++        this.scrollCarry = { x: x - Math.trunc(x), y: y - Math.trunc(y) };
++        this.scroll(Math.trunc(x), Math.trunc(y));
++    }
++    scroll(x, y) {
+         if (x && this.scrollParents.x) {
+             this.scrollParents.x.scrollLeft += x;
+             x = 0;

@@ -47,6 +47,17 @@
       "renders": 6,
       "hooks": 14
     },
+    "source-select-drag": {
+      "commits": 8,
+      "renders": 737,
+      "hooks": 3562,
+      "mutations": 398
+    },
+    "source-scroll-selected": {
+      "commits": 17,
+      "renders": 28,
+      "hooks": 1708
+    },
     "markdown-preview-scroll": {},
     "compile": {
       "commits": 13,

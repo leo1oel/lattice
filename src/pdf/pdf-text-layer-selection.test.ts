@@ -20,6 +20,21 @@ import {
 
 import { AGENT_ENTRY_ATTRIBUTE } from "../agent/agent-entry";
 import { sourceQuoteDomRange } from "../papers/source-quote";
+import {
+  glyphLayer,
+  HELLO_BOX,
+  WIDE_BOX,
+  mockGlyphBox,
+  withSelection,
+  pointerDown,
+  pointerUp,
+  modifierKey,
+  selectRange,
+  selectGlyph,
+  dragSelect,
+  markBox,
+  sentinelLayer,
+} from "./pdf-text-layer-test-utils";
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn(async () => undefined),
@@ -28,82 +43,6 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async () => undefined),
 }));
-
-function glyphLayer(...words: string[]) {
-  const layer = document.createElement("div");
-  layer.className = "textLayer pdf-text-layer";
-  const spans = words.map((word) => {
-    const span = document.createElement("span");
-    span.textContent = word;
-    layer.append(span);
-    return span;
-  });
-  document.body.append(layer);
-  return { layer, spans };
-}
-
-type Box = { left: number; top: number; right: number; bottom: number };
-const HELLO_BOX: Box = { left: 10, top: 10, right: 40, bottom: 22 };
-const WIDE_BOX: Box = { left: 10, top: 10, right: 80, bottom: 22 };
-
-function mockGlyphBox(span: HTMLElement, box: Box) {
-  const rect = { ...box, width: box.right - box.left, height: box.bottom - box.top, x: box.left, y: box.top, toJSON() { return this; } };
-  span.getBoundingClientRect = () => rect as DOMRect;
-  span.getClientRects = () => [rect] as unknown as DOMRectList;
-}
-
-/** Install selection on `layer` for the duration of `run`. */
-async function withSelection(layer: HTMLElement, run: () => void | Promise<void>) {
-  const uninstall = installPdfTextLayerSelection(layer, layer);
-  try {
-    await run();
-  } finally {
-    uninstall();
-  }
-}
-
-/** A primary-button press inside HELLO_BOX / WIDE_BOX. */
-const pointerDown = (target: EventTarget) => target.dispatchEvent(new PointerEvent("pointerdown", {
-  bubbles: true, cancelable: true, button: 0, clientX: 20, clientY: 16,
-}));
-const pointerUp = () => document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
-const modifierKey = (key: string) => new KeyboardEvent("keydown", { key, metaKey: true, bubbles: true, cancelable: true });
-
-function selectRange(range: Range) {
-  document.getSelection()?.removeAllRanges();
-  document.getSelection()?.addRange(range);
-}
-
-function selectGlyph(span: HTMLElement) {
-  const range = document.createRange();
-  range.selectNodeContents(span);
-  Object.defineProperty(range, "getClientRects", { value: () => [] as unknown as DOMRectList });
-  selectRange(range);
-}
-
-/** Press on `span`, select all of its text, and release: a completed drag over one glyph. */
-function dragSelect(span: HTMLElement) {
-  pointerDown(span);
-  const range = document.createRange();
-  range.selectNodeContents(span);
-  selectRange(range);
-  pointerUp();
-}
-
-/** A highlight mark's box in px of a `width`×`height` layer. */
-function markBox({ style }: HTMLElement, width: number, height: number) {
-  const px = (value: string, size: number) => Math.round(Number.parseFloat(value) * size / 100 * 1000) / 1000;
-  expect([style.left, style.top, style.width, style.height].every((value) => value.endsWith("%"))).toBe(true);
-  return { left: px(style.left, width), top: px(style.top, height), width: px(style.width, width), height: px(style.height, height) };
-}
-
-function sentinelLayer(...words: string[]) {
-  const { layer, spans } = glyphLayer(...words);
-  const end = document.createElement("div");
-  end.className = "endOfContent";
-  layer.append(end);
-  return { spans, end, layers: new Map<HTMLElement, HTMLElement>([[layer, end]]) };
-}
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -533,6 +472,29 @@ describe("PDF selection on the way to the Agent", () => {
   // A project PDF open as a document sits beside the compiled preview: each
   // must report only its own selection, or the Agent is told the document's
   // text came from the preview (and its page).
+  // Each report re-renders App; a drag changes the selection on every move (#777).
+  it("reports a selection being dragged out once, when the press ends", async () => {
+    const preview = document.createElement("div");
+    const { layer, spans } = glyphLayer("Compiled text");
+    preview.append(layer);
+    document.body.append(preview);
+    mockGlyphBox(spans[0]!, WIDE_BOX);
+    const onTextSelect = vi.fn();
+    await withSelection(layer, async () => {
+      const hook = renderHook(() => usePdfSelectionReport({ current: { root: preview } }, 1, { current: { onTextSelect } }));
+      pointerDown(spans[0]!);
+      for (let move = 0; move < 3; move += 1) {
+        selectGlyph(spans[0]!);
+        document.dispatchEvent(new Event("selectionchange"));
+      }
+      expect(onTextSelect).not.toHaveBeenCalled();
+      pointerUp();
+      await vi.waitFor(() => expect(onTextSelect).toHaveBeenCalledWith("Compiled text"));
+      expect(onTextSelect).toHaveBeenCalledOnce();
+      hook.unmount();
+    });
+  });
+
   it("reports a selection only from the viewer it was made in", async () => {
     const preview = document.createElement("div");
     const reader = document.createElement("div");

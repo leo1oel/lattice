@@ -34,6 +34,27 @@ describe("selectionToolbarPlacement", () => {
     expect(selectionToolbarPlacement(editor, "main.tex")).toBeNull();
   });
 
+  // A scroll with a selection held places it again every frame (#777).
+  it("reads the selection again only once it or the document changed", async () => {
+    const latexHighlights = await import("./latex-highlights");
+    const highlightAround = vi.spyOn(latexHighlights, "highlightAround");
+    const editor = sourceView("Hello \\hl{bold} world");
+    editor.dispatch({ selection: { anchor: 10, head: 14 } });
+    const shown = selectionToolbarPlacement(editor, "main.tex")!;
+    expect(shown.highlight).toBe("");
+    expect(highlightAround).toHaveBeenCalledOnce();
+    // Nothing moved: the same placement, so the toolbar does not render again.
+    expect(selectionToolbarPlacement(editor, "main.tex", shown)).toBe(shown);
+    vi.spyOn(editor, "coordsAtPos").mockImplementation(() => ({ left: 100, right: 150, top: 60, bottom: 80 }));
+    const scrolled = selectionToolbarPlacement(editor, "main.tex", shown)!;
+    expect(scrolled.position.top).toBe(52);
+    expect(scrolled.highlight).toBe("");
+    expect(highlightAround).toHaveBeenCalledOnce();
+    editor.dispatch({ selection: { anchor: 0, head: 5 } });
+    expect(selectionToolbarPlacement(editor, "main.tex", scrolled)).toMatchObject({ from: 0, to: 5, highlight: null });
+    expect(highlightAround).toHaveBeenCalledTimes(2);
+  });
+
   it("stays hidden while an input method composes over a selected range", () => {
     const editor = sourceView("Hello world");
     editor.dispatch({ selection: { anchor: 5 } });

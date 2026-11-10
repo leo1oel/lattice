@@ -17,8 +17,8 @@ import { wrapEnvironment } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
-import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES } from "../editor/latex/latex-selection-toolbar";
-import { openRewriteMenu, selectionToolbarPlacement, type SelectionToolbarPlacement } from "../editor/latex/selection-toolbar-placement";
+import { LatexSelectionToolbar } from "../editor/latex/latex-selection-toolbar";
+import { openRewriteMenu } from "../editor/latex/selection-toolbar-placement";
 import { documentHighlightColors } from "../editor/latex/latex-highlights";
 import { applySourceSelectionEdit, editAndFocus, type SourceSelectionAction } from "./source-selection-edits";
 import { MarkdownSourceToolbar } from "./markdown-source-toolbar";
@@ -39,7 +39,7 @@ import {
   markdownFrontmatterEnd, PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
 import type { AgentHostSurface } from "../agent/agent-host-context";
-import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
+import { frameCoalescer } from "../app/effect-helpers";
 import { useCommittedRef, useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
@@ -72,6 +72,7 @@ import { useBibUnreadable } from "./use-bib-readability";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
 import { useSourceSession } from "./use-source-session";
+import { useSelectionToolbar, useSelectionToolbarOnScreen } from "./use-selection-toolbar";
 import { usePaperPdf } from "./use-paper-pdf";
 import { followPaperSourceLink } from "./paper-source-link-click";
 import { reopenDiscardedNote } from "./reopen-discarded-note";
@@ -131,18 +132,11 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   // The newest props, current before the editor's own commit reads them.
   const latestRef = useCommittedRef(props);
   const [proofread] = useState(createProofreadBridge);
-  const [selectionToolbar, setSelectionToolbar] = useState<SelectionToolbarPlacement | null>(null);
-  const selectionToolbarOwnerRef = useRef<{ path: string; from: number; to: number } | null>(null);
-  const dismissSelectionToolbar = useCallback(() => {
-    selectionToolbarOwnerRef.current = null;
-    setSelectionToolbar(null);
-  }, []);
-  const updateSelectionToolbar = useCallback((view: EditorView, path: string) => {
-    const placement = selectionToolbarPlacement(view, path);
-    if (!placement) return dismissSelectionToolbar();
-    selectionToolbarOwnerRef.current = { path, from: placement.from, to: placement.to };
-    setSelectionToolbar(placement);
-  }, [dismissSelectionToolbar]);
+  const selectionToolbarState = useSelectionToolbar();
+  const {
+    placement: selectionToolbar, ownerRef: selectionToolbarOwnerRef, dismiss: dismissSelectionToolbar,
+    update: updateSelectionToolbar, follow: followSelectionToolbar,
+  } = selectionToolbarState;
   // Filled by Split's Markdown scroll coordinator or .bib reference list; the
   // source's updates poke it so cursor motion reveals what the cursor is in.
   const cursorRevealRef = useRef<(() => void) | null>(null);
@@ -154,19 +148,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       return numbers.length === 1 ? t`Annotation ${list}` : t`Annotations ${list}`;
     },
     onEditorUpdate: (update, path) => {
-      if (path) {
-        const { view } = update;
-        // Focus moving to another control (a tab, a panel, a command) hides
-        // the toolbar; its own menus and the link field keep it.
-        const focused = view.dom.ownerDocument.activeElement;
-        const focusLeft = update.focusChanged && focused && focused !== view.dom.ownerDocument.body
-          && !view.dom.contains(focused) && !focused.closest(SELECTION_TOOLBAR_SURFACES);
-        if (focusLeft) dismissSelectionToolbar();
-        // A dismissed toolbar stays dismissed until the selection changes. The
-        // blur that follows a click outside (which dismissed it) used to show
-        // it again, left floating over whatever panel replaced the editor.
-        else if (update.selectionSet || update.docChanged || selectionToolbarOwnerRef.current) updateSelectionToolbar(view, path);
-      }
+      if (path) followSelectionToolbar(update, path);
       cursorRevealRef.current?.();
     },
   });
@@ -342,18 +324,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   }, [activeFile, primaryViewRef, props.document.mode, props.document.source]);
 
 
-  useEffect(() => onLayoutChange(
-    [primaryViewRef.current?.dom.closest(".source-editor")],
-    () => {
-      const owner = selectionToolbarOwnerRef.current;
-      const view = primaryViewRef.current;
-      if (owner && view) updateSelectionToolbar(view, owner.path);
-    },
-  ), [activeFile, primaryViewRef, updateSelectionToolbar]);
-
-  // Switching files, or to a mode without a source editor, drops the selection toolbar.
-  const sourceEditorHidden = props.document.mode === "pdf" || props.document.mode === "asset";
-  useEffect(dismissSelectionToolbar, [activeFile, dismissSelectionToolbar, sourceEditorHidden]);
+  useSelectionToolbarOnScreen(selectionToolbarState, primaryViewRef, activeFile, props.document.mode === "pdf" || props.document.mode === "asset");
 
   useEffect(() => {
     if (!commentFocusRequest) return;
@@ -408,7 +379,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     }
     applySourceSelectionEdit(view, action, value);
     updateSelectionToolbar(view, owner.path);
-  }, [activeFile, dismissSelectionToolbar, latestRef, openCommentComposer, primaryViewRef, proofread, props.document.editorEditable, updateSelectionToolbar]);
+  }, [activeFile, dismissSelectionToolbar, latestRef, openCommentComposer, primaryViewRef, proofread, props.document.editorEditable, selectionToolbarOwnerRef, updateSelectionToolbar]);
 
   const closeCommentComposer = () => {
     setCommentComposer(null);

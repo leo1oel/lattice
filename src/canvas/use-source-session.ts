@@ -20,6 +20,7 @@ import type { AgentSelectionLines } from "../agent/agent-host-context";
 import { CommentCardHosts, setEditorCommentDraftEffect, setEditorCommentsEffect } from "../editor/comments/editor-comments";
 import { harperConfigChanged } from "../editor/harper-spellcheck";
 import { latexIndexChanged } from "../editor/latex/latex-editor";
+import { pointerSelecting, pointerSelectionSettled } from "../editor/pointer-selection";
 import { setOverleafCursorsEffect } from "../overleaf/overleaf-editor-extensions";
 import { isHarperProseFilePath } from "../app-utils";
 import { useCommittedRef } from "../hooks/use-latest-ref";
@@ -184,11 +185,20 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
         completionActiveRef.current = completionActive;
         latestRef.current.document.onCompletionActiveChange(completionActive);
       }
+      // A selection being dragged out is reported once, when the press ends
+      // (pointer-selection.ts): each report re-rendered App, and a drag past
+      // the edge makes one every autoscroll step (#777).
+      if (pointerSelecting(update.view)) return;
       const { state } = update;
       const range = state.selection.main;
-      const nextSelection = range.empty ? "" : state.sliceDoc(range.from, range.to);
-      latestRef.current.selection.setSelection(nextSelection, range.empty ? undefined : selectionLines(state.doc, range));
-      setSelectedText(nextSelection);
+      // Scrolling and remeasuring leave the selection as it was; a long one
+      // is not sliced again for every frame of a scroll. Focus coming back
+      // reclaims the Agent panel's selection from the PDF that took it.
+      if (update.selectionSet || update.docChanged || update.focusChanged || pointerSelectionSettled(update)) {
+        const nextSelection = range.empty ? "" : state.sliceDoc(range.from, range.to);
+        latestRef.current.selection.setSelection(nextSelection, range.empty ? undefined : selectionLines(state.doc, range));
+        setSelectedText(nextSelection);
+      }
       // The update listener outlives a file switch by a render: it answers for
       // the file the canvas shows now.
       const shownPath = latestRef.current.document.activeFile;

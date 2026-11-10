@@ -25,13 +25,14 @@ import { openMarkdownLink } from "../markdown-link-routing";
 import { markdownPreviewSyncPolicy } from "../markdown-preview-sync-policy";
 import { isPaperLibraryPath } from "../../../papers/paper-link";
 import { ProjectImageHostProvider } from "../project-image-host";
-import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
+import { DocumentHeadingRail } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps, VisualRevealTarget } from "../visual-editor-props";
 import { resolveCommentAnchor } from "../../comments/editor-comment-data";
 import { focusWhenShown } from "../../focus-when-shown";
 import { blockAnchors } from "./block-anchors";
 import { blockWindow, mayDrawInWindow, revealPosition, scrollToTarget } from "./block-window";
-import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings, type DocumentHeading } from "./heading-anchors";
+import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings } from "./heading-anchors";
+import { NO_HEADINGS, railHeadings, sameHeadings } from "./rail-headings";
 import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
 import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
@@ -42,6 +43,7 @@ import { SourceOverlays, buildOverlays, setOverlays } from "./source-overlays";
 import { REVEAL_FLASH_MS, RevealFlash, setRevealFlash } from "./reveal-flash";
 import { TableControls } from "./views/table-controls";
 import { EngineChrome, EngineFindBar, chromeExtensions, createChrome, type Chrome } from "./chrome/engine-chrome";
+import { watchPointerHold, type PointerHold } from "../../../lib/pointer-hold";
 import "./lattice-visual-editor.css";
 import "./lattice-visual-blocks.css";
 import "./lattice-visual-chrome.css";
@@ -91,6 +93,8 @@ type Host = {
   reported: { caret: string | null; selection: string | null };
   /** Clears the mark the last jump left. */
   revealTimer: ReturnType<typeof setTimeout> | null;
+  /** A press held in the document: a selection being dragged out is reported when it ends. */
+  pointerHold: PointerHold | null;
 };
 
 /**
@@ -522,25 +526,6 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
   };
 }
 
-const NO_HEADINGS: DocumentHeadingItem[] = [];
-
-const railCache = new WeakMap<readonly DocumentHeading[], DocumentHeadingItem[]>();
-
-/** The rail's items for the planned headings: the same array while the headings are the same. */
-function railHeadings(headings: readonly DocumentHeading[], size: number): DocumentHeadingItem[] {
-  let items = railCache.get(headings);
-  if (!items) {
-    items = headings
-      .filter((heading) => heading.id && !heading.generatedContents)
-      .map((heading) => ({ id: heading.id, label: heading.text, level: heading.level, position: heading.pos / Math.max(1, size) }));
-    railCache.set(headings, items);
-  }
-  return items;
-}
-
-const sameHeadings = (a: DocumentHeadingItem[] | null, b: DocumentHeadingItem[] | null) =>
-  a === b || (!!a && !!b && a.length === b.length && a.every((item, index) => item.id === b[index]!.id && item.label === b[index]!.label && item.level === b[index]!.level));
-
 /** What any view of a document needs: the engine's schema and its block views. */
 function readingExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard): AnyExtension[] {
   const views = engineNodeViews({ ime });
@@ -685,6 +670,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     map: null,
     reported: { caret: "", selection: "" },
     revealTimer: null,
+    pointerHold: null,
   });
   const [chrome] = useState(() => createChrome(props));
   // Extensions are read once, when the editor is created; labels are fixed then.
@@ -727,10 +713,23 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     editorProps,
     onTransaction: ({ transaction }) => {
       if (transaction.docChanged && !transaction.getMeta(CANONICAL) && host.current.baseline) schedulePublication(host.current);
-      if (transaction.selectionSet || transaction.docChanged) reportSelection(host.current);
+      if ((transaction.selectionSet || transaction.docChanged) && !host.current.pointerHold?.held()) reportSelection(host.current);
     },
   }, []);
   const editor = useMountedEditor(instance);
+
+  // Each report re-renders App, and a drag past the edge changes the selection
+  // every autoscroll step (#777): a dragged selection is reported once, on release.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    const current = host.current;
+    const hold = watchPointerHold(editor.view.dom, () => reportSelection(current));
+    current.pointerHold = hold;
+    return () => {
+      hold.dispose();
+      if (current.pointerHold === hold) current.pointerHold = null;
+    };
+  }, [editor]);
 
   // The section rail (R-BLK-13): the document's headings, less a generated paper Contents (R-BLK-14).
   const railItems = useEditorState({
