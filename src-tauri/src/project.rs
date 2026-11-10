@@ -31,7 +31,7 @@ mod annotations;
 mod archive;
 mod assets;
 mod bibliography;
-mod build_pdfs;
+mod build_pdf;
 mod citation_lookup;
 mod create;
 mod editable_figure;
@@ -76,7 +76,7 @@ pub(crate) use bibliography::{
     iter_bibliography_sources, normalize_doi, parse_bibliography, parse_bibliography_fields_raw,
     parse_bibliography_fields_syntax,
 };
-pub use build_pdfs::root_document_pdfs;
+pub use build_pdf::default_root_pdf;
 pub use citation_lookup::resolve_citation_query;
 pub use create::{create_tutorial, create_with_venue, Venue};
 pub use editable_figure::{

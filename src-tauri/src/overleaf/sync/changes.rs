@@ -239,7 +239,7 @@ fn fetch_with(
     }
     automatic_remote_deletes.sort();
     let left_out: Vec<String> = (entries.keys())
-        .filter(|path| excluded_in(&entries, path) || remote.build_pdfs.contains(path))
+        .filter(|path| excluded_in(&entries, path) || remote.build_pdf.is(path))
         .cloned()
         .collect();
     for path in left_out {

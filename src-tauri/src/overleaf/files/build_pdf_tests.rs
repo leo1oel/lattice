@@ -1,7 +1,8 @@
-//! A root document's PDF in a subfolder (`cvpr/main.tex` builds
+//! The default root document's PDF in a subfolder (`cvpr/main.tex` builds
 //! `cvpr/main.pdf`) is this copy's build, as `main.pdf` beside a top-level
 //! `main.tex` is: it never goes up, a collaborator's never comes down over
-//! it, and one an earlier sync agreed on is let go of on both sides.
+//! it, and one an earlier sync agreed on is let go of on both sides. Other
+//! root documents' PDFs sync like any other file.
 
 use crate::overleaf::sync::sync;
 use crate::overleaf::test_support::*;
@@ -15,11 +16,24 @@ use std::sync::Arc;
 const PAPER: &[u8] = b"\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n";
 const NO_LIVE: &BTreeSet<String> = &BTreeSet::new();
 
+/// The manifest `project::open` leaves once each of `roots` has been built,
+/// `default` being what Build compiles.
+fn set_roots(root: &Path, roots: &[&str], default: &str) {
+    let mut manifest = project::default_manifest("paper");
+    manifest.root_documents = (roots.iter())
+        .map(|path| crate::models::RootDocument {
+            path: path.to_string(),
+            name: String::new(),
+            is_default: *path == default,
+            chosen: false,
+        })
+        .collect();
+    project::write_manifest(root, &manifest).unwrap();
+}
+
 /// The manifest `project::open` leaves: `cvpr/main.tex` is what builds.
 fn compile_cvpr(root: &Path) {
-    let mut manifest = project::default_manifest("paper");
-    manifest.root_documents[0].path = "cvpr/main.tex".into();
-    project::write_manifest(root, &manifest).unwrap();
+    set_roots(root, &["cvpr/main.tex"], "cvpr/main.tex");
 }
 
 /// A sync of a `cvpr/main.tex` project, whose last sync agreed on `base`.
@@ -111,4 +125,59 @@ fn a_collaborators_pdf_added_on_overleaf_is_not_fetched() {
     assert_eq!(read_local(&root, "cvpr/main.pdf"), None);
     let downloads = server.recorded().iter().filter(|r| r.url.ends_with("/download/zip")).count();
     assert_eq!(downloads, 0, "fetched from the live tree, not downloaded");
+}
+
+/// `supplementary/supp.tex` was built here once, so it is a root document,
+/// but Build compiles `cvpr/main.tex`: the supplement's PDF is an input of
+/// the paper that collaborators on Overleaf cannot build, and it syncs.
+#[test]
+fn a_non_default_roots_pdf_syncs_both_ways() {
+    let sources = [("cvpr/main.tex", PAPER), ("supplementary/supp.tex", PAPER)];
+    let with_pdf = |pdf: &'static [u8]| {
+        let mut files = sources.to_vec();
+        files.push(("supplementary/supp.pdf", pdf));
+        files
+    };
+    let base = with_pdf(b"%PDF v1");
+    let roots = ["cvpr/main.tex", "supplementary/supp.tex"];
+
+    let server = Mock::project(&base).serve();
+    let (config, root) = linked(&server, &with_pdf(b"%PDF v2 mine"), &base);
+    set_roots(&root, &roots, "cvpr/main.tex");
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.pushed, ["supplementary/supp.pdf"], "{result:?}");
+    assert!(uploads_name(&server, "supp.pdf"));
+
+    let server = Mock::project(&with_pdf(b"%PDF v2 theirs")).serve();
+    let (config, root) = linked(&server, &base, &base);
+    set_roots(&root, &roots, "cvpr/main.tex");
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.pulled, ["supplementary/supp.pdf"], "{result:?}");
+    assert_eq!(read_local(&root, "supplementary/supp.pdf").unwrap(), b"%PDF v2 theirs");
+}
+
+/// Making `arxiv/main.tex` what Build compiles hands `cvpr/main.pdf` back
+/// to sync, and takes `arxiv/main.pdf` out of it.
+#[test]
+fn switching_the_default_root_moves_which_pdf_stays_out() {
+    let sources: Files = &[("cvpr/main.tex", PAPER), ("arxiv/main.tex", PAPER)];
+    let local: Files = &[
+        ("cvpr/main.tex", PAPER),
+        ("arxiv/main.tex", PAPER),
+        ("cvpr/main.pdf", b"%PDF cvpr"),
+        ("arxiv/main.pdf", b"%PDF arxiv"),
+    ];
+    let roots = ["cvpr/main.tex", "arxiv/main.tex"];
+    let server = Mock::project(sources).serve();
+    let (config, root) = linked(&server, local, sources);
+
+    set_roots(&root, &roots, "cvpr/main.tex");
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.pushed, ["arxiv/main.pdf"], "{result:?}");
+
+    set_roots(&root, &roots, "arxiv/main.tex");
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.pushed, ["cvpr/main.pdf"], "{result:?}");
+    let tracked = state_files(&root);
+    assert!(tracked.contains_key("cvpr/main.pdf") && !tracked.contains_key("arxiv/main.pdf"));
 }

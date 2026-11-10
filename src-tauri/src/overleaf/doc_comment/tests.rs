@@ -101,7 +101,7 @@ fn remote(host: &str) -> Remote {
         },
         state: SyncState { host: host.into(), project_id: "proj-1".into(), ..Default::default() },
         host: host.into(),
-        build_pdfs: Default::default(),
+        build_pdf: Default::default(),
     }
 }
 

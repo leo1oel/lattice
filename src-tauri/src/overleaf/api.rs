@@ -4,7 +4,7 @@
 //! project. Uploads are `upload`'s.
 
 use super::account::{ensure_user_id, load_session, normalize_host, SessionFile};
-use super::files::{is_excluded, BuildPdfs};
+use super::files::{is_excluded, BuildPdf};
 use super::link::{load_state, SyncState, PAUSED};
 use crate::overleaf_rt::{SESSION_EXPIRED, USER_AGENT};
 use crate::util::err;
@@ -414,7 +414,7 @@ pub(super) struct Remote {
     /// The origin the session and the link agree on.
     pub host: String,
     /// This copy's build output, left out of the copy fetched from Overleaf.
-    pub build_pdfs: BuildPdfs,
+    pub build_pdf: BuildPdf,
 }
 
 impl Remote {
@@ -422,7 +422,7 @@ impl Remote {
         let session = load_session(config_dir)?;
         let state = load_state(root)?;
         let host = sync_host(&state, &session)?;
-        Ok(Remote { session, state, host, build_pdfs: BuildPdfs::of(root) })
+        Ok(Remote { session, state, host, build_pdf: BuildPdf::of(root) })
     }
 
     /// The linked project, ready to sync: not paused, and with the file table
@@ -440,13 +440,13 @@ impl Remote {
         if state.paused {
             return Err(PAUSED.to_string());
         }
-        let build_pdfs = BuildPdfs::of(root);
+        let build_pdf = BuildPdf::of(root);
         // Dropped from the table, not deleted: a file the last sync agreed on
         // that now takes no part stays where it is on both sides.
-        state.files.retain(|path, _| !is_excluded(path) && !build_pdfs.contains(path));
+        state.files.retain(|path, _| !is_excluded(path) && !build_pdf.is(path));
         let host = sync_host(&state, &session)?;
         ensure_user_id(config_dir, &mut session);
-        Ok(Remote { session, state, host, build_pdfs })
+        Ok(Remote { session, state, host, build_pdf })
     }
 
     /// See [`fetch_remote_version`].

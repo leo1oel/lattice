@@ -44,6 +44,6 @@ fn fetch_remote_files(
     }
     automatic_remote_deletes.sort();
     let mut files = syncable(entries);
-    files.retain(|path, _| !remote.build_pdfs.contains(path));
+    files.retain(|path, _| !remote.build_pdf.is(path));
     Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: BTreeSet::new() })
 }
