@@ -1,6 +1,6 @@
 name: macOS Intel
 
-# The Intel Mac (x86_64) build of Lattice: built natively on an Intel runner,
+# The Intel-based Mac (x86_64) build of Lattice: built natively on an Intel runner,
 # signed and notarized like the Apple silicon release, launched from its disk
 # image on a second, fresh Intel runner, and then attached to the release the
 # Release workflow has already published, with its updater entries merged into
@@ -454,10 +454,10 @@ jobs:
           set -euo pipefail
           notes="$RUNNER_TEMP/notes.md"
           gh release view "$TAG" --json body --jq .body > "$notes"
-          if grep -qF '## Install (Intel Mac)' "$notes"; then exit 0; fi
+          if grep -qF '## Install (Intel-based Mac)' "$notes"; then exit 0; fi
           cat >> "$notes" <<EOF
 
-          ## Install (Intel Mac)
+          ## Install (Intel-based Mac)
 
           On a Mac with an Intel processor, download **$DMG** below instead,
           open it, and drag Lattice to Applications. It needs macOS 14 or
