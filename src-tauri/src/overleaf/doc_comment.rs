@@ -29,7 +29,7 @@ use std::path::Path;
 use std::sync::mpsc::Receiver;
 use tauri::async_runtime as rt;
 
-/// What became of a comment on a document the editor does not have open.
+/// What became of a comment on a document the editor does not hold live.
 #[derive(Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CommentPlacement {
