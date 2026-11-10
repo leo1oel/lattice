@@ -641,6 +641,11 @@
   --syntax-citation: var(--lattice-syntax-citation);
   --syntax-reference: var(--lattice-syntax-reference);
   --pdf-page-surface: #f9f9fa;
+  /* Dark pages (pdf-dark-pages.ts): the filter that turns the drawn page
+     dark, and the page's ground before its canvas is drawn, which is what
+     the filter makes of --pdf-page-surface. */
+  --pdf-dark-page-filter: invert(0.86) hue-rotate(180deg);
+  --pdf-dark-page-surface: var(--dark-page);
   --pdf-page-shadow: var(--shadow-pdf-page);
   --status-info: var(--info);
   /* The two threads of the app icon's weave. Identity, not interaction: they
@@ -701,6 +706,20 @@
   :root, [data-theme-preview] {
     --corner-smoothing: 1.8408964152537137;
   }
+}
+/* What is drawn on a dark PDF page (pdf-dark-pages.ts) — the SyncTeX mark,
+   annotation highlights and pins — takes the dark theme's inks under either
+   theme: the light theme's would sink into the page. Restated here, not
+   derived, because these roles resolve once at :root. */
+.pdf-preview[data-dark-pages] .pdfViewer .page {
+  --control-active: var(--dark-page-mark);
+  --annotation-ink: var(--dark-page-annotation);
+  --annotation-proposed-ink: var(--dark-page-proposed);
+  --annotation-asked-ink: var(--dark-page-asked);
+  --annotation-accepted-ink: var(--dark-page-accepted);
+  --annotation-pin-text: var(--dark-page-annotation-contrast);
+  --annotation-highlight: color-mix(in srgb, var(--dark-page-annotation) 14%, transparent);
+  --annotation-highlight-edge: color-mix(in srgb, var(--dark-page-annotation) 70%, transparent);
 }
 @media (prefers-contrast: more) {
   :root {

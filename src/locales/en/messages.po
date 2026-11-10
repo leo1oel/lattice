@@ -5023,6 +5023,14 @@ msgstr "Dark Gray"
 msgid "Dark only"
 msgstr "Dark only"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Dark pages"
+msgstr "Dark pages"
+
+#: src/app/use-command-table.ts
+msgid "Dark PDF pages"
+msgstr "Dark PDF pages"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Data format"
 msgstr "Data format"
@@ -5900,7 +5908,7 @@ msgstr "Enter a template name and a short version."
 msgid "Enter a valid arXiv id or URL."
 msgstr "Enter a valid arXiv id or URL."
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 msgid "Enter a zoom percentage"
 msgstr "Enter a zoom percentage"
 
@@ -8515,6 +8523,10 @@ msgstr "Light only"
 msgid "Light or dark"
 msgstr "Light or dark"
 
+#: src/app/use-command-table.ts
+msgid "Light PDF pages"
+msgstr "Light PDF pages"
+
 #: src/components/ui/color-picker.tsx
 msgid "Lighten"
 msgstr "Lighten"
@@ -9269,7 +9281,7 @@ msgstr "Monospaced text"
 msgid "More editor status"
 msgstr "More editor status"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 msgid "More PDF actions"
 msgstr "More PDF actions"
 
@@ -17678,7 +17690,7 @@ msgstr "Zeta"
 msgid "ZIP archive"
 msgstr "ZIP archive"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 msgid "Zoom"
 msgstr "Zoom"
 
@@ -17689,12 +17701,14 @@ msgstr "Zoom"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "Zoom in"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"

@@ -108,6 +108,15 @@ textarea {
      every annotation pin. */
   --annotation: #9a5c00;
   --annotation-contrast: #ffffff;
+  /* Dark PDF pages (pdf-dark-pages.ts): the page as the filter leaves it,
+     and the inks drawn on it, which are the dark theme's under either theme. */
+  --dark-page: #242424;
+  --dark-page-mark: #e7e7e4;
+  --dark-page-annotation: #f2b65e;
+  --dark-page-annotation-contrast: #1a1a1c;
+  --dark-page-proposed: #8fa5ff;
+  --dark-page-asked: #bba3f2;
+  --dark-page-accepted: #66bd99;
   /* The elevation ladder's shadows (foundations.css): one stack per level,
      the same geometry in both themes and deeper in dark, where a faint
      shadow disappears into the ground. The ring is the hairline every
