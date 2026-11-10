@@ -1,7 +1,8 @@
-//! A figure cut out of the built paper: one page of its PDF, cropped to the
-//! figure, and that PDF drawn as a TIFF for journals that take only images.
+//! A figure taken out of the export run's PDF: the page of its own the hook
+//! shipped after the paper, alone, and that PDF drawn as a TIFF for journals
+//! that take only images. The page holds only the figure, so nothing else of
+//! the paper (its text, captions, other figures) comes with it.
 
-use super::hook::{crop_box, Placed};
 use crate::commands;
 use lopdf::{Document, Object, ObjectId};
 use std::fs;
@@ -15,30 +16,37 @@ const INHERITED: [&[u8]; 4] = [b"Resources", b"MediaBox", b"CropBox", b"Rotate"]
 const CATALOG_LINKS: [&str; 6] =
     ["Outlines", "Names", "Dests", "OpenAction", "PageLabels", "StructTreeRoot"];
 
-/// The page `figure` is on, alone, cropped to the figure, as PDF bytes.
-pub(super) fn crop(pdf: &[u8], figure: &Placed) -> Result<Vec<u8>, String> {
-    let fail = |error: lopdf::Error| format!("Could not cut out the figure: {error}");
-    let mut doc = Document::load_mem(pdf).map_err(fail)?;
-    let page_id = *doc.get_pages().get(&figure.page).ok_or_else(|| {
-        format!("The figure is on page {}, which the PDF does not have.", figure.page)
-    })?;
+/// The run's PDF, read once for all its figures.
+pub(super) fn load(pdf: &[u8]) -> Result<Document, String> {
+    Document::load_mem(pdf).map_err(|error| format!("Could not read the typeset paper: {error}"))
+}
+
+/// How many pages `doc` has.
+pub(super) fn page_count(doc: &Document) -> u32 {
+    u32::try_from(doc.get_pages().len()).unwrap_or(u32::MAX)
+}
+
+/// Page `page` (1-based) of `doc`, alone, as PDF bytes.
+pub(super) fn single_page(doc: &Document, page: u32) -> Result<Vec<u8>, String> {
+    let fail = |error: lopdf::Error| format!("Could not take out the figure: {error}");
+    let mut doc = doc.clone();
+    let page_id = *doc
+        .get_pages()
+        .get(&page)
+        .ok_or_else(|| format!("The figure is on page {page}, which the PDF does not have."))?;
     let inherited = inherited_attributes(&doc, page_id);
     let pages_id = doc
         .catalog()
         .and_then(|catalog| catalog.get(b"Pages"))
         .and_then(Object::as_reference)
         .map_err(fail)?;
-    let [left, bottom, right, top] = crop_box(figure);
-    let rect = || Object::Array(vec![left.into(), bottom.into(), right.into(), top.into()]);
     {
         let page = doc.get_object_mut(page_id).and_then(Object::as_dict_mut).map_err(fail)?;
         for (key, value) in inherited {
             page.set(key, value);
         }
         page.set("Parent", Object::Reference(pages_id));
-        page.set("MediaBox", rect());
-        page.set("CropBox", rect());
-        for key in ["TrimBox", "BleedBox", "ArtBox", "Annots", "StructParents"] {
+        for key in ["CropBox", "TrimBox", "BleedBox", "ArtBox", "Annots", "StructParents"] {
             page.remove(key.as_bytes());
         }
     }

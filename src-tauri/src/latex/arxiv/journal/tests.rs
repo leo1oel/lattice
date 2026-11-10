@@ -1,72 +1,116 @@
-use super::hook::{crop_box, hook, parse, submission_names, Placed};
+use super::hook::{hook, parse, submission_names};
 use super::*;
 use crate::latex::{build, ActiveBuild, BuildSteps};
 use crate::project::test_support::Fixture;
 
-fn record(index: u32, kind: &str, start: u32, file: &str) -> String {
-    let (x, y) = (72.27 * 65536.0, 2.0 * 72.27 * 65536.0);
-    format!("fig;{index};{kind};{start};{file};100.0pt;50.0pt;2.0pt;1;{x};{y}")
+fn fig(index: u32, float: u32, kind: &str, file: &str) -> String {
+    format!("fig;{index};{float};{kind};figures/;{file};100.0pt;50.0pt;2.0pt")
+}
+
+fn names(lines: &[String]) -> Vec<String> {
+    submission_names(&parse(&lines.join("\n")))
 }
 
 #[test]
-fn reads_each_recorded_figure_in_tex_points() {
-    let placed = parse(&format!(
-        "{}\nnoise\nfig;1;figure;0;s.tex;0.0pt;0pt;0pt;1;0;0\n",
-        record(1, "scheme", 0, "s.tex")
+fn reads_each_recorded_figure_and_float_number() {
+    let record = parse(&format!(
+        "{}\nnoise\nfig;2;0;none;;s.tex;0.0pt;0pt;0pt\nfloat;1;scheme;S1\nfloat;x;scheme;2\nshipped;1\n",
+        fig(1, 1, "scheme", "s.tex")
     ));
-    assert_eq!(placed.len(), 1);
-    let figure = &placed[0];
+    assert_eq!(record.figures.len(), 1, "a box with no width is no figure");
+    let figure = &record.figures[0];
     assert_eq!(
-        (figure.kind.as_str(), figure.number, figure.file.as_str(), figure.page),
-        ("scheme", 1, "s.tex", 1)
+        (figure.index, figure.float, figure.kind.as_str(), figure.path()),
+        (1, 1, "scheme", "figures/s.tex".to_string())
     );
-    assert!(
-        (figure.x - 72.27).abs() < 1e-9
-            && (figure.width - 100.0).abs() < 1e-9
-            && (figure.depth - 2.0).abs() < 1e-9
-    );
+    assert!((figure.width - 100.0).abs() < 1e-9 && (figure.depth - 2.0).abs() < 1e-9);
+    assert_eq!(record.numbers, BTreeMap::from([(1, "S1".to_string())]));
+    assert_eq!(record.shipped, 1);
 }
 
 #[test]
-fn names_files_by_function_lettering_several_in_one_float() {
-    let text = [
-        record(1, "scheme", 0, "s.tex"),
-        record(2, "figure", 1, "f.tex"),
-        record(3, "scheme", 1, "a.tex"),
-        record(4, "scheme", 1, "b.tex"),
-        record(5, "none", 0, "toc_art.tex"),
-    ]
-    .join("\n");
-    assert_eq!(
-        submission_names(&parse(&text)),
-        ["Scheme1", "Figure2", "Scheme2a", "Scheme2b", "toc_art"]
-    );
+fn names_files_by_function_lettering_only_figures_that_share_a_float() {
+    let lines = [
+        fig(1, 1, "scheme", "s.tex"),
+        "float;1;scheme;1".into(),
+        fig(2, 2, "figure", "f.tex"),
+        "float;2;figure;2".into(),
+        fig(3, 3, "scheme", "a.tex"),
+        fig(4, 3, "scheme", "b.tex"),
+        "float;3;scheme;2".into(),
+        fig(5, 0, "none", "toc_art.tex"),
+    ];
+    assert_eq!(names(&lines), ["Scheme1", "Figure2", "Scheme2a", "Scheme2b", "toc_art"]);
+}
+
+#[test]
+fn names_follow_the_number_the_paper_prints() {
+    // \counterwithin{figure}{section}, then an SI part numbered S1, S2.
+    let lines = [
+        fig(1, 1, "figure", "a.tex"),
+        "float;1;figure;1.1".into(),
+        fig(2, 2, "figure", "b.tex"),
+        "float;2;figure;2.1".into(),
+        fig(3, 3, "figure", "c.tex"),
+        "float;3;figure;1".into(),
+        fig(4, 4, "figure", "d.tex"),
+        "float;4;figure;S1".into(),
+    ];
+    assert_eq!(names(&lines), ["Figure1-1", "Figure2-1", "Figure1", "FigureS1"]);
+}
+
+#[test]
+fn a_name_taken_twice_gets_a_count() {
+    // Two `scheme.tex` in different folders, in no float, and one in an uncaptioned float.
+    let lines = [
+        fig(1, 0, "none", "scheme.tex"),
+        fig(2, 0, "none", "Scheme.tex"),
+        fig(3, 1, "figure", "scheme.tex"),
+    ];
+    assert_eq!(names(&lines), ["scheme", "Scheme-2", "scheme-3"]);
 }
 
 #[test]
 fn a_figure_named_after_its_file_gets_a_plain_file_name() {
-    let text = [
-        record(1, "none", 0, "../../../Library/evil.tex"),
-        record(2, "none", 0, ".hidden.tex"),
-        record(3, "weird", 0, "a b/c.tex"),
-    ]
-    .join("\n");
-    assert_eq!(submission_names(&parse(&text)), ["evil", "hidden", "c"]);
+    let lines = [
+        fig(1, 0, "none", "../../../Library/evil.tex"),
+        fig(2, 0, "none", ".hidden.tex"),
+        fig(3, 0, "weird", "a b/c.tex"),
+        fig(4, 1, "figure", "x.tex"),
+        "float;1;figure;../..".into(),
+    ];
+    assert_eq!(names(&lines), ["evil", "hidden", "c", "x"]);
 }
 
 #[test]
-fn crops_the_box_in_pdf_points_with_its_depth() {
-    let figure: Placed = parse(&record(1, "figure", 0, "s.tex")).remove(0);
-    let [left, bottom, right, _] = crop_box(&figure);
-    assert!((left - 71.0).abs() < 1e-9);
-    assert!((bottom - (144.0 - 2.0 * 72.0 / 72.27 - 1.0)).abs() < 1e-9);
-    assert!((right - left - (100.0 * 72.0 / 72.27 + 2.0)).abs() < 1e-9);
+fn takes_only_entries_the_export_listed_by_their_project_path() {
+    let entries = BTreeMap::from([
+        ("figures/scheme.tex".to_string(), String::new()),
+        ("si/scheme.tex".to_string(), String::new()),
+        ("paper/art/toc.tex".to_string(), String::new()),
+    ]);
+    let record = parse(
+        &[
+            "fig;1;0;none;figures/;scheme.tex;1pt;1pt;0pt",
+            "fig;2;0;none;./si;scheme.tex;1pt;1pt;0pt",
+            "fig;3;0;none;;toc.tex;1pt;1pt;0pt",
+            "fig;4;0;none;;scheme.tex;1pt;1pt;0pt",
+            "fig;5;0;none;../../etc;scheme.tex;1pt;1pt;0pt",
+            "fig;6;0;none;figures;other.tex;1pt;1pt;0pt",
+        ]
+        .join("\n"),
+    );
+    let placed = placed_entries(&record.figures, &entries, "paper/main.tex");
+    let found: Vec<(&str, u32)> =
+        placed.iter().map(|(path, figure)| (path.as_str(), figure.index)).collect();
+    assert_eq!(found, [("figures/scheme.tex", 1), ("si/scheme.tex", 2), ("paper/art/toc.tex", 3)]);
 }
 
 #[test]
 fn lists_the_entry_files_for_tex_plainly() {
-    let text = hook(&["Document_1-5.tex".into(), "x}{y,z.tex".into()]);
+    let text = hook(&["Document_1-5.tex".into(), "x}{y,z;.tex".into()]);
     assert!(text.contains(r"\detokenize{,Document_1-5.tex,xyz.tex,}"), "{text}");
+    assert!(text.contains(r"\RawShipout"), "figure pages bypass the page hooks");
     assert!(text.contains(r"\immediate\openout\ljx@out=\jobname.figures"));
     assert!(!text.contains("{{"), "a doubled brace is a format string escape left behind");
 }
@@ -115,6 +159,8 @@ fn writes_only_into_its_own_folder_outside_the_project() {
     let fixture = Fixture::empty("journal-folder");
     let root = fixture.root.canonicalize().unwrap();
     assert!(output_folder(&root, &root).is_err());
+    fs::create_dir_all(root.join("sub")).unwrap();
+    assert!(output_folder(&root, &root.join("sub/..")).is_err(), "a parent is compared as it is");
     let parent = Fixture::empty("journal-parent");
     let parent_root = parent.root.canonicalize().unwrap();
     let name = format!("{}-journal", root.file_name().unwrap().to_string_lossy());
@@ -145,24 +191,46 @@ const ENTRY: &str = r"% editable-figure source: scheme.reactio
 \fbox{\rule{0pt}{2cm}\rule{3cm}{0pt}}\quad\textbf{\cmpd{b}}\quad\textbf{\cmpd{a}}
 ";
 
-#[test]
-#[ignore = "requires latexmk and a working pdfLaTeX installation"]
-fn exports_each_figure_and_a_source_pack_that_keeps_the_numbers() {
-    let fixture = Fixture::empty("journal-export");
-    fixture.write("main.tex", MAIN);
-    fixture.write("figures/scheme.tex", ENTRY);
+/// Builds the project in Lattice, then exports it. The fixtures go with the
+/// last value, so the export is there while the test reads it.
+fn build_and_export(name: &str, files: &[(&str, &str)]) -> (JournalExport, PathBuf, [Fixture; 2]) {
+    let fixture = Fixture::empty(name);
+    for (path, text) in files {
+        fixture.write(path, text);
+    }
     crate::project::open(&fixture.root).unwrap();
     let result =
         build(&fixture.root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
     assert!(result.success, "{}", result.log);
-    let parent = Fixture::empty("journal-export-out");
+    let parent = Fixture::empty(&format!("{name}-out"));
     let options = JournalOptions { tiff: false, dpi: 300, article: true };
     let export = export(&fixture.root, &parent.root, options).unwrap();
+    let folder = PathBuf::from(&export.folder);
+    (export, folder, [fixture, parent])
+}
+
+/// A figure's one page: its size in PDF points and its text.
+fn figure_page(path: &Path) -> (f64, f64, String) {
+    let doc = lopdf::Document::load(path).unwrap();
+    assert_eq!(doc.get_pages().len(), 1, "{}", path.display());
+    let page = *doc.get_pages().get(&1).unwrap();
+    let media = doc.get_dictionary(page).unwrap().get(b"MediaBox").unwrap().as_array().unwrap();
+    let number = |object: &lopdf::Object| object.as_float().unwrap_or_default() as f64;
+    let size = (number(&media[2]) - number(&media[0]), number(&media[3]) - number(&media[1]));
+    (size.0, size.1, doc.extract_text(&[1]).unwrap_or_default())
+}
+
+#[test]
+#[ignore = "requires latexmk and a working pdfLaTeX installation"]
+fn exports_each_figure_and_a_source_pack_that_keeps_the_numbers() {
+    let (export, folder, _fixtures) =
+        build_and_export("journal-export", &[("main.tex", MAIN), ("figures/scheme.tex", ENTRY)]);
     assert_eq!(export.figures, ["Figure1"]);
     assert!(export.problems.is_empty(), "{:?}", export.problems);
-    let folder = PathBuf::from(&export.folder);
-    let figure = lopdf::Document::load(folder.join("Figure1.pdf")).unwrap();
-    assert_eq!(figure.get_pages().len(), 1);
+    let (width, height, text) = figure_page(&folder.join("Figure1.pdf"));
+    // The frame is 3 cm by 2 cm plus the marks, with a 1 pt margin; nothing of the page comes along.
+    assert!(width > 85.0 && width < 200.0 && height > 56.0 && height < 70.0, "{width} x {height}");
+    assert!(!text.contains("Early") && !text.contains("scheme"), "{text}");
     let main = fs::read_to_string(folder.join("main.tex")).unwrap();
     assert!(
         main.contains(
@@ -176,4 +244,85 @@ fn exports_each_figure_and_a_source_pack_that_keeps_the_numbers() {
         Some(super::super::CompileOutcome::Ok)
     );
     assert!(folder.join("main.pdf").is_file());
+}
+
+const NUMBERED: &str = r"\documentclass{article}
+\usepackage{graphicx}
+\usepackage{chemnum}
+\counterwithin{figure}{section}
+\begin{document}
+\section{One}
+Start with \cmpd{a}.
+\begin{figure}[h]
+\centering
+\resizebox{0.9\linewidth}{!}{\input{figures/left}}
+\caption{Scaled.}
+\end{figure}
+\section{Two}
+\begin{figure}[h]
+\centering
+\input{figures/right}\hfill\input{art/right}
+\caption{Two drawings.}
+\end{figure}
+\clearpage
+\setcounter{figure}{0}
+\renewcommand\thefigure{S\arabic{figure}}
+\begin{figure}[h]
+\input{figures/si}
+\caption{Supporting.}
+\end{figure}
+\input{figures/toc}
+\end{document}
+";
+
+fn entry(width: &str, mark: &str) -> String {
+    format!(
+        "% editable-figure source: x.reactio\n\\fbox{{\\rule{{0pt}}{{1cm}}\\rule{{{width}}}{{0pt}}}}\\quad\\textbf{{\\cmpd{{{mark}}}}}\n"
+    )
+}
+
+#[test]
+#[ignore = "requires latexmk and a working pdfLaTeX installation"]
+fn names_follow_the_printed_numbers_and_a_scaled_figure_comes_whole() {
+    let (left, right, art, si, toc) = (
+        entry("12cm", "a"),
+        entry("2cm", "b"),
+        entry("2cm", "c"),
+        entry("2cm", "d"),
+        entry("1cm", "e"),
+    );
+    let (export, folder, _fixtures) = build_and_export(
+        "journal-numbered",
+        &[
+            ("paper/main.tex", NUMBERED),
+            ("figures/left.tex", &left),
+            ("figures/right.tex", &right),
+            ("art/right.tex", &art),
+            ("figures/si.tex", &si),
+            ("figures/toc.tex", &toc),
+        ],
+    );
+    assert_eq!(
+        export.figures,
+        ["Figure1-1", "Figure2-1a", "Figure2-1b", "FigureS1", "toc"],
+        "{:?}",
+        export.problems
+    );
+    // The paper scales it to 0.9\linewidth; the export has it whole, at its own 12 cm.
+    let (width, _, text) = figure_page(&folder.join("paper/Figure1-1.pdf"));
+    assert!(width > 12.0 * 72.0 / 2.54, "{width}");
+    assert!(!text.contains("Start"), "{text}");
+    // The `\input`s the pack does not merge (inside a group) become the figure in place too.
+    let main = fs::read_to_string(folder.join("paper/main.tex")).unwrap();
+    for name in ["Figure1-1", "Figure2-1a", "Figure2-1b", "FigureS1", "toc"] {
+        assert!(main.contains(&format!("\\includegraphics{{{name}}}")), "{main}");
+    }
+    assert!(!main.contains("\\input{figures"), "{main}");
+    assert!(!folder.join("figures/left.tex").exists());
+    assert_eq!(
+        export.article.as_ref().map(|check| check.outcome),
+        Some(super::super::CompileOutcome::Ok),
+        "{:?}",
+        export.article
+    );
 }

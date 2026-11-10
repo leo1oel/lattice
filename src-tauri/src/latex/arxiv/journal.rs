@@ -6,12 +6,13 @@
 //!
 //! A drawing's own PDF has no numbers: the entry sets them over it in the
 //! document's build. So the paper is typeset once more, in a scratch folder,
-//! with a file read first that records where each entry's box lands on which
-//! page and in which float (journal/hook.rs); each figure is then cut out of
-//! that PDF (journal/figures.rs). The source pack is the arXiv pack (the files
-//! the last build read, `\input` files merged) with each entry's text replaced
-//! by the exported file and the entry's marks in an unprinted box, so every
-//! compound keeps its number in the text; it is built alone to check it.
+//! with a file read first that records which float holds each entry's box and
+//! ships each box again as a page of its own after the paper (journal/hook.rs);
+//! each figure is that page, taken out of the PDF (journal/figures.rs). The
+//! source pack is the arXiv pack (the files the last build read, `\input`
+//! files merged) with each entry's text replaced by the exported file and the
+//! entry's marks in an unprinted box, so every compound keeps its number in the
+//! text; it is built alone to check it.
 //! Nothing in the project changes.
 
 mod figures;
@@ -23,7 +24,7 @@ use super::super::build::{run_tracked, ActiveBuild};
 use super::super::{default_root_document, BuildSteps};
 use super::{stage_with, test_build_keeping, ArxivChecks, ArxivOptions, CompileCheck, Scratch};
 use crate::project;
-use hook::Placed;
+use hook::{Placed, Record};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -46,6 +47,7 @@ const IMAGE_EXTENSIONS: [&str; 5] = ["", ".pdf", ".png", ".jpg", ".eps"];
 
 static MARK: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\(?:rcmpd|cmpd)\*?(?:\[[^\]]*\])?\{[^{}]*\}").unwrap());
+static INPUT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\input\s*\{([^{}]*)\}").unwrap());
 static GRAPHICS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\includegraphics\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}").unwrap());
 
@@ -85,17 +87,30 @@ pub fn export(
         return Err("This paper has no figure made from a drawing to export.".to_string());
     }
     let scratch = Scratch::new()?;
-    let (pdf, placed) = typeset(&root, &document, &manifest.engine, &entries, &scratch.0)?;
+    let (pdf, record) = typeset(&root, &document, &manifest.engine, &entries, &scratch.0)?;
+    let placed = placed_entries(&record.figures, &entries, &document);
     if placed.is_empty() {
         return Err("No figure made from a drawing was found in the typeset paper.".to_string());
     }
-    let names = hook::submission_names(&placed);
+    let pdf = figures::load(&pdf)?;
+    let pages = figures::page_count(&pdf);
+    let shipped = record.shipped;
+    if shipped == 0 || shipped >= pages {
+        return Err("The typeset paper does not hold its figures' pages.".to_string());
+    }
+    let names = hook::submission_names(&Record {
+        figures: placed.iter().map(|(_, figure)| figure.clone()).collect(),
+        ..record.clone()
+    });
     let folder = output_folder(&root, parent)?;
     let document_dir = Path::new(&document).parent().map(Path::to_path_buf).unwrap_or_default();
     let mut problems = Vec::new();
     let mut figure_files = BTreeMap::new();
-    for (figure, name) in placed.iter().zip(&names) {
-        let bytes = figures::crop(&pdf, figure)?;
+    for ((_, figure), name) in placed.iter().zip(&names) {
+        if figure.index > shipped {
+            return Err("The typeset paper does not hold its figures' pages.".to_string());
+        }
+        let bytes = figures::single_page(&pdf, pages - shipped + figure.index)?;
         let target = folder.join(&document_dir).join(format!("{name}.pdf"));
         write(&target, &bytes)?;
         figure_files.insert(project_path(&document_dir, &format!("{name}.pdf")), bytes);
@@ -150,10 +165,57 @@ fn entry_files(root: &Path) -> BTreeMap<String, String> {
     entries
 }
 
-/// Typeset the paper in `scratch` with the hook read first: its PDF and the figures it placed.
+/// The recorded figures that are entries the export listed, each with its
+/// entry's project path. TeX names a file as `\input` wrote it, from the
+/// document's folder or (a subfolder root) from the project's; a name only a
+/// file name says is taken when one entry alone has it. The record is a file
+/// the document can write to as well, so nothing else is taken.
+fn placed_entries(
+    figures: &[Placed], entries: &BTreeMap<String, String>, document: &str,
+) -> Vec<(String, Placed)> {
+    let document_dir = Path::new(document).parent().map(Path::to_path_buf).unwrap_or_default();
+    figures
+        .iter()
+        .filter_map(|figure| {
+            let named = figure.path();
+            let candidates = [project_path(&document_dir, &named), named];
+            let path = candidates
+                .iter()
+                .map(|path| clean_path(path))
+                .find(|path| entries.contains_key(path))
+                .or_else(|| {
+                    let mut same = entries
+                        .keys()
+                        .filter(|path| path.rsplit('/').next() == Some(figure.file.as_str()));
+                    match (same.next(), same.next()) {
+                        (Some(only), None) => Some(only.clone()),
+                        _ => None,
+                    }
+                })?;
+            Some((path, figure.clone()))
+        })
+        .collect()
+}
+
+/// `a/./b/../c` as `a/c`; a path that climbs out of the project keeps its `..`, so it matches no entry.
+fn clean_path(path: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for part in path.split(['/', '\\']) {
+        match part {
+            "" | "." => {}
+            ".." if parts.last().is_some_and(|last| *last != "..") => {
+                parts.pop();
+            }
+            _ => parts.push(part),
+        }
+    }
+    parts.join("/")
+}
+
+/// Typeset the paper in `scratch` with the hook read first: its PDF and what the hook recorded.
 fn typeset(
     root: &Path, document: &str, engine: &str, entries: &BTreeMap<String, String>, scratch: &Path,
-) -> Result<(Vec<u8>, Vec<Placed>), String> {
+) -> Result<(Vec<u8>, Record), String> {
     let source = project::safe_path(root, document)?;
     let directory = source.parent().unwrap_or(root).to_path_buf();
     let stem = source.file_stem().and_then(|stem| stem.to_str()).unwrap_or("paper");
@@ -193,6 +255,8 @@ fn typeset(
         .arg(format!("-output-directory={}", tex_path(scratch)))
         .arg(format!("-jobname={job}"))
         .arg(format!("\\input{{{}}}\\input{{{file_name}}}", tex_path(&hook_file)));
+    // As the build reads it: a root in a subfolder finds `\input{figures/x}` from the project folder.
+    super::super::search_paths::search_project_folder(&mut command, document);
     let (_, stopped) = run_tracked(
         command,
         &ActiveBuild::default(),
@@ -206,10 +270,7 @@ fn typeset(
     let pdf = fs::read(scratch.join(format!("{job}.pdf")))
         .map_err(|_| "The paper did not typeset. Build it in Lattice to see why.".to_string())?;
     let record = fs::read_to_string(scratch.join(format!("{job}.figures"))).unwrap_or_default();
-    // Only boxes of the entry files listed: the document can write this file too.
-    let placed =
-        hook::parse(&record).into_iter().filter(|figure| names.contains(&figure.file)).collect();
-    Ok((pdf, placed))
+    Ok((pdf, hook::parse(&record)))
 }
 
 #[cfg(windows)]
@@ -228,6 +289,8 @@ fn output_folder(root: &Path, parent: &Path) -> Result<PathBuf, String> {
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| "paper".into());
+    // A parent reached through a link, or written with `..`, must not hide that it is inside.
+    let parent = parent.canonicalize().map_err(|error| error.to_string())?;
     let folder = parent.join(format!("{name}-journal"));
     if folder.starts_with(root) {
         return Err("Choose a folder outside the project for the export.".to_string());
@@ -306,21 +369,65 @@ fn tidy_merged_figures<'a>(
     }
 }
 
+/// An `\input` of an entry the pack did not merge (inside a group, such as
+/// `\resizebox{…}{!}{\input{figures/scheme}}`) becomes the entry's
+/// replacement in place, a single line, and an entry file no `\input` reads
+/// any more leaves the pack. The figure's line then reads as written, and a
+/// root in a subfolder that names entries from the project folder (as Lattice
+/// builds it, not as a journal does) still builds.
+fn inline_entries(
+    files: &mut BTreeMap<String, Vec<u8>>, replaced: &BTreeMap<String, String>, document_dir: &Path,
+) {
+    let entry_for = |from: &str, named: &str| {
+        let named = named.trim();
+        let named =
+            if named.ends_with(".tex") { named.to_string() } else { format!("{named}.tex") };
+        let folder = Path::new(from).parent().map(Path::to_path_buf).unwrap_or_default();
+        [project_path(&folder, &named), project_path(document_dir, &named), named]
+            .iter()
+            .map(|path| clean_path(path))
+            .find(|path| replaced.contains_key(path))
+    };
+    for (path, bytes) in files.iter_mut() {
+        if !path.ends_with(".tex") || replaced.contains_key(path) {
+            continue;
+        }
+        let Ok(text) = std::str::from_utf8(bytes) else { continue };
+        let inlined =
+            INPUT.replace_all(text, |found: &regex::Captures| match entry_for(path, &found[1]) {
+                Some(entry) => replaced[&entry].trim_end_matches("%\n").to_string(),
+                None => found[0].to_string(),
+            });
+        if inlined != text {
+            *bytes = inlined.into_owned().into_bytes();
+        }
+    }
+    let still_read: std::collections::BTreeSet<String> = files
+        .iter()
+        .filter(|(path, _)| path.ends_with(".tex"))
+        .flat_map(|(path, bytes)| {
+            let text = String::from_utf8_lossy(bytes);
+            INPUT
+                .captures_iter(&text)
+                .filter_map(|found| entry_for(path, &found[1]))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    files.retain(|path, _| !replaced.contains_key(path) || still_read.contains(path));
+}
+
 /// The source pack in `folder`, built alone; its PDF beside it when it builds.
 #[allow(clippy::too_many_arguments)]
 fn article(
-    root: &Path, document: &str, entries: &BTreeMap<String, String>, placed: &[Placed],
+    root: &Path, document: &str, entries: &BTreeMap<String, String>, placed: &[(String, Placed)],
     names: &[String], figure_files: BTreeMap<String, Vec<u8>>, folder: &Path,
     problems: &mut Vec<String>,
 ) -> Result<Option<CompileCheck>, String> {
     let mut replaced = BTreeMap::new();
-    for (path, text) in entries {
-        let file = path.rsplit('/').next().unwrap_or(path);
-        if let Some(index) = placed
-            .iter()
-            .position(|figure| figure.file == file || figure.file.ends_with(&format!("/{file}")))
-        {
-            replaced.insert(path.clone(), replacement(text, &names[index]));
+    // An entry the paper reads twice becomes the first of its figures.
+    for ((path, _), name) in placed.iter().zip(names) {
+        if let (Some(text), false) = (entries.get(path), replaced.contains_key(path)) {
+            replaced.insert(path.clone(), replacement(text, name));
         }
     }
     let options = ArxivOptions { strip_comments: false, merge_inputs: true };
@@ -342,6 +449,7 @@ fn article(
         }
     }
     tidy_merged_figures(&mut pack.files, replaced.values());
+    inline_entries(&mut pack.files, &replaced, &document_dir);
     pack.files.extend(figure_files);
     for (path, bytes) in &pack.files {
         write(&folder.join(path), bytes)?;
