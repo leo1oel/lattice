@@ -257,7 +257,9 @@ description = "Test the Open Slide presentation server (its own pnpm project) an
 run = [
   "pnpm --dir tools/open-slide-runtime install --frozen-lockfile",
   "pnpm --dir tools/open-slide-runtime test",
-  "node scripts/prepare-presentation-runtime.mjs",
+  # Through pnpm, which tells the script where its own entry point is: on
+  # Windows, pnpm's .cmd shim cannot be spawned for the staged install.
+  "pnpm prepare:presentation",
 ]
 sources = [
   "tools/open-slide-runtime/*.mjs",

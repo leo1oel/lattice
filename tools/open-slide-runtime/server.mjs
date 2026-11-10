@@ -1637,7 +1637,10 @@ function previewTarget(slideId, searchParams) {
  * arrives with its file, line and source line. Import analysis stops at a
  * module's first unresolved import, so a module yields at most one error.
  */
-export async function deckBuildErrors(environment, root, slideId) {
+export async function deckBuildErrors(environment, nativeRoot, slideId) {
+  // Vite names modules by forward-slash paths (`C:/Users/…` on Windows), so
+  // compare and relativize against the root in that form, not the native one.
+  const root = nativeRoot.split(path.sep).join("/");
   const errors = [];
   const visited = new Set();
   const projectFile = (file) => (
@@ -1656,10 +1659,10 @@ export async function deckBuildErrors(environment, root, slideId) {
       // Vite's own code frame quotes the module after its JSX transform,
       // whose lines no longer match the file; quote the file's line instead.
       const text = line && projectFile(file)
-        ? (await fs.readFile(file, "utf8").catch(() => "")).split("\n")[line - 1]
+        ? (await fs.readFile(file, "utf8").catch(() => "")).split(/\r?\n/)[line - 1]
         : undefined;
       errors.push({
-        file: projectFile(file) ? path.relative(root, file) : null,
+        file: projectFile(file) ? path.posix.relative(root, file) : null,
         line,
         column: error?.loc?.column ?? null,
         message: String(error?.message ?? error),
@@ -1673,8 +1676,9 @@ export async function deckBuildErrors(environment, root, slideId) {
     }
   };
   // Open Slide's dev server roots Vite in its own app and imports each deck
-  // by file system path, as `virtual:open-slide/slides` does.
-  await visit(`/@fs${root}/slides/${slideId}/index.tsx`);
+  // by file system path, as `virtual:open-slide/slides` does. Vite's prefix is
+  // `/@fs/`; a POSIX root brings its own leading slash, a Windows one does not.
+  await visit(`/@fs/${root.replace(/^\//, "")}/slides/${slideId}/index.tsx`);
   return errors;
 }
 

@@ -553,6 +553,13 @@ test("reports each unresolved import of a deck with its project-relative locatio
     assert.match(errors[0].message, /Failed to resolve import "\.\/assets\/clip-embedding\.png"/);
     assert.equal(errors[0].frame, "5 | import missing from './assets/clip-embedding.png';");
 
+    // A deck saved with CRLF line endings quotes its line without the "\r".
+    const entry = path.join(deck, "index.tsx");
+    await writeFile(entry, (await readFile(entry, "utf8")).replaceAll("\n", "\r\n"));
+    await vite.environments.client.moduleGraph.invalidateAll();
+    const [crlf] = await deckBuildErrors(vite.environments.client, root, "talk");
+    assert.equal(crlf.frame, "5 | import missing from './assets/clip-embedding.png';");
+
     // With the entry fixed, the check reaches the helper it imports.
     await writeFile(
       path.join(deck, "index.tsx"),
