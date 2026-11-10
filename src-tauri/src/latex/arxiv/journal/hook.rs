@@ -125,7 +125,7 @@ pub(super) fn submission_names(figures: &[Placed]) -> Vec<String> {
                 "chart" => "Chart",
                 "graph" => "Graph",
                 "table" => "Table",
-                _ => return figure.file.trim_end_matches(".tex").to_string(),
+                _ => return file_stem(&figure.file),
             };
             format!("{kind}{}", figure.number)
         })
@@ -142,6 +142,24 @@ pub(super) fn submission_names(figures: &[Placed]) -> Vec<String> {
             format!("{name}{letter}")
         })
         .collect()
+}
+
+/// A figure in no float is named after its entry file. The record is a file
+/// the document's own run writes, which the document could write to as well,
+/// so the name is cut to a plain file name: never a path, never hidden.
+fn file_stem(file: &str) -> String {
+    let base = file.rsplit(['/', '\\']).next().unwrap_or(file);
+    let stem: String = base
+        .trim_end_matches(".tex")
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+        .take(64)
+        .collect();
+    if stem.is_empty() {
+        "figure".to_string()
+    } else {
+        stem
+    }
 }
 
 /// The box on its page in PDF points (1/72 in), with a 1 pt margin: TeX's

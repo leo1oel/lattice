@@ -44,6 +44,17 @@ fn names_files_by_function_lettering_several_in_one_float() {
 }
 
 #[test]
+fn a_figure_named_after_its_file_gets_a_plain_file_name() {
+    let text = [
+        record(1, "none", 0, "../../../Library/evil.tex"),
+        record(2, "none", 0, ".hidden.tex"),
+        record(3, "weird", 0, "a b/c.tex"),
+    ]
+    .join("\n");
+    assert_eq!(submission_names(&parse(&text)), ["evil", "hidden", "c"]);
+}
+
+#[test]
 fn crops_the_box_in_pdf_points_with_its_depth() {
     let figure: Placed = parse(&record(1, "figure", 0, "s.tex")).remove(0);
     let [left, bottom, right, _] = crop_box(&figure);

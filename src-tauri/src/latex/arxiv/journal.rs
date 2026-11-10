@@ -39,6 +39,9 @@ const SOURCE_HEADER: &str = "% editable-figure source: ";
 const MARKER: &str = ".lattice-journal-export";
 /// A project's `.tex` files read looking for entries.
 const MAX_TEX_FILES: usize = 5000;
+/// Line art at 1200 dpi is the most a journal asks for; far more would only
+/// fill memory with a bitmap nobody takes.
+const MAX_DPI: u32 = 2400;
 const IMAGE_EXTENSIONS: [&str; 5] = ["", ".pdf", ".png", ".jpg", ".eps"];
 
 static MARK: LazyLock<Regex> =
@@ -98,7 +101,9 @@ pub fn export(
         figure_files.insert(project_path(&document_dir, &format!("{name}.pdf")), bytes);
         if options.tiff {
             let tiff = target.with_extension("tiff");
-            if let Err(problem) = figures::render_tiff(&target, &tiff, options.dpi, &scratch.0) {
+            if let Err(problem) =
+                figures::render_tiff(&target, &tiff, options.dpi.clamp(72, MAX_DPI), &scratch.0)
+            {
                 problems.push(format!("{name}: {problem}"));
             }
         }
@@ -201,7 +206,10 @@ fn typeset(
     let pdf = fs::read(scratch.join(format!("{job}.pdf")))
         .map_err(|_| "The paper did not typeset. Build it in Lattice to see why.".to_string())?;
     let record = fs::read_to_string(scratch.join(format!("{job}.figures"))).unwrap_or_default();
-    Ok((pdf, hook::parse(&record)))
+    // Only boxes of the entry files listed: the document can write this file too.
+    let placed =
+        hook::parse(&record).into_iter().filter(|figure| names.contains(&figure.file)).collect();
+    Ok((pdf, placed))
 }
 
 #[cfg(windows)]
