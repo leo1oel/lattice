@@ -124,6 +124,8 @@ export function presetLayout(preset: LayoutPreset | "focus", doc: LayoutDocument
   const keys = [...openTabs, activeKey].filter((key, index, all) => key && byKey.has(key) && all.indexOf(key) === index);
   const views: Record<string, ViewRecord> = {};
   for (const key of keys) views[byKey.get(key)!] = doc.views[byKey.get(key)!];
+  // The live PDF keeps its record: it names the document it shows (compiled-pdf-tabs.ts).
+  const livePdf: ViewRecord = doc.views.pdf ?? { type: "pdf" };
   const panel = (id: string, members: string[], selectedKey: string | undefined): PanelNode => ({
     kind: "panel", id, views: members, selected: (selectedKey && byKey.get(selectedKey)) || members[0],
   });
@@ -139,11 +141,11 @@ export function presetLayout(preset: LayoutPreset | "focus", doc: LayoutDocument
     // The document in front stays in front, whatever it is.
     const ids = keys.map((key) => byKey.get(key)!);
     if (!ids.length) views.project = { type: "project" };
-    if (pdf) views.pdf = { type: "pdf" };
+    if (pdf) views.pdf = livePdf;
     const documentsPanel = ids.length ? panel("panel-focus", ids, activeKey || keys[0]) : panel("panel-project", ["project"], undefined);
     root = pdf ? row("split-focus", [documentsPanel, panel("panel-pdf", ["pdf"], undefined)], [0.5, 0.5]) : documentsPanel;
   } else if (preset === "writing") {
-    views.pdf = { type: "pdf" };
+    views.pdf = livePdf;
     const written = keys.filter((key) => !isReading(key));
     // LaTeX is what the PDF is compiled from, so a .tex source wins over the active note.
     const tex = (key: string) => key.toLocaleLowerCase().endsWith(".tex");
@@ -248,6 +250,7 @@ export function returnLayout(
     record.type === "file" ? Boolean(group) && open.has(fileKey(record)) && !kept.has(fileKey(record)) : !views[id] && !supplied.includes(id)
   ));
   for (const [id, record] of joining) views[id] = record;
+  if (views.pdf && current.views.pdf?.params) views.pdf = current.views.pdf;
   // A compiled document's PDF tab opened meanwhile joins the live PDF's panel, not the documents'.
   const pdfHome = panels.find((panel) => panel.views.includes("pdf") && views.pdf)?.id;
   const toPdf = (id: string) => Boolean(pdfHome) && views[id]?.type === ROOT_PDF;
@@ -333,6 +336,7 @@ export function arrangeDocuments(
 ): LayoutDocument {
   const views: Record<string, ViewRecord> = {};
   for (const [id, record] of Object.entries(doc.views)) if (!isDocumentSlot(record)) views[id] = record;
+  if (views.pdf && current.views.pdf?.params) views.pdf = current.views.pdf;
   // A slot's panel, by the panel's id; docked panels first.
   const slotOf = new Map<string, string>();
   for (const panel of panelsOf(doc, { hidden: true })) {

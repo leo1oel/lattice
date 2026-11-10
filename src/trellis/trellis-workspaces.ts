@@ -122,7 +122,11 @@ export function arrangementOf(layout: LayoutDocument): LayoutDocument {
   const doc = Object.values(layout.views).some(isDocumentView) ? layout : withDocumentPanel(layout, { id: newDocumentId(), key: "" }, { after: navigatorPanels(layout) });
   const views: Record<string, ViewRecord> = {};
   // A compiled document's own PDF tab is the project's, like its documents, and never the workspace's.
-  for (const [id, record] of Object.entries(doc.views)) if (!isDocumentView(record) && record.type !== ROOT_PDF) views[id] = record;
+  for (const [id, record] of Object.entries(doc.views)) {
+    if (isDocumentView(record) || record.type === ROOT_PDF) continue;
+    // Nor is the document the live PDF shows.
+    views[id] = record.type === "pdf" ? { type: "pdf" } : record;
+  }
   const panel = (target: PanelNode): PanelNode => {
     const { id: slot, record } = documentSlot(target.id);
     const members: string[] = [];

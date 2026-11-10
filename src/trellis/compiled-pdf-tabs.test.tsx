@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDocument, layout as L } from "@danfessler/trellis";
 import { pdfTabLabel, ROOT_PDF, rootPdfId, slotOf } from "./compiled-pdf-tabs";
 import { TrellisController } from "./trellis-controller";
-import { defaultLayout, returnLayout } from "./trellis-layout";
+import { arrangeDocuments, defaultLayout, placesOf, presetLayout, returnLayout } from "./trellis-layout";
 import TrellisWorkspace from "./trellis-workspace";
 import { arrangementOf, layoutShape } from "./trellis-workspaces";
 
@@ -164,6 +164,36 @@ describe("a PDF tab per compiled root document", () => {
     expect(strip()).toEqual(["main.tex", "live*"]);
   });
 
+  // The writer reads the manuscript's tab while the agent edits the supplement, whose own tab is in back.
+  it("leaves the reader where they were when a build not asked for puts the live tab in the built document's place", async () => {
+    const { ws, strip, built } = await openProject();
+    await built("main.tex");
+    await built("supplement/SI.tex", true);
+    await built("figures/plot.tex", true);
+    expect(strip()).toEqual(["main.tex", "supplement/SI.tex", "live*"]);
+    await act(async () => { await ws.close("pdf"); });
+    act(() => ws.select(rootPdfId("main.tex")));
+    expect(strip()).toEqual(["main.tex*", "supplement/SI.tex"]);
+    await built("supplement/SI.tex");
+    expect(strip()).toEqual(["main.tex*", "live"]);
+  });
+
+  // The issue's workflow across a restart: the manuscript, then the supplement, then quit and reopen.
+  it("brings back the tab of the document the live tab showed when the project opens again", async () => {
+    const first = await openProject();
+    await first.built("main.tex");
+    await first.built("supplement/SI.tex", true);
+    expect(first.strip()).toEqual(["main.tex", "live*"]);
+    first.unmount();
+
+    const { strip, built, tabs } = await openProject();
+    expect(strip()).toEqual(["main.tex", "live*"]);
+    // Opening the project builds the default root document: the supplement keeps a tab, and the reader stays on it.
+    await built("main.tex");
+    expect(strip()).toEqual(["live", "supplement/SI.tex*"]);
+    expect(tabs.label("supplement/SI.tex")).toBe("SI.pdf");
+  });
+
   it("gives the live tab the place of a restored tab of the document now live", async () => {
     const { ws, tabs, strip } = await openProject();
     act(() => { ws.open(ROOT_PDF, { id: rootPdfId("SI.tex"), params: { document: "SI.tex" }, focus: false, placement: { into: slotOf(ws.getDocument(), "pdf")!.panel } }); });
@@ -197,6 +227,19 @@ describe("the compiled documents' tabs in layouts", () => {
     const arrangement = arrangementOf(withTabs());
     expect(Object.values(arrangement.views).some((record) => record.type === ROOT_PDF)).toBe(false);
     expect(layoutShape(arrangement)).toContain("pdf");
+  });
+
+  it("keep which document the live PDF shows through a preset, and out of a named workspace's arrangement", () => {
+    const shown = withTabs();
+    shown.views.pdf = { type: "pdf", params: { document: "SI.tex" } };
+    const documents = { activeKey: "main.tex", openTabs: ["main.tex"], isReading: () => false };
+    const writing = presetLayout("writing", shown, documents);
+    expect(writing.views.pdf.params).toEqual({ document: "SI.tex" });
+    writing.views.pdf = { type: "pdf", params: { document: "main.tex" } };
+    expect(returnLayout(shown, writing, documents).views.pdf.params).toEqual({ document: "main.tex" });
+    expect(arrangementOf(shown).views.pdf.params).toBeUndefined();
+    // Switching to a workspace keeps the project's live document.
+    expect(arrangeDocuments(arrangementOf(shown), shown, documents, placesOf(shown)).views.pdf.params).toEqual({ document: "SI.tex" });
   });
 
   it("join the live PDF's panel when one was opened during a preset", () => {
