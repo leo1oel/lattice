@@ -14,6 +14,7 @@ import type { NewEntryType } from "../project/project-new-entries";
 import { loadRecentCommands, rememberRecentCommand, type ThemePreference } from "../settings/app-settings";
 import type { SettingsSearchEntry } from "../settings/settings-search-index";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
+import { pdfDarkPagesSetting, togglePdfDarkPages } from "../pdf/pdf-dark-pages";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { closeDocumentTab } from "../trellis/close-document-tab";
 import { setVimExRunner } from "../canvas/vim-ex-commands";
@@ -196,6 +197,8 @@ export function useCommandTable({
     project && pdfWindowOpen(project.root)
       ? { id: "pdf-window", label: t`Return the PDF to the workspace`, group: "layout", run: () => dockPdf(trellis, project.root) }
       : { id: "pdf-window", when: project !== null && pdfWindowsAvailable(), label: t`Open the PDF in a separate window`, group: "layout", run: () => project && detachPdf(trellis, project.root) },
+    // Read, not subscribed: opening the palette renders the table afresh.
+    { id: "pdf-dark-pages", label: pdfDarkPagesSetting.get() ? t`Light PDF pages` : t`Dark PDF pages`, group: "layout", run: togglePdfDarkPages },
     { id: "quick-open", when: inProject, label: t`Quick open file`, group: "navigate", key: "p", run: () => setSearchDialog("quick-open") },
     { id: "goto-line", when: textEditor, label: t`Go to line`, group: "navigate", key: "g", run: () => setSearchDialog("goto-line") },
     { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, group: "navigate", key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },

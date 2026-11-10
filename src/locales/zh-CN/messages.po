@@ -5023,6 +5023,14 @@ msgstr "深灰色"
 msgid "Dark only"
 msgstr "仅深色"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Dark pages"
+msgstr "深色页面"
+
+#: src/app/use-command-table.ts
+msgid "Dark PDF pages"
+msgstr "PDF 深色页面"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Data format"
 msgstr "数据格式"
@@ -5900,7 +5908,7 @@ msgstr "请输入模板名称和简短的版本号"
 msgid "Enter a valid arXiv id or URL."
 msgstr "请输入有效的 arXiv 编号或网址"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 msgid "Enter a zoom percentage"
 msgstr "输入缩放百分比"
 
@@ -8515,6 +8523,10 @@ msgstr "仅浅色"
 msgid "Light or dark"
 msgstr "浅色或深色"
 
+#: src/app/use-command-table.ts
+msgid "Light PDF pages"
+msgstr "PDF 浅色页面"
+
 #: src/components/ui/color-picker.tsx
 msgid "Lighten"
 msgstr "调浅"
@@ -9269,7 +9281,7 @@ msgstr "等宽文本"
 msgid "More editor status"
 msgstr "更多状态"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 msgid "More PDF actions"
 msgstr "更多"
 
@@ -17678,7 +17690,7 @@ msgstr "泽塔"
 msgid "ZIP archive"
 msgstr "ZIP 压缩包"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 msgid "Zoom"
 msgstr "缩放"
 
@@ -17689,12 +17701,14 @@ msgstr "缩放"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "放大"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
+#: src/pdf/pdf-overflow-menu.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"

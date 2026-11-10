@@ -1,5 +1,4 @@
 import {
-  Fragment,
   lazy,
   Suspense,
   useCallback,
@@ -22,7 +21,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import {
   CaseSensitive,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -31,8 +29,8 @@ import {
   CornerUpLeft,
   CornerUpRight,
   Download,
-  Ellipsis,
   LocateFixed,
+  Moon,
   MessageSquareShare,
   Play,
   RectangleHorizontal,
@@ -44,9 +42,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Tip } from "../components/icon-tip";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "./pdf-loading";
 import { Button } from "../components/ui/button";
@@ -79,6 +74,9 @@ import { useCompositionGuard } from "../hooks/use-composition-guard";
 import { usePdfLocationHistory, usePdfViewState, type ActiveViewerRef, type PdfViewerCallbacks } from "./use-pdf-view";
 import { usePdfZoom } from "./use-pdf-zoom";
 import { measurePdfSearchFold, type PdfSearchFold } from "./pdf-toolbar-min-width";
+import { PdfOverflowMenu } from "./pdf-overflow-menu";
+import { pdfDarkPagesSetting, togglePdfDarkPages, watchPdfDarkPages } from "./pdf-dark-pages";
+import { PdfDarkPagesButton } from "./pdf-dark-pages-button";
 import "@pdfslick/core/dist/pdf_viewer.css";
 import "./pdf-viewer.css";
 
@@ -91,6 +89,8 @@ export type PdfPageLayerProps = { recordRef: ActiveViewerRef; generation: number
 const ReviewPdfSheet = lazy(() => import("./review-pdf-sheet"));
 const NO_ANNOTATIONS: readonly EditorComment[] = [];
 const noSubscription = () => () => {};
+// Every viewer's pages follow one root attribute (pdf-dark-pages.ts).
+watchPdfDarkPages();
 const notOpen = () => false;
 
 /** Notification source label for the PDF preview. */
@@ -179,19 +179,6 @@ function useDraftInput(
 }
 
 /**
- * The control that takes focus from a menu whose trigger a wide toolbar hid:
- * the first enabled one the menu stood in for, in its zoom-first order (the
- * zoom steps lead the menu), or the preview itself when all are disabled.
- */
-function nextVisibleControl(trigger: HTMLElement): HTMLElement | null {
-  const toolbar = trigger.closest(".pdf-toolbar");
-  const candidates = [".pdf-zoom-controls button.pdf-overflow", ".pdf-history-controls button"]
-    .flatMap((selector) => [...toolbar?.querySelectorAll<HTMLElement>(selector) ?? []]);
-  const control = candidates.find((candidate) => !candidate.matches(":disabled") && candidate.getClientRects().length > 0);
-  return control ?? trigger.closest<HTMLElement>(".pdf-preview");
-}
-
-/**
  * The match controls' footprint while the search field is empty, shown only
  * for a minimum-width measurement: the buttons have a fixed width and the
  * counter reads as an idle one does. Plain inert elements rather than the
@@ -208,8 +195,6 @@ const IDLE_SEARCH_CONTROLS = (
     <button type="button" tabIndex={-1} aria-hidden="true" />
   </>
 );
-
-type MenuAction = { label: string; icon: ReactNode; disabled?: boolean; checked?: boolean; run: () => void };
 
 /**
  * How far the toolbar folds while a query is typed (measurePdfSearchFold):
@@ -232,117 +217,6 @@ function usePdfSearchFold(previewRef: RefObject<HTMLDivElement | null>, searchin
     return () => observer.disconnect();
   }, [previewRef, searching, counter]);
   return fold;
-}
-
-/**
- * A narrow toolbar's home for what it sets aside (pdf-viewer.css): the zoom
- * steps and value, the fit mode not in use, location history and saving. It
- * is only reachable while the toolbar is narrow; a wide one shows each control.
- *
- * Widening the panel or window past the breakpoint with the menu open hides
- * its trigger, and the portaled menu would follow that empty box to the
- * window's corner. So while open, the toolbar's frame (its size container,
- * which a divider drag already resizes) is watched, and the menu closes once
- * the trigger is gone, handing focus to a control it stood in for.
- */
-function PdfOverflowMenu({ open, onOpenChange, scale, stepZoom, onEnterZoom, groups }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  /** Only read while open; pass a constant otherwise, so zooming never re-renders the closed menu. */
-  scale: number;
-  stepZoom: (direction: 1 | -1) => void;
-  /** Close the menu and type a percentage into the toolbar's own zoom field. */
-  onEnterZoom: () => void;
-  groups: MenuAction[][];
-}) {
-  const { t } = useLingui();
-  const zoomEntryRef = useRef(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  // Where focus goes when the menu closes because its trigger was hidden: null
-  // to leave it be (it was not in the menu), else the toolbar control to take it.
-  const strandedFocusRef = useRef<HTMLElement | null | undefined>(undefined);
-  useEffect(() => {
-    const trigger = triggerRef.current;
-    const frame = trigger?.closest(".pdf-toolbar-frame");
-    if (!open || !trigger || !frame) return;
-    const observer = new ResizeObserver(() => {
-      if (trigger.getClientRects().length) return;
-      const hadFocus = Boolean(contentRef.current?.contains(document.activeElement));
-      strandedFocusRef.current = hadFocus ? nextVisibleControl(trigger) : null;
-      onOpenChange(false);
-    });
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, [open, onOpenChange]);
-  // Stepping keeps the menu open, so a reader can click until the page is right.
-  const step = (direction: 1 | -1) => (event: Event) => {
-    event.preventDefault();
-    stepZoom(direction);
-  };
-  return (
-    <DropdownMenu modal={false} open={open} onOpenChange={onOpenChange}>
-      <Tip label={t`More PDF actions`}>
-        <DropdownMenuTrigger asChild>
-          <button ref={triggerRef} type="button" className="pdf-overflow-trigger"><Ellipsis size={14} /></button>
-        </DropdownMenuTrigger>
-      </Tip>
-      <DropdownMenuContent
-        ref={contentRef}
-        align="end"
-        sideOffset={6}
-        className="pdf-overflow-menu min-w-[13.5rem]"
-        onCloseAutoFocus={(event) => {
-          const stranded = strandedFocusRef.current;
-          if (stranded !== undefined) {
-            strandedFocusRef.current = undefined;
-            zoomEntryRef.current = false;
-            event.preventDefault();
-            stranded?.focus();
-            return;
-          }
-          if (!zoomEntryRef.current) return;
-          zoomEntryRef.current = false;
-          event.preventDefault();
-          onEnterZoom();
-        }}
-      >
-        <div className="pdf-overflow-zoom" role="group" aria-label={t`Zoom`}>
-          <span className="pdf-overflow-zoom-label" aria-hidden="true">{t`Zoom`}</span>
-          <DropdownMenuItem aria-label={t`Zoom out`} disabled={scale <= PDF_MIN_SCALE} onSelect={step(-1)}>
-            <ZoomOut />
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="pdf-overflow-zoom-value"
-            aria-label={t`Enter a zoom percentage`}
-            onSelect={() => { zoomEntryRef.current = true; }}
-          >
-            {Math.round(scale * 100)}%
-          </DropdownMenuItem>
-          <DropdownMenuItem aria-label={t`Zoom in`} disabled={scale >= PDF_MAX_SCALE} onSelect={step(1)}>
-            <ZoomIn />
-          </DropdownMenuItem>
-        </div>
-        {groups.filter((group) => group.length).map((group, index) => (
-          <Fragment key={index}>
-            <DropdownMenuSeparator />
-            {group.map((action) => (
-              <DropdownMenuItem
-                key={action.label}
-                disabled={action.disabled}
-                onSelect={action.run}
-                {...(action.checked === undefined ? {} : { role: "menuitemcheckbox", "aria-checked": action.checked })}
-              >
-                {action.icon}
-                <span className="flex-1">{action.label}</span>
-                {action.checked && <Check size={14} className="pdf-overflow-check" />}
-              </DropdownMenuItem>
-            ))}
-          </Fragment>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 export function PdfPreview({
@@ -608,6 +482,7 @@ export function PdfPreview({
   const pageCount = numPages ?? "–";
   const { query, matches } = search;
   const revealLabel = t`Reveal cursor in PDF`;
+  const darkPagesLabel = t`Dark pages`;
   // What the menu shows for a fold, read only while folded: zooming leaves a
   // fit and each edit makes a new SyncTeX callback, and an unfolded menu must
   // not re-render for either.
@@ -737,6 +612,7 @@ export function PdfPreview({
             <ToolbarButton label={fitHeight.label} icon={fitHeight.icon}
               className={`pdf-search-fold${fitMode === "height" ? " active" : ""}${shownFit === "height" ? "" : " pdf-overflow"}`}
               aria-pressed={fitMode === "height"} disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
+            <PdfDarkPagesButton label={darkPagesLabel} />
             {toolbarAction && (
               <ToolbarButton label={toolbarAction.label} icon={<toolbarAction.icon size={14} />}
                 className="pdf-overflow" onClick={toolbarAction.run} />
@@ -764,6 +640,7 @@ export function PdfPreview({
                     label: fit.label, icon: fit.icon, checked: foldedFit === fit.mode, disabled: !hasActiveViewer, run: () => toggleFit(fit.mode),
                   }))
                   : [{ label: otherFit.label, icon: otherFit.icon, disabled: !hasActiveViewer, run: () => toggleFit(otherFit.mode) }],
+                [{ label: darkPagesLabel, icon: <Moon />, checked: overflowOpen && pdfDarkPagesSetting.get(), run: togglePdfDarkPages }],
                 [
                   { label: t`Previous PDF location`, icon: <CornerUpLeft />, disabled: !availability.back, run: () => navigate("back") },
                   { label: t`Next PDF location`, icon: <CornerUpRight />, disabled: !availability.forward, run: () => navigate("forward") },
