@@ -17,6 +17,7 @@ import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
 import { pdfDarkPagesSetting, togglePdfDarkPages } from "../pdf/pdf-dark-pages";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { closeDocumentTab } from "../trellis/close-document-tab";
+import { closeFocusedTerminal } from "../terminal/close-focused-terminal";
 import { setVimExRunner } from "../canvas/vim-ex-commands";
 import { WORKSPACE_SHORTCUTS } from "../trellis/trellis-workspaces";
 import { FOCUS_MODE_KEY, FRAME_TOGGLE_KEY } from "../trellis/trellis-keymap";
@@ -209,11 +210,13 @@ export function useCommandTable({
     { id: "reopen-tab", when: inProject, label: t`Reopen the closed tab`, group: "navigate", key: "t", shift: true, palette: false, run: documents.reopenClosed },
     // ⌘W closes a document tab, as in an editor or a browser, and the window
     // once none is open; ⇧⌘W (File ▸ Close Window) closes the window outright.
+    // In the focused Terminal panel it closes a terminal instead, never the window.
     // A browser tab's ⌘W is the browser's own, and Settings, over the
     // documents, leaves them alone.
     {
       id: "close-tab", when: !browserHosted && !settingsOpen, label: t`Close the document tab, or the window when none is open`, group: "navigate", key: "w", palette: false,
       run: () => {
+        if (closeFocusedTerminal(trellis)) return;
         if (!closeDocumentTab(trellis)) void getCurrentWindow().close();
       },
     },

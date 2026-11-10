@@ -58,6 +58,14 @@ export async function closeTerminal(key: number) {
   if (await confirmStopping([key])) terminals.close(key);
 }
 
+/** ⌘W in the Terminal panel: close the tab in front, as its ×. False when no tab is open. */
+export function closeActiveTerminal(): boolean {
+  const { active } = terminals.get();
+  if (active === null) return false;
+  void closeTerminal(active);
+  return true;
+}
+
 /**
  * The Terminal panel is closing (its tab's ×, the panel menu): end every
  * shell, asking first when a command still runs. False keeps the panel.
