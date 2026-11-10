@@ -45,7 +45,21 @@ export function run(command, args, options = {}) {
     }
     return execFileSync(process.execPath, [cli, ...args], { stdio: "inherit", ...options });
   }
+  // npm.cmd has the same problem. Every Windows Node install ships npm's
+  // entry point beside node.exe, so run that with this Node instead.
+  if (process.platform === "win32" && /^npm(?:\.cmd)?$/.test(command)) {
+    return execFileSync(process.execPath, [windowsNpmCli(), ...args], { stdio: "inherit", ...options });
+  }
   return execFileSync(command, args, { stdio: "inherit", ...options });
+}
+
+/** npm's JavaScript entry point in the Windows Node install running this script. */
+function windowsNpmCli(nodeExecutable = process.execPath) {
+  const cli = join(dirname(nodeExecutable), "node_modules", "npm", "bin", "npm-cli.js");
+  if (!existsSync(cli)) {
+    throw new Error(`npm's npm-cli.js is missing beside ${nodeExecutable}; reinstall Node with npm.`);
+  }
+  return cli;
 }
 
 /** Run a command and return its stdout as text; stderr is captured into the error. */

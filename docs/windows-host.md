@@ -21,6 +21,26 @@ on the macOS sandbox. One-click TeX and paper-tool installation are unavailable;
 install TeX Live for Windows separately to compile documents. The optional rtex
 live preview is still macOS-only.
 
+## TeX distributions
+
+TeX Live and MiKTeX both work. MiKTeX's `latexmk` and `texcount` are Perl
+scripts, and MiKTeX does not ship Perl: install one such as
+[Strawberry Perl](https://strawberryperl.com/) or builds fail. MiKTeX also asks
+before installing each missing package, and that dialog holds the build until
+Lattice stops it after five minutes. In MiKTeX Console, set
+**Settings → Always install missing packages on-the-fly**.
+
+## Running from source
+
+`pnpm tauri dev` needs the pinned Synara checkout described in
+`CONTRIBUTING.md`. The first run stages Synara, which can take longer than the
+180 seconds Tauri waits for the dev server, so stage it once on its own first:
+
+```powershell
+pnpm prepare:runtime:dev
+pnpm tauri dev
+```
+
 ## Installer builds and checks
 
 See [the Windows installer implementation](windows-installer.md) for
