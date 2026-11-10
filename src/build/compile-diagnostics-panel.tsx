@@ -24,6 +24,7 @@ import { compileRepairMessage } from "./compile-repair-messages";
 import { explainDiagnostic, type ExcerptLine } from "./compile-explain";
 import type { TexPackageUpdates } from "../app/use-tex-package-updates";
 import { TexPackageUpdateAction } from "./tex-package-update-action";
+import { OutdatedVersionHint } from "../telemetry/outdated-version-hint";
 
 const DOCKED_KEY = "lattice.build-output-docked.v1";
 
@@ -248,6 +249,7 @@ export function CompileDiagnosticsPanel(props: {
       {stopping && props.onUnlockRepair && (
         <p className="compile-repair-detail">{t`The repair has not stopped yet, and the agent may still be editing this file. Unlock anyway only if you want to edit it now.`}</p>
       )}
+      {tone === "error" && <OutdatedVersionHint className="compile-diagnostics-update" />}
       {props.repair?.message && (
         <p className="compile-repair-detail" role="status">{compileRepairMessage(props.repair.message)}</p>
       )}

@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import type { TexDependencyInstallProgress, TexInstallProgress } from "./tex-setup";
+import { OutdatedVersionHint } from "../telemetry/outdated-version-hint";
 
 type TexInstallStage = TexInstallProgress["stage"] | TexDependencyInstallProgress["stage"];
 
@@ -66,6 +67,7 @@ export function TexInstallDialog({ label, title, description, closeDisabled, onC
           </div>
         )}
         {error && <InlineMessage level="error" className="tex-setup-status">{error}</InlineMessage>}
+        {error && <OutdatedVersionHint className="tex-setup-status" />}
         {error && errorDetail && (
           <details className="tex-setup-error-details">
             <summary>

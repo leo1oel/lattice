@@ -7971,6 +7971,10 @@ msgstr "It is {size}; the editor opens files up to {limit}. Open it in another a
 msgid "It is still cited in the manuscript ({cited})."
 msgstr "It is still cited in the manuscript ({cited})."
 
+#: src/app/report-problem.ts
+msgid "It may already fix this. Update first, or report the problem anyway."
+msgstr "It may already fix this. Update first, or report the problem anyway."
+
 #: src/settings/grammar-rule-reasons.ts
 msgid "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
 msgstr "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
@@ -12735,6 +12739,10 @@ msgctxt "macOS menu bar"
 msgid "Report a Problem…"
 msgstr "Report a Problem…"
 
+#: src/app/report-problem.ts
+msgid "Report anyway"
+msgstr "Report anyway"
+
 #: src/project/clone-repository-dialog.tsx
 msgid "Repository URL"
 msgstr "Repository URL"
@@ -12918,6 +12926,10 @@ msgstr "Restart now"
 #: src/telemetry/app-updater.tsx
 msgid "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
 msgstr "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
+
+#: src/telemetry/outdated-version-hint.tsx
+msgid "Restart to update"
+msgstr "Restart to update"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -17065,7 +17077,9 @@ msgstr "Update available"
 msgid "Update figure"
 msgstr "Update figure"
 
+#: src/app/report-problem.ts
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/outdated-version-hint.tsx
 msgid "Update now"
 msgstr "Update now"
 
@@ -17141,6 +17155,7 @@ msgid "Updating LaTeX packages…"
 msgstr "Updating LaTeX packages…"
 
 #: src/pdf/pdf-loading.tsx
+#: src/telemetry/outdated-version-hint.tsx
 msgid "Updating…"
 msgstr "Updating…"
 
@@ -17761,6 +17776,14 @@ msgstr "You sign in on Overleaf. Lattice never sees your password."
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
+
+#: src/app/report-problem.ts
+msgid "You’re on v{running}; v{latest} is available"
+msgstr "You’re on v{running}; v{latest} is available"
+
+#: src/telemetry/outdated-version-hint.tsx
+msgid "You’re on v{running}; v{latest} is available and may already fix this."
+msgstr "You’re on v{running}; v{latest} is available and may already fix this."
 
 #: src/onboarding/get-started-panel.tsx
 msgid "You’re ready to write"

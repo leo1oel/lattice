@@ -12,6 +12,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
 import { addAppLog } from "./app-log-store";
 import { saveOnCrash } from "./crash-save";
+import { OutdatedVersionHint } from "./outdated-version-hint";
 import { i18n } from "../i18n";
 
 type PanelErrorBoundaryProps = {
@@ -73,6 +74,7 @@ function PanelErrorCard({ error, onReload }: { error: Error; onReload: () => voi
     <div className="panel-error" role="alert">
       <strong>{t`This panel stopped working`}</strong>
       <p>{t`The rest of the window keeps working.`}</p>
+      <OutdatedVersionHint />
       <Button onClick={onReload}>{t`Reload panel`}</Button>
       <details className="root-error-details">
         <summary>{t`Technical details`}</summary>
