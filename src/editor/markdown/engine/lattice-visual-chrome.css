@@ -382,7 +382,16 @@ body:has(.modal-backdrop, .drawer-backdrop) .lx-md-emoji-picker { display: none;
   cursor: help;
 }
 .lx-md-editor .lx-md-surface .lx-md-comment.is-active { box-shadow: 0 0 0 1px var(--highlight-match-current-border); }
-.lx-md-editor .lx-md-surface .lx-md-comment-draft { border-radius: var(--gap-hairline); background: var(--editor-selection-tint); }
+/* The passage a comment is being written on: the same light wash and
+   underline the .tex source editor's draft uses (.editor-comment-draft), not
+   the opaque selection tint, which read as a dark-blue block. */
+.lx-md-editor .lx-md-surface .lx-md-comment-draft {
+  border-radius: var(--gap-hairline);
+  background-color: var(--control-active-soft);
+  border-bottom: 2px solid var(--control-active);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .lx-md-comment-card { position: fixed; z-index: var(--z-editor-popover); max-width: min(320px, calc(100vw - var(--space-8))); }
 
 .lx-md-editor .lx-md-surface .lx-md-change {
