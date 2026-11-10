@@ -196,5 +196,7 @@
 .canvas-body.pdf-window { position: fixed; inset: 0; width: auto; max-width: none; height: auto; background: var(--editor-bg); }
 
 /* Keep the autoscroll cursor over selectable PDF text and annotations too. */
-.pdf-scroll-area-viewport.pdf-autoscrolling,
-.pdf-scroll-area-viewport.pdf-autoscrolling * { cursor: ns-resize !important; }
+.pdf-preview .pdf-autoscrolling,
+.pdf-preview .pdf-autoscrolling *,
+.pdf-preview .pdf-autoscrolling .pdfViewer .page,
+.pdf-preview .pdf-autoscrolling .pdfViewer .page * { cursor: ns-resize; }
