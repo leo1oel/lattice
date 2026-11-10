@@ -256,6 +256,22 @@ describe("a PDF tab per compiled root document", () => {
     expect(strip()).toEqual(["live*"]);
   });
 
+  // Project Q shows its manuscript; project R opens with its supplement live and its manuscript's tab, before R's first build.
+  it("forgets the last project's live document as soon as another project opens, before that project's first build", async () => {
+    const { controller, ws, tabs, strip, built } = await openProject();
+    await built("main.tex");
+    act(() => controller.app.set({ ...controller.app.get(), projectRoot: "/q" }));
+    act(() => {
+      ws.setParams("pdf", { document: "SI.tex" });
+      ws.open(ROOT_PDF, { id: rootPdfId("main.tex"), params: { document: "main.tex" }, focus: false, placement: { into: slotOf(ws.getDocument(), "pdf")!.panel } });
+      ws.select("pdf");
+    });
+    await act(async () => {});
+    expect(strip()).toEqual(["live*", "main.tex"]);
+    expect(ws.view("pdf")?.params.document).toBe("SI.tex");
+    expect(tabs.liveLabel()).toBeNull();
+  });
+
   it("starts over in another project", async () => {
     const { ws, tabs, strip, built } = await openProject();
     await built("main.tex");

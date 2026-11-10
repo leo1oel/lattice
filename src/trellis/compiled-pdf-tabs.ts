@@ -69,7 +69,7 @@ export class CompiledPdfTabs {
   /** The `root-pdf` tabs mounted now; App renders a viewer into each one on screen. */
   readonly mounted = new SmallStore<{ tabs: readonly RootPdfTab[] }>({ tabs: [] });
 
-  constructor(private readonly controller: Pick<TrellisController, "ws" | "ui" | "bridge" | "showPanel">) {}
+  constructor(private readonly controller: Pick<TrellisController, "ws" | "ui" | "app" | "bridge" | "showPanel">) {}
 
   private ws(): WorkspaceHandle | null {
     return this.controller.ws;
@@ -109,14 +109,16 @@ export class CompiledPdfTabs {
   private documents(ws: WorkspaceHandle): string[] {
     const records = Object.values(ws.getDocument().views);
     const others = records.filter((record) => record.type === ROOT_PDF).map((record) => String(record.params?.document ?? ""));
-    return this.live && records.some((record) => record.type === "pdf") ? [this.live, ...others] : others;
+    const live = this.current();
+    return live && records.some((record) => record.type === "pdf") ? [live, ...others] : others;
   }
 
   /** The live tab's name once other documents have tabs too; null leaves it "PDF". */
   liveLabel(): string | null {
     const ws = this.ws();
     const documents = ws ? this.documents(ws) : [];
-    return this.live && documents.length > 1 && documents[0] === this.live ? pdfTabLabel(this.live, documents) : null;
+    const live = this.current();
+    return live && documents.length > 1 && documents[0] === live ? pdfTabLabel(live, documents) : null;
   }
 
   label(document: string): string {
@@ -143,6 +145,11 @@ export class CompiledPdfTabs {
     const previous = this.live ?? this.recorded();
     this.live = document;
     this.place(previous, document, requested);
+  }
+
+  /** The live document, while the workspace still holds the project it is of: another project's is no document here. */
+  private current(): string | null {
+    return this.root === this.controller.app.get().projectRoot ? this.live : null;
   }
 
   /** The document the live tab showed when the layout was saved: what it shows on reopening until a build. */
@@ -199,13 +206,14 @@ export class CompiledPdfTabs {
   }
 
   /**
-   * The live tab mounted in project `root`, or its record changed to name
+   * The live tab mounted, or its record changed to name
    * `recorded`: however it came back (a build, the panel's menu, a layout),
    * it names the document it shows, for the project's next opening.
    */
-  liveMounted(root: string, recorded: unknown) {
+  liveMounted(recorded: unknown) {
     const ws = this.ws();
-    if (ws && root === this.root && this.live && recorded !== this.live && ws.view("pdf")) ws.setParams("pdf", { document: this.live });
+    const live = this.current();
+    if (ws && live && recorded !== live && ws.view("pdf")) ws.setParams("pdf", { document: live });
   }
 
   /** A `root-pdf` tab mounted, moved on or off screen, or (null) unmounted. */
@@ -213,6 +221,11 @@ export class CompiledPdfTabs {
     const tabs = this.mounted.get().tabs.filter((tab) => tab.document !== document);
     this.mounted.set({ tabs: visible === null ? tabs : [...tabs, { document, visible }] });
     // A layout restored with a tab for the document now live: the live tab takes its place.
-    if (visible !== null && document === this.live) queueMicrotask(() => this.live && this.place(this.live, this.live, false));
+    if (visible !== null && document === this.current()) {
+      queueMicrotask(() => {
+        const live = this.current();
+        if (live) this.place(live, live, false);
+      });
+    }
   }
 }
