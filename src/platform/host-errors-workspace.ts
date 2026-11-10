@@ -110,6 +110,9 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["latex/synctex.rs", "Build the project before counting its pages.", () => t`Build the project before counting its pages.`],
   ["latex/synctex.rs", "Build the project before locating its sections.", () => t`Build the project before locating its sections.`],
   ["latex/synctex.rs", "Could not start SyncTeX: {error}", ([error]) => t`Could not start SyncTeX: ${error}`],
+  ["latex/synctex.rs", "SyncTeX can only search a LaTeX document of this project.", () => t`SyncTeX can only search a LaTeX document of this project.`],
+  // Another root document's own PDF tab (latex.rs)
+  ["latex.rs", "{document} has not been built in Lattice yet.", ([document]) => t`${document} has not been built in Lattice yet.`],
 
   // Windows and the terminal (ipc/)
   ["ipc/workspace.rs", "This project is already open in another Lattice window. Open it in the browser from that window instead.", () => t`This project is already open in another Lattice window. Open it in the browser from that window instead.`],

@@ -1,4 +1,4 @@
-import { interfaceSounds, tauriCoreApi, projectCommands, ROOT, projectSnapshot, failedBuild, deferred, setInterfaceLanguage, buildButton, expectInvoked, invokeCalls, visibleToasts } from "./app-test-utils";
+import { interfaceSounds, tauriCoreApi, projectCommands, ROOT, projectSnapshot, failedBuild, deferred, setInterfaceLanguage, buildButton, expectInvoked, invokeCalls, visibleToasts, buildResult, fileNodes, openTreeFile, stubObjectUrls, mockPdfDocument, pdfDocumentStub } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { projectPdfPanel } from "./app-test-pdf-panel";
 import { invoke } from "@tauri-apps/api/core";
@@ -103,5 +103,36 @@ describe("builds and the PDF reader", () => {
     });
     await waitFor(() => expect(formatAppLogs()).toContain("Missing style file `cvpr.sty`"));
     expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" })).not.toBeInTheDocument();
+  });
+  // ⌘S builds what it saved and plays no sound, but the writer asked for that
+  // build: its document's PDF comes to the front, not the one built before it.
+  it("brings the document ⌘S built to the front of the PDF tabs", async () => {
+    let urls = 0;
+    stubObjectUrls(() => `blob:pdf-${++urls}`);
+    mockPdfDocument(() => pdfDocumentStub(1));
+    let writes = 0;
+    renderApp({
+      ...projectCommands(projectSnapshot({
+        rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }, { path: "SI.tex", name: "SI", isDefault: false }],
+        files: fileNodes("main.tex", "SI.tex"),
+      })),
+      build_project: (args) => buildResult({ hasPdf: true, rootDocument: (args as { documentPath: string | null }).documentPath ?? "main.tex" })(),
+      read_compiled_pdf: () => new TextEncoder().encode(`%PDF-1.5 ${++writes}`).buffer,
+    });
+    const builds = () => invokeCalls("build_project").length;
+    await waitFor(() => expect(builds()).toBe(1));
+    const tab = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${name.replace(".", "\\.")}`) });
+
+    await openTreeFile("SI.tex");
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    await waitFor(() => expect(tab("SI.pdf")).toHaveAttribute("aria-selected", "true"));
+    expect(tab("main.pdf")).toHaveAttribute("aria-selected", "false");
+
+    await openTreeFile("main.tex");
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    await waitFor(() => expect(builds()).toBe(3));
+    await waitFor(() => expect(tab("main.pdf")).toHaveAttribute("aria-selected", "true"));
+    expect(tab("SI.pdf")).toHaveAttribute("aria-selected", "false");
+    expect(interfaceSounds.play).not.toHaveBeenCalled();
   });
 });

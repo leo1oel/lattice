@@ -70,7 +70,8 @@ pub use figure_preview::{preview_figure, FigurePreview, FigurePreviewRequest};
 pub use pinned::{build_pinned, PinnedBuild};
 pub use submission_review::{review_submission, SubmissionReview};
 pub use synctex::{
-    body_pages, forward_search, heading_pages, inverse_search, BodySpan, SourceLine,
+    body_pages, forward_search, forward_search_in, heading_pages, inverse_search,
+    inverse_search_in, BodySpan, SourceLine,
 };
 pub(crate) use venue::{document_venue, strip_comment};
 
@@ -132,9 +133,11 @@ fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {
 
 /// Whether the compiled PDF is missing the SyncTeX file that pairs with it.
 fn synctex_missing(root: &Path) -> bool {
-    let Ok(pdf) = compiled_pdf_path(root) else {
-        return false;
-    };
+    compiled_pdf_path(root).is_ok_and(|pdf| lacks_synctex(&pdf))
+}
+
+/// Whether `pdf` exists without the SyncTeX file that pairs with it.
+fn lacks_synctex(pdf: &Path) -> bool {
     pdf.is_file()
         && !pdf.with_extension("synctex.gz").is_file()
         && !pdf.with_extension("synctex").is_file()
@@ -142,6 +145,21 @@ fn synctex_missing(root: &Path) -> bool {
 
 pub fn read_compiled_pdf(root: &Path) -> Result<Vec<u8>, String> {
     let path = compiled_pdf_path(root)?;
+    let bytes =
+        fs::read(&path).map_err(|error| format!("The compiled PDF could not be read: {error}"))?;
+    if !bytes.starts_with(b"%PDF-") {
+        return Err("The compiled output is not a valid PDF.".to_string());
+    }
+    Ok(bytes)
+}
+
+/// The PDF this copy last built of `document`, a root document other than
+/// the one on screen, for its own preview tab (`shown_pdf::kept`). Never the
+/// PDF beside the document, which a sync may have replaced with a
+/// collaborator's build.
+pub fn read_kept_pdf(root: &Path, document: &str) -> Result<Vec<u8>, String> {
+    let path = shown_pdf::kept(root, document)
+        .ok_or_else(|| format!("{document} has not been built in Lattice yet."))?;
     let bytes =
         fs::read(&path).map_err(|error| format!("The compiled PDF could not be read: {error}"))?;
     if !bytes.starts_with(b"%PDF-") {

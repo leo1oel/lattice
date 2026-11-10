@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { hostErrorMessage } from "../app-utils";
 import { showError } from "../app/notify";
@@ -11,6 +11,7 @@ import type { AnnotationIntent } from "../editor/comments/editor-comment-data";
 import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { usePdfAnchoredPopup } from "../pdf/use-pdf-anchored-popup";
+import { PdfDocumentContext } from "../pdf/pdf-document-context";
 import { AnnotationForm } from "./annotation-composer";
 import { baseName } from "../lib/base-name";
 
@@ -32,6 +33,8 @@ export function PdfAnnotationComposer(props: {
 }) {
   const { t } = useLingui();
   const { selection } = props;
+  // On another root document's own tab, the note is placed through that document's map.
+  const pdfDocument = useContext(PdfDocumentContext);
   const popupRef = useRef<HTMLDivElement>(null);
   // It grows from the selection above it as every popup does, and leaves on the popup exit.
   useExitPicture([popupRef]);
@@ -57,7 +60,7 @@ export function PdfAnnotationComposer(props: {
 
   useEffect(() => {
     let cancelled = false;
-    rounds.mapPdfSelection(selection).then(
+    rounds.mapPdfSelection(selection, pdfDocument).then(
       (place) => {
         if (!cancelled) setMapped(place);
       },
@@ -66,7 +69,7 @@ export function PdfAnnotationComposer(props: {
       },
     );
     return () => { cancelled = true; };
-  }, [rounds, selection]);
+  }, [pdfDocument, rounds, selection]);
 
   // Under the selection on its page, kept there as the PDF scrolls or zooms.
   usePdfAnchoredPopup(popupRef, selection, COMPOSER_PLACE);

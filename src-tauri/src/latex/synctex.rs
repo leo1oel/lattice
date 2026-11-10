@@ -2,7 +2,7 @@
 
 mod records;
 
-use super::{compiled_document, synctex_missing};
+use super::{compiled_document, lacks_synctex};
 use crate::commands;
 use crate::latex::PdfSyncTarget;
 use crate::models::SyncTexTarget;
@@ -17,10 +17,18 @@ const NO_SYNCTEX_DATA: &str = "This PDF has no SyncTeX data, so Lattice cannot m
     — press Build once to write it.";
 
 pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexTarget, String> {
+    inverse_search_in(root, page, x, y, None)
+}
+
+/// From a point on a page of `document`'s PDF (`None`: the compiled
+/// document's) to its source line.
+pub fn inverse_search_in(
+    root: &Path, page: u32, x: f64, y: f64, document: Option<&str>,
+) -> Result<SyncTexTarget, String> {
     if page == 0 || !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 {
         return Err("Invalid PDF source position.".to_string());
     }
-    let (_, pdf) = synced_pdf(root, "Build the project before locating PDF source.")?;
+    let (_, pdf) = synced_pdf(root, document, "Build the project before locating PDF source.")?;
     let output = run_synctex(
         root,
         &["edit".into(), "-o".into(), format!("{page}:{x:.3}:{y:.3}:{}", pdf.display())],
@@ -57,6 +65,14 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
 pub fn forward_search(
     root: &Path, path: &str, line: u32, column: u32,
 ) -> Result<Option<PdfSyncTarget>, String> {
+    forward_search_in(root, path, line, column, None)
+}
+
+/// From a source line to its place in `document`'s PDF (`None`: the
+/// compiled document's).
+pub fn forward_search_in(
+    root: &Path, path: &str, line: u32, column: u32, document: Option<&str>,
+) -> Result<Option<PdfSyncTarget>, String> {
     if line == 0 {
         return Err("Choose a source line before locating it in the PDF.".to_string());
     }
@@ -68,7 +84,8 @@ pub fn forward_search(
         .map_err(|_| "Source path is outside this project.".to_string())?
         .to_string_lossy()
         .replace('\\', "/");
-    let (document, pdf) = synced_pdf(root, "Build the project before locating source in the PDF.")?;
+    let (document, pdf) =
+        synced_pdf(root, document, "Build the project before locating source in the PDF.")?;
     let synctex = records::read(&root.join(&pdf));
     // A .bib entry reaches the PDF through the generated .bbl, so look that up.
     let (lookup_path, lookup_line, lookup_column) =
@@ -176,7 +193,7 @@ pub struct BodySpan {
 /// partway down a page leave that page in the body; ones that open a page do
 /// not. `None` when nothing from `spans` is on any page.
 pub fn body_pages(root: &Path, spans: &[BodySpan]) -> Result<Option<u32>, String> {
-    let (_, pdf) = synced_pdf(root, "Build the project before counting its pages.")?;
+    let (_, pdf) = synced_pdf(root, None, "Build the project before counting its pages.")?;
     let pdf = root.join(&pdf);
     let Some(synctex) = records::read(&pdf) else { return Ok(None) };
     let spans: Vec<(PathBuf, u32)> = spans
@@ -209,7 +226,7 @@ pub struct SourceLine {
 /// `None` for one SyncTeX did not record. One read of the SyncTeX data
 /// answers every heading, rather than a `synctex view` run for each.
 pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<u32>>, String> {
-    let (_, pdf) = synced_pdf(root, "Build the project before locating its sections.")?;
+    let (_, pdf) = synced_pdf(root, None, "Build the project before locating its sections.")?;
     let count = headings.len();
     let pdf = root.join(&pdf);
     let Some(synctex) = records::read(&pdf) else { return Ok(vec![None; count]) };
@@ -237,11 +254,23 @@ pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<
     }))
 }
 
-/// The compiled document (a one-off root, else the default) and its PDF
-/// (relative to `root`), once that PDF exists and has SyncTeX data to search.
-fn synced_pdf(root: &Path, unbuilt: &str) -> Result<(String, PathBuf), String> {
-    let manifest = project::read_manifest(root)?;
-    let document = compiled_document(root, &manifest)?;
+/// `document` (a root document's own preview tab), else the compiled
+/// document (a one-off root, else the default), and its PDF (relative to
+/// `root`), once that PDF exists and has SyncTeX data to search.
+fn synced_pdf(
+    root: &Path, document: Option<&str>, unbuilt: &str,
+) -> Result<(String, PathBuf), String> {
+    let document = match document {
+        Some(document) => {
+            let relative = Path::new(document);
+            let tex = relative.extension().is_some_and(|extension| extension == "tex");
+            if !tex || !project::stays_inside(relative) {
+                return Err("SyncTeX can only search a LaTeX document of this project.".to_string());
+            }
+            document.to_string()
+        }
+        None => compiled_document(root, &project::read_manifest(root)?)?,
+    };
     let pdf = Path::new(&document).with_extension("pdf");
     if !root.join(&pdf).is_file() {
         return Err(unbuilt.to_string());
@@ -249,7 +278,7 @@ fn synced_pdf(root: &Path, unbuilt: &str) -> Result<(String, PathBuf), String> {
     // Missing SyncTeX data is not "this line is not in the PDF": the whole map
     // is absent, and every line would answer the same. Say so once here rather
     // than sending the reader looking for a paragraph that is on the page.
-    if synctex_missing(root) {
+    if lacks_synctex(&root.join(&pdf)) {
         return Err(NO_SYNCTEX_DATA.to_string());
     }
     Ok((document, pdf))

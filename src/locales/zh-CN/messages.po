@@ -538,6 +538,10 @@ msgid "{detail}. {limit}"
 msgstr "{detail}。{limit}"
 
 #: src/platform/host-errors-workspace.ts
+msgid "{document} has not been built in Lattice yet."
+msgstr "{document} 尚未在 Lattice 中构建过。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 msgstr "{document} 是在开启审阅模式之后创建的，没有可对照的版本来标记改动。"
 
@@ -14798,6 +14802,10 @@ msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX 双向搜索"
 
 #: src/platform/host-errors-workspace.ts
+msgid "SyncTeX can only search a LaTeX document of this project."
+msgstr "SyncTeX 只能搜索本项目中的 LaTeX 文档。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "SyncTeX could not locate this PDF position."
 msgstr "SyncTeX 无法定位 PDF 中的这个位置"
 
@@ -16665,6 +16673,7 @@ msgid "Try again…"
 msgstr "重试…"
 
 #: src/canvas/project-pdf-panel.tsx
+#: src/canvas/root-pdf-tabs.tsx
 #: src/pdf/pdf-window-page.tsx
 msgid "Try building the project again"
 msgstr "请尝试重新构建项目"

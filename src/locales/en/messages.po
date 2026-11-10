@@ -538,6 +538,10 @@ msgid "{detail}. {limit}"
 msgstr "{detail}. {limit}"
 
 #: src/platform/host-errors-workspace.ts
+msgid "{document} has not been built in Lattice yet."
+msgstr "{document} has not been built in Lattice yet."
+
+#: src/platform/host-errors-workspace.ts
 msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 msgstr "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 
@@ -14798,6 +14802,10 @@ msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX bidirectional search"
 
 #: src/platform/host-errors-workspace.ts
+msgid "SyncTeX can only search a LaTeX document of this project."
+msgstr "SyncTeX can only search a LaTeX document of this project."
+
+#: src/platform/host-errors-workspace.ts
 msgid "SyncTeX could not locate this PDF position."
 msgstr "SyncTeX could not locate this PDF position."
 
@@ -16665,6 +16673,7 @@ msgid "Try again…"
 msgstr "Try again…"
 
 #: src/canvas/project-pdf-panel.tsx
+#: src/canvas/root-pdf-tabs.tsx
 #: src/pdf/pdf-window-page.tsx
 msgid "Try building the project again"
 msgstr "Try building the project again"

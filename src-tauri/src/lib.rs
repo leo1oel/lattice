@@ -566,6 +566,7 @@ pub fn run() {
             ipc::build::abort_build,
             ipc::build::clean_project,
             ipc::build::read_compiled_pdf,
+            ipc::build::read_kept_pdf,
             ipc::build::save_compiled_pdf,
             ipc::build::pdf_page_signatures,
             ipc::build::save_review_pdf,

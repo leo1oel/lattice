@@ -5,13 +5,14 @@ import type { BuildResult } from "../app-types";
 import { toMessage } from "../app-utils";
 import { diagnosticsFingerprint, missingTexDependencyFile, type CompileDiagnostic } from "../build/compile-diagnostics";
 import { isMissingTexBuildError } from "../build/tex-setup";
-import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
+import { pdfBytesFingerprint } from "../pdf/pdf-bytes";
 import { scheduleFirstPage } from "../project/first-pages";
 import { logAction, notifyWarning } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
-import { clearTimer, restartTimer, subscribeTauriEvent, useRefState } from "./effect-helpers";
+import { subscribeTauriEvent, useRefState } from "./effect-helpers";
+import { usePdfPreview } from "./use-pdf-preview";
 import { listenInThisWindow } from "./window-events";
 import { showError, showNotice } from "./notify";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
@@ -29,9 +30,6 @@ import type { BuildOptions, BuildPipelineInputs } from "./build-pipeline-inputs"
 
 export type { BuildOutcome } from "./build-outcome";
 export type { BuildProgressStore } from "./build-progress";
-
-/** The live preview's name for the files a build read, and whether it ran quietly. */
-type LiveBase = { token: number | null; quiet: boolean };
 
 /** The build holding the pipeline: settles once it and its queued passes are done. */
 type RunningBuild = { settled: Promise<void>; revision: number };
@@ -77,16 +75,9 @@ export function useBuildPipeline({
    *  set stays dismissed through the recompiles that autosave keeps firing. */
   const dismissedDiagnosticsRef = useRef<string | null>(null);
 
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const pdfFingerprintRef = useRef<string | null>(null);
-  const displayedPdfBytesRef = useRef<ArrayBuffer | null>(null);
-  const previewTimerRef = useRef<number | null>(null);
-  /** Stable preview payload — debounced so automatic rebuilds do not thrash pdf.js. */
-  const pendingPreviewRef = useRef<ArrayBuffer | null>(null);
-  /** The live preview's name for the files the pending payload was built from, and whether a quiet build made it. */
-  const pendingLiveRef = useRef<LiveBase>({ token: null, quiet: false });
-  /** Bumped when leaving a project so a late build cannot revive a stale PDF. */
-  const previewGenerationRef = useRef(0);
+  const {
+    pdfUrl, shown: shownPdf, shownBytes: shownPdfBytes, shownVersions: shownPdfVersions, displayedPdfBytesRef, generationRef: previewGenerationRef, show: showPreview, reset: resetPreview,
+  } = usePdfPreview({ livePreview, projectRef });
 
   /**
    * Which project inputs the PDF and its SyncTeX map were compiled from.
@@ -121,38 +112,6 @@ export function useBuildPipeline({
     return !rootDocument || !compiled.rootDocument || rootDocument === compiled.rootDocument;
   }, [activeFileRef, projectRef]);
 
-  const replacePdfUrl = useCallback((nextUrl: string | null) => setPdfUrl((previous) => {
-    if (previous) URL.revokeObjectURL(previous);
-    return nextUrl;
-  }), []);
-
-  const showPreview = useCallback((bytes: ArrayBuffer, previewGeneration: number, immediate: boolean, live: LiveBase) => {
-    // LaTeX rewrites PDF metadata on every compile, so bytes almost always
-    // change. Debounce preview updates for autosave compiles so pdf.js is
-    // not destroyed mid-load on every keystroke pause.
-    pendingPreviewRef.current = bytes;
-    pendingLiveRef.current = live;
-    clearTimer(previewTimerRef);
-    const applyPreview = () => {
-      const pending = pendingPreviewRef.current;
-      if (previewGeneration !== previewGenerationRef.current || !pending) return;
-      const fingerprint = pdfBytesFingerprint(pending);
-      pendingPreviewRef.current = null;
-      const { token, quiet } = pendingLiveRef.current;
-      // The same pages as on screen: they hold what this build compiled now.
-      if (fingerprint === pdfFingerprintRef.current) {
-        livePreview?.current?.baseShown(token);
-        return;
-      }
-      pdfFingerprintRef.current = fingerprint;
-      displayedPdfBytesRef.current = pending;
-      livePreview?.current?.baseLoading(token, quiet);
-      replacePdfUrl(pdfBytesToObjectUrl(pending));
-    };
-    if (immediate) applyPreview();
-    else restartTimer(previewTimerRef, 1_200, applyPreview);
-  }, [livePreview, replacePdfUrl]);
-
   /**
    * Drop the outgoing project's build and preview, invalidating any in-flight
    * one *before* the incoming project's first build starts (starting first
@@ -169,37 +128,10 @@ export function useBuildPipeline({
     watchedBuilds.reset();
     quietBuilds.cancel();
     readPdfFingerprintRef.current = null;
-    const generation = ++previewGenerationRef.current;
-    pdfFingerprintRef.current = null;
-    displayedPdfBytesRef.current = null;
-    pendingPreviewRef.current = null;
-    clearTimer(previewTimerRef);
-    replacePdfUrl(null);
-    const current = (fingerprint: string | null) => generation === previewGenerationRef.current
-      && projectRef.current?.root === projectRoot
-      && pdfFingerprintRef.current === fingerprint;
-    void invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot })
-      .then((pdfBytes) => {
-        if (!current(null)) return;
-        const fingerprint = pdfBytesFingerprint(pdfBytes);
-        const nextUrl = pdfBytesToObjectUrl(pdfBytes);
-        pdfFingerprintRef.current = fingerprint;
-        if (readPdfFingerprintRef.current === null) readPdfFingerprintRef.current = fingerprint;
-        displayedPdfBytesRef.current = pdfBytes;
-        setPdfUrl((previous) => {
-          if (!current(fingerprint)) {
-            URL.revokeObjectURL(nextUrl);
-            return previous;
-          }
-          if (previous) URL.revokeObjectURL(previous);
-          return nextUrl;
-        });
-      })
-      .catch(() => {
-        // A new or cleaned project has no cached PDF; the initial build
-        // remains the source of its first preview.
-      });
-  }, [projectRef, quietBuilds, replacePdfUrl, watchedBuilds]);
+    resetPreview(projectRoot, (fingerprint) => {
+      if (readPdfFingerprintRef.current === null) readPdfFingerprintRef.current = fingerprint;
+    });
+  }, [quietBuilds, resetPreview, watchedBuilds]);
 
   /** Forget queued work; `cancelQueuedBuild` also drops a queued pass itself. */
   const resetQueue = useCallback((cancelQueuedBuild: boolean) => {
@@ -279,6 +211,7 @@ export function useBuildPipeline({
     // Only explicit UI builds opt into sound (even when audio is muted).
     // Background failures must not steal the caret while an edit is unfinished.
     let shouldNavigateToError = options?.sound === true;
+    let bringForward = shouldNavigateToError || options?.bringForward === true;
     let shouldConsumeAgentAssociations = options?.consumeAgentAssociations === true;
     let completionSound: "success" | "error" | null = null;
     // Nothing is queued while no build runs (`force` is only set behind the lock), so this clears flags alone.
@@ -293,6 +226,7 @@ export function useBuildPipeline({
         currentForce = queue.force;
         shouldPlayCompletionSound ||= queue.sound;
         shouldNavigateToError = queue.sound;
+        bringForward = queue.sound || queue.bringForward;
         shouldConsumeAgentAssociations = queue.consumeAgentAssociations;
         cleanFirst = queue.clean;
         Object.assign(queue, IDLE_QUEUE);
@@ -415,7 +349,10 @@ export function useBuildPipeline({
         // The debounce exists so a slow pdf.js load is not torn down by the
         // next rebuild while someone is still typing. Once they have stopped —
         // the buffer matches what is on disk — waiting is just the PDF lagging.
-        if (pdfBytes) showPreview(pdfBytes, previewGeneration, immediatePreview || sourceRef.current === savedSourceRef.current, liveAtBuild);
+        if (pdfBytes) {
+          const immediate = immediatePreview || sourceRef.current === savedSourceRef.current;
+          showPreview(pdfBytes, previewGeneration, immediate, liveAtBuild, result.rootDocument, bringForward);
+        }
         if (!result.success) {
           const firstError = result.diagnostics.find((item) => missingTexDependencyFile(item.message))
             ?? result.diagnostics.find((item) => item.level === "error")
@@ -476,7 +413,7 @@ export function useBuildPipeline({
       }
     }
   }, [
-    activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef,
+    activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, previewGenerationRef, progress, projectGenerationRef, projectRef,
     quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, stallHold, t,
     takePendingCompiles, watchedBuilds, abortBuild,
   ]);
@@ -557,6 +494,10 @@ export function useBuildPipeline({
     dismissDiagnostics,
     cycleDiagnostic,
     pdfUrl,
+    /** Whose PDF the preview shows, for the compiled documents' tabs; and each one's last shown bytes. */
+    shownPdf,
+    shownPdfBytes,
+    shownPdfVersions,
     displayedPdfBytesRef,
     resetForProject,
     resetQueue,
@@ -567,8 +508,8 @@ export function useBuildPipeline({
     cleanProject,
     cleanAndRebuild,
   }), [
-    abortBuild, build, building, progress, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
-    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl, quiet,
+    abortBuild, build, building, displayedPdfBytesRef, progress, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
+    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl, quiet, shownPdf, shownPdfBytes, shownPdfVersions,
     resetForProject, resetQueue, runBuild,
   ]);
 }

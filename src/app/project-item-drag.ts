@@ -1,5 +1,6 @@
 /** Dragging a Project-tree row: the tree moves files until the drag leaves its panel, then Trellis takes it. */
 import type { TrellisController } from "../trellis/trellis-controller";
+import { beginFileDrag } from "../trellis/trellis-file-drag";
 
 /**
  * Follow a pointer drag of a project-tree row. Past a 5px threshold,
@@ -51,5 +52,5 @@ export function trellisTakesProjectDrag(trellis: TrellisController, path: string
     && pointer.clientY >= panel.top && pointer.clientY <= panel.bottom;
   if (inside) return false;
   window.dispatchEvent(new PointerEvent("pointercancel", { pointerId: pointer.pointerId, pointerType: pointer.pointerType }));
-  return trellis.beginFileDrag(path, pointer);
+  return beginFileDrag(trellis, path, pointer);
 }

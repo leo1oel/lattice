@@ -11,6 +11,7 @@ import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
 import { markGetStartedStep } from "../onboarding/get-started-progress";
 import { pdfInWindow } from "./pdf-window-state";
+import { syncTexDocument } from "../pdf/pdf-document-context";
 
 export type SyncTexNavigationDeps = {
   documents: Pick<OpenDocuments,
@@ -42,7 +43,9 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   const outlineSyncGenerationRef = useRef(0);
   const inverseSyncGenerationRef = useRef(0);
   const pdfUrlRef = useLatestRef(pdfUrl);
-  const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
+  /** The last jump's target: in the live PDF, or (`document`) another root document's own tab. */
+  const [syncTarget, setSyncTarget] = useState<{ document: string | null; target: PdfSyncTarget } | null>(null);
+  const pdfSyncTarget = syncTarget && !syncTarget.document ? syncTarget.target : null;
   const [locatingPdf, setLocatingPdf] = useState(false);
 
   // Forward SyncTeX starts from a .tex caret in the editor, not a preview or an
@@ -51,9 +54,10 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   // Split or PDF disabled the jump for good once the shared mode was Edit, as
   // the guided tutorial leaves it and choosing Edit for a Markdown file or a
   // Paper does, and a LaTeX file has no view switch to set it back.
-  const forwardSyncPosition = editorPosition && pdfUrl && editorPosition.path.toLocaleLowerCase().endsWith(".tex")
+  const caretPosition = editorPosition && editorPosition.path.toLocaleLowerCase().endsWith(".tex")
     && !activeAsset && editorPosition.path === activeFile
     ? editorPosition : null;
+  const forwardSyncPosition = pdfUrl ? caretPosition : null;
   // Read when the jump starts rather than closed over: the caret moves with
   // every keystroke, and a callback that changed with it re-rendered the PDF
   // viewer it is handed to on every keystroke too.
@@ -99,7 +103,7 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
         showWarning(t`This source line has no matching position in the PDF.`);
         return;
       }
-      setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
+      setSyncTarget({ document: null, target: { ...target, id: crypto.randomUUID() } });
       reveal("pdf");
       markGetStartedStep("jump");
     };
@@ -143,27 +147,48 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
       // The source jump is still useful when this PDF has no SyncTeX map.
       .catch(() => undefined);
     if (target === undefined || !isCurrentRequest()) return;
-    if (target) setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
+    if (target) setSyncTarget({ document: null, target: { ...target, id: crypto.randomUUID() } });
     reveal("pdf");
   }, [activeFileRef, captureProjectScope, editorPositionRef, ensureCompiled, openFile, reveal, save]);
+
+  /**
+   * From the caret to its place in another root document's own tab, through
+   * that document's map. Its tab shows the PDF as that document was last
+   * built, so the jump lands where the map built with it says, and nothing
+   * is saved or built for it.
+   */
+  const revealSourceInDocument = useCallback(async (document: string) => {
+    const position = editorPositionRef.current;
+    if (!position?.path.toLocaleLowerCase().endsWith(".tex") || position.path !== activeFileRef.current) return;
+    const ownsDocuments = scope();
+    const { path, line, column } = position;
+    const target = await invoke<PdfSyncResponse | null>("synctex_view", { path, line, column, document }).catch((reason: unknown) => {
+      if (ownsDocuments()) showError(toMessage(reason));
+      return undefined;
+    });
+    if (target === undefined || !ownsDocuments()) return;
+    if (target) setSyncTarget({ document, target: { ...target, id: crypto.randomUUID() } });
+    else showWarning(t`This source line has no matching position in the PDF.`);
+  }, [activeFileRef, editorPositionRef, scope, t]);
 
   /**
    * From a double-click in the PDF to its source line, and to the clicked
    * word on it when that word is known and found there. The answer is a
    * project-relative path, which a project opened meanwhile may have too, so
    * it lands only while the click is the newest, its PDF is still the one on
-   * screen and nothing else was opened or chosen since.
+   * screen and nothing else was opened or chosen since. `document` names
+   * the root document whose own tab was clicked, when it is not the live PDF.
    */
-  const revealPdfSource = useCallback(async (page: number, x: number, y: number, word: SyncTexWord | null) => {
+  const revealPdfSource = useCallback(async (page: number, x: number, y: number, word: SyncTexWord | null, document: string | null = null) => {
     const requestGeneration = inverseSyncGenerationRef.current + 1;
     inverseSyncGenerationRef.current = requestGeneration;
     const ownsDocuments = scope();
     const ownsProject = captureProjectScope();
     const pdf = pdfUrlRef.current;
     const isCurrentRequest = () => (
-      inverseSyncGenerationRef.current === requestGeneration && ownsDocuments() && pdfUrlRef.current === pdf
+      inverseSyncGenerationRef.current === requestGeneration && ownsDocuments() && (document !== null || pdfUrlRef.current === pdf)
     );
-    const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y }).catch((reason: unknown) => {
+    const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y, ...syncTexDocument(document) }).catch((reason: unknown) => {
       if (isCurrentRequest()) showError(toMessage(reason));
       return null;
     });
@@ -193,5 +218,6 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   return {
     pdfSyncTarget, locatingPdf, canForwardSync: Boolean(forwardSyncPosition),
     revealSourceInPdf, navigateOutline, revealPdfSource,
+    syncTarget, canForwardSyncDocument: Boolean(caretPosition), revealSourceInDocument,
   };
 }

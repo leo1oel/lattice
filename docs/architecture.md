@@ -265,7 +265,7 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~700 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **240** commands in
+lifecycle and the child runtimes, and registers **255** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
@@ -295,7 +295,7 @@ Practical consequence: to find what a button does, grep the command name in
 | --- | --- | --- |
 | `overleaf` + `overleaf_history` + `overleaf_realtime` + `overleaf_comments` | 48 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops`, `overleaf_comment_in_document` |
 | `files` | 29 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
-| `build` | 30 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
+| `build` | 31 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
@@ -390,7 +390,7 @@ creates it.
 | `.research/history/<id>.json` | `project/history.rs` | transaction history records (schema v2, `HISTORY_SCHEMA_VERSION`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
 | `.research/sessions/` | `project/create.rs` | agent session records |
 | `.research/checkpoints/` | agent runtime | turn checkpoints; capped at 100 per session / 256 MB (`project/history.rs`) |
-| `.research/cache/` | various | `fts.sqlite` (full-text index), `paper-index/` (the tantivy index of the cited papers' cached text; `papers/search_index.rs`), `citation-health-v1.json`, `linked-bibliography.json` (the linked library's source path, target `.bib` and last-imported baseline; `project/linked_bibliography.rs`), `shown-pdf/` (a copy of the last built PDF and its SyncTeX file, put back when a build leaves none; `latex/shown_pdf.rs`), `build-pdf-hashes.json` (the SHA-256 of each root document's PDF as this copy's last build of it left it, so a build that finds nothing to do still typesets again when something else wrote over that PDF; `latex/shown_pdf.rs`) |
+| `.research/cache/` | various | `fts.sqlite` (full-text index), `paper-index/` (the tantivy index of the cited papers' cached text; `papers/search_index.rs`), `citation-health-v1.json`, `linked-bibliography.json` (the linked library's source path, target `.bib` and last-imported baseline; `project/linked_bibliography.rs`), `shown-pdf/` (a copy of each root document's last built PDF and its SyncTeX file, put back when a build leaves none, and what that document's own PDF tab reads when the project opens again; `latex/shown_pdf.rs`), `build-pdf-hashes.json` (the SHA-256 of each root document's PDF as this copy's last build of it left it, so a build that finds nothing to do still typesets again when something else wrote over that PDF; `latex/shown_pdf.rs`) |
 | `.research/licenses/` | `project/create.rs` | license texts for imported material |
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |

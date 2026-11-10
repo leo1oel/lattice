@@ -24,6 +24,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { useMarkedPdf } from "../history/use-marked-pdf";
 import { SquareArrowOutUpRight } from "lucide-react";
 import { PdfInWindowPlaceholder, ProjectPdfWindow, type ProjectPdfWindowControl } from "./project-pdf-window";
+import { RootPdfTabs, type RootPdfs } from "./root-pdf-tabs";
 
 /** The compiled project PDF: its build, SyncTeX in both directions and its pages. */
 export type ProjectPdf = Readonly<{
@@ -63,7 +64,7 @@ export type ProjectPdfOutline = Readonly<{
 }>;
 
 /** The local annotations the PDF marks, and the revision rounds over them. */
-type ProjectPdfReview = Readonly<{
+export type ProjectPdfReview = Readonly<{
   annotations: EditorComment[];
   annotationRounds: AnnotationRounds;
 }>;
@@ -101,6 +102,8 @@ export type ProjectPdfPanelProps = Readonly<{
   livePreview?: LivePreview;
   /** The PDF in a window of its own instead (project-pdf-window.tsx). */
   pdfWindow?: ProjectPdfWindowControl;
+  /** The other compiled root documents' own tabs (root-pdf-tabs.tsx). */
+  rootPdfs?: RootPdfs;
 }>;
 
 /**
@@ -110,7 +113,23 @@ export type ProjectPdfPanelProps = Readonly<{
  * it. It stays mounted while its panel sleeps (with no host it renders
  * nothing), so the document it files its place under survives that too.
  */
-export function ProjectPdfPanel({
+export function ProjectPdfPanel(props: ProjectPdfPanelProps) {
+  const { projectRoot, citations, review, selection, viewState, onLeaveEditor, rootPdfs } = props;
+  return (
+    <>
+      <LiveProjectPdf {...props} />
+      {rootPdfs && (
+        <RootPdfTabs
+          projectRoot={projectRoot} rootPdfs={rootPdfs} citations={citations} review={review} selection={selection}
+          viewState={viewState} onLeaveEditor={onLeaveEditor}
+        />
+      )}
+    </>
+  );
+}
+
+/** The live PDF, in the PDF panel's own tab (or its window). */
+function LiveProjectPdf({
   host, projectRoot, activeFile, pdf, citations, outline, review, selection, viewState, onLeaveEditor, livePreview, pdfWindow,
 }: ProjectPdfPanelProps) {
   const { t } = useLingui();

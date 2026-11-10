@@ -333,6 +333,49 @@ describe("the root document a build compiled", () => {
   });
 });
 
+describe("which builds bring the PDF tabs forward", () => {
+  // Only a build the writer starts (Build, its shortcut, a tab's menu) may
+  // reopen or select a PDF tab. The agent's checkpoint build goes through the
+  // same compile() as Build but without its sound: it must only refresh.
+  it("marks a build the writer started as asked for, and the agent's checkpoint build as not", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const view = renderPipeline(async () => result({ hasPdf: true }));
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, consumeAgentAssociations: true }));
+    expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: false });
+
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, sound: true }));
+    expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: true });
+  });
+
+  // ⌘S builds without the sound, and without jumping to an error, yet the writer asked for it.
+  it("marks a build the writer started without its sound as asked for, and it still does not jump to an error", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const openDiagnostic = vi.fn(async () => {});
+    const view = renderPipeline(async () => result({
+      hasPdf: true, success: false, diagnostics: [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 3 }],
+    }), { openDiagnostic });
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, bringForward: true }));
+    expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: true });
+    expect(openDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it("does not carry a press of Build over to the automatic pass queued behind it", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const passes: Array<(value: BuildResult) => void> = [];
+    const view = renderPipeline(() => new Promise((resolve) => { passes.push(resolve); }));
+    let running!: Promise<void>;
+    act(() => { running = view.result.current.runBuild(false, { requested: true, immediatePreview: true, sound: true }); });
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, consumeAgentAssociations: true }));
+    await act(async () => { passes[0](result({ hasPdf: true })); });
+    await vi.waitFor(() => expect(passes).toHaveLength(2));
+    const asked = view.result.current.shownPdf;
+    expect(asked).toEqual({ document: "main.tex", requested: true });
+    await act(async () => { passes[1](result({ hasPdf: true })); await running; });
+    // The same document, not asked for: no new turn of the tabs.
+    expect(view.result.current.shownPdf).toBe(asked);
+  });
+});
+
 describe("cleaning build files", () => {
   // Every file a clean removes is one the next build writes again, so there is
   // nothing to confirm: it runs at once.
