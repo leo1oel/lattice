@@ -789,9 +789,19 @@ msgstr "{name} 仍在运行，关闭会将其停止。"
 msgid "{name} is too large to open in the editor"
 msgstr "{name} 太大，无法在编辑器中打开"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} on GitHub"
+msgstr "{name} 的 GitHub 仓库"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name}设置"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "{name} Website"
+msgstr "{name} 网站"
 
 #: src/papers/paper-identity.ts
 msgid "{names} +{more}"

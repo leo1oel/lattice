@@ -45,7 +45,7 @@ describe("native locale", () => {
     setNativeUpdateMenu("restart");
     expect(nativeMenuLabels().checkForUpdates).toBe("Restart to Update…");
     setNativeUpdateMenu(null);
-    expect(nativeMenuLabels()).toMatchObject({ checkForUpdates: null, settings: "Settings…", reportProblem: "Report a Problem…" });
+    expect(nativeMenuLabels()).toMatchObject({ checkForUpdates: null, settings: "Settings…", reportProblem: "Report a Problem…", website: "Lattice Website", github: "Lattice on GitHub" });
   });
 
   it("pins only an explicit interface language", () => {
