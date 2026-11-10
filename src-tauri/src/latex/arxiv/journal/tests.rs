@@ -74,6 +74,21 @@ fn an_entry_becomes_its_figure_with_its_marks_unprinted() {
 }
 
 #[test]
+fn a_merged_figure_line_loses_its_space_line_and_keeps_its_space() {
+    let replacement =
+        replacement("% editable-figure source: s.svg\n\\includegraphics{s.pdf}\n", "Figure1");
+    let mut files = BTreeMap::from([(
+        "main.tex".to_string(),
+        format!("  \\centering\n  {replacement}\\space\n  \\caption{{}}\n").into_bytes(),
+    )]);
+    tidy_merged_figures(&mut files, [replacement].iter());
+    assert_eq!(
+        String::from_utf8(files.remove("main.tex").unwrap()).unwrap(),
+        "  \\centering\n  \\includegraphics{Figure1}\n  \\caption{}\n"
+    );
+}
+
+#[test]
 fn finds_only_entry_files_and_never_hidden_ones() {
     let fixture = Fixture::empty("journal-entries");
     fixture.write("main.tex", "\\documentclass{article}\n");

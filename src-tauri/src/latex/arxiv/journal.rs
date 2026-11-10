@@ -270,6 +270,34 @@ fn replacement(entry_text: &str, name: &str) -> String {
     }
 }
 
+/// A merged `\input` ends in `\space` on a line of its own, for the space the
+/// line after the command makes. A figure's line ends in `%`, so that space is
+/// the line end's alone: `\includegraphics{Scheme1}` followed by its line's
+/// end typesets the same, and reads as an author would write it.
+fn tidy_merged_figures<'a>(
+    files: &mut BTreeMap<String, Vec<u8>>, replacements: impl Iterator<Item = &'a String>,
+) {
+    let pairs: Vec<(String, String)> = replacements
+        .filter_map(|text| {
+            let bare = text.strip_suffix("%\n")?;
+            Some((format!("{text}\\space"), bare.to_string()))
+        })
+        .collect();
+    for (path, bytes) in files.iter_mut() {
+        if !path.ends_with(".tex") {
+            continue;
+        }
+        let Ok(text) = std::str::from_utf8(bytes) else { continue };
+        let mut tidy = text.to_string();
+        for (merged, bare) in &pairs {
+            tidy = tidy.replace(merged.as_str(), bare);
+        }
+        if tidy != text {
+            *bytes = tidy.into_bytes();
+        }
+    }
+}
+
 /// The source pack in `folder`, built alone; its PDF beside it when it builds.
 #[allow(clippy::too_many_arguments)]
 fn article(
@@ -305,6 +333,7 @@ fn article(
             }
         }
     }
+    tidy_merged_figures(&mut pack.files, replaced.values());
     pack.files.extend(figure_files);
     for (path, bytes) in &pack.files {
         write(&folder.join(path), bytes)?;
