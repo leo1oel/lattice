@@ -573,6 +573,14 @@ msgstr "{dpi} DPI at the specified width"
 msgid "{engine} in a clean folder…"
 msgstr "{engine} in a clean folder…"
 
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} asks for lines in the preamble of {rootPath}"
+msgstr "{entryPath} asks for lines in the preamble of {rootPath}"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} finds its drawing there. {command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it."
+msgstr "{entryPath} finds its drawing there. {command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it."
+
 #: src/build/build-result-text.ts
 msgid "{errors} error"
 msgstr "{errors} error"
@@ -1657,6 +1665,10 @@ msgstr "Add {0} papers"
 msgid "Add {title} to Papers"
 msgstr "Add {title} to Papers"
 
+#: src/project/figure-needs-actions.ts
+msgid "Add {unlisted} to the {command} in the preamble of {rootPath}"
+msgstr "Add {unlisted} to the {command} in the preamble of {rootPath}"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/zotero-browser.tsx
 msgid "Add 1 paper"
@@ -1804,6 +1816,10 @@ msgstr "Added 1 paper"
 #: src/canvas/paper-selection-actions.tsx
 msgid "Added to {path}"
 msgstr "Added to {path}"
+
+#: src/project/figure-needs-actions.ts
+msgid "Added what {entryPath} now needs to the preamble of {rootPath}"
+msgstr "Added what {entryPath} now needs to the preamble of {rootPath}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -6318,6 +6334,7 @@ msgstr "Figure ready: {0}. Open a LaTeX file to include it."
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
 #: src/project/figure-converters.ts
+#: src/project/figure-needs-actions.ts
 msgid "Figures"
 msgstr "Figures"
 
@@ -16111,6 +16128,10 @@ msgstr "These two versions have the same files."
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "Theta"
+
+#: src/project/figure-needs-actions.ts
+msgid "They do more than define commands, so Lattice does not add them. Add them yourself if you trust the figure:"
+msgstr "They do more than define commands, so Lattice does not add them. Add them yourself if you trust the figure:"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"

@@ -573,6 +573,14 @@ msgstr "按指定宽度计算为 {dpi} DPI"
 msgid "{engine} in a clean folder…"
 msgstr "正在空白文件夹中用 {engine} 编译…"
 
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} asks for lines in the preamble of {rootPath}"
+msgstr "{entryPath} 需要在 {rootPath} 的导言区加入几行"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} finds its drawing there. {command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it."
+msgstr "{entryPath} 在那里查找它的图。{command} 设置在导言区加载的文件中，因此 Lattice 不会再添加一个，否则会覆盖它。"
+
 #: src/build/build-result-text.ts
 msgid "{errors} error"
 msgstr "{errors} 个错误"
@@ -1657,6 +1665,10 @@ msgstr "添加 {0} 篇论文"
 msgid "Add {title} to Papers"
 msgstr "把 {title} 加入论文库"
 
+#: src/project/figure-needs-actions.ts
+msgid "Add {unlisted} to the {command} in the preamble of {rootPath}"
+msgstr "请将 {unlisted} 加入 {rootPath} 导言区中的 {command}"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/zotero-browser.tsx
 msgid "Add 1 paper"
@@ -1804,6 +1816,10 @@ msgstr "已添加 1 篇论文"
 #: src/canvas/paper-selection-actions.tsx
 msgid "Added to {path}"
 msgstr "已加到 {path}"
+
+#: src/project/figure-needs-actions.ts
+msgid "Added what {entryPath} now needs to the preamble of {rootPath}"
+msgstr "已将 {entryPath} 现在需要的内容加入 {rootPath} 的导言区"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -6318,6 +6334,7 @@ msgstr "图已就绪：{0}。请打开 LaTeX 文件以插入。"
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
 #: src/project/figure-converters.ts
+#: src/project/figure-needs-actions.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -16111,6 +16128,10 @@ msgstr "这两个版本的文件完全相同。"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "西塔"
+
+#: src/project/figure-needs-actions.ts
+msgid "They do more than define commands, so Lattice does not add them. Add them yourself if you trust the figure:"
+msgstr "这些行不只是定义命令，因此 Lattice 不会自动添加。如果你信任这个图，请自行添加："
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"

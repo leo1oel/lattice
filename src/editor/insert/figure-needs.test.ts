@@ -125,7 +125,27 @@ describe("completing a root document's preamble", () => {
   });
   it("holds back lines that do more than define", () => {
     const needs = { packages: [], preamble: [String.raw`\input{/etc/passwd}`] };
-    expect(completePreamble(root, "", "figures/scheme.tex", needs)).toEqual({ text: null, added: [], withheld: [String.raw`\input{/etc/passwd}`] });
+    expect(completePreamble(root, "", "figures/scheme.tex", needs)).toEqual({ text: null, added: [], withheld: [String.raw`\input{/etc/passwd}`], unlisted: null });
+  });
+  it("counts the packages and graphics path a preamble file sets", () => {
+    const bare = [String.raw`\documentclass{article}`, String.raw`\input{preamble}`, String.raw`\begin{document}`, String.raw`\input{figures/scheme}`, String.raw`\end{document}`, ""].join("\n");
+    const known = [String.raw`\usepackage{graphicx,tikz}`, String.raw`\RequirePackage[nobreak]{chemnum}`, String.raw`\graphicspath{{./img/}{./figures/}}`].join("\n");
+    const { text, unlisted } = completePreamble(bare, known, "figures/scheme.tex", figureNeedsOf(marked)!);
+    expect(text?.match(/\\usepackage/g) ?? []).toEqual([]);
+    expect(text ?? "").not.toContain("graphicspath");
+    expect(unlisted).toBeNull();
+  });
+  it("names a folder missing from a preamble file's graphics path instead of adding a second one", () => {
+    const bare = [String.raw`\documentclass{article}`, String.raw`\input{preamble}`, String.raw`\begin{document}`, String.raw`\end{document}`, ""].join("\n");
+    const known = [String.raw`\usepackage{graphicx,tikz,chemnum}`, String.raw`\graphicspath{{img/}}`].join("\n");
+    const { text, unlisted } = completePreamble(bare, known, "figures/scheme.tex", figureNeedsOf(marked)!);
+    expect(text ?? "").not.toContain("graphicspath");
+    expect(unlisted).toBe("figures/");
+    // One in the root's own preamble is extended as before, and nothing is named.
+    const own = bare.replace("\\begin{document}", "\\graphicspath{{img/}}\n\\begin{document}");
+    const completed = completePreamble(own, known, "figures/scheme.tex", figureNeedsOf(marked)!);
+    expect(completed.text).toContain(String.raw`\graphicspath{{img/}{figures/}}`);
+    expect(completed.unlisted).toBeNull();
   });
   it("changes nothing in a file without a preamble", () => {
     expect(completePreamble(String.raw`\input{figures/scheme}`, "", "figures/scheme.tex", figureNeedsOf(marked)!).text).toBeNull();

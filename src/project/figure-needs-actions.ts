@@ -37,6 +37,22 @@ export async function includesEntry(path: string, text: string, entry: string, r
   return false;
 }
 
+/**
+ * The text of the files a root document's preamble loads. TeX reads them from
+ * the root's folder first, then (a root in a subfolder) the project's.
+ */
+async function knownText(rootPath: string, rootText: string, read: Read): Promise<string> {
+  const folder = rootPath.slice(0, rootPath.lastIndexOf("/") + 1);
+  const texts = await Promise.all(preambleFiles(rootText).map(async (path) => {
+    for (const candidate of folder ? [`${folder}${path}`, path] : [path]) {
+      const text = await read(candidate).catch(() => null);
+      if (text !== null) return text;
+    }
+    return "";
+  }));
+  return texts.join("\n");
+}
+
 /** Adds to each root document that includes `entryPath` what the entry now needs and it lacks. */
 export async function completeFigureNeeds(entryPath: string, entryText: string, projectRoot: string, rootDocuments: readonly string[]): Promise<void> {
   const needs = figureNeedsOf(entryText);
@@ -45,12 +61,20 @@ export async function completeFigureNeeds(entryPath: string, entryText: string, 
   for (const rootPath of rootDocuments) {
     const rootText = await read(rootPath).catch(() => null);
     if (rootText === null || !(await includesEntry(rootPath, rootText, entryPath, read))) continue;
-    const known = (await Promise.all(preambleFiles(rootText).map((path) => read(path).catch(() => "")))).join("\n");
-    const { text, added, withheld } = completePreamble(rootText, known, entryPath, needs);
+    const known = await knownText(rootPath, rootText, read);
+    const { text, added, withheld, unlisted } = completePreamble(rootText, known, entryPath, needs);
     if (text !== null) {
       // A merge, like an editor save, should the document change in between.
       await invoke("write_project_file", { path: rootPath, content: text, projectRoot, baseContent: rootText });
       notifyInfo(i18n._(msg`Figures`), i18n._(msg`Added what ${entryPath} now needs to the preamble of ${rootPath}`), { detail: added.join("\n") });
+    }
+    if (unlisted) {
+      const command = "\\graphicspath";
+      notifyInfo(i18n._(msg`Figures`), i18n._(msg`Add ${unlisted} to the ${command} in the preamble of ${rootPath}`), {
+        detail: i18n._(msg`${entryPath} finds its drawing there. ${command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it.`),
+        dedupeKey: `figure-needs-path:${entryPath}`,
+        timeoutMs: 0,
+      });
     }
     if (withheld.length) {
       notifyInfo(i18n._(msg`Figures`), i18n._(msg`${entryPath} asks for lines in the preamble of ${rootPath}`), {
