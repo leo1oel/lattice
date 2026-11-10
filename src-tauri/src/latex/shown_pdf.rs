@@ -163,7 +163,7 @@ mod tests {
         let root = TempDir::new("shown-pdf");
         for document in ["cvpr/main.tex", "arxiv/main.tex", "figures/plot.tex"] {
             root.write(document, "\\documentclass{article}");
-            root.write(&document.replace(".tex", ".pdf"), &format!("%PDF-1.5 {document}"));
+            root.write(&document.replace(".tex", ".pdf"), format!("%PDF-1.5 {document}"));
             settle(&root, document, true);
         }
         root.write("cvpr/main.pdf", "%PDF-1.5 a collaborator's");
