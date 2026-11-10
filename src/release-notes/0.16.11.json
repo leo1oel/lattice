@@ -1,0 +1,70 @@
+{
+  "version": "0.16.11",
+  "date": "2026-11-10",
+  "highlights": [
+    {
+      "title": {
+        "en": "Much lower idle CPU and energy use",
+        "zh": "大幅降低空闲时的 CPU 和能耗"
+      },
+      "body": {
+        "en": "The Agent panel no longer runs a hidden per-frame loop. It caused about 90% of Lattice's idle CPU use and most of its background wakeups, even when the panel was hidden.",
+        "zh": "AI 助手面板不再在后台运行逐帧循环。即使面板处于隐藏状态，它也曾占用 Lattice 约 90% 的空闲 CPU，并造成大部分后台唤醒。"
+      }
+    },
+    {
+      "title": {
+        "en": "Agent tasks use a provider you have connected",
+        "zh": "AI 助手任务使用你已连接的服务"
+      },
+      "body": {
+        "en": "Proofreading, polishing, compile repair and Git commit messages use whichever AI provider you have connected, right after launch. Claude-only setups no longer see \"Codex CLI is required\".",
+        "zh": "校对、润色、编译修复和 Git 提交信息会使用你已连接的 AI 服务，启动后即可使用。只连接了 Claude 的用户不会再看到“需要 Codex CLI”。"
+      }
+    },
+    {
+      "title": {
+        "en": "Continue in terminal",
+        "zh": "在终端中继续"
+      },
+      "body": {
+        "en": "The Agent can copy a command that continues the current chat in Codex CLI or Claude Code.",
+        "zh": "AI 助手可以复制一条命令，在 Codex CLI 或 Claude Code 中继续当前对话。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Each compiled document keeps its own PDF tab. Thanks to @surajinacademia.",
+      "zh": "每个编译的文档都保留自己的 PDF 标签页。感谢 @surajinacademia。"
+    },
+    {
+      "en": "Markdown comments use a lighter highlight, and the comment box closes when you click outside it or press Escape, keeping your text.",
+      "zh": "Markdown 批注的高亮更浅；点击外部或按 Escape 会关闭批注框，并保留已输入的文字。"
+    },
+    {
+      "en": "Commenting works right after the Agent edits a file in an Overleaf-linked project.",
+      "zh": "在关联 Overleaf 的项目中，AI 助手编辑文件后可以立即添加批注。"
+    },
+    {
+      "en": "The error panel names the undefined command for documents in subfolders, says when the error list is capped, and says when an automatic repair left errors.",
+      "zh": "对于子文件夹中的文档，错误面板会指出未定义的命令；错误列表被截断时会注明；自动修复后仍有错误时也会说明。"
+    },
+    {
+      "en": "When a newer version of Lattice may already fix a failure, Lattice tells you and offers an Update button.",
+      "zh": "当新版 Lattice 可能已经修复某个失败时，Lattice 会提示你并提供“更新”按钮。"
+    },
+    {
+      "en": "The outline no longer covers the search panel's close button. Thanks to @BrianCyan.",
+      "zh": "大纲不再遮挡搜索面板的关闭按钮。感谢 @BrianCyan。"
+    },
+    {
+      "en": "On Windows, Ctrl+wheel PDF zoom is gentler and middle-click autoscroll works. Thanks to @LucasDavidTPE.",
+      "zh": "在 Windows 上，Ctrl+滚轮缩放 PDF 更平缓，并支持中键自动滚动。感谢 @LucasDavidTPE。"
+    },
+    {
+      "en": "Fixes to the Windows development setup. Thanks to @skytheacademic.",
+      "zh": "修复了 Windows 开发环境配置的问题。感谢 @skytheacademic。"
+    }
+  ]
+}
