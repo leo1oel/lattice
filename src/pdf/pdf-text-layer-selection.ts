@@ -36,6 +36,7 @@ import { useEffect, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isAgentEntryTarget } from "../agent/agent-entry";
+import { watchPointerHold } from "../lib/pointer-hold";
 import { addListeners, normalizePdfSelection } from "./pdf-viewer-utils";
 
 const GLYPH_SPANS = "span:not(.markedContent):not(.endOfContent)";
@@ -697,19 +698,27 @@ export function usePdfSelectionReport(
     const cancelFrame = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
+    const reportAfterRelease = () => {
+      cancelFrame();
+      frame = window.requestAnimationFrame(() => report(true));
+    };
     const removeRootListeners = addListeners(root, {
-      mouseup: () => {
-        cancelFrame();
-        frame = window.requestAnimationFrame(() => report(true));
-      },
+      mouseup: reportAfterRelease,
       keyup: () => report(true),
     });
+    // A drag changes the selection on every pointer move, and each report
+    // re-renders App (#777): a selection dragged out here is reported once,
+    // when the press ends, wherever the pointer is let go.
+    const hold = watchPointerHold(root, reportAfterRelease);
     const removeDocumentListeners = addListeners(document, {
-      selectionchange: () => report(false),
+      selectionchange: () => {
+        if (!hold.held()) report(false);
+      },
       [PDF_TEXT_SELECTION_CLEARED_EVENT]: () => report(true),
     });
     return () => {
       cancelFrame();
+      hold.dispose();
       removeRootListeners();
       removeDocumentListeners();
     };

@@ -319,6 +319,23 @@ export class BenchDriver {
     await this.mouse("mouseReleased", at.x, at.y);
   }
 
+  /**
+   * Presses at the start of the source editor's second visible line and drags
+   * down `lines` lines, one line a frame, as a writer selecting a passage to
+   * copy; releases at the last.
+   */
+  async dragSelectLines(selector, lines) {
+    const line = await this.rect(`${selector} > .cm-line:nth-of-type(2)`);
+    const x = line.left + 4;
+    await this.mouse("mouseMoved", x, line.y, { button: "none" });
+    await this.mouse("mousePressed", x, line.y);
+    for (let step = 1; step <= lines; step += 1) {
+      await this.mouse("mouseMoved", x + 40, line.y + step * line.height, { buttons: 1 });
+      await this.nextFrame();
+    }
+    await this.mouse("mouseReleased", x + 40, line.y + lines * line.height);
+  }
+
   /** Tags the element among `selector` whose text is `text`, so it can be clicked by attribute. */
   async markByText(selector, text, tag) {
     await this.waitFor(`(() => {
@@ -533,6 +550,30 @@ export const SCENARIOS = [
     async setup(driver) {
       await driver.openFile("chapters/ch02.tex");
       await driver.rect(EDITOR);
+    },
+    run: (driver) => driver.wheel(".cm-editor .cm-scroller", 120, 40),
+  },
+  {
+    name: "source-select-drag",
+    description: "Drag-select down a LaTeX chapter in the source editor, one line a step for 30 lines.",
+    unit: "line",
+    steps: 30,
+    async setup(driver) {
+      await driver.openFile("chapters/ch02.tex");
+      await driver.rect(EDITOR);
+    },
+    run: (driver) => driver.dragSelectLines(EDITOR, 30),
+  },
+  {
+    name: "source-scroll-selected",
+    description: "Scroll a LaTeX chapter in the source editor by 40 wheel notches with 30 lines selected.",
+    unit: "notch",
+    steps: 40,
+    async setup(driver) {
+      await driver.openFile("chapters/ch02.tex");
+      await driver.rect(EDITOR);
+      await driver.dragSelectLines(EDITOR, 30);
+      await driver.settle({ quietMs: 300 });
     },
     run: (driver) => driver.wheel(".cm-editor .cm-scroller", 120, 40),
   },

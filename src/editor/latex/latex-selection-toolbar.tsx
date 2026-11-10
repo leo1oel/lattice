@@ -84,8 +84,7 @@ const headingLevels: { command: string; label: MessageDescriptor }[] = [
   { command: "subsubsection", label: msg`Subsubsection` },
 ];
 
-export function LatexSelectionToolbar(props: {
-  position: LatexSelectionToolbarPosition;
+type ToolsProps = {
   canComment: boolean;
   commentOnly?: boolean;
   /** Offer the agent's proofread, polish and rewrite (an editable LaTeX source with a project). */
@@ -96,14 +95,14 @@ export function LatexSelectionToolbar(props: {
   sample?: string;
   documentColors?: readonly string[];
   onAction: (action: LatexSelectionAction, value?: string) => void;
+};
+
+export function LatexSelectionToolbar(props: ToolsProps & {
+  position: LatexSelectionToolbarPosition;
   onDismiss: () => void;
 }) {
-  const { i18n, t } = useLingui();
-  const [linkUrl, setLinkUrl] = useState("https://");
-  const [linkOpen, setLinkOpen] = useState(false);
-  const [highlightOpen, setHighlightOpen] = useState(false);
-  const [rewriteOpen, setRewriteOpen] = useState(false);
-  const highlightPrefs = useHighlightPrefs();
+  const { t } = useLingui();
+  const { position, onDismiss, canComment, commentOnly, canProofread, highlight, sample, documentColors, onAction } = props;
   // It grows from the selection as every popup does and, gone, fades where it stood.
   const anchorRef = useRef<HTMLDivElement | null>(null);
   useExitPicture([anchorRef]);
@@ -111,29 +110,9 @@ export function LatexSelectionToolbar(props: {
   // estimates it) never crosses the editor's edge.
   const [width, setWidth] = useState(0);
   // Its buttons follow these props, and a new placement may wrap it to another width.
-  useLayoutEffect(() => setWidth(anchorRef.current?.offsetWidth ?? 0), [props.position, props.canComment, props.canProofread, props.commentOnly]);
-  const { bounds } = props.position;
-  const left = bounds && width ? Math.min(Math.max(props.position.left, bounds.left + width / 2), bounds.right - width / 2) : props.position.left;
-  const lastHighlighter = highlighterOf(highlightPrefs.last);
-  const lastHighlight = lastHighlighter ? highlightPrefs.meaningOf(lastHighlighter) : highlightPrefs.last;
-  const applyLink = () => {
-    props.onAction("link", linkUrl.trim());
-    setLinkOpen(false);
-  };
-  const applyHighlight = (color: string) => {
-    rememberHighlight(color);
-    props.onAction("highlight", color);
-    setHighlightOpen(false);
-  };
-  const canAskAgent = Boolean(props.canProofread) && !props.commentOnly;
-  const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
-    : action === "proofread" || action === "polish" ? canAskAgent : !props.commentOnly);
-  const onDismiss = props.onDismiss;
-  // The palette's Rewrite selection… opens the menu its button opens.
-  useEffect(() => (canAskAgent ? listenForRewriteMenu(() => {
-    warmInstructionMenu();
-    setRewriteOpen(true);
-  }) : undefined), [canAskAgent]);
+  useLayoutEffect(() => setWidth(anchorRef.current?.offsetWidth ?? 0), [position, canComment, canProofread, commentOnly]);
+  const { bounds } = position;
+  const left = bounds && width ? Math.min(Math.max(position.left, bounds.left + width / 2), bounds.right - width / 2) : position.left;
   useEffect(() => {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {
       const target = event.target;
@@ -147,117 +126,155 @@ export function LatexSelectionToolbar(props: {
   return createPortal(
     <div
       ref={anchorRef}
-      className={`latex-selection-toolbar-anchor ${popupMotionClassName}${props.position.below ? " below" : ""}`}
-      data-side={props.position.below ? "bottom" : "top"}
-      style={{
-        left,
-        top: props.position.top,
-        maxWidth: props.position.maxWidth,
-      }}
+      className={`latex-selection-toolbar-anchor ${popupMotionClassName}${position.below ? " below" : ""}`}
+      data-side={position.below ? "bottom" : "top"}
+      style={{ left, top: position.top, maxWidth: position.maxWidth }}
       role="toolbar"
-      aria-label={props.commentOnly ? t`Comment on selected Markdown` : t`Format selected LaTeX`}
+      aria-label={commentOnly ? t`Comment on selected Markdown` : t`Format selected LaTeX`}
       onPointerDown={(event) => {
         if (!(event.target as HTMLElement).closest("input")) event.preventDefault();
       }}
     >
-      <div className="latex-selection-toolbar">
-        {visibleActions.map(({ action, label: descriptor, icon: Icon, separated, shortcut }, index) => {
-          const label = i18n._(descriptor);
-          return (
-            <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
-              <Tip label={shortcut ? <>{label} <kbd>{shortcut}</kbd></> : label} side="top">
-                <button type="button" aria-label={label} onClick={() => props.onAction(action)}>
-                  <Icon size={14} strokeWidth={1.8} />
-                </button>
-              </Tip>
-            </span>
-          );
-        })}
-        {canAskAgent && (
-          <span className="latex-selection-tool">
-            <Popover open={rewriteOpen} onOpenChange={setRewriteOpen}>
-              <Tip label={t`Rewrite with an instruction`} side="top">
-                <PopoverTrigger asChild>
-                  <button type="button" aria-label={t`Rewrite with an instruction`} onPointerEnter={warmInstructionMenu} onFocus={warmInstructionMenu}>
-                    <PencilLine size={14} strokeWidth={1.8} />
-                  </button>
-                </PopoverTrigger>
-              </Tip>
-              <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu instruction-menu ${selectionToolbarMenuClassName}`}>
-                <Suspense fallback={null}>
-                  <SelectionInstructionMenu onSubmit={(instruction) => props.onAction("rewrite", instruction)} />
-                </Suspense>
-              </PopoverContent>
-            </Popover>
-          </span>
-        )}
-        {!props.commentOnly && <>
-        <span className="latex-selection-tool separated">
-          <Popover open={linkOpen} onOpenChange={setLinkOpen}>
-            <Tip label={t`Link`} side="top">
-              <PopoverTrigger asChild><button type="button" aria-label={t`Link`}><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
-            </Tip>
-            <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu link-menu ${selectionToolbarMenuClassName}`}>
-              <label>{t`Link URL`}<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
-                if (event.key === "Enter" && linkUrl.trim()) applyLink();
-              }} /></label>
-              <button type="button" aria-label={t`Apply link`} disabled={!linkUrl.trim()} onClick={applyLink}>{t`Apply`}</button>
-            </PopoverContent>
-          </Popover>
-        </span>
-        <span className="latex-selection-tool">
-          <Popover>
-            <Tip label={t`Heading level`} side="top">
-              <PopoverTrigger asChild><button type="button" aria-label={t`Heading level`}><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
-            </Tip>
-            <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu heading-menu fluid-hover-surface ${selectionToolbarMenuClassName}`}>
-              <FluidHoverSurface selector=".heading-menu > button" follow={null} />
-              {headingLevels.map(({ command, label }) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{i18n._(label)}</span><code>\{command}</code></button>)}
-            </PopoverContent>
-          </Popover>
-        </span>
-        {/* A split control: the pen applies the last highlighter at once (the
-            bar under it is its colour), the caret opens the palette. */}
-        <span className="latex-selection-tool separated hl-split">
-          <Tip label={t`Highlight: ${lastHighlight}`} side="top">
-            <button type="button" className="hl-pen" onClick={() => applyHighlight(highlightPrefs.last)}>
-              <Highlighter size={14} strokeWidth={1.8} />
-              <span className="hl-pen-bar" style={{ background: highlightPrefs.last }} aria-hidden="true" />
-            </button>
-          </Tip>
-          <Popover open={highlightOpen} onOpenChange={setHighlightOpen}>
-            <Tip label={t`Highlight color`} side="top">
-              <PopoverTrigger asChild>
-                <button type="button" className="hl-caret" aria-label={t`Highlight color`}><ChevronDown size={12} strokeWidth={1.8} /></button>
-              </PopoverTrigger>
-            </Tip>
-            <PopoverContent
-              side="top"
-              sideOffset={8}
-              className={`latex-highlight-picker ${selectionToolbarMenuClassName}`}
-              onOpenAutoFocus={(event) => event.preventDefault()}
-              // Esc in a meaning being renamed reverts the name; the next one closes.
-              onEscapeKeyDown={(event) => {
-                if (event.target instanceof Element && event.target.closest(".hl-rename-input")) event.preventDefault();
-              }}
-            >
-              <HighlightPalette
-                current={props.highlight ?? null}
-                sample={props.sample}
-                documentColors={props.documentColors}
-                onApply={applyHighlight}
-                onRemove={() => {
-                  props.onAction("unhighlight");
-                  setHighlightOpen(false);
-                }}
-                onCancel={() => setHighlightOpen(false)}
-              />
-            </PopoverContent>
-          </Popover>
-        </span>
-        </>}
-      </div>
+      {/* Apart from the placement: a scroll with a selection held moves the
+          toolbar every frame, and only the anchor above follows it. */}
+      <SelectionTools
+        canComment={canComment}
+        commentOnly={commentOnly}
+        canProofread={canProofread}
+        highlight={highlight}
+        sample={sample}
+        documentColors={documentColors}
+        onAction={onAction}
+      />
     </div>,
     document.body,
+  );
+}
+
+function SelectionTools(props: ToolsProps) {
+  const { i18n, t } = useLingui();
+  const { onAction } = props;
+  const [linkUrl, setLinkUrl] = useState("https://");
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [highlightOpen, setHighlightOpen] = useState(false);
+  const [rewriteOpen, setRewriteOpen] = useState(false);
+  const highlightPrefs = useHighlightPrefs();
+  const lastHighlighter = highlighterOf(highlightPrefs.last);
+  const lastHighlight = lastHighlighter ? highlightPrefs.meaningOf(lastHighlighter) : highlightPrefs.last;
+  const applyLink = () => {
+    onAction("link", linkUrl.trim());
+    setLinkOpen(false);
+  };
+  const applyHighlight = (color: string) => {
+    rememberHighlight(color);
+    onAction("highlight", color);
+    setHighlightOpen(false);
+  };
+  const canAskAgent = Boolean(props.canProofread) && !props.commentOnly;
+  const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
+    : action === "proofread" || action === "polish" ? canAskAgent : !props.commentOnly);
+  // The palette's Rewrite selection… opens the menu its button opens.
+  useEffect(() => (canAskAgent ? listenForRewriteMenu(() => {
+    warmInstructionMenu();
+    setRewriteOpen(true);
+  }) : undefined), [canAskAgent]);
+  return (
+    <div className="latex-selection-toolbar">
+      {visibleActions.map(({ action, label: descriptor, icon: Icon, separated, shortcut }, index) => {
+        const label = i18n._(descriptor);
+        return (
+          <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
+            <Tip label={shortcut ? <>{label} <kbd>{shortcut}</kbd></> : label} side="top">
+              <button type="button" aria-label={label} onClick={() => onAction(action)}>
+                <Icon size={14} strokeWidth={1.8} />
+              </button>
+            </Tip>
+          </span>
+        );
+      })}
+      {canAskAgent && (
+        <span className="latex-selection-tool">
+          <Popover open={rewriteOpen} onOpenChange={setRewriteOpen}>
+            <Tip label={t`Rewrite with an instruction`} side="top">
+              <PopoverTrigger asChild>
+                <button type="button" aria-label={t`Rewrite with an instruction`} onPointerEnter={warmInstructionMenu} onFocus={warmInstructionMenu}>
+                  <PencilLine size={14} strokeWidth={1.8} />
+                </button>
+              </PopoverTrigger>
+            </Tip>
+            <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu instruction-menu ${selectionToolbarMenuClassName}`}>
+              <Suspense fallback={null}>
+                <SelectionInstructionMenu onSubmit={(instruction) => onAction("rewrite", instruction)} />
+              </Suspense>
+            </PopoverContent>
+          </Popover>
+        </span>
+      )}
+      {!props.commentOnly && <>
+      <span className="latex-selection-tool separated">
+        <Popover open={linkOpen} onOpenChange={setLinkOpen}>
+          <Tip label={t`Link`} side="top">
+            <PopoverTrigger asChild><button type="button" aria-label={t`Link`}><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+          </Tip>
+          <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu link-menu ${selectionToolbarMenuClassName}`}>
+            <label>{t`Link URL`}<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
+              if (event.key === "Enter" && linkUrl.trim()) applyLink();
+            }} /></label>
+            <button type="button" aria-label={t`Apply link`} disabled={!linkUrl.trim()} onClick={applyLink}>{t`Apply`}</button>
+          </PopoverContent>
+        </Popover>
+      </span>
+      <span className="latex-selection-tool">
+        <Popover>
+          <Tip label={t`Heading level`} side="top">
+            <PopoverTrigger asChild><button type="button" aria-label={t`Heading level`}><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+          </Tip>
+          <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu heading-menu fluid-hover-surface ${selectionToolbarMenuClassName}`}>
+            <FluidHoverSurface selector=".heading-menu > button" follow={null} />
+            {headingLevels.map(({ command, label }) => <button key={command} type="button" onClick={() => onAction("heading", command)}><span>{i18n._(label)}</span><code>\{command}</code></button>)}
+          </PopoverContent>
+        </Popover>
+      </span>
+      {/* A split control: the pen applies the last highlighter at once (the
+          bar under it is its colour), the caret opens the palette. */}
+      <span className="latex-selection-tool separated hl-split">
+        <Tip label={t`Highlight: ${lastHighlight}`} side="top">
+          <button type="button" className="hl-pen" onClick={() => applyHighlight(highlightPrefs.last)}>
+            <Highlighter size={14} strokeWidth={1.8} />
+            <span className="hl-pen-bar" style={{ background: highlightPrefs.last }} aria-hidden="true" />
+          </button>
+        </Tip>
+        <Popover open={highlightOpen} onOpenChange={setHighlightOpen}>
+          <Tip label={t`Highlight color`} side="top">
+            <PopoverTrigger asChild>
+              <button type="button" className="hl-caret" aria-label={t`Highlight color`}><ChevronDown size={12} strokeWidth={1.8} /></button>
+            </PopoverTrigger>
+          </Tip>
+          <PopoverContent
+            side="top"
+            sideOffset={8}
+            className={`latex-highlight-picker ${selectionToolbarMenuClassName}`}
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            // Esc in a meaning being renamed reverts the name; the next one closes.
+            onEscapeKeyDown={(event) => {
+              if (event.target instanceof Element && event.target.closest(".hl-rename-input")) event.preventDefault();
+            }}
+          >
+            <HighlightPalette
+              current={props.highlight ?? null}
+              sample={props.sample}
+              documentColors={props.documentColors}
+              onApply={applyHighlight}
+              onRemove={() => {
+                onAction("unhighlight");
+                setHighlightOpen(false);
+              }}
+              onCancel={() => setHighlightOpen(false)}
+            />
+          </PopoverContent>
+        </Popover>
+      </span>
+      </>}
+    </div>
   );
 }

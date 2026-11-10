@@ -24,6 +24,7 @@ import { latexEditorExtensions, textEditorExtensions, type LatexEditorLiveData }
 import { latex } from "../editor/latex/latex-language";
 import { editableFigurePaste, trackFigureEditor } from "../editor/insert/editable-figure-paste-handler";
 import { compositionEndTracker } from "../editor/latex/selection-toolbar-placement";
+import { pointerSelection } from "../editor/pointer-selection";
 import { paperDropExtension } from "../editor/paper-drop";
 import { marginReviewExtension, overleafCursorsExtension, overleafTrackChangesExtension } from "../overleaf/overleaf-editor-extensions";
 import { editorDiagnosticsForFile } from "../build/compile-diagnostics";
@@ -120,6 +121,7 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
     ]),
     config.proofread,
     compositionEndTracker,
+    pointerSelection,
     annotationReviewExtension(config.reviewBridge),
     overleafCursorsExtension({ getCursors: () => review().overleafPresenceCursors }),
     overleafTrackChangesExtension({

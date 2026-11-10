@@ -63,6 +63,7 @@ const REPORT_ONLY_BY_SCENARIO = {
   "code-highlight": ["mutations"],
   "pdf-scroll": ["mutations"],
   "source-scroll": ["mutations"],
+  "source-scroll-selected": ["mutations"],
   "markdown-preview-scroll": ["commits", "renders", "hooks", "mutations"],
   startup: ["commits", "mutations"],
   "tab-drag": ["mutations"],

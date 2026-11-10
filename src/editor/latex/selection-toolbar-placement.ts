@@ -1,3 +1,4 @@
+import type { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { clamp } from "../../lib/clamp";
 import { highlightAround } from "./latex-highlights";
@@ -12,6 +13,9 @@ export type SelectionToolbarPlacement = {
   format: MarkdownSelectionFormat | null;
   from: number;
   to: number;
+  /** The document and file the selection was read in. */
+  doc: Text;
+  path: string;
 };
 
 /** When each view's last input-method composition ended. */
@@ -38,9 +42,16 @@ function composingOrCommitting(view: EditorView) {
 
 /**
  * Where the source editor's selection toolbar sits for the view's selection,
- * or null when it should not show.
+ * or null when it should not show. Given the placement shown, it reads the
+ * selection again only when the selection or the document changed: a scroll
+ * with a selection held places the toolbar again every frame, and reading
+ * the highlight around a long selection scans all of it.
  */
-export function selectionToolbarPlacement(view: EditorView, path: string): SelectionToolbarPlacement | null {
+export function selectionToolbarPlacement(
+  view: EditorView,
+  path: string,
+  previous?: SelectionToolbarPlacement | null,
+): SelectionToolbarPlacement | null {
   const range = view.state.selection.main;
   // A tab behind another one stays laid out (inert, hidden), so its
   // coordinates look valid; the toolbar is portaled and would not hide.
@@ -63,18 +74,31 @@ export function selectionToolbarPlacement(view: EditorView, path: string): Selec
   const left = clamp(selectionCenter, editorBounds.left + halfWidth + 8, editorBounds.right - halfWidth - 8);
   const selectionTop = Math.min(start.top, end.top);
   const below = selectionTop - editorBounds.top < 52;
+  const position = {
+    left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16),
+    bounds: { left: editorBounds.left + 8, right: editorBounds.right - 8 },
+  };
+  if (previous && previous.from === range.from && previous.to === range.to && previous.doc === view.state.doc && previous.path === path) {
+    // Only its place moved (a scroll, a resize): what the selection is was
+    // read already, and an unmoved toolbar keeps its identity.
+    return samePosition(previous.position, position) ? previous : { ...previous, position };
+  }
   // A highlight around the selection: the palette ticks its colour and offers Remove.
   const highlight = path.endsWith(".tex") ? highlightAround(view.state.doc, range.from, range.to) : null;
   return {
-    position: {
-      left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16),
-      bounds: { left: editorBounds.left + 8, right: editorBounds.right - 8 },
-    },
+    position,
     highlight: highlight ? highlight.color ?? "" : null,
     format: markdown ? markdownSelectionFormat(view.state) : null,
     from: range.from,
     to: range.to,
+    doc: view.state.doc,
+    path,
   };
+}
+
+function samePosition(a: LatexSelectionToolbarPosition, b: LatexSelectionToolbarPosition) {
+  return a.left === b.left && a.top === b.top && a.below === b.below && a.maxWidth === b.maxWidth
+    && a.bounds?.left === b.bounds?.left && a.bounds?.right === b.bounds?.right;
 }
 
 /*
