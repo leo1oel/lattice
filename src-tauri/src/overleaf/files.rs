@@ -128,7 +128,7 @@ fn is_compiled_pdf(path: &str, has: impl Fn(&str) -> bool) -> bool {
 /// if built here. Read from this copy's manifest on every sync, so a PDF
 /// that stops being the default root's syncs again, and such a file on
 /// Overleaf never comes down. Compared without case, as the disk is.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct BuildPdf(Option<String>);
 
 impl BuildPdf {

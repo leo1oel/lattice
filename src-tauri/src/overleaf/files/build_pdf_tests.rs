@@ -4,7 +4,7 @@
 //! it, and one an earlier sync agreed on is let go of on both sides. Other
 //! root documents' PDFs sync like any other file.
 
-use crate::overleaf::sync::sync;
+use crate::overleaf::sync::{prefetch, sync, sync_prefetched};
 use crate::overleaf::test_support::*;
 use crate::overleaf_rt::mock_server::realtime_state;
 use crate::project;
@@ -180,4 +180,33 @@ fn switching_the_default_root_moves_which_pdf_stays_out() {
     assert_eq!(result.pushed, ["cvpr/main.pdf"], "{result:?}");
     let tracked = state_files(&root);
     assert!(tracked.contains_key("cvpr/main.pdf") && !tracked.contains_key("arxiv/main.pdf"));
+}
+
+/// A download read ahead of the lease while `cvpr/main.tex` was the default
+/// holds a collaborator's `arxiv/main.pdf`. Building `arxiv/main.tex`
+/// meanwhile makes it the default, and the sync turns that download down
+/// instead of pulling their PDF over the one just built.
+#[test]
+fn a_download_read_ahead_before_the_default_root_changed_is_turned_down() {
+    let sources = [("cvpr/main.tex", PAPER), ("arxiv/main.tex", PAPER)];
+    let mut remote = sources.to_vec();
+    remote.push(("arxiv/main.pdf", b"%PDF theirs"));
+    let server = Mock::project(&remote).serve();
+    let (config, root) = linked(&server, &sources, &sources);
+    let roots = ["cvpr/main.tex", "arxiv/main.tex"];
+    set_roots(&root, &roots, "cvpr/main.tex");
+    let read_ahead = || prefetch(&config, &root, NO_LIVE, None, &|| {}, &|_, _| {}).unwrap();
+    let prefetched = read_ahead();
+    assert!(prefetched.is_some());
+
+    set_roots(&root, &roots, "arxiv/main.tex");
+    std::fs::write(root.join("arxiv/main.pdf"), b"%PDF mine").unwrap();
+    let turned_down = sync_prefetched(&config, &root, NO_LIVE, None, prefetched, None);
+    assert!(turned_down.unwrap().is_none());
+    assert_eq!(read_local(&root, "arxiv/main.pdf").unwrap(), b"%PDF mine");
+
+    let result = sync_prefetched(&config, &root, NO_LIVE, None, read_ahead(), None).unwrap();
+    let result = result.expect("read again with arxiv/main.tex the default, it fits");
+    assert!(result.pulled.is_empty() && result.pushed.is_empty(), "{result:?}");
+    assert_eq!(read_local(&root, "arxiv/main.pdf").unwrap(), b"%PDF mine");
 }

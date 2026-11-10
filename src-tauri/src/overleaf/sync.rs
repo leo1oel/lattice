@@ -505,7 +505,7 @@ fn sync_files(
     let read = read_local_files(root)?;
     let mut live = live.clone();
     let prefetched = prefetched.and_then(|prefetched| {
-        live.extend(prefetched.fits(&linked.state, &live, &read.files)?);
+        live.extend(prefetched.fits(&linked, &live, &read.files)?);
         Some(prefetched)
     });
     let live = &live;
