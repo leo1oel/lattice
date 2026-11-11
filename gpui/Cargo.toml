@@ -1,0 +1,77 @@
+[workspace]
+resolver = "2"
+members = [
+    "compat/gpui-pre/gpui-pre",
+    "compat/gpui-pre/gpui-pre-macros",
+    "compat/gpui-pre/gpui-pre-platform",
+    "compat/gpui-pre/gpui-pre-sum-tree",
+    "crates/lattice-gpui",
+    "crates/tex",
+]
+default-members = ["crates/lattice-gpui"]
+
+[workspace.package]
+edition = "2024"
+publish = false
+license = "GPL-3.0-or-later"
+
+# One GPUI for the whole graph: Zed's in-tree crates at this revision.
+#
+# GPUI Kit 0.9.1 pins the `gpui-pre` 0.3.12 snapshot, which is Zed's GPUI at
+# this same commit (see `package.metadata.gpui-pre.zed-rev` in the published
+# crate). The crates under `compat/gpui-pre` carry the snapshot names and
+# version and re-export the Zed crates, so `[patch.crates-io]` below moves GPUI
+# Kit onto the very GPUI that Zed's editor is compiled against.
+[workspace.dependencies]
+assets = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+editor = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b", features = ["profiler"] }
+gpui_macros = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b", features = ["font-kit", "runtime_shaders"] }
+language = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+release_channel = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+search = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+settings = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+sum_tree = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+theme = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+theme_settings = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+vim = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+vim_mode_setting = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+workspace = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+zed_actions = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+
+gpui-kit = { version = "=0.9.1" }
+
+anyhow = "1"
+codebook-tree-sitter-latex = "0.6.1"
+futures = "0.3"
+image = { version = "0.25", default-features = false }
+log = "0.4"
+pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
+semver = "1"
+serde_json = "1"
+smallvec = "1"
+tex = { path = "crates/tex" }
+
+[patch.crates-io]
+gpui-pre = { path = "compat/gpui-pre/gpui-pre" }
+gpui-pre-macros = { path = "compat/gpui-pre/gpui-pre-macros" }
+gpui-pre-platform = { path = "compat/gpui-pre/gpui-pre-platform" }
+gpui-pre-sum-tree = { path = "compat/gpui-pre/gpui-pre-sum-tree" }
+
+# Copied from Zed's workspace at the pinned revision: a dependency's
+# `[patch]` table does not apply, so Zed's crates only build with these here.
+tree-sitter-language = { git = "https://github.com/tree-sitter/tree-sitter", rev = "803c6ebaac27d69e1808b45058482e868d073ceb" }
+async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
+async-task = { git = "https://github.com/zed-industries/async-task.git", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
+windows-capture = { git = "https://github.com/zed-industries/windows-capture.git", rev = "f0d6c1b6691db75461b732f6d5ff56eed002eeb9" }
+calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }
+notify = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
+notify-types = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+debug = 0
+strip = "symbols"

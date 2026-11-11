@@ -160,7 +160,8 @@ async function main() {
 
   const code = files.filter((file) => /^(src|tools|scripts)\/.*\.(ts|tsx|mts|js|jsx|mjs|css|json)$/.test(file));
   const sources = files.filter((file) => /^src\/.*\.tsx?$/.test(file) || file.startsWith("src/locales/"));
-  const rust = files.filter((file) => file.endsWith(".rs"));
+  // gpui/ is a Cargo workspace of its own, checked by .github/workflows/gpui.yml.
+  const rust = files.filter((file) => file.startsWith("src-tauri/") && file.endsWith(".rs"));
   const stages = [
     { name: "lint", why: "oxlint, src and tools", command: "pnpm", args: ["lint"], timeout: 180_000 },
     { name: "knip", why: "unused files, exports and dependencies", command: "pnpm", args: ["knip"], timeout: 180_000 },

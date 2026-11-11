@@ -368,10 +368,13 @@ export default defineConfig(() => ({
       // Object state. Its SQLite WAL files are rewritten on every request, and
       // watching them made Vite full-reload the app mid-session.
       //
+      // `gpui/` is the GPUI preview app, a Cargo workspace whose build output
+      // (`gpui/target`) runs to millions of files the frontend never imports.
+      //
       // Matched as regexes rather than globs: a glob is evaluated per path, so
       // events for a directory tree the dev server recreates (wrangler restart)
       // slipped through before the pattern applied to its descendants.
-      ignored: [/[\\/]src-tauri[\\/]/, /[\\/]literature-worker[\\/]\.wrangler[\\/]/],
+      ignored: [/[\\/]src-tauri[\\/]/, /[\\/]gpui[\\/]/, /[\\/]literature-worker[\\/]\.wrangler[\\/]/],
     },
   },
 }));

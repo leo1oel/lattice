@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Download the PDFium build the prototype is pinned to (bblanchon/pdfium-binaries
+# chromium/8125, matching pdfium-render's `pdfium_8125` feature) into
+# vendor/pdfium/<platform>/, verifying its SHA-256.
+set -euo pipefail
+
+release="chromium%2F8125"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64) platform=mac-arm64; sha=4939bd935ac83ddc09a3a4f038bc43a19cea1660316a3667f26cb07a070e139d ;;
+  *) echo "fetch-pdfium: no pinned PDFium build for $(uname -s)-$(uname -m); add one to this script" >&2; exit 1 ;;
+esac
+
+target="$root/vendor/pdfium/$platform"
+if [ -f "$target/lib/libpdfium.dylib" ]; then
+  echo "PDFium already present in $target"
+  exit 0
+fi
+
+archive="$(mktemp -t pdfium.XXXXXX)"
+trap 'rm -f "$archive"' EXIT
+curl -fsSL -o "$archive" "https://github.com/bblanchon/pdfium-binaries/releases/download/$release/pdfium-$platform.tgz"
+echo "$sha  $archive" | shasum -a 256 -c - >/dev/null
+mkdir -p "$target"
+tar -xzf "$archive" -C "$target"
+echo "PDFium installed in $target"

@@ -26,6 +26,9 @@ jobs:
   # filter so every check still reports under its own name — a required check
   # that never reports blocks the merge, while a skipped one satisfies it.
   #
+  # gpui/ is skipped the same way: the GPUI preview app is a Cargo workspace
+  # of its own that no job here builds, and gpui.yml checks it.
+  #
   # The list is deliberately short: anything not named below is code. Some
   # Markdown is not documentation — THIRD_PARTY_NOTICES.md is verified by
   # `pnpm notices:check`, the skills under src-tauri/ are embedded and tested,
@@ -73,7 +76,7 @@ jobs:
             esac
             case "$path" in
               THIRD_PARTY_NOTICES.md) ;;
-              docs/* | .github/ISSUE_TEMPLATE/*) continue ;;
+              docs/* | gpui/* | .github/ISSUE_TEMPLATE/*) continue ;;
               .github/*/*) ;;
               .github/*.md) continue ;;
               */*) ;;

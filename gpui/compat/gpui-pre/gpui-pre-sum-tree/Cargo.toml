@@ -1,0 +1,18 @@
+[package]
+name = "gpui-pre-sum-tree"
+version = "0.3.12"
+description = "Zed's in-tree `sum_tree` under the name and version of the gpui-pre snapshot GPUI Kit pins."
+edition.workspace = true
+publish.workspace = true
+license = "Apache-2.0"
+
+[lib]
+name = "sum_tree"
+path = "lib.rs"
+doctest = false
+
+[features]
+test-support = ["zed_sum_tree/test-support"]
+
+[dependencies]
+zed_sum_tree = { package = "sum_tree", git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }

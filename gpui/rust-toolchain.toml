@@ -1,0 +1,6 @@
+[toolchain]
+# Zed at the pinned revision builds with 1.98.1; 1.99.1 is the closest
+# installed toolchain that is not older.
+channel = "1.99.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

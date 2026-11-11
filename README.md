@@ -136,6 +136,9 @@ Lattice is licensed under the [Apache License 2.0](LICENSE) (see also [NOTICE](N
 Releases up to and including 0.1.341 were GPL-3.0-or-later and remain available under those terms.
 See [third-party notices](THIRD_PARTY_NOTICES.md) for component licenses and [Synara integration notes](docs/synara-runtime.md) for the runtime details.
 
+The GPUI preview app in [`gpui/`](gpui/) is a separate program under GPL-3.0-or-later ([`gpui/LICENSE`](gpui/LICENSE)), because it links Zed's GPL-3.0-or-later editor crates; a few of its parts are Apache-2.0, as [its README](gpui/README.md#license) lists.
+Everything outside `gpui/` stays Apache-2.0.
+
 Two components carry their own terms:
 
 - The whiteboard's tldraw SDK (`tldraw`, `@tldraw/editor`, `@tldraw/driver`) is source-available under the [tldraw license](public/licenses/tldraw-LICENSE.md), which requires a license key for production use. Release builds read that key from the `VITE_TLDRAW_LICENSE_KEY` repository secret at build time; it is not in this repository, so a build without the secret runs tldraw in its unlicensed, watermarked mode.

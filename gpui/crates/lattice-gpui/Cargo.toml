@@ -1,0 +1,51 @@
+[package]
+name = "lattice-gpui"
+version = "0.1.0"
+description = "GPUI prototype of Lattice's LaTeX writing flow: file tree, Zed's editor, PDF preview, latexmk builds, dockable panels."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+assets.workspace = true
+codebook-tree-sitter-latex.workspace = true
+editor.workspace = true
+futures.workspace = true
+gpui.workspace = true
+gpui_platform.workspace = true
+gpui-kit.workspace = true
+hdrhistogram = { version = "7", default-features = false }
+image.workspace = true
+language.workspace = true
+log.workspace = true
+pdfium-render.workspace = true
+release_channel.workspace = true
+search.workspace = true
+semver.workspace = true
+serde_json.workspace = true
+settings.workspace = true
+smallvec.workspace = true
+tex.workspace = true
+theme.workspace = true
+theme_settings.workspace = true
+vim.workspace = true
+vim_mode_setting.workspace = true
+workspace.workspace = true
+zed_actions.workspace = true
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+raw-window-handle = "0.6"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSGeometry"] }
+
+# The version Zed's gpui_windows already uses, so it adds no crate.
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
