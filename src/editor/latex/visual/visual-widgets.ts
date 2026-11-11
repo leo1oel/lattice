@@ -120,6 +120,31 @@ export class TextWidget extends WidgetType {
   }
 }
 
+/**
+ * Text standing for an empty construct to fill in (`\caption{}`): a click puts
+ * the caret `offset` into its source, between the braces, rather than at the
+ * widget's edge where typing would land outside them.
+ */
+export class PlaceholderWidget extends WidgetType {
+  constructor(readonly text: string, readonly className: string, readonly offset: number) {
+    super();
+  }
+
+  eq(other: PlaceholderWidget): boolean {
+    return other.text === this.text && other.className === this.className && other.offset === this.offset;
+  }
+
+  toDOM(): HTMLElement {
+    const dom = element("span", this.className, this.text);
+    opensOnClick(dom, this.offset);
+    return dom;
+  }
+
+  ignoreEvent(event: Event): boolean {
+    return isMouse(event);
+  }
+}
+
 /** A list item's marker: a bullet or number by depth, or the item's own `[label]`. */
 export class MarkerWidget extends WidgetType {
   constructor(readonly marker: string, readonly depth: number) {

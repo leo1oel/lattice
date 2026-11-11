@@ -24,7 +24,7 @@ import { overlaysTouch } from "../../source-overlays";
 import type { Construct, ScanFrame, Span } from "./visual-scan";
 import { BOXED_ENVIRONMENTS, FIGURE_ENVIRONMENTS, LIST_ENVIRONMENTS, REFERENCE_COMMANDS } from "./visual-symbols";
 import { macroRevision, mathHtml, visualMathSource } from "./visual-math";
-import { BarWidget, FigureWidget, ImageWidget, IncludeWidget, MarkerWidget, MathWidget, TextWidget, TitleWidget, type FigurePicture } from "./visual-widgets";
+import { BarWidget, FigureWidget, ImageWidget, IncludeWidget, MarkerWidget, MathWidget, PlaceholderWidget, TextWidget, TitleWidget, type FigurePicture } from "./visual-widgets";
 import { figureEntryGraphic, figureEntryLabels } from "./visual-figure";
 import { frontMatter } from "./visual-front-matter";
 
@@ -283,7 +283,7 @@ export function buildReplacements(
           if (construct.kind !== "caption" || !construct.float) return;
           const label = captionLabel(construct, context);
           add(construct.from, construct.to, Decoration.replace({
-            widget: new TextWidget(`${label}${i18n._(msg`Add a caption`)}`, classes("lx-tex-caption-empty")),
+            widget: new PlaceholderWidget(`${label}${i18n._(msg`Add a caption`)}`, classes("lx-tex-caption-empty"), construct.open.to - construct.from),
           }));
           return;
         }

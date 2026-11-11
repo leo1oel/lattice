@@ -102,6 +102,16 @@ describe("LaTeX Visual mode's chemistry figures", () => {
     expect(text(view)).toContain("\\input{figures/scheme}");
   });
 
+  it("opens an empty caption's braces on a click, so typing fills the caption", async () => {
+    const doc = "Text.\n\\begin{figure}\n  \\caption{}\n\\end{figure}\nEnd";
+    const view = await visualView(doc, 0, host({}));
+    const placeholder = view.contentDOM.querySelector<HTMLElement>(".lx-tex-caption-empty")!;
+    placeholder.dispatchEvent(new MouseEvent("mouseup", { button: 0, bubbles: true }));
+    expect(view.state.selection.main.head).toBe(doc.indexOf("\\caption{}") + "\\caption{".length);
+    view.dispatch(view.state.replaceSelection("X"));
+    expect(view.state.doc.toString()).toContain("\\caption{X}");
+  });
+
   it("keeps an \\input of a file with no drawing beside it a link", async () => {
     const visualHost = { ...host({ projectPaths: ["figures/plain.tex", "figures/plain.pdf"] }), readFile: async () => "" };
     const doc = "\\input{figures/plain}\nEnd";
