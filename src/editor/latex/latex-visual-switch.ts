@@ -21,6 +21,10 @@ export type LatexVisualHost = {
   loadImage: (path: string) => Promise<string | null>;
   /** Follow a link Visual mode draws (an `\input`'s file). */
   open: (target: DefinitionTarget) => void;
+  /** A project file's text, for the entry file of an editable figure an `\input` names. */
+  readFile?: (path: string) => Promise<string>;
+  /** Open the drawing an editable figure's entry file was made from (docs/editable-figures.md). */
+  openDrawing?: (entryPath: string) => void;
 };
 
 /** The project data Visual mode draws from changed (macros, the last build's numbers, citations): draw again. */

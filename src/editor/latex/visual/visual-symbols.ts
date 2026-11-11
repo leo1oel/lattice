@@ -46,6 +46,16 @@ export const CITATION_COMMANDS: ReadonlySet<string> = new Set([
 /** Commands that bring in another file, drawn as a link to it. */
 export const INCLUDE_COMMANDS: ReadonlySet<string> = new Set(["input", "include", "subfile", "includeonly"]);
 
+/** The `import` package's commands, which name a folder and a file in it: `\import{figures/}{scheme}`. */
+export const IMPORT_COMMANDS: ReadonlySet<string> = new Set(["import", "subimport", "inputfrom", "subinputfrom", "includefrom", "subincludefrom"]);
+
+/**
+ * chemnum's commands that print compound numbers (`\cmpd{a,b}`, `\refcmpd{a}`),
+ * and `\rcmpd`, which a drawing's `[[…]]` marks become: drawn as the numbers
+ * the last build gave them. `\cmpd*` and `\labelcmpd` print nothing.
+ */
+export const COMPOUND_COMMANDS: ReadonlySet<string> = new Set(["cmpd", "refcmpd", "rcmpd"]);
+
 /** List environments, whose `\item`s Visual mode draws as markers. */
 export const LIST_ENVIRONMENTS: ReadonlySet<string> = new Set(["itemize", "enumerate", "description"]);
 
@@ -66,7 +76,11 @@ export const SOURCE_ENVIRONMENTS: ReadonlySet<string> = new Set([
 ]);
 
 /** Floats whose `\includegraphics` and `\caption` Visual mode draws. */
-export const FIGURE_ENVIRONMENTS: ReadonlySet<string> = new Set(["figure", "figure*", "wrapfigure", "subfigure", "table", "table*"]);
+export const FIGURE_ENVIRONMENTS: ReadonlySet<string> = new Set([
+  "figure", "figure*", "wrapfigure", "subfigure", "table", "table*",
+  // The floats chemistry journals' classes add (achemso): a caption in one reads "Scheme 1:".
+  "scheme", "scheme*", "chart", "chart*", "graph", "graph*",
+]);
 
 /** Environments drawn as a block with a heading of their name: `abstract`, quotes, theorems. */
 export const BOXED_ENVIRONMENTS: ReadonlySet<string> = new Set([

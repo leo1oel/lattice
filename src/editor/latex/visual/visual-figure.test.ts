@@ -1,0 +1,64 @@
+import { describe, expect, it } from "vitest";
+import { figureEntryGraphic, figureEntryLabels } from "./visual-figure";
+
+/** An entry as Reactio Draw writes it: the drawing, its compound marks set over it. */
+const REACTIO_ENTRY = String.raw`% editable-figure source: Document_1.reactio
+% Made by Reactio Draw: the drawing is Document_1.pdf, its compound numbers are set here with \cmpd (chemnum)
+\begingroup
+\sbox0{\includegraphics{Document_1.pdf}}%
+\edef\rdw{\the\ifdim\wd0>\linewidth\linewidth\else\wd0\fi}%
+\providecommand\reactiofigurefont[1]{\fontfamily{#1}\selectfont}%
+\begin{tikzpicture}
+  \node[inner sep=0pt,anchor=south west] (rdfig) at (0,0) {\includegraphics[width=\rdw,keepaspectratio]{Document_1.pdf}};
+  \begin{scope}[x={(rdfig.south east)},y={(rdfig.north west)},every node/.style={inner sep=0pt,anchor=base}]
+    \node at (0.1665,0.1119) {\reactiofigurefont{phv}\fontsize{10}{12}\selectfont \textbf{\rcmpd{1}}~(xx\%)};
+    \node at (0.5688,0.3996) {\fontsize{8}{10}\selectfont \cmpd{ketone,alcohol.OMe}};
+    % \node at (0.9,0.9) {\cmpd{commented}};
+  \end{scope}
+\end{tikzpicture}%
+\endgroup%`;
+
+describe("editable figure entries", () => {
+  it("names the graphic the entry draws", () => {
+    expect(figureEntryGraphic(REACTIO_ENTRY)).toBe("Document_1.pdf");
+    expect(figureEntryGraphic("% \\includegraphics{old.pdf}\n\\includegraphics[width=3cm]{figures/new}")).toBe("figures/new");
+    expect(figureEntryGraphic("\\input{other}")).toBeNull();
+  });
+
+  it("reads the labels set over the graphic: place, size, bold, compound numbers and text", () => {
+    expect(figureEntryLabels(REACTIO_ENTRY)).toEqual([
+      { x: 0.1665, y: 0.1119, size: 10, font: "sans", runs: [{ bold: true, compounds: ["1"] }, { bold: false, text: " (xx%)" }] },
+      { x: 0.5688, y: 0.3996, size: 8, font: null, runs: [{ bold: false, compounds: ["ketone", "alcohol.OMe"] }] },
+    ]);
+  });
+
+  it("reads no labels outside a scope spanning the graphic, and none from an unclosed node", () => {
+    expect(figureEntryLabels("\\begin{tikzpicture}\\node at (1,2) {\\cmpd{a}};\\end{tikzpicture}")).toEqual([]);
+    expect(figureEntryLabels("\\begin{scope}[x={(f.south east)},y={(f.north west)}]\\node at (0.1,0.2) {\\cmpd{a}")).toEqual([]);
+  });
+
+  it("reads an entry anyone may have written within bounds: far-off labels, huge sizes and unclosed brackets", () => {
+    const scope = "\\begin{scope}[x={(f.south east)},y={(f.north west)}]\n";
+    expect(figureEntryLabels(`${scope}\\node at (50,0.2) {\\cmpd{far}};\n\\node at (0.1,0.2) {\\fontsize{5000}{6000}\\selectfont big};`))
+      .toEqual([{ x: 0.1, y: 0.2, size: 72, font: null, runs: [{ bold: false, text: "big" }] }]);
+    // Each unclosed `\node[` once rescanned to the end of the file: quadratic, a stalled editor.
+    const hostile = scope + "\\node[".repeat(30_000) + "\\includegraphics[".repeat(10_000);
+    const started = performance.now();
+    expect(figureEntryLabels(hostile)).toEqual([]);
+    expect(figureEntryGraphic(hostile)).toBeNull();
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it("reads a label nested thousands deep within bounds", () => {
+    // Each nested `\textbf{` once rescanned the rest of its group: ~1.3 s for a
+    // 200 KB entry, then a stack overflow.
+    const depth = 22_000;
+    const hostile = "\\begin{scope}[x={(f.south east)},y={(f.north west)}]\n\\node at (0.1,0.2) {"
+      + "\\textbf{".repeat(depth) + "deep" + "}".repeat(depth) + "};";
+    const started = performance.now();
+    expect(figureEntryLabels(hostile)).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(500);
+    const shallow = "\\begin{scope}[x={(f.south east)},y={(f.north west)}]\n\\node at (0.1,0.2) {\\textcolor{red}{\\textbf{\\cmpd{a}}}};";
+    expect(figureEntryLabels(shallow)).toEqual([{ x: 0.1, y: 0.2, size: null, font: null, runs: [{ bold: true, compounds: ["a"] }] }]);
+  });
+});

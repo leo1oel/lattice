@@ -21,6 +21,8 @@
 import { EditorSelection, EditorState, Prec, StateEffect, StateField, findClusterBreak, type ChangeSet, type Extension, type RangeSet, type RangeValue } from "@codemirror/state";
 import { EditorView, ViewPlugin, keymap, type Command, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import { compiledLabels, type CompiledBuild, type CompiledLabel } from "../compiled-labels";
+import { compiledCompoundNumbers } from "../compound-project";
+import type { CompoundNumbers } from "../compound-keys";
 import { latexVisualDataChanged, type LatexVisualHost } from "../latex-visual-switch";
 import { isPointerRelease, pointerSelection } from "../../pointer-selection";
 import { overlaysTouch, sourceOverlays } from "../../source-overlays";
@@ -135,8 +137,10 @@ function endDocumentOf(state: EditorState): Span | null {
 }
 
 export function latexVisual(host: LatexVisualHost): Extension {
-  /** The last build's label numbers, read once per build (compiled-labels.ts caches the read). */
-  const aux: { build: CompiledBuild | undefined; labels: Map<string, CompiledLabel> | null } = { build: undefined, labels: null };
+  /** The last build's label and compound numbers, read once per build (compiled-labels.ts and compound-project.ts cache the reads). */
+  const aux: { build: CompiledBuild | undefined; labels: Map<string, CompiledLabel> | null; compounds: CompoundNumbers | null } = {
+    build: undefined, labels: null, compounds: null,
+  };
 
   const draw = (state: EditorState, value: Omit<VisualState, "revealed" | "replacements">, force: boolean, previous: VisualState | null): VisualState => {
     const points = selectionPoints(value.frozen ?? state.selection);
@@ -149,7 +153,7 @@ export function latexVisual(host: LatexVisualHost): Extension {
     const key = `${revealed.map((shown) => (shown ? 1 : 0)).join("")}|${preambleRevealed ? 1 : 0}|${endRevealed ? 1 : 0}`;
     if (!force && previous && key === previous.revealed) return { ...previous, frozen: value.frozen, overlays: value.overlays };
     const replacements = buildReplacements(
-      { state, host, labels: aux.labels }, value.constructs, revealed,
+      { state, host, labels: aux.labels, compounds: aux.compounds }, value.constructs, revealed,
       { span: preamble, revealed: preambleRevealed }, endSpan && { span: endSpan, revealed: endRevealed },
     );
     return { ...value, revealed: key, replacements };
@@ -231,10 +235,15 @@ export function latexVisual(host: LatexVisualHost): Extension {
       if (compiledBuild === aux.build) return;
       aux.build = compiledBuild;
       aux.labels = null;
+      aux.compounds = null;
       if (!compiledBuild) return;
-      void compiledLabels(projectRoot, compiledBuild).then((labels) => {
+      void Promise.all([
+        compiledLabels(projectRoot, compiledBuild),
+        compiledCompoundNumbers(projectRoot, compiledBuild).catch(() => null),
+      ]).then(([labels, compounds]) => {
         if (destroyed || aux.build !== compiledBuild) return;
         aux.labels = labels;
+        aux.compounds = compounds;
         view.dispatch({ effects: latexVisualDataChanged.of(null) });
       }, () => {});
     };

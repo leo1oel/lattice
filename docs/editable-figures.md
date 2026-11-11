@@ -92,6 +92,17 @@ entry:
 % editable-figure source: scheme.reactio
 ```
 
+## In Visual mode
+
+A `.tex` file's Visual mode draws the `\input` of an editable figure (an
+entry with a drawing beside it, as `figureEntryBeside` finds it) as the
+graphic its entry includes, with the labels the entry sets over it in a
+`scope` whose axes are the graphic's corners: each `\node at (x,y) {…}`,
+its `\fontsize`, bold text, and `\cmpd`/`\rcmpd` numbers from the last
+build ("?" before one). Nothing in the entry runs; it is only read
+(`src/editor/latex/visual/visual-figure.ts`). A click shows the include
+line's source; the figure's Edit drawing button opens the drawing.
+
 ## When the drawing changes
 
 A drawing saved again may need more than it did when it was pasted: numbers

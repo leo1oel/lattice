@@ -15,6 +15,8 @@ import type { EditorSelection, EditorState, Range, RangeSet, RangeValue } from "
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../../../i18n";
 import type { CompiledLabel } from "../compiled-labels";
+import { numberedKey, type CompoundNumbers } from "../compound-keys";
+import { figureEntryBeside } from "../../../project/figure-source-open";
 import type { LatexVisualHost } from "../latex-visual-switch";
 import { resolveProjectPath } from "../latex-symbols";
 import { referenceKindLabel, type CitationInfo, type ReferenceInfo } from "../latex-text";
@@ -22,7 +24,8 @@ import { overlaysTouch } from "../../source-overlays";
 import type { Construct, ScanFrame, Span } from "./visual-scan";
 import { BOXED_ENVIRONMENTS, FIGURE_ENVIRONMENTS, LIST_ENVIRONMENTS, REFERENCE_COMMANDS } from "./visual-symbols";
 import { macroRevision, mathHtml, visualMathSource } from "./visual-math";
-import { BarWidget, ImageWidget, IncludeWidget, MarkerWidget, MathWidget, TextWidget, TitleWidget } from "./visual-widgets";
+import { BarWidget, FigureWidget, ImageWidget, IncludeWidget, MarkerWidget, MathWidget, PlaceholderWidget, TextWidget, TitleWidget, type FigurePicture } from "./visual-widgets";
+import { figureEntryGraphic, figureEntryLabels } from "./visual-figure";
 import { frontMatter } from "./visual-front-matter";
 
 /** What a build reads beyond the constructs: the project's data and the last build's numbers. */
@@ -31,6 +34,8 @@ export type DrawContext = {
   host: LatexVisualHost;
   /** The last build's label numbers; null before the first build (every number reads "?"). */
   labels: ReadonlyMap<string, CompiledLabel> | null;
+  /** The compound numbers chemnum gave in the last build; null before the first build (every number reads "?"). */
+  compounds?: CompoundNumbers | null;
 };
 
 /** The preamble Visual mode folds away: from the start through the `\begin{document}` line. */
@@ -192,6 +197,40 @@ function equationTag(construct: Extract<Construct, { kind: "math" }>, context: D
   return context.labels?.get(labels[0])?.number || "?";
 }
 
+/** A compound key's number from the last build: `key.sub.num` is recorded as `key.sub`, a series mark as `A:key`. */
+function compoundNumber(key: string, context: DrawContext): string {
+  const numbers = context.compounds;
+  return numbers?.get(key) ?? numbers?.get(numberedKey(key)) ?? "?";
+}
+
+/** The pictures an editable figure may draw: what the reference-image loader previews. */
+const FIGURE_GRAPHIC = /\.(?:pdf|png|jpe?g|gif|svg)$/i;
+
+/**
+ * The graphic an entry includes, from the project root: beside the entry,
+ * with the extension LaTeX would try first. Only a picture the project lists
+ * is read (an entry is anyone's file, and may name any path); otherwise the
+ * PDF named after the entry, as drawing programs write it.
+ */
+function entryGraphic(entry: string, written: string | null, projectPaths: readonly string[]): string {
+  const folder = entry.slice(0, entry.lastIndexOf("/") + 1);
+  const fallback = `${folder}${entry.slice(folder.length).replace(/\.tex$/i, "")}.pdf`;
+  if (!written || written.includes("..") || written.startsWith("/")) return fallback;
+  const path = `${folder}${written.replace(/^\.\//, "")}`;
+  const candidates = FIGURE_GRAPHIC.test(path) ? [path] : [".pdf", ".png", ".jpg", ".jpeg"].map((extension) => path + extension);
+  return candidates.find((candidate) => projectPaths.includes(candidate)) ?? fallback;
+}
+
+/** An editable figure's graphic and labels, read from its entry file when the widget is drawn. */
+function figurePicture(entry: string, host: LatexVisualHost, projectPaths: readonly string[]): () => Promise<FigurePicture> {
+  return async () => {
+    const text = await (host.readFile?.(entry) ?? Promise.resolve(""));
+    const graphic = entryGraphic(entry, figureEntryGraphic(text), projectPaths);
+    const image = await host.loadImage(graphic);
+    return { graphic, image, labels: figureEntryLabels(text) };
+  };
+}
+
 /**
  * The replacements for `constructs` with `revealed` deciding which show
  * their source, plus the folded preamble and the end of the document.
@@ -238,7 +277,16 @@ export function buildReplacements(
       }
       case "heading":
       case "caption": {
-        if (touched || !state.sliceDoc(construct.open.to, construct.close.from).trim()) return;
+        if (touched) return;
+        if (!state.sliceDoc(construct.open.to, construct.close.from).trim()) {
+          // An empty caption (as a pasted figure brings) reads as one to fill in; a click opens its braces.
+          if (construct.kind !== "caption" || !construct.float) return;
+          const label = captionLabel(construct, context);
+          add(construct.from, construct.to, Decoration.replace({
+            widget: new PlaceholderWidget(`${label}${i18n._(msg`Add a caption`)}`, classes("lx-tex-caption-empty"), construct.open.to - construct.from),
+          }));
+          return;
+        }
         const label = construct.kind === "caption" && construct.float ? captionLabel(construct, context) : "";
         add(construct.open.from, construct.open.to, label ? Decoration.replace({ widget: new TextWidget(label, "lx-tex-caption-label") }) : hidden);
         add(construct.close.from, construct.close.to, hidden);
@@ -281,6 +329,12 @@ export function buildReplacements(
           widget: new TextWidget(citationText(construct, citations), classes("lx-tex-chip", "lx-tex-cite"), construct.keys.join(", ")),
         }));
         return;
+      case "compound": {
+        if (touched) return;
+        const number = construct.keys.map((key) => compoundNumber(key, context)).join(", ");
+        add(construct.from, construct.to, Decoration.replace({ widget: new TextWidget(number, classes("lx-tex-chip", "lx-tex-compound"), construct.keys.join(", ")) }));
+        return;
+      }
       case "label":
         if (touched) return;
         add(construct.from, construct.to, Decoration.replace({ widget: new TextWidget(construct.key, classes("lx-tex-chip", "lx-tex-label")) }));
@@ -288,6 +342,18 @@ export function buildReplacements(
       case "include": {
         if (touched) return;
         const target = resolveProjectPath(construct.path, data.projectPaths, "tex", [], data.rootDocumentPath);
+        const entry = target && host.readFile ? figureEntryBeside(target, data.projectPaths) : null;
+        const lines = entry ? wholeLines(state, construct.from, construct.to) : null;
+        if (entry && lines) {
+          const openDrawing = host.openDrawing ? () => host.openDrawing?.(entry) : null;
+          const widget = new FigureWidget(
+            entry, figurePicture(entry, host, data.projectPaths), (key) => compoundNumber(key, context),
+            context.compounds ?? null, openDrawing, construct.from - lines.from,
+          );
+          add(lines.from, lines.to, Decoration.replace({ widget, block: true }));
+          coveredTo = lines.to;
+          return;
+        }
         const open = target ? () => host.open({ kind: "include", path: target }) : null;
         add(construct.from, construct.to, Decoration.replace({ widget: new IncludeWidget(construct.path, open) }));
         return;

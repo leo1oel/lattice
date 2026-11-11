@@ -1740,6 +1740,10 @@ msgstr "Add 1 paper"
 msgid "Add a bibliography entry for {title}"
 msgstr "Add a bibliography entry for {title}"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Add a caption"
+msgstr "Add a caption"
+
 #: src/editor/comments/use-intent-labels.ts
 msgid "Add a citation"
 msgstr "Add a citation"
@@ -5940,6 +5944,10 @@ msgstr "Edit deadline"
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Edit document"
 msgstr "Edit document"
+
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "Edit drawing"
+msgstr "Edit drawing"
 
 #: src/project/project-file-tree.tsx
 msgid "Edit figure source"
@@ -11134,6 +11142,10 @@ msgstr "Open the {0} website"
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
 msgstr "Open the document this suggestion is in first."
+
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "Open the drawing this figure was made from"
+msgstr "Open the drawing this figure was made from"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "Open the file this suggestion is in first"
