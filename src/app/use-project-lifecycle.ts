@@ -108,6 +108,17 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     () => ({ projects: loadRecentProjects(), unopened: null }),
   );
   const autoTutorialAttemptedRef = useRef(false);
+  /** A flow that changes this window's project is under way, from before its save to its end: another waits its turn. */
+  const transitionPendingRef = useRef(false);
+  const holdWindow = useCallback(async <T,>(refused: T, task: () => Promise<T>) => {
+    if (transitionPendingRef.current) return refused;
+    transitionPendingRef.current = true;
+    try {
+      return await task();
+    } finally {
+      transitionPendingRef.current = false;
+    }
+  }, []);
   /**
    * Launch has not yet decided what this window shows. Until it has, App shows
    * neither the welcome screen nor a project: the welcome screen would flash up
@@ -313,13 +324,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   /// that is gone is reported, both before anything here is claimed. Work
   /// running in the project left, which the switch would stop, is asked about
   /// first. True once the project is entered.
-  const switchingRef = useRef(false);
   const openInThisWindow = useCallback(async (path: string, onError?: () => void) => {
     const leaving = projectRef.current;
     if (path === leaving?.root) return true;
-    if (switchingRef.current || projectBeforeTransitionRef.current) return false;
-    switchingRef.current = true;
-    try {
+    if (projectBeforeTransitionRef.current) return false;
+    return holdWindow(false, async () => {
       const elsewhere = await invoke<boolean>("project_shown_elsewhere", { path }).catch((reason: unknown) => {
         onError?.();
         showError(toMessage(reason));
@@ -330,11 +339,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         return false;
       }
       if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) return false;
-      return await switchProject(leaving ? t`Switching project…` : t`Opening project…`, path, onError);
-    } finally {
-      switchingRef.current = false;
-    }
-  }, [building, openProjectWindow, projectBeforeTransitionRef, projectRef, switchProject, t]);
+      return switchProject(leaving ? t`Switching project…` : t`Opening project…`, path, onError);
+    });
+  }, [building, holdWindow, openProjectWindow, projectBeforeTransitionRef, projectRef, switchProject, t]);
 
   /// Open a folder that is already on disk — the local copy of an Overleaf
   /// project — wherever the writer will find it: the window showing it is
@@ -366,7 +373,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     }, (reason) => updateCreateForm({ error: hostErrorMessage(reason) }));
   }, [createForm.name, createForm.venue, revealNewProject, updateCreateForm, t]);
 
-  const openTutorialProject = useCallback(async () => {
+  const openTutorialProject = useCallback(() => holdWindow(false, async () => {
     autoTutorialAttemptedRef.current = true;
     setBusyLabel(t`Preparing tutorial…`);
     const failed = () => {
@@ -389,7 +396,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       showError(toMessage(reason));
       return failed();
     }).finally(() => setBusyLabel(null));
-  }, [cancelProjectTransition, chooseMode, depsRef, enterProject, runBuild, save, startProjectTransition, t]);
+  }), [cancelProjectTransition, chooseMode, depsRef, enterProject, holdWindow, runBuild, save, startProjectTransition, t]);
 
   // On launch, honor a project explicitly assigned to this window, otherwise
   // reopen the project the writer used last. A genuinely empty first launch
@@ -549,15 +556,15 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) forget();
       return;
     }
-    await switchProject(t`Switching project…`, path, forget);
-  }, [openInThisWindow, openProjectWindow, project?.root, switchProject, t]);
+    await holdWindow(false, () => switchProject(t`Switching project…`, path, forget));
+  }, [holdWindow, openInThisWindow, openProjectWindow, project?.root, switchProject, t]);
 
   // ---- Closing, quitting and reloading save first -----------------------------------------------------------------
   useSaveBeforeClose({ browserHosted, flush, save, hasUnsavedEdits });
 
   // ---- Handing the workspace to a browser tab and back ------------------------------------------------------------
   /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
-  const moveWorkspace = useCallback(async () => {
+  const moveWorkspace = useCallback(() => holdWindow(undefined, async () => {
     if (browserHosted) {
       if (!await startProjectTransition()) return;
       setMovingWorkspace(true);
@@ -584,7 +591,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       return;
     }
     await getCurrentWindow().close();
-  }, [browserHosted, cancelProjectTransition, startProjectTransition]);
+  }), [browserHosted, cancelProjectTransition, holdWindow, startProjectTransition]);
 
   return {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,

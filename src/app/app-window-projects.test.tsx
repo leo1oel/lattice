@@ -1,6 +1,6 @@
 // The harness's module mocks register as it loads: import it before anything it mocks.
 import {
-  buildButton, buildResult, deferred, expectInvoked, expectNotification, invokeCalls, projectCommands, projectSnapshot, ROOT, setAutoBuildMode,
+  buildButton, buildResult, deferred, expectInvoked, expectNotification, invokeCalls, pause, projectCommands, projectSnapshot, ROOT, setAutoBuildMode,
   waitForBuildIdle,
 } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
@@ -128,6 +128,27 @@ describe("projects in this window", () => {
 
     running.resolve(buildResult()());
     await waitFor(() => expect(builds).toBe(3));
+  });
+
+  it("waits out a switch still checking its project before the tutorial may take the window", async () => {
+    setAutoBuildMode("manual");
+    rememberRecents();
+    const lookup = deferred<boolean>();
+    renderApp({
+      ...projectCommands(snapshots[ROOT]), open_project: openProject, project_shown_elsewhere: () => lookup.promise,
+      open_tutorial_project: projectSnapshot({ root: "/tmp/tutorial", name: "Tutorial" }),
+    });
+    await openNotesHere();
+    await expectInvoked("project_shown_elsewhere", { path: NOTES });
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.click(await screen.findByRole("option", { name: /Open guided tutorial/ }));
+    // The palette runs its choice once it has closed and handed focus back.
+    await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Command palette" })).toBeNull());
+    await act(() => pause(100));
+    lookup.resolve(false);
+    await expectInvoked("open_project", { path: NOTES });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Switch project" })).toHaveTextContent("Notes"));
+    expect(invokeCalls("open_tutorial_project")).toHaveLength(0);
   });
 
   it("leaves the project here untouched when the folder asked for is gone, and forgets it", async () => {
