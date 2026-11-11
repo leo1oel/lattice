@@ -134,8 +134,7 @@ class FakeViewport {
 }
 
 /** Just enough of a PDFDocumentProxy for PDF.js's viewer to build its page views. */
-function fakeDocument(pageCount: number) {
-  const size: Size = [612, 792];
+function fakeDocument(pageCount: number, size: Size = [612, 792]) {
   const pages = Array.from({ length: pageCount }, (_, index) => ({
     pageNumber: index + 1,
     rotate: 0,
@@ -163,23 +162,24 @@ function fakeDocument(pageCount: number) {
 
 type PageViewScale = { outputScale?: { sx: number; sy: number } | null };
 
-describe("PDF viewer on a display of another pixel density", () => {
-  async function openViewer() {
-    const { createViewerRecord, destroyViewerRecord, viewerOptions } = await import("./pdf-slick");
-    const host = document.createElement("div");
-    document.body.append(host);
-    const record = createViewerRecord("paper.pdf", host, false, viewerOptions(false, "1", null), () => undefined);
-    const { viewer } = record.slick;
-    viewer.setDocument(fakeDocument(3));
-    await vi.waitFor(() => expect(viewer.pagesCount).toBe(3));
-    viewer.currentScale = 1.5;
-    const outputScales = () => Array.from({ length: 3 }, (_, index) => {
-      const { outputScale } = viewer.getPageView(index) as PageViewScale;
-      return outputScale ? [outputScale.sx, outputScale.sy] : null;
-    });
-    return { record, viewer, outputScales, destroy: () => destroyViewerRecord(record) };
-  }
+/** A desktop viewer over three pages, at a viewer scale (PDF.js's: 0.75 is the app's 100%). */
+async function openViewer({ scale = 1.5, pageSize }: { scale?: number; pageSize?: Size } = {}) {
+  const { createViewerRecord, destroyViewerRecord, viewerOptions } = await import("./pdf-slick");
+  const host = document.createElement("div");
+  document.body.append(host);
+  const record = createViewerRecord("paper.pdf", host, false, viewerOptions(false, "1", null), () => undefined);
+  const { viewer } = record.slick;
+  viewer.setDocument(fakeDocument(3, pageSize));
+  await vi.waitFor(() => expect(viewer.pagesCount).toBe(3));
+  viewer.currentScale = scale;
+  const outputScales = () => Array.from({ length: 3 }, (_, index) => {
+    const { outputScale } = viewer.getPageView(index) as PageViewScale;
+    return outputScale ? [outputScale.sx, outputScale.sy] : null;
+  });
+  return { record, viewer, outputScales, destroy: () => destroyViewerRecord(record) };
+}
 
+describe("PDF viewer on a display of another pixel density", () => {
   it("draws every page at the new density, at the same zoom and scroll position", async () => {
     const { record, viewer, outputScales, destroy } = await openViewer();
     expect(outputScales()).toEqual([[2, 2], [2, 2], [2, 2]]);
@@ -205,5 +205,55 @@ describe("PDF viewer on a display of another pixel density", () => {
     display.moveTo(1);
     await new Promise((resolve) => setTimeout(resolve, SETTLE_MS + 50));
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The pages draw at 2 canvas pixels per CSS pixel below the app's 100% on a
+ * display under 2x (our PDF.js patch, PDFPageView#computeScale): one sample
+ * per pixel drew a fitted page's small text thin and jagged on 1x displays
+ * (#836). App scale = viewer scale × 4/3.
+ */
+describe("PDF viewer zoomed out on a display under 2x", () => {
+  const all = (ratio: number) => [[ratio, ratio], [ratio, ratio], [ratio, ratio]];
+
+  it("oversamples pages drawn below 100% on a 1x display, and only those", async () => {
+    window.devicePixelRatio = 1;
+    const { viewer, outputScales, destroy } = await openViewer({ scale: 0.45 });
+    expect(outputScales()).toEqual(all(2));
+
+    viewer.currentScale = 0.75;
+    await vi.waitFor(() => expect(outputScales()).toEqual(all(1)));
+    viewer.currentScale = 1.2;
+    await vi.waitFor(() => expect(outputScales()).toEqual(all(1)));
+    viewer.currentScale = 0.7;
+    await vi.waitFor(() => expect(outputScales()).toEqual(all(2)));
+    await destroy();
+  });
+
+  it("raises a fractional display to 2x when zoomed out, and leaves a 2x display alone", async () => {
+    window.devicePixelRatio = 1.5;
+    const fractional = await openViewer({ scale: 0.6 });
+    expect(fractional.outputScales()).toEqual(all(2));
+    fractional.viewer.currentScale = 0.9;
+    await vi.waitFor(() => expect(fractional.outputScales()).toEqual(all(1.5)));
+    await fractional.destroy();
+
+    window.devicePixelRatio = 2;
+    const retina = await openViewer({ scale: 0.3 });
+    expect(retina.outputScales()).toEqual(all(2));
+    await retina.destroy();
+  });
+
+  it("does not oversample a page the canvas pixel cap would cut back", async () => {
+    window.devicePixelRatio = 1;
+    // jsdom's screen is 0×0, which PDF.js reads as no cap at all.
+    vi.spyOn(window.screen, "availWidth", "get").mockReturnValue(2560);
+    vi.spyOn(window.screen, "availHeight", "get").mockReturnValue(1440);
+    // A 2400pt poster at 93%: 2240² pixels fit the caps (2^24, and three
+    // screens' worth), 4480² do not.
+    const { outputScales, destroy } = await openViewer({ scale: 0.7, pageSize: [2400, 2400] });
+    expect(outputScales()).toEqual(all(1));
+    await destroy();
   });
 });
