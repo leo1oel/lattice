@@ -1,0 +1,182 @@
+//! An icon-only button: the titlebar's actions, a panel strip's accessories
+//! and ⋯ menu, a toolbar's toggles.
+//!
+//! Measured on the Main window: 28×28 in the titlebar and accessory hosts,
+//! 24×28 for a strip's ⋯ menu and the PDF toolbar; a 14px icon in secondary
+//! ink; an "on" toggle on the toolbar-active wash with the icon in the
+//! accent. Corners are the control radius (6px), except in a panel's tab
+//! strip, where the app rounds them like its tabs (11px).
+
+use std::rc::Rc;
+
+use gpui::{
+    AnyView, App, ClickEvent, Div, ElementId, InteractiveElement, Interactivity, IntoElement,
+    ParentElement as _, Pixels, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
+    StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px,
+};
+use gpui_kit::component::{Selectable, tooltip::Tooltip};
+
+use crate::{
+    ActiveLattice as _, Icon,
+    components::{Surface, focus_ring},
+    icons::ICON,
+    tokens::OPACITY_DISABLED,
+};
+
+type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
+
+#[derive(IntoElement)]
+pub struct IconButton {
+    base: Stateful<Div>,
+    icon: Icon,
+    icon_size: Pixels,
+    width: Pixels,
+    height: Pixels,
+    radius: Pixels,
+    surface: Surface,
+    on: bool,
+    selected: bool,
+    disabled: bool,
+    tooltip: Option<SharedString>,
+    on_click: Option<ClickHandler>,
+}
+
+impl IconButton {
+    pub fn new(id: impl Into<ElementId>, icon: Icon) -> Self {
+        Self {
+            base: div().id(id),
+            icon,
+            icon_size: ICON,
+            width: px(28.),
+            height: px(28.),
+            radius: px(6.),
+            surface: Surface::Sheet,
+            on: false,
+            selected: false,
+            disabled: false,
+            tooltip: None,
+            on_click: None,
+        }
+    }
+
+    /// Width and height of the hit area and the hover wash.
+    pub fn frame(mut self, width: Pixels, height: Pixels) -> Self {
+        self.width = width;
+        self.height = height;
+        self
+    }
+
+    pub fn icon_size(mut self, size: Pixels) -> Self {
+        self.icon_size = size;
+        self
+    }
+
+    pub fn radius(mut self, radius: Pixels) -> Self {
+        self.radius = radius;
+        self
+    }
+
+    pub fn surface(mut self, surface: Surface) -> Self {
+        self.surface = surface;
+        self
+    }
+
+    /// A toggle that is on: the accent's 14% wash, the icon in the accent.
+    pub fn on(mut self, on: bool) -> Self {
+        self.on = on;
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    pub fn tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    pub fn on_click(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_click = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl Styled for IconButton {
+    fn style(&mut self) -> &mut StyleRefinement {
+        self.base.style()
+    }
+}
+
+impl InteractiveElement for IconButton {
+    fn interactivity(&mut self) -> &mut Interactivity {
+        self.base.interactivity()
+    }
+}
+
+impl StatefulInteractiveElement for IconButton {}
+
+/// `selected` is how a dropdown menu marks its trigger while it is open: the
+/// button keeps its pressed wash.
+impl Selectable for IconButton {
+    fn selected(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
+    }
+
+    fn is_selected(&self) -> bool {
+        self.selected
+    }
+}
+
+impl gpui_kit::component::menu::DropdownMenu for IconButton {}
+
+impl RenderOnce for IconButton {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        let palette = cx.palette().clone();
+        let hover = self.surface.hover(&palette);
+        let ground = match self.surface {
+            Surface::Chrome => palette.chrome,
+            Surface::Sheet => palette.editor,
+        };
+        let ink = if self.on {
+            palette.accent
+        } else {
+            palette.text_secondary
+        };
+        let pressed = palette.pressed;
+        let focus = focus_ring(&palette, ground);
+        self.base
+            .flex()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .w(self.width)
+            .h(self.height)
+            .rounded(self.radius)
+            .when(self.on, |this| this.bg(palette.toolbar_active))
+            .when(self.selected, |this| this.bg(pressed))
+            .when(self.disabled, |this| this.opacity(OPACITY_DISABLED))
+            .when(!self.disabled, |this| {
+                this.hover(move |style| style.bg(hover))
+                    .active(move |style| style.bg(pressed))
+                    .focus_visible(move |style| style.shadow(focus))
+            })
+            .child(self.icon.element(self.icon_size, ink))
+            .when_some(self.tooltip, |this, tooltip| {
+                this.tooltip(move |window, cx| -> AnyView {
+                    Tooltip::new(tooltip.clone()).build(window, cx)
+                })
+            })
+            .when_some(
+                self.on_click.filter(|_| !self.disabled),
+                |this, on_click| {
+                    this.on_click(move |event, window, cx| on_click(event, window, cx))
+                },
+            )
+    }
+}

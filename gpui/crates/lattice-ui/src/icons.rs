@@ -36,6 +36,7 @@ impl Icon {
     pub const CIRCLE_ALERT: Icon = Icon("icons/circle-alert.svg");
     pub const CLIPBOARD_CHECK: Icon = Icon("icons/clipboard-check.svg");
     pub const CLOUD: Icon = Icon("icons/cloud.svg");
+    pub const FILE_TEXT: Icon = Icon("icons/file-text.svg");
     pub const FOLDER_TREE: Icon = Icon("icons/folder-tree.svg");
     pub const GLOBE: Icon = Icon("icons/globe.svg");
     pub const HAMMER: Icon = Icon("icons/hammer.svg");

@@ -59,8 +59,10 @@ fn config(palette: &Palette, fonts: &Fonts) -> ThemeConfig {
         "name": format!("Lattice {}", if palette.is_dark() { "Dark" } else { "Light" }),
         "mode": mode,
         "is_default": false,
-        // Body: 13px, the role every Kit control's text is measured against.
-        "font.size": px_of(TEXT_BODY),
+        // Kit's Root makes its font size the window's rem size, and every
+        // Lattice token is in rems of a 16px root, so this stays 16: the
+        // interface size setting scales it, and with it the whole interface.
+        "font.size": ROOT_FONT_SIZE,
         "font.family": fonts.ui.as_ref(),
         "mono_font.family": fonts.editor.as_ref(),
         "mono_font.size": px_of(TEXT_CAPTION),
@@ -71,6 +73,9 @@ fn config(palette: &Palette, fonts: &Fonts) -> ThemeConfig {
     });
     serde_json::from_value(value).expect("the Lattice Kit theme matches Kit's schema")
 }
+
+/// The rem the tokens are written against.
+pub const ROOT_FONT_SIZE: f32 = 16.;
 
 fn px_of(rems: gpui::Rems) -> f32 {
     rems.0 * 16.
@@ -208,6 +213,9 @@ mod tests {
             let palette = Palette::new(appearance, Tint::Paper, Accent::Blue);
             let config = config(&palette, &Fonts::open());
             assert_eq!(config.mode.is_dark(), appearance == Appearance::Dark);
+            // Kit turns its font size into the window's rem, which every
+            // token is measured in; anything else shrinks the whole interface.
+            assert_eq!(config.font_size, Some(ROOT_FONT_SIZE));
         }
     }
 

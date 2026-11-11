@@ -444,8 +444,14 @@ impl Palette {
     /// A selected panel tab on `surface`: the ink at 10%
     /// (`--opacity-tab-selected`), laid opaque.
     pub fn tab_selected_on(&self, surface: Srgb) -> Hsla {
+        self.ink_on(OPACITY_TAB_SELECTED, surface)
+    }
+
+    /// The ink at `alpha` laid opaque on `surface`: a state wash that keeps
+    /// its exact colour wherever it is drawn over other content.
+    pub fn ink_on(&self, alpha: f32, surface: Srgb) -> Hsla {
         Srgb {
-            a: OPACITY_TAB_SELECTED,
+            a: alpha,
             ..self.text_srgb
         }
         .over(surface)
