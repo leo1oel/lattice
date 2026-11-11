@@ -1563,6 +1563,10 @@ msgid "a terminal command"
 msgstr "1 个终端命令"
 
 #: src/platform/host-errors-workspace.ts
+msgid "A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written."
+msgstr "生成 TIFF 需要 Ghostscript 或 pdftoppm（Poppler）；PDF 已写出。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "A window could not save its edits, so Lattice did not restart."
 msgstr "有窗口没能保存修改，Lattice 没有重启"
 
@@ -3553,6 +3557,10 @@ msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "请选择包含 LaTeX 源文件的文件夹或 ZIP"
 
 #: src/platform/host-errors-workspace.ts
+msgid "Choose a folder outside the project for the export."
+msgstr "请为导出选择项目之外的文件夹。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "Choose a folder to extract the project into."
 msgstr "请选择要把项目解压到哪个文件夹"
 
@@ -3676,6 +3684,10 @@ msgstr "请选择 Excel 工作簿的导出位置"
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "选择解压位置"
+
+#: src/project/journal-export.ts
+msgid "Choose where to put the figures for the journal"
+msgstr "选择存放投稿图片的位置"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Choose where to save the copy."
@@ -6335,6 +6347,14 @@ msgstr "导出 Excel"
 msgid "Export Excel workbook"
 msgstr "导出 Excel"
 
+#: src/project/journal-export.ts
+msgid "Export figures for a journal"
+msgstr "导出投稿图片"
+
+#: src/app/journal-export-command.ts
+msgid "Export figures for a journal…"
+msgstr "导出投稿图片…"
+
 #: src/project/arxiv-export-dialog.tsx
 msgid "Export for arXiv"
 msgstr "导出 arXiv 提交包"
@@ -6396,6 +6416,10 @@ msgstr "导出 ZIP…"
 #: src/telemetry/app-log.tsx
 msgid "Export…"
 msgstr "导出…"
+
+#: src/project/journal-export.ts
+msgid "Exported {figures} and the paper that includes them"
+msgstr "已导出 {figures} 以及引用它们的论文"
 
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exported {fileName}"
@@ -10027,6 +10051,10 @@ msgstr "尚未打开文档"
 #: src/build/compile-explain.ts
 msgid "No entry for {key}"
 msgstr "找不到文献 {key}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "No figure made from a drawing was found in the typeset paper."
+msgstr "排版后的论文中没有找到由绘图生成的图。"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "No figures found"
@@ -14401,6 +14429,7 @@ msgstr "显示隐藏文件"
 #: src/app/file-open-failure.ts
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/journal-export.ts
 #: src/project/paper-row.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
@@ -16926,6 +16955,10 @@ msgstr "这个软件包没有附带自己的许可证文本"
 msgid "This panel stopped working"
 msgstr "这个面板出错了"
 
+#: src/platform/host-errors-workspace.ts
+msgid "This paper has no figure made from a drawing to export."
+msgstr "这篇论文没有可导出的由绘图生成的图。"
+
 #: src/app/use-paper-actions.ts
 msgid "This paper has no local reading or downloadable source."
 msgstr "这篇论文没有全文可看"
@@ -17358,6 +17391,14 @@ msgstr "排版参考文献"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset the title block"
 msgstr "排版标题区"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Typesetting the paper for the export stopped."
+msgstr "为导出排版论文的过程已停止。"
+
+#: src/project/journal-export.ts
+msgid "Typesetting the paper to cut out its figures…"
+msgstr "正在排版论文以裁出其中的图…"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "Typesetting the whole document once. Typing shows here as soon as it finishes."
