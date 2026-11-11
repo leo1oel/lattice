@@ -157,7 +157,9 @@ fn contents(root: &Path, folder: &str, evidence: &Evidence) -> Contents {
 /// The files the build records among `files` list as written, lower-cased:
 /// each TeX recorder's (`.fls`) outputs, and what latexmk's database
 /// (`.fdb_latexmk`) lists as generated, BibTeX's too, which TeX never
-/// writes. A record that lists any is a build's own, and is among them.
+/// writes. Neither lists SyncTeX's file, written beside each PDF a build
+/// writes, so a listed PDF stands for it. A record that lists any is a
+/// build's own, and is among them.
 fn written_by_records(root: &Path, files: &[String]) -> BTreeSet<String> {
     let mut written = BTreeSet::new();
     for file in files {
@@ -172,7 +174,15 @@ fn written_by_records(root: &Path, files: &[String]) -> BTreeSet<String> {
         if !listed.is_empty() {
             written.insert(lower);
         }
-        written.extend(listed.iter().map(|path| path.to_lowercase()));
+        for path in listed {
+            let path = path.to_lowercase();
+            if let Some(stem) = path.strip_suffix(".pdf") {
+                for synctex in [".synctex", ".synctex.gz", ".synctex(busy)", ".synctex.gz(busy)"] {
+                    written.insert(format!("{stem}{synctex}"));
+                }
+            }
+            written.insert(path);
+        }
     }
     written
 }

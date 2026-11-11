@@ -163,6 +163,8 @@ fn the_next_sync_clears_skeletons_an_earlier_version_left() {
         ("old/main.log", "generated"),
         ("old/main.bbl", "generated"),
         ("old/main.blg", "generated"),
+        // SyncTeX's, which no record lists: the recorded PDF stands for it.
+        ("old/main.synctex.gz", "generated"),
     ];
     for (path, text) in leftovers {
         fs::write(disk_path(&root, path), text).unwrap();
