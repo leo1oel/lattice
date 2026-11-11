@@ -1,11 +1,9 @@
-//! The window: a toolbar over GPUI Kit's dock area, holding the file tree,
-//! the editors, the PDF preview, and the build panel; and the flows that tie
-//! them together (open a project, open a file, build).
+//! The window: Lattice's titlebar over GPUI Kit's dock area in Lattice's
+//! look, holding the file tree, the editors, the PDF preview and the build
+//! panel; and the flows that tie them together (open a project, open a
+//! file, build).
 
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::path::{Path, PathBuf};
 
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{
@@ -14,22 +12,44 @@ use gpui::{
     PromptLevel, Render, SharedString, Styled as _, Task, WeakEntity, Window, WindowBounds,
     WindowOptions, actions, div, px, size,
 };
-use gpui_kit::assets::IconName;
 use gpui_kit::component::{
-    ActiveTheme as _, Disableable as _, Sizable as _,
-    button::{Button, ButtonVariants as _},
-    dock::{DockArea, DockLayout, DockPlacement, DockSkin, PanelId, panel_handle},
-    h_flex, v_flex,
+    dock::{DockArea, DockLayout, DockPlacement, PanelId, panel_handle},
+    v_flex,
 };
+use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock};
 
 use crate::{
     build_panel::{BuildPanel, OpenLocation},
     editor_panel::EditorPanel,
     file_tree::{FileTreePanel, OpenFile},
     pdf::PdfPanel,
+    titlebar::TitlebarDrag,
 };
 
-actions!(lattice, [OpenFolder, Build, Save, ToggleVimMode]);
+actions!(
+    lattice,
+    [
+        OpenFolder,
+        Build,
+        Save,
+        ToggleVimMode,
+        ToggleProjectPanel,
+        TogglePdfPanel,
+        ToggleBuildPanel
+    ]
+);
+
+/// The docks' widths as the running app lays out the Main window at
+/// 1440×900: a 329px Project card and a 485px PDF card, each with the 3px
+/// half-gutter its group pads itself by on either side.
+const LEFT_DOCK: f32 = 329. + 6.;
+const RIGHT_DOCK: f32 = 485. + 6.;
+/// The chrome around the cards: 12px from the window's sides and bottom and
+/// 6px under the titlebar, less the groups' own half-gutter.
+const WORKSPACE_SIDE: f32 = 12. - 3.;
+const WORKSPACE_TOP: f32 = 6. - 3.;
+/// The build panel's height when it is shown under the editors.
+const BUILD_DOCK: f32 = 180. + 6.;
 
 /// Open folder, build, save: on the platform's primary shortcut modifier.
 #[cfg(target_os = "macos")]
@@ -55,7 +75,7 @@ pub struct Shell {
     root: Option<PathBuf>,
     focus_handle: FocusHandle,
     dock_area: Entity<DockArea>,
-    _skin: Rc<DockSkin>,
+    titlebar_drag: TitlebarDrag,
     file_tree: Entity<FileTreePanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
@@ -73,6 +93,7 @@ impl Shell {
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             window_min_size: Some(size(px(720.), px(480.))),
+            titlebar: titlebar_options(),
             ..Default::default()
         };
         let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {
@@ -87,10 +108,19 @@ impl Shell {
     }
 
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let (dock_area, skin) = DockSkin::dock_area("lattice", Some(1), window, cx);
+        crate::panels::present_tabs(cx);
+        let dock_area = LatticeDock::dock_area("lattice", Some(1), window, cx);
         let file_tree = cx.new(FileTreePanel::new);
         let pdf = cx.new(PdfPanel::new);
         let build_panel = cx.new(BuildPanel::new);
+
+        // The system's appearance, unless the run fixed one.
+        if std::env::var_os("LATTICE_APPEARANCE").is_none() {
+            cx.observe_window_appearance(window, |_, window, cx| {
+                LatticeTheme::set_appearance(Appearance::from(window.appearance()), cx);
+            })
+            .detach();
+        }
 
         cx.subscribe_in(&file_tree, window, |this, _, OpenFile(path), window, cx| {
             this.open_path(path.clone(), None, window, cx);
@@ -116,7 +146,7 @@ impl Shell {
                 window,
                 cx,
             );
-            area.set_dock_size(DockPlacement::Left, px(240.), window, cx);
+            area.set_dock_size(DockPlacement::Left, px(LEFT_DOCK), window, cx);
             area.set_dock(
                 DockPlacement::Right,
                 DockLayout::v_split().child(
@@ -126,31 +156,19 @@ impl Shell {
                 window,
                 cx,
             );
-            area.set_dock_size(DockPlacement::Right, px(560.), window, cx);
-            area.set_dock(
-                DockPlacement::Bottom,
-                DockLayout::v_split().child(
-                    DockLayout::tabs().panel_view(panel_handle(build_panel.clone()), cx),
-                    None,
-                ),
-                window,
-                cx,
-            );
-            area.set_dock_size(DockPlacement::Bottom, px(180.), window, cx);
-            for placement in [
-                DockPlacement::Left,
-                DockPlacement::Right,
-                DockPlacement::Bottom,
-            ] {
+            area.set_dock_size(DockPlacement::Right, px(RIGHT_DOCK), window, cx);
+            for placement in [DockPlacement::Left, DockPlacement::Right] {
                 area.set_dock_collapsible(placement, true, window, cx);
             }
         });
+        // The Main window has no bottom panel: the build panel is added when a
+        // build reports errors, or from the Panels menu (`show_build_panel`).
 
         Self {
             root: None,
             focus_handle: cx.focus_handle(),
             dock_area,
-            _skin: skin,
+            titlebar_drag: TitlebarDrag::default(),
             file_tree,
             pdf,
             build_panel,
@@ -175,9 +193,27 @@ impl Shell {
         &self.build_panel
     }
 
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn dock_area(&self) -> &Entity<DockArea> {
         &self.dock_area
+    }
+
+    pub(crate) fn titlebar_drag(&self) -> &TitlebarDrag {
+        &self.titlebar_drag
+    }
+
+    /// The open project's name, as the titlebar's switcher shows it: the
+    /// title in its `project.toml`, else the folder's name.
+    pub fn project_name(&self) -> SharedString {
+        let Some(root) = &self.root else {
+            return "Open a project".into();
+        };
+        project_title(root)
+            .or_else(|| {
+                root.file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+            })
+            .unwrap_or_default()
+            .into()
     }
 
     /// Open a project folder: show it in the tree, open its main document,
@@ -188,7 +224,7 @@ impl Shell {
         self.file_tree
             .update(cx, |tree, cx| tree.set_root(root.clone(), cx));
         window.set_window_title(&format!(
-            "{} — Lattice (GPUI prototype)",
+            "{} — Lattice (GPUI preview)",
             root.file_name().unwrap_or_default().to_string_lossy()
         ));
         let main = tex::find_main_document(&root);
@@ -234,7 +270,7 @@ impl Shell {
                     .update(cx, |area, cx| area.select_panel(id, window, cx));
                 editor
             }
-            None => match EditorPanel::open(path.clone(), window, cx) {
+            None => match EditorPanel::open(path.clone(), self.build_panel.clone(), window, cx) {
                 Ok(editor) => {
                     self.dock_area.update(cx, |area, cx| {
                         area.add_panel_view(
@@ -265,6 +301,8 @@ impl Shell {
             Some(line) => editor.go_to_line(line, window, cx),
             None => window.focus(&editor.editor().focus_handle(cx), cx),
         });
+        self.file_tree
+            .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
     }
 
@@ -387,11 +425,7 @@ impl Shell {
                     self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
                 }
                 if current && outcome.error_count() > 0 {
-                    self.dock_area.update(cx, |area, cx| {
-                        if !area.is_dock_open(DockPlacement::Bottom) {
-                            area.toggle_dock(DockPlacement::Bottom, window, cx);
-                        }
-                    });
+                    self.show_build_panel(true, window, cx);
                 }
             }
             Err(error) => {
@@ -414,64 +448,74 @@ impl Shell {
         cx.notify();
     }
 
-    fn toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        let project: SharedString = self
-            .root
-            .as_ref()
-            .and_then(|root| root.file_name())
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "No project".into())
-            .into();
-        let building = self.build_task.is_some();
-        h_flex()
-            .h(px(36.))
-            .px_2()
-            .gap_2()
-            .border_b_1()
-            .border_color(theme.border)
-            .bg(theme.title_bar)
-            .child(
-                Button::new("open-folder")
-                    .icon(IconName::FolderOpen)
-                    .label("Open Folder")
-                    .ghost()
-                    .small()
-                    .tooltip_with_action("Open a LaTeX project folder", &OpenFolder, None)
-                    .on_click(
-                        cx.listener(|this, _, window, cx| {
-                            this.open_folder(&OpenFolder, window, cx)
-                        }),
-                    ),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(project),
-            )
-            .child(div().flex_1())
-            .child(
-                Button::new("vim-mode")
-                    .label(if self.vim_mode { "Vim: on" } else { "Vim: off" })
-                    .ghost()
-                    .small()
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.toggle_vim_mode(&ToggleVimMode, window, cx)
-                    })),
-            )
-            .child(
-                Button::new("build")
-                    .icon(IconName::Play)
-                    .label(if building { "Building…" } else { "Build" })
-                    .primary()
-                    .small()
-                    .loading(building)
-                    .disabled(self.root.is_none())
-                    .tooltip_with_action("Build with latexmk", &Build, None)
-                    .on_click(cx.listener(|this, _, window, cx| this.build(&Build, window, cx))),
-            )
+    /// Add the build panel as a bottom dock, or take the dock away. A closed
+    /// bottom dock would keep a strip of its tabs on screen, which the
+    /// Tauri app does not have, so the dock exists only while it is shown.
+    pub fn show_build_panel(&mut self, shown: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let build = self.build_panel.clone();
+        self.dock_area.update(cx, |area, cx| {
+            match (shown, area.has_dock(DockPlacement::Bottom)) {
+                (true, false) => {
+                    area.set_dock(
+                        DockPlacement::Bottom,
+                        DockLayout::v_split()
+                            .child(DockLayout::tabs().panel_view(panel_handle(build), cx), None),
+                        window,
+                        cx,
+                    );
+                    area.set_dock_size(DockPlacement::Bottom, px(BUILD_DOCK), window, cx);
+                }
+                (false, true) => area.remove_dock(DockPlacement::Bottom, window, cx),
+                _ => {}
+            }
+        });
+        cx.notify();
     }
+
+    fn toggle_dock(
+        &mut self,
+        placement: DockPlacement,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.dock_area
+            .update(cx, |area, cx| area.toggle_dock(placement, window, cx));
+        cx.notify();
+    }
+}
+
+/// `title` in the `[project]` table of a Lattice project's `project.toml`.
+/// A line scan, not a TOML parser: the manifest is the app's own, and the
+/// shared backend crate will read it properly.
+fn project_title(root: &Path) -> Option<String> {
+    let manifest = std::fs::read_to_string(root.join("project.toml")).ok()?;
+    let mut in_project = false;
+    for line in manifest.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_project = line == "[project]";
+        } else if in_project && let Some(value) = line.strip_prefix("title") {
+            let value = value.trim_start().strip_prefix('=')?.trim();
+            return Some(value.trim_matches('"').to_string()).filter(|title| !title.is_empty());
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn titlebar_options() -> Option<gpui::TitlebarOptions> {
+    // Lattice draws its own 40px titlebar with the traffic lights centred in
+    // it, 20px from the top (src-tauri/src/traffic_lights.rs).
+    Some(gpui::TitlebarOptions {
+        title: None,
+        appears_transparent: true,
+        traffic_light_position: Some(gpui::point(px(14.), px(13.))),
+    })
+}
+
+/// Elsewhere the system keeps its title bar, and Lattice's sits under it.
+#[cfg(not(target_os = "macos"))]
+fn titlebar_options() -> Option<gpui::TitlebarOptions> {
+    None
 }
 
 impl Focusable for Shell {
@@ -481,7 +525,8 @@ impl Focusable for Shell {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = cx.palette().clone();
         v_flex()
             .id("lattice-shell")
             .key_context("LatticeShell")
@@ -490,10 +535,29 @@ impl Render for Shell {
             .on_action(cx.listener(Self::build))
             .on_action(cx.listener(Self::save_all))
             .on_action(cx.listener(Self::toggle_vim_mode))
+            .on_action(cx.listener(|this, _: &ToggleProjectPanel, window, cx| {
+                this.toggle_dock(DockPlacement::Left, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &TogglePdfPanel, window, cx| {
+                this.toggle_dock(DockPlacement::Right, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
+                let shown = this.dock_area.read(cx).has_dock(DockPlacement::Bottom);
+                this.show_build_panel(!shown, window, cx)
+            }))
             .size_full()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
-            .child(self.toolbar(cx))
-            .child(div().flex_1().min_h_0().child(self.dock_area.clone()))
+            .bg(palette.window)
+            .text_color(palette.text)
+            .child(crate::titlebar::render(self, window, cx))
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .bg(palette.chrome)
+                    .pt(px(WORKSPACE_TOP))
+                    .px(px(WORKSPACE_SIDE))
+                    .pb(px(WORKSPACE_SIDE))
+                    .child(self.dock_area.clone()),
+            )
     }
 }

@@ -1,4 +1,7 @@
-//! Build status, diagnostics that jump to their line, and the raw log.
+//! Build status, diagnostics that jump to their line, and the raw log, in
+//! Lattice's tool-panel look: 28px rows on the sheet, a 14px status mark,
+//! the message in 12px ink, the location in secondary ink, the log in the
+//! editor font.
 
 use std::{
     path::PathBuf,
@@ -10,17 +13,27 @@ use gpui::{
     ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _, Task,
     Window, div, prelude::*, px,
 };
-use gpui_kit::assets::IconName;
 use gpui_kit::component::{
-    ActiveTheme as _, Sizable as _,
-    button::{Button, ButtonVariants as _},
     dock::{BasePanel, Panel, PanelEvent},
-    h_flex, v_flex,
+    h_flex,
+    menu::{PopupMenu, PopupMenuItem},
+    v_flex,
 };
+use lattice_ui::{ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, icons::ICON};
 use tex::{BuildOutcome, Diagnostic, Level};
 
 /// The log view keeps the tail; a full multi-pass log can run to megabytes.
 const LOG_TAIL_LINES: usize = 2_000;
+
+/// What the build chip in the editor's strip shows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ChipState {
+    Idle,
+    Running(Duration),
+    Succeeded(Duration),
+    /// A failed build, with its error count.
+    Failed(usize),
+}
 
 pub struct OpenLocation {
     pub path: PathBuf,
@@ -86,6 +99,20 @@ impl BuildPanel {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
+    }
+
+    pub fn chip(&self) -> ChipState {
+        match &self.status {
+            Status::Idle => ChipState::Idle,
+            Status::Running { started, .. } => ChipState::Running(started.elapsed()),
+            Status::Finished {
+                succeeded: true,
+                duration,
+                ..
+            } => ChipState::Succeeded(*duration),
+            Status::Finished { errors, .. } => ChipState::Failed(*errors),
+            Status::Failed(_) => ChipState::Failed(0),
+        }
     }
 
     /// Where a diagnostic's file is on disk.
@@ -156,19 +183,19 @@ impl BuildPanel {
     }
 
     fn status_line(&self, cx: &App) -> impl IntoElement {
-        let theme = cx.theme();
-        let (icon, color, text): (IconName, _, String) = match &self.status {
+        let palette = cx.palette();
+        let (icon, color, text): (Icon, _, String) = match &self.status {
             Status::Idle => (
-                IconName::Hammer,
-                theme.muted_foreground,
+                Icon::HAMMER,
+                palette.text_secondary,
                 format!(
-                    "Not built yet. Press {} to build.",
+                    "Not built yet. Press {} to build",
                     crate::shell::BUILD_SHORTCUT_LABEL
                 ),
             ),
             Status::Running { started, document } => (
-                IconName::Loader,
-                theme.muted_foreground,
+                Icon::LOADER,
+                palette.text_secondary,
                 format!(
                     "Building {document}… {:.1} s",
                     started.elapsed().as_secs_f32()
@@ -181,14 +208,14 @@ impl BuildPanel {
                 warnings,
             } => (
                 if *succeeded {
-                    IconName::Info
+                    Icon::CHECK_HEAVY
                 } else {
-                    IconName::CircleAlert
+                    Icon::CIRCLE_ALERT
                 },
                 if *succeeded {
-                    theme.success
+                    palette.success
                 } else {
-                    theme.danger
+                    palette.danger
                 },
                 format!(
                     "{} in {:.1} s · {errors} error{} · {warnings} warning{}",
@@ -198,14 +225,16 @@ impl BuildPanel {
                     if *warnings == 1 { "" } else { "s" },
                 ),
             ),
-            Status::Failed(message) => (IconName::CircleAlert, theme.danger, message.to_string()),
+            Status::Failed(message) => (Icon::CIRCLE_ALERT, palette.danger, message.to_string()),
         };
         h_flex()
-            .gap_2()
-            .px_3()
-            .py_1()
-            .text_sm()
-            .child(div().text_color(color).child(icon))
+            .flex_none()
+            .gap(px(6.))
+            .h(px(28.))
+            .px(px(14.))
+            .text_role(TextRole::Caption, cx)
+            .text_color(palette.text_secondary)
+            .child(icon.element(ICON, color))
             .child(text)
     }
 
@@ -215,11 +244,11 @@ impl BuildPanel {
         diagnostic: &Diagnostic,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let theme = cx.theme();
+        let palette = cx.palette().clone();
         let (icon, color) = match diagnostic.level {
-            Level::Error => (IconName::CircleAlert, theme.danger),
-            Level::Warning => (IconName::TriangleAlert, theme.warning),
-            Level::Info => (IconName::Info, theme.muted_foreground),
+            Level::Error => (Icon::CIRCLE_ALERT, palette.danger),
+            Level::Warning => (Icon::TRIANGLE_ALERT, palette.warning),
+            Level::Info => (Icon::INFO, palette.text_secondary),
         };
         let location = match (&diagnostic.file, diagnostic.line) {
             (Some(file), Some(line)) => format!("{file}:{line}"),
@@ -227,21 +256,28 @@ impl BuildPanel {
             _ => String::new(),
         };
         let target = self.location(diagnostic);
-        let hover = theme.list_hover;
-        let muted = theme.muted_foreground;
+        let hover = palette.hover;
         h_flex()
             .id(("diagnostic", ix))
-            .gap_2()
-            .px_3()
-            .py(px(3.))
+            .gap(px(8.))
+            .mx(px(6.))
+            .px(px(8.))
+            .py(px(6.))
             .items_start()
-            .text_sm()
+            .rounded(px(6.))
+            .text_role(TextRole::Caption, cx)
+            .text_color(palette.text)
             .when(target.is_some(), |row| {
                 row.cursor_pointer().hover(move |style| style.bg(hover))
             })
-            .child(div().pt(px(2.)).text_color(color).child(icon))
+            .child(div().pt(px(1.)).child(icon.element(ICON, color)))
             .child(div().flex_1().child(diagnostic.message.clone()))
-            .child(div().text_color(muted).child(location))
+            .child(
+                div()
+                    .flex_none()
+                    .text_color(palette.text_secondary)
+                    .child(location),
+            )
             .when_some(target, |row, target| {
                 row.on_click(cx.listener(move |_, _, _, cx| {
                     cx.emit(OpenLocation {
@@ -270,21 +306,33 @@ impl BasePanel for BuildPanel {
 }
 
 impl Panel for BuildPanel {
+    fn tab_name(&self, _: &App) -> Option<SharedString> {
+        Some("Build".into())
+    }
+
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         "Build"
     }
 
-    fn toolbar_buttons(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<Vec<Button>> {
-        Some(vec![
-            Button::new("build-toggle-log")
-                .label(if self.show_log { "Problems" } else { "Raw log" })
-                .ghost()
-                .xsmall()
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.show_log = !this.show_log;
-                    cx.notify();
-                })),
-        ])
+    fn dropdown_menu(
+        &mut self,
+        menu: PopupMenu,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> PopupMenu {
+        let view = cx.entity().downgrade();
+        let label = if self.show_log {
+            "Show problems"
+        } else {
+            "Show the raw log"
+        };
+        menu.item(PopupMenuItem::new(label).on_click(move |_, _, cx| {
+            view.update(cx, |this, cx| {
+                this.show_log = !this.show_log;
+                cx.notify();
+            })
+            .ok();
+        }))
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -294,17 +342,20 @@ impl Panel for BuildPanel {
 
 impl Render for BuildPanel {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = cx.palette().clone();
+        let editor_font = cx.lattice().fonts.editor.clone();
         let body = if self.show_log {
-            let muted = cx.theme().muted_foreground;
             v_flex()
                 .id("build-log")
                 .flex_1()
                 .min_h_0()
                 .overflow_y_scroll()
-                .px_3()
-                .font_family("Menlo")
-                .text_xs()
-                .text_color(muted)
+                .px(px(14.))
+                .pb(px(8.))
+                .font_family(editor_font)
+                .text_size(px(12.))
+                .line_height(px(18.))
+                .text_color(palette.text_secondary)
                 .children(self.log_lines.iter().cloned().map(|line| div().child(line)))
                 .into_any_element()
         } else {
@@ -319,6 +370,7 @@ impl Render for BuildPanel {
                 .id("build-diagnostics")
                 .flex_1()
                 .min_h_0()
+                .pb(px(6.))
                 .overflow_y_scroll()
                 .children(rows)
                 .into_any_element()

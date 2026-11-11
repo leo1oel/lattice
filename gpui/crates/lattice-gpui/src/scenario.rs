@@ -2,7 +2,7 @@
 //! writing flow (macOS and Windows), and the measurements the pass criteria
 //! ask for (macOS).
 //!
-//! `lattice-gpui PROJECT --scenario e2e|perf|memory|ime|ime-protocol --out RESULT.json`
+//! `lattice-gpui PROJECT --scenario e2e|perf|memory|ime|ime-protocol|shot --out RESULT.json`
 
 use std::{
     path::{Path, PathBuf},
@@ -19,6 +19,8 @@ use crate::{editor_panel::EditorPanel, native, shell::Shell};
 mod e2e;
 #[cfg(target_os = "macos")]
 mod measure;
+#[cfg(target_os = "macos")]
+mod shot;
 
 pub struct ScenarioArgs {
     pub name: String,
@@ -67,6 +69,8 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
             "memory" => run.memory(cx).await,
             #[cfg(target_os = "macos")]
             "ime-protocol" => run.ime_protocol(cx).await,
+            #[cfg(target_os = "macos")]
+            "shot" => run.shot(cx).await,
             other => Err(anyhow!("unknown scenario {other} on this platform")),
         };
         let value = result.unwrap_or_else(|error| json!({ "error": format!("{error:#}") }));

@@ -1,5 +1,10 @@
 //! The PDF preview: pages laid out from their sizes at once, drawn by PDFium
 //! only when they scroll into view, and redrawn in place after a build.
+//!
+//! Drawn as the running app's PDF panel (Paper's Main window): a 40px
+//! toolbar under the strip, closed by a hairline, with page navigation, the
+//! find field and the zoom controls; pages 8px in from the panel's edges and
+//! 10px apart on the sheet, each a sheet of paper with its own shadow.
 
 use std::{ops::Range, path::PathBuf, rc::Rc, sync::Arc};
 
@@ -8,18 +13,24 @@ use gpui::{
     IntoElement, ListAlignment, ListState, ParentElement as _, Pixels, Render, RenderImage,
     SharedString, Styled as _, Task, Window, div, img, list, prelude::*, px,
 };
-use gpui_kit::assets::IconName;
 use gpui_kit::component::{
-    ActiveTheme as _, Sizable as _,
-    button::{Button, ButtonVariants as _},
     dock::{BasePanel, Panel, PanelEvent},
+    menu::{PopupMenu, PopupMenuItem},
+};
+use lattice_ui::{
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
+    components::{IconButton, SearchField},
+    dock::PANEL_RADIUS,
+    elevation,
 };
 
 use super::engine::{DocumentInfo, PdfEngine};
 
 /// Pages kept drawn on each side of the visible ones.
 const KEEP_AROUND: usize = 2;
-const PAGE_GAP: f32 = 12.;
+/// Between pages, and from the panel's edges to the pages.
+const PAGE_GAP: f32 = 10.;
+const PAGE_INSET: f32 = 8.;
 const ZOOM_STEP: f32 = 1.2;
 
 #[derive(Default)]
@@ -72,6 +83,16 @@ impl PdfPanel {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn page_count(&self) -> usize {
         self.pages.len()
+    }
+
+    /// Pages whose image is on screen at the size they are shown, for a
+    /// scenario that waits for them.
+    #[cfg(all(target_os = "macos", feature = "offscreen-shots"))]
+    pub fn pages_drawn(&self) -> usize {
+        self.pages
+            .iter()
+            .filter(|slot| slot.image.is_some() && slot.pending.is_none())
+            .count()
     }
 
     #[cfg(target_os = "macos")]
@@ -151,7 +172,7 @@ impl PdfPanel {
 
     /// The page box width in logical pixels at the current zoom.
     fn page_width(&self) -> Pixels {
-        let available = self.viewport_width - px(2. * PAGE_GAP);
+        let available = self.viewport_width - px(2. * PAGE_INSET);
         available.max(px(200.)) * self.zoom
     }
 
@@ -177,11 +198,12 @@ impl PdfPanel {
             self.request_render(ix, wanted, window, cx);
         }
 
+        let palette = cx.palette();
         let page = div()
             .w(width)
             .h(height)
-            .bg(gpui::white())
-            .shadow_sm()
+            .bg(palette.pdf_page)
+            .shadow(elevation::pdf_page(palette))
             .when_some(self.pages[ix].image.clone(), |page, image| {
                 page.child(img(image).size_full())
             });
@@ -189,7 +211,7 @@ impl PdfPanel {
             .w_full()
             .flex()
             .justify_center()
-            .pt(px(PAGE_GAP))
+            .pt(px(if ix == 0 { PAGE_INSET } else { PAGE_GAP }))
             .child(page)
             .into_any_element()
     }
@@ -207,6 +229,7 @@ impl PdfPanel {
         while end < document.page_sizes.len() && covered < viewport {
             let (width_pt, height_pt) = document.page_sizes[end];
             covered += width * (height_pt / width_pt.max(1.)) + px(PAGE_GAP);
+
             end += 1;
         }
         top.item_ix..end.max(top.item_ix + 1)
@@ -284,7 +307,119 @@ impl BasePanel for PdfPanel {
     }
 }
 
+impl PdfPanel {
+    /// The page at the top of the view, 0-based.
+    fn current_page(&self) -> usize {
+        self.list_state.logical_scroll_top().item_ix
+    }
+
+    fn go_to_page(&mut self, page: usize, cx: &mut Context<Self>) {
+        if page < self.pages.len() {
+            self.list_state.scroll_to(gpui::ListOffset {
+                item_ix: page,
+                offset_in_item: px(0.),
+            });
+            cx.notify();
+        }
+    }
+
+    fn toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = cx.palette().clone();
+        let count = self.pages.len();
+        let current = self.current_page();
+        let has_document = self.document.is_some();
+        let nav = |id: &'static str, icon: Icon| IconButton::new(id, icon).frame(px(24.), px(28.));
+        div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .gap(px(4.))
+            .h(px(40.))
+            .px(px(6.))
+            .border_b_1()
+            .border_color(palette.line)
+            .child(
+                div()
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .gap(px(1.))
+                    .child(
+                        nav("pdf-previous", Icon::CHEVRON_LEFT)
+                            .disabled(!has_document || current == 0)
+                            .tooltip("Previous page")
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.go_to_page(current.saturating_sub(1), cx)
+                            })),
+                    )
+                    .child(
+                        div()
+                            .w(px(44.))
+                            .flex()
+                            .justify_center()
+                            .whitespace_nowrap()
+                            .text_role(TextRole::Micro, cx)
+                            .font_weight(lattice_ui::tokens::FONT_WEIGHT_REGULAR)
+                            .text_color(palette.text_secondary)
+                            .child(if has_document {
+                                format!("{} / {count}", current + 1)
+                            } else {
+                                "– / –".to_string()
+                            }),
+                    )
+                    .child(
+                        nav("pdf-next", Icon::CHEVRON_RIGHT)
+                            .disabled(!has_document || current + 1 >= count)
+                            .tooltip("Next page")
+                            .on_click(
+                                cx.listener(move |this, _, _, cx| this.go_to_page(current + 1, cx)),
+                            ),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .min_w_0()
+                    .items_center()
+                    .gap(px(4.))
+                    .child(
+                        nav("pdf-outline", Icon::LIST_TREE)
+                            .tooltip("Outline — not in the GPUI preview yet"),
+                    )
+                    .child(
+                        div().flex_1().min_w_0().child(
+                            SearchField::new("pdf-find", "Find in PDF")
+                                .tooltip("Find in PDF — not in the GPUI preview yet"),
+                        ),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .gap(px(2.))
+                    .child(
+                        nav("pdf-locate", Icon::LOCATE_FIXED)
+                            .tooltip("Show the source position — not in the GPUI preview yet"),
+                    )
+                    .child(div().w(px(1.)).h(px(16.)).bg(palette.line_strong))
+                    .child(
+                        nav("pdf-fit", Icon::RECTANGLE_HORIZONTAL)
+                            .on((self.zoom - 1.0).abs() < f32::EPSILON)
+                            .tooltip("Fit width")
+                            .on_click(cx.listener(|this, _, _, cx| this.set_zoom(1.0, cx))),
+                    ),
+            )
+    }
+}
+
 impl Panel for PdfPanel {
+    fn tab_name(&self, _: &App) -> Option<SharedString> {
+        Some("PDF".into())
+    }
+
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         match &self.path {
             Some(path) => format!(
@@ -295,27 +430,25 @@ impl Panel for PdfPanel {
         }
     }
 
-    fn toolbar_buttons(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<Vec<Button>> {
-        Some(vec![
-            Button::new("pdf-zoom-out")
-                .icon(IconName::ZoomOut)
-                .ghost()
-                .xsmall()
-                .tooltip("Zoom out")
-                .on_click(cx.listener(|this, _, _, cx| this.set_zoom(this.zoom / ZOOM_STEP, cx))),
-            Button::new("pdf-fit")
-                .label(format!("{:.0}%", self.zoom * 100.))
-                .ghost()
-                .xsmall()
-                .tooltip("Fit width")
-                .on_click(cx.listener(|this, _, _, cx| this.set_zoom(1.0, cx))),
-            Button::new("pdf-zoom-in")
-                .icon(IconName::ZoomIn)
-                .ghost()
-                .xsmall()
-                .tooltip("Zoom in")
-                .on_click(cx.listener(|this, _, _, cx| this.set_zoom(this.zoom * ZOOM_STEP, cx))),
-        ])
+    fn dropdown_menu(
+        &mut self,
+        menu: PopupMenu,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> PopupMenu {
+        let zoom = |label: &'static str, factor: Option<f32>| {
+            let view = cx.entity().downgrade();
+            PopupMenuItem::new(label).on_click(move |_, _, cx| {
+                view.update(cx, |this, cx| {
+                    let zoom = factor.map_or(1.0, |factor| this.zoom * factor);
+                    this.set_zoom(zoom, cx)
+                })
+                .ok();
+            })
+        };
+        menu.item(zoom("Zoom in", Some(ZOOM_STEP)))
+            .item(zoom("Zoom out", Some(1. / ZOOM_STEP)))
+            .item(zoom("Fit width", None))
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -332,37 +465,46 @@ impl Render for PdfPanel {
             self.list_state.remeasure();
         }
         let body = if let Err(error) = &self.engine {
-            centered_message(error.clone()).into_any_element()
+            centered_message(error.clone(), cx).into_any_element()
         } else if let Some(message) = &self.message {
-            centered_message(message.clone()).into_any_element()
+            centered_message(message.clone(), cx).into_any_element()
         } else if self.document.is_none() {
-            centered_message("Build the project, or pick a PDF in the file tree.".into())
-                .into_any_element()
+            centered_message(
+                "Build the project, or pick a PDF in the file tree".into(),
+                cx,
+            )
+            .into_any_element()
         } else {
             list(
                 self.list_state.clone(),
                 cx.processor(|this, ix, window, cx| this.render_page(ix, window, cx)),
             )
             .size_full()
-            .pb(px(PAGE_GAP))
+            .pb(px(PAGE_INSET))
             .into_any_element()
         };
+        let palette = cx.palette().clone();
         div()
             .id("pdf-panel")
             .track_focus(&self.focus_handle)
             .size_full()
-            .bg(cx.theme().muted)
-            .child(body)
+            .flex()
+            .flex_col()
+            .bg(palette.editor)
+            .rounded_b(PANEL_RADIUS)
+            .child(self.toolbar(cx))
+            .child(div().flex_1().min_h_0().child(body))
     }
 }
 
-fn centered_message(message: SharedString) -> impl IntoElement {
+fn centered_message(message: SharedString, cx: &App) -> impl IntoElement {
     div()
         .size_full()
         .flex()
         .items_center()
         .justify_center()
         .p_4()
-        .text_sm()
+        .text_role(TextRole::Body, cx)
+        .text_color(cx.palette().text_secondary)
         .child(message)
 }

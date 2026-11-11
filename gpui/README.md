@@ -44,7 +44,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
 | Zed's default keymap | Everything else in the editor |
 
-The toolbar's "Vim" button turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` starts with it on.
+"Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` starts with it on.
 
 ## CI
 
@@ -56,9 +56,13 @@ The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-
 ## How it is put together
 
 ```
-crates/lattice-gpui   the app: shell (toolbar + dock), file tree, editor panel,
+crates/lattice-gpui   the app: shell (titlebar + dock), file tree, editor panel,
                       PDF panel (PDFium on its own thread), build panel,
                       LaTeX language, scripted scenarios (macOS, Windows)
+crates/lattice-ui     Lattice's look: design tokens generated from
+                      ../design-system/tokens.json, the palette, GPUI Kit and
+                      Zed editor themes, fonts, type roles, motion, elevation,
+                      icons, components and the dock's skin
 crates/tex            TeX discovery, latexmk runs, log diagnostics (from ../src-tauri)
 compat/gpui-pre       four shims that put GPUI Kit on Zed's GPUI
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
@@ -71,6 +75,16 @@ GPUI Kit 0.9.1 depends on the `gpui-pre` 0.3.12 snapshot, which is Zed's GPUI at
 The workspace pins Zed's crates (the editor, search, Vim, settings, themes, GPUI) at that same commit.
 Cargo would still build two GPUIs, because the packages have different names, so the shims in `compat/gpui-pre` carry the snapshot names and version and re-export Zed's crates, and `[patch.crates-io]` swaps them in.
 `Cargo.lock` is seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
+
+### Lattice's look
+
+The app draws what the Tauri app draws: the parity target is the running app as Paper's App screens page records it, with `design-system/tokens.json` (exported from Paper) as the source of every value.
+
+- `crates/lattice-ui/src/tokens/` is generated from the JSON; a test fails while the two disagree. After a Paper export, regenerate with `LATTICE_UI_WRITE_TOKENS=1 cargo test -p lattice-ui generated_tokens`.
+- `Palette` resolves every colour role for an appearance, tint and accent preset the way `src/styles/theme.css` derives them; GPUI Kit and Zed's editor are themed from it (`kit.rs`, `editor_theme.rs`), so their own components start in Lattice's colours.
+- The dock keeps GPUI Kit's behaviour and wears Lattice's skin (`dock.rs`): rounded panel cards on the chrome, 40px strips of pill tabs, no dividers.
+- Fonts: Inter and Ioskeley Mono are bundled (`script/make-fonts` writes them); the private Timeless faces of release builds are read at run time from `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none), as the Tauri build reads them, and never committed.
+- `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
 
 ### The LaTeX language
 
@@ -96,7 +110,7 @@ cp -R fixtures/e2e /tmp/lattice-gpui-e2e        # the scenario edits and builds 
 target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
 
-`e2e` runs on macOS and Windows; `perf`, `memory`, `ime` and `ime-protocol` are macOS only.
+`e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol` and `shot` are macOS only.
 
 - `e2e`: opens a project, builds, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs and rebuilds, and drags an editor tab into the right dock with native mouse events.
   It needs `chapters/intro.tex` in the project.
@@ -104,6 +118,7 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 - `memory`: `footprint` after opening the project, after opening `long.tex`, and after scrolling through the whole PDF.
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
 - `ime-protocol`: makes the `NSTextInputClient` calls an input method makes (marked text per keystroke, then the commit) directly on the view.
+- `shot`: waits for the project's PDF to draw, then saves the window as `LATTICE_SHOT_OUT` (a PNG), for side-by-side look reviews against Paper's App screens. Built with `--features offscreen-shots` it draws and reads the frame back itself, so the screen may be locked; otherwise it uses `screencapture`, which needs the window on an unlocked screen.
 
 On macOS the keys go through the active input source, so select an ASCII layout (ABC, U.S.) before running `e2e`; a Pinyin input method turns the typed macro into candidates.
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.

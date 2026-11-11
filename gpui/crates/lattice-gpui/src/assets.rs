@@ -1,5 +1,6 @@
-//! One asset source for both libraries: Zed's (fonts, editor icons, themes)
-//! and GPUI Kit's (its Lucide icon set). A GPUI application has exactly one.
+//! One asset source for every library: Lattice's own (`lattice/…`: the app's
+//! chrome marks and file glyphs), Zed's (fonts, editor icons, themes) and
+//! GPUI Kit's (its Lucide icon set). A GPUI application has exactly one.
 
 use std::borrow::Cow;
 
@@ -9,6 +10,9 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+        if let Ok(Some(data)) = lattice_ui::UiAssets.load(path) {
+            return Ok(Some(data));
+        }
         if let Ok(Some(data)) = assets::Assets.load(path) {
             return Ok(Some(data));
         }
@@ -16,7 +20,8 @@ impl AssetSource for Assets {
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
-        let mut entries = assets::Assets.list(path)?;
+        let mut entries = lattice_ui::UiAssets.list(path)?;
+        entries.extend(assets::Assets.list(path)?);
         entries.extend(gpui_kit::assets::AllAssets::new("").list(path)?);
         entries.sort();
         entries.dedup();

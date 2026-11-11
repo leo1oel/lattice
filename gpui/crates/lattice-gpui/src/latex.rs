@@ -40,3 +40,19 @@ pub fn language_for_path(path: &Path, cx: &App) -> Option<Arc<Language>> {
     )
     .then(|| cx.global::<LatexLanguage>().0.clone())
 }
+
+#[cfg(test)]
+mod tests {
+    use language::{Language, LanguageConfig};
+
+    /// The query is compiled at start-up with an `expect`; a capture or
+    /// predicate the grammar or tree-sitter rejects should fail here first.
+    #[test]
+    fn the_highlight_query_compiles() {
+        let config = LanguageConfig::from_toml(include_str!("../languages/latex/config.toml"))
+            .expect("the LaTeX config parses");
+        Language::new(config, Some(codebook_tree_sitter_latex::LANGUAGE.into()))
+            .with_highlights_query(include_str!("../languages/latex/highlights.scm"))
+            .expect("the LaTeX highlight query compiles");
+    }
+}
