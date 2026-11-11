@@ -181,9 +181,17 @@ impl Run {
         });
         let left_width = left_width.unwrap_or_default();
         let right_width = right_width.context("there is no right dock")?;
-        // The center's first tab, just past the dock toggle at its left.
+        // The icon of the center's first tab: past the group's inset, the
+        // strip's 6px padding and the tab's 14px. The icon is where the tab
+        // begins, so it stays under the pointer when a narrow center (a
+        // 1024px CI screen leaves it ~160px) gives the strip's trailing
+        // build chip and menu most of the width and clips the tabs.
         let from = gpui::point(
-            area_bounds.left() + left_width + gpui::px(75.),
+            area_bounds.left()
+                + left_width
+                + lattice_ui::dock::GROUP_INSET
+                + gpui::px(6. + 14.)
+                + lattice_ui::icons::ICON / 2.,
             area_bounds.top() + gpui::px(18.),
         );
         // The middle of the PDF panel.

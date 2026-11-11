@@ -5525,6 +5525,7 @@ dependencies = [
  "hdrhistogram",
  "image",
  "language",
+ "lattice-ui",
  "libc",
  "log",
  "objc2 0.6.3",
@@ -5545,6 +5546,18 @@ dependencies = [
  "windows 0.62.2",
  "workspace",
  "zed_actions",
+]
+
+[[package]]
+name = "lattice-ui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gpui",
+ "gpui-kit",
+ "log",
+ "serde_json",
+ "ttf-parser",
 ]
 
 [[package]]

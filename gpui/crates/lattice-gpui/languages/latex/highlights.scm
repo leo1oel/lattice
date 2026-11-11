@@ -1,5 +1,19 @@
 ; LaTeX highlighting for the latex-lsp tree-sitter grammar
-; (codebook-tree-sitter-latex), written for Zed's theme capture names.
+; (codebook-tree-sitter-latex), with the token roles of Lattice's own LaTeX
+; mode (src/editor/latex/latex-language.ts) as capture names, which
+; lattice-ui's code themes colour:
+;
+;   keyword      a command, at medium weight
+;   function     sectioning and the title block (\section, \title, \author)
+;   type         an environment's name
+;   variable     maths
+;   string       a path or URL argument
+;   label        a label or cross-reference and its keys
+;   citation     a citation and its keys
+;
+; Structural commands Lattice draws as plain text, like the prose around them
+; (\item, \caption, \maketitle, \newcommand, \includegraphics, ...), take no
+; capture. Arguments stay in the ink unless a rule below names them.
 
 [
   (line_comment)
@@ -7,45 +21,57 @@
   (comment_environment)
 ] @comment
 
-(command_name) @function
+; Every other command, except the plain ones.
+((command_name) @keyword
+  (#not-any-of? @keyword
+    "\\centering" "\\hline" "\\toprule" "\\midrule" "\\bottomrule" "\\multicolumn"
+    "\\parbox" "\\setlength" "\\footnote" "\\endnote" "\\def" "\\let" "\\newtheorem"
+    "\\theoremstyle" "\\textcolor" "\\colorbox" "\\hbox" "\\verb" "\\lstinline"
+    "\\affil" "\\affiliation" "\\maketitle" "\\textsf" "\\textmd" "\\textrm"
+    "\\textsuperscript" "\\textsubscript" "\\sout" "\\nameref" "\\newline"
+    "\\noindent" "\\left" "\\right" "\\text"
+    "\\date" "\\book"))
 
-; Sectioning: the command, then the heading text.
-(part command: _ @keyword text: (curly_group) @title)
-(chapter command: _ @keyword text: (curly_group) @title)
-(section command: _ @keyword text: (curly_group) @title)
-(subsection command: _ @keyword text: (curly_group) @title)
-(subsubsection command: _ @keyword text: (curly_group) @title)
-(paragraph command: _ @keyword text: (curly_group) @title)
-(subparagraph command: _ @keyword text: (curly_group) @title)
+; Headings and the title block.
+((command_name) @function
+  (#any-of? @function "\\date" "\\book"))
+(part command: _ @function)
+(chapter command: _ @function)
+(section command: _ @function)
+(subsection command: _ @function)
+(subsubsection command: _ @function)
+(paragraph command: _ @function)
+(subparagraph command: _ @function)
+(title_declaration command: _ @function)
+(author_declaration command: _ @function)
+(bibtex_include command: _ @function)
+(bibstyle_include command: _ @function)
 
-; Environments.
+; The document class, packages and environments.
+(class_include command: _ @keyword)
+(package_include command: _ @keyword)
 (begin command: _ @keyword name: (curly_group_text (text) @type))
 (end command: _ @keyword name: (curly_group_text (text) @type))
 
-; Math.
+; Maths.
 [
   (inline_formula)
   (displayed_equation)
-] @string.special
+] @variable
 (math_environment
   begin: (begin name: (curly_group_text (text) @type)))
 
-; Cross references and citations.
-(label_definition command: _ @keyword name: (curly_group_label (label) @label))
-(label_reference command: _ @keyword names: (curly_group_label_list (label) @label))
-(citation command: _ @keyword keys: (curly_group_text_list) @label)
+; Cross references and citations: the command and its keys read as one thing.
+(label_definition command: _ @label name: (curly_group_label (label) @label))
+(label_reference command: _ @label names: (curly_group_label_list (label) @label))
+(citation command: _ @citation keys: (curly_group_text_list) @citation)
 
-; Includes and definitions.
-(class_include command: _ @keyword path: (curly_group_path (path) @string))
-(package_include command: _ @keyword paths: (curly_group_path_list (path) @string))
-(latex_include command: _ @keyword path: (curly_group_path (path) @string))
-(graphics_include command: _ @keyword path: (curly_group_path (path) @string))
-(new_command_definition command: _ @keyword)
-(environment_definition command: _ @keyword)
+; Paths and URLs.
+(latex_include path: (curly_group_path (path) @string))
+(graphics_include path: (curly_group_path (path) @string))
+(hyperlink uri: (curly_group_uri (uri) @string))
 
-(enum_item command: _ @keyword)
 (key_value_pair key: (text) @property)
-(caption command: _ @keyword)
 
 [
   "{"

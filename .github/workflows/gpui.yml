@@ -3,12 +3,25 @@ name: GPUI
 # The GPUI preview app in gpui/ is a Cargo workspace of its own, built from
 # Zed's crates (about 1,200 of them), and nothing in the Tauri app depends on
 # it. So this workflow runs only when gpui/ or this file changes, and CI's
-# Tauri jobs (ci.yml) skip a pull request that changes nothing else.
+# Tauri jobs (ci.yml) skip a pull request that changes nothing else. The
+# files outside gpui/ it reads are the design system's exports:
+# gpui/crates/lattice-ui generates its tokens from tokens.json (Paper's) and
+# its Zed editor themes from code-themes.json, and fails a test while either
+# disagrees with what it generated, so a Paper export runs this workflow too.
+# code-themes.json is in turn generated from the app's code themes
+# (src/settings/code-themes.ts, with the contrast fitting in
+# theme-customization.ts) by design-system/code-themes.mjs, so a change to
+# any of those runs it, and the code-themes job fails while the JSON is stale.
 on:
   push:
     branches: [main]
     paths: &gpui-paths
       - "gpui/**"
+      - "design-system/tokens.json"
+      - "design-system/code-themes.json"
+      - "design-system/code-themes.mjs"
+      - "src/settings/code-themes.ts"
+      - "src/settings/theme-customization.ts"
       - ".github/workflows/gpui.yml"
   pull_request:
     paths: *gpui-paths
@@ -43,6 +56,22 @@ env:
 # Actions cache also holds the Tauri release cache that tag builds restore. A
 # pull request reads main's cache and writes none.
 jobs:
+  # The export imports only the two TypeScript modules, which import nothing
+  # at run time, so Node alone runs it: no pnpm install.
+  code-themes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # Matches mise.toml's `node`; 22.18 and later run TypeScript.
+          node-version: 22
+      - run: node design-system/code-themes.mjs --check
+
   macos:
     runs-on: macos-latest
     timeout-minutes: 75

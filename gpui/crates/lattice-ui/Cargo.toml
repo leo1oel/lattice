@@ -1,0 +1,21 @@
+[package]
+name = "lattice-ui"
+version = "0.1.0"
+description = "Lattice's look on GPUI: design tokens generated from design-system/tokens.json, the palette, the GPUI Kit and Zed editor theme adapters, type roles, motion, elevation, icons and components."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gpui.workspace = true
+gpui-kit.workspace = true
+log.workspace = true
+# preserve_order: the token codegen writes tokens in the JSON's order, which is
+# Paper's, whatever else in the graph turns the feature on.
+serde_json = { workspace = true, features = ["preserve_order"] }
+
+[dev-dependencies]
+# Reads the bundled faces' names in the tests, as an oracle independent of the
+# text system; already in the graph through GPUI.
+ttf-parser = "0.25"

@@ -1,4 +1,6 @@
-//! The project folder as a tree, on GPUI Kit's tree component.
+//! The project folder as a tree, on GPUI Kit's tree component, drawn as the
+//! Tauri app's Project panel: 28px rows with each file's own glyph, the open
+//! file's row selected.
 
 use std::{
     fs,
@@ -8,34 +10,43 @@ use std::{
 use gpui::{
     App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Window, div,
+    Window, div, px,
 };
-use gpui_kit::assets::IconName;
 use gpui_kit::component::{
-    ActiveTheme as _, Sizable as _,
-    button::{Button, ButtonVariants as _},
     dock::{BasePanel, Panel, PanelEvent},
-    h_flex,
-    list::ListItem,
+    menu::PopupMenu,
     tree::{TreeItem, TreeState, tree},
 };
+use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, components::TreeRow};
 
-/// Build output and editor droppings that only clutter a writing project.
-const HIDDEN_EXTENSIONS: [&str; 14] = [
+/// What a LaTeX run leaves beside its source, which the Tauri app's tree
+/// hides (`LATEX_ARTIFACT_EXTENSIONS` in src-tauri/src/project/tree.rs), and
+/// a bare `.gz` with them.
+const HIDDEN_EXTENSIONS: &[&str] = &[
     "aux",
-    "log",
-    "fls",
-    "fdb_latexmk",
-    "synctex",
-    "gz",
-    "out",
-    "toc",
     "bbl",
+    "bcf",
     "blg",
-    "xdv",
+    "brf",
+    "dvi",
+    "fdb_latexmk",
+    "fls",
+    "idx",
+    "ilg",
+    "ind",
     "lof",
+    "log",
     "lot",
     "nav",
+    "out",
+    "run.xml",
+    "snm",
+    "synctex",
+    "synctex.gz",
+    "toc",
+    "vrb",
+    "xdv",
+    "gz",
 ];
 const SKIPPED_DIRS: [&str; 4] = ["node_modules", "target", "__pycache__", "_minted"];
 /// A deep or huge folder must not stall opening a project.
@@ -45,6 +56,8 @@ pub struct OpenFile(pub PathBuf);
 
 pub struct FileTreePanel {
     root: Option<PathBuf>,
+    /// The file open in the editor, whose row is drawn selected.
+    current: Option<PathBuf>,
     state: Entity<TreeState>,
     focus_handle: FocusHandle,
 }
@@ -56,8 +69,16 @@ impl FileTreePanel {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             root: None,
+            current: None,
             state: cx.new(|cx| TreeState::new(cx)),
             focus_handle: cx.focus_handle(),
+        }
+    }
+
+    pub fn set_current(&mut self, path: Option<PathBuf>, cx: &mut Context<Self>) {
+        if self.current != path {
+            self.current = path;
+            cx.notify();
         }
     }
 
@@ -89,6 +110,21 @@ fn expanded_ids(state: &Entity<TreeState>, cx: &App) -> Vec<SharedString> {
         .collect()
 }
 
+/// A LaTeX run's leftovers, and a PDF built from a `.tex` beside it, which
+/// the PDF panel shows instead.
+fn is_build_artifact(path: &Path, name: &str) -> bool {
+    if path.extension().is_some_and(|extension| extension == "pdf")
+        && path.with_extension("tex").exists()
+    {
+        return true;
+    }
+    let name = name.to_ascii_lowercase();
+    let stem = name.strip_suffix("-save-error").unwrap_or(&name);
+    HIDDEN_EXTENSIONS
+        .iter()
+        .any(|extension| stem.ends_with(&format!(".{extension}")))
+}
+
 fn read_dir(dir: &Path, expanded: &[SharedString], budget: &mut usize) -> Vec<TreeItem> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
@@ -101,11 +137,7 @@ fn read_dir(dir: &Path, expanded: &[SharedString], budget: &mut usize) -> Vec<Tr
             let is_dir = entry.file_type().ok()?.is_dir();
             let hidden = name.starts_with('.')
                 || (is_dir && SKIPPED_DIRS.contains(&name.as_str()))
-                || (!is_dir
-                    && path
-                        .extension()
-                        .and_then(|extension| extension.to_str())
-                        .is_some_and(|extension| HIDDEN_EXTENSIONS.contains(&extension)));
+                || (!is_dir && is_build_artifact(&path, &name));
             (!hidden).then_some((is_dir, name, path))
         })
         .collect();
@@ -151,23 +183,26 @@ impl BasePanel for FileTreePanel {
 }
 
 impl Panel for FileTreePanel {
-    fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        self.root
-            .as_ref()
-            .and_then(|root| root.file_name())
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Files".into())
+    fn tab_name(&self, _: &App) -> Option<SharedString> {
+        Some("Project".into())
     }
 
-    fn toolbar_buttons(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<Vec<Button>> {
-        Some(vec![
-            Button::new("file-tree-refresh")
-                .icon(IconName::RefreshCw)
-                .ghost()
-                .xsmall()
-                .tooltip("Refresh")
-                .on_click(cx.listener(|this, _, _, cx| this.refresh(cx))),
-        ])
+    fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        "Project"
+    }
+
+    fn dropdown_menu(
+        &mut self,
+        menu: PopupMenu,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> PopupMenu {
+        let view = cx.entity().downgrade();
+        menu.item(
+            gpui_kit::component::menu::PopupMenuItem::new("Refresh").on_click(move |_, _, cx| {
+                view.update(cx, |tree, cx| tree.refresh(cx)).ok();
+            }),
+        )
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -182,49 +217,40 @@ impl Render for FileTreePanel {
                 .id("file-tree-empty")
                 .track_focus(&self.focus_handle)
                 .size_full()
-                .p_4()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child("Open a LaTeX project folder to start.")
+                .px(px(20.))
+                .py(px(12.))
+                .text_role(TextRole::Body, cx)
+                .text_color(cx.palette().text_secondary)
+                .child("Open a LaTeX project folder to start")
                 .into_any_element();
         }
         let view = cx.entity().downgrade();
+        let current = self.current.clone();
+        // Measured on the Main window: rows 12px in from both sides, the
+        // first 7px under the tab strip.
         div()
             .id("file-tree")
             .track_focus(&self.focus_handle)
             .size_full()
-            .py_1()
-            .child(tree(&self.state, move |ix, entry, _selected, _, cx| {
+            .pt(px(7.))
+            .px(px(12.))
+            .child(tree(&self.state, move |ix, entry, selected, _, cx| {
                 let item = entry.item();
                 let path = PathBuf::from(item.id.as_ref());
-                let icon = if entry.is_folder() {
-                    if entry.is_expanded() {
-                        IconName::FolderOpen
-                    } else {
-                        IconName::Folder
-                    }
-                } else if path.extension().is_some_and(|extension| extension == "tex") {
-                    IconName::FileText
-                } else {
-                    IconName::File
-                };
-                let muted = cx.theme().muted_foreground;
-                let view = view.clone();
                 let is_folder = entry.is_folder();
-                ListItem::new(ix)
-                    .pl(gpui::px(12. + entry.depth() as f32 * 14.))
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(div().text_color(muted).child(icon))
-                            .child(item.label.clone()),
-                    )
-                    .on_click(move |_, _, cx| {
-                        if !is_folder {
-                            view.update(cx, |_, cx| cx.emit(OpenFile(path.clone())))
-                                .ok();
-                        }
-                    })
+                let row = if is_folder {
+                    TreeRow::folder(ix, item.label.clone(), entry.depth(), entry.is_expanded())
+                } else {
+                    TreeRow::file(ix, item.label.clone(), entry.depth())
+                        .selected(selected || current.as_deref() == Some(path.as_path()))
+                };
+                let view = view.clone();
+                row.into_list_item(cx).on_click(move |_, _, cx| {
+                    if !is_folder {
+                        view.update(cx, |_, cx| cx.emit(OpenFile(path.clone())))
+                            .ok();
+                    }
+                })
             }))
             .into_any_element()
     }

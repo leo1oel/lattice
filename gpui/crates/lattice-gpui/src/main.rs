@@ -1,6 +1,7 @@
-//! Lattice's LaTeX writing flow on GPUI: a project folder in a file tree, Zed's
-//! editor with LaTeX highlighting and search, a PDFium preview, latexmk
-//! builds with diagnostics, all in GPUI Kit's dockable panels.
+//! Lattice's LaTeX writing flow on GPUI, in Lattice's look: a project folder
+//! in a file tree, Zed's editor with LaTeX highlighting and search, a PDFium
+//! preview, latexmk builds with diagnostics, all in GPUI Kit's dockable
+//! panels drawn as the Tauri app draws its own.
 //!
 //! Usage: `lattice-gpui [PROJECT_DIR]`; scripted runs (`e2e` on macOS and
 //! Windows, the measurements on macOS):
@@ -10,7 +11,9 @@ mod app;
 mod assets;
 mod build_panel;
 mod editor_panel;
+mod editor_status;
 mod file_tree;
+mod gallery;
 mod latex;
 #[cfg(target_os = "macos")]
 mod native;
@@ -18,10 +21,12 @@ mod native;
 #[path = "native_windows.rs"]
 mod native;
 mod paint_probe;
+mod panels;
 mod pdf;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
 mod shell;
+mod titlebar;
 
 fn main() {
     init_logging();
@@ -34,6 +39,15 @@ fn main() {
         .with_assets(assets::Assets)
         .run(move |cx| {
             app::init(cx);
+            // `--gallery`: the component sheet instead of a project window.
+            if std::env::args().any(|arg| arg == "--gallery") {
+                if let Err(error) = gallery::open(cx) {
+                    log::error!("could not open the gallery: {error:#}");
+                    cx.quit();
+                }
+                cx.activate(true);
+                return;
+            }
             // A scripted measurement leaves the user's frontmost app alone.
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             let activate = scenario.is_none();

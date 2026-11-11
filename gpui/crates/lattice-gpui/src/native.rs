@@ -249,6 +249,20 @@ pub fn select_input_source(native: Native, source: &str) -> Result<Option<String
     }
 }
 
+/// The window server's number for the window, which `screencapture -l` takes.
+#[cfg_attr(feature = "offscreen-shots", allow(dead_code))]
+pub fn window_number(native: Native) -> isize {
+    unsafe { msg_send![native.window, windowNumber] }
+}
+
+/// Put the window above every other window without activating the app, so
+/// it draws while the keyboard stays where it is.
+pub fn order_front(native: Native) {
+    unsafe {
+        let _: () = msg_send![native.window, orderFrontRegardless];
+    }
+}
+
 /// Put the window in front of everything and make it key, so macOS neither
 /// occludes it (which stops its display link) nor GPUI throttles it as an
 /// inactive window while a scenario measures it. Lattice's lab does the same

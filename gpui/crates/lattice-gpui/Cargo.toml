@@ -6,6 +6,13 @@ edition.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[features]
+# The `shot` scenario draws the window itself and reads the frame back from
+# Metal, so a look review can be captured with the screen locked or the window
+# covered. GPUI exposes that read-back only to its test support, so this is
+# never part of a release build.
+offscreen-shots = ["gpui/test-support", "gpui_platform/test-support"]
+
 [dependencies]
 anyhow.workspace = true
 assets.workspace = true
@@ -18,6 +25,7 @@ gpui-kit.workspace = true
 hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
 language.workspace = true
+lattice-ui.workspace = true
 log.workspace = true
 pdfium-render.workspace = true
 release_channel.workspace = true
