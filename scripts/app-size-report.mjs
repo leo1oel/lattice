@@ -335,8 +335,10 @@ export async function checkAppSizeBudgets(
 const INSTALLED_APP_BUDGET_BYTES = 400 * 1024 * 1024;
 // The Intel-based Mac app (macos-intel.yml), built on an Intel host, carries x86_64
 // builds of the app, Node and the runtimes' native packages, all larger: the
-// first one built at 335.8 MiB on disk on 2026-11-07.
-const INSTALLED_INTEL_APP_BUDGET_BYTES = 340 * 1024 * 1024;
+// first one built at 335.8 MiB on disk on 2026-11-07. 2026-11-11: raised from
+// 340 to 400 MiB under the same captain's call, after v0.16.14's Intel build
+// reached 340.5 MiB and published no Intel assets.
+const INSTALLED_INTEL_APP_BUDGET_BYTES = 400 * 1024 * 1024;
 /** The installed-size budget for an app built on a host with `arch`. */
 export const installedAppBudgetBytes = (arch = process.arch) =>
   (arch === "x64" ? INSTALLED_INTEL_APP_BUDGET_BYTES : INSTALLED_APP_BUDGET_BYTES);
