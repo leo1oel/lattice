@@ -4,7 +4,7 @@ gpui-fast (longbridge/gpui-fast, Apache-2.0) is a fork of Zed's GPUI with retain
 Its `main` at `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` tracks Zed `d2a4fb6` (its `UPSTREAM` file), the commit this prototype pins, and keeps Zed's crate names, so Zed's GPUI family can be swapped for it with one patch table.
 GPUI Kit follows automatically: the `compat/gpui-pre` shims re-export whatever `gpui` resolves to.
 
-Tried on 2026-11-11: the whole app type-checks and builds, the `e2e` scenario passes 11 of 11 steps, and the `perf` scenario runs (results and the comparison with upstream GPUI are in the findings report).
+Tried on 2026-11-11: the whole app type-checks and builds, the `e2e` scenario passes 11 of 11 steps, and the `perf` scenario runs.
 
 ## Recipe
 
