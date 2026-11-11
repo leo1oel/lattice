@@ -57,8 +57,9 @@ pub async fn overleaf_reply_to_thread(
     .await
 }
 
-/// Start a thread on a passage of a document the editor does not have open:
-/// a comment made on the PDF, on text from another file. `from` counts UTF-16
+/// Start a thread on a passage of a document the editor does not hold live:
+/// a comment made on the PDF, on text from another file, or one made in the
+/// open file the live channel has let go of for now. `from` counts UTF-16
 /// units into `source`, Lattice's copy of that file, where `quote` starts.
 /// See `overleaf::comment_in_document` for why it joins the document itself.
 #[allow(clippy::too_many_arguments)]

@@ -177,6 +177,25 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.pdfUrl).toBe("blob:pdf");
   });
 
+  // Nothing changed since that failure (latex/build/unchanged.rs), so the PDF
+  // it wrote is still this build's: the Build button keeps "Built with errors".
+  it("credits an unchanged failure with the PDF of the failure it restates", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const failed = { success: false, hasPdf: true, diagnostics: [{ level: "error", message: "Extra }, or forgotten $." }] };
+    let answer = result(failed);
+    const view = renderPipeline(async () => answer);
+    const answerCommand = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => command === "read_compiled_pdf"
+      ? new TextEncoder().encode("%PDF-1.5 shown").buffer
+      : answerCommand(command, args));
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: true });
+
+    answer = result({ ...failed, unchanged: true });
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: true });
+  });
+
   it("reports a build the backend rejected as failed", async () => {
     const view = renderPipeline(async () => { throw new Error("latexmk could not start"); });
     await act(() => view.result.current.runBuild(false, { requested: true }));
@@ -330,6 +349,85 @@ describe("the root document a build compiled", () => {
     const builds = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
     await act(async () => expect(await view.result.current.ensureCompiled()).toBe(true));
     expect(builds()).toBe(1);
+  });
+});
+
+describe("which builds bring the PDF tabs forward", () => {
+  // Only a build the writer starts (Build, its shortcut, a tab's menu) may
+  // reopen or select a PDF tab. The agent's checkpoint build goes through the
+  // same compile() as Build but without its sound: it must only refresh.
+  it("marks a build the writer started as asked for, and the agent's checkpoint build as not", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const view = renderPipeline(async () => result({ hasPdf: true }));
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, consumeAgentAssociations: true }));
+    expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: false });
+
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, sound: true }));
+    expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: true });
+  });
+
+  // ⌘S builds without the sound, and without jumping to an error, yet the writer asked for it.
+  it("marks a build the writer started without its sound as asked for, and it still does not jump to an error", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const openDiagnostic = vi.fn(async () => {});
+    const view = renderPipeline(async () => result({
+      hasPdf: true, success: false, diagnostics: [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 3 }],
+    }), { openDiagnostic });
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, bringForward: true }));
+    expect(view.result.current.shownPdf).toEqual({ document: "main.tex", requested: true });
+    expect(openDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it("does not carry a press of Build over to the automatic pass queued behind it", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const passes: Array<(value: BuildResult) => void> = [];
+    const view = renderPipeline(() => new Promise((resolve) => { passes.push(resolve); }));
+    let running!: Promise<void>;
+    act(() => { running = view.result.current.runBuild(false, { requested: true, immediatePreview: true, sound: true }); });
+    await act(() => view.result.current.runBuild(false, { requested: true, immediatePreview: true, consumeAgentAssociations: true }));
+    await act(async () => { passes[0](result({ hasPdf: true })); });
+    await vi.waitFor(() => expect(passes).toHaveLength(2));
+    const asked = view.result.current.shownPdf;
+    expect(asked).toEqual({ document: "main.tex", requested: true });
+    await act(async () => { passes[1](result({ hasPdf: true })); await running; });
+    // The same document, not asked for: no new turn of the tabs.
+    expect(view.result.current.shownPdf).toBe(asked);
+  });
+});
+
+/** What each `build_project` so far was told about who started it. */
+const sentUnattended = () => vi.mocked(invoke).mock.calls
+  .filter(([command]) => command === "build_project")
+  .map(([, args]) => (args as { unattended: boolean }).unattended);
+
+// Only a build the writer asked for typesets again a failing document nothing
+// changed in (latex/build/unchanged.rs); one Lattice starts on its own takes
+// latexmk's word, or a sync tool's copy of each rebuild's output rebuilds it forever.
+describe("telling the backend who started a build", () => {
+  it("marks autosave's, the watcher's and the quiet builds unattended, and the writer's own not", async () => {
+    const view = renderPipeline(async () => result());
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    await act(() => view.result.current.runBuild(false, { quiet: true, unattended: true }));
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    await act(() => view.result.current.runBuild(false, { immediatePreview: true }));
+    expect(sentUnattended()).toEqual([true, true, false, false]);
+  });
+
+  it("keeps a queued pass unattended only while every request folded into it is", async () => {
+    const passes: Array<(value: BuildResult) => void> = [];
+    const view = renderPipeline(() => new Promise((resolve) => { passes.push(resolve); }));
+    let running!: Promise<void>;
+    act(() => { running = view.result.current.runBuild(false, { requested: true }); });
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    await act(async () => { passes[0](result()); });
+    await vi.waitFor(() => expect(passes).toHaveLength(2));
+    // The writer asks while the watcher's pass runs, and the watcher asks again after.
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    await act(async () => { passes[1](result()); });
+    await vi.waitFor(() => expect(passes).toHaveLength(3));
+    await act(async () => { passes[2](result()); await running; });
+    expect(sentUnattended()).toEqual([false, true, false]);
   });
 });
 

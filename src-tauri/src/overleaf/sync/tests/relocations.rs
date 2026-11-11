@@ -87,7 +87,7 @@ fn relocation_keeps_folder_descendants_and_their_merge_ancestors() {
     let moved = "archive/renamed/main.tex".to_string();
     let (remote, local) =
         [remote, local].map(|bytes| BTreeMap::from([(moved.clone(), bytes.to_vec())])).into();
-    let plan = plan_sync(&root, &state, &remote, &local, NO_LIVE, "stamp").unwrap();
+    let plan = plan_sync(&root, &state, &remote, &local, NO_LIVE, NO_RENAMES, "stamp").unwrap();
     assert_eq!(plan.merge, vec![(moved, b"local heading\n\nremote ending\n".to_vec())]);
     assert!(plan.conflict.is_empty());
     assert_posts(
@@ -110,7 +110,7 @@ fn relocation_failure_blocks_content_sync_and_retry_recognizes_the_same_id() {
     let state = load_state(&root).unwrap();
     assert_eq!(state.pending_relocations[0].entity_id.as_deref(), Some("main-id"));
     let empty = BTreeMap::new();
-    assert!(plan_sync(&root, &state, &empty, &empty, NO_LIVE, "stamp").is_err());
+    assert!(plan_sync(&root, &state, &empty, &empty, NO_LIVE, NO_RENAMES, "stamp").is_err());
 
     // The server applied the rename but its response was lost. A fresh tree
     // proves completion by id, even if someone recreated the old path.

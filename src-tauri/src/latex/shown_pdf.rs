@@ -10,7 +10,15 @@
 //! the PDF), and a build that leaves none puts the copy back. Each root
 //! document's PDF is also remembered by hash, so a build notices one that
 //! something else wrote over since (`replaced`).
+//!
+//! The copy is per document: the preview keeps a tab open for each root
+//! document built (a manuscript and its supplement), and each tab shows,
+//! and clicks through to, its own document's last build. The copy is also
+//! what such a tab reads (`kept`) when the project opens again: it is this
+//! copy's build by construction, where the PDF beside the document may be a
+//! collaborator's that a sync brought in.
 
+use crate::project;
 use crate::util::sha256_hex;
 use std::collections::BTreeMap;
 use std::fs;
@@ -18,9 +26,9 @@ use std::path::{Path, PathBuf};
 
 const DIRECTORY: &str = ".research/cache/shown-pdf";
 /// Each root document's PDF as this copy's last build of it left it, by
-/// SHA-256 (`replaced`). One entry per document, unlike the single copy
-/// above, so building another root document or a standalone figure in
-/// between never forgets it.
+/// SHA-256 (`replaced`). One entry per document, as for the copies above,
+/// so building another root document or a standalone figure in between
+/// never forgets it.
 const HASHES: &str = ".research/cache/build-pdf-hashes.json";
 /// A `-synctex=1` build compresses the map; an rc file's `-synctex=-1` does not.
 const SYNCTEX: [&str; 2] = ["synctex.gz", "synctex"];
@@ -70,17 +78,55 @@ fn record_hash(root: &Path, document: &str, pdf: &Path) {
     }
 }
 
-/// Only the latest root document's PDF is kept: another one built since
-/// replaces it, so a project holds one copy at most.
+/// The last PDF this copy built of `document`, if a build here left one:
+/// what its preview tab shows when no build of it ran this session. `None`
+/// for a path that is not a project-relative `.tex` name.
+pub(super) fn kept(root: &Path, document: &str) -> Option<PathBuf> {
+    let relative = Path::new(document);
+    let tex = relative.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("tex"));
+    (tex && project::stays_inside(relative))
+        .then(|| root.join(DIRECTORY).join(relative).with_extension("pdf"))
+        .filter(|kept| kept.is_file())
+}
+
+/// Each root document keeps its own copy, replaced by its next build; copies
+/// of documents whose `.tex` is gone are dropped, so a project holds one per
+/// root document at most.
 fn keep(root: &Path, pdf: &Path, kept: &Path) {
     let directory = root.join(DIRECTORY);
-    let _ = fs::remove_dir_all(&directory);
+    forget_deleted(root, &directory, &directory);
+    for extension in ["pdf", SYNCTEX[0], SYNCTEX[1]] {
+        let _ = fs::remove_file(kept.with_extension(extension));
+    }
     let Some(parent) = kept.parent() else { return };
     if fs::create_dir_all(parent).is_err() || clone(pdf, kept).is_err() {
         return;
     }
     if let Some(synctex) = synctex_of(pdf) {
         let _ = clone(&synctex, &with_synctex(kept, &synctex));
+    }
+}
+
+/// Remove the copies under `folder` whose document (the same path under
+/// `root`, as a `.tex`) no longer exists.
+fn forget_deleted(root: &Path, directory: &Path, folder: &Path) {
+    let Ok(entries) = fs::read_dir(folder) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+            forget_deleted(root, directory, &path);
+            continue;
+        }
+        let Ok(relative) = path.strip_prefix(directory) else { continue };
+        // `a.synctex.gz` belongs to `a.tex`, as `a.pdf` does.
+        let name = relative.to_string_lossy();
+        let stem = SYNCTEX
+            .iter()
+            .chain(["pdf"].iter())
+            .find_map(|extension| name.strip_suffix(&format!(".{extension}")));
+        if stem.is_some_and(|stem| !root.join(format!("{stem}.tex")).is_file()) {
+            let _ = fs::remove_file(&path);
+        }
     }
 }
 
@@ -157,7 +203,7 @@ mod tests {
     }
 
     /// Building `arxiv/main.tex`, or a standalone figure, in between keeps
-    /// what `cvpr/main.tex`'s build left, where the single kept copy does not.
+    /// the hash of what `cvpr/main.tex`'s build left.
     #[test]
     fn each_root_documents_pdf_is_remembered_across_other_builds() {
         let root = TempDir::new("shown-pdf");
@@ -178,25 +224,60 @@ mod tests {
         assert!(!read_hashes(&root).contains_key("cvpr/main.tex"));
     }
 
+    /// The supplement built after the paper keeps the paper's copy, so a
+    /// paper build that writes no PDF still gets its own back, map included.
     #[test]
-    fn only_the_latest_root_documents_pdf_is_kept() {
+    fn each_root_document_keeps_its_own_copy() {
         let root = TempDir::new("shown-pdf");
+        root.write("main.tex", "\\documentclass{article}");
+        root.write("supplement/SI.tex", "\\documentclass{article}");
         root.write("main.pdf", "%PDF-1.5 main");
         root.write("main.synctex.gz", "main map");
         settle(&root, "main.tex", true);
-        root.write("slides.pdf", "%PDF-1.5 slides");
-        settle(&root, "slides.tex", true);
+        root.write("supplement/SI.pdf", "%PDF-1.5 SI");
+        settle(&root, "supplement/SI.tex", true);
+        let read = |path: &Path| fs::read_to_string(path).unwrap();
+        assert_eq!(read(&kept(&root, "main.tex").unwrap()), "%PDF-1.5 main");
+        assert_eq!(read(&kept(&root, "supplement/SI.tex").unwrap()), "%PDF-1.5 SI");
 
         fs::remove_file(root.join("main.pdf")).unwrap();
         fs::remove_file(root.join("main.synctex.gz")).unwrap();
-        assert!(!settle(&root, "main.tex", false), "slides.tex replaced main.tex's copy");
-        assert!(!root.join("main.pdf").exists());
+        assert!(settle(&root, "main.tex", false));
+        assert_eq!(read(&root.join("main.pdf")), "%PDF-1.5 main");
+        assert_eq!(read(&root.join("main.synctex.gz")), "main map");
 
-        // And a PDF kept without a map comes back without one, never with a
+        // A PDF kept without a map comes back without one, never with a
         // stale map left beside it.
-        fs::remove_file(root.join("slides.pdf")).unwrap();
-        root.write("slides.synctex", "older map");
-        assert!(settle(&root, "slides.tex", false));
-        assert!(!root.join("slides.synctex").exists());
+        fs::remove_file(root.join("supplement/SI.pdf")).unwrap();
+        root.write("supplement/SI.synctex", "older map");
+        assert!(settle(&root, "supplement/SI.tex", false));
+        assert!(!root.join("supplement/SI.synctex").exists());
+
+        // A rebuild that drops its map drops the kept one too.
+        settle(&root, "main.tex", true);
+        root.write("main.pdf", "%PDF-1.5 main, no map");
+        fs::remove_file(root.join("main.synctex.gz")).unwrap();
+        settle(&root, "main.tex", true);
+        let copy = kept(&root, "main.tex").unwrap();
+        assert!(!copy.with_extension("synctex.gz").exists());
+    }
+
+    #[test]
+    fn a_deleted_documents_copy_goes_and_only_tex_names_are_read() {
+        let root = TempDir::new("shown-pdf");
+        for document in ["main.tex", "SI.tex"] {
+            root.write(document, "\\documentclass{article}");
+            root.write(&document.replace(".tex", ".pdf"), "%PDF-1.5");
+            root.write(&document.replace(".tex", ".synctex.gz"), "map");
+            settle(&root, document, true);
+        }
+        fs::remove_file(root.join("SI.tex")).unwrap();
+        settle(&root, "main.tex", true);
+        assert!(kept(&root, "SI.tex").is_none());
+        assert!(!root.join(DIRECTORY).join("SI.synctex.gz").exists());
+        assert!(kept(&root, "main.tex").is_some());
+        for refused in ["main.pdf", "../main.tex", "/main.tex", ""] {
+            assert!(kept(&root, refused).is_none(), "{refused}");
+        }
     }
 }

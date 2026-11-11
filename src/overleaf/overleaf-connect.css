@@ -355,6 +355,34 @@
   color: var(--text-primary);
 }
 
+/* A download: its name, a bar that fills when Overleaf said the size and
+   sweeps when it did not, and what has arrived, how fast, and the time. */
+.overleaf-download { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+.overleaf-download-head { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.overleaf-download-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overleaf-download-percent,
+.overleaf-download-detail { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.overleaf-download-percent { flex: none; }
+.overleaf-download-track {
+  position: relative;
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  overflow: hidden;
+}
+.overleaf-download-fill {
+  height: 100%;
+  border-radius: inherit;
+  corner-shape: inherit;
+  background: var(--control-active);
+  transition: width var(--motion-moderate);
+}
+.overleaf-download-track[data-indeterminate] .overleaf-download-fill {
+  width: 35%;
+  animation: overleaf-download-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes overleaf-download-sweep { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 @keyframes overleaf-settle { from { opacity: 0; transform: translateY(var(--space-2)); } to { opacity: 1; transform: none; } }
 @keyframes overleaf-breathe { 50% { opacity: .35; } }
 

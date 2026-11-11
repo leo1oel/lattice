@@ -13,6 +13,7 @@ import { MANUSCRIPT_CLIPBOARD } from "@/components/ui/research-art-clipboard";
 import type { TrellisController, TrellisSingleton, TrellisToolKind } from "./trellis-controller";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { PANEL_ICONS } from "./trellis-icons";
+import type { RootPdfParams } from "./compiled-pdf-tabs";
 
 /**
  * Adopt a host element App portals into; it never leaves this slot while
@@ -92,6 +93,8 @@ export function EmptyState({ icon, art, title, children, onActivate, className }
 export function PdfView({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
   useReportPanel(controller, "pdf");
+  const recorded = useView<{ document?: string }>().params.document;
+  useEffect(() => { controller.pdfTabs.liveMounted(recorded); }, [controller, recorded]);
   const live = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().pdfLive);
   return (
     <>
@@ -101,6 +104,16 @@ export function PdfView({ controller }: { controller: TrellisController }) {
       )}
     </>
   );
+}
+
+/** Another compiled root document's PDF tab: App renders its viewer into the host while it is on screen. */
+export function RootPdfView({ controller }: { controller: TrellisController }) {
+  const view = useView<RootPdfParams>();
+  const { document } = view.params;
+  const visible = view.visible;
+  useEffect(() => { controller.pdfTabs.report(document, visible); }, [controller, document, visible]);
+  useEffect(() => () => controller.pdfTabs.report(document, null), [controller, document]);
+  return <HostSlot host={controller.pdfTabs.host(document)} className="trellis-pdf" />;
 }
 
 export function ToolView({ controller, kind }: { controller: TrellisController; kind: TrellisToolKind }) {

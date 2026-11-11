@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-10 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**809 files, +76,768 / −8,831 lines**. It carries embedded-workspace UI, a skills manager,
+**824 files, +79,230 / −8,896 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -165,6 +165,34 @@ Server-only paths that take the static default (gateway-created threads, project
 A thread saved as a bare `sonnet`, `haiku` or `fable` reaches the composer as the full catalog id (the store's `normalizeModelSelection`), so on an older Claude Code it runs the newest model and fails with that message; this has been true of `fable` since fork PR 16 and is left for a follow-up.
 Opus 5.5 and Fable 5.2 now show Medium as their default effort, which is what Claude Code runs them at ("Fable 5.2, Opus 5.5, Sonnet 5.5, and Haiku 5.5 default to `medium`", code.claude.com/docs/en/model-config). Synara leaves the default effort unsent, so Medium still runs Claude Code's own default, and an explicit High is now sent as `high`; before, High was the default, so it was dropped and Claude Code ran medium. Opus 5 and Fable 5 and 5.1 keep High.
 No in-app Lattice session was needed: these are catalog, alias and default changes, and the fork's unit and browser tests cover them.
+
+Proofread, Polish, annotation revisions, compile repair and Git writing now run on a ready provider when the model chosen in Settings cannot run (fork `b1c152bb92d371b2674503c3ec1fe7423b3cb428`, [fork PR 19](https://github.com/leo1oel/synara/pull/19)).
+Before, a writer who had connected only Claude got "The agent could not proofread the selection: Codex CLI (codex) is required but not available.": Lattice sends no model, so the fork used the Proofreading model, then the Git writing model, and that defaults to Codex. The fork fell back only when a provider was turned off in Settings, never when it was missing or signed out.
+One fork helper, `resolveRunnableModelSelection` (`apps/server/src/provider/runnableModelSelection.ts`), now checks every such call against provider health, using the same rule as the composer (`isProviderUsable`, moved to the fork's `packages/shared/src/providerInstances.ts`):
+- **The Settings choice still wins** when its provider is enabled, installed and not signed out, so a writer who connected both keeps their choice. A Proofreading model that cannot run falls back to the Git writing model first.
+- **Otherwise the first ready provider runs it** on its default model: Codex, Claude, Cursor, OpenCode, Droid for text, or any built-in provider for compile repair. The text-task `model.source` is then `"fallback"`.
+- **With nothing ready**, `/api/lattice/text-task` and `/api/lattice/compile-repair` answer 503 with "No AI provider is connected. Connect Codex, Claude, Cursor, OpenCode or Droid in the Agent panel → Settings → Providers." Lattice shows that text in its proofread card in place of the raw CLI error, still in English. A localized card message is a follow-up.
+The fork does not prefer the provider of the writer's latest Agent-panel thread; it uses the fixed order above.
+No in-app Lattice session was needed: `latticeTextTaskHttpRoute.test.ts` reproduces the report (default settings, Codex missing, Claude ready) and fork unit tests cover compile repair and Git writing.
+
+The Agent panel no longer burns CPU at idle on an empty thread (fork `b3bb0b619`, [fork PR 20](https://github.com/leo1oel/synara/pull/20)).
+The transcript's overlay scrollbar (`ExternalScrollbar`, fork `apps/web/src/components/ui/external-scrollbar.tsx`) retried finding its scroll container with `requestAnimationFrame` on every frame and never stopped when there was none: a new chat, a thread with no messages, or the signed-out state. Lattice keeps the Agent iframe mounted after its first show, and WebKit keeps servicing animation frames in it even under `display:none`, so the loop ran 60–120 times a second for the rest of the session. Lattice's lab A/B: whole-app idle CPU 9.3% → 0.8%, main-process wakeups 285 → 5 per second.
+The overlay now attaches from a `MutationObserver` on its parent surface, so nothing polls. It attaches as soon as the list mounts, and it now also re-attaches when a thread empties and refills, which the old code missed.
+The fork PR audited the web app's other `requestAnimationFrame`, `setInterval` and recursive `setTimeout` loops and found no other per-frame loop while idle. Its follow-up list names the fixed-period timers (1 s or slower) that keep running while the panel is hidden, because their `visibleInterval` pause reads `document.visibilityState`, which a hidden iframe never changes. One example is the embed's 1 s localStorage mirror. A host-sent visibility signal would let them pause.
+No in-app Lattice session was needed: the fork's browser tests reproduce the loop (zero frames on an idle empty thread) and the re-attachment.
+
+The chat title's history menu now has **Continue in terminal** (zh-CN "在终端中继续") for the active Codex or Claude chat (fork `272492287`, [fork PR 21](https://github.com/leo1oel/synara/pull/21), Lattice [issue 800](https://github.com/leo1oel/lattice/issues/800)).
+It copies `cd '<folder>' && codex resume <id>` or `cd '<folder>' && claude --resume <id>`, using the chat's working folder (its worktree for a worktree chat), the same native binding **From other editors** reads, and `CLAUDE_CONFIG_DIR` or `CODEX_HOME` only when the chat's account store is not the default `~/.claude` or `~/.codex`. On Windows the command is PowerShell.
+Under the item, one line says "Outside Lattice, the bibliography guard and undo don't apply." A chat with no native session yet shows the item disabled with "No Codex or Claude Code session yet. Send a message first."; it is hidden for other agents. The RPC is `orchestration.getNativeSessionHandoff {threadId}`.
+The same PR shares Codex's `thread-writer-locks` directory between Lattice's Codex overlay home and the source home on every launch, so Lattice and the Codex CLI or VS Code no longer take one thread's writer lock in separate directories. Before, the directory was shared only if it already existed when the overlay was first mirrored. An overlay directory still holding a thread's lock is left alone until Codex's own stale-lock sweep empties it; no lock file is deleted, and a failure keeps the split directories without failing the launch.
+Renaming a chat now also names its live Codex thread (`thread/name/set`), so `codex resume` lists it under the Lattice title. A title Codex itself set is not echoed back, Claude sessions are never named, and a title set while no session is running is not queued.
+No in-app Lattice session was needed: fork unit and browser tests with disposable homes cover the command, the lock directory and the title push.
+
+Right after launch, Proofread and the other auxiliary calls above no longer fail on a missing Codex because no provider check has run yet (fork `e6159923dad7783dbbb1d6d9e730a457aa853067`, [fork PR 22](https://github.com/leo1oel/synara/pull/22)).
+The fork starts its first provider check only when something asks for it, usually the Agent panel. So a Claude-only writer who proofread before opening the panel, with no cached status from an earlier run, still hit the Codex default, because a choice with no status was kept.
+`readProviderHealthForAuxiliaryModel` in the same `runnableModelSelection.ts` now waits up to 3 seconds (`FIRST_PROBE_WAIT`) for that first check whenever the choice depends on a provider with no status yet; ProviderHealth's shared `refresh` starts the check if none is running. When health is already known, or a confirmed ready provider can stand in, it does not wait.
+If the check is still running at the bound, a Codex or Claude provider whose CLI is not found counts as not ready (`providerCliFound`: the `commandExistsOnPath` lookup a spawn does, so nothing is started), and an unchecked provider whose CLI is found can stand in as the fallback. A ready Settings choice still wins, and an unchecked choice whose CLI exists is kept as before.
+No in-app Lattice session was needed: `latticeTextTaskHttpRoute.test.ts` reproduces Proofread right after launch, Claude-only (no status, check still running, only `claude` on PATH), and fork unit tests cover the other cases.
 
 ## Synara 0.9.1 compatibility
 

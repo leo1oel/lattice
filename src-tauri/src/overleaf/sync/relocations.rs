@@ -14,7 +14,7 @@ use reqwest::header::COOKIE;
 use serde_json::{json, Value};
 use std::path::Path;
 
-fn relocated_path(path: &str, from: &str, to: &str) -> Option<String> {
+pub(super) fn relocated_path(path: &str, from: &str, to: &str) -> Option<String> {
     if path == from {
         return Some(to.to_string());
     }

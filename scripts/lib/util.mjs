@@ -37,16 +37,45 @@ export const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 /** Run a command with inherited stdio. */
 export function run(command, args, options = {}) {
   // A .cmd shim cannot be passed to execFileSync on Windows. pnpm exports
-  // its JavaScript entry point to every script, including Tauri's hook.
+  // its own entry point to every script, including Tauri's hook.
   if (process.platform === "win32" && /^pnpm(?:\.cmd)?$/.test(command)) {
-    const cli = process.env.npm_execpath;
-    if (!cli || !/pnpm\.(?:c?js)$/i.test(cli)) {
-      throw new Error("Run this preparation script through pnpm (missing npm_execpath).");
-    }
-    return execFileSync(process.execPath, [cli, ...args], { stdio: "inherit", ...options });
+    const [executable, prefix] = windowsPnpmCommand(process.env.npm_execpath);
+    return execFileSync(executable, [...prefix, ...args], { stdio: "inherit", ...options });
+  }
+  // npm.cmd has the same problem. Every Windows Node install ships npm's
+  // entry point beside node.exe, so run that with this Node instead.
+  if (process.platform === "win32" && /^npm(?:\.cmd)?$/.test(command)) {
+    return execFileSync(process.execPath, [windowsNpmCli(), ...args], { stdio: "inherit", ...options });
   }
   return execFileSync(command, args, { stdio: "inherit", ...options });
 }
+
+/**
+ * How to start the pnpm whose `npm_execpath` is `cli`, as `[executable,
+ * leading args]`: its JavaScript entry point under this Node, or, for the
+ * standalone pnpm.exe that mise installs, that executable itself.
+ */
+export function windowsPnpmCommand(cli, nodeExecutable = process.execPath) {
+  if (cli && /pnpm\.c?js$/i.test(cli)) return [nodeExecutable, [cli]];
+  if (cli && /pnpm\.exe$/i.test(cli)) return [cli, []];
+  throw new Error("Run this preparation script through pnpm (missing npm_execpath).");
+}
+
+/** npm's JavaScript entry point in the Windows Node install running this script. */
+function windowsNpmCli(nodeExecutable = process.execPath) {
+  const cli = join(dirname(nodeExecutable), "node_modules", "npm", "bin", "npm-cli.js");
+  if (!existsSync(cli)) {
+    throw new Error(`npm's npm-cli.js is missing beside ${nodeExecutable}; reinstall Node with npm.`);
+  }
+  return cli;
+}
+
+/**
+ * Oxlint's JavaScript entry point, to run as `process.execPath` + this path.
+ * On Windows pnpm links only `oxlint.CMD`/`oxlint.ps1` shims into
+ * node_modules/.bin, which cannot be spawned without a shell.
+ */
+export const oxlintEntry = join(projectRoot, "node_modules/oxlint/bin/oxlint");
 
 /** Run a command and return its stdout as text; stderr is captured into the error. */
 export function capture(command, args, options = {}) {

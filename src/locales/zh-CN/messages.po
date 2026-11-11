@@ -538,6 +538,10 @@ msgid "{detail}. {limit}"
 msgstr "{detail}。{limit}"
 
 #: src/platform/host-errors-workspace.ts
+msgid "{document} has not been built in Lattice yet."
+msgstr "{document} 尚未在 Lattice 中构建过。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 msgstr "{document} 是在开启审阅模式之后创建的，没有可对照的版本来标记改动。"
 
@@ -565,9 +569,21 @@ msgstr "{documentName} — 源码"
 msgid "{dpi} DPI at the specified width"
 msgstr "按指定宽度计算为 {dpi} DPI"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{elapsed} elapsed"
+msgstr "已用时 {elapsed}"
+
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
 msgstr "正在空白文件夹中用 {engine} 编译…"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} asks for lines in the preamble of {rootPath}"
+msgstr "{entryPath} 需要在 {rootPath} 的导言区加入几行"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} finds its drawing there. {command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it."
+msgstr "{entryPath} 在那里查找它的图。{command} 设置在导言区加载的文件中，因此 Lattice 不会再添加一个，否则会覆盖它。"
 
 #: src/build/build-result-text.ts
 msgid "{errors} error"
@@ -576,6 +592,10 @@ msgstr "{errors} 个错误"
 #: src/build/build-result-text.ts
 msgid "{errors} errors"
 msgstr "{errors} 个错误"
+
+#: src/build/build-result-text.ts
+msgid "{errors}+ errors"
+msgstr "{errors}+ 个错误"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "{failed} not found"
@@ -773,6 +793,10 @@ msgstr "{name} 副本"
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} 没保存成功，仍要关闭并丢弃修改？"
 
+#: src/app/use-editor-comments.ts
+msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+msgstr "{name} 没能完成与 Overleaf 的同步，评论还没加上。请重新同步后再添加评论。"
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} 以不同选项加载了两次"
@@ -792,6 +816,10 @@ msgstr "{name} 还不在这台电脑上。请先从云盘下载，然后重试�
 #: src/terminal/terminal-window.ts
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} 仍在运行，关闭会将其停止。"
+
+#: src/app/use-editor-comments.ts
+msgid "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
+msgstr "{name} 仍在与 Overleaf 同步，评论还没加上。请等同步完成后再试。"
 
 #: src/app/file-open-failure.ts
 msgid "{name} is too large to open in the editor"
@@ -974,6 +1002,14 @@ msgstr "第 {position}/{total} 条"
 msgid "{projectName} — {documentTitle}"
 msgstr "{projectName} — {documentTitle}"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} of {total}"
+msgstr "已接收 {received}，共 {total}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} received"
+msgstr "已接收 {received}"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} 处引用"
@@ -1013,6 +1049,10 @@ msgstr "{size}，上限 {limit}"
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size}，上限 {limit}；请移除较大的图片"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{size}/s"
+msgstr "{size}/秒"
 
 #: src/platform/host-errors-project.ts
 msgid "{source} could not be found."
@@ -1097,6 +1137,10 @@ msgstr "{warnings} 个警告"
 #: src/build/build-result-text.ts
 msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
+
+#: src/build/build-result-text.ts
+msgid "{warnings}+ warnings"
+msgstr "{warnings}+ 个警告"
 
 #: src/platform/host-errors-project.ts
 msgid "{what} is not a drawing Lattice can convert."
@@ -1353,17 +1397,21 @@ msgstr "另一个窗口里开着别的项目的幻灯片"
 msgid "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
 msgstr "如果文档的 babel 或 polyglossia 语言不是英语，则按该语言检查拼写。首次需要时会从 wooorm/dictionaries 下载其词典。"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 msgstr "绘图可能来自任何人，因此 Lattice 只在你要求时才运行绘图程序。若想让插图随绘图自动更新，请在本项目设置中打开「允许 shell escape」。"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing changed: {path}"
 msgstr "绘图已更改：{path}"
 
 #: src/platform/host-errors-project.ts
 msgid "A dropped file"
 msgstr "拖入的文件"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "A few seconds left"
+msgstr "还剩几秒"
 
 #: src/build/compile-explain.ts
 msgid "A figure or table is {points} pt taller than the page"
@@ -1511,10 +1559,26 @@ msgstr "有窗口没能保存修改，Lattice 没有重启"
 msgid "About"
 msgstr "关于"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {hours} h left"
+msgstr "约剩 {hours} 小时"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {minutes} min left"
+msgstr "约剩 {minutes} 分钟"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "关于 {name}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {rounded} s left"
+msgstr "约剩 {rounded} 秒"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About 1 h left"
+msgstr "约剩 1 小时"
 
 #: src/project/deadline-card.tsx
 msgid "abstract"
@@ -1636,6 +1700,10 @@ msgstr "添加 {0} 篇论文"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add {title} to Papers"
 msgstr "把 {title} 加入论文库"
+
+#: src/project/figure-needs-actions.ts
+msgid "Add {unlisted} to the {command} in the preamble of {rootPath}"
+msgstr "请将 {unlisted} 加入 {rootPath} 导言区中的 {command}"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/zotero-browser.tsx
@@ -1784,6 +1852,10 @@ msgstr "已添加 1 篇论文"
 #: src/canvas/paper-selection-actions.tsx
 msgid "Added to {path}"
 msgstr "已加到 {path}"
+
+#: src/project/figure-needs-actions.ts
+msgid "Added what {entryPath} now needs to the preamble of {rootPath}"
+msgstr "已将 {entryPath} 现在需要的内容加入 {rootPath} 的导言区"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -2307,6 +2379,10 @@ msgstr "article 应写 journal，而不是 booktitle"
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv 编号"
+
+#: src/build/compile-explain.ts
+msgid "arydshln and colortbl clash at this table’s end"
+msgstr "arydshln 与 colortbl 在此表格结尾处冲突"
 
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
@@ -4090,6 +4166,7 @@ msgstr "评论来源"
 msgid "Comment visibility"
 msgstr "评论筛选"
 
+#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Commenting on {name} on Overleaf…"
 msgstr "正在把评论发到 Overleaf 上的 {name}…"
@@ -4099,6 +4176,7 @@ msgid "comments"
 msgstr "注释"
 
 #: src/app/use-editor-comments.ts
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-collab.tsx
 #: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts
@@ -5547,6 +5625,10 @@ msgstr "下载论文"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
+#: src/overleaf/overleaf-download-bar.tsx
+msgid "Download progress"
+msgstr "下载进度"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/spelling-languages-row.tsx
 msgid "Downloaded dictionaries"
@@ -5557,20 +5639,10 @@ msgstr "已下载的词典"
 msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文会保留"
 
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
+#. placeholder {0}: props.name
+#: src/overleaf/overleaf-download-bar.tsx
 msgid "Downloading {0}…"
 msgstr "正在下载 {0}…"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received}"
-msgstr "正在下载 {0}…已收到 {received}"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received} of {total}"
-msgstr "正在下载 {0}…{received} / {total}"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
@@ -6318,7 +6390,8 @@ msgstr "图已就绪：{0}。请打开 LaTeX 文件以插入。"
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
-#: src/project/figure-converters.ts
+#: src/project/figure-needs-actions.ts
+#: src/project/figure-source-refresh.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -7968,6 +8041,10 @@ msgstr "文件大小为 {size}，编辑器最多只能打开 {limit} 的文件�
 msgid "It is still cited in the manuscript ({cited})."
 msgstr "稿件中仍有引用（{cited} 处）。"
 
+#: src/app/report-problem.ts
+msgid "It may already fix this. Update first, or report the problem anyway."
+msgstr "新版本可能已经修复了这个问题。建议先更新，也可以继续报告。"
+
 #: src/settings/grammar-rule-reasons.ts
 msgid "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
 msgstr "它会把 “from easy to hard”、“sum to one” 这类表示范围和数量的写法误认为拼错的 “too”。"
@@ -8268,6 +8345,10 @@ msgstr "稍后"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
 msgstr "LaTeX"
+
+#: src/build/compile-explain.ts
+msgid "LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove {command} if no table draws dashed rules."
+msgstr "arydshln 在 colortbl 之后加载时，LaTeX 2026-11 会在每个表格结尾报这个错；表格本身没有问题。请在导言区把 arydshln 放到 colortbl 之前加载；如果没有表格使用虚线，也可以删除 {command}。"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
@@ -10504,6 +10585,10 @@ msgstr ".research 下只能写入项目的附属文件"
 msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
 msgstr "这里只列出语法风格或你改动过的规则。共有 {ruleCount} 条规则，在筛选框中输入即可搜索全部规则。"
 
+#: src/build/build-log-messages.ts
+msgid "Only the first {shown} of {total} errors and warnings are listed. The raw build log has the rest."
+msgstr "共 {total} 个错误和警告，这里只列出前 {shown} 个。其余的见原始构建日志。"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
@@ -10526,6 +10611,10 @@ msgstr "打开 {name}"
 #: src/project/figure-source-run.ts
 msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 msgstr "用默认应用打开 {name}？SVG 文件常会在网页浏览器中打开，浏览器会运行其中的脚本。"
+
+#: src/app/use-editor-comments.ts
+msgid "Open {name} to comment on it."
+msgstr "请先打开 {name} 再评论"
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
@@ -11033,6 +11122,10 @@ msgstr "实时协作断开（{reason}），正在重连…"
 msgid "Overleaf live editing reconnected."
 msgstr "实时协作已恢复"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+msgstr "Overleaf 上已没有 {deleted}，但有 {kept}。本机磁盘可能把这两个名字当作同一个文件，删除 {deleted} 可能会连带删掉 {kept}。请先把 {deleted} 移出项目，再同步一次。没有改动任何文件"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf 选项"
@@ -11080,6 +11173,10 @@ msgstr "Overleaf 拒绝了上传"
 #: src/history/conflict-resolver.tsx
 msgid "Overleaf removed this part."
 msgstr "Overleaf 删了这段"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
+msgstr "{file} 在本机有修改时被 Overleaf 上的协作者重命名或删除了，Lattice 无法确定这些修改该放到哪个文件，所以修改先留在本机、没有上传。请把修改复制到正确的文件，然后删掉本机的 {file}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
@@ -12562,6 +12659,10 @@ msgstr "修复失败"
 msgid "Repair finished"
 msgstr "修复完成"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repair finished, but the build still has errors"
+msgstr "修复已结束，但构建仍有错误"
+
 #: src/build/compile-repair-messages.ts
 msgid "Repair has no active turn."
 msgstr "修正当前没有进行中的轮次。"
@@ -12731,6 +12832,10 @@ msgstr "报告问题"
 msgctxt "macOS menu bar"
 msgid "Report a Problem…"
 msgstr "报告问题…"
+
+#: src/app/report-problem.ts
+msgid "Report anyway"
+msgstr "仍然报告"
 
 #: src/project/clone-repository-dialog.tsx
 msgid "Repository URL"
@@ -12915,6 +13020,10 @@ msgstr "立即重启"
 #: src/telemetry/app-updater.tsx
 msgid "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
 msgstr "重启即可完成更新；不重启的话，下次打开 Lattice 时生效。"
+
+#: src/telemetry/outdated-version-hint.tsx
+msgid "Restart to update"
+msgstr "重启以完成更新"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -14829,6 +14938,10 @@ msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX 双向搜索"
 
 #: src/platform/host-errors-workspace.ts
+msgid "SyncTeX can only search a LaTeX document of this project."
+msgstr "SyncTeX 只能搜索本项目中的 LaTeX 文档。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "SyncTeX could not locate this PDF position."
 msgstr "SyncTeX 无法定位 PDF 中的这个位置"
 
@@ -16175,6 +16288,10 @@ msgstr "磁盘空间不足，无法安装此组件。请释放一些空间后重
 msgid "These files are too large for Overleaf: {files}."
 msgstr "这些文件太大，Overleaf 无法接收：{files}"
 
+#: src/build/build-log-messages.ts
+msgid "These table errors come from loading arydshln after colortbl, which LaTeX 2026-11 broke: the tables are fine. Load arydshln before colortbl, or remove {command} if no table draws dashed rules."
+msgstr "这些表格错误来自在 colortbl 之后加载 arydshln，LaTeX 2026-11 起这样会出错；表格本身没有问题。请把 arydshln 放到 colortbl 之前加载；如果没有表格使用虚线，也可以删除 {command}。"
+
 #: src/history/compare-versions.tsx
 msgid "These two versions have the same files."
 msgstr "这两个版本的文件完全相同。"
@@ -16182,6 +16299,10 @@ msgstr "这两个版本的文件完全相同。"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "西塔"
+
+#: src/project/figure-needs-actions.ts
+msgid "They do more than define commands, so Lattice does not add them. Add them yourself if you trust the figure:"
+msgstr "这些行不只是定义命令，因此 Lattice 不会自动添加。如果你信任这个图，请自行添加："
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"
@@ -16341,7 +16462,6 @@ msgstr "此文件在别处被改过，已保留本机修改，同步时会对齐
 msgid "This file is not a PDF."
 msgstr "此文件不是 PDF"
 
-#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "此文件没在实时协作中，请重连后再评论"
@@ -16790,6 +16910,7 @@ msgid "Try again…"
 msgstr "重试…"
 
 #: src/canvas/project-pdf-panel.tsx
+#: src/canvas/root-pdf-tabs.tsx
 #: src/pdf/pdf-window-page.tsx
 msgid "Try building the project again"
 msgstr "请尝试重新构建项目"
@@ -17148,11 +17269,13 @@ msgstr "已更新"
 msgid "Update available"
 msgstr "有更新"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "Update figure"
 msgstr "更新插图"
 
+#: src/app/report-problem.ts
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/outdated-version-hint.tsx
 msgid "Update now"
 msgstr "立即更新"
 
@@ -17228,6 +17351,7 @@ msgid "Updating LaTeX packages…"
 msgstr "正在更新 LaTeX 组件…"
 
 #: src/pdf/pdf-loading.tsx
+#: src/telemetry/outdated-version-hint.tsx
 msgid "Updating…"
 msgstr "正在更新…"
 
@@ -17539,12 +17663,24 @@ msgstr "卷号"
 msgid "Waiting"
 msgstr "等待中"
 
+#: src/app/use-editor-comments.ts
+msgid "Waiting for {name} to finish syncing with Overleaf…"
+msgstr "正在等待 {name} 与 Overleaf 同步完成…"
+
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for more data"
+msgstr "正在等待更多数据"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for Overleaf to send it"
+msgstr "正在等待 Overleaf 发送"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
@@ -17845,6 +17981,14 @@ msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 msgid "You’re on the latest version"
 msgstr "已是最新版"
 
+#: src/app/report-problem.ts
+msgid "You’re on v{running}; v{latest} is available"
+msgstr "当前是 v{running}，已有新版本 v{latest}"
+
+#: src/telemetry/outdated-version-hint.tsx
+msgid "You’re on v{running}; v{latest} is available and may already fix this."
+msgstr "当前是 v{running}，新版本 v{latest} 可能已经修复了这个问题。"
+
 #: src/onboarding/get-started-panel.tsx
 msgid "You’re ready to write"
 msgstr "可以开始写了"
@@ -17860,6 +18004,14 @@ msgstr "你的回答…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "你的颜色"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: {message}"
+msgstr "你在 {name} 上的评论没有发到 Overleaf：{message}"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
+msgstr "你在 {name} 上的评论没有发到 Overleaf：所选文字在上次同步后改过，Overleaf 上的这份文件这里和本地不一样。等文件同步后再试。"
 
 #: src/history/review-mode-store.ts
 msgid "Your edits stay in the files. The changes waiting for review are no longer marked."

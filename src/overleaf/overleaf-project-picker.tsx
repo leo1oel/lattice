@@ -26,19 +26,21 @@ import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
 import type { CloneTarget, LocalCopy, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
-import { confirmAction, formatSize, relativeTime, toMessage } from "../app-utils";
+import { confirmAction, relativeTime, toMessage } from "../app-utils";
 import { subscribeTauriEvent } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
 import { InlineMessage } from "../components/ui/inline-message";
 import { notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useOverleafLogin } from "./use-overleaf-login";
+import { OverleafDownloadBar } from "./overleaf-download-bar";
 import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import "./overleaf-connect.css";
 import { joinPhrases } from "../i18n";
 import { Glyph, LoginControls, OVERLEAF_SOURCE, Progress, RetryRow, StageMessage } from "./overleaf-connect-parts";
 import { PastedLinkMessage } from "./overleaf-pasted-link";
 import { looksLikeOverleafLink, usePastedLink } from "./use-pasted-overleaf-link";
-import { initialPickerState, reducePicker, type DownloadProgress } from "./overleaf-picker-state";
+import { initialPickerState, reducePicker } from "./overleaf-picker-state";
+import type { DownloadProgress } from "./overleaf-download-progress";
 
 
 
@@ -262,20 +264,15 @@ Files that differ are kept side by side. Nothing is overwritten`,
   const working = Boolean(opening) || transferring;
   const openingText = (name: string) => t`Opening ${name}…`;
   // A project with large figures takes minutes to arrive over a slow link:
-  // say how much has, so a long download reads as moving, not stuck.
+  // show how much has and how fast, so a long download reads as moving, not stuck.
   const cloningId = cloning?.id ?? null;
   useEffect(() => {
     if (!cloningId) return;
     return subscribeTauriEvent<DownloadProgress>(
       (handler) => listenInThisWindow("overleaf-download-progress", handler),
-      (progress) => dispatch({ type: "downloaded", progress }),
+      (progress) => dispatch({ type: "downloaded", progress, at: performance.now() }),
     );
   }, [cloningId]);
-  const received = downloaded?.received ? formatSize(downloaded.received) : null;
-  const total = downloaded?.total ? formatSize(downloaded.total) : null;
-  const downloadText = !cloning ? "" : total && received
-    ? t`Downloading ${cloning.name}… ${received} of ${total}`
-    : received ? t`Downloading ${cloning.name}… ${received}` : t`Downloading ${cloning.name}…`;
   const updated = (project: OverleafProject) => Date.parse(project.lastUpdated ?? "") || 0;
   // One list, newest first whoever owns it: the order of Overleaf's own
   // dashboard (its default sort is lastUpdated, descending).
@@ -534,13 +531,12 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 </div>
               </section>
             )}
-            {working && (
+            {cloning && downloaded ? (
+              <OverleafDownloadBar name={cloning.name} track={downloaded} />
+            ) : working && (
               <Progress
                 className="overleaf-progress"
-                text={cloning
-                  ? downloadText
-                  : opening ? openingText(opening.name)
-                  : t`Uploading ${publishName.trim()}…`}
+                text={opening ? openingText(opening.name) : t`Uploading ${publishName.trim()}…`}
               />
             )}
           </>

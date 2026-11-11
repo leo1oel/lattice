@@ -7,8 +7,8 @@ How a Lattice release is actually cut today. Everything below is derived from
 and `src-tauri/tauri.conf.json`; if you change one of those, change this
 document with it.
 
-Releases target **Apple Silicon macOS** (`--target aarch64-apple-darwin`,
-`minimumSystemVersion: 14.0`). An **Intel Mac** build (`x86_64-apple-darwin`,
+Releases target **Apple silicon macOS** (`--target aarch64-apple-darwin`,
+`minimumSystemVersion: 14.0`). An **Intel-based Mac** build (`x86_64-apple-darwin`,
 [below](#macos-intelyml)) and an **experimental x86_64 Linux AppImage**
 ([below](#linux-appimageyml)) are added to the release afterwards, each only
 when its own checks pass; neither ever delays or blocks the Apple silicon
@@ -89,7 +89,7 @@ without a lead keeps showing the last one that had one.
 
 ## What `release.yml` does
 
-One job on `macos-latest` (Apple Silicon), with `contents: write` so it can
+One job on `macos-latest` (Apple silicon), with `contents: write` so it can
 create the Release and upload assets.
 
 1. **Checkout** with `fetch-depth: 0` — the release notes need the full tag
@@ -99,7 +99,7 @@ create the Release and upload assets.
    range as `- <subject> (<short hash>)`, and skips the `Release v…` commit
    itself. Falls back to "Maintenance release." when the range is empty. Puts
    `.github/release-notes/<tag>.md` above that list when the file exists. Appends
-   the Apple Silicon install blurb and a `**Full Changelog**` compare link, then
+   the Apple silicon install blurb and a `**Full Changelog**` compare link, then
    passes the whole thing to the build step through a heredoc-delimited
    `$GITHUB_OUTPUT`.
 3. **Toolchains.** pnpm 10, Node 22, Bun 1.4.4, stable Rust with the `aarch64-apple-darwin` target.
@@ -163,15 +163,22 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
 1. **build** (`ubuntu-22.04`, so the AppImage's glibc floor is 22.04's):
    `pnpm tauri build --bundles appimage` with the same pinned Synara source,
    licensed fonts, Firecrawl key and tldraw key as the Mac build, then
+   `.github/scripts/unbundle-wayland-client.sh`, which rebuilds the AppImage
+   without the `libwayland-client` linuxdeploy bundled from 22.04 (the host's
+   Mesa needs the host's own, or WebKit cannot create its EGL display and the
+   window stays empty), then
    `check-font-leaks.mjs assets` on the AppImage alone (an allowed asset name,
    not a font) and `check-font-leaks.mjs appdir` on its extracted contents
    (no Timeless file outside the binary, no font outside the bundled
    runtimes under `usr/lib/Lattice/`).
-2. **smoke** (Docker guests `ubuntu:22.04`, `ubuntu:24.04`, `fedora:45`,
-   with GTK 3, Mesa and Xvfb): `.github/scripts/smoke-appimage.sh` extracts
-   the AppImage, requires every bundled ELF to resolve its libraries and its
-   glibc/libstdc++ versions, and requires the app to still be running 20 s
-   after launch under Xvfb.
+2. **smoke** (Docker guests `ubuntu:22.04`, `ubuntu:24.04`, `ubuntu:26.04`,
+   `fedora:45`, with GTK 3, Mesa and Xvfb): `.github/scripts/smoke-appimage.sh`
+   extracts the AppImage, requires every bundled ELF to resolve its libraries
+   and its glibc/libstdc++ versions, and requires the app to still be running
+   20 s after launch under Xvfb, with WebKit's web process still running at
+   15 s (when it dies, the app stays up with an empty window). A stand-in
+   `latexmk` the app starts must run through `/usr/bin/env` with none of the
+   AppImage's folders in its environment (`src-tauri/src/commands/appimage.rs`).
 3. **e2e** (`ubuntu-22.04`, TeX Live from apt): `tauri-driver` with
    WebKitGTK's `WebKitWebDriver` launches the AppImage itself under Xvfb, and
    `scripts/linux-e2e.mjs` checks that the first launch opens the tutorial,
@@ -202,14 +209,14 @@ and checks out the tag's commit for the scripts it runs, so a fix to the
 workflow or to the code, merged on `main`, takes effect at the next tagged
 release; until then that release has no AppImage.
 A pull request that changes the packaging (the workflow, the smoke script,
-`scripts/linux-e2e.mjs`, `scripts/check-font-leaks.mjs` or the runtime pruning
+`unbundle-wayland-client.sh`, `scripts/linux-e2e.mjs`, `scripts/check-font-leaks.mjs` or the runtime pruning
 in `scripts/lib/runtime-prune.mjs`) runs steps 1–3
 with the open-licensed fonts and no baked-in keys, and attaches nothing; so
 does a manual `workflow_dispatch` run.
 
 ### `macos-intel.yml`
 
-The Intel Mac build follows the Linux AppImage's pattern: `release.yml` does
+The Intel-based Mac build follows the Linux AppImage's pattern: `release.yml` does
 not mention it, and it starts from Release's `workflow_run` event only once a
 tag's Release run has **succeeded**. An Intel failure leaves the published
 release without its `_x64` assets and `latest.json` without `darwin-x86_64`:
@@ -250,7 +257,7 @@ From the release's commit, on GitHub's runners:
    `scripts/add-updater-platform.mjs` verifies the archive's signature against
    `plugins.updater.pubkey` and adds `darwin-x86_64` and `darwin-x86_64-app`
    to the release's `latest.json`, leaving the `darwin-aarch64` entries as
-   they were; finally it appends an "Install (Intel Mac)" section to the
+   they were; finally it appends an "Install (Intel-based Mac)" section to the
    release notes once.
 
 The Apple silicon asset names are unchanged, so the website's main Download

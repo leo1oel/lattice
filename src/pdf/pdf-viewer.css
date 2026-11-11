@@ -194,3 +194,9 @@
 @keyframes synctex-highlight-out { to { opacity: 0; } }
 /* The compiled PDF's separate window (pdf-window-app.tsx): the viewer fills it. */
 .canvas-body.pdf-window { position: fixed; inset: 0; width: auto; max-width: none; height: auto; background: var(--editor-bg); }
+
+/* Keep the autoscroll cursor over selectable PDF text and annotations too. */
+.pdf-preview .pdf-autoscrolling,
+.pdf-preview .pdf-autoscrolling *,
+.pdf-preview .pdf-autoscrolling .pdfViewer .page,
+.pdf-preview .pdf-autoscrolling .pdfViewer .page * { cursor: ns-resize; }

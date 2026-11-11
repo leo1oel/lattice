@@ -80,7 +80,7 @@ it("is not offered to pdfLaTeX projects and asks the host nothing", async () => 
 });
 
 it.each([
-  ["an Intel Mac", { supported: false, lualatex: false }],
+  ["an Intel-based Mac", { supported: false, lualatex: false }],
   ["a Mac without a working LuaLaTeX", { supported: true, lualatex: false }],
 ])("downloads nothing on %s and keeps the PDF panel quiet", async (_host, host) => {
   install = { ...READY, ...host };

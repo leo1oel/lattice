@@ -407,6 +407,7 @@ export function useDocumentSurfaces({
             <CompileDiagnosticsPanel
               diagnostics={lastBuild.diagnostics}
               log={lastBuild.log}
+              rootDocument={lastBuild.rootDocument}
               success={lastBuild.success}
               wrotePdf={buildOutcome?.status === "failed" && buildOutcome.wrotePdf}
               expanded={buildPipeline.diagnosticsExpanded}
@@ -468,6 +469,17 @@ export function useDocumentSurfaces({
         title: `${compiledPdfName(latex.rootDocumentPath)} — ${project.manifest.name}`,
         onOpen: pdfWindowsAvailable() ? () => detachPdf(trellis, project.root) : undefined,
         onDock: () => dockPdf(trellis, project.root),
+      }}
+      rootPdfs={{
+        tabs: trellis.pdfTabs,
+        shown: buildPipeline.shownPdf,
+        switchState: trellis.switchState,
+        shownBytes: buildPipeline.shownPdfBytes,
+        shownVersions: buildPipeline.shownPdfVersions,
+        syncTarget: syncTex.syncTarget,
+        canForwardSync: syncTex.canForwardSyncDocument,
+        onForwardSync: (document) => void syncTex.revealSourceInDocument(document),
+        onSource: (document, page, x, y, word) => void syncTex.revealPdfSource(page, x, y, word, document),
       }}
     />
   );

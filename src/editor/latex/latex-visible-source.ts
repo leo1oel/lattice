@@ -74,7 +74,7 @@ export function groupEnd(text: string, at: number, open = "{", close = "}"): num
 }
 
 /** The control sequence at `at` (a backslash and its name), as [name, end]; null when none starts there. */
-function controlSequence(text: string, at: number): [string, number] | null {
+export function controlSequence(text: string, at: number): [string, number] | null {
   if (text[at] !== "\\" || at + 1 >= text.length) return null;
   let end = at + 1;
   while (isLetter(text[end])) end++;

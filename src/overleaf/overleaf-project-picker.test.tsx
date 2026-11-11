@@ -402,11 +402,19 @@ describe("Overleaf picker dialog", () => {
     await openFirstProject();
     expect(await screen.findByText("Downloading Attention Paper…")).toBeInTheDocument();
     await waitFor(() => expect(listen).toHaveBeenCalledWith("overleaf-download-progress", expect.any(Function)));
-    // Overleaf streams the zip as it builds it, so usually without a size.
+    // Overleaf streams the zip as it builds it, so usually without a size:
+    // the bar sweeps and says what has arrived.
     emit({ received: 12_400_000, total: null });
-    expect(await screen.findByText("Downloading Attention Paper… 12.4 MB")).toBeInTheDocument();
+    expect(await screen.findByText(/^12\.4 MB received · 0:\d\d elapsed$/)).toBeInTheDocument();
+    const bar = screen.getByRole("progressbar", { name: "Download progress" });
+    expect(bar).toHaveAttribute("data-indeterminate");
+    expect(bar).not.toHaveAttribute("aria-valuenow");
+    // With a size, it fills.
     emit({ received: 30_000_000, total: 41_000_000 });
-    expect(await screen.findByText("Downloading Attention Paper… 30 MB of 41 MB")).toBeInTheDocument();
+    expect(await screen.findByText(/^30 MB of 41 MB/)).toBeInTheDocument();
+    expect(screen.getByText("73%")).toBeInTheDocument();
+    expect(bar).toHaveAttribute("aria-valuenow", "73");
+    expect(bar).not.toHaveAttribute("data-indeterminate");
     resolveClone("/tmp/cloned/Attention Paper");
     await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
   });

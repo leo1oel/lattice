@@ -90,7 +90,11 @@ function runsBun(candidate) {
 
 function resolveBun() {
   const configured = process.env.BUN_BIN?.trim();
-  const local = join(projectRoot, "node_modules/.bin", process.platform === "win32" ? "bun.exe" : "bun");
+  // On Windows pnpm links only bun.CMD/bun.ps1 shims into node_modules/.bin,
+  // and a .cmd cannot be spawned without a shell, so use the package's own exe.
+  const local = process.platform === "win32"
+    ? join(projectRoot, "node_modules/bun/bin/bun.exe")
+    : join(projectRoot, "node_modules/.bin/bun");
   if (configured && existsSync(configured) && runsBun(configured)) return configured;
   if (existsSync(local) && runsBun(local)) return local;
   try {

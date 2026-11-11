@@ -236,12 +236,13 @@ purpose.
   for no agreed version or copy, a table that was not exact at the last sync
   (`SyncState::unsettled`), a held hollow download, a history that does not
   reach the version just read or names nothing for an update, a file gone
-  from the tree with no tree update naming it or a folder above it, an
-  unreachable realtime channel, more files to fetch than the project's size
-  pays for (one per 320 KiB of the agreed copy, from 8 up to 40: each fetch
-  costs a round trip, the ZIP one round trip and the project's bytes), and
-  any fetch that fails or mismatches its hash (`remote_copy` and `fetch` in
-  `src-tauri/src/overleaf/sync/changes.rs`).
+  from the tree with no tree update naming it or a folder above it (other
+  than a file held for a rename, below, whose update may predate the agreed
+  copy), an unreachable realtime channel, more files to fetch than the
+  project's size pays for (one per 320 KiB of the agreed copy, from 8 up to
+  40: each fetch costs a round trip, the ZIP one round trip and the project's
+  bytes), and any fetch that fails or mismatches its hash (`remote_copy` and
+  `fetch` in `src-tauri/src/overleaf/sync/changes.rs`).
   What went up in a sync differs from the agreed copy only by Lattice's own
   write, which the history names, so an upload no longer forces the next sync
   to download.
@@ -404,6 +405,27 @@ purpose.
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and
   document history.
+- The same holds for a rename made on Overleaf (`overleaf/sync/renames.rs`). A
+  sync weighs each edited file Overleaf no longer has against the history's
+  `project_ops`. If exactly one operation touches the file and it renames the
+  file, or a folder above it, to a path that no other operation touches, that
+  is new on Overleaf and free locally, the file and its merge base move there
+  first. The local edit then merges into the renamed file, and the old name is
+  never uploaded again. A history that shows only a removal leaves the edit to
+  go back up as before. Any other case holds the file: it is not uploaded or
+  deleted, it stays on its agreed copy, and the result names it
+  (`heldRenames`). Other cases include an unreadable history, a chain of
+  renames, or a target that was reused or is spelled like a local path. A held
+  file's entry in the sync state's unsettled record keeps where its hold
+  began, so later syncs still read the rename from there while the agreed
+  version moves on. Each window is read on its own, so a hold kept longer than
+  the history reads at once holds no other file. Lattice's own last upload of
+  a file, an add of that path, is not counted as another operation on it. When
+  the history is unreadable as a hold begins, paths new on Overleaf also wait
+  unpulled for that one sync, so a readable next sync can carry the edit; a
+  sync that still cannot read it pulls them. An unedited file renamed only in
+  letter case is carried without the history, through a temporary name. A sync
+  never deletes a local path whose name, ignoring case, matches one it keeps.
 - A sync sends its edit to a file Overleaf holds as a document over the live
   channel rather than by upload, except as listed below (`overleaf/doc_push.rs`,
   `overleaf/sync/send.rs`).
@@ -441,14 +463,19 @@ purpose.
   project's history version has not moved since the snapshot. So does such a
   document when the history gives timestamps rather than versions, or when
   Overleaf holds it as a file entity. Otherwise these stand down the same way.
-- A comment on a document the editor does not have open (a note made on the
-  PDF, on a passage from another file) is anchored the same way
-  (`overleaf/doc_comment.rs`): `applyOtUpdate` applies only to a document the
-  connection joined, so it joins the document on a connection of its own,
-  places the passage in Overleaf's copy through the difference from Lattice's,
-  posts the thread's message, sends the anchor at the joined version, waits for
-  the `{doc, v}` echo and leaves. A passage Overleaf's copy holds nowhere it can
-  tell posts nothing; the app opens the file so the writer can place it.
+- A comment on a document the editor does not hold live (a note made on the
+  PDF, on a passage from another file, or one made in the open file while the
+  live channel has let go of it, after an outside write or during a reconnect)
+  is anchored the same way (`overleaf/doc_comment.rs`): `applyOtUpdate`
+  applies only to a document the connection joined, so it joins the document
+  on a connection of its own, places the passage in Overleaf's copy through
+  the difference from Lattice's, posts the thread's message, sends the anchor
+  at the joined version, waits for the `{doc, v}` echo and leaves. A passage
+  Overleaf's copy holds nowhere it can tell posts nothing. For a PDF note the
+  app opens the file so the writer can place it; an editor comment whose file
+  still owes a sync has that sync run now and tries once more after it settles
+  (`create` in `src/app/use-editor-comments.ts`), keeping the composer open
+  with what was typed if it still fails.
 - A failure partway through a multi-file sync must not mark unconfirmed files or
   versions as synchronized.
 

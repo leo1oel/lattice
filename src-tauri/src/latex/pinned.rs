@@ -120,6 +120,7 @@ pub fn build_pinned(root: &Path, options: &PinnedBuild) -> Result<BuildResult, S
         pages: pages_written(&tex_log),
         synctex: has_pdf.then(|| synctex_beside(&pdf)),
         outputs: Vec::new(),
+        unchanged: false,
     })
 }
 

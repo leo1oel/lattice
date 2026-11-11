@@ -8,7 +8,7 @@ const views: EditorView[] = [];
 afterEach(() => views.splice(0).forEach((view) => view.destroy()));
 
 const draft: AnnotationDraft = {
-  path: "main.tex", from: 6, to: 10, quote: "bold", prefix: "Hello ", suffix: " world", line: 1,
+  id: 1, path: "main.tex", from: 6, to: 10, quote: "bold", prefix: "Hello ", suffix: " world", line: 1,
   body: "Keep this draft", error: "Could not save",
 };
 

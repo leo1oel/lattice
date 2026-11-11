@@ -111,7 +111,7 @@ fn a_collaborators_pdf_added_on_overleaf_is_not_fetched() {
     edit_state(&root, |state| {
         state.remote_version = Some(40);
         state.agreed_version = Some(40);
-        state.unsettled = Some(BTreeSet::new());
+        state.unsettled = Some(Default::default());
     });
     compile_cvpr(&root);
     {

@@ -17,6 +17,8 @@ import {
   type AppToastView,
 } from "./app-log-store";
 import { useToastPosition } from "./toast-position";
+import { useKnownUpdate } from "./outdated-version";
+import { OutdatedVersionHint } from "./outdated-version-hint";
 import "./toast-stack.css";
 
 /*
@@ -118,12 +120,15 @@ function ToastList({ views, at }: { views: readonly AppToastView[]; at: ToastPos
       });
     }
   }, [add, close, toasts, views]);
+  // While a newer Lattice is known, the newest failure says so — once, not on
+  // every error in the stack.
+  const hintId = useKnownUpdate() ? views.find(({ entry, options }) => entry.level === "error" && options?.updateHint !== false)?.entry.id : undefined;
   return toasts.map((toast) => toast.data && (
-    <AppToast key={toast.id} toast={toast} view={toast.data.view} at={at} onClose={() => close(toast.id)} />
+    <AppToast key={toast.id} toast={toast} view={toast.data.view} at={at} hint={toast.id === hintId} onClose={() => close(toast.id)} />
   ));
 }
 
-function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppToastView; at: ToastPosition; onClose: () => void }) {
+function AppToast({ toast, view, at, hint, onClose }: { toast: StackToast; view: AppToastView; at: ToastPosition; hint: boolean; onClose: () => void }) {
   const { t } = useLingui();
   const { entry, options } = view;
   const { title, detail } = toastText(entry);
@@ -134,7 +139,7 @@ function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppTo
   // Messages migrated off the old one-line banners arrive as a title with no
   // detail, so length has to be judged across both — a 200-character title
   // clipped to one line is the failure this replaced.
-  const multiline = detail.length > 72 || title.length > 72 || hasActions || progress !== undefined;
+  const multiline = detail.length > 72 || title.length > 72 || hasActions || hint || progress !== undefined;
   return (
     <Toast.Root
       toast={toast}
@@ -155,6 +160,7 @@ function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppTo
         <div className="app-toast-body">
           <Toast.Title className="app-toast-title">{title}</Toast.Title>
           {detail && <Toast.Description className="app-toast-description" title={detail}>{detail}</Toast.Description>}
+          {hint && <OutdatedVersionHint className="app-toast-update" />}
           {progress !== undefined && <ToastProgress progress={progress} label={title} />}
           {hasActions && (
             <div className="app-toast-actions">

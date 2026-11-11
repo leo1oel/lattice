@@ -37,9 +37,11 @@ body:
     attributes:
       label: Lattice version
       description: >-
-        Find it in Settings → App updates, or right-click `Lattice.app` in
-        Applications → Get Info. If you built from source, give the commit SHA.
-      placeholder: "0.1.229"
+        Lattice → About Lattice shows it (Help → Report a Problem… fills it
+        in). If you built from source, give the commit SHA. On an older
+        release, an automatic comment lists what changed since, and updating
+        first may already fix the problem.
+      placeholder: "0.16.10"
     validations:
       required: true
 

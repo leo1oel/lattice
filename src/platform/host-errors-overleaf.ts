@@ -54,6 +54,7 @@ export const OVERLEAF_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["overleaf/sync/relocations.rs", "Could not locate {} on Overleaf to sync its move. No files were deleted.", ([path]) => t`Could not locate ${path} on Overleaf to sync its move. No files were deleted.`],
   ["overleaf/sync/relocations.rs", "A pending Overleaf move also changes its name.", () => t`A pending Overleaf move also changes its name.`],
   ["overleaf/sync/relocations.rs", "{folder_path} is not a folder on Overleaf.", ([path]) => t`${path} is not a folder on Overleaf.`],
+  ["overleaf/sync/renames.rs", "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed.", ([deleted, kept]) => t`Overleaf no longer has ${deleted} but has ${kept}, a name this disk may take for the same file, so deleting ${deleted} here could delete ${kept}. Move ${deleted} out of the project, then sync again. No files were changed.`],
 
   // Review: chat, comments and history (overleaf/review.rs)
   ["overleaf/review.rs", "Write a message first.", () => t`Write a message first.`],

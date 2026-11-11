@@ -23,8 +23,6 @@ on:
       - "scripts/synara-runtime.json"
       - "src-tauri/tauri*.conf.json"
       - "tools/open-slide-runtime/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
       - "rust-toolchain.toml"
   workflow_dispatch:
 

@@ -26,6 +26,13 @@ describe("overleafSyncWarnings", () => {
     }]);
   });
 
+  it("names each edited file held for a rename on Overleaf, with the way out", () => {
+    const warnings = overleafSyncWarnings(result({ heldRenames: ["sections/method.tex"] }), vi.fn());
+    expect(warnings).toEqual([{
+      message: "Overleaf renamed or removed sections/method.tex while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete sections/method.tex here.",
+    }]);
+  });
+
   it("says nothing for a sync whose uploads met no one else's edit", () => {
     expect(overleafSyncWarnings(result({ pushed: ["a.tex"], uploadedOverEdits: [] }), vi.fn())).toEqual([]);
   });

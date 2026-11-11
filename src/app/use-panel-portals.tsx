@@ -165,6 +165,7 @@ export function usePanelPortals({
             revealRequest={tree.revealRequest}
             onSearchOpenChange={setProjectSearchOpen}
             files={project.files}
+            rootDocuments={project.manifest.rootDocuments.map((document) => document.path)}
             gitStatus={gitFiles}
             // The tree marks the file in front only while its tab is open.
             // Closing the last file tab leaves it in front with nothing to

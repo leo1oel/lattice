@@ -343,7 +343,7 @@ generated with a private `--salt`.
   it, which is also where pdfTeX's determinism inside the container is
   checked (every seed is built twice in different folders).
 - **The image is amd64 only** (`TL2025-historic` has no arm64 build); on
-  Apple Silicon it runs under emulation.
+  Apple silicon it runs under emulation.
 - **The base image moves.** The historic tags are rebuilt monthly on Debian
   testing; the Dockerfile pins the digest, and `poppler-utils` comes from
   whatever Debian testing ships when the image is built, which can shift

@@ -1062,7 +1062,7 @@ describe("PDFSlick viewer integration", () => {
     for (let tick = 0; tick < 3; tick += 1) fireEvent.wheel(container, { ctrlKey: true, deltaY: -10 });
     await waitFor(() => expect(rescales).toHaveLength(2));
     expect(rescales[0]).toBeCloseTo(1.349 * 0.75);
-    expect(rescales[1]).toBeCloseTo(1.349 * Math.exp(0.1) * 0.75, 2);
+    expect(rescales[1]).toBeCloseTo(1.491 * 0.75, 2);
   });
 
   it("preserves forward and reverse SyncTeX point coordinates", async () => {

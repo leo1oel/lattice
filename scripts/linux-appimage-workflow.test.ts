@@ -64,6 +64,19 @@ describe("the Linux AppImage workflow", () => {
     expect(run.step("build", "Build the AppImage").env).toMatchObject({ LATTICE_FIRECRAWL_KEY: "", VITE_TLDRAW_LICENSE_KEY: "" });
   });
 
+  it("takes libwayland-client out of the AppImage it builds, before checking or uploading it", () => {
+    const name = "Take libwayland-client out of the AppImage";
+    expect(runFor(releaseRun({})).step("build", name).runs).toBe(true);
+    expect(runFor({ event_name: "pull_request" }).step("build", name).runs).toBe(true);
+    const steps = linux.jobs.build.steps ?? [];
+    const at = (matches: (step: (typeof steps)[number]) => boolean) => steps.findIndex(matches);
+    const unbundle = at((step) => step.name === name);
+    expect(steps[unbundle]?.run).toContain(".github/scripts/unbundle-wayland-client.sh");
+    expect(unbundle).toBeGreaterThan(at((step) => step.name === "Locate the AppImage"));
+    expect(unbundle).toBeLessThan(at((step) => step.name === "Check the AppImage for loose font files"));
+    expect(unbundle).toBeLessThan(at((step) => step.uses?.startsWith("actions/upload-artifact") ?? false));
+  });
+
   it("checks a pull request's AppImage on every job but attach", () => {
     expect(runFor({ event_name: "pull_request" }).jobs).toEqual(["build", "smoke", "e2e"]);
   });

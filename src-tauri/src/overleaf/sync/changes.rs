@@ -28,7 +28,7 @@
 use super::super::api::{expect_success, send, Remote};
 use super::super::files::*;
 use super::super::review::history_since;
-use super::{download, RemoteFiles};
+use super::{download, RemoteFiles, Unsettled};
 use crate::overleaf::api::{DownloadGate, DownloadProgress};
 use crate::overleaf_rt::{EntityEntry, RealtimeClient, RealtimeConfig};
 use crate::wide_event;
@@ -94,6 +94,9 @@ pub(super) fn remote_copy(
     let (Some(unsettled), Some(version)) = (state.unsettled.as_ref(), version) else {
         return RemoteCopy::Download;
     };
+    if unsettled.values().any(|why| *why == Unsettled::Download) {
+        return RemoteCopy::Download;
+    }
     let Some(agreed_at) = state.agreed_version.or(state.remote_version) else {
         return RemoteCopy::Download;
     };
@@ -137,7 +140,7 @@ pub(super) fn remote_copy(
     let in_tree_change = |path: &String| tree_paths.iter().any(|changed| within(path, changed));
     let in_folder = state.files.keys().filter(|path| in_tree_change(path));
     let (mut still_live, mut fetch): (BTreeSet<String>, BTreeSet<String>) =
-        (named.iter().chain(unsettled).chain(in_folder).cloned())
+        (named.iter().chain(unsettled.keys()).chain(in_folder).cloned())
             .partition(|path| held_live(path) && !in_tree_change(path));
     let mut agreed = BTreeMap::new();
     for (path, hash) in &state.files {
@@ -171,7 +174,10 @@ pub(super) fn remote_copy(
     if fetch.iter().filter(|path| state.files.contains_key(*path)).count() > most_fetches {
         return RemoteCopy::Download;
     }
-    let table = state.files.keys().cloned().collect();
+    // A file held for a rename (see `renames`) is gone from the tree, and the
+    // update saying so may be before the agreed copy.
+    let held = |path: &String| matches!(unsettled.get(path), Some(Unsettled::Held(_)));
+    let table = state.files.keys().filter(|path| !held(path)).cloned().collect();
     let unsettled = still_live;
     RemoteCopy::Changed(Changes { agreed, fetch, table, tree_paths, unsettled, most_fetches })
 }

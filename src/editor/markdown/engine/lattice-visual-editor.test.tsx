@@ -153,7 +153,7 @@ describe("Lattice visual Markdown editor", () => {
   // A note the host refused (its annotations not read yet) must stay in the
   // composer, or the typed text is lost while the host says to try again.
   it("keeps the comment composer and its text when the host refuses the note", async () => {
-    const onCreateComment = vi.fn(() => false);
+    const onCreateComment = vi.fn();
     const { editor } = renderEditor({ text: "Hello\n", onCreateComment });
     act(() => {
       editor.view.focus();
@@ -163,7 +163,7 @@ describe("Lattice visual Markdown editor", () => {
     const composer = await screen.findByRole("dialog", { name: "Add comment" });
     fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Clarify." } });
     fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
-    expect(onCreateComment).toHaveBeenCalledWith(0, 5, "Clarify.");
+    expect(onCreateComment).toHaveBeenCalledWith(0, 5, "Clarify.", expect.any(Function));
     expect(screen.getByRole("dialog", { name: "Add comment" })).toBeInTheDocument();
     expect(within(composer).getByRole("textbox", { name: "Comment" })).toHaveValue("Clarify.");
   });

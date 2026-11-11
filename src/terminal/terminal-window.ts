@@ -19,14 +19,23 @@ let unfollow: (() => void) | null = null;
 /**
  * Keep the terminals to the window's project, from the panel's first mount
  * on: a switch to another project ends the last one's shells even while the
- * panel is not mounted.
+ * panel is not mounted. The last shell exiting by itself (`exit`, ⌃D) closes
+ * the panel, mounted or not; ⌃` then brings it back with a fresh terminal.
  */
 export function followProject(controller: TrellisController) {
   if (followed === controller) return;
   unfollow?.();
   followed = controller;
   const sync = () => terminals.setProject(controller.app.get().projectRoot);
-  unfollow = controller.app.subscribe(sync);
+  const unsubscribe = controller.app.subscribe(sync);
+  // Forced past the panel's close guard: it asks about running shells, and none is left.
+  const unlisten = terminals.onLastExit(() => {
+    if (controller.ws?.view("terminal")) void controller.ws.close("terminal", { force: true });
+  });
+  unfollow = () => {
+    unsubscribe();
+    unlisten();
+  };
   sync();
 }
 
@@ -56,6 +65,14 @@ export function openTerminal() {
 /** Close one tab, asking first when a command still runs in it. */
 export async function closeTerminal(key: number) {
   if (await confirmStopping([key])) terminals.close(key);
+}
+
+/** ⌘W in the Terminal panel: close the tab in front, as its ×. False when no tab is open. */
+export function closeActiveTerminal(): boolean {
+  const { active } = terminals.get();
+  if (active === null) return false;
+  void closeTerminal(active);
+  return true;
 }
 
 /**

@@ -57,7 +57,7 @@ fn starting_path() -> OsString {
             directories.push(directory);
         }
     }
-    std::env::join_paths(directories).unwrap_or_default()
+    std::env::join_paths(crate::commands::outside_appimage(directories)).unwrap_or_default()
 }
 
 fn set_cloexec(fd: RawFd) -> io::Result<()> {
@@ -130,6 +130,7 @@ pub(super) fn spawn_shell(shell: &Path, cwd: &Path, cols: u16, rows: u16) -> io:
         .env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"))
         // Lattice's own variables describe Lattice's process, not the shell's.
         .env_remove("LATTICE_PROJECT");
+    crate::commands::host_environment(&mut command);
     // A Finder launch has no locale; without one zsh and vim treat CJK text
     // as single bytes. LC_CTYPE alone leaves messages in the writer's language.
     if ["LC_ALL", "LC_CTYPE", "LANG"].iter().all(|name| std::env::var_os(name).is_none()) {

@@ -538,6 +538,10 @@ msgid "{detail}. {limit}"
 msgstr "{detail}. {limit}"
 
 #: src/platform/host-errors-workspace.ts
+msgid "{document} has not been built in Lattice yet."
+msgstr "{document} has not been built in Lattice yet."
+
+#: src/platform/host-errors-workspace.ts
 msgid "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 msgstr "{document} was made after review mode was turned on, so there is nothing to mark its changes against."
 
@@ -565,9 +569,21 @@ msgstr "{documentName} — source"
 msgid "{dpi} DPI at the specified width"
 msgstr "{dpi} DPI at the specified width"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{elapsed} elapsed"
+msgstr "{elapsed} elapsed"
+
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
 msgstr "{engine} in a clean folder…"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} asks for lines in the preamble of {rootPath}"
+msgstr "{entryPath} asks for lines in the preamble of {rootPath}"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} finds its drawing there. {command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it."
+msgstr "{entryPath} finds its drawing there. {command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it."
 
 #: src/build/build-result-text.ts
 msgid "{errors} error"
@@ -576,6 +592,10 @@ msgstr "{errors} error"
 #: src/build/build-result-text.ts
 msgid "{errors} errors"
 msgstr "{errors} errors"
+
+#: src/build/build-result-text.ts
+msgid "{errors}+ errors"
+msgstr "{errors}+ errors"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "{failed} not found"
@@ -773,6 +793,10 @@ msgstr "{name} copy"
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
 
+#: src/app/use-editor-comments.ts
+msgid "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+msgstr "{name} did not finish syncing with Overleaf, so your comment is not on it yet. Sync again, then add the comment."
+
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} is loaded twice with different options"
@@ -792,6 +816,10 @@ msgstr "{name} is not on this computer yet. Download it from your cloud drive an
 #: src/terminal/terminal-window.ts
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} is still running. Closing stops it."
+
+#: src/app/use-editor-comments.ts
+msgid "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
+msgstr "{name} is still syncing with Overleaf, so your comment is not on it yet. Try again once the sync finishes."
 
 #: src/app/file-open-failure.ts
 msgid "{name} is too large to open in the editor"
@@ -974,6 +1002,14 @@ msgstr "{position} of {total}"
 msgid "{projectName} — {documentTitle}"
 msgstr "{projectName} — {documentTitle}"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} of {total}"
+msgstr "{received} of {total}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} received"
+msgstr "{received} received"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} reference"
@@ -1013,6 +1049,10 @@ msgstr "{size} of {limit}"
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size} of {limit}; leave out large figures"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{size}/s"
+msgstr "{size}/s"
 
 #: src/platform/host-errors-project.ts
 msgid "{source} could not be found."
@@ -1097,6 +1137,10 @@ msgstr "{warnings} warning"
 #: src/build/build-result-text.ts
 msgid "{warnings} warnings"
 msgstr "{warnings} warnings"
+
+#: src/build/build-result-text.ts
+msgid "{warnings}+ warnings"
+msgstr "{warnings}+ warnings"
 
 #: src/platform/host-errors-project.ts
 msgid "{what} is not a drawing Lattice can convert."
@@ -1353,17 +1397,21 @@ msgstr "A deck from another project is open in another window"
 msgid "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
 msgstr "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 msgstr "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing changed: {path}"
 msgstr "A drawing changed: {path}"
 
 #: src/platform/host-errors-project.ts
 msgid "A dropped file"
 msgstr "A dropped file"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "A few seconds left"
+msgstr "A few seconds left"
 
 #: src/build/compile-explain.ts
 msgid "A figure or table is {points} pt taller than the page"
@@ -1511,10 +1559,26 @@ msgstr "A window could not save its edits, so Lattice did not restart."
 msgid "About"
 msgstr "About"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {hours} h left"
+msgstr "About {hours} h left"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {minutes} min left"
+msgstr "About {minutes} min left"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "About {name}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {rounded} s left"
+msgstr "About {rounded} s left"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About 1 h left"
+msgstr "About 1 h left"
 
 #: src/project/deadline-card.tsx
 msgid "abstract"
@@ -1636,6 +1700,10 @@ msgstr "Add {0} papers"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add {title} to Papers"
 msgstr "Add {title} to Papers"
+
+#: src/project/figure-needs-actions.ts
+msgid "Add {unlisted} to the {command} in the preamble of {rootPath}"
+msgstr "Add {unlisted} to the {command} in the preamble of {rootPath}"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/zotero-browser.tsx
@@ -1784,6 +1852,10 @@ msgstr "Added 1 paper"
 #: src/canvas/paper-selection-actions.tsx
 msgid "Added to {path}"
 msgstr "Added to {path}"
+
+#: src/project/figure-needs-actions.ts
+msgid "Added what {entryPath} now needs to the preamble of {rootPath}"
+msgstr "Added what {entryPath} now needs to the preamble of {rootPath}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -2307,6 +2379,10 @@ msgstr "Article entry uses booktitle instead of journal."
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv identifier"
+
+#: src/build/compile-explain.ts
+msgid "arydshln and colortbl clash at this table’s end"
+msgstr "arydshln and colortbl clash at this table’s end"
 
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
@@ -4090,6 +4166,7 @@ msgstr "Comment source"
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
+#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Commenting on {name} on Overleaf…"
 msgstr "Commenting on {name} on Overleaf…"
@@ -4099,6 +4176,7 @@ msgid "comments"
 msgstr "comments"
 
 #: src/app/use-editor-comments.ts
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-collab.tsx
 #: src/pdf/pdf-comment-column.tsx
 #: src/settings/settings-search-index.ts
@@ -5547,6 +5625,10 @@ msgstr "Download paper"
 msgid "Download PDF"
 msgstr "Download PDF"
 
+#: src/overleaf/overleaf-download-bar.tsx
+msgid "Download progress"
+msgstr "Download progress"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/spelling-languages-row.tsx
 msgid "Downloaded dictionaries"
@@ -5557,20 +5639,10 @@ msgstr "Downloaded dictionaries"
 msgid "Downloaded paper files will be kept."
 msgstr "Downloaded paper files will be kept."
 
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
+#. placeholder {0}: props.name
+#: src/overleaf/overleaf-download-bar.tsx
 msgid "Downloading {0}…"
 msgstr "Downloading {0}…"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received}"
-msgstr "Downloading {0}… {received}"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received} of {total}"
-msgstr "Downloading {0}… {received} of {total}"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
@@ -6318,7 +6390,8 @@ msgstr "Figure ready: {0}. Open a LaTeX file to include it."
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
-#: src/project/figure-converters.ts
+#: src/project/figure-needs-actions.ts
+#: src/project/figure-source-refresh.ts
 msgid "Figures"
 msgstr "Figures"
 
@@ -7968,6 +8041,10 @@ msgstr "It is {size}; the editor opens files up to {limit}. Open it in another a
 msgid "It is still cited in the manuscript ({cited})."
 msgstr "It is still cited in the manuscript ({cited})."
 
+#: src/app/report-problem.ts
+msgid "It may already fix this. Update first, or report the problem anyway."
+msgstr "It may already fix this. Update first, or report the problem anyway."
+
 #: src/settings/grammar-rule-reasons.ts
 msgid "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
 msgstr "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
@@ -8268,6 +8345,10 @@ msgstr "Later"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
 msgstr "LaTeX"
+
+#: src/build/compile-explain.ts
+msgid "LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove {command} if no table draws dashed rules."
+msgstr "LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove {command} if no table draws dashed rules."
 
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
@@ -10504,6 +10585,10 @@ msgstr "Only project sidecar files can be written under .research."
 msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
 msgstr "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
 
+#: src/build/build-log-messages.ts
+msgid "Only the first {shown} of {total} errors and warnings are listed. The raw build log has the rest."
+msgstr "Only the first {shown} of {total} errors and warnings are listed. The raw build log has the rest."
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "Only the listed graphics arguments will change. Image files stay in place."
@@ -10526,6 +10611,10 @@ msgstr "Open {name}"
 #: src/project/figure-source-run.ts
 msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 msgstr "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
+
+#: src/app/use-editor-comments.ts
+msgid "Open {name} to comment on it."
+msgstr "Open {name} to comment on it."
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
@@ -11033,6 +11122,10 @@ msgstr "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 msgid "Overleaf live editing reconnected."
 msgstr "Overleaf live editing reconnected."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+msgstr "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf project actions"
@@ -11080,6 +11173,10 @@ msgstr "Overleaf rejected the upload"
 #: src/history/conflict-resolver.tsx
 msgid "Overleaf removed this part."
 msgstr "Overleaf removed this part."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
+msgstr "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
@@ -12562,6 +12659,10 @@ msgstr "Repair failed."
 msgid "Repair finished"
 msgstr "Repair finished"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Repair finished, but the build still has errors"
+msgstr "Repair finished, but the build still has errors"
+
 #: src/build/compile-repair-messages.ts
 msgid "Repair has no active turn."
 msgstr "Repair has no active turn."
@@ -12731,6 +12832,10 @@ msgstr "Report a problem"
 msgctxt "macOS menu bar"
 msgid "Report a Problem…"
 msgstr "Report a Problem…"
+
+#: src/app/report-problem.ts
+msgid "Report anyway"
+msgstr "Report anyway"
 
 #: src/project/clone-repository-dialog.tsx
 msgid "Repository URL"
@@ -12915,6 +13020,10 @@ msgstr "Restart now"
 #: src/telemetry/app-updater.tsx
 msgid "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
 msgstr "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
+
+#: src/telemetry/outdated-version-hint.tsx
+msgid "Restart to update"
+msgstr "Restart to update"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -14829,6 +14938,10 @@ msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX bidirectional search"
 
 #: src/platform/host-errors-workspace.ts
+msgid "SyncTeX can only search a LaTeX document of this project."
+msgstr "SyncTeX can only search a LaTeX document of this project."
+
+#: src/platform/host-errors-workspace.ts
 msgid "SyncTeX could not locate this PDF position."
 msgstr "SyncTeX could not locate this PDF position."
 
@@ -16175,6 +16288,10 @@ msgstr "There is not enough disk space to install the package. Free up some spac
 msgid "These files are too large for Overleaf: {files}."
 msgstr "These files are too large for Overleaf: {files}."
 
+#: src/build/build-log-messages.ts
+msgid "These table errors come from loading arydshln after colortbl, which LaTeX 2026-11 broke: the tables are fine. Load arydshln before colortbl, or remove {command} if no table draws dashed rules."
+msgstr "These table errors come from loading arydshln after colortbl, which LaTeX 2026-11 broke: the tables are fine. Load arydshln before colortbl, or remove {command} if no table draws dashed rules."
+
 #: src/history/compare-versions.tsx
 msgid "These two versions have the same files."
 msgstr "These two versions have the same files."
@@ -16182,6 +16299,10 @@ msgstr "These two versions have the same files."
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "Theta"
+
+#: src/project/figure-needs-actions.ts
+msgid "They do more than define commands, so Lattice does not add them. Add them yourself if you trust the figure:"
+msgstr "They do more than define commands, so Lattice does not add them. Add them yourself if you trust the figure:"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"
@@ -16341,7 +16462,6 @@ msgstr "This file changed outside live editing. Local work was kept; regular Ove
 msgid "This file is not a PDF."
 msgstr "This file is not a PDF."
 
-#: src/app/use-editor-comments.ts
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
@@ -16790,6 +16910,7 @@ msgid "Try again…"
 msgstr "Try again…"
 
 #: src/canvas/project-pdf-panel.tsx
+#: src/canvas/root-pdf-tabs.tsx
 #: src/pdf/pdf-window-page.tsx
 msgid "Try building the project again"
 msgstr "Try building the project again"
@@ -17148,11 +17269,13 @@ msgstr "Update applied"
 msgid "Update available"
 msgstr "Update available"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "Update figure"
 msgstr "Update figure"
 
+#: src/app/report-problem.ts
 #: src/telemetry/app-updater.tsx
+#: src/telemetry/outdated-version-hint.tsx
 msgid "Update now"
 msgstr "Update now"
 
@@ -17228,6 +17351,7 @@ msgid "Updating LaTeX packages…"
 msgstr "Updating LaTeX packages…"
 
 #: src/pdf/pdf-loading.tsx
+#: src/telemetry/outdated-version-hint.tsx
 msgid "Updating…"
 msgstr "Updating…"
 
@@ -17539,12 +17663,24 @@ msgstr "Volume"
 msgid "Waiting"
 msgstr "Waiting"
 
+#: src/app/use-editor-comments.ts
+msgid "Waiting for {name} to finish syncing with Overleaf…"
+msgstr "Waiting for {name} to finish syncing with Overleaf…"
+
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/build/tex-package-update-action.tsx
 #: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for more data"
+msgstr "Waiting for more data"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for Overleaf to send it"
+msgstr "Waiting for Overleaf to send it"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
@@ -17845,6 +17981,14 @@ msgstr "You sign in on Overleaf. Lattice never sees your password."
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
 
+#: src/app/report-problem.ts
+msgid "You’re on v{running}; v{latest} is available"
+msgstr "You’re on v{running}; v{latest} is available"
+
+#: src/telemetry/outdated-version-hint.tsx
+msgid "You’re on v{running}; v{latest} is available and may already fix this."
+msgstr "You’re on v{running}; v{latest} is available and may already fix this."
+
 #: src/onboarding/get-started-panel.tsx
 msgid "You’re ready to write"
 msgstr "You’re ready to write"
@@ -17860,6 +18004,14 @@ msgstr "Your answer…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: {message}"
+msgstr "Your comment on {name} did not reach Overleaf: {message}"
+
+#: src/app/use-editor-comments.ts
+msgid "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
+msgstr "Your comment on {name} did not reach Overleaf: its copy reads differently around the selected text, which changed here since the last sync. Try again once the file has synced."
 
 #: src/history/review-mode-store.ts
 msgid "Your edits stay in the files. The changes waiting for review are no longer marked."

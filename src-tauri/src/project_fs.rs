@@ -11,6 +11,7 @@ use rustix::fs::{self, AtFlags, FileType, Mode, OFlags};
 use rustix::io::Errno;
 use std::ffi::OsString;
 use std::io::Write;
+use std::os::unix::ffi::OsStringExt;
 use std::path::{Component, Path};
 use uuid::Uuid;
 
@@ -123,8 +124,17 @@ impl ProjectDir {
     }
 
     pub fn rename(&self, source: &str, destination: &str) -> Result<(), String> {
+        self.rename_into(source, destination, false)
+    }
+
+    /// [`rename`](Self::rename), creating the folders `destination` needs.
+    pub fn move_file(&self, source: &str, destination: &str) -> Result<(), String> {
+        self.rename_into(source, destination, true)
+    }
+
+    fn rename_into(&self, source: &str, destination: &str, create: bool) -> Result<(), String> {
         let (source_parent, source_name) = self.open_parent(source, false)?;
-        let (destination_parent, destination_name) = self.open_parent(destination, false)?;
+        let (destination_parent, destination_name) = self.open_parent(destination, create)?;
         if file_type_at(&source_parent, &source_name).map_err(err)? == FileType::Symlink {
             return Err("Symbolic links cannot be moved or renamed.".into());
         }
@@ -135,6 +145,39 @@ impl ProjectDir {
         }
         fs::renameat(&source_parent, &source_name, &destination_parent, &destination_name)
             .map_err(err)
+    }
+
+    /// Give each folder and the file along `relative` that exact spelling,
+    /// where the entry here differs from it only in letter case, renaming
+    /// through a temporary name so a disk that ignores case takes the change.
+    /// What is missing is left alone.
+    pub fn respell(&self, relative: &str) -> Result<(), String> {
+        let parts = components(relative)?;
+        let mut directory = open_directory(&self.root, ".").map_err(err)?;
+        for (index, part) in parts.iter().enumerate() {
+            let names: Vec<OsString> =
+                fs::Dir::read_from(open_directory(&directory, ".").map_err(err)?)
+                    .map_err(err)?
+                    .filter_map(Result::ok)
+                    .map(|entry| OsString::from_vec(entry.file_name().to_bytes().to_vec()))
+                    .collect();
+            let folded = |name: &OsString| name.to_string_lossy().to_lowercase();
+            if !names.contains(part) {
+                let Some(current) = names.iter().find(|name| folded(name) == folded(part)) else {
+                    return Ok(());
+                };
+                let temporary = OsString::from(format!(".lattice-{}.tmp", Uuid::new_v4()));
+                fs::renameat(&directory, current, &directory, &temporary).map_err(err)?;
+                if let Err(error) = fs::renameat(&directory, &temporary, &directory, part) {
+                    let _ = fs::renameat(&directory, &temporary, &directory, current);
+                    return Err(err(error));
+                }
+            }
+            if index + 1 < parts.len() {
+                directory = open_directory(&directory, part).map_err(err)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn remove(&self, relative: &str) -> Result<(), String> {

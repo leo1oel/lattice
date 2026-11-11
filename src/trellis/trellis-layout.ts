@@ -14,6 +14,7 @@ import {
 import {
   arrangementOf, documentSlot, isDocumentSlot, isDocumentView, layoutShape, LAYOUT_STORAGE_PREFIX, LAYOUT_VERSION, type WorkspaceLibrary,
 } from "./trellis-workspaces";
+import { ROOT_PDF } from "./compiled-pdf-tabs";
 
 /**
  * Writing puts the source beside the compiled PDF; Reading puts a paper beside
@@ -55,7 +56,7 @@ type SavedLayout = {
 };
 
 export const VIEW_TYPES = [
-  "project", "papers", "agent", "pdf", "file", "slot", "terminal",
+  "project", "papers", "agent", "pdf", ROOT_PDF, "file", "slot", "terminal",
   "history", "git", "comments", "overleaf", "literature", "todos", "checklist", "start",
 ] as const;
 
@@ -123,6 +124,8 @@ export function presetLayout(preset: LayoutPreset | "focus", doc: LayoutDocument
   const keys = [...openTabs, activeKey].filter((key, index, all) => key && byKey.has(key) && all.indexOf(key) === index);
   const views: Record<string, ViewRecord> = {};
   for (const key of keys) views[byKey.get(key)!] = doc.views[byKey.get(key)!];
+  // The live PDF keeps its record: it names the document it shows (compiled-pdf-tabs.ts).
+  const livePdf: ViewRecord = doc.views.pdf ?? { type: "pdf" };
   const panel = (id: string, members: string[], selectedKey: string | undefined): PanelNode => ({
     kind: "panel", id, views: members, selected: (selectedKey && byKey.get(selectedKey)) || members[0],
   });
@@ -138,11 +141,11 @@ export function presetLayout(preset: LayoutPreset | "focus", doc: LayoutDocument
     // The document in front stays in front, whatever it is.
     const ids = keys.map((key) => byKey.get(key)!);
     if (!ids.length) views.project = { type: "project" };
-    if (pdf) views.pdf = { type: "pdf" };
+    if (pdf) views.pdf = livePdf;
     const documentsPanel = ids.length ? panel("panel-focus", ids, activeKey || keys[0]) : panel("panel-project", ["project"], undefined);
     root = pdf ? row("split-focus", [documentsPanel, panel("panel-pdf", ["pdf"], undefined)], [0.5, 0.5]) : documentsPanel;
   } else if (preset === "writing") {
-    views.pdf = { type: "pdf" };
+    views.pdf = livePdf;
     const written = keys.filter((key) => !isReading(key));
     // LaTeX is what the PDF is compiled from, so a .tex source wins over the active note.
     const tex = (key: string) => key.toLocaleLowerCase().endsWith(".tex");
@@ -247,10 +250,15 @@ export function returnLayout(
     record.type === "file" ? Boolean(group) && open.has(fileKey(record)) && !kept.has(fileKey(record)) : !views[id] && !supplied.includes(id)
   ));
   for (const [id, record] of joining) views[id] = record;
+  if (views.pdf && current.views.pdf?.params) views.pdf = current.views.pdf;
+  // A compiled document's PDF tab opened meanwhile joins the live PDF's panel, not the documents'.
+  const pdfHome = panels.find((panel) => panel.views.includes("pdf") && views.pdf)?.id;
+  const toPdf = (id: string) => Boolean(pdfHome) && views[id]?.type === ROOT_PDF;
   const joined = joining.map(([id]) => id);
   const active = documents.activeKey ? Object.keys(views).find((id) => fileKey(views[id]) === documents.activeKey) : undefined;
   const replace = (panel: PanelNode): PanelNode => {
-    let members = panel.id === target?.id ? [...panel.views, ...joined] : panel.views;
+    let members = panel.id === target?.id ? [...panel.views, ...joined.filter((id) => !toPdf(id))] : panel.views;
+    if (panel.id === pdfHome) members = [...members, ...joined.filter(toPdf)];
     let selected = active && members.includes(active) ? active : panel.selected;
     const at = members.findIndex((id) => isDocumentView(previous.views[id]));
     if (at >= 0 && !members.some((id) => views[id] && isDocumentView(views[id]))) {
@@ -318,7 +326,10 @@ export function placesOf(doc: LayoutDocument): DocumentPlaces {
  * panel. Each keeps its view from `current` (so its tab survives), and a
  * panel shows the active document, else the one it last showed. A slot no
  * document fills stays, an empty document panel; with no slot at all, App's
- * tab sync gives the documents a panel of their own.
+ * tab sync gives the documents a panel of their own. A known limit: a
+ * workspace saved with no PDF panel drops the other compiled documents' PDF
+ * tabs (they join the live PDF's panel), and each comes back on its
+ * document's next build.
  */
 export function arrangeDocuments(
   doc: LayoutDocument,
@@ -328,6 +339,7 @@ export function arrangeDocuments(
 ): LayoutDocument {
   const views: Record<string, ViewRecord> = {};
   for (const [id, record] of Object.entries(doc.views)) if (!isDocumentSlot(record)) views[id] = record;
+  if (views.pdf && current.views.pdf?.params) views.pdf = current.views.pdf;
   // A slot's panel, by the panel's id; docked panels first.
   const slotOf = new Map<string, string>();
   for (const panel of panelsOf(doc, { hidden: true })) {
@@ -361,7 +373,15 @@ export function arrangeDocuments(
     for (const key of loose) join(lead, key);
   }
   const active = documents.activeKey ? byKey.get(documents.activeKey) ?? Object.keys(views).find((id) => fileKey(views[id]) === documents.activeKey) : undefined;
-  const fill = (panel: PanelNode): PanelNode => {
+  // The compiled documents' PDF tabs are the project's: they stay open, with the live PDF.
+  const pdfTabs = Object.keys(current.views).filter((id) => current.views[id].type === ROOT_PDF);
+  const withPdfTabs = (panel: PanelNode): PanelNode => {
+    if (!panel.views.includes("pdf") || !pdfTabs.length) return panel;
+    for (const id of pdfTabs) views[id] = current.views[id];
+    return { ...panel, views: [...panel.views, ...pdfTabs.filter((id) => !panel.views.includes(id))] };
+  };
+  const fill = (panel: PanelNode): PanelNode => withPdfTabs(fillSlot(panel));
+  const fillSlot = (panel: PanelNode): PanelNode => {
     const slot = slotOf.get(panel.id);
     if (!slot) return panel;
     const filled = members.get(panel.id) ?? [];

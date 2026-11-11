@@ -28,6 +28,7 @@ input[type="search"]:focus-visible {
 .root-error-card h1 { margin: 0; font-family: var(--type-display-font); font-size: var(--type-display-size); line-height: var(--type-display-line-height); font-weight: var(--type-display-weight); }
 .root-error-card > p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: 1.6; }
 .root-error-actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.root-error-card > .outdated-version-hint { font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .root-error-card > .root-error-action-error { color: var(--status-danger); font-size: var(--type-caption-size); }
 .root-error-details { margin-top: 22px; border-top: 1px solid var(--border-subtle); padding-top: 14px; color: var(--text-secondary); font-size: var(--type-caption-size); }
 .root-error-details summary { width: max-content; cursor: pointer; font-weight: 600; }
@@ -35,6 +36,7 @@ input[type="search"]:focus-visible {
 /* A panel that crashed (telemetry/panel-error-boundary.tsx): its card fills the panel, centered, as an empty state does. */
 .panel-error { box-sizing: border-box; height: 100%; padding: var(--space-8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); overflow: auto; text-align: center; color: var(--text-secondary); font-size: var(--type-body-compact-size); }
 .panel-error > strong { color: var(--text-primary); }
+.panel-error > .outdated-version-hint { max-width: 360px; text-align: start; }
 .panel-error > p { margin: 0; }
 .panel-error > .root-error-details { width: min(100%, 420px); margin-top: var(--space-4); text-align: start; }
 
@@ -132,6 +134,7 @@ input[type="search"]:focus-visible {
 .compile-repair-progress { display: flex; align-items: center; gap: var(--space-3); white-space: nowrap; font-size: var(--type-caption-size); }
 .compile-repair-action { flex: none; gap: var(--space-3); }
 .compile-repair-detail { margin: 0; padding: var(--space-2) var(--space-5) var(--space-4); font-size: var(--type-caption-size); overflow-wrap: anywhere; max-height: 120px; overflow-y: auto; }
+.compile-diagnostics-update { padding: var(--space-2) var(--space-5) var(--space-4); }
 .compile-repair-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); padding: var(--space-2) var(--space-4); border-top: 1px solid var(--border-subtle); font-size: var(--type-caption-size); }
 .compile-repair-footer > span { margin-right: auto; }
 .compile-diagnostics-body { padding: 0 var(--space-4) var(--space-4); display: grid; gap: var(--space-3); }

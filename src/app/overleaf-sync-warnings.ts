@@ -13,22 +13,21 @@ export function overleafSyncWarnings(
   result: OverleafSyncResult, resolve: (path: string) => void,
 ): OverleafSyncWarning[] {
   const warnings: string[] = [];
-  if (result.skippedLarge?.length) {
-    const files = result.skippedLarge.join(", ");
-    warnings.push(t`Too large for Overleaf, so left on this machine: ${files}.`);
-  }
+  // An empty list joins to "", so each list below is said only when it names a file.
+  let files = result.skippedLarge?.join(", ");
+  if (files) warnings.push(t`Too large for Overleaf, so left on this machine: ${files}.`);
   // A download that would have emptied or gutted files nobody changed on
   // Overleaf. Said once: the files simply stay, and the reason is that
   // Overleaf's own history does not confirm the change.
-  if (result.refusedIncoming?.length) {
-    const files = result.refusedIncoming.join(", ");
+  files = result.refusedIncoming?.join(", ");
+  if (files) {
     warnings.push(t`Kept your copy of ${files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.`);
   }
   // Without the live channel a document goes up whole, and someone's edit
   // reached the project while one did. Which file they were in is not known,
   // so this says "may", and points to where their words are kept.
-  if (result.uploadedOverEdits?.length) {
-    const files = result.uploadedOverEdits.join(", ");
+  files = result.uploadedOverEdits?.join(", ");
+  if (files) {
     warnings.push(t`Someone edited the Overleaf project while ${files} uploaded. An upload replaces the whole file, so it may have overwritten their latest typing there. Check the file's history on Overleaf to bring back anything missing.`);
   }
   // Overleaf keeps names apart that this Mac's disk treats as one; the sync
@@ -36,6 +35,12 @@ export function overleafSyncWarnings(
   if (result.caseCollisions?.length) {
     const pairs = result.caseCollisions.map(({ kept, skipped }) => `${kept} / ${skipped}`).join(", ");
     warnings.push(t`Overleaf has names that differ only in capitalization, which this Mac treats as the same name: ${pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both.`);
+  }
+  // Edited here and renamed or removed on Overleaf where the sync could not
+  // follow: sending it under its old name would split the file, so it waits.
+  // Named on every sync while held, with the way out.
+  for (const file of result.heldRenames ?? []) {
+    warnings.push(t`Overleaf renamed or removed ${file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete ${file} here.`);
   }
   // Held back while Overleaf moves on, named once when the hold starts: the
   // backend leaves out files the previous sync was holding already.

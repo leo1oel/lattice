@@ -16,7 +16,7 @@ describe("unsettledPaths", () => {
       pushed: ["kept.tex"],
       conflicts: [{ path: "a.tex", localCopy: "a (local conflict 20261108-0217).tex", markers: true }],
       deletedLocal: ["b.tex"], skippedRemoteDeletes: ["c.tex"], skippedLarge: ["d.pdf"],
-      refusedIncoming: ["kept.tex", "e.tex"],
-    }))).toEqual(["a.tex", "b.tex", "c.tex", "d.pdf", "e.tex"]);
+      heldRenames: ["f.tex"], refusedIncoming: ["kept.tex", "e.tex"],
+    }))).toEqual(["a.tex", "b.tex", "c.tex", "d.pdf", "f.tex", "e.tex"]);
   });
 });

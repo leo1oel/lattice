@@ -1,0 +1,39 @@
+name: Issue version check
+
+# A new issue that states an older Lattice than the latest release gets one
+# comment asking the reporter to update first, listing what changed since
+# (scripts/issue-version-check.mjs). Users often report problems a newer
+# release already fixed. It only comments: it never closes, labels or edits an
+# issue, and an issue without a version, or on the latest release, hears
+# nothing.
+#
+# `issues: opened` runs the workflow and script from the default branch, so an
+# issue cannot change the code that runs. Its title and body reach the script
+# as environment variables, never interpolated into the shell.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    if: github.event.issue.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts/issue-version-check.mjs
+            scripts/lib/util.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - run: node scripts/issue-version-check.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}

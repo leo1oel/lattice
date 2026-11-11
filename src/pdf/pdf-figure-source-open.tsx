@@ -8,9 +8,10 @@ import { invoke } from "@tauri-apps/api/core";
 import type { SyncTexTarget } from "../app-types";
 import { openFigureSource } from "../project/figure-source-open";
 import { addListeners } from "./pdf-viewer-utils";
+import { syncTexDocument } from "./pdf-document-context";
 
 /** The source file of the figure at the point, or null when the point is not on a figure. */
-async function figureSourceAt(page: HTMLElement, x: number, y: number): Promise<string | null> {
+async function figureSourceAt(page: HTMLElement, x: number, y: number, document: string | null): Promise<string | null> {
   const scale = Number.parseFloat(getComputedStyle(page).getPropertyValue("--scale-factor"));
   if (!(scale > 0)) return null;
   const bounds = page.getBoundingClientRect();
@@ -18,6 +19,7 @@ async function figureSourceAt(page: HTMLElement, x: number, y: number): Promise<
     page: Number.parseInt(page.dataset.pageNumber ?? "", 10),
     x: Number(((x - bounds.left) / scale).toFixed(3)),
     y: Number(((y - bounds.top) / scale).toFixed(3)),
+    ...syncTexDocument(document),
   });
   // SyncTeX lands in Inkscape's own `.pdf_tex`; the entry that names the source is beside it.
   const entry = target.path.replace(/\.pdf_tex$/i, ".tex");
@@ -25,7 +27,8 @@ async function figureSourceAt(page: HTMLElement, x: number, y: number): Promise<
   return figureSourcePath(entry, await invoke<string>("read_project_file", { path: entry }));
 }
 
-export function PdfFigureSourceOpen({ host }: { host: HTMLElement }) {
+/** `document`: the root document whose own tab this is, when it is not the compiled document's PDF. */
+export function PdfFigureSourceOpen({ host, document = null }: { host: HTMLElement; document?: string | null }) {
   useEffect(() => addListeners(host, {
     dblclick: (event: MouseEvent) => {
       if (!event.metaKey && !event.ctrlKey) return;
@@ -37,14 +40,14 @@ export function PdfFigureSourceOpen({ host }: { host: HTMLElement }) {
       event.stopPropagation();
       event.preventDefault();
       const { target, clientX, clientY } = event;
-      void figureSourceAt(page, clientX, clientY)
+      void figureSourceAt(page, clientX, clientY, document)
         .catch(() => null)
         .then((source) => {
           if (source) return openFigureSource(source);
           target?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX, clientY, detail: 2 }));
         });
     },
-  }, { capture: true }), [host]);
+  }, { capture: true }), [document, host]);
 
   return null;
 }

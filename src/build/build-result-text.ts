@@ -2,12 +2,18 @@ import { msg } from "@lingui/core/macro";
 import { i18n, joinPhrases } from "../i18n";
 import type { DiagnosticCounts } from "./compile-diagnostics";
 
-/** "1 error, 2 warnings, 1 note", leaving out what the build did not report. */
+/**
+ * "1 error, 2 warnings, 1 note", leaving out what the build did not report.
+ * A capped list reads "40+ errors": the build reported more than it listed.
+ */
 export function diagnosticCountsText(counts: DiagnosticCounts): string {
-  const { error: errors, warning: warnings, info: notes } = counts;
+  const { error: errors, warning: warnings, info: notes, capped } = counts;
+  // The cap counts errors and warnings together; the "+" goes on errors when there are any.
+  const moreErrors = capped && errors > 0;
+  const moreWarnings = capped && errors === 0;
   return joinPhrases([
-    errors ? errors === 1 ? i18n._(msg`${errors} error`) : i18n._(msg`${errors} errors`) : "",
-    warnings ? warnings === 1 ? i18n._(msg`${warnings} warning`) : i18n._(msg`${warnings} warnings`) : "",
+    errors ? moreErrors ? i18n._(msg`${errors}+ errors`) : errors === 1 ? i18n._(msg`${errors} error`) : i18n._(msg`${errors} errors`) : "",
+    warnings ? moreWarnings ? i18n._(msg`${warnings}+ warnings`) : warnings === 1 ? i18n._(msg`${warnings} warning`) : i18n._(msg`${warnings} warnings`) : "",
     notes ? notes === 1 ? i18n._(msg`${notes} note`) : i18n._(msg`${notes} notes`) : "",
   ]);
 }

@@ -36,6 +36,7 @@ import { listenInThisWindow } from "../app/window-events";
 import { setNativeUpdateMenu } from "../app/native-locale";
 import { version as RUNNING_VERSION } from "../../package.json";
 import { useLinuxReleaseNotice } from "./linux-release-notice";
+import { publishKnownUpdate } from "./outdated-version";
 import { loadChoice } from "../settings/app-settings";
 import { sharedSetting, useSharedSetting } from "../settings/shared-setting";
 import {
@@ -75,6 +76,8 @@ type TauriUpdate = {
   currentVersion: string;
   /** The update as the backend holds it, for `install_update`. */
   rid: number;
+  /** Let the backend drop it: one a newer release replaced is never installed. */
+  close?: () => Promise<void>;
 };
 
 export type DownloadEvent =
@@ -89,6 +92,47 @@ async function loadUpdateCheck() {
 
 /** Retries and failure wording, needed only once something failed. */
 const loadRecovery = () => import("./update-recovery");
+
+/** A release newer than the one running, from what a check answered. */
+const isNewRelease = (update: TauriUpdate | null): update is TauriUpdate => (
+  !!update?.version && update.version !== update.currentVersion
+);
+
+/** Let go of an update a newer one replaced; the backend keeps each one a check found until closed. */
+function discardUpdate(update: TauriUpdate) {
+  void update.close?.().catch(() => {});
+}
+
+/**
+ * How long Update now waits on its last look for a newer release before it
+ * installs the one it offered: long enough for a slow connection, short enough
+ * that a hung request does not hold the download.
+ */
+const RECHECK_TIMEOUT_MS = 15_000;
+
+/**
+ * The newest release, asked once more just before installing: several can
+ * land within the hours an offer waits, and installing the one offered would
+ * only lead to a second offer after the restart. Null when there is nothing
+ * newer to say, the check failed or it took too long — the offered update is
+ * installed then, as before.
+ */
+async function recheckNewest(): Promise<TauriUpdate | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), RECHECK_TIMEOUT_MS); });
+  const latest = (async () => {
+    const update = (await (await loadUpdateCheck())()) as TauriUpdate | null;
+    return isNewRelease(update) ? update : null;
+  })().catch(() => null);
+  try {
+    const update = await Promise.race([latest, timeout]);
+    // One that answers after giving up on it is never used.
+    if (!update) void latest.then((late) => late && discardUpdate(late));
+    return update;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** What Lattice ▸ Check for Updates… sends to the window it was used in (native_locale.rs). */
 const CHECK_MENU_EVENT = "check-for-updates";
@@ -191,7 +235,8 @@ const FAILURE_TITLES: Record<UpdateErrorKind, MessageDescriptor> = {
 const UPDATE_TOAST = "app-update";
 
 function showUpdateToast(level: AppLogLevel, title: string, detail: string, toastOptions: AppToastOptions) {
-  addAppLog({ level, source: i18n._(msg`App updater`), title, detail, dedupeKey: UPDATE_TOAST, toastOptions });
+  // The updater's own failure already offers the update: no "update to fix this" line under it.
+  addAppLog({ level, source: i18n._(msg`App updater`), title, detail, dedupeKey: UPDATE_TOAST, toastOptions: { ...toastOptions, updateHint: false } });
 }
 
 /** The installed update, waiting for a restart. Closing it is Later: the update applies at the next launch. */
@@ -293,16 +338,36 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     return attempt(confirmed);
   }, [patch]);
 
-  /** Download and install the pending update; `restartAfter` then restarts into it. */
-  const installUpdate = useCallback(async function installUpdate(restartAfter: boolean): Promise<void> {
-    const update = pendingRef.current;
-    if (!update || installingRef.current) return;
+  /**
+   * Download and install the pending update; `restartAfter` then restarts into
+   * it. Unless the update was found `fresh` by the check that just ran, the
+   * newest release is asked for first and installed instead when it is newer:
+   * an offer can wait hours, and the release it names may be several behind
+   * by then. That also keeps a window from installing an older release over
+   * one another window already installed — the backend's claim only knows a
+   * release by its exact version.
+   */
+  const installUpdate = useCallback(async function installUpdate(restartAfter: boolean, fresh = false): Promise<void> {
+    const held = pendingRef.current;
+    if (!held || installingRef.current) return;
     if (installedRef.current) {
       if (restartAfter) await restart();
       return;
     }
     installingRef.current = true;
     installFailedRef.current = false;
+    const newer = fresh ? null : await recheckNewest();
+    if (newer && newer.version !== held.version && pendingRef.current === held) {
+      pendingRef.current = newer;
+      discardUpdate(held);
+      patch({ version: newer.version });
+    } else if (newer && newer !== held) discardUpdate(newer);
+    // Put away while the check ran: nothing left to install.
+    const update = pendingRef.current;
+    if (!update) {
+      installingRef.current = false;
+      return;
+    }
     const { version } = update;
     const versionLine = i18n._(msg`Version ${version}`);
     const installed = async () => {
@@ -401,12 +466,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
 
   /** `check`, which from the menu (`announce`) also says when nothing is new or the check failed. */
   const runCheck = useCallback(async (silent: boolean, announce: boolean) => {
-    // A held update is what stops a second offer for one already offered —
-    // but only while it is still installable. Once its install has failed the
-    // toast is a failure, and holding the check hostage to it means
-    // the next release is never noticed for the rest of the session.
     if (!updatesItself() || installingRef.current || installedRef.current) return;
-    if (pendingRef.current && !installFailedRef.current) return;
     const retries = new AbortController();
     checkRetriesRef.current = retries;
     try {
@@ -417,12 +477,25 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
         (await loadRecovery()).retryTransient(first, checkForUpdate, { signal: retries.signal })
       ))) as TauriUpdate | null;
       if (installingRef.current || installedRef.current) return;
-      if (update?.version && update.version !== update.currentVersion) {
+      // An offer still waiting is not made twice for the same release, but a
+      // newer one replaces it: releases can land hours apart, and the offer
+      // should always name the newest. Once the held update's install has
+      // failed its toast is a failure, so whatever this check found is offered
+      // afresh — or, in automatic mode, installed — as for any new release.
+      const held = installFailedRef.current ? null : pendingRef.current;
+      if (held && (!isNewRelease(update) || update.version === held.version)) {
+        if (update && update !== held) discardUpdate(update);
+        if (!silent) showOffer(held.version);
+        return;
+      }
+      if (isNewRelease(update)) {
+        const replaced = pendingRef.current;
+        if (replaced && replaced !== update) discardUpdate(replaced);
         pendingRef.current = update;
         installFailedRef.current = false;
         if (modeRef.current === "auto") {
           patch({ phase: "available", version: update.version, error: null, errorKind: null });
-          void installUpdate(false);
+          void installUpdate(false, true);
         } else showOffer(update.version);
       } else if (!silent) {
         patch({ phase: "up-to-date" });
@@ -473,6 +546,21 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   }, [autoCheck, check, intervalMs]);
 
   const restartNow = useCallback(() => restart(), [restart]);
+
+  /**
+   * A failure's "Update now" (outdated-version.tsx): restart into an installed
+   * update, install the held one, or — the offer was put away — check again,
+   * which offers it anew.
+   */
+  const updateNow = useCallback(async () => {
+    if (installedRef.current) return restart();
+    if (pendingRef.current) return installUpdate(true);
+    await runCheck(false, true);
+  }, [installUpdate, restart, runCheck]);
+  // `version` outlives a dismissed offer, so a later failure still says a newer
+  // release exists. Not cleared on unmount: the crash page outlives this provider.
+  const { phase, version: latest } = state;
+  useEffect(() => publishKnownUpdate(latest ? { running: RUNNING_VERSION, latest, phase, updateNow } : null), [latest, phase, updateNow]);
 
   return { ...state, mode, setMode, check, install, restart: restartNow, dismiss };
 }

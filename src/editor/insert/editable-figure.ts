@@ -79,6 +79,30 @@ function groupEnd(text: string, open: number): number {
 /** Commented text blanked, every offset unchanged. */
 const blankComments = (text: string) => text.replace(/(?<!\\)%.*$/gm, (comment) => " ".repeat(comment.length));
 
+/** `figures/` and `./figures/` are the same folder to `\graphicspath`. */
+const sameFolder = (listed: string, folder: string) => listed.replace(/^(\.\/)+/, "") === folder.replace(/^(\.\/)+/, "");
+
+/** Whether `path`, the text of a `\graphicspath` argument, lists `folder`. */
+const listsFolder = (path: string, folder: string) => [...path.matchAll(/\{([^{}]*)\}/g)].some((match) => sameFolder(match[1], folder));
+
+/**
+ * What `\graphicspath` the text of a preamble's own files (`known`) sets:
+ * "listed" when one there lists `folder`, "unlisted" when one there does not,
+ * null when they set none.
+ */
+export function knownGraphicsPath(known: string, folder: string): "listed" | "unlisted" | null {
+  const code = blankComments(known);
+  let found: "listed" | "unlisted" | null = null;
+  for (const command of code.matchAll(/\\graphicspath\s*(?=\{)/g)) {
+    const open = (command.index ?? 0) + command[0].length;
+    const end = groupEnd(code, open);
+    if (end < 0) continue;
+    // The last one read is the one in force.
+    found = listsFolder(code.slice(open + 1, end - 1), folder) ? "listed" : "unlisted";
+  }
+  return found;
+}
+
 /** Where the preamble's existing `\graphicspath` takes `folder`, or null when it has one already or there is none. */
 function graphicsPathAddition(source: string, begin: number, folder: string): { from: number; insert: string } | "listed" | null {
   const code = blankComments(source.slice(0, begin));
@@ -87,7 +111,7 @@ function graphicsPathAddition(source: string, begin: number, folder: string): { 
   const open = command.index + command[0].length;
   const end = groupEnd(code, open);
   if (end < 0) return null;
-  return code.slice(open, end).includes(`{${folder}}`) ? "listed" : { from: end - 1, insert: `{${folder}}` };
+  return listsFolder(code.slice(open + 1, end - 1), folder) ? "listed" : { from: end - 1, insert: `{${folder}}` };
 }
 
 /**
@@ -95,9 +119,12 @@ function graphicsPathAddition(source: string, begin: number, folder: string): { 
  * for `packages` (with `graphicx`, which `\graphicspath` needs), and its folder
  * on `\graphicspath`, so the entry file finds its PDF. New lines go after the
  * last package line, or before `\begin{document}`. Empty for a file that is
- * not a root document, or when nothing is missing.
+ * not a root document, or when nothing is missing. `known` is the text of
+ * files the preamble loads: a package they load counts as loaded, and when
+ * they set `\graphicspath` the root gets none of its own, which would
+ * override theirs (`knownGraphicsPath` says whether theirs lists `folder`).
  */
-export function missingPreambleInsertions(source: string, packages: readonly string[], folder: string): { from: number; insert: string }[] {
+export function missingPreambleInsertions(source: string, packages: readonly string[], folder: string, known = ""): { from: number; insert: string }[] {
   const begin = source.search(/^[^%\n]*\\begin\s*\{document\}/m);
   if (begin < 0) return [];
   const preamble = source.slice(0, begin);
@@ -112,9 +139,10 @@ export function missingPreambleInsertions(source: string, packages: readonly str
     }
     offset += line.length + 1;
   }
+  for (const line of known.split("\n")) for (const match of withoutComments(line).matchAll(PACKAGE_LOAD)) for (const name of match[1].split(",")) loaded.add(name.trim());
   const missing = figurePackages(packages, folder).filter((name) => /^[A-Za-z0-9-]+$/.test(name) && !loaded.has(name));
   const lines = missing.map((name) => `\\usepackage{${name}}`);
-  const path = folder ? graphicsPathAddition(source, begin, folder) : "listed";
+  const path = !folder ? "listed" : (graphicsPathAddition(source, begin, folder) ?? (knownGraphicsPath(known, folder) ? "listed" : null));
   if (path === null) lines.push(graphicsPathLine(folder));
   const insertions = path && path !== "listed" ? [path] : [];
   if (!lines.length) return insertions;
@@ -168,7 +196,7 @@ export function editableFigureBlockSnippet(figure: Pick<ImportedFigure, "directo
 const definedCommands = (block: readonly string[]) => [...block.join("\n").matchAll(/\\(?:providecommand|newcommand|renewcommand|DeclareRobustCommand)\*?\s*\{?(\\[A-Za-z]+)/g)].map((match) => match[1]);
 
 /** Whether `text` already defines every command the block does, comments aside. */
-function definesAll(text: string, block: readonly string[]): boolean {
+export function definesAll(text: string, block: readonly string[]): boolean {
   const code = blankComments(text);
   return definedCommands(block).every((command) => new RegExp(`\\\\(?:providecommand|newcommand|DeclareRobustCommand|def)\\*?\\s*\\{?\\${command}(?![A-Za-z])`).test(code));
 }
@@ -255,10 +283,15 @@ export function preambleNeedsConfirmation(source: string, known: string, figure:
 export function preambleFiles(source: string): string[] {
   const begin = source.search(/^[^%\n]*\\begin\s*\{document\}/m);
   if (begin < 0) return [];
-  const code = blankComments(source.slice(0, begin));
+  return loadedFiles(source.slice(0, begin));
+}
+
+/** Project files `code` brings in with `\input` or as a package, comments aside. */
+export function loadedFiles(code: string): string[] {
+  const live = blankComments(code);
   return [
-    ...[...code.matchAll(/\\input\s*\{([^{}]+)\}/g)].map((match) => (/\.[a-z]+$/i.test(match[1]) ? match[1] : `${match[1]}.tex`)),
-    ...[...code.matchAll(PACKAGE_LOAD)].flatMap((match) => match[1].split(",").map((name) => `${name.trim()}.sty`)),
+    ...[...live.matchAll(/\\input\s*\{([^{}]+)\}/g)].map((match) => (/\.[a-z]+$/i.test(match[1]) ? match[1] : `${match[1]}.tex`)),
+    ...[...live.matchAll(PACKAGE_LOAD)].flatMap((match) => match[1].split(",").map((name) => `${name.trim()}.sty`)),
   ];
 }
 

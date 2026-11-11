@@ -51,6 +51,8 @@ export type AppToastOptions = {
   primaryAction?: AppToastAction;
   secondaryAction?: AppToastAction;
   onDismiss?: () => void;
+  /** False keeps an error toast from carrying the "a newer Lattice may fix this" line (toast-stack.tsx). */
+  updateHint?: false;
 };
 
 /**

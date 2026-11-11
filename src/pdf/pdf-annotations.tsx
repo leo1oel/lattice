@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
@@ -12,6 +12,7 @@ import { commentMarkProperties } from "../editor/comments/comment-mark-colors";
 import "../editor/comments/comment-marks.css";
 import { notifyInfo } from "../telemetry/app-notify";
 import { addListeners } from "./pdf-viewer-utils";
+import { PdfDocumentContext, syncTexDocument } from "./pdf-document-context";
 import { pdfPageView } from "./pdf-slick";
 import { isPdfCopyField, pdfSelectedPlainTextWithin } from "./pdf-text-layer-selection";
 import { usePdfRenderCount, type PdfRenderCount } from "./use-pdf-document";
@@ -92,6 +93,8 @@ function usePdfMarkPlaces(
   const [placed, setPlaced] = useState<ReadonlyMap<string, PlacedMark> | null>(null);
   const [sourcePlaced, setSourcePlaced] = useState<ReadonlyMap<string, PlacedMark | null>>(() => new Map());
   const readsRef = useRef<DocumentReads | null>(null);
+  // Another root document's own tab: its notes are placed through its own map.
+  const pdfDocument = useContext(PdfDocumentContext);
   useEffect(() => {
     const document = recordRef.current?.slick.document;
     if (!document) return;
@@ -119,7 +122,7 @@ function usePdfMarkPlaces(
         if (!text) throw new RangeError(String(number));
         return text;
       },
-      sync: (path, line, column) => invoke<SyncBox | null>("synctex_view", { path, line, column }),
+      sync: (path, line, column) => invoke<SyncBox | null>("synctex_view", { path, line, column, ...syncTexDocument(pdfDocument) }),
     };
     const builtText = (path: string) => {
       let text = reads.built.get(path);
@@ -157,7 +160,7 @@ function usePdfMarkPlaces(
       live = false;
       window.clearTimeout(timer);
     };
-  }, [generation, marks, pageRenders, recordRef, rounds]);
+  }, [generation, marks, pageRenders, pdfDocument, recordRef, rounds]);
   return useMemo(() => {
     if (!placed || !sourcePlaced.size) return placed;
     const places = new Map(placed);

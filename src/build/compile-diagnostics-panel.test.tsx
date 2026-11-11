@@ -66,6 +66,11 @@ describe("batch repair controls", () => {
       repair={{ status: "compiling", threadId: "repair" }} />);
     expect(screen.getByRole("status")).toHaveTextContent("Recompiling…");
     expect(screen.queryByRole("button", { name: "Cancel repair" })).not.toBeInTheDocument();
+    // The panel now shows the rebuild after the repair: its errors were not fixed.
+    rerender(<CompileDiagnosticsPanel {...props} onOpenRepair={onOpenRepair} repair={{ status: "completed", threadId: "repair" }} />);
+    expect(screen.getByText("Repair finished, but the build still has errors")).toBeInTheDocument();
+    rerender(<CompileDiagnosticsPanel {...props} success diagnostics={[]} onOpenRepair={onOpenRepair} repair={{ status: "completed", threadId: "repair" }} />);
+    expect(screen.getByText("Repair finished")).toBeInTheDocument();
   });
 
   it("offers Unlock anyway, with its warning, only for a repair that has not stopped since Cancel", () => {

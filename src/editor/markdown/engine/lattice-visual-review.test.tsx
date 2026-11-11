@@ -1,13 +1,14 @@
 /**
  * The Lattice visual engine against the Markdown source (spec R-SRC-1–12):
- * the caret in source coordinates, collaborators' carets, comments and their
- * composer, tracked changes, View in source, and the selection as Markdown.
+ * the caret in source coordinates, collaborators' carets, comments (their
+ * composer has its own file), tracked changes, View in source, and the
+ * selection as Markdown.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { AllSelection, NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EditorComment } from "../../comments/editor-comment-data";
@@ -228,86 +229,6 @@ describe("comments (R-SRC-5–7, R-SRC-9)", () => {
     await screen.findByRole("tooltip");
     unmount();
     expect(screen.queryByRole("tooltip")).toBeNull();
-  });
-
-  it.each([
-    [false, "submit"], [true, "submit"], [false, "cancel"], [true, "escape"],
-  ] as const)("marks the selection while a comment is written (pending edit: %s, then %s)", async (pendingEdit, action) => {
-    const onCreateComment = vi.fn();
-    const { editor } = renderEditor({ onCreateComment });
-    select(editor, 1, 6);
-    const button = await screen.findByRole("button", { name: "Comment" });
-    if (pendingEdit) {
-      act(() => {
-        const transaction = editor.state.tr.insertText("New ", 1);
-        transaction.setSelection(TextSelection.create(transaction.doc, 5, 10));
-        editor.view.dispatch(transaction);
-      });
-    }
-    fireEvent.click(button);
-    const composer = await screen.findByRole("dialog", { name: "Add comment" });
-    expect(surface().querySelector(".lx-md-comment-draft")?.textContent).toBe("Hello");
-    if (action === "cancel") fireEvent.click(within(composer).getByRole("button", { name: "Cancel" }));
-    else if (action === "escape") fireEvent.keyDown(within(composer).getByRole("textbox", { name: "Comment" }), { key: "Escape" });
-    else {
-      fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Please clarify this." } });
-      fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
-      expect(onCreateComment).toHaveBeenCalledWith(pendingEdit ? 4 : 0, pendingEdit ? 9 : 5, "Please clarify this.");
-    }
-    if (action !== "submit") expect(onCreateComment).not.toHaveBeenCalled();
-    expect(surface().querySelector(".lx-md-comment-draft")).toBeNull();
-    expect(screen.queryByRole("dialog", { name: "Add comment" })).toBeNull();
-  });
-
-  it("follows edits made while the comment is written", async () => {
-    const onCreateComment = vi.fn();
-    const { editor } = renderEditor({ text: "One Hello two", onCreateComment });
-    select(editor, 5, 10);
-    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
-    const composer = await screen.findByRole("dialog", { name: "Add comment" });
-    act(() => {
-      editor.view.dispatch(editor.state.tr.insertText("New ", 1));
-    });
-    fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Still here." } });
-    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
-    expect(onCreateComment).toHaveBeenCalledWith(8, 13, "Still here.");
-  });
-
-  it("refuses a selection whose text changed while the comment was written", async () => {
-    const onCreateComment = vi.fn();
-    const { editor } = renderEditor({ text: "One Hello two", onCreateComment });
-    select(editor, 5, 10);
-    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
-    const composer = await screen.findByRole("dialog", { name: "Add comment" });
-    act(() => {
-      editor.view.dispatch(editor.state.tr.insertText("a", 6, 7));
-    });
-    fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Why?" } });
-    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
-    expect(within(composer).getByRole("alert")).toHaveTextContent("The selected text changed. Select it again before commenting.");
-    expect(onCreateComment).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    { text: "## Intro\n\nA paragraph\n- one\n- two\n\nText", whole: false },
-    { text: "## Intro\r\n\r\nA paragraph\r\n- one\r\n- two\r\n\r\nText", whole: false },
-    { text: "## Intro\n\nA paragraph\n- one\n- two\n\nText", whole: true },
-  ])("anchors a comment in the source as written: %j", async ({ text, whole }) => {
-    const onCreateComment = vi.fn();
-    const { editor, onChange } = renderEditor({ text, onCreateComment });
-    act(() => {
-      editor.view.focus();
-      editor.view.dispatch(editor.state.tr.setSelection(whole ? new AllSelection(editor.state.doc) : TextSelection.create(editor.state.doc, 8, 19)));
-    });
-    fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
-    const composer = await screen.findByRole("dialog", { name: "Add comment" });
-    const quote = whole ? text : "A paragraph";
-    expect(composer.querySelector(".lx-md-comment-quote")?.textContent).toBe(quote);
-    fireEvent.change(within(composer).getByRole("textbox", { name: "Comment" }), { target: { value: "Clarify." } });
-    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
-    const from = whole ? 0 : text.indexOf("A paragraph");
-    expect(onCreateComment).toHaveBeenCalledWith(from, from + quote.length, "Clarify.");
-    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("offers only Comment in a read-only document", async () => {

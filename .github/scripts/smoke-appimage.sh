@@ -65,10 +65,31 @@ echo "ldd: every bundled ELF resolves its libraries"
 # The app has nothing to answer --help with and opens its window instead, so
 # a healthy launch is one still running when the timeout ends it (124). An
 # exit before that is a crash at startup, whatever the reason.
+#
+# WebKit draws the page in a web process of its own, and when that process
+# dies the app stays up with an empty window. That is how a Mesa newer than
+# the AppImage's libwayland-client fails (unbundle-wayland-client.sh), so the
+# web process must still be running too.
+#
+# The programs Lattice starts must get the host's libraries, not the
+# AppImage's (src-tauri/src/commands/appimage.rs): with Ubuntu 22.04's
+# libsystemd, Ubuntu 26.04's /usr/bin/env cannot start. The guest has no TeX,
+# so a latexmk that writes down its environment, started through
+# /usr/bin/env as TeX Live's is, stands in for it: setup's check and the
+# tutorial's first build both start it.
 if command -v xvfb-run >/dev/null; then
-  mkdir -p "$workdir/home"
+  mkdir -p "$workdir/home" "$workdir/tex" "$workdir/latexmk-env"
+  printf '#!/usr/bin/env sh\nenv >"%s/latexmk-env/$$"\n' "$workdir" >"$workdir/tex/latexmk"
+  chmod +x "$workdir/tex/latexmk"
+  PATH="$workdir/tex:$PATH" HOME="$workdir/home" timeout 20 xvfb-run -a "$root/AppRun" >"$workdir/launch.out" 2>"$workdir/launch.err" &
+  launch=$!
+  sleep 15
+  web_process=no
+  for process in /proc/[0-9]*; do
+    if [[ "$(readlink "$process/exe" 2>/dev/null)" == "$root/"*/WebKitWebProcess ]]; then web_process=yes; fi
+  done
   set +e
-  HOME="$workdir/home" timeout 20 xvfb-run -a "$root/AppRun" >"$workdir/launch.out" 2>"$workdir/launch.err"
+  wait "$launch"
   status=$?
   set -e
   if ((status != 124)); then
@@ -76,12 +97,28 @@ if command -v xvfb-run >/dev/null; then
     tail -n 60 "$workdir/launch.out" "$workdir/launch.err" >&2
     exit 1
   fi
+  if [[ "$web_process" != yes ]]; then
+    echo "smoke failed: WebKit's web process was not running 15 s after launch, so the window is empty" >&2
+    tail -n 60 "$workdir/launch.err" >&2
+    exit 1
+  fi
   if grep -Eiq 'error while loading shared libraries|GLIBC_|undefined symbol' "$workdir/launch.err"; then
     echo "smoke failed: loader errors at launch" >&2
     cat "$workdir/launch.err" >&2
     exit 1
   fi
-  echo "launch: still running after 20 s under Xvfb"
+  if [[ -z "$(ls -A "$workdir/latexmk-env")" ]]; then
+    echo "smoke failed: the latexmk Lattice starts never ran (with the AppImage's libraries, /usr/bin/env cannot start)" >&2
+    tail -n 60 "$workdir/launch.err" >&2
+    exit 1
+  fi
+  if leaked="$(grep -hF "$root" "$workdir/latexmk-env/"*)"; then
+    echo "smoke failed: the latexmk Lattice starts inherited the AppImage's folders:" >&2
+    echo "$leaked" >&2
+    exit 1
+  fi
+  echo "launch: still running after 20 s under Xvfb, and so was WebKit's web process at 15 s"
+  echo "children: the latexmk it started ran through /usr/bin/env with none of the AppImage's folders"
 else
   echo "smoke failed: xvfb-run is not installed in this guest" >&2
   exit 1
