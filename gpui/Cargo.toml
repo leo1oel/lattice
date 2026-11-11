@@ -6,6 +6,7 @@ members = [
     "compat/gpui-pre/gpui-pre-platform",
     "compat/gpui-pre/gpui-pre-sum-tree",
     "crates/lattice-gpui",
+    "crates/lattice-ui",
     "crates/tex",
 ]
 default-members = ["crates/lattice-gpui"]
@@ -46,6 +47,7 @@ anyhow = "1"
 codebook-tree-sitter-latex = "0.6.1"
 futures = "0.3"
 image = { version = "0.25", default-features = false }
+lattice-ui = { path = "crates/lattice-ui" }
 log = "0.4"
 pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
 semver = "1"

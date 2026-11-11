@@ -3,12 +3,16 @@ name: GPUI
 # The GPUI preview app in gpui/ is a Cargo workspace of its own, built from
 # Zed's crates (about 1,200 of them), and nothing in the Tauri app depends on
 # it. So this workflow runs only when gpui/ or this file changes, and CI's
-# Tauri jobs (ci.yml) skip a pull request that changes nothing else.
+# Tauri jobs (ci.yml) skip a pull request that changes nothing else. The one
+# file outside gpui/ it reads is the design system's token export:
+# gpui/crates/lattice-ui generates its tokens from it and fails a test while
+# the two disagree, so a Paper export runs this workflow too.
 on:
   push:
     branches: [main]
     paths: &gpui-paths
       - "gpui/**"
+      - "design-system/tokens.json"
       - ".github/workflows/gpui.yml"
   pull_request:
     paths: *gpui-paths
