@@ -208,3 +208,39 @@ fn an_agent_undo_conflict_is_never_uploaded_until_resolved() {
     assert_eq!(resolved.pushed, ["main.tex"]);
     assert_eq!(server.uploads().len(), 1);
 }
+
+#[test]
+fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
+    // Overleaf emptied references.bib while Papers had appended entries
+    // locally. The merge leaves diff3 markers (with the base section the
+    // resolver must drop) and records Overleaf's side as the new base.
+    // Overleaf's history confirms the emptying.
+    let base = b"@misc{a,\n  title = {A},\n}\n".as_slice();
+    let ours = b"@misc{a,\n  title = {A},\n}\n\n@misc{b,\n  title = {B},\n}\n".as_slice();
+    let theirs = b"".as_slice();
+    let root = linked_root(&[("references.bib", ours)], &[("references.bib", base)]);
+    let state = load_state(&root).unwrap();
+    let remote = BTreeMap::from([("references.bib".to_string(), theirs.to_vec())]);
+    let plan = |state: &SyncState, local: &[u8]| {
+        let local = BTreeMap::from([("references.bib".to_string(), local.to_vec())]);
+        let mut plan =
+            plan_sync(&root, state, &remote, &local, NO_LIVE, NO_RENAMES, "test").unwrap();
+        assert!(plan.settle_destructive(|_| true).is_empty());
+        plan
+    };
+    let conflicted = plan(&state, ours);
+    assert_eq!(conflicted.conflict.len(), 1);
+    let markers = String::from_utf8(conflicted.conflict[0].resolved.clone()).unwrap();
+    assert!(markers.contains("\n||||||| original\n"), "{markers}");
+    assert_eq!(conflicted.files["references.bib"], sha256_hex(theirs));
+
+    // What the next sync sees for each choice in the resolver.
+    let after = SyncState { files: conflicted.files.clone(), ..state.clone() };
+    write_base_copy(&root, "references.bib", theirs).unwrap();
+    let kept_local = plan(&after, ours);
+    assert_eq!(kept_local.push, vec!["references.bib"]);
+    assert!(kept_local.pull.is_empty() && kept_local.conflict.is_empty());
+    let kept_overleaf = plan(&after, theirs);
+    assert!(kept_overleaf.push.is_empty());
+    assert!(kept_overleaf.pull.is_empty() && kept_overleaf.conflict.is_empty());
+}

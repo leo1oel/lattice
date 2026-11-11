@@ -176,7 +176,8 @@ fn every_bundled_template_builds_a_pdf() {
     for venue in ALL_VENUES {
         let root = create_with_venue(&parent.root, venue.as_str(), venue).unwrap();
         let result =
-            build(&root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
+            build(&root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent())
+                .unwrap();
         assert!(result.success, "{}: {}", venue.as_str(), result.log);
         assert!(read_compiled_pdf(&root).unwrap().starts_with(b"%PDF-"), "{}", venue.as_str());
         if venue.engine() == "xelatex" {

@@ -215,32 +215,41 @@ describe("useUpdater / check", () => {
     expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({ level: "error", source: "App updater", toast: false, detail }));
   });
 
-  it.each([
-    ["waiting", async () => { offerUpdate(); return renderChecked(); }, "available"],
-    ["downloading", async () => (await startPausedInstall()).result, "downloading"],
-  ] as const)("does not ask again while an update is %s", async (_, arrange, phase) => {
-    const result = await arrange();
+  it("asks again while an offer waits, and keeps offering the same release", async () => {
+    // A newer release may have come out meanwhile (app-updater-newest-release.test.tsx).
+    offerUpdate();
+    const result = await renderChecked();
     await run(() => result.current.check(false));
 
-    expect(plugins.check).toHaveBeenCalledOnce();
+    expect(plugins.check).toHaveBeenCalledTimes(2);
+    expect(result.current.phase).toBe("available");
+    expect(result.current.version).toBe("0.1.230");
+  });
+
+  it("does not ask again while an update is downloading", async () => {
+    const { result } = await startPausedInstall();
+    const asked = plugins.check.mock.calls.length;
+    await run(() => result.current.check(false));
+
+    expect(plugins.check).toHaveBeenCalledTimes(asked);
     // The explicit second call must not have downgraded the banner either.
-    expect(result.current.phase).toBe(phase);
+    expect(result.current.phase).toBe("downloading");
   });
 
   it("keeps looking for releases after an install failed", async () => {
-    // `check` returns early while an update is held, and a failed install
-    // leaves it held. The banner it leaves behind only offers ×, so the check
-    // must be released without anyone dismissing it. The guard is only relaxed
-    // for a *failed* install: a healthy download still holds it (above).
+    // A failed install leaves its update held, behind a banner that only
+    // offers ×, so later checks must still notice the next release without
+    // anyone dismissing it. A healthy download still holds checks off (above).
     offerUpdate(failingInstall());
     const result = await renderChecked();
     await run(() => result.current.install());
     expect(result.current.phase).toBe("error");
 
     const next = offerUpdate({ version: "0.1.231" });
+    const asked = plugins.check.mock.calls.length;
     await run(() => result.current.check());
 
-    expect(plugins.check).toHaveBeenCalledTimes(2);
+    expect(plugins.check).toHaveBeenCalledTimes(asked + 1);
     expect(result.current.phase).toBe("available");
     expect(result.current.version).toBe("0.1.231");
     expect(result.current.error).toBeNull();

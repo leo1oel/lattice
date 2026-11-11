@@ -400,12 +400,17 @@ pub(super) enum MergeOutcome {
     Unmergeable,
 }
 
-pub(super) fn merge_three_way(root: &Path, rel: &str, remote: &[u8], local: &[u8]) -> MergeOutcome {
+/// Combine both sides of `rel` against the merge base kept for `base_rel`:
+/// `rel` itself, unless a rename on Overleaf carried the file (see
+/// `sync::renames`).
+pub(super) fn merge_three_way(
+    root: &Path, rel: &str, base_rel: &str, remote: &[u8], local: &[u8],
+) -> MergeOutcome {
     if !is_mergeable_text(rel, remote) || !is_mergeable_text(rel, local) {
         return MergeOutcome::Unmergeable;
     }
     let (Some(base), Ok(ours), Ok(theirs)) =
-        (read_base_copy(root, rel), std::str::from_utf8(local), std::str::from_utf8(remote))
+        (read_base_copy(root, base_rel), std::str::from_utf8(local), std::str::from_utf8(remote))
     else {
         return MergeOutcome::Unmergeable;
     };
@@ -508,7 +513,8 @@ mod tests {
         let local = BTreeMap::from([("main.tex".to_string(), agent.to_vec())]);
         let remote = BTreeMap::from([("main.tex".to_string(), human.to_vec())]);
         let plan = |state: &SyncState, remote: &BTreeMap<String, Vec<u8>>| {
-            plan_sync(&root, state, remote, &local, &BTreeSet::new(), "test").unwrap()
+            plan_sync(&root, state, remote, &local, &BTreeSet::new(), &BTreeMap::new(), "test")
+                .unwrap()
         };
         edit_state(&root, |state| state.remote_version = Some(91));
         let before = load_state(&root).unwrap();

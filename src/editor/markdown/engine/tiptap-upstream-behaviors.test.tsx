@@ -119,6 +119,16 @@ describe("deleteSelection", () => {
     type(editor, "X");
     await waitFor(() => expect(lastChange(onChange)).toBe("a **X** z"));
   });
+
+  // Core's clearDocument keymap (3.33.1+) drops the stored marks when the
+  // whole document is deleted, so the empty document starts unformatted.
+  it("drops the bold mark when the whole document is deleted", async () => {
+    const { editor, onChange } = renderEditor("**bold** text");
+    caret(editor, 1, editor.state.doc.content.size - 1);
+    press("Backspace");
+    type(editor, "X");
+    await waitFor(() => expect(lastChange(onChange)).toBe("X"));
+  });
 });
 
 describe("clearNodes (the selection toolbar's Text block)", () => {

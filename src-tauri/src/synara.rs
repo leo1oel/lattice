@@ -256,15 +256,11 @@ impl SynaraRuntime {
             bibliography_guard::command(&self.node.executable, &self.home_dir, &executable)?;
         self.node.configure(&mut command);
         command.arg(&self.server_entry);
-        // Web storage is scoped to the complete iframe origin, including its
-        // port. Reuse the previous sidecar port when it is free so a sidecar
-        // restarted within one Lattice session keeps the frames' origin, and
-        // with it the storage they already wrote. It cannot carry storage
-        // across a quit: WebKit drops this third-party frame's storage when
-        // Lattice exits, whatever the port, so the fork keeps the panel's
-        // local-only settings and drafts in its own state directory instead
-        // (docs/synara-fork-ledger.md). Dynamic allocation remains the
-        // fallback for port conflicts.
+        // Web storage is scoped to the iframe origin, port included, so a
+        // sidecar restarted within a session reuses its free port to keep the
+        // storage its frames wrote. WebKit drops that storage at quit anyway,
+        // so the fork keeps panel settings and drafts in its own state
+        // directory (docs/synara-fork-ledger.md). Dynamic ports cover conflicts.
         let port = available_preferred_server_port(self.preferred_port);
         wide_event::record("port", if port.is_some() { "preferred" } else { "dynamic" });
         match port {
@@ -296,6 +292,8 @@ impl SynaraRuntime {
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(stderr));
         environment.apply(&mut command);
+        // After the shell's variables, so Lattice's Pi configuration wins.
+        crate::model_endpoint::configure_sidecar(&mut command, &self.home_dir, &executable);
         let child = command
             .spawn()
             .map_err(|error| format!("Could not start the built-in agent service: {error}"))?;

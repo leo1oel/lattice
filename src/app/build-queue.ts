@@ -4,15 +4,21 @@
  */
 
 /** A build asked for while another runs; `force: null` means nothing is queued. */
-export type QueuedBuild = { force: boolean | null; sound: boolean; bringForward: boolean; consumeAgentAssociations: boolean; clean: boolean };
-export const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, bringForward: false, consumeAgentAssociations: false, clean: false };
+export type QueuedBuild = {
+  force: boolean | null; sound: boolean; bringForward: boolean; consumeAgentAssociations: boolean; clean: boolean; unattended: boolean;
+};
+export const IDLE_QUEUE: QueuedBuild = {
+  force: null, sound: false, bringForward: false, consumeAgentAssociations: false, clean: false, unattended: false,
+};
 
 /** Fold a request into the queued pass; any request asking for something gets it. */
 export function enqueueBuild(
   queue: QueuedBuild,
   force: boolean,
-  options: { sound?: boolean; bringForward?: boolean; consumeAgentAssociations?: boolean; clean?: boolean } | undefined,
+  options: { sound?: boolean; bringForward?: boolean; consumeAgentAssociations?: boolean; clean?: boolean; unattended?: boolean } | undefined,
 ) {
+  // Unattended only while every request folded in is: one the writer made is still theirs.
+  queue.unattended = (queue.force === null || queue.unattended) && options?.unattended === true;
   queue.force = (queue.force ?? false) || force;
   queue.sound ||= options?.sound === true;
   queue.bringForward ||= options?.bringForward === true;

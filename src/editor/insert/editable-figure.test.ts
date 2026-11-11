@@ -4,7 +4,7 @@ import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 import {
   editableFigureBlockSnippet, editableFigureChanges, editableFigureFromHtml, editableFigureInclude, figureSourcePath, includedTexPaths,
-  insideFigureHolder, isDefinitionsOnly, missingPreambleInsertions, pastesFigureBlock, preambleFiles, preambleNeedsConfirmation, type ImportedFigure,
+  insideFigureHolder, isDefinitionsOnly, knownGraphicsPath, missingPreambleInsertions, pastesFigureBlock, preambleFiles, preambleNeedsConfirmation, type ImportedFigure,
 } from "./editable-figure";
 
 const manifest = {
@@ -74,6 +74,17 @@ describe("editable figure insertion", () => {
     expect(missingPreambleInsertions(commented, [], "figures/")).toEqual([
       { from: pre.length - 1, insert: `\n${PATH}` },
     ]);
+  });
+
+  it("takes ./figures/ as figures/, and counts what the preamble's files load and set", () => {
+    const pre = "\\documentclass{a}\n\\usepackage{graphicx}\n";
+    expect(missingPreambleInsertions(`${pre}\\graphicspath{{./figures/}}\n\\begin{document}\n`, [], "figures/")).toEqual([]);
+    const bare = "\\documentclass{a}\n\\input{preamble}\n\\begin{document}\n";
+    const known = "\\usepackage{graphicx}\n\\RequirePackage{tikz}\n\\graphicspath{{img/}}\n";
+    expect(missingPreambleInsertions(bare, ["tikz"], "figures/", known)).toEqual([]);
+    expect(knownGraphicsPath(known, "figures/")).toBe("unlisted");
+    expect(knownGraphicsPath(`${known}\\graphicspath{{img/}{figures/}}`, "figures/")).toBe("listed");
+    expect(knownGraphicsPath("% \\graphicspath{{img/}}", "figures/")).toBeNull();
   });
 
   it("needs no path for a figure in the project root", () => {

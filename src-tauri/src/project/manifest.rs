@@ -12,18 +12,24 @@ use crate::util::err;
 use crate::wide_event::{self, Failure};
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 pub(super) const MANIFEST_PATH: &str = ".research/project.json";
 /// The manifest's format; 2 is the first without a seeded word budget.
 pub(super) const MANIFEST_SCHEMA_VERSION: u32 = 2;
 
-pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
-    let root = root.canonicalize().map_err(err)?;
+/// The folder `path` names, resolved as opening it as a project resolves it.
+pub fn folder_root(path: &Path) -> Result<PathBuf, String> {
+    let root = path.canonicalize().map_err(err)?;
     if !root.is_dir() {
         return Err("The selected path is not a folder.".to_string());
     }
+    Ok(root)
+}
+
+pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
+    let root = folder_root(root)?;
 
     for directory in [".research/history", ".research/papers", ".research/sessions"] {
         fs::create_dir_all(root.join(directory)).map_err(err)?;

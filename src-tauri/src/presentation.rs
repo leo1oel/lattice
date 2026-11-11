@@ -350,6 +350,7 @@ impl PresentationRuntime {
 
     fn spawn(&self, shadow: &Path, control_token: &str) -> Result<(Child, ReadyLine), String> {
         let mut command = Command::new(&self.node.executable);
+        crate::commands::host_environment(&mut command);
         self.node.configure(&mut command);
         command
             .arg(&self.entry_path)

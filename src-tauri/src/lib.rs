@@ -9,6 +9,7 @@ mod about_links;
 mod agent_literature;
 mod alphaxiv;
 mod app_identity;
+mod app_log;
 mod app_restart;
 mod app_state;
 #[cfg(target_os = "macos")]
@@ -49,6 +50,7 @@ mod macos_window;
 #[cfg(not(target_os = "macos"))]
 #[path = "macos_window_stub.rs"]
 mod macos_window;
+mod model_endpoint;
 mod models;
 mod native_locale;
 mod open_slide_presenter;
@@ -311,36 +313,6 @@ fn reopen(app: &AppHandle) {
     }
 }
 
-/// Crates that log a line per request, frame or file event at debug level.
-const NOISY_DEPENDENCIES: &[&str] = &[
-    "tao",
-    "wry",
-    "tauri",
-    "reqwest",
-    "hyper",
-    "hyper_util",
-    "h2",
-    "rustls",
-    "tungstenite",
-    "tokio_tungstenite",
-    "axum",
-    "tower",
-    "mio",
-    "notify",
-    "globset",
-    "ignore",
-    "html5ever",
-    "selectors",
-];
-
-/// The log level: `LATTICE_LOG` (error, warn, info, debug or trace) when set,
-/// else debug in development builds and info in release builds.
-fn log_level(setting: Option<&str>) -> log::LevelFilter {
-    let default =
-        if cfg!(debug_assertions) { log::LevelFilter::Debug } else { log::LevelFilter::Info };
-    setting.and_then(|value| value.trim().parse().ok()).unwrap_or(default)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -354,7 +326,7 @@ pub fn run() {
     process_inspector::run_if_requested();
     app_identity::init(&context.config().identifier);
     http::install_tls_provider();
-    if agent_literature::run_cli() || research_env::run_cli() {
+    if agent_literature::run_cli() || research_env::run_cli() || model_endpoint::run_cli() {
         return;
     }
     // Panics after the log plugin installs its logger land in the log file;
@@ -364,29 +336,9 @@ pub fn run() {
     }));
     // Operation spans become wide events written through the log plugin below.
     wide_event::init();
-    let level = log_level(std::env::var("LATTICE_LOG").ok().as_deref());
-    let mut log_plugin = tauri_plugin_log::Builder::new()
-        .targets([
-            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                file_name: Some("lattice".to_string()),
-            }),
-            #[cfg(debug_assertions)]
-            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-        ])
-        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
-        .max_file_size(2 * 1024 * 1024)
-        .level(level)
-        .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal);
-    // Debug is for Lattice's own lines. The window, network and file-watch
-    // crates would bury them, so only `trace` lets those through below info.
-    if level < log::LevelFilter::Trace {
-        for chatty in NOISY_DEPENDENCIES {
-            log_plugin = log_plugin.level_for(*chatty, level.min(log::LevelFilter::Info));
-        }
-    }
     let builder = tauri::Builder::default()
         // Registered first so init-time logs from the other plugins are captured.
-        .plugin(log_plugin.build())
+        .plugin(app_log::plugin().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init());
@@ -448,6 +400,7 @@ pub fn run() {
             ipc::workspace::open_tutorial_project,
             ipc::workspace::initial_project,
             ipc::workspace::open_project,
+            ipc::workspace::project_shown_elsewhere,
             ipc::workspace::import_project_zip,
             ipc::workspace::export_project_zip,
             ipc::workspace::check_arxiv_package,
@@ -674,6 +627,10 @@ pub fn run() {
             literature_credentials::set_literature_credential,
             literature_credentials::set_literature_contact,
             literature_credentials::test_literature_credential,
+            model_endpoint::get_model_endpoint,
+            model_endpoint::save_model_endpoint,
+            model_endpoint::remove_model_endpoint,
+            model_endpoint::test_model_endpoint,
             diagnostic_logs::collect_diagnostic_logs,
             diagnostic_logs::save_problem_report,
             browser_host::dialogs::browser_dialog_open,
@@ -718,9 +675,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        is_workspace_window, keeps_running_without_windows, log_level, window_state_tracks,
-    };
+    use super::{is_workspace_window, keeps_running_without_windows, window_state_tracks};
 
     #[test]
     fn closing_the_last_window_leaves_lattice_running_on_a_mac() {
@@ -748,15 +703,5 @@ mod tests {
         for label in ["browser-1", "pdf-1"] {
             assert!(!window_state_tracks(label), "{label}");
         }
-    }
-
-    #[test]
-    fn lattice_log_overrides_the_build_default_level() {
-        assert_eq!(log_level(Some("debug")), log::LevelFilter::Debug);
-        assert_eq!(log_level(Some(" WARN ")), log::LevelFilter::Warn);
-        let default =
-            if cfg!(debug_assertions) { log::LevelFilter::Debug } else { log::LevelFilter::Info };
-        assert_eq!(log_level(Some("verbose")), default);
-        assert_eq!(log_level(None), default);
     }
 }

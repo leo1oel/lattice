@@ -65,14 +65,17 @@ export const AppOverleafDialogs = memo(function AppOverleafDialogs({
       <OverleafPickerDialog
         open
         onClose={() => setOverleafPickerOpen(false)}
-        onCloned={(root) => {
+        onCloned={(root, inThisWindow) => {
           setOverleafPickerOpen(false);
-          void lifecycle.revealNewProject(t`Opening the Overleaf project…`, async () => root);
+          // Downloaded, it is a folder on disk like any other.
+          if (inThisWindow) void lifecycle.openExistingProject(root, true);
+          else void lifecycle.revealNewProject(t`Opening the Overleaf project…`, async () => root);
         }}
-        onOpenLocalCopy={(root) => {
+        onOpenLocalCopy={(root, inThisWindow) => {
           setOverleafPickerOpen(false);
-          void lifecycle.openExistingProject(root);
+          void lifecycle.openExistingProject(root, inThisWindow);
         }}
+        canOpenHere={Boolean(project)}
         knownFolders={lifecycle.recentProjects}
         currentProject={!overleaf.overleafProjectLinked && project ? { name: project.manifest.name } : null}
         onPublish={overleaf.publishProjectToOverleaf}

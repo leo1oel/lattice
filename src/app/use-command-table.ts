@@ -9,7 +9,7 @@ import { useLingui } from "@lingui/react/macro";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BROWSER_ENTRY_PORT } from "../platform/flavor";
 import { requestMarginReviewHere, setMarginReviewMode } from "../overleaf/margin-review-mode";
-import { switcherProjects, welcomeDeskProjects } from "../project/first-pages";
+import { switcherProjects } from "../project/first-pages";
 import type { NewEntryType } from "../project/project-new-entries";
 import { loadRecentCommands, rememberRecentCommand, type ThemePreference } from "../settings/app-settings";
 import type { SettingsSearchEntry } from "../settings/settings-search-index";
@@ -31,6 +31,7 @@ import { paletteSurface } from "./command-palette-leading";
 import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./panel-toggles";
 import { projectPanelCommands } from "./project-panel-commands";
 import { journalExportCommand } from "./journal-export-command";
+import { projectSwitchCommands } from "./project-switch-commands";
 import type { SearchDialog } from "./app-search-dialogs";
 import { collectFilePaths } from "./workspace-restore";
 import { subscribeTauriEvent } from "./effect-helpers";
@@ -88,6 +89,7 @@ export type CommandTableDeps = {
     ReturnType<typeof useProjectLifecycle>,
     | "recentProjects" | "unopenedProject" | "createForm" | "updateCreateForm" | "busyLabel" | "chooseExisting"
     | "chooseRecentProject" | "exportProjectZip" | "importOverleafZip" | "openTutorialProject" | "moveWorkspace" | "clone"
+    | "openInThisWindow"
   >;
   overleaf: Pick<
     ReturnType<typeof useOverleafWorkspace>,
@@ -132,7 +134,7 @@ export function useCommandTable({
   const { revealSourceInPdf } = syncTex;
   const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
   const {
-    recentProjects, unopenedProject, createForm, updateCreateForm, busyLabel, chooseExisting, chooseRecentProject,
+    recentProjects, createForm, updateCreateForm, busyLabel, chooseExisting, chooseRecentProject,
     exportProjectZip, importOverleafZip, openTutorialProject, moveWorkspace, clone,
   } = lifecycle;
   const { overleafLink, overleafSyncing, overleafPickerOpen, setOverleafPickerOpen, openCurrentOverleafProject } = overleaf;
@@ -174,7 +176,6 @@ export function useCommandTable({
   };
   const trellisUi = trellis.ui.get();
   const docTools = trellis.docTools.get();
-  const otherRecentProjects = recentProjects.filter((recent) => recent.path !== project?.root);
   // ⌘S saves, then builds what it saved; on a Paper there is nothing to build.
   const saveCommand: AppCommand = {
     id: "save", when: inProject, label: t`Save and build`, group: "build", key: "s", palette: false,
@@ -324,19 +325,10 @@ export function useCommandTable({
     { id: "new-project", label: t`New project`, group: "project", key: "n", shift: true, run: () => updateCreateForm({ open: true }) },
     { id: "open-folder", label: t`Open another folder`, group: "project", key: "o", run: () => void chooseExisting() },
     { id: "clone-repository", label: t`Clone a Git repository`, keywords: t({ message: "git clone GitHub GitLab", comment: "Search words for the Clone a Git repository command, space-separated" }), group: "project", run: clone.show },
-    ...otherRecentProjects.map(({ name, path }, index): AppCommand => ({
-      id: `recent-project-${index}`, label: spaceMixedScript(t`Open ${name}`), detail: path, group: "project",
-      // Ids by position, so no path is remembered; and never in Recent, where a position may name another project.
-      recent: false,
-      run: () => void chooseRecentProject(path),
-    })),
-    // ⌘1 to ⌘3 on the welcome screen: the projects on its desk, by place. In a
-    // project the same keys switch workspaces, so these are only listed here.
-    ...(inProject ? [] : welcomeDeskProjects(recentProjects, unopenedProject?.path).map(({ path }, index): AppCommand => ({
-      id: `desk-project-${index + 1}`, label: t`Open a recent project by its place`, group: "project", key: String(index + 1), palette: false,
-      when: !createForm.open && !clone.open && !busyLabel && !settingsOpen && !overleafPickerOpen,
-      run: () => void chooseRecentProject(path),
-    }))),
+    ...projectSwitchCommands({
+      i18n, root: project?.root ?? null, lifecycle,
+      deskKeys: !createForm.open && !clone.open && !busyLabel && !settingsOpen && !overleafPickerOpen,
+    }),
     { id: "import-zip", label: t`Import Overleaf ZIP`, group: "overleaf", run: () => void importOverleafZip() },
     { id: "overleaf-open", label: t`Open an Overleaf project`, group: "overleaf", run: () => setOverleafPickerOpen(true) },
     { id: "overleaf-sync", when: inProject && overleafLink !== null && !overleafSyncing, label: t`Sync with Overleaf`, group: "overleaf", run: syncOverleaf },

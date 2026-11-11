@@ -40,6 +40,12 @@ export type BuildOptions = {
   consumeAgentAssociations?: boolean;
   /** Autosave asked: it waits for a pause while the live preview is live (quiet-builds.ts). */
   automatic?: boolean;
+  /**
+   * Lattice started it on its own, as it does every automatic build: a failing
+   * document nothing changed in is not typeset again, where the writer's own
+   * Build is (latex/build/unchanged.rs).
+   */
+  unattended?: boolean;
   /** Runs without the Build button's spinner or the PDF's "Updating…" (quiet-builds.ts). */
   quiet?: boolean;
   /** Clean auxiliary files first: Clean and rebuild asked while another build held the pipeline. */

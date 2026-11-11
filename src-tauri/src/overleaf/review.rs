@@ -411,6 +411,8 @@ pub(super) struct HistoryUpdate {
     /// Whether it changed the project tree — added, removed or renamed
     /// anything — rather than only editing documents.
     pub tree: bool,
+    /// Those tree operations, `project_ops` as Overleaf lists them.
+    pub ops: Vec<Value>,
 }
 
 impl HistoryUpdate {
@@ -482,6 +484,7 @@ pub(super) fn history_since(
                 end_ts: update.get("meta").and_then(|meta| meta.get("end_ts")?.as_i64()),
                 paths,
                 tree: ops.is_some_and(|ops| !ops.is_empty()),
+                ops: ops.cloned().unwrap_or_default(),
             };
             if !wanted(&update) {
                 return Ok(history);

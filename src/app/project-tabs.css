@@ -1,0 +1,15 @@
+/* The title bar's project tabs (project-tabs.tsx). The active project keeps
+   the project title's look and menu; the others read as their name in the
+   secondary ink, as a panel's unselected tab does. Each tab's close button
+   holds one slot whatever it shows, so hovering never moves its neighbours:
+   it shows on the active tab, and on another while the tab is hovered or
+   holds focus. */
+.project-tabs { min-width: 0; height: 100%; display: flex; align-items: center; gap: var(--space-1); }
+.project-tab { min-width: 0; height: var(--titlebar-action-size); flex: none; border-radius: var(--radius-chrome); display: flex; align-items: center; }
+.project-tab:not([data-active]):hover { background: var(--chrome-hover-surface); }
+.project-tab-name { max-width: var(--titlebar-project-title-max-width-compact); height: 100%; min-width: 0; border-radius: var(--radius-chrome); padding: 0 var(--space-2) 0 var(--space-4); background: transparent; color: var(--text-secondary); font-size: var(--type-subtitle-size); font-weight: var(--weight-regular); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-tab-name:hover, .project-tab-name:focus-visible { color: var(--text-chrome); }
+.project-tab-close { width: var(--space-10); height: var(--space-10); flex: none; margin-inline: 0 var(--space-2); border-radius: var(--radius-chrome); background: transparent; color: var(--text-tertiary); display: grid; place-items: center; opacity: 0; }
+.project-tab[data-active] .project-tab-close, .project-tab:hover .project-tab-close, .project-tab:focus-within .project-tab-close { opacity: 1; }
+.project-tab-close:hover, .project-tab-close:focus-visible { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.project-tab-menu-anchor { position: fixed; width: 0; height: 0; pointer-events: none; }

@@ -435,11 +435,11 @@ jobs:
   rust-linux:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    # GNU ld linking the test binary with full debug info was killed for
+    # memory in an 8 GB Linux VM. src-tauri/Cargo.toml's [profile.dev] now
+    # keeps line tables for this crate and none for dependencies, so this job
+    # needs no override of its own.
     runs-on: ubuntu-22.04
-    env:
-      # GNU ld linking the test binary with full debug info was killed for
-      # memory in an 8 GB Linux VM; line tables keep file:line in backtraces.
-      CARGO_PROFILE_DEV_DEBUG: line-tables-only
     steps:
       - uses: actions/checkout@v7
       # Tauri's WebKitGTK stack, plus D-Bus for the Secret Service keyring.

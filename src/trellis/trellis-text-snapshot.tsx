@@ -4,7 +4,7 @@
  * show them until a click makes the document active (see
  * trellis-document-views.tsx).
  */
-import { Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Eye } from "lucide-react";
 import { EditorState } from "@codemirror/state";
@@ -22,6 +22,7 @@ import { marginReviewFile, subscribeMarginReviewFiles } from "../overleaf/margin
 import { marginReviewMode, subscribeMarginReview } from "../overleaf/margin-review-mode";
 import { capturePreviewViewport, restorePreviewViewport } from "../canvas/markdown-preview-sync";
 import { useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
+import { SnapshotProjectContext, snapshotTextKey } from "./snapshot-texts";
 import { useBesideActive } from "./use-beside-active";
 
 // The live source editor parses LaTeX with Lattice's own `latex()`, not the
@@ -31,6 +32,8 @@ import { useBesideActive } from "./use-beside-active";
 const LATEX_SNAPSHOT_LANGUAGE = [latex()];
 
 const refuseEdit = () => false;
+// Built once: every EditorView.theme call adds its rules to the page for good.
+const SNAPSHOT_FILL = EditorView.theme({ "&": { height: "100%" }, "& .cm-scroller": { height: "100% !important" } });
 
 /**
  * A document that is not the active one, read-only and drawn the way it
@@ -68,7 +71,9 @@ export function TextSnapshot({ controller, fileKey, panelId }: { controller: Tre
 function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisController; fileKey: string; mode: TrellisViewMode }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const [text, setText] = useState<string | null>(() => controller.texts.get(fileKey) ?? null);
+  const projectRoot = useContext(SnapshotProjectContext);
+  const textKey = snapshotTextKey(projectRoot, fileKey);
+  const [text, setText] = useState<string | null>(() => controller.texts.get(textKey) ?? null);
   const filesRevision = useTrellisApp(controller, (state) => state.filesRevision);
   const isLatex = isLatexSourcePath(fileKey);
   const textLanguage = useTextLanguageExtensions(isLatex ? "" : fileKey);
@@ -77,11 +82,11 @@ function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisCon
     let disposed = false;
     void controller.bridge?.readText(fileKey).then((value) => {
       if (disposed || value === null) return;
-      controller.texts.set(fileKey, value);
+      controller.texts.set(textKey, value);
       setText((current) => (current === value ? current : value));
     });
     return () => { disposed = true; };
-  }, [controller, fileKey, filesRevision]);
+  }, [controller, fileKey, filesRevision, textKey]);
   useLayoutEffect(() => {
     const parent = parentRef.current;
     if (!parent || text === null || mode === "pdf") return;
@@ -94,13 +99,12 @@ function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisCon
       EditorView.editable.of(false),
       syntaxHighlighting(latexHighlightStyle),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      EditorView.theme({ "&": { height: "100%" }, "& .cm-scroller": { height: "100% !important" } }),
+      SNAPSHOT_FILL,
       ...language,
     ];
     // The live editor this tab last had, parked: its place to the pixel and
     // its parse, so the snapshot shown while the tab becomes active again
     // matches what the live editor then shows (see parked-editors.ts).
-    const { projectRoot } = controller.app.get();
     const resumed = projectRoot ? resumeParkedEditor(projectRoot, fileKey, text, extensions) : null;
     const view = new EditorView({
       parent,
@@ -114,7 +118,7 @@ function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisCon
       viewRef.current = null;
       view.destroy();
     };
-  }, [controller, fileKey, language, mode, text]);
+  }, [controller, fileKey, language, mode, projectRoot, text]);
   return (
     <div
       className="trellis-snapshot source-editor"

@@ -44,6 +44,10 @@ msgstr "“{0}”里已有文件，且没关联 Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}”保持关联"
 
+#: src/app/leave-project.ts
+msgid "“{command}” in the terminal"
+msgstr "终端中的“{command}”"
+
 #: src/project/clone-repository-dialog.tsx
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
@@ -569,9 +573,21 @@ msgstr "{documentName} — 源码"
 msgid "{dpi} DPI at the specified width"
 msgstr "按指定宽度计算为 {dpi} DPI"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{elapsed} elapsed"
+msgstr "已用时 {elapsed}"
+
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
 msgstr "正在空白文件夹中用 {engine} 编译…"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} asks for lines in the preamble of {rootPath}"
+msgstr "{entryPath} 需要在 {rootPath} 的导言区加入几行"
+
+#: src/project/figure-needs-actions.ts
+msgid "{entryPath} finds its drawing there. {command} is set in a file the preamble loads, so Lattice does not add a second one, which would replace it."
+msgstr "{entryPath} 在那里查找它的图。{command} 设置在导言区加载的文件中，因此 Lattice 不会再添加一个，否则会覆盖它。"
 
 #: src/build/build-result-text.ts
 msgid "{errors} error"
@@ -990,6 +1006,14 @@ msgstr "第 {position}/{total} 条"
 msgid "{projectName} — {documentTitle}"
 msgstr "{projectName} — {documentTitle}"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} of {total}"
+msgstr "已接收 {received}，共 {total}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} received"
+msgstr "已接收 {received}"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} 处引用"
@@ -1029,6 +1053,10 @@ msgstr "{size}，上限 {limit}"
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size}，上限 {limit}；请移除较大的图片"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{size}/s"
+msgstr "{size}/秒"
 
 #: src/platform/host-errors-project.ts
 msgid "{source} could not be found."
@@ -1349,6 +1377,10 @@ msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引
 msgid "A co-author edited text you changed. Both versions are kept."
 msgstr "合作者编辑了你改动过的文字，两个版本都已保留。"
 
+#: src/app/leave-project.ts
+msgid "a command in the terminal"
+msgstr "终端中的命令"
+
 #: src/terminal/terminal-window.ts
 msgid "A command is still running. Closing stops it."
 msgstr "仍有命令在运行，关闭会将其停止。"
@@ -1373,17 +1405,21 @@ msgstr "另一个窗口里开着别的项目的幻灯片"
 msgid "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
 msgstr "如果文档的 babel 或 polyglossia 语言不是英语，则按该语言检查拼写。首次需要时会从 wooorm/dictionaries 下载其词典。"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 msgstr "绘图可能来自任何人，因此 Lattice 只在你要求时才运行绘图程序。若想让插图随绘图自动更新，请在本项目设置中打开「允许 shell escape」。"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing changed: {path}"
 msgstr "绘图已更改：{path}"
 
 #: src/platform/host-errors-project.ts
 msgid "A dropped file"
 msgstr "拖入的文件"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "A few seconds left"
+msgstr "还剩几秒"
 
 #: src/build/compile-explain.ts
 msgid "A figure or table is {points} pt taller than the page"
@@ -1436,6 +1472,10 @@ msgstr "关联的文献库必须是 .bib 文件"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "还有修改没传到 Overleaf，暂时不能重新载入"
+
+#: src/platform/host-errors-setup.ts
+msgid "A model name is empty or has spaces in it."
+msgstr "有模型名称为空或包含空格。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "A newer Overleaf connection replaced this one."
@@ -1535,10 +1575,26 @@ msgstr "有窗口没能保存修改，Lattice 没有重启"
 msgid "About"
 msgstr "关于"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {hours} h left"
+msgstr "约剩 {hours} 小时"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {minutes} min left"
+msgstr "约剩 {minutes} 分钟"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "关于 {name}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {rounded} s left"
+msgstr "约剩 {rounded} 秒"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About 1 h left"
+msgstr "约剩 1 小时"
 
 #: src/project/deadline-card.tsx
 msgid "abstract"
@@ -1598,6 +1654,10 @@ msgstr "在 Overleaf 上接受邀请后就能在这里打开"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Accepted"
 msgstr "已接受"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Accepts images"
+msgstr "支持图片"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
@@ -1661,6 +1721,10 @@ msgstr "添加 {0} 篇论文"
 msgid "Add {title} to Papers"
 msgstr "把 {title} 加入论文库"
 
+#: src/project/figure-needs-actions.ts
+msgid "Add {unlisted} to the {command} in the preamble of {rootPath}"
+msgstr "请将 {unlisted} 加入 {rootPath} 导言区中的 {command}"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/zotero-browser.tsx
 msgid "Add 1 paper"
@@ -1717,6 +1781,10 @@ msgstr "添加字段"
 #: src/project/submission-items.tsx
 msgid "Add items from"
 msgstr "从模板添加"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Add model"
+msgstr "添加模型"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Add or edit a link"
@@ -1809,6 +1877,10 @@ msgstr "已添加 1 篇论文"
 msgid "Added to {path}"
 msgstr "已加到 {path}"
 
+#: src/project/figure-needs-actions.ts
+msgid "Added what {entryPath} now needs to the preamble of {rootPath}"
+msgstr "已将 {entryPath} 现在需要的内容加入 {rootPath} 的导言区"
+
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
 #: src/papers/add-papers-sheet.tsx
@@ -1830,6 +1902,11 @@ msgstr "添加论文需要论文工具，约 45 MB。"
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "正在添加…"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Address"
+msgstr "地址"
 
 #: src/settings/theme-settings.tsx
 msgid "Adjusted so links and selected text read at {ratio}:1"
@@ -2215,11 +2292,16 @@ msgstr "回答并修改"
 msgid "Answer the agent"
 msgstr "回答 AI 助手"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Anthropic-compatible"
+msgstr "兼容 Anthropic"
+
 #: src/project/deadline-card.tsx
 msgid "AoE (UTC−12)"
 msgstr "AoE 时间（UTC−12）"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "API key"
 msgstr "API 密钥"
@@ -2332,6 +2414,10 @@ msgstr "article 应写 journal，而不是 booktitle"
 msgid "arXiv identifier"
 msgstr "arXiv 编号"
 
+#: src/build/compile-explain.ts
+msgid "arydshln and colortbl clash at this table’s end"
+msgstr "arydshln 与 colortbl 在此表格结尾处冲突"
+
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
 msgstr "重新请求"
@@ -2360,6 +2446,10 @@ msgstr "让 AI 助手改一段"
 #: src/canvas/annotation-review.tsx
 msgid "Asking the agent again…"
 msgstr "正在重新请 AI 助手修改…"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Asking the first model to call a tool. This can take up to 45 seconds."
+msgstr "正在请第一个模型调用一个工具，最多可能需要 45 秒。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
@@ -2585,6 +2675,10 @@ msgstr "Agent 修改前，这里是空的。"
 #: src/overleaf/overleaf-changes.tsx
 msgid "Before the first section"
 msgstr "第一节之前"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Before you start"
+msgstr "开始之前"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Beta"
@@ -3008,6 +3102,10 @@ msgstr "征稿链接或说明"
 msgid "Callout"
 msgstr "提示框"
 
+#: src/settings/model-endpoint-probe.ts
+msgid "Calls tools"
+msgstr "能调用工具"
+
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
 #: src/settings/tex-package-updates-row.tsx
@@ -3050,6 +3148,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/project/rename-dialog.tsx
 #: src/project/submission-items.tsx
 #: src/telemetry/app-log.tsx
 #: src/telemetry/update-recovery.ts
@@ -3875,7 +3974,7 @@ msgstr "克隆进度"
 msgid "Clone repository"
 msgstr "克隆仓库"
 
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Clone repository…"
 msgstr "克隆仓库…"
 
@@ -3888,6 +3987,7 @@ msgstr "克隆仓库…"
 msgid "Cloning…"
 msgstr "正在克隆…"
 
+#: src/app/project-tabs.tsx
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3899,6 +3999,10 @@ msgstr "关闭"
 #: src/terminal/terminal-panel.tsx
 msgid "Close {label}"
 msgstr "关闭 {label}"
+
+#: src/app/project-tabs.tsx
+msgid "Close {name}"
+msgstr "关闭 {name}"
 
 #: src/components/ui/panel-header.tsx
 #: src/trellis/trellis-labels.ts
@@ -4293,6 +4397,10 @@ msgstr "冲突"
 msgid "Congruent"
 msgstr "全等"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Connect a model endpoint"
+msgstr "连接模型接口"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Connect to Overleaf"
@@ -4306,6 +4414,10 @@ msgstr "已登录：{0}"
 #: src/settings/literature-settings.tsx
 msgid "Connected without a key"
 msgstr "已连接（无需密钥）"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Connected. The agent can use this model. Testing doesn’t save anything."
+msgstr "已连接，AI 助手可以使用这个模型。测试不会保存任何内容。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connecting live editing…"
@@ -4328,6 +4440,10 @@ msgstr "连接"
 msgid "Connection failed"
 msgstr "连接失败"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Connection test"
+msgstr "连接测试"
+
 #: src/canvas/proofread-card.tsx
 msgid "consistency"
 msgstr "一致"
@@ -4344,6 +4460,11 @@ msgstr "已保存"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Contains as member"
 msgstr "包含元素"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Context window"
+msgstr "上下文窗口"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -4508,6 +4629,10 @@ msgstr "日志收集失败"
 #: src/canvas/paper-selection-actions.tsx
 msgid "Could not copy the source link"
 msgstr "没能复制出处链接"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not create the endpoint settings folder: {error}"
+msgstr "无法创建接口设置文件夹：{error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the report folder: {error}"
@@ -4682,6 +4807,10 @@ msgstr "无法读取 {path}：{error}"
 #: src/platform/host-errors-papers.ts
 msgid "Could not read the arXiv title lookup: {error}"
 msgstr "无法读取 arXiv 标题检索结果：{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not read the endpoint settings: {error}"
+msgstr "无法读取接口设置：{error}"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
@@ -4903,6 +5032,10 @@ msgstr "表格打不开"
 msgid "Couldn’t reach Overleaf"
 msgstr "连不上 Overleaf"
 
+#: src/settings/model-endpoint-probe.ts
+msgid "Couldn’t reach the address. Check it, and your network or proxy."
+msgstr "无法访问这个地址。请检查地址以及网络或代理。"
+
 #: src/project/clone-repository-dialog.tsx
 msgid "Couldn’t reach the server"
 msgstr "无法连接到服务器"
@@ -4910,6 +5043,10 @@ msgstr "无法连接到服务器"
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
 msgstr "连不上服务"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Couldn’t read the endpoint settings. Reopen Settings to retry"
+msgstr "无法读取接口设置。请重新打开设置再试"
 
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
@@ -5558,6 +5695,10 @@ msgstr "下载论文"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
+#: src/overleaf/overleaf-download-bar.tsx
+msgid "Download progress"
+msgstr "下载进度"
+
 #: src/platform/windows-tex-setup-dialog.tsx
 msgid "Download TeX Live"
 msgstr "下载 TeX Live"
@@ -5572,20 +5713,10 @@ msgstr "已下载的词典"
 msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文会保留"
 
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
+#. placeholder {0}: props.name
+#: src/overleaf/overleaf-download-bar.tsx
 msgid "Downloading {0}…"
 msgstr "正在下载 {0}…"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received}"
-msgstr "正在下载 {0}…已收到 {received}"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received} of {total}"
-msgstr "正在下载 {0}…{received} / {total}"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
@@ -5954,6 +6085,14 @@ msgstr "记录版本"
 msgid "End an environment"
 msgstr "结束环境"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Endpoint"
+msgstr "接口"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Endpoint removed."
+msgstr "接口已删除。"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
@@ -5981,6 +6120,7 @@ msgid "Enter a DOI, arXiv id, or paper title."
 msgstr "请输入 DOI、arXiv 编号或论文标题"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Enter a replacement key"
 msgstr "输入新密钥"
 
@@ -6021,6 +6161,10 @@ msgstr "手动填写"
 #: src/platform/host-errors-workspace.ts
 msgid "Enter text to find."
 msgstr "请输入要查找的文字"
+
+#: src/platform/host-errors-setup.ts
+msgid "Enter the endpoint’s address, starting with https:// or http://."
+msgstr "请输入接口地址，以 https:// 或 http:// 开头。"
 
 #: src/papers/audit-messages.ts
 msgid "Entry changed"
@@ -6193,7 +6337,7 @@ msgid "Export for arXiv"
 msgstr "导出 arXiv 提交包"
 
 #: src/app/use-command-table.ts
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Export for arXiv…"
 msgstr "导出 arXiv 提交包…"
 
@@ -6237,7 +6381,7 @@ msgid "Export review PDF…"
 msgstr "导出评阅 PDF…"
 
 #: src/project/arxiv-export-dialog.tsx
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Export ZIP"
 msgstr "导出 ZIP"
 
@@ -6341,7 +6485,8 @@ msgstr "图已就绪：{0}。请打开 LaTeX 文件以插入。"
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
-#: src/project/figure-converters.ts
+#: src/project/figure-needs-actions.ts
+#: src/project/figure-source-refresh.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -6890,6 +7035,10 @@ msgstr "GitHub 下载服务器超时（504）。请重试，或从发布页面�
 msgid "GitHub’s download server was unavailable ({code}). Try again, or download Lattice {version} from the releases page."
 msgstr "GitHub 下载服务器暂时不可用（{code}）。请重试，或从发布页面下载 Lattice {version}。"
 
+#: src/platform/host-errors-setup.ts
+msgid "Give between 1 and {count} models."
+msgstr "请填写 1 到 {count} 个模型。"
+
 #: src/platform/host-errors-project.ts
 msgid "Give the checked date as a day."
 msgstr "核实日期请填写到某一天"
@@ -7036,6 +7185,7 @@ msgid "Grouped numbered equations"
 msgstr "成组编号的公式"
 
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Guided tutorial"
 msgstr "新手教程"
 
@@ -7242,6 +7392,10 @@ msgstr "分隔各部分的横线"
 msgid "Horizontal space"
 msgstr "水平间距"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "How the endpoint expects requests."
+msgstr "接口接受的请求格式。"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "How the entry reads"
 msgstr "条目排版预览"
@@ -7350,6 +7504,10 @@ msgstr "图片地址"
 #: src/canvas/project-asset-preview.tsx
 msgid "Image zoom percentage"
 msgstr "图像缩放百分比"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Images"
+msgstr "图片"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Imaginary part"
@@ -7460,6 +7618,10 @@ msgstr "正在导入文件…"
 #: src/app/use-project-lifecycle.ts
 msgid "Importing ZIP…"
 msgstr "正在导入 ZIP…"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "In “Ask before outside edits and network”, Pi asks before it edits a file or runs a command; in “Never ask” it doesn’t. Each edit is checkpointed so you can undo it, and .bib files stay protected."
+msgstr "在“改外部文件、联网前问我”模式下，Pi 修改文件或运行命令前会先问你；在“从不问我”模式下不会。每次修改都会留下检查点，可以撤销，.bib 文件也始终受到保护。"
 
 #. placeholder {0}: files.length
 #: src/project/todo-scavenger-panel.tsx
@@ -8190,6 +8352,11 @@ msgstr "已保留原文"
 msgid "Kept here"
 msgstr "保留本机"
 
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Kept in the macOS keychain. Leave it empty for a local server that needs none."
+msgstr "保存在 macOS 钥匙串中。本地服务不需要密钥时留空即可。"
+
 #: src/app/use-document-save.ts
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "{path} 有外部修改重叠，已都保留，请手动合并"
@@ -8201,6 +8368,10 @@ msgstr "已保留你本机的 {files}：Overleaf 传来的版本是空的或小�
 #: src/project/paper-inspector.tsx
 msgid "Key"
 msgstr "引用名"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Key accepted"
+msgstr "密钥有效"
 
 #: src/settings/literature-settings.tsx
 msgid "Key removed"
@@ -8299,6 +8470,10 @@ msgstr "稍后"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
 msgstr "LaTeX"
+
+#: src/build/compile-explain.ts
+msgid "LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove {command} if no table draws dashed rules."
+msgstr "arydshln 在 colortbl 之后加载时，LaTeX 2026-11 会在每个表格结尾报这个错；表格本身没有问题。请在导言区把 arydshln 放到 colortbl 之前加载；如果没有表格使用虚线，也可以删除 {command}。"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
@@ -8432,13 +8607,17 @@ msgstr "Lattice 无法读取 {0}。"
 msgid "Lattice could not read the project’s labels and citations: {error}"
 msgstr "Lattice 无法读取项目的标签和引用：{error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Lattice could not use the system keychain."
+msgstr "Lattice 无法使用系统钥匙串。"
+
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice 无法写入 TeX 安装文件夹。"
 
 #: src/platform/host-errors-papers.ts
-msgid "Lattice couldn't find a Zotero library on this Mac."
-msgstr "Lattice 没有在这台 Mac 上找到 Zotero 文库。"
+msgid "Lattice couldn't find a Zotero library on this computer."
+msgstr "Lattice 在此电脑上找不到 Zotero 文献库。"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
@@ -9196,6 +9375,11 @@ msgstr "公式、图和引用未标记：全部标记的文档没能编译通过
 msgid "Matrix"
 msgstr "矩阵"
 
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Max output"
+msgstr "最大输出"
+
 #: src/trellis/trellis-labels.ts
 msgid "Maximize"
 msgstr "放大"
@@ -9378,9 +9562,36 @@ msgstr "缺少工具：{0}"
 msgid "Mist"
 msgstr "薄雾"
 
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Model endpoint"
+msgstr "模型接口"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Model found"
+msgstr "找到模型"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Model name"
+msgstr "模型名称"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "model-name"
+msgstr "模型名称"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Models"
+msgstr "模型列表"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
 msgstr "满足 / 蕴涵"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Models to offer"
+msgstr "要使用的模型"
 
 #: src/history/versions-timeline.tsx
 msgid "modified"
@@ -9397,6 +9608,10 @@ msgstr "更多状态"
 #: src/pdf/pdf-overflow-menu.tsx
 msgid "More PDF actions"
 msgstr "更多"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "More protocols"
+msgstr "更多协议"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
@@ -9458,7 +9673,7 @@ msgstr "我的模板"
 msgid "Nabla / del"
 msgstr "纳布拉 / 梯度算子"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Name"
 msgstr "名称"
 
@@ -9494,6 +9709,10 @@ msgstr "name@example.org"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Named operator"
 msgstr "命名算子"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Names as the endpoint spells them. Test connection tries the first."
+msgstr "按接口中的写法填写名称。测试连接会使用第一个。"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Native app"
@@ -9610,7 +9829,7 @@ msgstr "新建 Markdown"
 msgid "New messages are available."
 msgstr "有新消息"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "New name"
 msgstr "新名称"
 
@@ -9625,6 +9844,7 @@ msgstr "新建幻灯片"
 #: src/app/use-command-table.ts
 #: src/onboarding/get-started-panel.tsx
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "New project"
 msgstr "新建项目"
 
@@ -9710,6 +9930,10 @@ msgstr "下一页"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next PDF location"
 msgstr "下个位置"
+
+#: src/app/project-switch-commands.ts
+msgid "Next project in this window"
+msgstr "此窗口中的下一个项目"
 
 #: src/papers/reference-check-keys.ts
 msgid "Next reference"
@@ -10259,6 +10483,10 @@ msgstr "演示中无需安装"
 msgid "Not on this PDF"
 msgstr "不在此 PDF 中"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Not reached"
+msgstr "未到达"
+
 #: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -10298,6 +10526,10 @@ msgstr "已舍弃批注"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Notes"
 msgstr "批注"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Nothing answers at that address. Check the address and the protocol."
+msgstr "这个地址没有响应。请检查地址和协议。"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
@@ -10546,13 +10778,18 @@ msgctxt "annotation filter"
 msgid "Open"
 msgstr "待处理"
 
-#: src/app/use-command-table.ts
+#: src/app/project-switch-commands.ts
 msgid "Open {name}"
 msgstr "打开 {name}"
 
 #: src/project/figure-source-run.ts
 msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 msgstr "用默认应用打开 {name}？SVG 文件常会在网页浏览器中打开，浏览器会运行其中的脚本。"
+
+#: src/app/project-switch-commands.ts
+#: src/project/project-menu.tsx
+msgid "Open {name} in this window"
+msgstr "在此窗口中打开 {name}"
 
 #: src/app/use-editor-comments.ts
 msgid "Open {name} to comment on it."
@@ -10587,6 +10824,11 @@ msgstr "打开文件"
 msgid "Open a file to see its suggestions"
 msgstr "打开一个文件以查看它的修订建议"
 
+#: src/app/project-switch-commands.ts
+#: src/project/project-menu.tsx
+msgid "Open a folder in this window"
+msgstr "在此窗口中打开文件夹"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "打开 LaTeX 项目"
@@ -10613,7 +10855,7 @@ msgstr "打开项目后可添加"
 msgid "Open a project to ignore rules or sentences"
 msgstr "打开项目后才能忽略规则或句子"
 
-#: src/app/use-command-table.ts
+#: src/app/project-switch-commands.ts
 msgid "Open a recent project by its place"
 msgstr "打开最近项目"
 
@@ -10622,7 +10864,7 @@ msgid "Open an Overleaf project"
 msgstr "打开 Overleaf 项目"
 
 #: src/app/use-command-table.ts
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Open another folder"
 msgstr "打开文件夹"
 
@@ -10657,6 +10899,7 @@ msgstr "打开文件夹"
 
 #: src/overleaf/overleaf-project-picker.tsx
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Open from Overleaf"
 msgstr "从 Overleaf 打开"
 
@@ -10684,6 +10927,10 @@ msgstr "在历史中打开"
 msgid "Open in Lattice app"
 msgstr "在 Lattice 中打开"
 
+#: src/app/project-tabs.tsx
+msgid "Open in New Window"
+msgstr "在新窗口中打开"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
@@ -10691,6 +10938,10 @@ msgstr "在 Overleaf 中打开"
 #: src/canvas/project-pdf-panel.tsx
 msgid "Open in separate window"
 msgstr "在单独窗口中打开"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Open in this window"
+msgstr "在此窗口中打开"
 
 #: src/overleaf/overleaf-pasted-link.tsx
 #: src/overleaf/overleaf-project-picker.tsx
@@ -10748,6 +10999,10 @@ msgstr "浏览器看 PDF"
 #: src/app/use-command-table.ts
 msgid "Open project history"
 msgstr "项目历史"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Open Providers"
+msgstr "打开模型设置"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -10867,6 +11122,10 @@ msgctxt "macOS menu bar"
 msgid "Open…"
 msgstr "打开…"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "OpenAI-compatible"
+msgstr "兼容 OpenAI"
+
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
 msgid "OpenAlex"
@@ -10911,6 +11170,10 @@ msgstr "操作记录"
 #: src/app/shortcut-sheet.tsx
 msgid "or"
 msgstr "或"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Or connect a model endpoint: your own API address, key and model name, with no command-line tool to install."
+msgstr "也可以连接模型接口：填写你自己的 API 地址、密钥和模型名称，无需安装命令行工具。"
 
 #: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
@@ -11064,6 +11327,10 @@ msgstr "实时协作断开（{reason}），正在重连…"
 msgid "Overleaf live editing reconnected."
 msgstr "实时协作已恢复"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+msgstr "Overleaf 上已没有 {deleted}，但有 {kept}。本机磁盘可能把这两个名字当作同一个文件，删除 {deleted} 可能会连带删掉 {kept}。请先把 {deleted} 移出项目，再同步一次。没有改动任何文件"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf 选项"
@@ -11111,6 +11378,10 @@ msgstr "Overleaf 拒绝了上传"
 #: src/history/conflict-resolver.tsx
 msgid "Overleaf removed this part."
 msgstr "Overleaf 删了这段"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
+msgstr "{file} 在本机有修改时被 Overleaf 上的协作者重命名或删除了，Lattice 无法确定这些修改该放到哪个文件，所以修改先留在本机、没有上传。请把修改复制到正确的文件，然后删掉本机的 {file}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
@@ -11224,6 +11495,11 @@ msgstr "只有概览"
 #: src/project/import-conflict-dialog.tsx
 msgid "Overwrite files of the same name; merge folders"
 msgstr "覆盖同名文件，合并同名文件夹"
+
+#. Search words for the agent Model endpoint settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "own API base URL custom"
+msgstr "自定义 接口 地址 自有 API base URL"
 
 #: src/platform/host-errors-project.ts
 msgctxt "submission checklist field"
@@ -11414,6 +11690,10 @@ msgstr "已有 {completed}/{progressTotal} 条文献的部分结果，正在等 
 msgid "pass {run}"
 msgstr "第 {run} 遍"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Passed"
+msgstr "通过"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Paste"
@@ -11445,6 +11725,7 @@ msgid "Paste the Overleaf session cookie first."
 msgstr "请先粘贴 Overleaf 会话 Cookie"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Paste your API key"
 msgstr "粘贴密钥"
 
@@ -11616,6 +11897,15 @@ msgstr "斐"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pi"
 msgstr "派"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Pi is a one-time download of about 150 MB. Install it under Providers › Pi."
+msgstr "Pi 需要一次性下载，约 150 MB。请在 模型 › Pi 中安装。"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Pi runtime"
+msgstr "Pi 运行环境"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Pick an emoji to insert at the cursor."
@@ -11837,6 +12127,10 @@ msgstr "上一页"
 msgid "Previous PDF location"
 msgstr "上个位置"
 
+#: src/app/project-switch-commands.ts
+msgid "Previous project in this window"
+msgstr "此窗口中的上一个项目"
+
 #: src/papers/reference-check-keys.ts
 msgid "Previous reference"
 msgstr "上一条文献"
@@ -11933,6 +12227,10 @@ msgstr "已上传并关联 Overleaf"
 msgid "Projects"
 msgstr "项目"
 
+#: src/app/project-tabs.tsx
+msgid "Projects in this window"
+msgstr "此窗口中的项目"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proof environment (requires amsthm)"
 msgstr "证明环境（需要 amsthm）"
@@ -11954,6 +12252,10 @@ msgstr "校对建议"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Proofread the selection"
 msgstr "校对"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Proofread, Polish and revision requests use the endpoint once you choose one of its models under Providers › Proofreading model. It isn’t chosen automatically."
+msgstr "在 模型 › 校对模型 中选择这个接口的模型后，校对、润色和修改请求就会使用它。它不会被自动选择。"
 
 #: src/canvas/proofread-card.tsx
 msgid "Proofreading…"
@@ -11979,6 +12281,11 @@ msgstr "建议条目"
 #: src/history/compare-versions.tsx
 msgid "Prose"
 msgstr "正文"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Protocol"
+msgstr "协议"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proves / turnstile"
@@ -12124,6 +12431,10 @@ msgstr "请求太频繁，请稍后再试"
 msgid "Raw build log"
 msgstr "完整日志"
 
+#: src/settings/model-endpoint-probe.ts
+msgid "Reached the address"
+msgstr "地址可访问"
+
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
 msgstr "阅读"
@@ -12215,6 +12526,7 @@ msgid "Recent instructions"
 msgstr "最近用过的指令"
 
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 #: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "最近项目"
@@ -12449,6 +12761,10 @@ msgstr "移除 % 注释"
 msgid "Remove citations too"
 msgstr "引用也删"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Remove endpoint"
+msgstr "删除接口"
+
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Remove entry"
@@ -12459,8 +12775,13 @@ msgid "Remove highlight"
 msgstr "移除高亮"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Remove key"
 msgstr "删除密钥"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Remove model"
+msgstr "删除模型"
 
 #: src/app/use-overleaf-remote-deletes.ts
 msgid "Remove one file from the Overleaf project?"
@@ -12505,9 +12826,9 @@ msgid "Removing…"
 msgstr "正在移除…"
 
 #: src/editor/latex/highlight-palette.tsx
-#: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 #: src/project/references-panel.tsx
+#: src/project/rename-dialog.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Rename"
 msgstr "重命名"
@@ -12520,15 +12841,15 @@ msgstr "重命名“{meaning}”"
 msgid "Rename {source}: a figure's file and folder names cannot hold line breaks or TeX's special characters."
 msgstr "请重命名 {source}：图的文件名和文件夹名不能包含换行或 TeX 特殊字符。"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Rename citation key"
 msgstr "改引用名"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Rename environment"
 msgstr "改环境名"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Rename label"
 msgstr "改标签名"
 
@@ -12549,7 +12870,7 @@ msgstr "改环境名"
 msgid "renamed"
 msgstr "改名"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Renaming…"
 msgstr "正在重命名…"
 
@@ -12930,6 +13251,7 @@ msgstr "正在查找…"
 
 #: src/agent/agent-environment.ts
 #: src/settings/agent-environment-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Restart agent"
 msgstr "重启 AI 助手"
@@ -13417,6 +13739,7 @@ msgstr "饱和度与亮度"
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Save"
 msgstr "保存"
 
@@ -13586,6 +13909,10 @@ msgstr "副本已保存到 {written}"
 msgid "Saved and synced"
 msgstr "已保存并同步"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Saved in the keychain. Enter a new one to replace it."
+msgstr "已保存在钥匙串中。输入新密钥即可替换。"
+
 #: src/canvas/status-save-state.tsx
 msgid "Saved on this Mac"
 msgstr "已存在这台 Mac"
@@ -13623,6 +13950,10 @@ msgstr "已保存，正在同步…"
 #: src/project/paper-inspector.tsx
 msgid "Saved, with its overview"
 msgstr "已保存，含概览"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Saved. In the Agent panel’s model menu, open Pi and choose a model under {host}."
+msgstr "已保存。请在 AI 助手面板的模型菜单中打开 Pi，然后在 {host} 下选择模型。"
 
 #: src/history/export-changes-dialog.tsx
 msgid "Saves {saved} beside {pdf}"
@@ -13956,6 +14287,7 @@ msgstr "正在准备实时预览… {percent}%"
 #: src/app/app-settings-dialog.tsx
 #: src/app/command-palette.tsx
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"
 msgstr "设置"
@@ -14639,6 +14971,10 @@ msgstr "2 分钟后已停止"
 msgid "Stopping…"
 msgstr "正在停止…"
 
+#: src/settings/model-endpoint-probe.ts
+msgid "Streams replies"
+msgstr "支持流式回复"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
@@ -14741,7 +15077,12 @@ msgstr "曲面 / 面积积分"
 msgid "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice."
 msgstr "插入 SVG 需要 rsvg-convert 或 ImageMagick；在 Lattice 中仍可预览这张图"
 
+#: src/app/leave-project.ts
+msgid "Switch away from “{name}”?"
+msgstr "离开“{name}”？"
+
 #: src/app/app-titlebar.tsx
+#: src/app/leave-project.ts
 msgid "Switch project"
 msgstr "切换项目"
 
@@ -14772,6 +15113,10 @@ msgstr "写作布局"
 #: src/build/build-log-messages.ts
 msgid "Switched this project from {from} to pdfLaTeX: the document uses `{command}`, which only works in pdfLaTeX, and loads nothing that needs {from}."
 msgstr "已将此项目从 {from} 切换到 pdfLaTeX：文档使用了只能在 pdfLaTeX 中使用的 `{command}`，且没有加载任何需要 {from} 的内容。"
+
+#: src/app/leave-project.ts
+msgid "Switching interrupts what is still running there: {list}."
+msgstr "切换会中断其中仍在运行的{list}。"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -15003,6 +15348,7 @@ msgid "Terminals"
 msgstr "终端"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Test connection"
 msgstr "测试连接"
 
@@ -15100,6 +15446,10 @@ msgstr "要查找的文字"
 msgid "Textual citation"
 msgstr "文中式引用"
 
+#: src/platform/host-errors-setup.ts
+msgid "That API key is not valid."
+msgstr "这个 API 密钥无效。"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
 msgstr "这个 Cookie 打不开 Overleaf 项目列表。请从已登录的浏览器复制一个新的会话 Cookie 再试"
@@ -15172,6 +15522,22 @@ msgstr "{what} 下载中断：{error}"
 msgid "the acknowledgement did not arrive in time"
 msgstr "确认超时"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /chat/completions, often ending in /v1."
+msgstr "/chat/completions 之前的部分，通常以 /v1 结尾。"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /models, with its API version."
+msgstr "/models 之前的部分，包含 API 版本。"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /responses, often ending in /v1."
+msgstr "/responses 之前的部分，通常以 /v1 结尾。"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /v1/messages."
+msgstr "/v1/messages 之前的部分。"
+
 #: src/agent/agent-reference-removal.ts
 msgid "The agent asked to delete this entry. Nothing in the paper cites it now, and an entry nobody cites is harmless: BibTeX lists only cited entries."
 msgstr "AI 助手请求删除这条文献。论文里已没有地方引用它，而没被引用的文献并无影响：BibTeX 只列出被引用的条目。"
@@ -15221,6 +15587,10 @@ msgstr "AI 助手正在等你回答。请求已放进输入框，回答后再发
 msgid "The agent reads these each time it starts."
 msgstr "AI 助手每次启动时都会重新读取这些设置。"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "The agent restarted with the endpoint."
+msgstr "AI 助手已重启并使用该接口。"
+
 #: src/web-demo/desktop-only.tsx
 msgid "The Agent runs on your Mac"
 msgstr "AI 助手在你的 Mac 上运行"
@@ -15241,6 +15611,10 @@ msgstr "AI 助手仍在使用启动时的代理。重启会中断正在进行的
 msgid "The agent suggests leaving the passage as it is."
 msgstr "AI 助手建议这一段保持不变。"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "The agent uses it after a restart, which would stop the turn running now."
+msgstr "重启 AI 助手后才会生效，但重启会中断正在进行的对话。"
+
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "AI 没返回校对结果"
@@ -15252,6 +15626,10 @@ msgstr "AI 没返回改写结果"
 #: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "AI 助手的回复里既没有修改，也没有问题。"
+
+#: src/app/leave-project.ts
+msgid "the agent’s turn"
+msgstr "AI 助手正在进行的对话"
 
 #: src/platform/host-errors-papers.ts
 msgid "The alphaXiv paper was not found."
@@ -15308,6 +15686,10 @@ msgstr "这条已不存在"
 #: src/project/arxiv-export.ts
 msgid "The bibliography has no .bbl"
 msgstr "参考文献缺少 .bbl"
+
+#: src/app/leave-project.ts
+msgid "the build"
+msgstr "编译"
 
 #: src/platform/host-errors-setup.ts
 msgid "The built-in agent did not become ready within {seconds} seconds."
@@ -15476,6 +15858,54 @@ msgstr "下载的更新未通过签名校验，因此未安装。请从发布页
 msgid "The drawing is too large to convert."
 msgstr "绘图文件太大，无法转换。"
 
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint answered without streaming, which the agent needs."
+msgstr "接口没有以流式方式回复，而 AI 助手需要流式回复。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint didn’t answer within 45 seconds."
+msgstr "接口在 45 秒内没有回复。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint doesn’t know that model name."
+msgstr "接口不认识这个模型名称。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint had an error of its own. Try again later."
+msgstr "接口自身出错。请稍后再试。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint is rate-limiting this key. Try again later."
+msgstr "接口正在限制这个密钥的请求频率。请稍后再试。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint refused the key."
+msgstr "接口拒绝了这个密钥。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint refused the request."
+msgstr "接口拒绝了请求。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint refused tool calls, which the agent needs to edit files."
+msgstr "接口拒绝了工具调用，而 AI 助手需要用它来修改文件。"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The endpoint said: {detail}"
+msgstr "接口返回：{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The endpoint settings file is not valid JSON."
+msgstr "接口设置文件不是有效的 JSON。"
+
+#: src/platform/host-errors-setup.ts
+msgid "The endpoint settings worker stopped."
+msgstr "接口设置的后台任务已停止。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint’s answer wasn’t one the agent can read. Check the protocol."
+msgstr "AI 助手无法读取接口的回复。请检查协议。"
+
 #: src/app/use-reference-import.ts
 msgid "The entry for {citationCommand} already matches its sources."
 msgstr "{citationCommand} 的条目已与来源一致。"
@@ -15627,6 +16057,14 @@ msgstr "实时预览的 PDF 不在它的构建文件夹中"
 #: src/papers/add-papers-sheet.tsx
 msgid "The lookup returned no record."
 msgstr "查找没有返回任何记录。"
+
+#: src/platform/host-errors-setup.ts
+msgid "The model {model} is listed twice."
+msgstr "模型 {model} 重复了。"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The model answered but didn’t call the test tool. The agent may not manage to edit files with it."
+msgstr "模型回复了，但没有调用测试工具。AI 助手可能无法用它修改文件。"
 
 #: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
@@ -16035,6 +16473,10 @@ msgstr "文本太大，无法另存为副本"
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "无法从应用包中读取第三方声明。"
 
+#: src/platform/host-errors-setup.ts
+msgid "The token limits of {model} are out of range."
+msgstr "{model} 的令牌上限超出范围。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The transaction contains no edits."
 msgstr "这次修改没有任何内容"
@@ -16133,6 +16575,10 @@ msgstr "磁盘空间不足，无法安装此组件。请释放一些空间后重
 msgid "These files are too large for Overleaf: {files}."
 msgstr "这些文件太大，Overleaf 无法接收：{files}"
 
+#: src/build/build-log-messages.ts
+msgid "These table errors come from loading arydshln after colortbl, which LaTeX 2026-11 broke: the tables are fine. Load arydshln before colortbl, or remove {command} if no table draws dashed rules."
+msgstr "这些表格错误来自在 colortbl 之后加载 arydshln，LaTeX 2026-11 起这样会出错；表格本身没有问题。请把 arydshln 放到 colortbl 之前加载；如果没有表格使用虚线，也可以删除 {command}。"
+
 #: src/history/compare-versions.tsx
 msgid "These two versions have the same files."
 msgstr "这两个版本的文件完全相同。"
@@ -16140,6 +16586,10 @@ msgstr "这两个版本的文件完全相同。"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "西塔"
+
+#: src/project/figure-needs-actions.ts
+msgid "They do more than define commands, so Lattice does not add them. Add them yourself if you trust the figure:"
+msgstr "这些行不只是定义命令，因此 Lattice 不会自动添加。如果你信任这个图，请自行添加："
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"
@@ -16634,6 +17084,10 @@ msgstr "待办"
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "这些修改合起来会改到 LaTeX，请少选几处或重新校对"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Token limits must be whole numbers."
+msgstr "令牌上限必须是整数。"
+
 #: src/editor/markdown/engine/views/html-preview.tsx
 msgid "Too complex to preview"
 msgstr "过于复杂，无法预览"
@@ -17114,7 +17568,7 @@ msgstr "已更新"
 msgid "Update available"
 msgstr "有更新"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "Update figure"
 msgstr "更新插图"
 
@@ -17180,11 +17634,11 @@ msgstr "有可用更新（{count} 个）。在终端中运行：{TEX_PACKAGE_UPD
 msgid "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
 msgstr "有可用更新（{count} 个）。更新时需要输入 Mac 密码，可能需要几分钟。"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Updates every \\ref to it"
 msgstr "会同步改所有 \\ref"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Updates the .bib entry and every \\cite"
 msgstr "会同步改 .bib 和所有 \\cite"
 
@@ -17282,6 +17736,10 @@ msgstr "使用这条记录"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Use valid CSV or TSV with at most 20 rows and 20 columns."
 msgstr "请使用有效的 CSV 或 TSV，最多支持 20 行、20 列。"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
+msgstr "填写地址、密钥和模型名称，使用你自己的兼容 OpenAI 或 Anthropic 的 API。AI 助手通过 Pi 运行它，无需安装命令行工具。"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -17519,6 +17977,14 @@ msgstr "正在等待 {name} 与 Overleaf 同步完成…"
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for more data"
+msgstr "正在等待更多数据"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for Overleaf to send it"
+msgstr "正在等待 Overleaf 发送"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
 msgstr "正在等待 Overleaf 的实时文件树，之后再同步移动的文件"
@@ -17640,6 +18106,10 @@ msgctxt "macOS menu bar"
 msgid "Window"
 msgstr "窗口"
 
+#: src/agent/synara-permission-picker.tsx
+msgid "With a model endpoint, Pi asks before it edits a file or runs a command in “Ask before outside edits and network”, and runs them without asking in “Never ask”. Its edits are checkpointed so you can undo them, and .bib files stay protected."
+msgstr "使用模型接口时，Pi 在“改外部文件、联网前问我”模式下，修改文件或运行命令前会先问你；在“从不问我”模式下直接执行。每次修改都会留下检查点，可以撤销，.bib 文件也始终受到保护。"
+
 #: src/project/paper-list-toolbar.tsx
 msgid "With full text"
 msgstr "有全文"
@@ -17714,7 +18184,7 @@ msgstr "包裹在 \\iffalse … \\fi 中"
 msgid "Wrap in a comment environment"
 msgstr "包裹在 comment 环境中"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Wrap in environment"
 msgstr "套上环境"
 
@@ -17956,8 +18426,8 @@ msgid "Zotero folders"
 msgstr "Zotero 分类"
 
 #: src/platform/host-errors-papers.ts
-msgid "Zotero has no file on this Mac for this attachment."
-msgstr "这个附件在这台 Mac 上没有文件。"
+msgid "Zotero has no file on this computer for this attachment."
+msgstr "Zotero 的此附件在此电脑上没有对应文件。"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Zotero…"

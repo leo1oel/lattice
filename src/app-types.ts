@@ -278,6 +278,12 @@ export type BuildResult = {
   synctex: boolean | null;
   /** The project files the compile wrote, by its `.fls` recorder (watched-builds.ts). */
   outputs?: string[];
+  /**
+   * An unattended build found nothing changed since the last build, which
+   * failed: this restates its errors without typesetting, and the PDF and
+   * SyncTeX map on disk are of these same inputs (latex/build/unchanged.rs).
+   */
+  unchanged?: boolean;
 };
 
 export type PaperSummary = {
@@ -330,7 +336,7 @@ export type RenameSymbolResult = {
 
 export type DocumentViewMode = "source" | "split" | "pdf";
 export type CanvasMode = DocumentViewMode | "asset";
-export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "usage" | "environment" | "overleaf" | "literature" | "api" | "doctor" | "logs" | "acknowledgements";
+export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "usage" | "environment" | "model-endpoint" | "overleaf" | "literature" | "api" | "doctor" | "logs" | "acknowledgements";
 type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 type DoctorCheck = { name: string; detail: string; ok: boolean; code?: string; params?: Record<string, string> };
@@ -558,6 +564,12 @@ export type OverleafSyncResult = {
    * left alone on both sides until one is renamed on Overleaf.
    */
   caseCollisions?: { kept: string; skipped: string }[];
+  /**
+   * Edited here, and renamed or removed on Overleaf in a way the sync could
+   * not carry the edit through: held unsent and undeleted rather than
+   * uploaded again under the old name. Named on every sync while held.
+   */
+  heldRenames?: string[];
   /**
    * Changed here while the sync ran by something other than the editor (an
    * agent, another program). The sync left them exactly as edited; they go

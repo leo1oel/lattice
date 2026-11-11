@@ -26,31 +26,39 @@ import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
 import type { CloneTarget, LocalCopy, OverleafInvite, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
-import { confirmAction, formatSize, relativeTime, toMessage } from "../app-utils";
+import { confirmAction, relativeTime, toMessage } from "../app-utils";
 import { subscribeTauriEvent } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
 import { InlineMessage } from "../components/ui/inline-message";
 import { notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useOverleafLogin } from "./use-overleaf-login";
+import { OverleafDownloadBar } from "./overleaf-download-bar";
 import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import "./overleaf-connect.css";
 import { joinPhrases } from "../i18n";
 import { Glyph, LoginControls, OVERLEAF_SOURCE, Progress, RetryRow, StageMessage } from "./overleaf-connect-parts";
 import { PastedLinkMessage } from "./overleaf-pasted-link";
 import { looksLikeOverleafLink, usePastedLink } from "./use-pasted-overleaf-link";
-import { initialPickerState, reducePicker, type DownloadProgress } from "./overleaf-picker-state";
+import { initialPickerState, reducePicker } from "./overleaf-picker-state";
+import type { DownloadProgress } from "./overleaf-download-progress";
 
 
 
 type PickerProps = {
   open: boolean;
   onClose: () => void;
-  onCloned: (root: string) => void;
+  /** Show the downloaded project, in this window when `inThisWindow` (see `canOpenHere`). */
+  onCloned: (root: string, inThisWindow?: boolean) => void;
   /**
    * Open a folder already linked to the chosen project, raising its window
    * when one shows it. Without it, every project downloads.
    */
-  onOpenLocalCopy?: (root: string) => void;
+  onOpenLocalCopy?: (root: string, inThisWindow?: boolean) => void;
+  /**
+   * A project is open here, so Open gives the chosen one a window of its own,
+   * and "Open in this window" beside it puts it in this one instead.
+   */
+  canOpenHere?: boolean;
   /**
    * Folders the app knows of (its recent projects), checked for a link first.
    * Kept as the caller's list, not mapped, so the lookup reruns only when it changes.
@@ -180,12 +188,12 @@ Files that differ are kept side by side. Nothing is overwritten`,
     });
   };
 
-  const clone = async (project: OverleafProject) => {
+  const clone = async (project: OverleafProject, inThisWindow: boolean) => {
     dispatch({ type: "cloning", project });
     try {
       const root = await download(project);
       dispatch({ type: "cloning", project: null });
-      props.onCloned(root);
+      props.onCloned(root, inThisWindow);
       onClose();
     } catch (reason) {
       dispatch({ type: "cloning", project: null });
@@ -204,14 +212,14 @@ Files that differ are kept side by side. Nothing is overwritten`,
    * download does. The lookup is awaited, so an Open pressed before it answers
    * still finds the copy.
    */
-  const openProject = async (project: OverleafProject) => {
+  const openProject = async (project: OverleafProject, inThisWindow = false) => {
     if (opening || cloning || publishing) return;
     dispatch({ type: "opening", project });
     const copy = props.onOpenLocalCopy ? (await lookup.current)[project.id] : undefined;
     if (!mounted.current) return;
     if (!copy || !props.onOpenLocalCopy) {
       dispatch({ type: "opening", project: null });
-      return clone(project);
+      return clone(project, inThisWindow);
     }
     try {
       await invoke("overleaf_reopen_local_copy", { path: copy.path, projectId: project.id, accessLevel: project.accessLevel });
@@ -224,7 +232,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
     }
     if (!mounted.current) return;
     dispatch({ type: "opening", project: null });
-    props.onOpenLocalCopy(copy.path);
+    props.onOpenLocalCopy(copy.path, inThisWindow);
     onClose();
   };
 
@@ -262,20 +270,15 @@ Files that differ are kept side by side. Nothing is overwritten`,
   const working = Boolean(opening) || transferring;
   const openingText = (name: string) => t`Opening ${name}…`;
   // A project with large figures takes minutes to arrive over a slow link:
-  // say how much has, so a long download reads as moving, not stuck.
+  // show how much has and how fast, so a long download reads as moving, not stuck.
   const cloningId = cloning?.id ?? null;
   useEffect(() => {
     if (!cloningId) return;
     return subscribeTauriEvent<DownloadProgress>(
       (handler) => listenInThisWindow("overleaf-download-progress", handler),
-      (progress) => dispatch({ type: "downloaded", progress }),
+      (progress) => dispatch({ type: "downloaded", progress, at: performance.now() }),
     );
   }, [cloningId]);
-  const received = downloaded?.received ? formatSize(downloaded.received) : null;
-  const total = downloaded?.total ? formatSize(downloaded.total) : null;
-  const downloadText = !cloning ? "" : total && received
-    ? t`Downloading ${cloning.name}… ${received} of ${total}`
-    : received ? t`Downloading ${cloning.name}… ${received}` : t`Downloading ${cloning.name}…`;
   const updated = (project: OverleafProject) => Date.parse(project.lastUpdated ?? "") || 0;
   // One list, newest first whoever owns it: the order of Overleaf's own
   // dashboard (its default sort is lastUpdated, descending).
@@ -332,6 +335,11 @@ Files that differ are kept side by side. Nothing is overwritten`,
         )}
       </button>
       {/* A download in progress is said once, by the progress line under the list. */}
+      {chosen && cloning?.id !== project.id && props.canOpenHere && (
+        <Button size="compact" variant="ghost" className="overleaf-open-button" disabled={working} onClick={() => void openProject(project, true)}>
+          {t`Open in this window`}
+        </Button>
+      )}
       {chosen && cloning?.id !== project.id && (
         <MotionButton
           className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}
@@ -534,13 +542,12 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 </div>
               </section>
             )}
-            {working && (
+            {cloning && downloaded ? (
+              <OverleafDownloadBar name={cloning.name} track={downloaded} />
+            ) : working && (
               <Progress
                 className="overleaf-progress"
-                text={cloning
-                  ? downloadText
-                  : opening ? openingText(opening.name)
-                  : t`Uploading ${publishName.trim()}…`}
+                text={opening ? openingText(opening.name) : t`Uploading ${publishName.trim()}…`}
               />
             )}
           </>

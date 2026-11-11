@@ -247,7 +247,8 @@ describe("Lattice ▸ Check for Updates…", () => {
     await chooseFromMenu("check-for-updates");
 
     await waitFor(() => expect(toast()).toHaveTextContent("New version 0.16.1"));
-    expect(tauri.check).toHaveBeenCalledOnce();
+    // The menu offers the held update again without asking; the install looked for a newer one.
+    expect(tauri.check).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole("button", { name: "Update now", hidden: true }));
     await waitFor(() => expect(api.current.phase).toBe("restarting"));
   });

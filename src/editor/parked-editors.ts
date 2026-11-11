@@ -96,10 +96,16 @@ export function takeResumed(view: EditorView) {
   return doc !== undefined && doc === view.state.doc;
 }
 
-/** Drop what was parked for anything but the open `paths` of the project at `root`. */
-export function retainParkedEditors(root: string | null, paths: readonly string[]) {
-  const open = new Set(paths);
+/**
+ * Drop what was parked for anything but the open `paths` of the project at
+ * `root` (all of its paths while they are `null`, not yet restored) and the
+ * projects at `kept`: the window's other projects, suspended with the tabs
+ * they were left with, so switching back resumes each where it was.
+ */
+export function retainParkedEditors(root: string | null, paths: readonly string[] | null, kept: readonly string[] = []) {
+  const open = paths && new Set(paths);
   for (const [key, entry] of parked) {
-    if (entry.root !== root || !open.has(entry.path)) parked.delete(key);
+    const current = entry.root === root;
+    if (current ? open && !open.has(entry.path) : !kept.includes(entry.root)) parked.delete(key);
   }
 }

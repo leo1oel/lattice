@@ -278,6 +278,7 @@ fn forward_search_highlights_a_subfigure_row_where_the_figure_is() {
     let result = super::super::build(
         &root,
         true,
+        false,
         &Default::default(),
         None,
         &super::super::BuildSteps::silent(),
@@ -319,6 +320,7 @@ fn forward_search_highlights_a_scaled_graphic_where_it_is_drawn() {
     let result = super::super::build(
         &root,
         true,
+        false,
         &Default::default(),
         None,
         &super::super::BuildSteps::silent(),
@@ -361,6 +363,7 @@ fn forward_searches_from_a_bib_entry_through_the_generated_bbl() {
     let result = super::super::build(
         &root,
         true,
+        false,
         &Default::default(),
         None,
         &super::super::BuildSteps::silent(),
@@ -412,6 +415,7 @@ fn searches_both_ways_in_a_project_reached_through_a_symlink() {
     let result = super::super::build(
         &root,
         true,
+        false,
         &Default::default(),
         None,
         &super::super::BuildSteps::silent(),
@@ -482,6 +486,7 @@ fn a_root_document_in_a_subfolder_previews_and_syncs_its_own_fresh_build() {
         let (root, stale) = subfolder_project(engine);
         let result = super::super::build(
             &root,
+            false,
             false,
             &Default::default(),
             None,
@@ -558,7 +563,8 @@ fn built_then(moved: impl FnOnce(&Path, &Path)) -> (TempDir, PathBuf) {
     .unwrap();
     fs::write(root.join("beta.tex"), "Beta paragraph.\\par\n").unwrap();
     let steps = super::super::BuildSteps::silent();
-    let result = super::super::build(&root, true, &Default::default(), None, &steps).unwrap();
+    let result =
+        super::super::build(&root, true, false, &Default::default(), None, &steps).unwrap();
     assert!(result.success, "{}", result.log);
     let now = parent.join("now");
     moved(&root, &now);

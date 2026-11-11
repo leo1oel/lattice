@@ -49,7 +49,7 @@ index 0a7957b1387b09a7332734c8a732ce7e80eec284..9007d81bb68502f17fe14010e1ed0448
      renderingQueue: PDFRenderingQueue | undefined;
      scroll: {
 diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
-index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877a56f3b15 100644
+index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..da2c9de5eb0fd5315ba404ef2ef452af43b0a08f 100644
 --- a/web/pdf_viewer.mjs
 +++ b/web/pdf_viewer.mjs
 @@ -1577,7 +1577,8 @@ class PDFLinkService {
@@ -89,7 +89,16 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      };
      let isPointerDown = false;
      document.addEventListener("pointerdown", () => {
-@@ -6515,7 +6527,6 @@ class PDFPageView extends BasePDFPageView {
+@@ -6504,6 +6516,8 @@ const DEFAULT_LAYER_PROPERTIES = {
+   }
+ };
+ const LAYERS_ORDER = new Map([["canvasWrapper", 0], ["textLayer", 1], ["annotationLayer", 2], ["annotationEditorLayer", 3], ["xfaLayer", 3]]);
++// Lattice: the output scale of a zoomed-out page on a display under 2x.
++const LATTICE_ZOOMED_OUT_OUTPUT_SCALE = 2;
+ class PDFPageView extends BasePDFPageView {
+   #abortSignal = null;
+   #annotationMode = AnnotationMode.ENABLE_FORMS;
+@@ -6515,7 +6529,6 @@ class PDFPageView extends BasePDFPageView {
    #layerProperties = null;
    #needsRestrictedScaling = false;
    #originalViewport = null;
@@ -97,7 +106,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    #scaleRoundX = 1;
    #scaleRoundY = 1;
    #textLayerMode = TextLayerMode.ENABLE;
-@@ -6526,6 +6537,9 @@ class PDFPageView extends BasePDFPageView {
+@@ -6526,6 +6539,9 @@ class PDFPageView extends BasePDFPageView {
      regularAnnotations: true
    };
    #layers = [null, null, null, null];
@@ -107,7 +116,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    constructor(options) {
      super(options);
      const {
-@@ -6624,6 +6638,10 @@ class PDFPageView extends BasePDFPageView {
+@@ -6624,6 +6640,10 @@ class PDFPageView extends BasePDFPageView {
      return clone;
    }
    #addLayer(div, name) {
@@ -118,7 +127,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      const pos = LAYERS_ORDER.get(name);
      const oldDiv = this.#layers[pos];
      this.#layers[pos] = div;
-@@ -6653,13 +6671,22 @@ class PDFPageView extends BasePDFPageView {
+@@ -6653,13 +6673,22 @@ class PDFPageView extends BasePDFPageView {
        }
        this.#userUnit = viewport.userUnit;
      }
@@ -147,7 +156,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    }
    updatePageNumber(newPageNumber) {
      const oldPageNumber = this.id;
-@@ -6923,6 +6950,14 @@ class PDFPageView extends BasePDFPageView {
+@@ -6923,6 +6952,14 @@ class PDFPageView extends BasePDFPageView {
          this.detailView = null;
        }
      }
@@ -162,7 +171,31 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    }
    toggleEditingMode(isEditing) {
      this.#isEditing = isEditing;
-@@ -7265,13 +7300,17 @@ class PDFPageView extends BasePDFPageView {
+@@ -7046,6 +7083,23 @@ class PDFPageView extends BasePDFPageView {
+         const factor = this.enableOptimizedPartialRendering ? 4 : 2;
+         outputScale.sx /= factor;
+         outputScale.sy /= factor;
++      } else if (!this.#needsRestrictedScaling && outputScale.sx < LATTICE_ZOOMED_OUT_OUTPUT_SCALE && this.viewport.scale < 1) {
++        // Lattice: below 100% (a PDF point drawn smaller than a CSS pixel)
++        // on a display under 2x, draw the page at 2 canvas pixels per CSS
++        // pixel and let the browser halve it. At 1x a fitted page's body text
++        // and figure labels are a few device pixels tall, and one sample per
++        // pixel drew them thin and jagged in WebView2 (#836); a Retina display
++        // already draws 2x. A whole factor keeps the page box on whole pixels
++        // (a fraction rounds it to steps of its denominator) and makes the
++        // browser's downscale an exact 2x2 average. The canvas has at most the
++        // pixels a 2x display draws at the same zoom, and below 50% fewer than
++        // this display draws at 100%. Skipped where the canvas caps would cut
++        // it back, which would also bring in the detail canvas.
++        const oversampled = new OutputScale();
++        oversampled.sx = oversampled.sy = LATTICE_ZOOMED_OUT_OUTPUT_SCALE;
++        if (!oversampled.limitCanvas(width, height, this.maxCanvasPixels, this.maxCanvasDim, this.capCanvasAreaFactor)) {
++          this.outputScale = oversampled;
++        }
+       }
+     }
+   }
+@@ -7265,13 +7319,17 @@ class PDFPageView extends BasePDFPageView {
      const pageHeight = floorToDivide(calcRound(height), sfy[1]);
      outputScale.sx = canvasWidth / pageWidth;
      outputScale.sy = canvasHeight / pageHeight;
@@ -187,7 +220,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      }
      const recordBBoxes = this.enableOptimizedPartialRendering && this.#hasRestrictedScaling && !this.recordedBBoxes;
      const recordImages = this.imagesRightClickMinSize !== -1 && !this.imageCoordinates;
-@@ -7971,11 +8010,17 @@ function isValidAnnotationEditorMode(mode) {
+@@ -7971,11 +8029,17 @@ function isValidAnnotationEditorMode(mode) {
  class PDFPageViewBuffer {
    #buf = new Set();
    #size = 0;
@@ -206,7 +239,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      if (buf.has(view)) {
        buf.delete(view);
      }
-@@ -7984,6 +8029,21 @@ class PDFPageViewBuffer {
+@@ -7984,6 +8048,21 @@ class PDFPageViewBuffer {
        this.#destroyFirstView();
      }
    }
@@ -228,7 +261,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    resize(newSize, idsToKeep = null) {
      this.#size = newSize;
      const buf = this.#buf;
-@@ -8010,10 +8070,281 @@ class PDFPageViewBuffer {
+@@ -8010,10 +8089,281 @@ class PDFPageViewBuffer {
    [Symbol.iterator]() {
      return this.#buf.keys();
    }
@@ -511,7 +544,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    }
  }
  class PDFViewer {
-@@ -8054,6 +8385,9 @@ class PDFViewer {
+@@ -8054,6 +8404,9 @@ class PDFViewer {
    #copiedPageViews = null;
    #savedPageViews = null;
    #deletedPageNumbers = null;
@@ -521,7 +554,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    constructor(options) {
      const viewerVersion = "6.5.438";
      if (version !== viewerVersion) {
-@@ -8155,6 +8489,16 @@ class PDFViewer {
+@@ -8155,6 +8508,16 @@ class PDFViewer {
    getCachedPageViews() {
      return new Set(this.#buffer);
    }
@@ -538,7 +571,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
    get pageViewsReady() {
      return this._pages.every(pageView => pageView?.pdfPage);
    }
-@@ -8557,7 +8901,7 @@ class PDFViewer {
+@@ -8557,7 +8920,7 @@ class PDFViewer {
            console.error(`Invalid AnnotationEditor mode: ${mode}`);
          }
        }
@@ -547,7 +580,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
        const scale = this.currentScale;
        const viewport = firstPdfPage.getViewport({
          scale: scale * PixelsPerInch.PDF_TO_CSS_UNITS
-@@ -8604,6 +8948,8 @@ class PDFViewer {
+@@ -8604,6 +8967,8 @@ class PDFViewer {
          this.#ensurePageViewVisible();
        } else if (this._spreadMode !== SpreadMode.NONE) {
          this._updateSpreadMode();
@@ -556,7 +589,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
        }
        eventBus.on("annotationeditorlayerrendered", evt => {
          if (this.#annotationEditorUIManager) {
-@@ -8794,7 +9140,7 @@ class PDFViewer {
+@@ -8794,7 +9159,7 @@ class PDFViewer {
      this._currentScale = (/* inlined export .UNKNOWN_SCALE */0);
      this._currentScaleValue = null;
      this._pageLabels = null;
@@ -565,7 +598,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      this._location = null;
      this._pagesRotation = 0;
      this._optionalContentConfigPromise = null;
-@@ -8812,6 +9158,7 @@ class PDFViewer {
+@@ -8812,6 +9177,7 @@ class PDFViewer {
      this.#eventAC?.abort();
      this.#eventAC = null;
      this.viewer.textContent = "";
@@ -573,7 +606,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      this._updateScrollMode();
      this.viewer.removeAttribute("lang");
      this.#hiddenCopyElement?.remove();
-@@ -8890,6 +9237,8 @@ class PDFViewer {
+@@ -8890,6 +9256,8 @@ class PDFViewer {
      if (this._scrollMode === ScrollMode.PAGE) {
        this.#ensurePageViewVisible();
        this.update();
@@ -582,7 +615,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      }
      if (!pageSpot && !this.isInPresentationMode) {
        const left = div.offsetLeft + div.clientLeft,
-@@ -9220,6 +9569,8 @@ class PDFViewer {
+@@ -9220,6 +9588,8 @@ class PDFViewer {
      }
      const newCacheSize = Math.max(DEFAULT_CACHE_SIZE, 2 * numVisiblePages + 1);
      this.#buffer.resize(newCacheSize, visible.ids);
@@ -591,7 +624,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
      for (const {
        view,
        visibleArea
-@@ -9301,7 +9652,7 @@ class PDFViewer {
+@@ -9301,7 +9671,7 @@ class PDFViewer {
      return !this.isInPresentationMode && this.container.scrollHeight > this.container.clientHeight;
    }
    _getVisiblePages() {
@@ -600,7 +633,7 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
        horizontal = this._scrollMode === ScrollMode.HORIZONTAL,
        rtl = horizontal && this._isContainerRtl;
      return getVisibleElements({
-@@ -9503,7 +9854,10 @@ class PDFViewer {
+@@ -9503,7 +9873,10 @@ class PDFViewer {
      } else {
        this.l10n.pause();
        viewer.textContent = "";
@@ -612,3 +645,18 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
          for (const pageView of this._pages) {
            viewer.append(pageView.div);
          }
+@@ -9699,7 +10072,13 @@ class PDFViewer {
+   #updateContainerHeightCss(height = this.container.clientHeight) {
+     if (height !== this.#previousContainerHeight) {
+       this.#previousContainerHeight = height;
+-      docStyle.setProperty("--viewer-container-height", `${height}px`);
++      // Lattice: on the viewer's own container, not the root. A custom
++      // property set on <html> restyles every element of the window (about
++      // 100 ms in a full Lattice window), and the container's height changes
++      // often: a panel resizing or hiding, the viewer's bars coming and going
++      // while the PDF scrolls. Only the presentation-mode .dummyPage inside
++      // the viewer reads it.
++      this.container.style.setProperty("--viewer-container-height", `${height}px`);
+     }
+   }
+   #resizeObserverCallback(entries) {

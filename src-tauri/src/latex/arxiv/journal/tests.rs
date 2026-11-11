@@ -200,7 +200,7 @@ fn build_and_export(name: &str, files: &[(&str, &str)]) -> (JournalExport, PathB
     }
     crate::project::open(&fixture.root).unwrap();
     let result =
-        build(&fixture.root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
+        build(&fixture.root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
     assert!(result.success, "{}", result.log);
     let parent = Fixture::empty(&format!("{name}-out"));
     let options = JournalOptions { tiff: false, dpi: 300, article: true };

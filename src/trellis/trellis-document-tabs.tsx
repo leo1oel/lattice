@@ -12,6 +12,7 @@ import type { LayoutDocument, LayoutNode, MenuEntry, PanelNode, ViewInfo, Worksp
 import { i18n } from "../i18n";
 import type { TrellisController } from "./trellis-controller";
 import { fileIcon } from "./trellis-icons";
+import { snapshotTextKey } from "./snapshot-texts";
 import { chooseEvictions, type FileParams } from "./trellis-tab-policy";
 
 /** A document tab's minimum width: trellis.css's --trellis-tab-min. */
@@ -119,7 +120,7 @@ export function openDocumentTab(
     return info;
   }
   const room = panel ? stripShortfall(ws, panel, controller.bridge?.tabLabel(key) ?? key) : null;
-  const { activeKey } = controller.app.get();
+  const { activeKey, projectRoot } = controller.app.get();
   const evicted = !room || room.short <= 0 ? [] : chooseEvictions(
     files.map((view) => ({
       id: view.id, key: String(view.params.key ?? ""), preview: Boolean(view.params.preview), pinned: Boolean(view.params.pinned),
@@ -132,7 +133,7 @@ export function openDocumentTab(
     // work, never a look. Every tab's last text is in `texts` once drawn.
     {
       held: (tab) => tab === key || tab === activeKey || controller.pendingDrops.has(tab)
-        || controller.tabs.held.has(tab) || Boolean(controller.texts.get(tab)?.includes("\\documentclass")),
+        || controller.tabs.held.has(tab) || Boolean(controller.texts.get(snapshotTextKey(projectRoot, tab))?.includes("\\documentclass")),
       lastUsed: controller.tabs.lastUsed,
     },
   );

@@ -1,0 +1,94 @@
+/* The form only gathers the groups; they keep the page's group rhythm,
+   which sibling selectors alone would lose at the form's edge. */
+.model-endpoint-form {
+  display: contents;
+}
+
+.model-endpoint-form > .ui-settings-group {
+  margin-top: var(--settings-group-gap);
+}
+
+/* A field belongs to the row naming it: no hairline between them. */
+.model-endpoint-settings .ui-settings-group-body > .ui-settings-row + :is(.model-endpoint-field, .model-endpoint-models) {
+  padding-top: 0;
+  box-shadow: none;
+}
+
+.model-endpoint-hint,
+.model-endpoint-detail {
+  margin: 0;
+  padding-block: var(--space-2);
+  font-size: var(--type-caption-size);
+  color: var(--text-secondary);
+}
+
+.model-endpoint-detail {
+  overflow-wrap: anywhere;
+}
+
+.model-endpoint-models {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+/* Name takes the slack; the two limits are short numbers. */
+.model-endpoint-model {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) 7rem 7rem 3.5rem 2rem;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.model-endpoint-model-head {
+  font-size: var(--type-caption-size);
+  color: var(--text-secondary);
+}
+
+.model-endpoint-images {
+  display: flex;
+  justify-content: center;
+}
+
+.model-endpoint-actions {
+  margin-top: var(--settings-group-gap);
+}
+
+.model-endpoint-actions,
+.model-endpoint-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.model-endpoint-report {
+  display: grid;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+}
+
+.model-endpoint-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--type-caption-size);
+  color: var(--text-secondary);
+}
+
+.model-endpoint-checks li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.model-endpoint-checks li[data-passed] {
+  color: var(--text-primary);
+}
+
+.model-endpoint-checks li[data-passed] svg {
+  color: var(--status-success);
+}

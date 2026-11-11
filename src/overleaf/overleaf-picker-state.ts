@@ -4,6 +4,7 @@
  * chosen, and the download or upload in flight.
  */
 import type { LocalCopy, OverleafProject, OverleafProjectList, OverleafStatus } from "../app-types";
+import { NOTHING_RECEIVED, recordDownload, type DownloadProgress, type DownloadTrack } from "./overleaf-download-progress";
 
 export type PickerState = {
   status: OverleafStatus | null;
@@ -22,15 +23,12 @@ export type PickerState = {
   /** Opening a project, until it is known whether it opens a local copy or downloads. */
   opening: OverleafProject | null;
   cloning: OverleafProject | null;
-  /** How much of the download has arrived, once Overleaf starts sending it. */
-  downloaded: DownloadProgress | null;
+  /** How much of the download in flight has arrived. */
+  downloaded: DownloadTrack | null;
   publishing: boolean;
   transferError: string | null;
   publishName: string;
 };
-
-/** `overleaf-download-progress`: bytes so far, and the size when Overleaf says it up front. */
-export type DownloadProgress = { received: number; total: number | null };
 
 export type PickerAction =
   | { type: "statusLoading" }
@@ -50,7 +48,8 @@ export type PickerAction =
   /** A download starts (clearing the last transfer's error) or ends. */
   | { type: "opening"; project: OverleafProject | null }
   | { type: "cloning"; project: OverleafProject | null }
-  | { type: "downloaded"; progress: DownloadProgress }
+  /** `at`: `performance.now()` when the step arrived. */
+  | { type: "downloaded"; progress: DownloadProgress; at: number }
   /** An upload starts (clearing the last transfer's error) or ends. */
   | { type: "publishing"; publishing: boolean }
   | { type: "transferFailed"; error: string };
@@ -83,10 +82,16 @@ export function reducePicker(state: PickerState, action: PickerAction): PickerSt
       return { ...state, opening: action.project, transferError: action.project ? null : state.transferError };
     case "cloning":
       return {
-        ...state, cloning: action.project, downloaded: null, transferError: action.project ? null : state.transferError,
+        ...state,
+        cloning: action.project,
+        downloaded: action.project ? NOTHING_RECEIVED : null,
+        transferError: action.project ? null : state.transferError,
       };
     // Late progress from a download that has already ended is dropped.
-    case "downloaded": return state.cloning ? { ...state, downloaded: action.progress } : state;
+    case "downloaded":
+      return state.cloning && state.downloaded
+        ? { ...state, downloaded: recordDownload(state.downloaded, action.progress, action.at) }
+        : state;
     case "publishing":
       return { ...state, publishing: action.publishing, transferError: action.publishing ? null : state.transferError };
     case "transferFailed": return { ...state, transferError: action.error };
