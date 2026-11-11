@@ -11392,6 +11392,10 @@ msgstr "Overleaf live editing reconnected."
 msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
 msgstr "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf no longer has the folder {folder}. It stays here because it still holds files that never sync: {names}. Delete them here if you no longer need them."
+msgstr "Overleaf no longer has the folder {folder}. It stays here because it still holds files that never sync: {names}. Delete them here if you no longer need them."
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf project actions"

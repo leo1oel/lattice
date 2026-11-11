@@ -392,6 +392,18 @@ purpose.
   other programs do not; their edit is left as it is, keeps the previous agreed
   hash, and is reported (`editedDuringSync`) so the next sync merges or sends
   it. A file edited while a sync sends it keeps what went up as its merge base.
+- A folder that holds nothing Overleaf has, agreed, held, stood down from
+  sending or edited meanwhile, and that held synced files once (the starting
+  agreed table or the merge-base tree says so), loses its build outputs and
+  then its empty folders after the sync; empty folders of the merge-base tree
+  go too. A build output is a file a build record in the folder lists (a
+  `.fls` recorder's `OUTPUT`, a `.fdb_latexmk`'s generated files), the
+  SyncTeX file beside a PDF one lists, the project's build PDF, or one
+  named for a `.tex` that synced beside it; a file merely named like one is
+  not. Any other file in it is the writer's, keeps the folder, and is named
+  once (`keptFolders`). Finder's `.DS_Store` goes only with a folder
+  otherwise emptied. A folder with no record of syncing is left alone
+  (`overleaf/sync/stale_folders.rs`).
 - Active, draining and outcome-unknown OT documents stay excluded from ordinary
   ZIP/file synchronization until the realtime owner releases them.
 - Every delayed project-specific Overleaf read or mutation carries the project

@@ -1,6 +1,7 @@
 //! What a sync reports: the files it moved, merged or left alone, and its
 //! shape (counts, never paths) on the wide event.
 
+use super::stale_folders::KeptFolder;
 use super::{CaseCollision, SyncState};
 use crate::wide_event;
 use serde::{Deserialize, Serialize};
@@ -82,6 +83,13 @@ pub struct OverleafSyncResult {
     /// old name beside the renamed file. Named on every sync while held.
     #[serde(default)]
     pub held_renames: Vec<String>,
+    /// Folders Overleaf no longer has, whose synced files this sync or an
+    /// earlier one took away, that stay here for files in them that never
+    /// sync: a conflict copy, a file too large for Overleaf. Their build
+    /// outputs and empty subfolders are gone (see `stale_folders`). Named once,
+    /// by the sync that clears the rest.
+    #[serde(default)]
+    pub kept_folders: Vec<KeptFolder>,
 }
 
 /// Of the files this sync holds marked up, those `state` (the last sync's)
@@ -106,6 +114,7 @@ pub(super) fn record_result(result: &OverleafSyncResult) {
         ("unresolved_conflicts", result.unresolved_conflicts.len()),
         ("case_collisions", result.case_collisions.len()),
         ("held_renames", result.held_renames.len()),
+        ("kept_folders", result.kept_folders.len()),
     ] {
         if count > 0 {
             wide_event::record(key, count);

@@ -11392,6 +11392,10 @@ msgstr "实时协作已恢复"
 msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
 msgstr "Overleaf 上已没有 {deleted}，但有 {kept}。本机磁盘可能把这两个名字当作同一个文件，删除 {deleted} 可能会连带删掉 {kept}。请先把 {deleted} 移出项目，再同步一次。没有改动任何文件"
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf no longer has the folder {folder}. It stays here because it still holds files that never sync: {names}. Delete them here if you no longer need them."
+msgstr "Overleaf 上已没有文件夹 {folder}。它还留在本机，因为里面还有不会同步的文件：{names}。如果不再需要，请在本机删掉它们"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf 选项"
