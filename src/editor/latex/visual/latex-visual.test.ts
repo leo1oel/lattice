@@ -267,6 +267,32 @@ describe("LaTeX Visual mode", () => {
     expect(atEnd.contentDOM.querySelector(".lx-tex-end-document")).not.toBeNull();
   });
 
+  it("still removes a blank line next to a drawn list end or figure, without joining text onto them", async () => {
+    const doc = "\\begin{itemize}\n\\item one\n\\end{itemize}\n\nText\n\n\\begin{figure}\n\\caption{A}\n\\end{figure}\nEnd";
+    const afterList = await visualView(doc, doc.indexOf("\n\nText") + 1);
+    expect(press(afterList, "Backspace")).toBe(true);
+    expect(afterList.state.doc.toString()).toBe(doc.replace("\\end{itemize}\n\n", "\\end{itemize}\n"));
+
+    const beforeFigure = await visualView(doc, doc.indexOf("\n\\begin{figure}"));
+    expect(press(beforeFigure, "Delete")).toBe(true);
+    expect(beforeFigure.state.doc.toString()).toBe(doc.replace("Text\n\n", "Text\n"));
+
+    const ontoFigure = await visualView(doc, doc.indexOf("End"));
+    expect(press(ontoFigure, "Backspace")).toBe(true);
+    expect(ontoFigure.state.doc.toString()).toBe(doc);
+  });
+
+  it("never deletes a blank line's break under the folded preamble or above the end-of-document bar", async () => {
+    const doc = "\\documentclass{article}\n\\begin{document}\n\nHello.\n\n\\end{document}\n";
+    const afterPreamble = await visualView(doc, doc.indexOf("\n\nHello") + 1);
+    expect(press(afterPreamble, "Backspace")).toBe(true);
+    expect(afterPreamble.state.doc.toString()).toBe(doc);
+
+    const beforeEnd = await visualView(doc, doc.indexOf("\n\\end{document}"));
+    expect(press(beforeEnd, "Delete")).toBe(true);
+    expect(beforeEnd.state.doc.toString()).toBe(doc);
+  });
+
   it("numbers a list's items from its top when a scan starts inside a listing in it", async () => {
     const { scanContext } = await import("./latex-visual");
     const doc = "\\begin{enumerate}\n\\item one\n\\item two\n\\begin{lstlisting}\na\n\nb\n\\end{lstlisting}\n\\item three\n\\end{enumerate}\n";

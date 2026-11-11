@@ -294,8 +294,10 @@ export function latexVisual(host: LatexVisualHost): Extension {
  * - Leaving a description term over its bracket removes the item's marker
  *   instead, as Backspace at an itemize item removes its bullet; the term
  *   keeps its line.
- * - It never deletes a line break a drawn block stands on (the folded
- *   preamble's, the end-of-document bar's, an environment's or a display's).
+ * - It never deletes a line break a drawn block stands on: the folded
+ *   preamble's or the end-of-document bar's, or one that would join a line
+ *   of text onto an environment's or a display's (a blank line next to one
+ *   still goes).
  * - With the caret just outside a construct whose content is empty, it
  *   removes the construct; inside one, the deletion is Source's.
  * - Past the start or end of the document it deletes nothing.
@@ -379,9 +381,12 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
     const lineBreak = forward ? at === line.to : at === line.from;
     let from = forward ? at : lineBreak ? at - 1 : line.from + findClusterBreak(line.text, at - line.from, false);
     let to = !forward ? at : lineBreak ? at + 1 : line.from + findClusterBreak(line.text, at - line.from, true);
+    const blank = !line.text.trim();
     let blockEdge = false;
     value.replacements.between(from, to, (rangeFrom, rangeTo, decoration) => {
-      if (lineBreak && decoration.spec.block && rangeFrom < rangeTo && (rangeTo === from || rangeFrom === to)) blockEdge = true;
+      if (!lineBreak || !decoration.spec.block || rangeFrom >= rangeTo || (rangeTo !== from && rangeFrom !== to)) return;
+      blockEdge = !blank || rangeTo === preambleOf(state)?.to || rangeFrom === endDocumentOf(state)?.from;
+      if (blockEdge) return false;
     });
     if (blockEdge) return true;
     if (!stepped) return false;
