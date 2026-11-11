@@ -1,4 +1,4 @@
-import { Annotation } from "@codemirror/state";
+import { Annotation, type Transaction } from "@codemirror/state";
 import { ViewPlugin, type EditorView, type ViewUpdate } from "@codemirror/view";
 import { watchPointerHold, type PointerHold } from "../lib/pointer-hold";
 
@@ -30,4 +30,9 @@ export function pointerSelecting(view: EditorView): boolean {
 
 export function pointerSelectionSettled(update: ViewUpdate): boolean {
   return update.transactions.some((transaction) => transaction.annotation(pointerReleased) === true);
+}
+
+/** Whether `transaction` is the one a source editor dispatches when a held press ends. */
+export function isPointerRelease(transaction: Transaction): boolean {
+  return transaction.annotation(pointerReleased) === true;
 }

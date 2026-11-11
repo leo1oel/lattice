@@ -1,6 +1,7 @@
 /**
  * A document panel's header tools: Build on a .tex file (it builds the
- * project and brings the PDF up), Edit / Split / Preview on the active
+ * project and brings the PDF up), beside its Source / Visual switch (how its
+ * editor draws it), Edit / Split / Preview on the active
  * Markdown, HTML or .bib file (whose Preview is its reference list), and on the active Paper Blog / Paper beside its own
  * Edit / Split / Preview (a Paper is Markdown too).
  *
@@ -30,6 +31,7 @@ import type { BuildOutcome } from "../app/use-build-pipeline";
 import { buildHeadline } from "../build/build-result-text";
 import { formatSeconds, joinPhrases } from "../i18n";
 import { BuildSequence } from "./trellis-build-sequence";
+import { LatexViewSwitch } from "./trellis-latex-view-switch";
 
 /**
  * When each build outcome was first shown. Its flourish belongs to the moment
@@ -112,6 +114,8 @@ function buildAge(finishedAt: number, now: number, justNow: string, locale: stri
 function Reserve({ children }: { children: ReactNode }) {
   return <span className="trellis-tools-reserve" inert aria-hidden="true">{children}</span>;
 }
+/** The reserve as a function, for a memoized child that holds its place the same way. */
+const reserveSwitch = (children: ReactNode) => <Reserve>{children}</Reserve>;
 
 export function FileHeaderTools({ controller }: { controller: TrellisController }) {
   const { t, i18n } = useLingui();
@@ -189,7 +193,8 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
         </button>
       );
     };
-    if (!active) return <Reserve>{button(false)}</Reserve>;
+    const latexViews = <LatexViewSwitch active={active} reserve={reserveSwitch} />;
+    if (!active) return <span className="trellis-latex-tools">{latexViews}<Reserve>{button(false)}</Reserve></span>;
     // The card gives the same result as the description, pass by pass, then
     // how to build again (the only place ⇧-click's clean rebuild is told);
     // before any build, only that. It is one card in every state, so the
@@ -198,19 +203,22 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
       ? joinPhrases([lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)])
       : null;
     return (
-      <HoverCard open={cardOpen} onOpenChange={(open) => setCardOpen(open && !pressedRef.current)} openDelay={280} closeDelay={120}>
-        <HoverCardTrigger asChild>{button(true)}</HoverCardTrigger>
-        <HoverCardContent align="end" className="trellis-build-card">
-          <BuildSequence
-            building={building}
-            progress={tools.buildProgress}
-            outcome={building ? null : lastBuild}
-            place={place}
-            hint={t`⌘S, or ⇧-click for a clean rebuild`}
-            onProblem={() => controller.bridge?.nextBuildProblem()}
-          />
-        </HoverCardContent>
-      </HoverCard>
+      <span className="trellis-latex-tools">
+        {latexViews}
+        <HoverCard open={cardOpen} onOpenChange={(open) => setCardOpen(open && !pressedRef.current)} openDelay={280} closeDelay={120}>
+          <HoverCardTrigger asChild>{button(true)}</HoverCardTrigger>
+          <HoverCardContent align="end" className="trellis-build-card">
+            <BuildSequence
+              building={building}
+              progress={tools.buildProgress}
+              outcome={building ? null : lastBuild}
+              place={place}
+              hint={t`⌘S, or ⇧-click for a clean rebuild`}
+              onProblem={() => controller.bridge?.nextBuildProblem()}
+            />
+          </HoverCardContent>
+        </HoverCard>
+      </span>
     );
   }
   if (which === null) return null;

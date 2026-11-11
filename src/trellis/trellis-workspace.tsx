@@ -23,6 +23,7 @@ import { FileText } from "lucide-react";
 import { retainParkedEditors } from "../editor/parked-editors";
 import { windowProjects } from "../app/window-projects";
 import { retainSnapshotTexts, SnapshotProjectContext } from "./snapshot-texts";
+import { chooseLatexView, latexView as currentLatexView } from "../editor/latex/latex-view-choice";
 import { TOOL_KINDS, documentTools, type TrellisController, type TrellisSingleton, type TrellisToolKind } from "./trellis-controller";
 import {
   differsFromWorkspace, filledSlots, keepDocumentSlot, openProjectLayout, placesOf, saveLayout,
@@ -496,6 +497,12 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     switch (documentTools(controller.bridge?.tabKind(key) ?? "file", key)) {
       case "build":
         return [
+          // How .tex files draw, as the header's switch sets it.
+          ...(active ? (["source", "visual"] as const).map((latexView): MenuItem => ({
+            id: `latex-${latexView}`, label: latexView === "source" ? t({ context: "LaTeX editor view", message: "Source" }) : t({ context: "LaTeX editor view", message: "Visual" }),
+            checked: currentLatexView() === latexView, run: () => chooseLatexView(latexView),
+          })) : []),
+          ...(active ? ["separator" as const] : []),
           { id: "build", label: t`Build`, shortcut: "⌘S", run: () => bridge?.build(key, { beside: view.panelId }) },
           { id: "clean-build", label: t`Clean rebuild`, run: () => bridge?.build(key, { clean: true, beside: view.panelId }) },
           ...(tools.building ? [{ id: "stop-build", label: t`Stop the build`, run: () => bridge?.stopBuild() }] : []),

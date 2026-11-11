@@ -16,6 +16,7 @@ import { msg } from "@lingui/core/macro";
 import { formatCommentTimestamp } from "../editor/comments/editor-comments";
 import { element } from "../editor/dom-utils";
 import { hoverAnchor } from "../editor/hover-anchor";
+import { overlayFrom } from "../editor/source-overlays";
 import { i18n } from "../i18n";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import { hueColor } from "../components/ui/collab-colors";
@@ -42,7 +43,7 @@ function listDecorationField<T>(
       if (getItems) items = getItems();
       return items !== value.items || tr.docChanged ? { items, decorations: build(tr.state.doc, items) } : value;
     },
-    provide: (field) => EditorView.decorations.from(field, (state) => state.decorations),
+    provide: (field) => [EditorView.decorations.from(field, (state) => state.decorations), overlayFrom(field, (state) => state.decorations)],
   });
 }
 

@@ -298,6 +298,14 @@ export class BenchDriver {
     await this.waitFor(`document.querySelector('[data-bench-view]')?.getAttribute("aria-selected") === "true"`, { what: `the ${view} view` });
   }
 
+  /** Picks Source or Visual in a .tex file's editor view control, and waits for Visual mode to draw (or leave). */
+  async selectLatexView(view) {
+    await this.markByText('[role="tablist"][aria-label="LaTeX editor view"] [role="tab"]', view, "latex-view");
+    await this.click('[data-bench-latex-view]');
+    const drawn = view === "Visual" ? "" : "!";
+    await this.waitFor(`${drawn}document.querySelector(".cm-editor.cm-latex-visual .cm-content > .cm-line")`, { what: `the ${view} view` });
+  }
+
   /**
    * Presses at the first point and drags through the rest, one step of at
    * most DRAG_STEP_PX a frame, as a hand moves a tab; a point with `restMs`
@@ -439,6 +447,21 @@ export const SCENARIOS = [
     run: (driver) => driver.type("lattice ".repeat(3)),
   },
   {
+    name: "long-tex-visual-typing",
+    // long-tex-typing in Visual mode: the same file, keys and catch-up, with
+    // the constructs around the viewport drawn and scanned again per key.
+    description: "Type 24 characters into the 3 MB, 18k-line LaTeX file in Visual mode, PDF preview beside it.",
+    unit: "keystroke",
+    steps: 24,
+    async setup(driver) {
+      await driver.openFile("long.tex");
+      await driver.selectLatexView("Visual");
+      await driver.rect(EDITOR);
+      await caretInSourceLine(driver, 12);
+    },
+    run: (driver) => driver.type("lattice ".repeat(3)),
+  },
+  {
     name: "markdown-source-typing",
     description: "Type 40 characters into the long Markdown document in the source editor.",
     unit: "keystroke",
@@ -549,6 +572,20 @@ export const SCENARIOS = [
     steps: 40,
     async setup(driver) {
       await driver.openFile("chapters/ch02.tex");
+      await driver.rect(EDITOR);
+    },
+    run: (driver) => driver.wheel(".cm-editor .cm-scroller", 120, 40),
+  },
+  {
+    name: "long-tex-visual-scroll",
+    // Each notch can move the window Visual mode draws: a scan of the lines
+    // around the viewport, its equations set by KaTeX on first sight.
+    description: "Scroll the 3 MB, 18k-line LaTeX file in Visual mode by 40 wheel notches.",
+    unit: "notch",
+    steps: 40,
+    async setup(driver) {
+      await driver.openFile("long.tex");
+      await driver.selectLatexView("Visual");
       await driver.rect(EDITOR);
     },
     run: (driver) => driver.wheel(".cm-editor .cm-scroller", 120, 40),

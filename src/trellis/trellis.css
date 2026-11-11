@@ -484,8 +484,9 @@
   font-size: var(--type-caption-size);
   font-weight: var(--weight-medium);
 }
-/* A Paper's two switches: what it reads (Blog, Paper) and how (Edit, Split, Preview). */
-.trellis-paper-tools { display: flex; align-items: center; gap: var(--space-2); }
+/* A Paper's two switches: what it reads (Blog, Paper) and how (Edit, Split, Preview).
+   A .tex file's Source / Visual switch sits before its Build button the same way. */
+.trellis-paper-tools, .trellis-latex-tools { display: flex; align-items: center; gap: var(--space-2); }
 .trellis-paper-content { display: flex; }
 /* Short of room for the tabs, Build keeps only its icon and a Paper only its
    modes (see the tab sizes above); the panel menu repeats both. */

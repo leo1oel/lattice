@@ -633,10 +633,12 @@ msgstr "{filtered}/{total} 篇"
 msgid "{first} and {more} more; build again"
 msgstr "{first} 等 {more} 个文件；请重新编译"
 
+#: src/editor/latex/visual/visual-decorations.ts
 #: src/papers/paper-identity.ts
 msgid "{first} and {second}"
 msgstr "{first} 和 {second}"
 
+#: src/editor/latex/visual/visual-decorations.ts
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} 等"
@@ -940,6 +942,10 @@ msgstr "整理排版期间 {path} 被改过，所以没有应用结果。请重�
 #: src/history/conflict-resolver.tsx
 msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 msgstr "对话框打开期间 {path} 被改过，所以什么都没保存。重新载入后按新内容处理；这里做的选择和编辑会清空。"
+
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "{path} could not be read."
+msgstr "无法读取 {path}。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} disappeared during sync"
@@ -6073,6 +6079,10 @@ msgstr "记录版本"
 msgid "End an environment"
 msgstr "结束环境"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "End of document"
+msgstr "文档结束"
+
 #: src/settings/model-endpoint-settings.tsx
 msgid "Endpoint"
 msgstr "接口"
@@ -7290,6 +7300,10 @@ msgctxt "macOS menu bar"
 msgid "Hide Others"
 msgstr "隐藏其他"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Hide preamble"
+msgstr "隐藏导言区"
+
 #: src/app/focus-mode-bar.tsx
 #: src/app/use-command-table.ts
 msgid "Hide the PDF"
@@ -8221,6 +8235,10 @@ msgstr "刚刚"
 msgid "Kappa"
 msgstr "卡帕"
 
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "KaTeX cannot set this formula; it shows as written."
+msgstr "KaTeX 无法排版此公式，按原文显示。"
+
 #: src/editor/latex/highlighters.ts
 msgid "Keep"
 msgstr "保留"
@@ -8486,6 +8504,10 @@ msgstr "LaTeX 不认识 {token}。它看起来是 {name} 的笔误。"
 #: src/build/compile-explain.ts
 msgid "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 msgstr "LaTeX 不认识 {name} 环境。检查 \\begin 和 \\end 里的拼写，或加载定义它的宏包。"
+
+#: src/trellis/trellis-latex-view-switch.tsx
+msgid "LaTeX editor view"
+msgstr "LaTeX 编辑器视图"
 
 #: src/project/local-templates.tsx
 msgid "LaTeX engine"
@@ -10206,6 +10228,10 @@ msgstr "还没有论文"
 msgid "No PDF yet"
 msgstr "还没有 PDF"
 
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "No preview for {path}; the PDF shows it."
+msgstr "{path} 无法预览，请在 PDF 中查看。"
+
 #: src/settings/synara-settings-pane.tsx
 msgid "No project open"
 msgstr "未打开项目"
@@ -10766,6 +10792,10 @@ msgstr "在此窗口中打开 {name}"
 #: src/app/use-editor-comments.ts
 msgid "Open {name} to comment on it."
 msgstr "请先打开 {name} 再评论"
+
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "Open {path}"
+msgstr "打开 {path}"
 
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
@@ -14403,6 +14433,10 @@ msgstr "显示更早的历史"
 msgid "Show outline"
 msgstr "显示大纲"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Show preamble"
+msgstr "显示导言区"
+
 #: src/editor/markdown/engine/views/html-preview.tsx
 msgid "Show preview"
 msgstr "显示预览"
@@ -14663,6 +14697,12 @@ msgstr "来源"
 #: src/editor/markdown/engine/views/image-view.tsx
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
+msgid "Source"
+msgstr "源码"
+
+#: src/trellis/trellis-latex-view-switch.tsx
+#: src/trellis/trellis-workspace.tsx
+msgctxt "LaTeX editor view"
 msgid "Source"
 msgstr "源码"
 
@@ -17902,6 +17942,12 @@ msgstr "紫罗兰色"
 #: src/agent/agent-visual-save.ts
 msgid "Visual"
 msgstr "可视化内容"
+
+#: src/trellis/trellis-latex-view-switch.tsx
+#: src/trellis/trellis-workspace.tsx
+msgctxt "LaTeX editor view"
+msgid "Visual"
+msgstr "可视化"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."

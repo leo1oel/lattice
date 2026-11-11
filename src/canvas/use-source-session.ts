@@ -30,6 +30,7 @@ import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensio
 import type { OtOp } from "../overleaf/ot";
 import type { ProofreadBridge } from "./proofread-bridge";
 import { sameSourceConfig, sourceSessionExtensions, type SourceSessionConfig, type SourceSessionLive } from "./source-session";
+import { useLatexVisual } from "./use-latex-visual";
 
 /** The lines a non-empty selection covers; one that ends at a line's start stops on the line before. */
 function selectionLines(doc: Text, range: SelectionRange): AgentSelectionLines {
@@ -103,6 +104,8 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     setConfigured(next);
     extensions = next.extensions;
   }
+
+  useLatexVisual(props, live, viewRef, view);
 
   // Values the mounted view repaints for, pushed as they change. A view built
   // since (a remount for another document, a parked one resuming) is pushed

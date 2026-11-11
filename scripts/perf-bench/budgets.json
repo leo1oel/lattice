@@ -47,6 +47,11 @@
       "renders": 6,
       "hooks": 14
     },
+    "long-tex-visual-scroll": {
+      "commits": 6,
+      "renders": 6,
+      "hooks": 14
+    },
     "source-select-drag": {
       "commits": 8,
       "renders": 737,
@@ -66,6 +71,11 @@
       "mutations": 129
     },
     "long-tex-typing": {
+      "renders": 3066,
+      "hooks": 38204,
+      "mutations": 195
+    },
+    "long-tex-visual-typing": {
       "renders": 3066,
       "hooks": 38204,
       "mutations": 195

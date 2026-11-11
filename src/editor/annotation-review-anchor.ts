@@ -1,5 +1,6 @@
 import { Prec, StateEffect, StateField, type EditorState, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, keymap, WidgetType, type DecorationSet } from "@codemirror/view";
+import { overlayFrom } from "./source-overlays";
 
 /**
  * Where an annotation's proposal is reviewed: the annotated span, mapped
@@ -57,7 +58,7 @@ const reviewField = StateField.define<{ anchor: AnnotationReviewAnchor | null; d
     if (anchor === value.anchor) return value;
     return { anchor, decorations: anchor ? decorations(tr.state, anchor) : Decoration.none };
   },
-  provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+  provide: (field) => [EditorView.decorations.from(field, (value) => value.decorations), overlayFrom(field, (value) => value.decorations)],
 });
 
 /** The proposal under review in `state`, or null. */
