@@ -39,6 +39,18 @@ lto = false
 opt-level = "s"
 strip = "symbols"
 
+# Full debug info made every worktree's target/ 13+ GB after a build and a test
+# run, most of it DWARF for dependencies nobody steps through. Line tables for
+# this crate keep file:line in backtraces (panic messages carry their location
+# regardless); debuggers lose local variables. Dependencies get none: their
+# frames still name the function, just without a line. `cargo test` inherits
+# this through the test profile.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [dependencies]
 tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
