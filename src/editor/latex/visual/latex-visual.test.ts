@@ -33,7 +33,9 @@ const data = (overrides: Partial<LatexEditorLiveData> = {}): LatexEditorLiveData
 
 function host(overrides: Partial<LatexEditorLiveData> = {}): LatexVisualHost & { opened: unknown[] } {
   const opened: unknown[] = [];
-  return { data: () => data(overrides), loadImage: async () => null, open: (target) => opened.push(target), opened };
+  // Built once, as in the app, where the live data's fields keep their identities between updates.
+  const live = data(overrides);
+  return { data: () => live, loadImage: async () => null, open: (target) => opened.push(target), opened };
 }
 
 /** Every document change an editor made, to prove that something made none. */
@@ -472,6 +474,24 @@ describe("LaTeX Visual mode", () => {
     view.dispatch({ selection: { anchor: doc.length - 1 } });
     await Promise.resolve();
     expect(chip()).toBe("Vaswani et al. (2017)");
+  });
+
+  it("settles when the host builds fresh project data on every read", async () => {
+    // Every read differs from the last, so every real update looks like a data change.
+    const visualHost = { ...host(), data: () => data() };
+    const redraws: number[] = [];
+    const countRedraws = EditorView.updateListener.of((update) => {
+      for (const tr of update.transactions) if (tr.effects.some((effect) => effect.is(latexVisualDataChanged))) redraws.push(1);
+    });
+    const doc = "Some $x$ text.\nEnd";
+    const view = await visualView(doc, doc.length, visualHost, countRedraws);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    const afterMount = redraws.length;
+    view.dispatch({ selection: { anchor: 2 } });
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    // One caret move asks for at most one redraw, and asking is not itself a reason to ask again.
+    expect(redraws.length - afterMount).toBeLessThanOrEqual(1);
+    expect(afterMount).toBeLessThanOrEqual(2);
   });
 
   it("folds the preamble, opening it when the caret is in it", async () => {

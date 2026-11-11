@@ -248,7 +248,10 @@ export function latexVisual(host: LatexVisualHost): Extension {
     };
     let seen = drawnFrom();
     let redrawScheduled = false;
-    const syncData = () => {
+    const syncData = (update: ViewUpdate) => {
+      // The redraw asked for below is never a reason to ask again: a host whose
+      // data() builds fresh values per call would otherwise redraw forever.
+      if (update.transactions.some((tr) => tr.effects.some((effect) => effect.is(latexVisualDataChanged)))) return;
       const current = drawnFrom();
       if (current.every((value, index) => value === seen[index])) return;
       seen = current;
@@ -273,7 +276,7 @@ export function latexVisual(host: LatexVisualHost): Extension {
       update(update: ViewUpdate) {
         if (update.viewportChanged || update.docChanged || update.geometryChanged) syncWindow();
         syncLabels();
-        syncData();
+        syncData(update);
       },
       destroy() {
         destroyed = true;

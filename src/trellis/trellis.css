@@ -494,8 +494,10 @@
 /* A .tex file's Source / Visual switch shows only in room to spare (the
    named row): the Trellis patch measures the panel's minimum header in the
    whole row's state (no data-tools), so the switch is off there too, and the
-   minimum stays Build's alone. The panel menu repeats it. */
-.lattice-trellis [data-trellis-part="tabbar"]:not([data-tools="named"]) .trellis-latex-view { display: none; }
+   minimum stays Build's alone. Tab eviction measures the strip under
+   data-room-probe, so the switch never closes a tab either. The panel menu
+   repeats it. */
+.lattice-trellis [data-trellis-part="tabbar"]:is(:not([data-tools="named"]), [data-room-probe]) .trellis-latex-view { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] :is(.trellis-build-label, .trellis-build-sizer-labels) { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-button { padding-inline: var(--space-4); }
 
