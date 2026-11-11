@@ -6,6 +6,8 @@
  * lines it touched, and CodeMirror's range set maps the rest through it.
  */
 import { RangeSet, RangeValue, StateField, type ChangeSet, type EditorState, type Text } from "@codemirror/state";
+import type { Preamble } from "./visual-decorations";
+import type { Span } from "./visual-scan";
 import { DISPLAY_MATH_ENVIRONMENTS, SOURCE_ENVIRONMENTS } from "./visual-symbols";
 
 /** One `\begin{name}` or `\end{name}` token. */
@@ -135,4 +137,20 @@ export function documentBounds(state: EditorState): DocumentBounds {
   }
   boundsCache.set(marks, bounds);
   return bounds;
+}
+
+/** The preamble Visual mode folds away, when `\begin{document}` ends its line. */
+export function preambleOf(state: EditorState): Preamble {
+  const { begin } = documentBounds(state);
+  if (!begin) return null;
+  const line = state.doc.lineAt(begin.to);
+  return line.text.slice(begin.to - line.from).trim() ? null : { to: line.to };
+}
+
+/** `\end{document}`'s line, when the token is alone on it. */
+export function endDocumentOf(state: EditorState): Span | null {
+  const { end } = documentBounds(state);
+  if (!end) return null;
+  const line = state.doc.lineAt(end.from);
+  return line.text.trim() === state.sliceDoc(end.from, end.to).trim() ? { from: line.from, to: line.to } : null;
 }
