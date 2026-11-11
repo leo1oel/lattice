@@ -238,6 +238,27 @@ export function latexVisual(host: LatexVisualHost): Extension {
         view.dispatch({ effects: latexVisualDataChanged.of(null) });
       }, () => {});
     };
+    // The project data drawn from (macros, the last build, citations, paths)
+    // is read here, on the editor's own updates, rather than pushed from the
+    // canvas: a hook there would run on every keystroke, Visual or not. A
+    // change shows on the next update (a keystroke, scroll, resize or focus).
+    const drawnFrom = () => {
+      const { katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath } = host.data();
+      return [katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath];
+    };
+    let seen = drawnFrom();
+    let redrawScheduled = false;
+    const syncData = () => {
+      const current = drawnFrom();
+      if (current.every((value, index) => value === seen[index])) return;
+      seen = current;
+      if (redrawScheduled) return;
+      redrawScheduled = true;
+      queueMicrotask(() => {
+        redrawScheduled = false;
+        if (!destroyed) view.dispatch({ effects: latexVisualDataChanged.of(null) });
+      });
+    };
     // A caret left at the very start (a document just opened) would open the folded preamble: start at the body instead.
     const preamble = preambleOf(view.state);
     const { main } = view.state.selection;
@@ -252,6 +273,7 @@ export function latexVisual(host: LatexVisualHost): Extension {
       update(update: ViewUpdate) {
         if (update.viewportChanged || update.docChanged || update.geometryChanged) syncWindow();
         syncLabels();
+        syncData();
       },
       destroy() {
         destroyed = true;

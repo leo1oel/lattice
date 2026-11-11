@@ -69,7 +69,7 @@ export function sameSourceConfig(a: SourceSessionConfig, b: SourceSessionConfig)
 }
 
 /** The LaTeX and text editors' live data (citations, macros, spelling and grammar). */
-export function editorLiveData(live: SourceSessionLive): { readonly current: LatexEditorLiveData } {
+function editorLiveData(live: SourceSessionLive): { readonly current: LatexEditorLiveData } {
   return {
     get current() {
       const { bibliography, preferences } = live.props();

@@ -460,6 +460,20 @@ describe("LaTeX Visual mode", () => {
     expect(visualHost.opened).toEqual([{ kind: "include", path: "chapters/intro.tex" }]);
   });
 
+  it("draws again from project data that changed since the last draw, on the editor's next update", async () => {
+    let current = data();
+    const visualHost = { ...host(), data: () => current };
+    const doc = "As \\citet{vaswani2017} show.\nEnd";
+    const view = await visualView(doc, doc.length, visualHost);
+    const chip = () => view.contentDOM.querySelector(".lx-tex-cite")?.textContent;
+    expect(chip()).not.toBe("Vaswani et al. (2017)");
+    // The .bib is read after the first draw; nothing tells the editor, until it next updates.
+    current = data({ citations: [{ key: "vaswani2017", title: "Attention", authors: "Vaswani, Ashish and Shazeer, Noam and Parmar, Niki", year: "2017", venue: "" }] });
+    view.dispatch({ selection: { anchor: doc.length - 1 } });
+    await Promise.resolve();
+    expect(chip()).toBe("Vaswani et al. (2017)");
+  });
+
   it("folds the preamble, opening it when the caret is in it", async () => {
     const doc = "\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\nHello.\n\\end{document}\n";
     const view = await visualView(doc, 0);

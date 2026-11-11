@@ -20,7 +20,6 @@ import type { AgentSelectionLines } from "../agent/agent-host-context";
 import { CommentCardHosts, setEditorCommentDraftEffect, setEditorCommentsEffect } from "../editor/comments/editor-comments";
 import { harperConfigChanged } from "../editor/harper-spellcheck";
 import { latexIndexChanged } from "../editor/latex/latex-editor";
-import { latexVisualDataChanged } from "../editor/latex/latex-visual-switch";
 import { pointerSelecting, pointerSelectionSettled } from "../editor/pointer-selection";
 import { setOverleafCursorsEffect } from "../overleaf/overleaf-editor-extensions";
 import { isHarperProseFilePath } from "../app-utils";
@@ -113,14 +112,10 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
   }, [buildDiagnostics, texlabDiagnostics]);
 
   // Keys re-read from a .bib written outside this editor (the agent, a
-  // reference manager's export) clear or raise flags in the open document,
-  // and Visual mode draws again from the project data it reads (macros, the
-  // last build's numbers, citations, paths). One effect for both: the canvas
-  // renders on every keystroke, and each hook here runs with it.
-  const { indexPending, citationKeys, katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath } = props.bibliography;
+  // reference manager's export) clear or raise flags in the open document.
   useEffect(() => {
-    viewRef.current?.dispatch({ effects: [latexIndexChanged.of(null), latexVisualDataChanged.of(null)] });
-  }, [indexPending, citationKeys, katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath]);
+    viewRef.current?.dispatch({ effects: latexIndexChanged.of(null) });
+  }, [props.bibliography.indexPending, props.bibliography.citationKeys]);
 
   useEffect(() => {
     const current = viewRef.current;
