@@ -569,6 +569,10 @@ msgstr "{documentName} — 源码"
 msgid "{dpi} DPI at the specified width"
 msgstr "按指定宽度计算为 {dpi} DPI"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{elapsed} elapsed"
+msgstr "已用时 {elapsed}"
+
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
 msgstr "正在空白文件夹中用 {engine} 编译…"
@@ -998,6 +1002,14 @@ msgstr "第 {position}/{total} 条"
 msgid "{projectName} — {documentTitle}"
 msgstr "{projectName} — {documentTitle}"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} of {total}"
+msgstr "已接收 {received}，共 {total}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} received"
+msgstr "已接收 {received}"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} 处引用"
@@ -1037,6 +1049,10 @@ msgstr "{size}，上限 {limit}"
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size}，上限 {limit}；请移除较大的图片"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{size}/s"
+msgstr "{size}/秒"
 
 #: src/platform/host-errors-project.ts
 msgid "{source} could not be found."
@@ -1393,6 +1409,10 @@ msgstr "绘图已更改：{path}"
 msgid "A dropped file"
 msgstr "拖入的文件"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "A few seconds left"
+msgstr "还剩几秒"
+
 #: src/build/compile-explain.ts
 msgid "A figure or table is {points} pt taller than the page"
 msgstr "有一个图或表比页面高 {points} pt"
@@ -1539,10 +1559,26 @@ msgstr "有窗口没能保存修改，Lattice 没有重启"
 msgid "About"
 msgstr "关于"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {hours} h left"
+msgstr "约剩 {hours} 小时"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {minutes} min left"
+msgstr "约剩 {minutes} 分钟"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "关于 {name}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {rounded} s left"
+msgstr "约剩 {rounded} 秒"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About 1 h left"
+msgstr "约剩 1 小时"
 
 #: src/project/deadline-card.tsx
 msgid "abstract"
@@ -5562,6 +5598,10 @@ msgstr "下载论文"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
+#: src/overleaf/overleaf-download-bar.tsx
+msgid "Download progress"
+msgstr "下载进度"
+
 #: src/platform/windows-tex-setup-dialog.tsx
 msgid "Download TeX Live"
 msgstr "下载 TeX Live"
@@ -5576,20 +5616,10 @@ msgstr "已下载的词典"
 msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文会保留"
 
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
+#. placeholder {0}: props.name
+#: src/overleaf/overleaf-download-bar.tsx
 msgid "Downloading {0}…"
 msgstr "正在下载 {0}…"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received}"
-msgstr "正在下载 {0}…已收到 {received}"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received} of {total}"
-msgstr "正在下载 {0}…{received} / {total}"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
@@ -17498,6 +17528,14 @@ msgstr "正在等待 {name} 与 Overleaf 同步完成…"
 #: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for more data"
+msgstr "正在等待更多数据"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for Overleaf to send it"
+msgstr "正在等待 Overleaf 发送"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Waiting for Overleaf's live file tree before syncing moved files."

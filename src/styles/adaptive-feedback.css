@@ -62,7 +62,8 @@
   /* Get started's "Show me" ring holds still instead of pulsing. */
   html .get-started-ring { animation: none; }
   /* An indeterminate toast bar holds a still segment instead of strobing. */
-  html .app-toast-progress[data-indeterminate] .app-toast-progress-fill { animation: none; transform: translateX(95%); }
+  html .app-toast-progress[data-indeterminate] .app-toast-progress-fill,
+  html .overleaf-download-track[data-indeterminate] .overleaf-download-fill { animation: none; transform: translateX(95%); }
 }
 
 /* The actions drop under the search when the page is too narrow for one line,
