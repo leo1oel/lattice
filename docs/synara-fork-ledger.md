@@ -9,17 +9,18 @@ measurements; re-run the commands rather than quoting them.
 ## The current pin
 
 The fork as a whole is **not** small. Measured on 2026-11-11 against upstream
-`v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**831 files, +80,520 / −8,934 lines**. It carries embedded-workspace UI, a skills manager,
+`v1.5.1` (`10f7801bfa141df4bab83f3238c65a534d8884fb`), the current integration changes
+**838 files, +85,819 / −8,968 lines** (about 6,000 of the added lines are the zh-CN catalogs,
+which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.1.0 HEAD
+git diff --shortstat v1.5.1 HEAD
 ```
 
-The current pin is the upstream **1.1.0 stable release**, merged with the complete previous
-`amp/lattice-v1.0.9-sync` history (which carries the earlier `amp/lattice-v1.0.8-sync`, `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.5.1 stable release** (see [its entry](#synara-151-compatibility)), merged with the complete previous
+`amp/lattice-v1.1.0-sync` history (which carries the earlier `amp/lattice-v1.0.9-sync`, `amp/lattice-v1.0.8-sync`, `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -29,7 +30,7 @@ Both Git views send `synara:embed-ready`; missing CLI/authentication shows its u
 sign-in state without query retries.
 In the embed, Changes composes the commit message in the panel (with `git.generateCommitMessage` behind "Write the message for me"), stages by checkbox and reads a paper's change as sentences; Pull requests groups the project's pull requests by what needs the writer and says why an empty list is empty; a pull request opens on "In the paper", a red-pen reading of its changed sentences with Comment, Approve and Merge.
 The fork's `docs/lattice-git-embed.md` describes these views and the data they read. The inbox, its filters and the item detail follow the host
-locale through upstream's interface catalogs (see the 1.1.0 entry); GitHub content and agent prompts stay
+locale through the fork's zh-CN interface catalogs (see the 1.5.1 entry); GitHub content and agent prompts stay
 as written. The narrow model picker retains account selection in upstream’s
 new account-aware menu, and TeX, BibTeX, `.sty`, and `.cls` files retain their file icons.
 The inbox, detail panes, sidechat dock, and portalled menus inherit Lattice's embed-theme surface
@@ -333,3 +334,20 @@ Pi moves to 1.4.0, whose `providers/azure` and `utils/model-operations` imports 
 The staged runtime is 170.3 MB (1.0.9: 168.4 MB); Lingui's runtime leaves the web bundle, and upstream's catalogs and `mdast-util-from-markdown` arrive.
 Offline `synara-compact-database` maintenance, Claude Stop and steer ownership fences, SDK error results, crash and queue recovery, photo-draft preservation and Cursor safe-storage tokens are server-side or standalone changes with no embedded surface.
 
+## Synara 1.5.1 compatibility
+
+The pin is upstream 1.5.1 (`10f7801bf`) merged with the whole `amp/lattice-v1.1.0-sync` history through fork PR 23 (fork `e7376e88c05af414ef95aabb123c7671eba3c7c3`, [fork PR 24](https://github.com/leo1oel/synara/pull/24)). `amp/lattice-v1.5.1-sync` started as upstream's 1.5.1 commit; the Lattice integration reached it through that one pull request, merged with a merge commit, so the branch carries upstream's history unchanged.
+
+Upstream 1.5.0 made the interface English-only (#2083): it deleted the Spanish and Chinese catalogs and the language preference. The fork keeps zh-CN beside en (`packages/shared/src/uiLocalizationResources.ts`, `UI_LOCALES` = `["en", "zh-CN"]`) and drops Spanish, which Lattice never shipped. The panel switches to the handshake's `?locale=` before its first render (`applyHostLocale` in `apps/web/src/i18n/index.ts`), so it still follows Lattice's language whatever the OS or browser language is, and dates follow that language too; standalone Synara stays English. The zh-CN files follow upstream's English keys again (new `_one`/`_other` plurals, the rewritten onboarding, analytics and public-profile strings), keep the `lattice` namespace and the 35 `latticeZhOverrides.json` terms, and `bun run i18n:check` passes with zh-CN registered. Two panel texts that were English in the Chinese panel are now translated: the change card's Undo confirmation and the Claude credential notice on Settings → Agent → Usage & limits.
+
+Upstream's account and Remote features are kept out of the panel. Under `AGENT_HOST_PROFILE=lattice` the server reports Remote connections, account profile sync and live activity as unavailable whatever the environment opts in to, does not start the Inbox recap reporter, refuses every account RPC except the signed-out status read (`synaraAccountUnavailableInHost` in the fork's `apps/server/src/remoteFeaturePolicy.ts`), and serves no `synara_list_connections` discovery tool or remote tool calls. The embed does not mount the account dialogs (sign-in, Synara Alto plans, checkout, profiles), the Remote host prompt or launch sheet, the release notes or the full-window first-run onboarding, and Settings' General page hides the product analytics row. Lattice frames none of upstream's Account, Billing, Connections or Profile pages, and the panel has no rail or sidebar for the Remote hint; Synara's own Profile page goes back to upstream's (the fork's Lattice-name tweaks there are gone, since Lattice never framed it). Product analytics leave only through Electron's desktop bridge, which Lattice does not provide, so the panel sends none. Writers see nothing new from any of this.
+
+Upstream 1.5 restores an execution's last route from sessionStorage when a document boots. Lattice's frames share one tab's sessionStorage, so the Git drawer opened on the Agent panel's chat instead of a change card's turn diff; each embedded frame now keeps the route it was opened on (`apps/web/src/appNavigation.ts`).
+
+MCP Connectors and the native editor are Stable upstream, as in 1.0.9: Lattice frames neither the Connectors page nor an editor pane, so the @ menu offers connectors only once one is connected (none can be from Lattice) and files still open in Lattice's editor. Cmd/Ctrl+W in the panel still reaches Lattice rather than closing a chat tab. Claude's effort controls come from the installed CLI upstream; the fork keeps sending the effort the picker shows (`d70d722d4`) instead of upstream's dropped default, because Claude Code reads an omitted effort from the user's own settings. Resume after usage limits stays off by default. Pi stays at 1.4.0, so the Pi runtime is not reinstalled.
+
+The server migrates a 1.1.0-era state database in place: the Remote lineage's migrations 136–140 and 142 run on top of the recorded 141, after a compressed pre-migration backup, and the threads, messages, turns and events are unchanged. Offline compaction (`synara-compact-database`) is a manual command that Lattice does not run.
+
+After a quit mid-turn the reply keeps what had streamed and ends in a "Task interrupted" card (the provider's stop reason, Continue task and Change model) rather than 1.1.0's "Interrupted after …" header; after a crash the header still reads "Interrupted after …". Nothing continues by itself either way.
+
+The staged runtime is 175.0 MB (1.1.0 at fork PR 23: 170.9 MB); the lab bundle installs at 341.5 MiB (335.5 MiB with the earlier runtime) against the 400 MiB ceiling.

@@ -411,9 +411,9 @@ here would be worse than useless. A pre-merge run is the only trustworthy baseli
 Two environment traps that are stable enough to record:
 
 - **Use the web workspace's test script: `bun run --cwd apps/web test`.**
-  Its `vitest.config.ts` loads both the Vite transforms and `vitest.setup.ts`, which installs in-memory `localStorage`.
+  It runs Vitest with the web app's `vite.config.ts`, which carries the Vite transforms.
   Running `vitest apps/web/src` with the root config bypasses them, so `~/` imports fail before the tests execute.
-  Node 24+ exposes an experimental `localStorage` getter that resolves to `undefined` without `--localstorage-file`; keep the workspace setup so Zustand does not capture that missing value at import time.
+  Since 1.5.1 the fork adds no `localStorage` shim: upstream's stores read storage through `executionStorage`, which prefers `globalThis.localStorage`, so a global shim would hide the window storage the store tests stub.
 - **Run the server and web suites sequentially.**
   `apps/server/src/provider/acp/AcpSdkConformance.test.ts` has a 90-second timeout that CPU
   contention will trip.
