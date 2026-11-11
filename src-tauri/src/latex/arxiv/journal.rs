@@ -88,7 +88,7 @@ pub fn export(
     }
     let scratch = Scratch::new()?;
     let (pdf, record) = typeset(&root, &document, &manifest.engine, &entries, &scratch.0)?;
-    let placed = placed_entries(&record.figures, &entries, &document);
+    let placed = placed_entries(&root, &record.figures, &entries, &document);
     if placed.is_empty() {
         return Err("No figure made from a drawing was found in the typeset paper.".to_string());
     }
@@ -168,10 +168,13 @@ fn entry_files(root: &Path) -> BTreeMap<String, String> {
 /// The recorded figures that are entries the export listed, each with its
 /// entry's project path. TeX names a file as `\input` wrote it, from the
 /// document's folder or (a subfolder root) from the project's; a name only a
-/// file name says is taken when one entry alone has it. The record is a file
-/// the document can write to as well, so nothing else is taken.
+/// file name says is taken when one entry alone has it and no other project
+/// file is at the named path (the hook boxes every file with an entry's name,
+/// so `sections/abstract.tex` beside the entry `figures/abstract.tex` is
+/// recorded too). The record is a file the document can write to as well, so
+/// nothing else is taken.
 fn placed_entries(
-    figures: &[Placed], entries: &BTreeMap<String, String>, document: &str,
+    root: &Path, figures: &[Placed], entries: &BTreeMap<String, String>, document: &str,
 ) -> Vec<(String, Placed)> {
     let document_dir = Path::new(document).parent().map(Path::to_path_buf).unwrap_or_default();
     figures
@@ -179,20 +182,19 @@ fn placed_entries(
         .filter_map(|figure| {
             let named = figure.path();
             let candidates = [project_path(&document_dir, &named), named];
-            let path = candidates
-                .iter()
-                .map(|path| clean_path(path))
-                .find(|path| entries.contains_key(path))
-                .or_else(|| {
-                    let mut same = entries
-                        .keys()
-                        .filter(|path| path.rsplit('/').next() == Some(figure.file.as_str()));
-                    match (same.next(), same.next()) {
-                        (Some(only), None) => Some(only.clone()),
-                        _ => None,
-                    }
-                })?;
-            Some((path, figure.clone()))
+            let cleaned: Vec<String> = candidates.iter().map(|path| clean_path(path)).collect();
+            if let Some(path) = cleaned.iter().find(|path| entries.contains_key(*path)) {
+                return Some((path.clone(), figure.clone()));
+            }
+            if cleaned.iter().any(|path| root.join(path).is_file()) {
+                return None;
+            }
+            let mut same =
+                entries.keys().filter(|path| path.rsplit('/').next() == Some(figure.file.as_str()));
+            match (same.next(), same.next()) {
+                (Some(only), None) => Some((only.clone(), figure.clone())),
+                _ => None,
+            }
         })
         .collect()
 }

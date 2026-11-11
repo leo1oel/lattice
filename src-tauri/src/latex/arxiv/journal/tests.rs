@@ -100,10 +100,30 @@ fn takes_only_entries_the_export_listed_by_their_project_path() {
         ]
         .join("\n"),
     );
-    let placed = placed_entries(&record.figures, &entries, "paper/main.tex");
+    let fixture = Fixture::empty("journal-placed");
+    let placed = placed_entries(&fixture.root, &record.figures, &entries, "paper/main.tex");
     let found: Vec<(&str, u32)> =
         placed.iter().map(|(path, figure)| (path.as_str(), figure.index)).collect();
     assert_eq!(found, [("figures/scheme.tex", 1), ("si/scheme.tex", 2), ("paper/art/toc.tex", 3)]);
+}
+
+#[test]
+fn a_project_file_sharing_an_entrys_name_is_not_that_entry() {
+    let fixture = Fixture::empty("journal-same-name");
+    fixture.write("sections/abstract.tex", "We make compound 1 in two steps.\n");
+    fixture.write("figures/abstract.tex", "% editable-figure source: a.reactio\nx\n");
+    let entries = BTreeMap::from([("figures/abstract.tex".to_string(), String::new())]);
+    let record = parse(
+        &[
+            "fig;1;0;none;sections/;abstract.tex;1pt;1pt;0pt",
+            "fig;2;1;figure;figures/;abstract.tex;1pt;1pt;0pt",
+        ]
+        .join("\n"),
+    );
+    let placed = placed_entries(&fixture.root, &record.figures, &entries, "main.tex");
+    let found: Vec<(&str, u32)> =
+        placed.iter().map(|(path, figure)| (path.as_str(), figure.index)).collect();
+    assert_eq!(found, [("figures/abstract.tex", 2)]);
 }
 
 #[test]
@@ -200,7 +220,8 @@ fn build_and_export(name: &str, files: &[(&str, &str)]) -> (JournalExport, PathB
     }
     crate::project::open(&fixture.root).unwrap();
     let result =
-        build(&fixture.root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
+        build(&fixture.root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent())
+            .unwrap();
     assert!(result.success, "{}", result.log);
     let parent = Fixture::empty(&format!("{name}-out"));
     let options = JournalOptions { tiff: false, dpi: 300, article: true };
