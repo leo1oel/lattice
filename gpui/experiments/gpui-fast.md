@@ -8,8 +8,7 @@ Tried on 2026-11-11: the whole app type-checks and builds, the `e2e` scenario pa
 
 ## Recipe
 
-Work on a copy of the repository, because the patch replaces the workspace's own `gpui_macos` patch.
-Replace the `[patch."https://github.com/zed-industries/zed"]` table in `Cargo.toml` with:
+Add this table to `Cargo.toml`:
 
 ```toml
 [patch."https://github.com/zed-industries/zed"]
@@ -43,12 +42,3 @@ perf = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5db
 `util` and `util_macros` stay Zed's: gpui-fast's copy of `util` has its own `rel_path` types, which Zed's `extension` crate rejects (`expected util::rel_path::RelPathBuf, found path::rel_path::RelPathBuf`).
 
 Then build as usual, with `CARGO_NET_GIT_FETCH_WITH_CLI=true` if git rewrites GitHub URLs to SSH on the machine.
-
-For the lab measurements (`GPUI_LAB_IGNORE_OCCLUSION`), gpui-fast's own `gpui_macos` needs the same switch: copy `crates/gpui_macos` from the gpui-fast checkout to `patches/gpui_macos_fast`, apply `patches/gpui_macos/lab-occlusion.diff` (it applies cleanly), spell out its workspace dependencies the way `patches/gpui_macos/Cargo.toml` does with gpui-fast's git source, and add:
-
-```toml
-[patch."https://github.com/longbridge/gpui-fast"]
-gpui_macos = { path = "patches/gpui_macos_fast" }
-```
-
-The table has to name gpui-fast's source, because once `gpui_platform` comes from gpui-fast it depends on gpui-fast's `gpui_macos`.

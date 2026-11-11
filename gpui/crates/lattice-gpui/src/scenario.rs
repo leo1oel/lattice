@@ -49,11 +49,10 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
     cx.spawn(async move |cx| {
         let run = Run { shell, window };
         native::begin_latency_critical_activity();
-        // The input method needs a key window in an active app. Measurements
-        // run uncomposited instead (GPUI_LAB_IGNORE_OCCLUSION), like
-        // Lattice's lab, and leave whatever the user has in front alone.
-        // LATTICE_SCENARIO_FRONT=1 measures the composited, frontmost window
-        // instead.
+        // The input method needs a key window in an active app. Other
+        // scenarios leave whatever the user has in front alone;
+        // LATTICE_SCENARIO_FRONT=1 brings the window to the front for them
+        // too.
         let front = args.name == "ime" || std::env::var_os("LATTICE_SCENARIO_FRONT").is_some();
         if front && let Ok(native) = run.native(cx) {
             native::bring_to_front(native);

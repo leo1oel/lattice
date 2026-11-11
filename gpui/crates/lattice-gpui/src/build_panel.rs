@@ -161,7 +161,10 @@ impl BuildPanel {
             Status::Idle => (
                 IconName::Hammer,
                 theme.muted_foreground,
-                "Not built yet. Press ⌘B to build.".into(),
+                format!(
+                    "Not built yet. Press {} to build.",
+                    crate::shell::BUILD_SHORTCUT_LABEL
+                ),
             ),
             Status::Running { started, document } => (
                 IconName::Loader,

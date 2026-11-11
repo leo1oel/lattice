@@ -16,7 +16,7 @@ Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent pan
 ## License
 
 This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, workspace).
-`crates/tex`, `compat/` and `patches/` are Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE); `patches/gpui_macos/LICENSE-APACHE` for Zed's copyright).
+`crates/tex` and `compat/` are Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)).
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps will share included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it
@@ -33,7 +33,6 @@ Requirements:
 - A TeX distribution with `latexmk` (MacTeX, TeX Live, MiKTeX or TinyTeX); it is found the way Lattice finds it, so a GUI launch without `/Library/TeX/texbin` on `PATH` still works.
 - macOS: the Command Line Tools are enough, because GPUI compiles its Metal shaders at run time (`runtime_shaders`).
 - Windows: MSVC, and `script/fetch-pdfium.ps1` for `pdfium.dll`. MiKTeX's `latexmk` needs Perl.
-  `script/check-windows` type-checks the Windows build from macOS.
 
 The first build fetches Zed at the pinned revision and compiles about 1,200 crates, with 3–5 GB of build output.
 
@@ -63,7 +62,6 @@ crates/lattice-gpui   the app: shell (toolbar + dock), file tree, editor panel,
 crates/tex            TeX discovery, latexmk runs, log diagnostics (from ../src-tauri)
 compat/gpui-pre       four shims that put GPUI Kit on Zed's GPUI
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
-patches/gpui_macos    Zed's gpui_macos with one lab-only switch
 experiments/          how to run the same app on gpui-fast
 ```
 
@@ -110,13 +108,11 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 On macOS the keys go through the active input source, so select an ASCII layout (ABC, U.S.) before running `e2e`; a Pinyin input method turns the typed macro into candidates.
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
 On Windows, keys are posted to the window's message queue, so GPUI's own message loop translates them as it does typed keys, and mouse messages are sent to the window procedure; neither needs the window in front.
-Set `GPUI_LAB_IGNORE_OCCLUSION=1` for measurements: like Lattice's lab, which measures WebKit in windows never composited on the console screen, the window then renders at full rate when nothing of it is visible.
-See `patches/gpui_macos/PATCH.md`.
 
 ## Reference projects
 
 Checked on 2026-11-11 before reusing anything.
-Only GPUI Kit, Zed's crates, pdfium-render and the LaTeX grammar are dependencies; code was copied only from Lattice (`crates/tex`, see its `NOTICE`) and Zed (`patches/gpui_macos`).
+Only GPUI Kit, Zed's crates, pdfium-render and the LaTeX grammar are dependencies; code was copied only from Lattice (`crates/tex`, see its `NOTICE`).
 
 | Project | License | GPUI it pins | Used here |
 |---|---|---|---|

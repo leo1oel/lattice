@@ -4,4 +4,3 @@
 channel = "1.99.1"
 profile = "minimal"
 components = ["rustfmt", "clippy"]
-targets = ["x86_64-pc-windows-msvc"]

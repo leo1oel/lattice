@@ -85,18 +85,18 @@ impl PdfPanel {
 
     /// Show `path`, or reload it after a build, keeping the scroll position
     /// and the old page images until the new ones are drawn.
-    pub fn open(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+    pub fn open(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         let Ok(engine) = self.engine.clone() else {
             return;
         };
         let reload = self.path.as_ref() == Some(&path);
         self.path = Some(path.clone());
         let opened = engine.open(path);
-        self._open_task = Some(cx.spawn(async move |this, cx| {
+        self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
             let result = opened.await;
-            this.update(cx, |this, cx| {
+            this.update_in(cx, |this, window, cx| {
                 match result {
-                    Ok(Ok(info)) => this.set_document(info, reload),
+                    Ok(Ok(info)) => this.set_document(info, reload, window),
                     Ok(Err(error)) => this.message = Some(format!("{error:#}").into()),
                     Err(_) => this.message = Some("The PDFium worker stopped.".into()),
                 }
@@ -106,7 +106,7 @@ impl PdfPanel {
         }));
     }
 
-    fn set_document(&mut self, info: DocumentInfo, reload: bool) {
+    fn set_document(&mut self, info: DocumentInfo, reload: bool, window: &mut Window) {
         let scroll = self.list_state.logical_scroll_top();
         let count = info.page_sizes.len();
         if reload && self.pages.len() == count {
@@ -114,7 +114,13 @@ impl PdfPanel {
                 slot.pending = None;
             }
         } else {
-            self.pages = (0..count).map(|_| PageSlot::default()).collect();
+            let old = std::mem::replace(
+                &mut self.pages,
+                (0..count).map(|_| PageSlot::default()).collect(),
+            );
+            for image in old.into_iter().filter_map(|slot| slot.image) {
+                window.drop_image(image).ok();
+            }
         }
         self.list_state.reset(count);
         if reload && scroll.item_ix < count {

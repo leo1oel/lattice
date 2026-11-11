@@ -8,8 +8,8 @@ use futures::{StreamExt as _, channel::mpsc};
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyBinding, ParentElement as _, PathPromptOptions,
-    Render, SharedString, Styled as _, Task, WeakEntity, Window, WindowBounds, WindowOptions,
-    actions, div, px, size,
+    PromptLevel, Render, SharedString, Styled as _, Task, WeakEntity, Window, WindowBounds,
+    WindowOptions, actions, div, px, size,
 };
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{
@@ -33,6 +33,11 @@ actions!(lattice, [OpenFolder, Build, Save, ToggleVimMode]);
 const SHORTCUTS: [&str; 3] = ["cmd-o", "cmd-b", "cmd-s"];
 #[cfg(not(target_os = "macos"))]
 const SHORTCUTS: [&str; 3] = ["ctrl-o", "ctrl-b", "ctrl-s"];
+
+#[cfg(target_os = "macos")]
+pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
+#[cfg(not(target_os = "macos"))]
+pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
 
 pub fn bind_keys(cx: &mut App) {
     let [open, build, save] = SHORTCUTS;
@@ -62,16 +67,11 @@ impl Shell {
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
         let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx);
-        let mut options = WindowOptions {
+        let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             window_min_size: Some(size(px(720.), px(480.))),
             ..Default::default()
         };
-        // Lab measurements run in a window nobody looks at; draw it at full
-        // rate like a frontmost one (see patches/gpui_macos/PATCH.md).
-        if std::env::var_os("GPUI_LAB_IGNORE_OCCLUSION").is_some() {
-            options.inactive_frame_interval = None;
-        }
         let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {
             cx.new(|cx| Shell::new(window, cx))
         })?;
@@ -192,7 +192,7 @@ impl Shell {
             let pdf = main.with_extension("pdf");
             self.open_path(main, None, window, cx);
             if pdf.is_file() {
-                self.pdf.update(cx, |panel, cx| panel.open(pdf, cx));
+                self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
             }
         }
         cx.notify();
@@ -208,7 +208,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> Option<Entity<EditorPanel>> {
         if path.extension().is_some_and(|extension| extension == "pdf") {
-            self.pdf.update(cx, |panel, cx| panel.open(path, cx));
+            self.pdf
+                .update(cx, |panel, cx| panel.open(path, window, cx));
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
@@ -241,8 +242,13 @@ impl Shell {
                 }
                 Err(error) => {
                     log::error!("{error:#}");
-                    self.build_panel
-                        .update(cx, |panel, cx| panel.failed(format!("{error:#}"), cx));
+                    let _ = window.prompt(
+                        PromptLevel::Critical,
+                        "Could not open the file",
+                        Some(&format!("{error:#}")),
+                        &["OK"],
+                        cx,
+                    );
                     return None;
                 }
             },
@@ -299,7 +305,7 @@ impl Shell {
     /// background with its output streaming into the build panel, then show
     /// the diagnostics and reload the PDF.
     pub fn build(&mut self, _: &Build, window: &mut Window, cx: &mut Context<Self>) {
-        if self.build_panel.read(cx).is_running() {
+        if self.build_task.is_some() {
             return;
         }
         let Some(root) = self.root.clone() else {
@@ -353,6 +359,7 @@ impl Shell {
             })
             .ok();
         }));
+        cx.notify();
     }
 
     fn finish_build(
@@ -361,12 +368,13 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.build_task = None;
         match outcome {
             Ok(outcome) => {
                 self.build_panel
                     .update(cx, |panel, cx| panel.finished(&outcome, cx));
                 if let Some(pdf) = outcome.pdf.clone() {
-                    self.pdf.update(cx, |panel, cx| panel.open(pdf, cx));
+                    self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
                 }
                 if outcome.error_count() > 0 {
                     self.dock_area.update(cx, |area, cx| {
@@ -387,6 +395,7 @@ impl Shell {
             }
         }
         self.file_tree.update(cx, |tree, cx| tree.refresh(cx));
+        cx.notify();
     }
 
     fn toggle_vim_mode(&mut self, _: &ToggleVimMode, _: &mut Window, cx: &mut Context<Self>) {
@@ -404,7 +413,7 @@ impl Shell {
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_else(|| "No project".into())
             .into();
-        let building = self.build_panel.read(cx).is_running();
+        let building = self.build_task.is_some();
         h_flex()
             .h(px(36.))
             .px_2()

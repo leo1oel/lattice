@@ -29,7 +29,8 @@ impl EditorPanel {
     /// Read `path` and open it in a new editor.
     pub fn open(path: PathBuf, window: &mut Window, cx: &mut App) -> Result<Entity<Self>> {
         let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
-        let text = String::from_utf8_lossy(&bytes).into_owned();
+        let text = String::from_utf8(bytes)
+            .with_context(|| format!("{} is not UTF-8 text", path.display()))?;
         Ok(cx.new(|cx| Self::new(path, text, window, cx)))
     }
 
@@ -93,7 +94,7 @@ impl EditorPanel {
     pub fn save(&mut self, cx: &mut Context<Self>) -> Task<Result<()>> {
         let (text, version) = {
             let buffer = self.buffer.read(cx);
-            (buffer.text(), buffer.version())
+            (buffer.line_ending().apply(buffer.text()), buffer.version())
         };
         let path = self.path.clone();
         let buffer = self.buffer.clone();

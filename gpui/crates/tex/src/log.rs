@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn skips_tex_live_windows_wrapper_exit_report() {
-        let log = "Running 'pdflatex'\n./main.tex:3: Undefined control sequence.\nC:\\texlive\\2026\\bin\\windows\\runscript.tlu:933: command failed with exit code 12:\nlatexmk -cd main.tex\n";
+        let log = "Running 'pdflatex'\n./main.tex:3: Undefined control sequence.\n...temp/setup-texlive-action/2026/bin/windows/runscript.tlu:933: command failed with exit code 12:\nlatexmk -cd main.tex\n";
         let diagnostics = parse_diagnostics(log);
         assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
         assert_eq!(diagnostics[0].file.as_deref(), Some("main.tex"));

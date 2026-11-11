@@ -23,7 +23,3 @@ design-system/tokens.css linguist-generated
 design-system/tokens.json linguist-generated
 design-system/DESIGN.md linguist-generated
 design-system/paper-export.json linguist-generated
-
-# The GPUI app's patched copy of Zed's gpui_macos crate stays line-for-line
-# with upstream so it can be re-diffed at each Zed bump (gpui/patches/gpui_macos/PATCH.md).
-gpui/patches/gpui_macos/src/** linguist-vendored

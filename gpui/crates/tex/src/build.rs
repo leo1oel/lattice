@@ -36,26 +36,50 @@ impl Engine {
     /// `% !TEX program = xelatex` (TeXShop/TeXstudio) or a CJK package in the
     /// preamble picks the engine; pdfLaTeX otherwise.
     pub fn detect(source: &str) -> Self {
+        if let Some(engine) = Self::from_magic_comment(source) {
+            return engine;
+        }
         let head: String = source.lines().take(200).collect::<Vec<_>>().join("\n");
         let lower = head.to_ascii_lowercase();
-        if let Some(program) = lower
-            .lines()
-            .find_map(|line| line.trim().strip_prefix("% !tex program"))
-            .and_then(|rest| rest.split('=').nth(1))
-        {
-            let program = program.trim();
-            if program.starts_with("xelatex") {
-                return Engine::XeLatex;
-            }
-            if program.starts_with("lualatex") {
-                return Engine::LuaLatex;
-            }
-            return Engine::PdfLatex;
-        }
         if lower.contains("{ctex") || lower.contains("{xecjk}") || lower.contains("{fontspec}") {
             return Engine::XeLatex;
         }
         Engine::PdfLatex
+    }
+
+    /// The `program` / `TS-program` magic comment in the first 40 lines, read
+    /// the way Lattice reads it (`src-tauri/src/project/manifest.rs`).
+    fn from_magic_comment(source: &str) -> Option<Self> {
+        let mut engine = None;
+        for line in source.lines().take(40) {
+            let trimmed = line.trim();
+            let Some(rest) = ["% !TEX", "% !TeX", "%!TEX", "%!TeX"]
+                .into_iter()
+                .find_map(|prefix| trimmed.strip_prefix(prefix))
+            else {
+                continue;
+            };
+            let Some((key, value)) = rest.trim().trim_start_matches(':').trim().split_once('=')
+            else {
+                continue;
+            };
+            let value = value.trim().trim_matches('"').trim_matches('\'').trim();
+            if value.is_empty() {
+                continue;
+            }
+            if matches!(
+                key.trim().to_ascii_lowercase().as_str(),
+                "program" | "ts-program"
+            ) {
+                engine = match value.to_ascii_lowercase().as_str() {
+                    "xelatex" | "xetex" => Some(Engine::XeLatex),
+                    "lualatex" | "luatex" => Some(Engine::LuaLatex),
+                    "pdflatex" | "latex" | "pdftex" => Some(Engine::PdfLatex),
+                    _ => None,
+                };
+            }
+        }
+        engine
     }
 }
 
@@ -209,6 +233,24 @@ mod tests {
         );
         assert_eq!(Engine::detect("\\usepackage{ctex}"), Engine::XeLatex);
         assert_eq!(Engine::detect("\\documentclass{article}"), Engine::PdfLatex);
+    }
+
+    /// The spellings TeXShop and TeXstudio write, which Lattice accepts.
+    #[test]
+    fn reads_every_magic_comment_spelling_lattice_accepts() {
+        assert_eq!(
+            Engine::detect("%!TeX program = lualatex\n\\usepackage{luacode}\n"),
+            Engine::LuaLatex
+        );
+        assert_eq!(
+            Engine::detect("% !TEX TS-program = lualatex\n\\usepackage{fontspec}\n"),
+            Engine::LuaLatex
+        );
+        assert_eq!(Engine::detect("% !TeX program = xetex\n"), Engine::XeLatex);
+        assert_eq!(
+            Engine::detect("%!TEX program = pdftex\n\\usepackage{fontspec}\n"),
+            Engine::PdfLatex
+        );
     }
 
     #[test]
