@@ -198,12 +198,13 @@
 /*
  * An editable figure: its graphic at its own size (as LaTeX sets it, up to the
  * column), with the labels its entry sets over it. The layer's font size is
- * one of the figure's points, so a label's size in em is its size in points.
+ * one of the figure's points (`--lx-tex-figure-point`, which the widget sets
+ * as it measures the graphic), so a label's size in em is its size in points.
  */
 .cm-latex-visual .lx-tex-figure { position: relative; }
 .cm-latex-visual .lx-tex-figure-canvas { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
 .cm-latex-visual .lx-tex-figure.is-block img { width: auto; max-width: 100%; max-height: 60vh; }
-.cm-latex-visual .lx-tex-figure-labels { position: absolute; inset: 0; pointer-events: none; font-size: 1px; line-height: 1; color: #000; }
+.cm-latex-visual .lx-tex-figure-labels { position: absolute; inset: 0; pointer-events: none; --lx-tex-figure-point: 1px; font-size: var(--lx-tex-figure-point); line-height: 1; color: #000; }
 .cm-latex-visual .lx-tex-figure-label { position: absolute; transform: translate(-50%, 0.22em); font-size: 10em; white-space: nowrap; }
 .cm-latex-visual .lx-tex-figure-label .is-bold { font-weight: 700; }
 /* The label's own font, as its entry names it: what TeX sets it in, near enough. */

@@ -309,7 +309,7 @@ export class FigureWidget extends WidgetType {
     // One point of the figure, in pixels as it is drawn: what the labels' sizes are in.
     const scale = () => {
       const points = image.naturalWidth >= 720 ? WIDE_PAGE_POINTS : image.naturalWidth / PREVIEW_SCALE;
-      if (points > 0 && image.clientWidth > 0) layer.style.fontSize = `${image.clientWidth / points}px`;
+      if (points > 0 && image.clientWidth > 0) layer.style.setProperty("--lx-tex-figure-point", `${image.clientWidth / points}px`);
     };
     image.addEventListener("load", () => {
       scale();
