@@ -49,7 +49,7 @@ index 0a7957b1387b09a7332734c8a732ce7e80eec284..9007d81bb68502f17fe14010e1ed0448
      renderingQueue: PDFRenderingQueue | undefined;
      scroll: {
 diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
-index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877a56f3b15 100644
+index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..6ab9158b3ff577bf5a55a44f595dead90f028ef9 100644
 --- a/web/pdf_viewer.mjs
 +++ b/web/pdf_viewer.mjs
 @@ -1577,7 +1577,8 @@ class PDFLinkService {
@@ -612,3 +612,18 @@ index 8e4a82d3e8cde9f27ee4878534afeed701f1c017..4d7409248cfb34310452897f0459f877
          for (const pageView of this._pages) {
            viewer.append(pageView.div);
          }
+@@ -9699,7 +10053,13 @@ class PDFViewer {
+   #updateContainerHeightCss(height = this.container.clientHeight) {
+     if (height !== this.#previousContainerHeight) {
+       this.#previousContainerHeight = height;
+-      docStyle.setProperty("--viewer-container-height", `${height}px`);
++      // Lattice: on the viewer's own container, not the root. A custom
++      // property set on <html> restyles every element of the window (about
++      // 100 ms in a full Lattice window), and the container's height changes
++      // often: a panel resizing or hiding, the viewer's bars coming and going
++      // while the PDF scrolls. Only the presentation-mode .dummyPage inside
++      // the viewer reads it.
++      this.container.style.setProperty("--viewer-container-height", `${height}px`);
+     }
+   }
+   #resizeObserverCallback(entries) {

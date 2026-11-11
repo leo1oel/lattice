@@ -31,6 +31,8 @@ import { useBesideActive } from "./use-beside-active";
 const LATEX_SNAPSHOT_LANGUAGE = [latex()];
 
 const refuseEdit = () => false;
+// Built once: every EditorView.theme call adds its rules to the page for good.
+const SNAPSHOT_FILL = EditorView.theme({ "&": { height: "100%" }, "& .cm-scroller": { height: "100% !important" } });
 
 /**
  * A document that is not the active one, read-only and drawn the way it
@@ -94,7 +96,7 @@ function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisCon
       EditorView.editable.of(false),
       syntaxHighlighting(latexHighlightStyle),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      EditorView.theme({ "&": { height: "100%" }, "& .cm-scroller": { height: "100% !important" } }),
+      SNAPSHOT_FILL,
       ...language,
     ];
     // The live editor this tab last had, parked: its place to the pixel and

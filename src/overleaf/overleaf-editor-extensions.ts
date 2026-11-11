@@ -160,54 +160,58 @@ export function buildPresenceCursorDecorations(doc: Text, cursors: PresenceCurso
 
 export const setOverleafCursorsEffect = StateEffect.define<PresenceCursor[]>();
 
+// Module level: style-mod adds a StyleModule's rules to the page once per module object,
+// so a theme built inside the extension function added another copy with every editor.
+const overleafCursorsTheme = EditorView.baseTheme({
+  ".cm-overleaf-caret": {
+    position: "relative",
+    display: "inline",
+    borderLeft: "2px solid",
+    marginLeft: "-1px",
+  },
+  ".cm-overleaf-caret-dot": {
+    position: "absolute",
+    width: "6px",
+    height: "6px",
+    top: "-3px",
+    left: "-4px",
+    borderRadius: "50%",
+  },
+  ".cm-overleaf-caret-label": {
+    position: "absolute",
+    top: "-1.35em",
+    left: "-1px",
+    padding: "1px 5px",
+    borderRadius: "4px 4px 4px 0",
+    font: "600 var(--type-micro-size)/1.2 var(--ui-font, sans-serif)",
+    color: "#fff",
+    whiteSpace: "nowrap",
+    zIndex: "6",
+    pointerEvents: "none",
+    opacity: "0",
+    animation: "cm-overleaf-caret-name 2.4s ease-in",
+  },
+  // Two seconds named, then a short fade back to the bare caret.
+  "@keyframes cm-overleaf-caret-name": {
+    "0%, 85%": { opacity: "1" },
+    "100%": { opacity: "0" },
+  },
+  ".cm-overleaf-caret:hover .cm-overleaf-caret-label": {
+    opacity: "1",
+    animation: "none",
+  },
+  ".cm-overleaf-caret.cm-caret-label-below .cm-overleaf-caret-label": {
+    top: "calc(100% + 2px)",
+    borderRadius: "0 4px 4px 4px",
+  },
+});
+
 /** Remote carets, named for a moment as they move and on hover; peers re-anchor once their next position arrives. */
 export function overleafCursorsExtension(options: { getCursors?: () => PresenceCursor[] } = {}): Extension {
   return [
     listDecorationField(buildPresenceCursorDecorations, options.getCursors, setOverleafCursorsEffect),
     cursorLabelPlacement,
-    EditorView.baseTheme({
-      ".cm-overleaf-caret": {
-        position: "relative",
-        display: "inline",
-        borderLeft: "2px solid",
-        marginLeft: "-1px",
-      },
-      ".cm-overleaf-caret-dot": {
-        position: "absolute",
-        width: "6px",
-        height: "6px",
-        top: "-3px",
-        left: "-4px",
-        borderRadius: "50%",
-      },
-      ".cm-overleaf-caret-label": {
-        position: "absolute",
-        top: "-1.35em",
-        left: "-1px",
-        padding: "1px 5px",
-        borderRadius: "4px 4px 4px 0",
-        font: "600 var(--type-micro-size)/1.2 var(--ui-font, sans-serif)",
-        color: "#fff",
-        whiteSpace: "nowrap",
-        zIndex: "6",
-        pointerEvents: "none",
-        opacity: "0",
-        animation: "cm-overleaf-caret-name 2.4s ease-in",
-      },
-      // Two seconds named, then a short fade back to the bare caret.
-      "@keyframes cm-overleaf-caret-name": {
-        "0%, 85%": { opacity: "1" },
-        "100%": { opacity: "0" },
-      },
-      ".cm-overleaf-caret:hover .cm-overleaf-caret-label": {
-        opacity: "1",
-        animation: "none",
-      },
-      ".cm-overleaf-caret.cm-caret-label-below .cm-overleaf-caret-label": {
-        top: "calc(100% + 2px)",
-        borderRadius: "0 4px 4px 4px",
-      },
-    }),
+    overleafCursorsTheme,
   ];
 }
 
@@ -352,6 +356,39 @@ export function buildTrackedChangeTooltipDom(changes: TrackedChange[], actions: 
   return dom;
 }
 
+const trackedChangesTheme = EditorView.baseTheme({
+  ".cm-tracked-change-insert, .cm-tracked-change-delete": { borderRadius: "2px" },
+  ".cm-tracked-change-tooltip": {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    maxWidth: "320px",
+    font: "var(--type-body-compact-size)/1.4 var(--ui-font, sans-serif)",
+  },
+  ".cm-tracked-change-tooltip-item": { display: "flex", flexDirection: "column", gap: "4px" },
+  ".cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item": {
+    paddingTop: "8px",
+    borderTop: "1px solid rgba(128, 128, 128, .25)",
+  },
+  ".cm-tracked-change-tooltip-head": { display: "flex", alignItems: "center", gap: "6px" },
+  ".cm-tracked-change-tooltip-dot": { width: "8px", height: "8px", borderRadius: "50%", flex: "0 0 auto" },
+  ".cm-tracked-change-tooltip-author": { fontWeight: "600" },
+  ".cm-tracked-change-tooltip-time": { marginLeft: "auto", opacity: "0.6", fontSize: "11px" },
+  ".cm-tracked-change-tooltip-body": { whiteSpace: "pre-wrap", wordBreak: "break-word" },
+  ".cm-tracked-change-tooltip-actions": { display: "flex", gap: "6px" },
+  ".cm-tracked-change-tooltip-actions button": {
+    flex: "0 0 auto",
+    padding: "3px 10px",
+    borderRadius: "6px",
+    border: "1px solid rgba(128, 128, 128, .3)",
+    background: "transparent",
+    cursor: "pointer",
+    font: "inherit",
+    color: "inherit",
+  },
+  ".cm-tracked-change-tooltip-actions button:disabled": { opacity: "0.45", cursor: "default" },
+});
+
 /** Accept/reject go further and call the caller's `reload()`, since only the server knows the true new spans. */
 export function overleafTrackChangesExtension(options: TrackedChangeTooltipActions & { getChanges: () => TrackedChange[] }): Extension {
   const { getChanges, ...actions } = options;
@@ -383,38 +420,7 @@ export function overleafTrackChangesExtension(options: TrackedChangeTooltipActio
   return [
     field,
     changeHover,
-    EditorView.baseTheme({
-      ".cm-tracked-change-insert, .cm-tracked-change-delete": { borderRadius: "2px" },
-      ".cm-tracked-change-tooltip": {
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        maxWidth: "320px",
-        font: "var(--type-body-compact-size)/1.4 var(--ui-font, sans-serif)",
-      },
-      ".cm-tracked-change-tooltip-item": { display: "flex", flexDirection: "column", gap: "4px" },
-      ".cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item": {
-        paddingTop: "8px",
-        borderTop: "1px solid rgba(128, 128, 128, .25)",
-      },
-      ".cm-tracked-change-tooltip-head": { display: "flex", alignItems: "center", gap: "6px" },
-      ".cm-tracked-change-tooltip-dot": { width: "8px", height: "8px", borderRadius: "50%", flex: "0 0 auto" },
-      ".cm-tracked-change-tooltip-author": { fontWeight: "600" },
-      ".cm-tracked-change-tooltip-time": { marginLeft: "auto", opacity: "0.6", fontSize: "11px" },
-      ".cm-tracked-change-tooltip-body": { whiteSpace: "pre-wrap", wordBreak: "break-word" },
-      ".cm-tracked-change-tooltip-actions": { display: "flex", gap: "6px" },
-      ".cm-tracked-change-tooltip-actions button": {
-        flex: "0 0 auto",
-        padding: "3px 10px",
-        borderRadius: "6px",
-        border: "1px solid rgba(128, 128, 128, .3)",
-        background: "transparent",
-        cursor: "pointer",
-        font: "inherit",
-        color: "inherit",
-      },
-      ".cm-tracked-change-tooltip-actions button:disabled": { opacity: "0.45", cursor: "default" },
-    }),
+    trackedChangesTheme,
   ];
 }
 
@@ -471,6 +477,11 @@ const marginGeometry = ViewPlugin.define(() => ({
   },
 }));
 
+const marginReviewTheme = EditorView.baseTheme({
+  ".cm-margin-linked": { backgroundColor: "color-mix(in srgb, var(--margin-linked) 7%, transparent)" },
+  ".cm-margin-linked-span": { backgroundColor: "color-mix(in srgb, var(--margin-linked) 16%, transparent)", borderRadius: "2px" },
+});
+
 /**
  * What margin review (overleaf-margin-review.tsx) needs from the editor: the
  * tint on a card's lines, and word when the lines move. Part of every source
@@ -481,9 +492,6 @@ export function marginReviewExtension(): Extension {
   return [
     marginLinkedField,
     marginGeometry,
-    EditorView.baseTheme({
-      ".cm-margin-linked": { backgroundColor: "color-mix(in srgb, var(--margin-linked) 7%, transparent)" },
-      ".cm-margin-linked-span": { backgroundColor: "color-mix(in srgb, var(--margin-linked) 16%, transparent)", borderRadius: "2px" },
-    }),
+    marginReviewTheme,
   ];
 }
