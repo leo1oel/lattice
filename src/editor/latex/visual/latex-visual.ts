@@ -279,6 +279,12 @@ export function latexVisual(host: LatexVisualHost): Extension {
       /* eslint-disable lingui/no-unlocalized-strings -- CodeMirror key names, never shown */
       { mac: "Ctrl-h", run: deleteAcrossTokens(field, false) },
       { mac: "Ctrl-d", run: deleteAcrossTokens(field, true) },
+      { mac: "Alt-Backspace", run: deleteVisible(field, "group", false), preventDefault: true },
+      { mac: "Alt-Delete", run: deleteVisible(field, "group", true), preventDefault: true },
+      { mac: "Ctrl-Alt-h", run: deleteVisible(field, "group", false) },
+      { mac: "Mod-Backspace", run: deleteVisible(field, "wrap", false), preventDefault: true },
+      { mac: "Mod-Delete", run: deleteVisible(field, "wrap", true), preventDefault: true },
+      { mac: "Ctrl-k", run: deleteVisible(field, "line", true) },
       /* eslint-enable lingui/no-unlocalized-strings */
     ])),
     unwrapOnDelete(field),
@@ -303,6 +309,10 @@ export function latexVisual(host: LatexVisualHost): Extension {
  * - With the caret just outside a construct whose content is empty, it
  *   removes the construct; inside one, the deletion is Source's.
  * - Past the start or end of the document it deletes nothing.
+ * A word or line deletion from the caret (Option- or Cmd-Backspace and
+ * -Delete, Ctrl-Alt-h, Ctrl-k) reads the line as drawn: the word or line
+ * part it deletes is found in the text without the tokens, only that text
+ * goes, and a construct whose content all goes goes whole.
  * Any other edit that removes one token of a pair but not the other removes
  * both, unless the text put in its place brings the token's bracket back
  * (`\subsection{` over `\section{`). Each is one edit, undone at once, and no
@@ -340,6 +350,33 @@ function bracketBalance(text: string, brackets: string): number {
   return balance;
 }
 
+/** The hidden range a token is drawn as: a replacement holding it and sharing one of its edges. */
+function drawnRange(value: VisualState, token: Span): Span | null {
+  let range: Span | null = null;
+  value.replacements.between(token.from, token.to, (from, to) => {
+    if (from > token.from || to < token.to || (from !== token.from && to !== token.to)) return;
+    range = { from, to };
+    return false;
+  });
+  return range;
+}
+
+/** The tokens a deletion steps over, as the ranges they are drawn as (a heading's or caption's even when not drawn). */
+function steppedTokens(value: VisualState, pairs: readonly TokenPair[]) {
+  return pairs.flatMap((pair) => (["open", "close"] as const).flatMap((side) => {
+    const span = drawnRange(value, pair[side]) ?? (pair.always ? pair[side] : null);
+    return span ? [{ span, pair, side }] : [];
+  }));
+}
+
+/** Removes `ranges` from the caret's deletion; the caret keeps its place in the text before or after them. */
+function removeRanges(view: EditorView, forward: boolean, ranges: readonly Span[]): true {
+  const { head } = view.state.selection.main;
+  const before = ranges.reduce((sum, { from, to }) => sum + (to <= head ? to - from : 0), 0);
+  view.dispatch({ changes: [...ranges], selection: { anchor: head - before }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
+  return true;
+}
+
 function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): Command {
   return (view) => {
     const { state } = view;
@@ -347,26 +384,9 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
     const { main } = state.selection;
     if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
     const pairs = tokenPairs(value);
-    /** The hidden range a token is drawn as: a replacement holding it and sharing one of its edges. */
-    const drawn = (token: Span) => {
-      let range: Span | null = null;
-      value.replacements.between(token.from, token.to, (from, to) => {
-        if (from > token.from || to < token.to || (from !== token.from && to !== token.to)) return;
-        range = { from, to };
-        return false;
-      });
-      return range as Span | null;
-    };
-    const steps = pairs.flatMap((pair) => (["open", "close"] as const).flatMap((side) => {
-      const span = drawn(pair[side]) ?? (pair.always ? pair[side] : null);
-      return span ? [{ span, pair, side }] : [];
-    }));
-    /** Removes `ranges`; the caret keeps its place in the text before or after them. */
-    const remove = (...ranges: Span[]) => {
-      const before = ranges.reduce((sum, { from, to }) => sum + (to <= main.head ? to - from : 0), 0);
-      view.dispatch({ changes: ranges, selection: { anchor: main.head - before }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
-      return true;
-    };
+    const drawn = (token: Span) => drawnRange(value, token);
+    const steps = steppedTokens(value, pairs);
+    const remove = (...ranges: Span[]) => removeRanges(view, forward, ranges);
     let at = main.head;
     let stepped = false;
     for (;;) {
@@ -399,6 +419,65 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
       }
     });
     return remove({ from, to });
+  };
+}
+
+/** A word (`group`), or the rest of the line as wrapped on screen (`wrap`) or in the text (`line`), deleted from the caret. */
+function deleteVisible(field: StateField<VisualState>, unit: "group" | "wrap" | "line", forward: boolean): Command {
+  const byCharacter = deleteAcrossTokens(field, forward);
+  return (view) => {
+    const { state } = view;
+    const value = state.field(field, false);
+    const { main } = state.selection;
+    if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
+    const pairs = tokenPairs(value);
+    const steps = steppedTokens(value, pairs);
+    const hidden = steps.map(({ span }) => span);
+    const line = state.doc.lineAt(main.head);
+    const widgets: Span[] = [];
+    value.replacements.between(line.from, line.to, (from, to) => {
+      if (from < to) widgets.push({ from, to });
+    });
+    // The line as drawn: each character, a widget as one, the hidden tokens left out.
+    const units: { from: number; to: number; text: string }[] = [];
+    for (let pos = line.from; pos < line.to;) {
+      const token = hidden.find(({ from, to }) => from <= pos && to > pos);
+      if (token) {
+        pos = token.to;
+        continue;
+      }
+      const widget = widgets.find(({ from, to }) => from <= pos && to > pos);
+      const to = widget ? Math.min(widget.to, line.to) : line.from + findClusterBreak(line.text, pos - line.from, true);
+      units.push({ from: pos, to, text: widget ? "\uFFFC" : state.sliceDoc(pos, to) });
+      pos = to;
+    }
+    const caret = units.filter(({ to }) => to <= main.head).length;
+    let gone: typeof units;
+    if (unit === "group") {
+      const categorize = state.charCategorizer(main.head);
+      const first = forward ? caret : caret - 1;
+      let end = caret;
+      let category: ReturnType<typeof categorize> | null = null;
+      for (let index = first; index >= 0 && index < units.length; index += forward ? 1 : -1) {
+        const next = categorize(units[index].text);
+        if (category !== null && next !== category) break;
+        if (units[index].text !== " " || index !== first) category = next;
+        end = forward ? index + 1 : index;
+      }
+      gone = forward ? units.slice(caret, end) : units.slice(end, caret);
+    } else {
+      const boundary = unit === "wrap" ? view.moveToLineBoundary(EditorSelection.cursor(main.head), forward).head : forward ? line.to : line.from;
+      gone = units.filter(({ from, to }) => (forward ? from >= main.head && to <= boundary : to <= main.head && from >= boundary));
+    }
+    if (!gone.length) return byCharacter(view);
+    const ranges: Span[] = gone.map(({ from, to }) => ({ from, to }));
+    for (const pair of pairs) {
+      if (pair.open.from < line.from || pair.close.to > line.to) continue;
+      const content = units.filter(({ from, to }) => from >= pair.open.to && to <= pair.close.from);
+      if (!content.length || !content.every((item) => gone.includes(item))) continue;
+      ranges.push(...steps.filter((step) => step.pair === pair).map(({ span }) => span));
+    }
+    return removeRanges(view, forward, ranges.sort((a, b) => a.from - b.from));
   };
 }
 

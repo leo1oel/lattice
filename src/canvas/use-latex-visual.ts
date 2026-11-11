@@ -46,8 +46,8 @@ export function useLatexVisual(
     setLatexVisual(current, visual, hostFor(live), () => viewRef.current === current && wantsVisual(live.props().document.activeFile));
   }, [live, view, viewRef, visual]);
 
-  const { katexMacros, compiledBuild, citations, references } = props.bibliography;
+  const { katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath } = props.bibliography;
   useEffect(() => {
     viewRef.current?.dispatch({ effects: latexVisualDataChanged.of(null) });
-  }, [katexMacros, compiledBuild, citations, references, viewRef]);
+  }, [katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath, viewRef]);
 }

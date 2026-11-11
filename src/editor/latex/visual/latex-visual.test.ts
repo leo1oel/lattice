@@ -92,7 +92,7 @@ describe("LaTeX Visual mode", () => {
   });
 
   /** Presses `key` in the editor, through its keymaps. */
-  const press = (view: EditorView, key: string, ctrlKey = false) => runScopeHandlers(view, new KeyboardEvent("keydown", { key, ctrlKey }), "editor");
+  const press = (view: EditorView, key: string, modifiers: KeyboardEventInit = {}) => runScopeHandlers(view, new KeyboardEvent("keydown", { key, ...modifiers }), "editor");
   /** Whether every `}` closes a `{` and every `{` is closed. */
   const balanced = (source: string) => {
     let depth = 0;
@@ -174,10 +174,10 @@ describe("LaTeX Visual mode", () => {
   it("steps over hidden tokens on the Mac's Ctrl-h and Ctrl-d as on Backspace and Delete", async () => {
     const doc = "A \\textbf{word} B";
     const view = await visualView(doc, doc.indexOf("} B") + 1);
-    expect(press(view, "h", true)).toBe(true);
+    expect(press(view, "h", { ctrlKey: true })).toBe(true);
     expect(view.state.doc.toString()).toBe("A \\textbf{wor} B");
     view.dispatch({ selection: { anchor: 2 } });
-    expect(press(view, "d", true)).toBe(true);
+    expect(press(view, "d", { ctrlKey: true })).toBe(true);
     expect(view.state.doc.toString()).toBe("A \\textbf{or} B");
   });
 
@@ -291,6 +291,40 @@ describe("LaTeX Visual mode", () => {
     const beforeEnd = await visualView(doc, doc.indexOf("\n\\end{document}"));
     expect(press(beforeEnd, "Delete")).toBe(true);
     expect(beforeEnd.state.doc.toString()).toBe(doc);
+  });
+
+  it("deletes words and line parts as drawn: a styled word goes whole, the rest of a construct keeps its tokens", async () => {
+    const doc = "A \\textbf{bold} B";
+    const afterWord = await visualView(doc, doc.indexOf(" B"));
+    expect(press(afterWord, "Backspace", { altKey: true })).toBe(true);
+    expect(afterWord.state.doc.toString()).toBe("A  B");
+    expect(undo(afterWord)).toBe(true);
+    expect(afterWord.state.doc.toString()).toBe(doc);
+
+    const beforeWord = await visualView(doc, doc.indexOf("\\textbf"));
+    expect(press(beforeWord, "Delete", { altKey: true })).toBe(true);
+    expect(beforeWord.state.doc.toString()).toBe("A  B");
+    expect(beforeWord.state.selection.main.head).toBe(2);
+
+    const inside = "\\textbf{bold} rest";
+    const toLineStart = await visualView(inside, inside.indexOf("ld"));
+    expect(press(toLineStart, "Backspace", { metaKey: true })).toBe(true);
+    expect(toLineStart.state.doc.toString()).toBe("\\textbf{ld} rest");
+    expect(toLineStart.contentDOM.querySelector(".lx-tex-bold")?.textContent).toBe("ld");
+
+    const heading = "Text\n\\section{Introduction}\nWe study";
+    const inTitle = await visualView(heading, heading.indexOf("duction"));
+    expect(press(inTitle, "Backspace", { metaKey: true })).toBe(true);
+    expect(inTitle.state.doc.toString()).toBe("Text\n\\section{duction}\nWe study");
+    expect(balanced(inTitle.state.doc.toString())).toBe(true);
+  });
+
+  it("still unwraps a heading when a selection deletes only its closing brace", async () => {
+    const doc = "\\section{Introduction}\nWe study";
+    const view = await visualView(doc, doc.length);
+    view.dispatch({ selection: { anchor: doc.indexOf("duction"), head: doc.indexOf(" study") } });
+    expect(press(view, "Backspace")).toBe(true);
+    expect(view.state.doc.toString()).toBe("Intro study");
   });
 
   it("numbers a list's items from its top when a scan starts inside a listing in it", async () => {
