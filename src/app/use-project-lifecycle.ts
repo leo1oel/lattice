@@ -311,11 +311,18 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   /// window-projects.ts): what "Open in this window" and the project tabs do.
   /// Work running in the project left, which the switch would stop, is asked
   /// about first. True once the project is entered.
-  const openInThisWindow = useCallback(async (path: string) => {
+  const switchingRef = useRef(false);
+  const openInThisWindow = useCallback(async (path: string, onError?: () => void) => {
     const leaving = projectRef.current;
     if (path === leaving?.root) return true;
-    if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) return false;
-    return switchProject(leaving ? t`Switching project…` : t`Opening project…`, path);
+    if (switchingRef.current) return false;
+    switchingRef.current = true;
+    try {
+      if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) return false;
+      return await switchProject(leaving ? t`Switching project…` : t`Opening project…`, path, onError);
+    } finally {
+      switchingRef.current = false;
+    }
   }, [building, projectRef, switchProject, t]);
 
   /// Open a folder that is already on disk — the local copy of an Overleaf
@@ -517,9 +524,10 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // editors, cancel a build and reset the agent for work the writer never
     // asked to put away. With nothing open yet the window is empty, so it
     // takes the project itself rather than leaving a blank window behind.
+    const forget = () => setRecents((current) => ({ ...current, projects: forgetRecentProject(path) }));
     if (inThisWindow) {
       setProjectMenuOpen(false);
-      await openInThisWindow(path);
+      await openInThisWindow(path, forget);
       return;
     }
     if (project?.root) {
@@ -527,12 +535,10 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       const failure = await openProjectWindow(path);
       // Only the project itself failing means the entry is worth dropping; a
       // window that could not be created says nothing about the project.
-      if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) {
-        setRecents((current) => ({ ...current, projects: forgetRecentProject(path) }));
-      }
+      if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) forget();
       return;
     }
-    await switchProject(t`Switching project…`, path, () => setRecents((current) => ({ ...current, projects: forgetRecentProject(path) })));
+    await switchProject(t`Switching project…`, path, forget);
   }, [openInThisWindow, openProjectWindow, project?.root, switchProject, t]);
 
   // ---- Closing, quitting and reloading save first -----------------------------------------------------------------

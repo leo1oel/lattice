@@ -53,7 +53,7 @@ export function projectSwitchCommands({ i18n, root, lifecycle, deskKeys }: {
     ...(inProject ? others : []).map(({ name, path }: RecentProject, index): AppCommand => ({
       id: `recent-project-here-${index}`, label: spaceMixedScript(i18n._(msg`Open ${name} in this window`)), detail: path,
       group: "project", recent: false,
-      run: () => void openInThisWindow(path),
+      run: () => void chooseRecentProject(path, true),
     })),
     // ⌘1 to ⌘3 on the welcome screen: the projects on its desk, by place. In a
     // project the same keys switch workspaces, so these are only listed here.
