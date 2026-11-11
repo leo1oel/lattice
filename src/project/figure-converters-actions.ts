@@ -24,6 +24,16 @@ export function pagedDrawingOf(entryPath: string, entryText: string): string | n
   return source && isConvertibleDrawing(source) ? source : null;
 }
 
+/**
+ * An entry changed on disk: its roots get what it now needs, on their own so a
+ * failure there does not stop the page refresh. The drawing to render again,
+ * if any.
+ */
+export function entryChanged(entryPath: string, entryText: string, projectRoot: string, rootDocuments: readonly string[]): string | null {
+  completeFigureNeeds(entryPath, entryText, projectRoot, rootDocuments).catch(failed);
+  return pagedDrawingOf(entryPath, entryText);
+}
+
 /** Renders the drawing, then puts the figure into the editor last in use. */
 export async function makeEditableFigure(path: string, projectRoot: string): Promise<void> {
   try {

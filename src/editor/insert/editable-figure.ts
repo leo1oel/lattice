@@ -283,10 +283,15 @@ export function preambleNeedsConfirmation(source: string, known: string, figure:
 export function preambleFiles(source: string): string[] {
   const begin = source.search(/^[^%\n]*\\begin\s*\{document\}/m);
   if (begin < 0) return [];
-  const code = blankComments(source.slice(0, begin));
+  return loadedFiles(source.slice(0, begin));
+}
+
+/** Project files `code` brings in with `\input` or as a package, comments aside. */
+export function loadedFiles(code: string): string[] {
+  const live = blankComments(code);
   return [
-    ...[...code.matchAll(/\\input\s*\{([^{}]+)\}/g)].map((match) => (/\.[a-z]+$/i.test(match[1]) ? match[1] : `${match[1]}.tex`)),
-    ...[...code.matchAll(PACKAGE_LOAD)].flatMap((match) => match[1].split(",").map((name) => `${name.trim()}.sty`)),
+    ...[...live.matchAll(/\\input\s*\{([^{}]+)\}/g)].map((match) => (/\.[a-z]+$/i.test(match[1]) ? match[1] : `${match[1]}.tex`)),
+    ...[...live.matchAll(PACKAGE_LOAD)].flatMap((match) => match[1].split(",").map((name) => `${name.trim()}.sty`)),
   ];
 }
 

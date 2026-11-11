@@ -111,11 +111,16 @@ includes it (directly or through the files it includes) what it lacks, as a
 paste would: the packages it states, and the packages its code plainly uses
 (`\includegraphics`, a `tikzpicture`, `\cmpd`), after the last package line,
 and the preamble lines before `\begin{document}`, unless the document or a
-file its preamble loads already defines every command they define. An entry
+file its preamble loads (or one that file loads, a few levels down) already
+defines every command they define. An entry
 can come from anyone (a clone, an Overleaf collaborator), so preamble lines
 that do more than define are never added: a notice shows them instead. The
-write is a merge, like an editor save, and a notice names what was added
-(`src/editor/insert/figure-needs.ts`, `src/project/figure-needs-actions.ts`).
+write is a merge, like an editor save, and a notice names what was added.
+Entries that change together (a pull, a multi-page drawing) are completed one
+at a time, each reading the root again, so their additions never meet in one
+merge as conflict markers
+(`src/editor/insert/figure-needs.ts`, `src/project/figure-needs-actions.ts`;
+the watcher is `src/project/figure-source-refresh.ts`).
 
 ## Opening the drawing
 

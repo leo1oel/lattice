@@ -6,7 +6,7 @@
  */
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { includedTexPaths, preambleFiles } from "../editor/insert/editable-figure";
+import { includedTexPaths, loadedFiles, preambleFiles } from "../editor/insert/editable-figure";
 import { completePreamble, figureNeedsOf } from "../editor/insert/figure-needs";
 import { i18n } from "../i18n";
 import { notifyInfo } from "../telemetry/app-notify";
@@ -38,23 +38,48 @@ export async function includesEntry(path: string, text: string, entry: string, r
 }
 
 /**
- * The text of the files a root document's preamble loads. TeX reads them from
+ * The text of the files a root document's preamble loads, and of the files
+ * they load in turn (`main.tex` → `preamble.tex` → `settings.tex`, say), so a
+ * `\graphicspath` set two files down is not overridden. TeX reads each from
  * the root's folder first, then (a root in a subfolder) the project's.
  */
 async function knownText(rootPath: string, rootText: string, read: Read): Promise<string> {
   const folder = rootPath.slice(0, rootPath.lastIndexOf("/") + 1);
-  const texts = await Promise.all(preambleFiles(rootText).map(async (path) => {
+  const readLoaded = async (path: string) => {
     for (const candidate of folder ? [`${folder}${path}`, path] : [path]) {
       const text = await read(candidate).catch(() => null);
       if (text !== null) return text;
     }
     return "";
-  }));
+  };
+  const seen = new Set<string>();
+  const texts: string[] = [];
+  let level = preambleFiles(rootText);
+  for (let depth = 0; depth < MAX_INCLUDE_DEPTH && level.length; depth += 1) {
+    const fresh = level.filter((path) => !seen.has(path) && seen.size < MAX_FILES_READ && seen.add(path));
+    const found = await Promise.all(fresh.map(readLoaded));
+    texts.push(...found);
+    level = found.flatMap(loadedFiles);
+  }
   return texts.join("\n");
 }
 
+/**
+ * One completion at a time: two run from one read of a root would each write
+ * with it as `baseContent`, and the host's 3-way merge of their different
+ * additions at one line writes conflict markers into the preamble. Each run
+ * reads the root again, so it sees what the one before added.
+ */
+let pending: Promise<unknown> = Promise.resolve();
+
 /** Adds to each root document that includes `entryPath` what the entry now needs and it lacks. */
-export async function completeFigureNeeds(entryPath: string, entryText: string, projectRoot: string, rootDocuments: readonly string[]): Promise<void> {
+export function completeFigureNeeds(entryPath: string, entryText: string, projectRoot: string, rootDocuments: readonly string[]): Promise<void> {
+  const run = pending.then(() => complete(entryPath, entryText, projectRoot, rootDocuments));
+  pending = run.catch(() => undefined);
+  return run;
+}
+
+async function complete(entryPath: string, entryText: string, projectRoot: string, rootDocuments: readonly string[]): Promise<void> {
   const needs = figureNeedsOf(entryText);
   if (!needs) return;
   const read: Read = (path) => invoke<string>("read_project_file", { path, projectRoot });

@@ -1381,11 +1381,11 @@ msgstr "另一个窗口里开着别的项目的幻灯片"
 msgid "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
 msgstr "如果文档的 babel 或 polyglossia 语言不是英语，则按该语言检查拼写。首次需要时会从 wooorm/dictionaries 下载其词典。"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 msgstr "绘图可能来自任何人，因此 Lattice 只在你要求时才运行绘图程序。若想让插图随绘图自动更新，请在本项目设置中打开「允许 shell escape」。"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing changed: {path}"
 msgstr "绘图已更改：{path}"
 
@@ -6333,8 +6333,8 @@ msgstr "图已就绪：{0}。请打开 LaTeX 文件以插入。"
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
-#: src/project/figure-converters.ts
 #: src/project/figure-needs-actions.ts
+#: src/project/figure-source-refresh.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -17094,7 +17094,7 @@ msgstr "已更新"
 msgid "Update available"
 msgstr "有更新"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "Update figure"
 msgstr "更新插图"
 

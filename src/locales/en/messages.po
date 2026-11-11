@@ -1381,11 +1381,11 @@ msgstr "A deck from another project is open in another window"
 msgid "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
 msgstr "A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 msgstr "A drawing can come from anyone, so Lattice runs the drawing program only when you ask. Turn on Allow shell escape in this project's settings to update its figures as their drawings change."
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "A drawing changed: {path}"
 msgstr "A drawing changed: {path}"
 
@@ -6333,8 +6333,8 @@ msgstr "Figure ready: {0}. Open a LaTeX file to include it."
 #: src/app/editable-figure-paste.ts
 #: src/app/use-project-tree.ts
 #: src/project/figure-converters-actions.ts
-#: src/project/figure-converters.ts
 #: src/project/figure-needs-actions.ts
+#: src/project/figure-source-refresh.ts
 msgid "Figures"
 msgstr "Figures"
 
@@ -17094,7 +17094,7 @@ msgstr "Update applied"
 msgid "Update available"
 msgstr "Update available"
 
-#: src/project/figure-converters.ts
+#: src/project/figure-source-refresh.ts
 msgid "Update figure"
 msgstr "Update figure"
 
