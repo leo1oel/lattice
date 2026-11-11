@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { convertibleFile, dropDrawingFile, isConvertibleDrawing, perKeyDebounce } from "./figure-converters";
+import { convertibleFile, dropDrawingFile, isConvertibleDrawing } from "./figure-converters";
 import { pagedDrawingOf } from "./figure-converters-actions";
+import { perKeyDebounce } from "./figure-source-refresh";
 
 describe("figure converters", () => {
   beforeEach(() => { vi.useFakeTimers(); });

@@ -10,11 +10,28 @@ import { isConvertibleDrawing } from "./figure-converters";
 
 const failed = (reason: unknown) => notifyError(i18n._(msg`Could not update the figure`), toMessage(reason));
 
+/** What a changed entry file now needs, added to the root documents that include it (figure-needs-actions.ts, loaded only for an entry). */
+export async function completeFigureNeeds(path: string, text: string, root: string, rootDocuments: readonly string[]): Promise<void> {
+  if (!text.startsWith("% editable-figure source: ")) return;
+  const { completeFigureNeeds: complete } = await import("./figure-needs-actions");
+  await complete(path, text, root, rootDocuments);
+}
+
 /** The drawing an entry with a page line renders, or null for any other `.tex`. */
 export function pagedDrawingOf(entryPath: string, entryText: string): string | null {
   if (!/^% editable-figure page: /.test(entryText.split(/\r?\n/, 2)[1] ?? "")) return null;
   const source = figureSourcePath(entryPath, entryText);
   return source && isConvertibleDrawing(source) ? source : null;
+}
+
+/**
+ * An entry changed on disk: its roots get what it now needs, on their own so a
+ * failure there does not stop the page refresh. The drawing to render again,
+ * if any.
+ */
+export function entryChanged(entryPath: string, entryText: string, projectRoot: string, rootDocuments: readonly string[]): string | null {
+  completeFigureNeeds(entryPath, entryText, projectRoot, rootDocuments).catch(failed);
+  return pagedDrawingOf(entryPath, entryText);
 }
 
 /** Renders the drawing, then puts the figure into the editor last in use. */
