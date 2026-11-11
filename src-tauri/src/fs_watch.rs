@@ -345,7 +345,10 @@ mod tests {
         let metadata = EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any));
         assert!(!kept(metadata, ""), "the project root's own metadata");
         assert!(!kept(metadata, "section"));
-        assert!(!kept(EventKind::Create(CreateKind::Folder), "section"), "made before the watch");
+        // A disk that keeps no birth times (some Linux ones) cannot tell, and keeps the report.
+        let born = std::fs::metadata(root.join("section")).and_then(|section| section.created());
+        let repeated = kept(EventKind::Create(CreateKind::Folder), "section");
+        assert!(born.is_err() || !repeated, "made before the watch");
         // A file's metadata (a touch, a chmod) still counts, and so does a
         // folder made since, renamed or removed.
         assert!(kept(metadata, "section/intro.tex"));
