@@ -24,7 +24,10 @@ back.
 
 Lattice finds the Zotero data folder the way Zotero does (the folder set in
 Zotero's **Settings → Advanced → Files and Folders**, otherwise `~/Zotero`) and
-reads a private copy of its `zotero.sqlite`, never the live file. If the library
+reads profiles from `%APPDATA%\Zotero\Zotero` on Windows,
+`~/Library/Application Support/Zotero` on macOS, and `~/.zotero/zotero` on Linux.
+On Windows the default data directory is `%USERPROFILE%\Zotero`.
+It reads a private copy of its `zotero.sqlite`, never the live file. If the library
 lives somewhere Lattice cannot find, choose its folder with **Choose Zotero
 folder…**. Only your personal library is read; group libraries are not.
 
@@ -34,11 +37,11 @@ its Extra field as `Citation Key: …`, otherwise a key in the shape of Zotero's
 own export (`lastname_firstword_year`). When two items would share a key, the
 one added to Zotero later gets a letter suffix (`b`, `c`, …), so every paper
 keeps its own key. An item with an arXiv id brings its full
-text from arXiv; otherwise its PDF attachment, when the file is on this Mac,
+text from arXiv; otherwise its PDF attachment, when the file is on this computer,
 becomes the paper's readable text. Items without either are added as citations
 only.
 
-To bring in a library from another Mac, export the collection from Zotero (or
+To bring in a library from another computer, export the collection from Zotero (or
 with Better BibTeX) as a `.bib` file and paste the whole file into **Add papers**,
 or link it with **Linked library…** to take in later changes after review.
 

@@ -195,6 +195,24 @@ fn collections_come_from_a_copy_while_zotero_holds_the_database() {
 }
 
 #[test]
+fn native_absolute_linked_pdfs_are_imported() {
+    let library = library();
+    let path = library.dir.write("linked paper.pdf", b"%PDF-1.4");
+    library.item(19, 4, "ABSOLUTE", &[], &[]);
+    library
+        .live
+        .execute(
+            "INSERT INTO itemAttachments VALUES (19, 10, 2, 'application/pdf', ?1)",
+            [path.to_str().unwrap()],
+        )
+        .unwrap();
+    let read = super::library(library.path()).unwrap();
+    let item = read.items.iter().find(|item| item.citation_key == "jumper_highly_2021").unwrap();
+    assert_eq!(item.pdf.as_deref(), Some("ABSOLUTE"));
+    assert_eq!(attachment_path("ABSOLUTE").unwrap(), path);
+}
+
+#[test]
 fn a_collection_reads_as_bibtex_under_the_keys_the_writer_cites() {
     let library = library();
     // A PDF key no other test reads: attachment keys are remembered process-wide.
