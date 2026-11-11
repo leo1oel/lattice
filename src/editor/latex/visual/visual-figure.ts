@@ -42,6 +42,14 @@ const ENTRY_LIMIT = 200_000;
 const LABEL_LIMIT = 500;
 /** The largest label size drawn, in points: a bigger one is not a label anyone reads. */
 const MAX_LABEL_POINTS = 72;
+/**
+ * The deepest `\textbf{…}`/`\textcolor{…}{…}` nesting a label is read through.
+ * Each level rescans the rest of its group, so an entry nested thousands deep
+ * (anyone sharing the project can write one) would cost quadratic time on the
+ * main thread at every rebuild, then overflow the stack. A real label nests one
+ * or two deep.
+ */
+const MAX_LABEL_DEPTH = 16;
 
 const withoutComments = (text: string) => text.replace(/(?<!\\)%.*$/gm, "");
 
@@ -100,8 +108,9 @@ const FONT_COMMANDS = new Set(["fontsize", "fontfamily", "reactiofigurefont", "u
 const ESCAPES: Readonly<Record<string, string>> = { "%": "%", "&": "&", "#": "#", "_": "_", "$": "$", " ": " ", ",": " " };
 
 /** A label's content as runs of text and compound numbers. */
-function labelRuns(content: string, bold: boolean): FigureLabelRun[] {
+function labelRuns(content: string, bold: boolean, depth = 0): FigureLabelRun[] {
   const runs: FigureLabelRun[] = [];
+  if (depth > MAX_LABEL_DEPTH) return runs;
   let pending = "";
   let isBold = bold;
   const flush = () => {
@@ -140,10 +149,10 @@ function labelRuns(content: string, bold: boolean): FigureLabelRun[] {
         }
         if (command === "textbf") {
           flush();
-          runs.push(...labelRuns(args[0] ?? "", true));
+          runs.push(...labelRuns(args[0] ?? "", true, depth + 1));
         } else if (command === "textcolor") {
           flush();
-          runs.push(...labelRuns(args[1] ?? "", isBold));
+          runs.push(...labelRuns(args[1] ?? "", isBold, depth + 1));
         } else if (!FONT_COMMANDS.has(command) && args[0]?.trim()) {
           flush();
           const keys = command === "rcmpd" ? [args[0].trim()] : args[0].split(",").map((key) => key.trim()).filter(Boolean);

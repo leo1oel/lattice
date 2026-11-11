@@ -48,4 +48,17 @@ describe("editable figure entries", () => {
     expect(figureEntryGraphic(hostile)).toBeNull();
     expect(performance.now() - started).toBeLessThan(1_000);
   });
+
+  it("reads a label nested thousands deep within bounds", () => {
+    // Each nested `\textbf{` once rescanned the rest of its group: ~1.3 s for a
+    // 200 KB entry, then a stack overflow.
+    const depth = 22_000;
+    const hostile = "\\begin{scope}[x={(f.south east)},y={(f.north west)}]\n\\node at (0.1,0.2) {"
+      + "\\textbf{".repeat(depth) + "deep" + "}".repeat(depth) + "};";
+    const started = performance.now();
+    expect(figureEntryLabels(hostile)).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(500);
+    const shallow = "\\begin{scope}[x={(f.south east)},y={(f.north west)}]\n\\node at (0.1,0.2) {\\textcolor{red}{\\textbf{\\cmpd{a}}}};";
+    expect(figureEntryLabels(shallow)).toEqual([{ x: 0.1, y: 0.2, size: null, font: null, runs: [{ bold: true, compounds: ["a"] }] }]);
+  });
 });
