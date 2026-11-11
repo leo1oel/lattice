@@ -53,10 +53,10 @@ const ARTIFACT_SUFFIXES: &[&str] = &[
 /// images: reproducible intermediates, not project assets.
 pub(super) const TRANSIENT_PDF_RENDER_DIRECTORY: &str = "tmp/pdfs";
 
-const BASE_DIR: &str = ".research/overleaf-base";
+pub(super) const BASE_DIR: &str = ".research/overleaf-base";
 
 /// Lattice's own folders (state, versions, legacy agent config), never synced.
-const APP_FOLDERS: [&str; 3] = [".research", ".git", ".omp"];
+pub(super) const APP_FOLDERS: [&str; 3] = [".research", ".git", ".omp"];
 
 /// Marks the start of an unresolved conflict; also the guard that stops a file
 /// full of markers from being uploaded to Overleaf.
@@ -87,6 +87,12 @@ fn is_build_artifact(name: &str) -> bool {
 /// as the underlying `.bbl`, `.bcf`, etc., not project source.
 pub(super) fn is_latex_save_error_path(path: &str) -> bool {
     build_output_name(path).strip_suffix("-save-error").is_some_and(is_build_artifact)
+}
+
+/// Whether `path` is a file a LaTeX run writes beside its source: an
+/// artifact, its `-SAVE-ERROR` twin, or one still `(busy)` mid-compile.
+pub(super) fn is_build_output(path: &str) -> bool {
+    is_latex_save_error_path(path) || is_build_artifact(&build_output_name(path))
 }
 
 /// Whether `path`, one of `files`, takes no part in sync: [`is_excluded`]
@@ -148,7 +154,6 @@ impl BuildPdf {
 /// else the project holds.
 pub(super) fn is_excluded(path: &str) -> bool {
     let file_name = path.rsplit('/').next().unwrap_or(path);
-    let name = build_output_name(path);
     // Legacy `.omp/` folders may hold MCP server config, whose `env` is where
     // someone puts an API key. Uploading it would hand that key to everyone on
     // the Overleaf project and write it into the project's history.
@@ -163,10 +168,9 @@ pub(super) fn is_excluded(path: &str) -> bool {
         // duplicate of the paper in front of everyone on Overleaf, where it
         // competes with the real file.
         || is_conflict_copy(file_name)
-        || is_latex_save_error_path(path)
         // A half-written `(busy)` artifact caught mid-compile would otherwise
         // live on Overleaf and in the project's history forever.
-        || is_build_artifact(&name)
+        || is_build_output(path)
 }
 
 /// A file this app set aside during a conflict, by the name it gave it.

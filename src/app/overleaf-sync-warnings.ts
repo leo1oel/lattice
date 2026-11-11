@@ -42,6 +42,12 @@ export function overleafSyncWarnings(
   for (const file of result.heldRenames ?? []) {
     warnings.push(t`Overleaf renamed or removed ${file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete ${file} here.`);
   }
+  // A folder deleted or renamed on Overleaf whose build outputs and empty
+  // subfolders the sync cleared, kept for the writer's own files in it.
+  for (const { folder, files: kept } of result.keptFolders ?? []) {
+    const names = kept.join(", ");
+    warnings.push(t`Overleaf no longer has the folder ${folder}. It stays here because it still holds files that never sync: ${names}. Delete them here if you no longer need them.`);
+  }
   // Held back while Overleaf moves on, named once when the hold starts: the
   // backend leaves out files the previous sync was holding already.
   const held = (result.newlyUnresolvedConflicts ?? []).map((file) => ({

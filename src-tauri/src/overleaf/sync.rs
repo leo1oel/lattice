@@ -331,45 +331,6 @@ pub(super) fn finalize_base_copies(
     Ok(())
 }
 
-/// What became of `path` on disk since this sync read it there.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum SinceRead {
-    /// It still holds what was read (`None`: it was absent), so writing over
-    /// it or deleting it loses nothing.
-    Unchanged,
-    /// The file this sync read was edited or deleted: the next sync reads the
-    /// change as the local edit it is.
-    Edited,
-    /// Something this sync never read sits there — a file too large, not a
-    /// regular file, under a symlinked folder, or unreadable. It is left
-    /// alone, but syncing again would find exactly the same, so it is no edit
-    /// to report.
-    Unread,
-}
-
-/// The editor's own saves wait for a sync to finish, but an agent or another
-/// program writes whenever it likes. Its edit is newer than anything the plan
-/// knows about, so a file changed since the read is left exactly as it is.
-/// Only a file within the size limit is ever read, here as in the sync's own
-/// read of the project.
-fn since_read(root: &Path, path: &str, read: Option<&Vec<u8>>) -> SinceRead {
-    let disk = disk_path(root, path);
-    let meta = fs::symlink_metadata(&disk);
-    let Some(read) = read else {
-        return match meta {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => SinceRead::Unchanged,
-            _ => SinceRead::Unread,
-        };
-    };
-    match meta {
-        Ok(meta) if meta.is_file() && meta.len() <= MAX_SYNC_FILE_BYTES => match fs::read(&disk) {
-            Ok(bytes) if bytes == *read => SinceRead::Unchanged,
-            _ => SinceRead::Edited,
-        },
-        _ => SinceRead::Edited,
-    }
-}
-
 /// One sync's HTTP client. Every request of the sync goes through it, so they
 /// share one connection instead of each paying for its own TLS handshake —
 /// several round trips apiece over a slow or proxied link. The deadline is
@@ -488,7 +449,8 @@ fn sync_files(
     // syncs download to see it again rather than trust the agreed copy.
     let (case_collisions, aside) =
         case_collisions::set_aside(&mut remote, &mut local, &linked.state.files);
-    unsettled.extend(aside);
+    unsettled.extend(aside.iter().cloned());
+    let synced_before: BTreeSet<String> = linked.state.files.keys().cloned().collect();
     let renames = remote_renames(&linked, &client, &remote, &local);
     carry(&mut linked.state, &mut local, &renames);
     let carried = &renames.carried;
@@ -694,6 +656,9 @@ fn sync_files(
     state.agreed_version = remote_version_before;
     save_state(root, &state)?;
     renames::forget_old_bases(root, &renames);
+    let held = renames.held.keys().chain(&held_back).chain(&result.edited_during_sync);
+    let kept = state.files.keys().chain(remote.keys()).chain(&aside).chain(held);
+    result.kept_folders = stale_folders::clear(root, kept, &synced_before);
     // Every list is already in path order: the plan walks paths sorted.
     Ok(Some(result))
 }
@@ -712,6 +677,8 @@ mod relocations;
 mod remote_delete;
 mod renames;
 mod send;
+mod since_read;
+mod stale_folders;
 use changes::{fetch, remote_copy, RemoteCopy};
 use download::download;
 pub use failure::classify_sync_error;
@@ -724,6 +691,7 @@ pub use probe::{probe, OverleafProbe};
 pub use relocations::sync_relocations;
 pub use remote_delete::{delete_unchanged, RemoteDelete};
 use renames::{carry, hold, move_local, remote_renames, report};
+use since_read::{since_read, SinceRead};
 
 #[cfg(test)]
 mod tests;

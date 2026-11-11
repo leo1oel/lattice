@@ -392,6 +392,13 @@ purpose.
   other programs do not; their edit is left as it is, keeps the previous agreed
   hash, and is reported (`editedDuringSync`) so the next sync merges or sends
   it. A file edited while a sync sends it keeps what went up as its merge base.
+- A folder that holds nothing Overleaf has, agreed, held or edited meanwhile,
+  and that held synced files once (the starting agreed table or the merge-base
+  tree says so), loses its build outputs and then its empty folders after the
+  sync; empty folders of the merge-base tree go too. Any other file in it is
+  the writer's, keeps the folder, and is named once (`keptFolders`). A folder
+  with no such record goes only when it holds build outputs alone
+  (`overleaf/sync/stale_folders.rs`).
 - Active, draining and outcome-unknown OT documents stay excluded from ordinary
   ZIP/file synchronization until the realtime owner releases them.
 - Every delayed project-specific Overleaf read or mutation carries the project

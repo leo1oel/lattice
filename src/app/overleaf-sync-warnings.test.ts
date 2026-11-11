@@ -33,6 +33,13 @@ describe("overleafSyncWarnings", () => {
     }]);
   });
 
+  it("names a folder gone from Overleaf that stays for the writer's own files", () => {
+    const keptFolders = [{ folder: "A", files: ["A/main (local conflict 20260701-1200).pdf"] }];
+    expect(overleafSyncWarnings(result({ keptFolders }), vi.fn())).toEqual([{
+      message: "Overleaf no longer has the folder A. It stays here because it still holds files that never sync: A/main (local conflict 20260701-1200).pdf. Delete them here if you no longer need them.",
+    }]);
+  });
+
   it("says nothing for a sync whose uploads met no one else's edit", () => {
     expect(overleafSyncWarnings(result({ pushed: ["a.tex"], uploadedOverEdits: [] }), vi.fn())).toEqual([]);
   });
