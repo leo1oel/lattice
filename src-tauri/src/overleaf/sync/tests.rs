@@ -539,7 +539,7 @@ fn a_file_left_behind_mid_sync_is_downloaded_again_before_anything_goes_up() {
     let config = link_to(&server, &root, base, base);
     edit_state(&root, |state| {
         state.remote_version = Some(40);
-        state.unsettled = Some(BTreeSet::new());
+        state.unsettled = Some([].into());
     });
 
     let result = sync(&config, &root, NO_LIVE, None).unwrap();

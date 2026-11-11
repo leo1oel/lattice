@@ -66,15 +66,14 @@ pub(super) struct SyncState {
     pub agreed_version: Option<i64>,
     /// Whether `files` says exactly what Overleaf's copy at `agreed_version`
     /// holds, so a sync may stand it in for a download (see
-    /// `sync::changes::remote_copy`): `Some` lists the paths that differ,
-    /// each a document held by the realtime channel at the time and kept on
-    /// its earlier merge base, or a file that sync sent, which the history
-    /// then names. A sync fetches each again unless it is still live. `None`
-    /// when anything else differs — a local edit held back, an edit that
-    /// landed mid-sync, a deletion left standing — until a download settles it
-    /// again.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unsettled: Option<BTreeSet<String>>,
+    /// `sync::changes::remote_copy`): `Some` lists the paths that differ and
+    /// why (see [`Unsettled`]). A sync fetches each again unless it is still
+    /// live. `None` when anything else differs — a local edit held back, an
+    /// edit that landed mid-sync, a deletion left standing — until a download
+    /// settles it again; or `Some` with those marked [`Unsettled::Download`]
+    /// while a file is held for a rename, so its window is kept.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "read_unsettled")]
+    pub unsettled: Option<BTreeMap<String, Unsettled>>,
     /// What this account may do to the project, as Overleaf last reported it.
     /// Absent on projects linked before this was recorded (see
     /// [`SyncState::access`]).
@@ -115,6 +114,40 @@ pub(super) struct SyncState {
     /// never confirm a download that would wipe the file out.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub own_writes: BTreeMap<String, HistoryFrom>,
+}
+
+/// Why the agreed table differs from Overleaf's copy at a path (see
+/// `SyncState::unsettled`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum Unsettled {
+    /// A document the realtime channel held, kept on its earlier merge base,
+    /// a file the sync sent, which the history then names, or a path left
+    /// unpulled for a held file: fetched again.
+    Fetch,
+    /// An edited file held for a rename on Overleaf (see `sync::renames`),
+    /// with where the agreed copy stood when the hold began (`None`: there
+    /// was none), so the history from there on still shows the rename.
+    Held(Option<HistoryFrom>),
+    /// Anything else: only a download can tell.
+    Download,
+}
+
+/// `SyncState::unsettled`, read also as the bare list of paths it was before
+/// it said why each differs.
+fn read_unsettled<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<BTreeMap<String, Unsettled>>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Record {
+        Paths(BTreeSet<String>),
+        Why(BTreeMap<String, Unsettled>),
+    }
+    Ok(Option::<Record>::deserialize(deserializer)?.map(|record| match record {
+        Record::Paths(paths) => paths.into_iter().map(|path| (path, Unsettled::Fetch)).collect(),
+        Record::Why(why) => why,
+    }))
 }
 
 /// One download kept out of a local file (see `SyncState::refused`).

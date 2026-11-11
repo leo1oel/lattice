@@ -414,10 +414,13 @@ purpose.
   Any other case holds the file: it is not uploaded or deleted, it stays on
   its agreed copy, and the result names it (`heldRenames`). Other cases
   include an unreadable history, a chain of renames, or a target that was
-  reused or is spelled like a local path. While a file is held, the agreed
-  version does not advance, so the next sync can still read the rename. When
-  the history is unreadable, paths new on Overleaf also wait unpulled, so the
-  next readable sync can carry the edit. An unedited file renamed only in
+  reused or is spelled like a local path. A held file's entry in the sync
+  state's unsettled record keeps where its hold began, so later syncs still
+  read the rename from there while the agreed version moves on. Lattice's own
+  last upload of a file is not counted as another operation on it. When the
+  history is unreadable as a hold begins, paths new on Overleaf also wait
+  unpulled for that one sync, so a readable next sync can carry the edit; a
+  sync that still cannot read it pulls them. An unedited file renamed only in
   letter case is carried without the history, through a temporary name. A
   sync never deletes a local path whose name, ignoring case, matches one it
   keeps.

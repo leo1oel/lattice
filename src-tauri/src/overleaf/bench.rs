@@ -160,7 +160,7 @@ fn run(scenario: &Scenario) {
     // The previous sync downloaded and matched Overleaf's copy exactly.
     edit_state(&root, |state: &mut SyncState| {
         state.remote_version = known;
-        state.unsettled = Some(BTreeSet::new());
+        state.unsettled = Some(Default::default());
     });
     for (path, data) in files.iter().skip(2).take(scenario.edits) {
         let mut edited = data.clone();

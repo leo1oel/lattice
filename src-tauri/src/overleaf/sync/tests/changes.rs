@@ -8,6 +8,7 @@ use crate::overleaf::sync::changes::blob_hash;
 use crate::overleaf_rt::mock_server::{realtime_state, sent_updates, MockState};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use Unsettled::Fetch;
 
 /// A small paper: documents in folders, a bibliography and two figures.
 fn paper() -> Vec<(String, Vec<u8>)> {
@@ -49,7 +50,7 @@ fn lab_with(files: &[(String, Vec<u8>)], configure: impl FnOnce(&mut Mock)) -> L
     edit_state(&root, |state| {
         state.remote_version = Some(40);
         state.agreed_version = Some(40);
-        state.unsettled = Some(BTreeSet::new());
+        state.unsettled = Some([].into());
     });
     Lab { shared, live, server, config, root }
 }
@@ -138,7 +139,7 @@ fn a_co_authors_edit_fetches_that_document_and_nothing_else() {
     lab.assert_matches_overleaf();
     let state = load_state(&lab.root).unwrap();
     assert_eq!((state.remote_version, state.agreed_version), (Some(41), Some(41)));
-    assert_eq!(state.unsettled, Some(BTreeSet::new()), "the next sync may fetch only too");
+    assert_eq!(state.unsettled, Some([].into()), "the next sync may fetch only too");
 
     // Nothing new: the version read is the whole sync.
     let result = lab.sync();
@@ -259,7 +260,7 @@ fn the_sync_after_an_upload_fetches_only_what_went_up() {
     assert_eq!(result.pushed, ["figures/new.png"]);
     let state = load_state(&lab.root).unwrap();
     assert_eq!(state.remote_version, None);
-    assert_eq!(state.unsettled, Some(BTreeSet::from(["figures/new.png".to_string()])));
+    assert_eq!(state.unsettled, Some([("figures/new.png".into(), Fetch)].into()));
     // What Overleaf did with the upload.
     lab.co_author(
         |files| {
@@ -476,7 +477,7 @@ fn a_document_live_only_in_the_read_ahead_is_left_for_the_next_sync() {
     assert!(result.pushed.is_empty() && result.merged.is_empty(), "{:?}", result.pushed);
     assert!(lab.server.uploads().is_empty() && sent_updates(&lab.live).is_empty());
     let unsettled = load_state(&lab.root).unwrap().unsettled;
-    assert_eq!(unsettled, Some(hint.clone()), "the next sync fetches it");
+    assert_eq!(unsettled, Some([("sections/a.tex".into(), Fetch)].into()));
 
     let result = lab.sync();
     assert!(result.pushed.is_empty() && result.pulled.is_empty());
@@ -541,18 +542,18 @@ fn a_sync_downloads_the_project_only_when_overleafs_history_cannot_rule_out_a_ch
     let renamed = json!({ "fromV": 40, "toV": 41, "pathnames": [],
         "project_ops": [{ "rename": { "pathname": "live.tex", "newPathname": "live2.tex" } }] });
     let live: BTreeSet<String> = ["live.tex".to_string()].into();
-    let exact = || Some(BTreeSet::new());
-    let left_on_base = || Some(BTreeSet::from(["notes.tex".to_string()]));
+    let exact = || Some([].into());
+    let left_on_base = || Some([("notes.tex".into(), Fetch)].into());
     let main: (&str, &[u8]) = ("main.tex", b"main edited");
     let figure: (&str, &[u8]) = ("fig.png", b"\x89PNG new");
-    // (case, versions, history, a local edit, how exactly the last sync's
-    // table matched Overleaf, downloaded)
+    // (case, versions, history, a local edit, the last sync's unsettled
+    // record, downloaded)
     type Case<'a> = (
         &'a str,
         Vec<i64>,
         Vec<Value>,
         Option<(&'a str, &'a [u8])>,
-        Option<BTreeSet<String>>,
+        Option<BTreeMap<String, Unsettled>>,
         bool,
     );
     let cases: &[Case] = &[

@@ -26,11 +26,11 @@
 
 use super::history_evidence::agreed_copy;
 use super::relocations::relocated_path;
-use super::{since_read, OverleafSyncResult, SinceRead, SyncPlan};
+use super::{since_read, OverleafSyncResult, SinceRead, SyncPlan, Unsettled};
 use crate::overleaf::api::{json_str, Remote};
 use crate::overleaf::files::{disk_path, read_base_copy, remove_base_copy, write_base_copy};
 use crate::overleaf::link::SyncState;
-use crate::overleaf::review::{history_since, HistoryFrom};
+use crate::overleaf::review::{history_since, HistoryFrom, HistoryUpdate};
 use crate::project_fs::ProjectDir;
 use crate::util::sha256_hex;
 use crate::wide_event;
@@ -44,11 +44,34 @@ use std::path::Path;
 pub(super) struct Renames {
     /// Each new path a file is carried to, and the agreed path it left.
     pub carried: BTreeMap<String, String>,
-    /// Edited files gone from Overleaf that this sync holds as they are.
-    pub held: Vec<String>,
+    /// Edited files gone from Overleaf that this sync holds as they are, each
+    /// with where the agreed copy stood when its hold began.
+    pub held: BTreeMap<String, Option<HistoryFrom>>,
     /// Paths new on Overleaf left unpulled, so a held file can still be
     /// carried to one: pulled, it would be agreed and no longer new.
     pub waiting: BTreeSet<String>,
+}
+
+impl Renames {
+    /// `SyncState::unsettled` for the paths where the table now differs from
+    /// Overleaf's copy, given those the next sync fetches again anyway. A
+    /// path left waiting is fetched again too, and a held file keeps where
+    /// its hold began, so the next sync still reads the rename however far
+    /// the agreed version moves. Anything else takes a download, which the
+    /// record says by its absence unless a hold's window must be kept.
+    pub fn unsettled(
+        &self, differs: &BTreeSet<String>, fetched: impl Fn(&String) -> bool,
+    ) -> Option<BTreeMap<String, Unsettled>> {
+        let why = |path: &String| match self.held.get(path) {
+            Some(since) => Unsettled::Held(*since),
+            None if fetched(path) || self.waiting.contains(path) => Unsettled::Fetch,
+            None => Unsettled::Download,
+        };
+        let record: BTreeMap<String, Unsettled> =
+            differs.iter().map(|path| (path.clone(), why(path))).collect();
+        let exact = record.values().all(|why| *why != Unsettled::Download);
+        (exact || !self.held.is_empty()).then_some(record)
+    }
 }
 
 /// One tree operation in Overleaf's history.
@@ -72,45 +95,72 @@ impl TreeOp {
     }
 }
 
-/// Every tree operation in Overleaf's history since the agreed copy, oldest
-/// first. A folder's operation names only the folder.
-///
-/// Overleaf groups a co-author's consecutive changes into one update, which
-/// can start before the agreed version and end after it. Such an update is
-/// read, and only the operations made from the agreed version on count.
-fn tree_ops_since(remote: &Remote, client: &Client) -> Result<Vec<TreeOp>, String> {
-    let from = agreed_copy(&remote.state);
-    let history = history_since(remote, client, |update| match from {
+/// One tree operation as Overleaf's history placed it.
+struct Placed<'a> {
+    op: TreeOp,
+    /// The version it was made at, if Overleaf said.
+    at: Option<i64>,
+    update: &'a HistoryUpdate,
+}
+
+impl Placed<'_> {
+    /// Whether this operation is missing from a copy taken at `from`.
+    ///
+    /// Overleaf groups a co-author's consecutive changes into one update,
+    /// which can start before the copy's version and end after it: only the
+    /// operations made from that version on count.
+    fn after(&self, from: Option<HistoryFrom>) -> bool {
+        match from {
+            Some(HistoryFrom::Version(version)) => {
+                self.update.ends_after(version) && self.at.is_none_or(|at| at >= version)
+            }
+            _ => self.update.after(from),
+        }
+    }
+}
+
+/// Overleaf's history back to the earliest of `windows`, as far as any of
+/// them is missing an update.
+fn history_from(
+    remote: &Remote, client: &Client, windows: &[Option<HistoryFrom>],
+) -> Result<Vec<HistoryUpdate>, String> {
+    let reaches = |update: &HistoryUpdate, from: Option<HistoryFrom>| match from {
         Some(HistoryFrom::Version(version)) => update.ends_after(version),
         _ => update.after(from),
-    })?;
-    let missing = |op: &&Value| match (from, op.get("atV").and_then(Value::as_i64)) {
-        (Some(HistoryFrom::Version(version)), Some(at)) => at >= version,
-        _ => true,
     };
+    history_since(remote, client, |update| windows.iter().any(|from| reaches(update, *from)))
+}
+
+/// Every tree operation in `history`, oldest first. A folder's operation
+/// names only the folder.
+fn tree_ops(history: &[HistoryUpdate]) -> Vec<Placed<'_>> {
+    let at = |op: &Value| op.get("atV").and_then(Value::as_i64);
     let mut ops = Vec::new();
     // Overleaf lists updates newest first; within one, each operation says
     // the version it was made at.
     for update in history.iter().rev() {
-        let mut listed: Vec<&Value> = update.ops.iter().filter(missing).collect();
-        listed.sort_by_key(|op| op.get("atV").and_then(Value::as_i64));
+        let mut listed: Vec<&Value> = update.ops.iter().collect();
+        listed.sort_by_key(|op| at(op));
         for op in listed {
             let field =
                 |kind: &str, key: &str| op.get(kind).and_then(|body| json_str(body, &[key]));
-            if let Some(path) = field("rename", "pathname") {
-                ops.push(TreeOp::Rename(path, field("rename", "newPathname").unwrap_or_default()));
+            let tree = if let Some(path) = field("rename", "pathname") {
+                TreeOp::Rename(path, field("rename", "newPathname").unwrap_or_default())
             } else if let Some(path) = field("remove", "pathname").or(field("add", "pathname")) {
-                ops.push(TreeOp::Other(path));
-            }
+                TreeOp::Other(path)
+            } else {
+                continue;
+            };
+            ops.push(Placed { op: tree, at: at(op), update });
         }
     }
-    Ok(ops)
+    ops
 }
 
 /// Where `ops` renamed `path`, when that is plain: exactly one operation
 /// touches `path`, a rename of it or of a folder above it, and no other
 /// touches where it went.
-fn direct_rename(path: &str, ops: &[TreeOp]) -> Option<String> {
+fn direct_rename(path: &str, ops: &[&TreeOp]) -> Option<String> {
     let mut naming = ops.iter().filter(|op| op.names(path));
     let (Some(TreeOp::Rename(from, to)), None) = (naming.next(), naming.next()) else {
         return None;
@@ -156,16 +206,20 @@ fn free_here<'a>(to: &str, from: &str, mut keys: impl Iterator<Item = &'a String
 /// note). An edited one the history shows renamed is carried only along a
 /// [`direct_rename`] to a path new on Overleaf and [`free_here`], one file to
 /// one path, and held otherwise; one it shows only removed is left to the
-/// path comparison, which uploads it again. With no history every edited one
-/// is held. When the history cannot be read, every path new on
-/// Overleaf waits too, since any may be a held file renamed; otherwise only
-/// one spelled like a held file but for case, which a pull would write over
-/// it.
+/// path comparison, which uploads it again. Each is weighed against the
+/// history since its hold began, if it is held already, or the agreed copy,
+/// leaving out Lattice's own last write to it. With no history every edited
+/// one is held. When the history cannot be read as a hold begins, every path
+/// new on Overleaf waits too, since any may be a held file renamed; otherwise
+/// only one spelled like a held file but for case, which a pull would write
+/// over it. A later sync that still cannot read it pulls them, so the hold
+/// cannot keep Overleaf's new files out for good.
 pub(super) fn remote_renames(
     remote: &Remote, client: &Client, theirs: &BTreeMap<String, Vec<u8>>,
     local: &BTreeMap<String, Vec<u8>>,
 ) -> Renames {
-    let agreed = &remote.state.files;
+    let state = &remote.state;
+    let agreed = &state.files;
     let gone: Vec<&String> = agreed
         .keys()
         .filter(|path| !theirs.contains_key(*path) && local.contains_key(*path))
@@ -188,16 +242,35 @@ pub(super) fn remote_renames(
     if pending.is_empty() {
         return renames;
     }
-    let ops = match tree_ops_since(remote, client) {
-        Ok(ops) => ops,
+    let prior = |path: &String| match state.unsettled.as_ref().and_then(|why| why.get(path)) {
+        Some(Unsettled::Held(since)) => Some(*since),
+        _ => None,
+    };
+    let window = |path: &String| prior(path).unwrap_or_else(|| agreed_copy(state));
+    let windows: Vec<Option<HistoryFrom>> = pending.iter().map(|path| window(path)).collect();
+    let history = match history_from(remote, client, &windows) {
+        Ok(history) => history,
         Err(error) => {
             log::warn!(target: "lattice::overleaf", "Could not read Overleaf's history for renames: {error}");
-            let unpulled = theirs.keys().filter(|path| new_there(path));
-            renames.waiting =
-                unpulled.filter(|to| !renames.carried.contains_key(*to)).cloned().collect();
-            renames.held = pending.into_iter().cloned().collect();
-            return renames;
+            if pending.iter().any(|path| prior(path).is_none()) {
+                let unpulled = theirs.keys().filter(|path| new_there(path));
+                renames.waiting =
+                    unpulled.filter(|to| !renames.carried.contains_key(*to)).cloned().collect();
+            }
+            renames.held = pending.into_iter().map(|path| (path.clone(), window(path))).collect();
+            return wait_beside_held(renames, &by_case);
         }
+    };
+    let ops = tree_ops(&history);
+    // What happened to `path` since its window, as far as anyone but Lattice
+    // goes: its own upload of the file is no other name for it.
+    let seen = |path: &String| -> Vec<&TreeOp> {
+        let (from, own) = (window(path), state.own_writes.get(path).copied());
+        (ops.iter())
+            .filter(|placed| placed.after(from))
+            .filter(|placed| !own.is_some_and(|own| placed.update.within(own)))
+            .map(|placed| &placed.op)
+            .collect()
     };
     // Where each local file stands once the unchanged ones are carried.
     let mut keys: BTreeSet<String> = local.keys().cloned().collect();
@@ -205,17 +278,23 @@ pub(super) fn remote_renames(
         keys.remove(from);
         keys.insert(to.clone());
     }
-    let renamed = |path: &str| {
-        let renaming = |op: &TreeOp| matches!(op, TreeOp::Rename(from, to) if covers(from, path) && !to.is_empty());
+    let renamed = |path: &str, ops: &[&TreeOp]| {
+        let renaming = |op: &&TreeOp| matches!(op, TreeOp::Rename(from, to) if covers(from, path) && !to.is_empty());
         ops.iter().any(renaming)
     };
     let mut targets: BTreeMap<String, Vec<&String>> = BTreeMap::new();
-    for from in pending.into_iter().filter(|path| renamed(path)) {
+    for from in pending {
+        let ops = seen(from);
+        if !renamed(from, &ops) {
+            continue;
+        }
         match direct_rename(from, &ops) {
             Some(to) if new_there(&to) && free_here(&to, from, keys.iter()) => {
                 targets.entry(to).or_default().push(from)
             }
-            _ => renames.held.push(from.clone()),
+            _ => {
+                renames.held.insert(from.clone(), window(from));
+            }
         }
     }
     for (to, froms) in targets {
@@ -223,11 +302,17 @@ pub(super) fn remote_renames(
             [from] if !renames.carried.contains_key(&to) => {
                 renames.carried.insert(to, from.clone());
             }
-            _ => renames.held.extend(froms.into_iter().cloned()),
+            _ => renames.held.extend(froms.into_iter().map(|from| (from.clone(), window(from)))),
         }
     }
-    renames.held.sort();
-    for held in &renames.held {
+    wait_beside_held(renames, &by_case)
+}
+
+/// `renames` with each path new on Overleaf spelled like a held file but for
+/// letter case left waiting, since a pull would write over the held file on
+/// a disk that ignores case, and nothing carried to a waiting path.
+fn wait_beside_held(mut renames: Renames, by_case: &BTreeMap<String, Vec<&String>>) -> Renames {
+    for held in renames.held.keys() {
         let spelled_alike = by_case.get(&held.to_lowercase()).into_iter().flatten();
         renames.waiting.extend(spelled_alike.map(|path| (*path).clone()));
     }
@@ -258,11 +343,12 @@ pub(super) fn carry(
 /// Hold each file `renames` holds: neither sent nor deleted, on its agreed
 /// copy, so the next sync weighs it again; and leave each waiting path
 /// unpulled and out of the agreed table, so it is still new to that sync.
-/// The sync keeps the agreed version too (see `sync_files`): the history from
-/// there on is what shows the rename, and moved past it, it would read as no
-/// rename at all and send the edit up under the old name.
+/// The sync records where each hold began (see `sync_files`): the history
+/// from there on is what shows the rename, and read only from the agreed
+/// copy after it, it would read as no rename at all and send the edit up
+/// under the old name.
 pub(super) fn hold(plan: &mut SyncPlan, state: &SyncState, renames: &Renames) {
-    for path in &renames.held {
+    for path in renames.held.keys() {
         plan.push.retain(|pushed| pushed != path);
         plan.delete_local.retain(|deleted| deleted != path);
         if let Some(hash) = state.files.get(path) {
@@ -360,7 +446,7 @@ pub(super) fn refuse_case_aliases(plan: SyncPlan) -> Result<SyncPlan, String> {
 /// path deleted here, and the new one as arrived when nothing else the sync
 /// did to it names it already; and each file held.
 pub(super) fn report(result: &mut OverleafSyncResult, renames: &Renames, moved: &[String]) {
-    result.held_renames = renames.held.clone();
+    result.held_renames = renames.held.keys().cloned().collect();
     for (to, from) in renames.carried.iter().filter(|(_, from)| moved.contains(from)) {
         result.deleted_local.push(from.clone());
         let lists = [&result.pulled, &result.merged, &result.pushed, &result.edited_during_sync];

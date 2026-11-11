@@ -13,7 +13,7 @@
 use super::api::{csrf_token, http_client, DownloadGate, Remote};
 use super::case_collisions::{self, CaseCollision};
 use super::files::*;
-use super::link::{now_iso, save_state, Refusal, SyncState};
+use super::link::{now_iso, save_state, Refusal, SyncState, Unsettled};
 use super::review::HistoryFrom;
 use crate::wide_event;
 use reqwest::blocking::Client;
@@ -673,11 +673,8 @@ fn sync_files(
     );
     // What went up differs only by what this sync wrote, which Overleaf's
     // history names after the copy, so the next sync fetches it again.
-    // A held file and a path left waiting for it differ on purpose; the next
-    // sync fetches both again rather than download everything.
-    let held = |path: &String| renames.held.contains(path) || renames.waiting.contains(path);
-    let settles = |path: &String| live.contains(path) || sent.contains_key(path) || held(path);
-    state.unsettled = differs.iter().all(settles).then_some(differs);
+    let fetched = |path: &String| live.contains(path) || sent.contains_key(path);
+    state.unsettled = renames.unsettled(&differs, fetched);
     state.files = new_files;
     own_writes.retain(|path, _| state.files.contains_key(path));
     state.own_writes = own_writes;
@@ -694,11 +691,7 @@ fn sync_files(
     // next probe performs one verification sync instead of attributing an
     // unverified latest version to what we sent.
     state.remote_version = if result.pushed.is_empty() { remote_version_before } else { None };
-    // Unless a file is held for a rename: the history from the agreed copy on
-    // is what shows it, to this sync and the next.
-    if renames.held.is_empty() {
-        state.agreed_version = remote_version_before;
-    }
+    state.agreed_version = remote_version_before;
     save_state(root, &state)?;
     renames::forget_old_bases(root, &renames);
     // Every list is already in path order: the plan walks paths sorted.

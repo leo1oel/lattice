@@ -198,9 +198,10 @@ fn an_edited_file_renamed_any_other_way_is_held_and_named() {
             let state = load_state(&root).unwrap();
             let agreed = state.files.get("sections/method.tex");
             assert_eq!(agreed, Some(&sha256_hex(METHOD)), "{label}: on its agreed copy");
-            assert_eq!(state.agreed_version, Some(41), "{label}: the rename stays in view");
-            let unsettled = BTreeSet::from(["sections/method.tex".to_string()]);
-            assert_eq!(state.unsettled, Some(unsettled), "{label}: later syncs fetch it alone");
+            assert_eq!(state.agreed_version, Some(43), "{label}: the agreed version moves on");
+            let held = Unsettled::Held(Some(HistoryFrom::Version(41)));
+            let unsettled = BTreeMap::from([("sections/method.tex".to_string(), held)]);
+            assert_eq!(state.unsettled, Some(unsettled), "{label}: the rename stays in view");
         }
         for (path, bytes) in with_main(theirs) {
             assert!(spelled_on_disk(&root, path), "{label}: {path} spelled as on Overleaf");
@@ -227,30 +228,42 @@ fn an_edited_file_only_removed_on_overleaf_still_goes_back_up() {
     assert_eq!(uploaded_names(&server), ["method.tex"]);
 }
 
+/// A freshly linked project has no agreed version yet, only the version it
+/// was linked at. A hold must keep the rename in view from there, however
+/// far the versions move, or the next sync reads the file as only removed
+/// and sends the edit up under the old name beside the renamed file.
+#[test]
+fn a_hold_on_a_freshly_linked_project_never_sends_the_old_name() {
+    let chain = vec![
+        rename(41, "sections/method.tex", "sections/draft.tex"),
+        rename(42, "sections/draft.tex", "sections/approach.tex"),
+    ];
+    let server = overleaf_after(chain, &[("sections/approach.tex", REFINED)]).serve();
+    let base: Files = &[("main.tex", MAIN), ("sections/method.tex", METHOD)];
+    let (config, root) =
+        linked(&server, &[("main.tex", MAIN), ("sections/method.tex", AGENT)], base);
+    edit_state(&root, |state| (state.remote_version, state.agreed_version) = (Some(41), None));
+
+    for round in ["first", "next", "third"] {
+        let result = sync(&config, &root, NO_LIVE, None).unwrap();
+        assert_eq!(result.held_renames, ["sections/method.tex"], "{round} sync");
+        assert!(result.pushed.is_empty() && server.uploads().is_empty(), "{round} sync");
+        assert_eq!(read_local(&root, "sections/method.tex").as_deref(), Some(AGENT));
+    }
+}
+
 /// Overleaf's history cannot be read, so the sync cannot tell whether the
 /// co-author renamed `method.tex`. Unchanged here, the file is simply deleted
 /// and the new one pulled, which is right either way. Edited here, that file
 /// is held, and the new file waits unpulled, since it may be the held one
-/// renamed, while the rest of the sync goes on. The agreed version stays
-/// put, so once the history can be read the next sync finds the rename and
+/// renamed, while the rest of the sync goes on. The hold keeps where it
+/// began, so once the history can be read the next sync finds the rename and
 /// carries the edit.
 #[test]
 fn an_unreadable_history_holds_the_edit_until_a_readable_one_carries_it() {
-    const MAIN_EDITED: &[u8] = b"\\documentclass{article}\n\\input{sections/approach}\n";
-    let overleaf = |history: bool| {
-        let remote: Files = &[("main.tex", MAIN_EDITED), ("sections/approach.tex", REFINED)];
-        let mock = Mock { versions: vec![42], ..Mock::project(remote) };
-        match history {
-            true => Mock { history: renamed_on_overleaf(REFINED, false).history, ..mock },
-            false => Mock {
-                routes: vec![("GET", "/project/proj-1/updates", 500, String::new())],
-                ..mock
-            },
-        }
-    };
     let base: Files = &[("main.tex", MAIN), ("sections/method.tex", METHOD)];
 
-    let server = overleaf(false).serve();
+    let server = unreadable_rename().serve();
     let (config, root) = linked(&server, base, base);
     agreed_at_41(&root);
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
@@ -261,23 +274,20 @@ fn an_unreadable_history_holds_the_edit_until_a_readable_one_carries_it() {
     let (config, root) =
         linked(&server, &[("main.tex", MAIN), ("sections/method.tex", AGENT)], base);
     agreed_at_41(&root);
-    for round in 0..2 {
-        let result = sync(&config, &root, NO_LIVE, None).unwrap();
-        assert_eq!(result.held_renames, ["sections/method.tex"]);
-        let pulled: &[&str] = if round == 0 { &["main.tex"] } else { &[] };
-        assert_eq!(result.pulled, pulled, "the rest of the sync goes on");
-        assert!(result.pushed.is_empty() && result.deleted_local.is_empty());
-        assert!(server.uploads().is_empty());
-        assert_eq!(read_local(&root, "sections/method.tex").as_deref(), Some(AGENT));
-        assert_eq!(read_local(&root, "sections/approach.tex"), None, "it waits");
-        let state = load_state(&root).unwrap();
-        assert_eq!(state.agreed_version, Some(41));
-        assert_eq!(state.files.get("sections/method.tex"), Some(&sha256_hex(METHOD)));
-        assert!(!state.files.contains_key("sections/approach.tex"));
-    }
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.held_renames, ["sections/method.tex"]);
+    assert_eq!(result.pulled, ["main.tex"], "the rest of the sync goes on");
+    assert!(result.pushed.is_empty() && result.deleted_local.is_empty());
+    assert!(server.uploads().is_empty());
+    assert_eq!(read_local(&root, "sections/method.tex").as_deref(), Some(AGENT));
+    assert_eq!(read_local(&root, "sections/approach.tex"), None, "it waits");
+    let state = load_state(&root).unwrap();
+    assert_eq!(state.files.get("sections/method.tex"), Some(&sha256_hex(METHOD)));
+    assert!(!state.files.contains_key("sections/approach.tex"));
 
     // The same project, its history readable again.
-    let server = overleaf(true).serve();
+    let history = renamed_on_overleaf(REFINED, false).history;
+    let server = Mock { history, routes: vec![], ..unreadable_rename() }.serve();
     let config = signed_in(&server.base);
     edit_state(&root, |state| state.host = server.base.clone());
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
@@ -288,6 +298,71 @@ fn an_unreadable_history_holds_the_edit_until_a_readable_one_carries_it() {
     let files = state_files(&root);
     assert_eq!(files.get("sections/approach.tex"), Some(&sha256_hex(MERGED)));
     assert!(!files.contains_key("sections/method.tex"));
+}
+
+/// Overleaf at version 42 after a co-author renamed `sections/method.tex` to
+/// `sections/approach.tex` and edited `main.tex`, its history unreadable.
+fn unreadable_rename() -> Mock {
+    const MAIN_EDITED: &[u8] = b"\\documentclass{article}\n\\input{sections/approach}\n";
+    let remote: Files = &[("main.tex", MAIN_EDITED), ("sections/approach.tex", REFINED)];
+    Mock {
+        versions: vec![42],
+        routes: vec![("GET", "/project/proj-1/updates", 500, String::new())],
+        ..Mock::project(remote)
+    }
+}
+
+/// A history that stays unreadable keeps a new file on Overleaf out of the
+/// project for the first sync of the hold only: the next one pulls it, so
+/// co-authors' new files are not kept out for good, while the edited file
+/// stays held and named, never sent under its old name.
+#[test]
+fn an_unreadable_history_keeps_new_files_waiting_only_as_the_hold_begins() {
+    let server = unreadable_rename().serve();
+    let base: Files = &[("main.tex", MAIN), ("sections/method.tex", METHOD)];
+    let (config, root) =
+        linked(&server, &[("main.tex", MAIN), ("sections/method.tex", AGENT)], base);
+    agreed_at_41(&root);
+
+    let first = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(first.held_renames, ["sections/method.tex"]);
+    assert_eq!(read_local(&root, "sections/approach.tex"), None, "it waits");
+    let next = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(next.held_renames, ["sections/method.tex"], "still held and named");
+    assert_eq!(next.pulled, ["sections/approach.tex"], "no longer kept out");
+    assert_eq!(read_local(&root, "sections/approach.tex").as_deref(), Some(REFINED));
+    assert_eq!(read_local(&root, "sections/method.tex").as_deref(), Some(AGENT));
+    assert!(next.pushed.is_empty() && server.uploads().is_empty());
+}
+
+/// The agent created `method.tex` and the last sync uploaded it; a co-author
+/// then renamed it while the agent kept editing. Lattice's own upload is in
+/// the history since the agreed copy too, but it is no other name for the
+/// file: the rename is the one plain operation, and the edit is carried.
+#[test]
+fn a_rename_of_a_file_lattice_just_uploaded_carries_the_edit() {
+    let added = json!({ "fromV": 41, "toV": 42, "pathnames": ["sections/method.tex"],
+        "project_ops": [{ "atV": 41, "add": { "pathname": "sections/method.tex" } }],
+        "meta": { "end_ts": 0 } });
+    let renamed = json!({ "fromV": 42, "toV": 43, "pathnames": ["sections/approach.tex"],
+        "project_ops": [rename(42, "sections/method.tex", "sections/approach.tex")],
+        "meta": { "end_ts": 0 } });
+    let remote: Files = &[("main.tex", MAIN), ("sections/approach.tex", REFINED)];
+    let mock = Mock { versions: vec![43], history: vec![renamed, added], ..Mock::project(remote) };
+    let server = mock.serve();
+    let base: Files = &[("main.tex", MAIN), ("sections/method.tex", METHOD)];
+    let (config, root) =
+        linked(&server, &[("main.tex", MAIN), ("sections/method.tex", AGENT)], base);
+    agreed_at_41(&root);
+    edit_state(&root, |state| {
+        state.own_writes.insert("sections/method.tex".into(), HistoryFrom::Version(42));
+    });
+
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert!(result.held_renames.is_empty());
+    assert_eq!(read_local(&root, "sections/approach.tex").as_deref(), Some(MERGED));
+    assert_eq!(read_local(&root, "sections/method.tex"), None);
+    assert_eq!(uploaded_names(&server), ["approach.tex"], "the old name never goes up");
 }
 
 /// Renames on Overleaf that a disk ignoring letter case could read as one
