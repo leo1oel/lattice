@@ -120,16 +120,15 @@ impl Placed<'_> {
     }
 }
 
-/// Overleaf's history back to the earliest of `windows`, as far as any of
-/// them is missing an update.
+/// Overleaf's history back as far as a copy taken at `from` is missing an
+/// update.
 fn history_from(
-    remote: &Remote, client: &Client, windows: &[Option<HistoryFrom>],
+    remote: &Remote, client: &Client, from: Option<HistoryFrom>,
 ) -> Result<Vec<HistoryUpdate>, String> {
-    let reaches = |update: &HistoryUpdate, from: Option<HistoryFrom>| match from {
+    history_since(remote, client, |update| match from {
         Some(HistoryFrom::Version(version)) => update.ends_after(version),
         _ => update.after(from),
-    };
-    history_since(remote, client, |update| windows.iter().any(|from| reaches(update, *from)))
+    })
 }
 
 /// Every tree operation in `history`, oldest first. A folder's operation
@@ -211,12 +210,12 @@ fn free_here<'a>(to: &str, from: &str, mut keys: impl Iterator<Item = &'a String
 /// one path, and held otherwise; one it shows only removed is left to the
 /// path comparison, which uploads it again. Each is weighed against the
 /// history since its hold began, if it is held already, or the agreed copy,
-/// leaving out Lattice's own last write to it. With no history every edited
-/// one is held; when only a held file's longer window cannot be read, the
-/// files just gone are still weighed from the agreed copy. When the history
-/// cannot be read as a hold begins, every path new on Overleaf waits too,
-/// since any may be a held file renamed; otherwise only one spelled like a
-/// held file but for case, which a pull would write over it. A later sync
+/// leaving out Lattice's own last write to it. Every edited one weighed from
+/// a window the history cannot be read back to is held, and only those: a
+/// hold kept longer than the history reads at once holds no other file. When
+/// the history cannot be read as a hold begins, every path new on Overleaf
+/// waits too, since any may be a held file renamed; otherwise only one
+/// spelled like a held file but for case, which a pull would write over it. A later sync
 /// that still cannot read it pulls them, so the hold cannot keep Overleaf's
 /// new files out for good.
 pub(super) fn remote_renames(
@@ -252,21 +251,23 @@ pub(super) fn remote_renames(
         _ => None,
     };
     let window = |path: &String| prior(path).unwrap_or_else(|| agreed_copy(state));
-    let windows: Vec<Option<HistoryFrom>> = pending.iter().map(|path| window(path)).collect();
-    let (history, unread) = match history_from(remote, client, &windows) {
-        Ok(history) => (history, Vec::new()),
-        Err(error) => {
-            log::warn!(target: "lattice::overleaf", "Could not read Overleaf's history for renames: {error}");
-            let (held, fresh): (Vec<&String>, Vec<&String>) =
-                pending.iter().partition(|path| prior(path).is_some());
-            let fallback = (!held.is_empty() && !fresh.is_empty())
-                .then(|| history_from(remote, client, &[agreed_copy(state)]));
-            match fallback {
-                Some(Ok(history)) => (history, held),
-                _ => (Vec::new(), pending.clone()),
-            }
+    let mut reads: Vec<(Option<HistoryFrom>, Option<Vec<HistoryUpdate>>)> = Vec::new();
+    for from in pending.iter().map(|path| window(path)) {
+        if reads.iter().all(|(read, _)| *read != from) {
+            let history = history_from(remote, client, from).map_err(|error| {
+                log::warn!(target: "lattice::overleaf", "Could not read Overleaf's history for renames: {error}");
+            });
+            reads.push((from, history.ok()));
         }
+    }
+    let read_ops: Vec<(Option<HistoryFrom>, Option<Vec<Placed>>)> =
+        (reads.iter()).map(|(from, history)| (*from, history.as_deref().map(tree_ops))).collect();
+    let ops_for = |path: &String| {
+        let from = window(path);
+        read_ops.iter().find(|(read, _)| *read == from).and_then(|(_, ops)| ops.as_ref())
     };
+    let unread: Vec<&String> =
+        pending.iter().copied().filter(|path| ops_for(path).is_none()).collect();
     if unread.iter().any(|path| prior(path).is_none()) {
         let unpulled = theirs.keys().filter(|path| new_there(path));
         renames.waiting =
@@ -274,7 +275,6 @@ pub(super) fn remote_renames(
     }
     renames.held = unread.iter().map(|path| ((*path).clone(), window(path))).collect();
     let pending: Vec<&String> = pending.into_iter().filter(|path| !unread.contains(path)).collect();
-    let ops = tree_ops(&history);
     // What happened to `path` since its window: Lattice's own upload of the
     // file, an add of that very path, is no other name for it.
     let seen = |path: &String| -> Vec<&TreeOp> {
@@ -283,7 +283,7 @@ pub(super) fn remote_renames(
             matches!(&placed.op, TreeOp::Add(added) if added == path)
                 && own.is_some_and(|own| placed.update.within(own))
         };
-        (ops.iter())
+        (ops_for(path).into_iter().flatten())
             .filter(|placed| placed.after(from))
             .filter(|placed| !own_upload(placed))
             .map(|placed| &placed.op)

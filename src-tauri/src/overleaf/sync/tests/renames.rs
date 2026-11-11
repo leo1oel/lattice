@@ -416,39 +416,47 @@ fn lattices_own_write_never_hides_a_co_authors_rename_or_removal() {
 
 /// `method.tex` has been held since version 5, longer ago than Lattice reads
 /// Overleaf's history at once. Meanwhile a co-author plainly renamed the
-/// edited `intro.tex`: that rename is weighed from the agreed copy as any
-/// other, and carried, while `method.tex` stays held, its old name unsent.
+/// edited `intro.tex`, which is either only now gone or held itself since
+/// version 40, when the history could not be read. Its own window reads, so
+/// the rename is carried, while `method.tex` stays held, its old name unsent.
 #[test]
-fn a_long_held_file_does_not_hold_back_a_fresh_rename() {
-    let renamed = json!({ "fromV": 41, "toV": 42, "pathnames": ["sections/introduction.tex"],
-        "project_ops": [rename(41, "sections/intro.tex", "sections/introduction.tex")],
-        "meta": { "end_ts": 0 } });
-    let older =
-        json!({ "fromV": 10, "toV": 11, "pathnames": ["main.tex"], "meta": { "end_ts": 0 } });
-    let remote: Files = &[("main.tex", MAIN), ("sections/introduction.tex", REFINED)];
-    let mock = Mock {
-        versions: vec![42],
-        history: vec![renamed, older],
-        endless_history: true,
-        ..Mock::project(remote)
-    };
-    let server = mock.serve();
-    let base = with_main(&[("sections/intro.tex", METHOD), ("sections/method.tex", NOTES)]);
-    let local = with_main(&[("sections/intro.tex", AGENT), ("sections/method.tex", OLD)]);
-    let (config, root) = linked(&server, &local, &base);
-    agreed_at_41(&root);
-    edit_state(&root, |state| {
-        let held = Unsettled::Held(Some(HistoryFrom::Version(5)));
-        state.unsettled = Some([("sections/method.tex".into(), held)].into());
-    });
+fn a_long_held_file_does_not_hold_back_another_files_rename() {
+    for intro_held_since in [None, Some(40)] {
+        let renamed = json!({ "fromV": 41, "toV": 42, "pathnames": ["sections/introduction.tex"],
+            "project_ops": [rename(41, "sections/intro.tex", "sections/introduction.tex")],
+            "meta": { "end_ts": 0 } });
+        let older =
+            json!({ "fromV": 10, "toV": 11, "pathnames": ["main.tex"], "meta": { "end_ts": 0 } });
+        let remote: Files = &[("main.tex", MAIN), ("sections/introduction.tex", REFINED)];
+        let mock = Mock {
+            versions: vec![42],
+            history: vec![renamed, older],
+            endless_history: true,
+            ..Mock::project(remote)
+        };
+        let server = mock.serve();
+        let base = with_main(&[("sections/intro.tex", METHOD), ("sections/method.tex", NOTES)]);
+        let local = with_main(&[("sections/intro.tex", AGENT), ("sections/method.tex", OLD)]);
+        let (config, root) = linked(&server, &local, &base);
+        agreed_at_41(&root);
+        edit_state(&root, |state| {
+            let held = |since| Unsettled::Held(Some(HistoryFrom::Version(since)));
+            let mut unsettled = BTreeMap::from([("sections/method.tex".into(), held(5))]);
+            if let Some(since) = intro_held_since {
+                unsettled.insert("sections/intro.tex".into(), held(since));
+            }
+            state.unsettled = Some(unsettled);
+        });
 
-    let result = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert_eq!(result.held_renames, ["sections/method.tex"]);
-    let introduction = read_local(&root, "sections/introduction.tex");
-    assert_eq!(introduction.as_deref(), Some(MERGED), "the fresh rename is carried");
-    assert_eq!(read_local(&root, "sections/intro.tex"), None);
-    assert_eq!(read_local(&root, "sections/method.tex").as_deref(), Some(OLD));
-    assert_eq!(uploaded_names(&server), ["introduction.tex"], "no old name goes up");
+        let label = format!("intro.tex held since {intro_held_since:?}");
+        let result = sync(&config, &root, NO_LIVE, None).unwrap();
+        assert_eq!(result.held_renames, ["sections/method.tex"], "{label}");
+        let introduction = read_local(&root, "sections/introduction.tex");
+        assert_eq!(introduction.as_deref(), Some(MERGED), "{label}: the rename is carried");
+        assert_eq!(read_local(&root, "sections/intro.tex"), None, "{label}");
+        assert_eq!(read_local(&root, "sections/method.tex").as_deref(), Some(OLD), "{label}");
+        assert_eq!(uploaded_names(&server), ["introduction.tex"], "{label}: no old name");
+    }
 }
 
 /// Renames on Overleaf that a disk ignoring letter case could read as one
