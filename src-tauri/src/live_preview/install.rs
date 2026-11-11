@@ -26,6 +26,8 @@ const RTEX: PinnedDownload = PinnedDownload {
     name: "rtex",
     source: "the rtex live preview engine",
     artifact: "rtex archive",
+    // 4,530,912 bytes, and half as much again.
+    max_bytes: 6_800_000,
 };
 #[cfg(not(target_arch = "aarch64"))]
 const RTEX: PinnedDownload = PinnedDownload {
@@ -35,6 +37,8 @@ const RTEX: PinnedDownload = PinnedDownload {
     name: "rtex",
     source: "the rtex live preview engine",
     artifact: "rtex archive",
+    // 4,890,256 bytes at the pinned release, and about half as much again.
+    max_bytes: 7_300_000,
 };
 /// The folder the archive unpacks into.
 #[cfg(target_arch = "aarch64")]

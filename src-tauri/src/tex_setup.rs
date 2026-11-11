@@ -24,20 +24,51 @@ mod fetch;
 mod installer;
 #[cfg(target_os = "macos")]
 mod macos;
+// The Windows installer's parts are plain functions tested on every platform;
+// only `windows` uses them.
+#[cfg_attr(not(windows), allow(dead_code))]
+mod miktex;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod package_providers;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod package_updates;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod run;
+mod safe_zip;
 #[cfg(not(target_os = "macos"))]
 mod stub;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod tex_live;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod user_dirs;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod uv_zip;
+#[cfg(windows)]
+mod windows;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod windows_pins;
 
 pub(crate) use fetch::download as download_pinned;
 pub(crate) use installer::{create_private_file, PinnedDownload};
 #[cfg(target_os = "macos")]
 pub use macos::{check_package_updates, install_dependency, install_tex, update_packages};
 pub use package_updates::TexPackageUpdates;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub use stub::{check_package_updates, install_dependency, install_tex, update_packages};
+// Windows installs TeX itself; it has no package-update step yet.
+#[cfg(windows)]
+pub use stub::{check_package_updates, update_packages};
+#[cfg(windows)]
+pub use windows::{cancel_install, install_dependency, install_tex};
+
+/// Stop the install that is running, if one is: its processes end and the
+/// install returns an error that says it was cancelled. Only the Windows
+/// installer can be cancelled (macOS hands the install to its administrator
+/// prompt); `false` means there was nothing to cancel.
+#[cfg(not(windows))]
+pub fn cancel_install() -> bool {
+    false
+}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -327,7 +327,7 @@ fn command_directories() -> Vec<PathBuf> {
 /// terminal's shell adds to its search path (terminal/pty.rs).
 pub(crate) fn tex_directories() -> Vec<PathBuf> {
     #[cfg(windows)]
-    return windows_tex_directories();
+    return windows_tex_directories_in(&|name| env::var_os(name));
     #[cfg(not(windows))]
     let mut directories = vec![PathBuf::from("/Library/TeX/texbin")];
     #[cfg(not(windows))]
@@ -341,23 +341,33 @@ pub(crate) fn tex_directories() -> Vec<PathBuf> {
     }
 }
 
+/// The TeX programs folders on Windows, best first. The TeX Live Lattice
+/// installed itself (`tex_setup/tex_live.rs` `install_location`, under the
+/// user's profile, never in the shared `C:\texlive`) comes before every other
+/// distribution: the machines where the setup dialog appears are the ones whose
+/// existing TeX is broken or old (a MiKTeX without Perl, a `C:\texlive\2025`
+/// that is incomplete), and after the install a build must use the new one.
+/// `env` reads the environment, so a test can describe any machine.
 #[cfg(windows)]
-fn windows_tex_directories() -> Vec<PathBuf> {
+fn windows_tex_directories_in(env: &dyn Fn(&str) -> Option<OsString>) -> Vec<PathBuf> {
     let mut directories = Vec::new();
+    if let Some(root) = env("LOCALAPPDATA") {
+        directories.extend(discover_texlive_bins(&PathBuf::from(root).join("Programs/texlive")));
+    }
     for name in ["ProgramFiles", "LOCALAPPDATA"] {
-        if let Some(root) = env::var_os(name).map(PathBuf::from) {
+        if let Some(root) = env(name).map(PathBuf::from) {
             directories.push(root.join("MiKTeX/miktex/bin/x64"));
             directories.push(root.join("Programs/MiKTeX/miktex/bin/x64"));
             directories.push(root.join("Programs/TinyTeX/bin/windows"));
         }
     }
-    if let Some(root) = env::var_os("APPDATA") {
+    if let Some(root) = env("APPDATA") {
         directories.push(PathBuf::from(root).join("TinyTeX/bin/windows"));
     }
-    if let Some(root) = env::var_os("ProgramData") {
+    if let Some(root) = env("ProgramData") {
         directories.push(PathBuf::from(root).join("MiKTeX/miktex/bin/x64"));
     }
-    let drive = env::var_os("SystemDrive").unwrap_or_else(|| "C:".into());
+    let drive = env("SystemDrive").unwrap_or_else(|| "C:".into());
     directories.extend(discover_texlive_bins(&PathBuf::from(format!(
         "{}\\texlive",
         drive.to_string_lossy()
@@ -436,5 +446,42 @@ mod tests {
         assert!(env::split_paths(path).any(|entry| Some(entry) == bundled_tools_dir()));
         #[cfg(target_os = "macos")]
         assert!(env::split_paths(path).any(|entry| entry == Path::new("/Library/TeX/texbin")));
+    }
+
+    /// The TeX Live Lattice installed beats a MiKTeX and an older `C:\texlive`
+    /// that are already there, so a build after the install does not resolve the
+    /// old, possibly broken tools.
+    #[cfg(windows)]
+    #[test]
+    fn windows_searches_the_per_user_tex_live_before_older_installs() {
+        use crate::test_support::TempDir;
+        let machine = TempDir::new("tex-order");
+        let local = machine.join("Local");
+        let program_files = machine.join("Program Files");
+        // `SystemDrive` is a drive letter on a real machine; here it names the
+        // scratch folder that holds this machine's `texlive`.
+        let system = machine.join("System");
+        let per_user = machine.write("Local/Programs/texlive/2026/bin/windows/latexmk.exe", "");
+        let old_shared = machine.write("System/texlive/2025/bin/windows/latexmk.exe", "");
+        let env = |name: &str| -> Option<OsString> {
+            match name {
+                "LOCALAPPDATA" => Some(local.clone().into_os_string()),
+                "ProgramFiles" => Some(program_files.clone().into_os_string()),
+                "SystemDrive" => Some(system.clone().into_os_string()),
+                _ => None,
+            }
+        };
+        let directories = windows_tex_directories_in(&env);
+        let position = |folder: &Path| {
+            directories
+                .iter()
+                .position(|entry| entry == folder)
+                .unwrap_or_else(|| panic!("{} missing from {directories:?}", folder.display()))
+        };
+        let miktex = program_files.join("MiKTeX/miktex/bin/x64");
+        let per_user_bin = per_user.parent().unwrap();
+        let old_bin = old_shared.parent().unwrap();
+        assert_eq!(position(per_user_bin), 0, "the per-user TeX Live comes first");
+        assert!(position(&miktex) < position(old_bin), "MiKTeX stays ahead of a shared TeX Live");
     }
 }

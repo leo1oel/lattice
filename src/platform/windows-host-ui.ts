@@ -1,13 +1,11 @@
 /**
- * Interface only the experimental Windows host uses: its LaTeX setup dialog
- * and F11 / Esc fullscreen keys. Loaded on demand behind `isWindowsHost()`,
+ * Interface only the experimental Windows host uses: its F11 / Esc
+ * fullscreen keys. Loaded on demand behind `isWindowsHost()`,
  * so the macOS startup bundle carries none of it (the eager-JS budget in
- * scripts/app-size-report.mjs had about 100 bytes to spare). A .ts entry so
- * the dialog's own module exports only components (React Fast Refresh).
+ * scripts/app-size-report.mjs had about 100 bytes to spare).
  */
 import { getCurrentWindowSafely } from "../app/use-native-window";
 
-export { WindowsTexSetupDialog } from "./windows-tex-setup-dialog";
 
 /**
  * F11 toggles native fullscreen and Esc leaves it, as Windows apps do.
