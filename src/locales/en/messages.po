@@ -7595,6 +7595,10 @@ msgstr "Importing files…"
 msgid "Importing ZIP…"
 msgstr "Importing ZIP…"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "In “Ask before outside edits and network”, Pi asks before it edits a file or runs a command; in “Never ask” it doesn’t. Each edit is checkpointed so you can undo it, and .bib files stay protected."
+msgstr "In “Ask before outside edits and network”, Pi asks before it edits a file or runs a command; in “Never ask” it doesn’t. Each edit is checkpointed so you can undo it, and .bib files stay protected."
+
 #. placeholder {0}: files.length
 #: src/project/todo-scavenger-panel.tsx
 msgid "in {0} files"
@@ -11867,10 +11871,6 @@ msgid "Pi"
 msgstr "Pi"
 
 #: src/settings/model-endpoint-settings.tsx
-msgid "Pi doesn’t ask before editing, whatever permission mode you choose. Each edit is checkpointed so you can undo it, and .bib files stay protected."
-msgstr "Pi doesn’t ask before editing, whatever permission mode you choose. Each edit is checkpointed so you can undo it, and .bib files stay protected."
-
-#: src/settings/model-endpoint-settings.tsx
 msgid "Pi is a one-time download of about 150 MB. Install it under Providers › Pi."
 msgstr "Pi is a one-time download of about 150 MB. Install it under Providers › Pi."
 
@@ -12226,8 +12226,8 @@ msgid "Proofread the selection"
 msgstr "Proofread the selection"
 
 #: src/settings/model-endpoint-settings.tsx
-msgid "Proofread, Polish and revision requests still need Claude Code or Codex for now."
-msgstr "Proofread, Polish and revision requests still need Claude Code or Codex for now."
+msgid "Proofread, Polish and revision requests use the endpoint once you choose one of its models under Providers › Proofreading model. It isn’t chosen automatically."
+msgstr "Proofread, Polish and revision requests use the endpoint once you choose one of its models under Providers › Proofreading model. It isn’t chosen automatically."
 
 #: src/canvas/proofread-card.tsx
 msgid "Proofreading…"
@@ -18066,8 +18066,8 @@ msgid "Window"
 msgstr "Window"
 
 #: src/agent/synara-permission-picker.tsx
-msgid "With a model endpoint, Pi edits without asking in every mode. Its edits are checkpointed so you can undo them, and .bib files stay protected."
-msgstr "With a model endpoint, Pi edits without asking in every mode. Its edits are checkpointed so you can undo them, and .bib files stay protected."
+msgid "With a model endpoint, Pi asks before it edits a file or runs a command in “Ask before outside edits and network”, and runs them without asking in “Never ask”. Its edits are checkpointed so you can undo them, and .bib files stay protected."
+msgstr "With a model endpoint, Pi asks before it edits a file or runs a command in “Ask before outside edits and network”, and runs them without asking in “Never ask”. Its edits are checkpointed so you can undo them, and .bib files stay protected."
 
 #: src/project/paper-list-toolbar.tsx
 msgid "With full text"

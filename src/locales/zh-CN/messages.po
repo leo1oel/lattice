@@ -7595,6 +7595,10 @@ msgstr "正在导入文件…"
 msgid "Importing ZIP…"
 msgstr "正在导入 ZIP…"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "In “Ask before outside edits and network”, Pi asks before it edits a file or runs a command; in “Never ask” it doesn’t. Each edit is checkpointed so you can undo it, and .bib files stay protected."
+msgstr "在“改外部文件、联网前问我”模式下，Pi 修改文件或运行命令前会先问你；在“从不问我”模式下不会。每次修改都会留下检查点，可以撤销，.bib 文件也始终受到保护。"
+
 #. placeholder {0}: files.length
 #: src/project/todo-scavenger-panel.tsx
 msgid "in {0} files"
@@ -11867,10 +11871,6 @@ msgid "Pi"
 msgstr "派"
 
 #: src/settings/model-endpoint-settings.tsx
-msgid "Pi doesn’t ask before editing, whatever permission mode you choose. Each edit is checkpointed so you can undo it, and .bib files stay protected."
-msgstr "无论选择哪种权限模式，Pi 修改文件前都不会询问。每次修改都会留下检查点，可以撤销，.bib 文件也始终受到保护。"
-
-#: src/settings/model-endpoint-settings.tsx
 msgid "Pi is a one-time download of about 150 MB. Install it under Providers › Pi."
 msgstr "Pi 需要一次性下载，约 150 MB。请在 模型 › Pi 中安装。"
 
@@ -12226,8 +12226,8 @@ msgid "Proofread the selection"
 msgstr "校对"
 
 #: src/settings/model-endpoint-settings.tsx
-msgid "Proofread, Polish and revision requests still need Claude Code or Codex for now."
-msgstr "校对、润色和修改请求目前仍需要 Claude Code 或 Codex。"
+msgid "Proofread, Polish and revision requests use the endpoint once you choose one of its models under Providers › Proofreading model. It isn’t chosen automatically."
+msgstr "在 模型 › 校对模型 中选择这个接口的模型后，校对、润色和修改请求就会使用它。它不会被自动选择。"
 
 #: src/canvas/proofread-card.tsx
 msgid "Proofreading…"
@@ -18066,8 +18066,8 @@ msgid "Window"
 msgstr "窗口"
 
 #: src/agent/synara-permission-picker.tsx
-msgid "With a model endpoint, Pi edits without asking in every mode. Its edits are checkpointed so you can undo them, and .bib files stay protected."
-msgstr "使用模型接口时，Pi 在任何模式下都会直接修改文件。每次修改都会留下检查点，可以撤销，.bib 文件也始终受到保护。"
+msgid "With a model endpoint, Pi asks before it edits a file or runs a command in “Ask before outside edits and network”, and runs them without asking in “Never ask”. Its edits are checkpointed so you can undo them, and .bib files stay protected."
+msgstr "使用模型接口时，Pi 在“改外部文件、联网前问我”模式下，修改文件或运行命令前会先问你；在“从不问我”模式下直接执行。每次修改都会留下检查点，可以撤销，.bib 文件也始终受到保护。"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "With full text"

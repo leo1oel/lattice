@@ -234,10 +234,10 @@ export function ModelEndpointSettings(props: { openTab: (tab: SettingsTab) => vo
       {busy === "load" && <InfinityLoader size={16} />}
       <SettingsGroup title={t`Before you start`} data-setting="model-endpoint-limits">
         <InlineMessage level="info">
-          {t`Pi doesn’t ask before editing, whatever permission mode you choose. Each edit is checkpointed so you can undo it, and .bib files stay protected.`}
+          {t`In “Ask before outside edits and network”, Pi asks before it edits a file or runs a command; in “Never ask” it doesn’t. Each edit is checkpointed so you can undo it, and .bib files stay protected.`}
         </InlineMessage>
         <InlineMessage level="info">
-          {t`Proofread, Polish and revision requests still need Claude Code or Codex for now.`}
+          {t`Proofread, Polish and revision requests use the endpoint once you choose one of its models under Providers › Proofreading model. It isn’t chosen automatically.`}
         </InlineMessage>
         <SettingsRow
           label={t`Pi runtime`}

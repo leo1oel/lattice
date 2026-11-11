@@ -39,9 +39,9 @@ describe("ModelEndpointSettings", () => {
     expect(screen.getByLabelText<HTMLInputElement>("Accepts images").checked).toBe(true);
     expect(screen.getByText("Saved in the keychain. Enter a new one to replace it.")).toBeTruthy();
     expect(screen.getByLabelText<HTMLInputElement>("API key").value).toBe("");
-    // Phase 1's limits are stated where the endpoint is set up.
-    expect(screen.getByText(/Pi doesn’t ask before editing/)).toBeTruthy();
-    expect(screen.getByText(/Proofread, Polish and revision requests still need/)).toBeTruthy();
+    // When Pi asks, and how text tasks reach the endpoint, are stated where it is set up.
+    expect(screen.getByText(/In “Ask before outside edits and network”, Pi asks before it edits a file or runs a command; in “Never ask” it doesn’t/)).toBeTruthy();
+    expect(screen.getByText(/once you choose one of its models under Providers › Proofreading model\. It isn’t chosen automatically\./)).toBeTruthy();
   });
 
   it("saves a new endpoint with its key and restarts an idle agent, whichever window runs it", async () => {
