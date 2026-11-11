@@ -48,6 +48,7 @@ Annotations and Overleaf comments also line up in a column beside the PDF, each 
 ### Bring your own agent
 
 The Agent panel runs [Claude Code](https://github.com/anthropics/claude-code) or [Codex](https://github.com/openai/codex), or another agent CLI on your Mac such as Cursor, OpenCode or Droid, signed in as you.
+Or connect your own OpenAI- or Anthropic-compatible API in Settings › Agent › Model endpoint: an address, a key (kept in your Keychain) and model names, which the agent runs through Pi with no command-line tool to install.
 Lattice comes with no model and no AI subscription of its own.
 The agent reads your project and papers, fixes build errors and edits files; every change shows as a diff you can review or undo.
 It can also use the MCP servers you add to that CLI, such as Zotero or Heptabase: see [Zotero, Heptabase and the Agent panel](docs/zotero-and-notes.md).
