@@ -85,6 +85,7 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 - The dock keeps GPUI Kit's behaviour and wears Lattice's skin (`dock.rs`): rounded panel cards on the chrome, 40px strips of pill tabs, no dividers.
 - Fonts: Inter and Ioskeley Mono are bundled (`script/make-fonts` writes them); the private Timeless faces of release builds are read at run time from `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none), as the Tauri build reads them, and never committed.
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
+- Components (`lattice-ui/src/components/`) follow Paper's Components boards; hover and press fade on the motion tiers (`interaction.rs`). `lattice-gpui --gallery` draws them all on one sheet (`LATTICE_GALLERY_PAGE=2` for the overlays and surfaces) and, with `LATTICE_SHOT_OUT` and `--features offscreen-shots`, saves it.
 
 ### The LaTeX language
 
