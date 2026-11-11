@@ -10,11 +10,10 @@ use gpui::{
 };
 
 use gpui::AnyView;
-use gpui_kit::component::tooltip::Tooltip;
 
 use crate::{
-    ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _, elevation::ring,
-    icons::ICON, tokens::FONT_WEIGHT_MEDIUM,
+    ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _, components::LatticeTooltip,
+    elevation::ring, icons::ICON, tokens::FONT_WEIGHT_MEDIUM,
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -181,8 +180,8 @@ impl RenderOnce for SearchField {
             .children(self.keycap.map(Keycap::new))
             .when_some(self.width, |this, width| this.w(width).flex_none())
             .when_some(self.tooltip, |this, tooltip| {
-                this.tooltip(move |window, cx| -> AnyView {
-                    Tooltip::new(tooltip.clone()).build(window, cx)
+                this.tooltip(move |_, cx| -> AnyView {
+                    LatticeTooltip::view(tooltip.clone(), None, cx)
                 })
             })
             .when_some(self.on_click, |this, on_click| {

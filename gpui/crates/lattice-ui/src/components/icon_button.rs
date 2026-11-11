@@ -14,12 +14,16 @@ use gpui::{
     ParentElement as _, Pixels, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
     StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::{Selectable, tooltip::Tooltip};
+use gpui_kit::component::Selectable;
+
+use gpui::transparent_black;
 
 use crate::{
     ActiveLattice as _, Icon,
+    components::LatticeTooltip,
     components::{Surface, focus_ring},
     icons::ICON,
+    interaction::{mix, track_pointer, use_interaction},
     tokens::OPACITY_DISABLED,
 };
 
@@ -27,6 +31,7 @@ type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
 #[derive(IntoElement)]
 pub struct IconButton {
+    id: ElementId,
     base: Stateful<Div>,
     icon: Icon,
     icon_size: Pixels,
@@ -43,8 +48,10 @@ pub struct IconButton {
 
 impl IconButton {
     pub fn new(id: impl Into<ElementId>, icon: Icon) -> Self {
+        let id = id.into();
         Self {
-            base: div().id(id),
+            base: div().id(id.clone()),
+            id,
             icon,
             icon_size: ICON,
             width: px(28.),
@@ -136,47 +143,58 @@ impl Selectable for IconButton {
 impl gpui_kit::component::menu::DropdownMenu for IconButton {}
 
 impl RenderOnce for IconButton {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let hover = self.surface.hover(&palette);
         let ground = match self.surface {
             Surface::Chrome => palette.chrome,
             Surface::Sheet => palette.editor,
         };
-        let ink = if self.on {
-            palette.accent
+        let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);
+        // No slab: secondary ink at rest; under the pointer a 5% wash (6% on
+        // the chrome) and the primary ink, 8% while held. An "on" toggle
+        // keeps the accent's wash and ink.
+        let (bg, ink) = if self.on {
+            (palette.toolbar_active, palette.accent)
+        } else if self.disabled {
+            (transparent_black(), palette.text_secondary)
         } else {
-            palette.text_secondary
+            let rest = if self.selected {
+                palette.pressed
+            } else {
+                transparent_black()
+            };
+            (
+                interaction.wash(rest, self.surface.hover(&palette), palette.pressed),
+                mix(palette.text_secondary, palette.text, interaction.hover),
+            )
         };
-        let pressed = palette.pressed;
         let focus = focus_ring(&palette, ground);
-        self.base
-            .flex()
+        let disabled = self.disabled;
+        let base = if disabled {
+            self.base
+        } else {
+            track_pointer(self.base, pointer)
+        };
+        base.flex()
             .flex_none()
             .items_center()
             .justify_center()
             .w(self.width)
             .h(self.height)
             .rounded(self.radius)
-            .when(self.on, |this| this.bg(palette.toolbar_active))
-            .when(self.selected, |this| this.bg(pressed))
-            .when(self.disabled, |this| this.opacity(OPACITY_DISABLED))
-            .when(!self.disabled, |this| {
-                this.hover(move |style| style.bg(hover))
-                    .active(move |style| style.bg(pressed))
-                    .focus_visible(move |style| style.shadow(focus))
+            .bg(bg)
+            .when(disabled, |this| this.opacity(OPACITY_DISABLED))
+            .when(!disabled, |this| {
+                this.focus_visible(move |style| style.shadow(focus))
             })
             .child(self.icon.element(self.icon_size, ink))
             .when_some(self.tooltip, |this, tooltip| {
-                this.tooltip(move |window, cx| -> AnyView {
-                    Tooltip::new(tooltip.clone()).build(window, cx)
+                this.tooltip(move |_, cx| -> AnyView {
+                    LatticeTooltip::view(tooltip.clone(), None, cx)
                 })
             })
-            .when_some(
-                self.on_click.filter(|_| !self.disabled),
-                |this, on_click| {
-                    this.on_click(move |event, window, cx| on_click(event, window, cx))
-                },
-            )
+            .when_some(self.on_click.filter(|_| !disabled), |this, on_click| {
+                this.on_click(move |event, window, cx| on_click(event, window, cx))
+            })
     }
 }

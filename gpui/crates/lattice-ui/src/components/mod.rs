@@ -5,16 +5,30 @@
 //! the darker chrome), pressed 8%, a selected row 8% with medium weight; one
 //! 2px focus ring at a 2px offset, for keyboard focus only.
 
+mod badge;
+mod button;
 mod chrome;
+mod field;
+mod form;
 mod icon_button;
+mod overlays;
 mod status_item;
+mod surfaces;
 mod tab;
 mod toolbar_button;
 mod tree_row;
 
+pub use badge::{Badge, BadgeTone};
+pub use button::{Button, ButtonSize, ButtonVariant};
 pub use chrome::{Keycap, SearchField, Segmented};
+pub use field::{Field, SelectTrigger};
+pub use form::{CheckState, Checkbox, Switch};
 pub use icon_button::IconButton;
+pub use overlays::{DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in};
 pub use status_item::StatusItem;
+pub use surfaces::{
+    EmptyState, ErrorState, LOADING_REVEAL, LoadingState, PanelHeader, SettingsCard, SettingsRow,
+};
 pub use tab::{PanelTab, TAB_RADIUS};
 pub use toolbar_button::ToolbarButton;
 pub use tree_row::TreeRow;

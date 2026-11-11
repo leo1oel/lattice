@@ -23,6 +23,7 @@ pub mod editor_theme;
 pub mod elevation;
 pub mod fonts;
 pub mod icons;
+pub mod interaction;
 pub mod kit;
 pub mod motion;
 pub mod palette;

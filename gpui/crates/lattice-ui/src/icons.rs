@@ -34,6 +34,7 @@ impl Icon {
     pub const CHEVRON_LEFT: Icon = Icon("icons/chevron-left.svg");
     pub const CHEVRON_RIGHT: Icon = Icon("icons/chevron-right.svg");
     pub const CIRCLE_ALERT: Icon = Icon("icons/circle-alert.svg");
+    pub const CIRCLE_CHECK: Icon = Icon("icons/circle-check.svg");
     pub const CLIPBOARD_CHECK: Icon = Icon("icons/clipboard-check.svg");
     pub const CLOUD: Icon = Icon("icons/cloud.svg");
     pub const FILE_TEXT: Icon = Icon("icons/file-text.svg");
@@ -67,6 +68,8 @@ impl Icon {
     pub const DISCLOSURE: Icon = Icon("lattice/disclosure.svg");
     /// The build chip's heavier check.
     pub const CHECK_HEAVY: Icon = Icon("lattice/check-heavy.svg");
+    /// A checkbox's check: 3.5 stroke, drawn at 10px.
+    pub const CHECK_MARK: Icon = Icon("lattice/check-mark.svg");
     /// Titlebar: Annotations, Git, History (Phosphor shapes the app draws).
     pub const ANNOTATIONS: Icon = Icon("lattice/annotations.svg");
     pub const GIT: Icon = Icon("lattice/git.svg");
@@ -141,6 +144,7 @@ macro_rules! bundled {
 const BUNDLED: &[(&str, &[u8])] = bundled![
     "annotations.svg",
     "check-heavy.svg",
+    "check-mark.svg",
     "close.svg",
     "disclosure.svg",
     "dots.svg",

@@ -15,11 +15,10 @@ use gpui::{
     ParentElement as _, StatefulInteractiveElement as _, Styled as _, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::tooltip::Tooltip;
 use language::Rope;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::StatusItem,
+    components::{LatticeTooltip, StatusItem},
     dock::PANEL_RADIUS,
     elevation::ring,
     tokens::{FONT_WEIGHT_SEMIBOLD, OPACITY_PRESSED},
@@ -132,8 +131,8 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
                 .text_color(palette.text)
                 .child(label),
         )
-        .tooltip(|window, cx| -> AnyView {
-            Tooltip::new(format!("Build ({BUILD_SHORTCUT_LABEL})")).build(window, cx)
+        .tooltip(|_, cx| -> AnyView {
+            LatticeTooltip::view("Build", Some(BUILD_SHORTCUT_LABEL.into()), cx)
         })
         .on_click(|_, window, cx| window.dispatch_action(Box::new(Build), cx))
         .into_any_element()

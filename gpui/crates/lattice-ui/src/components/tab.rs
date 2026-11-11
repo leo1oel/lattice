@@ -17,7 +17,10 @@ use gpui::{
 };
 
 use crate::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, icons::ICON, token_types::Srgb,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
+    icons::ICON,
+    interaction::{mix, track_pointer, use_interaction},
+    token_types::Srgb,
     tokens::OPACITY_HOVER,
 };
 
@@ -29,6 +32,7 @@ type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
 #[derive(IntoElement)]
 pub struct PanelTab {
+    id: ElementId,
     base: Stateful<Div>,
     icon: Option<AnyElement>,
     label: SharedString,
@@ -42,8 +46,10 @@ pub struct PanelTab {
 impl PanelTab {
     /// A tab on a panel whose surface is `surface`.
     pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>, surface: Srgb) -> Self {
+        let id = id.into();
         Self {
-            base: div().id(id),
+            base: div().id(id.clone()),
+            id,
             icon: None,
             label: label.into(),
             surface,
@@ -104,10 +110,23 @@ impl InteractiveElement for PanelTab {
 impl StatefulInteractiveElement for PanelTab {}
 
 impl RenderOnce for PanelTab {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
         let selected_bg = palette.tab_selected_on(self.surface);
         let hover = palette.ink_on(OPACITY_HOVER, self.surface);
+        let rest = Srgb {
+            a: 0.,
+            ..self.surface
+        }
+        .hsla();
+        // A tab moving between rest and hover fades on the fast tier; the
+        // selected tab's wash is its state, not a transition.
+        let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);
+        let bg = if self.selected {
+            selected_bg
+        } else {
+            mix(rest, hover, interaction.hover)
+        };
         let label_ink = if self.selected && self.strong {
             palette.text
         } else {
@@ -124,7 +143,7 @@ impl RenderOnce for PanelTab {
                 .rounded_full()
                 .bg(palette.text_secondary)
         });
-        self.base
+        track_pointer(self.base, pointer)
             .group(group.clone())
             .flex()
             .flex_none()
@@ -134,8 +153,7 @@ impl RenderOnce for PanelTab {
             .pr(px(7.))
             .rounded(TAB_RADIUS)
             .cursor_pointer()
-            .when(selected, |this| this.bg(selected_bg))
-            .when(!selected, |this| this.hover(move |style| style.bg(hover)))
+            .bg(bg)
             .child(
                 div()
                     .relative()
