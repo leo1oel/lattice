@@ -188,6 +188,59 @@ describe("LaTeX Visual mode", () => {
     expect(view.state.doc.toString()).toBe("\\paragraph{Setup}\\emph{Note} text");
   });
 
+  it("steps over a revealed heading's or caption's tokens, never deleting one alone", async () => {
+    for (const command of ["\\section", "\\caption"]) {
+      const doc = `Text\n${command}{Intro}\nMore`;
+      const view = await visualView(doc, doc.indexOf("}") + 1);
+      expect(press(view, "Backspace")).toBe(true);
+      expect(view.state.doc.toString()).toBe(`Text\n${command}{Intr}\nMore`);
+      expect(view.state.selection.main.head).toBe(doc.indexOf("}"));
+
+      const atStart = await visualView(doc, doc.indexOf("Intro"));
+      expect(press(atStart, "Backspace")).toBe(true);
+      expect(atStart.state.doc.toString()).toBe(`Text${command}{Intro}\nMore`);
+      expect(balanced(atStart.state.doc.toString())).toBe(true);
+    }
+  });
+
+  it("keeps a heading's closing brace when its command is retyped over, and unwraps it when the command is only deleted", async () => {
+    const replacements = [
+      { doc: "Text\n\\section{Intro}\nMore", token: "\\section{", insert: "\\subsection{", expected: "Text\n\\subsection{Intro}\nMore" },
+      { doc: "Text\n\\caption{A cat}\nMore", token: "\\caption{", insert: "\\caption[Cat]{", expected: "Text\n\\caption[Cat]{A cat}\nMore" },
+    ];
+    for (const { doc, token, insert, expected } of replacements) {
+      const from = doc.indexOf(token);
+      const view = await visualView(doc, from);
+      view.dispatch({ changes: { from, to: from + token.length, insert }, userEvent: "input.paste" });
+      expect(view.state.doc.toString()).toBe(expected);
+
+      const deleted = await visualView(doc, from);
+      deleted.dispatch({ selection: { anchor: from, head: from + token.length } });
+      expect(press(deleted, "Backspace")).toBe(true);
+      expect(deleted.state.doc.toString()).toBe(doc.replace(token, "").replace("}", ""));
+    }
+  });
+
+  it("steps over a description term's brackets, and a deletion of one bracket removes both", async () => {
+    const doc = "\\begin{description}\n\\item[Term] text\n\\end{description}";
+    const atStart = await visualView(doc, doc.indexOf("Term"));
+    expect(press(atStart, "Backspace")).toBe(true);
+    expect(atStart.state.doc.toString()).toBe("\\begin{description}\\item[Term] text\n\\end{description}");
+
+    const atEnd = await visualView(doc, doc.indexOf("] text"));
+    expect(press(atEnd, "Delete")).toBe(true);
+    expect(atEnd.state.doc.toString()).toBe("\\begin{description}\n\\item[Term] ext\n\\end{description}");
+    expect(atEnd.state.selection.main.head).toBe(doc.indexOf("] text"));
+
+    const selected = await visualView(doc, doc.length);
+    // From the term's last letter through the `] ` drawn as the gap after it.
+    selected.dispatch({ selection: { anchor: doc.indexOf("m]"), head: doc.indexOf("text") } });
+    expect(press(selected, "Backspace")).toBe(true);
+    expect(selected.state.doc.toString()).toBe("\\begin{description}\nTertext\n\\end{description}");
+    expect(undo(selected)).toBe(true);
+    expect(selected.state.doc.toString()).toBe(doc);
+  });
+
   it("numbers a list's items from its top when a scan starts inside a listing in it", async () => {
     const { scanContext } = await import("./latex-visual");
     const doc = "\\begin{enumerate}\n\\item one\n\\item two\n\\begin{lstlisting}\na\n\nb\n\\end{lstlisting}\n\\item three\n\\end{enumerate}\n";

@@ -283,22 +283,49 @@ export function latexVisual(host: LatexVisualHost): Extension {
   ];
 }
 
-/** Constructs drawn between an opening and a closing token (styled text, links, headings, captions), whose tokens hide around text that stays editable. */
-type Paired = Extract<Construct, { kind: "style" | "link" | "heading" | "caption" }>;
-const pairedConstructs = (value: VisualState) => value.constructs.filter((construct): construct is Paired => (
-  construct.kind === "style" || construct.kind === "link" || construct.kind === "heading" || construct.kind === "caption"
-));
+/**
+ * A construct drawn between an opening and a closing token: styled text and
+ * links (`\textbf{`, `}`), headings and captions (`\section{`, `}`), a
+ * description item's term (`\item[`, `]`). `always`: its tokens are stepped
+ * over even while its source shows (a heading's or caption's with a title).
+ */
+type TokenPair = { from: number; to: number; open: Span; close: Span; brackets: string; always: boolean };
+
+function tokenPairs(value: VisualState): TokenPair[] {
+  const pairs: TokenPair[] = [];
+  for (const construct of value.constructs) {
+    const { from, to } = construct;
+    if (construct.kind === "style" || construct.kind === "link") {
+      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always: false });
+    } else if (construct.kind === "heading" || construct.kind === "caption") {
+      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always: construct.open.to < construct.close.from });
+    } else if (construct.kind === "item" && construct.term) {
+      const close = { from: construct.term.to, to: construct.term.to + 1 };
+      pairs.push({ from, to: close.to, open: { from, to: construct.term.from }, close, brackets: "[]", always: false });
+    }
+  }
+  return pairs;
+}
+
+/** How many more of `brackets`' opening character than its closing one `text` has. */
+function bracketBalance(text: string, brackets: string): number {
+  let balance = 0;
+  for (const char of text) balance += char === brackets[0] ? 1 : char === brackets[1] ? -1 : 0;
+  return balance;
+}
 
 /**
  * Backspace and Delete as in a word processor: a single character's
- * deletion never removes a hidden token (`\textbf{`, `}`, `\href{url}{`,
- * `{\bf `, a heading's braces). It steps over the hidden tokens next to the
- * caret and deletes the character beyond them (a widget beyond them goes
- * whole), and the caret stays on its side of the tokens. Once a construct's
- * content is empty, deleting into it from outside (Backspace just after it,
- * Delete just before it) removes all of it; from inside, an empty
- * construct's tokens show, and the deletion is Source's. Past the start or
- * end of the document there is nothing to delete, and the tokens stay.
+ * deletion never removes a construct's token (`\textbf{`, `}`,
+ * `\href{url}{`, `{\bf `, a heading's braces, a term's brackets). It steps
+ * over the tokens next to the caret that are drawn hidden (and a heading's
+ * or caption's, drawn or not), deletes the character beyond them (a widget
+ * beyond them goes whole), and the caret stays on its side of the tokens.
+ * Once a construct's content is empty, deleting into it from outside
+ * (Backspace just after it, Delete just before it) removes all of it; from
+ * inside, an empty construct's tokens show, and the deletion is Source's.
+ * Past the start or end of the document there is nothing to delete, and the
+ * tokens stay.
  */
 function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): Command {
   return (view) => {
@@ -306,15 +333,18 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
     const value = state.field(field, false);
     const { main } = state.selection;
     if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
-    const pairs = pairedConstructs(value);
-    const hidden = (token: Span) => {
-      let found = false;
+    const pairs = tokenPairs(value);
+    /** The hidden range a token is drawn as: a replacement holding it and sharing one of its edges. */
+    const drawn = (token: Span) => {
+      let range: Span | null = null;
       value.replacements.between(token.from, token.to, (from, to) => {
-        if (from === token.from && to === token.to) found = true;
-        return found ? false : undefined;
+        if (from > token.from || to < token.to || (from !== token.from && to !== token.to)) return;
+        range = { from, to };
+        return false;
       });
-      return found;
+      return range as Span | null;
     };
+    const steps = pairs.flatMap((pair) => [pair.open, pair.close].flatMap((token) => drawn(token) ?? (pair.always ? [token] : [])));
     const remove = (from: number, to: number) => {
       const anchor = forward ? main.head : main.head - (to - from);
       view.dispatch({ changes: { from, to }, selection: { anchor }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
@@ -325,9 +355,9 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
     for (;;) {
       const empty = pairs.find((pair) => pair.open.to === pair.close.from && at === (forward ? pair.from : pair.to));
       if (empty) return remove(empty.from, empty.to);
-      const token = pairs.flatMap((pair) => [pair.open, pair.close]).find((span) => (forward ? span.from : span.to) === at && hidden(span));
-      if (!token) break;
-      at = forward ? token.to : token.from;
+      const step = steps.find((span) => (forward ? span.from : span.to) === at);
+      if (!step) break;
+      at = forward ? step.to : step.from;
       stepped = true;
     }
     if (!stepped) return false;
@@ -347,25 +377,29 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
 
 /**
  * Any other deletion or typing over a selection that removes one token of
- * a paired construct but leaves the other (a selection over `\textbf{wo`, a
- * word deleted back across a hidden `}`) removes the other too, in the same
- * edit: the content stays unwrapped, and no brace is left unbalanced.
+ * a pair but leaves the other (a selection over `\textbf{wo`, a word
+ * deleted back across a hidden `}`) removes the other too, in the same
+ * edit: the content stays unwrapped, and no brace is left unbalanced. Text
+ * typed or pasted in its place that brings the token's bracket back
+ * (`\subsection{` over `\section{`) keeps the pair.
  */
 function unwrapOnDelete(field: StateField<VisualState>): Extension {
   return EditorState.transactionFilter.of((transaction) => {
     if (!transaction.docChanged || !(transaction.isUserEvent("delete") || transaction.isUserEvent("input"))) return transaction;
     const value = transaction.startState.field(field, false);
     if (!value) return transaction;
-    const deleted: Span[] = [];
-    transaction.changes.iterChangedRanges((from, to) => {
-      if (from < to) deleted.push({ from, to });
+    const edits: { from: number; to: number; inserted: string }[] = [];
+    transaction.changes.iterChanges((from, to, _fromB, _toB, inserted) => {
+      if (from < to) edits.push({ from, to, inserted: inserted.toString() });
     });
-    const covers = (span: Span) => deleted.some(({ from, to }) => from <= span.from && to >= span.to);
-    const reaches = (span: Span) => deleted.some(({ from, to }) => from < span.to && to > span.from);
+    const covering = (span: Span) => edits.find(({ from, to }) => from <= span.from && to >= span.to);
+    const reaches = (span: Span) => edits.some(({ from, to }) => from < span.to && to > span.from);
     const orphaned: Span[] = [];
-    for (const { open, close } of pairedConstructs(value)) {
-      if (covers(open) && !reaches(close)) orphaned.push(close);
-      else if (covers(close) && !reaches(open)) orphaned.push(open);
+    for (const { open, close, brackets } of tokenPairs(value)) {
+      const opening = !reaches(close) && covering(open);
+      const closing = !reaches(open) && covering(close);
+      if (opening && bracketBalance(opening.inserted, brackets) <= 0) orphaned.push(close);
+      else if (closing && bracketBalance(closing.inserted, brackets) >= 0) orphaned.push(open);
     }
     if (!orphaned.length) return transaction;
     const changes = orphaned.map(({ from, to }) => ({ from: transaction.changes.mapPos(from), to: transaction.changes.mapPos(to) }));
