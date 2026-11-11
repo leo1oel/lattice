@@ -1,6 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
 import { hostErrorText } from "../platform/host-error-text";
+import { isWindowsHost } from "../platform/host-platform";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 
 type DoctorCheckLike = { name: string; detail: string; ok: boolean };
@@ -9,6 +10,16 @@ export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorChe
 /** Rough installed size after our one-click scripts finish. */
 // eslint-disable-next-line lingui/no-unlocalized-strings -- a size with a unit, the same in every locale
 export const TEX_INSTALL_SIZE_HINT = "1 GB";
+
+/** The distribution the one-click install sets up: TeX Live (per user) on Windows, BasicTeX on a Mac. */
+export function texDistributionName(): string {
+  return isWindowsHost() ? "TeX Live" : "BasicTeX";
+}
+
+/* eslint-disable lingui/no-unlocalized-strings -- phrase matched in backend error text */
+/** `CANCELLED` in src-tauri/src/tex_setup/windows.rs: what a cancelled install rejects with. */
+export const TEX_INSTALL_CANCELLED = "The TeX installation was cancelled.";
+/* eslint-enable lingui/no-unlocalized-strings */
 
 export type TexInstallProgress = {
   stage: "downloading" | "authorizing" | "installing-base" | "updating-base" | "installing-packages" | "installing-tools" | "verifying" | "complete";

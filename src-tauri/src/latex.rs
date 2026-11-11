@@ -53,6 +53,7 @@ mod submission_review;
 mod synctex;
 mod venue;
 
+pub use arxiv::journal::{export as export_journal, JournalExport, JournalOptions};
 pub use arxiv::{
     check as check_arxiv, export as export_arxiv, ArxivCheck, ArxivChecks, ArxivOptions,
 };

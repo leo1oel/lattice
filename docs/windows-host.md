@@ -17,8 +17,9 @@ There is no Windows auto-update: download each new version manually.
 Authenticode signing and Windows updater support are separate future work.
 The existing macOS/Linux release jobs are unchanged.
 The embedded Agent remains disabled because its bibliography protection relies
-on the macOS sandbox. One-click TeX and paper-tool installation are unavailable;
-install TeX Live for Windows separately to compile documents. The optional rtex
+on the macOS sandbox. One-click setup installs TeX Live for the current user
+(no administrator prompt, cancellable) and the managed paper tools, and installs
+a missing package with `tlmgr` or MiKTeX's package manager. The optional rtex
 live preview is still macOS-only.
 
 ## TeX distributions

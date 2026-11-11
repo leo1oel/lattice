@@ -30,6 +30,7 @@ import type { PaletteChoice } from "./command-palette";
 import { paletteSurface } from "./command-palette-leading";
 import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./panel-toggles";
 import { projectPanelCommands } from "./project-panel-commands";
+import { journalExportCommand } from "./journal-export-command";
 import { projectSwitchCommands } from "./project-switch-commands";
 import type { SearchDialog } from "./app-search-dialogs";
 import { collectFilePaths } from "./workspace-restore";
@@ -320,6 +321,7 @@ export function useCommandTable({
     { id: "history", when: inProject, label: t`Open project history`, group: "project", run: () => tools.open("history") },
     { id: "export-zip", when: inProject, label: t`Export project ZIP`, keywords: t`Overleaf source pack`, group: "project", run: () => void exportProjectZip() },
     { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, group: "project", run: () => setArxivExportOpen(true) },
+    journalExportCommand({ projectRoot: project?.root ?? null, i18n, save }),
     { id: "new-project", label: t`New project`, group: "project", key: "n", shift: true, run: () => updateCreateForm({ open: true }) },
     { id: "open-folder", label: t`Open another folder`, group: "project", key: "o", run: () => void chooseExisting() },
     { id: "clone-repository", label: t`Clone a Git repository`, keywords: t({ message: "git clone GitHub GitLab", comment: "Search words for the Clone a Git repository command, space-separated" }), group: "project", run: clone.show },

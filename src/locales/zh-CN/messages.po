@@ -1563,6 +1563,10 @@ msgid "a terminal command"
 msgstr "1 个终端命令"
 
 #: src/platform/host-errors-workspace.ts
+msgid "A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written."
+msgstr "生成 TIFF 需要 Ghostscript 或 pdftoppm（Poppler）；PDF 已写出。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "A window could not save its edits, so Lattice did not restart."
 msgstr "有窗口没能保存修改，Lattice 没有重启"
 
@@ -2530,10 +2534,6 @@ msgstr "自动编译"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "“自动”会把 LaTeX 按学术写作检查，其他文件按日常文字检查"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
-msgstr "此 Windows 实验版本暂不支持自动安装论文工具。"
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Automatic updates"
@@ -3163,6 +3163,10 @@ msgstr "取消创建"
 msgid "Cancel download"
 msgstr "取消下载"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Cancel installation"
+msgstr "取消安装"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "取消修复"
@@ -3384,7 +3388,6 @@ msgstr "抑扬符示例"
 
 #: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "重新检查"
@@ -3554,6 +3557,10 @@ msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "请选择包含 LaTeX 源文件的文件夹或 ZIP"
 
 #: src/platform/host-errors-workspace.ts
+msgid "Choose a folder outside the project for the export."
+msgstr "请为导出选择项目之外的文件夹。"
+
+#: src/platform/host-errors-workspace.ts
 msgid "Choose a folder to extract the project into."
 msgstr "请选择要把项目解压到哪个文件夹"
 
@@ -3677,6 +3684,10 @@ msgstr "请选择 Excel 工作簿的导出位置"
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "选择解压位置"
+
+#: src/project/journal-export.ts
+msgid "Choose where to put the figures for the journal"
+msgstr "选择存放投稿图片的位置"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Choose where to save the copy."
@@ -4694,6 +4705,10 @@ msgstr "此文件暂停同步（{detail}）"
 msgid "Could not inspect the installed rtex: {error}"
 msgstr "无法检查已安装的 rtex：{error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not inspect the TeX Live installer archive: {error}"
+msgstr "无法检查 TeX Live 安装程序压缩包：{error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not install rtex: {error}"
 msgstr "无法安装 rtex：{error}"
@@ -4800,6 +4815,10 @@ msgstr "无法读取 arXiv 标题检索结果：{error}"
 msgid "Could not read the endpoint settings: {error}"
 msgstr "无法读取接口设置：{error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not read the TeX Live installer archive: {error}"
+msgstr "无法读取 TeX Live 安装程序压缩包：{error}"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
 msgstr "无法读取："
@@ -4897,6 +4916,10 @@ msgid "Could not save the report on this device. Keep this window open to retain
 msgstr "报告没能保存，请别关窗口以保留结果"
 
 #: src/platform/host-errors-setup.ts
+msgid "Could not search the MiKTeX packages: {error}"
+msgstr "无法搜索 MiKTeX 组件：{error}"
+
+#: src/platform/host-errors-setup.ts
 msgid "Could not search the TeX Live repository: {error}"
 msgstr "无法搜索 TeX Live 组件仓库：{error}"
 
@@ -4908,6 +4931,10 @@ msgstr "无法在访达中显示。{message}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not show the diagnostic log in Finder: {error}"
 msgstr "无法在访达中显示诊断日志：{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not start {program}: {error}"
+msgstr "无法启动 {program}：{error}"
 
 #: src/platform/host-errors-papers.ts
 msgid "Could not start {tool}: {error}"
@@ -4933,6 +4960,10 @@ msgstr "无法管理 Windows 终端的进程树。"
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "无法解压 rtex 安装包：{error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not unpack the TeX Live installer: {error}"
+msgstr "无法解压 TeX Live 安装程序：{error}"
+
 #: src/project/figure-converters-actions.ts
 #: src/project/figure-converters.ts
 msgid "Could not update the figure"
@@ -4949,6 +4980,10 @@ msgstr "无法把项目上传到 Overleaf：{error}"
 #: src/platform/host-errors-setup.ts
 msgid "Could not verify {file}: {error}"
 msgstr "无法验证 {file}：{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not wait for {program}: {error}"
+msgstr "无法等待 {program} 结束：{error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not write {path}: {error}"
@@ -5687,10 +5722,6 @@ msgstr "下载 PDF"
 msgid "Download progress"
 msgstr "下载进度"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Download TeX Live"
-msgstr "下载 TeX Live"
-
 #: src/settings/settings-search-index.ts
 #: src/settings/spelling-languages-row.tsx
 msgid "Downloaded dictionaries"
@@ -5721,6 +5752,10 @@ msgstr "只需下载一次 rtex，约 4 MB。下载期间编译照常进行。�
 #: src/live-preview/live-preview-settings.tsx
 msgid "Downloading rtex… {percent}%"
 msgstr "正在下载 rtex… {percent}%"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Downloading TeX Live…"
+msgstr "正在下载 TeX Live…"
 
 #: src/editor/document-spelling.ts
 msgid "Downloading the {name} spelling dictionary"
@@ -6312,6 +6347,14 @@ msgstr "导出 Excel"
 msgid "Export Excel workbook"
 msgstr "导出 Excel"
 
+#: src/project/journal-export.ts
+msgid "Export figures for a journal"
+msgstr "导出投稿图片"
+
+#: src/app/journal-export-command.ts
+msgid "Export figures for a journal…"
+msgstr "导出投稿图片…"
+
 #: src/project/arxiv-export-dialog.tsx
 msgid "Export for arXiv"
 msgstr "导出 arXiv 提交包"
@@ -6373,6 +6416,10 @@ msgstr "导出 ZIP…"
 #: src/telemetry/app-log.tsx
 msgid "Export…"
 msgstr "导出…"
+
+#: src/project/journal-export.ts
+msgid "Exported {figures} and the paper that includes them"
+msgstr "已导出 {figures} 以及引用它们的论文"
 
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exported {fileName}"
@@ -7899,7 +7946,6 @@ msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "稍后安装"
 
@@ -7909,12 +7955,10 @@ msgid "Install LaTeX"
 msgstr "安装 LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 才能编译"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX"
@@ -7939,7 +7983,6 @@ msgid "Install paper tools"
 msgstr "安装论文工具"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "安装论文工具"
 
@@ -7947,21 +7990,17 @@ msgstr "安装论文工具"
 msgid "Install required tools"
 msgstr "安装所需工具"
 
-#: src/platform/host-errors-setup.ts
-msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
-msgstr "安装 Windows 版 TeX Live（https://tug.org/texlive/windows.html），然后重启 Lattice。"
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live"
+msgstr "安装 TeX Live"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
+msgstr "安装 TeX Live（{TEX_INSTALL_SIZE_HINT}）"
 
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "安装 Windows 版 TeX Live 以编译 PDF。安装 LaTeX 前也可以继续编辑。"
-
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
-msgstr "安装 Windows 版 TeX Live 后重新检查。没有 LaTeX 也可以继续编辑。"
-
-#: src/platform/host-errors-setup.ts
-msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
-msgstr "使用 TeX Live Manager 或 MiKTeX Console 安装缺失的宏包，然后重新编译。"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -7974,6 +8013,10 @@ msgstr "正在安装 LaTeX 组件…"
 #: src/build/tex-install-dialog.tsx
 msgid "Installing required tools…"
 msgstr "正在安装所需工具…"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Installing TeX Live…"
+msgstr "正在安装 TeX Live…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Installing update…"
@@ -9589,6 +9632,10 @@ msgstr "更多"
 msgid "More protocols"
 msgstr "更多协议"
 
+#: src/platform/host-errors-setup.ts
+msgid "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
+msgstr "有多个 MiKTeX 组件提供 {file}：{packages}。未自动安装任何组件。"
+
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "本文引用最多"
@@ -10005,6 +10052,10 @@ msgstr "尚未打开文档"
 msgid "No entry for {key}"
 msgstr "找不到文献 {key}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "No figure made from a drawing was found in the typeset paper."
+msgstr "排版后的论文中没有找到由绘图生成的图。"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "No figures found"
 msgstr "没有找到插图"
@@ -10150,6 +10201,10 @@ msgstr "没有匹配的设置"
 msgid "No messages yet"
 msgstr "还没有消息"
 
+#: src/platform/host-errors-setup.ts
+msgid "No MiKTeX package provides {file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+msgstr "没有 MiKTeX 组件提供 {file}。它可能是自定义项目或会议模板文件；请从 Overleaf 同步或复制到项目文件夹中。"
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "No note"
 msgstr "无备注"
@@ -10291,6 +10346,10 @@ msgstr "这个文件没有修订建议"
 #: src/platform/host-errors-setup.ts
 msgid "No supported LaTeX engine could be run as your macOS user."
 msgstr "以你的 macOS 用户身份无法运行任何受支持的 LaTeX 引擎"
+
+#: src/platform/host-errors-setup.ts
+msgid "No supported LaTeX engine could be run as your Windows user."
+msgstr "无法以当前 Windows 用户身份运行任何受支持的 LaTeX 引擎。"
 
 #: src/editor/latex/symbol-palette.ts
 msgid "No symbol matches “{query}”."
@@ -14370,6 +14429,7 @@ msgstr "显示隐藏文件"
 #: src/app/file-open-failure.ts
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/journal-export.ts
 #: src/project/paper-row.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
@@ -15329,6 +15389,62 @@ msgstr "测试连接"
 msgid "TeX doctor"
 msgstr "TeX 检查"
 
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live cannot be installed automatically: your user folder's path has characters its installer cannot read, and Windows has no short name for it. Install TeX Live yourself (tug.org/texlive/windows.html), then recheck setup."
+msgstr "无法自动安装 TeX Live：您的用户文件夹路径含有其安装程序无法读取的字符，且 Windows 没有为其提供短名称。请自行安装 TeX Live（tug.org/texlive/windows.html），然后重新检查设置。"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installation failed.\n"
+"{detail}"
+msgstr "TeX Live 安装失败。\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installation failed. Please try again."
+msgstr "TeX Live 安装失败。请重试。"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installation progress"
+msgstr "TeX Live 安装进度"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installed"
+msgstr "TeX Live 已安装"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installed, but its package manager is missing."
+msgstr "TeX Live 已安装，但缺少其组件管理器。"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live is installed, but Lattice could not finish installing the required LaTeX packages.\n"
+"{detail}"
+msgstr "TeX Live 已安装，但 Lattice 未能完成所需 LaTeX 组件的安装。\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice could not look up required file {file}.\n"
+"{error}"
+msgstr "TeX Live 已安装，但 Lattice 无法查找所需文件 {file}。\n"
+"{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice could not read required file {file}.\n"
+"Resolved file: {resolved}\n"
+"{error}"
+msgstr "TeX Live 已安装，但 Lattice 无法读取所需文件 {file}。\n"
+"已解析的文件：{resolved}\n"
+"{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice's templates need files it could not find: {files}. Click Install TeX Live again, or install their packages with tlmgr."
+msgstr "TeX Live 已安装，但 Lattice 的模板需要的文件未能找到：{files}。请再次点击“安装 TeX Live”，或用 tlmgr 安装相应组件。"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but required file {file} could not be found.\n"
+"{detail}"
+msgstr "TeX Live 已安装，但找不到所需文件 {file}。\n"
+"{detail}"
+
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager could not install the package."
 msgstr "TeX Live 组件管理器未能安装此组件。"
@@ -15813,6 +15929,10 @@ msgstr "文档没有加载 Times：在模板之后加上 {command}，再点“�
 msgid "the documents area"
 msgstr "文档区"
 
+#: src/platform/host-errors-setup.ts
+msgid "The download was cancelled."
+msgstr "下载已取消。"
+
 #: src/telemetry/update-recovery.ts
 msgid "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
 msgstr "下载中断：连接超时或已断开。请重试，或从发布页面下载 Lattice {version}。"
@@ -15820,6 +15940,10 @@ msgstr "下载中断：连接超时或已断开。请重试，或从发布页面
 #: src/platform/host-errors-setup.ts
 msgid "The downloaded {what} failed its security check."
 msgstr "下载的 {what} 未通过安全校验"
+
+#: src/platform/host-errors-setup.ts
+msgid "The downloaded {what} is larger than expected, so it was refused."
+msgstr "下载的 {what} 比预期大，已被拒绝。"
 
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
@@ -16028,6 +16152,12 @@ msgstr "实时预览的 PDF 不在它的构建文件夹中"
 #: src/papers/add-papers-sheet.tsx
 msgid "The lookup returned no record."
 msgstr "查找没有返回任何记录。"
+
+#: src/platform/host-errors-setup.ts
+msgid "The MiKTeX packages could not be searched.\n"
+"{detail}"
+msgstr "无法搜索 MiKTeX 组件。\n"
+"{detail}"
 
 #: src/platform/host-errors-setup.ts
 msgid "The model {model} is listed twice."
@@ -16431,6 +16561,26 @@ msgid "The terminal is only available in a Lattice window."
 msgstr "终端只能在 Lattice 窗口中使用"
 
 #: src/platform/host-errors-setup.ts
+msgid "The TeX installation was cancelled."
+msgstr "TeX 安装已取消。"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained a link at {name}"
+msgstr "TeX Live 安装程序压缩包在 {name} 处包含链接"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained an unexpected entry: {name}"
+msgstr "TeX Live 安装程序压缩包包含意外条目：{name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained an unsafe path: {name}"
+msgstr "TeX Live 安装程序压缩包包含不安全的路径：{name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive did not contain its installer."
+msgstr "TeX Live 安装程序压缩包中没有安装程序。"
+
+#: src/platform/host-errors-setup.ts
 msgid "The TeX Live repository could not be searched.\n"
 "{detail}"
 msgstr "无法搜索 TeX Live 组件仓库。\n"
@@ -16764,6 +16914,10 @@ msgstr "这是最早的版本"
 msgid "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
 msgstr "此版本的 Lattice 内置的是 BasicTeX {year}。请先更新 Lattice，再安装最新版 BasicTeX"
 
+#: src/platform/host-errors-setup.ts
+msgid "This Lattice version includes TeX Live {year}. Update Lattice to install the current TeX Live release."
+msgstr "此 Lattice 版本包含 TeX Live {year}。请更新 Lattice 以安装当前的 TeX Live 版本。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "This Lattice window is already opening in your browser."
 msgstr "此 Lattice 窗口正在浏览器中打开"
@@ -16800,6 +16954,10 @@ msgstr "这个软件包没有附带自己的许可证文本"
 #: src/telemetry/panel-error-boundary.tsx
 msgid "This panel stopped working"
 msgstr "这个面板出错了"
+
+#: src/platform/host-errors-workspace.ts
+msgid "This paper has no figure made from a drawing to export."
+msgstr "这篇论文没有可导出的由绘图生成的图。"
 
 #: src/app/use-paper-actions.ts
 msgid "This paper has no local reading or downloadable source."
@@ -17233,6 +17391,14 @@ msgstr "排版参考文献"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset the title block"
 msgstr "排版标题区"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Typesetting the paper for the export stopped."
+msgstr "为导出排版论文的过程已停止。"
+
+#: src/project/journal-export.ts
+msgid "Typesetting the paper to cut out its figures…"
+msgstr "正在排版论文以裁出其中的图…"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "Typesetting the whole document once. Typing shows here as soon as it finishes."

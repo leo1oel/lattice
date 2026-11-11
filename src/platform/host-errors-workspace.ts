@@ -199,6 +199,11 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   // Formatting, the arXiv export, PDF review and the language server
   ["format_latex.rs", "Format currently supports .tex, .cls, and .sty files.", () => t`Format currently supports .tex, .cls, and .sty files.`],
   ["latex/arxiv.rs", "The paper changed after it was checked. Check it again, then export.", () => t`The paper changed after it was checked. Check it again, then export.`],
+  ["latex/arxiv/journal.rs", "This paper has no figure made from a drawing to export.", () => t`This paper has no figure made from a drawing to export.`],
+  ["latex/arxiv/journal.rs", "No figure made from a drawing was found in the typeset paper.", () => t`No figure made from a drawing was found in the typeset paper.`],
+  ["latex/arxiv/journal.rs", "Typesetting the paper for the export stopped.", () => t`Typesetting the paper for the export stopped.`],
+  ["latex/arxiv/journal.rs", "Choose a folder outside the project for the export.", () => t`Choose a folder outside the project for the export.`],
+  ["latex/arxiv/journal/figures.rs", "A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written.", () => t`A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written.`],
   ["review_pdf.rs", "An encrypted PDF cannot be annotated.", () => t`An encrypted PDF cannot be annotated.`],
   ["texlab.rs", "TexLab initialize failed: {error}", ([error]) => t`TexLab initialize failed: ${error}`],
   ["texlab.rs", "TexLab timed out during initialize.", () => t`TexLab timed out during initialize.`],

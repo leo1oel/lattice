@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { ChevronRight } from "lucide-react";
 import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
+import { isWindowsHost } from "../platform/host-platform";
 import type { TexDependencyInstallProgress, TexInstallProgress } from "./tex-setup";
 import { OutdatedVersionHint } from "../telemetry/outdated-version-hint";
 
@@ -11,10 +12,12 @@ type TexInstallStage = TexInstallProgress["stage"] | TexDependencyInstallProgres
 /** What each native install stage is doing, and what the writer can expect from it. */
 function useStageCopy(): Record<TexInstallStage, readonly [stage: string, detail: string]> {
   const { t } = useLingui();
+  // Windows installs TeX Live, macOS BasicTeX; the other stages read the same.
+  const windows = isWindowsHost();
   return {
-    downloading: [t`Downloading BasicTeX…`, ""],
+    downloading: [windows ? t`Downloading TeX Live…` : t`Downloading BasicTeX…`, ""],
     authorizing: [t`Waiting for administrator approval…`, t`Approve the macOS prompt to continue`],
-    "installing-base": [t`Installing BasicTeX…`, ""],
+    "installing-base": [windows ? t`Installing TeX Live…` : t`Installing BasicTeX…`, ""],
     "updating-base": [t`Updating LaTeX packages…`, t`Can take up to 15 minutes`],
     "installing-packages": [t`Installing LaTeX packages…`, t`Can take up to 15 minutes`],
     "installing-tools": [t`Installing required tools…`, ""],

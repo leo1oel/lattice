@@ -1563,6 +1563,10 @@ msgid "a terminal command"
 msgstr "a terminal command"
 
 #: src/platform/host-errors-workspace.ts
+msgid "A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written."
+msgstr "A TIFF needs Ghostscript or pdftoppm (Poppler); the PDF is written."
+
+#: src/platform/host-errors-workspace.ts
 msgid "A window could not save its edits, so Lattice did not restart."
 msgstr "A window could not save its edits, so Lattice did not restart."
 
@@ -2530,10 +2534,6 @@ msgstr "Automatic build"
 msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
 msgstr "Automatic checks LaTeX as academic writing and other files as everyday prose"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Automatic paper-tool installation isn’t available in this experimental Windows build."
-msgstr "Automatic paper-tool installation isn’t available in this experimental Windows build."
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Automatic updates"
@@ -3163,6 +3163,10 @@ msgstr "Cancel creation"
 msgid "Cancel download"
 msgstr "Cancel download"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Cancel installation"
+msgstr "Cancel installation"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "Cancel repair"
@@ -3384,7 +3388,6 @@ msgstr "Check accent example"
 
 #: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "Check again"
@@ -3554,6 +3557,10 @@ msgid "Choose a folder or ZIP containing LaTeX source files."
 msgstr "Choose a folder or ZIP containing LaTeX source files."
 
 #: src/platform/host-errors-workspace.ts
+msgid "Choose a folder outside the project for the export."
+msgstr "Choose a folder outside the project for the export."
+
+#: src/platform/host-errors-workspace.ts
 msgid "Choose a folder to extract the project into."
 msgstr "Choose a folder to extract the project into."
 
@@ -3677,6 +3684,10 @@ msgstr "Choose where to export the Excel workbook."
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
+
+#: src/project/journal-export.ts
+msgid "Choose where to put the figures for the journal"
+msgstr "Choose where to put the figures for the journal"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Choose where to save the copy."
@@ -4694,6 +4705,10 @@ msgstr "Could not hand this file back to Overleaf sync ({detail}). Syncing remai
 msgid "Could not inspect the installed rtex: {error}"
 msgstr "Could not inspect the installed rtex: {error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not inspect the TeX Live installer archive: {error}"
+msgstr "Could not inspect the TeX Live installer archive: {error}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not install rtex: {error}"
 msgstr "Could not install rtex: {error}"
@@ -4800,6 +4815,10 @@ msgstr "Could not read the arXiv title lookup: {error}"
 msgid "Could not read the endpoint settings: {error}"
 msgstr "Could not read the endpoint settings: {error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not read the TeX Live installer archive: {error}"
+msgstr "Could not read the TeX Live installer archive: {error}"
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
 msgstr "Could not read:"
@@ -4897,6 +4916,10 @@ msgid "Could not save the report on this device. Keep this window open to retain
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
 
 #: src/platform/host-errors-setup.ts
+msgid "Could not search the MiKTeX packages: {error}"
+msgstr "Could not search the MiKTeX packages: {error}"
+
+#: src/platform/host-errors-setup.ts
 msgid "Could not search the TeX Live repository: {error}"
 msgstr "Could not search the TeX Live repository: {error}"
 
@@ -4908,6 +4931,10 @@ msgstr "Could not show that item in Finder. {message}"
 #: src/platform/host-errors-workspace.ts
 msgid "Could not show the diagnostic log in Finder: {error}"
 msgstr "Could not show the diagnostic log in Finder: {error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not start {program}: {error}"
+msgstr "Could not start {program}: {error}"
 
 #: src/platform/host-errors-papers.ts
 msgid "Could not start {tool}: {error}"
@@ -4933,6 +4960,10 @@ msgstr "Could not supervise the Windows terminal process tree."
 msgid "Could not unpack the rtex archive: {error}"
 msgstr "Could not unpack the rtex archive: {error}"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not unpack the TeX Live installer: {error}"
+msgstr "Could not unpack the TeX Live installer: {error}"
+
 #: src/project/figure-converters-actions.ts
 #: src/project/figure-converters.ts
 msgid "Could not update the figure"
@@ -4949,6 +4980,10 @@ msgstr "Could not upload the project to Overleaf: {error}"
 #: src/platform/host-errors-setup.ts
 msgid "Could not verify {file}: {error}"
 msgstr "Could not verify {file}: {error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not wait for {program}: {error}"
+msgstr "Could not wait for {program}: {error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not write {path}: {error}"
@@ -5687,10 +5722,6 @@ msgstr "Download PDF"
 msgid "Download progress"
 msgstr "Download progress"
 
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Download TeX Live"
-msgstr "Download TeX Live"
-
 #: src/settings/settings-search-index.ts
 #: src/settings/spelling-languages-row.tsx
 msgid "Downloaded dictionaries"
@@ -5721,6 +5752,10 @@ msgstr "Downloading rtex once, about 4 MB. Builds work as usual meanwhile. You c
 #: src/live-preview/live-preview-settings.tsx
 msgid "Downloading rtex… {percent}%"
 msgstr "Downloading rtex… {percent}%"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Downloading TeX Live…"
+msgstr "Downloading TeX Live…"
 
 #: src/editor/document-spelling.ts
 msgid "Downloading the {name} spelling dictionary"
@@ -6312,6 +6347,14 @@ msgstr "Export Excel"
 msgid "Export Excel workbook"
 msgstr "Export Excel workbook"
 
+#: src/project/journal-export.ts
+msgid "Export figures for a journal"
+msgstr "Export figures for a journal"
+
+#: src/app/journal-export-command.ts
+msgid "Export figures for a journal…"
+msgstr "Export figures for a journal…"
+
 #: src/project/arxiv-export-dialog.tsx
 msgid "Export for arXiv"
 msgstr "Export for arXiv"
@@ -6373,6 +6416,10 @@ msgstr "Export ZIP…"
 #: src/telemetry/app-log.tsx
 msgid "Export…"
 msgstr "Export…"
+
+#: src/project/journal-export.ts
+msgid "Exported {figures} and the paper that includes them"
+msgstr "Exported {figures} and the paper that includes them"
 
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exported {fileName}"
@@ -7899,7 +7946,6 @@ msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install later"
 msgstr "Install later"
 
@@ -7909,12 +7955,10 @@ msgid "Install LaTeX"
 msgstr "Install LaTeX"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install LaTeX to compile"
 msgstr "Install LaTeX to compile"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "Install LaTeX tools"
@@ -7939,7 +7983,6 @@ msgid "Install paper tools"
 msgstr "Install paper tools"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/platform/windows-tex-setup-dialog.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
@@ -7947,21 +7990,17 @@ msgstr "Install required paper tools"
 msgid "Install required tools"
 msgstr "Install required tools"
 
-#: src/platform/host-errors-setup.ts
-msgid "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
-msgstr "Install TeX Live for Windows (https://tug.org/texlive/windows.html), then restart Lattice."
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live"
+msgstr "Install TeX Live"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
+msgstr "Install TeX Live ({TEX_INSTALL_SIZE_HINT})"
 
 #: src/onboarding/get-started-steps.ts
 msgid "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
 msgstr "Install TeX Live for Windows to build your PDF. You can keep editing before installing LaTeX."
-
-#: src/platform/windows-tex-setup-dialog.tsx
-msgid "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
-msgstr "Install TeX Live for Windows, then check again. You can keep editing without LaTeX."
-
-#: src/platform/host-errors-setup.ts
-msgid "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
-msgstr "Install the missing package with TeX Live Manager or MiKTeX Console, then build again."
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -7974,6 +8013,10 @@ msgstr "Installing LaTeX packages…"
 #: src/build/tex-install-dialog.tsx
 msgid "Installing required tools…"
 msgstr "Installing required tools…"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Installing TeX Live…"
+msgstr "Installing TeX Live…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Installing update…"
@@ -9589,6 +9632,10 @@ msgstr "More PDF actions"
 msgid "More protocols"
 msgstr "More protocols"
 
+#: src/platform/host-errors-setup.ts
+msgid "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
+msgstr "More than one MiKTeX package provides {file}: {packages}. Nothing was installed automatically."
+
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "Most cited here"
@@ -10005,6 +10052,10 @@ msgstr "No document open"
 msgid "No entry for {key}"
 msgstr "No entry for {key}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "No figure made from a drawing was found in the typeset paper."
+msgstr "No figure made from a drawing was found in the typeset paper."
+
 #: src/project/figure-inventory-dialog.tsx
 msgid "No figures found"
 msgstr "No figures found"
@@ -10150,6 +10201,10 @@ msgstr "No matching settings"
 msgid "No messages yet"
 msgstr "No messages yet"
 
+#: src/platform/host-errors-setup.ts
+msgid "No MiKTeX package provides {file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+msgstr "No MiKTeX package provides {file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "No note"
 msgstr "No note"
@@ -10291,6 +10346,10 @@ msgstr "No suggestions in this file"
 #: src/platform/host-errors-setup.ts
 msgid "No supported LaTeX engine could be run as your macOS user."
 msgstr "No supported LaTeX engine could be run as your macOS user."
+
+#: src/platform/host-errors-setup.ts
+msgid "No supported LaTeX engine could be run as your Windows user."
+msgstr "No supported LaTeX engine could be run as your Windows user."
 
 #: src/editor/latex/symbol-palette.ts
 msgid "No symbol matches “{query}”."
@@ -14370,6 +14429,7 @@ msgstr "Show hidden files"
 #: src/app/file-open-failure.ts
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/journal-export.ts
 #: src/project/paper-row.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
@@ -15329,6 +15389,62 @@ msgstr "Test connection"
 msgid "TeX doctor"
 msgstr "TeX doctor"
 
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live cannot be installed automatically: your user folder's path has characters its installer cannot read, and Windows has no short name for it. Install TeX Live yourself (tug.org/texlive/windows.html), then recheck setup."
+msgstr "TeX Live cannot be installed automatically: your user folder's path has characters its installer cannot read, and Windows has no short name for it. Install TeX Live yourself (tug.org/texlive/windows.html), then recheck setup."
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installation failed.\n"
+"{detail}"
+msgstr "TeX Live installation failed.\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installation failed. Please try again."
+msgstr "TeX Live installation failed. Please try again."
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installation progress"
+msgstr "TeX Live installation progress"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "TeX Live installed"
+msgstr "TeX Live installed"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live installed, but its package manager is missing."
+msgstr "TeX Live installed, but its package manager is missing."
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live is installed, but Lattice could not finish installing the required LaTeX packages.\n"
+"{detail}"
+msgstr "TeX Live is installed, but Lattice could not finish installing the required LaTeX packages.\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice could not look up required file {file}.\n"
+"{error}"
+msgstr "TeX Live was installed, but Lattice could not look up required file {file}.\n"
+"{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice could not read required file {file}.\n"
+"Resolved file: {resolved}\n"
+"{error}"
+msgstr "TeX Live was installed, but Lattice could not read required file {file}.\n"
+"Resolved file: {resolved}\n"
+"{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but Lattice's templates need files it could not find: {files}. Click Install TeX Live again, or install their packages with tlmgr."
+msgstr "TeX Live was installed, but Lattice's templates need files it could not find: {files}. Click Install TeX Live again, or install their packages with tlmgr."
+
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live was installed, but required file {file} could not be found.\n"
+"{detail}"
+msgstr "TeX Live was installed, but required file {file} could not be found.\n"
+"{detail}"
+
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager could not install the package."
 msgstr "TeX Live’s package manager could not install the package."
@@ -15813,6 +15929,10 @@ msgstr "The document never loads Times: add {command} after the template, then B
 msgid "the documents area"
 msgstr "the documents area"
 
+#: src/platform/host-errors-setup.ts
+msgid "The download was cancelled."
+msgstr "The download was cancelled."
+
 #: src/telemetry/update-recovery.ts
 msgid "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
 msgstr "The download was interrupted: the connection timed out or dropped. Try again, or download Lattice {version} from the releases page."
@@ -15820,6 +15940,10 @@ msgstr "The download was interrupted: the connection timed out or dropped. Try a
 #: src/platform/host-errors-setup.ts
 msgid "The downloaded {what} failed its security check."
 msgstr "The downloaded {what} failed its security check."
+
+#: src/platform/host-errors-setup.ts
+msgid "The downloaded {what} is larger than expected, so it was refused."
+msgstr "The downloaded {what} is larger than expected, so it was refused."
 
 #: src/telemetry/update-recovery.ts
 msgid "The downloaded update failed its signature check, so it was not installed. Download Lattice {version} from the releases page."
@@ -16028,6 +16152,12 @@ msgstr "The live preview PDF is not in its build folder."
 #: src/papers/add-papers-sheet.tsx
 msgid "The lookup returned no record."
 msgstr "The lookup returned no record."
+
+#: src/platform/host-errors-setup.ts
+msgid "The MiKTeX packages could not be searched.\n"
+"{detail}"
+msgstr "The MiKTeX packages could not be searched.\n"
+"{detail}"
 
 #: src/platform/host-errors-setup.ts
 msgid "The model {model} is listed twice."
@@ -16431,6 +16561,26 @@ msgid "The terminal is only available in a Lattice window."
 msgstr "The terminal is only available in a Lattice window."
 
 #: src/platform/host-errors-setup.ts
+msgid "The TeX installation was cancelled."
+msgstr "The TeX installation was cancelled."
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained a link at {name}"
+msgstr "The TeX Live installer archive contained a link at {name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained an unexpected entry: {name}"
+msgstr "The TeX Live installer archive contained an unexpected entry: {name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive contained an unsafe path: {name}"
+msgstr "The TeX Live installer archive contained an unsafe path: {name}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live installer archive did not contain its installer."
+msgstr "The TeX Live installer archive did not contain its installer."
+
+#: src/platform/host-errors-setup.ts
 msgid "The TeX Live repository could not be searched.\n"
 "{detail}"
 msgstr "The TeX Live repository could not be searched.\n"
@@ -16764,6 +16914,10 @@ msgstr "This is the earliest version"
 msgid "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
 msgstr "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
 
+#: src/platform/host-errors-setup.ts
+msgid "This Lattice version includes TeX Live {year}. Update Lattice to install the current TeX Live release."
+msgstr "This Lattice version includes TeX Live {year}. Update Lattice to install the current TeX Live release."
+
 #: src/platform/host-errors-workspace.ts
 msgid "This Lattice window is already opening in your browser."
 msgstr "This Lattice window is already opening in your browser."
@@ -16800,6 +16954,10 @@ msgstr "This package ships no license text of its own"
 #: src/telemetry/panel-error-boundary.tsx
 msgid "This panel stopped working"
 msgstr "This panel stopped working"
+
+#: src/platform/host-errors-workspace.ts
+msgid "This paper has no figure made from a drawing to export."
+msgstr "This paper has no figure made from a drawing to export."
 
 #: src/app/use-paper-actions.ts
 msgid "This paper has no local reading or downloadable source."
@@ -17233,6 +17391,14 @@ msgstr "Typeset the bibliography"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset the title block"
 msgstr "Typeset the title block"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Typesetting the paper for the export stopped."
+msgstr "Typesetting the paper for the export stopped."
+
+#: src/project/journal-export.ts
+msgid "Typesetting the paper to cut out its figures…"
+msgstr "Typesetting the paper to cut out its figures…"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "Typesetting the whole document once. Typing shows here as soon as it finishes."
