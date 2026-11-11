@@ -297,7 +297,7 @@ export function buildReplacements(
         const resolved = resolveProjectPath(construct.path, data.projectPaths, "graphics", data.graphicsRoots, data.rootDocumentPath);
         const lines = wholeLines(state, construct.from, construct.to);
         const load = () => (resolved && !/^https?:/.test(resolved) ? host.loadImage(resolved) : Promise.resolve(null));
-        const widget = new ImageWidget(resolved ?? construct.path, load, imageWidth(construct.options), Boolean(lines));
+        const widget = new ImageWidget(resolved ?? construct.path, load, imageWidth(construct.options), Boolean(lines), lines ? construct.from - lines.from : 0);
         add(lines?.from ?? construct.from, lines?.to ?? construct.to, Decoration.replace({ widget, block: Boolean(lines) }));
         coveredTo = lines?.to ?? construct.to;
         return;
@@ -318,7 +318,7 @@ export function buildReplacements(
       case "title": {
         const lines = wholeLines(state, construct.from, construct.to);
         const front = touched || !lines ? null : frontMatter(state.doc, construct.from);
-        if (front) add(lines!.from, lines!.to, Decoration.replace({ widget: new TitleWidget(front.title, front.authors), block: true }));
+        if (front) add(lines!.from, lines!.to, Decoration.replace({ widget: new TitleWidget(front.title, front.authors, construct.from - lines!.from), block: true }));
         return;
       }
       case "environment": {

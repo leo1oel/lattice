@@ -130,10 +130,9 @@
   background: var(--lx-tex-chip-surface);
   text-align: center;
 }
-.cm-latex-visual .lx-tex-float-top,
-.cm-latex-visual .lx-tex-float-bottom { height: var(--space-3); background: var(--lx-tex-chip-surface); }
-.cm-latex-visual .lx-tex-float-top { border-radius: var(--radius-icon) var(--radius-icon) 0 0; }
-.cm-latex-visual .lx-tex-float-bottom { border-radius: 0 0 var(--radius-icon) var(--radius-icon); margin-bottom: var(--space-2); }
+.cm-latex-visual .lx-tex-float-top { height: var(--space-3); border-radius: var(--radius-icon) var(--radius-icon) 0 0; background: var(--lx-tex-chip-surface); }
+.cm-latex-visual .lx-tex-float-bottom { position: relative; height: calc(var(--space-3) + var(--space-2)); }
+.cm-latex-visual .lx-tex-float-bottom::before { content: ""; position: absolute; inset: 0 0 var(--space-2); border-radius: 0 0 var(--radius-icon) var(--radius-icon); background: var(--lx-tex-chip-surface); }
 .cm-latex-visual .cm-line.lx-tex-caption { color: var(--text-secondary); font-size: 0.94em; }
 .cm-latex-visual .lx-tex-caption-label { color: var(--text-primary); font-weight: var(--weight-semibold); }
 /* --lx-tex-image-width: the share of the column a figure's width= gives it, set on the widget. */
@@ -173,14 +172,23 @@
 
 /* The folded preamble and the end of the document: chrome, not prose. */
 .cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document) {
-  margin-block: var(--space-4);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-icon);
-  background: var(--lx-tex-chip-surface);
+  position: relative;
+  isolation: isolate;
+  padding: calc(var(--space-4) + var(--space-3)) var(--space-6);
   color: var(--text-secondary);
   font-family: var(--ui-font);
   font-size: var(--type-caption-size);
-  transition: background-color var(--motion-fast), color var(--motion-fast);
+  transition: color var(--motion-fast);
 }
-.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document):hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document)::before {
+  content: "";
+  position: absolute;
+  inset: var(--space-4) 0;
+  z-index: -1;
+  border-radius: var(--radius-icon);
+  background: var(--lx-tex-chip-surface);
+  transition: background-color var(--motion-fast);
+}
+.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document):hover { color: var(--text-primary); }
+.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document):hover::before { background: var(--chrome-hover-surface); }
 .cm-latex-visual .lx-tex-end-document { justify-content: center; }

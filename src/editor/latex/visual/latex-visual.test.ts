@@ -1,10 +1,12 @@
-import { EditorSelection, EditorState } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { deleteCharBackward, deleteCharForward, history, undo } from "@codemirror/commands";
+import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { Decoration, EditorView } from "@codemirror/view";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { latex } from "../latex-language";
 import { isLatexVisual, latexVisualDataChanged, latexVisualSlot, setLatexVisual, type LatexVisualHost } from "../latex-visual-switch";
 import type { LatexEditorLiveData } from "../latex-editor";
 import { pointerSelection } from "../../pointer-selection";
+import { sourceOverlays } from "../../source-overlays";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => "") }));
 
@@ -31,11 +33,11 @@ const recordEdits = EditorView.updateListener.of((update) => {
 });
 
 /** A .tex editor in Visual mode, its window set (the microtask after mounting). */
-async function visualView(doc: string, anchor = doc.length, visualHost = host()) {
+async function visualView(doc: string, anchor = doc.length, visualHost = host(), extensions: Extension = []) {
   const view = new EditorView({
     parent: document.body,
     state: EditorState.create({
-      doc, selection: { anchor }, extensions: [latex(), latexVisualSlot, pointerSelection, EditorView.lineWrapping, recordEdits],
+      doc, selection: { anchor }, extensions: [latex(), latexVisualSlot, pointerSelection, EditorView.lineWrapping, history(), recordEdits, extensions],
     }),
   });
   views.push(view);
@@ -80,6 +82,49 @@ describe("LaTeX Visual mode", () => {
     expect([...view.contentDOM.querySelectorAll(".lx-tex-brace")].map((brace) => brace.textContent)).toEqual(["{", "}"]);
     view.dispatch({ selection: { anchor: doc.length } });
     expect(view.contentDOM.querySelectorAll(".lx-tex-brace")).toHaveLength(0);
+  });
+
+  // Each family of hidden opening token: a style command, a footnote, a link, an old-style switch.
+  const wrapped = [
+    { doc: "A \\textbf{word} B", opening: "\\textbf{", content: "word", unwrapped: "A word B" },
+    { doc: "See\\footnote{a note} end", opening: "\\footnote{", content: "a note", unwrapped: "Seea note end" },
+    { doc: "Go to \\href{https://x.org}{the site} now", opening: "\\href{https://x.org}{", content: "the site", unwrapped: "Go to the site now" },
+    { doc: "An {\\bf old} switch", opening: "{\\bf ", content: "old", unwrapped: "An old switch" },
+  ];
+  for (const { doc, opening, content, unwrapped } of wrapped) {
+    const cases = [
+      { name: "Backspace at the content's start", anchor: doc.indexOf(content), command: deleteCharBackward },
+      { name: "Delete at the opening token's start", anchor: doc.indexOf(content) - opening.length, command: deleteCharForward },
+    ];
+    for (const { name, anchor, command } of cases) {
+      it(`unwraps ${JSON.stringify(doc)} on ${name}, leaving no lone brace, and one undo restores it`, async () => {
+        const view = await visualView(doc, anchor);
+        expect(command(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(unwrapped);
+        expect(undo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(doc);
+      });
+    }
+  }
+
+  it("opens an indented figure image's source on a click", async () => {
+    const doc = "\\begin{figure}\n  \\includegraphics{a.png}\n\\end{figure}\nText.";
+    const view = await visualView(doc);
+    const image = view.contentDOM.querySelector<HTMLElement>(".lx-tex-image.is-block")!;
+    image.dispatchEvent(new MouseEvent("mouseup", { button: 0, bubbles: true }));
+    expect(view.state.selection.main.head).toBe(doc.indexOf("\\includegraphics"));
+    expect(view.contentDOM.querySelector(".lx-tex-image")).toBeNull();
+    expect(text(view)).toContain("\\includegraphics{a.png}");
+  });
+
+  it("opens the preamble and the end of the document under an overlay such as a co-author's change", async () => {
+    const doc = "\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\nHello.\n\\end{document}";
+    const marked = [doc.indexOf("amsmath"), doc.lastIndexOf("document")];
+    const overlay = sourceOverlays.of(() => Decoration.set(marked.map((from) => Decoration.mark({}).range(from, from + 3))));
+    const view = await visualView(doc, doc.indexOf("Hello"), host(), overlay);
+    expect(text(view)).toContain("\\usepackage{amsmath}");
+    expect(text(view)).toContain("\\end{document}");
+    expect(view.contentDOM.querySelector(".lx-tex-end-document")).toBeNull();
   });
 
   it("steps over a hidden command in one arrow press", async () => {

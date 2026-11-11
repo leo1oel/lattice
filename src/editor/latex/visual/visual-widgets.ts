@@ -182,12 +182,14 @@ export class ImageWidget extends WidgetType {
     /** The share of the column it takes (`width=0.6\linewidth`), or null for its natural size. */
     readonly width: number | null,
     readonly block: boolean,
+    /** Where, from the start of the region, `\includegraphics` starts: a click lands there. */
+    readonly offset: number,
   ) {
     super();
   }
 
   eq(other: ImageWidget): boolean {
-    return other.path === this.path && other.width === this.width && other.block === this.block;
+    return other.path === this.path && other.width === this.width && other.block === this.block && other.offset === this.offset;
   }
 
   toDOM(): HTMLElement {
@@ -211,7 +213,7 @@ export class ImageWidget extends WidgetType {
       image.addEventListener("load", () => EditorView.findFromDOM(dom)?.requestMeasure(), { once: true });
       settle(image, "loaded");
     }, () => settle(i18n._(msg`${path} could not be read.`), "failed"));
-    if (this.block) opensOnClick(dom, 0);
+    if (this.block) opensOnClick(dom, this.offset);
     return dom;
   }
 
@@ -252,12 +254,12 @@ export class BarWidget extends WidgetType {
 
 /** The title block `\maketitle` prints: the title, then each author's lines. A click opens `\maketitle`'s source. */
 export class TitleWidget extends WidgetType {
-  constructor(readonly title: string, readonly authors: readonly (readonly string[])[]) {
+  constructor(readonly title: string, readonly authors: readonly (readonly string[])[], readonly offset: number) {
     super();
   }
 
   eq(other: TitleWidget): boolean {
-    return other.title === this.title && JSON.stringify(other.authors) === JSON.stringify(this.authors);
+    return other.title === this.title && other.offset === this.offset && JSON.stringify(other.authors) === JSON.stringify(this.authors);
   }
 
   toDOM(): HTMLElement {
@@ -272,7 +274,7 @@ export class TitleWidget extends WidgetType {
       }
       dom.append(row);
     }
-    opensOnClick(dom, 0);
+    opensOnClick(dom, this.offset);
     return dom;
   }
 

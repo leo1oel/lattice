@@ -23,7 +23,7 @@ import { EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from "@co
 import { compiledLabels, type CompiledBuild, type CompiledLabel } from "../compiled-labels";
 import { latexVisualDataChanged, type LatexVisualHost } from "../latex-visual-switch";
 import { isPointerRelease, pointerSelection } from "../../pointer-selection";
-import { sourceOverlays } from "../../source-overlays";
+import { overlaysTouch, sourceOverlays } from "../../source-overlays";
 import { buildReplacements, buildStyles, revealedConstructs, selectionPoints, type Preamble } from "./visual-decorations";
 import { documentBounds, environmentIndex, openEnvironments } from "./visual-environments";
 import { scanConstructs, type Construct, type ScanFrame, type Span } from "./visual-scan";
@@ -74,9 +74,10 @@ function paragraphStart(state: EditorState, position: number): number {
 function scanContext(state: EditorState, from: number): { start: number; frames: ScanFrame[] } {
   const start = paragraphStart(state, from);
   const open = openEnvironments(state, start);
-  let index = open.findIndex((environment) => SOURCE_ENVIRONMENTS.has(environment.name) || DISPLAY_MATH_ENVIRONMENTS.has(environment.name));
-  if (index < 0) index = open.findIndex((environment) => LIST_ENVIRONMENTS.has(environment.name));
-  if (index >= 0 && start - open[index].from <= LIST_REACH) {
+  const index = open.findIndex(({ name, from: at }) => (
+    LIST_ENVIRONMENTS.has(name) || SOURCE_ENVIRONMENTS.has(name) || DISPLAY_MATH_ENVIRONMENTS.has(name)
+  ) && start - at <= LIST_REACH);
+  if (index >= 0) {
     return { start: open[index].from, frames: open.slice(0, index).map(({ name }) => ({ name, items: 0 })) };
   }
   return { start, frames: open.map(({ name }) => ({ name, items: 0 })) };
@@ -141,9 +142,10 @@ export function latexVisual(host: LatexVisualHost): Extension {
     const points = selectionPoints(value.frozen ?? state.selection);
     const revealed = revealedConstructs(state, value.constructs, points, value.overlays);
     const preamble = preambleOf(state);
-    const preambleRevealed = preamble !== null && points.some((point) => point <= preamble.to);
+    const preambleRevealed = preamble !== null && (points.some((point) => point <= preamble.to) || overlaysTouch(value.overlays, 0, preamble.to));
     const endSpan = endDocumentOf(state);
-    const endRevealed = endSpan !== null && points.some((point) => point >= endSpan.from && point <= endSpan.to);
+    const endRevealed = endSpan !== null
+      && (points.some((point) => point >= endSpan.from && point <= endSpan.to) || overlaysTouch(value.overlays, endSpan.from, endSpan.to));
     const key = `${revealed.map((shown) => (shown ? 1 : 0)).join("")}|${preambleRevealed ? 1 : 0}|${endRevealed ? 1 : 0}`;
     if (!force && previous && key === previous.revealed) return { ...previous, frozen: value.frozen, overlays: value.overlays };
     const replacements = buildReplacements(
@@ -271,7 +273,36 @@ export function latexVisual(host: LatexVisualHost): Extension {
       },
     })),
     itemCaretGuard(field),
+    unwrapOnDelete(field),
   ];
+}
+
+/**
+ * A deletion that removes a styled argument's hidden opening (`\textbf{`,
+ * which the caret steps over whole and which shows only as a faint `{`) but
+ * not its closing brace removes that brace in the same edit: the content
+ * stays, a lone `}` never. The closing brace is deleted as Source deletes it.
+ */
+function unwrapOnDelete(field: StateField<VisualState>): Extension {
+  return EditorState.transactionFilter.of((transaction) => {
+    if (!transaction.docChanged || !transaction.isUserEvent("delete")) return transaction;
+    const value = transaction.startState.field(field, false);
+    if (!value) return transaction;
+    const deleted: Span[] = [];
+    transaction.changes.iterChangedRanges((from, to) => {
+      if (from < to) deleted.push({ from, to });
+    });
+    const covers = (span: Span) => deleted.some(({ from, to }) => from <= span.from && to >= span.to);
+    const reaches = (span: Span) => deleted.some(({ from, to }) => from < span.to && to > span.from);
+    const orphaned: Span[] = [];
+    for (const construct of value.constructs) {
+      if (construct.kind !== "style" && construct.kind !== "link") continue;
+      if (covers(construct.open) && !reaches(construct.close)) orphaned.push(construct.close);
+    }
+    if (!orphaned.length) return transaction;
+    const changes = orphaned.map(({ from, to }) => ({ from: transaction.changes.mapPos(from), to: transaction.changes.mapPos(to) }));
+    return [transaction, { changes, sequential: true }];
+  });
 }
 
 /**
