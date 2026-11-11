@@ -22,6 +22,18 @@ const LICENSED_FONTS: Record<string, string> = {
   "src/assets/fonts/ioskeley-mono/IoskeleyMono-Bold.woff2": "OFL-1.1",
   "src/assets/fonts/ioskeley-mono/IoskeleyMono-Italic.woff2": "OFL-1.1",
   "src/assets/fonts/ioskeley-mono/IoskeleyMono-BoldItalic.woff2": "OFL-1.1",
+  // The GPUI preview app's bundled faces (gpui/script/make-fonts), each folder
+  // with its OFL.txt beside the files.
+  "gpui/crates/lattice-ui/assets/fonts/instrument-serif/InstrumentSerif-Regular.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/inter/Inter-Regular.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/inter/Inter-Medium.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/inter/Inter-SemiBold.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/inter/Inter-Bold.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Regular.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Medium.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Bold.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Italic.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-BoldItalic.ttf": "OFL-1.1",
 };
 
 /** Every path Git tracks or would add (untracked, not ignored). */
