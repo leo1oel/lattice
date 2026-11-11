@@ -91,18 +91,20 @@ function type(view: EditorView, text: string) {
 
 const press = (view: EditorView, key: string) => fireEvent.keyDown(view.contentDOM, { key });
 const caret = (view: EditorView, at: number) => view.dispatch({ selection: { anchor: at }, userEvent: "select" });
+/** Where `text` starts in the editor's current text. */
+const find = (view: EditorView, text: string) => view.state.doc.toString().indexOf(text);
 
 /** One writing session: click into places, type, start a list item, delete a word. Every caret is placed on visible text. */
 function write(view: EditorView) {
-  caret(view, DOC.indexOf("words}") + "words".length);
+  caret(view, find(view, "words}") + "words".length);
   type(view, " here");
-  caret(view, DOC.indexOf("first point") + "first point".length);
+  caret(view, find(view, "first point") + "first point".length);
   press(view, "Enter");
   type(view, "a new {point}");
-  caret(view, DOC.indexOf("beside") + "beside".length);
+  caret(view, find(view, "beside") + "beside".length);
   for (let count = 0; count < 3; count++) press(view, "Backspace");
   type(view, "near");
-  caret(view, DOC.indexOf("We set"));
+  caret(view, find(view, "We set"));
   type(view, "Here ");
 }
 

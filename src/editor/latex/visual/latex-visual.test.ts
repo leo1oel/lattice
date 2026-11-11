@@ -1,12 +1,14 @@
-import { deleteCharBackward, deleteCharForward, history, undo } from "@codemirror/commands";
+import { history, standardKeymap, undo } from "@codemirror/commands";
 import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
-import { Decoration, EditorView } from "@codemirror/view";
+import { Decoration, EditorView, keymap, runScopeHandlers } from "@codemirror/view";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { latex } from "../latex-language";
 import { isLatexVisual, latexVisualDataChanged, latexVisualSlot, setLatexVisual, type LatexVisualHost } from "../latex-visual-switch";
 import type { LatexEditorLiveData } from "../latex-editor";
 import { pointerSelection } from "../../pointer-selection";
 import { sourceOverlays } from "../../source-overlays";
+import { environmentIndex } from "./visual-environments";
+import { scanConstructs } from "./visual-scan";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => "") }));
 
@@ -37,7 +39,7 @@ async function visualView(doc: string, anchor = doc.length, visualHost = host(),
   const view = new EditorView({
     parent: document.body,
     state: EditorState.create({
-      doc, selection: { anchor }, extensions: [latex(), latexVisualSlot, pointerSelection, EditorView.lineWrapping, history(), recordEdits, extensions],
+      doc, selection: { anchor }, extensions: [latex(), latexVisualSlot, pointerSelection, EditorView.lineWrapping, history(), keymap.of(standardKeymap), recordEdits, extensions],
     }),
   });
   views.push(view);
@@ -84,28 +86,77 @@ describe("LaTeX Visual mode", () => {
     expect(view.contentDOM.querySelectorAll(".lx-tex-brace")).toHaveLength(0);
   });
 
-  // Each family of hidden opening token: a style command, a footnote, a link, an old-style switch.
-  const wrapped = [
-    { doc: "A \\textbf{word} B", opening: "\\textbf{", content: "word", unwrapped: "A word B" },
-    { doc: "See\\footnote{a note} end", opening: "\\footnote{", content: "a note", unwrapped: "Seea note end" },
-    { doc: "Go to \\href{https://x.org}{the site} now", opening: "\\href{https://x.org}{", content: "the site", unwrapped: "Go to the site now" },
-    { doc: "An {\\bf old} switch", opening: "{\\bf ", content: "old", unwrapped: "An old switch" },
+  /** Presses `key` in the editor, through its keymaps. */
+  const press = (view: EditorView, key: string) => runScopeHandlers(view, new KeyboardEvent("keydown", { key }), "editor");
+  /** Whether every `}` closes a `{` and every `{` is closed. */
+  const balanced = (source: string) => {
+    let depth = 0;
+    for (const char of source) {
+      depth += char === "{" ? 1 : char === "}" ? -1 : 0;
+      if (depth < 0) return false;
+    }
+    return depth === 0;
+  };
+
+  // Each family of styled text whose tokens Visual mode hides: a style command, a footnote, a URL, a link, an old-style switch.
+  const families = [
+    { open: "\\textbf{", content: "word" },
+    { open: "\\footnote{", content: "note" },
+    { open: "\\url{", content: "x.org" },
+    { open: "\\href{https://x.org}{", content: "site" },
+    { open: "{\\bf ", content: "old" },
   ];
-  for (const { doc, opening, content, unwrapped } of wrapped) {
+  for (const { open, content } of families) {
+    const doc = `A ${open}${content}} B`;
+    const start = 2 + open.length;
+    const end = start + content.length;
+    // Backspace and Delete step over a hidden token to the nearest visible character; selections unwrap or delete whole.
     const cases = [
-      { name: "Backspace at the content's start", anchor: doc.indexOf(content), command: deleteCharBackward },
-      { name: "Delete at the opening token's start", anchor: doc.indexOf(content) - opening.length, command: deleteCharForward },
+      { name: "Backspace just after the hidden }", anchor: end + 1, head: end + 1, key: "Backspace", expected: `A ${open}${content.slice(0, -1)}} B` },
+      { name: "Backspace at the content's start", anchor: start, head: start, key: "Backspace", expected: `A${open}${content}} B` },
+      { name: "Delete at the content's end", anchor: end, head: end, key: "Delete", expected: `A ${open}${content}}B` },
+      { name: "Delete before the hidden opening", anchor: 2, head: 2, key: "Delete", expected: `A ${open}${content.slice(1)}} B` },
+      { name: "deleting a selection over all of it", anchor: 2, head: end + 1, key: "Backspace", expected: "A  B" },
+      { name: "deleting a selection over its opening", anchor: 2, head: start + 1, key: "Backspace", expected: `A ${content.slice(1)} B` },
+      { name: "deleting a selection over its closing", anchor: end - 1, head: end + 1, key: "Delete", expected: `A ${content.slice(0, -1)} B` },
     ];
-    for (const { name, anchor, command } of cases) {
-      it(`unwraps ${JSON.stringify(doc)} on ${name}, leaving no lone brace, and one undo restores it`, async () => {
+    for (const { name, anchor, head, key, expected } of cases) {
+      it(`${JSON.stringify(doc)}: ${name} leaves ${JSON.stringify(expected)}, and one undo restores it`, async () => {
         const view = await visualView(doc, anchor);
-        expect(command(view)).toBe(true);
-        expect(view.state.doc.toString()).toBe(unwrapped);
+        view.dispatch({ selection: { anchor, head } });
+        expect(press(view, key)).toBe(true);
+        expect(view.state.doc.toString()).toBe(expected);
+        expect(balanced(view.state.doc.toString())).toBe(true);
         expect(undo(view)).toBe(true);
         expect(view.state.doc.toString()).toBe(doc);
       });
     }
+
+    it(`${JSON.stringify(doc)}: once emptied, the next Backspace or Delete into it removes it whole`, async () => {
+      const view = await visualView(`A ${open}x} B`, start + 2);
+      expect(press(view, "Backspace")).toBe(true);
+      expect(view.state.doc.toString()).toBe(`A ${open}} B`);
+      expect(press(view, "Backspace")).toBe(true);
+      expect(view.state.doc.toString()).toBe("A  B");
+
+      const emptied = await visualView(`A ${open}} B`, 2);
+      expect(press(emptied, "Delete")).toBe(true);
+      expect(emptied.state.doc.toString()).toBe("A  B");
+      expect(undo(emptied)).toBe(true);
+      expect(emptied.state.doc.toString()).toBe(`A ${open}} B`);
+    });
   }
+
+  it("numbers a list's items from its top when a scan starts inside a listing in it", async () => {
+    const { scanContext } = await import("./latex-visual");
+    const doc = "\\begin{enumerate}\n\\item one\n\\item two\n\\begin{lstlisting}\na\n\nb\n\\end{lstlisting}\n\\item three\n\\end{enumerate}\n";
+    const state = EditorState.create({ doc, extensions: [environmentIndex] });
+    // From inside the listing, past its blank line: the paragraph there starts within the listing.
+    const context = scanContext(state, doc.indexOf("b\n\\end{lstlisting}"));
+    const { constructs } = scanConstructs(doc.slice(context.start), context.start, context.frames);
+    const items = constructs.flatMap((construct) => (construct.kind === "item" ? [[doc.slice(construct.to).split("\n")[0], construct.index]] : []));
+    expect(items).toContainEqual(["three", 3]);
+  });
 
   it("opens an indented figure image's source on a click", async () => {
     const doc = "\\begin{figure}\n  \\includegraphics{a.png}\n\\end{figure}\nText.";

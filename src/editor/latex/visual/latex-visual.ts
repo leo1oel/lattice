@@ -18,8 +18,8 @@
  * - While the pointer is down the reveal is frozen, so constructs neither
  *   open nor close under a press or a drag; the release settles it.
  */
-import { EditorSelection, EditorState, Prec, StateEffect, StateField, type ChangeSet, type Extension, type RangeSet, type RangeValue } from "@codemirror/state";
-import { EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from "@codemirror/view";
+import { EditorSelection, EditorState, Prec, StateEffect, StateField, findClusterBreak, type ChangeSet, type Extension, type RangeSet, type RangeValue } from "@codemirror/state";
+import { EditorView, ViewPlugin, keymap, type Command, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import { compiledLabels, type CompiledBuild, type CompiledLabel } from "../compiled-labels";
 import { latexVisualDataChanged, type LatexVisualHost } from "../latex-visual-switch";
 import { isPointerRelease, pointerSelection } from "../../pointer-selection";
@@ -71,7 +71,7 @@ function paragraphStart(state: EditorState, position: number): number {
  * read them as text), nor inside a list (its items are numbered from the
  * top), so it starts at the block's `\begin` instead when that is near.
  */
-function scanContext(state: EditorState, from: number): { start: number; frames: ScanFrame[] } {
+export function scanContext(state: EditorState, from: number): { start: number; frames: ScanFrame[] } {
   const start = paragraphStart(state, from);
   const open = openEnvironments(state, start);
   const index = open.findIndex(({ name, from: at }) => (
@@ -273,19 +273,80 @@ export function latexVisual(host: LatexVisualHost): Extension {
       },
     })),
     itemCaretGuard(field),
+    Prec.highest(keymap.of([
+      { key: "Backspace", run: deleteAcrossTokens(field, false), shift: deleteAcrossTokens(field, false) },
+      { key: "Delete", run: deleteAcrossTokens(field, true) },
+    ])),
     unwrapOnDelete(field),
   ];
 }
 
+/** Styled text and links: the constructs whose opening and closing tokens are hidden around text that stays editable. */
+type Wrapper = Extract<Construct, { kind: "style" | "link" }>;
+const wrappers = (value: VisualState) => value.constructs.filter((construct): construct is Wrapper => construct.kind === "style" || construct.kind === "link");
+
 /**
- * A deletion that removes a styled argument's hidden opening (`\textbf{`,
- * which the caret steps over whole and which shows only as a faint `{`) but
- * not its closing brace removes that brace in the same edit: the content
- * stays, a lone `}` never. The closing brace is deleted as Source deletes it.
+ * Backspace and Delete as in a word processor: a single character's
+ * deletion never removes a hidden token of styled text (`\textbf{`, `}`,
+ * `\href{url}{`, `{\bf `). It steps over the hidden tokens next to the caret
+ * and deletes the character beyond them (a widget beyond them goes whole),
+ * and once styled text is empty, deleting into it removes all of it. Past
+ * the start or end of the document there is nothing to delete, and the
+ * tokens stay.
+ */
+function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): Command {
+  return (view) => {
+    const { state } = view;
+    const value = state.field(field, false);
+    const { main } = state.selection;
+    if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
+    const pairs = wrappers(value);
+    const hidden = (token: Span) => {
+      let found = false;
+      value.replacements.between(token.from, token.to, (from, to) => {
+        if (from === token.from && to === token.to) found = true;
+        return found ? false : undefined;
+      });
+      return found;
+    };
+    const remove = (from: number, to: number) => {
+      view.dispatch({ changes: { from, to }, selection: { anchor: from }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
+      return true;
+    };
+    let at = main.head;
+    let stepped = false;
+    for (;;) {
+      const empty = pairs.find((pair) => pair.open.to === pair.close.from && (at === pair.open.to || at === (forward ? pair.from : pair.to)));
+      if (empty) return remove(empty.from, empty.to);
+      const token = pairs.flatMap((pair) => [pair.open, pair.close]).find((span) => (forward ? span.from : span.to) === at && hidden(span));
+      if (!token) break;
+      at = forward ? token.to : token.from;
+      stepped = true;
+    }
+    if (!stepped) return false;
+    if (forward ? at >= state.doc.length : at <= 0) return true;
+    const line = state.doc.lineAt(at);
+    let from = forward ? at : at === line.from ? at - 1 : line.from + findClusterBreak(line.text, at - line.from, false);
+    let to = !forward ? at : at === line.to ? at + 1 : line.from + findClusterBreak(line.text, at - line.from, true);
+    value.replacements.between(from, to, (rangeFrom, rangeTo) => {
+      if (rangeFrom < to && rangeTo > from) {
+        from = Math.min(from, rangeFrom);
+        to = Math.max(to, rangeTo);
+      }
+    });
+    return remove(from, to);
+  };
+}
+
+/**
+ * Any other deletion or typing over a selection that removes one token of
+ * styled text but leaves the other (a selection over `\textbf{wo`, a word
+ * deleted back across a hidden `}`) removes the other too, in the same edit:
+ * the content stays unwrapped, and no brace is left unbalanced.
  */
 function unwrapOnDelete(field: StateField<VisualState>): Extension {
   return EditorState.transactionFilter.of((transaction) => {
-    if (!transaction.docChanged || !transaction.isUserEvent("delete")) return transaction;
+    if (!transaction.docChanged || !(transaction.isUserEvent("delete") || transaction.isUserEvent("input"))) return transaction;
     const value = transaction.startState.field(field, false);
     if (!value) return transaction;
     const deleted: Span[] = [];
@@ -295,9 +356,9 @@ function unwrapOnDelete(field: StateField<VisualState>): Extension {
     const covers = (span: Span) => deleted.some(({ from, to }) => from <= span.from && to >= span.to);
     const reaches = (span: Span) => deleted.some(({ from, to }) => from < span.to && to > span.from);
     const orphaned: Span[] = [];
-    for (const construct of value.constructs) {
-      if (construct.kind !== "style" && construct.kind !== "link") continue;
-      if (covers(construct.open) && !reaches(construct.close)) orphaned.push(construct.close);
+    for (const { open, close } of wrappers(value)) {
+      if (covers(open) && !reaches(close)) orphaned.push(close);
+      else if (covers(close) && !reaches(open)) orphaned.push(open);
     }
     if (!orphaned.length) return transaction;
     const changes = orphaned.map(({ from, to }) => ({ from: transaction.changes.mapPos(from), to: transaction.changes.mapPos(to) }));
