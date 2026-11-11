@@ -1,0 +1,1 @@
+import{t as e}from"./app-Bgriy_mt.js";await e();
