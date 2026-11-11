@@ -272,7 +272,7 @@ impl RenderOnce for Segmented {
         let palette = cx.palette().clone();
         let mut raised = vec![ring(palette.line_strong)];
         raised.extend(Elevation::Raised.shadows(&palette).into_iter().skip(1));
-        let focus = focus_ring(&palette, palette.panel);
+        let focus = focus_ring(&palette, palette.titlebar);
         div()
             .id(self.id)
             .flex()

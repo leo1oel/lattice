@@ -49,7 +49,7 @@ impl ToolbarButton {
             height: px(28.),
             role: TextRole::Caption,
             weight: None,
-            surface: Surface::Chrome,
+            surface: Surface::Titlebar,
             selected: false,
             on_click: None,
         }
@@ -123,13 +123,7 @@ impl RenderOnce for ToolbarButton {
             self.surface.hover(&palette)
         };
         let ink = palette.text_secondary;
-        let focus = focus_ring(
-            &palette,
-            match self.surface {
-                Surface::Chrome => palette.chrome,
-                Surface::Sheet => palette.editor,
-            },
-        );
+        let focus = focus_ring(&palette, self.surface.ground(&palette));
         // Always a button: its click is its own `on_click` or the one a
         // dropdown menu gives it.
         tab_stop(self.base)

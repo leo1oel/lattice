@@ -80,7 +80,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
 
     let not_yet = |id: &'static str, icon: Icon, name: &str| {
         IconButton::new(id, icon)
-            .surface(Surface::Chrome)
+            .surface(Surface::Titlebar)
             .tooltip(format!("{name} — {NOT_YET}"))
     };
 

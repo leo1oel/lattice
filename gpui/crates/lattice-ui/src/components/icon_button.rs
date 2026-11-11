@@ -145,10 +145,7 @@ impl gpui_kit::component::menu::DropdownMenu for IconButton {}
 impl RenderOnce for IconButton {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let ground = match self.surface {
-            Surface::Chrome => palette.chrome,
-            Surface::Sheet => palette.editor,
-        };
+        let ground = self.surface.ground(&palette);
         let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);
         // No slab: secondary ink at rest; under the pointer a 5% wash (6% on
         // the chrome) and the primary ink, 8% while held. An "on" toggle

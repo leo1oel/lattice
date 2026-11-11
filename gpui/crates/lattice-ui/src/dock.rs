@@ -182,7 +182,7 @@ fn group_surface(group: &TabGroupContext, palette: &Palette, cx: &App) -> (Surfa
         .map(|panel| TabPresenter::look(panel, cx).surface)
         .unwrap_or_default();
     let color = match surface {
-        Surface::Chrome => palette.chrome_srgb,
+        Surface::Chrome | Surface::Titlebar => palette.chrome_srgb,
         Surface::Sheet => palette.editor_srgb,
     };
     (surface, color)
@@ -264,6 +264,7 @@ impl TabGroupRenderer for LatticeTabs {
                     name: name.clone(),
                     icon: look.icon,
                 };
+                let refocus = selected.then(|| panel.focus_handle(cx));
                 PanelTab::new(("lattice-tab", ix), name, surface)
                     .icon(icon)
                     .selected(selected)
@@ -280,6 +281,9 @@ impl TabGroupRenderer for LatticeTabs {
                         let area = self.area.clone();
                         move |_, window, cx| {
                             group.select_tab(ix, window, cx);
+                            if let Some(focus) = &refocus {
+                                focus.focus(window, cx);
+                            }
                             // A collapsed bottom dock's strip is how it opens.
                             if collapsed {
                                 area.update(cx, |area, cx| {

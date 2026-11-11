@@ -55,11 +55,14 @@ use gpui::{BoxShadow, Hsla, px};
 
 use crate::{Palette, elevation::ring};
 
-/// Which ground a control stands on, which decides its hover wash.
+/// Which ground a control stands on, which decides its hover wash and the
+/// colour in its focus ring's gap.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Surface {
-    /// The chrome: titlebar gutters, the Project and Papers panels.
+    /// The chrome: the Project and Papers panels.
     Chrome,
+    /// The titlebar: the chrome under its veil, hovered as the chrome.
+    Titlebar,
     /// A sheet: the editor, the PDF, tool panels, fields.
     #[default]
     Sheet,
@@ -68,8 +71,17 @@ pub enum Surface {
 impl Surface {
     pub fn hover(self, palette: &Palette) -> Hsla {
         match self {
-            Surface::Chrome => palette.chrome_hover,
+            Surface::Chrome | Surface::Titlebar => palette.chrome_hover,
             Surface::Sheet => palette.hover,
+        }
+    }
+
+    /// The colour the surface paints behind a control.
+    pub fn ground(self, palette: &Palette) -> Hsla {
+        match self {
+            Surface::Chrome => palette.chrome,
+            Surface::Titlebar => palette.titlebar,
+            Surface::Sheet => palette.editor,
         }
     }
 }
