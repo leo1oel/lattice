@@ -106,6 +106,19 @@ impl PdfPanel {
         }));
     }
 
+    /// Show nothing, for a project without a built PDF.
+    pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self._open_task = None;
+        self.path = None;
+        self.document = None;
+        self.message = None;
+        for image in self.pages.drain(..).filter_map(|slot| slot.image) {
+            window.drop_image(image).ok();
+        }
+        self.list_state.reset(0);
+        cx.notify();
+    }
+
     fn set_document(&mut self, info: DocumentInfo, reload: bool, window: &mut Window) {
         let scroll = self.list_state.logical_scroll_top();
         let count = info.page_sizes.len();

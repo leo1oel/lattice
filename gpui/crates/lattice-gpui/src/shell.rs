@@ -2,7 +2,10 @@
 //! the editors, the PDF preview, and the build panel; and the flows that tie
 //! them together (open a project, open a file, build).
 
-use std::{path::PathBuf, rc::Rc};
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{
@@ -188,13 +191,18 @@ impl Shell {
             "{} — Lattice (GPUI prototype)",
             root.file_name().unwrap_or_default().to_string_lossy()
         ));
-        if let Some(main) = tex::find_main_document(&root) {
-            let pdf = main.with_extension("pdf");
+        let main = tex::find_main_document(&root);
+        let pdf = main
+            .as_ref()
+            .map(|main| main.with_extension("pdf"))
+            .filter(|pdf| pdf.is_file());
+        if let Some(main) = main {
             self.open_path(main, None, window, cx);
-            if pdf.is_file() {
-                self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
-            }
         }
+        self.pdf.update(cx, |panel, cx| match pdf {
+            Some(pdf) => panel.open(pdf, window, cx),
+            None => panel.close(window, cx),
+        });
         cx.notify();
     }
 
@@ -355,7 +363,7 @@ impl Shell {
             }
             let outcome = build.await;
             this.update_in(cx, |this, window, cx| {
-                this.finish_build(outcome, window, cx)
+                this.finish_build(&root, outcome, window, cx)
             })
             .ok();
         }));
@@ -364,19 +372,21 @@ impl Shell {
 
     fn finish_build(
         &mut self,
+        root: &Path,
         outcome: std::io::Result<tex::BuildOutcome>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.build_task = None;
+        let current = self.root.as_deref() == Some(root);
         match outcome {
             Ok(outcome) => {
                 self.build_panel
                     .update(cx, |panel, cx| panel.finished(&outcome, cx));
-                if let Some(pdf) = outcome.pdf.clone() {
+                if current && let Some(pdf) = outcome.pdf.clone() {
                     self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
                 }
-                if outcome.error_count() > 0 {
+                if current && outcome.error_count() > 0 {
                     self.dock_area.update(cx, |area, cx| {
                         if !area.is_dock_open(DockPlacement::Bottom) {
                             area.toggle_dock(DockPlacement::Bottom, window, cx);

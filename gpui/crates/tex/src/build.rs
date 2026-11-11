@@ -33,6 +33,26 @@ impl Engine {
         }
     }
 
+    /// The same engine as a default an rc file's `$pdf_mode` outranks.
+    fn latexmk_pdf_default(self) -> &'static str {
+        match self {
+            Engine::PdfLatex => "$pdf_mode ||= 1;",
+            Engine::XeLatex => "$pdf_mode ||= 5;",
+            Engine::LuaLatex => "$pdf_mode ||= 4;",
+        }
+    }
+
+    /// latexmk's engine options for a document in `folder`. Like Lattice, a
+    /// project latexmkrc keeps its own engine: `-e` runs after the rc files,
+    /// while `-pdf` and its siblings would override them.
+    fn latexmk_args(self, folder: &Path) -> Vec<&'static str> {
+        if folder.join("latexmkrc").is_file() || folder.join(".latexmkrc").is_file() {
+            vec!["-e", self.latexmk_pdf_default()]
+        } else {
+            vec![self.latexmk_arg()]
+        }
+    }
+
     /// `% !TEX program = xelatex` (TeXShop/TeXstudio) or a CJK package in the
     /// preamble picks the engine; pdfLaTeX otherwise.
     pub fn detect(source: &str) -> Self {
@@ -155,7 +175,7 @@ pub fn build(document: &Path, mut on_line: impl FnMut(&str)) -> io::Result<Build
             "-file-line-error",
             "-f",
         ])
-        .arg(engine.latexmk_arg())
+        .args(engine.latexmk_args(folder))
         .arg(document.file_name().unwrap_or(document.as_os_str()))
         .env("max_print_line", "10000")
         .stdin(Stdio::null())
@@ -250,6 +270,29 @@ mod tests {
         assert_eq!(
             Engine::detect("%!TEX program = pdftex\n\\usepackage{fontspec}\n"),
             Engine::PdfLatex
+        );
+    }
+
+    /// latexmk's documented `$pdf_mode` values (1 pdfLaTeX, 4 LuaLaTeX,
+    /// 5 XeLaTeX), passed as defaults when the project has an rc file.
+    #[test]
+    fn leaves_the_engine_to_a_project_latexmkrc() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(Engine::XeLatex.latexmk_args(dir.path()), ["-pdfxe"]);
+        fs::write(dir.path().join(".latexmkrc"), "$pdf_mode = 4;\n").unwrap();
+        assert_eq!(
+            Engine::XeLatex.latexmk_args(dir.path()),
+            ["-e", "$pdf_mode ||= 5;"]
+        );
+        assert_eq!(
+            Engine::LuaLatex.latexmk_args(dir.path()),
+            ["-e", "$pdf_mode ||= 4;"]
+        );
+        fs::remove_file(dir.path().join(".latexmkrc")).unwrap();
+        fs::write(dir.path().join("latexmkrc"), "").unwrap();
+        assert_eq!(
+            Engine::PdfLatex.latexmk_args(dir.path()),
+            ["-e", "$pdf_mode ||= 1;"]
         );
     }
 

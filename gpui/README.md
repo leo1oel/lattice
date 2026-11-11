@@ -41,7 +41,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘O / Ctrl+O | Open a project folder |
 | ⌘B / Ctrl+B | Save edited files and build |
 | ⌘S / Ctrl+S | Save |
-| ⌘F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
+| ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
 | Zed's default keymap | Everything else in the editor |
 
 The toolbar's "Vim" button turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` starts with it on.
@@ -86,7 +86,7 @@ Pages are laid out from their sizes at once and drawn only near the viewport; im
 ### The build
 
 `crates/tex` runs `latexmk -cd -outdir=. -auxdir=. -pv- -pvc- -interaction=nonstopmode -synctex=1 -file-line-error -f -pdf|-pdfxe|-pdflua`, like Lattice, with `max_print_line=10000`.
-The engine follows a `% !TEX program =` comment or a CJK/fontspec package.
+The engine follows a `% !TEX program =` comment or a CJK/fontspec package; with a `latexmkrc` or `.latexmkrc` beside the document it is only a default (`-e '$pdf_mode ||= N;'`), so the rc file's engine wins.
 The log parser is Lattice's `parse_diagnostics`, without Lattice's translated advice.
 
 ## Scripted runs
@@ -98,7 +98,7 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 
 `e2e` runs on macOS and Windows; `perf`, `memory`, `ime` and `ime-protocol` are macOS only.
 
-- `e2e`: opens a project, builds, types a broken macro with native key events, saves with ⌘S, builds, follows the error to its line, searches, checks Vim's `x`, repairs and rebuilds, and drags an editor tab into the right dock with native mouse events.
+- `e2e`: opens a project, builds, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs and rebuilds, and drags an editor tab into the right dock with native mouse events.
   It needs `chapters/intro.tex` in the project.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
 - `memory`: `footprint` after opening the project, after opening `long.tex`, and after scrolling through the whole PDF.
