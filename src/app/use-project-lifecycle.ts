@@ -21,6 +21,10 @@ import { requestBibliographyIndex, type useProjectLibrary } from "./use-project-
 import type { ProjectState } from "./use-project-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { markGetStartedStep, TUTORIAL_VENUE } from "../onboarding/get-started-progress";
+import { windowProjects } from "./window-projects";
+
+/** Asked only when the window already shows a project, so the question waits for the first switch. */
+const loadLeaveProject = () => import("./leave-project");
 
 /** How long launch shows an empty window while it reopens a project, before the welcome screen. */
 const LAUNCH_EMPTY_WINDOW_MS = 1_000;
@@ -41,7 +45,7 @@ export type ProjectLifecycleDeps = {
     "claimBibliographyRefresh" | "resetBibliographyIndex" | "applyCitations" | "applyReferences" | "failIndex" | "publishPapers"
     | "failPapers"
   >;
-  build: Pick<ReturnType<typeof useBuildPipeline>, "runBuild" | "resetForProject">;
+  build: Pick<ReturnType<typeof useBuildPipeline>, "runBuild" | "resetForProject" | "building">;
   /** Forget the outgoing project's agent compile associations (and, on a switch, its queued build). */
   resetCompileTracking: (cancelQueuedBuild: boolean) => void;
   cancelPrewarm: () => void;
@@ -92,7 +96,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const {
     claimBibliographyRefresh, resetBibliographyIndex, applyCitations, applyReferences, failIndex, publishPapers, failPapers,
   } = library;
-  const { runBuild, resetForProject } = build;
+  const { runBuild, resetForProject, building } = build;
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   /** The workspace is being handed to another surface: its editors stay read-only meanwhile. */
   const [movingWorkspace, setMovingWorkspace] = useState(false);
@@ -176,6 +180,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // The backend already owns the incoming root. The outgoing documents go
     // before that root is exposed to effects (see the documents' enter).
     const entry = enterDocuments(snapshot);
+    const left = projectBeforeTransitionRef.current;
+    windowProjects.enter(
+      { root: snapshot.root, name: snapshot.manifest.name },
+      left && { root: left.root, name: left.manifest.name },
+    );
     projectRef.current = snapshot;
     projectBeforeTransitionRef.current = null;
     setProject(snapshot);
@@ -277,53 +286,55 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     }).finally(() => setBusyLabel(null));
   }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
 
-  /// Open a folder that is already on disk — the local copy of an Overleaf
-  /// project — wherever the writer will find it: the window showing it is
-  /// raised; a window in use keeps its project and this one gets its own; an
-  /// empty window takes it in place, unless another window already has it.
-  const openExistingProject = useCallback(async (path: string) => {
-    if (path === project?.root) return;
-    if (project?.root) {
-      await openProjectWindow(path);
-      return;
-    }
-    setBusyLabel(t`Opening project…`);
-    const shownElsewhere = await (async () => {
-      if (!await startProjectTransition()) return false;
-      await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
-      return false;
-    })().catch((reason: unknown) => {
-      cancelProjectTransition();
-      if (mentionsAny(toMessage(reason), [OPEN_IN_ANOTHER_WINDOW])) return true;
-      showError(toMessage(reason));
-      return false;
-    }).finally(() => setBusyLabel(null));
-    // `open_project_window` raises the window that has it.
-    if (shownElsewhere) await openProjectWindow(path);
-  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition, t]);
-
   /// Replace this window's project with the one at `path`: save, claim the
-  /// switch, enter; roll the claim back on failure.
+  /// switch, enter; roll the claim back on failure. A project another window
+  /// shows raises that window instead. True once the project is entered.
   const switchProject = useCallback(async (label: string, path: string, onError?: () => void) => {
     setBusyLabel(label);
-    await (async () => {
-      if (!(await save()) || !await startProjectTransition()) return;
+    const outcome = await (async () => {
+      if (!(await save()) || !await startProjectTransition()) return "refused";
       await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
+      return "entered";
     })().catch((reason: unknown) => {
       cancelProjectTransition();
+      if (mentionsAny(toMessage(reason), [OPEN_IN_ANOTHER_WINDOW])) return "elsewhere";
       onError?.();
       showError(toMessage(reason));
+      return "failed";
     }).finally(() => setBusyLabel(null));
-  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
+    // `open_project_window` raises the window that has it.
+    if (outcome === "elsewhere") await openProjectWindow(path);
+    return outcome === "entered";
+  }, [cancelProjectTransition, enterProject, openProjectWindow, save, startProjectTransition]);
 
-  const chooseExisting = useCallback(async () => {
+  /// Put the project at `path` in this window, beside the one it shows (see
+  /// window-projects.ts): what "Open in this window" and the project tabs do.
+  /// Work running in the project left, which the switch would stop, is asked
+  /// about first. True once the project is entered.
+  const openInThisWindow = useCallback(async (path: string) => {
+    const leaving = projectRef.current;
+    if (path === leaving?.root) return true;
+    if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) return false;
+    return switchProject(leaving ? t`Switching project…` : t`Opening project…`, path);
+  }, [building, projectRef, switchProject, t]);
+
+  /// Open a folder that is already on disk — the local copy of an Overleaf
+  /// project — wherever the writer will find it: the window showing it is
+  /// raised; a window in use keeps its project and this one gets its own,
+  /// unless the writer asked for this window; an empty window takes it in place.
+  const openExistingProject = useCallback(async (path: string, inThisWindow = false) => {
+    if (path === project?.root) return;
+    if (project?.root && !inThisWindow) await openProjectWindow(path);
+    else await openInThisWindow(path);
+  }, [openInThisWindow, openProjectWindow, project?.root]);
+
+  const chooseExisting = useCallback(async (inThisWindow = false) => {
     const selected = await open({ directory: true, multiple: false, title: t`Open a LaTeX project` });
     if (!selected) return;
     // Same rule as the recent-projects list: a window in use keeps the project
-    // it has, and the chosen one gets a window of its own.
-    if (project?.root) await openProjectWindow(String(selected));
-    else await switchProject(t`Opening project…`, String(selected));
-  }, [openProjectWindow, project?.root, switchProject, t]);
+    // it has, and the chosen one gets a window of its own unless asked for here.
+    await openExistingProject(String(selected), inThisWindow);
+  }, [openExistingProject, t]);
 
   const createProject = useCallback(async () => {
     const parent = await open({ directory: true, multiple: false, title: t`Choose where to create the project` });
@@ -496,16 +507,21 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     })().catch((reason: unknown) => showError(toMessage(reason))).finally(() => setBusyLabel(null));
   }, [project, save, t]);
 
-  const chooseRecentProject = useCallback(async (path: string) => {
+  const chooseRecentProject = useCallback(async (path: string, inThisWindow = false) => {
     if (path === project?.root) {
       setProjectMenuOpen(false);
       return;
     }
-    // Another project gets its own window once this one is in use. Replacing
-    // the project in place would close editors, cancel a build and reset the
-    // agent for work the writer never asked to put away. With nothing open yet
-    // the window is empty, so it takes the project itself rather than leaving
-    // a blank window behind.
+    // Another project gets its own window once this one is in use, unless the
+    // writer asks for this window. Replacing the project in place would close
+    // editors, cancel a build and reset the agent for work the writer never
+    // asked to put away. With nothing open yet the window is empty, so it
+    // takes the project itself rather than leaving a blank window behind.
+    if (inThisWindow) {
+      setProjectMenuOpen(false);
+      await openInThisWindow(path);
+      return;
+    }
     if (project?.root) {
       setProjectMenuOpen(false);
       const failure = await openProjectWindow(path);
@@ -517,7 +533,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       return;
     }
     await switchProject(t`Switching project…`, path, () => setRecents((current) => ({ ...current, projects: forgetRecentProject(path) })));
-  }, [openProjectWindow, project?.root, switchProject, t]);
+  }, [openInThisWindow, openProjectWindow, project?.root, switchProject, t]);
 
   // ---- Closing, quitting and reloading save first -----------------------------------------------------------------
   useSaveBeforeClose({ browserHosted, flush, save, hasUnsavedEdits });
@@ -557,6 +573,6 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, openExistingProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, clone, exportProjectZip, moveWorkspace,
-    movingWorkspace,
+    movingWorkspace, openInThisWindow, openProjectWindow,
   };
 }

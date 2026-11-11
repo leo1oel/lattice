@@ -44,6 +44,10 @@ msgstr "“{0}”里已有文件，且没关联 Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}”保持关联"
 
+#: src/app/leave-project.ts
+msgid "“{command}” in the terminal"
+msgstr "终端中的“{command}”"
+
 #: src/project/clone-repository-dialog.tsx
 msgid "“{destinationName}” already exists there. Choose another location"
 msgstr "那里已有“{destinationName}”，请换一个位置"
@@ -1348,6 +1352,10 @@ msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引
 #: src/history/review-mode-extension.ts
 msgid "A co-author edited text you changed. Both versions are kept."
 msgstr "合作者编辑了你改动过的文字，两个版本都已保留。"
+
+#: src/app/leave-project.ts
+msgid "a command in the terminal"
+msgstr "终端中的命令"
 
 #: src/terminal/terminal-window.ts
 msgid "A command is still running. Closing stops it."
@@ -3046,6 +3054,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/project/rename-dialog.tsx
 #: src/project/submission-items.tsx
 #: src/telemetry/app-log.tsx
 #: src/telemetry/update-recovery.ts
@@ -3863,7 +3872,7 @@ msgstr "克隆进度"
 msgid "Clone repository"
 msgstr "克隆仓库"
 
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Clone repository…"
 msgstr "克隆仓库…"
 
@@ -3876,6 +3885,7 @@ msgstr "克隆仓库…"
 msgid "Cloning…"
 msgstr "正在克隆…"
 
+#: src/app/project-tabs.tsx
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3887,6 +3897,10 @@ msgstr "关闭"
 #: src/terminal/terminal-panel.tsx
 msgid "Close {label}"
 msgstr "关闭 {label}"
+
+#: src/app/project-tabs.tsx
+msgid "Close {name}"
+msgstr "关闭 {name}"
 
 #: src/components/ui/panel-header.tsx
 #: src/trellis/trellis-labels.ts
@@ -6173,7 +6187,7 @@ msgid "Export for arXiv"
 msgstr "导出 arXiv 提交包"
 
 #: src/app/use-command-table.ts
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Export for arXiv…"
 msgstr "导出 arXiv 提交包…"
 
@@ -6217,7 +6231,7 @@ msgid "Export review PDF…"
 msgstr "导出评阅 PDF…"
 
 #: src/project/arxiv-export-dialog.tsx
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Export ZIP"
 msgstr "导出 ZIP"
 
@@ -7012,6 +7026,7 @@ msgid "Grouped numbered equations"
 msgstr "成组编号的公式"
 
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Guided tutorial"
 msgstr "新手教程"
 
@@ -9434,7 +9449,7 @@ msgstr "我的模板"
 msgid "Nabla / del"
 msgstr "纳布拉 / 梯度算子"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Name"
 msgstr "名称"
 
@@ -9586,7 +9601,7 @@ msgstr "新建 Markdown"
 msgid "New messages are available."
 msgstr "有新消息"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "New name"
 msgstr "新名称"
 
@@ -9601,6 +9616,7 @@ msgstr "新建幻灯片"
 #: src/app/use-command-table.ts
 #: src/onboarding/get-started-panel.tsx
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "New project"
 msgstr "新建项目"
 
@@ -9686,6 +9702,10 @@ msgstr "下一页"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next PDF location"
 msgstr "下个位置"
+
+#: src/app/project-switch-commands.ts
+msgid "Next project in this window"
+msgstr "此窗口中的下一个项目"
 
 #: src/papers/reference-check-keys.ts
 msgid "Next reference"
@@ -10518,13 +10538,18 @@ msgctxt "annotation filter"
 msgid "Open"
 msgstr "待处理"
 
-#: src/app/use-command-table.ts
+#: src/app/project-switch-commands.ts
 msgid "Open {name}"
 msgstr "打开 {name}"
 
 #: src/project/figure-source-run.ts
 msgid "Open {name} in its default app? An SVG file often opens in a web browser, which runs any script it holds."
 msgstr "用默认应用打开 {name}？SVG 文件常会在网页浏览器中打开，浏览器会运行其中的脚本。"
+
+#: src/app/project-switch-commands.ts
+#: src/project/project-menu.tsx
+msgid "Open {name} in this window"
+msgstr "在此窗口中打开 {name}"
 
 #: src/app/use-editor-comments.ts
 msgid "Open {name} to comment on it."
@@ -10559,6 +10584,11 @@ msgstr "打开文件"
 msgid "Open a file to see its suggestions"
 msgstr "打开一个文件以查看它的修订建议"
 
+#: src/app/project-switch-commands.ts
+#: src/project/project-menu.tsx
+msgid "Open a folder in this window"
+msgstr "在此窗口中打开文件夹"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "打开 LaTeX 项目"
@@ -10585,7 +10615,7 @@ msgstr "打开项目后可添加"
 msgid "Open a project to ignore rules or sentences"
 msgstr "打开项目后才能忽略规则或句子"
 
-#: src/app/use-command-table.ts
+#: src/app/project-switch-commands.ts
 msgid "Open a recent project by its place"
 msgstr "打开最近项目"
 
@@ -10594,7 +10624,7 @@ msgid "Open an Overleaf project"
 msgstr "打开 Overleaf 项目"
 
 #: src/app/use-command-table.ts
-#: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Open another folder"
 msgstr "打开文件夹"
 
@@ -10629,6 +10659,7 @@ msgstr "打开文件夹"
 
 #: src/overleaf/overleaf-project-picker.tsx
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 msgid "Open from Overleaf"
 msgstr "从 Overleaf 打开"
 
@@ -10656,6 +10687,10 @@ msgstr "在历史中打开"
 msgid "Open in Lattice app"
 msgstr "在 Lattice 中打开"
 
+#: src/app/project-tabs.tsx
+msgid "Open in New Window"
+msgstr "在新窗口中打开"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
@@ -10663,6 +10698,10 @@ msgstr "在 Overleaf 中打开"
 #: src/canvas/project-pdf-panel.tsx
 msgid "Open in separate window"
 msgstr "在单独窗口中打开"
+
+#: src/overleaf/overleaf-project-picker.tsx
+msgid "Open in this window"
+msgstr "在此窗口中打开"
 
 #: src/overleaf/overleaf-pasted-link.tsx
 #: src/overleaf/overleaf-project-picker.tsx
@@ -11809,6 +11848,10 @@ msgstr "上一页"
 msgid "Previous PDF location"
 msgstr "上个位置"
 
+#: src/app/project-switch-commands.ts
+msgid "Previous project in this window"
+msgstr "此窗口中的上一个项目"
+
 #: src/papers/reference-check-keys.ts
 msgid "Previous reference"
 msgstr "上一条文献"
@@ -11904,6 +11947,10 @@ msgstr "已上传并关联 Overleaf"
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Projects"
 msgstr "项目"
+
+#: src/app/project-tabs.tsx
+msgid "Projects in this window"
+msgstr "此窗口中的项目"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proof environment (requires amsthm)"
@@ -12187,6 +12234,7 @@ msgid "Recent instructions"
 msgstr "最近用过的指令"
 
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 #: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "最近项目"
@@ -12477,9 +12525,9 @@ msgid "Removing…"
 msgstr "正在移除…"
 
 #: src/editor/latex/highlight-palette.tsx
-#: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 #: src/project/references-panel.tsx
+#: src/project/rename-dialog.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Rename"
 msgstr "重命名"
@@ -12492,15 +12540,15 @@ msgstr "重命名“{meaning}”"
 msgid "Rename {source}: a figure's file and folder names cannot hold line breaks or TeX's special characters."
 msgstr "请重命名 {source}：图的文件名和文件夹名不能包含换行或 TeX 特殊字符。"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Rename citation key"
 msgstr "改引用名"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Rename environment"
 msgstr "改环境名"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Rename label"
 msgstr "改标签名"
 
@@ -12521,7 +12569,7 @@ msgstr "改环境名"
 msgid "renamed"
 msgstr "改名"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Renaming…"
 msgstr "正在重命名…"
 
@@ -13928,6 +13976,7 @@ msgstr "正在准备实时预览… {percent}%"
 #: src/app/app-settings-dialog.tsx
 #: src/app/command-palette.tsx
 #: src/project/project-dialogs.tsx
+#: src/project/project-menu.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"
 msgstr "设置"
@@ -14712,7 +14761,12 @@ msgstr "曲面 / 面积积分"
 msgid "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice."
 msgstr "插入 SVG 需要 rsvg-convert 或 ImageMagick；在 Lattice 中仍可预览这张图"
 
+#: src/app/leave-project.ts
+msgid "Switch away from “{name}”?"
+msgstr "离开“{name}”？"
+
 #: src/app/app-titlebar.tsx
+#: src/app/leave-project.ts
 msgid "Switch project"
 msgstr "切换项目"
 
@@ -14743,6 +14797,10 @@ msgstr "写作布局"
 #: src/build/build-log-messages.ts
 msgid "Switched this project from {from} to pdfLaTeX: the document uses `{command}`, which only works in pdfLaTeX, and loads nothing that needs {from}."
 msgstr "已将此项目从 {from} 切换到 pdfLaTeX：文档使用了只能在 pdfLaTeX 中使用的 `{command}`，且没有加载任何需要 {from} 的内容。"
+
+#: src/app/leave-project.ts
+msgid "Switching interrupts what is still running there: {list}."
+msgstr "切换会中断其中仍在运行的{list}。"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -15224,6 +15282,10 @@ msgstr "AI 没返回改写结果"
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "AI 助手的回复里既没有修改，也没有问题。"
 
+#: src/app/leave-project.ts
+msgid "the agent’s turn"
+msgstr "AI 助手正在进行的对话"
+
 #: src/platform/host-errors-papers.ts
 msgid "The alphaXiv paper was not found."
 msgstr "在 alphaXiv 上找不到这篇论文"
@@ -15279,6 +15341,10 @@ msgstr "这条已不存在"
 #: src/project/arxiv-export.ts
 msgid "The bibliography has no .bbl"
 msgstr "参考文献缺少 .bbl"
+
+#: src/app/leave-project.ts
+msgid "the build"
+msgstr "编译"
 
 #: src/platform/host-errors-setup.ts
 msgid "The built-in agent did not become ready within {seconds} seconds."
@@ -17139,11 +17205,11 @@ msgstr "有可用更新（{count} 个）。在终端中运行：{TEX_PACKAGE_UPD
 msgid "Updates available ({count}). Updating asks for administrator approval and can take a few minutes."
 msgstr "有可用更新（{count} 个）。更新时需要输入 Mac 密码，可能需要几分钟。"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Updates every \\ref to it"
 msgstr "会同步改所有 \\ref"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Updates the .bib entry and every \\cite"
 msgstr "会同步改 .bib 和所有 \\cite"
 
@@ -17673,7 +17739,7 @@ msgstr "包裹在 \\iffalse … \\fi 中"
 msgid "Wrap in a comment environment"
 msgstr "包裹在 comment 环境中"
 
-#: src/project/project-dialogs.tsx
+#: src/project/rename-dialog.tsx
 msgid "Wrap in environment"
 msgstr "套上环境"
 

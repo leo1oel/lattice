@@ -45,12 +45,18 @@ import { initialPickerState, reducePicker, type DownloadProgress } from "./overl
 type PickerProps = {
   open: boolean;
   onClose: () => void;
-  onCloned: (root: string) => void;
+  /** Show the downloaded project, in this window when `inThisWindow` (see `canOpenHere`). */
+  onCloned: (root: string, inThisWindow?: boolean) => void;
   /**
    * Open a folder already linked to the chosen project, raising its window
    * when one shows it. Without it, every project downloads.
    */
-  onOpenLocalCopy?: (root: string) => void;
+  onOpenLocalCopy?: (root: string, inThisWindow?: boolean) => void;
+  /**
+   * A project is open here, so Open gives the chosen one a window of its own,
+   * and "Open in this window" beside it puts it in this one instead.
+   */
+  canOpenHere?: boolean;
   /**
    * Folders the app knows of (its recent projects), checked for a link first.
    * Kept as the caller's list, not mapped, so the lookup reruns only when it changes.
@@ -180,12 +186,12 @@ Files that differ are kept side by side. Nothing is overwritten`,
     });
   };
 
-  const clone = async (project: OverleafProject) => {
+  const clone = async (project: OverleafProject, inThisWindow: boolean) => {
     dispatch({ type: "cloning", project });
     try {
       const root = await download(project);
       dispatch({ type: "cloning", project: null });
-      props.onCloned(root);
+      props.onCloned(root, inThisWindow);
       onClose();
     } catch (reason) {
       dispatch({ type: "cloning", project: null });
@@ -204,14 +210,14 @@ Files that differ are kept side by side. Nothing is overwritten`,
    * download does. The lookup is awaited, so an Open pressed before it answers
    * still finds the copy.
    */
-  const openProject = async (project: OverleafProject) => {
+  const openProject = async (project: OverleafProject, inThisWindow = false) => {
     if (opening || cloning || publishing) return;
     dispatch({ type: "opening", project });
     const copy = props.onOpenLocalCopy ? (await lookup.current)[project.id] : undefined;
     if (!mounted.current) return;
     if (!copy || !props.onOpenLocalCopy) {
       dispatch({ type: "opening", project: null });
-      return clone(project);
+      return clone(project, inThisWindow);
     }
     try {
       await invoke("overleaf_reopen_local_copy", { path: copy.path, projectId: project.id, accessLevel: project.accessLevel });
@@ -224,7 +230,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
     }
     if (!mounted.current) return;
     dispatch({ type: "opening", project: null });
-    props.onOpenLocalCopy(copy.path);
+    props.onOpenLocalCopy(copy.path, inThisWindow);
     onClose();
   };
 
@@ -332,6 +338,11 @@ Files that differ are kept side by side. Nothing is overwritten`,
         )}
       </button>
       {/* A download in progress is said once, by the progress line under the list. */}
+      {chosen && cloning?.id !== project.id && props.canOpenHere && (
+        <Button size="compact" variant="ghost" className="overleaf-open-button" disabled={working} onClick={() => void openProject(project, true)}>
+          {t`Open in this window`}
+        </Button>
+      )}
       {chosen && cloning?.id !== project.id && (
         <MotionButton
           className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}

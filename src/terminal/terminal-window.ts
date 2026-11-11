@@ -95,6 +95,9 @@ export function clearActiveTerminal() {
 }
 
 /** The panel's find field, opened from the menu as ⌘F opens it. */
+/** What the window's shells are running now, by command name ("" when unnamed): what a project switch stops. */
+export const runningTerminalCommands = () => terminals.running();
+
 export const findRequests = new Set<() => void>();
 export function findInActiveTerminal() {
   for (const request of findRequests) request();

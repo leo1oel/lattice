@@ -21,6 +21,8 @@ import {
 import "@danfessler/trellis/style.css";
 import { FileText } from "lucide-react";
 import { retainParkedEditors } from "../editor/parked-editors";
+import { windowProjects } from "../app/window-projects";
+import { retainSnapshotTexts, SnapshotProjectContext } from "./snapshot-texts";
 import { TOOL_KINDS, documentTools, type TrellisController, type TrellisSingleton, type TrellisToolKind } from "./trellis-controller";
 import {
   differsFromWorkspace, filledSlots, keepDocumentSlot, openProjectLayout, placesOf, saveLayout,
@@ -184,16 +186,23 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   }, [controller]);
   useEffect(() => {
     // The open tabs' source editors, parked while in the background, and only
-    // theirs: a closed tab's or another project's state is let go. Here, not
-    // beside the App code that sets the open tabs, which loads at startup
-    // without CodeMirror.
+    // theirs and those of the window's other projects (window-projects.ts),
+    // which a switch back resumes: a closed tab's or a closed project's state
+    // is let go, and so are the snapshot texts of a project no longer in the
+    // window. Until the project's tabs are restored, all of its own are kept.
+    // Here, not beside the App code that sets the open tabs, which loads at
+    // startup without CodeMirror.
     const retainOpenTabs = () => {
-      const { projectRoot: root, openTabs } = controller.app.get();
-      retainParkedEditors(root || null, openTabs);
+      const { projectRoot: root, openTabs, tabsReady } = controller.app.get();
+      const kept = windowProjects.get().map((entry) => entry.root);
+      retainParkedEditors(root || null, tabsReady ? openTabs : null, kept);
+      retainSnapshotTexts(controller.texts, root ? [root, ...kept] : kept);
     };
     const unsubscribe = controller.app.subscribe(retainOpenTabs);
+    const unsubscribeProjects = windowProjects.subscribe(retainOpenTabs);
     return () => {
       unsubscribe();
+      unsubscribeProjects();
       controller.attachWorkspace(null);
     };
   }, [controller]);
@@ -505,7 +514,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     }
   };
   return (
-    <>
+    <SnapshotProjectContext.Provider value={projectRoot}>
       <Workspace
         ref={handleRef}
         className="lattice-trellis"
@@ -582,7 +591,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         </Workspace.Empty>
       </Workspace>
       {menu && <PanelMenu request={menu} open={menuOpen} onDismiss={dismissMenu} onClose={closeMenu} />}
-    </>
+    </SnapshotProjectContext.Provider>
   );
 });
 

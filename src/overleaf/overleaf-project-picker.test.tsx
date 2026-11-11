@@ -198,7 +198,7 @@ describe("Overleaf picker dialog", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs()));
     // The backend answers with the folder a project already lives in, so an
     // already-downloaded project is an ordinary open, not a failure.
-    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper", false));
     expect(onClose).toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -223,7 +223,7 @@ describe("Overleaf picker dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /Attention Paper/ }));
     expect(screen.queryByRole("button", { name: "Download a new copy" })).not.toBeInTheDocument();
     await openFirstProject();
-    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path, false));
     expect(onClose).toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
     expect(onCloned).not.toHaveBeenCalled();
@@ -248,7 +248,7 @@ describe("Overleaf picker dialog", () => {
     expect(screen.getByRole("button", { name: "Close Open from Overleaf" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
     answer({ p1: nativeVlm });
-    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path, false));
     expect(onOpenLocalCopy).toHaveBeenCalledOnce();
     expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
     expect(onCloned).not.toHaveBeenCalled();
@@ -291,7 +291,7 @@ describe("Overleaf picker dialog", () => {
     renderPicker({ onOpenLocalCopy });
     await screen.findByText("Opens your local copy at ~/Papers/Native VLM");
     await openFirstProject();
-    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path));
+    await waitFor(() => expect(onOpenLocalCopy).toHaveBeenCalledWith(nativeVlm.path, false));
     expect(invoke).toHaveBeenCalledWith("overleaf_reopen_local_copy", { path: nativeVlm.path, projectId: "p1", accessLevel });
     const reopen = vi.mocked(invoke).mock.calls.findIndex(([command]) => command === "overleaf_reopen_local_copy");
     expect(vi.mocked(invoke).mock.invocationCallOrder[reopen]).toBeLessThan(onOpenLocalCopy.mock.invocationCallOrder[0]!);
@@ -316,7 +316,7 @@ describe("Overleaf picker dialog", () => {
     const onOpenLocalCopy = vi.fn();
     const { onCloned } = renderPicker({ onOpenLocalCopy });
     await openFirstProject();
-    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper", false));
     expect(screen.queryByRole("button", { name: "Download a new copy" })).not.toBeInTheDocument();
     expect(onOpenLocalCopy).not.toHaveBeenCalled();
   });
@@ -408,7 +408,7 @@ describe("Overleaf picker dialog", () => {
     emit({ received: 30_000_000, total: 41_000_000 });
     expect(await screen.findByText("Downloading Attention Paper… 30 MB of 41 MB")).toBeInTheDocument();
     resolveClone("/tmp/cloned/Attention Paper");
-    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper"));
+    await waitFor(() => expect(onCloned).toHaveBeenCalledWith("/tmp/cloned/Attention Paper", false));
   });
 
   it("closes on Escape only while no download is in flight", async () => {

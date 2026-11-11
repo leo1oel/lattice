@@ -8,6 +8,7 @@ import type { MenuEntry } from "@danfessler/trellis";
 import { NEW_ENTRIES, REFRESH_FILE_TREE, type NewEntryType } from "../project/project-new-entries";
 import { requestProjectTreeRefresh } from "../project/project-files-changed";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
+import { snapshotTextKey } from "../trellis/snapshot-texts";
 import type { SearchDialog } from "./app-search-dialogs";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
 import { comboText } from "./key-combos";
@@ -188,9 +189,10 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     });
   }, [activeTab, dirty, openTabs, project, referenceImages.generation, referenceImages.load, revealRequest, tabsReady, trellis]);
   // Inactive panels paint the last text they showed while loading a fresh copy.
+  const root = project?.root;
   useEffect(() => {
-    if (activeFile && !activePaper) trellis.texts.set(activeFile, source);
-  }, [activeFile, activePaper, source, trellis]);
+    if (root && activeFile && !activePaper) trellis.texts.set(snapshotTextKey(root, activeFile), source);
+  }, [activeFile, activePaper, root, source, trellis]);
   // What the document panels' header tools show: build state, the active document's view, the Paper's view.
   const buildProgress = buildPipeline.progress;
   // A Paper is Markdown: its source and visual editor switch like any other's.
