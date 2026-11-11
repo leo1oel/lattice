@@ -266,7 +266,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
-    "model-endpoint": <ModelEndpointSettings runtime={props.synaraRuntime} openTab={props.setTab} />,
+    "model-endpoint": <ModelEndpointSettings openTab={props.setTab} />,
     environment: <AgentEnvironmentSettings runtime={props.synaraRuntime} />,
     overleaf: (
       <OverleafSettingsSection

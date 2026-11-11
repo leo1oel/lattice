@@ -13,7 +13,6 @@ import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
 import { SettingsSelect } from "./settings-controls";
 import { restartAgentRuntime } from "../agent/agent-environment";
-import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
 import type { SettingsTab } from "../app-types";
 import { toMessage } from "../app-utils";
 import { describeProbe, type ProbeReport, PROBE_CHECKS } from "./model-endpoint-probe";
@@ -140,7 +139,7 @@ function endpointOf(draft: Draft): Endpoint | null {
  * the keychain from here and is never read back; Lattice writes Pi's
  * configuration and restarts the agent so it takes effect.
  */
-export function ModelEndpointSettings(props: { runtime: SynaraRuntimeInfo; openTab: (tab: SettingsTab) => void }) {
+export function ModelEndpointSettings(props: { openTab: (tab: SettingsTab) => void }) {
   const { t } = useLingui();
   const [state, dispatch] = useReducer(reduce, {
     saved: null, draft: draftOf(null), advanced: false, busy: "load", notice: null, report: null,
@@ -165,7 +164,6 @@ export function ModelEndpointSettings(props: { runtime: SynaraRuntimeInfo; openT
    * window's running turns, so while one runs it is offered, not made.
    */
   const applied = async (status: EndpointStatus, text: string) => {
-    if (props.runtime.state !== "ready") return dispatch({ type: "done", status, notice: { level: "success", text } });
     const { agentTurns } = await invoke<{ agentTurns: number }>("restart_impact");
     if (agentTurns) {
       const restart = t`The agent uses it after a restart, which would stop the turn running now.`;

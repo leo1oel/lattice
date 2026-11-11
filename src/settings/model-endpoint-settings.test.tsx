@@ -1,13 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EMPTY_SYNARA_RUNTIME, type SynaraRuntimeInfo } from "../agent/synara-runtime";
 import { ModelEndpointSettings } from "./model-endpoint-settings";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-
-const RUNNING: SynaraRuntimeInfo = { ...EMPTY_SYNARA_RUNTIME, state: "ready", origin: "http://127.0.0.1:4173", authToken: "one" };
-const STOPPED: SynaraRuntimeInfo = { ...EMPTY_SYNARA_RUNTIME, state: "stopped" };
 
 const SAVED = {
   endpoint: {
@@ -35,7 +31,7 @@ describe("ModelEndpointSettings", () => {
 
   it("reads the saved endpoint back without ever showing the key", async () => {
     respond({ get_model_endpoint: SAVED });
-    render(<ModelEndpointSettings runtime={STOPPED} openTab={vi.fn()} />);
+    render(<ModelEndpointSettings openTab={vi.fn()} />);
 
     expect(await screen.findByDisplayValue("https://api.example.com")).toBeTruthy();
     expect(screen.getByDisplayValue("claude-x")).toBeTruthy();
@@ -48,14 +44,14 @@ describe("ModelEndpointSettings", () => {
     expect(screen.getByText(/Proofread, Polish and revision requests still need/)).toBeTruthy();
   });
 
-  it("saves a new endpoint with its key and restarts an idle agent", async () => {
+  it("saves a new endpoint with its key and restarts an idle agent, whichever window runs it", async () => {
     respond({
       get_model_endpoint: EMPTY,
       save_model_endpoint: { ...SAVED, endpoint: { ...SAVED.endpoint, protocol: "openai-completions", baseUrl: "https://api.example.com/v1", models: [{ id: "gpt-x", contextWindow: 128000, maxTokens: 16384, images: false }] } },
       restart_impact: { agentTurns: 0 },
       synara_restart: undefined,
     });
-    render(<ModelEndpointSettings runtime={RUNNING} openTab={vi.fn()} />);
+    render(<ModelEndpointSettings openTab={vi.fn()} />);
     const address = await screen.findByLabelText("Address");
     fireEvent.change(address, { target: { value: "https://api.example.com/v1/chat/completions" } });
     fireEvent.change(screen.getByLabelText("API key"), { target: { value: "  sk-secret " } });
@@ -78,7 +74,7 @@ describe("ModelEndpointSettings", () => {
 
   it("offers the restart instead of stopping a running turn", async () => {
     respond({ get_model_endpoint: SAVED, save_model_endpoint: SAVED, restart_impact: { agentTurns: 1 }, synara_restart: undefined });
-    render(<ModelEndpointSettings runtime={RUNNING} openTab={vi.fn()} />);
+    render(<ModelEndpointSettings openTab={vi.fn()} />);
     await screen.findByDisplayValue("claude-x");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -94,7 +90,7 @@ describe("ModelEndpointSettings", () => {
       get_model_endpoint: SAVED,
       test_model_endpoint: { passed: ["reach"], problem: "keyRejected", status: 401, detail: "invalid x-api-key" },
     });
-    render(<ModelEndpointSettings runtime={STOPPED} openTab={vi.fn()} />);
+    render(<ModelEndpointSettings openTab={vi.fn()} />);
     await screen.findByDisplayValue("claude-x");
     fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
 
@@ -107,7 +103,7 @@ describe("ModelEndpointSettings", () => {
 
   it("refuses token limits that are not whole numbers before asking the host", async () => {
     respond({ get_model_endpoint: SAVED });
-    render(<ModelEndpointSettings runtime={STOPPED} openTab={vi.fn()} />);
+    render(<ModelEndpointSettings openTab={vi.fn()} />);
     fireEvent.change(await screen.findByDisplayValue("200000"), { target: { value: "lots" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -117,8 +113,8 @@ describe("ModelEndpointSettings", () => {
 
   it("removes the endpoint and opens Providers for the Pi runtime", async () => {
     const openTab = vi.fn();
-    respond({ get_model_endpoint: SAVED, remove_model_endpoint: EMPTY });
-    render(<ModelEndpointSettings runtime={STOPPED} openTab={openTab} />);
+    respond({ get_model_endpoint: SAVED, remove_model_endpoint: EMPTY, restart_impact: { agentTurns: 0 }, synara_restart: undefined });
+    render(<ModelEndpointSettings openTab={openTab} />);
     await screen.findByDisplayValue("claude-x");
     fireEvent.click(screen.getByRole("button", { name: "Open Providers" }));
     expect(openTab).toHaveBeenCalledWith("agent");
@@ -127,5 +123,7 @@ describe("ModelEndpointSettings", () => {
     expect(await screen.findByText("Endpoint removed.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Remove endpoint" })).toBeNull();
     expect(screen.getByLabelText<HTMLInputElement>("Address").value).toBe("");
+    // The agent may run in another window, so removing restarts it too.
+    expect(calls("synara_restart")).toHaveLength(1);
   });
 });

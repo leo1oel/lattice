@@ -93,6 +93,19 @@ fn responses_and_gemini_tool_calls_pass() {
 }
 
 #[test]
+fn a_long_reasoning_preamble_before_the_tool_call_still_passes() {
+    // About 1,000 streamed thinking tokens, well past 64 KiB of events.
+    let thought = r#"data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"test-model","choices":[{"index":0,"delta":{"reasoning_content":" thinking"}}]}"#;
+    let mut lines = vec![thought; 1000];
+    lines.push(r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"report_status"}}]}}]}"#);
+    let body = sse(&lines);
+    assert!(body.len() > 128 * 1024);
+    let report = probe(Protocol::OpenAiCompletions, 200, "text/event-stream", body, |_, _, _| {});
+    assert_eq!(report.passed, ALL);
+    assert_eq!(report.problem, None);
+}
+
+#[test]
 fn a_text_answer_means_the_model_skipped_the_tool() {
     let body = sse(&[r#"data: {"choices":[{"delta":{"content":"ok"}}]}"#, "data: [DONE]"]);
     let report = probe(Protocol::OpenAiCompletions, 200, "text/event-stream", body, |_, _, _| {});

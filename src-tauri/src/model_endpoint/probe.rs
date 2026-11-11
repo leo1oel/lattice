@@ -13,7 +13,9 @@ use std::time::Duration;
 /// A reasoning model may think before it calls the tool.
 const TIMEOUT: Duration = Duration::from_secs(45);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
-const MAX_STREAM: u64 = 64 * 1024;
+/// Generous enough for a long reasoning preamble before the tool call.
+const MAX_STREAM: u64 = 4 * 1024 * 1024;
+const MAX_ERROR_BODY: u64 = 64 * 1024;
 const MAX_DETAIL: usize = 300;
 const TOOL: &str = "report_status";
 const PROMPT: &str =
@@ -156,7 +158,7 @@ pub(super) fn run(
     let status = response.status();
     if !status.is_success() {
         let mut text = String::new();
-        let _ = response.take(MAX_STREAM).read_to_string(&mut text);
+        let _ = response.take(MAX_ERROR_BODY).read_to_string(&mut text);
         return refused(status.as_u16(), &redacted(&error_message(&text), key));
     }
     let reached = [Check::Reach, Check::Key, Check::Model];
