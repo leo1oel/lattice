@@ -283,25 +283,47 @@ export function latexVisual(host: LatexVisualHost): Extension {
   ];
 }
 
-/**
- * A construct drawn between an opening and a closing token: styled text and
- * links (`\textbf{`, `}`), headings and captions (`\section{`, `}`), a
- * description item's term (`\item[`, `]`). `always`: its tokens are stepped
- * over even while its source shows (a heading's or caption's with a title).
+/*
+ * Deleting in Visual mode. A single-character deletion (Backspace, Delete,
+ * Ctrl-h, Ctrl-d) works as in a word processor:
+ * - It never deletes a token Visual mode draws, hidden or as a faint brace
+ *   (`\textbf{`, `}`, `\href{url}{`, `{\bf `, a term's `\item[` and `]`), nor
+ *   a heading's or caption's, drawn or not. It steps over them, deletes the
+ *   character beyond (a widget beyond them goes whole), and the caret stays
+ *   on its side of them.
+ * - Leaving a description term over its bracket removes the item's marker
+ *   instead, as Backspace at an itemize item removes its bullet; the term
+ *   keeps its line.
+ * - It never deletes a line break a drawn block stands on (the folded
+ *   preamble's, the end-of-document bar's, an environment's or a display's).
+ * - With the caret just outside a construct whose content is empty, it
+ *   removes the construct; inside one, the deletion is Source's.
+ * - Past the start or end of the document it deletes nothing.
+ * Any other edit that removes one token of a pair but not the other removes
+ * both, unless the text put in its place brings the token's bracket back
+ * (`\subsection{` over `\section{`). Each is one edit, undone at once, and no
+ * brace or bracket is ever left unbalanced.
  */
-type TokenPair = { from: number; to: number; open: Span; close: Span; brackets: string; always: boolean };
+
+/**
+ * A construct drawn between an opening and a closing token. `always`: its
+ * tokens are stepped over even while its source shows (a heading's or
+ * caption's with a title). `term`: a description item's `[…]`.
+ */
+type TokenPair = { from: number; to: number; open: Span; close: Span; brackets: string; always: boolean; term: boolean };
 
 function tokenPairs(value: VisualState): TokenPair[] {
   const pairs: TokenPair[] = [];
   for (const construct of value.constructs) {
     const { from, to } = construct;
     if (construct.kind === "style" || construct.kind === "link") {
-      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always: false });
+      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always: false, term: false });
     } else if (construct.kind === "heading" || construct.kind === "caption") {
-      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always: construct.open.to < construct.close.from });
+      const always = construct.open.to < construct.close.from;
+      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always, term: false });
     } else if (construct.kind === "item" && construct.term) {
       const close = { from: construct.term.to, to: construct.term.to + 1 };
-      pairs.push({ from, to: close.to, open: { from, to: construct.term.from }, close, brackets: "[]", always: false });
+      pairs.push({ from, to: close.to, open: { from, to: construct.term.from }, close, brackets: "[]", always: false, term: true });
     }
   }
   return pairs;
@@ -314,19 +336,6 @@ function bracketBalance(text: string, brackets: string): number {
   return balance;
 }
 
-/**
- * Backspace and Delete as in a word processor: a single character's
- * deletion never removes a construct's token (`\textbf{`, `}`,
- * `\href{url}{`, `{\bf `, a heading's braces, a term's brackets). It steps
- * over the tokens next to the caret that are drawn hidden (and a heading's
- * or caption's, drawn or not), deletes the character beyond them (a widget
- * beyond them goes whole), and the caret stays on its side of the tokens.
- * Once a construct's content is empty, deleting into it from outside
- * (Backspace just after it, Delete just before it) removes all of it; from
- * inside, an empty construct's tokens show, and the deletion is Source's.
- * Past the start or end of the document there is nothing to delete, and the
- * tokens stay.
- */
 function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): Command {
   return (view) => {
     const { state } = view;
@@ -344,45 +353,48 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
       });
       return range as Span | null;
     };
-    const steps = pairs.flatMap((pair) => [pair.open, pair.close].flatMap((token) => drawn(token) ?? (pair.always ? [token] : [])));
-    const remove = (from: number, to: number) => {
-      const anchor = forward ? main.head : main.head - (to - from);
-      view.dispatch({ changes: { from, to }, selection: { anchor }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
+    const steps = pairs.flatMap((pair) => (["open", "close"] as const).flatMap((side) => {
+      const span = drawn(pair[side]) ?? (pair.always ? pair[side] : null);
+      return span ? [{ span, pair, side }] : [];
+    }));
+    /** Removes `ranges`; the caret keeps its place in the text before or after them. */
+    const remove = (...ranges: Span[]) => {
+      const before = ranges.reduce((sum, { from, to }) => sum + (to <= main.head ? to - from : 0), 0);
+      view.dispatch({ changes: ranges, selection: { anchor: main.head - before }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
       return true;
     };
     let at = main.head;
     let stepped = false;
     for (;;) {
       const empty = pairs.find((pair) => pair.open.to === pair.close.from && at === (forward ? pair.from : pair.to));
-      if (empty) return remove(empty.from, empty.to);
-      const step = steps.find((span) => (forward ? span.from : span.to) === at);
+      if (empty) return remove({ from: empty.from, to: empty.to });
+      const step = steps.find(({ span }) => (forward ? span.from : span.to) === at);
       if (!step) break;
-      at = forward ? step.to : step.from;
+      if (step.pair.term && step.side === (forward ? "close" : "open")) return remove(drawn(step.pair.open) ?? step.pair.open, step.pair.close);
+      at = forward ? step.span.to : step.span.from;
       stepped = true;
     }
-    if (!stepped) return false;
-    if (forward ? at >= state.doc.length : at <= 0) return true;
+    if (forward ? at >= state.doc.length : at <= 0) return stepped;
     const line = state.doc.lineAt(at);
-    let from = forward ? at : at === line.from ? at - 1 : line.from + findClusterBreak(line.text, at - line.from, false);
-    let to = !forward ? at : at === line.to ? at + 1 : line.from + findClusterBreak(line.text, at - line.from, true);
+    const lineBreak = forward ? at === line.to : at === line.from;
+    let from = forward ? at : lineBreak ? at - 1 : line.from + findClusterBreak(line.text, at - line.from, false);
+    let to = !forward ? at : lineBreak ? at + 1 : line.from + findClusterBreak(line.text, at - line.from, true);
+    let blockEdge = false;
+    value.replacements.between(from, to, (rangeFrom, rangeTo, decoration) => {
+      if (lineBreak && decoration.spec.block && rangeFrom < rangeTo && (rangeTo === from || rangeFrom === to)) blockEdge = true;
+    });
+    if (blockEdge) return true;
+    if (!stepped) return false;
     value.replacements.between(from, to, (rangeFrom, rangeTo) => {
       if (rangeFrom < to && rangeTo > from) {
         from = Math.min(from, rangeFrom);
         to = Math.max(to, rangeTo);
       }
     });
-    return remove(from, to);
+    return remove({ from, to });
   };
 }
 
-/**
- * Any other deletion or typing over a selection that removes one token of
- * a pair but leaves the other (a selection over `\textbf{wo`, a word
- * deleted back across a hidden `}`) removes the other too, in the same
- * edit: the content stays unwrapped, and no brace is left unbalanced. Text
- * typed or pasted in its place that brings the token's bracket back
- * (`\subsection{` over `\section{`) keeps the pair.
- */
 function unwrapOnDelete(field: StateField<VisualState>): Extension {
   return EditorState.transactionFilter.of((transaction) => {
     if (!transaction.docChanged || !(transaction.isUserEvent("delete") || transaction.isUserEvent("input"))) return transaction;

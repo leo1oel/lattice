@@ -221,24 +221,50 @@ describe("LaTeX Visual mode", () => {
     }
   });
 
-  it("steps over a description term's brackets, and a deletion of one bracket removes both", async () => {
-    const doc = "\\begin{description}\n\\item[Term] text\n\\end{description}";
+  it("removes a description item's marker on leaving its term over a bracket, keeping the term on its line", async () => {
+    const doc = "\\begin{description}\n\\item[A] first\n  \\item[Term] text\n\\end{description}";
+    const unwrapped = "\\begin{description}\n\\item[A] first\nTerm text\n\\end{description}";
     const atStart = await visualView(doc, doc.indexOf("Term"));
     expect(press(atStart, "Backspace")).toBe(true);
-    expect(atStart.state.doc.toString()).toBe("\\begin{description}\\item[Term] text\n\\end{description}");
+    expect(atStart.state.doc.toString()).toBe(unwrapped);
+    expect(atStart.state.selection.main.head).toBe(unwrapped.indexOf("Term"));
+    expect(undo(atStart)).toBe(true);
+    expect(atStart.state.doc.toString()).toBe(doc);
 
     const atEnd = await visualView(doc, doc.indexOf("] text"));
     expect(press(atEnd, "Delete")).toBe(true);
-    expect(atEnd.state.doc.toString()).toBe("\\begin{description}\n\\item[Term] ext\n\\end{description}");
-    expect(atEnd.state.selection.main.head).toBe(doc.indexOf("] text"));
+    expect(atEnd.state.doc.toString()).toBe(unwrapped);
+    expect(atEnd.state.selection.main.head).toBe(unwrapped.indexOf(" text"));
+
+    // The first item's line keeps `\begin{description}` alone on the line above.
+    const first = await visualView(doc, doc.indexOf("A]"));
+    expect(press(first, "Backspace")).toBe(true);
+    expect(first.state.doc.toString()).toBe(doc.replace("\\item[A]", "A"));
 
     const selected = await visualView(doc, doc.length);
     // From the term's last letter through the `] ` drawn as the gap after it.
     selected.dispatch({ selection: { anchor: doc.indexOf("m]"), head: doc.indexOf("text") } });
     expect(press(selected, "Backspace")).toBe(true);
-    expect(selected.state.doc.toString()).toBe("\\begin{description}\nTertext\n\\end{description}");
+    expect(selected.state.doc.toString()).toBe("\\begin{description}\n\\item[A] first\n  Tertext\n\\end{description}");
     expect(undo(selected)).toBe(true);
     expect(selected.state.doc.toString()).toBe(doc);
+  });
+
+  it("never deletes the line break under the folded preamble or the end-of-document bar", async () => {
+    const doc = "\\documentclass{article}\n\\begin{document}\n\\section{Intro}\nHello.\n\\end{document}\n";
+    const atBody = await visualView(doc, doc.indexOf("\\section"));
+    expect(press(atBody, "Backspace")).toBe(true);
+    expect(atBody.state.doc.toString()).toBe(doc);
+    expect(atBody.contentDOM.querySelector(".lx-tex-preamble")?.textContent).toBe("Show preamble");
+
+    const atTitle = await visualView(doc, doc.indexOf("Intro"));
+    expect(press(atTitle, "Backspace")).toBe(true);
+    expect(atTitle.state.doc.toString()).toBe(doc);
+
+    const atEnd = await visualView(doc, doc.indexOf("\n\\end{document}"));
+    expect(press(atEnd, "Delete")).toBe(true);
+    expect(atEnd.state.doc.toString()).toBe(doc);
+    expect(atEnd.contentDOM.querySelector(".lx-tex-end-document")).not.toBeNull();
   });
 
   it("numbers a list's items from its top when a scan starts inside a listing in it", async () => {
