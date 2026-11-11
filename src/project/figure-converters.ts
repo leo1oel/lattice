@@ -21,7 +21,6 @@ export const isConvertibleDrawing = (path: string) => CONVERTIBLE_DRAWING.test(p
 
 const failed = (reason: unknown) => notifyError(i18n._(msg`Could not update the figure`), toMessage(reason));
 const actions = () => import("./figure-converters-actions");
-const needsActions = () => import("./figure-needs-actions");
 
 /** Renders the drawing, then puts the figure into the editor last in use. */
 export const makeEditableFigure = (path: string, projectRoot: string) => actions().then(({ makeEditableFigure: make }) => make(path, projectRoot));
@@ -105,11 +104,9 @@ export function useFigureSourceRefresh(root: string, rootDocuments: readonly str
     // Editing an entry's page line chooses another page of its drawing.
     const entries = perKeyDebounce(REFRESH_DELAY_MS, (path) => {
       void invoke<string>("read_project_file", { path }).then(async (text) => {
-        if (text.startsWith("% editable-figure source: ")) {
-          const { completeFigureNeeds } = await needsActions();
-          await completeFigureNeeds(path, text, root, rootDocumentsRef.current);
-        }
-        const source = (await actions()).pagedDrawingOf(path, text);
+        const lazy = await actions();
+        await lazy.completeFigureNeeds(path, text, root, rootDocumentsRef.current);
+        const source = lazy.pagedDrawingOf(path, text);
         if (source) return refreshDrawing(source, root);
       }).catch(failed);
     });
