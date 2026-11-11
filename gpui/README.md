@@ -50,8 +50,8 @@ The toolbar's "Vim" button turns Zed's Vim mode on for every editor; `LATTICE_GP
 ## CI
 
 `.github/workflows/gpui.yml` runs only when `gpui/**` or the workflow itself changes.
-On macOS and Windows it builds the app, runs the unit tests (including the latexmk test that is ignored by default) and the `e2e` scenario on `fixtures/e2e`.
-macOS builds with BasicTeX; Windows builds with MiKTeX, and a second Windows job runs the TeX tests against TeX Live.
+On macOS and Windows it builds the app (release profile), runs the unit tests (including the latexmk test that is ignored by default) and the `e2e` scenario on `fixtures/e2e`.
+macOS builds with TeX Live; Windows builds with MiKTeX, and a second Windows job runs the TeX tests against TeX Live.
 The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-install prompts are checked by hand; CI cannot drive them.
 
 ## How it is put together
