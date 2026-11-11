@@ -1,9 +1,9 @@
-# lattice-gpui
+# Lattice on GPUI (preview)
 
-A hands-on GPUI prototype of Lattice's core LaTeX writing flow, built to be tried and compared against the current Tauri app.
-It is a local experiment: Lattice itself is not touched, and nothing here is published.
+A native GPUI version of Lattice's LaTeX writing flow, growing beside the Tauri app in this repository.
+The Tauri app in `../src` and `../src-tauri` keeps shipping; nothing here is built, tested or released with it, and `gpui/` is its own Cargo workspace.
 
-What it does, and nothing more:
+What it does so far, and nothing more:
 
 1. Opens a LaTeX project folder, with the file tree on the left.
 2. Edits sources in Zed's editor with LaTeX highlighting, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim).
@@ -11,11 +11,18 @@ What it does, and nothing more:
 4. Builds with latexmk on one click (or ⌘B / Ctrl+B), reloads the PDF in place, and lists errors that jump to their line.
 5. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
 
-Out of scope: the visual Markdown editor, Overleaf, the papers library, the Agent panel, canvas, spreadsheet, slides, live preview and i18n.
+Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent panel, canvas, spreadsheet, slides, live preview and i18n.
+
+## License
+
+This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, workspace).
+`crates/tex`, `compat/` and `patches/` are Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE); `patches/gpui_macos/LICENSE-APACHE` for Zed's copyright).
+Everything outside `gpui/`, the Tauri app and the backend crate the two apps will share included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it
 
 ```sh
+cd gpui
 script/fetch-pdfium                      # PDFium chromium/8125, SHA-256 checked, into vendor/
 cargo run --release -- path/to/project   # opens main.tex (or the .tex with \documentclass)
 ```
@@ -25,8 +32,10 @@ Requirements:
 - Rust 1.99.1 (`rust-toolchain.toml`; Zed at the pinned revision asks for 1.98.1).
 - A TeX distribution with `latexmk` (MacTeX, TeX Live, MiKTeX or TinyTeX); it is found the way Lattice finds it, so a GUI launch without `/Library/TeX/texbin` on `PATH` still works.
 - macOS: the Command Line Tools are enough, because GPUI compiles its Metal shaders at run time (`runtime_shaders`).
-- Windows: MSVC, and `script/fetch-pdfium.ps1` for `pdfium.dll`.
-  The Windows build is type-checked from macOS (`script/check-windows`) but has not been built or run on Windows.
+- Windows: MSVC, and `script/fetch-pdfium.ps1` for `pdfium.dll`. MiKTeX's `latexmk` needs Perl.
+  `script/check-windows` type-checks the Windows build from macOS.
+
+The first build fetches Zed at the pinned revision and compiles about 1,200 crates, with 3–5 GB of build output.
 
 | Shortcut | Action |
 |---|---|
@@ -38,14 +47,22 @@ Requirements:
 
 The toolbar's "Vim" button turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` starts with it on.
 
+## CI
+
+`.github/workflows/gpui.yml` runs only when `gpui/**` or the workflow itself changes.
+On macOS and Windows it builds the app, runs the unit tests (including the latexmk test that is ignored by default) and the `e2e` scenario on `fixtures/e2e`.
+macOS builds with BasicTeX; Windows builds with MiKTeX, and a second Windows job runs the TeX tests against TeX Live.
+The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-install prompts are checked by hand; CI cannot drive them.
+
 ## How it is put together
 
 ```
 crates/lattice-gpui   the app: shell (toolbar + dock), file tree, editor panel,
                       PDF panel (PDFium on its own thread), build panel,
                       LaTeX language, scripted scenarios (macOS)
-crates/tex            TeX discovery, latexmk runs, log diagnostics (from Lattice)
+crates/tex            TeX discovery, latexmk runs, log diagnostics (from ../src-tauri)
 compat/gpui-pre       four shims that put GPUI Kit on Zed's GPUI
+fixtures/e2e          the project the e2e scenario runs on (copy it first)
 patches/gpui_macos    Zed's gpui_macos with one lab-only switch
 experiments/          how to run the same app on gpui-fast
 ```
@@ -56,7 +73,6 @@ GPUI Kit 0.9.1 depends on the `gpui-pre` 0.3.12 snapshot, which is Zed's GPUI at
 The workspace pins Zed's crates (the editor, search, Vim, settings, themes, GPUI) at that same commit.
 Cargo would still build two GPUIs, because the packages have different names, so the shims in `compat/gpui-pre` carry the snapshot names and version and re-export Zed's crates, and `[patch.crates-io]` swaps them in.
 `Cargo.lock` is seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
-The full write-up of this, the first question the prototype had to answer, is in the firstmate home under `data/lattice-gpui-prototype/spike.md`.
 
 ### The LaTeX language
 
@@ -75,11 +91,14 @@ Pages are laid out from their sizes at once and drawn only near the viewport; im
 The engine follows a `% !TEX program =` comment or a CJK/fontspec package.
 The log parser is Lattice's `parse_diagnostics`, without Lattice's translated advice.
 
-## Scripted runs (macOS)
+## Scripted runs
 
 ```sh
-target/release/lattice-gpui PROJECT --scenario e2e|perf|memory|ime|ime-protocol --out RESULT.json
+cp -R fixtures/e2e /tmp/lattice-gpui-e2e        # the scenario edits and builds its project
+target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
+
+`e2e` runs on macOS and Windows; `perf`, `memory`, `ime` and `ime-protocol` are macOS only.
 
 - `e2e`: opens a project, builds, types a broken macro with native key events, saves with ⌘S, builds, follows the error to its line, searches, checks Vim's `x`, repairs and rebuilds, and drags an editor tab into the right dock with native mouse events.
   It needs `chapters/intro.tex` in the project.
@@ -88,7 +107,8 @@ target/release/lattice-gpui PROJECT --scenario e2e|perf|memory|ime|ime-protocol 
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
 - `ime-protocol`: makes the `NSTextInputClient` calls an input method makes (marked text per keystroke, then the commit) directly on the view.
 
-Input is sent the way Lattice's perf lab sends it (`src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
+On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
+On Windows, keys are posted to the window's message queue, so GPUI's own message loop translates them as it does typed keys, and mouse messages are sent to the window procedure; neither needs the window in front.
 Set `GPUI_LAB_IGNORE_OCCLUSION=1` for measurements: like Lattice's lab, which measures WebKit in windows never composited on the console screen, the window then renders at full rate when nothing of it is visible.
 See `patches/gpui_macos/PATCH.md`.
 
@@ -111,11 +131,7 @@ Only GPUI Kit, Zed's crates, pdfium-render and the LaTeX grammar are dependencie
 | [pdfium-render](https://crates.io/crates/pdfium-render) 0.9.5 | MIT OR Apache-2.0 | none | dependency |
 | [PDFium binaries](https://github.com/bblanchon/pdfium-binaries) chromium/8125 | BSD-3-Clause and bundled notices | none | downloaded by `script/fetch-pdfium` |
 | [tree-sitter-latex](https://github.com/latex-lsp/tree-sitter-latex) (`codebook-tree-sitter-latex` 0.6.1) | MIT | none | dependency |
-| Lattice v0.16.13 (`projects/lattice`) | Apache-2.0 | none | code adapted into `crates/tex` |
+| Lattice v0.16.13 (`../src-tauri`) | Apache-2.0 | none | code adapted into `crates/tex` |
 
 tldraw is not used.
 
-## License
-
-The app links GPL-3.0-or-later crates from Zed, so the prototype as a whole is GPL-3.0-or-later (`LICENSE-GPL`).
-`crates/tex`, `compat/` and `patches/` are Apache-2.0 (`LICENSE-APACHE`; `patches/gpui_macos/LICENSE-APACHE` for Zed's copyright).

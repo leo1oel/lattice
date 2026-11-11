@@ -89,4 +89,4 @@ Lattice 不自带模型，也没有自己的 AI 订阅。
 
 ## 致谢与许可
 
-致谢（包括 Inkeep 的 [Open Knowledge](https://github.com/inkeep/open-knowledge)，Lattice 早期可视化 Markdown 编辑器的起点）与许可条款（Apache-2.0，以及 tldraw 和 Trellis 各自的条款）以 [English README](README.md#acknowledgements) 为准。
+致谢（包括 Inkeep 的 [Open Knowledge](https://github.com/inkeep/open-knowledge)，Lattice 早期可视化 Markdown 编辑器的起点）与许可条款（Apache-2.0，以及 tldraw 和 Trellis 各自的条款；`gpui/` 中的 GPUI 预览版为 GPL-3.0-or-later）以 [English README](README.md#acknowledgements) 为准。

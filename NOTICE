@@ -2,6 +2,8 @@ Lattice
 Copyright 2026 Leonardo and the Lattice contributors
 
 Lattice is licensed under the Apache License, Version 2.0 (see LICENSE).
+The GPUI preview app in gpui/ is a separate program licensed under
+GPL-3.0-or-later (see gpui/LICENSE and gpui/README.md).
 Releases up to and including 0.1.341 were distributed under
 GPL-3.0-or-later and remain available under those terms.
 
