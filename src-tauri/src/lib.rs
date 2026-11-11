@@ -448,6 +448,7 @@ pub fn run() {
             ipc::workspace::open_tutorial_project,
             ipc::workspace::initial_project,
             ipc::workspace::open_project,
+            ipc::workspace::project_shown_elsewhere,
             ipc::workspace::import_project_zip,
             ipc::workspace::export_project_zip,
             ipc::workspace::check_arxiv_package,

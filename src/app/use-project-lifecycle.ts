@@ -309,21 +309,32 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 
   /// Put the project at `path` in this window, beside the one it shows (see
   /// window-projects.ts): what "Open in this window" and the project tabs do.
-  /// Work running in the project left, which the switch would stop, is asked
-  /// about first. True once the project is entered.
+  /// A project another window shows raises that window instead, and a folder
+  /// that is gone is reported, both before anything here is claimed. Work
+  /// running in the project left, which the switch would stop, is asked about
+  /// first. True once the project is entered.
   const switchingRef = useRef(false);
   const openInThisWindow = useCallback(async (path: string, onError?: () => void) => {
     const leaving = projectRef.current;
     if (path === leaving?.root) return true;
-    if (switchingRef.current) return false;
+    if (switchingRef.current || projectBeforeTransitionRef.current) return false;
     switchingRef.current = true;
     try {
+      const elsewhere = await invoke<boolean>("project_shown_elsewhere", { path }).catch((reason: unknown) => {
+        onError?.();
+        showError(toMessage(reason));
+        return null;
+      });
+      if (elsewhere !== false) {
+        if (elsewhere) await openProjectWindow(path);
+        return false;
+      }
       if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) return false;
       return await switchProject(leaving ? t`Switching project…` : t`Opening project…`, path, onError);
     } finally {
       switchingRef.current = false;
     }
-  }, [building, projectRef, switchProject, t]);
+  }, [building, openProjectWindow, projectBeforeTransitionRef, projectRef, switchProject, t]);
 
   /// Open a folder that is already on disk — the local copy of an Overleaf
   /// project — wherever the writer will find it: the window showing it is

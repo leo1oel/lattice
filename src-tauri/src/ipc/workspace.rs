@@ -142,10 +142,26 @@ pub async fn open_project(
         .await
 }
 
+/// Whether a window other than this one shows the project at `path`, without
+/// opening it: a switch asks first, so one that cannot land in this window
+/// leaves the project here untouched. A folder that is gone fails as
+/// `open_project` would.
+#[tauri::command]
+pub fn project_shown_elsewhere(
+    state: State<'_, AppState>, window: Window, path: String,
+) -> Result<bool, String> {
+    let root = project::folder_root(Path::new(&path))?;
+    Ok(shown_elsewhere(&state, window.label(), &root))
+}
+
+fn shown_elsewhere(state: &AppState, label: &str, root: &Path) -> bool {
+    state.window_showing(root).is_some_and(|showing| showing != label)
+}
+
 /// One project shows in one window: its own editor buffers, build and Overleaf
 /// connection. The app matches this answer to raise that window instead.
 fn ensure_not_shown_elsewhere(state: &AppState, label: &str, root: &Path) -> Result<(), String> {
-    if state.window_showing(root).is_some_and(|showing| showing != label) {
+    if shown_elsewhere(state, label, root) {
         return Err(
             "This project is already open in another Lattice window. Open it in the browser from that window instead."
                 .to_string(),
