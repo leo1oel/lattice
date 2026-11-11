@@ -1,0 +1,31 @@
+[package]
+name = "gpui-pre"
+version = "0.3.12"
+description = "Zed's in-tree `gpui` under the name and version of the gpui-pre snapshot GPUI Kit pins."
+edition.workspace = true
+publish.workspace = true
+license = "Apache-2.0"
+
+[lib]
+name = "gpui"
+path = "lib.rs"
+doctest = false
+
+[features]
+default = ["zed_gpui/default"]
+bench = ["zed_gpui/bench"]
+bench-support = ["zed_gpui/bench-support"]
+font-kit = ["zed_gpui/font-kit"]
+hot-reload = ["zed_gpui/hot-reload"]
+inspector = ["zed_gpui/inspector"]
+leak-detection = ["zed_gpui/leak-detection"]
+profiler = ["zed_gpui/profiler"]
+screen-capture = ["zed_gpui/screen-capture"]
+stacker = ["zed_gpui/stacker"]
+test-support = ["zed_gpui/test-support"]
+wayland = ["zed_gpui/wayland"]
+windows-manifest = ["zed_gpui/windows-manifest"]
+x11 = ["zed_gpui/x11"]
+
+[dependencies]
+zed_gpui = { package = "gpui", git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b", default-features = false }

@@ -1,0 +1,6 @@
+Parts of this crate are adapted from Lattice (src-tauri/src/commands.rs,
+src-tauri/src/latex.rs, src-tauri/src/latex/build.rs and
+src-tauri/src/latex/build_log.rs at f5ef67c27).
+
+Copyright 2026 Leonardo and the Lattice contributors.
+Licensed under the Apache License, Version 2.0.

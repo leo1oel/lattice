@@ -1,0 +1,12 @@
+name = "LaTeX"
+grammar = "latex"
+path_suffixes = ["tex", "sty", "cls", "ltx", "bbx", "cbx", "dtx"]
+line_comments = ["% "]
+autoclose_before = ";:.,=}])>"
+brackets = [
+    { start = "{", end = "}", close = true, newline = false },
+    { start = "[", end = "]", close = true, newline = false },
+    { start = "(", end = ")", close = true, newline = false },
+]
+word_characters = ["\\", "@"]
+soft_wrap = "editor_width"
