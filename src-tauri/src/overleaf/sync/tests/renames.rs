@@ -365,6 +365,55 @@ fn a_rename_of_a_file_lattice_just_uploaded_carries_the_edit() {
     assert_eq!(uploaded_names(&server), ["approach.tex"], "the old name never goes up");
 }
 
+/// Lattice's last write to `method.tex` was a live-editor checkpoint, placed
+/// only by time, so it reaches over every update of the co-author's around
+/// it. Only an add of the file can be Lattice's own upload: the co-author's
+/// rename and removal still count, so a plain rename carries the edit, a
+/// removal and restore before the rename holds it, and neither sends the
+/// old name up.
+#[test]
+fn lattices_own_write_never_hides_a_co_authors_rename_or_removal() {
+    let restored_then_renamed = vec![
+        json!({ "atV": 41, "remove": { "pathname": "sections/method.tex" } }),
+        json!({ "atV": 41, "add": { "pathname": "sections/method.tex" } }),
+        rename(42, "sections/method.tex", "sections/approach.tex"),
+    ];
+    let cases = [
+        ("renamed", renamed_on_overleaf(REFINED, false), Some(MERGED)),
+        (
+            "restored, then renamed",
+            { overleaf_after(restored_then_renamed, &[("sections/approach.tex", REFINED)]) },
+            None,
+        ),
+    ];
+    for (label, mock, carried) in cases {
+        let server = mock.serve();
+        let base: Files = &[("main.tex", MAIN), ("sections/method.tex", METHOD)];
+        let (config, root) =
+            linked(&server, &[("main.tex", MAIN), ("sections/method.tex", AGENT)], base);
+        agreed_at_41(&root);
+        edit_state(&root, |state| {
+            state.own_writes.insert("sections/method.tex".into(), HistoryFrom::Time(0));
+        });
+
+        let result = sync(&config, &root, NO_LIVE, None).unwrap();
+        assert!(!uploaded_names(&server).contains(&"method.tex".to_string()), "{label}");
+        match carried {
+            Some(merged) => {
+                assert!(result.held_renames.is_empty(), "{label}");
+                let approach = read_local(&root, "sections/approach.tex");
+                assert_eq!(approach.as_deref(), Some(merged), "{label}");
+                assert_eq!(uploaded_names(&server), ["approach.tex"], "{label}");
+            }
+            None => {
+                assert_eq!(result.held_renames, ["sections/method.tex"], "{label}");
+                let method = read_local(&root, "sections/method.tex");
+                assert_eq!(method.as_deref(), Some(AGENT), "{label}");
+            }
+        }
+    }
+}
+
 /// Renames on Overleaf that a disk ignoring letter case could read as one
 /// file deleted and the same file pulled: a file's name changed in case only
 /// with no history to say so, a folder's with a file in it edited here, and

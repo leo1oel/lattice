@@ -77,6 +77,7 @@ impl Renames {
 /// One tree operation in Overleaf's history.
 enum TreeOp {
     Rename(String, String),
+    Add(String),
     Other(String),
 }
 
@@ -90,7 +91,7 @@ impl TreeOp {
     fn names(&self, path: &str) -> bool {
         match self {
             TreeOp::Rename(from, to) => covers(from, path) || covers(to, path),
-            TreeOp::Other(named) => covers(named, path),
+            TreeOp::Add(named) | TreeOp::Other(named) => covers(named, path),
         }
     }
 }
@@ -146,7 +147,9 @@ fn tree_ops(history: &[HistoryUpdate]) -> Vec<Placed<'_>> {
                 |kind: &str, key: &str| op.get(kind).and_then(|body| json_str(body, &[key]));
             let tree = if let Some(path) = field("rename", "pathname") {
                 TreeOp::Rename(path, field("rename", "newPathname").unwrap_or_default())
-            } else if let Some(path) = field("remove", "pathname").or(field("add", "pathname")) {
+            } else if let Some(path) = field("add", "pathname") {
+                TreeOp::Add(path)
+            } else if let Some(path) = field("remove", "pathname") {
                 TreeOp::Other(path)
             } else {
                 continue;
@@ -262,13 +265,17 @@ pub(super) fn remote_renames(
         }
     };
     let ops = tree_ops(&history);
-    // What happened to `path` since its window, as far as anyone but Lattice
-    // goes: its own upload of the file is no other name for it.
+    // What happened to `path` since its window: Lattice's own upload of the
+    // file, an add of that very path, is no other name for it.
     let seen = |path: &String| -> Vec<&TreeOp> {
         let (from, own) = (window(path), state.own_writes.get(path).copied());
+        let own_upload = |placed: &&Placed| {
+            matches!(&placed.op, TreeOp::Add(added) if added == path)
+                && own.is_some_and(|own| placed.update.within(own))
+        };
         (ops.iter())
             .filter(|placed| placed.after(from))
-            .filter(|placed| !own.is_some_and(|own| placed.update.within(own)))
+            .filter(|placed| !own_upload(placed))
             .map(|placed| &placed.op)
             .collect()
     };
