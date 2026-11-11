@@ -44,6 +44,7 @@ on:
       - ".github/scripts/smoke-appimage.sh"
       - ".github/scripts/unbundle-wayland-client.sh"
       - ".github/scripts/apt-install.sh"
+      - ".github/scripts/ubuntu-mirrors.sh"
       - "scripts/linux-e2e.mjs"
       - "scripts/check-font-leaks.mjs"
       - "scripts/lib/runtime-prune.mjs"
@@ -232,15 +233,30 @@ jobs:
       - name: Smoke on ${{ matrix.image }}
         env:
           APPIMAGE: ${{ runner.temp }}/appimage/${{ needs.build.outputs.appimage }}
+          IMAGE: ${{ matrix.image }}
+        # The Ubuntu guests install from a mirror the host just reached (the
+        # host's CA bundle lets their apt use an HTTPS one), so an outage of
+        # the *.ubuntu.com mirrors their images name doesn't fail the smoke.
         run: |
+          mirror=""
+          if [[ "$IMAGE" == ubuntu:* ]]; then
+            mirror=$(.github/scripts/ubuntu-mirrors.sh | head -n 1)
+          fi
           docker run --rm \
+            -e UBUNTU_MIRROR="$mirror" \
+            -v /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro \
             -v "$APPIMAGE:/artifact.AppImage:ro" \
             -v "$GITHUB_WORKSPACE/.github/scripts/smoke-appimage.sh:/smoke.sh:ro" \
-            "${{ matrix.image }}" \
+            "$IMAGE" \
             bash -c '
               set -euo pipefail
               if command -v apt-get >/dev/null; then
-                apt-get update -qq
+                for list in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+                  if [[ -n "$UBUNTU_MIRROR" && -f "$list" ]]; then
+                    sed -i -E "s#http://(archive|security)\.ubuntu\.com/ubuntu/?#$UBUNTU_MIRROR#g" "$list"
+                  fi
+                done
+                apt-get -o Acquire::Retries=3 update -qq
                 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
                   file findutils libgtk-3-0 libegl1 libgl1 libgles2 libgbm1 xauth xvfb >/dev/null
               else

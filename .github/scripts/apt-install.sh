@@ -36,33 +36,9 @@ done
 shopt -u nullglob
 
 # The runner's Ubuntu sources read `mirror+file:/etc/apt/apt-mirrors.txt`,
-# which names only Azure's mirror. On 2026-11-11 plain-HTTP fetches from both
-# azure.archive.ubuntu.com and archive.ubuntu.com timed out on every attempt,
-# so each candidate is probed (HTTPS ones included) and the ones that answer
-# become the mirror list, in this order. The probe results stay in the log.
-# shellcheck source=/dev/null
-codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
-candidates=(
-  http://azure.archive.ubuntu.com/ubuntu/
-  https://azure.archive.ubuntu.com/ubuntu/
-  http://archive.ubuntu.com/ubuntu/
-  https://mirrors.edge.kernel.org/ubuntu/
-  https://mirror.us.leaseweb.net/ubuntu/
-  https://mirrors.ocf.berkeley.edu/ubuntu/
-)
-mirrors=()
-for mirror in "${candidates[@]}"; do
-  if curl -fsS -4 --max-time 10 -o /dev/null "${mirror}dists/${codename}/InRelease"; then
-    echo "mirror ok:   $mirror"
-    mirrors+=("$mirror")
-  else
-    echo "mirror down: $mirror"
-  fi
-done
-if ((${#mirrors[@]} == 0)); then
-  echo "::error::no Ubuntu mirror answered"
-  exit 1
-fi
+# which names only Azure's mirror; list the mirrors that answer instead.
+mapfile -t mirrors < <("$(dirname "$0")/ubuntu-mirrors.sh")
+if ((${#mirrors[@]} == 0)); then exit 1; fi
 if [[ -f /etc/apt/apt-mirrors.txt ]]; then
   printf '%s\n' "${mirrors[@]}" | sudo tee /etc/apt/apt-mirrors.txt
 fi
