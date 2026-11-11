@@ -72,7 +72,7 @@ describe("workflow document choices", () => {
     act(() => controller.setPreset("writing"));
     expect(activate).toHaveBeenLastCalledWith("notes.md");
     expect(ws.views({ type: "file" }).map(view => view.params.key).sort()).toEqual(["main.tex", "notes.md", "references.bib"]);
-    expect(screen.getByRole("button", { name: "Choose layout" })).toHaveTextContent("Writing");
+    expect(controller.ui.get().preset).toBe("writing");
   });
 });
 

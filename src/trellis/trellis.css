@@ -1,7 +1,7 @@
 /* Trellis workspace: Trellis's chrome drawn in Lattice's design
    language. Trellis rules are all :where(), so any selector here wins. */
 
-.workspace.trellis-workspace { display: flex; flex-direction: column; background: var(--surface-shell); padding: 0 var(--space-3) var(--space-3); }
+.workspace.trellis-workspace { display: flex; background: var(--surface-shell); padding: 0 var(--space-3) var(--space-3); }
 .workspace.trellis-workspace > .lattice-trellis { flex: 1 1 0; min-width: 0; min-height: 0; }
 
 /* Lattice positions selection toolbars, popovers and drawers with
@@ -844,11 +844,3 @@
     min(var(--trellis-rail-clearance), calc(var(--trellis-rail-clearance) - (100% - var(--lx-md-measure) - 2 * var(--space-12)) / 2))
   );
 }
-
-/* Workflow layouts share one quiet global footer, independent of the active document. */
-.workflow-layout-bar { flex: none; display: flex; align-items: center; min-height: var(--control-height-compact); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); }
-.workflow-layout-trigger { display: inline-flex; align-items: center; gap: var(--space-2); max-width: 100%; min-width: 0; border: 0; border-radius: var(--radius-control); padding: var(--space-1) var(--space-3); background: transparent; color: inherit; font-family: var(--ui-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); cursor: pointer; }
-.workflow-layout-trigger:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-.workflow-layout-trigger:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 0; }
-.workflow-layout-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workflow-layout-trigger svg { flex: none; }

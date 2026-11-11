@@ -11,7 +11,6 @@
  * renders nothing at all. Decks are the exception: each open one keeps its
  * own live host (see DeckSlot in trellis-document-views.tsx).
  */
-import { WorkflowLayoutSwitch } from "./workflow-layout-switch";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
@@ -591,7 +590,6 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           <WorkspaceEmpty controller={controller} />
         </Workspace.Empty>
       </Workspace>
-      <WorkflowLayoutSwitch controller={controller} />
       {menu && <PanelMenu request={menu} open={menuOpen} onDismiss={dismissMenu} onClose={closeMenu} />}
     </SnapshotProjectContext.Provider>
   );

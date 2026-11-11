@@ -83,7 +83,6 @@ describe("titlebar panel controls in a narrow window", () => {
     expect(within(presets).getByRole("button", { name: "New workspace" })).toBeInTheDocument();
 
     const panels = screen.getByRole("button", { name: "Panels" });
-    // The trigger keeps its name with only its icon left.
     expect(panels.querySelector("span")).toHaveTextContent("Panels");
     fireEvent.pointerDown(panels, { button: 0, ctrlKey: false, pointerType: "mouse" });
     const menu = within(screen.getByRole("menu"));
@@ -94,10 +93,10 @@ describe("titlebar panel controls in a narrow window", () => {
       expect(menu.getByRole("menuitem", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
     expect(menu.getAllByRole("menuitemradio").map((item) => [item.textContent, item.getAttribute("aria-checked")])).toEqual([
-      ["Workspace⌘1", "true"], ["Writing", "false"], ["Reading", "false"],
+      ["Workspace⌘1", "true"], ["Writing", "false"], ["Reading", "false"], ["Bibliography", "false"],
     ]);
-    fireEvent.click(menu.getByRole("menuitemradio", { name: "Reading" }));
-    expect(chosen).toEqual(["reading"]);
+    fireEvent.click(menu.getByRole("menuitemradio", { name: "Bibliography" }));
+    expect(chosen).toEqual(["bibliography"]);
   });
 });
 
