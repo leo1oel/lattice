@@ -34,8 +34,9 @@ env:
 
 # Everything builds in the release profile, as users run it: a dev build of
 # Zed's assets crate reads its files from the Zed checkout at run time instead
-# of embedding them, and finds none from this workspace. A cold release build
-# takes about 20 minutes on either runner.
+# of embedding them, and finds none from this workspace. Cold, the release
+# build took 31 minutes on macOS and 28 on Windows (2026-11-11); everything
+# after it takes about two.
 #
 # The Rust caches are written from main only, and only when their key (the
 # lockfile, the toolchain, this job) changes, because the repository's 10 GB
