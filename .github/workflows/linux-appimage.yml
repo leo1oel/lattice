@@ -43,6 +43,8 @@ on:
       - ".github/workflows/linux-appimage.yml"
       - ".github/scripts/smoke-appimage.sh"
       - ".github/scripts/unbundle-wayland-client.sh"
+      - ".github/scripts/apt-install.sh"
+      - ".github/scripts/ubuntu-mirrors.sh"
       - "scripts/linux-e2e.mjs"
       - "scripts/check-font-leaks.mjs"
       - "scripts/lib/runtime-prune.mjs"
@@ -81,12 +83,12 @@ jobs:
       # with patchelf, sniffs files with `file`, and copies the host's xdg-open;
       # and squashfs-tools, to rebuild the AppImage without libwayland-client.
       - name: Install the Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential libayatana-appindicator3-dev libdbus-1-dev \
-            librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config \
-            file libfuse2 patchelf squashfs-tools xdg-utils
+        timeout-minutes: 15
+        run: >-
+          .github/scripts/apt-install.sh
+          build-essential libayatana-appindicator3-dev libdbus-1-dev
+          librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+          file libfuse2 patchelf squashfs-tools xdg-utils
 
       - uses: ./.github/actions/setup-pnpm
 
@@ -231,15 +233,30 @@ jobs:
       - name: Smoke on ${{ matrix.image }}
         env:
           APPIMAGE: ${{ runner.temp }}/appimage/${{ needs.build.outputs.appimage }}
+          IMAGE: ${{ matrix.image }}
+        # The Ubuntu guests install from a mirror the host just reached (the
+        # host's CA bundle lets their apt use an HTTPS one), so an outage of
+        # the *.ubuntu.com mirrors their images name doesn't fail the smoke.
         run: |
+          mirror=""
+          if [[ "$IMAGE" == ubuntu:* ]]; then
+            mirror=$(.github/scripts/ubuntu-mirrors.sh | head -n 1)
+          fi
           docker run --rm \
+            -e UBUNTU_MIRROR="$mirror" \
+            -v /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro \
             -v "$APPIMAGE:/artifact.AppImage:ro" \
             -v "$GITHUB_WORKSPACE/.github/scripts/smoke-appimage.sh:/smoke.sh:ro" \
-            "${{ matrix.image }}" \
+            "$IMAGE" \
             bash -c '
               set -euo pipefail
               if command -v apt-get >/dev/null; then
-                apt-get update -qq
+                for list in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+                  if [[ -n "$UBUNTU_MIRROR" && -f "$list" ]]; then
+                    sed -i -E "s#http://(archive|security)\.ubuntu\.com/ubuntu/?#$UBUNTU_MIRROR#g" "$list"
+                  fi
+                done
+                apt-get -o Acquire::Retries=3 update -qq
                 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
                   file findutils libgtk-3-0 libegl1 libgl1 libgles2 libgbm1 xauth xvfb >/dev/null
               else
@@ -267,11 +284,11 @@ jobs:
       # the AppImage bundles. TeX Live builds the tutorial, which uses natbib,
       # lineno, microtype and booktabs.
       - name: Install the test dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            webkit2gtk-driver xvfb libfuse2 dbus-x11 \
-            latexmk texlive-latex-extra texlive-fonts-recommended
+        timeout-minutes: 20
+        run: >-
+          .github/scripts/apt-install.sh
+          webkit2gtk-driver xvfb libfuse2 dbus-x11
+          latexmk texlive-latex-extra texlive-fonts-recommended
       - name: Install tauri-driver
         run: cargo install tauri-driver --version 2.1.0 --locked
       # A first launch in a fresh home opens the tutorial and builds it.
