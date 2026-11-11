@@ -1,5 +1,6 @@
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { history, standardKeymap, undo } from "@codemirror/commands";
-import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { EditorSelection, EditorState, Prec, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, keymap, runScopeHandlers } from "@codemirror/view";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { latex } from "../latex-language";
@@ -11,6 +12,10 @@ import { environmentIndex } from "./visual-environments";
 import { scanConstructs } from "./visual-scan";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => "") }));
+// Lattice runs on macOS, and CodeMirror reads the platform once, when it loads: its keymaps here are the Mac ones.
+vi.hoisted(() => {
+  Object.defineProperty(navigator, "platform", { value: "MacIntel", configurable: true });
+});
 
 const views: EditorView[] = [];
 afterEach(() => views.splice(0).forEach((view) => view.destroy()));
@@ -87,7 +92,7 @@ describe("LaTeX Visual mode", () => {
   });
 
   /** Presses `key` in the editor, through its keymaps. */
-  const press = (view: EditorView, key: string) => runScopeHandlers(view, new KeyboardEvent("keydown", { key }), "editor");
+  const press = (view: EditorView, key: string, ctrlKey = false) => runScopeHandlers(view, new KeyboardEvent("keydown", { key, ctrlKey }), "editor");
   /** Whether every `}` closes a `{` and every `{` is closed. */
   const balanced = (source: string) => {
     let depth = 0;
@@ -111,16 +116,17 @@ describe("LaTeX Visual mode", () => {
     const start = 2 + open.length;
     const end = start + content.length;
     // Backspace and Delete step over a hidden token to the nearest visible character; selections unwrap or delete whole.
+    // `typed`: the text after then typing "s", which shows the caret stayed on its side of the hidden tokens.
     const cases = [
-      { name: "Backspace just after the hidden }", anchor: end + 1, head: end + 1, key: "Backspace", expected: `A ${open}${content.slice(0, -1)}} B` },
-      { name: "Backspace at the content's start", anchor: start, head: start, key: "Backspace", expected: `A${open}${content}} B` },
-      { name: "Delete at the content's end", anchor: end, head: end, key: "Delete", expected: `A ${open}${content}}B` },
-      { name: "Delete before the hidden opening", anchor: 2, head: 2, key: "Delete", expected: `A ${open}${content.slice(1)}} B` },
-      { name: "deleting a selection over all of it", anchor: 2, head: end + 1, key: "Backspace", expected: "A  B" },
-      { name: "deleting a selection over its opening", anchor: 2, head: start + 1, key: "Backspace", expected: `A ${content.slice(1)} B` },
-      { name: "deleting a selection over its closing", anchor: end - 1, head: end + 1, key: "Delete", expected: `A ${content.slice(0, -1)} B` },
+      { name: "Backspace just after the hidden }", anchor: end + 1, head: end + 1, key: "Backspace", expected: `A ${open}${content.slice(0, -1)}} B`, typed: `A ${open}${content.slice(0, -1)}}s B` },
+      { name: "Backspace at the content's start", anchor: start, head: start, key: "Backspace", expected: `A${open}${content}} B`, typed: `A${open}s${content}} B` },
+      { name: "Delete at the content's end", anchor: end, head: end, key: "Delete", expected: `A ${open}${content}}B`, typed: `A ${open}${content}s}B` },
+      { name: "Delete before the hidden opening", anchor: 2, head: 2, key: "Delete", expected: `A ${open}${content.slice(1)}} B`, typed: `A s${open}${content.slice(1)}} B` },
+      { name: "deleting a selection over all of it", anchor: 2, head: end + 1, key: "Backspace", expected: "A  B", typed: null },
+      { name: "deleting a selection over its opening", anchor: 2, head: start + 1, key: "Backspace", expected: `A ${content.slice(1)} B`, typed: null },
+      { name: "deleting a selection over its closing", anchor: end - 1, head: end + 1, key: "Delete", expected: `A ${content.slice(0, -1)} B`, typed: null },
     ];
-    for (const { name, anchor, head, key, expected } of cases) {
+    for (const { name, anchor, head, key, expected, typed } of cases) {
       it(`${JSON.stringify(doc)}: ${name} leaves ${JSON.stringify(expected)}, and one undo restores it`, async () => {
         const view = await visualView(doc, anchor);
         view.dispatch({ selection: { anchor, head } });
@@ -129,23 +135,58 @@ describe("LaTeX Visual mode", () => {
         expect(balanced(view.state.doc.toString())).toBe(true);
         expect(undo(view)).toBe(true);
         expect(view.state.doc.toString()).toBe(doc);
+        if (typed === null) return;
+        view.dispatch({ selection: { anchor, head } });
+        press(view, key);
+        view.dispatch(view.state.replaceSelection("s"));
+        expect(view.state.doc.toString()).toBe(typed);
       });
     }
 
-    it(`${JSON.stringify(doc)}: once emptied, the next Backspace or Delete into it removes it whole`, async () => {
-      const view = await visualView(`A ${open}x} B`, start + 2);
-      expect(press(view, "Backspace")).toBe(true);
-      expect(view.state.doc.toString()).toBe(`A ${open}} B`);
-      expect(press(view, "Backspace")).toBe(true);
-      expect(view.state.doc.toString()).toBe("A  B");
+    it(`${JSON.stringify(doc)}: deleted letter by letter from outside, it empties, and the next key removes it whole`, async () => {
+      const fromAfter = await visualView(`A ${open}ab} B`, start + 3);
+      expect(press(fromAfter, "Backspace")).toBe(true);
+      expect(fromAfter.state.doc.toString()).toBe(`A ${open}a} B`);
+      expect(press(fromAfter, "Backspace")).toBe(true);
+      expect(fromAfter.state.doc.toString()).toBe(`A ${open}} B`);
+      expect(press(fromAfter, "Backspace")).toBe(true);
+      expect(fromAfter.state.doc.toString()).toBe("A  B");
 
-      const emptied = await visualView(`A ${open}} B`, 2);
-      expect(press(emptied, "Delete")).toBe(true);
-      expect(emptied.state.doc.toString()).toBe("A  B");
-      expect(undo(emptied)).toBe(true);
-      expect(emptied.state.doc.toString()).toBe(`A ${open}} B`);
+      const fromBefore = await visualView(`A ${open}ab} B`, 2);
+      expect(press(fromBefore, "Delete")).toBe(true);
+      expect(fromBefore.state.doc.toString()).toBe(`A ${open}b} B`);
+      expect(press(fromBefore, "Delete")).toBe(true);
+      expect(fromBefore.state.doc.toString()).toBe(`A ${open}} B`);
+      expect(press(fromBefore, "Delete")).toBe(true);
+      expect(fromBefore.state.doc.toString()).toBe("A  B");
     });
   }
+
+  it("deletes only the bracket pair of a just-typed empty argument, as Source does, keeping a link's URL", async () => {
+    const brackets = [closeBrackets(), Prec.high(keymap.of(closeBracketsKeymap))];
+    for (const typed of ["A \\href{https://x.org}{} B", "A \\textbf{} B"]) {
+      const view = await visualView(typed, typed.indexOf("{}") + 1, host(), brackets);
+      expect(press(view, "Backspace")).toBe(true);
+      expect(view.state.doc.toString()).toBe(typed.replace("{}", ""));
+    }
+  });
+
+  it("steps over hidden tokens on the Mac's Ctrl-h and Ctrl-d as on Backspace and Delete", async () => {
+    const doc = "A \\textbf{word} B";
+    const view = await visualView(doc, doc.indexOf("} B") + 1);
+    expect(press(view, "h", true)).toBe(true);
+    expect(view.state.doc.toString()).toBe("A \\textbf{wor} B");
+    view.dispatch({ selection: { anchor: 2 } });
+    expect(press(view, "d", true)).toBe(true);
+    expect(view.state.doc.toString()).toBe("A \\textbf{or} B");
+  });
+
+  it("steps over a heading's hidden closing brace too, deleting the visible character before it", async () => {
+    const doc = "\\paragraph{Setup.}\\emph{Note} text";
+    const view = await visualView(doc, doc.indexOf("Note"));
+    expect(press(view, "Backspace")).toBe(true);
+    expect(view.state.doc.toString()).toBe("\\paragraph{Setup}\\emph{Note} text");
+  });
 
   it("numbers a list's items from its top when a scan starts inside a listing in it", async () => {
     const { scanContext } = await import("./latex-visual");

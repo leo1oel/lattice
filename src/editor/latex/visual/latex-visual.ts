@@ -276,23 +276,29 @@ export function latexVisual(host: LatexVisualHost): Extension {
     Prec.highest(keymap.of([
       { key: "Backspace", run: deleteAcrossTokens(field, false), shift: deleteAcrossTokens(field, false) },
       { key: "Delete", run: deleteAcrossTokens(field, true) },
+      { mac: "Ctrl-h", run: deleteAcrossTokens(field, false) },
+      { mac: "Ctrl-d", run: deleteAcrossTokens(field, true) },
     ])),
     unwrapOnDelete(field),
   ];
 }
 
-/** Styled text and links: the constructs whose opening and closing tokens are hidden around text that stays editable. */
-type Wrapper = Extract<Construct, { kind: "style" | "link" }>;
-const wrappers = (value: VisualState) => value.constructs.filter((construct): construct is Wrapper => construct.kind === "style" || construct.kind === "link");
+/** Constructs drawn between an opening and a closing token (styled text, links, headings, captions), whose tokens hide around text that stays editable. */
+type Paired = Extract<Construct, { kind: "style" | "link" | "heading" | "caption" }>;
+const pairedConstructs = (value: VisualState) => value.constructs.filter((construct): construct is Paired => (
+  construct.kind === "style" || construct.kind === "link" || construct.kind === "heading" || construct.kind === "caption"
+));
 
 /**
  * Backspace and Delete as in a word processor: a single character's
- * deletion never removes a hidden token of styled text (`\textbf{`, `}`,
- * `\href{url}{`, `{\bf `). It steps over the hidden tokens next to the caret
- * and deletes the character beyond them (a widget beyond them goes whole),
- * and once styled text is empty, deleting into it removes all of it. Past
- * the start or end of the document there is nothing to delete, and the
- * tokens stay.
+ * deletion never removes a hidden token (`\textbf{`, `}`, `\href{url}{`,
+ * `{\bf `, a heading's braces). It steps over the hidden tokens next to the
+ * caret and deletes the character beyond them (a widget beyond them goes
+ * whole), and the caret stays on its side of the tokens. Once a construct's
+ * content is empty, deleting into it from outside (Backspace just after it,
+ * Delete just before it) removes all of it; from inside, an empty
+ * construct's tokens show, and the deletion is Source's. Past the start or
+ * end of the document there is nothing to delete, and the tokens stay.
  */
 function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): Command {
   return (view) => {
@@ -300,7 +306,7 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
     const value = state.field(field, false);
     const { main } = state.selection;
     if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
-    const pairs = wrappers(value);
+    const pairs = pairedConstructs(value);
     const hidden = (token: Span) => {
       let found = false;
       value.replacements.between(token.from, token.to, (from, to) => {
@@ -310,13 +316,14 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
       return found;
     };
     const remove = (from: number, to: number) => {
-      view.dispatch({ changes: { from, to }, selection: { anchor: from }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
+      const anchor = forward ? main.head : main.head - (to - from);
+      view.dispatch({ changes: { from, to }, selection: { anchor }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
       return true;
     };
     let at = main.head;
     let stepped = false;
     for (;;) {
-      const empty = pairs.find((pair) => pair.open.to === pair.close.from && (at === pair.open.to || at === (forward ? pair.from : pair.to)));
+      const empty = pairs.find((pair) => pair.open.to === pair.close.from && at === (forward ? pair.from : pair.to));
       if (empty) return remove(empty.from, empty.to);
       const token = pairs.flatMap((pair) => [pair.open, pair.close]).find((span) => (forward ? span.from : span.to) === at && hidden(span));
       if (!token) break;
@@ -340,9 +347,9 @@ function deleteAcrossTokens(field: StateField<VisualState>, forward: boolean): C
 
 /**
  * Any other deletion or typing over a selection that removes one token of
- * styled text but leaves the other (a selection over `\textbf{wo`, a word
- * deleted back across a hidden `}`) removes the other too, in the same edit:
- * the content stays unwrapped, and no brace is left unbalanced.
+ * a paired construct but leaves the other (a selection over `\textbf{wo`, a
+ * word deleted back across a hidden `}`) removes the other too, in the same
+ * edit: the content stays unwrapped, and no brace is left unbalanced.
  */
 function unwrapOnDelete(field: StateField<VisualState>): Extension {
   return EditorState.transactionFilter.of((transaction) => {
@@ -356,7 +363,7 @@ function unwrapOnDelete(field: StateField<VisualState>): Extension {
     const covers = (span: Span) => deleted.some(({ from, to }) => from <= span.from && to >= span.to);
     const reaches = (span: Span) => deleted.some(({ from, to }) => from < span.to && to > span.from);
     const orphaned: Span[] = [];
-    for (const { open, close } of wrappers(value)) {
+    for (const { open, close } of pairedConstructs(value)) {
       if (covers(open) && !reaches(close)) orphaned.push(close);
       else if (covers(close) && !reaches(open)) orphaned.push(open);
     }
