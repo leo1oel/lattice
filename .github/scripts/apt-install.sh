@@ -10,8 +10,7 @@
 #   disabled: an outage there can no longer stall `apt-get update`.
 # - apt's own retries and connect/read timeouts catch a slow or dropped
 #   mirror; `timeout` bounds each attempt for stalls apt's timeouts miss.
-# - A failed attempt is retried a bounded number of times (an update that
-#   keeps failing moves off the Azure mirror first), then the step fails.
+# - A failed attempt is retried a bounded number of times, then the step fails.
 set -euo pipefail
 
 if (($# == 0)); then
@@ -35,6 +34,19 @@ for list in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
 done
 shopt -u nullglob
 
+# The runner's Ubuntu sources read `mirror+file:/etc/apt/apt-mirrors.txt`,
+# which names only Azure's mirror; on 2026-11-11 that mirror stopped answering
+# and every fetch timed out. Canonical's archive goes first, Azure stays as a
+# fallback. An image without the mirror list gets its plain Azure URLs
+# rewritten instead.
+if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+  printf '%s\n' http://archive.ubuntu.com/ubuntu/ http://azure.archive.ubuntu.com/ubuntu/ |
+    sudo tee /etc/apt/apt-mirrors.txt
+fi
+if [[ -f /etc/apt/sources.list ]]; then
+  sudo sed -i 's#http://azure\.archive\.ubuntu\.com/#http://archive.ubuntu.com/#g' /etc/apt/sources.list
+fi
+
 retry() {
   local seconds=$1
   shift
@@ -53,11 +65,6 @@ retry() {
   done
 }
 
-if ! retry 180 apt-get "${apt_opts[@]}" update; then
-  # The runner image points at Azure's Ubuntu mirror; fall back to Canonical's.
-  echo "::warning::switching from azure.archive.ubuntu.com to archive.ubuntu.com"
-  sudo sed -i 's#//azure\.archive\.ubuntu\.com#//archive.ubuntu.com#g' /etc/apt/sources.list
-  retry 180 apt-get "${apt_opts[@]}" update
-fi
+retry 180 apt-get "${apt_opts[@]}" update
 retry 600 env DEBIAN_FRONTEND=noninteractive \
   apt-get "${apt_opts[@]}" install -y --no-install-recommends "$@"
