@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-11 against upstream
 `v1.5.1` (`10f7801bfa141df4bab83f3238c65a534d8884fb`), the current integration changes
-**838 files, +85,820 / −9,015 lines** (about 6,000 of the added lines are the zh-CN catalogs,
+**838 files, +85,819 / −8,968 lines** (about 6,000 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -336,7 +336,7 @@ Offline `synara-compact-database` maintenance, Claude Stop and steer ownership f
 
 ## Synara 1.5.1 compatibility
 
-The pin is upstream 1.5.1 (`10f7801bf`) merged with the whole `amp/lattice-v1.1.0-sync` history through fork PR 23. `amp/lattice-v1.5.1-sync` started as upstream's 1.5.1 commit; the Lattice integration reached it through one fork pull request merged with a merge commit, so the branch carries upstream's history unchanged.
+The pin is upstream 1.5.1 (`10f7801bf`) merged with the whole `amp/lattice-v1.1.0-sync` history through fork PR 23 (fork `e7376e88c05af414ef95aabb123c7671eba3c7c3`, [fork PR 24](https://github.com/leo1oel/synara/pull/24)). `amp/lattice-v1.5.1-sync` started as upstream's 1.5.1 commit; the Lattice integration reached it through that one pull request, merged with a merge commit, so the branch carries upstream's history unchanged.
 
 Upstream 1.5.0 made the interface English-only (#2083): it deleted the Spanish and Chinese catalogs and the language preference. The fork keeps zh-CN beside en (`packages/shared/src/uiLocalizationResources.ts`, `UI_LOCALES` = `["en", "zh-CN"]`) and drops Spanish, which Lattice never shipped. The panel switches to the handshake's `?locale=` before its first render (`applyHostLocale` in `apps/web/src/i18n/index.ts`), so it still follows Lattice's language whatever the OS or browser language is, and dates follow that language too; standalone Synara stays English. The zh-CN files follow upstream's English keys again (new `_one`/`_other` plurals, the rewritten onboarding, analytics and public-profile strings), keep the `lattice` namespace and the 35 `latticeZhOverrides.json` terms, and `bun run i18n:check` passes with zh-CN registered. Two panel texts that were English in the Chinese panel are now translated: the change card's Undo confirmation and the Claude credential notice on Settings → Agent → Usage & limits.
 
