@@ -1,0 +1,36 @@
+{
+  "version": "0.16.13",
+  "date": "2026-11-11",
+  "highlights": [
+    {
+      "title": {
+        "en": "Long sessions stay fast",
+        "zh": "长时间使用依然流畅"
+      },
+      "body": {
+        "en": "Switching between files no longer leaves editor style rules behind, so the window stops getting slower and heavier over a long session. In a test of 313 file switches, the window's CSS rules grew from 6806 to 12294 before this fix and from 6787 to 6795 now. Idle CPU use was already low after v0.16.11 and is unchanged here.",
+        "zh": "切换文件时不再遗留编辑器样式规则，窗口不会在长时间使用后变慢、变重。在 313 次文件切换的测试中，窗口的 CSS 规则数此前从 6806 增长到 12294，现在从 6787 仅增长到 6795。v0.16.11 之后空闲 CPU 占用本已很低，此版本没有变化。"
+      }
+    },
+    {
+      "title": {
+        "en": "PDF rebuilds no longer restyle the whole window",
+        "zh": "重新编译 PDF 不再重算整个窗口的样式"
+      },
+      "body": {
+        "en": "In a test of 15 rebuilds, window-wide restyles dropped from 32 to 0.",
+        "zh": "在 15 次重新编译的测试中，整窗样式重算从 32 次降为 0 次。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Windows: presentation (deck) build errors point at the right file and line, and the presentation runtime is staged on Windows. Thanks to @skytheacademic.",
+      "zh": "Windows：演示文稿（deck）的编译错误会指向正确的文件和行号，演示运行时也会在 Windows 上准备就绪。感谢 @skytheacademic。"
+    },
+    {
+      "en": "Linux: programs started from the AppImage (the terminal, TeX tools and AI agents) get the host's environment instead of the AppImage's bundled one. Thanks to @stefanbringuier.",
+      "zh": "Linux：从 AppImage 启动的程序（终端、TeX 工具和 AI 助手）使用主机的环境，而不是 AppImage 自带的环境。感谢 @stefanbringuier。"
+    }
+  ]
+}
