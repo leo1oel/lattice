@@ -151,6 +151,24 @@ describe("projects in this window", () => {
     expect(invokeCalls("open_tutorial_project")).toHaveLength(0);
   });
 
+  it("shows the switch under way while it checks its project, and drops it when another window has it", async () => {
+    setAutoBuildMode("manual");
+    rememberRecents();
+    const lookup = deferred<boolean>();
+    renderApp({
+      ...projectCommands(snapshots[ROOT]), open_project: openProject, project_shown_elsewhere: () => lookup.promise,
+      open_project_window: () => ({ label: "project-1", focusedExisting: true }),
+    });
+    await openNotesHere();
+    await expectInvoked("project_shown_elsewhere", { path: NOTES });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Switch project" }), { button: 0, pointerType: "mouse" });
+    expect(await screen.findByText("Switching project…")).toBeInTheDocument();
+    lookup.resolve(true);
+    await expectInvoked("open_project_window", { path: NOTES });
+    await waitFor(() => expect(screen.queryByText("Switching project…")).toBeNull());
+    expect(invokeCalls("open_project")).toHaveLength(0);
+  });
+
   it("leaves the project here untouched when the folder asked for is gone, and forgets it", async () => {
     setAutoBuildMode("manual");
     rememberRecents();

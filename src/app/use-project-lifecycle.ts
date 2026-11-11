@@ -329,17 +329,23 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     if (path === leaving?.root) return true;
     if (projectBeforeTransitionRef.current) return false;
     return holdWindow(false, async () => {
+      const label = leaving ? t`Switching project…` : t`Opening project…`;
+      setBusyLabel(label);
       const elsewhere = await invoke<boolean>("project_shown_elsewhere", { path }).catch((reason: unknown) => {
         onError?.();
         showError(toMessage(reason));
         return null;
       });
       if (elsewhere !== false) {
+        setBusyLabel(null);
         if (elsewhere) await openProjectWindow(path);
         return false;
       }
-      if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) return false;
-      return switchProject(leaving ? t`Switching project…` : t`Opening project…`, path, onError);
+      if (leaving && !await (await loadLeaveProject()).confirmLeavingProject(leaving.manifest.name, building)) {
+        setBusyLabel(null);
+        return false;
+      }
+      return switchProject(label, path, onError);
     });
   }, [building, holdWindow, openProjectWindow, projectBeforeTransitionRef, projectRef, switchProject, t]);
 
