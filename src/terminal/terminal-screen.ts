@@ -45,7 +45,7 @@ export type XtermScreen = TerminalScreen & {
 
 /** The terminal's own keys stay out of xterm.js, so the window sees them. */
 function isWindowKey(event: KeyboardEvent): boolean {
-  return event.ctrlKey && !event.metaKey && event.key === TERMINAL_TOGGLE_KEY.key;
+  return event.ctrlKey && !event.metaKey && (event.key === TERMINAL_TOGGLE_KEY.key || event.key === "Tab");
 }
 
 export function createXtermScreen(): XtermScreen {

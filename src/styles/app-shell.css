@@ -854,6 +854,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .agent-permission-radio { padding: var(--space-4) var(--space-5); font-family: var(--ui-font); }
 .agent-permission-menu [data-slot="fluid-hover-highlight"] { background: var(--control-hover-surface); }
 .agent-permission-radio[aria-disabled] { cursor: default; pointer-events: none; }
+.agent-permission-note { margin: var(--space-2) 0 0; padding: var(--space-3) var(--space-5) var(--space-2); border-top: 1px solid var(--border-subtle); font-size: var(--type-caption-size); line-height: 1.45; color: var(--text-secondary); }
 .navigator-section { min-height: 0; padding: var(--space-5); }
 /* The tree's scrollbar track reaches the window bottom; its thumb owns the inset.
    The right inset lives on the tree surface instead, so the scrollbar can use it

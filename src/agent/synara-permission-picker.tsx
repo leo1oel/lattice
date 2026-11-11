@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useReducer, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { Hand, Shield, ShieldCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { RadioGroup, RadioItem } from "../components/ui/radio-group";
@@ -14,6 +15,11 @@ export default function SynaraPermissionPicker(props: {
 }) {
   const { t } = useLingui();
   const groupRef = useRef<HTMLDivElement>(null);
+  // Pi, which runs a saved model endpoint (settings/model-endpoint-settings),
+  // asks only in approval-required mode, unlike the other providers' per-mode
+  // rules. The frame does not say which provider a chat uses, so the menu says
+  // so whenever an endpoint is saved.
+  const [endpointSaved, setEndpointSaved] = useReducer((_: boolean, next: boolean) => next, false);
   const modes = ["full-access", "auto", "approval-required"] as const;
   // Each label says the behaviour, so no option needs a description line.
   const presentations: Record<SynaraPermissionMode, { label: string }> = {
@@ -24,7 +30,15 @@ export default function SynaraPermissionPicker(props: {
   const { label } = presentations[props.value];
   const ModeIcon = MODE_ICONS[props.value];
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open) => {
+        if (!open) return;
+        invoke<{ endpoint: unknown } | null>("get_model_endpoint").then(
+          (status) => setEndpointSaved(Boolean(status?.endpoint)),
+          () => setEndpointSaved(false),
+        );
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -65,6 +79,11 @@ export default function SynaraPermissionPicker(props: {
             );
           })}
         </RadioGroup>
+        {endpointSaved && (
+          <p className="agent-permission-note">
+            {t`With a model endpoint, Pi asks before it edits a file or runs a command in “Ask before outside edits and network”, and runs them without asking in “Never ask”. Its edits are checkpointed so you can undo them, and .bib files stay protected.`}
+          </p>
+        )}
       </PopoverContent>
     </Popover>
   );

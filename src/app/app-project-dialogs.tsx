@@ -8,7 +8,7 @@
  */
 import { lazy, Suspense } from "react";
 import { LazyMount } from "../components/lazy-mount";
-import { CreateProjectDialog, RenameDialog } from "../project/project-dialogs";
+import { CreateProjectDialog } from "../project/project-dialogs";
 import type { ProjectVenue, RenameTarget } from "../app-types";
 import { TexDependencyInstaller } from "../build/tex-dependency-installer";
 import { TexSetupWizard } from "../build/tex-setup-wizard";
@@ -27,6 +27,7 @@ const LinkedLibrarySheet = lazy(() =>
   import("../papers/linked-library-sheet").then((module) => ({ default: module.LinkedLibrarySheet })),
 );
 const ImportConflictDialog = lazy(() => import("../project/import-conflict-dialog"));
+const RenameDialog = lazy(() => import("../project/rename-dialog").then((module) => ({ default: module.RenameDialog })));
 const LiteratureDiscoveryPanel = lazy(() =>
   import("../papers/literature-discovery-panel").then((module) => ({ default: module.LiteratureDiscoveryPanel })),
 );
@@ -127,9 +128,11 @@ export function AppProjectDialogs({
       <LazyMount when={importConflict !== null}>
         {importConflict && <ImportConflictDialog request={importConflict} />}
       </LazyMount>
-      {rename.target && (
-        <RenameDialog target={rename.target} error={rename.error} onRename={rename.submit} onClose={rename.close} />
-      )}
+      <LazyMount when={rename.target !== null}>
+        {rename.target && (
+          <RenameDialog target={rename.target} error={rename.error} onRename={rename.submit} onClose={rename.close} />
+        )}
+      </LazyMount>
     </>
   );
 }

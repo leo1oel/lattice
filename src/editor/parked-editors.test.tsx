@@ -284,4 +284,24 @@ describe("parked editors", () => {
     expect(resumeParkedEditor(ROOT, "b.tex", CHAPTER, EXTENSIONS)).toBeNull();
     expect(resumeParkedEditor("/projects/other", "a.tex", CHAPTER, EXTENSIONS)).toBeNull();
   });
+
+  it("keeps the window's other projects whole, and the open project's own until its tabs are back (#822)", () => {
+    const state = EditorState.create({ doc: CHAPTER, extensions: EXTENSIONS });
+    parkEditor(ROOT, "a.tex", state, null);
+    parkEditor("/projects/other", "a.tex", state, null);
+    parkEditor("/projects/other", "b.tex", state, null);
+    parkEditor("/projects/closed", "a.tex", state, null);
+
+    // Switched back to ROOT: its tabs are not restored yet, so nothing of its own goes.
+    retainParkedEditors(ROOT, null, ["/projects/other"]);
+    expect(resumeParkedEditor(ROOT, "a.tex", CHAPTER, EXTENSIONS)).not.toBeNull();
+    expect(resumeParkedEditor("/projects/other", "a.tex", CHAPTER, EXTENSIONS)).not.toBeNull();
+    expect(resumeParkedEditor("/projects/other", "b.tex", CHAPTER, EXTENSIONS)).not.toBeNull();
+    expect(resumeParkedEditor("/projects/closed", "a.tex", CHAPTER, EXTENSIONS)).toBeNull();
+
+    // Its tabs are back without a.tex; the suspended project keeps every tab it was left with.
+    retainParkedEditors(ROOT, ["b.tex"], ["/projects/other"]);
+    expect(resumeParkedEditor(ROOT, "a.tex", CHAPTER, EXTENSIONS)).toBeNull();
+    expect(resumeParkedEditor("/projects/other", "b.tex", CHAPTER, EXTENSIONS)).not.toBeNull();
+  });
 });

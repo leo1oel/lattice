@@ -119,4 +119,17 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["presentation.rs", "Open Slide did not become ready within 30 seconds.", () => t`Open Slide did not become ready within 30 seconds.`],
   ["presentation.rs", "Open Slide returned invalid readiness data.", () => t`Open Slide returned invalid readiness data.`],
   ["presentation.rs", "The presentation project must be a directory.", () => t`The presentation project must be a directory.`],
+
+  // Settings › Agent › Model endpoint (model_endpoint.rs, model_endpoint/keychain.rs)
+  ["model_endpoint.rs", "Give between 1 and {MAX_MODELS} models.", ([count]) => t`Give between 1 and ${count} models.`],
+  ["model_endpoint.rs", "A model name is empty or has spaces in it.", () => t`A model name is empty or has spaces in it.`],
+  ["model_endpoint.rs", "The model {} is listed twice.", ([model]) => t`The model ${model} is listed twice.`],
+  ["model_endpoint.rs", "The token limits of {} are out of range.", ([model]) => t`The token limits of ${model} are out of range.`],
+  ["model_endpoint.rs", "Enter the endpoint’s address, starting with https:// or http://.", () => t`Enter the endpoint’s address, starting with https:// or http://.`],
+  ["model_endpoint.rs", "The endpoint settings file is not valid JSON.", () => t`The endpoint settings file is not valid JSON.`],
+  ["model_endpoint.rs", "Could not read the endpoint settings: {error}", ([error]) => t`Could not read the endpoint settings: ${error}`],
+  ["model_endpoint.rs", "Could not create the endpoint settings folder: {error}", ([error]) => t`Could not create the endpoint settings folder: ${error}`],
+  ["model_endpoint.rs", "That API key is not valid.", () => t`That API key is not valid.`],
+  ["model_endpoint.rs", "The endpoint settings worker stopped.", () => t`The endpoint settings worker stopped.`],
+  ["model_endpoint/keychain.rs", "Lattice could not use the system keychain.", () => t`Lattice could not use the system keychain.`],
 ];

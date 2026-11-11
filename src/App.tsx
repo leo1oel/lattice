@@ -544,9 +544,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     shellRef, browserHosted,
   });
   const {
-    launching, busyLabel, recentProjects, unopenedProject, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    launching, busyLabel, recentProjects, unopenedProject, createForm, updateCreateForm,
     chooseExisting, createProject, chooseRecentProject,
-    openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
+    openTutorialProject, importOverleafZip, moveWorkspace, movingWorkspace,
   } = lifecycle;
 
   useTrafficLightAlignment(shellRef, !browserHosted && !isFullscreen, appearance.interfaceScale, project?.manifest.name);
@@ -801,19 +801,11 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         project={project}
         documents={documents}
         projectMenu={{
-          open: projectMenuOpen,
-          setOpen: setProjectMenuOpen,
+          lifecycle,
           importing: referenceImport.importing,
           building,
-          recentProjects,
-          busyLabel,
-          onRecent: chooseRecentProject,
-          onOpen: chooseExisting,
           onNew: () => updateCreateForm({ open: true }),
-          onClone: lifecycle.clone.show,
           onOpenOverleaf: () => setOverleafPickerOpen(true),
-          onOpenTutorial: openTutorialProject,
-          onExportZip: exportProjectZip,
           onExportArxiv: () => setArxivExportOpen(true),
           onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
@@ -855,7 +847,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         {documentSurfaces}
         <LazyMount when={tools.isOpen.start}>
           <GetStartedPanel
-            controller={trellis} openFile={openFile} texSetup={texSetup} openProviderSettings={settingsWindow.openProviderSettings}
+            controller={trellis} openFile={openFile} texSetup={texSetup} openSettings={settingsWindow.openSettings}
             newProject={() => updateCreateForm({ open: true })} openFolder={chooseExisting}
             openOverleaf={() => setOverleafPickerOpen(true)} onClose={() => tools.close("start")}
           />

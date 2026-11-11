@@ -371,7 +371,7 @@ The interface carries no taglines, and labels do the explaining: a row, option o
 What stays as secondary copy is what the writer would otherwise miss: why a control is disabled or has no effect, a warning before something irreversible, overwritten or shared (what an export contains, what leaves the Mac), an error and its way out, and credits a licence requires.
 A shortcut or gesture that only a hint line taught moves into its control's tooltip (`Tip`'s `shortcut`, or the hover card a control already has); a list picker draws no ↑↓/↵/Esc legend.
 A status line beside a loading indicator goes to assistive technology instead (see the loading rule below), and a count a progress track already shows is read out, not printed.
-Onboarding is the one exception: each Get started step (`src/onboarding/get-started-steps.ts`) carries one sentence of why under its title, because a first-time writer cannot yet tell what a label stands for. Nothing else borrows it, and a step never gets a second sentence: the only extras are the Agent step's connect instructions, folded under a closed disclosure so a writer already connected is not told to install, and the cite step's paper-tools aside, shown only while the paper tools are missing.
+Onboarding is the one exception: each Get started step (`src/onboarding/get-started-steps.ts`) carries one sentence of why under its title, because a first-time writer cannot yet tell what a label stands for. Nothing else borrows it, and a step never gets a second sentence: the only extras are the Agent step's connect instructions, folded under a closed disclosure so a writer already connected is not told to install, with one line and button beside it offering a model endpoint instead, and the cite step's paper-tools aside, shown only while the paper tools are missing.
 
 ## Geometry
 
@@ -803,7 +803,9 @@ moves, the slower the tier.
   key from the keymaps that bind them, grouped by where they work, so a moved
   key moves everywhere. The Panels menu's Project, Papers and Agent toggles are
   ⌘⌥1 to ⌘⌥3 in their order (⌘1 to ⌘9 are the workspaces); in a visual
-  Markdown document the editor's own ⌘⌥1 to ⌘⌥3 (headings) win.
+  Markdown document the editor's own ⌘⌥1 to ⌘⌥3 (headings) win. The
+  projects in a window (the title bar's project tabs) go round with ⌃Tab and
+  ⌃⇧Tab, never the layout workspaces' ⌘1 to ⌘9 or their +.
 - Focus mode (⌘⇧D, the Panels menu or the palette) is a layout state, not a
   second theme: the open documents fill the window in one panel without
   their tab bar, the PDF beside them if the writer last asked for it, and the

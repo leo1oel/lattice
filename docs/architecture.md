@@ -217,7 +217,11 @@ source-control / review / agent-settings surface calls `synara_ensure_ready`.
 `lib.rs::run()` returns early when `agent_literature::run_cli()` handled the
 invocation (only the macOS process-inspector hook runs before it). `run_cli()`
 (`src-tauri/src/agent_literature.rs`) is a headless entry point that runs before
-any Tauri or AppKit initialisation.
+any Tauri or AppKit initialisation. Two more modes return early the same way:
+`research_env::run_cli()` (`env`) and `model_endpoint::run_cli()`
+(`agent-endpoint-key`, which Pi runs to read the model endpoint's key from the
+keychain; see the module doc of `src-tauri/src/model_endpoint.rs`). The rest of
+this section is the literature mode.
 
 It handles exactly one argv subcommand — `literature` — and takes its real
 input as a single JSON blob:
@@ -265,7 +269,7 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~700 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **255** commands in
+lifecycle and the child runtimes, and registers **259** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
@@ -299,7 +303,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
-| `workspace` | 20 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
+| `workspace` | 21 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
 | `papers` | 12 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
 | `git` | 12 | `git_status`, `git_user_name`, `clone_repository`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
@@ -443,7 +447,7 @@ regression is not visible in a dev build.
 
 | Budget | Value | Constant |
 | --- | --- | --- |
-| Eager JavaScript (all `<script>` in `index.html`) | `1.39 * 1024 * 1024` = 1,457,520 bytes | `EAGER_JS_BUDGET_BYTES` |
+| Eager JavaScript (all `<script>` in `index.html`) | `1.391 * 1024 * 1024` = 1,458,569 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
 | Staged Open Slide runtime (file bytes) | 66 MiB on Apple silicon Macs, 68 MiB on Intel-based Macs, 69 MiB on Linux (larger x86_64 and ELF builds) | `PRESENTATION_RUNTIME_BUDGET_BYTES` |

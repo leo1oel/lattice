@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-10 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-11 against upstream
 `v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
-**824 files, +79,230 / −8,896 lines**. It carries embedded-workspace UI, a skills manager,
+**831 files, +80,520 / −8,934 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -193,6 +193,14 @@ The fork starts its first provider check only when something asks for it, usuall
 `readProviderHealthForAuxiliaryModel` in the same `runnableModelSelection.ts` now waits up to 3 seconds (`FIRST_PROBE_WAIT`) for that first check whenever the choice depends on a provider with no status yet; ProviderHealth's shared `refresh` starts the check if none is running. When health is already known, or a confirmed ready provider can stand in, it does not wait.
 If the check is still running at the bound, a Codex or Claude provider whose CLI is not found counts as not ready (`providerCliFound`: the `commandExistsOnPath` lookup a spawn does, so nothing is started), and an unchecked provider whose CLI is found can stand in as the fallback. A ready Settings choice still wins, and an unchecked choice whose CLI exists is kept as before.
 No in-app Lattice session was needed: `latticeTextTaskHttpRoute.test.ts` reproduces Proofread right after launch, Claude-only (no status, check still running, only `claude` on PATH), and fork unit tests cover the other cases.
+
+A model endpoint saved in Settings → Agent → Model endpoint ([Lattice PR 834](https://github.com/leo1oel/lattice/pull/834), [issue 825](https://github.com/leo1oel/lattice/issues/825)) now also serves text tasks, asks before Pi edits, and is what Pi's set-up message points to (fork `8cb8d7b1c3807f0a2a58fb6ec14c592890f9bc31`, [fork PR 23](https://github.com/leo1oel/synara/pull/23)). The endpoint runs on Synara's in-process Pi provider through a Pi `models.json` custom provider, with no agent CLI. The fork PR carries three changes:
+- **F1, text generation on Pi.** Proofread, Polish, annotation revisions and Git writing can run on a Pi model. `"pi"` is now last in `GIT_TEXT_GENERATION_PROVIDERS`, and the new `PiTextGeneration` layer (fork `apps/server/src/git/Layers/PiTextGeneration.ts`) resolves the model exactly as a Pi chat does: same `createPiModelRuntime`, same agent directory, same `resolvePiSessionModel`. It then runs one prompt in an in-memory session with no tools, extensions, skills or context files, in an empty temporary working directory. The Proofreading and Git writing pickers (Settings → Agent → Providers in Lattice) list an enabled Pi instance's models. Pi has no default model, so it is never chosen automatically: with only Pi ready and no Pi model chosen, a text task still answers 503 "No AI provider is connected…", which now also names Pi when a Pi instance is enabled. Choosing a Pi model automatically is not part of this pin.
+- **F2, approval gate.** Outside full-access, a Synara-registered inline Pi extension (fork `apps/server/src/provider/piApprovalGate.ts`) handles Pi's `tool_call` hook for `edit`, `write`, `bash` and `powershell`. It raises a Synara file-change or command approval, and `PiAdapter.respondToRequest` answers it. Approve runs the tool unchanged. Allow for session covers the same command or file again. Decline blocks it with a tool error the model sees ("The user declined this write call…"), and a stopped session or aborted turn cancels the wait. Full-access sessions never install the gate. Before, approval-required did nothing for Pi.
+- **F3, Lattice set-up copy.** Under `AGENT_HOST_PROFILE=lattice`, Pi's not-set-up message points to Settings → Agent → Model endpoint instead of saying to install the Pi CLI (en, es and zh-CN). Other hosts keep the old text.
+
+Lattice's own copy from PR 834 changes with this pin: the permission menu's endpoint note and the Model endpoint pane now say Pi asks before edits and commands in "Ask before outside edits and network" and not in "Never ask", and the pane says Proofread, Polish and revisions use the endpoint once one of its models is chosen under Providers › Proofreading model (en, zh-CN).
+No in-app Lattice session was needed, and no real endpoint or key was used. Fork unit tests drive the Pi text backend against a local mock OpenAI-compatible streaming endpoint configured only through a scratch `models.json`, and a real SDK session with a fake model stream covers approve, deny and full-access. The embed browser and server regressions in [`synara-runtime.md`](synara-runtime.md) pass on this pin.
 
 ## Synara 0.9.1 compatibility
 

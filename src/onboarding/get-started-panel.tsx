@@ -33,6 +33,7 @@ import { useSharedSetting } from "../settings/shared-setting";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isCompileSetupMissing, missingPaperToolNames } from "../build/tex-setup";
 import type { TexSetup } from "../app/use-tex-setup";
+import type { SettingsTab } from "../app-types";
 import {
   getStartedProgress, markGetStartedStep, skipGetStartedStep, type GetStartedStepId,
 } from "./get-started-progress";
@@ -52,7 +53,8 @@ const SHOW_ME_MS = 8000;
 export type GetStartedPanelProps = ShowMeContext & {
   /** The toolchain check, and the setup the first steps install from. */
   texSetup: Pick<TexSetup, "doctorReport" | "doctorBusy" | "runDoctor" | "openWizard" | "openForMissingPaperTools">;
-  openProviderSettings: () => void;
+  /** Opens Settings on `tab`: Providers, or Model endpoint. */
+  openSettings: (tab: SettingsTab) => void;
   newProject: () => void;
   openFolder: () => void | Promise<unknown>;
   openOverleaf?: () => void;
@@ -266,6 +268,7 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
     }
     if (step.id === "agent" && !import.meta.env.LATTICE_WEB_DEMO) {
       return (
+        <>
         <details className="get-started-aside get-started-connect">
           <summary className="get-started-aside-title">{t`How to connect Claude Code or Codex`}</summary>
           <ol className="get-started-setup">
@@ -280,12 +283,17 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
             <li><Trans>Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers.</Trans></li>
           </ol>
           <div className="get-started-actions">
-            <Button size="compact" variant="secondary" onClick={props.openProviderSettings}>{t`Provider settings`}</Button>
+            <Button size="compact" variant="secondary" onClick={() => props.openSettings("agent")}>{t`Provider settings`}</Button>
             <Button size="compact" variant="secondary" disabled={rechecking} onClick={() => void recheck()}>
               {rechecking ? t`Rechecking…` : t`Recheck`}
             </Button>
           </div>
         </details>
+        <div className="get-started-aside">
+          <p>{t`Or connect a model endpoint: your own API address, key and model name, with no command-line tool to install.`}</p>
+          <Button size="compact" variant="secondary" onClick={() => props.openSettings("model-endpoint")}>{t`Connect a model endpoint`}</Button>
+        </div>
+        </>
       );
     }
     return null;

@@ -589,7 +589,6 @@
         "src/project/paper-library.tsx",
         "src/project/paper-list-window.ts",
         "src/project/paper-text-hits.tsx",
-        "src/project/project-dialogs.tsx",
         "src/project/project-find-dialog.tsx",
         "src/project/project-replace-dialog.tsx",
         "src/project/project-tree-files.ts",

@@ -19,7 +19,9 @@ describe("settings search", () => {
     ["keymap", ["editor-keymap"]],
     ["emacs", ["editor-keymap"]],
     ["xelatex", ["compile-engine"]],
-    ["api key", ["literature-openalex", "literature-semanticscholar", "literature-firecrawl"]],
+    ["api key", ["model-endpoint-key", "literature-openalex", "literature-semanticscholar", "literature-firecrawl"]],
+    ["openai", ["page:model-endpoint"]],
+    ["context window", ["model-endpoint-models"]],
     ["proxy", ["page:environment"]],
     ["latexmkrc", ["compile-engine"]],
     // A cut description's words live on in the row's terms.
