@@ -59,6 +59,23 @@ function documentPanels(doc: LayoutDocument) {
 
 const SAVED = () => layoutShape(arrangementOf(split()));
 
+describe("workflow document choices", () => {
+  it("restores each mode's last document while keeping every tab open", async () => {
+    const { controller, ws } = await open("/workflow", ["main.tex", "notes.md", "references.bib"]);
+    const activate = vi.spyOn(controller, "activate").mockImplementation(key => {
+      controller.app.set({ activeKey: key });
+    });
+    act(() => controller.setPreset("writing"));
+    act(() => controller.app.set({ activeKey: "notes.md" }));
+    act(() => controller.setPreset("bibliography"));
+    expect(activate).toHaveBeenLastCalledWith("references.bib");
+    act(() => controller.setPreset("writing"));
+    expect(activate).toHaveBeenLastCalledWith("notes.md");
+    expect(ws.views({ type: "file" }).map(view => view.params.key).sort()).toEqual(["main.tex", "notes.md", "references.bib"]);
+    expect(screen.getByRole("button", { name: "Choose layout" })).toHaveTextContent("Writing");
+  });
+});
+
 describe("a named workspace", () => {
   it("is never written by selecting tabs or opening and closing documents, which leave it clean", async () => {
     const id = splitWorkspace();

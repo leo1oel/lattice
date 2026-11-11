@@ -218,7 +218,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
   const workspace = useCurrentWorkspace(controller);
   const ws = () => controller.ws;
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
-  const presetLabels = { writing: t`Writing`, reading: t`Reading` };
+  const presetLabels = { writing: t`Writing`, reading: t`Reading`, bibliography: t`Bibliography` };
   const barRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLButtonElement>(null);

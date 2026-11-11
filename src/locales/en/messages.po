@@ -2707,6 +2707,8 @@ msgstr "bibliography"
 
 #: src/build/tex-doctor-messages.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Bibliography"
 msgstr "Bibliography"
 
@@ -3637,6 +3639,10 @@ msgstr "Choose Ignore on a grammar suggestion to add one"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
 msgstr "Choose image to upload"
+
+#: src/trellis/workflow-layout-switch.tsx
+msgid "Choose layout"
+msgstr "Choose layout"
 
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
@@ -5182,6 +5188,10 @@ msgstr "Custom colour…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Custom highlight colour"
 msgstr "Custom highlight colour"
+
+#: src/trellis/workflow-layout-switch.tsx
+msgid "Custom layout"
+msgstr "Custom layout"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -6732,6 +6742,7 @@ msgstr "Flush floats and start a new page"
 
 #: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Focus mode"
 msgstr "Focus mode"
 
@@ -8668,6 +8679,7 @@ msgstr "Lattice's required `uv` tool is not available yet. Open Settings → TeX
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Layout"
 msgstr "Layout"
 
@@ -13105,6 +13117,7 @@ msgid "Requirement source"
 msgstr "Requirement source"
 
 #: src/app/palette-sections.ts
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Research"
 msgstr "Research"
 
@@ -18176,6 +18189,7 @@ msgid "Write a reply first."
 msgstr "Write a reply first."
 
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Writing"
 msgstr "Writing"
 

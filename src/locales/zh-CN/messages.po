@@ -2707,6 +2707,8 @@ msgstr "参考文献"
 
 #: src/build/tex-doctor-messages.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Bibliography"
 msgstr "参考文献"
 
@@ -3637,6 +3639,10 @@ msgstr "在语法提示上选择“忽略”后会列在这里"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
 msgstr "选择图片"
+
+#: src/trellis/workflow-layout-switch.tsx
+msgid "Choose layout"
+msgstr "选择布局"
 
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
@@ -5182,6 +5188,10 @@ msgstr "自定义颜色…"
 #: src/editor/latex/highlight-palette.tsx
 msgid "Custom highlight colour"
 msgstr "自定义高亮颜色"
+
+#: src/trellis/workflow-layout-switch.tsx
+msgid "Custom layout"
+msgstr "自定义布局"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -6732,6 +6742,7 @@ msgstr "输出浮动体并另起一页"
 
 #: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Focus mode"
 msgstr "专注"
 
@@ -8668,6 +8679,7 @@ msgstr "Lattice 需要的 `uv` 工具还不可用。请打开 设置 → TeX 检
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Layout"
 msgstr "布局"
 
@@ -13105,6 +13117,7 @@ msgid "Requirement source"
 msgstr "要求来源"
 
 #: src/app/palette-sections.ts
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Research"
 msgstr "文献"
 
@@ -18176,6 +18189,7 @@ msgid "Write a reply first."
 msgstr "请先输入回复"
 
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/workflow-layout-switch.tsx
 msgid "Writing"
 msgstr "写作"
 

@@ -43,6 +43,7 @@ const DIRECT_WRITERS: Record<string, string> = {
   "telemetry/app-log-store.ts": "the app log",
   "build/compile-diagnostics-panel.tsx": "where this window last docked the build log",
   "trellis/trellis-layout.ts": "each project's layout",
+  "trellis/workflow-document.ts": "each project's last document per layout, read again just before each write",
   "trellis/trellis-workspaces.ts": "the saved workspace layouts",
   "editor/comments/editor-comment-data.ts": "the comment author id, written once when first needed",
   "app/use-tex-package-updates.ts": "when the daily TeX package check last got an answer, read again at each launch",
