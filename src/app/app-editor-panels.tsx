@@ -21,6 +21,7 @@ import { PROJECT_VENUES } from "../project/project-venues";
 import { type TodoHit } from "../project/todo-scavenger";
 import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useTrellisController } from "../trellis/trellis-controller";
+import { snapshotTextKey } from "../trellis/snapshot-texts";
 import { showError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
 import type { AnnotationRounds } from "./annotation-rounds";
@@ -121,7 +122,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const [figureUndo, setFigureUndo] = useProjectFigureUndo(project.root);
   const trellis = useTrellisController();
   // Another file's last text this session, so its notes keep their lines and sections while it is not in front.
-  const sourceFor = (path: string) => path === activeFile ? activeSource : trellis?.texts.get(path);
+  const sourceFor = (path: string) => path === activeFile ? activeSource : trellis?.texts.get(snapshotTextKey(project.root, path));
   // The budgets, the deadline and the items each read the manifest, change it
   // and write it back, so they run one after the other: two in flight at once
   // (a quick tick while the deadline saves) could each read the file before

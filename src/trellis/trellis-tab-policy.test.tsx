@@ -5,6 +5,7 @@ import { withTabItems } from "./trellis-document-tabs";
 import { loadLayout } from "./trellis-layout";
 import { chooseEvictions, type TabCandidate } from "./trellis-tab-policy";
 import TrellisWorkspace from "./trellis-workspace";
+import { snapshotTextKey } from "./snapshot-texts";
 
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
@@ -242,7 +243,7 @@ describe("a panel out of room", () => {
 
   it("never closes the project's root document for quick looks", async () => {
     const { controller, closed, open, strip } = await openProject(["main.tex", "a.tex"]);
-    controller.texts.set("main.tex", "\\documentclass{article}\n\\begin{document}\n\\end{document}\n");
+    controller.texts.set(snapshotTextKey(controller.app.get().projectRoot, "main.tex"), "\\documentclass{article}\n\\begin{document}\n\\end{document}\n");
     // A kept tab and a run of quick looks, each away from main.tex, which is used least recently.
     await open("a.tex");
     await open("sheet.lattice-sheet");

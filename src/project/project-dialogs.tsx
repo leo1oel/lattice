@@ -1,14 +1,13 @@
-import { Suspense, useRef, useState } from "react";
+import { Suspense } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Cloud, FileArchive, Folder, FolderOpen, GitBranch, PackageCheck, Plus, Settings, Sparkles, Wrench } from "lucide-react";
+import { Cloud, FileArchive, Folder, FolderOpen, GitBranch, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
-import type { ProjectVenue, RenameTarget } from "../app-types";
+import type { ProjectVenue } from "../app-types";
 import type { RecentProject } from "../settings/app-settings";
 import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
 import { ModalDialog } from "../components/ui/modal-dialog";
@@ -18,7 +17,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { ChunkGate } from "../components/chunk-gate";
 import { chunk, lazyChunk } from "../lib/lazy-chunk";
 import { WelcomeLattice } from "./welcome-lattice";
-import { switcherProjects, welcomeDeskProjects } from "./first-pages";
+import { welcomeDeskProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
 import { PROJECT_VENUES } from "./project-venues";
 
@@ -211,144 +210,5 @@ export function CreateProjectDialog(props: {
         </div>
       </div>
     </ModalDialog>
-  );
-}
-
-export function RenameDialog(props: {
-  target: RenameTarget;
-  error: string | null;
-  onRename: (name: string) => Promise<void>;
-  onClose: () => void;
-}) {
-  const { t } = useLingui();
-  const target = props.target;
-  const [name, setName] = useState(() => (
-    target.kind === "label" ? target.label
-      : target.kind === "citation" ? target.key
-        : target.kind === "environment" ? target.name
-          : "equation"
-  ));
-  const [busy, setBusy] = useState(false);
-  // Only a rename that reaches past the cursor says where else it edits.
-  const presentations: Record<RenameTarget["kind"], [title: string, copy: string | null]> = {
-    label: [t`Rename label`, t`Updates every \\ref to it`],
-    citation: [t`Rename citation key`, t`Updates the .bib entry and every \\cite`],
-    environment: [t`Rename environment`, null],
-    "wrap-environment": [t`Wrap in environment`, null],
-  };
-  const [title, copy] = presentations[target.kind];
-  const submit = async () => {
-    if (!name.trim() || busy) return;
-    setBusy(true);
-    await props.onRename(name.trim());
-    setBusy(false);
-  };
-  return (
-    <ModalDialog label={title} onClose={props.onClose} closeDisabled={busy}>
-      <div className="modal rename-modal">
-        <h2>{title}</h2>
-        {copy && <p>{copy}</p>}
-        <label>
-          {t`Name`}
-          <Input
-            autoFocus
-            aria-label={t`New name`}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void submit();
-            }}
-          />
-        </label>
-        {props.error && <p className="field-error" role="alert">{props.error}</p>}
-        <div className="modal-actions">
-          <Button variant="ghost" disabled={busy} onClick={props.onClose}>{t`Cancel`}</Button>
-          <MotionButton
-            className={buttonClassName({ variant: "primary" })}
-            disabled={busy || !name.trim()}
-            onClick={() => void submit()}
-          >
-            {busy ? t`Renaming…` : t`Rename`}
-          </MotionButton>
-        </div>
-      </div>
-    </ModalDialog>
-  );
-}
-
-export function ProjectMenu(props: {
-  currentPath: string;
-  recentProjects: RecentProject[];
-  busyLabel: string | null;
-  onRecent: (path: string) => void;
-  onOpen: () => void;
-  onNew: () => void;
-  onClone: () => void;
-  onOpenTutorial: () => void;
-  onExportZip: () => void;
-  onExportArxiv: () => void;
-  onOpenOverleaf?: () => void;
-  onSettings: () => void;
-}) {
-  const { t } = useLingui();
-  const alternatives = switcherProjects(props.recentProjects, props.currentPath);
-  const busy = Boolean(props.busyLabel);
-  // Settings opens as a transition and puts focus in its search field, which
-  // can land before the closing menu returns focus to its trigger.
-  const handsOffFocusRef = useRef(false);
-  return (
-    <DropdownMenuContent
-      align="center"
-      sideOffset={6}
-      className="w-52"
-      onCloseAutoFocus={(event) => {
-        if (!handsOffFocusRef.current) return;
-        handsOffFocusRef.current = false;
-        event.preventDefault();
-      }}
-    >
-      {/* With no other project to go back to, the menu starts at its actions. */}
-      {alternatives.length > 0 && (
-        <>
-          <DropdownMenuLabel>{t`Recent projects`}</DropdownMenuLabel>
-          {alternatives.map((item) => (
-            <DropdownMenuItem key={item.path} title={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
-              <Folder />
-              <span className="truncate font-medium">{item.name}</span>
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-        </>
-      )}
-      <DropdownMenuItem onSelect={props.onOpen}>
-        <FolderOpen /> {t`Open another folder`}
-      </DropdownMenuItem>
-      <DropdownMenuItem onSelect={props.onNew}><Plus /> {t`New project`}</DropdownMenuItem>
-      <DropdownMenuItem onSelect={props.onClone}><GitBranch /> {t`Clone repository…`}</DropdownMenuItem>
-      {props.onOpenOverleaf && (
-        <DropdownMenuItem disabled={busy} onSelect={props.onOpenOverleaf}>
-          <Cloud /> {t`Open from Overleaf`}
-        </DropdownMenuItem>
-      )}
-      <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> {t`Export ZIP`}</DropdownMenuItem>
-      <DropdownMenuItem onSelect={props.onExportArxiv}><PackageCheck /> {t`Export for arXiv…`}</DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem disabled={busy} onSelect={props.onOpenTutorial}>
-        <Sparkles /> {t`Guided tutorial`}
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        onSelect={() => {
-          handsOffFocusRef.current = true;
-          props.onSettings();
-        }}
-      >
-        <Settings /> {t`Settings`}
-      </DropdownMenuItem>
-      {props.busyLabel && (
-        <p className="flex items-center gap-2 px-2 py-1.5 text-[length:var(--type-body-compact-size)] leading-[var(--type-body-compact-line-height)] text-muted-foreground">
-          <InfinityLoader size={12} /> {props.busyLabel}
-        </p>
-      )}
-    </DropdownMenuContent>
   );
 }

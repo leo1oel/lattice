@@ -48,6 +48,8 @@ describe("opening a project from Overleaf that already has a folder here", () =>
     renderApp({
       ...projectCommands(null),
       ...pickerCommands,
+      // The backend's answer to whether another window shows the folder, asked before this window claims it.
+      project_shown_elsewhere: () => elsewhere,
       open_project: () => {
         if (elsewhere) throw new Error("This project is already open in another Lattice window. Open it in the browser from that window instead.");
         return projectSnapshot({ root: NATIVE_VLM });
@@ -56,14 +58,15 @@ describe("opening a project from Overleaf that already has a folder here", () =>
     fireEvent.click(await screen.findByRole("button", { name: "Open from Overleaf" }));
     await openNativeVlm();
     await expectInvoked("open_project_window", { path: NATIVE_VLM });
-    // Raising the other window is the answer, not a failure to report.
+    // Raising the other window is the answer, not a failure to report, and this window never tried to open it.
     expect(screen.queryByText(/already open in another Lattice window/)).not.toBeInTheDocument();
     expect(invokeCalls("overleaf_clone_project")).toHaveLength(0);
+    expect(invokeCalls("open_project")).toHaveLength(0);
 
     elsewhere = false;
     fireEvent.click(await screen.findByRole("button", { name: "Open from Overleaf" }));
     await openNativeVlm();
-    await waitFor(() => expect(invokeCalls("open_project")).toHaveLength(2));
+    await expectInvoked("open_project", { path: NATIVE_VLM });
     expect(invokeCalls("open_project_window")).toHaveLength(1);
   });
 });

@@ -803,7 +803,9 @@ moves, the slower the tier.
   key from the keymaps that bind them, grouped by where they work, so a moved
   key moves everywhere. The Panels menu's Project, Papers and Agent toggles are
   ⌘⌥1 to ⌘⌥3 in their order (⌘1 to ⌘9 are the workspaces); in a visual
-  Markdown document the editor's own ⌘⌥1 to ⌘⌥3 (headings) win.
+  Markdown document the editor's own ⌘⌥1 to ⌘⌥3 (headings) win. The
+  projects in a window (the title bar's project tabs) go round with ⌃Tab and
+  ⌃⇧Tab, never the layout workspaces' ⌘1 to ⌘9 or their +.
 - Focus mode (⌘⇧D, the Panels menu or the palette) is a layout state, not a
   second theme: the open documents fill the window in one panel without
   their tab bar, the PDF beside them if the writer last asked for it, and the
