@@ -276,8 +276,10 @@ export function latexVisual(host: LatexVisualHost): Extension {
     Prec.highest(keymap.of([
       { key: "Backspace", run: deleteAcrossTokens(field, false), shift: deleteAcrossTokens(field, false) },
       { key: "Delete", run: deleteAcrossTokens(field, true) },
+      /* eslint-disable lingui/no-unlocalized-strings -- CodeMirror key names, never shown */
       { mac: "Ctrl-h", run: deleteAcrossTokens(field, false) },
       { mac: "Ctrl-d", run: deleteAcrossTokens(field, true) },
+      /* eslint-enable lingui/no-unlocalized-strings */
     ])),
     unwrapOnDelete(field),
   ];
