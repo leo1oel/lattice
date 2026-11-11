@@ -569,6 +569,10 @@ msgstr "{documentName} — source"
 msgid "{dpi} DPI at the specified width"
 msgstr "{dpi} DPI at the specified width"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{elapsed} elapsed"
+msgstr "{elapsed} elapsed"
+
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
 msgstr "{engine} in a clean folder…"
@@ -998,6 +1002,14 @@ msgstr "{position} of {total}"
 msgid "{projectName} — {documentTitle}"
 msgstr "{projectName} — {documentTitle}"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} of {total}"
+msgstr "{received} of {total}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{received} received"
+msgstr "{received} received"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} reference"
@@ -1037,6 +1049,10 @@ msgstr "{size} of {limit}"
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}; leave out large figures"
 msgstr "{size} of {limit}; leave out large figures"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "{size}/s"
+msgstr "{size}/s"
 
 #: src/platform/host-errors-project.ts
 msgid "{source} could not be found."
@@ -1393,6 +1409,10 @@ msgstr "A drawing changed: {path}"
 msgid "A dropped file"
 msgstr "A dropped file"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "A few seconds left"
+msgstr "A few seconds left"
+
 #: src/build/compile-explain.ts
 msgid "A figure or table is {points} pt taller than the page"
 msgstr "A figure or table is {points} pt taller than the page"
@@ -1539,10 +1559,26 @@ msgstr "A window could not save its edits, so Lattice did not restart."
 msgid "About"
 msgstr "About"
 
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {hours} h left"
+msgstr "About {hours} h left"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {minutes} min left"
+msgstr "About {minutes} min left"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "About {name}"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About {rounded} s left"
+msgstr "About {rounded} s left"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "About 1 h left"
+msgstr "About 1 h left"
 
 #: src/project/deadline-card.tsx
 msgid "abstract"
@@ -5562,6 +5598,10 @@ msgstr "Download paper"
 msgid "Download PDF"
 msgstr "Download PDF"
 
+#: src/overleaf/overleaf-download-bar.tsx
+msgid "Download progress"
+msgstr "Download progress"
+
 #: src/platform/windows-tex-setup-dialog.tsx
 msgid "Download TeX Live"
 msgstr "Download TeX Live"
@@ -5576,20 +5616,10 @@ msgstr "Downloaded dictionaries"
 msgid "Downloaded paper files will be kept."
 msgstr "Downloaded paper files will be kept."
 
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
+#. placeholder {0}: props.name
+#: src/overleaf/overleaf-download-bar.tsx
 msgid "Downloading {0}…"
 msgstr "Downloading {0}…"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received}"
-msgstr "Downloading {0}… {received}"
-
-#. placeholder {0}: cloning.name
-#: src/overleaf/overleaf-project-picker.tsx
-msgid "Downloading {0}… {received} of {total}"
-msgstr "Downloading {0}… {received} of {total}"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
@@ -17506,6 +17536,14 @@ msgstr "Waiting for {name} to finish syncing with Overleaf…"
 #: src/settings/tex-package-updates-row.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for more data"
+msgstr "Waiting for more data"
+
+#: src/overleaf/overleaf-download-progress.ts
+msgid "Waiting for Overleaf to send it"
+msgstr "Waiting for Overleaf to send it"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Waiting for Overleaf's live file tree before syncing moved files."
