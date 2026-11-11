@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Write the open fonts lattice-ui bundles, from their upstream files.
+
+GPUI picks a face by family and weight from the faces it was given, so a
+variable font, whose one face reports only its default weight, would draw
+every weight as Regular. The interface font is therefore cut into static
+instances here, and the editor font is decompressed from the WOFF2 files the
+Tauri app already ships (CoreText cannot read WOFF2).
+
+  Inter 4.001 (OFL-1.1, rsms/inter): InterVariable.ttf at opsz 14, the size
+  CSS's font-optical-sizing picks at 11-14px, in the four weights the
+  interface uses, subset to Latin, Greek, Cyrillic and the punctuation,
+  arrows, maths and keyboard symbols the interface draws. Chinese falls back
+  to PingFang SC, as in the Tauri app.
+
+  Ioskeley Mono (OFL-1.1): ../src/assets/fonts/ioskeley-mono/*.woff2, unchanged
+  but for the typographic family name, which groups its five faces.
+
+Usage: script/make-fonts PATH/TO/InterVariable.ttf
+Needs fontTools and brotli (`pip install fonttools brotli`).
+The Timeless faces of release builds are never written here: lattice-ui reads
+them at run time from LATTICE_PRIVATE_FONTS_DIR, as the Tauri build does.
+"""
+
+import pathlib
+import sys
+
+from fontTools import subset
+from fontTools.ttLib import TTFont
+from fontTools.varLib import instancer
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+OUT = ROOT / "crates" / "lattice-ui" / "assets" / "fonts"
+IOSKELEY = ROOT.parent / "src" / "assets" / "fonts" / "ioskeley-mono"
+
+WEIGHTS = {400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
+UNICODES = [
+    "U+0000-024F",  # Latin, Latin-1, Latin Extended A and B
+    "U+0300-036F",  # combining marks
+    "U+0370-03FF",  # Greek
+    "U+0400-04FF",  # Cyrillic
+    "U+1E00-1EFF",  # Latin Extended Additional
+    "U+2000-206F",  # general punctuation
+    "U+20A0-20CF",  # currency
+    "U+2100-214F",  # letterlike symbols
+    "U+2190-21FF",  # arrows (⇧)
+    "U+2200-22FF",  # mathematical operators
+    "U+2300-23FF",  # technical (⌘ ⌥ ⌫ ⌃)
+    "U+25A0-25FF",  # geometric shapes
+    "U+FB00-FB06",  # Latin ligatures
+]
+
+
+def set_names(font: TTFont, family: str, style: str) -> None:
+    """Name the face the way a static family is named, so CoreText and
+    DirectWrite group the four weights under one family."""
+    legacy_style = "Bold" if style == "Bold" else "Regular"
+    legacy_family = family if style in ("Regular", "Bold") else f"{family} {style}"
+    names = {
+        1: legacy_family,
+        2: legacy_style,
+        4: f"{family} {style}" if style != "Regular" else family,
+        6: f"{family}-{style}".replace(" ", ""),
+        16: family,
+        17: style,
+    }
+    table = font["name"]
+    for name_id in (1, 2, 3, 4, 6, 16, 17, 25):
+        table.removeNames(nameID=name_id)
+    for name_id, value in names.items():
+        table.setName(value, name_id, 3, 1, 0x409)
+        table.setName(value, name_id, 1, 0, 0)
+    table.setName(f"{names[6]};lattice-ui", 3, 3, 1, 0x409)
+
+
+def inter(variable: pathlib.Path) -> None:
+    out = OUT / "inter"
+    out.mkdir(parents=True, exist_ok=True)
+    for weight, style in WEIGHTS.items():
+        font = TTFont(variable)
+        static = instancer.instantiateVariableFont(font, {"wght": weight, "opsz": 14})
+        options = subset.Options()
+        options.layout_features = ["*"]
+        options.name_IDs = ["*"]
+        options.notdef_outline = True
+        options.glyph_names = False
+        subsetter = subset.Subsetter(options)
+        subsetter.populate(unicodes=subset.parse_unicodes(",".join(UNICODES)))
+        subsetter.subset(static)
+        set_names(static, "Inter", style)
+        static["OS/2"].usWeightClass = weight
+        static["OS/2"].fsSelection = (static["OS/2"].fsSelection & ~0b1100001) | (
+            0b100000 if style == "Bold" else 0b1000000
+        )
+        static["head"].macStyle = 1 if style == "Bold" else 0
+        static.save(out / f"Inter-{style}.ttf")
+
+
+def ioskeley() -> None:
+    out = OUT / "ioskeley-mono"
+    out.mkdir(parents=True, exist_ok=True)
+    for woff2 in sorted(IOSKELEY.glob("*.woff2")):
+        font = TTFont(woff2)
+        font.flavor = None
+        # The Medium face names itself a family of its own ("Ioskeley Mono
+        # Medium"); give every face the typographic family, so the editor's
+        # medium keywords find it as a weight of Ioskeley Mono.
+        style = woff2.stem.split("-", 1)[1]
+        style = {"BoldItalic": "Bold Italic"}.get(style, style)
+        names = font["name"]
+        names.setName("Ioskeley Mono", 16, 3, 1, 0x409)
+        names.setName(style, 17, 3, 1, 0x409)
+        font.save(out / woff2.with_suffix(".ttf").name)
+    (out / "OFL.txt").write_bytes((IOSKELEY / "OFL.txt").read_bytes())
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    inter(pathlib.Path(sys.argv[1]))
+    ioskeley()
