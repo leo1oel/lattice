@@ -75,7 +75,7 @@ function renderPanel(
     controller: fake.controller,
     openFile: vi.fn(),
     texSetup,
-    openProviderSettings: vi.fn(),
+    openSettings: vi.fn(),
     newProject: vi.fn(),
     openFolder: vi.fn(),
     openOverleaf: vi.fn(),
@@ -254,7 +254,9 @@ describe("GetStartedPanel", () => {
     expect(within(agent).getByRole("button", { name: /Codex/ })).toBeInTheDocument();
     expect(within(agent).getByText(/Set its path in Settings › Providers/)).toBeInTheDocument();
     fireEvent.click(within(agent).getByRole("button", { name: "Provider settings" }));
-    expect(props.openProviderSettings).toHaveBeenCalledTimes(1);
+    expect(props.openSettings).toHaveBeenCalledWith("agent");
+    fireEvent.click(within(agent).getByRole("button", { name: "Connect a model endpoint" }));
+    expect(props.openSettings).toHaveBeenCalledWith("model-endpoint");
 
     fireEvent.click(within(agent).getByRole("button", { name: "Recheck" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("synara_restart"));
