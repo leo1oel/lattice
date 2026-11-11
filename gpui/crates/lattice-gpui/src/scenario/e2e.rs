@@ -1,4 +1,5 @@
-//! The end-to-end check of the writing flow, driven with native macOS input.
+//! The end-to-end check of the writing flow, driven with native input on
+//! macOS and Windows.
 
 use std::time::Duration;
 
@@ -60,7 +61,7 @@ impl Run {
             json!({ "language": language }),
         );
 
-        self.type_text(cx, "\\undefinedmacro ")?;
+        self.type_text(cx, "\\undefinedmacro ").await?;
         let typed = self.editor_text(cx, &editor).contains("\\undefinedmacro ");
         let dirty = cx.update(|cx| editor.read(cx).is_dirty(cx));
         check(
@@ -69,14 +70,18 @@ impl Run {
             json!({ "dirty": dirty }),
         );
 
-        native::send_key(self.native(cx)?, 's', true)?;
+        self.press(cx, 's', true).await?;
         let saved = self
             .wait_for(cx, Duration::from_secs(5), |_, _| {
                 std::fs::read_to_string(&chapter)
                     .is_ok_and(|text| text.contains("\\undefinedmacro"))
             })
             .await;
-        check("⌘S saves the file", saved, json!({}));
+        check(
+            "the save shortcut (⌘S / Ctrl+S) saves the file",
+            saved,
+            json!({}),
+        );
 
         let (built, took) = self.build(cx).await?;
         let error = cx.update(|cx| {
@@ -134,7 +139,7 @@ impl Run {
         std::fs::write(&scratch, "abc\n")?;
         let vim_editor = self.open(cx, &scratch, Some(1))?;
         sleep(cx, Duration::from_millis(300)).await;
-        self.type_text(cx, "x")?;
+        self.type_text(cx, "x").await?;
         sleep(cx, Duration::from_millis(100)).await;
         let vim_text = self.editor_text(cx, &vim_editor);
         check(

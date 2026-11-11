@@ -21,6 +21,9 @@ export CC_x86_64_pc_windows_msvc="$tools/clang-cl"
 export CXX_x86_64_pc_windows_msvc="$tools/clang-cl"
 export AR_x86_64_pc_windows_msvc="$tools/llvm-lib"
 export PATH="$tools:$PATH"
+# An empty wrapper overrides a configured sccache, which cc would also put in
+# front of the stand-in compiler and which refuses it.
+export RUSTC_WRAPPER=
 if ! command -v llvm-rc >/dev/null; then
   for llvm in /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin; do
     [ -x "$llvm/llvm-rc" ] && export PATH="$PATH:$llvm" && break

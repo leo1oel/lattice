@@ -79,7 +79,7 @@ impl EditorPanel {
         &self.editor
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn search_bar(&self) -> &Entity<BufferSearchBar> {
         &self.search_bar
     }

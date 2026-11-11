@@ -5541,6 +5541,7 @@ dependencies = [
  "theme_settings",
  "vim",
  "vim_mode_setting",
+ "windows 0.62.2",
  "workspace",
  "zed_actions",
 ]

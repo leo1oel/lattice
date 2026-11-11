@@ -107,6 +107,7 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
 - `ime-protocol`: makes the `NSTextInputClient` calls an input method makes (marked text per keystroke, then the commit) directly on the view.
 
+On macOS the keys go through the active input source, so select an ASCII layout (ABC, U.S.) before running `e2e`; a Pinyin input method turns the typed macro into candidates.
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
 On Windows, keys are posted to the window's message queue, so GPUI's own message loop translates them as it does typed keys, and mouse messages are sent to the window procedure; neither needs the window in front.
 Set `GPUI_LAB_IGNORE_OCCLUSION=1` for measurements: like Lattice's lab, which measures WebKit in windows never composited on the console screen, the window then renders at full rate when nothing of it is visible.

@@ -74,7 +74,7 @@ impl BuildPanel {
     }
 
     /// Whether the last build succeeded; `None` before the first one ends.
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn succeeded(&self) -> Option<bool> {
         match self.status {
             Status::Finished { succeeded, .. } => Some(succeeded),
@@ -83,7 +83,7 @@ impl BuildPanel {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }

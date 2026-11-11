@@ -34,8 +34,18 @@ vim_mode_setting.workspace = true
 workspace.workspace = true
 zed_actions.workspace = true
 
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+raw-window-handle = "0.6"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSGeometry"] }
-raw-window-handle = "0.6"
+
+# The version Zed's gpui_windows already uses, so it adds no crate.
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }

@@ -157,22 +157,22 @@ impl Shell {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn root(&self) -> Option<&PathBuf> {
         self.root.as_ref()
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn pdf(&self) -> &Entity<PdfPanel> {
         &self.pdf
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn build_panel(&self) -> &Entity<BuildPanel> {
         &self.build_panel
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn dock_area(&self) -> &Entity<DockArea> {
         &self.dock_area
     }

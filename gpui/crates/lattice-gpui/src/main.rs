@@ -2,7 +2,8 @@
 //! editor with LaTeX highlighting and search, a PDFium preview, latexmk
 //! builds with diagnostics, all in GPUI Kit's dockable panels.
 //!
-//! Usage: `lattice-gpui [PROJECT_DIR]`; scripted runs (macOS):
+//! Usage: `lattice-gpui [PROJECT_DIR]`; scripted runs (`e2e` on macOS and
+//! Windows, the measurements on macOS):
 //! `lattice-gpui PROJECT_DIR --scenario e2e|perf|ime --out RESULT.json`.
 
 mod app;
@@ -13,17 +14,20 @@ mod file_tree;
 mod latex;
 #[cfg(target_os = "macos")]
 mod native;
+#[cfg(target_os = "windows")]
+#[path = "native_windows.rs"]
+mod native;
 mod paint_probe;
 mod pdf;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
 mod shell;
 
 fn main() {
     init_logging();
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     let (root, scenario) = scenario::parse_args();
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let root = std::env::args_os().nth(1).map(std::path::PathBuf::from);
 
     gpui_kit::application()
@@ -31,14 +35,14 @@ fn main() {
         .run(move |cx| {
             app::init(cx);
             // A scripted measurement leaves the user's frontmost app alone.
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
             let activate = scenario.is_none();
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
             let activate = true;
             match shell::Shell::open_window(root, cx) {
                 Ok((_window, _shell)) =>
                 {
-                    #[cfg(target_os = "macos")]
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
                     if let Some(scenario) = scenario {
                         scenario::start(_shell, _window, scenario, cx);
                     }
