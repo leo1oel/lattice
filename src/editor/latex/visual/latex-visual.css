@@ -105,6 +105,7 @@
 .cm-latex-visual .lx-tex-label { color: var(--text-secondary); font-family: var(--source-font); font-size: 0.75em; }
 .cm-latex-visual .lx-tex-include { color: var(--syntax-function); font-family: var(--source-font); font-size: 0.85em; text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
 .cm-latex-visual .lx-tex-include:hover { background: var(--chrome-hover-surface); }
+.cm-latex-visual .lx-tex-compound { color: var(--text-primary); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
 
 /* Lists: the line indents by depth, and an item hangs its marker in the indent. */
 .cm-latex-visual .cm-line.lx-tex-list { padding-inline-start: calc(var(--lx-tex-depth, 1) * var(--lx-tex-indent)); }
@@ -135,6 +136,7 @@
 .cm-latex-visual .lx-tex-float-bottom::before { content: ""; position: absolute; inset: 0 0 var(--space-2); border-radius: 0 0 var(--radius-icon) var(--radius-icon); background: var(--lx-tex-chip-surface); }
 .cm-latex-visual .cm-line.lx-tex-caption { color: var(--text-secondary); font-size: 0.94em; }
 .cm-latex-visual .lx-tex-caption-label { color: var(--text-primary); font-weight: var(--weight-semibold); }
+.cm-latex-visual .lx-tex-caption-empty { color: var(--text-secondary); font-style: italic; }
 /* --lx-tex-image-width: the share of the column a figure's width= gives it, set on the widget. */
 .cm-latex-visual .lx-tex-image { --lx-tex-image-width: auto; display: inline-block; max-width: 100%; vertical-align: middle; }
 .cm-latex-visual .lx-tex-image.is-block { display: block; width: var(--lx-tex-image-width); max-width: 100%; margin: 0 auto; padding-block: var(--space-2); cursor: pointer; }
@@ -192,3 +194,31 @@
 .cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document):hover { color: var(--text-primary); }
 .cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document):hover::before { background: var(--chrome-hover-surface); }
 .cm-latex-visual .lx-tex-end-document { justify-content: center; }
+
+/*
+ * An editable figure: its graphic at its own size (as LaTeX sets it, up to the
+ * column), with the labels its entry sets over it. The layer's font size is
+ * one of the figure's points, so a label's size in em is its size in points.
+ */
+.cm-latex-visual .lx-tex-figure { position: relative; }
+.cm-latex-visual .lx-tex-figure-canvas { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
+.cm-latex-visual .lx-tex-figure.is-block img { width: auto; max-width: 100%; max-height: 60vh; }
+.cm-latex-visual .lx-tex-figure-labels { position: absolute; inset: 0; pointer-events: none; font-family: var(--ui-font); font-size: 1px; line-height: 1; color: #000; }
+.cm-latex-visual .lx-tex-figure-label { position: absolute; transform: translate(-50%, 0.22em); font-size: 10em; white-space: nowrap; }
+.cm-latex-visual .lx-tex-figure-label .is-bold { font-weight: 700; }
+.cm-latex-visual .lx-tex-figure-edit {
+  position: absolute;
+  top: var(--space-2);
+  right: 0;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-compact);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  font-family: var(--ui-font);
+  font-size: var(--type-caption-size);
+  opacity: 0;
+  cursor: pointer;
+}
+.cm-latex-visual .lx-tex-figure:hover .lx-tex-figure-edit,
+.cm-latex-visual .lx-tex-figure-edit:focus-visible { opacity: 1; }

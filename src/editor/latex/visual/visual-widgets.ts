@@ -8,6 +8,7 @@ import { EditorView, WidgetType } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../../../i18n";
 import { element } from "../../dom-utils";
+import type { FigureLabel } from "./visual-figure";
 
 /** A class list from single class names. */
 const classes = (...names: string[]) => names.join(" ");
@@ -174,6 +175,8 @@ export class IncludeWidget extends WidgetType {
   }
 }
 
+const missingPreview = (path: string) => i18n._(msg`No preview for ${path}; the PDF shows it.`);
+
 /** A figure's image, loaded through the project's reference-image loader (PDFs show their first page). */
 export class ImageWidget extends WidgetType {
   constructor(
@@ -206,7 +209,7 @@ export class ImageWidget extends WidgetType {
     };
     const path = this.path;
     void this.load().then((source) => {
-      if (!source) return settle(i18n._(msg`No preview for ${path}; the PDF shows it.`), "failed");
+      if (!source) return settle(missingPreview(path), "failed");
       const image = element("img");
       image.alt = path;
       image.src = source;
@@ -223,6 +226,134 @@ export class ImageWidget extends WidgetType {
 
   ignoreEvent(event: Event): boolean {
     return this.block && isMouse(event);
+  }
+}
+
+/** What an editable figure draws: its graphic as an image URL (null when it has none to show) and the labels set over it. */
+export type FigurePicture = { graphic: string; image: string | null; labels: readonly FigureLabel[] };
+
+/**
+ * The previews' scale for a PDF page: twice its size in points, up to 720
+ * pixels wide (reference-preview.ts). A wider page's size is not known from
+ * its picture; a column is about this wide.
+ */
+const PREVIEW_SCALE = 2;
+const WIDE_PAGE_POINTS = 360;
+
+/**
+ * An editable figure an `\input` brings in (docs/editable-figures.md),
+ * drawn as its graphic with the labels its entry sets over it: compound
+ * numbers from the last build, "?" before one. A click opens the include
+ * line's source; the button opens the drawing in the program it came from.
+ */
+export class FigureWidget extends WidgetType {
+  constructor(
+    readonly entry: string,
+    readonly load: () => Promise<FigurePicture>,
+    /** A compound key's number, "?" when the last build gave it none. */
+    readonly number: (key: string) => string,
+    /** What the numbers were read from: a new build draws the figure again. */
+    readonly numbersKey: unknown,
+    readonly openDrawing: (() => void) | null,
+    /** Where, from the start of the region, the include command starts: a click lands there. */
+    readonly offset: number,
+  ) {
+    super();
+  }
+
+  eq(other: FigureWidget): boolean {
+    return other.entry === this.entry && other.numbersKey === this.numbersKey && other.offset === this.offset
+      && Boolean(other.openDrawing) === Boolean(this.openDrawing);
+  }
+
+  toDOM(): HTMLElement {
+    const dom = element("div", classes("lx-tex-image", "lx-tex-figure", "is-block", "is-loading"));
+    const path = this.entry;
+    dom.setAttribute("aria-label", path);
+    const settle = (content: Node | string, state: "loaded" | "failed") => {
+      dom.classList.remove("is-loading");
+      dom.classList.add(`is-${state}`);
+      dom.replaceChildren(content);
+      if (this.openDrawing) dom.append(this.drawingButton(this.openDrawing));
+      rememberHeight(`figure:${path}`, dom);
+      EditorView.findFromDOM(dom)?.requestMeasure();
+    };
+    void this.load().then(({ graphic, image, labels }) => {
+      if (!image) return settle(missingPreview(graphic), "failed");
+      settle(this.picture(image, graphic, labels), "loaded");
+    }, () => settle(i18n._(msg`${path} could not be read.`), "failed"));
+    opensOnClick(dom, this.offset);
+    return dom;
+  }
+
+  /** The graphic with its labels over it, the labels sized as the entry sets them against the graphic's width. */
+  private picture(source: string, graphic: string, labels: readonly FigureLabel[]): HTMLElement {
+    const canvas = element("div", "lx-tex-figure-canvas");
+    const image = element("img");
+    image.alt = graphic;
+    image.src = source;
+    const layer = element("div", "lx-tex-figure-labels");
+    layer.setAttribute("aria-hidden", "true");
+    for (const label of labels) {
+      const mark = element("span", "lx-tex-figure-label");
+      mark.style.left = `${label.x * 100}%`;
+      mark.style.bottom = `${label.y * 100}%`;
+      if (label.size) mark.style.fontSize = `${label.size}em`;
+      for (const run of label.runs) {
+        const text = "text" in run ? run.text : run.compounds.map(this.number).join(",");
+        mark.append(element("span", run.bold ? "is-bold" : "", text));
+      }
+      layer.append(mark);
+    }
+    // One point of the figure, in pixels as it is drawn: what the labels' sizes are in.
+    const scale = () => {
+      const points = image.naturalWidth >= 720 ? WIDE_PAGE_POINTS : image.naturalWidth / PREVIEW_SCALE;
+      if (points > 0 && image.clientWidth > 0) layer.style.fontSize = `${image.clientWidth / points}px`;
+    };
+    image.addEventListener("load", () => {
+      scale();
+      EditorView.findFromDOM(canvas)?.requestMeasure();
+    }, { once: true });
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(scale);
+      observer.observe(image);
+      this.observers.push(observer);
+    }
+    canvas.append(image, layer);
+    return canvas;
+  }
+
+  private readonly observers: ResizeObserver[] = [];
+
+  destroy(): void {
+    this.observers.splice(0).forEach((observer) => observer.disconnect());
+  }
+
+  private drawingButton(open: () => void): HTMLElement {
+    const button = element("button", "lx-tex-figure-edit", i18n._(msg`Edit drawing`));
+    button.type = "button";
+    button.title = i18n._(msg`Open the drawing this figure was made from`);
+    // The figure's own click opens its source: the button's press and release stay the button's.
+    for (const type of ["mousedown", "mouseup"] as const) {
+      button.addEventListener(type, (event) => {
+        event.stopPropagation();
+        if (type === "mousedown") event.preventDefault();
+      });
+    }
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      open();
+    });
+    return button;
+  }
+
+  get estimatedHeight(): number {
+    return heights.get(`figure:${this.entry}`) ?? 180;
+  }
+
+  ignoreEvent(event: Event): boolean {
+    return isMouse(event);
   }
 }
 

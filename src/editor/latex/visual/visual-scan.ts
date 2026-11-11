@@ -8,8 +8,8 @@
  * that source stays as written.
  */
 import {
-  ACCENTS, BOXED_ENVIRONMENTS, CITATION_COMMANDS, DISPLAY_MATH_ENVIRONMENTS, FIGURE_ENVIRONMENTS, HEADING_LEVELS,
-  INCLUDE_COMMANDS, LIST_ENVIRONMENTS, LITERALS, REFERENCE_COMMANDS, SOURCE_ENVIRONMENTS, STYLE_COMMANDS, STYLE_SWITCHES,
+  ACCENTS, BOXED_ENVIRONMENTS, CITATION_COMMANDS, COMPOUND_COMMANDS, DISPLAY_MATH_ENVIRONMENTS, FIGURE_ENVIRONMENTS,
+  HEADING_LEVELS, IMPORT_COMMANDS, INCLUDE_COMMANDS, LIST_ENVIRONMENTS, LITERALS, REFERENCE_COMMANDS, SOURCE_ENVIRONMENTS, STYLE_COMMANDS, STYLE_SWITCHES,
   type TextStyle,
 } from "./visual-symbols";
 
@@ -33,7 +33,10 @@ export type Construct = Span & (
   | { kind: "reference"; command: string; keys: string[] }
   | { kind: "citation"; command: string; keys: string[]; notes: string[] }
   | { kind: "label"; key: string }
+  /** `\input{…}`, or the `import` package's `\import{dir/}{file}` with `path` the two joined. */
   | { kind: "include"; command: string; path: string }
+  /** chemnum's `\cmpd{a,b}` and its relatives: the keys whose numbers it prints. */
+  | { kind: "compound"; command: string; keys: string[] }
   /** An `\item`: `index` counts from 1 within its list; `term` is a description item's `[…]`. */
   | { kind: "item"; list: ListKind; depth: number; index: number; term: Span | null }
   /** The `\begin{…}` or `\end{…}` token of an environment Visual mode knows, with its `[…]` argument. */
@@ -247,6 +250,8 @@ class Scanner {
     if (REFERENCE_COMMANDS.has(name) || CITATION_COMMANDS.has(name)) return this.keys(at, end, name);
     if (name === "label") return this.label(at, end);
     if (INCLUDE_COMMANDS.has(name)) return this.include(at, end, name);
+    if (IMPORT_COMMANDS.has(name)) return this.importFile(at, end, name);
+    if (COMPOUND_COMMANDS.has(name)) return this.compound(at, end, name);
     if (name === "includegraphics") return this.image(at, end);
     if (name === "caption") return this.caption(at, end);
     if (name === "href") return this.href(at, end);
@@ -383,6 +388,31 @@ class Scanner {
     const group = this.group(this.spaces(end));
     if (!group || /[{}\\]/.test(group.inner) || !group.inner.trim()) return end;
     this.push(at, group.end, { kind: "include", command: name, path: group.inner.trim() });
+    return group.end;
+  }
+
+  /** `\import{dir/}{file}`: a folder and a file in it, read as one path. */
+  private importFile(at: number, end: number, name: string): number {
+    const folder = this.group(this.spaces(end));
+    if (!folder || /[{}\\]/.test(folder.inner)) return end;
+    const file = this.group(this.spaces(folder.end));
+    if (!file || /[{}\\]/.test(file.inner) || !file.inner.trim()) return end;
+    const directory = folder.inner.trim().replace(/\/*$/, "");
+    const path = directory ? `${directory}/${file.inner.trim()}` : file.inner.trim();
+    this.push(at, file.end, { kind: "include", command: name, path });
+    return file.end;
+  }
+
+  /** `\cmpd[options]{a,b}`, `\rcmpd{mark}`: the keys a compound number is printed for. */
+  private compound(at: number, end: number, name: string): number {
+    // `\cmpd*` only labels a compound: it prints nothing.
+    if (this.text[end] === "*") return end + 1;
+    const options = name === "rcmpd" ? { end, values: [] } : this.options(end, 1);
+    const group = this.group(this.spaces(options.end));
+    if (!group || /[{}\\]/.test(group.inner)) return end;
+    const keys = name === "rcmpd" ? [group.inner.trim()] : group.inner.split(",").map((key) => key.trim());
+    if (!keys.length || keys.some((key) => !key)) return end;
+    this.push(at, group.end, { kind: "compound", command: name, keys });
     return group.end;
   }
 

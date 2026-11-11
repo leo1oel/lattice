@@ -1740,6 +1740,10 @@ msgstr "添加 1 篇论文"
 msgid "Add a bibliography entry for {title}"
 msgstr "为 {title} 添加文献"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Add a caption"
+msgstr "添加题注"
+
 #: src/editor/comments/use-intent-labels.ts
 msgid "Add a citation"
 msgstr "补引用"
@@ -5940,6 +5944,10 @@ msgstr "编辑截止时间"
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Edit document"
 msgstr "编辑文档"
+
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "Edit drawing"
+msgstr "编辑绘图"
 
 #: src/project/project-file-tree.tsx
 msgid "Edit figure source"
@@ -11134,6 +11142,10 @@ msgstr "打开 {0} 网站"
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
 msgstr "请先打开所在文档"
+
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "Open the drawing this figure was made from"
+msgstr "打开制作此图所用的绘图文件"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "Open the file this suggestion is in first"
