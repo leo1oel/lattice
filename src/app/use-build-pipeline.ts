@@ -162,6 +162,7 @@ export function useBuildPipeline({
   }, [buildingRef, quietBuilds, reportCompiles, takePendingCompiles]);
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
     if (options?.automatic && (stallHold.holds(inputRevisionRef.current) || quietBuilds.defer())) return;
+    const unattended = options?.automatic === true || options?.unattended === true;
     const queue = queueRef.current;
     // A project with no LaTeX document has nothing to compile. Autosave, a
     // synctex jump and opening the project all reach here, and each of them
@@ -186,7 +187,7 @@ export function useBuildPipeline({
     // A build asked for any other way shows, and so does the quiet one it waits on.
     if (!options?.quiet || !buildingRef.current) setQuiet(options?.quiet === true);
     if (buildingRef.current) {
-      enqueueBuild(queue, force, options);
+      enqueueBuild(queue, force, { ...options, unattended });
       return;
     }
     setBuilding(true);
@@ -218,6 +219,7 @@ export function useBuildPipeline({
     Object.assign(queue, IDLE_QUEUE);
     try {
       let currentForce = force;
+      let currentUnattended = unattended;
       let cleanFirst = options?.clean === true;
       const takeQueuedBuild = () => {
         if (queue.force === null) return false;
@@ -229,6 +231,7 @@ export function useBuildPipeline({
         bringForward = queue.sound || queue.bringForward;
         shouldConsumeAgentAssociations = queue.consumeAgentAssociations;
         cleanFirst = queue.clean;
+        currentUnattended = queue.unattended;
         Object.assign(queue, IDLE_QUEUE);
         return true;
       };
@@ -273,7 +276,9 @@ export function useBuildPipeline({
         }, SLOW_BUILD_MINUTES * 60_000);
         // A failure after the project moved on belongs to nobody: the pass is simply skipped.
         const result = await diagnosticInvoke<BuildResult>(
-          "build_project", { force: currentForce, projectRoot, documentPath, progressId }, { operationId: trace.id },
+          "build_project",
+          { force: currentForce, unattended: currentUnattended, projectRoot, documentPath, progressId },
+          { operationId: trace.id },
         ).catch((reason) => {
           if (!scopeIsCurrent()) return null;
           compiledRef.current = null;
@@ -308,10 +313,11 @@ export function useBuildPipeline({
         // LaTeX carries on past most errors, so a failed pass that wrote a
         // new PDF still compiled these inputs. One that left the previous PDF
         // in place (or was stopped partway) did not, and its SyncTeX map
-        // cannot be trusted either.
+        // cannot be trusted either. An unchanged one restates the build of
+        // these same inputs whose PDF is still on disk.
         const fingerprint = pdfBytes ? pdfBytesFingerprint(pdfBytes) : null;
         const wrotePdf = fingerprint !== null && !cancelled
-          && (result.success || fingerprint !== readPdfFingerprintRef.current);
+          && (result.success || result.unchanged === true || fingerprint !== readPdfFingerprintRef.current);
         if (fingerprint !== null) readPdfFingerprintRef.current = fingerprint;
         compiledRef.current = wrotePdf
           ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null, oneOff: !!result.oneOff }
@@ -429,7 +435,7 @@ export function useBuildPipeline({
     build: () => void runBuild(false, { automatic: true }),
   }) : undefined, [autoBuildModeRef, buildingRef, projectRef, projectRoot, runBuild, watchedBuilds]);
   useEffect(() => quietBuilds.connect({
-    livePreview, activeFileRef, sourceRef, savedSourceRef, run: (quiet) => void runBuild(false, { quiet }),
+    livePreview, activeFileRef, sourceRef, savedSourceRef, run: (quiet) => void runBuild(false, { quiet, unattended: true }),
   }), [activeFileRef, livePreview, quietBuilds, runBuild, savedSourceRef, sourceRef]);
 
   /**

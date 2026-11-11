@@ -48,6 +48,24 @@ describe("explainDiagnostic", () => {
     expect(short?.suggestion).toBeUndefined();
   });
 
+  // latex/package_order.rs: LaTeX 2026-11 breaks every table's end when
+  // arydshln is loaded after colortbl, and the build's notice says so.
+  it("explains a table end that arydshln after colortbl broke, only when the build noticed it", () => {
+    const table = ["\\begin{tabularx}{\\textwidth}{l*{6}{C}}", "Model & $\\Delta$ \\\\", "\\end{tabularx}"].join("\n");
+    const extra = { level: "error", message: "Extra }, or forgotten $.", file: "section/5_experiments_v2.tex", line: 3 };
+    const options = { log: "", source: table, afterError: true };
+    const clash = explainDiagnostic(extra, { ...options, tableEndsClash: true });
+    expect(clash?.headline).toBe("arydshln and colortbl clash at this table’s end");
+    expect(clash?.explanation).toContain("Load arydshln before colortbl in the preamble, or remove \\usepackage{arydshln}");
+    const failing = clash!.excerpt.find((line) => line.failing)!;
+    expect(failing.text.slice(failing.token!.start, failing.token!.end)).toBe("\\end{tabularx}");
+    // Without the notice, TeX's own reading stands.
+    expect(explainDiagnostic(extra, options)?.headline).toBe("A } with no { before it");
+    // A math error inside the table is the paper's own.
+    const math = explainDiagnostic({ ...extra, message: "Missing $ inserted.", line: 2 }, { ...options, tableEndsClash: true });
+    expect(math?.headline).toBe("Math outside math mode");
+  });
+
   it("falls back to TeX's words when the log has no context line to read the token from", () => {
     expect(explainDiagnostic(undefinedCommand, { log: "Build output", source, afterError: true })).toBeNull();
   });

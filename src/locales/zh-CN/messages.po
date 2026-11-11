@@ -2380,6 +2380,10 @@ msgstr "article 应写 journal，而不是 booktitle"
 msgid "arXiv identifier"
 msgstr "arXiv 编号"
 
+#: src/build/compile-explain.ts
+msgid "arydshln and colortbl clash at this table’s end"
+msgstr "arydshln 与 colortbl 在此表格结尾处冲突"
+
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
 msgstr "重新请求"
@@ -8322,6 +8326,10 @@ msgstr "稍后"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
 msgstr "LaTeX"
+
+#: src/build/compile-explain.ts
+msgid "LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove {command} if no table draws dashed rules."
+msgstr "arydshln 在 colortbl 之后加载时，LaTeX 2026-11 会在每个表格结尾报这个错；表格本身没有问题。请在导言区把 arydshln 放到 colortbl 之前加载；如果没有表格使用虚线，也可以删除 {command}。"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
@@ -16158,6 +16166,10 @@ msgstr "磁盘空间不足，无法安装此组件。请释放一些空间后重
 #: src/platform/host-errors-overleaf.ts
 msgid "These files are too large for Overleaf: {files}."
 msgstr "这些文件太大，Overleaf 无法接收：{files}"
+
+#: src/build/build-log-messages.ts
+msgid "These table errors come from loading arydshln after colortbl, which LaTeX 2026-11 broke: the tables are fine. Load arydshln before colortbl, or remove {command} if no table draws dashed rules."
+msgstr "这些表格错误来自在 colortbl 之后加载 arydshln，LaTeX 2026-11 起这样会出错；表格本身没有问题。请把 arydshln 放到 colortbl 之前加载；如果没有表格使用虚线，也可以删除 {command}。"
 
 #: src/history/compare-versions.tsx
 msgid "These two versions have the same files."
