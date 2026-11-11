@@ -5,7 +5,7 @@ import SynaraPermissionPicker from "./synara-permission-picker";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-const NOTE = /With a model endpoint, Pi edits without asking in every mode/;
+const NOTE = /With a model endpoint, Pi asks before it edits a file or runs a command in “Ask before outside edits and network”, and runs them without asking in “Never ask”/;
 
 function open(endpoint: unknown) {
   vi.mocked(invoke).mockResolvedValue({ endpoint, keySaved: false });
@@ -17,7 +17,7 @@ describe("SynaraPermissionPicker", () => {
   beforeEach(() => vi.mocked(invoke).mockReset());
   afterEach(cleanup);
 
-  it("says Pi never asks once a model endpoint is saved", async () => {
+  it("says when Pi asks once a model endpoint is saved", async () => {
     open({ protocol: "openai-completions", baseUrl: "https://a.example/v1", models: [] });
     expect(await screen.findByText(NOTE)).toBeTruthy();
     expect(invoke).toHaveBeenCalledWith("get_model_endpoint");
