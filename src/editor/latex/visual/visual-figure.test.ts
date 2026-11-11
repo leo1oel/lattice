@@ -27,8 +27,8 @@ describe("editable figure entries", () => {
 
   it("reads the labels set over the graphic: place, size, bold, compound numbers and text", () => {
     expect(figureEntryLabels(REACTIO_ENTRY)).toEqual([
-      { x: 0.1665, y: 0.1119, size: 10, runs: [{ bold: true, compounds: ["1"] }, { bold: false, text: " (xx%)" }] },
-      { x: 0.5688, y: 0.3996, size: 8, runs: [{ bold: false, compounds: ["ketone", "alcohol.OMe"] }] },
+      { x: 0.1665, y: 0.1119, size: 10, font: "sans", runs: [{ bold: true, compounds: ["1"] }, { bold: false, text: " (xx%)" }] },
+      { x: 0.5688, y: 0.3996, size: 8, font: null, runs: [{ bold: false, compounds: ["ketone", "alcohol.OMe"] }] },
     ]);
   });
 

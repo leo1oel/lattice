@@ -17,8 +17,24 @@
 /** A run of a label: text, or the keys of compound numbers to print. */
 type FigureLabelRun = { bold: boolean } & ({ text: string } | { compounds: string[] });
 
-/** A label set over the graphic: where its baseline's middle is (0..1 from the bottom left), its size in points, and its runs. */
-export type FigureLabel = { x: number; y: number; size: number | null; runs: FigureLabelRun[] };
+/** How a label's NFSS font family reads on screen: "sans", "serif" or "mono". */
+type FigureLabelFont = "sans" | "serif" | "mono";
+
+/**
+ * A label set over the graphic: where its baseline's middle is (0..1 from the
+ * bottom left), its size in points, its font (null: the document's, a serif)
+ * and its runs.
+ */
+export type FigureLabel = { x: number; y: number; size: number | null; font: FigureLabelFont | null; runs: FigureLabelRun[] };
+
+/** NFSS family names (`\fontfamily{phv}`) by how they look: Helvetica and the like, Times, Courier. */
+const SANS_FAMILIES = /^(?:phv|cmss|lmss|qhv|uop|pag|fvs|cmbr|lato|opensans)$/;
+const MONO_FAMILIES = /^(?:pcr|cmtt|lmtt|qcr|txtt)$/;
+function labelFont(content: string): FigureLabelFont | null {
+  const family = /\\(?:fontfamily|reactiofigurefont)\s*\{\s*([A-Za-z0-9]+)\s*\}/.exec(content)?.[1];
+  if (!family) return null;
+  return SANS_FAMILIES.test(family) ? "sans" : MONO_FAMILIES.test(family) ? "mono" : "serif";
+}
 
 /** The longest entry file read: a figure's entry is a few dozen lines. */
 const ENTRY_LIMIT = 200_000;
@@ -69,7 +85,7 @@ export function figureEntryLabels(entry: string): FigureLabel[] {
     const content = body.slice(open + 1, end - 1);
     const size = /\\fontsize\s*\{\s*([\d.]+)\s*\}/.exec(content);
     const runs = labelRuns(content, false);
-    if (runs.length) labels.push({ x, y, size: size ? Number(size[1]) : null, runs });
+    if (runs.length) labels.push({ x, y, size: size ? Number(size[1]) : null, font: labelFont(content), runs });
   }
   return labels;
 }

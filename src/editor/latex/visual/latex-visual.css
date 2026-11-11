@@ -203,9 +203,13 @@
 .cm-latex-visual .lx-tex-figure { position: relative; }
 .cm-latex-visual .lx-tex-figure-canvas { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
 .cm-latex-visual .lx-tex-figure.is-block img { width: auto; max-width: 100%; max-height: 60vh; }
-.cm-latex-visual .lx-tex-figure-labels { position: absolute; inset: 0; pointer-events: none; font-family: var(--ui-font); font-size: 1px; line-height: 1; color: #000; }
+.cm-latex-visual .lx-tex-figure-labels { position: absolute; inset: 0; pointer-events: none; font-size: 1px; line-height: 1; color: #000; }
 .cm-latex-visual .lx-tex-figure-label { position: absolute; transform: translate(-50%, 0.22em); font-size: 10em; white-space: nowrap; }
 .cm-latex-visual .lx-tex-figure-label .is-bold { font-weight: 700; }
+/* The label's own font, as its entry names it: what TeX sets it in, near enough. */
+.cm-latex-visual .lx-tex-figure-label.is-serif { font-family: "Latin Modern Roman", "CMU Serif", "Times New Roman", Times, serif; }
+.cm-latex-visual .lx-tex-figure-label.is-sans { font-family: Helvetica, Arial, sans-serif; }
+.cm-latex-visual .lx-tex-figure-label.is-mono { font-family: Courier, "Courier New", monospace; }
 .cm-latex-visual .lx-tex-figure-edit {
   position: absolute;
   top: var(--space-2);

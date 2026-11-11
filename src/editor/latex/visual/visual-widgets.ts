@@ -299,6 +299,7 @@ export class FigureWidget extends WidgetType {
       mark.style.left = `${label.x * 100}%`;
       mark.style.bottom = `${label.y * 100}%`;
       if (label.size) mark.style.fontSize = `${label.size}em`;
+      mark.classList.add(`is-${label.font ?? "serif"}`);
       for (const run of label.runs) {
         const text = "text" in run ? run.text : run.compounds.map(this.number).join(",");
         mark.append(element("span", run.bold ? "is-bold" : "", text));
