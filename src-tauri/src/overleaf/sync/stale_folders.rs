@@ -16,7 +16,8 @@
 //!
 //! In a folder that is cleared, only what a build of its documents wrote
 //! goes: a file a build record there lists as written (a TeX recorder's
-//! `.fls`, latexmk's `.fdb_latexmk`), or one named for a `.tex` that synced
+//! `.fls`, latexmk's `.fdb_latexmk`) and the SyncTeX file beside a PDF one
+//! lists, the project's build PDF, or one named for a `.tex` that synced
 //! beside it (`main.aux` for `main.tex`). A name alone proves nothing: the
 //! writer's `train.log` or `slurm-4821.out` is no build's. Then every folder
 //! left empty goes, deepest first, with a Finder `.DS_Store` that is all one
