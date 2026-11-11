@@ -83,7 +83,8 @@ const THEIRS: &[u8] = b"%PDF-1.5 a collaborator's build";
 
 fn build_open(root: &Path, open: Option<&str>) -> BuildResult {
     let result =
-        super::build(root, false, &ActiveBuild::default(), open, &BuildSteps::silent()).unwrap();
+        super::build(root, false, false, &ActiveBuild::default(), open, &BuildSteps::silent())
+            .unwrap();
     assert!(result.success, "{}", result.log);
     result
 }

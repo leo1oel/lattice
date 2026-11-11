@@ -19,10 +19,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, Window};
 
+/// `unattended`: Lattice started the build itself (autosave, the project
+/// watcher), not the writer; see `latex::build`.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn build_project(
-    state: State<'_, AppState>, window: Window, force: Option<bool>, project_root: String,
-    document_path: Option<String>, progress_id: Option<u32>,
+    state: State<'_, AppState>, window: Window, force: Option<bool>, unattended: Option<bool>,
+    project_root: String, document_path: Option<String>, progress_id: Option<u32>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<BuildResult, String> {
     let operation = wide_event::Operation::start("latex.compile", latex::classify_build_error);
@@ -31,11 +34,12 @@ pub async fn build_project(
             let root = pinned_root(&state, &window, &project_root, "its build could start")?;
             wide_event::project(&root);
             let force = force.unwrap_or(false);
+            let unattended = unattended.unwrap_or(false);
             let active = state.project(&root).active_build.clone();
             let steps = build_progress(window, project_root, progress_id);
             // Quietly: the operation's event already carries any failure.
             run_quietly("The LaTeX build task", move || {
-                latex::build(&root, force, &active, document_path.as_deref(), &steps)
+                latex::build(&root, force, unattended, &active, document_path.as_deref(), &steps)
             })
             .await
         }))

@@ -98,6 +98,24 @@ const CJK_CHARACTER = /^(?:[\u1100-\u11FF\u3000-\u30FF\u3130-\u318F\u3400-\u4DBF
 
 type Entry = { pattern: RegExp; explain: (match: RegExpExecArray, context: ExplainContext) => Explanation | null };
 
+/**
+ * What LaTeX 2026-11 reports at the end of every table when arydshln is loaded
+ * after colortbl, the table itself being fine (latex/package_order.rs, whose
+ * notice says the build hit it). Read as TeX's usual words, these sent the
+ * writer looking for a brace or a $ that is not missing.
+ */
+const TABLE_END_ERROR = /^(?:Extra \}, or forgotten \$|Missing \$ inserted|Missing \} inserted)/;
+const TABLE_END = /\\end\{tabular[^}]*\}/;
+
+function tableClash(): Explanation {
+  // The LaTeX goes in as a parameter: its braces would read as placeholders.
+  const command = "\\usepackage{arydshln}";
+  return {
+    headline: i18n._(msg`arydshln and colortbl clash at this table’s end`),
+    explanation: i18n._(msg`LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove ${command} if no table draws dashed rules.`),
+  };
+}
+
 /** The table. Patterns match TeX's message as the build reports it, with or without the `LaTeX Error: ` prefix. */
 const ENTRIES: Entry[] = [
   {
@@ -373,24 +391,28 @@ function excerptAround(source: string, line: number | undefined, token?: string)
  */
 export function explainDiagnostic(
   diagnostic: CompileDiagnostic,
-  { log, rootDocument = "", source, afterError, sameAfter = 0 }: {
+  { log, rootDocument = "", source, afterError, sameAfter = 0, tableEndsClash = false }: {
     log: string;
     /** Project-relative path of the compiled document; the log names files from its folder. */
     rootDocument?: string;
     source: string | null;
     afterError: boolean;
     sameAfter?: number;
+    /** The build's notice that arydshln loaded after colortbl broke its tables (`arydshln-after-colortbl`). */
+    tableEndsClash?: boolean;
   },
 ): ExplainedDiagnostic | null {
   if (diagnostic.code) return null;
   const message = diagnostic.message.trim().replace(/^(?:LaTeX|Package \S+) (?:Error|Warning):\s*/, "");
   // Only an error stops TeX on the line it names; a warning's line is where it noticed.
   const errorLine = diagnosticSeverity(diagnostic.level) === "error" ? diagnostic.line : undefined;
+  const failingLine = source && errorLine ? source.split("\n")[errorLine - 1] : undefined;
+  const tableEnd = tableEndsClash && TABLE_END_ERROR.test(message) ? TABLE_END.exec(failingLine ?? "")?.[0] : undefined;
+  if (tableEnd) return { ...tableClash(), token: tableEnd, excerpt: excerptAround(source ?? "", errorLine, tableEnd) };
   for (const entry of ENTRIES) {
     const match = entry.pattern.exec(message);
     if (!match) continue;
     const token = stoppedAt(log, diagnostic, sameAfter, rootDocument);
-    const failingLine = source && errorLine ? source.split("\n")[errorLine - 1] : undefined;
     const onLine = token !== undefined && failingLine !== undefined && tokenOffset(failingLine, token) >= 0;
     const explained = entry.explain(match, { stoppedAt: token, onLine, source: source ?? "", afterError });
     if (!explained) return null;

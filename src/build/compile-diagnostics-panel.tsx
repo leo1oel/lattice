@@ -194,6 +194,7 @@ export function CompileDiagnosticsPanel(props: {
   const { t } = useLingui();
   const diagnostics = sortDiagnostics(props.diagnostics);
   const summary = summarizeDiagnostics(diagnostics);
+  const tableEndsClash = diagnostics.some((diagnostic) => diagnostic.code === "arydshln-after-colortbl");
   const tone = summary.error > 0 || !props.success ? "error" : summary.warning > 0 ? "warning" : "info";
   const hasLog = Boolean(props.log.trim());
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
@@ -295,7 +296,7 @@ export function CompileDiagnosticsPanel(props: {
                       const missingFile = diagnostic.params?.missingFile ?? missingTexDependencyFile(diagnostic.message);
                       const previousEngine = diagnostic.params?.previous;
                       const explained = explainDiagnostic(diagnostic, {
-                        log: props.log, rootDocument: props.rootDocument, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0,
+                        log: props.log, rootDocument: props.rootDocument, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0, tableEndsClash,
                         sameAfter: diagnostics.slice(diagnostics.indexOf(diagnostic) + 1)
                           .filter((other) => other.file === diagnostic.file && other.line === diagnostic.line && other.message === diagnostic.message).length,
                       });

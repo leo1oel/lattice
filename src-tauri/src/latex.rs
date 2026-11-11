@@ -42,6 +42,7 @@ mod diagnostic_paths;
 mod engine_mismatch;
 mod figure_preview;
 mod outdated_lineno;
+mod package_order;
 mod pinned;
 mod preamble_format;
 mod prewarm;
@@ -200,6 +201,12 @@ pub struct BuildResult {
     /// build must not take a package's unfamiliar output for an edit and
     /// compile again, and again.
     pub outputs: Vec<String>,
+    /// Nothing the document reads changed since its last build, which failed,
+    /// and nobody asked for this one (`build::unchanged`): the result restates
+    /// that build's errors, and the PDF and SyncTeX map on disk are its, of
+    /// these same inputs. Nothing was typeset or written.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub unchanged: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

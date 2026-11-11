@@ -278,6 +278,12 @@ export type BuildResult = {
   synctex: boolean | null;
   /** The project files the compile wrote, by its `.fls` recorder (watched-builds.ts). */
   outputs?: string[];
+  /**
+   * An unattended build found nothing changed since the last build, which
+   * failed: this restates its errors without typesetting, and the PDF and
+   * SyncTeX map on disk are of these same inputs (latex/build/unchanged.rs).
+   */
+  unchanged?: boolean;
 };
 
 export type PaperSummary = {

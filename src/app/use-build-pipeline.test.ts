@@ -177,6 +177,25 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.pdfUrl).toBe("blob:pdf");
   });
 
+  // Nothing changed since that failure (latex/build/unchanged.rs), so the PDF
+  // it wrote is still this build's: the Build button keeps "Built with errors".
+  it("credits an unchanged failure with the PDF of the failure it restates", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    const failed = { success: false, hasPdf: true, diagnostics: [{ level: "error", message: "Extra }, or forgotten $." }] };
+    let answer = result(failed);
+    const view = renderPipeline(async () => answer);
+    const answerCommand = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => command === "read_compiled_pdf"
+      ? new TextEncoder().encode("%PDF-1.5 shown").buffer
+      : answerCommand(command, args));
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: true });
+
+    answer = result({ ...failed, unchanged: true });
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: true });
+  });
+
   it("reports a build the backend rejected as failed", async () => {
     const view = renderPipeline(async () => { throw new Error("latexmk could not start"); });
     await act(() => view.result.current.runBuild(false, { requested: true }));
@@ -373,6 +392,42 @@ describe("which builds bring the PDF tabs forward", () => {
     await act(async () => { passes[1](result({ hasPdf: true })); await running; });
     // The same document, not asked for: no new turn of the tabs.
     expect(view.result.current.shownPdf).toBe(asked);
+  });
+});
+
+/** What each `build_project` so far was told about who started it. */
+const sentUnattended = () => vi.mocked(invoke).mock.calls
+  .filter(([command]) => command === "build_project")
+  .map(([, args]) => (args as { unattended: boolean }).unattended);
+
+// Only a build the writer asked for typesets again a failing document nothing
+// changed in (latex/build/unchanged.rs); one Lattice starts on its own takes
+// latexmk's word, or a sync tool's copy of each rebuild's output rebuilds it forever.
+describe("telling the backend who started a build", () => {
+  it("marks autosave's, the watcher's and the quiet builds unattended, and the writer's own not", async () => {
+    const view = renderPipeline(async () => result());
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    await act(() => view.result.current.runBuild(false, { quiet: true, unattended: true }));
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    await act(() => view.result.current.runBuild(false, { immediatePreview: true }));
+    expect(sentUnattended()).toEqual([true, true, false, false]);
+  });
+
+  it("keeps a queued pass unattended only while every request folded into it is", async () => {
+    const passes: Array<(value: BuildResult) => void> = [];
+    const view = renderPipeline(() => new Promise((resolve) => { passes.push(resolve); }));
+    let running!: Promise<void>;
+    act(() => { running = view.result.current.runBuild(false, { requested: true }); });
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    await act(async () => { passes[0](result()); });
+    await vi.waitFor(() => expect(passes).toHaveLength(2));
+    // The writer asks while the watcher's pass runs, and the watcher asks again after.
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    await act(() => view.result.current.runBuild(false, { automatic: true }));
+    await act(async () => { passes[1](result()); });
+    await vi.waitFor(() => expect(passes).toHaveLength(3));
+    await act(async () => { passes[2](result()); await running; });
+    expect(sentUnattended()).toEqual([false, true, false]);
   });
 });
 
