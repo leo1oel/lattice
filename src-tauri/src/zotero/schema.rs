@@ -122,7 +122,7 @@ fn table_exists(db: &Connection, table: &str) -> bool {
 }
 
 /// Each top-level regular item of the library, with the collections it is in
-/// and the path of its PDF when the file is on this Mac. `base` is the
+/// and the path of its PDF when the file is on this computer. `base` is the
 /// directory linked `attachments:` files are relative to.
 ///
 /// Every pinned key is taken first, then keys go out in itemID order: an item
@@ -287,7 +287,7 @@ fn pdf_attachment(
                 data_dir.join("storage").join(&key).join(file)
             }
             (2, Some(("attachments", relative))) => base?.join(relative),
-            (2, _) if stored.starts_with('/') => PathBuf::from(stored),
+            (2, _) if Path::new(&stored).is_absolute() => PathBuf::from(stored),
             _ => return None,
         };
         path.is_file().then_some((key, path))

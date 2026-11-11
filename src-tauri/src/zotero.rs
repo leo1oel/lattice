@@ -18,8 +18,10 @@
 //! frontend never names a file on disk.
 
 mod bibtex;
+mod paths;
 mod schema;
 
+use paths::support_dir;
 use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -29,7 +31,7 @@ use std::sync::{Mutex, OnceLock};
 
 pub use schema::{ZoteroCollection, ZoteroItem};
 
-const NOT_FOUND: &str = "Lattice couldn't find a Zotero library on this Mac.";
+const NOT_FOUND: &str = "Lattice couldn't find a Zotero library on this computer.";
 const UNREADABLE: &str = "Lattice couldn't read the Zotero library: {}";
 
 /// The Zotero library Lattice found, as the browser shows it: one read of one
@@ -53,11 +55,6 @@ fn unreadable(error: impl std::fmt::Display) -> String {
     UNREADABLE.replace("{}", &error.to_string())
 }
 
-/// Zotero's application support folder, which holds profiles.ini.
-fn support_dir() -> Option<PathBuf> {
-    Some(PathBuf::from(std::env::var_os("HOME")?).join("Library/Application Support/Zotero"))
-}
-
 /// Zotero's data directory: `chosen` when the writer picked one, else the
 /// one the default Zotero profile names (`extensions.zotero.dataDir`), else
 /// `~/Zotero`; whichever holds a zotero.sqlite.
@@ -65,8 +62,7 @@ pub fn data_dir(chosen: Option<&str>) -> Result<PathBuf, String> {
     let candidates: Vec<PathBuf> = match chosen {
         Some(dir) => vec![PathBuf::from(dir)],
         None => {
-            let home =
-                PathBuf::from(std::env::var_os("HOME").ok_or_else(|| NOT_FOUND.to_string())?);
+            let home = crate::host_paths::home_dir().ok_or_else(|| NOT_FOUND.to_string())?;
             support_dir()
                 .and_then(|support| profile_data_dir(&support))
                 .into_iter()
@@ -214,14 +210,14 @@ pub fn library(chosen: Option<&str>) -> Result<ZoteroLibrary, String> {
     Ok(ZoteroLibrary { collections, items })
 }
 
-/// Where the PDF attachment `key`, named by an earlier read, is on this Mac.
+/// Where the PDF attachment `key`, named by an earlier read, is on this computer.
 pub fn attachment_path(key: &str) -> Result<PathBuf, String> {
     known_pdfs()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .get(key)
         .cloned()
-        .ok_or_else(|| "Zotero has no file on this Mac for this attachment.".to_string())
+        .ok_or_else(|| "Zotero has no file on this computer for this attachment.".to_string())
 }
 
 #[cfg(test)]

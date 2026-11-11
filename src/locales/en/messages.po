@@ -8592,8 +8592,8 @@ msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice could not write to the TeX installation folder."
 
 #: src/platform/host-errors-papers.ts
-msgid "Lattice couldn't find a Zotero library on this Mac."
-msgstr "Lattice couldn't find a Zotero library on this Mac."
+msgid "Lattice couldn't find a Zotero library on this computer."
+msgstr "Lattice couldn't find a Zotero library on this computer."
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
@@ -18385,8 +18385,8 @@ msgid "Zotero folders"
 msgstr "Zotero folders"
 
 #: src/platform/host-errors-papers.ts
-msgid "Zotero has no file on this Mac for this attachment."
-msgstr "Zotero has no file on this Mac for this attachment."
+msgid "Zotero has no file on this computer for this attachment."
+msgstr "Zotero has no file on this computer for this attachment."
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Zotero…"
