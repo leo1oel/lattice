@@ -17,6 +17,7 @@ use crate::{
     elevation::ring,
     icons::ICON,
     interaction::tab_stop,
+    parity,
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -91,6 +92,7 @@ pub struct SearchField {
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
     trailing: Option<AnyElement>,
+    parity: Option<SharedString>,
 }
 
 impl SearchField {
@@ -105,7 +107,15 @@ impl SearchField {
             tooltip: None,
             on_click: None,
             trailing: None,
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and its placeholder's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn width(mut self, width: Pixels) -> Self {
@@ -192,8 +202,10 @@ impl RenderOnce for SearchField {
                     .whitespace_nowrap()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text_secondary)
-                    .child(self.placeholder),
+                    .child(self.placeholder)
+                    .children(self.parity.clone().and_then(parity::text_probe)),
             )
+            .children(self.parity.and_then(parity::probe))
             .children(self.trailing)
             .children(self.keycap.map(Keycap::new))
             .when_some(self.width, |this, width| this.w(width).flex_none())
@@ -220,6 +232,7 @@ impl RenderOnce for SearchField {
 pub struct Segmented {
     id: ElementId,
     segments: Vec<Segment>,
+    parity: Option<SharedString>,
 }
 
 pub struct Segment {
@@ -234,7 +247,15 @@ impl Segmented {
         Self {
             id: id.into(),
             segments: Vec::new(),
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and its selected segment's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn label(
@@ -281,10 +302,16 @@ impl RenderOnce for Segmented {
             .p(px(2.))
             .rounded(px(11.))
             .shadow(vec![inset_ring(palette.line)])
+            .children(self.parity.clone().and_then(parity::probe))
             .children(self.segments.into_iter().enumerate().map(|(ix, segment)| {
                 let hover = palette.hover;
                 let focus = focus.clone();
                 let segment_box = div().id(ix);
+                let text_probe = segment
+                    .selected
+                    .then(|| self.parity.clone())
+                    .flatten()
+                    .and_then(parity::text_probe);
                 // Each segment is a tab stop, as each is a button in the app.
                 let segment_box = if segment.on_click.is_some() {
                     tab_stop(segment_box)
@@ -310,6 +337,7 @@ impl RenderOnce for Segmented {
                             .line_height(px(14.))
                             .text_color(palette.text)
                             .child(label)
+                            .children(text_probe)
                     })
                     .when_some(segment.icon, |this, icon| {
                         this.w(px(28.))

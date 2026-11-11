@@ -12,6 +12,10 @@ name: GPUI
 # (src/settings/code-themes.ts, with the contrast fitting in
 # theme-customization.ts) by design-system/code-themes.mjs, so a change to
 # any of those runs it, and the code-themes job fails while the JSON is stale.
+# The macos job also writes the parity report (gpui/parity/), which stages
+# its scenes with design-system/screens/, so a change there runs it too; a
+# change to the Tauri frontend itself does not, to keep this workflow off
+# every frontend pull request.
 on:
   push:
     branches: [main]
@@ -22,6 +26,8 @@ on:
       - "design-system/code-themes.mjs"
       - "src/settings/code-themes.ts"
       - "src/settings/theme-customization.ts"
+      - "design-system/screens/**"
+      - ".github/actions/setup-pnpm/**"
       - ".github/workflows/gpui.yml"
   pull_request:
     paths: *gpui-paths
@@ -109,6 +115,37 @@ jobs:
         with:
           name: gpui-e2e-macos
           path: ${{ runner.temp }}/e2e-macos.json
+          if-no-files-found: ignore
+      # The parity report (gpui/README.md, "Parity harness"): the Main window
+      # in light and dark, against the Tauri frontend on the mock-backend
+      # page, region by region and pixel by pixel. A report for now, not a
+      # gate: these steps never fail the job. The runner's screen shrinks the
+      # window (about 1015 px wide), and the reference is drawn at whatever
+      # size and scale the GPUI window got.
+      - name: Set up pnpm for the parity report
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: ./.github/actions/setup-pnpm
+      - name: Parity report
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        working-directory: .
+        run: |
+          pnpm exec playwright-core install chromium
+          node --test gpui/parity/*.test.mjs
+          node gpui/parity/run.mjs --out "$RUNNER_TEMP/parity" --app gpui/target/release/lattice-gpui
+          sed '/^!\[/d' "$RUNNER_TEMP/parity/report.md" >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpui-parity-macos
+          path: |
+            ${{ runner.temp }}/parity/*.md
+            ${{ runner.temp }}/parity/*.html
+            ${{ runner.temp }}/parity/*.json
+            ${{ runner.temp }}/parity/*.png
+            ${{ runner.temp }}/parity/runs/*.json
           if-no-files-found: ignore
 
   windows:

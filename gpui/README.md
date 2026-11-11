@@ -48,9 +48,9 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 
 ## CI
 
-`.github/workflows/gpui.yml` runs only when `gpui/**`, the workflow itself, or one of the design-system exports `crates/lattice-ui` generates from changes (`../design-system/tokens.json`, `../design-system/code-themes.json` and what that is generated from; the workflow lists them).
+`.github/workflows/gpui.yml` runs only when `gpui/**`, the workflow itself, one of the design-system exports `crates/lattice-ui` generates from changes (`../design-system/tokens.json`, `../design-system/code-themes.json` and what that is generated from; the workflow lists them), or the scene staging the parity report uses (`../design-system/screens/`).
 Its `code-themes` job fails while `code-themes.json` is stale (`node design-system/code-themes.mjs --check`).
-On macOS and Windows it builds the app (release profile), runs the unit tests (including the latexmk test that is ignored by default) and the `e2e` scenario on `fixtures/e2e`.
+On macOS and Windows it builds the app (release profile), runs the unit tests (including the latexmk test that is ignored by default) and the `e2e` scenario on `fixtures/e2e`; on macOS it then writes the parity report (below), which does not fail the job.
 macOS builds with TeX Live; Windows builds with MiKTeX, and a second Windows job runs the TeX tests against TeX Live.
 The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-install prompts are checked by hand; CI cannot drive them.
 
@@ -112,7 +112,7 @@ cp -R fixtures/e2e /tmp/lattice-gpui-e2e        # the scenario edits and builds 
 target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
 
-`e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol` and `shot` are macOS only.
+`e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
 
 - `e2e`: opens a project, builds, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs and rebuilds, and drags an editor tab into the right dock with native mouse events.
   It needs `chapters/intro.tex` in the project.
@@ -121,10 +121,28 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
 - `ime-protocol`: makes the `NSTextInputClient` calls an input method makes (marked text per keystroke, then the commit) directly on the view.
 - `shot`: waits for the project's PDF to draw, then saves the window as `LATTICE_SHOT_OUT` (a PNG), for side-by-side look reviews against Paper's App screens. Built with `--features offscreen-shots` it draws and reads the frame back itself, so the screen may be locked; otherwise it uses `screencapture`, which needs the window on an unlocked screen.
+- `parity`: the parity harness's half of a scene (below): the pointer parked, the PDF shown and the build chip staged as a clean 1.2 s build; then it saves the window as `LATTICE_SHOT_OUT` and lists every named region's bounds and label text style in the result.
 
 On macOS the keys go through the active input source, so select an ASCII layout (ABC, U.S.) before running `e2e`; a Pinyin input method turns the typed macro into candidates.
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
 On Windows, keys are posted to the window's message queue, so GPUI's own message loop translates them as it does typed keys, and mouse messages are sent to the window procedure; neither needs the window in front.
+
+## Parity harness
+
+`parity/` renders the same scene in the Tauri app's frontend and in this app, and diffs them region by region:
+
+```sh
+cargo build --release --features lattice-gpui/offscreen-shots   # or without the feature, on an unlocked screen
+node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; --theme light,dark --screen mainWindow
+```
+
+- The reference is the Tauri frontend on the mock-backend page (`pnpm perf:bench --serve`, which `run.mjs` starts unless given `--bench-url`), staged by the functions that draw Paper's App screens (`../design-system/screens/scenes.mjs`), at the GPUI window's size and scale (1440×900 @2x on a Retina Mac). Every run also saves the page as `serialize.js` draws it into Paper, its layers named after the regions.
+- The GPUI side is `--scenario parity` on a copy of the tutorial project. Both apps show the tutorial's PDF as the web demo ships it (`../tools/web-demo/content/compiled/main.pdf`); `--build-pdf` builds it with latexmk instead.
+- The regions are listed per screen in `parity/regions.mjs`, as a selector in the Tauri app's DOM; this app records the same names with `lattice_ui::parity` probes (the components take `.parity(name)`). The probes are not even added to the tree outside a parity run.
+- Checks, per screen and theme: each region's bounds within ±1 px; each label's family, size (after the face's `size-adjust`), weight and line height; each chrome region's ground colour within ΔE2000 1; and the share of pixels that differ visibly (ΔE2000 > 2.3) outside text, the PDF pages and what changed between two runs of the same app, within three times that run-to-run noise (at least 0.1%).
+- It writes `report.md` (and `index.html`, `report.json`), and per screen and theme a side-by-side image (reference, GPUI, heatmap) and the full-resolution heatmap; the captures are under `runs/`. It exits 0 once the report is written; `--strict` exits 1 when a check fails.
+
+CI's macos job writes the report after the e2e scenario and uploads it as the `gpui-parity-macos` artifact; it does not fail the job yet. The runner's screen shrinks the window to about 1015 px wide, so CI compares the two apps at that width. Only the Main window is ported so far; the other App screens follow in `parity/regions.mjs`.
 
 ## Reference projects
 

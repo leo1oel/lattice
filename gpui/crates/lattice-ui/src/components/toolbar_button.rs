@@ -21,6 +21,7 @@ use crate::{
     components::{Surface, focus_ring},
     icons::{ICON, ICON_SMALL},
     interaction::tab_stop,
+    parity,
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -37,6 +38,7 @@ pub struct ToolbarButton {
     surface: Surface,
     selected: bool,
     on_click: Option<ClickHandler>,
+    parity: Option<SharedString>,
 }
 
 impl ToolbarButton {
@@ -52,7 +54,15 @@ impl ToolbarButton {
             surface: Surface::Titlebar,
             selected: false,
             on_click: None,
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and its label's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn icon(mut self, icon: Icon) -> Self {
@@ -144,7 +154,14 @@ impl RenderOnce for ToolbarButton {
             .active(move |style| style.bg(pressed))
             .focus_visible(move |style| style.shadow(focus))
             .when_some(self.icon, |this, icon| this.child(icon.element(ICON, ink)))
-            .child(div().min_w_0().truncate().child(self.label))
+            .children(self.parity.clone().and_then(parity::probe))
+            .child(
+                div()
+                    .min_w_0()
+                    .truncate()
+                    .child(self.label)
+                    .children(self.parity.and_then(parity::text_probe)),
+            )
             .when(self.chevron, |this| {
                 this.child(Icon::CHEVRON_DOWN.element(ICON_SMALL, ink))
             })

@@ -25,26 +25,8 @@ impl Run {
         // put above the others, without taking the keyboard from whatever
         // app has it, for the few seconds the shot takes.
         native::order_front(self.native(cx)?);
-        // Park the pointer in the window's bottom-right gutter, where Paper's
-        // scenes park it, so no row or button is drawn hovered wherever the
-        // real cursor happens to be.
-        self.with_window(cx, |_, window, cx| {
-            let size = window.viewport_size();
-            let corner = gpui::point(size.width - gpui::px(4.), size.height - gpui::px(4.));
-            window.dispatch_event(
-                gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
-                    position: corner,
-                    pressed_button: None,
-                    modifiers: gpui::Modifiers::default(),
-                }),
-                cx,
-            );
-        })?;
-        let shown = self
-            .wait_for(cx, Duration::from_secs(30), |shell, cx| {
-                shell.read(cx).pdf().read(cx).page_count() > 0
-            })
-            .await;
+        self.park_pointer(cx)?;
+        let shown = self.wait_for_pdf(cx).await;
         // `LATTICE_SHOT_BUILD=1` builds first, so the build chip shows a
         // finished build as Paper's Main window does.
         if std::env::var_os("LATTICE_SHOT_BUILD").is_some() {
@@ -64,8 +46,34 @@ impl Run {
         Ok(json!({ "png": out, "pdf_shown": shown, "pages": pages, "editor_theme": editor_theme }))
     }
 
+    /// Park the pointer in the window's bottom-right gutter, where Paper's
+    /// scenes park it, so no row or button is drawn hovered wherever the real
+    /// cursor happens to be.
+    pub(super) fn park_pointer(&self, cx: &mut AsyncApp) -> Result<()> {
+        self.with_window(cx, |_, window, cx| {
+            let size = window.viewport_size();
+            let corner = gpui::point(size.width - gpui::px(4.), size.height - gpui::px(4.));
+            window.dispatch_event(
+                gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
+                    position: corner,
+                    pressed_button: None,
+                    modifiers: gpui::Modifiers::default(),
+                }),
+                cx,
+            );
+        })
+    }
+
+    /// Whether the project's PDF showed within 30 s.
+    pub(super) async fn wait_for_pdf(&self, cx: &mut AsyncApp) -> bool {
+        self.wait_for(cx, Duration::from_secs(30), |shell, cx| {
+            shell.read(cx).pdf().read(cx).page_count() > 0
+        })
+        .await
+    }
+
     #[cfg(feature = "offscreen-shots")]
-    async fn capture(&self, cx: &mut AsyncApp, out: &str) -> Result<()> {
+    pub(super) async fn capture(&self, cx: &mut AsyncApp, out: &str) -> Result<()> {
         // A covered window gets no frames, so frames are drawn here: each one
         // asks PDFium for the pages it shows, and the images land a little
         // later, so draw until two pages are on screen (or give up after 8 s),
@@ -92,7 +100,7 @@ impl Run {
     }
 
     #[cfg(not(feature = "offscreen-shots"))]
-    async fn capture(&self, cx: &mut AsyncApp, out: &str) -> Result<()> {
+    pub(super) async fn capture(&self, cx: &mut AsyncApp, out: &str) -> Result<()> {
         use anyhow::anyhow;
         use std::process::Command;
 

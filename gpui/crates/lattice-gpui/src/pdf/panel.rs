@@ -338,6 +338,7 @@ impl PdfPanel {
             .px(px(6.))
             .border_b_1()
             .border_color(palette.line)
+            .children(lattice_ui::parity::probe("pdf/toolbar"))
             .child(
                 div()
                     .flex()

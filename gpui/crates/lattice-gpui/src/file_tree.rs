@@ -226,6 +226,7 @@ impl Render for FileTreePanel {
         }
         let view = cx.entity().downgrade();
         let current = self.current.clone();
+        let root = self.root.clone().unwrap_or_default();
         // Measured on the Main window: rows 12px in from both sides, the
         // first 7px under the tab strip.
         div()
@@ -243,6 +244,14 @@ impl Render for FileTreePanel {
                 } else {
                     TreeRow::file(ix, item.label.clone(), entry.depth())
                         .selected(selected || current.as_deref() == Some(path.as_path()))
+                };
+                // Parity regions are named by the path from the project
+                // root, as the app's tree names its rows (`data-item-path`).
+                let row = match path.strip_prefix(&root) {
+                    Ok(relative) if lattice_ui::parity::enabled() => {
+                        row.parity(format!("row/{}", relative.to_string_lossy()))
+                    }
+                    _ => row,
                 };
                 let view = view.clone();
                 row.into_list_item(cx).on_click(move |_, _, cx| {

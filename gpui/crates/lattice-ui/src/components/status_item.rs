@@ -14,7 +14,7 @@ use gpui::{
 
 use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::focus_ring,
-    icons::ICON_SMALL, interaction::tab_stop,
+    icons::ICON_SMALL, interaction::tab_stop, parity,
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -25,6 +25,7 @@ pub struct StatusItem {
     icon: Option<Icon>,
     children: Vec<AnyElement>,
     on_click: Option<ClickHandler>,
+    parity: Option<SharedString>,
 }
 
 impl StatusItem {
@@ -34,7 +35,15 @@ impl StatusItem {
             icon: None,
             children: Vec::new(),
             on_click: None,
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and its caption's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn icon(mut self, icon: Icon) -> Self {
@@ -88,6 +97,8 @@ impl RenderOnce for StatusItem {
                 this.child(icon.element(ICON_SMALL, palette.text_secondary))
             })
             .children(self.children)
+            .children(self.parity.clone().and_then(parity::probe))
+            .children(self.parity.and_then(parity::text_probe))
             .when_some(self.on_click, |this, on_click| {
                 this.hover(move |style| style.bg(hover))
                     .focus_visible(move |style| style.shadow(focus))

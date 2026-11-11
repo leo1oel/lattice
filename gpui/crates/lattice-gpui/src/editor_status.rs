@@ -23,6 +23,7 @@ use lattice_ui::{
     components::{LatticeTooltip, StatusItem},
     dock::PANEL_RADIUS,
     elevation::ring,
+    parity,
     tokens::{FONT_WEIGHT_SEMIBOLD, OPACITY_PRESSED},
 };
 
@@ -48,6 +49,7 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
         .border_color(palette.line)
         .bg(palette.editor)
         .rounded_b(PANEL_RADIUS)
+        .children(parity::probe("status-bar"))
         .child(
             div()
                 .flex_none()
@@ -55,21 +57,27 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
                 .whitespace_nowrap()
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
-                .child(format!("Ln {line}, Col {column}")),
+                .child(format!("Ln {line}, Col {column}"))
+                .children(parity::probe("status/position"))
+                .children(parity::text_probe("status/position")),
         )
         .child(
             StatusItem::new("save-state")
                 .icon(Icon::HARD_DRIVE)
-                .label(if saved { "Saved" } else { "Edited" }),
+                .label(if saved { "Saved" } else { "Edited" })
+                .parity("status/save"),
         )
         .child(div().flex_1())
         .when_some(panel.words(), |this, words| {
             this.child(
-                StatusItem::new("word-count").label("This file ·").child(
-                    div()
-                        .text_color(palette.text)
-                        .child(format!("{} words", grouped(words))),
-                ),
+                StatusItem::new("word-count")
+                    .parity("status/words")
+                    .label("This file ·")
+                    .child(
+                        div()
+                            .text_color(palette.text)
+                            .child(format!("{} words", grouped(words))),
+                    ),
             )
         })
 }
@@ -124,8 +132,10 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
                 .line_height(px(15.6))
                 .font_weight(FONT_WEIGHT_SEMIBOLD)
                 .text_color(palette.text)
-                .child(label),
+                .child(label)
+                .children(parity::text_probe("build-chip")),
         )
+        .children(parity::probe("build-chip"))
         .tooltip(|_, cx| -> AnyView {
             LatticeTooltip::view("Build", Some(BUILD_SHORTCUT_LABEL.into()), cx)
         })

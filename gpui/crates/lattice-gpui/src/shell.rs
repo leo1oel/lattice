@@ -582,6 +582,7 @@ impl Render for Shell {
                     .pt(px(WORKSPACE_TOP))
                     .px(px(WORKSPACE_SIDE))
                     .pb(px(WORKSPACE_SIDE))
+                    .children(lattice_ui::parity::probe("workspace"))
                     .child(self.dock_area.clone()),
             )
     }

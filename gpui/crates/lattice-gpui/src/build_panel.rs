@@ -101,6 +101,20 @@ impl BuildPanel {
         &self.diagnostics
     }
 
+    /// Show a finished, clean build that took `duration`, without running
+    /// one: the parity scene stages the build chip as the mock backend's
+    /// `build=clean` does, so the harness needs no TeX for it.
+    #[cfg(target_os = "macos")]
+    pub fn stage_succeeded(&mut self, duration: Duration, cx: &mut Context<Self>) {
+        self.status = Status::Finished {
+            succeeded: true,
+            duration,
+            errors: 0,
+            warnings: 0,
+        };
+        cx.notify();
+    }
+
     pub fn chip(&self) -> ChipState {
         match &self.status {
             Status::Idle => ChipState::Idle,
