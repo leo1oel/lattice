@@ -371,9 +371,9 @@ function steppedTokens(value: VisualState, pairs: readonly TokenPair[]) {
 
 /** Removes `ranges` from the caret's deletion; the caret keeps its place in the text before or after them. */
 function removeRanges(view: EditorView, forward: boolean, ranges: readonly Span[]): true {
-  const { head } = view.state.selection.main;
-  const before = ranges.reduce((sum, { from, to }) => sum + (to <= head ? to - from : 0), 0);
-  view.dispatch({ changes: [...ranges], selection: { anchor: head - before }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
+  const changes = view.state.changes([...ranges]);
+  const anchor = changes.mapPos(view.state.selection.main.head);
+  view.dispatch({ changes, selection: { anchor }, scrollIntoView: true, userEvent: forward ? "delete.forward" : "delete.backward" });
   return true;
 }
 
@@ -431,15 +431,18 @@ function deleteVisible(field: StateField<VisualState>, unit: "group" | "wrap" | 
     const { main } = state.selection;
     if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
     const pairs = tokenPairs(value);
-    const steps = steppedTokens(value, pairs);
+    const steps = steppedTokens(value, pairs).filter(({ pair, side, span }) => drawnRange(value, pair[side]) || span.from >= main.head || span.to <= main.head);
     const hidden = steps.map(({ span }) => span);
+    const symbols = new Map<number, Construct>();
+    for (const construct of value.constructs) if (construct.kind === "symbol") symbols.set(construct.from, construct);
     const line = view.lineBlockAt(main.head);
     const text = state.sliceDoc(line.from, line.to);
     const widgets: Span[] = [];
     value.replacements.between(line.from, line.to, (from, to) => {
       if (from < to) widgets.push({ from, to });
     });
-    // The line as drawn (a widget over a line break joins two): each character, a widget as one, the hidden tokens left out.
+    // The line as drawn (a widget over a line break joins two): each character, a widget as one (a symbol as what it
+    // prints, which may be nothing), the hidden tokens left out.
     const units: { from: number; to: number; text: string }[] = [];
     for (let pos = line.from; pos < line.to;) {
       const token = hidden.find(({ from, to }) => from <= pos && to > pos);
@@ -449,7 +452,9 @@ function deleteVisible(field: StateField<VisualState>, unit: "group" | "wrap" | 
       }
       const widget = widgets.find(({ from, to }) => from <= pos && to > pos);
       const unit = widget ?? { from: pos, to: line.from + findClusterBreak(text, pos - line.from, true) };
-      units.push({ ...unit, text: widget ? "\uFFFC" : state.sliceDoc(unit.from, unit.to) });
+      const symbol = widget && symbols.get(widget.from);
+      const drawn = symbol && symbol.kind === "symbol" && symbol.to === widget.to ? symbol.text : "\uFFFC";
+      units.push({ ...unit, text: widget ? drawn : state.sliceDoc(unit.from, unit.to) });
       pos = unit.to;
     }
     const caret = units.filter(({ to }) => to <= main.head).length;
@@ -460,6 +465,10 @@ function deleteVisible(field: StateField<VisualState>, unit: "group" | "wrap" | 
       let end = caret;
       let category: ReturnType<typeof categorize> | null = null;
       for (let index = first; index >= 0 && index < units.length; index += forward ? 1 : -1) {
+        if (!units[index].text) {
+          end = forward ? index + 1 : index;
+          continue;
+        }
         const next = categorize(units[index].text);
         if (category !== null && next !== category) break;
         if (units[index].text !== " " || index !== first) category = next;
@@ -471,13 +480,23 @@ function deleteVisible(field: StateField<VisualState>, unit: "group" | "wrap" | 
       gone = units.filter(({ from, to }) => (forward ? from >= main.head && to <= boundary : to <= main.head && from >= boundary));
     }
     if (!gone.length) return byCharacter(view);
-    const ranges: Span[] = gone.map(({ from, to }) => ({ from, to }));
+    let ranges: Span[] = gone.map(({ from, to }) => ({ from, to }));
     for (const pair of pairs) {
-      if (pair.open.from < line.from || pair.close.to > line.to) continue;
+      const tokens = steps.filter((step) => step.pair === pair);
+      if (!tokens.length || pair.open.from < line.from || pair.close.to > line.to) continue;
       const content = units.filter(({ from, to }) => from >= pair.open.to && to <= pair.close.from);
-      if (!content.length || !content.every((item) => gone.includes(item))) continue;
-      ranges.push(...steps.filter((step) => step.pair === pair).map(({ span }) => span));
+      if (content.length && content.every((item) => gone.includes(item))) ranges.push(...tokens.map(({ span }) => span));
     }
+    const covered = (at: number) => ranges.some(({ from, to }) => from <= at && to > at);
+    for (const pair of pairs) {
+      const open = pair.open.from + state.sliceDoc(pair.open.from, pair.open.to).lastIndexOf(pair.brackets[0]);
+      const close = pair.close.from;
+      if (covered(open) === covered(close)) continue;
+      const kept = covered(open) ? open : close;
+      ranges = ranges.flatMap(({ from, to }) => (from <= kept && to > kept ? [{ from, to: kept }, { from: kept + 1, to }] : [{ from, to }]))
+        .filter(({ from, to }) => from < to);
+    }
+    if (!ranges.length) return true;
     return removeRanges(view, forward, ranges.sort((a, b) => a.from - b.from));
   };
 }

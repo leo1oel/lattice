@@ -1,5 +1,5 @@
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { history, standardKeymap, undo } from "@codemirror/commands";
+import { deleteGroupBackward, history, standardKeymap, undo } from "@codemirror/commands";
 import { EditorSelection, EditorState, Prec, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, keymap, runScopeHandlers } from "@codemirror/view";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -328,6 +328,40 @@ describe("LaTeX Visual mode", () => {
     const before = await visualView(doc, doc.indexOf(" $"));
     expect(press(before, "Delete", { altKey: true })).toBe(true);
     expect(before.state.doc.toString()).toBe("see here");
+  });
+
+  it("deletes words inside a revealed heading's command as the text they show, keeping its braces", async () => {
+    const doc = "Text\n\\subsection{Intro}\nMore";
+    // What Source deletes there: CodeMirror's own word deletion, over the same LaTeX.
+    const source = { state: EditorState.create({ doc, selection: { anchor: doc.indexOf("section") }, extensions: latex() }) };
+    deleteGroupBackward({ state: source.state, dispatch: (transaction) => (source.state = transaction.state) });
+    const back = await visualView(doc, doc.indexOf("section"));
+    expect(press(back, "Backspace", { altKey: true })).toBe(true);
+    expect(back.state.doc.toString()).toBe(source.state.doc.toString());
+    expect(back.state.doc.toString()).toContain("section{Intro}");
+
+    const ahead = await visualView(doc, doc.indexOf("section"));
+    expect(press(ahead, "Delete", { altKey: true })).toBe(true);
+    expect(ahead.state.doc.toString()).toBe("Text\n\\sub{Intro}\nMore");
+    expect(ahead.state.selection.main.head).toBe(doc.indexOf("section"));
+
+    const toEnd = await visualView(doc, doc.indexOf("section"));
+    expect(press(toEnd, "k", { ctrlKey: true })).toBe(true);
+    expect(balanced(toEnd.state.doc.toString())).toBe(true);
+  });
+
+  it("deletes a word with a symbol drawn inside it whole", async () => {
+    for (const word of ["G\\\"odel", "hyphen\\-ation"]) {
+      const doc = `A ${word}`;
+      const view = await visualView(doc, doc.length);
+      expect(press(view, "Backspace", { altKey: true })).toBe(true);
+      expect(view.state.doc.toString()).toBe("A ");
+    }
+  });
+
+  it("keeps typewriter text's dashes and quotes as typed", async () => {
+    const view = await visualView("A \\texttt{--verbose ``x''} B", 0);
+    expect(view.contentDOM.querySelector(".lx-tex-mono")?.textContent).toBe("--verbose ``x''");
   });
 
   it("still unwraps a heading when a selection deletes only its closing brace", async () => {

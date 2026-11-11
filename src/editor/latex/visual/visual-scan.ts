@@ -113,18 +113,25 @@ class Scanner {
         this.close(at);
         return at + 1;
       case "`":
+        if (this.mono()) return at + 1;
         if (text[at + 1] === "`") return this.symbol(at, at + 2, "“");
         return this.symbol(at, at + 1, "‘");
       case "'":
-        return text[at + 1] === "'" ? this.symbol(at, at + 2, "”") : at + 1;
+        return text[at + 1] === "'" && !this.mono() ? this.symbol(at, at + 2, "”") : at + 1;
       case "~":
         return this.symbol(at, at + 1, " ");
       case "-":
+        if (this.mono()) return at + 1;
         if (text.startsWith("---", at)) return this.symbol(at, at + 3, "—");
         if (text[at + 1] === "-") return this.symbol(at, at + 2, "–");
         return at + 1;
       default: return at + 1;
     }
+  }
+
+  /** Whether the text at hand is typewriter text, whose fonts have no dash or quote ligatures. */
+  private mono(): boolean {
+    return this.frames.some((frame) => frame.type === "style" && frame.style === "mono");
   }
 
   private lineEnd(at: number): number {
