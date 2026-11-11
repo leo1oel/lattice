@@ -58,7 +58,7 @@ The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-
 ```
 crates/lattice-gpui   the app: shell (toolbar + dock), file tree, editor panel,
                       PDF panel (PDFium on its own thread), build panel,
-                      LaTeX language, scripted scenarios (macOS)
+                      LaTeX language, scripted scenarios (macOS, Windows)
 crates/tex            TeX discovery, latexmk runs, log diagnostics (from ../src-tauri)
 compat/gpui-pre       four shims that put GPUI Kit on Zed's GPUI
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
