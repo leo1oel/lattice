@@ -96,7 +96,7 @@ pub fn export(
     let pages = figures::page_count(&pdf);
     let shipped = record.shipped;
     if shipped == 0 || shipped >= pages {
-        return Err("The typeset paper does not hold its figures' pages.".to_string());
+        return Err("No figure made from a drawing was found in the typeset paper.".to_string());
     }
     let names = hook::submission_names(&Record {
         figures: placed.iter().map(|(_, figure)| figure.clone()).collect(),
@@ -108,7 +108,7 @@ pub fn export(
     let mut figure_files = BTreeMap::new();
     for ((_, figure), name) in placed.iter().zip(&names) {
         if figure.index > shipped {
-            return Err("The typeset paper does not hold its figures' pages.".to_string());
+            return Err("No figure made from a drawing was found in the typeset paper.".to_string());
         }
         let bytes = figures::single_page(&pdf, pages - shipped + figure.index)?;
         let target = folder.join(&document_dir).join(format!("{name}.pdf"));

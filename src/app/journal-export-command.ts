@@ -15,7 +15,6 @@ export function journalExportCommand({ projectRoot, i18n, save }: {
 }): AppCommand {
   return {
     id: "export-journal", when: projectRoot !== null, label: i18n._(msg`Export figures for a journal…`), group: "project",
-    keywords: i18n._(msg({ message: "Scheme TIFF submission ACS", comment: "Search words for the Export figures for a journal command, space-separated" })),
     run: () => {
       if (projectRoot !== null) void loadJournalExport().then(({ exportForJournal }) => exportForJournal(projectRoot, save));
     },

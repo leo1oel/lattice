@@ -13638,11 +13638,6 @@ msgstr "Saving…"
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 
-#. Search words for the Export figures for a journal command, space-separated
-#: src/app/journal-export-command.ts
-msgid "Scheme TIFF submission ACS"
-msgstr "Scheme TIFF submission ACS"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
 msgstr "Script l"

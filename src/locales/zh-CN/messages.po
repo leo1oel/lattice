@@ -13638,11 +13638,6 @@ msgstr "正在保存…"
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "把它缩小，例如用 width=\\linewidth 或更小的高度，让它放得进一页。"
 
-#. Search words for the Export figures for a journal command, space-separated
-#: src/app/journal-export-command.ts
-msgid "Scheme TIFF submission ACS"
-msgstr "Scheme TIFF 投稿 期刊 ACS"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
 msgstr "手写体 l"
