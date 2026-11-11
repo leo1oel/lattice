@@ -31,6 +31,9 @@ export const latexView = (): LatexView => choice.get();
 /** Choose how .tex documents draw; every open one follows, in every window, and the choice is remembered. */
 export const chooseLatexView = (view: LatexView): void => choice.set(view);
 
+/** Calls `listener` whenever the choice changes; returns the unsubscribe. */
+export const subscribeLatexView = (listener: () => void): (() => void) => choice.subscribe(listener);
+
 /** The choice, kept current in a component. */
 export function useLatexView(): LatexView {
   return useSyncExternalStore(choice.subscribe, choice.get);

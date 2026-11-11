@@ -92,19 +92,24 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
   const navigation = () => live.props().navigation;
   const onPasteImage = (file: File) => live.props().assets.onPasteImageFile(file);
   const review = () => live.props().review;
+  const data = editorLiveData(live);
   return [
     paperDropExtension(path, () => ({ projectRoot: live.props().preferences.projectRoot, papers: live.props().bibliography.papers ?? [] })),
     ...config.keymap,
     ...(latexSource ? [
       latex(),
-      isLatexDocumentPath(path) ? latexVisualSlot : [],
+      isLatexDocumentPath(path) ? latexVisualSlot({
+        data: () => data.current,
+        loadImage: (imagePath) => live.props().bibliography.onLoadReferenceImage(imagePath),
+        open: (target) => navigation().onGotoDefinition(target),
+      }) : [],
       trackFigureEditor,
       editableFigurePaste(
         (manifest, view) => live.props().assets.onPasteEditableFigure?.(manifest, view),
         (file, view) => live.props().assets.onPasteDrawingFile?.(file, view),
       ),
       ...latexEditorExtensions({
-        live: editorLiveData(live),
+        live: data,
         currentPath: path,
         spellcheck,
         texlab: true,
@@ -120,7 +125,7 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
       }),
     ] : [
       ...config.language,
-      ...textEditorExtensions(spellcheck && "text", editorLiveData(live), onPasteImage),
+      ...textEditorExtensions(spellcheck && "text", data, onPasteImage),
     ]),
     config.proofread,
     compositionEndTracker,

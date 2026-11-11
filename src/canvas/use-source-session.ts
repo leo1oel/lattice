@@ -20,6 +20,7 @@ import type { AgentSelectionLines } from "../agent/agent-host-context";
 import { CommentCardHosts, setEditorCommentDraftEffect, setEditorCommentsEffect } from "../editor/comments/editor-comments";
 import { harperConfigChanged } from "../editor/harper-spellcheck";
 import { latexIndexChanged } from "../editor/latex/latex-editor";
+import { latexVisualDataChanged } from "../editor/latex/latex-visual-switch";
 import { pointerSelecting, pointerSelectionSettled } from "../editor/pointer-selection";
 import { setOverleafCursorsEffect } from "../overleaf/overleaf-editor-extensions";
 import { isHarperProseFilePath } from "../app-utils";
@@ -30,7 +31,6 @@ import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensio
 import type { OtOp } from "../overleaf/ot";
 import type { ProofreadBridge } from "./proofread-bridge";
 import { sameSourceConfig, sourceSessionExtensions, type SourceSessionConfig, type SourceSessionLive } from "./source-session";
-import { useLatexVisual } from "./use-latex-visual";
 
 /** The lines a non-empty selection covers; one that ends at a line's start stops on the line before. */
 function selectionLines(doc: Text, range: SelectionRange): AgentSelectionLines {
@@ -105,8 +105,6 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     extensions = next.extensions;
   }
 
-  useLatexVisual(props, live, viewRef, view);
-
   // Values the mounted view repaints for, pushed as they change. A view built
   // since (a remount for another document, a parked one resuming) is pushed
   // again: a reconfigure keeps a field's old value.
@@ -115,10 +113,14 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
   }, [buildDiagnostics, texlabDiagnostics]);
 
   // Keys re-read from a .bib written outside this editor (the agent, a
-  // reference manager's export) clear or raise flags in the open document.
+  // reference manager's export) clear or raise flags in the open document,
+  // and Visual mode draws again from the project data it reads (macros, the
+  // last build's numbers, citations, paths). One effect for both: the canvas
+  // renders on every keystroke, and each hook here runs with it.
+  const { indexPending, citationKeys, katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath } = props.bibliography;
   useEffect(() => {
-    viewRef.current?.dispatch({ effects: latexIndexChanged.of(null) });
-  }, [props.bibliography.indexPending, props.bibliography.citationKeys]);
+    viewRef.current?.dispatch({ effects: [latexIndexChanged.of(null), latexVisualDataChanged.of(null)] });
+  }, [indexPending, citationKeys, katexMacros, compiledBuild, citations, references, projectPaths, graphicsRoots, rootDocumentPath]);
 
   useEffect(() => {
     const current = viewRef.current;

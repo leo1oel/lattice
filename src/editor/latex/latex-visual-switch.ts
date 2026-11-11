@@ -8,7 +8,8 @@
  * the transaction carries no change, so nothing reaches a save or sync.
  */
 import { Compartment, StateEffect, type EditorState, type Extension } from "@codemirror/state";
-import type { EditorView } from "@codemirror/view";
+import { ViewPlugin, type EditorView } from "@codemirror/view";
+import { latexView, subscribeLatexView } from "./latex-view-choice";
 import type { LatexEditorLiveData } from "./latex-editor";
 import type { DefinitionTarget } from "./latex-text";
 
@@ -27,8 +28,30 @@ export const latexVisualDataChanged = StateEffect.define<null>();
 
 const compartment = new Compartment();
 
-/** The slot the source editor of a .tex file carries, empty until Visual fills it. */
-export const latexVisualSlot: Extension = compartment.of([]);
+/**
+ * The slot the source editor of a .tex file carries, empty until Visual fills
+ * it, and the plugin that keeps it on the writer's choice: applied when the
+ * view is built (a document that opens in Visual is drawn in the first
+ * microtask, before paint) and again whenever the choice changes. Dispatches
+ * wait for a microtask, as none may run inside an update.
+ */
+export function latexVisualSlot(host: LatexVisualHost): Extension {
+  return [compartment.of([]), ViewPlugin.define((view) => {
+    let destroyed = false;
+    const wantsVisual = () => latexView() === "visual";
+    const apply = () => queueMicrotask(() => {
+      if (!destroyed) setLatexVisual(view, wantsVisual(), host, () => !destroyed && wantsVisual());
+    });
+    const unsubscribe = subscribeLatexView(apply);
+    apply();
+    return {
+      destroy() {
+        destroyed = true;
+        unsubscribe();
+      },
+    };
+  })];
+}
 
 // eslint-disable-next-line lingui/no-unlocalized-strings -- module specifier
 type VisualModule = typeof import("./visual/latex-visual");
@@ -44,10 +67,10 @@ export function isLatexVisual(state: EditorState): boolean {
 
 /**
  * Put `view` in Visual mode or back in Source. The first switch to Visual
- * waits for its module; a switch made meanwhile (back to Source, or another
- * document's view) wins, as `current` decides at arrival.
+ * waits for its module; a switch made meanwhile (back to Source, or the view
+ * closing) wins, as `current` decides at arrival.
  */
-export function setLatexVisual(view: EditorView, visual: boolean, host: LatexVisualHost, current: () => boolean): void {
+function setLatexVisual(view: EditorView, visual: boolean, host: LatexVisualHost, current: () => boolean): void {
   if (!visual) {
     if (isLatexVisual(view.state)) view.dispatch({ effects: compartment.reconfigure([]) });
     return;

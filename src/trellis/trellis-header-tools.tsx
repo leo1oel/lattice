@@ -193,7 +193,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
         </button>
       );
     };
-    const latexViews = <LatexViewSwitch active={active} reserve={reserveSwitch} />;
+    const latexViews = <span className="trellis-latex-view"><LatexViewSwitch active={active} reserve={reserveSwitch} /></span>;
     if (!active) return <span className="trellis-latex-tools">{latexViews}<Reserve>{button(false)}</Reserve></span>;
     // The card gives the same result as the description, pass by pass, then
     // how to build again (the only place ⇧-click's clean rebuild is told);

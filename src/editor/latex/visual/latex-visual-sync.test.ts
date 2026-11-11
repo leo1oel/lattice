@@ -15,7 +15,8 @@ import { baseEditorKeymap } from "../../editor-keymap";
 import { pointerSelection } from "../../pointer-selection";
 import { latexEditorExtensions, type LatexEditorLiveData } from "../latex-editor";
 import { latex } from "../latex-language";
-import { isLatexVisual, setLatexVisual, latexVisualSlot, type LatexVisualHost } from "../latex-visual-switch";
+import { isLatexVisual, latexVisualSlot, type LatexVisualHost } from "../latex-visual-switch";
+import { chooseLatexView } from "../latex-view-choice";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => "") }));
 
@@ -43,7 +44,10 @@ const DOC = [
 ].join("\n");
 
 const views: EditorView[] = [];
-afterEach(() => views.splice(0).forEach((view) => view.destroy()));
+afterEach(() => {
+  views.splice(0).forEach((view) => view.destroy());
+  localStorage.clear();
+});
 beforeAll(() => import("./latex-visual"));
 
 /** An editor as the app mounts a .tex file's source, wired to an Overleaf document that records what it sends. */
@@ -55,7 +59,7 @@ function linkedEditor() {
     state: EditorState.create({
       doc: DOC,
       extensions: [
-        history(), closeBrackets(), keymap.of([...closeBracketsKeymap, ...baseEditorKeymap]), latex(), latexVisualSlot,
+        history(), closeBrackets(), keymap.of([...closeBracketsKeymap, ...baseEditorKeymap]), latex(), latexVisualSlot(HOST),
         latexEditorExtensions({ live: { current: LIVE }, currentPath: "main.tex" }), pointerSelection, EditorView.lineWrapping,
         // Each change goes to Overleaf as App sends it: the new text, diffed against what Overleaf last had.
         EditorView.updateListener.of((update) => {
@@ -73,7 +77,7 @@ function linkedEditor() {
 }
 
 async function visual(view: EditorView, on: boolean) {
-  setLatexVisual(view, on, HOST, () => true);
+  chooseLatexView(on ? "visual" : "source");
   await vi.waitFor(() => expect(isLatexVisual(view.state)).toBe(on));
   await Promise.resolve();
 }
