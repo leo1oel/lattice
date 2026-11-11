@@ -1,0 +1,1 @@
+import{Sa as e,xa as t}from"./editor-CXyZQMsQ.js";t();export{e as wast};

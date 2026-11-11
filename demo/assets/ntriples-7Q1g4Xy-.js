@@ -1,1 +1,0 @@
-import{lr as e,ur as t}from"./editor-Rc5JCsi3.js";e();export{t as ntriples};

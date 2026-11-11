@@ -1,0 +1,1 @@
+import{Ii as e,Li as t}from"./editor-CXyZQMsQ.js";t();export{e as crystal};

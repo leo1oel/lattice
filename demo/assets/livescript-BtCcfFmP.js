@@ -1,1 +1,0 @@
-import{Fr as e,Ir as t}from"./editor-Rc5JCsi3.js";e();export{t as liveScript};

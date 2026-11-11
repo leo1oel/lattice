@@ -1,0 +1,1 @@
+import{ir as e,rr as t}from"./editor-CXyZQMsQ.js";t();export{e as pascal};

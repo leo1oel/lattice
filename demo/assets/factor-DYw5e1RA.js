@@ -1,1 +1,0 @@
-import{li as e,ui as t}from"./editor-Rc5JCsi3.js";t();export{e as factor};

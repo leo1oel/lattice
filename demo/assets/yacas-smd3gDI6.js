@@ -1,0 +1,1 @@
+import{Et as e,Tt as t}from"./editor-CXyZQMsQ.js";t();export{e as yacas};

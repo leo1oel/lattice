@@ -1,0 +1,1 @@
+import{ii as e,ri as t}from"./editor-CXyZQMsQ.js";e();export{t as fortran};

@@ -1,0 +1,1 @@
+import{Dt as e,Ot as t}from"./editor-CXyZQMsQ.js";e();export{t as xQuery};

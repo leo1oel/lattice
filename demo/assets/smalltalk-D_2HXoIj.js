@@ -1,1 +1,0 @@
-import{Sn as e,xn as t}from"./editor-Rc5JCsi3.js";t();export{e as smalltalk};

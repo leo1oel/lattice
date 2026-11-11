@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{oc as t,sc as n}from"./ui-qf7mW6rP.js";function r(e){let t=(0,i.c)(3),{read:n,children:r}=e,[o]=(0,a.useState)(n),s;return t[0]!==r||t[1]!==o?(s=r(o),t[0]=r,t[1]=o,t[2]=s):s=t[2],s}var i,a;function o(){return(o=e((()=>{i=t(),a=n()})))()}export{o as n,r as t};

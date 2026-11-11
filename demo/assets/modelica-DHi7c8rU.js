@@ -1,0 +1,1 @@
+import{Sr as e,xr as t}from"./editor-CXyZQMsQ.js";t();export{e as modelica};

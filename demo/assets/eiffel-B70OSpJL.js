@@ -1,1 +1,0 @@
-import{gi as e,hi as t}from"./editor-Rc5JCsi3.js";e();export{t as eiffel};

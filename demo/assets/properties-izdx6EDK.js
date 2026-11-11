@@ -1,0 +1,1 @@
+import{Xn as e,Yn as t}from"./editor-CXyZQMsQ.js";t();export{e as properties};

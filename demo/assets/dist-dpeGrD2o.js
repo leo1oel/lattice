@@ -1,1 +1,0 @@
-import{ma as e,pa as t}from"./editor-Rc5JCsi3.js";import"./parser-Cw8I8ftA.js";t();export{e as yaml};

@@ -1,1 +1,0 @@
-import{an as e,on as t}from"./editor-Rc5JCsi3.js";e();export{t as swift};

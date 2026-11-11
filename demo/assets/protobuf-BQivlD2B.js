@@ -1,0 +1,1 @@
+import{Jn as e,qn as t}from"./editor-CXyZQMsQ.js";t();export{e as protobuf};

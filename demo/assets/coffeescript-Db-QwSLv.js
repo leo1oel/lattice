@@ -1,0 +1,1 @@
+import{Bi as e,Vi as t}from"./editor-CXyZQMsQ.js";t();export{e as coffeeScript};

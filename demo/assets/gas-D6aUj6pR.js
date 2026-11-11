@@ -1,0 +1,1 @@
+import{ni as e,ti as t}from"./editor-CXyZQMsQ.js";e();export{t as gas};

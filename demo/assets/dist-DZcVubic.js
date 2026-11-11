@@ -1,0 +1,1 @@
+import{Ga as e,Wa as t}from"./editor-CXyZQMsQ.js";t();export{e as rust};

@@ -1,0 +1,1 @@
+import{_n as e,vn as t}from"./editor-CXyZQMsQ.js";e();export{t as sparql};

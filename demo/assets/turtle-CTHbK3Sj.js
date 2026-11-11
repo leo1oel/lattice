@@ -1,0 +1,1 @@
+import{Ht as e,Vt as t}from"./editor-CXyZQMsQ.js";t();export{e as turtle};

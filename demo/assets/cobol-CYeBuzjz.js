@@ -1,1 +1,0 @@
-import{Hi as e,Ui as t}from"./editor-Rc5JCsi3.js";t();export{e as cobol};

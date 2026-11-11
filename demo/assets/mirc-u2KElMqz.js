@@ -1,0 +1,1 @@
+import{Dr as e,Or as t}from"./editor-CXyZQMsQ.js";e();export{t as mirc};

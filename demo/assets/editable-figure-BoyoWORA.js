@@ -1,0 +1,1 @@
+import{c as e,o as t}from"./editable-figure-B4Ol6c9i.js";e();export{t as figureSourcePath};

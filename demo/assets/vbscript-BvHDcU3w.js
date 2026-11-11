@@ -1,0 +1,1 @@
+import{Lt as e,Rt as t}from"./editor-CXyZQMsQ.js";e();export{t as vbScript};

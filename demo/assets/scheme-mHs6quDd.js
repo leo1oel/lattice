@@ -1,0 +1,1 @@
+import{Dn as e,On as t}from"./editor-CXyZQMsQ.js";e();export{t as scheme};

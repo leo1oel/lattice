@@ -1,0 +1,1 @@
+import{lr as e,ur as t}from"./editor-CXyZQMsQ.js";e();export{t as ntriples};

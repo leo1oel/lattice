@@ -1,1 +1,0 @@
-import{Lt as e,Rt as t}from"./editor-Rc5JCsi3.js";e();export{t as vbScript};

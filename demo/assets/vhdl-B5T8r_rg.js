@@ -1,0 +1,1 @@
+import{Mt as e,jt as t}from"./editor-CXyZQMsQ.js";t();export{e as vhdl};

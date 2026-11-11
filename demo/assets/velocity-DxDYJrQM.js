@@ -1,1 +1,0 @@
-import{Ft as e,It as t}from"./editor-Rc5JCsi3.js";e();export{t as velocity};

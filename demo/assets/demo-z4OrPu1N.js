@@ -1,0 +1,1 @@
+import{t as e}from"./app-CglK1d0u.js";await e();

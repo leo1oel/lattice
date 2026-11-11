@@ -1,0 +1,1 @@
+import{ia as e,ra as t}from"./editor-CXyZQMsQ.js";e();export{t as brainfuck};

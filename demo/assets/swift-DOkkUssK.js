@@ -1,0 +1,1 @@
+import{an as e,on as t}from"./editor-CXyZQMsQ.js";e();export{t as swift};

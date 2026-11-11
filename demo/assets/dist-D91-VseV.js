@@ -1,0 +1,1 @@
+import{vo as e,yo as t}from"./editor-CXyZQMsQ.js";e();export{t as java};

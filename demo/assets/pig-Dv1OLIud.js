@@ -1,1 +1,0 @@
-import{$n as e,er as t}from"./editor-Rc5JCsi3.js";e();export{t as pig};
