@@ -1,0 +1,32 @@
+{
+  "version": "0.16.15",
+  "date": "2026-11-11",
+  "highlights": [
+    {
+      "title": {
+        "en": "Overleaf: deleted and renamed folders are cleared",
+        "zh": "Overleaf：清除已删除和已重命名的文件夹"
+      },
+      "body": {
+        "en": "When a folder is deleted or renamed on Overleaf, sync no longer leaves the old folder behind on your Mac. Lattice clears only folders it has evidence for, and only files a build produced; your own files stay. Thanks to @nipunbatra for the report.",
+        "zh": "在 Overleaf 上删除或重命名文件夹后，同步不再在你的 Mac 上留下旧文件夹。Lattice 只清除有依据的文件夹，且只删除编译生成的文件；你自己的文件会保留。感谢 @nipunbatra 的反馈。"
+      }
+    },
+    {
+      "title": {
+        "en": "macOS Intel builds are back",
+        "zh": "macOS Intel 版本回归"
+      },
+      "body": {
+        "en": "v0.16.14 shipped without an Intel build, so \"Check for Updates...\" on Intel Macs showed an error. This release carries Intel again.",
+        "zh": "v0.16.14 发布时没有 Intel 版本，因此在 Intel Mac 上“检查更新...”会报错。本版本重新提供 Intel 版本。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "The embedded AI agent is updated to Synara 1.5.1.",
+      "zh": "内置的 AI 助手已更新到 Synara 1.5.1。"
+    }
+  ]
+}
