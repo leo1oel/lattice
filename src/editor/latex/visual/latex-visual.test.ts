@@ -319,6 +319,17 @@ describe("LaTeX Visual mode", () => {
     expect(balanced(inTitle.state.doc.toString())).toBe(true);
   });
 
+  it("deletes a formula that runs over a line break whole, by word", async () => {
+    const doc = "see $a +\nb$ here";
+    const after = await visualView(doc, doc.indexOf("here"));
+    expect(press(after, "Backspace", { altKey: true })).toBe(true);
+    expect(after.state.doc.toString()).toBe("see here");
+
+    const before = await visualView(doc, doc.indexOf(" $"));
+    expect(press(before, "Delete", { altKey: true })).toBe(true);
+    expect(before.state.doc.toString()).toBe("see here");
+  });
+
   it("still unwraps a heading when a selection deletes only its closing brace", async () => {
     const doc = "\\section{Introduction}\nWe study";
     const view = await visualView(doc, doc.length);

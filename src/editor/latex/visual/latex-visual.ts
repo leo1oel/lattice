@@ -433,12 +433,13 @@ function deleteVisible(field: StateField<VisualState>, unit: "group" | "wrap" | 
     const pairs = tokenPairs(value);
     const steps = steppedTokens(value, pairs);
     const hidden = steps.map(({ span }) => span);
-    const line = state.doc.lineAt(main.head);
+    const line = view.lineBlockAt(main.head);
+    const text = state.sliceDoc(line.from, line.to);
     const widgets: Span[] = [];
     value.replacements.between(line.from, line.to, (from, to) => {
       if (from < to) widgets.push({ from, to });
     });
-    // The line as drawn: each character, a widget as one, the hidden tokens left out.
+    // The line as drawn (a widget over a line break joins two): each character, a widget as one, the hidden tokens left out.
     const units: { from: number; to: number; text: string }[] = [];
     for (let pos = line.from; pos < line.to;) {
       const token = hidden.find(({ from, to }) => from <= pos && to > pos);
@@ -447,9 +448,9 @@ function deleteVisible(field: StateField<VisualState>, unit: "group" | "wrap" | 
         continue;
       }
       const widget = widgets.find(({ from, to }) => from <= pos && to > pos);
-      const to = widget ? Math.min(widget.to, line.to) : line.from + findClusterBreak(line.text, pos - line.from, true);
-      units.push({ from: pos, to, text: widget ? "\uFFFC" : state.sliceDoc(pos, to) });
-      pos = to;
+      const unit = widget ?? { from: pos, to: line.from + findClusterBreak(text, pos - line.from, true) };
+      units.push({ ...unit, text: widget ? "\uFFFC" : state.sliceDoc(unit.from, unit.to) });
+      pos = unit.to;
     }
     const caret = units.filter(({ to }) => to <= main.head).length;
     let gone: typeof units;
