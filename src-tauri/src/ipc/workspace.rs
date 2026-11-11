@@ -150,7 +150,8 @@ pub async fn open_project(
 pub async fn project_shown_elsewhere(
     state: State<'_, AppState>, window: Window, path: String,
 ) -> Result<bool, String> {
-    let root = run_quietly("Project lookup", move || project::folder_root(Path::new(&path))).await?;
+    let root =
+        run_quietly("Project lookup", move || project::folder_root(Path::new(&path))).await?;
     Ok(shown_elsewhere(&state, window.label(), &root))
 }
 

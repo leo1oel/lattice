@@ -2355,7 +2355,7 @@ describe("welcome screen", () => {
   it("leaves project commands' shortcuts idle on the welcome screen, so none waits for the next project", async () => {
     localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "find"]));
     vi.mocked(open).mockResolvedValue(ROOT);
-    renderApp({ ...projectCommands(null), open_project: projectSnapshot() });
+    renderApp({ ...projectCommands(null), project_shown_elsewhere: false, open_project: projectSnapshot() });
     await screen.findByRole("heading", { name: "Lattice" });
     for (const key of ["f", "k", "l", "o"]) fireEvent.keyDown(window, { key, metaKey: true, shiftKey: true });
     for (const key of ["p", "g", "s"]) fireEvent.keyDown(window, { key, metaKey: true });

@@ -113,11 +113,10 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const holdWindow = useCallback(async <T,>(refused: T, task: () => Promise<T>) => {
     if (transitionPendingRef.current) return refused;
     transitionPendingRef.current = true;
-    try {
-      return await task();
-    } finally {
+    // `.finally` rather than try/finally: the React Compiler cannot lower a try without a catch.
+    return task().finally(() => {
       transitionPendingRef.current = false;
-    }
+    });
   }, []);
   /**
    * Launch has not yet decided what this window shows. Until it has, App shows
