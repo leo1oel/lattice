@@ -203,14 +203,22 @@ function compoundNumber(key: string, context: DrawContext): string {
   return numbers?.get(key) ?? numbers?.get(numberedKey(key)) ?? "?";
 }
 
-/** A graphic an entry names, from the project root: beside the entry, with the extension LaTeX would try first. */
+/** The pictures an editable figure may draw: what the reference-image loader previews. */
+const FIGURE_GRAPHIC = /\.(?:pdf|png|jpe?g|gif|svg)$/i;
+
+/**
+ * The graphic an entry includes, from the project root: beside the entry,
+ * with the extension LaTeX would try first. Only a picture the project lists
+ * is read (an entry is anyone's file, and may name any path); otherwise the
+ * PDF named after the entry, as drawing programs write it.
+ */
 function entryGraphic(entry: string, written: string | null, projectPaths: readonly string[]): string {
   const folder = entry.slice(0, entry.lastIndexOf("/") + 1);
-  const stem = entry.slice(folder.length).replace(/\.tex$/i, "");
-  if (!written) return `${folder}${stem}.pdf`;
+  const fallback = `${folder}${entry.slice(folder.length).replace(/\.tex$/i, "")}.pdf`;
+  if (!written || written.includes("..") || written.startsWith("/")) return fallback;
   const path = `${folder}${written.replace(/^\.\//, "")}`;
-  if (/\.[A-Za-z]{2,4}$/.test(written)) return path;
-  return [".pdf", ".png", ".jpg", ".jpeg", ".eps"].map((extension) => path + extension).find((candidate) => projectPaths.includes(candidate)) ?? `${path}.pdf`;
+  const candidates = FIGURE_GRAPHIC.test(path) ? [path] : [".pdf", ".png", ".jpg", ".jpeg"].map((extension) => path + extension);
+  return candidates.find((candidate) => projectPaths.includes(candidate)) ?? fallback;
 }
 
 /** An editable figure's graphic and labels, read from its entry file when the widget is drawn. */

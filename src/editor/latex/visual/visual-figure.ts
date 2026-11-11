@@ -40,12 +40,14 @@ function labelFont(content: string): FigureLabelFont | null {
 const ENTRY_LIMIT = 200_000;
 /** The most labels drawn over one figure. */
 const LABEL_LIMIT = 500;
+/** The largest label size drawn, in points: a bigger one is not a label anyone reads. */
+const MAX_LABEL_POINTS = 72;
 
 const withoutComments = (text: string) => text.replace(/(?<!\\)%.*$/gm, "");
 
 /** The first graphic the entry includes, as written (`scheme.pdf`), or null. */
 export function figureEntryGraphic(entry: string): string | null {
-  const match = /\\includegraphics\s*(?:\[[^\]]*\]\s*)?\{([^{}\\]+)\}/.exec(withoutComments(entry.slice(0, ENTRY_LIMIT)));
+  const match = /\\includegraphics\s*(?:\[[^\][{}\n]{0,200}\]\s*)?\{([^{}\\\n]{1,300})\}/.exec(withoutComments(entry.slice(0, ENTRY_LIMIT)));
   return match ? match[1].trim() : null;
 }
 
@@ -68,12 +70,12 @@ function groupEnd(text: string, open: number): number {
  */
 export function figureEntryLabels(entry: string): FigureLabel[] {
   const text = withoutComments(entry.slice(0, ENTRY_LIMIT));
-  const scope = /\\begin\{scope\}\s*\[[^\]]*x\s*=\s*\{\(\s*[\w-]+\.south east\s*\)\}[^\]]*\]/.exec(text);
+  const scope = /\\begin\{scope\}\s*\[[^\][\n]{0,300}?x\s*=\s*\{\(\s*[\w-]{1,100}\.south east\s*\)\}[^\][\n]{0,300}\]/.exec(text);
   if (!scope) return [];
   const close = text.indexOf("\\end{scope}", scope.index);
   const body = text.slice(scope.index + scope[0].length, close < 0 ? text.length : close);
   const labels: FigureLabel[] = [];
-  const node = /\\node\s*(?:\[[^\]]*\]\s*)?(?:\([\w-]*\)\s*)?at\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*\{/g;
+  const node = /\\node\s*(?:\[[^\][{}\n]{0,200}\]\s*)?(?:\([\w-]{0,100}\)\s*)?at\s*\(\s*(-?\d{1,6}(?:\.\d{1,8})?)\s*,\s*(-?\d{1,6}(?:\.\d{1,8})?)\s*\)\s*\{/g;
   for (let match = node.exec(body); match && labels.length < LABEL_LIMIT; match = node.exec(body)) {
     const open = match.index + match[0].length - 1;
     const end = groupEnd(body, open);
@@ -81,11 +83,14 @@ export function figureEntryLabels(entry: string): FigureLabel[] {
     node.lastIndex = end;
     const x = Number(match[1]);
     const y = Number(match[2]);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    // A label far off the graphic is no label of it; the entry is anyone's file.
+    if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 2 || Math.abs(y) > 2) continue;
     const content = body.slice(open + 1, end - 1);
-    const size = /\\fontsize\s*\{\s*([\d.]+)\s*\}/.exec(content);
+    const size = /\\fontsize\s*\{\s*(\d{1,4}(?:\.\d{1,4})?)\s*\}/.exec(content);
     const runs = labelRuns(content, false);
-    if (runs.length) labels.push({ x, y, size: size ? Number(size[1]) : null, font: labelFont(content), runs });
+    const points = size ? Number(size[1]) : NaN;
+    const fontSize = Number.isFinite(points) && points > 0 ? Math.min(points, MAX_LABEL_POINTS) : null;
+    if (runs.length) labels.push({ x, y, size: fontSize, font: labelFont(content), runs });
   }
   return labels;
 }

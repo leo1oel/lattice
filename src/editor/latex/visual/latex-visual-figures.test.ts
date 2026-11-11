@@ -109,4 +109,20 @@ describe("LaTeX Visual mode's chemistry figures", () => {
     expect(view.contentDOM.querySelector(".lx-tex-figure")).toBeNull();
     expect(view.contentDOM.querySelector(".lx-tex-include")?.textContent).toBe("figures/plain");
   });
+
+  it("reads only a picture the project lists, whatever path the entry names", async () => {
+    const loaded: string[] = [];
+    const visualHost = {
+      ...host({ projectPaths: ["figures/s.tex", "figures/s.pdf", "figures/s.reactio", "figures/notes.tex"] }),
+      readFile: async () => "% editable-figure source: s.reactio\n\\includegraphics{../../../../etc/secret.pdf}",
+      loadImage: async (path: string) => {
+        loaded.push(path);
+        return null;
+      },
+    };
+    const doc = "\\input{figures/s}\nEnd";
+    const view = await visualView(doc, doc.length, visualHost);
+    await vi.waitFor(() => expect(view.contentDOM.querySelector(".lx-tex-figure.is-failed")).not.toBeNull());
+    expect(loaded).toEqual(["figures/s.pdf"]);
+  });
 });

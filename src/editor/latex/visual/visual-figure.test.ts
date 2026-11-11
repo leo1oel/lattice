@@ -36,4 +36,16 @@ describe("editable figure entries", () => {
     expect(figureEntryLabels("\\begin{tikzpicture}\\node at (1,2) {\\cmpd{a}};\\end{tikzpicture}")).toEqual([]);
     expect(figureEntryLabels("\\begin{scope}[x={(f.south east)},y={(f.north west)}]\\node at (0.1,0.2) {\\cmpd{a}")).toEqual([]);
   });
+
+  it("reads an entry anyone may have written within bounds: far-off labels, huge sizes and unclosed brackets", () => {
+    const scope = "\\begin{scope}[x={(f.south east)},y={(f.north west)}]\n";
+    expect(figureEntryLabels(`${scope}\\node at (50,0.2) {\\cmpd{far}};\n\\node at (0.1,0.2) {\\fontsize{5000}{6000}\\selectfont big};`))
+      .toEqual([{ x: 0.1, y: 0.2, size: 72, font: null, runs: [{ bold: false, text: "big" }] }]);
+    // Each unclosed `\node[` once rescanned to the end of the file: quadratic, a stalled editor.
+    const hostile = scope + "\\node[".repeat(30_000) + "\\includegraphics[".repeat(10_000);
+    const started = performance.now();
+    expect(figureEntryLabels(hostile)).toEqual([]);
+    expect(figureEntryGraphic(hostile)).toBeNull();
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 });
