@@ -5,6 +5,7 @@ import {
 } from "@codemirror/view";
 import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
+import { overlayFrom } from "../source-overlays";
 import { annotationStatus, resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
 import { commentMarkProperties } from "./comment-mark-colors";
 import "./annotation-gutter.css";
@@ -239,7 +240,7 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
       if (draft === value.draft && !tr.docChanged) return value;
       return { draft, decorations: draftDecorations(tr.state.doc, draft) };
     },
-    provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+    provide: (field) => [EditorView.decorations.from(field, (value) => value.decorations), overlayFrom(field, (value) => value.decorations)],
   });
   const pinLabel = (numbers: number[]) => (options.pinLabel ?? defaultPinLabel)(numbers);
   type Anchored = { comments: EditorComment[]; decorations: DecorationSet; pins: RangeSet<GutterMarker> };
@@ -271,7 +272,7 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
       }
       return anchor(tr.state.doc, comments);
     },
-    provide: (value) => EditorView.decorations.from(value, (state) => state.decorations),
+    provide: (value) => [EditorView.decorations.from(value, (state) => state.decorations), overlayFrom(value, (state) => state.decorations)],
   });
   // Zero-width beside the text: the pin overlays the quiet fold column (editor-workspace.css).
   const pinGutter = gutter({

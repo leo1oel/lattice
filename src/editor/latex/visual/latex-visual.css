@@ -1,0 +1,194 @@
+/*
+ * LaTeX Visual mode: the source editor of a .tex file set as a page to read.
+ * Written from Lattice's design tokens; every rule is scoped under the
+ * editor's `.cm-latex-visual` class, which the mode adds and removes with
+ * itself. Prose takes the reading face the visual Markdown editor uses, on a
+ * centered measure; what stays as source (an unknown command, a revealed
+ * construct) keeps the source face, so it reads as code among the prose.
+ */
+
+.source-editor .cm-editor.cm-latex-visual {
+  --lx-tex-measure: 760px;
+  --lx-tex-indent: 1.6em;
+  --lx-tex-chip-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+/* The measure, centered however wide the panel is. Padding on the scroller
+   moves the gutter with the text, as focus mode does (editor-workspace.css). */
+.source-editor .cm-editor.cm-latex-visual .cm-scroller {
+  padding-inline: max(0px, calc((100% - var(--lx-tex-measure)) / 2));
+}
+/* The outline rail keeps its clearance when the margin is narrower than it. */
+.source-editor:has(> .latex-outline-rail:not([data-narrow])) .cm-editor.cm-latex-visual .cm-scroller {
+  padding-inline-end: max(var(--outline-rail-clearance), calc((100% - var(--lx-tex-measure)) / 2));
+}
+
+.source-editor .cm-editor.cm-latex-visual .cm-content {
+  font-family: var(--prose-font) !important;
+  font-size: var(--prose-font-size) !important;
+  line-height: var(--prose-line-height) !important;
+  /* The reading face may ship no italic of its own. */
+  font-synthesis: style;
+  font-variant-ligatures: common-ligatures;
+}
+
+/* The current line's band is a source editor's landmark; on a page it is noise. */
+.source-editor .cm-editor.cm-latex-visual .cm-activeLine::before { content: none; }
+
+/* Line numbers stay for orientation, quieter. */
+.source-editor .cm-editor.cm-latex-visual .cm-gutters { opacity: 0.6; }
+
+/* Text styles */
+.cm-latex-visual .lx-tex-bold { font-weight: var(--weight-semibold); }
+.cm-latex-visual .lx-tex-italic,
+.cm-latex-visual .lx-tex-slanted,
+.cm-latex-visual .lx-tex-emph { font-style: italic; }
+.cm-latex-visual .lx-tex-emph .lx-tex-emph,
+.cm-latex-visual .lx-tex-italic .lx-tex-emph,
+.cm-latex-visual .lx-tex-emph .lx-tex-italic { font-style: normal; }
+.cm-latex-visual .lx-tex-mono { font-family: var(--source-font); font-size: 0.9em; }
+.cm-latex-visual .lx-tex-underline { text-decoration: underline; text-underline-offset: 0.18em; }
+.cm-latex-visual .lx-tex-smallcaps { font-variant: small-caps; }
+.cm-latex-visual .lx-tex-sans { font-family: var(--ui-font); }
+.cm-latex-visual .lx-tex-roman { font-family: var(--prose-font); }
+.cm-latex-visual .lx-tex-upright { font-style: normal; font-weight: var(--weight-regular); }
+.cm-latex-visual .lx-tex-link {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 0.22em;
+}
+.cm-latex-visual .lx-tex-footnote { color: var(--text-secondary); font-size: 0.9em; }
+.cm-latex-visual .lx-tex-footnote-mark { color: var(--text-secondary); font-size: 0.75em; vertical-align: super; }
+
+/* A styled argument's braces, shown faintly while the caret is at them. */
+.cm-latex-visual .lx-tex-brace { color: var(--text-secondary); opacity: 0.6; }
+
+/* Headings: the line takes the size, so a revealed `\section{` keeps it too. */
+.cm-latex-visual .cm-line.lx-tex-heading { font-weight: var(--weight-semibold); line-height: 1.3; letter-spacing: -0.01em; }
+.cm-latex-visual .cm-line.lx-tex-heading-0 { font-size: 2em; padding-top: 0.6em; }
+.cm-latex-visual .cm-line.lx-tex-heading-1 { font-size: 1.7em; padding-top: 0.6em; }
+.cm-latex-visual .cm-line.lx-tex-heading-2 { font-size: 1.4em; padding-top: 0.5em; }
+.cm-latex-visual .cm-line.lx-tex-heading-3 { font-size: 1.2em; padding-top: 0.4em; }
+.cm-latex-visual .cm-line.lx-tex-heading-4 { font-size: 1.05em; padding-top: 0.3em; }
+.cm-latex-visual .cm-line:is(.lx-tex-heading-5, .lx-tex-heading-6) { font-size: 1em; }
+
+/* Math. KaTeX sets its own size relative to the text around it. */
+.cm-latex-visual .lx-tex-math { cursor: text; }
+.cm-latex-visual .lx-tex-math-display {
+  padding-block: var(--space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+  cursor: pointer;
+}
+.cm-latex-visual .lx-tex-math-display .katex-display { margin: 0; }
+.cm-latex-visual .lx-tex-math.is-unset {
+  font-family: var(--source-font);
+  font-size: 0.88em;
+  color: var(--status-danger);
+  white-space: pre-wrap;
+}
+
+/* Characters standing for escapes, quotes and accents read as the text around them. */
+.cm-latex-visual .lx-tex-symbol { white-space: pre; }
+
+/* References, citations, labels and included files. */
+.cm-latex-visual .lx-tex-chip {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-compact);
+  background: var(--lx-tex-chip-surface);
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+.cm-latex-visual .lx-tex-ref { color: var(--syntax-reference); }
+.cm-latex-visual .lx-tex-cite { color: var(--syntax-citation); white-space: normal; }
+.cm-latex-visual .lx-tex-label { color: var(--text-secondary); font-family: var(--source-font); font-size: 0.75em; }
+.cm-latex-visual .lx-tex-include { color: var(--syntax-function); font-family: var(--source-font); font-size: 0.85em; text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
+.cm-latex-visual .lx-tex-include:hover { background: var(--chrome-hover-surface); }
+
+/* Lists: the line indents by depth, and an item hangs its marker in the indent. */
+.cm-latex-visual .cm-line.lx-tex-list { padding-inline-start: calc(var(--lx-tex-depth, 1) * var(--lx-tex-indent)); }
+.cm-latex-visual .cm-line.lx-tex-depth-1 { --lx-tex-depth: 1; }
+.cm-latex-visual .cm-line.lx-tex-depth-2 { --lx-tex-depth: 2; }
+.cm-latex-visual .cm-line.lx-tex-depth-3 { --lx-tex-depth: 3; }
+.cm-latex-visual .cm-line.lx-tex-depth-4 { --lx-tex-depth: 4; }
+.cm-latex-visual .cm-line.lx-tex-depth-5 { --lx-tex-depth: 5; }
+.cm-latex-visual .cm-line.lx-tex-depth-6 { --lx-tex-depth: 6; }
+.cm-latex-visual .cm-line.lx-tex-item { text-indent: calc(-1 * var(--lx-tex-indent)); }
+.cm-latex-visual .lx-tex-marker {
+  display: inline-block;
+  min-width: var(--lx-tex-indent);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-indent: 0;
+}
+.cm-latex-visual .lx-tex-item-term { font-weight: var(--weight-semibold); }
+
+/* Floats: a quiet box around the figure's lines, its image and caption centered. */
+.cm-latex-visual .cm-line.lx-tex-float {
+  padding-inline: var(--space-6);
+  background: var(--lx-tex-chip-surface);
+  text-align: center;
+}
+.cm-latex-visual .lx-tex-float-top { height: var(--space-3); border-radius: var(--radius-icon) var(--radius-icon) 0 0; background: var(--lx-tex-chip-surface); }
+.cm-latex-visual .lx-tex-float-bottom { position: relative; height: calc(var(--space-3) + var(--space-2)); }
+.cm-latex-visual .lx-tex-float-bottom::before { content: ""; position: absolute; inset: 0 0 var(--space-2); border-radius: 0 0 var(--radius-icon) var(--radius-icon); background: var(--lx-tex-chip-surface); }
+.cm-latex-visual .cm-line.lx-tex-caption { color: var(--text-secondary); font-size: 0.94em; }
+.cm-latex-visual .lx-tex-caption-label { color: var(--text-primary); font-weight: var(--weight-semibold); }
+/* --lx-tex-image-width: the share of the column a figure's width= gives it, set on the widget. */
+.cm-latex-visual .lx-tex-image { --lx-tex-image-width: auto; display: inline-block; max-width: 100%; vertical-align: middle; }
+.cm-latex-visual .lx-tex-image.is-block { display: block; width: var(--lx-tex-image-width); max-width: 100%; margin: 0 auto; padding-block: var(--space-2); cursor: pointer; }
+.cm-latex-visual .lx-tex-image img { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto; }
+.cm-latex-visual .lx-tex-image.is-block img { width: 100%; height: auto; object-fit: contain; }
+.cm-latex-visual .lx-tex-image.is-loading { min-height: 120px; }
+.cm-latex-visual .lx-tex-image.is-failed {
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-compact);
+  color: var(--text-secondary);
+  font-family: var(--ui-font);
+  font-size: var(--type-caption-size);
+}
+
+/* The title block `\maketitle` prints. */
+.cm-latex-visual .lx-tex-title-block { padding-block: var(--space-8) var(--space-4); text-align: center; cursor: pointer; }
+.cm-latex-visual .lx-tex-title { font-size: 1.7em; font-weight: var(--weight-semibold); line-height: 1.25; letter-spacing: -0.015em; text-wrap: balance; }
+.cm-latex-visual .lx-tex-authors { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-4) var(--space-12); padding-top: var(--space-6); color: var(--text-secondary); }
+
+/* Quotes and centered blocks. */
+.cm-latex-visual .cm-line.lx-tex-quote { padding-inline-start: var(--space-8); border-inline-start: 3px solid var(--border-strong); color: var(--text-secondary); }
+.cm-latex-visual .cm-line.lx-tex-center { text-align: center; }
+
+/* Bars standing for environment lines: an abstract's heading, a theorem's name, the end rule. */
+.cm-latex-visual .lx-tex-bar { display: flex; align-items: center; gap: var(--space-4); cursor: pointer; }
+.cm-latex-visual .lx-tex-env-start { padding-top: var(--space-4); }
+.cm-latex-visual .lx-tex-env-start::after,
+.cm-latex-visual .lx-tex-env-end::after { content: ""; flex: 1; height: 1px; background: var(--border-subtle); }
+.cm-latex-visual .lx-tex-env-end { padding-bottom: var(--space-4); }
+.cm-latex-visual .lx-tex-env-abstract { justify-content: center; }
+.cm-latex-visual .lx-tex-env-abstract::before { content: ""; flex: 1; height: 1px; background: var(--border-subtle); }
+.cm-latex-visual .lx-tex-bar-label { font-weight: var(--weight-semibold); }
+.cm-latex-visual .lx-tex-env-proof .lx-tex-bar-label { font-style: italic; font-weight: var(--weight-regular); }
+
+/* The folded preamble and the end of the document: chrome, not prose. */
+.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document) {
+  position: relative;
+  isolation: isolate;
+  padding: calc(var(--space-4) + var(--space-3)) var(--space-6);
+  color: var(--text-secondary);
+  font-family: var(--ui-font);
+  font-size: var(--type-caption-size);
+  transition: color var(--motion-fast);
+}
+.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document)::before {
+  content: "";
+  position: absolute;
+  inset: var(--space-4) 0;
+  z-index: -1;
+  border-radius: var(--radius-icon);
+  background: var(--lx-tex-chip-surface);
+  transition: background-color var(--motion-fast);
+}
+.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document):hover { color: var(--text-primary); }
+.cm-latex-visual :is(.lx-tex-preamble, .lx-tex-end-document):hover::before { background: var(--chrome-hover-surface); }
+.cm-latex-visual .lx-tex-end-document { justify-content: center; }

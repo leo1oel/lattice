@@ -1,6 +1,7 @@
 import { Prec, StateEffect, StateField, type EditorState, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, keymap, WidgetType, type DecorationSet } from "@codemirror/view";
 import { LATEX_SHORTCUTS } from "./latex/latex-shortcuts";
+import { overlayFrom } from "./source-overlays";
 
 /**
  * Where an inline proofread sits: the source span it would replace, mapped
@@ -73,7 +74,7 @@ const proofreadField = StateField.define<{ anchor: ProofreadAnchor | null; decor
     if (anchor === value.anchor) return value;
     return { anchor, decorations: anchor ? decorations(tr.state, anchor) : Decoration.none };
   },
-  provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+  provide: (field) => [EditorView.decorations.from(field, (value) => value.decorations), overlayFrom(field, (value) => value.decorations)],
 });
 
 /** The open proofread's current span in `state`, or null. */

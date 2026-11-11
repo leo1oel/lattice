@@ -5,6 +5,8 @@
  * own viewport, drives it with the scenarios' BenchDriver and throws to fail.
  */
 
+import { LATEX_VISUAL_REVEAL } from "./latex-visual-check.mjs";
+
 const overlaps = (a, b) => a.left < b.left + b.width && b.left < a.left + a.width
   && a.top < b.top + b.height && b.top < a.top + a.height;
 
@@ -455,6 +457,7 @@ export const LAYOUT_CHECKS = [
       if (after <= before) throw new Error(`a wheel over the pinned sop left the tree at ${after}px, not below ${before}px`);
     },
   })),
+  LATEX_VISUAL_REVEAL,
   {
     name: "source-menu-select-all",
     description: "The 18k-line long.tex in the source editor, caret near the top, scrolled to the middle: Edit › Select All, then a typed key, leaves only that key.",

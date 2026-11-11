@@ -484,12 +484,20 @@
   font-size: var(--type-caption-size);
   font-weight: var(--weight-medium);
 }
-/* A Paper's two switches: what it reads (Blog, Paper) and how (Edit, Split, Preview). */
-.trellis-paper-tools { display: flex; align-items: center; gap: var(--space-2); }
-.trellis-paper-content { display: flex; }
+/* A Paper's two switches: what it reads (Blog, Paper) and how (Edit, Split, Preview).
+   A .tex file's Source / Visual switch sits before its Build button the same way. */
+.trellis-paper-tools, .trellis-latex-tools { display: flex; align-items: center; gap: var(--space-2); }
+.trellis-paper-content, .trellis-latex-view { display: flex; }
 /* Short of room for the tabs, Build keeps only its icon and a Paper only its
    modes (see the tab sizes above); the panel menu repeats both. */
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-paper-content { display: none; }
+/* A .tex file's Source / Visual switch shows only in room to spare (the
+   named row): the Trellis patch measures the panel's minimum header in the
+   whole row's state (no data-tools), so the switch is off there too, and the
+   minimum stays Build's alone. Tab eviction measures the strip under
+   data-room-probe, so the switch never closes a tab either. The panel menu
+   repeats it. */
+.lattice-trellis [data-trellis-part="tabbar"]:is(:not([data-tools="named"]), [data-room-probe]) .trellis-latex-view { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] :is(.trellis-build-label, .trellis-build-sizer-labels) { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-button { padding-inline: var(--space-4); }
 

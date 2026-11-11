@@ -23,7 +23,7 @@ export const COUNTS = ["commits", "updates", "renders", "hooks", "recalcs", "lay
  *   two batches depending on timing, and each batch re-renders the editor
  *   chrome (634–1,243 renders across runs);
  * - `code-highlight` mutations: 2,510–2,957 across runs;
- * - `latex-typing` and `long-tex-typing` commits: a keystroke's updates
+ * - `latex-typing`, `long-tex-typing` and `long-tex-visual-typing` commits: a keystroke's updates
  *   commit together or apart depending on timing (81–85 across local runs,
  *   101 on the CI runner, with renders within 4%);
  * - `markdown-preview-scroll` commits, renders and hooks: Base UI's scroll
@@ -59,10 +59,12 @@ const GATED_ONLY_IN = { updates: ["startup"] };
 const REPORT_ONLY_BY_SCENARIO = {
   "latex-typing": ["commits"],
   "long-tex-typing": ["commits"],
+  "long-tex-visual-typing": ["commits"],
   "markdown-visual-typing": ["renders", "hooks"],
   "code-highlight": ["mutations"],
   "pdf-scroll": ["mutations"],
   "source-scroll": ["mutations"],
+  "long-tex-visual-scroll": ["mutations"],
   "source-scroll-selected": ["mutations"],
   "markdown-preview-scroll": ["commits", "renders", "hooks", "mutations"],
   startup: ["commits", "mutations"],

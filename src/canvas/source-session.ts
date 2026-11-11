@@ -22,6 +22,8 @@ import { editorCommentsExtension, type CommentCardHosts } from "../editor/commen
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { latexEditorExtensions, textEditorExtensions, type LatexEditorLiveData } from "../editor/latex/latex-editor";
 import { latex } from "../editor/latex/latex-language";
+import { latexVisualSlot } from "../editor/latex/latex-visual-switch";
+import { isLatexDocumentPath } from "../editor/latex/latex-view-choice";
 import { editableFigurePaste, trackFigureEditor } from "../editor/insert/editable-figure-paste-handler";
 import { compositionEndTracker } from "../editor/latex/selection-toolbar-placement";
 import { pointerSelection } from "../editor/pointer-selection";
@@ -90,18 +92,24 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
   const navigation = () => live.props().navigation;
   const onPasteImage = (file: File) => live.props().assets.onPasteImageFile(file);
   const review = () => live.props().review;
+  const data = editorLiveData(live);
   return [
     paperDropExtension(path, () => ({ projectRoot: live.props().preferences.projectRoot, papers: live.props().bibliography.papers ?? [] })),
     ...config.keymap,
     ...(latexSource ? [
       latex(),
+      isLatexDocumentPath(path) ? latexVisualSlot({
+        data: () => data.current,
+        loadImage: (imagePath) => live.props().bibliography.onLoadReferenceImage(imagePath),
+        open: (target) => navigation().onGotoDefinition(target),
+      }) : [],
       trackFigureEditor,
       editableFigurePaste(
         (manifest, view) => live.props().assets.onPasteEditableFigure?.(manifest, view),
         (file, view) => live.props().assets.onPasteDrawingFile?.(file, view),
       ),
       ...latexEditorExtensions({
-        live: editorLiveData(live),
+        live: data,
         currentPath: path,
         spellcheck,
         texlab: true,
@@ -117,7 +125,7 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
       }),
     ] : [
       ...config.language,
-      ...textEditorExtensions(spellcheck && "text", editorLiveData(live), onPasteImage),
+      ...textEditorExtensions(spellcheck && "text", data, onPasteImage),
     ]),
     config.proofread,
     compositionEndTracker,

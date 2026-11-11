@@ -66,12 +66,13 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 | `startup` | load the app and open the fixture project with its PDF preview |
 | `latex-typing` | 40 characters into a 60 KB chapter, PDF preview beside it |
 | `long-tex-typing` | 24 characters into a 3.3 MB, 18k-line `.tex` file, PDF preview beside it |
+| `long-tex-visual-typing` | the same 24 characters into that file in LaTeX Visual mode |
 | `markdown-source-typing` | 40 characters into the 400 KB Markdown document's source |
 | `markdown-visual-typing` | 24 characters into it in the visual editor (one publication) |
 | `file-switch` | tab switches between `main.tex`, `large.md`, a note and a chapter |
 | `code-highlight` | switch to a document of 150 highlighted code blocks, type 20 characters in one (each after the 200 ms publication idle, so each publishes) |
 | `pdf-open` | open a 200-page PDF from the navigator |
-| `pdf-scroll`, `source-scroll`, `markdown-preview-scroll` | 40 wheel notches each |
+| `pdf-scroll`, `source-scroll`, `markdown-preview-scroll`, `long-tex-visual-scroll` | 40 wheel notches each (the last over the 3.3 MB `.tex` file in Visual mode) |
 | `source-select-drag` | drag-select 30 lines down a LaTeX chapter, one line a frame |
 | `source-scroll-selected` | 40 wheel notches over that chapter with those 30 lines selected |
 | `dialog-open` | open the command palette over the 400 KB Markdown document in the visual editor and close it with Escape, 4 times |
@@ -153,10 +154,10 @@ and printed, and `--json` keeps them, but no ceiling holds them
 | Scenario | Gated | Report-only | Why report-only |
 | --- | --- | --- | --- |
 | every scenario | | `recalcs`, `layouts` | Two DOM changes landing in one frame share a pass. One build measured 120–207 `pdf-scroll` recalculations across runs, more under load. |
-| `pdf-scroll`, `source-scroll`, `source-scroll-selected` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
+| `pdf-scroll`, `source-scroll`, `source-scroll-selected`, `long-tex-visual-scroll` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
 | `markdown-preview-scroll` | | `commits`, `renders`, `hooks`, `mutations` | The same scrollbar fade, and Base UI's scroll area (the visual editor's scroller) re-renders when a scroll burst starts and 500 ms after it ends, in React state. How many bursts 40 notches make depends on stalls (139–259 renders on one machine, 225 on the CI runner). |
 | `tab-drag` | `commits`, `renders`, `hooks`; WebKit: `renders` | `mutations`; WebKit: `commits`, `hooks` too | Trellis moves the lifted panel and the panels making room for a drop on every frame, and how many frames a drag spans depends on the machine (10,909–11,356 across runs of one build). In WebKit on the macOS runner the commits and hooks follow it too: main's runs of 2026-11-03 to 05 read 52–71 commits (one job's two runs: 52 and 68), where Chromium read 53–56 every time and still gates them. |
-| `latex-typing`, `long-tex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
+| `latex-typing`, `long-tex-typing`, `long-tex-visual-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
 | `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
 | `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |
 | `startup` | `updates`, `renders`, `hooks` | `commits`, `mutations` | The load's updates come from independent async sources (lazy chunks arriving, backend answers started from different effects, PDF.js progress, animation-frame, resize- and mutation-observer callbacks), and whether two of them share a commit depends on where React's 5 ms render slices and the frames fall: 25–29 commits across 20 runs of one build, with 139–140 updates in each (the PDF's loading announcement skips "Loading PDF…" when the PDF arrives within a frame). Trellis measures a panel's header by writing each state of its action row to the DOM, and again when the row changes size. On a busy machine the Project and Papers panels' actions arrive a frame after the first measurement, and the second adds about 95 attribute writes (WebKit: 721–738 at rest, 818–864 in about a run in four under load). |

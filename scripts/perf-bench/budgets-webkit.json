@@ -15,6 +15,11 @@
       "hooks": 33980,
       "mutations": 195
     },
+    "long-tex-visual-typing": {
+      "renders": 2957,
+      "hooks": 33980,
+      "mutations": 195
+    },
     "markdown-source-typing": {
       "commits": 60,
       "renders": 4240,
@@ -54,6 +59,11 @@
       "mutations": 455
     },
     "source-scroll": {
+      "commits": 6,
+      "renders": 6,
+      "hooks": 14
+    },
+    "long-tex-visual-scroll": {
       "commits": 6,
       "renders": 6,
       "hooks": 14
