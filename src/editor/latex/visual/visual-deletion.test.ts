@@ -113,6 +113,49 @@ describe("LaTeX Visual mode deletion", () => {
     }
   });
 
+  // A chip shows its source while the caret is at its edge; its tokens are stepped over as a revealed heading's are.
+  for (const chip of ["\\cite{knuth}", "\\citep[p.~3]{knuth}", "\\ref{knuth}", "\\label{knuth}"]) {
+    it(`steps over ${chip}'s braces from either edge, never deleting one alone, and one undo restores it`, async () => {
+      const doc = `A ${chip} B`;
+      const end = doc.indexOf(" B");
+      const keyed = (key: string) => doc.replace("{knuth}", `{${key}}`);
+      const cases = [
+        { anchor: end, key: "Backspace", expected: keyed("knut"), caret: end - 1 },
+        { anchor: 2, key: "Delete", expected: keyed("nuth"), caret: 2 },
+      ];
+      for (const { anchor, key, expected, caret } of cases) {
+        const view = await visualView(doc, anchor);
+        expect(view.contentDOM.querySelector(".lx-tex-chip")).toBeNull();
+        expect(press(view, key)).toBe(true);
+        expect(view.state.doc.toString()).toBe(expected);
+        expect(view.state.selection.main.head).toBe(caret);
+        expect(undo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(doc);
+      }
+    });
+  }
+
+  it("removes an empty key command whole from either side, one undo restoring it, and empties a chip into one", async () => {
+    for (const command of ["\\cite{}", "\\citep[p.~3]{ }", "\\ref{}", "\\label{}"]) {
+      const doc = `A ${command} B`;
+      const end = doc.indexOf(" B");
+      for (const { anchor, key } of [{ anchor: end, key: "Backspace" }, { anchor: 2, key: "Delete" }]) {
+        const view = await visualView(doc, anchor);
+        expect(press(view, key)).toBe(true);
+        expect(view.state.doc.toString()).toBe("A  B");
+        expect(undo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(doc);
+      }
+    }
+    const doc = "A \\cite{ab} B";
+    const view = await visualView(doc, doc.indexOf(" B"));
+    for (const expected of ["A \\cite{a} B", "A \\cite{} B", "A  B"]) {
+      expect(press(view, "Backspace")).toBe(true);
+      expect(view.state.doc.toString()).toBe(expected);
+      expect(balanced(view.state.doc.toString())).toBe(true);
+    }
+  });
+
   it("keeps a heading's closing brace when its command is retyped over, and unwraps it when the command is only deleted", async () => {
     const replacements = [
       { doc: "Text\n\\section{Intro}\nMore", token: "\\section{", insert: "\\subsection{", expected: "Text\n\\subsection{Intro}\nMore" },

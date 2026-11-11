@@ -3,6 +3,7 @@ import { EditorSelection, EditorState, Prec, findClusterBreak, type Extension } 
 import { EditorView, keymap, type Command, type DecorationSet } from "@codemirror/view";
 import { endDocumentOf, preambleOf } from "./visual-environments";
 import type { Construct, Span } from "./visual-scan";
+import { CITATION_COMMANDS, REFERENCE_COMMANDS } from "./visual-symbols";
 
 /** What Visual mode has scanned and drawn, as deletion reads it. */
 type DrawnState = { constructs: readonly Construct[]; replacements: DecorationSet };
@@ -34,9 +35,10 @@ export function visualDeletion(read: ReadDrawn): Extension {
  * Ctrl-h, Ctrl-d) works as in a word processor:
  * - It never deletes a token Visual mode draws, hidden or as a faint brace
  *   (`\textbf{`, `}`, `\href{url}{`, `{\bf `, a term's `\item[` and `]`), nor
- *   a heading's or caption's, drawn or not. It steps over them, deletes the
- *   character beyond (a widget beyond them goes whole), and the caret stays
- *   on its side of them.
+ *   a heading's or caption's, drawn or not, nor a reference's, citation's or
+ *   label's `\cite{` and `}` while the caret at its edge shows the chip's
+ *   source. It steps over them, deletes the character beyond (a widget
+ *   beyond them goes whole), and the caret stays on its side of them.
  * - Leaving a description term over its bracket removes the item's marker
  *   instead, as Backspace at an itemize item removes its bullet; the term
  *   keeps its line.
@@ -45,7 +47,8 @@ export function visualDeletion(read: ReadDrawn): Extension {
  *   of text onto an environment's or a display's (a blank line next to one
  *   still goes).
  * - With the caret just outside a construct whose content is empty, it
- *   removes the construct; inside one, the deletion is Source's.
+ *   removes the construct (an empty `\cite{}`, `\ref{}` or `\label{}` too,
+ *   which draws no chip); inside one, the deletion is Source's.
  * - Past the start or end of the document it deletes nothing.
  * A word or line deletion from the caret (Option- or Cmd-Backspace and
  * -Delete, Ctrl-Alt-h, Ctrl-k) reads the line as drawn: the word or line
@@ -60,26 +63,55 @@ export function visualDeletion(read: ReadDrawn): Extension {
 /**
  * A construct drawn between an opening and a closing token. `always`: its
  * tokens are stepped over even while its source shows (a heading's or
- * caption's with a title). `term`: a description item's `[…]`.
+ * caption's with a title, a chip's). `term`: a description item's `[…]`.
+ * `chip`: a reference, citation or label, drawn as one widget over all of
+ * it, so its tokens are never drawn on their own.
  */
-type TokenPair = { from: number; to: number; open: Span; close: Span; brackets: string; always: boolean; term: boolean };
+type TokenPair = { from: number; to: number; open: Span; close: Span; brackets: string; always: boolean; term: boolean; chip: boolean };
 
-function tokenPairs(value: DrawnState): TokenPair[] {
+function tokenPairs(state: EditorState, value: DrawnState): TokenPair[] {
   const pairs: TokenPair[] = [];
   for (const construct of value.constructs) {
     const { from, to } = construct;
     if (construct.kind === "style" || construct.kind === "link") {
-      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always: false, term: false });
+      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always: false, term: false, chip: false });
     } else if (construct.kind === "heading" || construct.kind === "caption") {
       const always = construct.open.to < construct.close.from;
-      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always, term: false });
+      pairs.push({ from, to, open: construct.open, close: construct.close, brackets: "{}", always, term: false, chip: false });
     } else if (construct.kind === "item" && construct.term) {
       const close = { from: construct.term.to, to: construct.term.to + 1 };
-      pairs.push({ from, to: close.to, open: { from, to: construct.term.from }, close, brackets: "[]", always: false, term: true });
+      pairs.push({ from, to: close.to, open: { from, to: construct.term.from }, close, brackets: "[]", always: false, term: true, chip: false });
+    } else if (construct.kind === "reference" || construct.kind === "citation" || construct.kind === "label") {
+      // The scan only reads a key list without braces, and never an empty one: its last `{` opens the keys.
+      const brace = from + state.sliceDoc(from, to).lastIndexOf("{");
+      pairs.push({ from, to, open: { from, to: brace + 1 }, close: { from: to - 1, to }, brackets: "{}", always: true, term: false, chip: true });
     }
   }
   return pairs;
 }
+
+/**
+ * An empty key command (`\cite{}`, `\ref{ }`, `\label{}`) just beside the
+ * caret on its side of the deletion, whole. The scan draws no chip for one,
+ * so it is found in the text.
+ */
+function emptyKeyCommand(state: EditorState, at: number, forward: boolean): Span | null {
+  const line = state.doc.lineAt(at);
+  const pattern = forward ? EMPTY_KEY_COMMAND_AFTER : EMPTY_KEY_COMMAND_BEFORE;
+  const match = pattern.exec(forward ? line.text.slice(at - line.from) : line.text.slice(0, at - line.from));
+  if (!match) return null;
+  const [whole, name, options] = match;
+  const citation = CITATION_COMMANDS.has(name);
+  if (!citation && !REFERENCE_COMMANDS.has(name) && name !== "label") return null;
+  if (options && !citation) return null;
+  const from = forward ? at : at - whole.length;
+  // `\\cite{}` is a line break before plain text.
+  if (state.sliceDoc(from - 1, from) === "\\") return null;
+  return { from, to: from + whole.length };
+}
+const EMPTY_KEY_COMMAND = String.raw`\\([A-Za-z]+)\*?((?:\s*\[[^\[\]{}]*\]){0,2})\s*\{\s*\}`;
+const EMPTY_KEY_COMMAND_BEFORE = new RegExp(`${EMPTY_KEY_COMMAND}$`);
+const EMPTY_KEY_COMMAND_AFTER = new RegExp(`^${EMPTY_KEY_COMMAND}`);
 
 /** How many more of `brackets`' opening character than its closing one `text` has. */
 function bracketBalance(text: string, brackets: string): number {
@@ -99,10 +131,15 @@ function drawnRange(value: DrawnState, token: Span): Span | null {
   return range;
 }
 
-/** The tokens a deletion steps over, as the ranges they are drawn as (a heading's or caption's even when not drawn). */
+/** The hidden range a pair's token is drawn as on its own; a chip's never is (its widget is drawn over all of it). */
+function drawnToken(value: DrawnState, pair: TokenPair, side: "open" | "close"): Span | null {
+  return pair.chip ? null : drawnRange(value, pair[side]);
+}
+
+/** The tokens a deletion steps over, as the ranges they are drawn as (a heading's, caption's or chip's even when not drawn). */
 function steppedTokens(value: DrawnState, pairs: readonly TokenPair[]) {
   return pairs.flatMap((pair) => (["open", "close"] as const).flatMap((side) => {
-    const span = drawnRange(value, pair[side]) ?? (pair.always ? pair[side] : null);
+    const span = drawnToken(value, pair, side) ?? (pair.always ? pair[side] : null);
     return span ? [{ span, pair, side }] : [];
   }));
 }
@@ -121,7 +158,7 @@ function deleteAcrossTokens(read: ReadDrawn, forward: boolean): Command {
     const value = read(state);
     const { main } = state.selection;
     if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
-    const pairs = tokenPairs(value);
+    const pairs = tokenPairs(state, value);
     const drawn = (token: Span) => drawnRange(value, token);
     const steps = steppedTokens(value, pairs);
     const remove = (...ranges: Span[]) => removeRanges(view, forward, ranges);
@@ -130,6 +167,8 @@ function deleteAcrossTokens(read: ReadDrawn, forward: boolean): Command {
     for (;;) {
       const empty = pairs.find((pair) => pair.open.to === pair.close.from && at === (forward ? pair.from : pair.to));
       if (empty) return remove({ from: empty.from, to: empty.to });
+      const emptyKeys = emptyKeyCommand(state, at, forward);
+      if (emptyKeys) return remove(emptyKeys);
       const step = steps.find(({ span }) => (forward ? span.from : span.to) === at);
       if (!step) break;
       if (step.pair.term && step.side === (forward ? "close" : "open")) return remove(drawn(step.pair.open) ?? step.pair.open, step.pair.close);
@@ -168,8 +207,8 @@ function deleteVisible(read: ReadDrawn, unit: "group" | "wrap" | "line", forward
     const value = read(state);
     const { main } = state.selection;
     if (!value || state.selection.ranges.length > 1 || !main.empty) return false;
-    const pairs = tokenPairs(value);
-    const steps = steppedTokens(value, pairs).filter(({ pair, side, span }) => drawnRange(value, pair[side]) || span.from >= main.head || span.to <= main.head);
+    const pairs = tokenPairs(state, value);
+    const steps = steppedTokens(value, pairs).filter(({ pair, side, span }) => drawnToken(value, pair, side) || span.from >= main.head || span.to <= main.head);
     const hidden = steps.map(({ span }) => span);
     const symbols = new Map<number, Construct>();
     for (const construct of value.constructs) if (construct.kind === "symbol") symbols.set(construct.from, construct);
@@ -251,7 +290,7 @@ function unwrapOnDelete(read: ReadDrawn): Extension {
     const covering = (span: Span) => edits.find(({ from, to }) => from <= span.from && to >= span.to);
     const reaches = (span: Span) => edits.some(({ from, to }) => from < span.to && to > span.from);
     const orphaned: Span[] = [];
-    for (const { open, close, brackets } of tokenPairs(value)) {
+    for (const { open, close, brackets } of tokenPairs(transaction.startState, value)) {
       const opening = !reaches(close) && covering(open);
       const closing = !reaches(open) && covering(close);
       if (opening && bracketBalance(opening.inserted, brackets) <= 0) orphaned.push(close);
