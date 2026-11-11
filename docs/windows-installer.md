@@ -18,9 +18,10 @@ identifier and release version. No Windows-specific version is introduced.
 
 The installer is per-user and needs no administrator privileges. Microsoft Edge
 WebView2 is required; NSIS offers the official bootstrapper if it is missing.
-Windows 10 1809 or later is required; Windows 11 is recommended. Install TeX Live
-for Windows separately for LaTeX compilation. The embedded Agent stays off,
-one-click tool installation and rtex are unavailable, and updates are manual.
+Windows 10 1809 or later is required; Windows 11 is recommended. LaTeX compiles
+with a TeX distribution: Lattice's setup dialog installs TeX Live for the current
+user (no administrator prompt), or install TeX Live or MiKTeX yourself. The
+embedded Agent stays off, rtex is unavailable, and updates are manual.
 
 This build is unsigned. SmartScreen may warn about the unknown publisher.
 Verify the asset's origin and SHA-256 before deciding whether to run it;

@@ -14,6 +14,7 @@
 //! BibTeX). The export stages the pack again and refuses it when it no longer
 //! matches the one checked, so what was checked is what ships.
 
+pub mod journal;
 mod source;
 
 pub(super) use source::code_lines;
@@ -226,7 +227,7 @@ impl ArxivChecks {
     }
 
     /// Stop the check under way, and number a new one.
-    fn begin(&self) -> u64 {
+    pub(super) fn begin(&self) -> u64 {
         let check = self.latest.fetch_add(1, Ordering::SeqCst) + 1;
         let _ = abort(&self.build);
         check
@@ -238,9 +239,9 @@ impl ArxivChecks {
 }
 
 /// The pack, staged in memory.
-struct Staged {
-    root_document: String,
-    files: BTreeMap<String, Vec<u8>>,
+pub(super) struct Staged {
+    pub(super) root_document: String,
+    pub(super) files: BTreeMap<String, Vec<u8>>,
     figures: Vec<String>,
     missing: Vec<String>,
     miscased: Vec<Miscased>,
@@ -248,7 +249,7 @@ struct Staged {
     comments: Comments,
     merged: Vec<String>,
     left_out: Vec<String>,
-    engine: String,
+    pub(super) engine: String,
     digest: String,
 }
 
@@ -315,6 +316,15 @@ pub fn export(
 
 /// The pack for the project's root document, or `None` before its first build.
 fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
+    stage_with(root, options, &BTreeMap::new())
+}
+
+/// The pack, with the texts of the sources `replaced` names taken from it
+/// before `\input` files are merged: a journal export turns each editable
+/// figure's entry file into the figure file it exported (journal.rs).
+pub(super) fn stage_with(
+    root: &Path, options: ArxivOptions, replaced: &BTreeMap<String, String>,
+) -> Result<Option<Staged>, String> {
     let root = root.canonicalize().map_err(|error| error.to_string())?;
     let manifest = project::read_manifest(&root)?;
     let document = default_root_document(&manifest)?;
@@ -348,7 +358,7 @@ fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
             todo: comment.todo,
         }));
         let text = if options.strip_comments { stripped.text } else { text.to_string() };
-        texts.insert(path.clone(), text);
+        texts.insert(path.clone(), replaced.get(path).cloned().unwrap_or(text));
     }
     let mut merged = BTreeSet::new();
     if options.merge_inputs && texts.contains_key(&document.path) {
@@ -591,6 +601,13 @@ impl Drop for Scratch {
 /// Build the pack in a folder of its own, as arXiv will: no shell escape,
 /// no BibTeX (the `.bbl` ships instead), and a time limit.
 fn test_build(pack: &Staged, checks: &ArxivChecks, check: u64) -> Result<CompileCheck, String> {
+    test_build_keeping(pack, checks, check, None)
+}
+
+/// [`test_build`], copying the PDF it made to `keep` when it succeeds.
+pub(super) fn test_build_keeping(
+    pack: &Staged, checks: &ArxivChecks, check: u64, keep: Option<&Path>,
+) -> Result<CompileCheck, String> {
     let scratch = Scratch::new()?;
     for (path, bytes) in &pack.files {
         let target = scratch.0.join(path);
@@ -655,6 +672,9 @@ fn test_build(pack: &Staged, checks: &ArxivChecks, check: u64) -> Result<Compile
     let built = scratch.0.join(&pack.root_document);
     let tex_log = fs::read_to_string(built.with_extension("log")).unwrap_or_default();
     if output.status.success() && built.with_extension("pdf").is_file() {
+        if let Some(keep) = keep {
+            fs::copy(built.with_extension("pdf"), keep).map_err(|error| error.to_string())?;
+        }
         return Ok(CompileCheck {
             outcome: CompileOutcome::Ok,
             pages: pages_written(&tex_log),

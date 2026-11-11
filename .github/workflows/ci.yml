@@ -440,15 +440,18 @@ jobs:
     # keeps line tables for this crate and none for dependencies, so this job
     # needs no override of its own.
     runs-on: ubuntu-22.04
+    # A cached run takes about 4 minutes, a cold cache a few times that; an apt or
+    # network stall would otherwise hold the PR for GitHub's 6 h default.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       # Tauri's WebKitGTK stack, plus D-Bus for the Secret Service keyring.
       - name: Install the Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential libayatana-appindicator3-dev libdbus-1-dev \
-            librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+        timeout-minutes: 15
+        run: >-
+          .github/scripts/apt-install.sh
+          build-essential libayatana-appindicator3-dev libdbus-1-dev
+          librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
       # rust-toolchain.toml pins the release; the runner's own target comes with it.
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2

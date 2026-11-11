@@ -243,7 +243,7 @@ describe("Add papers from Zotero", () => {
   });
 
   it.each([
-    "Lattice couldn't find a Zotero library on this Mac.",
+    "Lattice couldn't find a Zotero library on this computer.",
     "Lattice couldn't read the Zotero library: database disk image is malformed",
   ])("says what went wrong (%s), and tries again", async (message) => {
     invoke.mockRejectedValueOnce(message).mockImplementation(zotero);
@@ -256,7 +256,7 @@ describe("Add papers from Zotero", () => {
   });
 
   it("reads a library kept in a folder the writer chooses", async () => {
-    invoke.mockRejectedValueOnce("Lattice couldn't find a Zotero library on this Mac.")
+    invoke.mockRejectedValueOnce("Lattice couldn't find a Zotero library on this computer.")
       .mockImplementation(zotero);
     openDialog.mockResolvedValue("/Volumes/Research/Zotero");
     sheet();
@@ -268,7 +268,7 @@ describe("Add papers from Zotero", () => {
   });
 
   it("reads again when the same folder is chosen after a failed read", async () => {
-    invoke.mockRejectedValueOnce("Lattice couldn't find a Zotero library on this Mac.")
+    invoke.mockRejectedValueOnce("Lattice couldn't find a Zotero library on this computer.")
       .mockRejectedValueOnce("Lattice couldn't read the Zotero library: database is locked")
       .mockImplementation(zotero);
     openDialog.mockResolvedValue("/Volumes/Research/Zotero");
