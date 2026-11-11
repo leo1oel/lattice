@@ -104,6 +104,16 @@ pub fn track_pointer<E: StatefulInteractiveElement>(element: E, state: Entity<Po
         })
 }
 
+/// Make an enabled control a keyboard tab stop: Tab reaches it, its
+/// `focus_visible` ring shows, and Enter or Space fire its `on_click`. A
+/// press does not take focus, as a button in the app's web view does not, so
+/// clicking a control leaves the editor focused and draws no ring.
+pub fn tab_stop<E: StatefulInteractiveElement>(element: E) -> E {
+    element
+        .tab_index(0)
+        .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
+}
+
 /// A 0..1 progress toward `on`, on `motion` going in and its exit coming
 /// back.
 pub fn fade(

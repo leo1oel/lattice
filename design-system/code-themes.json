@@ -1,0 +1,572 @@
+{
+  "about": "Generated from src/settings/code-themes.ts by design-system/code-themes.mjs. Do not edit.",
+  "order": [
+    "github",
+    "lattice",
+    "one",
+    "solarized",
+    "catppuccin",
+    "tokyo-night",
+    "dracula",
+    "nord",
+    "monokai"
+  ],
+  "themes": [
+    {
+      "id": "github",
+      "name": "GitHub",
+      "kinds": [
+        "light",
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "light",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#0969da",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#1f2328",
+            "--code-line": "color-mix(in srgb, #1f2328 5%, var(--editor-bg))",
+            "--code-line-number": "#89929c",
+            "--code-line-number-contrast": "#6b747e",
+            "--code-selection": "color-mix(in srgb, #0969da 12%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #0969da 20%, var(--editor-bg))",
+            "--syntax-attribute": "#0550ae",
+            "--syntax-bracket": "#1f2328",
+            "--syntax-citation": "#0a3069",
+            "--syntax-comment": "#59636e",
+            "--syntax-comment-doc": "#0a3069",
+            "--syntax-constant": "#0550ae",
+            "--syntax-function": "#804ddc",
+            "--syntax-keyword": "#cf222e",
+            "--syntax-number": "#0550ae",
+            "--syntax-operator": "#cf222e",
+            "--syntax-property": "#0550ae",
+            "--syntax-reference": "#953800",
+            "--syntax-string": "#0a3069",
+            "--syntax-type": "#116329",
+            "--syntax-variable": "#0550ae",
+            "--syntax-variable-special": "#0550ae"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#2f81f7",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#e6edf3",
+            "--code-line": "color-mix(in srgb, #e6edf3 5%, var(--editor-bg))",
+            "--code-line-number": "#6e7681",
+            "--code-line-number-contrast": "#7e8792",
+            "--code-selection": "color-mix(in srgb, #388bfd 12%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #388bfd 20%, var(--editor-bg))",
+            "--syntax-attribute": "#79c0ff",
+            "--syntax-bracket": "#e6edf3",
+            "--syntax-citation": "#a5d6ff",
+            "--syntax-comment": "#8b949e",
+            "--syntax-comment-doc": "#a5d6ff",
+            "--syntax-constant": "#79c0ff",
+            "--syntax-function": "#d2a8ff",
+            "--syntax-keyword": "#ff7b72",
+            "--syntax-number": "#79c0ff",
+            "--syntax-operator": "#ff7b72",
+            "--syntax-property": "#79c0ff",
+            "--syntax-reference": "#ffa657",
+            "--syntax-string": "#a5d6ff",
+            "--syntax-type": "#7ee787",
+            "--syntax-variable": "#79c0ff",
+            "--syntax-variable-special": "#79c0ff"
+          }
+        }
+      }
+    },
+    {
+      "id": "one",
+      "name": "One",
+      "kinds": [
+        "light",
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "light",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#526fff",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#383a42",
+            "--code-line": "color-mix(in srgb, #383a42 5%, var(--editor-bg))",
+            "--code-line-number": "#919193",
+            "--code-line-number-contrast": "#737375",
+            "--code-selection": "color-mix(in srgb, #e5e5e6 60%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #e5e5e6 100%, var(--editor-bg))",
+            "--syntax-attribute": "#926407",
+            "--syntax-bracket": "#383a42",
+            "--syntax-citation": "#2a7d2b",
+            "--syntax-comment": "#6c6d72",
+            "--syntax-comment-doc": "#2a7d2b",
+            "--syntax-constant": "#926407",
+            "--syntax-function": "#3066de",
+            "--syntax-keyword": "#a626a4",
+            "--syntax-number": "#926407",
+            "--syntax-operator": "#0e74a4",
+            "--syntax-property": "#c63a30",
+            "--syntax-reference": "#0e74a4",
+            "--syntax-string": "#2a7d2b",
+            "--syntax-type": "#936401",
+            "--syntax-variable": "#c63a30",
+            "--syntax-variable-special": "#c63a30"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#528bff",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#abb2bf",
+            "--code-line": "color-mix(in srgb, #abb2bf 5%, var(--editor-bg))",
+            "--code-line-number": "#61697b",
+            "--code-line-number-contrast": "#7d8699",
+            "--code-selection": "color-mix(in srgb, #3e4451 60%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #3e4451 100%, var(--editor-bg))",
+            "--syntax-attribute": "#d19a66",
+            "--syntax-bracket": "#abb2bf",
+            "--syntax-citation": "#98c379",
+            "--syntax-comment": "#858d9b",
+            "--syntax-comment-doc": "#98c379",
+            "--syntax-constant": "#d19a66",
+            "--syntax-function": "#61afef",
+            "--syntax-keyword": "#c678dd",
+            "--syntax-number": "#d19a66",
+            "--syntax-operator": "#56b6c2",
+            "--syntax-property": "#e06c75",
+            "--syntax-reference": "#56b6c2",
+            "--syntax-string": "#98c379",
+            "--syntax-type": "#e5c07b",
+            "--syntax-variable": "#e06c75",
+            "--syntax-variable-special": "#e06c75"
+          }
+        }
+      }
+    },
+    {
+      "id": "solarized",
+      "name": "Solarized",
+      "kinds": [
+        "light",
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "light",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#657b83",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#5d737b",
+            "--code-line": "color-mix(in srgb, #657b83 5%, var(--editor-bg))",
+            "--code-line-number": "#869494",
+            "--code-line-number-contrast": "#687676",
+            "--code-selection": "color-mix(in srgb, #eee8d5 60%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #eee8d5 100%, var(--editor-bg))",
+            "--syntax-attribute": "#8c6a08",
+            "--syntax-bracket": "#5d737b",
+            "--syntax-citation": "#047d75",
+            "--syntax-comment": "#657272",
+            "--syntax-comment-doc": "#047d75",
+            "--syntax-constant": "#c4450a",
+            "--syntax-function": "#0574b7",
+            "--syntax-keyword": "#67760d",
+            "--syntax-number": "#cb2d7b",
+            "--syntax-operator": "#67760d",
+            "--syntax-property": "#0574b7",
+            "--syntax-reference": "#c4450a",
+            "--syntax-string": "#047d75",
+            "--syntax-type": "#8c6a08",
+            "--syntax-variable": "#6367ba",
+            "--syntax-variable-special": "#6367ba"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#839496",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#839496",
+            "--code-line": "color-mix(in srgb, #839496 5%, var(--editor-bg))",
+            "--code-line-number": "#586e75",
+            "--code-line-number-contrast": "#738a91",
+            "--code-selection": "color-mix(in srgb, #274642 60%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #274642 100%, var(--editor-bg))",
+            "--syntax-attribute": "#b58900",
+            "--syntax-bracket": "#839496",
+            "--syntax-citation": "#2aa198",
+            "--syntax-comment": "#788f96",
+            "--syntax-comment-doc": "#2aa198",
+            "--syntax-constant": "#e56333",
+            "--syntax-function": "#2e91d8",
+            "--syntax-keyword": "#859900",
+            "--syntax-number": "#ec5097",
+            "--syntax-operator": "#859900",
+            "--syntax-property": "#2e91d8",
+            "--syntax-reference": "#e56333",
+            "--syntax-string": "#2aa198",
+            "--syntax-type": "#b58900",
+            "--syntax-variable": "#7e84d9",
+            "--syntax-variable-special": "#7e84d9"
+          }
+        }
+      }
+    },
+    {
+      "id": "catppuccin",
+      "name": "Catppuccin",
+      "kinds": [
+        "light",
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "light",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#c67665",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#4c4f69",
+            "--code-line": "color-mix(in srgb, #4c4f69 5%, var(--editor-bg))",
+            "--code-line-number": "#8c8fa1",
+            "--code-line-number-contrast": "#6f7284",
+            "--code-selection": "color-mix(in srgb, #7c7f93 15.06%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #7c7f93 25.1%, var(--editor-bg))",
+            "--syntax-attribute": "#9d6001",
+            "--syntax-bracket": "#6a6d80",
+            "--syntax-citation": "#237f05",
+            "--syntax-comment": "#6a6d80",
+            "--syntax-comment-doc": "#237f05",
+            "--syntax-constant": "#bd4805",
+            "--syntax-function": "#1b63f2",
+            "--syntax-keyword": "#8839ef",
+            "--syntax-number": "#bd4805",
+            "--syntax-operator": "#0e75a3",
+            "--syntax-property": "#5363d5",
+            "--syntax-reference": "#cf2d41",
+            "--syntax-string": "#237f05",
+            "--syntax-type": "#9d6001",
+            "--syntax-variable": "#097a80",
+            "--syntax-variable-special": "#b24297"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#f5e0dc",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#cdd6f4",
+            "--code-line": "color-mix(in srgb, #cdd6f4 5%, var(--editor-bg))",
+            "--code-line-number": "#7f849c",
+            "--code-line-number-contrast": "#80859d",
+            "--code-selection": "color-mix(in srgb, #9399b2 15.06%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #9399b2 25.1%, var(--editor-bg))",
+            "--syntax-attribute": "#f9e2af",
+            "--syntax-bracket": "#9399b2",
+            "--syntax-citation": "#a6e3a1",
+            "--syntax-comment": "#9399b2",
+            "--syntax-comment-doc": "#a6e3a1",
+            "--syntax-constant": "#fab387",
+            "--syntax-function": "#89b4fa",
+            "--syntax-keyword": "#cba6f7",
+            "--syntax-number": "#fab387",
+            "--syntax-operator": "#89dceb",
+            "--syntax-property": "#b4befe",
+            "--syntax-reference": "#eba0ac",
+            "--syntax-string": "#a6e3a1",
+            "--syntax-type": "#f9e2af",
+            "--syntax-variable": "#94e2d5",
+            "--syntax-variable-special": "#f5c2e7"
+          }
+        }
+      }
+    },
+    {
+      "id": "tokyo-night",
+      "name": "Tokyo Night",
+      "kinds": [
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "dark",
+          "ground": "own",
+          "properties": {
+            "--code-caret": "#c0caf5",
+            "--code-ground": "#1a1b26",
+            "--code-ink": "#a9b1d6",
+            "--code-line": "#21232f",
+            "--code-line-number": "#606581",
+            "--code-line-number-contrast": "#7c829e",
+            "--code-selection": "#242736",
+            "--code-selection-focused": "#2b2f41",
+            "--syntax-attribute": "#bb9af7",
+            "--syntax-bracket": "#a9b1d6",
+            "--syntax-citation": "#9ece6a",
+            "--syntax-comment": "#7e88b4",
+            "--syntax-comment-doc": "#9ece6a",
+            "--syntax-constant": "#ff9e64",
+            "--syntax-function": "#7aa2f7",
+            "--syntax-keyword": "#bb9af7",
+            "--syntax-number": "#ff9e64",
+            "--syntax-operator": "#89ddff",
+            "--syntax-property": "#73daca",
+            "--syntax-reference": "#73daca",
+            "--syntax-string": "#9ece6a",
+            "--syntax-type": "#2ac3de",
+            "--syntax-variable": "#e0af68",
+            "--syntax-variable-special": "#89ddff"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#c0caf5",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#a9b1d6",
+            "--code-line": "color-mix(in srgb, #a9b1d6 5%, var(--editor-bg))",
+            "--code-line-number": "#626883",
+            "--code-line-number-contrast": "#7e85a1",
+            "--code-selection": "color-mix(in srgb, #515c7e 18.12%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #515c7e 30.2%, var(--editor-bg))",
+            "--syntax-attribute": "#bb9af7",
+            "--syntax-bracket": "#a9b1d6",
+            "--syntax-citation": "#9ece6a",
+            "--syntax-comment": "#808bb7",
+            "--syntax-comment-doc": "#9ece6a",
+            "--syntax-constant": "#ff9e64",
+            "--syntax-function": "#7aa2f7",
+            "--syntax-keyword": "#bb9af7",
+            "--syntax-number": "#ff9e64",
+            "--syntax-operator": "#89ddff",
+            "--syntax-property": "#73daca",
+            "--syntax-reference": "#73daca",
+            "--syntax-string": "#9ece6a",
+            "--syntax-type": "#2ac3de",
+            "--syntax-variable": "#e0af68",
+            "--syntax-variable-special": "#89ddff"
+          }
+        }
+      }
+    },
+    {
+      "id": "dracula",
+      "name": "Dracula",
+      "kinds": [
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "dark",
+          "ground": "own",
+          "properties": {
+            "--code-caret": "#f8f8f0",
+            "--code-ground": "#282a36",
+            "--code-ink": "#f8f8f2",
+            "--code-line": "#32343f",
+            "--code-line-number": "#6272a4",
+            "--code-line-number-contrast": "#7e8fc3",
+            "--code-selection": "#393b4c",
+            "--code-selection-focused": "#44475a",
+            "--syntax-attribute": "#50fa7b",
+            "--syntax-bracket": "#f8f8f2",
+            "--syntax-citation": "#f1fa8c",
+            "--syntax-comment": "#899bcf",
+            "--syntax-comment-doc": "#f1fa8c",
+            "--syntax-constant": "#bd93f9",
+            "--syntax-function": "#50fa7b",
+            "--syntax-keyword": "#ff79c6",
+            "--syntax-number": "#bd93f9",
+            "--syntax-operator": "#ff79c6",
+            "--syntax-property": "#8be9fd",
+            "--syntax-reference": "#ffb86c",
+            "--syntax-string": "#f1fa8c",
+            "--syntax-type": "#8be9fd",
+            "--syntax-variable": "#bd93f9",
+            "--syntax-variable-special": "#bd93f9"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#f8f8f0",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#f8f8f2",
+            "--code-line": "color-mix(in srgb, #f8f8f2 5%, var(--editor-bg))",
+            "--code-line-number": "#6272a4",
+            "--code-line-number-contrast": "#7484b8",
+            "--code-selection": "color-mix(in srgb, #44475a 60%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #44475a 100%, var(--editor-bg))",
+            "--syntax-attribute": "#50fa7b",
+            "--syntax-bracket": "#f8f8f2",
+            "--syntax-citation": "#f1fa8c",
+            "--syntax-comment": "#7e8fc3",
+            "--syntax-comment-doc": "#f1fa8c",
+            "--syntax-constant": "#bd93f9",
+            "--syntax-function": "#50fa7b",
+            "--syntax-keyword": "#ff79c6",
+            "--syntax-number": "#bd93f9",
+            "--syntax-operator": "#ff79c6",
+            "--syntax-property": "#8be9fd",
+            "--syntax-reference": "#ffb86c",
+            "--syntax-string": "#f1fa8c",
+            "--syntax-type": "#8be9fd",
+            "--syntax-variable": "#bd93f9",
+            "--syntax-variable-special": "#bd93f9"
+          }
+        }
+      }
+    },
+    {
+      "id": "nord",
+      "name": "Nord",
+      "kinds": [
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "dark",
+          "ground": "own",
+          "properties": {
+            "--code-caret": "#d8dee9",
+            "--code-ground": "#2e3440",
+            "--code-ink": "#d8dee9",
+            "--code-line": "#373d48",
+            "--code-line-number": "#727d92",
+            "--code-line-number-contrast": "#909cb2",
+            "--code-selection": "#3b4252",
+            "--code-selection-focused": "#434c5e",
+            "--syntax-attribute": "#8fbcbb",
+            "--syntax-bracket": "#d8dee9",
+            "--syntax-citation": "#a3be8c",
+            "--syntax-comment": "#99a7c3",
+            "--syntax-comment-doc": "#a3be8c",
+            "--syntax-constant": "#c19bba",
+            "--syntax-function": "#88c0d0",
+            "--syntax-keyword": "#89aaca",
+            "--syntax-number": "#c19bba",
+            "--syntax-operator": "#89aaca",
+            "--syntax-property": "#88c0d0",
+            "--syntax-reference": "#de947d",
+            "--syntax-string": "#a3be8c",
+            "--syntax-type": "#8fbcbb",
+            "--syntax-variable": "#c19bba",
+            "--syntax-variable-special": "#ebcb8b"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#d8dee9",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#d8dee9",
+            "--code-line": "color-mix(in srgb, #d8dee9 5%, var(--editor-bg))",
+            "--code-line-number": "#5f6a7e",
+            "--code-line-number-contrast": "#7b869c",
+            "--code-selection": "color-mix(in srgb, #434c5e 60%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #434c5e 100%, var(--editor-bg))",
+            "--syntax-attribute": "#8fbcbb",
+            "--syntax-bracket": "#d8dee9",
+            "--syntax-citation": "#a3be8c",
+            "--syntax-comment": "#8290ab",
+            "--syntax-comment-doc": "#a3be8c",
+            "--syntax-constant": "#b48ead",
+            "--syntax-function": "#88c0d0",
+            "--syntax-keyword": "#81a1c1",
+            "--syntax-number": "#b48ead",
+            "--syntax-operator": "#81a1c1",
+            "--syntax-property": "#88c0d0",
+            "--syntax-reference": "#d08770",
+            "--syntax-string": "#a3be8c",
+            "--syntax-type": "#8fbcbb",
+            "--syntax-variable": "#b48ead",
+            "--syntax-variable-special": "#ebcb8b"
+          }
+        }
+      }
+    },
+    {
+      "id": "monokai",
+      "name": "Monokai",
+      "kinds": [
+        "dark"
+      ],
+      "apps": {
+        "light": {
+          "kind": "dark",
+          "ground": "own",
+          "properties": {
+            "--code-caret": "#f8f8f0",
+            "--code-ground": "#272822",
+            "--code-ink": "#f8f8f2",
+            "--code-line": "#31322c",
+            "--code-line-number": "#90908a",
+            "--code-line-number-contrast": "#90908a",
+            "--code-selection": "#3b3b33",
+            "--code-selection-focused": "#49483e",
+            "--syntax-attribute": "#a6e22e",
+            "--syntax-bracket": "#f8f8f2",
+            "--syntax-citation": "#e6db74",
+            "--syntax-comment": "#9d9985",
+            "--syntax-comment-doc": "#e6db74",
+            "--syntax-constant": "#ae81ff",
+            "--syntax-function": "#a6e22e",
+            "--syntax-keyword": "#fd638b",
+            "--syntax-number": "#ae81ff",
+            "--syntax-operator": "#fd638b",
+            "--syntax-property": "#66d9ef",
+            "--syntax-reference": "#fd971f",
+            "--syntax-string": "#e6db74",
+            "--syntax-type": "#66d9ef",
+            "--syntax-variable": "#ae81ff",
+            "--syntax-variable-special": "#ae81ff"
+          }
+        },
+        "dark": {
+          "kind": "dark",
+          "ground": "window",
+          "properties": {
+            "--code-caret": "#f8f8f0",
+            "--code-ground": "var(--editor-bg)",
+            "--code-ink": "#f8f8f2",
+            "--code-line": "color-mix(in srgb, #f8f8f2 5%, var(--editor-bg))",
+            "--code-line-number": "#90908a",
+            "--code-line-number-contrast": "#90908a",
+            "--code-selection": "color-mix(in srgb, #49483e 60%, var(--editor-bg))",
+            "--code-selection-focused": "color-mix(in srgb, #49483e 100%, var(--editor-bg))",
+            "--syntax-attribute": "#a6e22e",
+            "--syntax-bracket": "#f8f8f2",
+            "--syntax-citation": "#e6db74",
+            "--syntax-comment": "#95917d",
+            "--syntax-comment-doc": "#e6db74",
+            "--syntax-constant": "#ae81ff",
+            "--syntax-function": "#a6e22e",
+            "--syntax-keyword": "#fe4d81",
+            "--syntax-number": "#ae81ff",
+            "--syntax-operator": "#fe4d81",
+            "--syntax-property": "#66d9ef",
+            "--syntax-reference": "#fd971f",
+            "--syntax-string": "#e6db74",
+            "--syntax-type": "#66d9ef",
+            "--syntax-variable": "#ae81ff",
+            "--syntax-variable-special": "#ae81ff"
+          }
+        }
+      }
+    }
+  ]
+}

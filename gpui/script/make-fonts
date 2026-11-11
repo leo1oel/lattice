@@ -4,8 +4,8 @@
 GPUI picks a face by family and weight from the faces it was given, so a
 variable font, whose one face reports only its default weight, would draw
 every weight as Regular. The interface font is therefore cut into static
-instances here, and the editor font is decompressed from the WOFF2 files the
-Tauri app already ships (CoreText cannot read WOFF2).
+instances here, and the editor and display fonts are decompressed from the
+WOFF2 files the Tauri app already ships (CoreText cannot read WOFF2).
 
   Inter 4.001 (OFL-1.1, rsms/inter): InterVariable.ttf at opsz 14, the size
   CSS's font-optical-sizing picks at 11-14px, in the four weights the
@@ -16,22 +16,32 @@ Tauri app already ships (CoreText cannot read WOFF2).
   Ioskeley Mono (OFL-1.1): ../src/assets/fonts/ioskeley-mono/*.woff2, unchanged
   but for the typographic family name, which groups its five faces.
 
+  Instrument Serif (OFL-1.1): the Regular the Tauri app imports from
+  @fontsource/instrument-serif (../node_modules, after `pnpm install`), whose
+  latin and latin-ext subsets are merged back into one face. The app sets no
+  italic in it.
+
 Usage: script/make-fonts PATH/TO/InterVariable.ttf
 Needs fontTools and brotli (`pip install fonttools brotli`).
-The Timeless faces of release builds are never written here: lattice-ui reads
-them at run time from LATTICE_PRIVATE_FONTS_DIR, as the Tauri build does.
+The Timeless faces of release builds are never written here or anywhere in
+the tree: lattice-ui's build script embeds them into the binary from
+LATTICE_PRIVATE_FONTS_DIR when the person building has them, as the Tauri
+build does.
 """
 
 import pathlib
 import sys
+import tempfile
 
 from fontTools import subset
+from fontTools.merge import Merger
 from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "crates" / "lattice-ui" / "assets" / "fonts"
 IOSKELEY = ROOT.parent / "src" / "assets" / "fonts" / "ioskeley-mono"
+INSTRUMENT_SERIF = ROOT.parent / "node_modules" / "@fontsource" / "instrument-serif"
 
 WEIGHTS = {400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
 UNICODES = [
@@ -114,8 +124,27 @@ def ioskeley() -> None:
     (out / "OFL.txt").write_bytes((IOSKELEY / "OFL.txt").read_bytes())
 
 
+def instrument_serif() -> None:
+    out = OUT / "instrument-serif"
+    out.mkdir(parents=True, exist_ok=True)
+    # Fontsource cuts the face by unicode-range and the browser stitches the
+    # pieces back together; CoreText needs the one face, so the subsets are
+    # merged (a glyph both hold keeps the latin subset's outline).
+    with tempfile.TemporaryDirectory() as scratch:
+        parts = []
+        for subset_name in ("latin", "latin-ext"):
+            font = TTFont(INSTRUMENT_SERIF / "files" / f"instrument-serif-{subset_name}-400-normal.woff2")
+            font.flavor = None
+            part = pathlib.Path(scratch) / f"{subset_name}.ttf"
+            font.save(part)
+            parts.append(str(part))
+        Merger().merge(parts).save(out / "InstrumentSerif-Regular.ttf")
+    (out / "OFL.txt").write_bytes((INSTRUMENT_SERIF / "LICENSE").read_bytes())
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     inter(pathlib.Path(sys.argv[1]))
     ioskeley()
+    instrument_serif()

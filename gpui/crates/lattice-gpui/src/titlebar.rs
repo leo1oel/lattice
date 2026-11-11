@@ -51,12 +51,12 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     );
     let fullscreen = window.is_fullscreen();
 
-    let switcher = div().pt(px(4.)).pr(px(6.)).child(
+    let switcher = div().pt(px(4.)).pr(px(6.)).child(controls(
         ToolbarButton::new("project-switcher", project)
             .switcher()
             .max_w(px(260.))
             .on_click(|_, window, cx| window.dispatch_action(Box::new(OpenFolder), cx)),
-    );
+    ));
 
     let panels = ToolbarButton::new("panels", "Panels")
         .icon(Icon::LAYOUT_PANEL_LEFT)
@@ -114,8 +114,8 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
                 .gap(px(12.))
                 .h_full()
                 .pl(px(6.))
-                .child(panels)
-                .child(workspace),
+                .child(controls(panels))
+                .child(controls(workspace)),
         )
         // Centred on the window, as the app centres it.
         .child(
@@ -126,22 +126,31 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
                 .right_0()
                 .flex()
                 .justify_center()
-                .child(search),
+                .child(controls(search)),
         )
         .child(
-            div()
-                .flex()
-                .flex_none()
-                .gap(px(2.))
-                .pt(px(6.))
-                .pr(px(6.))
-                .child(not_yet("annotations", Icon::ANNOTATIONS, "Annotations"))
-                .child(not_yet(
-                    "overleaf",
-                    Icon::CLOUD,
-                    "Open a project from Overleaf",
-                ))
-                .child(not_yet("git", Icon::GIT, "Git status and commit"))
-                .child(not_yet("history", Icon::HISTORY, "Project history")),
+            div().flex_none().pt(px(6.)).pr(px(6.)).child(controls(
+                div()
+                    .flex()
+                    .gap(px(2.))
+                    .child(not_yet("annotations", Icon::ANNOTATIONS, "Annotations"))
+                    .child(not_yet(
+                        "overleaf",
+                        Icon::CLOUD,
+                        "Open a project from Overleaf",
+                    ))
+                    .child(not_yet("git", Icon::GIT, "Git status and commit"))
+                    .child(not_yet("history", Icon::HISTORY, "Project history")),
+            )),
         )
+}
+
+/// The titlebar's own press starts a window move on the next mouse move, and
+/// its double click zooms; a press on a control stops there, so a click that
+/// drifts a pixel stays a click and a double click on a button does not zoom
+/// the window.
+fn controls(child: impl IntoElement) -> gpui::Div {
+    div()
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .child(child)
 }

@@ -80,6 +80,21 @@ impl TextRole {
         }
     }
 
+    /// The size the role sets in this build's face: its token, times the
+    /// face's size-adjust.
+    pub fn font_size(self, scale: TypeScale, cx: &App) -> Rems {
+        self.adjusted_size(scale, &cx.lattice().fonts)
+    }
+
+    fn adjusted_size(self, scale: TypeScale, fonts: &Fonts) -> Rems {
+        let adjust = if self.is_serif() {
+            fonts.display_size_adjust
+        } else {
+            fonts.ui_size_adjust
+        };
+        Rems(self.size(scale).0 * adjust)
+    }
+
     /// Display and Title are the serif voice.
     pub fn is_serif(self) -> bool {
         matches!(self, TextRole::Display | TextRole::Title)
@@ -95,19 +110,14 @@ pub trait TextRoleStyle: Styled + Sized {
 
     fn text_role_in(self, role: TextRole, scale: TypeScale, cx: &App) -> Self {
         let fonts = &cx.lattice().fonts;
-        let (family, fallbacks, adjust) = if role.is_serif() {
-            (fonts.display.clone(), Fonts::display_fallbacks(), 1.0)
+        let (family, fallbacks) = if role.is_serif() {
+            (fonts.display.clone(), Fonts::display_fallbacks())
         } else {
-            (
-                fonts.ui.clone(),
-                Fonts::ui_fallbacks(),
-                fonts.ui_size_adjust,
-            )
+            (fonts.ui.clone(), Fonts::ui_fallbacks())
         };
-        let size = role.size(scale);
         let mut this = self
             .font_family(family)
-            .text_size(Rems(size.0 * adjust))
+            .text_size(role.font_size(scale, cx))
             .line_height(role.leading(scale))
             .font_weight(role.weight());
         this.text_style().font_fallbacks = Some(fallbacks);
@@ -116,3 +126,32 @@ pub trait TextRoleStyle: Styled + Sized {
 }
 
 impl<T: Styled> TextRoleStyle for T {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_voice_scales_by_its_own_face() {
+        let fonts = Fonts {
+            ui_size_adjust: 1.04,
+            display_size_adjust: 1.05,
+            ..Fonts::open()
+        };
+        for scale in [TypeScale::Interface, TypeScale::Settings] {
+            assert_eq!(
+                TextRole::Display.adjusted_size(scale, &fonts),
+                Rems(30. / 16. * 1.05)
+            );
+            assert_eq!(
+                TextRole::Body.adjusted_size(scale, &fonts),
+                Rems(TextRole::Body.size(scale).0 * 1.04)
+            );
+        }
+        let open = Fonts::open();
+        assert_eq!(
+            TextRole::Title.adjusted_size(TypeScale::Interface, &open),
+            TextRole::Title.size(TypeScale::Interface)
+        );
+    }
+}

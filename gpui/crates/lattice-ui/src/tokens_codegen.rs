@@ -13,6 +13,11 @@
 //! The generator understands exactly the value forms the export writes today
 //! and panics on any other, so a new form shows up as a failing test here
 //! rather than as a token silently dropped.
+//!
+//! The same test writes `src/tokens/code_themes.rs` from the code themes'
+//! export, `design-system/code-themes.json` ([`code_themes`]).
+
+mod code_themes;
 
 use std::fmt::Write as _;
 
@@ -109,7 +114,7 @@ const MODULES: &[Module] = &[
 ];
 
 /// Every generated file, `mod.rs` first, as `(file name, contents)`.
-pub(crate) fn generate(json: &str) -> Vec<(String, String)> {
+pub(crate) fn generate(json: &str, code_themes_json: &str) -> Vec<(String, String)> {
     let root: Value = serde_json::from_str(json).expect("tokens.json parses");
     let tokens = root["tokens"]
         .as_object()
@@ -150,6 +155,10 @@ pub(crate) fn generate(json: &str) -> Vec<(String, String)> {
         file.push_str(&body);
         files.push((format!("{}.rs", module.name), file));
     }
+    files.push((
+        "code_themes.rs".to_string(),
+        code_themes::generate(code_themes_json),
+    ));
     files
 }
 
@@ -167,16 +176,23 @@ fn mod_rs() -> String {
          //! (`--color-window` is `COLOR_WINDOW`), split by concept.\n\
          //!\n\
          //! Sizes are rems of a 16px root, so the interface size setting scales them\n\
-         //! through `Window::set_rem_size`.\n//!\n",
+         //! through `Window::set_rem_size`. `code_themes` holds the code themes\n\
+         //! from design-system/code-themes.json.\n//!\n",
     );
     out.push_str(GENERATED);
     out.push('\n');
-    for module in MODULES {
-        writeln!(out, "mod {};", module.name).unwrap();
+    let names = || {
+        MODULES
+            .iter()
+            .map(|module| module.name)
+            .chain(["code_themes"])
+    };
+    for name in names() {
+        writeln!(out, "mod {name};").unwrap();
     }
     out.push('\n');
-    for module in MODULES {
-        writeln!(out, "pub use {}::*;", module.name).unwrap();
+    for name in names() {
+        writeln!(out, "pub use {name}::*;").unwrap();
     }
     out
 }
@@ -481,11 +497,13 @@ fn shadow(value: &str) -> String {
     out
 }
 
+fn read(path: &str) -> String {
+    std::fs::read_to_string(path).unwrap_or_else(|error| panic!("reading {path}: {error}"))
+}
+
 #[test]
 fn generated_tokens_match_the_design_system() {
-    let json = std::fs::read_to_string(TOKENS_JSON)
-        .unwrap_or_else(|error| panic!("reading {TOKENS_JSON}: {error}"));
-    let expected = generate(&json);
+    let expected = generate(&read(TOKENS_JSON), &read(code_themes::CODE_THEMES_JSON));
     let dir = std::path::Path::new(TOKENS_DIR);
     if std::env::var_os("LATTICE_UI_WRITE_TOKENS").is_some() {
         std::fs::create_dir_all(dir).expect("creating src/tokens");
@@ -523,7 +541,7 @@ fn generated_tokens_match_the_design_system() {
                 .position(|(a, b)| a != b)
                 .unwrap_or(actual.lines().count().min(contents.lines().count()));
             panic!(
-                "src/tokens/{file} disagrees with design-system/tokens.json from line {}: \
+                "src/tokens/{file} disagrees with its design-system/ export from line {}: \
                  {:?} should be {:?}. {REGENERATE}",
                 first + 1,
                 actual.lines().nth(first).unwrap_or_default(),
@@ -535,9 +553,12 @@ fn generated_tokens_match_the_design_system() {
 
 #[test]
 fn every_token_in_the_json_has_a_constant() {
-    let json = std::fs::read_to_string(TOKENS_JSON).expect("tokens.json");
+    let json = read(TOKENS_JSON);
     let root: Value = serde_json::from_str(&json).unwrap();
-    let generated: String = generate(&json).into_iter().map(|(_, text)| text).collect();
+    let generated: String = generate(&json, &read(code_themes::CODE_THEMES_JSON))
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect();
     for name in root["tokens"].as_object().unwrap().keys() {
         assert!(
             generated.contains(&format!("pub const {}:", ident(name))),

@@ -28,7 +28,7 @@ use crate::{
     components::LatticeTooltip,
     components::focus_ring,
     icons::{ICON, ICON_LARGE},
-    interaction::{mix, track_pointer, use_interaction},
+    interaction::{mix, tab_stop, track_pointer, use_interaction},
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -255,7 +255,7 @@ impl RenderOnce for Button {
         let base = if disabled {
             self.base
         } else {
-            track_pointer(self.base, pointer)
+            track_pointer(tab_stop(self.base), pointer)
         };
         base.flex()
             .flex_none()

@@ -132,7 +132,7 @@ impl RenderOnce for ToolbarButton {
             .hover(move |style| style.bg(hover))
             .active(move |style| style.bg(pressed))
             .when_some(self.icon, |this, icon| this.child(icon.element(ICON, ink)))
-            .child(self.label)
+            .child(div().min_w_0().truncate().child(self.label))
             .when(self.chevron, |this| {
                 this.child(Icon::CHEVRON_DOWN.element(ICON_SMALL, ink))
             })

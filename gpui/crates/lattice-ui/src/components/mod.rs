@@ -11,25 +11,44 @@ mod chrome;
 mod field;
 mod form;
 mod icon_button;
+mod menu;
 mod overlays;
+mod popover;
+mod row;
+mod select;
+mod sheet;
+mod slider;
 mod status_item;
 mod surfaces;
 mod tab;
+mod textarea;
 mod toolbar_button;
 mod tree_row;
 
 pub use badge::{Badge, BadgeTone};
 pub use button::{Button, ButtonSize, ButtonVariant};
 pub use chrome::{Keycap, SearchField, Segmented};
-pub use field::{Field, SelectTrigger};
+pub use field::Field;
 pub use form::{CheckState, Checkbox, Switch};
 pub use icon_button::IconButton;
+pub use menu::{
+    MENU_INSET, MENU_OFFSET, MenuItem, MenuLabel, MenuSeparator, MenuSurface, Step,
+    step_highlight,
+};
 pub use overlays::{DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in};
+pub use popover::{Menu, MenuAction, MenuPopover, Popover, PopoverCard};
+pub use row::{DetailPlacement, Row, RowDensity};
+pub use select::{Select, SelectTrigger};
+pub use sheet::{
+    DRAWER_INSET, DRAWER_MIN_WIDTH, DRAWER_WIDTH, Drawer, LayerPlacement, ModalLayer, Sheet,
+};
+pub use slider::{Slider, key_delta};
 pub use status_item::StatusItem;
 pub use surfaces::{
     EmptyState, ErrorState, LOADING_REVEAL, LoadingState, PanelHeader, SettingsCard, SettingsRow,
 };
 pub use tab::{PanelTab, TAB_RADIUS};
+pub use textarea::{TEXTAREA_MIN_HEIGHT, Textarea};
 pub use toolbar_button::ToolbarButton;
 pub use tree_row::TreeRow;
 

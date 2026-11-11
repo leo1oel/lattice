@@ -5557,6 +5557,7 @@ dependencies = [
  "gpui-kit",
  "log",
  "serde_json",
+ "ttf-parser",
 ]
 
 [[package]]

@@ -11,15 +11,15 @@
 use std::rc::Rc;
 
 use gpui::{
-    App, ClickEvent, ElementId, InteractiveElement as _, IntoElement, ParentElement as _,
-    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    App, ClickEvent, ElementId, InteractiveElement as _, IntoElement, MouseButton,
+    ParentElement as _, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
+    Window, div, prelude::FluentBuilder as _, px,
 };
 
 use crate::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     components::focus_ring,
-    interaction::{fade, mix, track_pointer, use_interaction},
+    interaction::{fade, mix, tab_stop, track_pointer, use_interaction},
     motion::Motion,
     tokens::OPACITY_DISABLED,
 };
@@ -98,6 +98,18 @@ impl RenderOnce for Checkbox {
         let next = self.state != CheckState::On;
         let focus = focus_ring(&palette, palette.panel);
         let disabled = self.disabled;
+        // The row is the tab stop, so its label toggles it too, but the ring
+        // goes round the box: the row tracks a kept focus handle and the box
+        // reads it.
+        let focus_handle = window
+            .use_keyed_state(
+                ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "focus".into()),
+                cx,
+                |_, cx| cx.focus_handle().tab_index(0).tab_stop(true),
+            )
+            .read(cx)
+            .clone();
+        let ring = !disabled && focus_handle.is_focused(window) && window.last_input_was_keyboard();
         let row = div()
             .id(self.id)
             .flex()
@@ -107,7 +119,11 @@ impl RenderOnce for Checkbox {
         let row = if disabled {
             row
         } else {
-            track_pointer(row, pointer)
+            track_pointer(
+                row.track_focus(&focus_handle)
+                    .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default()),
+                pointer,
+            )
         };
         row.child(
             div().h(px(16.)).flex().items_center().child(
@@ -121,9 +137,7 @@ impl RenderOnce for Checkbox {
                     .border_1()
                     .border_color(edge)
                     .bg(fill)
-                    .when(!disabled, |this| {
-                        this.focus_visible(move |style| style.shadow(focus))
-                    })
+                    .when(ring, |this| this.shadow(focus))
                     .map(|this| match self.state {
                         CheckState::Off => this,
                         CheckState::On => {
@@ -207,8 +221,13 @@ impl RenderOnce for Switch {
         let disabled = self.disabled;
         // A 28px track with 2px of padding leaves the 12px thumb 12px to go.
         let thumb_left = px(2. + 12. * travel);
-        div()
-            .id(self.id)
+        let track_element = div().id(self.id);
+        let track_element = if disabled {
+            track_element
+        } else {
+            tab_stop(track_element)
+        };
+        track_element
             .relative()
             .flex_none()
             .w(px(28.))

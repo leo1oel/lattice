@@ -3,7 +3,9 @@
 //!
 //! Status bar: 28px under a hairline, on the editor's sheet; the caret's
 //! "Ln, Col" 12px in, then the save state, and the word count at the far end
-//! ("Manuscript · 120,400 words", the count in the primary ink).
+//! ("This file · 1,204 words", the count in the primary ink). The app's
+//! "Manuscript" count is the whole project's, which the GPUI app does not
+//! count yet, so the buffer's count is always labelled as the file's.
 //!
 //! Build chip: 24px with control corners, the ink at 9% laid on the sheet
 //! (#E7E7E7 light, #313134 dark, as measured) under an inset hairline; a 13px
@@ -34,10 +36,6 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
     let palette = cx.palette();
     let (line, column) = panel.cursor();
     let saved = !panel.is_dirty(cx);
-    let main = panel
-        .path()
-        .file_name()
-        .is_some_and(|name| name == "main.tex");
     div()
         .flex()
         .flex_none()
@@ -66,15 +64,12 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
         )
         .child(div().flex_1())
         .when_some(panel.words(), |this, words| {
-            let scope = if main { "Manuscript" } else { "This file" };
             this.child(
-                StatusItem::new("word-count")
-                    .label(format!("{scope} ·"))
-                    .child(
-                        div()
-                            .text_color(palette.text)
-                            .child(format!("{} words", grouped(words))),
-                    ),
+                StatusItem::new("word-count").label("This file ·").child(
+                    div()
+                        .text_color(palette.text)
+                        .child(format!("{} words", grouped(words))),
+                ),
             )
         })
 }

@@ -14,7 +14,11 @@ use gpui::{App, Hsla, Rgba, transparent_black};
 use gpui_kit::component::{Theme, ThemeConfig, ThemeMode};
 use serde_json::{Value, json};
 
-use crate::{ActiveLattice as _, Appearance, Palette, fonts::Fonts, tokens::*};
+use crate::{ActiveLattice as _, Appearance, Palette, fonts::Fonts, interaction::mix, tokens::*};
+
+/// The primary Button's hover and press: its slab's share over the app ground.
+const PRIMARY_HOVER_SHARE: f32 = 0.88;
+const PRIMARY_PRESSED_SHARE: f32 = 0.82;
 
 /// Install the Kit theme for the current Lattice theme, in its appearance.
 pub fn apply(cx: &mut App) {
@@ -103,12 +107,15 @@ fn colors(p: &Palette) -> Value {
         "muted.background": hex(p.hover),
         "muted.foreground": hex(p.text_secondary),
 
-        // `primary` is Kit's filled button: Lattice's primary Button, the
-        // accent slab with its contrasting ink.
+        // `primary` is Kit's filled button and its checked controls: the
+        // accent slab with its contrasting ink, as Lattice's checkbox fills.
+        // Hover and press step it toward the app ground as the primary
+        // Button steps its ink slab (`--primary-hover`, `--primary-pressed`:
+        // 88% and 82% over the ground), so every state keeps the accent.
         "primary.background": hex(p.accent),
         "primary.foreground": hex(p.accent_contrast),
-        "primary.hover.background": hex(p.primary_hover),
-        "primary.active.background": hex(p.primary_pressed),
+        "primary.hover.background": hex(mix(p.window, p.accent, PRIMARY_HOVER_SHARE)),
+        "primary.active.background": hex(mix(p.window, p.accent, PRIMARY_PRESSED_SHARE)),
         // `secondary` is Kit's quiet filled button: the tinted Button.
         "secondary.background": hex(p.tinted),
         "secondary.foreground": hex(p.text),
@@ -217,6 +224,35 @@ mod tests {
             // token is measured in; anything else shrinks the whole interface.
             assert_eq!(config.font_size, Some(ROOT_FONT_SIZE));
         }
+    }
+
+    #[test]
+    fn primary_states_keep_the_accent() {
+        // A preset accent on Graphite's neutral ground: rest, hover and press
+        // are the same hue, each a little paler, never the grey ink slab.
+        let palette = Palette::new(Appearance::Light, Tint::Graphite, Accent::Blue);
+        let colors = colors(&palette);
+        let parse = |key: &str| parse_hex(colors[key].as_str().unwrap());
+        let rest = parse("primary.background");
+        assert_eq!(rest, parse_hex(&hex(palette.accent)));
+        for key in ["primary.hover.background", "primary.active.background"] {
+            let state = parse(key);
+            assert!(
+                (state.h - rest.h).abs() < 0.01,
+                "{key} hue {} vs {}",
+                state.h,
+                rest.h
+            );
+            assert!(state.s > 0.3, "{key} lost the accent's chroma: {}", state.s);
+            assert!(
+                state.l > rest.l,
+                "{key} should step toward the light ground"
+            );
+        }
+    }
+
+    fn parse_hex(hex: &str) -> Hsla {
+        gpui::rgba(u32::from_str_radix(&hex[1..], 16).unwrap()).into()
     }
 
     #[test]

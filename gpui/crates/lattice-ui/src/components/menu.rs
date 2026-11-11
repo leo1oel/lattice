@@ -1,0 +1,382 @@
+//! A menu's surface and rows, shared by menus, selects and context menus.
+//!
+//! Paper's Overlays board, and the app's `menu-surface.ts`: a menu stands on
+//! the lift at the popover level, a 10px surface with a 4px inset, so its
+//! rows keep the 6px control corner (concentric corners). It is at least
+//! 9rem wide and stops at 352px (`--menu-max-width`); a longer name wraps
+//! rather than widening it.
+//!
+//! - an item is 10px in and 6px tall of padding round a 13/20 regular label,
+//!   10px between its 14px icon (secondary ink) and the label, its shortcut
+//!   quiet at the end;
+//! - the row the pointer lights and the row the arrow keys reach are one
+//!   highlight, the accent wash (`--control-active-soft`), faded on the fast
+//!   tier; a destructive item takes the danger ink and the danger wash;
+//! - a disabled item fades to 50% and takes no pointer;
+//! - a group's label steps back to the caption role, medium, secondary ink,
+//!   10px in, 8 over and 4 under;
+//! - a separator runs to the surface's edge, through the inset, 4px clear of
+//!   the rows on each side.
+//!
+//! Items are reached with the arrow keys from the menu that holds them, as a
+//! menu's roving focus works in the app, so a row is not a tab stop of its
+//! own; the menu is (see `popover.rs`).
+
+use std::rc::Rc;
+
+use gpui::{
+    AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement as _, IntoElement,
+    ParentElement, Pixels, Refineable as _, RenderOnce, SharedString, StatefulInteractiveElement as _,
+    StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px, rems,
+    transparent_black,
+};
+
+use crate::{
+    ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
+    icons::ICON,
+    interaction::{fade, mix, track_pointer, use_interaction},
+    motion::Motion,
+    tokens::{CONTAINER_MENU, FONT_WEIGHT_MEDIUM, OPACITY_MENU_DISABLED},
+};
+
+/// The surface's inset: rows stand this far inside its 10px corner.
+pub const MENU_INSET: Pixels = px(4.);
+/// The gap between a trigger and the menu it opens (Radix's `sideOffset`).
+pub const MENU_OFFSET: Pixels = px(4.);
+
+type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
+type HoverHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
+
+/// The lift a menu's rows stand on.
+#[derive(IntoElement)]
+pub struct MenuSurface {
+    base: Div,
+    children: Vec<AnyElement>,
+}
+
+impl MenuSurface {
+    pub fn new() -> Self {
+        Self {
+            base: div(),
+            children: Vec::new(),
+        }
+    }
+}
+
+impl Default for MenuSurface {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ParentElement for MenuSurface {
+    fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
+        self.children.extend(elements);
+    }
+}
+
+impl Styled for MenuSurface {
+    fn style(&mut self) -> &mut StyleRefinement {
+        self.base.style()
+    }
+}
+
+impl RenderOnce for MenuSurface {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        let palette = cx.palette();
+        // The caller's width (a select's trigger width) is refined over these
+        // defaults, so it comes after them.
+        let mut base = div()
+            .flex()
+            .flex_col()
+            .min_w(rems(9.))
+            .max_w(CONTAINER_MENU)
+            .p(MENU_INSET)
+            .rounded(px(10.))
+            .bg(palette.raised)
+            .shadow(Elevation::Popover.shadows(palette))
+            .text_role(TextRole::Body, cx)
+            .text_color(palette.text);
+        let mut this = self.base;
+        base.style().refine(this.style());
+        base.children(self.children)
+    }
+}
+
+/// One row of a menu or a select's list.
+#[derive(IntoElement)]
+pub struct MenuItem {
+    id: ElementId,
+    label: SharedString,
+    icon: Option<Icon>,
+    shortcut: Option<SharedString>,
+    disabled: bool,
+    destructive: bool,
+    checked: Option<bool>,
+    highlighted: bool,
+    on_click: Option<ClickHandler>,
+    on_hover: Option<HoverHandler>,
+}
+
+impl MenuItem {
+    pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            icon: None,
+            shortcut: None,
+            disabled: false,
+            destructive: false,
+            checked: None,
+            highlighted: false,
+            on_click: None,
+            on_hover: None,
+        }
+    }
+
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// The keys that run it without the menu, as the command table spells
+    /// them (`⌘N`).
+    pub fn shortcut(mut self, keys: impl Into<SharedString>) -> Self {
+        self.shortcut = Some(keys.into());
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// The row that destroys something: the danger ink and wash.
+    pub fn destructive(mut self, destructive: bool) -> Self {
+        self.destructive = destructive;
+        self
+    }
+
+    /// A select's option: the chosen one carries a check at the end, and
+    /// every option keeps the check's gutter so the labels do not shift.
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = Some(checked);
+        self
+    }
+
+    /// The row the keys (or the pointer, through `on_hover`) reached.
+    pub fn highlighted(mut self, highlighted: bool) -> Self {
+        self.highlighted = highlighted;
+        self
+    }
+
+    pub fn on_click(
+        mut self,
+        handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_click = Some(Rc::new(handler));
+        self
+    }
+
+    /// Hand the pointer's hover to the menu, which moves its one highlight
+    /// there. A row with this set lights only when `highlighted`, so a
+    /// resting pointer never lights a second row while the keys move on.
+    pub fn on_hover(mut self, handler: impl Fn(&bool, &mut Window, &mut App) + 'static) -> Self {
+        self.on_hover = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl RenderOnce for MenuItem {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let palette = cx.palette().clone();
+        let disabled = self.disabled;
+        let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);
+        let lit = !disabled
+            && (self.highlighted || (self.on_hover.is_none() && interaction.pointer.hovered));
+        let glow = fade(
+            ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "lit".into()),
+            lit,
+            Motion::Fast,
+            window,
+            cx,
+        );
+        let (ink, icon_ink, wash) = if self.destructive {
+            (palette.danger, palette.danger, palette.danger_soft)
+        } else {
+            (palette.text, palette.text_secondary, palette.accent_soft)
+        };
+        let row = div().id(self.id);
+        let row = if disabled {
+            row
+        } else {
+            track_pointer(row, pointer)
+        };
+        row.relative()
+            .flex()
+            .items_center()
+            .gap(px(10.))
+            .pl(px(10.))
+            // A select's option keeps a 28px gutter at the end for its check.
+            .pr(px(if self.checked.is_some() { 28. } else { 10. }))
+            .py(px(6.))
+            .rounded(px(6.))
+            .bg(mix(transparent_black(), wash, glow))
+            .text_color(ink)
+            .when(disabled, |this| this.opacity(OPACITY_MENU_DISABLED))
+            .when_some(self.icon, |this, icon| {
+                this.child(icon.element(ICON, icon_ink))
+            })
+            .child(div().flex_1().min_w_0().child(self.label))
+            .when_some(self.shortcut, |this, keys| {
+                this.child(
+                    div()
+                        .flex_none()
+                        .text_role(TextRole::Caption, cx)
+                        .text_color(palette.text_secondary)
+                        .child(keys),
+                )
+            })
+            .when(self.checked == Some(true), |this| {
+                this.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right(px(6.))
+                        .w(px(16.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(Icon::CHECK.element(ICON, palette.text)),
+                )
+            })
+            .when(!disabled, |this| {
+                this.when_some(self.on_hover, |this, on_hover| {
+                    this.on_hover(move |hovered, window, cx| on_hover(hovered, window, cx))
+                })
+                .when_some(self.on_click, |this, on_click| {
+                    this.on_click(move |event, window, cx| on_click(event, window, cx))
+                })
+            })
+    }
+}
+
+/// A group's heading inside a menu.
+#[derive(IntoElement)]
+pub struct MenuLabel {
+    label: SharedString,
+}
+
+impl MenuLabel {
+    pub fn new(label: impl Into<SharedString>) -> Self {
+        Self {
+            label: label.into(),
+        }
+    }
+}
+
+impl RenderOnce for MenuLabel {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        div()
+            .px(px(10.))
+            .pt(px(8.))
+            .pb(px(4.))
+            .text_role(TextRole::Caption, cx)
+            .font_weight(FONT_WEIGHT_MEDIUM)
+            .text_color(cx.palette().text_secondary)
+            .child(self.label)
+    }
+}
+
+/// A rule between a menu's groups, to the surface's edge.
+#[derive(IntoElement, Default)]
+pub struct MenuSeparator;
+
+impl RenderOnce for MenuSeparator {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        div()
+            .mx(-MENU_INSET)
+            .my(px(4.))
+            .h(px(1.))
+            .bg(cx.palette().line)
+    }
+}
+
+/// Where the arrow keys send a menu's highlight.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Step {
+    Next,
+    Previous,
+    First,
+    Last,
+}
+
+/// The row the highlight moves to from `from`, over rows whose `enabled`
+/// flag is set: disabled rows, labels and separators are passed over. It
+/// stops at the ends rather than wrapping, as the app's menus and selects do
+/// (Radix's `loop` is off), and with nothing highlighted Next lands on the
+/// first row and Previous on the last.
+pub fn step_highlight(enabled: &[bool], from: Option<usize>, step: Step) -> Option<usize> {
+    let first = enabled.iter().position(|on| *on);
+    let last = enabled.iter().rposition(|on| *on);
+    match (step, from) {
+        (Step::First, _) | (Step::Next, None) => first,
+        (Step::Last, _) | (Step::Previous, None) => last,
+        (Step::Next, Some(at)) => enabled
+            .iter()
+            .enumerate()
+            .skip(at + 1)
+            .find(|(_, on)| **on)
+            .map(|(ix, _)| ix)
+            .or(Some(at).filter(|at| enabled.get(*at) == Some(&true)))
+            .or(last),
+        (Step::Previous, Some(at)) => enabled
+            .iter()
+            .enumerate()
+            .take(at)
+            .rev()
+            .find(|(_, on)| **on)
+            .map(|(ix, _)| ix)
+            .or(Some(at).filter(|at| enabled.get(*at) == Some(&true)))
+            .or(first),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A menu like the board's: a label, three items with the third
+    // disabled, a separator, and the destructive item.
+    const MENU: [bool; 6] = [false, true, true, false, false, true];
+
+    #[test]
+    fn arrows_pass_over_labels_separators_and_disabled_rows() {
+        assert_eq!(step_highlight(&MENU, Some(2), Step::Next), Some(5));
+        assert_eq!(step_highlight(&MENU, Some(5), Step::Previous), Some(2));
+        assert_eq!(step_highlight(&MENU, Some(1), Step::Next), Some(2));
+    }
+
+    #[test]
+    fn the_first_arrow_lands_on_an_end() {
+        assert_eq!(step_highlight(&MENU, None, Step::Next), Some(1));
+        assert_eq!(step_highlight(&MENU, None, Step::Previous), Some(5));
+        assert_eq!(step_highlight(&MENU, Some(5), Step::First), Some(1));
+        assert_eq!(step_highlight(&MENU, Some(1), Step::Last), Some(5));
+    }
+
+    #[test]
+    fn the_highlight_stops_at_the_ends() {
+        assert_eq!(step_highlight(&MENU, Some(5), Step::Next), Some(5));
+        assert_eq!(step_highlight(&MENU, Some(1), Step::Previous), Some(1));
+    }
+
+    #[test]
+    fn a_menu_with_nothing_enabled_highlights_nothing() {
+        let none = [false, false];
+        assert_eq!(step_highlight(&none, None, Step::Next), None);
+        assert_eq!(step_highlight(&none, Some(0), Step::Next), None);
+        assert_eq!(step_highlight(&[], None, Step::Last), None);
+    }
+}
