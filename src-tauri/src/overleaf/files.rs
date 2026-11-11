@@ -95,6 +95,17 @@ pub(super) fn is_build_output(path: &str) -> bool {
     is_latex_save_error_path(path) || is_build_artifact(&build_output_name(path))
 }
 
+/// Whether `path` is named as a file a LaTeX run of a document beside it
+/// writes (`main.aux`, `main.synctex(busy)` for `main.tex`): `is_source` is
+/// asked of each `.tex` path that could be that document.
+pub(super) fn is_build_output_of(path: &str, is_source: impl Fn(&str) -> bool) -> bool {
+    let name = build_output_name(path);
+    let name = name.strip_suffix("-save-error").unwrap_or(&name);
+    let folder = path.rsplit_once('/').map_or(String::new(), |(folder, _)| format!("{folder}/"));
+    (ARTIFACT_SUFFIXES.iter().filter_map(|suffix| name.strip_suffix(suffix)))
+        .any(|stem| is_source(&format!("{folder}{stem}.tex")))
+}
+
 /// Whether `path`, one of `files`, takes no part in sync: [`is_excluded`]
 /// says so, or it is the compiled PDF beside its source.
 pub(super) fn excluded_in<V>(files: &BTreeMap<String, V>, path: &str) -> bool {

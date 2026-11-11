@@ -446,9 +446,13 @@ fn recorded_inputs(root: &Path, recorder: &str) -> Recorded {
 pub(super) fn written_by_build(root: &Path, document: &str) -> Vec<String> {
     let Ok(root) = root.canonicalize() else { return Vec::new() };
     let Ok(document) = project::safe_path(&root, document) else { return Vec::new() };
-    let Ok(recorder) = fs::read_to_string(document.with_extension("fls")) else {
-        return Vec::new();
-    };
+    written_by_recorder(&root, &document.with_extension("fls"))
+}
+
+/// The project files a compile wrote, by its recorder (`.fls`) at `recorder`.
+pub(crate) fn written_by_recorder(root: &Path, recorder: &Path) -> Vec<String> {
+    let Ok(root) = root.canonicalize() else { return Vec::new() };
+    let Ok(recorder) = fs::read_to_string(recorder) else { return Vec::new() };
     recorded_inputs(&root, &recorder).written.into_iter().collect()
 }
 

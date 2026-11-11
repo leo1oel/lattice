@@ -395,10 +395,13 @@ purpose.
 - A folder that holds nothing Overleaf has, agreed, held or edited meanwhile,
   and that held synced files once (the starting agreed table or the merge-base
   tree says so), loses its build outputs and then its empty folders after the
-  sync; empty folders of the merge-base tree go too. Any other file in it is
-  the writer's, keeps the folder, and is named once (`keptFolders`). A folder
-  with no such record goes only when it holds build outputs alone
-  (`overleaf/sync/stale_folders.rs`).
+  sync; empty folders of the merge-base tree go too. A build output is a file
+  a build record in the folder lists (a `.fls` recorder's `OUTPUT`, a
+  `.fdb_latexmk`'s generated files) or one named for a `.tex` that synced
+  beside it; a file merely named like one is not. Any other file in it is the
+  writer's, keeps the folder, and is named once (`keptFolders`). Finder's
+  `.DS_Store` goes only with a folder otherwise emptied. A folder with no
+  record of syncing is left alone (`overleaf/sync/stale_folders.rs`).
 - Active, draining and outcome-unknown OT documents stay excluded from ordinary
   ZIP/file synchronization until the realtime owner releases them.
 - Every delayed project-specific Overleaf read or mutation carries the project

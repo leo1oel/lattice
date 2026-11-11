@@ -595,7 +595,7 @@ fn sync_files(
     let outcome =
         send::send(&linked, &client, csrf.as_deref(), &remote, files, remote_version_before)?;
     outcome.keep_planned_copies(&remote, &mut new_files);
-    let send::Sent { sent, over_edits, .. } = outcome;
+    let send::Sent { sent, over_edits, stood_down } = outcome;
     result.uploaded_over_edits = over_edits;
     let pushed: Vec<String> = sent.keys().cloned().collect();
     let mut own_writes = linked.state.own_writes.clone();
@@ -656,7 +656,8 @@ fn sync_files(
     state.agreed_version = remote_version_before;
     save_state(root, &state)?;
     renames::forget_old_bases(root, &renames);
-    let held = renames.held.keys().chain(&held_back).chain(&result.edited_during_sync);
+    let held = renames.held.keys().chain(&held_back).chain(&stood_down);
+    let held = held.chain(&result.edited_during_sync);
     let kept = state.files.keys().chain(remote.keys()).chain(&aside).chain(held);
     result.kept_folders = stale_folders::clear(root, kept, &synced_before);
     // Every list is already in path order: the plan walks paths sorted.
