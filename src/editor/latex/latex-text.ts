@@ -2,13 +2,19 @@ import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { i18n } from "../../i18n";
 import { escapeRegExp } from "../../lib/escape-regexp";
+import { controlSequence, groupEnd, skipSpace } from "./latex-visible-source";
 
 export const LABEL = /\\label\{([^}]*)\}/g;
 const GRAPHICSPATH = /\\graphicspath\s*\{((?:\{[^}]*\})+)\}/g;
 const NEWCOMMAND = /\\(?:new|renew|provide)command\*?\{(\\[A-Za-z@]+)\}/g;
 const NEWENVIRONMENT = /\\(?:new|renew)environment\*?\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
-const COMMAND_DEFINITION =
-  /\\(?:new|renew|provide)command\*?\{(\\[A-Za-z@]+)\}(?:\s*\[[^\]]*\])?\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+/**
+ * What `katexMacrosFromSources` stops at: a comment's start, a definition
+ * command, or an escaped character to step over (so `\%` opens no comment
+ * and `\\newcommand` is a line break followed by text).
+ */
+const MACRO_DEFINITION_TOKEN =
+  /%|\\(newcommand|renewcommand|providecommand|DeclareRobustCommand|def|gdef|DeclareMathOperator)(?![A-Za-z@])|\\[^A-Za-z@]/g;
 
 export type CitationInfo = {
   key: string;
@@ -259,15 +265,106 @@ export function bibliographyEntryLine(source: string, key: string): number | nul
   return match ? source.slice(0, match.index).split("\n").length : null;
 }
 
-/** `\newcommand{\foo}{body}` definitions for KaTeX `macros`; the first definition wins. */
+/**
+ * Project macro definitions for KaTeX `macros`; the first definition wins.
+ * Reads `\newcommand`, `\renewcommand`, `\providecommand` and
+ * `\DeclareRobustCommand` (braced or bare name, `[n]` arity, `[default]`),
+ * `\def`/`\gdef` with undelimited `#1…#9` parameters, and
+ * `\DeclareMathOperator(*)`. Bodies are brace-balanced groups: papers nest
+ * braces in the simplest macros (`\newcommand{\bmu}{{\boldsymbol{\mu}}}`),
+ * and a macro left out makes every formula that uses it fail to render.
+ * Definitions inside comments are skipped.
+ */
 export function katexMacrosFromSources(sources: string[]): Record<string, string> {
   const macros: Record<string, string> = {};
+  const add = (name: string, body: string) => {
+    const trimmed = body.trim();
+    if (trimmed && !(name in macros)) macros[name] = trimmed;
+  };
   for (const source of sources) {
-    for (const [, name, rawBody] of source.matchAll(COMMAND_DEFINITION)) {
-      const body = rawBody.trim();
-      if (name && body && !macros[name]) macros[name] = body;
+    const tokens = new RegExp(MACRO_DEFINITION_TOKEN.source, "g");
+    for (let match = tokens.exec(source); match; match = tokens.exec(source)) {
+      if (match[0] === "%") {
+        const end = source.indexOf("\n", match.index);
+        if (end === -1) break;
+        tokens.lastIndex = end;
+        continue;
+      }
+      if (match[1] == null) continue;
+      const definition = readMacroDefinition(source, match[1], match.index + match[0].length);
+      if (!definition) continue;
+      add(definition.name, definition.body);
+      // A definition inside another's body depends on that macro being run;
+      // skip the whole body rather than reading it as a top-level one.
+      tokens.lastIndex = definition.end;
     }
   }
   return macros;
 }
 
+/** The definition whose command (`newcommand`, `def`, …) ends at `at`; null when it is incomplete or KaTeX can't take it. */
+function readMacroDefinition(text: string, command: string, at: number): { name: string; body: string; end: number } | null {
+  if (command === "def" || command === "gdef") {
+    const target = controlSequence(text, skipSpace(text, at));
+    if (!target) return null;
+    // Only plain `#1#2…` parameters: a delimited parameter text
+    // (`\def\x#1.{…}`) has no equivalent in a KaTeX macro string.
+    const parameters = /^(?:\s*#[1-9])*\s*/.exec(text.slice(target[1]))![0];
+    const open = target[1] + parameters.length;
+    const end = groupEnd(text, open);
+    return end == null ? null : { name: `\\${target[0]}`, body: text.slice(open + 1, end - 1), end };
+  }
+  if (text[at] === "*") at++;
+  const nameAt = skipSpace(text, at);
+  let name: string | null;
+  let after: number;
+  if (text[nameAt] === "{") {
+    const end = groupEnd(text, nameAt);
+    if (end == null) return null;
+    name = text.slice(nameAt + 1, end - 1).trim();
+    after = end;
+  } else {
+    const target = controlSequence(text, nameAt);
+    if (!target) return null;
+    [name, after] = [`\\${target[0]}`, target[1]];
+  }
+  if (!/^\\(?:[A-Za-z@]+|[^A-Za-z@])$/.test(name)) return null;
+  if (command === "DeclareMathOperator") {
+    // `\DeclareMathOperator*{\argmax}{arg\,max}`: the star moves limits below.
+    const star = text[at - 1] === "*" ? "*" : "";
+    const open = skipSpace(text, after);
+    const end = groupEnd(text, open);
+    return end == null ? null : { name, body: `\\operatorname${star}{${text.slice(open + 1, end - 1)}}`, end };
+  }
+  let arity = 0;
+  let fallback: string | null = null;
+  const arityAt = skipSpace(text, after);
+  const arityEnd = groupEnd(text, arityAt, "[", "]");
+  if (arityEnd != null) {
+    arity = Number(text.slice(arityAt + 1, arityEnd - 1).trim()) || 0;
+    after = arityEnd;
+    const defaultAt = skipSpace(text, after);
+    const defaultEnd = groupEnd(text, defaultAt, "[", "]");
+    if (defaultEnd != null) {
+      fallback = text.slice(defaultAt + 1, defaultEnd - 1);
+      after = defaultEnd;
+    }
+  }
+  const open = skipSpace(text, after);
+  const end = groupEnd(text, open);
+  if (end == null) return null;
+  const body = text.slice(open + 1, end - 1);
+  return { name, body: fallback != null && arity > 0 ? withoutOptionalArgument(body, fallback) : body, end };
+}
+
+/**
+ * A KaTeX macro string takes only mandatory arguments, so a command with an
+ * optional first argument becomes its usual form, the one called without
+ * `[…]`: `#1` is the default and `#2…` move down one.
+ */
+function withoutOptionalArgument(body: string, fallback: string): string {
+  return body.replace(/##|#([1-9])/g, (whole, digit: string | undefined) => {
+    if (digit == null) return whole;
+    return digit === "1" ? fallback : `#${Number(digit) - 1}`;
+  });
+}
