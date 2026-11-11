@@ -32,8 +32,7 @@ pub use field::Field;
 pub use form::{CheckState, Checkbox, Switch};
 pub use icon_button::IconButton;
 pub use menu::{
-    MENU_INSET, MENU_OFFSET, MenuItem, MenuLabel, MenuSeparator, MenuSurface, Step,
-    step_highlight,
+    MENU_INSET, MENU_OFFSET, MenuItem, MenuLabel, MenuSeparator, MenuSurface, Step, step_highlight,
 };
 pub use overlays::{DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in};
 pub use popover::{Menu, MenuAction, MenuPopover, Popover, PopoverCard};

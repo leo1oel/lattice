@@ -17,7 +17,9 @@
 //! into the binary, and release builds set `LATTICE_PRIVATE_FONTS_REQUIRED=1`
 //! so a missing copy fails the build. Which faces a build draws is therefore
 //! fixed when it is compiled; nothing is read from the user's folders at run
-//! time.
+//! time. The download's LICENSE.pdf is embedded, unmodified, whenever the
+//! faces are, and [`font_license`] hands it out as the Tauri build's
+//! `fontLicenseUrl` does.
 
 use std::borrow::Cow;
 
@@ -30,9 +32,23 @@ use gpui::{App, FontFallbacks, SharedString};
 #[allow(dead_code)]
 mod build_script;
 
-/// The private faces `build.rs` embedded, or `None` in an open build.
+/// The private faces `build.rs` embedded, with their license, or `None` in an
+/// open build.
 mod private {
+    /// The Timeless faces and the license they may not travel without: the
+    /// generated `EMBEDDED` can hold the one only with the other.
+    pub struct Embedded {
+        pub faces: &'static [&'static [u8]],
+        pub license: &'static [u8],
+    }
+
     include!(concat!(env!("OUT_DIR"), "/private_fonts.rs"));
+}
+
+/// The Timeless license (the download's LICENSE.pdf, unmodified) when this
+/// build embeds the Timeless faces, and `None` when it does not.
+pub fn font_license() -> Option<&'static [u8]> {
+    private::EMBEDDED.as_ref().map(|embedded| embedded.license)
 }
 
 /// Timeless Sans runs about 3.5% narrower than Inter with a smaller x-height;
@@ -40,12 +56,9 @@ mod private {
 /// where the Inter build has them. GPUI has no size-adjust, so the type roles
 /// multiply their sizes by it instead (leading is unchanged, as in CSS, where
 /// the ascent and descent overrides keep the line boxes).
+/// The display cut of Timeless Serif, which sets Display and Title, has no
+/// size-adjust in the Tauri build, so only the sans is scaled.
 const TIMELESS_SANS_SIZE_ADJUST: f32 = 1.04;
-/// The display cut of Timeless Serif, which sets Display and Title, is not
-/// scaled: the Tauri build gives it no `size-adjust`. Its 105% belongs to the
-/// Text cut of the reading surfaces (`--reading-font`), which GPUI does not
-/// draw yet.
-const TIMELESS_SERIF_SIZE_ADJUST: f32 = 1.0;
 
 const BUNDLED: &[&[u8]] = &[
     include_bytes!("../assets/fonts/inter/Inter-Regular.ttf"),
@@ -68,8 +81,6 @@ pub struct Fonts {
     pub editor: SharedString,
     /// The factor the interface roles' sizes are multiplied by.
     pub ui_size_adjust: f32,
-    /// The factor the serif roles' sizes are multiplied by.
-    pub display_size_adjust: f32,
     /// Whether the private Timeless faces were loaded.
     pub private: bool,
 }
@@ -83,7 +94,6 @@ impl Fonts {
             display: "Instrument Serif".into(),
             editor: "Ioskeley Mono".into(),
             ui_size_adjust: 1.0,
-            display_size_adjust: 1.0,
             private: false,
         }
     }
@@ -94,7 +104,6 @@ impl Fonts {
             ui: "Timeless Sans".into(),
             display: "Timeless Serif".into(),
             ui_size_adjust: TIMELESS_SANS_SIZE_ADJUST,
-            display_size_adjust: TIMELESS_SERIF_SIZE_ADJUST,
             private: true,
             ..Self::open()
         }
@@ -106,10 +115,14 @@ impl Fonts {
         if let Err(error) = cx.text_system().add_fonts(bundled) {
             log::error!("could not load the bundled fonts: {error:#}");
         }
-        let Some(faces) = private::FACES else {
+        let Some(embedded) = private::EMBEDDED.as_ref() else {
             return Self::open();
         };
-        let faces = faces.iter().map(|bytes| Cow::Borrowed(*bytes)).collect();
+        let faces = embedded
+            .faces
+            .iter()
+            .map(|bytes| Cow::Borrowed(*bytes))
+            .collect();
         match cx.text_system().add_fonts(faces) {
             Ok(()) => Self::timeless(),
             Err(error) => {
@@ -136,13 +149,11 @@ mod tests {
     use std::{
         collections::BTreeSet,
         ffi::OsStr,
+        fs,
         path::{Path, PathBuf},
     };
 
-    use super::{
-        build_script::{self, Decision},
-        *,
-    };
+    use super::{build_script, *};
 
     /// The family a face reports to the text system: the typographic family
     /// (name ID 16) when it has one, else the legacy family (ID 1), read by
@@ -160,6 +171,31 @@ mod tests {
             .expect("a bundled face is named")
     }
 
+    /// A stand-in for a Timeless download in a fresh temporary folder: the
+    /// real file names holding placeholder bytes, never the fonts.
+    struct Download(PathBuf);
+
+    impl Download {
+        fn new(name: &str, files: impl IntoIterator<Item = &'static str>) -> Self {
+            let root = std::env::temp_dir()
+                .join(format!("lattice-ui-fonts-{}-{name}", std::process::id()));
+            let _ = fs::remove_dir_all(&root);
+            for file in files {
+                let path = root.join(file);
+                fs::create_dir_all(path.parent().unwrap()).unwrap();
+                fs::write(&path, b"placeholder").unwrap();
+            }
+            fs::create_dir_all(&root).unwrap();
+            Self(root)
+        }
+    }
+
+    impl Drop for Download {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
     #[test]
     fn open_build_names_the_bundled_families_unscaled() {
         let fonts = Fonts::open();
@@ -167,7 +203,6 @@ mod tests {
         assert_eq!(fonts.display, "Instrument Serif");
         assert_eq!(fonts.editor, "Ioskeley Mono");
         assert_eq!(fonts.ui_size_adjust, 1.0);
-        assert_eq!(fonts.display_size_adjust, 1.0);
         assert!(!fonts.private);
     }
 
@@ -183,26 +218,31 @@ mod tests {
     }
 
     #[test]
-    fn timeless_build_scales_only_the_sans() {
+    fn timeless_build_scales_the_sans() {
         let fonts = Fonts::timeless();
         assert_eq!(fonts.ui, "Timeless Sans");
         assert_eq!(fonts.display, "Timeless Serif");
         assert_eq!(fonts.editor, "Ioskeley Mono");
         assert_eq!(fonts.ui_size_adjust, 1.04);
-        assert_eq!(fonts.display_size_adjust, 1.0);
         assert!(fonts.private);
     }
 
     #[test]
-    fn embedded_faces_match_the_build_script_list() {
-        if let Some(faces) = private::FACES {
-            assert_eq!(faces.len(), build_script::FACES.len());
-            let families: BTreeSet<String> = faces.iter().map(|bytes| family(bytes)).collect();
-            let fonts = Fonts::timeless();
-            assert_eq!(
-                families,
-                BTreeSet::from([fonts.ui.to_string(), fonts.display.to_string()])
-            );
+    fn this_build_embeds_the_listed_faces_with_their_license_or_neither() {
+        match private::EMBEDDED.as_ref() {
+            Some(embedded) => {
+                assert_eq!(embedded.faces.len(), build_script::FACES.len());
+                let families: BTreeSet<String> =
+                    embedded.faces.iter().map(|bytes| family(bytes)).collect();
+                let fonts = Fonts::timeless();
+                assert_eq!(
+                    families,
+                    BTreeSet::from([fonts.ui.to_string(), fonts.display.to_string()])
+                );
+                let license = font_license().expect("embedded faces carry their license");
+                assert!(license.starts_with(b"%PDF-"), "LICENSE.pdf is a PDF");
+            }
+            None => assert_eq!(font_license(), None),
         }
     }
 
@@ -219,55 +259,69 @@ mod tests {
             build_script::private_fonts_directory(Some(OsStr::new("/fonts")), home),
             Some(PathBuf::from("/fonts"))
         );
-        assert_eq!(
-            build_script::private_fonts_directory(Some(OsStr::new("")), home),
-            None
-        );
         assert_eq!(build_script::private_fonts_directory(None, None), None);
     }
 
     #[test]
-    fn a_complete_copy_is_embedded() {
-        let directory = Path::new("/fonts");
-        let decision = build_script::decide(Some(directory), true, |_| true);
-        assert_eq!(decision, Ok(Decision::Embed(directory.to_path_buf())));
+    fn a_complete_copy_embeds_every_face_and_the_license() {
+        let download = Download::new("complete", build_script::required_files());
+        let root = fs::canonicalize(&download.0).unwrap();
+        for required in [false, true] {
+            let embedded = build_script::plan(Some(&download.0), required)
+                .unwrap()
+                .expect("a complete copy is embedded");
+            assert_eq!(embedded.license, root.join("LICENSE.pdf").to_str().unwrap());
+            let faces: Vec<PathBuf> = embedded.faces.iter().map(PathBuf::from).collect();
+            let expected: Vec<PathBuf> = build_script::FACES
+                .iter()
+                .map(|face| root.join(face))
+                .collect();
+            assert_eq!(faces, expected);
+            // The generated module, compiled into lattice-ui, reads every
+            // face and the license.
+            let source = build_script::generated_source(Some(&embedded));
+            assert_eq!(
+                source.matches("include_bytes!").count(),
+                build_script::FACES.len() + 1
+            );
+            assert!(source.contains(&format!("license: include_bytes!({:?})", embedded.license)));
+        }
     }
 
     #[test]
-    fn an_incomplete_copy_builds_open_unless_required() {
-        let directory = Path::new("/fonts");
-        let without_license = |path: &Path| path != directory.join("LICENSE.pdf");
-        assert_eq!(
-            build_script::decide(Some(directory), false, without_license),
-            Ok(Decision::Open)
-        );
-        let error = build_script::decide(Some(directory), true, without_license)
+    fn faces_without_their_license_embed_nothing() {
+        let download = Download::new("unlicensed", build_script::FACES.iter().copied());
+        assert_eq!(build_script::plan(Some(&download.0), false), Ok(None));
+        let source = build_script::generated_source(None);
+        assert!(source.contains("pub const EMBEDDED: Option<Embedded> = None;"));
+        assert!(!source.contains("include_bytes!"));
+
+        let error = build_script::plan(Some(&download.0), true)
             .expect_err("a required build fails without the license");
         assert!(error.contains("LICENSE.pdf"), "{error}");
+    }
 
-        let without_serif =
-            |path: &Path| !path.ends_with("Serif-Text/static/ttf/TimelessSerif-Regular.ttf");
-        let error = build_script::decide(Some(directory), true, without_serif)
+    #[test]
+    fn a_missing_face_embeds_nothing() {
+        let serif = "Serif-Text/static/ttf/TimelessSerif-Regular.ttf";
+        let download = Download::new(
+            "no-serif",
+            build_script::required_files().filter(|file| *file != serif),
+        );
+        assert_eq!(build_script::plan(Some(&download.0), false), Ok(None));
+        let error = build_script::plan(Some(&download.0), true)
             .expect_err("a required build fails without a face");
         assert!(error.contains("TimelessSerif-Regular.ttf"), "{error}");
     }
 
     #[test]
-    fn no_directory_builds_open_unless_required() {
-        assert_eq!(
-            build_script::decide(None, false, |_| true),
-            Ok(Decision::Open)
-        );
-        assert!(build_script::decide(None, true, |_| true).is_err());
-    }
-
-    #[test]
-    fn generated_module_embeds_exactly_the_given_faces() {
-        let open = build_script::generated_source(None);
-        assert!(open.contains("pub const FACES: Option<&[&[u8]]> = None;"));
-        let faces = ["/a \"quoted\" path/Face.ttf".to_owned()];
-        let embedded = build_script::generated_source(Some(&faces));
-        assert!(embedded.contains(r#"include_bytes!("/a \"quoted\" path/Face.ttf"),"#));
-        assert_eq!(embedded.matches("include_bytes!").count(), 1);
+    fn an_empty_variable_builds_without_them() {
+        let download = Download::new("ignored", build_script::required_files());
+        let home = download.0.as_os_str();
+        let directory = build_script::private_fonts_directory(Some(OsStr::new("")), Some(home));
+        assert_eq!(directory, None);
+        assert_eq!(build_script::plan(directory.as_deref(), false), Ok(None));
+        assert!(build_script::plan(directory.as_deref(), true).is_err());
+        assert!(!Path::new(&download.0).join("Downloads").exists());
     }
 }

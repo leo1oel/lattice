@@ -91,7 +91,10 @@ impl EditorPanel {
                     let editor = editor.read(cx);
                     let snapshot = editor.buffer().read(cx).snapshot(cx);
                     let head = editor.selections.newest_anchor().head().to_point(&snapshot);
-                    this.cursor = (head.row + 1, head.column + 1);
+                    let line_start = Point::new(head.row, 0);
+                    let column =
+                        editor_status::caret_column(snapshot.text_for_range(line_start..head));
+                    this.cursor = (head.row + 1, column);
                     cx.notify();
                 }
             }),

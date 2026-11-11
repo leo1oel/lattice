@@ -2,6 +2,7 @@
 //!
 //! Measured on the Main window: 22px tall with control corners, 6px of
 //! padding, 4px from the icon to its 12/16 caption, all in secondary ink.
+//! A clickable item is a tab stop with the one focus ring.
 
 use std::rc::Rc;
 
@@ -11,7 +12,10 @@ use gpui::{
     Window, div, prelude::FluentBuilder as _, px,
 };
 
-use crate::{ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, icons::ICON_SMALL};
+use crate::{
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::focus_ring,
+    icons::ICON_SMALL, interaction::tab_stop,
+};
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
@@ -63,9 +67,14 @@ impl RenderOnce for StatusItem {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette();
         let hover = palette.hover;
-        div()
-            .id(self.id)
-            .flex()
+        let focus = focus_ring(palette, palette.editor);
+        let item = div().id(self.id);
+        let item = if self.on_click.is_some() {
+            tab_stop(item)
+        } else {
+            item
+        };
+        item.flex()
             .flex_none()
             .items_center()
             .gap(px(4.))
@@ -81,6 +90,7 @@ impl RenderOnce for StatusItem {
             .children(self.children)
             .when_some(self.on_click, |this, on_click| {
                 this.hover(move |style| style.bg(hover))
+                    .focus_visible(move |style| style.shadow(focus))
                     .on_click(move |event, window, cx| on_click(event, window, cx))
             })
     }

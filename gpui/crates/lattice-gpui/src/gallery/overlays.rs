@@ -44,8 +44,18 @@ fn rename_card(gallery: &Gallery) -> PopoverCard {
     PopoverCard::new()
         .title("Rename workspace")
         .child(Field::new(&gallery.rename))
-        .action(Button::new("rename-cancel", "Cancel").ghost().compact().on_click(noop))
-        .action(Button::new("rename-done", "Done").tinted().compact().on_click(noop))
+        .action(
+            Button::new("rename-cancel", "Cancel")
+                .ghost()
+                .compact()
+                .on_click(noop),
+        )
+        .action(
+            Button::new("rename-done", "Done")
+                .tinted()
+                .compact()
+                .on_click(noop),
+        )
 }
 
 pub(super) fn boards(gallery: &mut Gallery, cx: &mut Context<Gallery>) -> Vec<AnyElement> {
@@ -97,14 +107,28 @@ pub(super) fn boards(gallery: &mut Gallery, cx: &mut Context<Gallery>) -> Vec<An
     let toasts = vec![
         Toast::new("toast-ok", ToastLevel::Success, "Moved 3 files to Trash")
             .detail("figures/old-plot.pdf and 2 more")
-            .action(Button::new("undo", "Undo").tinted().compact().on_click(noop))
+            .action(
+                Button::new("undo", "Undo")
+                    .tinted()
+                    .compact()
+                    .on_click(noop),
+            )
             .action(Button::new("details", "Details").compact().on_click(noop))
             .on_dismiss(noop)
             .into_any_element(),
         Toast::new("toast-error", ToastLevel::Error, "Build failed")
             .detail("Undefined control sequence at main.tex:42")
-            .action(Button::new("log", "Open log").tinted().compact().on_click(noop))
-            .action(Button::new("details-error", "Details").compact().on_click(noop))
+            .action(
+                Button::new("log", "Open log")
+                    .tinted()
+                    .compact()
+                    .on_click(noop),
+            )
+            .action(
+                Button::new("details-error", "Details")
+                    .compact()
+                    .on_click(noop),
+            )
             .on_dismiss(noop)
             .into_any_element(),
         Toast::new("toast-warning", ToastLevel::Warning, "Overleaf is offline")
@@ -116,14 +140,22 @@ pub(super) fn boards(gallery: &mut Gallery, cx: &mut Context<Gallery>) -> Vec<An
     let dialogs = vec![
         DialogCard::new("New project")
             .field(Field::new(&filled))
-            .field(Select::new("template", ["NeurIPS 2026", "ICML 2026", "Article"], Some(0)))
+            .field(Select::new(
+                "template",
+                ["NeurIPS 2026", "ICML 2026", "Article"],
+                Some(0),
+            ))
             .action(Button::new("cancel", "Cancel").on_click(noop))
             .action(Button::new("create", "Create").primary().on_click(noop))
             .into_any_element(),
         DialogCard::new("Delete “old-plot.pdf”?")
             .mark(Icon("icons/trash.svg"), palette.danger, palette.danger_soft)
             .body("It goes to the Trash and leaves the Overleaf project on the next sync.")
-            .action(Button::new("cancel-delete", "Cancel").ghost().on_click(noop))
+            .action(
+                Button::new("cancel-delete", "Cancel")
+                    .ghost()
+                    .on_click(noop),
+            )
             .action(Button::new("delete", "Delete").danger().on_click(noop))
             .into_any_element(),
     ];

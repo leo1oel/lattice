@@ -165,6 +165,9 @@ pub fn count_words(text: &Rope) -> usize {
             }
             if in_command {
                 if c.is_alphabetic() || c == '@' {
+                    // A command's name ends the backslash's escape: only the
+                    // character straight after it (`\\`, `\%`) is escaped.
+                    escaped = false;
                     continue;
                 }
                 in_command = false;
@@ -195,6 +198,16 @@ pub fn count_words(text: &Rope) -> usize {
     words
 }
 
+/// The caret's 1-based column from the text between the line's start and the
+/// caret: characters, not the bytes a buffer point's column counts.
+pub fn caret_column<'a>(before_caret: impl IntoIterator<Item = &'a str>) -> u32 {
+    let chars: usize = before_caret
+        .into_iter()
+        .map(|text| text.chars().count())
+        .sum();
+    chars as u32 + 1
+}
+
 fn is_cjk(c: char) -> bool {
     matches!(c as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF | 0x3040..=0x30FF)
 }
@@ -207,6 +220,35 @@ mod tests {
     fn commands_and_comments_are_not_words() {
         let text = Rope::from("\\section{Attention turns} tokens % not these\nINTO 2 things 你好");
         assert_eq!(count_words(&text), 2 + 1 + 1 + 1 + 1 + 2);
+    }
+
+    #[test]
+    fn a_command_after_a_command_is_not_a_word() {
+        assert_eq!(
+            count_words(&Rope::from("\\centering\\includegraphics{fig}")),
+            1
+        );
+    }
+
+    #[test]
+    fn a_comment_straight_after_a_command_is_not_counted() {
+        assert_eq!(count_words(&Rope::from("\\maketitle% note")), 0);
+    }
+
+    #[test]
+    fn escaped_symbols_stay_escaped() {
+        // `\\` is a line break and `\%` a literal percent sign: the words
+        // after each still count.
+        assert_eq!(count_words(&Rope::from("one\\\\two 50\\% three")), 4);
+    }
+
+    #[test]
+    fn the_column_counts_characters_not_bytes() {
+        // After 你好 the caret is at the third character, though the line's
+        // first six bytes lie before it.
+        assert_eq!(caret_column(["你好"]), 3);
+        assert_eq!(caret_column(["ab", "c"]), 4);
+        assert_eq!(caret_column([]), 1);
     }
 
     #[test]

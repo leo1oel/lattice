@@ -128,10 +128,10 @@ impl RenderOnce for Sheet {
         let child = |name: &'static str| {
             ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), name.into())
         };
-        let header = PanelHeader::new(child("close"), self.title).when_some(
-            self.on_close,
-            |this, on_close| this.on_close(move |_, window, cx| on_close(window, cx)),
-        );
+        let header = PanelHeader::new(child("close"), self.title)
+            .when_some(self.on_close, |this, on_close| {
+                this.on_close(move |_, window, cx| on_close(window, cx))
+            });
         let card = div()
             .flex()
             .flex_col()
@@ -219,10 +219,10 @@ impl RenderOnce for Drawer {
         let child = |name: &'static str| {
             ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), name.into())
         };
-        let header = PanelHeader::new(child("close"), self.title).when_some(
-            self.on_close,
-            |this, on_close| this.on_close(move |_, window, cx| on_close(window, cx)),
-        );
+        let header = PanelHeader::new(child("close"), self.title)
+            .when_some(self.on_close, |this, on_close| {
+                this.on_close(move |_, window, cx| on_close(window, cx))
+            });
         let panel = div()
             .flex()
             .flex_col()
@@ -261,7 +261,8 @@ pub enum LayerPlacement {
 }
 
 /// A sheet or drawer held over the whole window, modal: focus stays inside,
-/// Escape and a press on the scrim close it.
+/// Escape and a press on the scrim close it and hand focus back to what held
+/// it when the layer opened.
 #[derive(IntoElement)]
 pub struct ModalLayer {
     id: ElementId,
@@ -301,24 +302,24 @@ impl RenderOnce for ModalLayer {
             ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), name.into())
         };
         // The layer takes focus once, when it first draws, so Escape reaches
-        // the host; after that focus moves only inside it.
+        // the host; after that focus moves only inside it. What held focus
+        // before is kept to be given it back on close.
         let focus = window.use_keyed_state(child("focus"), cx, |window, cx| {
+            let previous = window.focused(cx);
             let focus = cx.focus_handle();
             focus.focus(window, cx);
-            focus
+            (focus, previous)
         });
-        let focus = focus.read(cx).clone();
+        let (focus, previous) = focus.read(cx).clone();
         let scrim = match self.placement {
             LayerPlacement::Center => cx.palette().scrim,
             LayerPlacement::Right => drawer_scrim(),
         };
-        let overlay = div()
-            .absolute()
-            .inset_0()
-            .bg(scrim)
-            .with_animation(child("scrim"), Motion::Slow.animation(), |this, t| {
-                this.opacity(t.clamp(0., 1.))
-            });
+        let overlay = div().absolute().inset_0().bg(scrim).with_animation(
+            child("scrim"),
+            Motion::Slow.animation(),
+            |this, t| this.opacity(t.clamp(0., 1.)),
+        );
         // Only the surface blocks the pointer; the rest of the wrapper lets
         // a press through to the host's scrim, which closes the layer.
         let surface = match self.placement {
@@ -338,10 +339,19 @@ impl RenderOnce for ModalLayer {
             ),
         };
         let on_close = self.on_close;
+        let layer = focus.clone();
         SheetHost::new(cx)
             .focus_handle(focus)
             .overlay_closable(self.closable)
-            .request_close(move |window, cx| on_close(window, cx))
+            .request_close(move |window, cx| {
+                if layer.contains_focused(window, cx) {
+                    match &previous {
+                        Some(previous) => previous.focus(window, cx),
+                        None => window.blur(cx),
+                    }
+                }
+                on_close(window, cx)
+            })
             .overlay(overlay)
             .surface(surface)
     }

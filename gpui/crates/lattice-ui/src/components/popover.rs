@@ -15,17 +15,17 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ElementId, FocusHandle, InteractiveElement as _, IntoElement,
-    KeyDownEvent, ParentElement, RenderOnce, SharedString,
-    Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, App, ElementId, FocusHandle, InteractiveElement as _, IntoElement, KeyDownEvent,
+    ParentElement, RenderOnce, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _,
+    px,
 };
 use gpui_kit::base::{Popover as BasePopover, Selectable};
 
 use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{
-        MenuItem, MenuLabel, MenuSeparator, MenuSurface, PopFrom, Step, menu::MENU_OFFSET,
-        pop_in, step_highlight,
+        MenuItem, MenuLabel, MenuSeparator, MenuSurface, PopFrom, Step, menu::MENU_OFFSET, pop_in,
+        step_highlight,
     },
 };
 
@@ -42,7 +42,10 @@ pub struct MenuAction {
 }
 
 impl MenuAction {
-    pub fn new(label: impl Into<SharedString>, run: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+    pub fn new(
+        label: impl Into<SharedString>,
+        run: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
         Self {
             label: label.into(),
             icon: None,
@@ -177,8 +180,11 @@ impl RenderOnce for Menu {
         };
         let run = Rc::new(run);
 
-        let rows: Vec<AnyElement> = self.entries.into_iter().enumerate().map(|(ix, entry)| {
-            match entry {
+        let rows: Vec<AnyElement> = self
+            .entries
+            .into_iter()
+            .enumerate()
+            .map(|(ix, entry)| match entry {
                 Entry::Label(label) => MenuLabel::new(label).into_any_element(),
                 Entry::Separator => MenuSeparator.into_any_element(),
                 Entry::Item(action) => {
@@ -208,8 +214,8 @@ impl RenderOnce for Menu {
                         .on_click(move |_, window, cx| runner(&run_action, window, cx))
                         .into_any_element()
                 }
-            }
-        }).collect();
+            })
+            .collect();
 
         let keys = {
             let highlight = highlight.clone();

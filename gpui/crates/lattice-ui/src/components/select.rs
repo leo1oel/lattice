@@ -11,13 +11,14 @@
 //! semantics and the keys that open, confirm and dismiss it (Space, Enter,
 //! the arrows, Escape), and moves focus into the list and back. The list
 //! moves its highlight with the arrows, Home and End, and the pointer moves
-//! the same highlight, so only one option is ever lit.
+//! the same highlight, so only one option is ever lit. A long list scrolls
+//! inside its 320px cap, and the keys keep the highlighted option in view.
 
 use std::rc::Rc;
 
 use gpui::{
     App, Bounds, ClickEvent, ElementId, FocusHandle, InteractiveElement as _, IntoElement,
-    KeyDownEvent, MouseButton, ParentElement as _, Pixels, RenderOnce, SharedString,
+    KeyDownEvent, MouseButton, ParentElement as _, Pixels, RenderOnce, ScrollHandle, SharedString,
     StatefulInteractiveElement as _, Styled as _, Window, anchored, deferred, div, point,
     prelude::FluentBuilder as _, px,
 };
@@ -29,8 +30,8 @@ use gpui_kit::base::{
 use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{
-        MenuItem, MenuSurface, PopFrom, Step, field::field_height, menu::MENU_OFFSET, pop_in,
-        step_highlight,
+        MENU_INSET, MenuItem, MenuSurface, PopFrom, Step, field::field_height, menu::MENU_OFFSET,
+        pop_in, step_highlight,
     },
     icons::ICON_SMALL,
     interaction::{mix, track_pointer, use_interaction},
@@ -39,6 +40,9 @@ use crate::{
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 type ChangeHandler = Rc<dyn Fn(&usize, &mut Window, &mut App)>;
+
+/// The tallest the list stands before it scrolls.
+const LIST_MAX_HEIGHT: Pixels = px(320.);
 
 /// A select's trigger: the field with its chosen value and a chevron.
 ///
@@ -182,6 +186,18 @@ struct SelectMemory {
     /// The trigger's bounds as last laid out: the list opens under them, at
     /// least as wide.
     bounds: Bounds<Pixels>,
+    /// The list's scroll, which follows the highlight.
+    scroll: ScrollHandle,
+}
+
+impl SelectMemory {
+    /// Light `ix`, scrolled into view.
+    fn highlight(&mut self, ix: Option<usize>) {
+        self.highlighted = ix;
+        if let Some(ix) = ix {
+            self.scroll.scroll_to_item(ix);
+        }
+    }
 }
 
 /// A select: a trigger and its list of options.
@@ -263,8 +279,9 @@ impl RenderOnce for Select {
             trigger: cx.focus_handle(),
             list: cx.focus_handle(),
             bounds: Bounds::default(),
+            scroll: ScrollHandle::new(),
         });
-        let (open, highlighted, trigger_focus, list_focus, bounds) = {
+        let (open, highlighted, trigger_focus, list_focus, bounds, scroll) = {
             let m = memory.read(cx);
             (
                 m.open && !self.disabled,
@@ -272,6 +289,7 @@ impl RenderOnce for Select {
                 m.trigger.clone(),
                 m.list.clone(),
                 m.bounds,
+                m.scroll.clone(),
             )
         };
         let value = self
@@ -288,7 +306,7 @@ impl RenderOnce for Select {
             Rc::new(move |open: bool, cx: &mut App| {
                 memory.update(cx, |m, cx| {
                     m.open = open;
-                    m.highlighted = selected;
+                    m.highlight(selected);
                     cx.notify();
                 })
             })
@@ -297,14 +315,16 @@ impl RenderOnce for Select {
             let memory = memory.clone();
             let on_change = on_change.clone();
             let set_open = set_open.clone();
-            Rc::new(move |ix: Option<usize>, window: &mut Window, cx: &mut App| {
-                let trigger = memory.read(cx).trigger.clone();
-                set_open(false, cx);
-                trigger.focus(window, cx);
-                if let (Some(ix), Some(on_change)) = (ix, on_change.as_ref()) {
-                    on_change(&ix, window, cx);
-                }
-            })
+            Rc::new(
+                move |ix: Option<usize>, window: &mut Window, cx: &mut App| {
+                    let trigger = memory.read(cx).trigger.clone();
+                    set_open(false, cx);
+                    trigger.focus(window, cx);
+                    if let (Some(ix), Some(on_change)) = (ix, on_change.as_ref()) {
+                        on_change(&ix, window, cx);
+                    }
+                },
+            )
         };
 
         let keyboard_focus = trigger_focus.is_focused(window) && window.last_input_was_keyboard();
@@ -342,7 +362,7 @@ impl RenderOnce for Select {
                 let memory = memory.clone();
                 move |cx: &mut App| {
                     memory.update(cx, |m, cx| {
-                        m.highlighted = step_highlight(&vec![true; count], m.highlighted, step);
+                        m.highlight(step_highlight(&vec![true; count], m.highlighted, step));
                         cx.notify();
                     })
                 }
@@ -380,8 +400,17 @@ impl RenderOnce for Select {
                 .child(
                     MenuSurface::new()
                         .min_w(bounds.size.width)
-                        .max_h(px(320.))
-                        .children(rows),
+                        .max_h(LIST_MAX_HEIGHT)
+                        .child(
+                            div()
+                                .id(child("rows"))
+                                .flex()
+                                .flex_col()
+                                .max_h(LIST_MAX_HEIGHT - MENU_INSET * 2.)
+                                .overflow_y_scroll()
+                                .track_scroll(&scroll)
+                                .children(rows),
+                        ),
                 );
             deferred(
                 anchored()

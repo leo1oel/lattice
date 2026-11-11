@@ -12,8 +12,12 @@ use gpui::{
 use gpui::AnyView;
 
 use crate::{
-    ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _, components::LatticeTooltip,
-    elevation::ring, icons::ICON, tokens::FONT_WEIGHT_MEDIUM,
+    ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
+    components::{LatticeTooltip, focus_ring},
+    elevation::ring,
+    icons::ICON,
+    interaction::tab_stop,
+    tokens::FONT_WEIGHT_MEDIUM,
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -143,8 +147,22 @@ impl RenderOnce for SearchField {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
         let hover_border = palette.field_border_hover;
-        div()
-            .id(self.id)
+        let focus = focus_ring(
+            &palette,
+            if self.filled {
+                palette.titlebar
+            } else {
+                palette.panel
+            },
+        );
+        let field = div().id(self.id);
+        // The button that stands for a search field is a tab stop.
+        let field = if self.on_click.is_some() {
+            tab_stop(field)
+        } else {
+            field
+        };
+        field
             .flex()
             .items_center()
             .gap(px(6.))
@@ -186,6 +204,7 @@ impl RenderOnce for SearchField {
             })
             .when_some(self.on_click, |this, on_click| {
                 this.cursor_pointer()
+                    .focus_visible(move |style| style.shadow(focus))
                     .on_click(move |event, window, cx| on_click(event, window, cx))
             })
     }
@@ -253,6 +272,7 @@ impl RenderOnce for Segmented {
         let palette = cx.palette().clone();
         let mut raised = vec![ring(palette.line_strong)];
         raised.extend(Elevation::Raised.shadows(&palette).into_iter().skip(1));
+        let focus = focus_ring(&palette, palette.panel);
         div()
             .id(self.id)
             .flex()
@@ -263,8 +283,15 @@ impl RenderOnce for Segmented {
             .shadow(vec![inset_ring(palette.line)])
             .children(self.segments.into_iter().enumerate().map(|(ix, segment)| {
                 let hover = palette.hover;
-                div()
-                    .id(ix)
+                let focus = focus.clone();
+                let segment_box = div().id(ix);
+                // Each segment is a tab stop, as each is a button in the app.
+                let segment_box = if segment.on_click.is_some() {
+                    tab_stop(segment_box)
+                } else {
+                    segment_box
+                };
+                segment_box
                     .flex()
                     .flex_none()
                     .items_center()
@@ -290,6 +317,7 @@ impl RenderOnce for Segmented {
                     })
                     .when_some(segment.on_click, |this, on_click| {
                         this.cursor_pointer()
+                            .focus_visible(move |style| style.shadow(focus))
                             .on_click(move |event, window, cx| on_click(event, window, cx))
                     })
             }))

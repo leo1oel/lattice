@@ -95,7 +95,10 @@ fn rows(cx: &Context<Gallery>) -> Vec<AnyElement> {
             column(vec![
                 Row::new("row-paper", "Attention Is All You Need")
                     .comfortable()
-                    .detail("Vaswani, Shazeer, Parmar et al. · 2017", DetailPlacement::Below)
+                    .detail(
+                        "Vaswani, Shazeer, Parmar et al. · 2017",
+                        DetailPlacement::Below,
+                    )
                     .trailing(Badge::new("Cited 4×").compact())
                     .on_click(noop)
                     .into_any_element(),
@@ -126,7 +129,11 @@ fn sheet_and_drawer(gallery: &Gallery, cx: &Context<Gallery>) -> AnyElement {
         .child(Field::new(&filled))
         .child(Textarea::new(&gallery.note))
         .action(Button::new("sheet-cancel", "Cancel").on_click(noop))
-        .action(Button::new("sheet-add", "Add paper").primary().on_click(noop));
+        .action(
+            Button::new("sheet-add", "Add paper")
+                .primary()
+                .on_click(noop),
+        );
     let drawer = Drawer::new("drawer", "History")
         .width(px(340.))
         .on_close(|_, _| {})

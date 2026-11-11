@@ -26,15 +26,15 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement as _, IntoElement,
-    ParentElement, Pixels, Refineable as _, RenderOnce, SharedString, StatefulInteractiveElement as _,
-    StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px, rems,
-    transparent_black,
+    ParentElement, Pixels, Refineable as _, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, StyleRefinement, Styled, Window, div,
+    prelude::FluentBuilder as _, px, rems, transparent_black,
 };
 
 use crate::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     icons::ICON,
-    interaction::{fade, mix, track_pointer, use_interaction},
+    interaction::{fade, mix, track_pointer_and_hover, use_interaction},
     motion::Motion,
     tokens::{CONTAINER_MENU, FONT_WEIGHT_MEDIUM, OPACITY_MENU_DISABLED},
 };
@@ -210,7 +210,12 @@ impl RenderOnce for MenuItem {
         let row = if disabled {
             row
         } else {
-            track_pointer(row, pointer)
+            let on_hover = self.on_hover;
+            track_pointer_and_hover(row, pointer, move |hovered, window, cx| {
+                if let Some(on_hover) = &on_hover {
+                    on_hover(hovered, window, cx);
+                }
+            })
         };
         row.relative()
             .flex()
@@ -251,13 +256,8 @@ impl RenderOnce for MenuItem {
                         .child(Icon::CHECK.element(ICON, palette.text)),
                 )
             })
-            .when(!disabled, |this| {
-                this.when_some(self.on_hover, |this, on_hover| {
-                    this.on_hover(move |hovered, window, cx| on_hover(hovered, window, cx))
-                })
-                .when_some(self.on_click, |this, on_click| {
-                    this.on_click(move |event, window, cx| on_click(event, window, cx))
-                })
+            .when_some(self.on_click.filter(|_| !disabled), |this, on_click| {
+                this.on_click(move |event, window, cx| on_click(event, window, cx))
             })
     }
 }
@@ -315,11 +315,13 @@ pub enum Step {
 /// The row the highlight moves to from `from`, over rows whose `enabled`
 /// flag is set: disabled rows, labels and separators are passed over. It
 /// stops at the ends rather than wrapping, as the app's menus and selects do
-/// (Radix's `loop` is off), and with nothing highlighted Next lands on the
+/// (Radix's `loop` is off): with nothing enabled in the key's direction the
+/// highlight stays where it is. With nothing highlighted Next lands on the
 /// first row and Previous on the last.
 pub fn step_highlight(enabled: &[bool], from: Option<usize>, step: Step) -> Option<usize> {
     let first = enabled.iter().position(|on| *on);
     let last = enabled.iter().rposition(|on| *on);
+    let stay = |at: usize| first.map(|_| at);
     match (step, from) {
         (Step::First, _) | (Step::Next, None) => first,
         (Step::Last, _) | (Step::Previous, None) => last,
@@ -329,8 +331,7 @@ pub fn step_highlight(enabled: &[bool], from: Option<usize>, step: Step) -> Opti
             .skip(at + 1)
             .find(|(_, on)| **on)
             .map(|(ix, _)| ix)
-            .or(Some(at).filter(|at| enabled.get(*at) == Some(&true)))
-            .or(last),
+            .or_else(|| stay(at)),
         (Step::Previous, Some(at)) => enabled
             .iter()
             .enumerate()
@@ -338,8 +339,7 @@ pub fn step_highlight(enabled: &[bool], from: Option<usize>, step: Step) -> Opti
             .rev()
             .find(|(_, on)| **on)
             .map(|(ix, _)| ix)
-            .or(Some(at).filter(|at| enabled.get(*at) == Some(&true)))
-            .or(first),
+            .or_else(|| stay(at)),
     }
 }
 
@@ -370,6 +370,17 @@ mod tests {
     fn the_highlight_stops_at_the_ends() {
         assert_eq!(step_highlight(&MENU, Some(5), Step::Next), Some(5));
         assert_eq!(step_highlight(&MENU, Some(1), Step::Previous), Some(1));
+    }
+
+    #[test]
+    fn a_key_with_nothing_enabled_its_way_leaves_the_highlight() {
+        // The highlight rests on a disabled last row (the pointer left it
+        // there): Down has nowhere to go, and must not jump back up.
+        assert_eq!(step_highlight(&[true, false], Some(1), Step::Next), Some(1));
+        assert_eq!(
+            step_highlight(&[false, true], Some(0), Step::Previous),
+            Some(0)
+        );
     }
 
     #[test]

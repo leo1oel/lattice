@@ -66,12 +66,23 @@ pub fn use_interaction(
 
 /// Wire an element's pointer listeners to its state.
 pub fn track_pointer<E: StatefulInteractiveElement>(element: E, state: Entity<Pointer>) -> E {
+    track_pointer_and_hover(element, state, |_, _, _| {})
+}
+
+/// [`track_pointer`], also handing each change of hover to `on_hover`: an
+/// element takes one hover listener, so a control that reports its hover
+/// shares the one that eases its wash.
+pub fn track_pointer_and_hover<E: StatefulInteractiveElement>(
+    element: E,
+    state: Entity<Pointer>,
+    on_hover: impl Fn(&bool, &mut Window, &mut App) + 'static,
+) -> E {
     let hover = state.clone();
     let down = state.clone();
     let up = state.clone();
     let out = state;
     element
-        .on_hover(move |hovered, _, cx| {
+        .on_hover(move |hovered, window, cx| {
             hover.update(cx, |pointer, cx| {
                 if pointer.hovered != *hovered {
                     pointer.hovered = *hovered;
@@ -80,7 +91,8 @@ pub fn track_pointer<E: StatefulInteractiveElement>(element: E, state: Entity<Po
                     }
                     cx.notify();
                 }
-            })
+            });
+            on_hover(hovered, window, cx);
         })
         .on_mouse_down(MouseButton::Left, move |_, _, cx| {
             down.update(cx, |pointer, cx| {

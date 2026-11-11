@@ -6,7 +6,9 @@
 //! close X 8px after the label and 7px from the right edge. The slot is kept
 //! when the X is hidden, so a tab does not change width on hover. A selected
 //! tab is the ink at 10% laid opaque on the panel's own surface; its label is
-//! primary ink while its group holds focus, secondary otherwise.
+//! primary ink while its group holds focus, secondary otherwise. The tab and
+//! its X are tab stops with the one focus ring; the X shows while it holds
+//! keyboard focus.
 
 use std::rc::Rc;
 
@@ -18,8 +20,9 @@ use gpui::{
 
 use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
+    components::focus_ring,
     icons::ICON,
-    interaction::{mix, track_pointer, use_interaction},
+    interaction::{mix, tab_stop, track_pointer, use_interaction},
     token_types::Srgb,
     tokens::OPACITY_HOVER,
 };
@@ -132,6 +135,8 @@ impl RenderOnce for PanelTab {
         } else {
             palette.text_secondary
         };
+        let focus = focus_ring(&palette, self.surface.hsla());
+        let close_focus = focus.clone();
         let group: SharedString = "lattice-panel-tab".into();
         let selected = self.selected;
         let dirty_dot = self.dirty.then(|| {
@@ -143,7 +148,8 @@ impl RenderOnce for PanelTab {
                 .rounded_full()
                 .bg(palette.text_secondary)
         });
-        track_pointer(self.base, pointer)
+        track_pointer(tab_stop(self.base), pointer)
+            .focus_visible(move |style| style.shadow(focus))
             .group(group.clone())
             .flex()
             .flex_none()
@@ -185,7 +191,9 @@ impl RenderOnce for PanelTab {
                         this.invisible()
                     })
                     .when_some(self.on_close, |this, on_close| {
-                        this.group_hover(group, |style| style.visible())
+                        tab_stop(this)
+                            .group_hover(group, |style| style.visible())
+                            .focus_visible(move |style| style.visible().shadow(close_focus))
                             .hover(move |style| style.bg(palette.pressed))
                             .on_click(move |event, window, cx| {
                                 cx.stop_propagation();

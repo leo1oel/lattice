@@ -1,6 +1,8 @@
 //! Page 1: the controls. Paper's Buttons and Fields and selection boards.
 
-use gpui::{AnyElement, Context, IntoElement, ParentElement as _, SharedString, Styled as _, div, px};
+use gpui::{
+    AnyElement, Context, IntoElement, ParentElement as _, SharedString, Styled as _, div, px,
+};
 use lattice_ui::{
     Icon,
     components::{
@@ -109,14 +111,22 @@ fn fields(gallery: &Gallery, cx: &Context<Gallery>) -> Vec<AnyElement> {
     let [rest, filled, invalid, search, disabled] = gallery.fields.clone();
     let w = |child: AnyElement| div().w(px(220.)).child(child);
     vec![
-        labelled("rest, placeholder", w(Field::new(&rest).into_any_element()), cx),
+        labelled(
+            "rest, placeholder",
+            w(Field::new(&rest).into_any_element()),
+            cx,
+        ),
         labelled("with text", w(Field::new(&filled).into_any_element()), cx),
         labelled(
             "invalid",
             w(Field::new(&invalid).invalid(true).into_any_element()),
             cx,
         ),
-        labelled("search", w(Field::new(&search).search().into_any_element()), cx),
+        labelled(
+            "search",
+            w(Field::new(&search).search().into_any_element()),
+            cx,
+        ),
         labelled(
             "disabled",
             w(Field::new(&disabled).disabled(true).into_any_element()),

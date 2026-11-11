@@ -80,19 +80,20 @@ impl TextRole {
         }
     }
 
-    /// The size the role sets in this build's face: its token, times the
-    /// face's size-adjust.
+    /// The size the role sets in this build's face: its token, the
+    /// interface roles times the sans's size-adjust. The serif roles have
+    /// none.
     pub fn font_size(self, scale: TypeScale, cx: &App) -> Rems {
         self.adjusted_size(scale, &cx.lattice().fonts)
     }
 
     fn adjusted_size(self, scale: TypeScale, fonts: &Fonts) -> Rems {
-        let adjust = if self.is_serif() {
-            fonts.display_size_adjust
+        let size = self.size(scale);
+        if self.is_serif() {
+            size
         } else {
-            fonts.ui_size_adjust
-        };
-        Rems(self.size(scale).0 * adjust)
+            Rems(size.0 * fonts.ui_size_adjust)
+        }
     }
 
     /// Display and Title are the serif voice.
@@ -132,26 +133,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn each_voice_scales_by_its_own_face() {
+    fn only_the_interface_sans_is_scaled() {
+        // The Tauri build gives Timeless Sans `size-adjust: 104%` and the
+        // display serif none.
         let fonts = Fonts {
             ui_size_adjust: 1.04,
-            display_size_adjust: 1.05,
             ..Fonts::open()
         };
-        for scale in [TypeScale::Interface, TypeScale::Settings] {
-            assert_eq!(
-                TextRole::Display.adjusted_size(scale, &fonts),
-                Rems(30. / 16. * 1.05)
-            );
-            assert_eq!(
-                TextRole::Body.adjusted_size(scale, &fonts),
-                Rems(TextRole::Body.size(scale).0 * 1.04)
-            );
-        }
-        let open = Fonts::open();
         assert_eq!(
-            TextRole::Title.adjusted_size(TypeScale::Interface, &open),
-            TextRole::Title.size(TypeScale::Interface)
+            TextRole::Body.adjusted_size(TypeScale::Interface, &fonts),
+            Rems(13. / 16. * 1.04)
+        );
+        assert_eq!(
+            TextRole::Display.adjusted_size(TypeScale::Interface, &fonts),
+            Rems(30. / 16.)
         );
     }
 }

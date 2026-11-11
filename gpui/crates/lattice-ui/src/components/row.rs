@@ -221,7 +221,9 @@ impl RenderOnce for Row {
                 .text_ellipsis()
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
-                .when(detail_end, |this| this.flex_none().max_w(gpui::relative(0.45)))
+                .when(detail_end, |this| {
+                    this.flex_none().max_w(gpui::relative(0.45))
+                })
                 .child(detail)
         });
         let text = div()

@@ -115,7 +115,7 @@ impl Shell {
         let build_panel = cx.new(BuildPanel::new);
 
         // The system's appearance, unless the run fixed one.
-        if std::env::var_os("LATTICE_APPEARANCE").is_none() {
+        if crate::app::appearance_override().is_none() {
             cx.observe_window_appearance(window, |_, window, cx| {
                 LatticeTheme::set_appearance(Appearance::from(window.appearance()), cx);
             })
@@ -306,7 +306,12 @@ impl Shell {
         Some(editor)
     }
 
-    fn open_folder(&mut self, _: &OpenFolder, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_folder(
+        &mut self,
+        _: &OpenFolder,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -448,25 +453,45 @@ impl Shell {
         cx.notify();
     }
 
-    /// Add the build panel as a bottom dock, or take the dock away. A closed
-    /// bottom dock would keep a strip of its tabs on screen, which the
-    /// Tauri app does not have, so the dock exists only while it is shown.
+    /// Whether the build panel is anywhere in the dock area (it can be
+    /// dragged out of the bottom dock).
+    pub fn build_panel_shown(&self, cx: &App) -> bool {
+        self.dock_area
+            .read(cx)
+            .panel(PanelId::from(self.build_panel.entity_id()))
+            .is_some()
+    }
+
+    /// Add the build panel to the bottom dock, or take it out of wherever it
+    /// is. Only the build panel moves: anything else dragged into the bottom
+    /// dock stays. A closed bottom dock would keep a strip of its tabs on
+    /// screen, which the Tauri app does not have, so a bottom dock is made
+    /// for the panel and taken away once nothing is left in it.
     pub fn show_build_panel(&mut self, shown: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if shown == self.build_panel_shown(cx) {
+            return;
+        }
         let build = self.build_panel.clone();
         self.dock_area.update(cx, |area, cx| {
-            match (shown, area.has_dock(DockPlacement::Bottom)) {
-                (true, false) => {
-                    area.set_dock(
-                        DockPlacement::Bottom,
-                        DockLayout::v_split()
-                            .child(DockLayout::tabs().panel_view(panel_handle(build), cx), None),
-                        window,
-                        cx,
-                    );
-                    area.set_dock_size(DockPlacement::Bottom, px(BUILD_DOCK), window, cx);
+            if !shown {
+                area.remove_panel(build, window, cx);
+                if area
+                    .layout(DockPlacement::Bottom)
+                    .is_some_and(|tree| tree.panels().next().is_none())
+                {
+                    area.remove_dock(DockPlacement::Bottom, window, cx);
                 }
-                (false, true) => area.remove_dock(DockPlacement::Bottom, window, cx),
-                _ => {}
+            } else if area.has_dock(DockPlacement::Bottom) {
+                area.add_panel_view(panel_handle(build), DockPlacement::Bottom, None, window, cx);
+            } else {
+                area.set_dock(
+                    DockPlacement::Bottom,
+                    DockLayout::v_split()
+                        .child(DockLayout::tabs().panel_view(panel_handle(build), cx), None),
+                    window,
+                    cx,
+                );
+                area.set_dock_size(DockPlacement::Bottom, px(BUILD_DOCK), window, cx);
             }
         });
         cx.notify();
@@ -542,7 +567,7 @@ impl Render for Shell {
                 this.toggle_dock(DockPlacement::Right, window, cx)
             }))
             .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
-                let shown = this.dock_area.read(cx).has_dock(DockPlacement::Bottom);
+                let shown = this.build_panel_shown(cx);
                 this.show_build_panel(!shown, window, cx)
             }))
             .size_full()

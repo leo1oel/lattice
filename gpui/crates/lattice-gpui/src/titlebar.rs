@@ -47,7 +47,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     let (project_open, pdf_open, build_open) = (
         open(DockPlacement::Left),
         open(DockPlacement::Right),
-        docks.has_dock(DockPlacement::Bottom),
+        shell.build_panel_shown(cx),
     );
     let fullscreen = window.is_fullscreen();
 
@@ -55,7 +55,11 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         ToolbarButton::new("project-switcher", project)
             .switcher()
             .max_w(px(260.))
-            .on_click(|_, window, cx| window.dispatch_action(Box::new(OpenFolder), cx)),
+            // Called on the shell, not dispatched: with nothing focused an
+            // action would start at the root and never reach the shell.
+            .on_click(
+                cx.listener(|shell, _, window, cx| shell.open_folder(&OpenFolder, window, cx)),
+            ),
     ));
 
     let panels = ToolbarButton::new("panels", "Panels")

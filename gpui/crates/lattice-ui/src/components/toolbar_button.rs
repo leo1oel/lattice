@@ -4,7 +4,8 @@
 //! Measured on the Main window: "Panels" is 28px tall with control corners,
 //! 8px in, a 14px icon 6px before its 12/16 label, both in secondary ink.
 //! The project switcher is the same button at 32px with the project's name
-//! in 13px semibold and a 12px chevron 8px after it.
+//! in 13px semibold and a 12px chevron 8px after it. It is a tab stop with
+//! the one focus ring, and Enter or Space press it.
 
 use std::rc::Rc;
 
@@ -17,8 +18,9 @@ use gpui_kit::component::Selectable;
 
 use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::Surface,
+    components::{Surface, focus_ring},
     icons::{ICON, ICON_SMALL},
+    interaction::tab_stop,
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -112,10 +114,25 @@ impl gpui_kit::component::menu::DropdownMenu for ToolbarButton {}
 impl RenderOnce for ToolbarButton {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let hover = self.surface.hover(&palette);
         let pressed = palette.pressed;
+        // A selected trigger (its menu open) keeps the pressed wash under the
+        // pointer.
+        let hover = if self.selected {
+            pressed
+        } else {
+            self.surface.hover(&palette)
+        };
         let ink = palette.text_secondary;
-        self.base
+        let focus = focus_ring(
+            &palette,
+            match self.surface {
+                Surface::Chrome => palette.chrome,
+                Surface::Sheet => palette.editor,
+            },
+        );
+        // Always a button: its click is its own `on_click` or the one a
+        // dropdown menu gives it.
+        tab_stop(self.base)
             .flex()
             .flex_none()
             .items_center()
@@ -131,6 +148,7 @@ impl RenderOnce for ToolbarButton {
             .when(self.selected, |this| this.bg(pressed))
             .hover(move |style| style.bg(hover))
             .active(move |style| style.bg(pressed))
+            .focus_visible(move |style| style.shadow(focus))
             .when_some(self.icon, |this, icon| this.child(icon.element(ICON, ink)))
             .child(div().min_w_0().truncate().child(self.label))
             .when(self.chevron, |this| {

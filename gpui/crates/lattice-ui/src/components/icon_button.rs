@@ -158,13 +158,13 @@ impl RenderOnce for IconButton {
         } else if self.disabled {
             (transparent_black(), palette.text_secondary)
         } else {
-            let rest = if self.selected {
-                palette.pressed
+            let (rest, hover) = if self.selected {
+                (palette.pressed, palette.pressed)
             } else {
-                transparent_black()
+                (transparent_black(), self.surface.hover(&palette))
             };
             (
-                interaction.wash(rest, self.surface.hover(&palette), palette.pressed),
+                interaction.wash(rest, hover, palette.pressed),
                 mix(palette.text_secondary, palette.text, interaction.hover),
             )
         };

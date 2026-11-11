@@ -49,7 +49,7 @@ const VIM_KEYMAP_PATH: &str = "keymaps/vim.json";
 
 /// `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following
 /// the system's, for screenshots and scripted runs.
-fn appearance_override() -> Option<Appearance> {
+pub(crate) fn appearance_override() -> Option<Appearance> {
     match std::env::var("LATTICE_APPEARANCE").as_deref() {
         Ok("light") => Some(Appearance::Light),
         Ok("dark") => Some(Appearance::Dark),

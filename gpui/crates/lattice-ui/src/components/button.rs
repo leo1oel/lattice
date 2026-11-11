@@ -240,14 +240,14 @@ impl RenderOnce for Button {
                 palette.disabled_ink,
             )
         } else {
-            let rest = if self.selected {
-                look.pressed
+            let (rest, hover) = if self.selected {
+                (look.pressed, look.pressed)
             } else {
-                look.rest
+                (look.rest, look.hover)
             };
             let lift = interaction.hover.max(if self.selected { 1. } else { 0. });
             (
-                interaction.wash(rest, look.hover, look.pressed),
+                interaction.wash(rest, hover, look.pressed),
                 look.border,
                 mix(look.ink, look.hover_ink, lift),
             )

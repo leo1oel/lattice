@@ -22,8 +22,8 @@ use std::rc::Rc;
 
 use gpui::{
     App, ElementId, Entity, FontFeatures, InteractiveElement as _, IntoElement, KeyDownEvent,
-    ParentElement as _, RenderOnce, SharedString,
-    Styled as _, Window, div, prelude::FluentBuilder as _, px, relative,
+    MouseButton, ParentElement as _, RenderOnce, SharedString, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px, relative,
 };
 use gpui_kit::base::{
     Slider as BaseSlider, SliderIndicator, SliderThumb, SliderTrack, slider::SliderState,
@@ -33,7 +33,8 @@ use crate::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
     components::focus_ring,
     elevation::ring,
-    interaction::{mix, tab_stop, track_pointer, use_interaction},
+    interaction::{fade, mix, tab_stop, track_pointer, use_interaction},
+    motion::Motion,
     tokens::{CONTAINER_SETTINGS_CONTROL, OPACITY_DISABLED},
 };
 
@@ -83,8 +84,15 @@ impl Slider {
 
 /// How far a key moves the value, from `value` on a `min..=max` range with
 /// `step`: an arrow one step, Page Up or Down a tenth of the range (at least
-/// a step), Home and End to the ends. `None` for a key the slider ignores.
+/// a step), Home and End to the ends. A step that is not a positive number
+/// moves a hundredth of the range, as a range input without a usable step
+/// would still answer its arrows. `None` for a key the slider ignores.
 pub fn key_delta(key: &str, value: f32, min: f32, max: f32, step: f32) -> Option<f32> {
+    let step = if step > 0. && step.is_finite() {
+        step
+    } else {
+        (max - min) / 100.
+    };
     let page = ((max - min) / 10.).max(step);
     match key {
         "right" | "up" => Some(step),
@@ -102,6 +110,20 @@ impl RenderOnce for Slider {
         let palette = cx.palette().clone();
         let disabled = self.disabled;
         let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);
+        // Held from a press anywhere on the control, the thumb included, to
+        // the release, wherever the drag has taken the pointer: the thumb
+        // swallows its own press, and a drag ends the frame's hover.
+        let held_id = |name: &'static str| {
+            ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), name.into())
+        };
+        let held_state = window.use_keyed_state(held_id("held"), cx, |_, _| false);
+        let held = fade(
+            held_id("held-fade"),
+            *held_state.read(cx),
+            Motion::Fast,
+            window,
+            cx,
+        );
         let focus = focus_ring(&palette, palette.panel);
         let (fraction, value) = {
             let state = self.state.read(cx);
@@ -114,7 +136,7 @@ impl RenderOnce for Slider {
         thumb_shadow[0] = ring(mix(
             palette.ring,
             palette.control_hover_border,
-            interaction.hover.max(interaction.press),
+            interaction.hover.max(held),
         ));
 
         let state = self.state.clone();
@@ -191,25 +213,46 @@ impl RenderOnce for Slider {
         let frame = if disabled {
             frame
         } else {
+            let set_held = move |held: bool| {
+                let state = held_state.clone();
+                move |cx: &mut App| {
+                    state.update(cx, |state, cx| {
+                        if *state != held {
+                            *state = held;
+                            cx.notify();
+                        }
+                    })
+                }
+            };
+            let (press, release, release_out) = (set_held(true), set_held(false), set_held(false));
             track_pointer(tab_stop(frame), pointer)
                 .focus_visible(move |style| style.shadow(focus))
                 .on_key_down(keys)
+                .capture_any_mouse_down(move |event, _, cx| {
+                    if event.button == MouseButton::Left {
+                        press(cx)
+                    }
+                })
+                .capture_any_mouse_up(move |event, _, cx| {
+                    if event.button == MouseButton::Left {
+                        release(cx)
+                    }
+                })
+                .on_mouse_up_out(MouseButton::Left, move |_, _, cx| release_out(cx))
         };
-        frame
-            .child(slider)
-            .when_some(self.readout, |this, format| {
-                this.child(
-                    div()
-                        .flex_none()
-                        .min_w(px(34.))
-                        .flex()
-                        .justify_end()
-                        .text_role(TextRole::Caption, cx)
-                        .font_features(FontFeatures(std::sync::Arc::new(vec![("tnum".into(), 1)])))
-                        .text_color(palette.text_secondary)
-                        .child(format(value)),
-                )
-            })
+        frame.child(slider).when_some(self.readout, |this, format| {
+            this.child(
+                div()
+                    .flex_none()
+                    .min_w(px(34.))
+                    .flex()
+                    .justify_end()
+                    .text_role(TextRole::Caption, cx)
+                    .font_features(FontFeatures(std::sync::Arc::new(vec![("tnum".into(), 1)])))
+                    .text_color(palette.text_secondary)
+                    .child(format(value)),
+            )
+        })
     }
 }
 
@@ -234,8 +277,22 @@ mod tests {
 
     #[test]
     fn home_and_end_reach_the_ends_from_anywhere() {
-        assert_eq!(key_delta("home", 14., 10., 20., 2.).map(|d| 14. + d), Some(10.));
-        assert_eq!(key_delta("end", 14., 10., 20., 2.).map(|d| 14. + d), Some(20.));
+        assert_eq!(
+            key_delta("home", 14., 10., 20., 2.).map(|d| 14. + d),
+            Some(10.)
+        );
+        assert_eq!(
+            key_delta("end", 14., 10., 20., 2.).map(|d| 14. + d),
+            Some(20.)
+        );
+    }
+
+    #[test]
+    fn an_unusable_step_moves_a_hundredth_of_the_range() {
+        assert_eq!(key_delta("right", 40., 0., 200., 0.), Some(2.));
+        assert_eq!(key_delta("left", 40., 0., 200., -1.), Some(-2.));
+        assert_eq!(key_delta("up", 40., 0., 200., f32::NAN), Some(2.));
+        assert_eq!(key_delta("pageup", 40., 0., 200., f32::NAN), Some(20.));
     }
 
     #[test]
