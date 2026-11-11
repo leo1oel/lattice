@@ -404,6 +404,23 @@ purpose.
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and
   document history.
+- The same holds for a rename made on Overleaf (`overleaf/sync/renames.rs`).
+  A sync weighs each edited file Overleaf no longer has against the history's
+  `project_ops`. If exactly one operation touches the file and it renames the
+  file, or a folder above it, to a path that is new on Overleaf and free
+  locally, the file and its merge base move there first. The local edit then
+  merges into the renamed file, and the old name is never uploaded again. A
+  history that shows only a removal leaves the edit to go back up as before.
+  Any other case holds the file: it is not uploaded or deleted, it stays on
+  its agreed copy, and the result names it (`heldRenames`). Other cases
+  include an unreadable history, a chain of renames, or a target that was
+  reused or is spelled like a local path. While a file is held, the agreed
+  version does not advance, so the next sync can still read the rename. When
+  the history is unreadable, paths new on Overleaf also wait unpulled, so the
+  next readable sync can carry the edit. An unedited file renamed only in
+  letter case is carried without the history, through a temporary name. A
+  sync never deletes a local path whose name, ignoring case, matches one it
+  keeps.
 - A sync sends its edit to a file Overleaf holds as a document over the live
   channel rather than by upload, except as listed below (`overleaf/doc_push.rs`,
   `overleaf/sync/send.rs`).

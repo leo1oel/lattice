@@ -171,7 +171,9 @@ pub(super) fn remote_copy(
     if fetch.iter().filter(|path| state.files.contains_key(*path)).count() > most_fetches {
         return RemoteCopy::Download;
     }
-    let table = state.files.keys().cloned().collect();
+    // A path the last sync left differing from Overleaf on purpose, such as
+    // a file held for a rename (see `renames`), may be gone from the tree.
+    let table = state.files.keys().filter(|path| !unsettled.contains(*path)).cloned().collect();
     let unsettled = still_live;
     RemoteCopy::Changed(Changes { agreed, fetch, table, tree_paths, unsettled, most_fetches })
 }

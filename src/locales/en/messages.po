@@ -11084,6 +11084,10 @@ msgstr "Overleaf rejected the upload"
 msgid "Overleaf removed this part."
 msgstr "Overleaf removed this part."
 
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
+msgstr "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
 msgstr "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."

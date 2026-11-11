@@ -37,6 +37,12 @@ export function overleafSyncWarnings(
     const pairs = result.caseCollisions.map(({ kept, skipped }) => `${kept} / ${skipped}`).join(", ");
     warnings.push(t`Overleaf has names that differ only in capitalization, which this Mac treats as the same name: ${pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both.`);
   }
+  // Edited here and renamed or removed on Overleaf where the sync could not
+  // follow: sending it under its old name would split the file, so it waits.
+  // Named on every sync while held, with the way out.
+  for (const file of result.heldRenames ?? []) {
+    warnings.push(t`Overleaf renamed or removed ${file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete ${file} here.`);
+  }
   // Held back while Overleaf moves on, named once when the hold starts: the
   // backend leaves out files the previous sync was holding already.
   const held = (result.newlyUnresolvedConflicts ?? []).map((file) => ({

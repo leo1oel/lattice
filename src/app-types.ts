@@ -559,6 +559,12 @@ export type OverleafSyncResult = {
    */
   caseCollisions?: { kept: string; skipped: string }[];
   /**
+   * Edited here, and renamed or removed on Overleaf in a way the sync could
+   * not carry the edit through: held unsent and undeleted rather than
+   * uploaded again under the old name. Named on every sync while held.
+   */
+  heldRenames?: string[];
+  /**
    * Changed here while the sync ran by something other than the editor (an
    * agent, another program). The sync left them exactly as edited; they go
    * up with the next one.
