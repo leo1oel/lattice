@@ -11036,6 +11036,10 @@ msgstr "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 msgid "Overleaf live editing reconnected."
 msgstr "Overleaf live editing reconnected."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+msgstr "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf project actions"
