@@ -1473,6 +1473,10 @@ msgstr "A linked library must be a .bib file."
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 
+#: src/platform/host-errors-setup.ts
+msgid "A model name is empty or has spaces in it."
+msgstr "A model name is empty or has spaces in it."
+
 #: src/platform/host-errors-overleaf.ts
 msgid "A newer Overleaf connection replaced this one."
 msgstr "A newer Overleaf connection replaced this one."
@@ -1647,6 +1651,10 @@ msgstr "Accept the invitation on Overleaf to open it here"
 msgid "Accepted"
 msgstr "Accepted"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Accepts images"
+msgstr "Accepts images"
+
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
 msgstr "Access denied. Check the key"
@@ -1770,6 +1778,10 @@ msgstr "Add field"
 msgid "Add items from"
 msgstr "Add items from"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Add model"
+msgstr "Add model"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Add or edit a link"
 msgstr "Add or edit a link"
@@ -1886,6 +1898,11 @@ msgstr "Adding papers needs the paper tools, about 45 MB."
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "Adding…"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Address"
+msgstr "Address"
 
 #: src/settings/theme-settings.tsx
 msgid "Adjusted so links and selected text read at {ratio}:1"
@@ -2271,11 +2288,16 @@ msgstr "Answer and revise"
 msgid "Answer the agent"
 msgstr "Answer the agent"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Anthropic-compatible"
+msgstr "Anthropic-compatible"
+
 #: src/project/deadline-card.tsx
 msgid "AoE (UTC−12)"
 msgstr "AoE (UTC−12)"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "API key"
 msgstr "API key"
@@ -2420,6 +2442,10 @@ msgstr "Ask the Agent to revise"
 #: src/canvas/annotation-review.tsx
 msgid "Asking the agent again…"
 msgstr "Asking the agent again…"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Asking the first model to call a tool. This can take up to 45 seconds."
+msgstr "Asking the first model to call a tool. This can take up to 45 seconds."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
@@ -2645,6 +2671,10 @@ msgstr "Before the agent, this part was empty."
 #: src/overleaf/overleaf-changes.tsx
 msgid "Before the first section"
 msgstr "Before the first section"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Before you start"
+msgstr "Before you start"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Beta"
@@ -3067,6 +3097,10 @@ msgstr "Call for papers URL or note"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Callout"
 msgstr "Callout"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Calls tools"
+msgstr "Calls tools"
 
 #: src/app/use-tex-update-reminder.ts
 #: src/build/tex-install-dialog.tsx
@@ -4351,6 +4385,10 @@ msgstr "Conflicts"
 msgid "Congruent"
 msgstr "Congruent"
 
+#: src/onboarding/get-started-panel.tsx
+msgid "Connect a model endpoint"
+msgstr "Connect a model endpoint"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-project-picker.tsx
 msgid "Connect to Overleaf"
@@ -4364,6 +4402,10 @@ msgstr "Connected as {0}"
 #: src/settings/literature-settings.tsx
 msgid "Connected without a key"
 msgstr "Connected without a key"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Connected. The agent can use this model. Testing doesn’t save anything."
+msgstr "Connected. The agent can use this model. Testing doesn’t save anything."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connecting live editing…"
@@ -4386,6 +4428,10 @@ msgstr "Connection"
 msgid "Connection failed"
 msgstr "Connection failed"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Connection test"
+msgstr "Connection test"
+
 #: src/canvas/proofread-card.tsx
 msgid "consistency"
 msgstr "consistency"
@@ -4402,6 +4448,11 @@ msgstr "Contact settings saved."
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Contains as member"
 msgstr "Contains as member"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Context window"
+msgstr "Context window"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -4566,6 +4617,10 @@ msgstr "Could not collect runtime logs."
 #: src/canvas/paper-selection-actions.tsx
 msgid "Could not copy the source link"
 msgstr "Could not copy the source link"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not create the endpoint settings folder: {error}"
+msgstr "Could not create the endpoint settings folder: {error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not create the report folder: {error}"
@@ -4740,6 +4795,10 @@ msgstr "Could not read {path}: {error}"
 #: src/platform/host-errors-papers.ts
 msgid "Could not read the arXiv title lookup: {error}"
 msgstr "Could not read the arXiv title lookup: {error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not read the endpoint settings: {error}"
+msgstr "Could not read the endpoint settings: {error}"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
@@ -4961,6 +5020,10 @@ msgstr "Couldn’t open this spreadsheet"
 msgid "Couldn’t reach Overleaf"
 msgstr "Couldn’t reach Overleaf"
 
+#: src/settings/model-endpoint-probe.ts
+msgid "Couldn’t reach the address. Check it, and your network or proxy."
+msgstr "Couldn’t reach the address. Check it, and your network or proxy."
+
 #: src/project/clone-repository-dialog.tsx
 msgid "Couldn’t reach the server"
 msgstr "Couldn’t reach the server"
@@ -4968,6 +5031,10 @@ msgstr "Couldn’t reach the server"
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
 msgstr "Couldn’t reach the service"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Couldn’t read the endpoint settings. Reopen Settings to retry"
+msgstr "Couldn’t read the endpoint settings. Reopen Settings to retry"
 
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
@@ -6006,6 +6073,14 @@ msgstr "Enable version tracking"
 msgid "End an environment"
 msgstr "End an environment"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Endpoint"
+msgstr "Endpoint"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Endpoint removed."
+msgstr "Endpoint removed."
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
@@ -6033,6 +6108,7 @@ msgid "Enter a DOI, arXiv id, or paper title."
 msgstr "Enter a DOI, arXiv id, or paper title."
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Enter a replacement key"
 msgstr "Enter a replacement key"
 
@@ -6073,6 +6149,10 @@ msgstr "Enter manually"
 #: src/platform/host-errors-workspace.ts
 msgid "Enter text to find."
 msgstr "Enter text to find."
+
+#: src/platform/host-errors-setup.ts
+msgid "Enter the endpoint’s address, starting with https:// or http://."
+msgstr "Enter the endpoint’s address, starting with https:// or http://."
 
 #: src/papers/audit-messages.ts
 msgid "Entry changed"
@@ -6931,6 +7011,10 @@ msgstr "GitHub’s download server timed out (504). Try again, or download Latti
 msgid "GitHub’s download server was unavailable ({code}). Try again, or download Lattice {version} from the releases page."
 msgstr "GitHub’s download server was unavailable ({code}). Try again, or download Lattice {version} from the releases page."
 
+#: src/platform/host-errors-setup.ts
+msgid "Give between 1 and {count} models."
+msgstr "Give between 1 and {count} models."
+
 #: src/platform/host-errors-project.ts
 msgid "Give the checked date as a day."
 msgstr "Give the checked date as a day."
@@ -7284,6 +7368,10 @@ msgstr "Horizontal rule that divides sections."
 msgid "Horizontal space"
 msgstr "Horizontal space"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "How the endpoint expects requests."
+msgstr "How the endpoint expects requests."
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "How the entry reads"
 msgstr "How the entry reads"
@@ -7392,6 +7480,10 @@ msgstr "Image source"
 #: src/canvas/project-asset-preview.tsx
 msgid "Image zoom percentage"
 msgstr "Image zoom percentage"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Images"
+msgstr "Images"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Imaginary part"
@@ -8232,6 +8324,11 @@ msgstr "Kept as written"
 msgid "Kept here"
 msgstr "Kept here"
 
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Kept in the macOS keychain. Leave it empty for a local server that needs none."
+msgstr "Kept in the macOS keychain. Leave it empty for a local server that needs none."
+
 #: src/app/use-document-save.ts
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "Kept overlapping external edits in {path} with conflict markers."
@@ -8243,6 +8340,10 @@ msgstr "Kept your copy of {files}. Overleaf sent these files empty or much small
 #: src/project/paper-inspector.tsx
 msgid "Key"
 msgstr "Key"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Key accepted"
+msgstr "Key accepted"
 
 #: src/settings/literature-settings.tsx
 msgid "Key removed"
@@ -8477,6 +8578,10 @@ msgstr "Lattice could not read {0}."
 #: src/app/project-index-load.ts
 msgid "Lattice could not read the project’s labels and citations: {error}"
 msgstr "Lattice could not read the project’s labels and citations: {error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Lattice could not use the system keychain."
+msgstr "Lattice could not use the system keychain."
 
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
@@ -9242,6 +9347,11 @@ msgstr "Maths, figures and citations are left unmarked: the fully marked documen
 msgid "Matrix"
 msgstr "Matrix"
 
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Max output"
+msgstr "Max output"
+
 #: src/trellis/trellis-labels.ts
 msgid "Maximize"
 msgstr "Maximize"
@@ -9424,9 +9534,36 @@ msgstr "Missing tools: {0}"
 msgid "Mist"
 msgstr "Mist"
 
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Model endpoint"
+msgstr "Model endpoint"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Model found"
+msgstr "Model found"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Model name"
+msgstr "Model name"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "model-name"
+msgstr "model-name"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Models"
+msgstr "Models"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
 msgstr "Models / entails"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Models to offer"
+msgstr "Models to offer"
 
 #: src/history/versions-timeline.tsx
 msgid "modified"
@@ -9443,6 +9580,10 @@ msgstr "More editor status"
 #: src/pdf/pdf-overflow-menu.tsx
 msgid "More PDF actions"
 msgstr "More PDF actions"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "More protocols"
+msgstr "More protocols"
 
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
@@ -9540,6 +9681,10 @@ msgstr "name@example.org"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Named operator"
 msgstr "Named operator"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Names as the endpoint spells them. Test connection tries the first."
+msgstr "Names as the endpoint spells them. Test connection tries the first."
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Native app"
@@ -10306,6 +10451,10 @@ msgstr "Not needed here"
 msgid "Not on this PDF"
 msgstr "Not on this PDF"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Not reached"
+msgstr "Not reached"
+
 #: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -10345,6 +10494,10 @@ msgstr "Note discarded"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Notes"
 msgstr "Notes"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Nothing answers at that address. Check the address and the protocol."
+msgstr "Nothing answers at that address. Check the address and the protocol."
 
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
@@ -10815,6 +10968,10 @@ msgstr "Open PDF in browser"
 msgid "Open project history"
 msgstr "Open project history"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Open Providers"
+msgstr "Open Providers"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Open Recent"
@@ -10933,6 +11090,10 @@ msgctxt "macOS menu bar"
 msgid "Open…"
 msgstr "Open…"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "OpenAI-compatible"
+msgstr "OpenAI-compatible"
+
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
 msgid "OpenAlex"
@@ -10977,6 +11138,10 @@ msgstr "Operation metadata"
 #: src/app/shortcut-sheet.tsx
 msgid "or"
 msgstr "or"
+
+#: src/onboarding/get-started-panel.tsx
+msgid "Or connect a model endpoint: your own API address, key and model name, with no command-line tool to install."
+msgstr "Or connect a model endpoint: your own API address, key and model name, with no command-line tool to install."
 
 #: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
@@ -11299,6 +11464,11 @@ msgstr "Overview only"
 msgid "Overwrite files of the same name; merge folders"
 msgstr "Overwrite files of the same name; merge folders"
 
+#. Search words for the agent Model endpoint settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "own API base URL custom"
+msgstr "own API base URL custom"
+
 #: src/platform/host-errors-project.ts
 msgctxt "submission checklist field"
 msgid "owner"
@@ -11488,6 +11658,10 @@ msgstr "Partial results for {completed} of {progressTotal} references, waiting f
 msgid "pass {run}"
 msgstr "pass {run}"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Passed"
+msgstr "Passed"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Paste"
@@ -11519,6 +11693,7 @@ msgid "Paste the Overleaf session cookie first."
 msgstr "Paste the Overleaf session cookie first."
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Paste your API key"
 msgstr "Paste your API key"
 
@@ -11690,6 +11865,19 @@ msgstr "Phi"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pi"
 msgstr "Pi"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Pi doesn’t ask before editing, whatever permission mode you choose. Each edit is checkpointed so you can undo it, and .bib files stay protected."
+msgstr "Pi doesn’t ask before editing, whatever permission mode you choose. Each edit is checkpointed so you can undo it, and .bib files stay protected."
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Pi is a one-time download of about 150 MB. Install it under Providers › Pi."
+msgstr "Pi is a one-time download of about 150 MB. Install it under Providers › Pi."
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Pi runtime"
+msgstr "Pi runtime"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Pick an emoji to insert at the cursor."
@@ -12037,6 +12225,10 @@ msgstr "Proofread suggestion"
 msgid "Proofread the selection"
 msgstr "Proofread the selection"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Proofread, Polish and revision requests still need Claude Code or Codex for now."
+msgstr "Proofread, Polish and revision requests still need Claude Code or Codex for now."
+
 #: src/canvas/proofread-card.tsx
 msgid "Proofreading…"
 msgstr "Proofreading…"
@@ -12061,6 +12253,11 @@ msgstr "Proposed BibTeX"
 #: src/history/compare-versions.tsx
 msgid "Prose"
 msgstr "Prose"
+
+#: src/settings/model-endpoint-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Protocol"
+msgstr "Protocol"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proves / turnstile"
@@ -12205,6 +12402,10 @@ msgstr "Rate-limited. Try again later"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Raw build log"
 msgstr "Raw build log"
+
+#: src/settings/model-endpoint-probe.ts
+msgid "Reached the address"
+msgstr "Reached the address"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
@@ -12532,6 +12733,10 @@ msgstr "Remove % comments"
 msgid "Remove citations too"
 msgstr "Remove citations too"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Remove endpoint"
+msgstr "Remove endpoint"
+
 #: src/agent/agent-reference-removal.ts
 #: src/app/remove-reference-action.ts
 msgid "Remove entry"
@@ -12542,8 +12747,13 @@ msgid "Remove highlight"
 msgstr "Remove highlight"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Remove key"
 msgstr "Remove key"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Remove model"
+msgstr "Remove model"
 
 #: src/app/use-overleaf-remote-deletes.ts
 msgid "Remove one file from the Overleaf project?"
@@ -13013,6 +13223,7 @@ msgstr "Resolving…"
 
 #: src/agent/agent-environment.ts
 #: src/settings/agent-environment-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Restart agent"
 msgstr "Restart agent"
@@ -13500,6 +13711,7 @@ msgstr "Saturation and brightness"
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Save"
 msgstr "Save"
 
@@ -13669,6 +13881,10 @@ msgstr "Saved a copy to {written}"
 msgid "Saved and synced"
 msgstr "Saved and synced"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Saved in the keychain. Enter a new one to replace it."
+msgstr "Saved in the keychain. Enter a new one to replace it."
+
 #: src/canvas/status-save-state.tsx
 msgid "Saved on this Mac"
 msgstr "Saved on this Mac"
@@ -13706,6 +13922,10 @@ msgstr "Saved, syncing…"
 #: src/project/paper-inspector.tsx
 msgid "Saved, with its overview"
 msgstr "Saved, with its overview"
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Saved. In the Agent panel’s model menu, open Pi and choose a model under {host}."
+msgstr "Saved. In the Agent panel’s model menu, open Pi and choose a model under {host}."
 
 #: src/history/export-changes-dialog.tsx
 msgid "Saves {saved} beside {pdf}"
@@ -14722,6 +14942,10 @@ msgstr "Stopped after 2 minutes"
 msgid "Stopping…"
 msgstr "Stopping…"
 
+#: src/settings/model-endpoint-probe.ts
+msgid "Streams replies"
+msgstr "Streams replies"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
@@ -15095,6 +15319,7 @@ msgid "Terminals"
 msgstr "Terminals"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/model-endpoint-settings.tsx
 msgid "Test connection"
 msgstr "Test connection"
 
@@ -15192,6 +15417,10 @@ msgstr "Text to find"
 msgid "Textual citation"
 msgstr "Textual citation"
 
+#: src/platform/host-errors-setup.ts
+msgid "That API key is not valid."
+msgstr "That API key is not valid."
+
 #: src/platform/host-errors-overleaf.ts
 msgid "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
 msgstr "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
@@ -15264,6 +15493,22 @@ msgstr "The {what} download was interrupted: {error}"
 msgid "the acknowledgement did not arrive in time"
 msgstr "the acknowledgement did not arrive in time"
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /chat/completions, often ending in /v1."
+msgstr "The address before /chat/completions, often ending in /v1."
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /models, with its API version."
+msgstr "The address before /models, with its API version."
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /responses, often ending in /v1."
+msgstr "The address before /responses, often ending in /v1."
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The address before /v1/messages."
+msgstr "The address before /v1/messages."
+
 #: src/agent/agent-reference-removal.ts
 msgid "The agent asked to delete this entry. Nothing in the paper cites it now, and an entry nobody cites is harmless: BibTeX lists only cited entries."
 msgstr "The agent asked to delete this entry. Nothing in the paper cites it now, and an entry nobody cites is harmless: BibTeX lists only cited entries."
@@ -15313,6 +15558,10 @@ msgstr "The agent is waiting for your answer. The request is in its composer; se
 msgid "The agent reads these each time it starts."
 msgstr "The agent reads these each time it starts."
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "The agent restarted with the endpoint."
+msgstr "The agent restarted with the endpoint."
+
 #: src/web-demo/desktop-only.tsx
 msgid "The Agent runs on your Mac"
 msgstr "The Agent runs on your Mac"
@@ -15332,6 +15581,10 @@ msgstr "The agent still uses the proxy it started with. Restarting it stops any 
 #: src/canvas/annotation-review.tsx
 msgid "The agent suggests leaving the passage as it is."
 msgstr "The agent suggests leaving the passage as it is."
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The agent uses it after a restart, which would stop the turn running now."
+msgstr "The agent uses it after a restart, which would stop the turn running now."
 
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
@@ -15576,6 +15829,54 @@ msgstr "The downloaded update failed its signature check, so it was not installe
 msgid "The drawing is too large to convert."
 msgstr "The drawing is too large to convert."
 
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint answered without streaming, which the agent needs."
+msgstr "The endpoint answered without streaming, which the agent needs."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint didn’t answer within 45 seconds."
+msgstr "The endpoint didn’t answer within 45 seconds."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint doesn’t know that model name."
+msgstr "The endpoint doesn’t know that model name."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint had an error of its own. Try again later."
+msgstr "The endpoint had an error of its own. Try again later."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint is rate-limiting this key. Try again later."
+msgstr "The endpoint is rate-limiting this key. Try again later."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint refused the key."
+msgstr "The endpoint refused the key."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint refused the request."
+msgstr "The endpoint refused the request."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint refused tool calls, which the agent needs to edit files."
+msgstr "The endpoint refused tool calls, which the agent needs to edit files."
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "The endpoint said: {detail}"
+msgstr "The endpoint said: {detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The endpoint settings file is not valid JSON."
+msgstr "The endpoint settings file is not valid JSON."
+
+#: src/platform/host-errors-setup.ts
+msgid "The endpoint settings worker stopped."
+msgstr "The endpoint settings worker stopped."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The endpoint’s answer wasn’t one the agent can read. Check the protocol."
+msgstr "The endpoint’s answer wasn’t one the agent can read. Check the protocol."
+
 #: src/app/use-reference-import.ts
 msgid "The entry for {citationCommand} already matches its sources."
 msgstr "The entry for {citationCommand} already matches its sources."
@@ -15727,6 +16028,14 @@ msgstr "The live preview PDF is not in its build folder."
 #: src/papers/add-papers-sheet.tsx
 msgid "The lookup returned no record."
 msgstr "The lookup returned no record."
+
+#: src/platform/host-errors-setup.ts
+msgid "The model {model} is listed twice."
+msgstr "The model {model} is listed twice."
+
+#: src/settings/model-endpoint-probe.ts
+msgid "The model answered but didn’t call the test tool. The agent may not manage to edit files with it."
+msgstr "The model answered but didn’t call the test tool. The agent may not manage to edit files with it."
 
 #: src/overleaf/use-overleaf-realtime-connection.ts
 msgid "the network became available"
@@ -16134,6 +16443,10 @@ msgstr "The text is too large to save as a copy."
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "The third-party notices could not be read from the app bundle."
+
+#: src/platform/host-errors-setup.ts
+msgid "The token limits of {model} are out of range."
+msgstr "The token limits of {model} are out of range."
 
 #: src/platform/host-errors-workspace.ts
 msgid "The transaction contains no edits."
@@ -16737,6 +17050,10 @@ msgstr "TODOs"
 #: src/canvas/proofread-layer.tsx
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
+
+#: src/settings/model-endpoint-settings.tsx
+msgid "Token limits must be whole numbers."
+msgstr "Token limits must be whole numbers."
 
 #: src/editor/markdown/engine/views/html-preview.tsx
 msgid "Too complex to preview"
@@ -17379,6 +17696,10 @@ msgstr "Use this record"
 msgid "Use valid CSV or TSV with at most 20 rows and 20 columns."
 msgstr "Use valid CSV or TSV with at most 20 rows and 20 columns."
 
+#: src/settings/model-endpoint-settings.tsx
+msgid "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
+msgstr "Use your own OpenAI- or Anthropic-compatible API with an address, a key and model names. The agent runs it through Pi, with no command-line tool to install."
+
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "Using environment key"
@@ -17743,6 +18064,10 @@ msgstr "Wiki link suggestions"
 msgctxt "macOS menu bar"
 msgid "Window"
 msgstr "Window"
+
+#: src/agent/synara-permission-picker.tsx
+msgid "With a model endpoint, Pi edits without asking in every mode. Its edits are checkpointed so you can undo them, and .bib files stay protected."
+msgstr "With a model endpoint, Pi edits without asking in every mode. Its edits are checkpointed so you can undo them, and .bib files stay protected."
 
 #: src/project/paper-list-toolbar.tsx
 msgid "With full text"

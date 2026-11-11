@@ -34,6 +34,7 @@ import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
 import type { SynaraSettingsTarget } from "../app/use-synara-host";
 import { AgentEnvironmentSettings } from "./agent-environment-settings";
+import { ModelEndpointSettings } from "./model-endpoint-settings";
 import { SelectRow } from "./settings-controls";
 import { EditorFontSettingsGroups } from "./editor-font-settings";
 import { SegmentedControl } from "../components/ui/segmented-control";
@@ -146,6 +147,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "mcp", label: t`MCP`, icon: "plugs" },
       { tab: "api", label: t`Skills`, icon: "package" },
       { tab: "usage", label: t`Usage & limits`, icon: "clock-back" },
+      { tab: "model-endpoint", label: t`Model endpoint`, icon: "sparkle" },
       { tab: "environment", label: t`Environment`, icon: "api-key" },
     ] },
     { label: t`Integrations`, items: [
@@ -264,6 +266,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
+    "model-endpoint": <ModelEndpointSettings openTab={props.setTab} />,
     environment: <AgentEnvironmentSettings runtime={props.synaraRuntime} />,
     overleaf: (
       <OverleafSettingsSection

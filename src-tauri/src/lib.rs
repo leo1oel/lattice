@@ -49,6 +49,7 @@ mod macos_window;
 #[cfg(not(target_os = "macos"))]
 #[path = "macos_window_stub.rs"]
 mod macos_window;
+mod model_endpoint;
 mod models;
 mod native_locale;
 mod open_slide_presenter;
@@ -354,7 +355,7 @@ pub fn run() {
     process_inspector::run_if_requested();
     app_identity::init(&context.config().identifier);
     http::install_tls_provider();
-    if agent_literature::run_cli() || research_env::run_cli() {
+    if agent_literature::run_cli() || research_env::run_cli() || model_endpoint::run_cli() {
         return;
     }
     // Panics after the log plugin installs its logger land in the log file;
@@ -674,6 +675,10 @@ pub fn run() {
             literature_credentials::set_literature_credential,
             literature_credentials::set_literature_contact,
             literature_credentials::test_literature_credential,
+            model_endpoint::get_model_endpoint,
+            model_endpoint::save_model_endpoint,
+            model_endpoint::remove_model_endpoint,
+            model_endpoint::test_model_endpoint,
             diagnostic_logs::collect_diagnostic_logs,
             diagnostic_logs::save_problem_report,
             browser_host::dialogs::browser_dialog_open,

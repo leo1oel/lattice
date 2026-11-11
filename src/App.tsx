@@ -847,7 +847,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         {documentSurfaces}
         <LazyMount when={tools.isOpen.start}>
           <GetStartedPanel
-            controller={trellis} openFile={openFile} texSetup={texSetup} openProviderSettings={settingsWindow.openProviderSettings}
+            controller={trellis} openFile={openFile} texSetup={texSetup} openSettings={settingsWindow.openSettings}
             newProject={() => updateCreateForm({ open: true })} openFolder={chooseExisting}
             openOverleaf={() => setOverleafPickerOpen(true)} onClose={() => tools.close("start")}
           />
