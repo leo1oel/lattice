@@ -49,6 +49,12 @@ const LOCATED_CAP: usize = 40;
 /// A file TeX names in its log, `./main.tex` or `../shared/macros.tex`.
 const LOG_FILE: &str = r"([^\n:]+\.[A-Za-z0-9]+)";
 
+/// TeX Live on Windows starts `latexmk.exe` and the other scripts through
+/// this Lua wrapper, which reports a failed run in the `file:line:` shape
+/// (`…\bin\windows\runscript.tlu:933: command failed with exit code 12:`);
+/// the TeX errors behind it are listed already.
+const TEX_LIVE_WRAPPER: &str = "runscript.tlu";
+
 pub fn is_pass_noise_warning(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
     PASS_NOISE.iter().any(|phrase| lower.contains(phrase))
@@ -81,7 +87,8 @@ pub fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
 
     let mut located_lines = file_line
         .captures_iter(log)
-        .filter(|capture| !warning_on_line.is_match(&capture[0]));
+        .filter(|capture| !warning_on_line.is_match(&capture[0]))
+        .filter(|capture| !capture[1].ends_with(TEX_LIVE_WRAPPER));
     let mut diagnostics: Vec<Diagnostic> = located_lines
         .by_ref()
         .take(LOCATED_CAP)
@@ -248,6 +255,14 @@ mod tests {
                 "Undefined control sequence.".into()
             )]
         );
+    }
+
+    #[test]
+    fn skips_tex_live_windows_wrapper_exit_report() {
+        let log = "Running 'pdflatex'\n./main.tex:3: Undefined control sequence.\nC:\\texlive\\2026\\bin\\windows\\runscript.tlu:933: command failed with exit code 12:\nlatexmk -cd main.tex\n";
+        let diagnostics = parse_diagnostics(log);
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].file.as_deref(), Some("main.tex"));
     }
 
     #[test]
