@@ -90,6 +90,9 @@ pub(super) struct Mock {
     /// The project history, newest first, served whole to every other
     /// `/updates` request: the page reads that confirm a destructive pull.
     pub history: Vec<serde_json::Value>,
+    /// Every page of `history` says older pages follow, so a read that wants
+    /// all of it runs into the most pages Lattice reads at once.
+    pub endless_history: bool,
     /// The nth file upload (counting from 1) fails.
     pub fail_upload_at: Option<usize>,
     /// The failed upload's status and body, instead of a plain 500.
@@ -280,7 +283,10 @@ impl Mock {
                     (status, None, body)
                 }
                 ("GET", p) if p.ends_with("/updates") && !url.ends_with("?min_count=1") => {
-                    let body = serde_json::json!({ "updates": self.history });
+                    let mut body = serde_json::json!({ "updates": self.history });
+                    if self.endless_history {
+                        body["nextBeforeTimestamp"] = serde_json::json!(1);
+                    }
                     (200, JSON, body.to_string().into_bytes())
                 }
                 ("GET", p) if p.ends_with("/updates") => match versions.front().copied() {
