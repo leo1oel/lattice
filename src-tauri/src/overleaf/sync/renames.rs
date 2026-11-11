@@ -424,10 +424,18 @@ pub(super) fn move_local(
 /// Whether `a` and `b` name one file on disk, as two spellings of a path do
 /// on a disk that ignores letter case.
 fn same_file(a: &Path, b: &Path) -> bool {
-    use std::os::unix::fs::MetadataExt;
-    match (a.symlink_metadata(), b.symlink_metadata()) {
-        (Ok(a), Ok(b)) => (a.dev(), a.ino()) == (b.dev(), b.ino()),
-        _ => false,
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (a.symlink_metadata(), b.symlink_metadata()) {
+            (Ok(a), Ok(b)) => (a.dev(), a.ino()) == (b.dev(), b.ino()),
+            _ => false,
+        }
+    }
+    #[cfg(windows)]
+    {
+        use crate::platform_fs::path_identity;
+        matches!((path_identity(a), path_identity(b)), (Ok(a), Ok(b)) if a == b)
     }
 }
 
