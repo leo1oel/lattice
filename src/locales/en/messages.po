@@ -11053,6 +11053,10 @@ msgstr "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 msgid "Overleaf live editing reconnected."
 msgstr "Overleaf live editing reconnected."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+msgstr "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf project actions"
@@ -11100,6 +11104,10 @@ msgstr "Overleaf rejected the upload"
 #: src/history/conflict-resolver.tsx
 msgid "Overleaf removed this part."
 msgstr "Overleaf removed this part."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
+msgstr "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."

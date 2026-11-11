@@ -219,3 +219,31 @@ fn opening_an_already_downloaded_project_opens_it() {
     .expect("opening an already-downloaded project should succeed");
     assert_eq!(opened, existing, "it should be the copy already on disk");
 }
+
+/// A state file written before the unsettled record said why each path
+/// differs lists bare paths; each is read as one to fetch again, and the
+/// record as written now, a hold's window included, reads back unchanged.
+#[test]
+fn the_unsettled_record_reads_old_state_files_and_round_trips() {
+    let old = serde_json::json!({ "host": "h", "projectId": "p", "projectName": "n",
+        "unsettled": ["notes.tex"] });
+    let state: SyncState = serde_json::from_value(old).unwrap();
+    let fetch = BTreeMap::from([("notes.tex".to_string(), Unsettled::Fetch)]);
+    assert_eq!(state.unsettled, Some(fetch));
+
+    let absent: SyncState = serde_json::from_value(
+        serde_json::json!({ "host": "h", "projectId": "p", "projectName": "n" }),
+    )
+    .unwrap();
+    assert_eq!(absent.unsettled, None);
+
+    let held = Unsettled::Held(Some(HistoryFrom::Version(41)));
+    let record = BTreeMap::from([
+        ("method.tex".to_string(), held),
+        ("approach.tex".to_string(), Unsettled::Fetch),
+        ("draft.tex".to_string(), Unsettled::Held(None)),
+    ]);
+    let written = SyncState { unsettled: Some(record.clone()), ..Default::default() };
+    let read: SyncState = serde_json::from_str(&serde_json::to_string(&written).unwrap()).unwrap();
+    assert_eq!(read.unsettled, Some(record));
+}

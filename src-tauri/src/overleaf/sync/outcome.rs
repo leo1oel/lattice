@@ -76,6 +76,12 @@ pub struct OverleafSyncResult {
     /// one is renamed.
     #[serde(default)]
     pub case_collisions: Vec<CaseCollision>,
+    /// Files edited here that Overleaf renamed or removed in a way this sync
+    /// could not carry the edit through (see `renames`): held back unsent and
+    /// undeleted, on their agreed copy, rather than uploaded again under the
+    /// old name beside the renamed file. Named on every sync while held.
+    #[serde(default)]
+    pub held_renames: Vec<String>,
 }
 
 /// Of the files this sync holds marked up, those `state` (the last sync's)
@@ -99,6 +105,7 @@ pub(super) fn record_result(result: &OverleafSyncResult) {
         ("uploaded_over_edits", result.uploaded_over_edits.len()),
         ("unresolved_conflicts", result.unresolved_conflicts.len()),
         ("case_collisions", result.case_collisions.len()),
+        ("held_renames", result.held_renames.len()),
     ] {
         if count > 0 {
             wide_event::record(key, count);

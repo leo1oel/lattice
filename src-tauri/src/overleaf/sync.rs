@@ -2,7 +2,8 @@
 //! the plan that classifies every file, the sync that carries it out, and the
 //! dry-run preview of it. Where that copy comes from — the agreed one, only
 //! what changed, or the project ZIP (`download`) — is in `changes`; the
-//! replay of local moves that must come first is in `relocations`.
+//! replay of local moves that must come first is in `relocations`, and
+//! renames made on Overleaf in `renames`.
 //!
 //! Classification and execution are deliberately separate: the exact same
 //! decisions drive a real sync, the read-only preview the user sees before
@@ -12,10 +13,9 @@
 use super::api::{csrf_token, http_client, DownloadGate, Remote};
 use super::case_collisions::{self, CaseCollision};
 use super::files::*;
-use super::link::{now_iso, save_state, Refusal, SyncState, PAUSED};
+use super::link::{now_iso, save_state, Refusal, SyncState, Unsettled};
 use super::review::HistoryFrom;
-use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED, SESSION_STILL_VALID};
-use crate::wide_event::{self, Failure};
+use crate::wide_event;
 use reqwest::blocking::Client;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -153,9 +153,12 @@ impl SyncPlan {
 ///
 /// `live` holds paths the realtime channel is currently editing. Those are
 /// converging through operations already, so this leaves them alone entirely.
+/// `renamed` names the old path of each file carried to a new one, whose
+/// merge base is still kept there (see `renames`).
 pub(super) fn plan_sync(
     root: &Path, state: &SyncState, remote: &BTreeMap<String, Vec<u8>>,
-    local: &BTreeMap<String, Vec<u8>>, live: &BTreeSet<String>, stamp: &str,
+    local: &BTreeMap<String, Vec<u8>>, live: &BTreeSet<String>, renamed: &BTreeMap<String, String>,
+    stamp: &str,
 ) -> Result<SyncPlan, String> {
     if !state.pending_relocations.is_empty() {
         return Err(
@@ -206,7 +209,8 @@ pub(super) fn plan_sync(
                 // to different parts of a file simply merge — only genuinely
                 // overlapping edits need a human.
                 let merged = local_changed.then(|| {
-                    let (markers, resolved) = match merge_three_way(root, path, rb, lb) {
+                    let base = renamed.get(path).unwrap_or(path);
+                    let (markers, resolved) = match merge_three_way(root, path, base, rb, lb) {
                         MergeOutcome::Clean(merged) => return Merged::Clean(merged),
                         // Markers land in the file itself so the disagreement
                         // is visible exactly where it happened.
@@ -270,7 +274,7 @@ pub(super) fn plan_sync(
             (None, None) => {}
         }
     }
-    Ok(plan)
+    renames::refuse_case_aliases(plan)
 }
 
 /// The remote snapshot a sync or preview works from: Overleaf's copy of every
@@ -374,43 +378,6 @@ fn sync_client() -> Result<Client, String> {
     http_client(120)
 }
 
-/// What a failed sync means for whoever reads the log.
-pub fn classify_sync_error(error: &str) -> Failure {
-    let error = error
-        .strip_prefix("Failed to upload ")
-        .and_then(|rest| rest.split_once(" to Overleaf: "))
-        .map_or(error, |(_, cause)| cause);
-    if error == SESSION_EXPIRED || error == NOT_CONNECTED {
-        Failure {
-            kind: "session_expired",
-            fix: "Reconnect in Settings → Overleaf, then sync again.",
-        }
-    } else if error == SESSION_STILL_VALID {
-        Failure {
-            kind: "server_refused",
-            fix: "Check the project still opens on Overleaf, then sync again.",
-        }
-    } else if error == PAUSED {
-        Failure { kind: "paused", fix: "Resume syncing in Settings → Overleaf." }
-    } else if error.starts_with("Could not reach Overleaf") {
-        Failure { kind: "network", fix: "Check the connection (and any proxy), then sync again." }
-    } else if error.starts_with("Overleaf returned") || error.starts_with("Overleaf rejected") {
-        Failure {
-            kind: "server_refused",
-            fix: "Wait a minute and sync again; Overleaf may be busy.",
-        }
-    } else if error.contains("not linked") {
-        Failure { kind: "not_linked", fix: "Link the project to Overleaf again." }
-    } else if error.starts_with("Could not") && !error.contains("Overleaf") {
-        Failure {
-            kind: "local_io",
-            fix: "Check the project folder is writable and the disk is not full.",
-        }
-    } else {
-        Failure { kind: "sync_error", fix: "Sync again; if it repeats, report it with the log." }
-    }
-}
-
 /// Lease-free reads ahead a sync makes before its last round, which takes
 /// the lease and downloads under it if it must, so a link that keeps moving
 /// during each download cannot keep a sync from finishing.
@@ -476,7 +443,7 @@ fn sync_files(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
     prefetched: Option<Prefetched>, download: Option<DownloadGate>,
 ) -> Result<Option<OverleafSyncResult>, String> {
-    let linked = Remote::open_for_sync(config_dir, root)?;
+    let mut linked = Remote::open_for_sync(config_dir, root)?;
     let client = sync_client()?;
     // Read here only now, under the lease: whatever changed while the
     // download ran is part of this sync rather than left for the next.
@@ -522,7 +489,11 @@ fn sync_files(
     let (case_collisions, aside) =
         case_collisions::set_aside(&mut remote, &mut local, &linked.state.files);
     unsettled.extend(aside);
-    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let renames = remote_renames(&linked, &client, &remote, &local);
+    carry(&mut linked.state, &mut local, &renames);
+    let carried = &renames.carried;
+    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, carried, &sync_stamp())?;
+    hold(&mut plan, &linked.state, &renames);
     let mut refused = settle_destructive(&linked, &client, &mut plan);
     // Warn about a refused copy once; the same hollow download on every
     // later sync is not news.
@@ -582,6 +553,7 @@ fn sync_files(
         }
     };
     let since = |path: &String| since_read(root, path, local.get(path));
+    let moved = move_local(root, &renames, &local)?;
     let mut pulled = Vec::new();
     for (path, bytes) in &plan.pull {
         let since = since(path);
@@ -680,6 +652,7 @@ fn sync_files(
         }
     }
     result.pushed = pushed;
+    report(&mut result, &renames, &moved);
     result.read_only = !writable;
     result.edited_during_sync.sort();
     result.edited_during_sync.dedup();
@@ -700,8 +673,8 @@ fn sync_files(
     );
     // What went up differs only by what this sync wrote, which Overleaf's
     // history names after the copy, so the next sync fetches it again.
-    let settles = |path: &String| live.contains(path) || sent.contains_key(path);
-    state.unsettled = differs.iter().all(settles).then_some(differs);
+    let fetched = |path: &String| live.contains(path) || sent.contains_key(path);
+    state.unsettled = renames.unsettled(&differs, fetched);
     state.files = new_files;
     own_writes.retain(|path, _| state.files.contains_key(path));
     state.own_writes = own_writes;
@@ -720,6 +693,7 @@ fn sync_files(
     state.remote_version = if result.pushed.is_empty() { remote_version_before } else { None };
     state.agreed_version = remote_version_before;
     save_state(root, &state)?;
+    renames::forget_old_bases(root, &renames);
     // Every list is already in path order: the plan walks paths sorted.
     Ok(Some(result))
 }
@@ -728,6 +702,7 @@ fn sync_files(
 
 mod changes;
 mod download;
+mod failure;
 mod history_evidence;
 mod outcome;
 mod prefetch;
@@ -735,9 +710,11 @@ mod preview;
 mod probe;
 mod relocations;
 mod remote_delete;
+mod renames;
 mod send;
 use changes::{fetch, remote_copy, RemoteCopy};
 use download::download;
+pub use failure::classify_sync_error;
 use history_evidence::{agreed_copy, settle_destructive};
 use outcome::{newly_held, record_result};
 pub use outcome::{OverleafConflict, OverleafSyncResult};
@@ -746,6 +723,7 @@ pub use preview::{preview, OverleafPreview};
 pub use probe::{probe, OverleafProbe};
 pub use relocations::sync_relocations;
 pub use remote_delete::{delete_unchanged, RemoteDelete};
+use renames::{carry, hold, move_local, remote_renames, report};
 
 #[cfg(test)]
 mod tests;

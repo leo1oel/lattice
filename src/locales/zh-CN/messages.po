@@ -11053,6 +11053,10 @@ msgstr "实时协作断开（{reason}），正在重连…"
 msgid "Overleaf live editing reconnected."
 msgstr "实时协作已恢复"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+msgstr "Overleaf 上已没有 {deleted}，但有 {kept}。本机磁盘可能把这两个名字当作同一个文件，删除 {deleted} 可能会连带删掉 {kept}。请先把 {deleted} 移出项目，再同步一次。没有改动任何文件"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
 msgstr "Overleaf 选项"
@@ -11100,6 +11104,10 @@ msgstr "Overleaf 拒绝了上传"
 #: src/history/conflict-resolver.tsx
 msgid "Overleaf removed this part."
 msgstr "Overleaf 删了这段"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf renamed or removed {file} while it was edited here, and Lattice could not tell where the edit belongs, so it stays here unsent. Copy the edit into the right file, then delete {file} here."
+msgstr "{file} 在本机有修改时被 Overleaf 上的协作者重命名或删除了，Lattice 无法确定这些修改该放到哪个文件，所以修改先留在本机、没有上传。请把修改复制到正确的文件，然后删掉本机的 {file}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."

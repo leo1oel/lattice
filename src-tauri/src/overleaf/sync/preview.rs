@@ -1,6 +1,7 @@
 //! The dry run of a sync: the same fetch and the same classification, so what
 //! the user approves is exactly what runs, with nothing written or uploaded.
 
+use super::renames::{carry, hold, remote_renames};
 use super::{fetch, plan_sync, remote_copy, settle_destructive, sync_client, sync_stamp};
 use crate::overleaf::api::Remote;
 use crate::overleaf::case_collisions;
@@ -75,15 +76,25 @@ pub fn preview(
     let copy = remote_copy(&linked, &client, root, version, &local, live);
     let mut remote = fetch(&linked, &client, copy, &|| {}, &|_, _| {})?.files;
     case_collisions::set_aside(&mut remote, &mut local, &linked.state.files);
-    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    // A file renamed on Overleaf leaves its old name here, and its new name
+    // shows what lands there (see `renames`).
+    let renames = remote_renames(&linked, &client, &remote, &local);
+    let mut changes: Vec<OverleafChange> = (renames.carried.values())
+        .map(|from| preview_change(from, "deleteLocal", local.get(from).map(Vec::as_slice), None))
+        .collect();
+    carry(&mut linked.state, &mut local, &renames);
+    let carried = &renames.carried;
+    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, carried, &sync_stamp())?;
+    hold(&mut plan, &linked.state, &renames);
     let refused = settle_destructive(&linked, &client, &mut plan);
 
     let local_bytes = |path: &str| local.get(path).map(Vec::as_slice);
     // Conflicts first — the rows that wait on a decision — then the rest in
     // the order the user reads them.
-    let mut changes: Vec<OverleafChange> = (plan.conflict.iter())
-        .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved)))
-        .collect();
+    changes.extend(
+        (plan.conflict.iter())
+            .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved))),
+    );
     // Still marked up from an earlier conflict: nothing moves until resolved.
     for path in &plan.unresolved_conflicts {
         let held = local_bytes(path);
@@ -114,6 +125,12 @@ pub fn preview(
     }
     for path in &plan.skipped_remote_deletes {
         changes.push(preview_change(path, "skippedRemoteDelete", None, None));
+    }
+    for to in renames.carried.keys() {
+        if !changes.iter().any(|change| &change.path == to) {
+            let after = remote.get(to).map(Vec::as_slice);
+            changes.push(preview_change(to, "incoming", None, after));
+        }
     }
     let rank = [
         "conflict",

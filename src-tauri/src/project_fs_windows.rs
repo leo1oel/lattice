@@ -23,13 +23,16 @@ impl ProjectDir {
         })
     }
 
-    fn parent(&self, relative: &str, create: bool) -> Result<(Dir, OsString), String> {
+    fn components(relative: &str) -> Result<Vec<OsString>, String> {
         let path = Path::new(relative);
         if path.as_os_str().is_empty() || !path.components().all(|part| matches!(part, Component::Normal(name) if crate::platform_windows::valid_name(name))) {
             return Err("The requested path is outside the project.".into());
         }
-        let mut parts: Vec<_> =
-            path.components().map(|part| part.as_os_str().to_os_string()).collect();
+        Ok(path.components().map(|part| part.as_os_str().to_os_string()).collect())
+    }
+
+    fn parent(&self, relative: &str, create: bool) -> Result<(Dir, OsString), String> {
+        let mut parts = Self::components(relative)?;
         let name = parts.pop().ok_or("Choose a file name.")?;
         let mut parent = self.root.try_clone().map_err(err)?;
         for part in parts {
@@ -76,8 +79,17 @@ impl ProjectDir {
     }
 
     pub fn rename(&self, source: &str, destination: &str) -> Result<(), String> {
+        self.rename_into(source, destination, false)
+    }
+
+    /// [`rename`](Self::rename), creating the folders `destination` needs.
+    pub fn move_file(&self, source: &str, destination: &str) -> Result<(), String> {
+        self.rename_into(source, destination, true)
+    }
+
+    fn rename_into(&self, source: &str, destination: &str, create: bool) -> Result<(), String> {
         let (from, source) = self.parent(source, false)?;
-        let (to, destination) = self.parent(destination, false)?;
+        let (to, destination) = self.parent(destination, create)?;
         Self::reject_link(&from, &source)?;
         match to.symlink_metadata(&destination) {
             Ok(_) => return Err("A file or folder already exists with that name.".into()),
@@ -85,6 +97,40 @@ impl ProjectDir {
             Err(error) => return Err(err(error)),
         }
         from.rename(source, &to, destination).map_err(err)
+    }
+
+    /// Give each folder and the file along `relative` that exact spelling,
+    /// where the entry here differs from it only in letter case, renaming
+    /// through a temporary name because Windows disks ignore case.
+    /// What is missing is left alone.
+    pub fn respell(&self, relative: &str) -> Result<(), String> {
+        let parts = Self::components(relative)?;
+        let mut directory = self.root.try_clone().map_err(err)?;
+        for (index, part) in parts.iter().enumerate() {
+            let names: Vec<OsString> = directory
+                .entries()
+                .map_err(err)?
+                .filter_map(Result::ok)
+                .map(|entry| entry.file_name())
+                .collect();
+            let folded = |name: &OsString| name.to_string_lossy().to_lowercase();
+            if !names.contains(part) {
+                let Some(current) = names.iter().find(|name| folded(name) == folded(part)) else {
+                    return Ok(());
+                };
+                let temporary = format!(".lattice-{}.tmp", uuid::Uuid::new_v4());
+                directory.rename(current, &directory, &temporary).map_err(err)?;
+                if let Err(error) = directory.rename(&temporary, &directory, part) {
+                    let _ = directory.rename(&temporary, &directory, current);
+                    return Err(err(error));
+                }
+            }
+            if index + 1 < parts.len() {
+                Self::reject_link(&directory, part)?;
+                directory = directory.open_dir(part).map_err(err)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn remove(&self, relative: &str) -> Result<(), String> {
