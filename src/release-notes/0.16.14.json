@@ -1,0 +1,74 @@
+{
+  "version": "0.16.14",
+  "date": "2026-11-11",
+  "highlights": [
+    {
+      "title": {
+        "en": "Visual mode for .tex files",
+        "zh": "为 .tex 文件新增可视模式"
+      },
+      "body": {
+        "en": "A Source/Visual switch in the .tex tab renders headings, emphasis, math (with your project's macros), lists, figures and captions, \\ref and \\eqref numbers from the last build, \\cite chips and \\input links in place, and everything stays editable. Moving the caret into an element shows its source, a single keystroke never leaves an unbalanced brace, and Overleaf sync sees no edits from switching modes. Thanks to @surajinacademia and @Paivel for asking for it.",
+        "zh": "在 .tex 标签页中切换“源码/可视”，标题、强调、数学公式（支持项目中的宏）、列表、图片与图注、来自上次编译的 \\ref 和 \\eqref 编号、\\cite 引用标签以及 \\input 链接都会就地渲染，并且仍可编辑。光标移入元素时显示其源码，任何一次按键都不会留下不配对的花括号，切换模式也不会让 Overleaf 同步看到任何改动。感谢 @surajinacademia 和 @Paivel 的建议。"
+      }
+    },
+    {
+      "title": {
+        "en": "Several projects in one window",
+        "zh": "一个窗口打开多个项目"
+      },
+      "body": {
+        "en": "Project tabs sit at the left of the title bar; use \"Open in this window\" to add one and Ctrl+Tab to move between them. Each project keeps its editor state, and Lattice asks before switching away from a running build, shell or agent turn. Thanks to @surajinacademia for asking for it.",
+        "zh": "项目标签页位于标题栏左侧；用“在此窗口中打开”添加项目，用 Ctrl+Tab 在项目之间切换。每个项目都保留各自的编辑器状态；若有正在进行的编译、终端或 AI 助手对话，切换前 Lattice 会先询问。感谢 @surajinacademia 的建议。"
+      }
+    },
+    {
+      "title": {
+        "en": "Connect your own model endpoint",
+        "zh": "连接你自己的模型端点"
+      },
+      "body": {
+        "en": "In Settings → Agent → Model endpoint, enter an OpenAI- or Anthropic-compatible base URL, a key (kept in the macOS Keychain) and model ids, then Test connection. The integrated agent then runs through Pi without installing a CLI, Proofread, Polish and revisions can use the same endpoint, and Pi asks before editing in approval mode. Thanks to @hyzhou-nv for asking for it.",
+        "zh": "在“设置 → Agent → 模型端点”中填写兼容 OpenAI 或 Anthropic 的 base URL、密钥（保存在 macOS 钥匙串中）和模型 ID，然后点击“测试连接”。之后集成的 AI 助手会通过 Pi 运行，无需安装 CLI；校对、润色和修订也可以使用同一端点，在审批模式下 Pi 会在编辑前先询问。感谢 @hyzhou-nv 的建议。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Windows: install TeX Live from the setup dialog. Thanks to @ivanvykopal.",
+      "zh": "Windows：可在设置对话框中安装 TeX Live。感谢 @ivanvykopal。"
+    },
+    {
+      "en": "Windows: Zotero import finds Windows profiles and linked PDFs on drive letters and network (UNC) paths. Thanks to @LucasDavidTPE.",
+      "zh": "Windows：Zotero 导入能找到 Windows 上的配置文件，以及位于盘符路径和网络（UNC）路径上的关联 PDF。感谢 @LucasDavidTPE。"
+    },
+    {
+      "en": "Editable figures: export each figure for a journal, and the preamble is completed when a drawing changes. Thanks to @Paivel.",
+      "zh": "可编辑图形：可为期刊逐一导出每张图，修改绘图时会自动补全导言区。感谢 @Paivel。"
+    },
+    {
+      "en": "The updater installs the newest release instead of an older offer, so you are not prompted a second time.",
+      "zh": "更新程序会安装最新版本而不是较旧的版本，因此不会再次提示更新。"
+    },
+    {
+      "en": "Math preview reads macros with nested braces, \\def and \\DeclareMathOperator.",
+      "zh": "数学预览能读取含嵌套花括号的宏、\\def 和 \\DeclareMathOperator。"
+    },
+    {
+      "en": "A co-author's file rename on Overleaf is carried over to your local edits.",
+      "zh": "合作者在 Overleaf 上重命名文件后，会同步到你的本地编辑中。"
+    },
+    {
+      "en": "Overleaf project downloads show a real progress bar.",
+      "zh": "下载 Overleaf 项目时显示真实的进度条。"
+    },
+    {
+      "en": "A failing paper no longer rebuilds endlessly when Google Drive, Dropbox or iCloud touch the folder, and the arydshln-after-colortbl error in TeX Live 2026 now comes with a hint.",
+      "zh": "Google Drive、Dropbox 或 iCloud 触碰文件夹时，编译失败的论文不再无休止地重新编译；TeX Live 2026 中 arydshln 在 colortbl 之后加载的错误现在会附带提示。"
+    },
+    {
+      "en": "PDF text stays smooth when zoomed out on 1x displays. Thanks to @Paivel for the report.",
+      "zh": "在 1x 显示器上缩小时 PDF 文字依然平滑。感谢 @Paivel 的反馈。"
+    }
+  ]
+}

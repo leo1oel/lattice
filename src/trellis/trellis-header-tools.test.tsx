@@ -5,6 +5,7 @@ import { BUILD_BUTTON } from "../../scripts/perf-bench/selectors.mjs";
 import { activateAppLocale } from "../i18n";
 import { TrellisController, documentTools, type TrellisDocToolsState, type TrellisTabKind } from "./trellis-controller";
 import { FileHeaderTools } from "./trellis-header-tools";
+import { chooseLatexView, latexView } from "../editor/latex/latex-view-choice";
 
 const viewKey = vi.hoisted(() => ({ current: "" }));
 vi.mock("@danfessler/trellis-react", () => ({ useView: () => ({ params: { key: viewKey.current }, panelId: "panel-1" }) }));
@@ -82,7 +83,7 @@ describe("document panel header tools", () => {
       unmount();
       return result;
     });
-    const expected = document.tools ? { build: ["build"], views: ["switch:3"], paper: ["switch:2", "switch:3"] }[document.tools] : [];
+    const expected = document.tools ? { build: ["switch:2", "build"], views: ["switch:3"], paper: ["switch:2", "switch:3"] }[document.tools] : [];
     for (const result of footprints) expect(result).toEqual(expected);
   });
 
@@ -95,6 +96,25 @@ describe("document panel header tools", () => {
     expect(container.querySelector(".trellis-tools-reserve")).toBeNull();
     expect([...container.querySelectorAll(".trellis-view-switcher")].map((switcher) => switcher.getAttribute("aria-label")))
       .toEqual(["Paper content", "Document view"]);
+  });
+});
+
+describe("a .tex file's Source / Visual switch", () => {
+  afterEach(() => chooseLatexView("source"));
+
+  it("is live only for the active .tex document, and switches how every .tex editor draws", () => {
+    const tex = DOCUMENTS[0];
+    const inactive = renderTools(tex, { active: false }, {});
+    expect(inactive.container.querySelector(".trellis-tools-reserve .trellis-view-switcher")).not.toBeNull();
+    inactive.unmount();
+    const { container } = renderTools(tex, { active: true }, {});
+    const view = container.querySelector("[aria-label='LaTeX editor view']")!;
+    expect(view.closest("[inert]")).toBeNull();
+    const tabs = () => [...view.querySelectorAll("[role='tab']")].map((tab) => [tab.getAttribute("title"), tab.getAttribute("aria-selected")]);
+    expect(tabs()).toEqual([["Source", "true"], ["Visual", "false"]]);
+    fireEvent.click(view.querySelector("[title='Visual']")!);
+    expect(latexView()).toBe("visual");
+    expect(tabs()).toEqual([["Source", "false"], ["Visual", "true"]]);
   });
 });
 

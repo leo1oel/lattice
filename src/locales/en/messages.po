@@ -633,10 +633,12 @@ msgstr "{filtered} of {total} papers"
 msgid "{first} and {more} more; build again"
 msgstr "{first} and {more} more; build again"
 
+#: src/editor/latex/visual/visual-decorations.ts
 #: src/papers/paper-identity.ts
 msgid "{first} and {second}"
 msgstr "{first} and {second}"
 
+#: src/editor/latex/visual/visual-decorations.ts
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} et al."
@@ -940,6 +942,10 @@ msgstr "{path} changed while it was being formatted, so the result was not appli
 #: src/history/conflict-resolver.tsx
 msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 msgstr "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
+
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "{path} could not be read."
+msgstr "{path} could not be read."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} disappeared during sync"
@@ -6108,6 +6114,10 @@ msgstr "Enable version tracking"
 msgid "End an environment"
 msgstr "End an environment"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "End of document"
+msgstr "End of document"
+
 #: src/settings/model-endpoint-settings.tsx
 msgid "Endpoint"
 msgstr "Endpoint"
@@ -7337,6 +7347,10 @@ msgctxt "macOS menu bar"
 msgid "Hide Others"
 msgstr "Hide Others"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Hide preamble"
+msgstr "Hide preamble"
+
 #: src/app/focus-mode-bar.tsx
 #: src/app/use-command-table.ts
 msgid "Hide the PDF"
@@ -8264,6 +8278,10 @@ msgstr "just now"
 msgid "Kappa"
 msgstr "Kappa"
 
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "KaTeX cannot set this formula; it shows as written."
+msgstr "KaTeX cannot set this formula; it shows as written."
+
 #: src/editor/latex/highlighters.ts
 msgid "Keep"
 msgstr "Keep"
@@ -8529,6 +8547,10 @@ msgstr "LaTeX doesn’t know {token}. It looks like a typo for {name}."
 #: src/build/compile-explain.ts
 msgid "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 msgstr "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
+
+#: src/trellis/trellis-latex-view-switch.tsx
+msgid "LaTeX editor view"
+msgstr "LaTeX editor view"
 
 #: src/project/local-templates.tsx
 msgid "LaTeX engine"
@@ -10261,6 +10283,10 @@ msgstr "No papers yet"
 msgid "No PDF yet"
 msgstr "No PDF yet"
 
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "No preview for {path}; the PDF shows it."
+msgstr "No preview for {path}; the PDF shows it."
+
 #: src/settings/synara-settings-pane.tsx
 msgid "No project open"
 msgstr "No project open"
@@ -10826,6 +10852,10 @@ msgstr "Open {name} in this window"
 msgid "Open {name} to comment on it."
 msgstr "Open {name} to comment on it."
 
+#: src/editor/latex/visual/visual-widgets.ts
+msgid "Open {path}"
+msgstr "Open {path}"
+
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
 msgid "Open {path} at line {0}"
@@ -11361,6 +11391,10 @@ msgstr "Overleaf live editing reconnected."
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
 msgstr "Overleaf no longer has {deleted} but has {kept}, a name this disk may take for the same file, so deleting {deleted} here could delete {kept}. Move {deleted} out of the project, then sync again. No files were changed."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf no longer has the folder {folder}. It stays here because it still holds files that never sync: {names}. Delete them here if you no longer need them."
+msgstr "Overleaf no longer has the folder {folder}. It stays here because it still holds files that never sync: {names}. Delete them here if you no longer need them."
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
@@ -14463,6 +14497,10 @@ msgstr "Show older history"
 msgid "Show outline"
 msgstr "Show outline"
 
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Show preamble"
+msgstr "Show preamble"
+
 #: src/editor/markdown/engine/views/html-preview.tsx
 msgid "Show preview"
 msgstr "Show preview"
@@ -14723,6 +14761,12 @@ msgstr "source"
 #: src/editor/markdown/engine/views/image-view.tsx
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
+msgid "Source"
+msgstr "Source"
+
+#: src/trellis/trellis-latex-view-switch.tsx
+#: src/trellis/trellis-workspace.tsx
+msgctxt "LaTeX editor view"
 msgid "Source"
 msgstr "Source"
 
@@ -18066,6 +18110,12 @@ msgid "Violet"
 msgstr "Violet"
 
 #: src/agent/agent-visual-save.ts
+msgid "Visual"
+msgstr "Visual"
+
+#: src/trellis/trellis-latex-view-switch.tsx
+#: src/trellis/trellis-workspace.tsx
+msgctxt "LaTeX editor view"
 msgid "Visual"
 msgstr "Visual"
 

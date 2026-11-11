@@ -66,7 +66,14 @@ function stripShortfall(ws: WorkspaceHandle, panel: PanelNode, label: string) {
   if (!strip || !strip.getClientRects().length) return null;
   const style = getComputedStyle(strip);
   const gap = parseFloat(style.columnGap) || 0;
+  // A .tex file's Source / Visual switch takes only room to spare, so it gives
+  // way before any tab and is never why one closes: the strip is measured with
+  // it hidden. The mark comes off in this same call, before any frame, so
+  // nothing repaints and no ResizeObserver sees a change.
+  const tabbar = strip.closest<HTMLElement>('[data-trellis-part="tabbar"]');
+  tabbar?.setAttribute("data-room-probe", "");
   const width = strip.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+  tabbar?.removeAttribute("data-room-probe");
   // An empty document slot leaves once a document is in its panel.
   const tabs = [...strip.children].filter((tab): tab is HTMLElement => (
     tab instanceof HTMLElement && tab.dataset.trellisPart === "tab" && tab.dataset.type !== "slot"

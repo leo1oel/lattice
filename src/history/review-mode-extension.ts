@@ -28,6 +28,7 @@ import {
 } from "./review-mode-diff";
 import { reviewMode, type ReviewModeStore } from "./review-mode-store";
 import { hoverAnchor } from "../editor/hover-anchor";
+import { overlayFrom } from "../editor/source-overlays";
 
 type Review = Readonly<{
   /** Null while review mode is off for this file. */
@@ -76,7 +77,7 @@ function reviewField(path: string, store: ReviewModeStore) {
       }
       return review(tr.state, base);
     },
-    provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+    provide: (field) => [EditorView.decorations.from(field, (value) => value.decorations), overlayFrom(field, (value) => value.decorations)],
   });
 }
 

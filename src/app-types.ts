@@ -571,6 +571,12 @@ export type OverleafSyncResult = {
    */
   heldRenames?: string[];
   /**
+   * Folders Overleaf no longer has that stay here only for files in them
+   * that never sync (a conflict copy, a file too large for Overleaf); their
+   * build outputs and empty subfolders are gone. Named once.
+   */
+  keptFolders?: { folder: string; files: string[] }[];
+  /**
    * Changed here while the sync ran by something other than the editor (an
    * agent, another program). The sync left them exactly as edited; they go
    * up with the next one.
