@@ -30,6 +30,7 @@ import { TableMap } from "@tiptap/pm/tables";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import type { MarkdownBaseline } from "./markdown-document";
 import { escapeRegExp } from "../../../lib/escape-regexp";
+import { colorSourceOffsets } from "./color-source-offsets";
 
 /** How an offset that falls between aligned content resolves: only exactly, or to the next or previous aligned position. */
 export type Snap = "exact" | "forward" | "backward";
@@ -43,7 +44,7 @@ export type Bias = "after" | "before";
  * position; `offsets`, when present, gives the source offset of each position
  * of a run written with escapes; otherwise only the two ends map.
  */
-type Segment = { pmFrom: number; pmTo: number; from: number; to: number; exact: boolean; offsets?: number[] };
+export type Segment = { pmFrom: number; pmTo: number; from: number; to: number; exact: boolean; offsets?: number[] };
 
 type Block = {
   /** Index of the top-level node. */
@@ -276,6 +277,15 @@ export class SourceMap {
 
 /** Where each inline piece of `node` sits in `source`, block-relative on both sides. */
 function alignBlock(node: PmNode, source: string): Segment[] {
+  const color = node.type.schema.marks.latticeColor;
+  if (color && /<span[ \t]+style/i.test(source) && node.rangeHasMark(0, node.content.size, color)) {
+    const visible = colorSourceOffsets(source);
+    return visible.restore(alignContent(node, visible.text));
+  }
+  return alignContent(node, source);
+}
+
+function alignContent(node: PmNode, source: string): Segment[] {
   const segments: Segment[] = [];
   let cursor = startCursor(node, source);
   const find = (piece: string, pmFrom: number, pmTo: number, exact: boolean) => {
