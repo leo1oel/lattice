@@ -75,7 +75,7 @@ pub struct ProjectLayout {
     pub preset: Option<ActivePreset>,
     /// Where each document stood in each workspace, by workspace id.
     #[serde(default)]
-    pub places: BTreeMap<String, BTreeMap<String, usize>>,
+    pub places: BTreeMap<String, BTreeMap<String, u64>>,
 }
 
 /// Why a rename was refused.

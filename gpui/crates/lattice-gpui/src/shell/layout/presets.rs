@@ -59,6 +59,7 @@ impl Preset {
                     Node::Tabs {
                         views: documents,
                         active,
+                        slot: None,
                     }
                 };
                 Arrangement {
@@ -88,6 +89,7 @@ impl Preset {
                 let reading = Node::Tabs {
                     views: reading,
                     active,
+                    slot: None,
                 };
                 if notes.is_empty() {
                     Arrangement {
@@ -112,6 +114,7 @@ impl Preset {
                         center: Node::Tabs {
                             views: notes,
                             active: note,
+                            slot: None,
                         },
                         left: Some(Dock {
                             node: reading,
@@ -183,13 +186,15 @@ mod tests {
         own.center = Node::Tabs {
             views: vec![file("notes.md"), file("main.tex")],
             active: 0,
+            slot: None,
         };
         let writing = Preset::Writing.arrange(&own, Some("notes.md"), room());
         assert_eq!(
             writing.center,
             Node::Tabs {
                 views: vec![file("notes.md"), file("main.tex")],
-                active: 1
+                active: 1,
+                slot: None,
             }
         );
         assert!(writing.left.is_none(), "the navigators leave the screen");
@@ -205,7 +210,8 @@ mod tests {
             reading.left.unwrap().node,
             Node::Tabs {
                 views: vec![View::Papers, file("paper.pdf")],
-                active: 1
+                active: 1,
+                slot: None,
             }
         );
         assert_eq!(reading.center, Node::tabs([file("notes.md")]));
@@ -222,7 +228,8 @@ mod tests {
             back.center,
             Node::Tabs {
                 views: vec![file("a.tex"), file("c.tex")],
-                active: 0
+                active: 0,
+                slot: None,
             }
         );
         assert_eq!(back.left, own.left);
@@ -238,13 +245,15 @@ mod tests {
         current.center = Node::Tabs {
             views: vec![file("a.tex"), file("c.tex"), file("d.tex")],
             active: 0,
+            slot: None,
         };
         let back = return_layout(&own, &current, Some("a.tex"));
         assert_eq!(
             back.center,
             Node::Tabs {
                 views: vec![file("a.tex"), file("c.tex"), file("d.tex")],
-                active: 0
+                active: 0,
+                slot: None,
             }
         );
     }
@@ -268,7 +277,8 @@ mod tests {
             children[1],
             Node::Tabs {
                 views: vec![file("b.tex"), file("c.tex")],
-                active: 0
+                active: 0,
+                slot: None,
             }
         );
     }

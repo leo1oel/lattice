@@ -85,7 +85,7 @@ pub(crate) struct LayoutState {
     /// The workspace whose name is being edited in place.
     pub renaming: Option<String>,
     /// Where each document stood in each workspace, by workspace id.
-    pub places: std::collections::BTreeMap<String, std::collections::BTreeMap<String, usize>>,
+    pub places: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u64>>,
 }
 
 /// A project open in a window, with the name its tab shows.
@@ -120,6 +120,9 @@ pub struct Shell {
     vim_mode: bool,
     pub(crate) layout: LayoutState,
     pub(crate) floating: floating::FloatingLayer,
+    /// Each of the dock's groups' own id (`layout::Node::Tabs`'s `slot`),
+    /// which Kit's node ids, new at every rebuild, do not keep.
+    slots: std::collections::HashMap<gpui_kit::component::dock::NodeId, u64>,
     palette: Option<Entity<palette::CommandPaletteView>>,
     shortcuts: Option<Entity<palette::ShortcutSheet>>,
     /// The projects open in this window, in tab order; the open one is
@@ -264,6 +267,7 @@ impl Shell {
             vim_mode: crate::app::vim_mode_enabled(cx),
             layout: LayoutState::default(),
             floating: floating::FloatingLayer::default(),
+            slots: Default::default(),
             palette: None,
             shortcuts: None,
             projects: Vec::new(),

@@ -152,7 +152,9 @@ impl Shell {
     /// The arrangement on screen, the floating panels with it.
     pub(crate) fn current_arrangement(&self, cx: &App) -> Arrangement {
         let area = self.dock_area.read(cx);
-        let mut arrangement = layout::read(area, &|panel| self.view_of(panel, cx));
+        let mut arrangement = layout::read(area, &|panel| self.view_of(panel, cx), &|node| {
+            self.slots.get(&node).copied()
+        });
         arrangement.floating = self.floating.records();
         arrangement
     }
@@ -233,6 +235,33 @@ impl Shell {
                 }
             }
         });
+        // Each group keeps its id in the rebuilt dock.
+        let mut slots = HashMap::new();
+        {
+            let area = self.dock_area.read(cx);
+            for (placement, node) in
+                std::iter::once((DockPlacement::Center, Some(&arrangement.center))).chain(
+                    arrangement
+                        .docks()
+                        .into_iter()
+                        .map(|(placement, dock)| (placement, dock.map(|dock| &dock.node))),
+                )
+            {
+                let (Some(node), Some(tree)) = (node, area.layout(placement)) else {
+                    continue;
+                };
+                for (views, slot) in node.groups() {
+                    if let Some(slot) = slot
+                        && let Some(panel) = views.iter().find_map(|view| panels.get(view))
+                        && let Some(kit) = tree.find_panel_node(panel.panel_id(cx))
+                    {
+                        slots.insert(kit, slot);
+                    }
+                }
+            }
+        }
+        self.slots = slots;
+        self.name_new_groups(cx);
         let area = self.floating_area(window);
         self.floating
             .set(&arrangement.floating, &panels, area, window, cx);
@@ -245,6 +274,31 @@ impl Shell {
         self.refresh_dirty(cx);
         self.schedule_save(window, cx);
         cx.notify();
+    }
+
+    /// An id for each group the dock made itself (a tab dragged to a new
+    /// group), and none kept for a group gone.
+    fn name_new_groups(&mut self, cx: &App) {
+        let area = self.dock_area.read(cx);
+        let mut live = Vec::new();
+        for placement in [
+            DockPlacement::Center,
+            DockPlacement::Left,
+            DockPlacement::Right,
+            DockPlacement::Bottom,
+        ] {
+            if let Some(tree) = area.layout(placement) {
+                tree.root().walk(&mut |node| {
+                    if let PaneRef::Tabs { .. } = node.kind() {
+                        live.push(node.id());
+                    }
+                });
+            }
+        }
+        self.slots.retain(|node, _| live.contains(node));
+        for node in live {
+            self.slots.entry(node).or_insert_with(layout::new_slot);
+        }
     }
 
     /// The keyboard to the document in front, else to the window.
@@ -446,6 +500,7 @@ impl Shell {
     /// arrangement still matches the workspace, close regions left empty, and
     /// save the project's layout soon.
     pub(super) fn layout_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.name_new_groups(cx);
         // A region whose last panel was dragged out goes away, as Trellis
         // lets a column go.
         let empty: Vec<DockPlacement> = {
@@ -575,7 +630,7 @@ fn place_view(arrangement: &mut Arrangement, view: View, home: &Arrangement) {
         View::Build => match &mut arrangement.bottom {
             Some(dock) => {
                 match &mut dock.node {
-                    Node::Tabs { views, active } => {
+                    Node::Tabs { views, active, .. } => {
                         views.push(view);
                         *active = views.len() - 1;
                     }
@@ -628,7 +683,7 @@ fn insert_in_dock(
             dock.open = true;
             match (&mut dock.node, first) {
                 (Node::Split { children, .. }, true) => match children.first_mut() {
-                    Some(Node::Tabs { views, active }) => {
+                    Some(Node::Tabs { views, active, .. }) => {
                         views.push(view);
                         *active = views.len() - 1;
                     }
@@ -643,7 +698,7 @@ fn insert_in_dock(
                     children.push(Node::tabs([view]));
                     sizes.push(None);
                 }
-                (Node::Tabs { views, active }, true) => {
+                (Node::Tabs { views, active, .. }, true) => {
                     views.push(view);
                     *active = views.len() - 1;
                 }

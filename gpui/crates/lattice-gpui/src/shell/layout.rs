@@ -91,7 +91,28 @@ pub enum Node {
     Tabs {
         views: Vec<View>,
         active: usize,
+        /// The group's own id, which stays as other groups come and go: a
+        /// document's place in a workspace names the group it stood in
+        /// (`slotOf` in trellis-layout.ts).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        slot: Option<u64>,
     },
+}
+
+/// A group id no other group holds: the time this run started, counted on.
+pub fn new_slot() -> u64 {
+    use std::sync::{
+        OnceLock,
+        atomic::{AtomicU64, Ordering},
+    };
+    static START: OnceLock<u64> = OnceLock::new();
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let start = *START.get_or_init(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(1, |since| since.as_nanos() as u64)
+    });
+    start.wrapping_add(NEXT.fetch_add(1, Ordering::Relaxed))
 }
 
 impl Node {
@@ -99,6 +120,7 @@ impl Node {
         Node::Tabs {
             views: views.into_iter().collect(),
             active: 0,
+            slot: None,
         }
     }
 
@@ -127,7 +149,11 @@ impl Node {
     /// splits left empty dropped.
     fn retain(self, keep: &mut impl FnMut(&View) -> bool) -> Option<Node> {
         match self {
-            Node::Tabs { views, active } => {
+            Node::Tabs {
+                views,
+                active,
+                slot,
+            } => {
                 let active_view = views.get(active).cloned();
                 let views: Vec<View> = views.into_iter().filter(|view| keep(view)).collect();
                 if views.is_empty() {
@@ -136,7 +162,11 @@ impl Node {
                 let active = active_view
                     .and_then(|view| views.iter().position(|v| *v == view))
                     .unwrap_or(0);
-                Some(Node::Tabs { views, active })
+                Some(Node::Tabs {
+                    views,
+                    active,
+                    slot,
+                })
             }
             Node::Split {
                 axis,
@@ -165,7 +195,11 @@ impl Node {
     /// where its first document stood.
     fn as_arrangement(&self) -> Node {
         match self {
-            Node::Tabs { views, active } => {
+            Node::Tabs {
+                views,
+                active,
+                slot,
+            } => {
                 let selected_document = views.get(*active).is_some_and(View::is_document);
                 let mut out = Vec::new();
                 for view in views {
@@ -186,7 +220,11 @@ impl Node {
                         .and_then(|v| out.iter().position(|o| o == v))
                 }
                 .unwrap_or(0);
-                Node::Tabs { views: out, active }
+                Node::Tabs {
+                    views: out,
+                    active,
+                    slot: *slot,
+                }
             }
             Node::Split {
                 axis,
@@ -235,7 +273,7 @@ impl Node {
     /// The first group holding a view `matches` takes `view` too.
     fn add_beside(&mut self, view: View, matches: &impl Fn(&View) -> bool) -> bool {
         match self {
-            Node::Tabs { views, active } => {
+            Node::Tabs { views, active, .. } => {
                 if views.iter().any(matches) {
                     if let Some(ix) = views.iter().position(matches) {
                         views.insert(ix + 1, view);
@@ -264,6 +302,38 @@ impl Node {
         }
     }
 
+    /// Each group's views and id, in reading order.
+    pub fn groups(&self) -> Vec<(&[View], Option<u64>)> {
+        match self {
+            Node::Tabs { views, slot, .. } => vec![(views.as_slice(), *slot)],
+            Node::Split { children, .. } => children.iter().flat_map(Node::groups).collect(),
+        }
+    }
+
+    /// Every documents slot given an id of its own, where it has none.
+    fn name_slots(&mut self) {
+        match self {
+            Node::Tabs { views, slot, .. } => {
+                if slot.is_none() && views.contains(&View::Documents) {
+                    *slot = Some(new_slot());
+                }
+            }
+            Node::Split { children, .. } => children.iter_mut().for_each(Node::name_slots),
+        }
+    }
+
+    /// The ids of this node's documents slots, in reading order.
+    fn slots(&self, out: &mut Vec<Option<u64>>) {
+        match self {
+            Node::Tabs { views, slot, .. } => {
+                if views.contains(&View::Documents) {
+                    out.push(*slot);
+                }
+            }
+            Node::Split { children, .. } => children.iter().for_each(|c| c.slots(out)),
+        }
+    }
+
     fn first_group_mut(&mut self) -> Option<&mut Node> {
         match self {
             Node::Tabs { .. } => Some(self),
@@ -273,7 +343,7 @@ impl Node {
 
     fn select(&mut self, view: &View) {
         match self {
-            Node::Tabs { views, active } => {
+            Node::Tabs { views, active, .. } => {
                 if let Some(ix) = views.iter().position(|v| v == view) {
                     *active = ix;
                 }
@@ -427,6 +497,9 @@ impl Arrangement {
         out.floating.retain(|floating| !floating.view.is_document());
         // Somewhere for documents to go: the center.
         out.add_view(View::Documents, |_| false);
+        for node in out.nodes_mut() {
+            node.name_slots();
+        }
         out
     }
 
@@ -459,32 +532,29 @@ impl Arrangement {
     }
 
     /// This workspace arrangement filled with `documents` (in tab order),
-    /// `active` selected. A document goes where `places` says it stood in
-    /// this workspace, else into the first documents slot; slots no
+    /// `active` selected. A document goes to the slot `places` names for it
+    /// in this workspace, else into the first documents slot; slots no
     /// document fills are taken out, and a group left empty with them.
     pub fn with_documents(
         &self,
         documents: &[String],
         active: Option<&str>,
-        places: &BTreeMap<String, usize>,
+        places: &BTreeMap<String, u64>,
     ) -> Arrangement {
         let mut out = self.clone();
         // A place this workspace has no slot for counts as no place.
-        let slots = self
-            .views()
-            .into_iter()
-            .filter(|view| **view == View::Documents)
-            .count();
-        let places: BTreeMap<String, usize> = places
+        let mut slots = Vec::new();
+        for node in out.nodes_mut() {
+            node.slots(&mut slots);
+        }
+        let places: BTreeMap<String, u64> = places
             .iter()
-            .filter(|(_, place)| **place < slots)
+            .filter(|(_, place)| slots.contains(&Some(**place)))
             .map(|(doc, place)| (doc.clone(), *place))
             .collect();
-        // Number the slots in reading order, center first.
-        let mut slot = 0;
-        let mut first_slot = None;
+        let mut first = true;
         for node in out.nodes_mut() {
-            fill_slots(node, &mut slot, &mut first_slot, documents, &places);
+            fill_slots(node, &mut first, documents, &places);
         }
         let mut keep = |view: &View| *view != View::Documents;
         out.center = std::mem::take(&mut out.center)
@@ -504,13 +574,13 @@ impl Arrangement {
         out
     }
 
-    /// Where each document stands, as the slot index `with_documents` reads.
-    pub fn places(&self) -> BTreeMap<String, usize> {
+    /// Where each document stands: the id of its group, as `with_documents`
+    /// reads it (`placesOf` in trellis-layout.ts).
+    pub fn places(&self) -> BTreeMap<String, u64> {
         let mut places = BTreeMap::new();
-        let mut slot = 0;
         let mut out = self.clone();
         for node in out.nodes_mut() {
-            record_places(node, &mut slot, &mut places);
+            record_places(node, &mut places);
         }
         places
     }
@@ -527,7 +597,7 @@ impl Arrangement {
             }
         }
         match self.center.first_group_mut() {
-            Some(Node::Tabs { views, active }) => {
+            Some(Node::Tabs { views, active, .. }) => {
                 views.push(view);
                 *active = views.len() - 1;
             }
@@ -602,27 +672,28 @@ impl Arrangement {
 
 fn fill_slots(
     node: &mut Node,
-    slot: &mut usize,
-    first_slot: &mut Option<usize>,
+    first: &mut bool,
     documents: &[String],
-    places: &BTreeMap<String, usize>,
+    places: &BTreeMap<String, u64>,
 ) {
     match node {
         Node::Split { children, .. } => children
             .iter_mut()
-            .for_each(|child| fill_slots(child, slot, first_slot, documents, places)),
-        Node::Tabs { views, active } => {
+            .for_each(|child| fill_slots(child, first, documents, places)),
+        Node::Tabs {
+            views,
+            active,
+            slot,
+        } => {
             let Some(at) = views.iter().position(|v| *v == View::Documents) else {
                 return;
             };
-            let this = *slot;
-            *slot += 1;
-            let first = *first_slot.get_or_insert(this);
+            let is_first = std::mem::replace(first, false);
             let here: Vec<View> = documents
                 .iter()
                 .filter(|doc| match places.get(*doc) {
-                    Some(place) => *place == this,
-                    None => this == first,
+                    Some(place) => Some(*place) == *slot,
+                    None => is_first,
                 })
                 .map(|doc| View::File(doc.clone()))
                 .collect();
@@ -636,21 +707,23 @@ fn fill_slots(
     }
 }
 
-fn record_places(node: &mut Node, slot: &mut usize, places: &mut BTreeMap<String, usize>) {
+fn record_places(node: &mut Node, places: &mut BTreeMap<String, u64>) {
     match node {
         Node::Split { children, .. } => children
             .iter_mut()
-            .for_each(|child| record_places(child, slot, places)),
-        Node::Tabs { views, .. } => {
-            if views.iter().any(View::is_document) {
-                for view in views.iter() {
-                    if let View::File(path) = view {
-                        places.insert(path.clone(), *slot);
-                    }
+            .for_each(|child| record_places(child, places)),
+        Node::Tabs {
+            views,
+            slot: Some(slot),
+            ..
+        } => {
+            for view in views.iter() {
+                if let View::File(path) = view {
+                    places.entry(path.clone()).or_insert(*slot);
                 }
-                *slot += 1;
             }
         }
+        Node::Tabs { slot: None, .. } => {}
     }
 }
 
@@ -705,13 +778,15 @@ mod tests {
         layout.center = Node::Tabs {
             views: vec![file("main.tex"), file("intro.tex")],
             active: 1,
+            slot: Some(7),
         };
         let workspace = layout.as_workspace();
         assert_eq!(
             workspace.center,
             Node::Tabs {
                 views: vec![View::Documents],
-                active: 0
+                active: 0,
+                slot: Some(7),
             }
         );
         assert_eq!(workspace.shape(), layout.shape());
@@ -750,10 +825,13 @@ mod tests {
         let mut workspace = Arrangement::default_for(room()).as_workspace();
         workspace.center = Node::Split {
             axis: SplitAxis::Row,
-            children: vec![Node::tabs([View::Documents]), Node::tabs([View::Documents])],
+            children: vec![
+                slot_group([View::Documents], 10),
+                slot_group([View::Documents], 11),
+            ],
             sizes: vec![Some(400.), None],
         };
-        let places = BTreeMap::from([("b.tex".to_string(), 1)]);
+        let places = BTreeMap::from([("b.tex".to_string(), 11)]);
         let filled = workspace.with_documents(
             &["a.tex".into(), "b.tex".into(), "c.tex".into()],
             Some("c.tex"),
@@ -766,17 +844,51 @@ mod tests {
             children[0],
             Node::Tabs {
                 views: vec![file("a.tex"), file("c.tex")],
-                active: 1
+                active: 1,
+                slot: Some(10),
             }
         );
-        assert_eq!(children[1], Node::tabs([file("b.tex")]));
+        assert_eq!(children[1], slot_group([file("b.tex")], 11));
         assert_eq!(
             filled.places(),
             BTreeMap::from([
-                ("a.tex".to_string(), 0),
-                ("b.tex".to_string(), 1),
-                ("c.tex".to_string(), 0),
+                ("a.tex".to_string(), 10),
+                ("b.tex".to_string(), 11),
+                ("c.tex".to_string(), 10),
             ])
+        );
+    }
+
+    fn slot_group(views: impl IntoIterator<Item = View>, slot: u64) -> Node {
+        Node::Tabs {
+            views: views.into_iter().collect(),
+            active: 0,
+            slot: Some(slot),
+        }
+    }
+
+    #[test]
+    fn a_document_keeps_its_place_when_an_earlier_group_closes() {
+        // The workspace keeps documents in the center and beside the PDF
+        // (`placesOf` / `slotOf` in trellis-layout.ts name the group).
+        let mut workspace = Arrangement::default_for(room()).as_workspace();
+        workspace.center = slot_group([View::Documents], 1);
+        workspace.right.as_mut().unwrap().node = slot_group([View::Pdf, View::Documents], 2);
+        let places = BTreeMap::from([("a.tex".to_string(), 1), ("n.tex".to_string(), 2)]);
+        let project = workspace.with_documents(&["a.tex".into(), "n.tex".into()], None, &places);
+        assert!(project.center.views().contains(&&file("a.tex")));
+
+        // a.tex closes, its group with it; the project records its places.
+        let closed = project.without(&file("a.tex"));
+        let places = closed.places();
+
+        // Back in the workspace, n.tex stands beside the PDF again.
+        let back = workspace.with_documents(&closed.documents(), None, &places);
+        assert!(!back.center.views().contains(&&file("n.tex")));
+        assert!(
+            back.right
+                .as_ref()
+                .is_some_and(|dock| dock.node.views() == [&View::Pdf, &file("n.tex")])
         );
     }
 
@@ -847,12 +959,12 @@ mod tests {
     }
 
     #[test]
-    fn a_place_beyond_the_workspaces_slots_lands_in_the_first() {
+    fn a_place_the_workspace_has_no_slot_for_lands_in_the_first() {
         // The default workspace has one documents slot; b.tex last stood in a
         // second group the workspace no longer has.
         let workspace = Arrangement::default_for(room()).as_workspace();
         let documents = vec!["a.tex".to_string(), "b.tex".to_string()];
-        let places = BTreeMap::from([("a.tex".to_string(), 0), ("b.tex".to_string(), 1)]);
+        let places = BTreeMap::from([("b.tex".to_string(), 999)]);
         let filled = workspace.with_documents(&documents, Some("b.tex"), &places);
         assert_eq!(filled.documents(), documents);
         assert_eq!(filled.center.views(), [&file("a.tex"), &file("b.tex")]);

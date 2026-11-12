@@ -4,17 +4,22 @@
 
 use gpui::{App, Axis, px};
 use gpui_kit::component::dock::{
-    BasePanelView, DockArea, DockLayout, DockPlacement, PaneNode, PaneRef, PanelId,
+    BasePanelView, DockArea, DockLayout, DockPlacement, NodeId, PaneNode, PaneRef, PanelId,
 };
 
 use super::{Arrangement, Dock, Node, SplitAxis, View};
 
 /// Read the dock's live layout as an arrangement, naming each panel through
-/// `view_of`; panels it does not know (none, today) are left out.
-pub fn read(area: &DockArea, view_of: &impl Fn(PanelId) -> Option<View>) -> Arrangement {
+/// `view_of` and each group's id through `slot_of`; panels it does not know
+/// (none, today) are left out.
+pub fn read(
+    area: &DockArea,
+    view_of: &impl Fn(PanelId) -> Option<View>,
+    slot_of: &impl Fn(NodeId) -> Option<u64>,
+) -> Arrangement {
     let node_of = |placement| {
         area.layout(placement)
-            .and_then(|tree| read_node(tree.root(), view_of))
+            .and_then(|tree| read_node(tree.root(), view_of, slot_of))
     };
     let dock_of = |placement| {
         let node = node_of(placement)?;
@@ -33,7 +38,11 @@ pub fn read(area: &DockArea, view_of: &impl Fn(PanelId) -> Option<View>) -> Arra
     }
 }
 
-fn read_node(node: &PaneNode, view_of: &impl Fn(PanelId) -> Option<View>) -> Option<Node> {
+fn read_node(
+    node: &PaneNode,
+    view_of: &impl Fn(PanelId) -> Option<View>,
+    slot_of: &impl Fn(NodeId) -> Option<u64>,
+) -> Option<Node> {
     match node.kind() {
         PaneRef::Tabs { panels, active_ix } => {
             let mut views = Vec::new();
@@ -46,7 +55,11 @@ fn read_node(node: &PaneNode, view_of: &impl Fn(PanelId) -> Option<View>) -> Opt
                     views.push(view);
                 }
             }
-            (!views.is_empty()).then_some(Node::Tabs { views, active })
+            (!views.is_empty()).then(|| Node::Tabs {
+                views,
+                active,
+                slot: slot_of(node.id()),
+            })
         }
         PaneRef::Split {
             axis,
@@ -56,7 +69,7 @@ fn read_node(node: &PaneNode, view_of: &impl Fn(PanelId) -> Option<View>) -> Opt
             let mut nodes = Vec::new();
             let mut node_sizes = Vec::new();
             for (ix, child) in children.iter().enumerate() {
-                if let Some(child) = read_node(child, view_of) {
+                if let Some(child) = read_node(child, view_of, slot_of) {
                     nodes.push(child);
                     node_sizes.push(sizes.get(ix).copied().flatten().map(f32::from));
                 }
@@ -85,7 +98,7 @@ pub fn describe(
     cx: &App,
 ) -> Option<DockLayout> {
     match node {
-        Node::Tabs { views, active } => {
+        Node::Tabs { views, active, .. } => {
             let mut layout = DockLayout::tabs();
             let mut count = 0;
             let mut active_ix = 0;
