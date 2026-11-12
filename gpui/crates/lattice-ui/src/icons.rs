@@ -64,8 +64,6 @@ impl Icon {
     pub const BOOK_OPEN_TEXT: Icon = Icon("icons/book-open-text.svg");
     pub const COLUMNS_2: Icon = Icon("icons/columns-2.svg");
     pub const COMPASS: Icon = Icon("icons/compass.svg");
-    pub const COPY: Icon = Icon("icons/copy.svg");
-    pub const EYE: Icon = Icon("icons/eye.svg");
     pub const EYE_OFF: Icon = Icon("icons/eye-off.svg");
     pub const FILE_PEN_LINE: Icon = Icon("icons/file-pen-line.svg");
     pub const FOCUS: Icon = Icon("icons/focus.svg");
@@ -75,16 +73,12 @@ impl Icon {
     pub const MAXIMIZE: Icon = Icon("icons/maximize-2.svg");
     pub const MINIMIZE: Icon = Icon("icons/minimize-2.svg");
     pub const PEN_LINE: Icon = Icon("icons/pen-line.svg");
-    pub const PENCIL: Icon = Icon("icons/pencil.svg");
     pub const PICTURE_IN_PICTURE: Icon = Icon("icons/picture-in-picture-2.svg");
     pub const PLAY: Icon = Icon("icons/play.svg");
     pub const ROTATE_CCW: Icon = Icon("icons/rotate-ccw.svg");
     pub const ROWS_2: Icon = Icon("icons/rows-2.svg");
     pub const SAVE: Icon = Icon("icons/save.svg");
-    pub const SETTINGS: Icon = Icon("icons/settings.svg");
     pub const SUN_MOON: Icon = Icon("icons/sun-moon.svg");
-    pub const TERMINAL: Icon = Icon("icons/terminal.svg");
-    pub const TRASH: Icon = Icon("icons/trash.svg");
     pub const UNDO: Icon = Icon("icons/undo-2.svg");
     pub const X: Icon = Icon("icons/x.svg");
     pub const CIRCLE_X: Icon = Icon("icons/circle-x.svg");
@@ -106,8 +100,16 @@ impl Icon {
     pub const GIT: Icon = Icon("lattice/git.svg");
     pub const HISTORY: Icon = Icon("lattice/history.svg");
     /// The Build button's idle mark: Lucide's play, filled, as the app
-    /// draws it (`<Play fill="currentColor" />`).
+    /// draws it (`<Play fill="currentColor" />`). Lucide's play.svg (ISC,
+    /// `assets/LICENSE-LUCIDE`) with its fill set to the ink.
     pub const PLAY_FILLED: Icon = Icon("lattice/play-filled.svg");
+    /// Lucide icons whose `icons/…` names Zed's icon set also has, which the
+    /// app's asset source finds first: Lucide's own, copied unmodified from
+    /// GPUI Kit 0.9.1's assets (ISC, `assets/LICENSE-LUCIDE`).
+    pub const COPY: Icon = Icon("lattice/copy.svg");
+    pub const EYE: Icon = Icon("lattice/eye.svg");
+    pub const PENCIL: Icon = Icon("lattice/pencil.svg");
+    pub const TRASH: Icon = Icon("lattice/trash.svg");
 
     pub fn path(self) -> SharedString {
         self.0.into()
@@ -190,6 +192,10 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "git.svg",
     "history.svg",
     "play-filled.svg",
+    "copy.svg",
+    "eye.svg",
+    "pencil.svg",
+    "trash.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",
@@ -255,6 +261,16 @@ mod tests {
         let mut bundled: Vec<String> = BUNDLED.iter().map(|(name, _)| name.to_string()).collect();
         bundled.sort();
         assert_eq!(on_disk, bundled);
+    }
+
+    #[test]
+    fn lucide_icons_zed_also_names_load_from_lattice_ui() {
+        for icon in [Icon::COPY, Icon::EYE, Icon::PENCIL, Icon::TRASH] {
+            let svg = UiAssets.load(icon.0).unwrap().expect(icon.0);
+            let svg = std::str::from_utf8(&svg).unwrap();
+            assert!(svg.contains("viewBox=\"0 0 24 24\""), "{}", icon.0);
+            assert!(svg.contains("stroke-width=\"2\""), "{}", icon.0);
+        }
     }
 
     #[test]
