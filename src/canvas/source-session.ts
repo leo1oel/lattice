@@ -12,6 +12,7 @@
  * transaction or tooltip runs, never while building.
  */
 import { linter } from "@codemirror/lint";
+import { invoke } from "@tauri-apps/api/core";
 import type { Extension } from "@codemirror/state";
 import type { AnnotationReviewBridge } from "./annotation-review-bridge";
 import type { AnnotationDraft } from "./annotation-composer";
@@ -32,6 +33,7 @@ import { marginReviewExtension, overleafCursorsExtension, overleafTrackChangesEx
 import { editorDiagnosticsForFile } from "../build/compile-diagnostics";
 import { editorTexlabDiagnosticsForFile } from "../build/texlab-diagnostics";
 import { reviewModeExtension } from "../history/review-mode-extension";
+import { openDrawingOf } from "../project/figure-source-open";
 
 /**
  * What the source editor's extensions are built from. Two configurations
@@ -102,6 +104,8 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
         data: () => data.current,
         loadImage: (imagePath) => live.props().bibliography.onLoadReferenceImage(imagePath),
         open: (target) => navigation().onGotoDefinition(target),
+        readFile: (filePath) => invoke<string>("read_project_file", { path: filePath, projectRoot: live.props().preferences.projectRoot }),
+        openDrawing: (entryPath) => void openDrawingOf(entryPath),
       }) : [],
       trackFigureEditor,
       editableFigurePaste(

@@ -141,6 +141,27 @@ describe("scanConstructs", () => {
     expect(text.slice(link.open.to, link.close.from)).toBe("the \\emph{site}");
   });
 
+  it("reads the import package's folder and file as one include path", () => {
+    expect(only("\\import{figures/}{scheme.tex} \\subimport{parts}{intro}", "include").map((include) => include.path))
+      .toEqual(["figures/scheme.tex", "parts/intro"]);
+    expect(only("\\import{}{scheme}", "include")[0].path).toBe("scheme");
+    expect(only("\\import{figures/}", "include")).toEqual([]);
+  });
+
+  it("reads chemnum's compound numbers and a drawing's marks, but not \\cmpd*, which prints nothing", () => {
+    const text = "\\cmpd{ketone} and \\cmpd[pre-label-code=]{a, b.OMe} from \\rcmpd{A:amine}, \\refcmpd{c}; \\cmpd*{hidden}";
+    expect(only(text, "compound").map((compound) => [compound.command, compound.keys])).toEqual([
+      ["cmpd", ["ketone"]], ["cmpd", ["a", "b.OMe"]], ["rcmpd", ["A:amine"]], ["refcmpd", ["c"]],
+    ]);
+    expect(only("\\cmpd{} \\cmpd{a,}", "compound")).toEqual([]);
+  });
+
+  it("numbers a scheme's caption, as achemso floats it", () => {
+    const [caption] = only("\\begin{scheme}\n\\input{figures/s}\n\\caption{Made.}\\label{s1}\n\\end{scheme}", "caption");
+    expect(caption.float).toBe("scheme");
+    expect(caption.label).toBe("s1");
+  });
+
   it("offsets every construct by where the text starts in the document", () => {
     const [math] = scanConstructs("x $y$", 50).constructs;
     expect([math.from, math.to]).toEqual([52, 55]);
