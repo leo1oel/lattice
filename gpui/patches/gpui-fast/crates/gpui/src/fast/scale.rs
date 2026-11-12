@@ -232,29 +232,19 @@ pub(crate) fn current(window: &Window) -> Option<SceneScale> {
 }
 
 impl Window {
-    /// Paints what `f` paints scaled uniformly by `scale` about `origin`, as
-    /// CSS's `transform: scale()` with a `transform-origin` does.
+    /// Paints what `f` paints scaled uniformly by `scale` about `origin`,
+    /// then moved by `offset`, as CSS's `transform: translate(offset)
+    /// scale(s)` with a `transform-origin` does.
     ///
     /// Only paint is transformed: layout, hit testing and the bounds elements
-    /// are handed keep their unscaled geometry. Scales nest. Glyphs, icons
-    /// and images are stretched from the raster they have at scale 1 rather
-    /// than drawn again at the scaled size, so this is for motion (a popup
-    /// growing in from 95%) more than for something that rests scaled.
+    /// are handed keep their untransformed geometry. Transforms nest. Glyphs,
+    /// icons and images are stretched from the raster they have at scale 1
+    /// rather than drawn again at the scaled size, so this is for motion (a
+    /// popup growing in from 95%) more than for something that rests scaled.
     ///
     /// Call it around both an element's prepaint and its paint, as
-    /// [`scaled`] does, so the views inside are cached for the scale they are
-    /// drawn under.
-    pub fn with_element_scale<R>(
-        &mut self,
-        scale: f32,
-        origin: Point<Pixels>,
-        f: impl FnOnce(&mut Self) -> R,
-    ) -> R {
-        self.with_element_transform(scale, origin, Point::default(), f)
-    }
-
-    /// [`Window::with_element_scale`], then moved by `offset`, as CSS's
-    /// `transform: translate(offset) scale(s)` does: only paint moves.
+    /// [`scaled`] does, so the views inside are cached for the transform
+    /// they are drawn under.
     pub fn with_element_transform<R>(
         &mut self,
         scale: f32,

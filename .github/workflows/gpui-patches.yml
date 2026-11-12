@@ -1,0 +1,74 @@
+name: GPUI patches
+
+# gpui/patches carries gpui-fast's GPUI with Lattice's diffs (element scale,
+# letter spacing). The vendored copy cannot run its own tests where it sits:
+# the gpui crate's tests read examples and fonts that are not vendored. So
+# this checks out gpui-fast at the pin script/check-patches names, applies the
+# diffs there, and runs the tests they add. A diff that still applies and
+# builds after upstream moved what it hooks into fails here.
+#
+# Its own workflow, so the GPUI workflow's jobs keep their triggers: it runs
+# only when the patches, the script that pins them, or this file change.
+on:
+  push:
+    branches: [main]
+    paths: &patch-paths
+      - "gpui/patches/**"
+      - "gpui/script/check-patches"
+      - ".github/workflows/gpui-patches.yml"
+  pull_request:
+    paths: *patch-paths
+  workflow_dispatch:
+
+concurrency:
+  group: gpui-patches-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  # macOS only: the diffs touch no platform crate, and GPUI's tests run on the
+  # test platform, so a second OS would build the same code again.
+  patch-tests:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out gpui-fast at the pin and apply the diffs
+        run: |
+          rev="$(sed -n 's/^GPUI_FAST_REV=//p' gpui/script/check-patches)"
+          repo="$(sed -n 's/^GPUI_FAST_REPO=//p' gpui/script/check-patches)"
+          test -n "$rev" && test -n "$repo"
+          work="$RUNNER_TEMP/patched"
+          mkdir -p "$work"
+          git init -q "$work/gpui-fast"
+          git -C "$work/gpui-fast" fetch -q --depth 1 "$repo" "$rev"
+          git -C "$work/gpui-fast" -c advice.detachedHead=false checkout -q FETCH_HEAD
+          # The diffs are written against gpui/patches, where gpui-fast/ is
+          # the checkout's root. The vendoring diff only reshapes manifests
+          # for building out of the repository, so it is not applied here.
+          cd "$work"
+          for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type; do
+            git apply "$GITHUB_WORKSPACE/gpui/patches/$diff.diff"
+          done
+          echo "GPUI_FAST_DIR=$work/gpui-fast" >> "$GITHUB_ENV"
+      # gpui-fast pins its own toolchain in rust-toolchain.toml.
+      - name: Install gpui-fast's toolchain
+        run: rustup toolchain install
+        working-directory: ${{ env.GPUI_FAST_DIR }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.GPUI_FAST_DIR }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # fast::scale: every primitive kind transformed, nesting, the outer clip
+      # kept, a view replayed inside a scale; fast::letter_spacing: clusters
+      # and marks spaced, tracked text measured wider. runtime_shaders: GPUI
+      # compiles its Metal shaders at run time, so no Metal toolchain is needed.
+      - name: Run the patch tests
+        working-directory: ${{ env.GPUI_FAST_DIR }}
+        run: cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing
