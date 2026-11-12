@@ -445,6 +445,13 @@ macro_rules! m {
     };
 }
 
+/// Off macOS these shortcuts are Ctrl keys Zed's Vim keymap binds too; in an
+/// editor with Vim on, Vim keeps them. Quitting there is Alt+F4 or the menu.
+#[cfg(target_os = "macos")]
+const BESIDE_VIM: Option<&str> = None;
+#[cfg(not(target_os = "macos"))]
+const BESIDE_VIM: Option<&str> = Some("!vim_mode");
+
 /// The default keymap, as the Tauri app's command table and Trellis's keymap
 /// bind it, plus the window's own (quit, hide, minimize).
 pub fn bind_keys(cx: &mut App) {
@@ -453,14 +460,14 @@ pub fn bind_keys(cx: &mut App) {
 
 fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
-        KeyBinding::new(m!("o"), OpenFolder, None),
-        KeyBinding::new(m!("b"), Build, None),
-        KeyBinding::new(m!("s"), Save, None),
+        KeyBinding::new(m!("o"), OpenFolder, BESIDE_VIM),
+        KeyBinding::new(m!("b"), Build, BESIDE_VIM),
+        KeyBinding::new(m!("s"), Save, BESIDE_VIM),
         // ⌘K last: the later binding is the one menus and keycaps show.
         KeyBinding::new(m!("shift-p"), CommandPalette, None),
-        KeyBinding::new(m!("k"), CommandPalette, None),
+        KeyBinding::new(m!("k"), CommandPalette, BESIDE_VIM),
         KeyBinding::new(m!("shift-/"), ShowShortcuts, None),
-        KeyBinding::new(m!("w"), CloseTab, None),
+        KeyBinding::new(m!("w"), CloseTab, BESIDE_VIM),
         KeyBinding::new(m!("shift-w"), CloseWindow, None),
         KeyBinding::new(m!("shift-t"), ReopenClosedTab, None),
         KeyBinding::new(m!("shift-]"), NextTab, None),
@@ -470,7 +477,6 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("alt-1"), ToggleProjectPanel, None),
         KeyBinding::new(m!("alt-2"), TogglePapersPanel, None),
         KeyBinding::new(m!("alt-3"), ToggleAgentPanel, None),
-        KeyBinding::new(m!("q"), Quit, None),
         KeyBinding::new(m!("1"), SwitchWorkspace1, None),
         KeyBinding::new(m!("2"), SwitchWorkspace2, None),
         KeyBinding::new(m!("3"), SwitchWorkspace3, None),
@@ -486,6 +492,7 @@ fn default_bindings() -> Vec<KeyBinding> {
     ];
     #[cfg(target_os = "macos")]
     bindings.extend([
+        KeyBinding::new("cmd-q", Quit, None),
         KeyBinding::new("cmd-h", Hide, None),
         KeyBinding::new("cmd-alt-h", HideOthers, None),
         KeyBinding::new("cmd-m", Minimize, None),
@@ -644,22 +651,43 @@ mod keymap_tests {
         matched.first().map(|binding| binding.action().name())
     }
 
+    /// vim.json, "vim_mode == insert": ctrl-w deletes the previous word.
+    fn vim_insert_ctrl_w() -> KeyBinding {
+        KeyBinding::new(
+            "ctrl-w",
+            editor::actions::DeleteToPreviousWordStart::default(),
+            Some("vim_mode == insert"),
+        )
+    }
+
     #[test]
-    fn shell_keys_win_again_once_vim_is_turned_on() {
-        // vim.json binds ctrl-w, ctrl-s and the like in "VimControl"; turning
-        // Vim on loads it after Lattice's keymap, which then binds again.
-        let vim = || KeyBinding::new(m!("w"), editor::actions::Fold, Some("VimControl"));
-        let editor = "Editor mode = full VimControl";
-        let mut vim_last = default_bindings();
-        vim_last.push(vim());
+    fn vim_keeps_ctrl_w_in_its_editor_however_vim_was_turned_on() {
+        let deletes = Some(editor::actions::DeleteToPreviousWordStart::default().name());
+        let insert = "Editor mode = full vim_mode = insert";
+        // At startup Vim's keymap loads before Lattice's; turned on later,
+        // after it.
+        let mut startup = vec![vim_insert_ctrl_w()];
+        startup.extend(default_bindings());
+        let mut turned_on = default_bindings();
+        turned_on.push(vim_insert_ctrl_w());
+        assert_eq!(resolve(startup, insert, "ctrl-w"), deletes);
+        assert_eq!(resolve(turned_on, insert, "ctrl-w"), deletes);
+    }
+
+    #[test]
+    fn close_tab_keeps_its_key_outside_a_vim_editor() {
+        let mut bindings = default_bindings();
+        bindings.push(vim_insert_ctrl_w());
         assert_eq!(
-            resolve(vim_last.clone(), editor, m!("w")),
-            Some(editor::actions::Fold.name()),
-            "without binding again, Vim's later binding takes the key"
+            resolve(bindings, "Editor mode = full", m!("w")),
+            Some(CloseTab.name())
         );
-        let mut rebound = vim_last;
-        rebound.extend(default_bindings());
-        assert_eq!(resolve(rebound, editor, m!("w")), Some(CloseTab.name()));
+    }
+
+    #[test]
+    fn only_macos_binds_a_quit_key() {
+        let quit = resolve(default_bindings(), "Editor mode = full", m!("q"));
+        assert_eq!(quit == Some(Quit.name()), cfg!(target_os = "macos"));
     }
 
     #[test]
