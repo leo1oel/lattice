@@ -238,6 +238,10 @@ impl PdfView {
         }
     }
 
+    pub fn find_query(&self) -> &str {
+        &self.find.query
+    }
+
     pub fn find_matches(&self) -> (usize, Option<usize>, bool) {
         (
             self.find.matches.len(),

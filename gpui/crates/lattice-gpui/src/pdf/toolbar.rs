@@ -225,19 +225,13 @@ impl PdfView {
             .min_w_0()
             .items_center()
             .gap(px(4.))
-            .child(self.outline_trigger(empty, cx))
+            .children(self.outline_trigger(cx))
             .child(
                 div()
                     .flex_1()
                     .min_w_0()
                     .child(self.find_field(empty, window, cx)),
             )
-            .into_any_element()
-    }
-
-    fn outline_trigger(&self, empty: bool, _: &mut Context<Self>) -> AnyElement {
-        tool("pdf-outline", Icon::LIST_TREE, "Show outline")
-            .disabled(empty)
             .into_any_element()
     }
 

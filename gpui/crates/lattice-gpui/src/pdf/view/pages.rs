@@ -71,9 +71,23 @@ impl PdfView {
         let bounds = self.scroll.bounds();
         if bounds.size != self.viewport.size {
             let resized = self.viewport.size.width > px(0.);
+            let (before, scroll) = (self.layout.clone(), self.scroll_offset());
             self.viewport = bounds;
             self.relayout();
             if self.fit.is_some() && resized {
+                // A fitted page follows the panel's size and keeps the place
+                // at the top of the view where it was, as PDF.js keeps its
+                // location through a rescale.
+                if before.len() > 0 && self.pending_scroll.is_none() {
+                    let next = crate::pdf::layout::anchored_scroll(
+                        &before,
+                        &self.layout,
+                        scroll,
+                        (0., 0.),
+                        self.viewport_size(),
+                    );
+                    self.set_scroll(next);
+                }
                 self.settle(REFIT_SETTLE, cx);
             } else if !resized {
                 self.render_scale = self.scale;
@@ -348,16 +362,6 @@ impl PdfView {
         cx.notify();
     }
 
-    /// Images held now, for a scenario that checks the page window.
-    pub fn images_held(&self) -> usize {
-        self.pages
-            .iter()
-            .map(|slot| {
-                usize::from(slot.base.image.is_some()) + usize::from(slot.detail.image.is_some())
-            })
-            .sum()
-    }
-
     /// The pages holding an image now, for a scenario that checks the page
     /// window.
     pub fn held_pages(&self) -> Vec<usize> {
@@ -377,25 +381,12 @@ impl PdfView {
     }
 
     /// Pages whose image is on screen at the size they are shown.
+    #[cfg(all(target_os = "macos", feature = "offscreen-shots"))]
     pub fn pages_drawn(&self) -> usize {
         self.pages
             .iter()
             .filter(|slot| slot.base.image.is_some() && slot.base.pending.is_none())
             .count()
-    }
-
-    /// The page images' keys' copies, for a scenario that checks a swap.
-    pub fn drawn_generations(&self) -> Vec<Option<u64>> {
-        self.pages
-            .iter()
-            .map(|slot| slot.base.key.map(|key| key.generation))
-            .collect()
-    }
-
-    pub fn generation(&self) -> Option<u64> {
-        self.document
-            .as_ref()
-            .map(|document| document.info.generation)
     }
 
     pub fn visible_pages(&self) -> Range<usize> {

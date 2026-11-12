@@ -21,7 +21,7 @@ use lattice_core::latex;
 use super::{Shell, build::BuildRequest};
 use crate::{
     notices,
-    pdf::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label},
+    pdf::{OutlineState, PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label},
 };
 
 const PLACEMENTS: [DockPlacement; 4] = [
@@ -55,6 +55,22 @@ impl Shell {
             PdfEvent::Build { document } => {
                 self.build_target = document.clone();
                 self.run_build(BuildRequest::requested(), window, cx);
+            }
+            // An Outline row: the line in the editor, then the same place in
+            // the PDF, as a jump from the caret makes it.
+            PdfEvent::Outline { path, line } => {
+                let Some(root) = self.root(cx) else {
+                    return;
+                };
+                if self
+                    .open_path(root.join(path), Some(*line), window, cx)
+                    .is_some()
+                {
+                    // Once the editor has reported its caret on that line.
+                    cx.defer_in(window, |this, window, cx| {
+                        this.forward_sync(&super::ForwardSync, window, cx)
+                    });
+                }
             }
             // In its own window, the PDF leaves the dock its room; Return to
             // workspace brings the panel back.
@@ -119,6 +135,7 @@ impl Shell {
             panel.set_window_title(title.into());
             panel.open(pdf, window, cx);
         });
+        self.refresh_outline(window, cx);
         let live = PanelId::from(self.pdf.entity_id());
         match left {
             // A build not asked for leaves the reader on the document they
@@ -134,6 +151,51 @@ impl Shell {
             _ => {}
         }
         cx.notify();
+    }
+
+    /// Read the live document's outline again, with each heading's page in
+    /// its PDF, and offer it in the live PDF's Outline while the document in
+    /// front is a LaTeX source.
+    pub(super) fn refresh_outline(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(root), Some(document)) = (self.root(cx), self.live_document.clone()) else {
+            self.outline = std::rc::Rc::from([]);
+            self.pdf.update(cx, |pdf, cx| pdf.set_outline(None, cx));
+            return;
+        };
+        let caret = self.active_editor().map(|editor| {
+            let editor = editor.read(cx);
+            (editor.relative().to_string(), editor.cursor().0)
+        });
+        let reading = cx.background_spawn(async move {
+            let mut headings = crate::outline::read_outline(&root, &document);
+            crate::outline::heading_pages(&root, &mut headings);
+            headings
+        });
+        self._outline_task = Some(cx.spawn_in(window, async move |this, cx| {
+            let headings: std::rc::Rc<[crate::outline::Heading]> = reading.await.into();
+            this.update(cx, |this, cx| {
+                let available = caret
+                    .as_ref()
+                    .is_none_or(|(path, _)| path.to_ascii_lowercase().ends_with(".tex"));
+                // The section the caret is in: the last heading of its file
+                // at or above its line.
+                let active = caret.as_ref().and_then(|(path, line)| {
+                    headings
+                        .iter()
+                        .rposition(|heading| heading.path == *path && heading.line <= *line)
+                });
+                this.outline = headings.clone();
+                let state = available.then(|| OutlineState { headings, active });
+                this.pdf.update(cx, |pdf, cx| pdf.set_outline(state, cx));
+            })
+            .ok();
+        }));
+    }
+
+    /// The live document's outline, each heading with its page in the PDF
+    /// when the last build's SyncTeX map recorded it.
+    pub fn outline(&self) -> &[crate::outline::Heading] {
+        &self.outline
     }
 
     /// A tab for `document`'s last PDF, where the live tab stands.

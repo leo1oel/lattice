@@ -40,6 +40,7 @@ impl PdfWindow {
         source: Option<PathBuf>,
         place: ViewPlace,
         building: bool,
+        outline: Option<super::OutlineState>,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<PdfView>)> {
         let key = frame_key(source.as_deref());
@@ -79,6 +80,7 @@ impl PdfWindow {
                         cx,
                     );
                     view.restore_place(place);
+                    view.set_outline(outline.clone(), cx);
                     if let Some(source) = source.clone() {
                         view.open(source, window, cx);
                     }
@@ -174,6 +176,10 @@ fn forward(owner: &WeakEntity<PdfPanel>, event: &PdfViewEvent, cx: &mut App) {
         },
         PdfViewEvent::RevealCursor => super::PdfEvent::RevealCursor { document: None },
         PdfViewEvent::Build => super::PdfEvent::Build { document: None },
+        PdfViewEvent::Outline { path, line } => super::PdfEvent::Outline {
+            path: path.clone(),
+            line: *line,
+        },
         PdfViewEvent::Action => return,
     };
     owner.update(cx, |_, cx| cx.emit(event));

@@ -103,18 +103,6 @@ impl PdfView {
         }
     }
 
-    /// Whether a link is under a window position, for the pointer's shape.
-    pub(in crate::pdf) fn link_at(&self, position: Point<Pixels>) -> bool {
-        let (x, y) = self.sheet_point(position);
-        self.layout
-            .to_page(x, y)
-            .and_then(|(page, x, y)| {
-                let text = self.pages.get(page)?.text.as_ref()?;
-                Some(text.links.iter().any(|link| link.contains(x, y)))
-            })
-            .unwrap_or(false)
-    }
-
     /// ⌘-wheel and Ctrl-wheel zoom around the pointer (`use-pdf-zoom.ts`):
     /// a trackpad's pixel deltas keep their 1:1 rate, a mouse notch is one
     /// step of about 5%.
@@ -253,6 +241,7 @@ impl PdfView {
     }
 
     /// Select from caret `from` to caret `to` (page, caret), as a drag would.
+    #[cfg(target_os = "macos")]
     pub fn select(&mut self, from: (usize, usize), to: (usize, usize), cx: &mut Context<Self>) {
         self.selection = Some(Selection {
             anchor: from,

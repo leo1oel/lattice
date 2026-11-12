@@ -56,7 +56,7 @@ pub fn darken_bgra(pixels: &mut [u8]) {
 static DARK_PAGES: AtomicBool = AtomicBool::new(false);
 
 /// Set when the reader turns dark pages on or off; every viewer observes it.
-pub struct DarkPages(pub bool);
+pub struct DarkPages;
 
 impl gpui::Global for DarkPages {}
 

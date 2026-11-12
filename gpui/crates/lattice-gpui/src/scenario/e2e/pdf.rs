@@ -13,7 +13,7 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result};
-use gpui::{App, AsyncApp, Entity};
+use gpui::{App, AsyncApp, Entity, Focusable as _};
 use serde_json::json;
 
 use super::Steps;
@@ -122,8 +122,10 @@ impl Run {
             json!({ "built": built, "pages": shown, "main_tab": tabs, "live": live }),
         );
 
+        self.outline_and_heading_pages(cx, steps).await?;
         self.navigation_and_zoom(cx, steps).await?;
         self.find_in_pdf(cx, steps).await?;
+        self.page_draft(cx, steps).await?;
         self.links_and_back(cx, steps).await?;
         self.select_and_copy(cx, steps).await?;
         self.dark_pages(cx, steps).await?;
@@ -151,6 +153,55 @@ impl Run {
             "building main.tex again makes it the live PDF and gives the supplement its own tab",
             built && traded,
             json!({ "built": built }),
+        );
+        Ok(())
+    }
+
+    /// The live document's outline, each heading with its PDF page (for the
+    /// outline rail), and an Outline row that opens its line and marks its
+    /// place in the PDF.
+    async fn outline_and_heading_pages(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        let read = self
+            .wait_for(cx, Duration::from_secs(15), |shell, cx| {
+                let shell = shell.read(cx);
+                shell.outline().len() == 12
+                    && shell
+                        .outline()
+                        .iter()
+                        .any(|heading| heading.title == "Target" && heading.page == Some(9))
+                    && shell.pdf().read(cx).live_view().read(cx).has_outline()
+            })
+            .await;
+        let target = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .outline()
+                .iter()
+                .find(|heading| heading.title == "Target")
+                .cloned()
+        });
+        let mut marked = false;
+        if let Some(target) = &target {
+            let (path, line) = (target.path.clone(), target.line);
+            self.with_view(cx, move |_, _, cx| {
+                cx.emit(crate::pdf::PdfViewEvent::Outline { path, line })
+            })?;
+            marked = self
+                .wait_for(cx, Duration::from_secs(30), |shell, cx| {
+                    let shell = shell.read(cx);
+                    shell.active_editor_path(cx).as_deref() == Some("supplement.tex")
+                        && shell
+                            .pdf()
+                            .read(cx)
+                            .sync_mark(cx)
+                            .is_some_and(|(page, scroll)| page == 8 && !scroll)
+                })
+                .await;
+        }
+        steps.check(
+            "PDF: the Outline lists the headings with their pages, and a row opens its line and marks it in the PDF",
+            read && marked,
+            json!({ "target": target.map(|heading| (heading.line, heading.page)), "marked": marked }),
         );
         Ok(())
     }
@@ -214,21 +265,28 @@ impl Run {
         Ok(())
     }
 
+    /// Find in PDF with the keys: ⌘F / Ctrl+F on the pages focuses the
+    /// field, the query is typed, Enter steps to the next match, Escape
+    /// clears it and a second Escape goes back to the pages.
     async fn find_in_pdf(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        self.with_view(cx, |view, _, cx| {
+        self.with_view(cx, |view, window, cx| {
             view.go_to_page(0, cx);
-            view.set_query("zebracorn".into(), true, cx);
+            window.focus(&view.focus_handle(cx), cx);
         })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.press(cx, 'f', true).await?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.type_text(cx, "zebracorn").await?;
         let found = self
             .wait_view(cx, 20, |view, _| {
                 let (total, _, pending) = view.find_matches();
-                !pending && total == 4
+                !pending && total == 4 && view.find_query() == "zebracorn"
             })
             .await;
         let landed = self
             .wait_view(cx, 5, |view, _| view.current_page() == 1)
             .await;
-        self.with_view(cx, |view, _, cx| view.find_again(false, cx))?;
+        self.press(cx, '\n', false).await?;
         let next = self
             .wait_view(cx, 5, |view, _| {
                 view.find_matches().1 == Some(1) && view.current_page() == 3
@@ -250,15 +308,47 @@ impl Run {
             })
             .await;
         let counter = cx.update(|cx| self.live_view_of(cx).read(cx).find_matches());
+        self.press(cx, '\u{1b}', false).await?;
+        let cleared = self
+            .wait_view(cx, 5, |view, _| {
+                view.find_query().is_empty() && view.find_matches().0 == 0
+            })
+            .await;
         steps.check(
-            "PDF: Find in PDF counts the matches, moves to each, and Whole word drops \"zebracorns\"",
-            found && landed && next && words,
-            json!({ "matches": counter.0, "current": counter.1 }),
+            "PDF: ⌘F / Ctrl+F and typing find the matches, Enter moves to the next, Whole word drops \"zebracorns\", Escape clears",
+            found && landed && next && words && cleared,
+            json!({ "found": found, "landed": landed, "next": next, "words": words, "cleared": cleared, "matches": counter.0, "current": counter.1 }),
         );
         self.with_view(cx, |view, window, cx| {
             view.set_find_options(FindOptions::default(), cx);
             view.clear_find(window, cx);
         })?;
+        Ok(())
+    }
+
+    /// The page value: clicked, a number typed and Enter goes there; Escape
+    /// drops a draft.
+    async fn page_draft(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        self.with_view(cx, |view, window, cx| {
+            view.edit_draft_to(false, "7", window, cx)
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.press(cx, '\n', false).await?;
+        let went = self
+            .wait_view(cx, 5, |view, _| view.current_page() == 6)
+            .await;
+        self.with_view(cx, |view, window, cx| {
+            view.edit_draft_to(false, "2", window, cx)
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.press(cx, '\u{1b}', false).await?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let stayed = cx.update(|cx| self.live_view_of(cx).read(cx).current_page()) == 6;
+        steps.check(
+            "PDF: a page number typed into the page value and Enter go there, and Escape drops a draft",
+            went && stayed,
+            json!({ "went": went, "stayed": stayed }),
+        );
         Ok(())
     }
 

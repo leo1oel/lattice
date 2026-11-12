@@ -61,6 +61,11 @@ pub enum PdfEvent {
     Build {
         document: Option<String>,
     },
+    /// An Outline row: open `path` at `line`, and show it in the PDF.
+    Outline {
+        path: String,
+        line: u32,
+    },
     /// The live PDF moved into its own window, or came back.
     Detached,
     Docked,
@@ -80,6 +85,8 @@ pub struct PdfPanel {
     building: bool,
     /// The window's title: the PDF's and the project's names.
     title: SharedString,
+    /// The live PDF's Outline, carried into its window.
+    outline: Option<super::OutlineState>,
     _subscriptions: Vec<gpui::Subscription>,
 }
 
@@ -107,6 +114,7 @@ impl PdfPanel {
             source: None,
             building: false,
             title: "PDF".into(),
+            outline: None,
             _subscriptions: vec![subscription],
         }
     }
@@ -138,6 +146,7 @@ impl PdfPanel {
         self.window.is_some()
     }
 
+    #[cfg(target_os = "macos")]
     pub fn window_handle(&self) -> Option<AnyWindowHandle> {
         self.window.as_ref().map(|(handle, _)| *handle)
     }
@@ -162,6 +171,10 @@ impl PdfPanel {
             }),
             PdfViewEvent::RevealCursor => cx.emit(PdfEvent::RevealCursor { document }),
             PdfViewEvent::Build => cx.emit(PdfEvent::Build { document }),
+            PdfViewEvent::Outline { path, line } => cx.emit(PdfEvent::Outline {
+                path: path.clone(),
+                line: *line,
+            }),
             PdfViewEvent::Action => self.detach(window, cx),
         }
     }
@@ -213,6 +226,19 @@ impl PdfPanel {
         cx.notify();
     }
 
+    /// The manuscript's outline for the live PDF's Outline button, wherever
+    /// the live PDF is (`None`: no button).
+    pub fn set_outline(&mut self, outline: Option<super::OutlineState>, cx: &mut Context<Self>) {
+        self.outline = outline.clone();
+        let views = [
+            Some(self.view.clone()),
+            self.window.as_ref().map(|(_, view)| view.clone()),
+        ];
+        for view in views.into_iter().flatten() {
+            view.update(cx, |view, cx| view.set_outline(outline.clone(), cx));
+        }
+    }
+
     pub fn set_window_title(&mut self, title: SharedString) {
         self.title = title;
     }
@@ -239,7 +265,8 @@ impl PdfPanel {
         let source = self.source.clone();
         let owner = cx.entity().downgrade();
         let title = self.title.clone();
-        match PdfWindow::open(owner, title, source, place, self.building, cx) {
+        let outline = self.outline.clone();
+        match PdfWindow::open(owner, title, source, place, self.building, outline, cx) {
             Ok((handle, view)) => {
                 // The panel's own viewer lets go of its pages.
                 self.view.update(cx, |view, cx| view.close(window, cx));
@@ -303,6 +330,7 @@ impl PdfPanel {
         self.live_view().read(cx).page_count()
     }
 
+    #[cfg(all(target_os = "macos", feature = "offscreen-shots"))]
     pub fn pages_drawn(&self, cx: &App) -> usize {
         self.live_view().read(cx).pages_drawn()
     }

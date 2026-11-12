@@ -75,6 +75,9 @@ pub enum PdfViewEvent {
     Action,
     /// The empty state's Build project.
     Build,
+    /// An Outline row: open `path` (project-relative) at `line` and show the
+    /// place in the PDF.
+    Outline { path: String, line: u32 },
 }
 
 /// A context-specific action before Save, such as moving the PDF into a
@@ -164,6 +167,7 @@ pub struct PdfView {
     pub(super) loading: bool,
     pub(super) dark: bool,
     pub(super) action: Option<ToolbarAction>,
+    pub(super) outline: Option<super::OutlineState>,
     pub(super) can_reveal: bool,
     pub(super) offers_build: bool,
     pub(super) building: bool,
@@ -229,12 +233,10 @@ impl PdfView {
             page_field: DraftField {
                 input: page_input,
                 editing: false,
-                cancelled: false,
             },
             zoom_field: DraftField {
                 input: zoom_input,
                 editing: false,
-                cancelled: false,
             },
             selection: None,
             selecting: false,
@@ -246,6 +248,7 @@ impl PdfView {
             loading: false,
             dark: super::dark::enabled(),
             action: None,
+            outline: None,
             can_reveal: false,
             offers_build: false,
             building: false,
@@ -280,12 +283,9 @@ impl PdfView {
         }
     }
 
-    pub fn path(&self) -> Option<&PathBuf> {
-        self.source.as_ref()
-    }
-
-    pub fn has_document(&self) -> bool {
-        self.document.is_some()
+    /// The pages' scroll area on screen, as of the last frame.
+    pub fn viewport_bounds(&self) -> Bounds<Pixels> {
+        self.viewport
     }
 
     pub fn page_count(&self) -> usize {
@@ -694,7 +694,7 @@ impl PdfView {
         let dark = !super::dark::enabled();
         preferences::update(|preferences| preferences.dark_pages = dark);
         // Every viewer follows (`observe_global` in `new`).
-        cx.set_global(super::dark::DarkPages(dark));
+        cx.set_global(super::dark::DarkPages);
     }
 }
 

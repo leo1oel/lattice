@@ -38,7 +38,7 @@ impl Render for PdfView {
         let palette = cx.palette().clone();
         let view = cx.entity().downgrade();
         let width = self.width;
-        let body = self.body(window, cx);
+        let body = self.body(cx);
         div()
             .id("pdf-view")
             .key_context("PdfView")
@@ -73,7 +73,7 @@ impl Render for PdfView {
 }
 
 impl PdfView {
-    fn body(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn body(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let state = |content: AnyElement| {
             div()
@@ -138,10 +138,10 @@ impl PdfView {
             });
             return state(empty.into_any_element());
         }
-        self.pages_area(window, cx)
+        self.pages_area(cx)
     }
 
-    fn pages_area(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn pages_area(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let dark = self.dark;
         let scale = self.layout.scale;

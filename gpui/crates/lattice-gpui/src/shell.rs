@@ -113,6 +113,9 @@ pub struct Shell {
     root_pdfs: Vec<(String, Entity<PdfPanel>)>,
     /// The project's PDFs opened from the tree.
     file_pdfs: Vec<Entity<PdfPanel>>,
+    /// The live document's outline, with each heading's page in its PDF.
+    outline: std::rc::Rc<[crate::outline::Heading]>,
+    _outline_task: Option<Task<()>>,
     _open_task: Option<Task<()>>,
     vim_mode: bool,
 }
@@ -236,6 +239,8 @@ impl Shell {
             live_document: None,
             root_pdfs: Vec::new(),
             file_pdfs: Vec::new(),
+            outline: std::rc::Rc::from([]),
+            _outline_task: None,
             _open_task: None,
             vim_mode: crate::app::vim_mode_enabled(cx),
         }
@@ -348,6 +353,7 @@ impl Shell {
         self.build_target = None;
         self.close_root_pdfs(window, cx);
         self.live_document = project.read(cx).main_document().map(str::to_string);
+        self.refresh_outline(window, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         window.set_window_title(&format!(
@@ -471,6 +477,7 @@ impl Shell {
             }
         };
         self.active_editor = Some(editor.downgrade());
+        self.refresh_outline(window, cx);
         editor.update(cx, |editor, cx| match line {
             Some(line) => editor.go_to_line(line, window, cx),
             None => window.focus(&editor.editor().focus_handle(cx), cx),
@@ -492,6 +499,7 @@ impl Shell {
                 if let Some(project) = &self.project {
                     project.update(cx, |project, _| project.mark_inputs_changed());
                 }
+                self.refresh_outline(window, cx);
             }
             EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
                 self.run_build(BuildRequest::automatic(), window, cx);
