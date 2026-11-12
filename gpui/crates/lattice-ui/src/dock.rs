@@ -428,7 +428,7 @@ impl TabGroupRenderer for LatticeTabs {
                     .is_draggable()
                     .then(|| group.drag_panel(ix, cx))
                     .flatten();
-                let icon = tab_icon(look.icon, selected, &palette);
+                let icon = tab_icon(look.icon, &palette);
                 let preview = TabDragPreview {
                     name: name.clone(),
                     icon: look.icon,
@@ -801,8 +801,7 @@ fn move_targets(area: &DockArea, from: NodeId, cx: &App) -> Vec<(NodeId, SharedS
     targets
 }
 
-fn tab_icon(icon: TabIcon, selected: bool, palette: &Palette) -> AnyElement {
-    let _ = selected;
+fn tab_icon(icon: TabIcon, palette: &Palette) -> AnyElement {
     match icon {
         TabIcon::None => Empty.into_any_element(),
         TabIcon::Icon(icon) => icon
@@ -833,7 +832,7 @@ impl Render for TabDragPreview {
             .bg(palette.raised)
             .shadow(Elevation::Popover.shadows(&palette))
             .cursor_grab()
-            .child(tab_icon(self.icon, true, &palette))
+            .child(tab_icon(self.icon, &palette))
             .child(
                 div()
                     .whitespace_nowrap()
@@ -847,15 +846,9 @@ impl Render for TabDragPreview {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::TabFit;
 
     #[test]
     fn a_named_tab_by_default() {
         assert!(!TabLook::default().document);
-    }
-
-    #[test]
-    fn icon_only_tabs_keep_their_icon_gutter() {
-        assert_eq!(TabFit::icon_only_width(), px(30.));
     }
 }

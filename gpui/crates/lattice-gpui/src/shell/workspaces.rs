@@ -46,6 +46,10 @@ struct Library {
     workspaces: Vec<Workspace>,
     #[serde(default)]
     recent: Option<String>,
+    /// The number the next workspace's id takes, kept so a deleted
+    /// workspace's id is never handed out again.
+    #[serde(default)]
+    next_id: u64,
 }
 
 /// A preset on screen, and the project's own layout under it.
@@ -93,7 +97,6 @@ pub struct Workspaces {
     dir: Option<PathBuf>,
     library: Library,
     projects: BTreeMap<PathBuf, ProjectLayout>,
-    next_id: u64,
 }
 
 impl Global for Workspaces {}
@@ -115,7 +118,7 @@ impl Workspaces {
     }
 
     pub fn load(dir: Option<PathBuf>) -> Workspaces {
-        let library = dir
+        let mut library = dir
             .as_ref()
             .and_then(|dir| std::fs::read_to_string(dir.join("workspaces.json")).ok())
             .and_then(|text| serde_json::from_str::<Library>(&text).ok())
@@ -128,13 +131,19 @@ impl Workspaces {
                     arrangement: None,
                 }],
                 recent: None,
+                next_id: 0,
             });
-        let next_id = library.workspaces.len() as u64 + 1;
+        let in_use = library
+            .workspaces
+            .iter()
+            .filter_map(|workspace| workspace.id.strip_prefix("ws-")?.parse::<u64>().ok())
+            .max()
+            .unwrap_or(0);
+        library.next_id = library.next_id.max(in_use + 1);
         Workspaces {
             dir,
             library,
             projects: BTreeMap::new(),
-            next_id,
         }
     }
 
@@ -229,8 +238,8 @@ impl Workspaces {
 
     fn new_id(&mut self) -> String {
         loop {
-            let id = format!("ws-{}", self.next_id);
-            self.next_id += 1;
+            let id = format!("ws-{}", self.library.next_id);
+            self.library.next_id += 1;
             if self.get(&id).is_none() {
                 return id;
             }
@@ -495,6 +504,27 @@ mod tests {
             library.project(&root).workspace.as_deref(),
             Some(library.list()[1].id.as_str())
         );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_deleted_workspace_id_is_not_handed_out_after_a_restart() {
+        let dir = std::env::temp_dir().join(format!(
+            "lattice-gpui-ws-id-test-{}",
+            std::process::id()
+        ));
+        std::fs::remove_dir_all(&dir).ok();
+        let deleted = {
+            let mut library = Workspaces::load(Some(dir.clone()));
+            library.add("Writing", None, None);
+            let last = library.add("Reading", None, None);
+            library.remove(&last).unwrap();
+            library.persist_library();
+            last
+        };
+        let mut library = Workspaces::load(Some(dir.clone()));
+        let added = library.add("Drafts", None, None);
+        assert_ne!(added, deleted);
         std::fs::remove_dir_all(&dir).ok();
     }
 }

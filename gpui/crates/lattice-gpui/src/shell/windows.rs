@@ -62,11 +62,24 @@ impl Shell {
         let Some(root) = self.root.clone() else {
             return;
         };
+        self.dock_floating(window, cx);
         self.save_layout(cx);
-        if self.projects.len() > 1 {
-            self.close_project(&root, window, cx);
-        }
-        new_window(Some(root), cx);
+        let saves = self.save_edited(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            for save in saves {
+                if let Err(error) = save.await {
+                    log::error!("{error:#}");
+                }
+            }
+            this.update_in(cx, |this, window, cx| {
+                if this.projects.len() > 1 {
+                    this.close_project(&root, window, cx);
+                }
+                new_window(Some(root), cx);
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// The project `step` tabs along, round the window's projects.

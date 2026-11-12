@@ -42,7 +42,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 |---|---|
 | ⌘O / Ctrl+O | Open a project folder |
 | ⌘B / Ctrl+B | Save edited files and build |
-| ⌘S / Ctrl+S | Save |
+| ⌘S / Ctrl+S | Save edited files and build |
 | ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
 | ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
 | ⌘⇧/ (⌘?) | Keyboard shortcuts |

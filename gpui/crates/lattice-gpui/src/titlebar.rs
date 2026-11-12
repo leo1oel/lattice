@@ -464,7 +464,7 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
     ToolbarButton::new("panels", "Panels")
         .icon(Icon::LAYOUT_PANEL_LEFT)
         .parity("titlebar/panels")
-        .dropdown_menu(move |menu, window, cx| {
+        .dropdown_menu(move |menu, _, _| {
             let mut menu = menu
                 .min_w(px(224.))
                 .label("Panels")
@@ -524,8 +524,6 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
                         }),
                 );
             }
-            let _ = window;
-            let _ = cx;
             menu.menu_with_icon("Focus mode", Icon::FOCUS.kit(), Box::new(ToggleFocusMode))
                 .separator()
                 .menu_with_icon(
@@ -566,7 +564,7 @@ fn toggle_item(
 fn focus_bar(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> impl IntoElement {
     let palette = cx.palette().clone();
     let title = shell
-        .active_document(cx)
+        .active_document(window, cx)
         .map(|path| {
             std::path::Path::new(&path)
                 .file_name()

@@ -438,12 +438,9 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if self.floating.contains(panel) {
-            self.floating.remove(panel);
+        if let Some(floating) = self.floating.remove(panel) {
             cx.notify();
-            if let Some(view) = self.view_of(panel, cx)
-                && let (View::File(key), Some(root)) = (&view, &self.root)
-            {
+            if let (View::File(key), Some(root)) = (&floating.view, &self.root) {
                 self.closed_tabs.push(root.join(key));
             }
             return true;
@@ -488,15 +485,16 @@ impl Shell {
             self.layout.installing = false;
         }
         self.refresh_dirty(cx);
-        self.follow_active_document(cx);
+        self.follow_active_document(window, cx);
         self.schedule_save(window, cx);
         cx.notify();
     }
 
     /// The Project tree marks the document in front, whichever tab brought
     /// it there.
-    pub(super) fn follow_active_document(&mut self, cx: &mut Context<Self>) {
-        let (Some(root), Some(active)) = (self.root.clone(), self.active_document(cx)) else {
+    pub(super) fn follow_active_document(&mut self, window: &Window, cx: &mut Context<Self>) {
+        let (Some(root), Some(active)) = (self.root.clone(), self.active_document(window, cx))
+        else {
             return;
         };
         let path = root.join(active);
@@ -506,10 +504,11 @@ impl Shell {
 
     /// The document in front: the focused editor's, else the first group's
     /// selected one.
-    pub(crate) fn active_document(&self, cx: &App) -> Option<String> {
+    pub(crate) fn active_document(&self, window: &Window, cx: &App) -> Option<String> {
         let root = self.root.as_deref()?;
         let area = self.dock_area.read(cx);
-        let mut found = None;
+        let mut focused = None;
+        let mut first = None;
         for placement in [
             DockPlacement::Center,
             DockPlacement::Left,
@@ -519,16 +518,19 @@ impl Shell {
                 continue;
             };
             tree.root().walk(&mut |node| {
-                if found.is_none()
-                    && let PaneRef::Tabs { panels, active_ix } = node.kind()
+                if let PaneRef::Tabs { panels, active_ix } = node.kind()
                     && let Some(panel) = panels.get(active_ix).and_then(|id| area.panel(*id))
                     && let Ok(editor) = panel.view().downcast::<EditorPanel>()
                 {
-                    found = Some(layout::document_key(root, editor.read(cx).path()));
+                    let key = || layout::document_key(root, editor.read(cx).path());
+                    if focused.is_none() && panel.focus_handle(cx).contains_focused(window, cx) {
+                        focused = Some(key());
+                    }
+                    first.get_or_insert_with(key);
                 }
             });
         }
-        found
+        focused.or(first)
     }
 }
 
@@ -586,12 +588,7 @@ fn insert_in_dock(
 }
 
 /// The center with no document open: where documents go, said plainly.
-pub(super) fn empty_center(
-    shell: &Shell,
-    window: &mut Window,
-    cx: &mut Context<Shell>,
-) -> AnyElement {
-    let _ = window;
+pub(super) fn empty_center(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
     let palette = cx.palette().clone();
     let area = shell.dock_area.read(cx);
     let left = area

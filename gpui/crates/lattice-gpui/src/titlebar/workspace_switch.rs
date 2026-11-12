@@ -8,7 +8,7 @@
 
 use gpui::{
     AnyElement, AnyView, App, AppContext as _, Context, InteractiveElement as _, IntoElement,
-    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
+    KeyDownEvent, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::{
@@ -143,6 +143,12 @@ pub(super) fn workspace_switcher(
                 .bg(palette.panel)
                 .shadow(raised_plate(&palette))
                 .text_role(TextRole::Caption, cx)
+                .capture_key_down(cx.listener(|shell, event: &KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" {
+                        shell.finish_rename(window, cx);
+                        cx.stop_propagation();
+                    }
+                }))
                 .child(Input::new(&input).appearance(false).bordered(false))
                 .into_any_element();
         }

@@ -72,16 +72,10 @@ impl FloatingLayer {
         }
     }
 
-    pub fn render(
-        &self,
-        shell: &Shell,
-        window: &mut Window,
-        cx: &mut Context<Shell>,
-    ) -> Vec<AnyElement> {
-        let _ = shell;
+    pub fn render(&self, cx: &mut Context<Shell>) -> Vec<AnyElement> {
         self.panels
             .iter()
-            .map(|floating| floating.render(window, cx))
+            .map(|floating| floating.render(cx))
             .collect()
     }
 }
@@ -115,8 +109,7 @@ impl FloatingPanel {
         self.id
     }
 
-    fn render(&self, window: &mut Window, cx: &mut Context<Shell>) -> AnyElement {
-        let _ = window;
+    fn render(&self, cx: &mut Context<Shell>) -> AnyElement {
         let palette = cx.palette().clone();
         let look = TabPresenter::look_of(&self.panel, cx);
         let surface = match look.surface {
@@ -135,7 +128,6 @@ impl FloatingPanel {
         let menu_panel = PanelHandle::of(&self.panel).map(|handle| handle.panel());
         let weak = cx.entity().downgrade();
         let bounds = self.bounds;
-        let grab_bounds = bounds;
         let strip = div()
             .id(("floating-strip", id.as_u64()))
             .flex()
@@ -151,7 +143,6 @@ impl FloatingPanel {
                     grab: point(px(0.), px(0.)),
                 },
                 move |drag, offset, _, cx| {
-                    let _ = grab_bounds;
                     cx.new(|_| MoveDrag {
                         panel: drag.panel,
                         grab: offset,
@@ -334,6 +325,14 @@ impl Shell {
         });
         let arrangement = self.current_arrangement(cx).without(&view);
         self.install(&arrangement, window, cx);
+    }
+
+    /// Every floating panel docked where its kind belongs, so the project's
+    /// layout holds them before another project takes the window.
+    pub(super) fn dock_floating(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        for floating in std::mem::take(&mut self.floating.panels) {
+            self.show_view(floating.view, window, cx);
+        }
     }
 
     /// Follow the pointer, held where it grabbed the strip, kept on screen.

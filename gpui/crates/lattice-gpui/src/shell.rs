@@ -185,6 +185,12 @@ impl Shell {
             this.refresh_dirty(cx);
             cx.notify();
         });
+        cx.on_release(|this, cx| this.flush_layout(cx)).detach();
+        cx.on_app_quit(|this, cx| {
+            this.flush_layout(cx);
+            async {}
+        })
+        .detach();
 
         let mut shell = Self {
             root: None,
@@ -256,7 +262,9 @@ impl Shell {
     /// when one was already built.
     pub fn open_project(&mut self, root: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         let root = root.canonicalize().unwrap_or(root);
+        self.dock_floating(window, cx);
         self.save_layout(cx);
+        self.save_in_background(cx);
         if !self.projects.contains(&root) {
             match self
                 .root
@@ -400,17 +408,42 @@ impl Shell {
             .collect()
     }
 
-    fn save_all(&mut self, _: &Save, _: &mut Window, cx: &mut Context<Self>) {
-        for editor in self.open_editors() {
-            if editor.read(cx).is_dirty(cx) {
-                let save = editor.update(cx, |editor, cx| editor.save(cx));
-                cx.spawn(async move |_, _| {
-                    if let Err(error) = save.await {
-                        log::error!("{error:#}");
-                    }
-                })
-                .detach();
-            }
+    /// Start writing every edited file.
+    pub(crate) fn save_edited(&self, cx: &mut Context<Self>) -> Vec<Task<anyhow::Result<()>>> {
+        let dirty: Vec<_> = self
+            .open_editors()
+            .into_iter()
+            .filter(|editor| editor.read(cx).is_dirty(cx))
+            .collect();
+        dirty
+            .into_iter()
+            .map(|editor| editor.update(cx, |editor, cx| editor.save(cx)))
+            .collect()
+    }
+
+    fn save_in_background(&self, cx: &mut Context<Self>) {
+        for save in self.save_edited(cx) {
+            cx.spawn(async move |_, _| {
+                if let Err(error) = save.await {
+                    log::error!("{error:#}");
+                }
+            })
+            .detach();
+        }
+    }
+
+    /// ⌘S: save and build, as the Tauri app does; a plain save while a build
+    /// runs or when there is nothing to build.
+    fn save_all(&mut self, _: &Save, window: &mut Window, cx: &mut Context<Self>) {
+        let buildable = self.build_task.is_none()
+            && self
+                .root
+                .as_deref()
+                .is_some_and(|root| tex::find_main_document(root).is_some());
+        if buildable {
+            self.build(&Build, window, cx);
+        } else {
+            self.save_in_background(cx);
         }
     }
 
@@ -434,15 +467,7 @@ impl Shell {
             });
             return;
         };
-        let dirty: Vec<_> = self
-            .open_editors()
-            .into_iter()
-            .filter(|editor| editor.read(cx).is_dirty(cx))
-            .collect();
-        let saves: Vec<_> = dirty
-            .into_iter()
-            .map(|editor| editor.update(cx, |editor, cx| editor.save(cx)))
-            .collect();
+        let saves = self.save_edited(cx);
         self.build_panel
             .update(cx, |panel, cx| panel.started(&document, cx));
 
@@ -668,9 +693,9 @@ impl Render for Shell {
                     .children(lattice_ui::parity::probe("workspace"))
                     .child(self.dock_area.clone())
                     .when(self.center_empty(cx), |this| {
-                        this.child(arrange::empty_center(self, window, cx))
+                        this.child(arrange::empty_center(self, cx))
                     })
-                    .children(self.floating.render(self, window, cx)),
+                    .children(self.floating.render(cx)),
             )
             .children(self.palette.clone())
             .children(self.shortcuts.clone())

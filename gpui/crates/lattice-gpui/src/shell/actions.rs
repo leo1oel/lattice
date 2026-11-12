@@ -109,7 +109,7 @@ impl Shell {
             .map(|editor| PanelId::from(editor.entity_id()));
         let target = focused.or_else(|| {
             let root = self.root.clone()?;
-            let active = self.active_document(cx)?;
+            let active = self.active_document(window, cx)?;
             self.open_editors()
                 .into_iter()
                 .find(|editor| editor.read(cx).path() == root.join(&active))

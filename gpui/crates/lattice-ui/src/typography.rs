@@ -125,11 +125,6 @@ impl TextRole {
     }
 }
 
-/// Set a role's family, size, leading, weight and tracking in one call, so
-/// no component sets a size without its leading.
-/// How wide `text` draws in `role` at `weight` (the role's own when `None`),
-/// for a layout that has to know before it lays the text out: a strip
-/// deciding which tabs keep their names.
 /// CSS's `font-variant-numeric: tabular-nums`: every digit as wide as every
 /// other, for counts and times that change in place (the status bar, the
 /// Build button).
@@ -137,6 +132,9 @@ pub fn tabular_nums() -> gpui::FontFeatures {
     gpui::FontFeatures(std::sync::Arc::new(vec![("tnum".into(), 1)]))
 }
 
+/// How wide `text` draws in `role` at `weight` (the role's own when `None`),
+/// for a layout that has to know before it lays the text out: a strip
+/// deciding which tabs keep their names.
 pub fn shaped_width(
     text: &str,
     role: TextRole,
@@ -185,6 +183,8 @@ pub fn shaped_width_with(
         .width
 }
 
+/// Set a role's family, size, leading, weight and tracking in one call, so
+/// no component sets a size without its leading.
 pub trait TextRoleStyle: Styled + Sized {
     fn text_role(self, role: TextRole, cx: &App) -> Self {
         self.text_role_in(role, TypeScale::Interface, cx)

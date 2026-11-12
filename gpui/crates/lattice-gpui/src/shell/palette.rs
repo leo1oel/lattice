@@ -67,7 +67,10 @@ impl Entry {
             Entry::Command {
                 label, keywords, ..
             } => format!("{label} {keywords}"),
-            Entry::File { path, .. } => path.to_string_lossy().into_owned(),
+            Entry::File { name, folder, .. } => Path::new(folder.as_ref())
+                .join(name.as_ref())
+                .to_string_lossy()
+                .into_owned(),
         }
     }
 }
@@ -267,7 +270,7 @@ fn project_files(root: &Path) -> Vec<Entry> {
     ];
     let mut out = Vec::new();
     let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
+    'walk: while let Some(dir) = stack.pop() {
         let Ok(entries) = std::fs::read_dir(&dir) else {
             continue;
         };
@@ -297,7 +300,7 @@ fn project_files(root: &Path) -> Vec<Entry> {
                 path,
             });
             if out.len() >= MAX_FILES {
-                return out;
+                break 'walk;
             }
         }
     }
@@ -690,7 +693,7 @@ impl Shell {
         self.palette = None;
         self.shortcuts = None;
         // Back to the document in front, where the keyboard was.
-        if let Some(active) = self.active_document(cx)
+        if let Some(active) = self.active_document(window, cx)
             && let Some(root) = self.root.clone()
             && let Some(editor) = self.open_editor(&root.join(active), cx)
         {
@@ -704,7 +707,30 @@ impl Shell {
 
 #[cfg(test)]
 mod tests {
-    use super::score;
+    use super::{Entry, FILE_LIMIT, project_files, ranked, score};
+
+    #[test]
+    fn files_rank_by_their_path_inside_the_project() {
+        let root = std::env::temp_dir()
+            .join(format!("lattice-gpui-palette-{}", std::process::id()))
+            .join("thesis");
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::create_dir_all(root.join("chapters")).unwrap();
+        for ix in 0..FILE_LIMIT + 4 {
+            std::fs::write(root.join("chapters").join(format!("a{ix:02}.tex")), "").unwrap();
+        }
+        std::fs::write(root.join("thesis.tex"), "").unwrap();
+        let shown = ranked(&project_files(&root), "thesis", FILE_LIMIT);
+        let names: Vec<String> = shown
+            .iter()
+            .map(|entry| match entry {
+                Entry::File { name, .. } => name.to_string(),
+                Entry::Command { .. } => String::new(),
+            })
+            .collect();
+        std::fs::remove_dir_all(root.parent().unwrap()).ok();
+        assert_eq!(names, ["thesis.tex"]);
+    }
 
     #[test]
     fn a_run_at_a_word_start_beats_scattered_letters() {
