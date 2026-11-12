@@ -16,7 +16,6 @@ language.workspace = true
 lattice-core.workspace = true
 lattice-ui.workspace = true
 log.workspace = true
-# The completion menu's trigger kinds; already in the graph through the editor.
 # Completion items are Zed's `project::Completion`, which the editor's
 # completion menu draws; already in the graph through the editor.
 project.workspace = true

@@ -19,9 +19,10 @@
 //! - [`completion`]: sources for Zed's completion menu;
 //! - [`remote_cursors`]: other people's carets, named as they move.
 //!
-//! Each is proved by a real Lattice use in [`latex`]: TexLab's diagnostics
-//! as marks, gutter marks and hover cards; the citation and reference cards;
-//! command and citation completion. The project data they read (citation
+//! Each but gutter marks (whose first use will be the annotation pins) is
+//! proved by a real Lattice use in [`latex`]: TexLab's diagnostics as marks
+//! and hover cards; the citation and reference cards; command and citation
+//! completion. The project data they read (citation
 //! keys, labels) is a [`ProjectIndex`], and TexLab runs as a
 //! [`TexlabService`], both on `lattice-core`.
 

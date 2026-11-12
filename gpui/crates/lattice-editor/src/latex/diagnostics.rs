@@ -4,9 +4,11 @@
 //!
 //! As in the Tauri app (`src/build/use-texlab-diagnostics.ts`,
 //! `texlab-diagnostics.ts`): the file is synced to TexLab 700 ms after the
-//! last edit, when its editor gains focus, and again after every build
-//! while it is the document TexLab has open, and what TexLab publishes for
-//! it replaces what was shown. A diagnostic's range is clamped into the
+//! last edit, when its editor gains focus, and again after every build,
+//! and what TexLab publishes for it replaces what was shown. TexLab keeps
+//! one document, so only the editor the writer is in, or the one already
+//! TexLab's document, syncs: opening, moving or reloading a file in the
+//! background does not take TexLab from the file being written. A diagnostic's range is clamped into the
 //! buffer, an empty one underlines up to 12 characters, and a box warning
 //! TexLab pins to the very start of the root document (it comes from a
 //! generated file) is not drawn there. As in the Tauri app, whose lint
@@ -188,6 +190,8 @@ pub struct TexlabDiagnostics {
     path: String,
     shown: Rc<RefCell<Vec<Anchored>>>,
     raw: Vec<Diagnostic>,
+    /// The writer is in this editor.
+    focused: bool,
     _sync: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -228,6 +232,7 @@ impl TexlabDiagnostics {
                 path,
                 shown,
                 raw: Vec::new(),
+                focused: false,
                 _sync: None,
                 _subscriptions: subscriptions,
             };
@@ -238,23 +243,32 @@ impl TexlabDiagnostics {
 
     /// The file was renamed or moved: sync it under its new path.
     pub fn set_path(&mut self, path: String, cx: &mut Context<Self>) {
+        // Scheduled under the old path, which decides whether it may sync;
+        // the sync reads the new one when it fires.
+        self.schedule_sync(cx);
         self.path = path;
         self.raw.clear();
         self.show(cx);
+    }
+
+    /// Sync again after a build, so TexLab reads the new log.
+    pub fn resync(&mut self, cx: &mut Context<Self>) {
         self.schedule_sync(cx);
     }
 
-    /// Sync again after a build, so TexLab reads the new log, when this is
-    /// the document TexLab has open.
-    pub fn resync(&mut self, cx: &mut Context<Self>) {
-        if self.service.read(cx).document() == Some(self.path.as_str()) {
+    /// The writer went into its editor, or left it. Going in makes this the
+    /// document TexLab has open.
+    pub fn set_focused(&mut self, focused: bool, cx: &mut Context<Self>) {
+        self.focused = focused;
+        if focused {
             self.schedule_sync(cx);
         }
     }
 
-    /// Its editor gained focus: make this the document TexLab has open.
-    pub fn focused(&mut self, cx: &mut Context<Self>) {
-        self.schedule_sync(cx);
+    /// Whether this file may sync now: the writer is in it, or it is the
+    /// document TexLab has open already.
+    fn may_sync(&self, cx: &App) -> bool {
+        self.focused || self.service.read(cx).document() == Some(self.path.as_str())
     }
 
     /// What is shown now, placed in the buffer as it is.
@@ -275,7 +289,7 @@ impl TexlabDiagnostics {
     }
 
     fn schedule_sync(&mut self, cx: &mut Context<Self>) {
-        if !self.path.ends_with(".tex") {
+        if !self.path.ends_with(".tex") || !self.may_sync(cx) {
             return;
         }
         self._sync = Some(cx.spawn(async move |this, cx| {

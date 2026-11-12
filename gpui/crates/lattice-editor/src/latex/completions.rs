@@ -56,9 +56,6 @@ pub(crate) fn match_rank(label: &str, query: &str) -> Option<u8> {
         .then_some(3)
 }
 
-/// The entries matching `typed`, best first; equally good matches in label
-/// order, as CodeMirror's `compareCompletions` (`localeCompare`) puts them,
-/// a lower-case letter before its capital.
 /// `localeCompare`'s order for ASCII names: case-insensitive, and between
 /// names that differ only in case, lowercase first.
 fn locale_order(a: &str, b: &str) -> std::cmp::Ordering {
@@ -67,6 +64,8 @@ fn locale_order(a: &str, b: &str) -> std::cmp::Ordering {
         .then_with(|| b.cmp(a))
 }
 
+/// The entries matching `typed`, best first; equally good matches in label
+/// order, as CodeMirror's `compareCompletions` (`localeCompare`) puts them.
 fn ranked<'a>(entries: impl Iterator<Item = &'a Entry>, typed: &str) -> Vec<&'a Entry> {
     let mut ranked: Vec<_> = entries
         .filter_map(|entry| Some((match_rank(entry.name, typed)?, entry)))

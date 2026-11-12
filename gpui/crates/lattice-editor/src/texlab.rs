@@ -8,9 +8,8 @@
 //! thread; they come back here as [`TexlabEvent::Diagnostics`] for the
 //! document they name. Syncing blocks on TexLab (a start takes up to a
 //! second and a half), so it runs on the background executor, one at a
-//! time: a sync that queues behind another replaces any older one waiting
-//! for the same document, and the queue runs in order, so the document
-//! synced last is the one TexLab keeps.
+//! time: a sync that queues behind another replaces any older one waiting,
+//! so the document synced last is the one TexLab keeps.
 //! Dropping the service (closing the project) drops the pool, whose session
 //! kills the TexLab process.
 
@@ -36,10 +35,9 @@ pub struct TexlabService {
     root: PathBuf,
     pool: Arc<Mutex<TexlabPool>>,
     published: mpsc::UnboundedSender<(String, Vec<Diagnostic>)>,
-    /// The syncs to run, in order, once the one under way finishes: at most
-    /// one per document.
-    waiting: Vec<(String, String)>,
-    /// The document TexLab has, or will once the syncs queued have run.
+    /// The sync to run once the one under way finishes.
+    waiting: Option<(String, String)>,
+    /// The document TexLab has, or will once the sync waiting has run.
     document: Option<String>,
     syncing: Option<Task<()>>,
     _receive: Task<()>,
@@ -66,7 +64,7 @@ impl TexlabService {
             root,
             pool: Arc::default(),
             published,
-            waiting: Vec::new(),
+            waiting: None,
             document: None,
             syncing: None,
             _receive: receive,
@@ -78,7 +76,7 @@ impl TexlabService {
         lattice_core::commands::available("texlab")
     }
 
-    /// The document TexLab has open, or will once the syncs queued have run:
+    /// The document TexLab has open, or will once the sync waiting has run:
     /// the one synced last.
     pub fn document(&self) -> Option<&str> {
         self.document.as_deref()
@@ -89,14 +87,9 @@ impl TexlabService {
     pub fn sync(&mut self, path: String, text: String, cx: &mut Context<Self>) {
         self.document = Some(path.clone());
         if self.syncing.is_some() {
-            self.waiting.retain(|(waiting, _)| *waiting != path);
-            self.waiting.push((path, text));
+            self.waiting = Some((path, text));
             return;
         }
-        self.start(path, text, cx);
-    }
-
-    fn start(&mut self, path: String, text: String, cx: &mut Context<Self>) {
         let root = self.root.clone();
         let pool = self.pool.clone();
         let published = self.published.clone();
@@ -117,9 +110,8 @@ impl TexlabService {
             }
             this.update(cx, |this, cx| {
                 this.syncing = None;
-                if !this.waiting.is_empty() {
-                    let (path, text) = this.waiting.remove(0);
-                    this.start(path, text, cx);
+                if let Some((path, text)) = this.waiting.take() {
+                    this.sync(path, text, cx);
                 }
             })
             .ok();

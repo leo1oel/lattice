@@ -1,8 +1,7 @@
 //! The LaTeX language on the adapter: highlighting in Lattice's code themes,
 //! and the first of Lattice's LaTeX extensions, each on one extension point:
 //!
-//! - TexLab's diagnostics as marks, gutter marks and hover cards
-//!   ([`diagnostics`]);
+//! - TexLab's diagnostics as marks and hover cards ([`diagnostics`]);
 //! - the citation card and the reference card ([`cards`]);
 //! - command and citation completion ([`completions`]).
 //!

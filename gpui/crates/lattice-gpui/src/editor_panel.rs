@@ -225,8 +225,8 @@ impl EditorPanel {
                 _ => {}
             }),
             // The build chip in this panel's strip follows the build, and
-            // TexLab reads each finished build's log for the document it has
-            // open.
+            // TexLab reads each finished build's log (for the document it has
+            // open, or the one the writer is in).
             cx.observe(&build, |this, build, cx| {
                 let builds = build.read(cx).builds();
                 if builds != this.builds_seen {
@@ -263,11 +263,18 @@ impl EditorPanel {
                     }
                     EditorEvent::Focused => {
                         if let Some(diagnostics) = &this.diagnostics {
-                            diagnostics.update(cx, |diagnostics, cx| diagnostics.focused(cx));
+                            diagnostics
+                                .update(cx, |diagnostics, cx| diagnostics.set_focused(true, cx));
                         }
                     }
                     // Leaving the editor saves at once, as the Tauri app does.
-                    EditorEvent::Blurred => this.leave(cx),
+                    EditorEvent::Blurred => {
+                        if let Some(diagnostics) = &this.diagnostics {
+                            diagnostics
+                                .update(cx, |diagnostics, cx| diagnostics.set_focused(false, cx));
+                        }
+                        this.leave(cx)
+                    }
                     _ => {}
                 },
             ),
