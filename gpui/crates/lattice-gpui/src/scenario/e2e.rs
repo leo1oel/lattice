@@ -155,15 +155,18 @@ impl Run {
         check("repairing the file builds cleanly again", built, json!({}));
 
         // Docking: drag an editor tab out of the center into the right dock,
-        // beside the PDF, with native mouse events. (GPUI Kit keeps a dock's
-        // last tab group in place, so the lone PDF panel itself does not
-        // drag out.)
+        // beside the PDF, with native mouse events. (The shell steps after
+        // it drag the PDF out of its dock alone.)
         let (moved, layout) = self.drag_editor_tab_to_right_dock(cx).await?;
         check(
             "an editor tab drags from the center into the right dock",
             moved,
             layout,
         );
+
+        for (name, passed, detail) in self.shell_steps(cx).await? {
+            check(name, passed, detail);
+        }
 
         let passed = steps.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps }))

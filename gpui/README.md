@@ -9,9 +9,11 @@ What it does so far, and nothing more:
 2. Edits sources in Zed's editor with LaTeX highlighting, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim).
 3. Shows the PDF on the right, rendered natively by PDFium.
 4. Builds with latexmk on one click (or ⌘B / Ctrl+B), reloads the PDF in place, and lists errors that jump to their line.
-5. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
+5. Lays the window out as the Tauri app does (Trellis on GPUI Kit's dock): Project and the Agent over Papers on the left, the documents in the center, the PDF on the right, each a rounded card with a 40px strip of tabs. Tabs drag between groups and out of a region (whose neighbours take its room), panels float, split, maximize, hide and close from their ⋯ menu, and a narrow strip ellipsizes documents' tabs, drops named panels to their icons and lets the Build chip go before anything clips.
+6. Keeps named workspaces, shared by every project (a dot while the project's layout differs; "+", rename in place, save, revert, duplicate, move, delete with undo), the Writing and Reading presets and focus mode over them, and each project's own layout, restored when it opens again.
+7. Reaches every command from the command palette (⌘K), the keymap, the shortcut sheet (⌘?) and the menu bar; opens projects in new windows or as tabs in one.
 
-Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent panel, canvas, spreadsheet, slides, live preview and i18n.
+Not yet: the visual Markdown editor, Overleaf, the papers library and the Agent (their panels hold their places with a note), canvas, spreadsheet, slides, live preview and i18n.
 
 ## License
 
@@ -42,7 +44,18 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘B / Ctrl+B | Save edited files and build |
 | ⌘S / Ctrl+S | Save |
 | ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
+| ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
+| ⌘⇧/ (⌘?) | Keyboard shortcuts |
+| ⌘1 … ⌘9 | The workspace at that place |
+| ⌘⌥1, ⌘⌥2, ⌘⌥3 | Show or hide Project, Papers, the Agent |
+| ⌘⇧↩ | Maximize the focused panel, or restore the layout |
+| ⌘⇧D | Focus mode |
+| ⌘⇧[ / ⌘⇧] | Previous or next tab |
+| ⌘W, ⌘⇧T, ⌘⇧W | Close the document's tab (the window when none is open), reopen the last closed tab, close the window |
+| ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
 | Zed's default keymap | Everything else in the editor |
+
+On Windows and Linux, Ctrl stands in for ⌘.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` starts with it on.
 
@@ -57,9 +70,11 @@ The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-
 ## How it is put together
 
 ```
-crates/lattice-gpui   the app: shell (titlebar + dock), file tree, editor panel,
-                      PDF panel (PDFium on its own thread), build panel,
-                      LaTeX language, scripted scenarios (macOS, Windows)
+crates/lattice-gpui   the app: shell (titlebar, dock, workspaces and presets,
+                      command table, palette, menu bar, windows and project
+                      tabs, floating panels: src/shell/), file tree, editor
+                      panel, PDF panel (PDFium on its own thread), build
+                      panel, LaTeX language, scripted scenarios (macOS, Windows)
 crates/lattice-ui     Lattice's look: design tokens generated from
                       ../design-system/tokens.json, the palette, GPUI Kit and
                       Zed editor themes, fonts, type roles, motion, elevation,
@@ -79,7 +94,7 @@ gpui-fast `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` tracks Zed commit `d2a4fb6d
 GPUI Kit 0.9.1 and gpui-webview 0.9.1 run on gpui-fast through their `gpui-fast` feature (gpui-webview checks that the two agree). That feature asks for the crates.io `gpui-fast*` 0.1.14 packages, and GPUI Kit still names the `gpui-pre` 0.3.12 snapshot besides, so Cargo would build three GPUIs; the shims in `compat/` carry those names and versions and re-export the workspace's GPUI, and `[patch.crates-io]` swaps them in.
 `Cargo.lock` was seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
 
-GPUI itself, gpui-fast's macOS platform and GPUI Kit's components are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), and GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
+GPUI itself, gpui-fast's macOS platform and GPUI Kit's components and foundation are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them, and a dock region's last panel free to drag out, as Trellis lets it. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
 
 ### Lattice's look
 
@@ -87,7 +102,7 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 
 - `crates/lattice-ui/src/tokens/` is generated from the JSON, and from `design-system/code-themes.json` for the code themes; a test fails while they disagree. After a Paper export, or after `node design-system/code-themes.mjs` re-exports the Tauri app's code themes, regenerate with `LATTICE_UI_WRITE_TOKENS=1 cargo test -p lattice-ui generated_tokens`.
 - `Palette` resolves every colour role for an appearance, tint and accent preset the way `src/styles/theme.css` derives them; GPUI Kit and Zed's editor are themed from it (`kit.rs`, `editor_theme/`, one Zed theme per Lattice code theme), so their own components start in Lattice's colours.
-- The dock keeps GPUI Kit's behaviour and wears Lattice's skin (`dock.rs`): rounded panel cards on the chrome, 40px strips of pill tabs, no dividers.
+- The dock keeps GPUI Kit's behaviour and wears Lattice's skin (`dock.rs`): rounded panel cards on the chrome, 40px strips of pill tabs, no dividers, Trellis's drop slot. A strip short of room gives way as the Tauri app's does (`dock/strip.rs`), from last frame's measured widths.
 - Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them). The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
 - Components (`lattice-ui/src/components/`) follow Paper's Components boards; hover and press fade on the motion tiers (`interaction.rs`). Menus, selects and popovers spring from their trigger from 95%, tooltips grow from 98%, dialogs and sheets rise from 98%, and toasts drop in from 96%, each on its tier as the Tauri app's CSS has it (`motion::Entrance`, drawn with GPUI's element scale). Type roles set normal tracking, and an uppercase micro label opens it to the caps tracking (`Tracking::Caps`). `lattice-gpui --gallery` draws them all on one sheet (`LATTICE_GALLERY_PAGE=2` for the overlays and surfaces) and, with `LATTICE_SHOT_OUT` and `--features offscreen-shots`, saves it.
@@ -116,10 +131,13 @@ cp -R fixtures/e2e /tmp/lattice-gpui-e2e        # the scenario edits and builds 
 target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
 
-`e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
+`e2e` and `shell` run on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
+
+A scripted run keeps the workspaces and the projects' layouts in memory, so it neither reads nor changes the writer's own; `LATTICE_GPUI_STATE_DIR` names a directory for them instead (an ordinary run keeps them in the system's data directory, under `lattice-gpui/`). `LATTICE_WINDOW_SIZE=1015x680` opens the window at another size, as a smaller screen would (GitHub's runners shrink it to about 1015px wide).
 
 - `e2e`: opens a project, builds, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs and rebuilds, and drags an editor tab into the right dock with native mouse events.
-  It needs `chapters/intro.tex` in the project.
+  It needs `chapters/intro.tex` in the project. It ends with the `shell` steps.
+- `shell`: the window's own steps, on any project and without TeX: the PDF dragged by its tab out of its dock with native mouse events (the dock goes), the Writing preset and the way back, a new workspace keeping its own arrangement (the dot until it is saved), Project closed from its tab and brought back from the Panels toggle, the PDF floated and docked, and the command palette listing the commands. The drag needs the window to draw a frame after the layout changes, which a locked screen prevents.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
 - `memory`: `footprint` after opening the project, after opening `long.tex`, and after scrolling through the whole PDF.
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.

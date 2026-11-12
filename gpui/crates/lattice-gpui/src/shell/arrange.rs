@@ -105,6 +105,20 @@ impl Shell {
             .map(|editor| View::File(layout::document_key(root, editor.read(cx).path())))
     }
 
+    /// The panel a singleton view stands for (Project, Papers, the Agent,
+    /// the PDF, the build log).
+    pub(crate) fn singleton_panel(&self, view: &View) -> Option<PanelId> {
+        let id = match view {
+            View::Project => self.file_tree.entity_id(),
+            View::Papers => self.papers.entity_id(),
+            View::Agent => self.agent.entity_id(),
+            View::Pdf => self.pdf.entity_id(),
+            View::Build => self.build_panel.entity_id(),
+            View::File(_) | View::Documents => return None,
+        };
+        Some(PanelId::from(id))
+    }
+
     /// The live panel for a view, an editor opened for a document.
     fn panel_of(
         &mut self,

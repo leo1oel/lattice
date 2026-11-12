@@ -15,6 +15,9 @@ GPUI_COMPONENT_VERSION=0.9.1
 # crates.io's checksum for the crate file, as Cargo.lock recorded it before
 # the crate was patched in.
 GPUI_COMPONENT_SHA256=e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03
+# GPUI Kit's foundation crate (the dock's behaviour), the same way.
+GPUI_BASE_VERSION=0.9.1
+GPUI_BASE_SHA256=f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 patches="$root/patches"
@@ -41,6 +44,16 @@ if [ "$actual" != "$GPUI_COMPONENT_SHA256" ]; then
 fi
 tar -xzf "$work/gpui-component.crate" -C "$work"
 
+# gpui-base from crates.io, the same way.
+curl -fsSL -o "$work/gpui-base.crate" \
+  "https://static.crates.io/crates/gpui-base/gpui-base-$GPUI_BASE_VERSION.crate"
+actual="$(sha256 "$work/gpui-base.crate")"
+if [ "$actual" != "$GPUI_BASE_SHA256" ]; then
+  echo "gpui-base $GPUI_BASE_VERSION: checksum $actual, expected $GPUI_BASE_SHA256" >&2
+  exit 1
+fi
+tar -xzf "$work/gpui-base.crate" -C "$work"
+
 # What is vendored of each, before any diff: the crates' sources without
 # their examples, benches and docs (upstream's own tests are not run here),
 # and crates.io's packaging files left out.
@@ -57,28 +70,32 @@ for crate in gpui gpui_macos; do
   rm "$out/gpui-fast/crates/$crate/LICENSE-APACHE"
   cp "$src/LICENSE-APACHE" "$out/gpui-fast/crates/$crate/LICENSE-APACHE"
 done
-cp -R "$work/gpui-component-$GPUI_COMPONENT_VERSION" "$out/gpui-component"
-rm -f "$out/gpui-component/Cargo.lock" "$out/gpui-component/Cargo.toml.orig" \
-  "$out/gpui-component/.cargo_vcs_info.json" "$out/gpui-component/.cargo-ok"
+for crate in gpui-component:$GPUI_COMPONENT_VERSION gpui-base:$GPUI_BASE_VERSION; do
+  name="${crate%%:*}"
+  cp -R "$work/$name-${crate#*:}" "$out/$name"
+  rm -f "$out/$name/Cargo.lock" "$out/$name/Cargo.toml.orig" \
+    "$out/$name/.cargo_vcs_info.json" "$out/$name/.cargo-ok"
+done
 
 # The diffs, in order.
-for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-component-overlays; do
+for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-component-overlays \
+  gpui-base-dock-drag-out; do
   git -C "$out" apply --whitespace=nowarn "$patches/$diff.diff"
 done
 
 if [ "${1:-}" = "--write" ]; then
-  rm -rf "$patches/gpui-fast" "$patches/gpui-component"
-  cp -R "$out/gpui-fast" "$out/gpui-component" "$patches/"
-  echo "patches/ rebuilt from gpui-fast $GPUI_FAST_REV and gpui-component $GPUI_COMPONENT_VERSION"
+  rm -rf "$patches/gpui-fast" "$patches/gpui-component" "$patches/gpui-base"
+  cp -R "$out/gpui-fast" "$out/gpui-component" "$out/gpui-base" "$patches/"
+  echo "patches/ rebuilt from gpui-fast $GPUI_FAST_REV, gpui-component $GPUI_COMPONENT_VERSION and gpui-base $GPUI_BASE_VERSION"
   exit 0
 fi
 
 status=0
-for dir in gpui-fast gpui-component; do
+for dir in gpui-fast gpui-component gpui-base; do
   diff -r -x target -x Cargo.lock "$out/$dir" "$patches/$dir" || status=1
 done
 if [ "$status" -ne 0 ]; then
   echo "patches/ is not upstream plus its diffs; see patches/README.md" >&2
   exit 1
 fi
-echo "patches/ is gpui-fast $GPUI_FAST_REV and gpui-component $GPUI_COMPONENT_VERSION plus its diffs"
+echo "patches/ is gpui-fast $GPUI_FAST_REV, gpui-component $GPUI_COMPONENT_VERSION and gpui-base $GPUI_BASE_VERSION plus its diffs"

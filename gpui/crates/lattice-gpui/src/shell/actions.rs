@@ -199,9 +199,9 @@ impl Shell {
             .on_action(
                 cx.listener(|this, _: &ResetLayout, window, cx| this.reset_layout(window, cx)),
             )
-            .on_action(
-                cx.listener(|this, _: &NewWorkspace, window, cx| this.new_workspace(window, cx)),
-            )
+            .on_action(cx.listener(|this, _: &NewWorkspace, window, cx| {
+                this.new_workspace(window, cx);
+            }))
             .on_action(
                 cx.listener(|this, _: &SaveWorkspace, window, cx| this.save_workspace(window, cx)),
             )

@@ -220,7 +220,7 @@ impl Shell {
 
     /// A new workspace holding the arrangement on screen, right after the
     /// current one, with the project in it and its name in editing.
-    pub(crate) fn new_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn new_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) -> String {
         let arrangement = self.own_arrangement(cx).as_workspace();
         let after = self.layout.workspace.clone();
         let id = Workspaces::update(cx, |library| {
@@ -232,10 +232,10 @@ impl Shell {
         }
         self.layout.workspace = Some(id.clone());
         Workspaces::update(cx, |library| library.note_used(&id));
-        self.layout.renaming = Some(id);
         self.refresh_dirty(cx);
         self.schedule_save(window, cx);
-        cx.notify();
+        self.start_rename(&id, window, cx);
+        id
     }
 
     /// Save the project's arrangement (under any preset) to its workspace.

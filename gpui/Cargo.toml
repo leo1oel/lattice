@@ -112,6 +112,7 @@ gpui-fast = { path = "compat/gpui-fast/gpui-fast" }
 gpui-fast-platform = { path = "compat/gpui-fast/gpui-fast-platform" }
 gpui-fast-web = { path = "compat/gpui-fast/gpui-fast-web" }
 gpui-component = { path = "patches/gpui-component" }
+gpui-base = { path = "patches/gpui-base" }
 
 # Copied from Zed's workspace at the pinned revision: a dependency's
 # `[patch]` table does not apply, so Zed's crates only build with these here.

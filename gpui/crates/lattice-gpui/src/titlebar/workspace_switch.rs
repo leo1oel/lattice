@@ -389,7 +389,7 @@ impl Shell {
         cx.notify();
     }
 
-    fn finish_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn finish_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.layout.renaming = None;
         self.rename_input = None;
         self.rename_subscription = None;

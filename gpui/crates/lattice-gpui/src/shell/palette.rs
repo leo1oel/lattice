@@ -650,6 +650,11 @@ impl Render for ShortcutSheet {
 }
 
 impl Shell {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn palette_rows(&self, cx: &App) -> Option<usize> {
+        Some(self.palette.as_ref()?.read(cx).shown.len())
+    }
+
     pub(crate) fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.palette.is_some() {
             self.close_overlays(window, cx);
@@ -681,7 +686,7 @@ impl Shell {
         cx.notify();
     }
 
-    fn close_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn close_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.palette = None;
         self.shortcuts = None;
         // Back to the document in front, where the keyboard was.

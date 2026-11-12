@@ -21,6 +21,7 @@ mod e2e;
 mod measure;
 #[cfg(target_os = "macos")]
 mod parity;
+mod shell_steps;
 #[cfg(target_os = "macos")]
 mod shot;
 
@@ -63,6 +64,7 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
         }
         let result = match args.name.as_str() {
             "e2e" => run.e2e(cx).await,
+            "shell" => run.shell(cx).await,
             #[cfg(target_os = "macos")]
             "perf" => run.perf(cx).await,
             #[cfg(target_os = "macos")]
