@@ -58,6 +58,37 @@ impl Icon {
     pub const ZOOM_IN: Icon = Icon("icons/zoom-in.svg");
     pub const ZOOM_OUT: Icon = Icon("icons/zoom-out.svg");
     pub const ELLIPSIS: Icon = Icon("icons/ellipsis.svg");
+    pub const ARROW_LEFT: Icon = Icon("icons/arrow-left.svg");
+    pub const ARROW_RIGHT: Icon = Icon("icons/arrow-right.svg");
+    pub const ARROW_RIGHT_LEFT: Icon = Icon("icons/arrow-right-left.svg");
+    pub const BOOK_OPEN_TEXT: Icon = Icon("icons/book-open-text.svg");
+    pub const COLUMNS_2: Icon = Icon("icons/columns-2.svg");
+    pub const COMPASS: Icon = Icon("icons/compass.svg");
+    pub const COPY: Icon = Icon("icons/copy.svg");
+    pub const EYE: Icon = Icon("icons/eye.svg");
+    pub const EYE_OFF: Icon = Icon("icons/eye-off.svg");
+    pub const FILE_PEN_LINE: Icon = Icon("icons/file-pen-line.svg");
+    pub const FOCUS: Icon = Icon("icons/focus.svg");
+    pub const FOLDER_OPEN: Icon = Icon("icons/folder-open.svg");
+    pub const KEYBOARD: Icon = Icon("icons/keyboard.svg");
+    pub const LAYOUT_DASHBOARD: Icon = Icon("icons/layout-dashboard.svg");
+    pub const MAXIMIZE: Icon = Icon("icons/maximize-2.svg");
+    pub const MINIMIZE: Icon = Icon("icons/minimize-2.svg");
+    pub const PEN_LINE: Icon = Icon("icons/pen-line.svg");
+    pub const PENCIL: Icon = Icon("icons/pencil.svg");
+    pub const PICTURE_IN_PICTURE: Icon = Icon("icons/picture-in-picture-2.svg");
+    pub const PLAY: Icon = Icon("icons/play.svg");
+    pub const ROTATE_CCW: Icon = Icon("icons/rotate-ccw.svg");
+    pub const ROWS_2: Icon = Icon("icons/rows-2.svg");
+    pub const SAVE: Icon = Icon("icons/save.svg");
+    pub const SETTINGS: Icon = Icon("icons/settings.svg");
+    pub const SUN_MOON: Icon = Icon("icons/sun-moon.svg");
+    pub const TERMINAL: Icon = Icon("icons/terminal.svg");
+    pub const TRASH: Icon = Icon("icons/trash.svg");
+    pub const UNDO: Icon = Icon("icons/undo-2.svg");
+    pub const X: Icon = Icon("icons/x.svg");
+    pub const CIRCLE_X: Icon = Icon("icons/circle-x.svg");
+    pub const APP_WINDOW: Icon = Icon("icons/app-window.svg");
 
     // The app's own, from `assets/icons`.
     /// The 1.5-stroke X a panel tab closes with.
@@ -74,9 +105,17 @@ impl Icon {
     pub const ANNOTATIONS: Icon = Icon("lattice/annotations.svg");
     pub const GIT: Icon = Icon("lattice/git.svg");
     pub const HISTORY: Icon = Icon("lattice/history.svg");
+    /// The Build button's idle mark: Lucide's play, filled, as the app
+    /// draws it (`<Play fill="currentColor" />`).
+    pub const PLAY_FILLED: Icon = Icon("lattice/play-filled.svg");
 
     pub fn path(self) -> SharedString {
         self.0.into()
+    }
+
+    /// The icon as GPUI Kit's own, for a Kit menu item.
+    pub fn kit(self) -> gpui_kit::component::Icon {
+        gpui_kit::component::Icon::empty().path(self.0)
     }
 
     /// The icon at `size`, painted `color`.
@@ -150,6 +189,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "dots.svg",
     "git.svg",
     "history.svg",
+    "play-filled.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",

@@ -48,7 +48,10 @@ pub use status_item::StatusItem;
 pub use surfaces::{
     EmptyState, ErrorState, LOADING_REVEAL, LoadingState, PanelHeader, SettingsCard, SettingsRow,
 };
-pub use tab::{PanelTab, TAB_RADIUS};
+pub use tab::{
+    PanelTab, TAB_CLOSE, TAB_CLOSE_INSET, TAB_GAP, TAB_ICON_ONLY_INSET, TAB_INSET, TAB_RADIUS,
+    TabFit,
+};
 pub use textarea::{TEXTAREA_MIN_HEIGHT, Textarea};
 pub use toolbar_button::ToolbarButton;
 pub use tree_row::TreeRow;

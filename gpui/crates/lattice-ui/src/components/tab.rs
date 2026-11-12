@@ -1,20 +1,27 @@
 //! A panel tab: the 28px chip in a panel's 40px strip.
 //!
-//! Measured on the Main window (Project, Agent, main.tex, PDF): 28px tall
-//! with 11px corners, the icon 14px in from the left (on the panel's 20px
-//! icon gutter), 6px to the 12/15.6 medium label, then a slot for the 14px
-//! close X 8px after the label and 7px from the right edge. The slot is kept
-//! when the X is hidden, so a tab does not change width on hover. A selected
-//! tab is the ink at 10% laid opaque on the panel's own surface; its label is
-//! primary ink while its group holds focus, secondary otherwise. The tab and
-//! its X are tab stops with the one focus ring; the X shows while it holds
-//! keyboard focus.
+//! As `src/trellis/trellis.css` lays it out: 28px tall with 11px corners, the
+//! 14px icon 14px in from the left (on the panel's 20px icon gutter), 6px to
+//! the 12/15.6 medium label, 6px to a 24px close square held 2px off the
+//! tab's end, its corner the tab's less that inset. A tab whose panel cannot
+//! close has no square, and ends 14px after its label instead. The square is
+//! kept when the X is hidden, so a tab does not change width on hover.
+//!
+//! A selected tab is the ink at 10% laid opaque on the panel's own surface;
+//! its label is primary ink while its group holds focus, secondary otherwise.
+//! An unselected tab's label takes the primary ink under the pointer. The tab
+//! and its X are tab stops with the one focus ring; the X shows on the
+//! selected tab, under the pointer, and while it holds keyboard focus.
+//!
+//! Short of room the strip (`dock::strip`) asks a tab to give way: a
+//! document's tab shrinks with an ellipsis down to a minimum width, and a
+//! named panel's tab (Project, PDF) drops its label for its icon alone.
 
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement, Interactivity, IntoElement,
-    ParentElement as _, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
+    ParentElement as _, Pixels, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
     StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px,
 };
 
@@ -31,8 +38,44 @@ use crate::{
 /// The tab chip's corner: the panel's 18.4px less the strip's 6px inset,
 /// as the app rounds it (measured 11px on Paper's Main window).
 pub const TAB_RADIUS: gpui::Pixels = px(11.);
+/// The tab's leading padding, which puts its icon on the panel's icon gutter.
+pub const TAB_INSET: Pixels = px(14.);
+/// Between the icon, the label and the close square.
+pub const TAB_GAP: Pixels = px(6.);
+/// The close square, and how far it stands off the tab's end.
+pub const TAB_CLOSE: Pixels = px(24.);
+pub const TAB_CLOSE_INSET: Pixels = px(2.);
+/// An icon-only tab's padding on either side of its icon.
+pub const TAB_ICON_ONLY_INSET: Pixels = px(8.);
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
+
+/// How a tab fits its strip (`dock::strip::plan`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TabFit {
+    /// At its natural width.
+    Full,
+    /// Shrinks with the strip, its label ending in an ellipsis, down to `min`.
+    Shrinks { min: Pixels },
+    /// Its icon alone; the name stays in its tooltip.
+    IconOnly,
+}
+
+impl TabFit {
+    /// The tab's width at rest: `label` is its label's shaped width.
+    pub fn natural_width(label: Pixels, closable: bool) -> Pixels {
+        let end = if closable {
+            TAB_GAP + TAB_CLOSE + TAB_CLOSE_INSET
+        } else {
+            TAB_INSET
+        };
+        TAB_INSET + ICON + TAB_GAP + label + end
+    }
+
+    pub fn icon_only_width() -> Pixels {
+        TAB_ICON_ONLY_INSET * 2. + ICON
+    }
+}
 
 #[derive(IntoElement)]
 pub struct PanelTab {
@@ -44,6 +87,8 @@ pub struct PanelTab {
     selected: bool,
     strong: bool,
     dirty: bool,
+    closable: bool,
+    fit: TabFit,
     on_close: Option<ClickHandler>,
     parity: Option<SharedString>,
 }
@@ -61,6 +106,8 @@ impl PanelTab {
             selected: false,
             strong: false,
             dirty: false,
+            closable: false,
+            fit: TabFit::Full,
             on_close: None,
             parity: None,
         }
@@ -97,12 +144,26 @@ impl PanelTab {
         self
     }
 
+    /// How the tab fits its strip.
+    pub fn fit(mut self, fit: TabFit) -> Self {
+        self.fit = fit;
+        self
+    }
+
+    /// Whether the panel can close at all, which keeps the close square in
+    /// the tab's width. The X itself shows only with [`Self::on_close`].
+    pub fn closable(mut self, closable: bool) -> Self {
+        self.closable = closable;
+        self
+    }
+
     /// Offer the close X: on the selected tab, and on any tab under the
     /// pointer.
     pub fn on_close(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
+        self.closable = true;
         self.on_close = Some(Rc::new(handler));
         self
     }
@@ -127,6 +188,11 @@ impl RenderOnce for PanelTab {
         let palette = cx.palette().clone();
         let selected_bg = palette.tab_selected_on(self.surface);
         let hover = palette.ink_on(OPACITY_HOVER, self.surface);
+        let close_hover = if self.surface == palette.chrome_srgb {
+            palette.chrome_hover
+        } else {
+            palette.hover
+        };
         let rest = Srgb {
             a: 0.,
             ..self.surface
@@ -140,15 +206,24 @@ impl RenderOnce for PanelTab {
         } else {
             mix(rest, hover, interaction.hover)
         };
-        let label_ink = if self.selected && self.strong {
-            palette.text
+        let label_ink = if self.selected {
+            if self.strong {
+                palette.text
+            } else {
+                palette.text_secondary
+            }
         } else {
-            palette.text_secondary
+            mix(palette.text_secondary, palette.text, interaction.hover)
         };
         let focus = focus_ring(&palette, self.surface.hsla());
         let close_focus = focus.clone();
         let group: SharedString = "lattice-panel-tab".into();
         let selected = self.selected;
+        let icon_only = self.fit == TabFit::IconOnly;
+        let shrinks = match self.fit {
+            TabFit::Shrinks { min } => Some(min),
+            _ => None,
+        };
         let dirty_dot = self.dirty.then(|| {
             div()
                 .absolute()
@@ -158,18 +233,35 @@ impl RenderOnce for PanelTab {
                 .rounded_full()
                 .bg(palette.text_secondary)
         });
+        let closable = self.closable && !icon_only;
+        let tooltip_label = self.label.clone();
         track_pointer(tab_stop(self.base), pointer)
             .focus_visible(move |style| style.shadow(focus))
             .group(group.clone())
             .flex()
-            .flex_none()
             .items_center()
             .h(px(28.))
-            .pl(px(14.))
-            .pr(px(7.))
+            .map(|tab| match shrinks {
+                Some(min) => tab.flex_shrink_1().min_w(min),
+                None => tab.flex_none(),
+            })
+            .map(|tab| {
+                if icon_only {
+                    tab.px(TAB_ICON_ONLY_INSET)
+                } else if closable {
+                    tab.pl(TAB_INSET).pr(TAB_CLOSE_INSET)
+                } else {
+                    tab.px(TAB_INSET)
+                }
+            })
             .rounded(TAB_RADIUS)
             .cursor_pointer()
             .bg(bg)
+            .when(icon_only, |tab| {
+                tab.tooltip(move |_, cx| -> gpui::AnyView {
+                    crate::components::LatticeTooltip::view(tooltip_label.clone(), None, cx)
+                })
+            })
             .children(self.parity.clone().and_then(parity::probe))
             .child(
                 div()
@@ -179,43 +271,77 @@ impl RenderOnce for PanelTab {
                     .children(self.icon)
                     .children(dirty_dot),
             )
-            .child(
-                div()
-                    .ml(px(6.))
-                    .whitespace_nowrap()
-                    .text_role(TextRole::BodyCompact, cx)
-                    .line_height(px(15.6))
-                    .text_color(label_ink)
-                    .children(
-                        self.parity
-                            .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
-                    )
-                    .child(self.label),
-            )
-            .child(
-                div()
-                    .id("close")
-                    .ml(px(8.))
-                    .flex_none()
-                    .size(ICON)
-                    .rounded(px(4.))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .when(self.on_close.is_none() || !selected, |this| {
-                        this.invisible()
-                    })
-                    .when_some(self.on_close, |this, on_close| {
-                        tab_stop(this)
-                            .group_hover(group, |style| style.visible())
-                            .focus_visible(move |style| style.visible().shadow(close_focus))
-                            .hover(move |style| style.bg(palette.pressed))
-                            .on_click(move |event, window, cx| {
-                                cx.stop_propagation();
-                                on_close(event, window, cx);
-                            })
-                    })
-                    .child(Icon::CLOSE.element(ICON, palette.text_secondary)),
-            )
+            .when(!icon_only, |tab| {
+                tab.child(
+                    div()
+                        .ml(TAB_GAP)
+                        .min_w_0()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .when(shrinks.is_some(), |label| {
+                            label.flex_shrink_1().text_ellipsis()
+                        })
+                        .text_role(TextRole::BodyCompact, cx)
+                        .line_height(px(15.6))
+                        .text_color(label_ink)
+                        .children(
+                            self.parity
+                                .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
+                        )
+                        .child(self.label),
+                )
+            })
+            .when(closable, |tab| {
+                tab.child(
+                    div()
+                        .id("close")
+                        .ml(TAB_GAP)
+                        .flex_none()
+                        .size(TAB_CLOSE)
+                        .rounded(TAB_RADIUS - TAB_CLOSE_INSET)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .when(self.on_close.is_none() || !selected, |this| {
+                            this.invisible()
+                        })
+                        .when_some(self.on_close, |this, on_close| {
+                            tab_stop(this)
+                                .group_hover(group, |style| style.visible())
+                                .focus_visible(move |style| style.visible().shadow(close_focus))
+                                .hover(move |style| style.bg(close_hover))
+                                .on_click(move |event, window, cx| {
+                                    cx.stop_propagation();
+                                    on_close(event, window, cx);
+                                })
+                        })
+                        .child(Icon::CLOSE.element(ICON, palette.text_secondary)),
+                )
+            })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_closable_tab_is_its_label_plus_66px() {
+        // 14 + 14 icon + 6 + label + 6 + 24 close + 2: the app's 107.64px
+        // Project tab around a 41.64px label.
+        assert_eq!(TabFit::natural_width(px(41.64), true), px(107.64));
+    }
+
+    #[test]
+    fn a_tab_without_a_close_square_ends_14px_after_its_label() {
+        assert_eq!(
+            TabFit::natural_width(px(20.), false),
+            px(14. + 14. + 6. + 20. + 14.)
+        );
+    }
+
+    #[test]
+    fn an_icon_only_tab_is_30px() {
+        assert_eq!(TabFit::icon_only_width(), px(30.));
     }
 }

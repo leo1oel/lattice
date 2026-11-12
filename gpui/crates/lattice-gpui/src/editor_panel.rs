@@ -235,8 +235,12 @@ impl Panel for EditorPanel {
     }
 
     /// The build chip, at the strip's trailing end as the app puts it.
-    fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
-        Some(editor_status::build_chip(&self.build, cx))
+    fn title_suffix(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<impl IntoElement> {
+        Some(editor_status::build_chip(&self.build, window, cx))
     }
 
     fn dropdown_menu(
