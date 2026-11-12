@@ -1,6 +1,6 @@
 //! The Terminal panel (terminal.rs): a shell per tab in the window's project
 //! folder, typed into, resized and closed by id. Every command first checks
-//! its caller is a Lattice window's own page (terminal/caller.rs), and names
+//! its caller is a Lattice window's own page (ipc/terminal/caller.rs), and names
 //! that window, so a window reaches only the terminals it opened.
 
 mod caller;

@@ -9,6 +9,10 @@
 //! `app_state` is the project registry: which project each window shows, and
 //! what an open project owns.
 
+/// The version the core reports as Lattice's: user agents, the terminal,
+/// TexLab, research-environment episodes. It must match the shell's.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod agent_literature;
 mod alphaxiv;
 pub mod app_identity;

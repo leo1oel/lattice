@@ -670,9 +670,7 @@ mod tests {
     /// the terminal, TexLab), so scripts/bump-version.mjs moves both.
     #[test]
     fn the_core_carries_the_app_version() {
-        let core = include_str!("../lattice-core/Cargo.toml");
-        let version = format!("\nversion = \"{}\"\n", env!("CARGO_PKG_VERSION"));
-        assert!(core.contains(&version), "lattice-core/Cargo.toml is not at {version}");
+        assert_eq!(lattice_core::VERSION, env!("CARGO_PKG_VERSION"));
     }
 
     #[test]

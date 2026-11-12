@@ -27,7 +27,7 @@ function unescapeRust(literal: string): string {
 
 /**
  * Where the Rust sources live: the Tauri shell, and the core it ships on. A
- * file is named by its path under its own root; no name is in both.
+ * file is named by its path under its own root; only `lib.rs` is in both.
  */
 const RUST_ROOTS = ["src-tauri/src", "src-tauri/lattice-core/src"];
 
@@ -35,6 +35,11 @@ const RUST_ROOTS = ["src-tauri/src", "src-tauri/lattice-core/src"];
 function rustSource(rustFile: string): string {
   const root = RUST_ROOTS.find((candidate) => existsSync(`${candidate}/${rustFile}`)) ?? RUST_ROOTS[0];
   return readFileSync(`${root}/${rustFile}`, "utf8");
+}
+
+/** Every root's copy of `rustFile`: `lib.rs` is in both. */
+function rustSources(rustFile: string): string[] {
+  return RUST_ROOTS.filter((root) => existsSync(`${root}/${rustFile}`)).map((root) => readFileSync(`${root}/${rustFile}`, "utf8"));
 }
 
 const literalsByFile = new Map<string, Set<string>>();
@@ -133,9 +138,8 @@ const TEST_CFG = String.raw`#\[cfg\((?:test|any\(test, feature = "test-support"\
 function testOnlyFiles(files: string[]): Set<string> {
   const tests = new Set<string>();
   for (const file of files) {
-    const source = rustSource(file);
     const parent = /(^|\/)(lib|main|mod)\.rs$/.test(file) ? file.replace(/[^/]*$/, "") : file.replace(/\.rs$/, "/");
-    for (const [, name] of source.matchAll(new RegExp(String.raw`${TEST_CFG}\s*(?:pub(?:\([^)]*\))?\s+)?mod (\w+);`, "g"))) {
+    for (const [, name] of rustSources(file).join("\n").matchAll(new RegExp(String.raw`${TEST_CFG}\s*(?:pub(?:\([^)]*\))?\s+)?mod (\w+);`, "g"))) {
       tests.add(`${parent}${name}.rs`);
       tests.add(`${parent}${name}/mod.rs`);
     }
@@ -145,14 +149,13 @@ function testOnlyFiles(files: string[]): Set<string> {
 
 /** Each `Err("…")` or `Err(format!("…"))` sentence a Rust file outside its tests returns, as the audit counted them. */
 function returnedErrors(): Array<{ file: string; literal: string }> {
-  // `lib.rs` is in both roots; the core's only declares modules.
   const files = [...new Set(RUST_ROOTS.flatMap((root) => readdirSync(root, { recursive: true }) as string[]))]
     .filter((file) => file.endsWith(".rs"));
   const tests = testOnlyFiles(files);
   return files.filter((file) => !tests.has(file) && ![...tests].some((test) => file.startsWith(test.replace(/\.rs$/, "/")))).flatMap((file) => {
     // An inline test module closes the file.
-    const source = rustSource(file).split(new RegExp(String.raw`${TEST_CFG}\s*(?:pub(?:\([^)]*\))?\s+)?mod \w+\s*\{`))[0];
-    return [...source.matchAll(/\bErr\(\s*(?:format!\(\s*)?"((?:[^"\\]|\\[\s\S])*)"/g)]
+    const sources = rustSources(file).map((source) => source.split(new RegExp(String.raw`${TEST_CFG}\s*(?:pub(?:\([^)]*\))?\s+)?mod \w+\s*\{`))[0]);
+    return [...sources.join("\n").matchAll(/\bErr\(\s*(?:format!\(\s*)?"((?:[^"\\]|\\[\s\S])*)"/g)]
       .map((match) => ({ file, literal: unescapeRust(match[1]) }))
       .filter(({ literal }) => /^[A-Z]/.test(literal) && literal.length >= 12);
   });

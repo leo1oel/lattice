@@ -1,5 +1,5 @@
 /**
- * Overleaf sync and live-editing errors (`src-tauri/src/overleaf*`), in the
+ * Overleaf sync and live-editing errors (`src-tauri/lattice-core/src/overleaf*`), in the
  * interface language. See `host-error-text.ts` for how an entry is matched
  * and pinned. Diagnostics only an engineer acts on (a malformed handshake, a
  * missing root folder id) stay English.
