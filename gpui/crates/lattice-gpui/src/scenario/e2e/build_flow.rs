@@ -16,7 +16,7 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::Result;
-use gpui::AsyncApp;
+use gpui::{AsyncApp, Focusable as _};
 use serde_json::json;
 
 use super::Steps;
@@ -388,8 +388,21 @@ impl Run {
             })
             .await;
         let at_clean = cx.update(|cx| state(&self.shell, cx));
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(CleanBuildFiles), cx)
+        // Sent to the shell's own node, not to the window's focus: a window
+        // routes an action through the focus path of the last frame it drew
+        // and falls back to its root, which holds none of the shell's
+        // handlers. The package chooser that just closed moved focus, and a
+        // macOS runner's idle window may draw no frame before the dispatch,
+        // so both actions reached nothing there. The shell's node is in
+        // every frame since the first.
+        let focus_in_shell = self.with_window(cx, |shell, window, cx| {
+            shell.read(cx).focus_handle(cx).contains_focused(window, cx)
+        })?;
+        self.with_window(cx, |shell, window, cx| {
+            shell
+                .read(cx)
+                .focus_handle(cx)
+                .dispatch_action(&CleanBuildFiles, window, cx)
         })?;
         let cleaned = self
             .wait_for(cx, Duration::from_secs(30), |shell, cx| {
@@ -398,8 +411,11 @@ impl Run {
             .await;
         let at_rebuild = cx.update(|cx| state(&self.shell, cx));
         let before = self.builds(cx);
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(CleanRebuild), cx)
+        self.with_window(cx, |shell, window, cx| {
+            shell
+                .read(cx)
+                .focus_handle(cx)
+                .dispatch_action(&CleanRebuild, window, cx)
         })?;
         let rebuilt = self.built_after(cx, before).await;
         let at_end = cx.update(|cx| state(&self.shell, cx));
@@ -410,6 +426,7 @@ impl Run {
             cleaned && rebuilt && clean_build == Some(true) && rewritten,
             json!({
                 "settled": settled,
+                "focus_in_shell": focus_in_shell,
                 "cleaned": cleaned,
                 "rebuilt": rebuilt,
                 "succeeded": clean_build,
