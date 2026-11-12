@@ -31,12 +31,14 @@ node scripts/bump-version.mjs patch     # or: minor | major | 0.3.0
 
 The script only edits files — it does not commit or tag. It bumps the version in
 lockstep across `package.json`, `src-tauri/tauri.conf.json`,
-`src-tauri/Cargo.toml`, `src-tauri/lattice-core/Cargo.toml`, and the
-`research-writer` and `lattice-core` entries in `src-tauri/Cargo.lock` (and
-writes the What's new notes, below), then prints the exact next commands:
+`src-tauri/Cargo.toml`, `src-tauri/lattice-core/Cargo.toml`, the
+`research-writer` and `lattice-core` entries in `src-tauri/Cargo.lock`, and the
+`lattice-core` entry in `gpui/Cargo.lock` (the GPUI preview app builds on
+`lattice-core` with `--locked`), and writes the What's new notes (below), then
+prints the exact next commands:
 
 ```bash
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/lattice-core/Cargo.toml src-tauri/Cargo.lock src/release-notes/X.Y.Z.json
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/lattice-core/Cargo.toml src-tauri/Cargo.lock gpui/Cargo.lock src/release-notes/X.Y.Z.json
 git commit -m "Release vX.Y.Z"
 git tag vX.Y.Z
 git push origin main

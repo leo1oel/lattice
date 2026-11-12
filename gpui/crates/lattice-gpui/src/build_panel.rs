@@ -1,10 +1,15 @@
-//! Build status, diagnostics that jump to their line, and the raw log, in
+//! Build status, diagnostics that jump to their line, and the build's log, in
 //! Lattice's tool-panel look: 28px rows on the sheet, a 14px status mark,
 //! the message in 12px ink, the location in secondary ink, the log in the
 //! editor font.
+//!
+//! The build is lattice-core's (`latex::build`), the Tauri app's own: while
+//! it runs the status line names the passes latexmk announces as they start
+//! (the Build button's sequence), and once it ends the diagnostics are the
+//! ones the Tauri app reads from the log, with paths relative to the project.
 
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
@@ -19,8 +24,11 @@ use gpui_kit::component::{
     menu::{PopupMenu, PopupMenuItem},
     v_flex,
 };
+use lattice_core::{
+    latex::{BuildResult, BuildStep},
+    models::Diagnostic,
+};
 use lattice_ui::{ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, icons::ICON};
-use tex::{BuildOutcome, Diagnostic, Level};
 
 /// The log view keeps the tail; a full multi-pass log can run to megabytes.
 const LOG_TAIL_LINES: usize = 2_000;
@@ -45,6 +53,7 @@ enum Status {
     Running {
         started: Instant,
         document: SharedString,
+        steps: Vec<BuildStep>,
     },
     Finished {
         succeeded: bool,
@@ -58,28 +67,45 @@ enum Status {
 pub struct BuildPanel {
     focus_handle: FocusHandle,
     status: Status,
-    /// Folder the document was built in; diagnostics name files relative to it.
-    folder: PathBuf,
+    /// The project the diagnostics name their files in.
+    root: PathBuf,
     diagnostics: Vec<Diagnostic>,
     log_lines: Vec<SharedString>,
     show_log: bool,
+    /// Builds finished so far, for a scenario to tell a new one from the last.
+    builds: usize,
     _ticker: Option<Task<()>>,
 }
 
 impl EventEmitter<PanelEvent> for BuildPanel {}
 impl EventEmitter<OpenLocation> for BuildPanel {}
 
+/// How many of `diagnostics` are at `level` ("error", "warning").
+fn count(diagnostics: &[Diagnostic], level: &str) -> usize {
+    diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.level == level)
+        .count()
+}
+
 impl BuildPanel {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
             status: Status::Idle,
-            folder: PathBuf::new(),
+            root: PathBuf::new(),
             diagnostics: Vec::new(),
             log_lines: Vec::new(),
             show_log: false,
+            builds: 0,
             _ticker: None,
         }
+    }
+
+    /// How many builds have finished, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn builds(&self) -> usize {
+        self.builds
     }
 
     pub fn is_running(&self) -> bool {
@@ -132,23 +158,18 @@ impl BuildPanel {
     /// Where a diagnostic's file is on disk.
     pub fn location(&self, diagnostic: &Diagnostic) -> Option<OpenLocation> {
         diagnostic.file.as_ref().map(|file| OpenLocation {
-            path: self.folder.join(file),
+            path: self.root.join(file),
             line: diagnostic.line,
         })
     }
 
-    pub fn started(&mut self, document: &std::path::Path, cx: &mut Context<Self>) {
-        self.folder = document.parent().map(PathBuf::from).unwrap_or_default();
+    pub fn started(&mut self, root: &Path, document: &str, cx: &mut Context<Self>) {
+        self.root = root.to_path_buf();
         self.status = Status::Running {
             started: Instant::now(),
-            document: document
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned()
-                .into(),
+            document: document.to_string().into(),
+            steps: Vec::new(),
         };
-        self.log_lines.clear();
         // Keep the elapsed time ticking without redrawing every frame.
         self._ticker = Some(cx.spawn(async move |this, cx| {
             loop {
@@ -169,30 +190,39 @@ impl BuildPanel {
         cx.notify();
     }
 
-    pub fn push_lines(&mut self, lines: Vec<String>, cx: &mut Context<Self>) {
-        self.log_lines
-            .extend(lines.into_iter().map(SharedString::from));
-        let excess = self.log_lines.len().saturating_sub(LOG_TAIL_LINES);
-        self.log_lines.drain(..excess);
-        cx.notify();
+    /// The passes so far of the build under way, as latexmk announces them.
+    pub fn steps(&mut self, latest: Vec<BuildStep>, cx: &mut Context<Self>) {
+        if let Status::Running { steps, .. } = &mut self.status {
+            *steps = latest;
+            cx.notify();
+        }
     }
 
-    pub fn finished(&mut self, outcome: &BuildOutcome, cx: &mut Context<Self>) {
+    pub fn finished(&mut self, result: &BuildResult, cx: &mut Context<Self>) {
+        self.builds += 1;
         self.status = Status::Finished {
-            succeeded: outcome.succeeded,
-            duration: outcome.duration,
-            errors: outcome.error_count(),
-            warnings: outcome.warning_count(),
+            succeeded: result.success,
+            duration: Duration::from_millis(u64::try_from(result.duration_ms).unwrap_or(u64::MAX)),
+            errors: count(&result.diagnostics, "error"),
+            warnings: count(&result.diagnostics, "warning"),
         };
-        self.diagnostics = outcome.diagnostics.clone();
-        if !outcome.succeeded && self.diagnostics.is_empty() {
+        self.diagnostics = result.diagnostics.clone();
+        let lines: Vec<&str> = result.log.lines().collect();
+        let tail = lines.len().saturating_sub(LOG_TAIL_LINES);
+        self.log_lines = lines[tail..]
+            .iter()
+            .map(|line| SharedString::from(line.to_string()))
+            .collect();
+        if !result.success && self.diagnostics.is_empty() {
             self.show_log = true;
         }
         cx.notify();
     }
 
     pub fn failed(&mut self, message: String, cx: &mut Context<Self>) {
+        self.builds += 1;
         self.status = Status::Failed(message.into());
+        self.diagnostics.clear();
         cx.notify();
     }
 
@@ -207,14 +237,30 @@ impl BuildPanel {
                     crate::shell::BUILD_SHORTCUT_LABEL
                 ),
             ),
-            Status::Running { started, document } => (
-                Icon::LOADER,
-                palette.text_secondary,
-                format!(
-                    "Building {document}… {:.1} s",
-                    started.elapsed().as_secs_f32()
-                ),
-            ),
+            Status::Running {
+                started,
+                document,
+                steps,
+            } => {
+                let passes = steps
+                    .iter()
+                    .map(|step| step.tool.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" → ");
+                (
+                    Icon::LOADER,
+                    palette.text_secondary,
+                    format!(
+                        "Building {document}… {}{:.1} s",
+                        if passes.is_empty() {
+                            String::new()
+                        } else {
+                            format!("{passes} · ")
+                        },
+                        started.elapsed().as_secs_f32()
+                    ),
+                )
+            }
             Status::Finished {
                 succeeded,
                 duration,
@@ -259,10 +305,10 @@ impl BuildPanel {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let (icon, color) = match diagnostic.level {
-            Level::Error => (Icon::CIRCLE_ALERT, palette.danger),
-            Level::Warning => (Icon::TRIANGLE_ALERT, palette.warning),
-            Level::Info => (Icon::INFO, palette.text_secondary),
+        let (icon, color) = match diagnostic.level.as_str() {
+            "error" => (Icon::CIRCLE_ALERT, palette.danger),
+            "warning" => (Icon::TRIANGLE_ALERT, palette.warning),
+            _ => (Icon::INFO, palette.text_secondary),
         };
         let location = match (&diagnostic.file, diagnostic.line) {
             (Some(file), Some(line)) => format!("{file}:{line}"),
@@ -338,7 +384,7 @@ impl Panel for BuildPanel {
         let label = if self.show_log {
             "Show problems"
         } else {
-            "Show the raw log"
+            "Show the log"
         };
         menu.item(PopupMenuItem::new(label).on_click(move |_, _, cx| {
             view.update(cx, |this, cx| {
@@ -394,5 +440,36 @@ impl Render for BuildPanel {
             .size_full()
             .child(self.status_line(cx))
             .child(body)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn diagnostic(level: &str) -> Diagnostic {
+        Diagnostic {
+            file: Some("main.tex".into()),
+            line: Some(3),
+            column: None,
+            end_line: None,
+            end_column: None,
+            level: level.into(),
+            message: "Undefined control sequence.".into(),
+            code: None,
+            params: Default::default(),
+        }
+    }
+
+    #[test]
+    fn counts_diagnostics_by_level() {
+        let diagnostics = [
+            diagnostic("error"),
+            diagnostic("warning"),
+            diagnostic("error"),
+        ];
+        assert_eq!(count(&diagnostics, "error"), 2);
+        assert_eq!(count(&diagnostics, "warning"), 1);
+        assert_eq!(count(&diagnostics, "info"), 0);
     }
 }

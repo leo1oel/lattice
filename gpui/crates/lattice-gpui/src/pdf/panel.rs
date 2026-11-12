@@ -5,18 +5,29 @@
 //! toolbar under the strip, closed by a hairline, with page navigation, the
 //! find field and the zoom controls; pages 8px in from the panel's edges and
 //! 10px apart on the sheet, each a sheet of paper with its own shadow.
+//!
+//! SyncTeX, as the Tauri app's viewer does it (`src/pdf/use-pdf-document.ts`,
+//! `pdf-source-targets.ts`): a double-click on a page reports the point, in
+//! PDF points from the page's top-left corner, for the shell to look up its
+//! source line; a jump from the source scrolls its box to the middle of the
+//! panel and marks it with an accent box that fades after 1.44 s.
 
-use std::{ops::Range, path::PathBuf, rc::Rc, sync::Arc};
+use std::{
+    cell::RefCell, collections::HashMap, ops::Range, path::PathBuf, rc::Rc, sync::Arc,
+    time::Duration,
+};
 
 use gpui::{
-    AnyElement, App, Context, Edges, EventEmitter, FocusHandle, Focusable, InteractiveElement as _,
-    IntoElement, ListAlignment, ListState, ParentElement as _, Pixels, Render, RenderImage,
-    SharedString, Styled as _, Task, Window, div, img, list, prelude::*, px,
+    Animation, AnimationExt as _, AnyElement, App, Bounds, Context, Edges, EventEmitter,
+    FocusHandle, Focusable, InteractiveElement as _, IntoElement, ListAlignment, ListOffset,
+    ListState, MouseButton, MouseDownEvent, ParentElement as _, Pixels, Render, RenderImage,
+    SharedString, Styled as _, Task, Window, canvas, div, img, list, prelude::*, px,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     menu::{PopupMenu, PopupMenuItem},
 };
+use lattice_core::latex::PdfSyncTarget;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, SearchField},
@@ -25,6 +36,33 @@ use lattice_ui::{
 };
 
 use super::engine::{DocumentInfo, PdfEngine};
+use crate::shell::ForwardSync;
+
+/// How long a jump's mark stays before it fades (`.pdf-synctex-highlight`).
+const SYNC_MARK_HOLD: Duration = Duration::from_millis(1440);
+
+/// What the panel tells the shell.
+pub enum PdfEvent {
+    /// A double-click at (`x`, `y`) PDF points from the top-left corner of
+    /// page `page` (1-based): show its source.
+    SourceAt { page: u32, x: f64, y: f64 },
+}
+
+/// The box a jump from the source marks, in PDF points on its page.
+#[derive(Clone, Copy)]
+struct SyncMark {
+    /// 0-based.
+    page: usize,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    id: usize,
+    /// Still to be scrolled into view, once the document holding it shows.
+    scroll: bool,
+    /// Drawn at least once, which starts its fade.
+    drawn: bool,
+}
 
 /// Pages kept drawn on each side of the visible ones.
 const KEEP_AROUND: usize = 2;
@@ -54,7 +92,12 @@ pub struct PdfPanel {
     /// list's own state is borrowed while it lays out its items.
     viewport_width: Pixels,
     message: Option<SharedString>,
+    /// Each drawn page's box, as of its last frame, to place a double-click.
+    page_bounds: Rc<RefCell<HashMap<usize, Bounds<Pixels>>>>,
+    sync_mark: Option<SyncMark>,
+    next_mark: usize,
     _open_task: Option<Task<()>>,
+    _mark_task: Option<Task<()>>,
 }
 
 impl PdfPanel {
@@ -76,7 +119,115 @@ impl PdfPanel {
             zoom: 1.0,
             viewport_width: px(0.),
             message: None,
+            page_bounds: Rc::default(),
+            sync_mark: None,
+            next_mark: 0,
             _open_task: None,
+            _mark_task: None,
+        }
+    }
+
+    /// Mark `target` (a forward SyncTeX answer) and scroll it to the middle
+    /// of the panel, now or once the document being loaded shows.
+    pub fn show_sync_target(&mut self, target: &PdfSyncTarget, cx: &mut Context<Self>) {
+        let id = self.next_mark;
+        self.next_mark += 1;
+        self.sync_mark = Some(SyncMark {
+            page: (target.page.max(1) - 1) as usize,
+            x: target.x as f32,
+            y: target.y as f32,
+            width: target.width as f32,
+            height: target.height as f32,
+            id,
+            scroll: true,
+            drawn: false,
+        });
+        self._mark_task = None;
+        self.scroll_to_mark();
+        cx.notify();
+    }
+
+    /// The mark was drawn for the first time: it leaves the tree once it has
+    /// faded, as the app's highlight does from when it is inserted.
+    fn mark_drawn(&mut self, id: usize, cx: &mut Context<Self>) {
+        self._mark_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(
+                    SYNC_MARK_HOLD
+                        + lattice_ui::Motion::SlowExit.duration()
+                        + Duration::from_millis(100),
+                )
+                .await;
+            this.update(cx, |this, cx| {
+                if this.sync_mark.is_some_and(|mark| mark.id == id) {
+                    this.sync_mark = None;
+                    cx.notify();
+                }
+            })
+            .ok();
+        }));
+    }
+
+    /// The last jump's mark, for a scenario: its page (0-based) and whether
+    /// it is still waiting to be scrolled to.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn sync_mark(&self) -> Option<(usize, bool)> {
+        self.sync_mark.map(|mark| (mark.page, mark.scroll))
+    }
+
+    /// The middle of the last jump's mark on screen, in window coordinates,
+    /// for a scenario that double-clicks it.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn sync_mark_center(&self) -> Option<gpui::Point<Pixels>> {
+        let mark = self.sync_mark?;
+        let page = self.page_bounds.borrow().get(&mark.page).copied()?;
+        let (width_pt, _) = self.document.as_ref()?.page_sizes.get(mark.page).copied()?;
+        let scale = f32::from(page.size.width) / width_pt.max(1.);
+        Some(gpui::point(
+            page.origin.x + px((mark.x + mark.width / 2.) * scale),
+            page.origin.y + px((mark.y + mark.height / 2.) * scale),
+        ))
+    }
+
+    /// The height of item `ix` in the list: its gap above and its page.
+    fn item_height(&self, ix: usize) -> Pixels {
+        let Some(document) = &self.document else {
+            return px(0.);
+        };
+        let (width_pt, height_pt) = document.page_sizes[ix];
+        let pad = px(if ix == 0 { PAGE_INSET } else { PAGE_GAP });
+        pad + self.page_width() * (height_pt / width_pt.max(1.))
+    }
+
+    /// Scroll the pending mark to the middle of the panel, once the document
+    /// holding its page is laid out at a known width.
+    fn scroll_to_mark(&mut self) {
+        let Some(mark) = self.sync_mark.filter(|mark| mark.scroll) else {
+            return;
+        };
+        let Some(document) = &self.document else {
+            return;
+        };
+        if mark.page >= document.page_sizes.len() || self.viewport_width <= px(0.) {
+            return;
+        }
+        let (width_pt, _) = document.page_sizes[mark.page];
+        let scale = self.page_width() / width_pt.max(1.);
+        let pad = px(if mark.page == 0 { PAGE_INSET } else { PAGE_GAP });
+        let center = pad + scale * (mark.y + mark.height.max(12. / f32::from(scale)) / 2.);
+        let viewport = self.list_state.viewport_bounds().size.height;
+        let mut item_ix = mark.page;
+        let mut offset = center - viewport / 2.;
+        while offset < px(0.) && item_ix > 0 {
+            item_ix -= 1;
+            offset += self.item_height(item_ix);
+        }
+        self.list_state.scroll_to(ListOffset {
+            item_ix,
+            offset_in_item: offset.max(px(0.)),
+        });
+        if let Some(mark) = &mut self.sync_mark {
+            mark.scroll = false;
         }
     }
 
@@ -162,6 +313,8 @@ impl PdfPanel {
         }
         self.document = Some(info);
         self.message = None;
+        self.page_bounds.borrow_mut().clear();
+        self.scroll_to_mark();
     }
 
     fn set_zoom(&mut self, zoom: f32, cx: &mut Context<Self>) {
@@ -198,15 +351,64 @@ impl PdfPanel {
             self.request_render(ix, wanted, window, cx);
         }
 
+        let bounds = self.page_bounds.clone();
+        let scale = f32::from(width) / width_pt.max(1.);
+        if let Some(mark) = self
+            .sync_mark
+            .as_mut()
+            .filter(|mark| mark.page == ix && !mark.drawn)
+        {
+            mark.drawn = true;
+            let id = mark.id;
+            self.mark_drawn(id, cx);
+        }
         let palette = cx.palette();
+        let mark = self
+            .sync_mark
+            .filter(|mark| mark.page == ix)
+            .map(|mark| sync_mark(mark, scale, palette));
+        let page_number = ix as u32 + 1;
         let page = div()
+            .relative()
             .w(width)
             .h(height)
             .bg(palette.pdf_page)
             .shadow(elevation::pdf_page(palette))
             .when_some(self.pages[ix].image.clone(), |page, image| {
                 page.child(img(image).size_full())
-            });
+            })
+            .child(
+                canvas(
+                    move |page_box, _, _| {
+                        bounds.borrow_mut().insert(ix, page_box);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .inset_0(),
+            )
+            .children(mark)
+            // Reverse SyncTeX: a double-click reports the point, in PDF
+            // points from the page's top-left corner.
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                    if event.click_count != 2 {
+                        return;
+                    }
+                    let Some(page_box) = this.page_bounds.borrow().get(&ix).copied() else {
+                        return;
+                    };
+                    let to_points = |offset: Pixels| (f32::from(offset) / scale) as f64;
+                    let x = to_points(event.position.x - page_box.origin.x);
+                    let y = to_points(event.position.y - page_box.origin.y);
+                    cx.emit(PdfEvent::SourceAt {
+                        page: page_number,
+                        x: (x * 1000.).round() / 1000.,
+                        y: (y * 1000.).round() / 1000.,
+                    });
+                }),
+            );
         div()
             .w_full()
             .flex()
@@ -290,6 +492,41 @@ impl PdfPanel {
 }
 
 impl EventEmitter<PanelEvent> for PdfPanel {}
+impl EventEmitter<PdfEvent> for PdfPanel {}
+
+/// The mark on a page where a jump from the source landed: an accent box
+/// over the source's box (at least 18 by 12), on the compact corner, held
+/// for 1.44 s and then faded on the slow exit tier.
+fn sync_mark(mark: SyncMark, scale: f32, palette: &lattice_ui::Palette) -> AnyElement {
+    let accent = palette.accent;
+    let wash = gpui::Hsla {
+        a: accent.a * 0.16,
+        ..accent
+    };
+    let hold = SYNC_MARK_HOLD.as_secs_f32();
+    let fade = lattice_ui::Motion::SlowExit.duration().as_secs_f32();
+    let total = hold + fade;
+    div()
+        .absolute()
+        .left(px(mark.x * scale))
+        .top(px(mark.y * scale))
+        .w(px((mark.width * scale).max(18.)))
+        .h(px((mark.height * scale).max(12.)))
+        .border_2()
+        .border_color(accent)
+        .rounded(px(4.))
+        .bg(wash)
+        .with_animation(
+            ("pdf-sync-mark", mark.id),
+            Animation::new(Duration::from_secs_f32(total)),
+            move |this, t| {
+                let elapsed = t * total;
+                let out = ((elapsed - hold) / fade).clamp(0., 1.);
+                this.opacity(1. - lattice_ui::Motion::SlowExit.sample(out))
+            },
+        )
+        .into_any_element()
+}
 
 impl Focusable for PdfPanel {
     fn focus_handle(&self, _: &App) -> FocusHandle {
@@ -360,22 +597,32 @@ impl PdfPanel {
                             })),
                     )
                     .child({
-                        let page: SharedString = if has_document {
-                            format!("{} / {count}", current + 1).into()
+                        // The app's page value: 44 by 28 on the compact
+                        // corner, "1 / 4" as three runs of text.
+                        let (page, total): (SharedString, SharedString) = if has_document {
+                            ((current + 1).to_string().into(), count.to_string().into())
                         } else {
-                            "– / –".into()
+                            ("–".into(), "–".into())
+                        };
+                        let run = |slot: usize, text: SharedString, shown: SharedString| {
+                            div()
+                                .children(lattice_ui::parity::text_probe("pdf/page", slot, text))
+                                .child(shown)
                         };
                         div()
                             .w(px(44.))
+                            .h(px(28.))
                             .flex()
+                            .items_center()
                             .justify_center()
                             .whitespace_nowrap()
                             .text_role(TextRole::Micro, cx)
                             .font_weight(lattice_ui::tokens::FONT_WEIGHT_REGULAR)
                             .text_color(palette.text_secondary)
                             .children(lattice_ui::parity::probe("pdf/page"))
-                            .children(lattice_ui::parity::text_probe("pdf/page", 0, page.clone()))
-                            .child(page)
+                            .child(run(0, page.clone(), page))
+                            .child(run(1, "/".into(), " / ".into()))
+                            .child(run(2, total.clone(), total))
                     })
                     .child(
                         nav("pdf-next", Icon::CHEVRON_RIGHT)
@@ -413,7 +660,11 @@ impl PdfPanel {
                     .gap(px(2.))
                     .child(
                         nav("pdf-locate", Icon::LOCATE_FIXED)
-                            .tooltip("Show the source position — not in the GPUI preview yet"),
+                            .disabled(!has_document)
+                            .tooltip("Reveal cursor in PDF")
+                            .on_click(|_, window, cx| {
+                                window.dispatch_action(Box::new(ForwardSync), cx)
+                            }),
                     )
                     .child(div().w(px(1.)).h(px(16.)).bg(palette.line_strong))
                     .child(
@@ -474,6 +725,7 @@ impl Render for PdfPanel {
         if width != self.viewport_width {
             self.viewport_width = width;
             self.list_state.remeasure();
+            self.scroll_to_mark();
         }
         let body = if let Err(error) = &self.engine {
             centered_message(error.clone(), cx).into_any_element()

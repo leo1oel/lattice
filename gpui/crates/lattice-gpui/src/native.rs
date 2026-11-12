@@ -185,11 +185,30 @@ pub enum Mouse {
 
 /// One left-button mouse event at `position` (GPUI window coordinates).
 pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Result<()> {
+    send_mouse_clicks(native, kind, position, 1)
+}
+
+/// A left double click at `position`: AppKit counts a click by the event's
+/// `clickCount`, so the second press says 2.
+pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    for clicks in [1, 2] {
+        send_mouse_clicks(native, Mouse::Down, position, clicks)?;
+        send_mouse_clicks(native, Mouse::Up, position, clicks)?;
+    }
+    Ok(())
+}
+
+fn send_mouse_clicks(
+    native: Native,
+    kind: Mouse,
+    position: Point<Pixels>,
+    clicks: isize,
+) -> Result<()> {
     use std::sync::atomic::{AtomicIsize, Ordering};
     static EVENT_NUMBER: AtomicIsize = AtomicIsize::new(1);
-    let (pressure, clicks) = match kind {
-        Mouse::Down | Mouse::Dragged => (1.0f32, 1isize),
-        Mouse::Up => (0.0f32, 1isize),
+    let pressure = match kind {
+        Mouse::Down | Mouse::Dragged => 1.0f32,
+        Mouse::Up => 0.0f32,
     };
     unsafe {
         let location = to_window(

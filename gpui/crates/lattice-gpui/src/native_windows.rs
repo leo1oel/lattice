@@ -150,6 +150,16 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
     Ok(())
 }
 
+/// A left double click at `position`: GPUI counts two presses close in time
+/// and place as one double click, as Windows does.
+pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    for _ in 0..2 {
+        send_mouse(native, Mouse::Down, position)?;
+        send_mouse(native, Mouse::Up, position)?;
+    }
+    Ok(())
+}
+
 pub fn bring_to_front(native: Native) {
     unsafe {
         let _ = SetForegroundWindow(native.hwnd);

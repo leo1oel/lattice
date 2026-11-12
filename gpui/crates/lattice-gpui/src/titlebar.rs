@@ -42,7 +42,7 @@ const NOT_YET: &str = "not in the GPUI preview yet";
 
 pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> impl IntoElement {
     let palette = cx.palette().clone();
-    let project = shell.project_name();
+    let project = shell.project_name(cx);
     let docks = shell.dock_area().read(cx);
     let open = |placement| docks.is_dock_open(placement);
     let (project_open, pdf_open, build_open) = (

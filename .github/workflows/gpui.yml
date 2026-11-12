@@ -3,8 +3,10 @@ name: GPUI
 # The GPUI preview app in gpui/ is a Cargo workspace of its own, built from
 # Zed's crates (about 1,200 of them), and nothing in the Tauri app depends on
 # it. So this workflow runs only when gpui/ or this file changes, and CI's
-# Tauri jobs (ci.yml) skip a pull request that changes nothing else. The
-# files outside gpui/ it reads are the design system's exports:
+# Tauri jobs (ci.yml) skip a pull request that changes nothing else. The app
+# builds on the backend crate it shares with the Tauri app
+# (src-tauri/lattice-core), so a change there runs it too. The other files
+# outside gpui/ it reads are the design system's exports:
 # gpui/crates/lattice-ui generates its tokens from tokens.json (Paper's) and
 # its Zed editor themes from code-themes.json, and fails a test while either
 # disagrees with what it generated, so a Paper export runs this workflow too.
@@ -21,6 +23,7 @@ on:
     branches: [main]
     paths: &gpui-paths
       - "gpui/**"
+      - "src-tauri/lattice-core/**"
       - "design-system/tokens.json"
       - "design-system/code-themes.json"
       - "design-system/code-themes.mjs"

@@ -1,11 +1,12 @@
 //! The window: Lattice's titlebar over GPUI Kit's dock area in Lattice's
 //! look, holding the file tree, the editors, the PDF preview and the build
-//! panel; and the flows that tie them together (open a project, open a
-//! file, build).
+//! panel; and the flows that tie them together on lattice-core: open a
+//! project, open a file, build, jump between the source and the PDF
+//! (SyncTeX), and the file tree's create, rename, move and delete.
 
 use std::path::{Path, PathBuf};
 
-use futures::{StreamExt as _, channel::mpsc};
+use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyBinding, ParentElement as _, PathPromptOptions,
@@ -18,11 +19,20 @@ use gpui_kit::component::{
 };
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock};
 
+mod build;
+mod entries;
+mod synctex;
+
+use build::BuildRequest;
+
 use crate::{
     build_panel::{BuildPanel, OpenLocation},
-    editor_panel::EditorPanel,
-    file_tree::{FileTreePanel, OpenFile},
-    pdf::PdfPanel,
+    confirm::{self, ConfirmHost},
+    editor_panel::{EditorPanel, EditorPanelEvent},
+    file_tree::FileTreePanel,
+    notices::{self, NoticeStack},
+    pdf::{PdfEvent, PdfPanel},
+    project::Project,
     titlebar::TitlebarDrag,
 };
 
@@ -32,6 +42,7 @@ actions!(
         OpenFolder,
         Build,
         Save,
+        ForwardSync,
         ToggleVimMode,
         ToggleProjectPanel,
         TogglePdfPanel,
@@ -51,11 +62,12 @@ const WORKSPACE_TOP: f32 = 6. - 3.;
 /// The build panel's height when it is shown under the editors.
 const BUILD_DOCK: f32 = 180. + 6.;
 
-/// Open folder, build, save: on the platform's primary shortcut modifier.
+/// Open folder, build, save and the jump to the PDF, on the platform's
+/// primary shortcut modifier; the jump is the Tauri app's ⌘⇧J.
 #[cfg(target_os = "macos")]
-const SHORTCUTS: [&str; 3] = ["cmd-o", "cmd-b", "cmd-s"];
+const SHORTCUTS: [&str; 4] = ["cmd-o", "cmd-b", "cmd-s", "cmd-shift-j"];
 #[cfg(not(target_os = "macos"))]
-const SHORTCUTS: [&str; 3] = ["ctrl-o", "ctrl-b", "ctrl-s"];
+const SHORTCUTS: [&str; 4] = ["ctrl-o", "ctrl-b", "ctrl-s", "ctrl-shift-j"];
 
 #[cfg(target_os = "macos")]
 pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
@@ -63,24 +75,35 @@ pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
 pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
 
 pub fn bind_keys(cx: &mut App) {
-    let [open, build, save] = SHORTCUTS;
+    let [open, build, save, forward] = SHORTCUTS;
     cx.bind_keys([
         KeyBinding::new(open, OpenFolder, None),
         KeyBinding::new(build, Build, None),
         KeyBinding::new(save, Save, None),
+        KeyBinding::new(forward, ForwardSync, None),
     ]);
 }
 
 pub struct Shell {
-    root: Option<PathBuf>,
+    project: Option<Entity<Project>>,
     focus_handle: FocusHandle,
     dock_area: Entity<DockArea>,
     titlebar_drag: TitlebarDrag,
     file_tree: Entity<FileTreePanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
+    notices: Entity<NoticeStack>,
+    confirm: Entity<ConfirmHost>,
     editors: Vec<WeakEntity<EditorPanel>>,
+    /// The editor the writer was last in, which a build compiles from and a
+    /// jump to the PDF starts from.
+    active_editor: Option<WeakEntity<EditorPanel>>,
     build_task: Option<Task<()>>,
+    /// The build to run once the one under way ends.
+    queued_build: Option<BuildRequest>,
+    /// Told when the builds under way, queued ones included, are over.
+    build_waiters: Vec<oneshot::Sender<()>>,
+    _open_task: Option<Task<()>>,
     vim_mode: bool,
 }
 
@@ -113,6 +136,8 @@ impl Shell {
         let file_tree = cx.new(FileTreePanel::new);
         let pdf = cx.new(PdfPanel::new);
         let build_panel = cx.new(BuildPanel::new);
+        let notices = notices::install(cx);
+        let confirm = confirm::install(cx);
 
         // The system's appearance, unless the run fixed one.
         if crate::app::appearance_override().is_none() {
@@ -122,10 +147,8 @@ impl Shell {
             .detach();
         }
 
-        cx.subscribe_in(&file_tree, window, |this, _, OpenFile(path), window, cx| {
-            this.open_path(path.clone(), None, window, cx);
-        })
-        .detach();
+        cx.subscribe_in(&file_tree, window, Self::on_tree_event)
+            .detach();
         cx.subscribe_in(
             &build_panel,
             window,
@@ -134,6 +157,16 @@ impl Shell {
             },
         )
         .detach();
+        cx.subscribe_in(
+            &pdf,
+            window,
+            |this, _, event: &PdfEvent, window, cx| match event {
+                PdfEvent::SourceAt { page, x, y } => this.inverse_sync(*page, *x, *y, window, cx),
+            },
+        )
+        .detach();
+        cx.observe(&notices, |_, _, cx| cx.notify()).detach();
+        cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
 
         dock_area.update(cx, |area, cx| {
             area.set_center(DockLayout::v_split(), window, cx);
@@ -165,22 +198,35 @@ impl Shell {
         // build reports errors, or from the Panels menu (`show_build_panel`).
 
         Self {
-            root: None,
+            project: None,
             focus_handle: cx.focus_handle(),
             dock_area,
             titlebar_drag: TitlebarDrag::default(),
             file_tree,
             pdf,
             build_panel,
+            notices,
+            confirm,
             editors: Vec::new(),
+            active_editor: None,
             build_task: None,
+            queued_build: None,
+            build_waiters: Vec::new(),
+            _open_task: None,
             vim_mode: crate::app::vim_mode_enabled(cx),
         }
     }
 
+    /// The open project's folder.
+    pub fn root(&self, cx: &App) -> Option<PathBuf> {
+        self.project
+            .as_ref()
+            .map(|project| project.read(cx).root().to_path_buf())
+    }
+
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn root(&self) -> Option<&PathBuf> {
-        self.root.as_ref()
+    pub fn project(&self) -> Option<&Entity<Project>> {
+        self.project.as_ref()
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -193,6 +239,29 @@ impl Shell {
         &self.build_panel
     }
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn file_tree(&self) -> &Entity<FileTreePanel> {
+        &self.file_tree
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn confirm(&self) -> &Entity<ConfirmHost> {
+        &self.confirm
+    }
+
+    /// The project-relative path of the editor the writer was last in.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn active_editor_path(&self, cx: &App) -> Option<String> {
+        self.active_editor()
+            .map(|editor| editor.read(cx).relative().to_string())
+    }
+
+    /// Whether a build is under way or queued.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn building(&self) -> bool {
+        self.build_task.is_some()
+    }
+
     pub fn dock_area(&self) -> &Entity<DockArea> {
         &self.dock_area
     }
@@ -203,11 +272,11 @@ impl Shell {
 
     /// The open project's name, as the titlebar's switcher shows it: the
     /// title in its `project.toml`, else the folder's name.
-    pub fn project_name(&self) -> SharedString {
-        let Some(root) = &self.root else {
+    pub fn project_name(&self, cx: &App) -> SharedString {
+        let Some(root) = self.root(cx) else {
             return "Open a project".into();
         };
-        project_title(root)
+        project_title(&root)
             .or_else(|| {
                 root.file_name()
                     .map(|name| name.to_string_lossy().into_owned())
@@ -216,22 +285,54 @@ impl Shell {
             .into()
     }
 
-    /// Open a project folder: show it in the tree, open its main document,
-    /// and preview its PDF when one was already built.
+    /// Open a project folder with lattice-core, as the Tauri app opens it:
+    /// show it in the tree, open its main document, and preview its PDF when
+    /// one was already built. The files of the project open before are saved
+    /// and their tabs closed.
     pub fn open_project(&mut self, root: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        let root = root.canonicalize().unwrap_or(root);
-        self.root = Some(root.clone());
+        let saves = self.close_editors(window, cx);
+        self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
+            for save in saves {
+                save.await.ok();
+            }
+            match crate::project::open(root.clone(), cx).await {
+                Ok(project) => {
+                    this.update_in(cx, |this, window, cx| this.set_project(project, window, cx))
+                        .ok();
+                }
+                Err(error) => {
+                    log::error!("could not open {}: {error}", root.display());
+                    cx.update(|_, cx| notices::error("Could not open the project", error, cx))
+                        .ok();
+                }
+            }
+        }));
+    }
+
+    fn set_project(
+        &mut self,
+        project: Entity<Project>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (root, main, pdf) = {
+            let project = project.read(cx);
+            (
+                project.root().to_path_buf(),
+                project
+                    .main_document()
+                    .map(|main| project.root().join(main)),
+                project.main_pdf().filter(|pdf| pdf.is_file()),
+            )
+        };
+        self.project = Some(project.clone());
+        self.queued_build = None;
         self.file_tree
-            .update(cx, |tree, cx| tree.set_root(root.clone(), cx));
+            .update(cx, |tree, cx| tree.set_project(project, cx));
         window.set_window_title(&format!(
             "{} — Lattice (GPUI preview)",
             root.file_name().unwrap_or_default().to_string_lossy()
         ));
-        let main = tex::find_main_document(&root);
-        let pdf = main
-            .as_ref()
-            .map(|main| main.with_extension("pdf"))
-            .filter(|pdf| pdf.is_file());
         if let Some(main) = main {
             self.open_path(main, None, window, cx);
         }
@@ -240,6 +341,23 @@ impl Shell {
             None => panel.close(window, cx),
         });
         cx.notify();
+    }
+
+    /// Save every open file and close its tab, before another project opens.
+    fn close_editors(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Vec<Task<anyhow::Result<bool>>> {
+        let editors = self.open_editors();
+        let saves = Self::save_dirty(&editors, cx);
+        for editor in editors {
+            self.dock_area
+                .update(cx, |area, cx| area.remove_panel(editor, window, cx));
+        }
+        self.editors.clear();
+        self.active_editor = None;
+        saves
     }
 
     /// Open a source file in an editor tab (or switch to its tab), or a PDF in
@@ -256,12 +374,11 @@ impl Shell {
                 .update(cx, |panel, cx| panel.open(path, window, cx));
             return None;
         }
+        let project = self.project.clone()?;
         let path = path.canonicalize().unwrap_or(path);
-        self.editors.retain(|editor| editor.upgrade().is_some());
         let existing = self
-            .editors
-            .iter()
-            .filter_map(WeakEntity::upgrade)
+            .open_editors()
+            .into_iter()
             .find(|editor| editor.read(cx).path() == path);
         let editor = match existing {
             Some(editor) => {
@@ -270,33 +387,39 @@ impl Shell {
                     .update(cx, |area, cx| area.select_panel(id, window, cx));
                 editor
             }
-            None => match EditorPanel::open(path.clone(), self.build_panel.clone(), window, cx) {
-                Ok(editor) => {
-                    self.dock_area.update(cx, |area, cx| {
-                        area.add_panel_view(
-                            panel_handle(editor.clone()),
-                            DockPlacement::Center,
-                            None,
-                            window,
+            None => {
+                match EditorPanel::open(path.clone(), project, self.build_panel.clone(), window, cx)
+                {
+                    Ok(editor) => {
+                        cx.subscribe_in(&editor, window, Self::on_editor_event)
+                            .detach();
+                        self.dock_area.update(cx, |area, cx| {
+                            area.add_panel_view(
+                                panel_handle(editor.clone()),
+                                DockPlacement::Center,
+                                None,
+                                window,
+                                cx,
+                            );
+                        });
+                        self.editors.push(editor.downgrade());
+                        editor
+                    }
+                    Err(error) => {
+                        log::error!("{error:#}");
+                        let _ = window.prompt(
+                            PromptLevel::Critical,
+                            "Could not open the file",
+                            Some(&format!("{error:#}")),
+                            &["OK"],
                             cx,
                         );
-                    });
-                    self.editors.push(editor.downgrade());
-                    editor
+                        return None;
+                    }
                 }
-                Err(error) => {
-                    log::error!("{error:#}");
-                    let _ = window.prompt(
-                        PromptLevel::Critical,
-                        "Could not open the file",
-                        Some(&format!("{error:#}")),
-                        &["OK"],
-                        cx,
-                    );
-                    return None;
-                }
-            },
+            }
         };
+        self.active_editor = Some(editor.downgrade());
         editor.update(cx, |editor, cx| match line {
             Some(line) => editor.go_to_line(line, window, cx),
             None => window.focus(&editor.editor().focus_handle(cx), cx),
@@ -304,6 +427,51 @@ impl Shell {
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
+    }
+
+    fn on_editor_event(
+        &mut self,
+        editor: &Entity<EditorPanel>,
+        event: &EditorPanelEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            EditorPanelEvent::Saved => {
+                if let Some(project) = &self.project {
+                    project.update(cx, |project, _| project.mark_inputs_changed());
+                }
+            }
+            EditorPanelEvent::SavedForBuild => {
+                self.run_build(BuildRequest::automatic(), window, cx);
+            }
+            EditorPanelEvent::DiskEdit => {
+                if crate::app::auto_build(cx) {
+                    self.run_build(BuildRequest::automatic(), window, cx);
+                }
+            }
+            EditorPanelEvent::Close => self.close_editor(editor, window, cx),
+        }
+    }
+
+    fn close_editor(
+        &mut self,
+        editor: &Entity<EditorPanel>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.dock_area
+            .update(cx, |area, cx| area.remove_panel(editor.clone(), window, cx));
+        self.editors
+            .retain(|open| open.upgrade().is_some_and(|open| open != *editor));
+        if self
+            .active_editor
+            .as_ref()
+            .is_some_and(|active| active.upgrade().as_ref() == Some(editor))
+        {
+            self.active_editor = None;
+        }
+        cx.notify();
     }
 
     pub(crate) fn open_folder(
@@ -331,120 +499,45 @@ impl Shell {
         .detach();
     }
 
-    fn open_editors(&self) -> Vec<Entity<EditorPanel>> {
+    fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
+        self.editors.retain(|editor| editor.upgrade().is_some());
         self.editors
             .iter()
             .filter_map(WeakEntity::upgrade)
             .collect()
     }
 
-    fn save_all(&mut self, _: &Save, _: &mut Window, cx: &mut Context<Self>) {
-        for editor in self.open_editors() {
-            if editor.read(cx).is_dirty(cx) {
-                let save = editor.update(cx, |editor, cx| editor.save(cx));
-                cx.spawn(async move |_, _| {
-                    if let Err(error) = save.await {
-                        log::error!("{error:#}");
-                    }
-                })
-                .detach();
-            }
-        }
-    }
-
-    /// Save every edited file, run latexmk on the main document in the
-    /// background with its output streaming into the build panel, then show
-    /// the diagnostics and reload the PDF.
-    pub fn build(&mut self, _: &Build, window: &mut Window, cx: &mut Context<Self>) {
-        if self.build_task.is_some() {
-            return;
-        }
-        let Some(root) = self.root.clone() else {
-            return;
-        };
-        let Some(document) = tex::find_main_document(&root) else {
-            self.build_panel.update(cx, |panel, cx| {
-                panel.failed(
-                    "No main.tex or other top-level .tex file with \\documentclass in this folder."
-                        .into(),
-                    cx,
-                )
-            });
-            return;
-        };
-        let dirty: Vec<_> = self
-            .open_editors()
-            .into_iter()
+    /// Start saving each of `editors` that holds unsaved edits.
+    fn save_dirty(
+        editors: &[Entity<EditorPanel>],
+        cx: &mut Context<Self>,
+    ) -> Vec<Task<anyhow::Result<bool>>> {
+        let dirty: Vec<_> = editors
+            .iter()
             .filter(|editor| editor.read(cx).is_dirty(cx))
+            .cloned()
             .collect();
-        let saves: Vec<_> = dirty
+        dirty
             .into_iter()
             .map(|editor| editor.update(cx, |editor, cx| editor.save(cx)))
-            .collect();
-        self.build_panel
-            .update(cx, |panel, cx| panel.started(&document, cx));
+            .collect()
+    }
 
-        let build_panel = self.build_panel.clone();
-        self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
-            for save in saves {
+    /// The editor the writer was last in, if it is still open.
+    pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
+        self.active_editor.as_ref().and_then(WeakEntity::upgrade)
+    }
+
+    fn save_all(&mut self, _: &Save, _: &mut Window, cx: &mut Context<Self>) {
+        let editors = self.open_editors();
+        for save in Self::save_dirty(&editors, cx) {
+            cx.spawn(async move |_, _| {
                 if let Err(error) = save.await {
                     log::error!("{error:#}");
                 }
-            }
-            let (lines, mut received) = mpsc::unbounded::<String>();
-            let build = cx.background_spawn(async move {
-                tex::build(&document, |line| {
-                    lines.unbounded_send(line.to_string()).ok();
-                })
-            });
-            while let Some(line) = received.next().await {
-                let mut batch = vec![line];
-                while let Ok(line) = received.try_recv() {
-                    batch.push(line);
-                }
-                build_panel.update(cx, |panel, cx| panel.push_lines(batch, cx));
-            }
-            let outcome = build.await;
-            this.update_in(cx, |this, window, cx| {
-                this.finish_build(&root, outcome, window, cx)
             })
-            .ok();
-        }));
-        cx.notify();
-    }
-
-    fn finish_build(
-        &mut self,
-        root: &Path,
-        outcome: std::io::Result<tex::BuildOutcome>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.build_task = None;
-        let current = self.root.as_deref() == Some(root);
-        match outcome {
-            Ok(outcome) => {
-                self.build_panel
-                    .update(cx, |panel, cx| panel.finished(&outcome, cx));
-                if current && let Some(pdf) = outcome.pdf.clone() {
-                    self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
-                }
-                if current && outcome.error_count() > 0 {
-                    self.show_build_panel(true, window, cx);
-                }
-            }
-            Err(error) => {
-                let message = if error.kind() == std::io::ErrorKind::NotFound {
-                    "latexmk was not found. Install MacTeX, MiKTeX or TeX Live.".to_string()
-                } else {
-                    format!("Could not run latexmk: {error}")
-                };
-                self.build_panel
-                    .update(cx, |panel, cx| panel.failed(message, cx));
-            }
+            .detach();
         }
-        self.file_tree.update(cx, |tree, cx| tree.refresh(cx));
-        cx.notify();
     }
 
     fn toggle_vim_mode(&mut self, _: &ToggleVimMode, _: &mut Window, cx: &mut Context<Self>) {
@@ -510,8 +603,7 @@ impl Shell {
 }
 
 /// `title` in the `[project]` table of a Lattice project's `project.toml`.
-/// A line scan, not a TOML parser: the manifest is the app's own, and the
-/// shared backend crate will read it properly.
+/// A line scan, not a TOML parser: the manifest is the app's own.
 fn project_title(root: &Path) -> Option<String> {
     let manifest = std::fs::read_to_string(root.join("project.toml")).ok()?;
     let mut in_project = false;
@@ -559,6 +651,7 @@ impl Render for Shell {
             .on_action(cx.listener(Self::open_folder))
             .on_action(cx.listener(Self::build))
             .on_action(cx.listener(Self::save_all))
+            .on_action(cx.listener(Self::forward_sync))
             .on_action(cx.listener(Self::toggle_vim_mode))
             .on_action(cx.listener(|this, _: &ToggleProjectPanel, window, cx| {
                 this.toggle_dock(DockPlacement::Left, window, cx)
@@ -570,6 +663,7 @@ impl Render for Shell {
                 let shown = this.build_panel_shown(cx);
                 this.show_build_panel(!shown, window, cx)
             }))
+            .relative()
             .size_full()
             .bg(palette.window)
             .text_color(palette.text)
@@ -585,5 +679,7 @@ impl Render for Shell {
                     .children(lattice_ui::parity::probe("workspace"))
                     .child(self.dock_area.clone()),
             )
+            .child(self.notices.clone())
+            .child(self.confirm.clone())
     }
 }

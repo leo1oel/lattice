@@ -2,7 +2,8 @@
 // Bump the app version in lockstep across package.json, tauri.conf.json, and
 // both crates' Cargo.toml (the Tauri shell and lattice-core, which reports
 // its CARGO_PKG_VERSION as Lattice's own), so every release ships one
-// coherent version number.
+// coherent version number. lattice-core's entry in the GPUI preview app's
+// lockfile (gpui/Cargo.lock) follows it.
 //
 // Usage:
 //   node scripts/bump-version.mjs            # patch: 0.1.37 -> 0.1.38
@@ -26,6 +27,9 @@ const pkgPath = join(projectRoot, "package.json");
 const confPath = join(projectRoot, "src-tauri/tauri.conf.json");
 const cargoPaths = ["src-tauri/Cargo.toml", "src-tauri/lattice-core/Cargo.toml"].map((path) => join(projectRoot, path));
 const lockPath = join(projectRoot, "src-tauri/Cargo.lock");
+// The GPUI preview app builds on lattice-core too, and its CI builds with
+// `--locked`, so its lockfile's lattice-core entry follows the version.
+const gpuiLockPath = join(projectRoot, "gpui/Cargo.lock");
 
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 const current = pkg.version;
@@ -95,6 +99,13 @@ for (const crate of [pkg.name === "research-writer" ? "research-writer" : pkg.na
 }
 writeFileSync(lockPath, lock);
 
+const gpuiLock = readFileSync(gpuiLockPath, "utf8");
+const gpuiEntry = /(\[\[package\]\]\nname = "lattice-core"\nversion = )"[^"]*"/;
+if (!gpuiEntry.test(gpuiLock)) {
+  throw new Error(`Could not find the lattice-core package entry in ${gpuiLockPath}.`);
+}
+writeFileSync(gpuiLockPath, gpuiLock.replace(gpuiEntry, `$1"${next}"`));
+
 const notes = writeReleaseNotes(next, new Date().toISOString().slice(0, 10), projectRoot);
 
 console.log(`Bumped ${current} -> ${next}`);
@@ -107,7 +118,7 @@ if (notes) {
 }
 console.log("");
 console.log("Next steps:");
-console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/lattice-core/Cargo.toml src-tauri/Cargo.lock${notes ? ` src/release-notes/${next}.json` : ""}`);
+console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/lattice-core/Cargo.toml src-tauri/Cargo.lock gpui/Cargo.lock${notes ? ` src/release-notes/${next}.json` : ""}`);
 console.log(`  git commit -m "Release v${next}"`);
 console.log(`  git tag v${next}`);
 console.log(`  git push origin main`);
