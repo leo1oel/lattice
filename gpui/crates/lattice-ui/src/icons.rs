@@ -25,65 +25,85 @@ use crate::{GlyphKind, Palette};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Icon(pub &'static str);
 
-impl Icon {
-    // Lucide, from GPUI Kit's assets.
-    pub const BOOK_OPEN: Icon = Icon("icons/book-open.svg");
-    pub const BOT: Icon = Icon("icons/bot.svg");
-    pub const CHECK: Icon = Icon("icons/check.svg");
-    pub const CHEVRON_DOWN: Icon = Icon("icons/chevron-down.svg");
-    pub const CHEVRON_LEFT: Icon = Icon("icons/chevron-left.svg");
-    pub const CHEVRON_RIGHT: Icon = Icon("icons/chevron-right.svg");
-    pub const CIRCLE_ALERT: Icon = Icon("icons/circle-alert.svg");
-    pub const CIRCLE_CHECK: Icon = Icon("icons/circle-check.svg");
-    pub const CLIPBOARD_CHECK: Icon = Icon("icons/clipboard-check.svg");
-    pub const CLOUD: Icon = Icon("icons/cloud.svg");
-    pub const FILE_TEXT: Icon = Icon("icons/file-text.svg");
-    pub const FOLDER_TREE: Icon = Icon("icons/folder-tree.svg");
-    pub const GLOBE: Icon = Icon("icons/globe.svg");
-    pub const HAMMER: Icon = Icon("icons/hammer.svg");
-    pub const HARD_DRIVE: Icon = Icon("icons/hard-drive.svg");
-    pub const INFO: Icon = Icon("icons/info.svg");
-    pub const LAYOUT_PANEL_LEFT: Icon = Icon("icons/layout-panel-left.svg");
-    pub const LIBRARY: Icon = Icon("icons/library.svg");
-    pub const LIST_TODO: Icon = Icon("icons/list-todo.svg");
-    pub const LIST_TREE: Icon = Icon("icons/list-tree.svg");
-    pub const LOADER: Icon = Icon("icons/loader-circle.svg");
-    pub const LOCATE_FIXED: Icon = Icon("icons/locate-fixed.svg");
-    pub const MESSAGE_SQUARE_TEXT: Icon = Icon("icons/message-square-text.svg");
-    pub const PLUS: Icon = Icon("icons/plus.svg");
-    pub const RECTANGLE_HORIZONTAL: Icon = Icon("icons/rectangle-horizontal.svg");
-    pub const REFRESH: Icon = Icon("icons/refresh-cw.svg");
-    pub const SEARCH: Icon = Icon("icons/search.svg");
-    pub const TRIANGLE_ALERT: Icon = Icon("icons/triangle-alert.svg");
-    pub const ZOOM_IN: Icon = Icon("icons/zoom-in.svg");
-    pub const ZOOM_OUT: Icon = Icon("icons/zoom-out.svg");
-    pub const ELLIPSIS: Icon = Icon("icons/ellipsis.svg");
-    pub const ARROW_LEFT: Icon = Icon("icons/arrow-left.svg");
-    pub const ARROW_RIGHT: Icon = Icon("icons/arrow-right.svg");
-    pub const ARROW_RIGHT_LEFT: Icon = Icon("icons/arrow-right-left.svg");
-    pub const BOOK_OPEN_TEXT: Icon = Icon("icons/book-open-text.svg");
-    pub const COLUMNS_2: Icon = Icon("icons/columns-2.svg");
-    pub const COMPASS: Icon = Icon("icons/compass.svg");
-    pub const EYE_OFF: Icon = Icon("icons/eye-off.svg");
-    pub const FILE_PEN_LINE: Icon = Icon("icons/file-pen-line.svg");
-    pub const FOCUS: Icon = Icon("icons/focus.svg");
-    pub const FOLDER_OPEN: Icon = Icon("icons/folder-open.svg");
-    pub const KEYBOARD: Icon = Icon("icons/keyboard.svg");
-    pub const LAYOUT_DASHBOARD: Icon = Icon("icons/layout-dashboard.svg");
-    pub const MAXIMIZE: Icon = Icon("icons/maximize-2.svg");
-    pub const MINIMIZE: Icon = Icon("icons/minimize-2.svg");
-    pub const PEN_LINE: Icon = Icon("icons/pen-line.svg");
-    pub const PICTURE_IN_PICTURE: Icon = Icon("icons/picture-in-picture-2.svg");
-    pub const PLAY: Icon = Icon("icons/play.svg");
-    pub const ROTATE_CCW: Icon = Icon("icons/rotate-ccw.svg");
-    pub const ROWS_2: Icon = Icon("icons/rows-2.svg");
-    pub const SAVE: Icon = Icon("icons/save.svg");
-    pub const SUN_MOON: Icon = Icon("icons/sun-moon.svg");
-    pub const UNDO: Icon = Icon("icons/undo-2.svg");
-    pub const X: Icon = Icon("icons/x.svg");
-    pub const CIRCLE_X: Icon = Icon("icons/circle-x.svg");
-    pub const APP_WINDOW: Icon = Icon("icons/app-window.svg");
+/// Declares each Lucide icon once, as an `Icon` constant and as an entry in
+/// [`LUCIDE`] naming its file in Lucide's set.
+macro_rules! lucide {
+    ($($(#[$meta:meta])* $name:ident = $dir:literal / $file:literal;)*) => {
+        impl Icon {
+            $($(#[$meta])* pub const $name: Icon = Icon(concat!($dir, "/", $file, ".svg"));)*
+        }
 
+        /// Every Lucide icon, with its name in Lucide's set: what it must
+        /// draw, whichever asset source answers its path.
+        pub const LUCIDE: &[(Icon, &str)] = &[$((Icon::$name, $file)),*];
+    };
+}
+
+lucide! {
+    // From GPUI Kit's assets.
+    BOOK_OPEN = "icons" / "book-open";
+    BOT = "icons" / "bot";
+    CHEVRON_DOWN = "icons" / "chevron-down";
+    CHEVRON_LEFT = "icons" / "chevron-left";
+    CHEVRON_RIGHT = "icons" / "chevron-right";
+    CIRCLE_ALERT = "icons" / "circle-alert";
+    CIRCLE_CHECK = "icons" / "circle-check";
+    CLIPBOARD_CHECK = "icons" / "clipboard-check";
+    CLOUD = "icons" / "cloud";
+    FILE_TEXT = "icons" / "file-text";
+    FOLDER_TREE = "icons" / "folder-tree";
+    GLOBE = "icons" / "globe";
+    HAMMER = "icons" / "hammer";
+    HARD_DRIVE = "icons" / "hard-drive";
+    LAYOUT_PANEL_LEFT = "icons" / "layout-panel-left";
+    LIBRARY = "icons" / "library";
+    LIST_TODO = "icons" / "list-todo";
+    LIST_TREE = "icons" / "list-tree";
+    LOADER = "icons" / "loader-circle";
+    LOCATE_FIXED = "icons" / "locate-fixed";
+    MESSAGE_SQUARE_TEXT = "icons" / "message-square-text";
+    RECTANGLE_HORIZONTAL = "icons" / "rectangle-horizontal";
+    REFRESH = "icons" / "refresh-cw";
+    SEARCH = "icons" / "search";
+    TRIANGLE_ALERT = "icons" / "triangle-alert";
+    ZOOM_IN = "icons" / "zoom-in";
+    ZOOM_OUT = "icons" / "zoom-out";
+    ARROW_LEFT = "icons" / "arrow-left";
+    ARROW_RIGHT = "icons" / "arrow-right";
+    ARROW_RIGHT_LEFT = "icons" / "arrow-right-left";
+    BOOK_OPEN_TEXT = "icons" / "book-open-text";
+    COLUMNS_2 = "icons" / "columns-2";
+    COMPASS = "icons" / "compass";
+    EYE_OFF = "icons" / "eye-off";
+    FILE_PEN_LINE = "icons" / "file-pen-line";
+    FOCUS = "icons" / "focus";
+    FOLDER_OPEN = "icons" / "folder-open";
+    LAYOUT_DASHBOARD = "icons" / "layout-dashboard";
+    MAXIMIZE = "icons" / "maximize-2";
+    MINIMIZE = "icons" / "minimize-2";
+    PEN_LINE = "icons" / "pen-line";
+    PICTURE_IN_PICTURE = "icons" / "picture-in-picture-2";
+    ROTATE_CCW = "icons" / "rotate-ccw";
+    ROWS_2 = "icons" / "rows-2";
+    SAVE = "icons" / "save";
+    SUN_MOON = "icons" / "sun-moon";
+    UNDO = "icons" / "undo-2";
+    X = "icons" / "x";
+    CIRCLE_X = "icons" / "circle-x";
+    APP_WINDOW = "icons" / "app-window";
+    // Names Zed's icon set also has, which the app's asset source finds
+    // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
+    // (ISC, `assets/LICENSE-LUCIDE`).
+    CHECK = "lattice" / "check";
+    COPY = "lattice" / "copy";
+    EYE = "lattice" / "eye";
+    INFO = "lattice" / "info";
+    PENCIL = "lattice" / "pencil";
+    PLUS = "lattice" / "plus";
+    TRASH = "lattice" / "trash";
+}
+
+impl Icon {
     // The app's own, from `assets/icons`.
     /// The 1.5-stroke X a panel tab closes with.
     pub const CLOSE: Icon = Icon("lattice/close.svg");
@@ -103,13 +123,6 @@ impl Icon {
     /// draws it (`<Play fill="currentColor" />`). Lucide's play.svg (ISC,
     /// `assets/LICENSE-LUCIDE`) with its fill set to the ink.
     pub const PLAY_FILLED: Icon = Icon("lattice/play-filled.svg");
-    /// Lucide icons whose `icons/…` names Zed's icon set also has, which the
-    /// app's asset source finds first: Lucide's own, copied unmodified from
-    /// GPUI Kit 0.9.1's assets (ISC, `assets/LICENSE-LUCIDE`).
-    pub const COPY: Icon = Icon("lattice/copy.svg");
-    pub const EYE: Icon = Icon("lattice/eye.svg");
-    pub const PENCIL: Icon = Icon("lattice/pencil.svg");
-    pub const TRASH: Icon = Icon("lattice/trash.svg");
 
     pub fn path(self) -> SharedString {
         self.0.into()
@@ -192,9 +205,12 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "git.svg",
     "history.svg",
     "play-filled.svg",
+    "check.svg",
     "copy.svg",
     "eye.svg",
+    "info.svg",
     "pencil.svg",
+    "plus.svg",
     "trash.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
@@ -261,16 +277,6 @@ mod tests {
         let mut bundled: Vec<String> = BUNDLED.iter().map(|(name, _)| name.to_string()).collect();
         bundled.sort();
         assert_eq!(on_disk, bundled);
-    }
-
-    #[test]
-    fn lucide_icons_zed_also_names_load_from_lattice_ui() {
-        for icon in [Icon::COPY, Icon::EYE, Icon::PENCIL, Icon::TRASH] {
-            let svg = UiAssets.load(icon.0).unwrap().expect(icon.0);
-            let svg = std::str::from_utf8(&svg).unwrap();
-            assert!(svg.contains("viewBox=\"0 0 24 24\""), "{}", icon.0);
-            assert!(svg.contains("stroke-width=\"2\""), "{}", icon.0);
-        }
     }
 
     #[test]
