@@ -68,7 +68,7 @@ impl Engine {
     }
 
     /// The `program` / `TS-program` magic comment in the first 40 lines, read
-    /// the way Lattice reads it (`src-tauri/src/project/manifest.rs`).
+    /// the way Lattice reads it (`src-tauri/lattice-core/src/project/manifest.rs`).
     fn from_magic_comment(source: &str) -> Option<Self> {
         let mut engine = None;
         for line in source.lines().take(40) {
