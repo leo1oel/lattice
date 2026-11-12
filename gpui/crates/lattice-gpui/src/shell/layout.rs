@@ -280,8 +280,8 @@ pub struct Dock {
     pub open: bool,
 }
 
-/// Panels put away while a preset is on screen, so they come back as they
-/// were: Trellis keeps them hidden and mounted.
+/// The window's panels as data: the center, the three docks and the
+/// floating layer.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Arrangement {
     pub center: Node,

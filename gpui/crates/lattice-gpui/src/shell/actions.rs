@@ -93,12 +93,18 @@ impl Shell {
         }
     }
 
-    /// ⌘W: the focused document's tab, or the window when no document is
-    /// open.
+    /// ⌘W: the document in front (the focused editor, else the one selected
+    /// beside the editor last focused, else the editor last focused, else
+    /// any document on screen), or the window when no document is open.
     pub(crate) fn close_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let focused = self
-            .open_editors()
-            .into_iter()
+        let editors = self.open_editors();
+        let shown: Vec<PanelId> = editors
+            .iter()
+            .map(|editor| PanelId::from(editor.entity_id()))
+            .filter(|panel| self.panel_shown(*panel, cx))
+            .collect();
+        let focused = editors
+            .iter()
             .find(|editor| {
                 editor
                     .read(cx)
@@ -107,14 +113,16 @@ impl Shell {
                     .contains_focused(window, cx)
             })
             .map(|editor| PanelId::from(editor.entity_id()));
-        let target = focused.or_else(|| {
-            let root = self.root.clone()?;
-            let active = self.active_document(cx)?;
-            self.open_editors()
-                .into_iter()
-                .find(|editor| editor.read(cx).path() == root.join(&active))
-                .map(|editor| PanelId::from(editor.entity_id()))
-        });
+        let target = focused
+            .or_else(|| {
+                let path = self.root.as_ref()?.join(self.active_document(cx)?);
+                editors
+                    .iter()
+                    .find(|editor| editor.read(cx).path() == path)
+                    .map(|editor| PanelId::from(editor.entity_id()))
+            })
+            .or(self.focused_document.filter(|panel| shown.contains(panel)))
+            .or_else(|| shown.first().copied());
         match target {
             Some(panel) => {
                 self.close_panel(panel, window, cx);
