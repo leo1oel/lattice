@@ -306,6 +306,8 @@ export type PaperSummary = {
   hasFullText: boolean;
   /** True only when blog.md is already available locally. */
   hasBlog: boolean;
+  /** The bundle keeps the PDF its text came from (a Zotero attachment), at `localPdfPath`. */
+  hasLocalPdf?: boolean;
   /** Converter-owned files needed to render figures in the paper reader. */
   assetPaths?: string[];
   /** Advisory DOI-exact update metadata from Crossref. */

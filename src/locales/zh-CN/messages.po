@@ -303,6 +303,10 @@ msgstr "{action}失败"
 msgid "{action} success"
 msgstr "{action}成功"
 
+#: src/app/use-reference-import.ts
+msgid "{added} annotations in {path}"
+msgstr "{added} 条批注已加到 {path}"
+
 #: src/build/build-log-messages.ts
 msgid "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
 msgstr "{advice}还没有安装 ctex：点“安装”会连同中文字体一起装上，约 90 MB。"
@@ -384,6 +388,7 @@ msgid "{count} annotation"
 msgstr "{count} 条批注"
 
 #: src/canvas/editor-status-bar.tsx
+#: src/papers/zotero-browser.tsx
 msgid "{count} annotations"
 msgstr "{count} 条批注"
 
@@ -1203,8 +1208,13 @@ msgstr "1 篇已在论文库，将跳过"
 
 #: src/app/use-command-table.ts
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/papers/zotero-browser.tsx
 msgid "1 annotation"
 msgstr "1 条批注"
+
+#: src/app/use-reference-import.ts
+msgid "1 annotation in {path}"
+msgstr "1 条批注已加到 {path}"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/versions-timeline.tsx
@@ -1764,6 +1774,10 @@ msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
 msgid "Add an item"
 msgstr "添加一项"
 
+#: src/papers/zotero-browser.tsx
+msgid "Add annotations"
+msgstr "添加批注"
+
 #: src/trellis/trellis-labels.ts
 msgid "Add as tab"
 msgstr "放进标签"
@@ -2250,6 +2264,10 @@ msgstr "批注"
 #: src/editor/comments/editor-comments.ts
 msgid "Annotations {list}"
 msgstr "批注 {list}"
+
+#: src/app/use-reference-import.ts
+msgid "Annotations already in {path}"
+msgstr "批注已在 {path} 中"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Annotations and highlights"
@@ -4611,6 +4629,10 @@ msgstr "核心组件"
 msgid "Correction/update"
 msgstr "更正/更新"
 
+#: src/app/use-reference-import.ts
+msgid "Could not add the annotations: {problem}"
+msgstr "没能加入批注：{problem}"
+
 #: src/canvas/paper-selection-actions.tsx
 msgid "Could not add to the note"
 msgstr "没能加到笔记"
@@ -4775,6 +4797,10 @@ msgstr "Overleaf 地址无效，无法打开"
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not open the project on Overleaf: {message}"
 msgstr "无法打开 Overleaf 项目：{message}"
+
+#: src/editor/markdown/markdown-link-routing.ts
+msgid "Could not open Zotero"
+msgstr "无法打开 Zotero"
 
 #: src/papers/audit-messages.ts
 msgid "Could not parse {count} bibliography construct(s)."
@@ -8673,6 +8699,10 @@ msgid "Lattice couldn’t open this window"
 msgstr "窗口打不开了"
 
 #: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't open Zotero: {error}"
+msgstr "Lattice 无法打开 Zotero：{error}"
+
+#: src/platform/host-errors-papers.ts
 msgid "Lattice couldn't read the Zotero library: {reason}"
 msgstr "Lattice 无法读取 Zotero 文库：{reason}"
 
@@ -11590,6 +11620,7 @@ msgstr "负责人"
 msgid "p. {0}"
 msgstr "第 {0} 页"
 
+#: src/app/use-reference-import.ts
 #: src/project/paper-inspector.tsx
 msgid "p. {page}"
 msgstr "第 {page} 页"
@@ -11703,6 +11734,7 @@ msgstr "纸面色"
 #: src/app/command-palette.tsx
 #: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
+#: src/editor/markdown/markdown-link-routing.ts
 #: src/papers/zotero-browser.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
@@ -16958,6 +16990,10 @@ msgstr "这个邀请还在 Overleaf 上等你接受"
 msgid "This is a binary or unsupported file and cannot be opened in the source editor."
 msgstr "这是二进制文件或不支持的文件，无法在源码编辑器中打开"
 
+#: src/platform/host-errors-papers.ts
+msgid "This is not a link into Zotero's PDF reader."
+msgstr "这不是指向 Zotero PDF 阅读器的链接。"
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "This is not a native Open Slide deck."
 msgstr "这不是 Lattice 幻灯片文件"
@@ -18607,6 +18643,10 @@ msgstr "缩小"
 #: src/settings/settings-search-index.ts
 msgid "zoom scale bigger smaller"
 msgstr "缩放 放大 缩小 界面 字号 zoom scale"
+
+#: src/app/use-reference-import.ts
+msgid "Zotero annotations"
+msgstr "Zotero 批注"
 
 #: src/papers/zotero-browser.tsx
 msgid "Zotero folders"

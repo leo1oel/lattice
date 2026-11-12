@@ -56,7 +56,8 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
   const { t } = useLingui();
   const shellRef = useRef<HTMLElement | null>(null);
   const view = pdf.pdfView;
-  const browserActionLabel = pdf.pdfSource ? t`Open PDF in browser` : t`Open article in browser`;
+  // A kept PDF opens here; the browser then opens the article's own page.
+  const browserActionLabel = pdf.pdfSource && !pdf.pdfSource.local ? t`Open PDF in browser` : t`Open article in browser`;
   const source = paperSourceLabel(paper);
   const authors = paperShortAuthors(paper);
   const mastheadInView = useMastheadInView(shellRef, view ? null : activeFile);

@@ -77,6 +77,8 @@ export class MockProject implements Contents {
     };
     for (const path of this.folders) directory(path);
     for (const [path, content] of this.files) {
+      // The paper cache is out of the tree, as the backend leaves it out.
+      if (path.startsWith(".research/")) continue;
       const slash = path.lastIndexOf("/");
       directory(slash < 0 ? "" : path.slice(0, slash)).children.push({
         name: path.slice(slash + 1),

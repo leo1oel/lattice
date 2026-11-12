@@ -1,7 +1,27 @@
 import type { PaperSummary } from "../app-types";
 import { explicitArxivId } from "./arxiv-id";
 
-type PaperIdentity = Pick<PaperSummary, "arxivId" | "url">;
+type PaperIdentity = Pick<PaperSummary, "arxivId" | "url" | "hasLocalPdf">;
+
+/** Where a paper's bundle keeps the PDF its text came from (a Zotero attachment, papers/attach.rs), from the project root. */
+export function localPdfPath(paper: Pick<PaperSummary, "arxivId">): string {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative file path
+  return `.research/papers/${paper.arxivId}/original.pdf`;
+}
+
+/**
+ * Whether `url` (a link's resolved href) names `paper`'s own kept PDF. A note
+ * writes it from the project root (`/.research/papers/…`), so it resolves to
+ * that path on the app's own origin from a note at any depth.
+ */
+function namesLocalPdf(paper: PaperIdentity, url: URL): boolean {
+  if (!paper.hasLocalPdf || (typeof window !== "undefined" && url.origin !== window.location.origin)) return false;
+  try {
+    return decodeURIComponent(url.pathname) === `/${localPdfPath(paper)}`;
+  } catch {
+    return false;
+  }
+}
 
 /** An http(s) URL, or null for anything unparseable or on another scheme. */
 function webUrl(value: string | undefined): URL | null {
@@ -81,8 +101,9 @@ export function paperSourceCitation(paper: PaperIdentity, href: string, title: s
     const linkedAlpha = alphaxivId(url)?.replace(/v\d+$/, "");
     const currentAlpha = paper.url ? alphaxivId(new URL(paper.url))?.replace(/v\d+$/, "") : null;
     const sameAlpha = linkedAlpha && (linkedAlpha === currentAlpha || linkedAlpha === explicitArxivId(paper.arxivId));
+    const local = namesLocalPdf(paper, url);
     url.hash = "";
-    if (!sameAlpha && (!source || url.href !== source.split("#")[0])) return null;
+    if (!sameAlpha && !local && (!source || url.href !== source.split("#")[0])) return null;
     // Existing cached overviews store the two quote anchors in a portable
     // Markdown link title. Ambiguous titles still navigate to the page.
     const anchors = title.split(QUOTE_ANCHOR_SEPARATOR);
@@ -110,8 +131,14 @@ export function findPaperSource<Paper extends PaperIdentity & Pick<PaperSummary,
   return null;
 }
 
-/** `paper`'s own PDF at `page`, the link the overview writes; null when the paper has no PDF. */
+/**
+ * `paper`'s own PDF at `page`, the link the overview writes; null when the
+ * paper has no PDF. A PDF the bundle keeps is linked from the project root,
+ * so the link reads the same from any note.
+ */
 export function paperSourceHref(paper: PaperIdentity, page: number): string | null {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a PDF open parameter
+  if (paper.hasLocalPdf) return `/${localPdfPath(paper)}#page=${page}`;
   const source = paperPdfUrl(paper);
   // eslint-disable-next-line lingui/no-unlocalized-strings -- a PDF open parameter
   return source ? `${source.split("#")[0]}#page=${page}` : null;

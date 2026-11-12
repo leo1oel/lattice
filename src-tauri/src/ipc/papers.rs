@@ -5,9 +5,9 @@ use crate::app_state::AppState;
 use crate::citation_health::CitationHealth;
 use crate::literature::LiteraturePage;
 use crate::papers::{ImportResult, PaperSummary, PaperTextMatch};
-use crate::zotero::{self, ZoteroLibrary};
+use crate::zotero::{self, ZoteroAnnotation, ZoteroLibrary};
 use crate::{literature, paper_pdf_proxy, papers};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State, Window};
@@ -205,6 +205,31 @@ pub async fn read_paper_blog_local(
 #[tauri::command]
 pub async fn zotero_library(data_dir: Option<String>) -> Result<ZoteroLibrary, String> {
     run_blocking("Zotero library", move || zotero::library(data_dir.as_deref())).await
+}
+
+/// The annotations on the PDFs of the Zotero items `items` (by item key), read
+/// from one fresh copy of the database; `data_dir` as for `zotero_library`.
+#[tauri::command]
+pub async fn zotero_annotations(
+    data_dir: Option<String>, items: Vec<String>,
+) -> Result<HashMap<String, Vec<ZoteroAnnotation>>, String> {
+    run_blocking("Zotero annotations", move || zotero::annotations(data_dir.as_deref(), &items))
+        .await
+}
+
+/// Open a note's link into Zotero's PDF reader (`zotero://open-pdf/…`). The
+/// WebView's opener stays limited to web and mail links; this opens only the
+/// one zotero:// shape a note's annotation writes (zotero.rs).
+#[tauri::command]
+pub async fn open_zotero_link(app: AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+
+    if !zotero::is_annotation_link(&url) {
+        return Err("This is not a link into Zotero's PDF reader.".to_string());
+    }
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| format!("Lattice couldn't open Zotero: {error}"))
 }
 
 /// Make the Zotero attachment `attachment`'s PDF the text of the citation

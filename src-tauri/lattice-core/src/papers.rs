@@ -183,6 +183,10 @@ pub struct PaperSummary {
     pub has_full_text: bool,
     /// True only when an overview is already present in the local paper cache.
     pub has_blog: bool,
+    /// The bundle keeps the PDF its text came from (a Zotero attachment), at
+    /// `.research/papers/<arxiv_id>/original.pdf`, for the reader to show.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub has_local_pdf: bool,
     /// Converter-owned files needed to render figures in the paper reader.
     #[serde(default)]
     pub asset_paths: Vec<String>,
