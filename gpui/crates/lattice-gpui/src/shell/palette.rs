@@ -162,7 +162,9 @@ impl CommandPaletteView {
         }
         let count = self.shown.len() as isize;
         self.highlighted = (self.highlighted as isize + step).rem_euclid(count) as usize;
-        self.scroll.scroll_to_item(self.highlighted);
+        let groups: Vec<&str> = self.shown.iter().map(Entry::group).collect();
+        self.scroll
+            .scroll_to_item(row_of(&groups, self.highlighted));
         cx.notify();
     }
 
@@ -701,6 +703,15 @@ impl Shell {
     }
 }
 
+/// The list row showing entry `ix` of entries in `groups` (each entry's
+/// section): a header row stands before each section's first entry.
+fn row_of(groups: &[&str], ix: usize) -> usize {
+    let headers = (0..=ix.min(groups.len().saturating_sub(1)))
+        .filter(|&i| i == 0 || groups[i] != groups[i - 1])
+        .count();
+    ix + headers
+}
+
 /// The keys of a row standing for several commands: from the first one's
 /// keys to `last`'s.
 fn key_range(keys: &str, last: &str) -> String {
@@ -710,7 +721,18 @@ fn key_range(keys: &str, last: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Entry, FILE_LIMIT, key_range, project_files, ranked, score};
+    use super::{Entry, FILE_LIMIT, key_range, project_files, ranked, row_of, score};
+
+    #[test]
+    fn a_highlighted_entry_scrolls_to_its_row_past_the_section_headers() {
+        // Edit, Edit, Build, Layout, Layout: headers stand before entries 0,
+        // 2 and 3, so the rows read H E E H E H E E.
+        let groups = ["Edit", "Edit", "Build", "Layout", "Layout"];
+        assert_eq!(row_of(&groups, 0), 1);
+        assert_eq!(row_of(&groups, 1), 2);
+        assert_eq!(row_of(&groups, 2), 4);
+        assert_eq!(row_of(&groups, 4), 7);
+    }
 
     #[test]
     fn workspace_switch_keys_read_as_one_range_to_the_last() {

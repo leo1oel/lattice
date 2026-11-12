@@ -486,8 +486,6 @@ impl gpui::RenderOnce for FoldedSwitch {
     }
 }
 
-/// The selected segment's plate: the panel surface raised, with the strong
-/// hairline for its edge.
 /// The field a workspace's name is edited in, where its tab (or the folded
 /// switch) stands; Escape keeps the old name.
 fn rename_field(
@@ -517,6 +515,8 @@ fn rename_field(
         .into_any_element()
 }
 
+/// The selected segment's plate: the panel surface raised, with the strong
+/// hairline for its edge.
 fn raised_plate(palette: &lattice_ui::Palette) -> Vec<gpui::BoxShadow> {
     let mut plate = vec![ring(palette.line_strong)];
     plate.extend(Elevation::Raised.shadows(palette).into_iter().skip(1));

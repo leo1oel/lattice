@@ -296,7 +296,7 @@ impl FloatingPanel {
                     }
                     let position = event.event.position;
                     weak.update(cx, |shell, cx| {
-                        shell.move_floating(id, position, drag.grab);
+                        shell.move_floating(id, position, drag.grab, window);
                         shell.schedule_save(window, cx);
                         cx.notify();
                     })
@@ -311,7 +311,7 @@ impl FloatingPanel {
                     }
                     let position = event.event.position;
                     weak.update(cx, |shell, cx| {
-                        shell.resize_floating(id, position);
+                        shell.resize_floating(id, position, window);
                         shell.schedule_save(window, cx);
                         cx.notify();
                     })
@@ -382,25 +382,52 @@ impl Shell {
         self.install(&arrangement, window, cx);
     }
 
-    /// Follow the pointer, held where it grabbed the strip, kept on screen.
-    fn move_floating(&mut self, panel: PanelId, pointer: Point<Pixels>, grab: Point<Pixels>) {
-        let origin = self.workspace_origin();
-        let Some(floating) = self.floating.panels.iter_mut().find(|f| f.id == panel) else {
-            return;
-        };
-        let x = pointer.x - origin.x - grab.x;
-        let y = (pointer.y - origin.y - grab.y).max(px(0.));
-        floating.bounds.origin = point(x, y);
+    /// The workspace area floating panels stay within, at the window's size.
+    pub(super) fn floating_area(&self, window: &Window) -> Size<Pixels> {
+        let room = self.room(window);
+        size(px(room.area()), px(room.column()))
     }
 
-    fn resize_floating(&mut self, panel: PanelId, pointer: Point<Pixels>) {
+    /// Follow the pointer, held where it grabbed the strip, kept on screen.
+    fn move_floating(
+        &mut self,
+        panel: PanelId,
+        pointer: Point<Pixels>,
+        grab: Point<Pixels>,
+        window: &Window,
+    ) {
         let origin = self.workspace_origin();
+        let area = self.floating_area(window);
         let Some(floating) = self.floating.panels.iter_mut().find(|f| f.id == panel) else {
             return;
         };
-        let width = (pointer.x - origin.x - floating.bounds.origin.x).max(px(MIN_SIZE.0));
-        let height = (pointer.y - origin.y - floating.bounds.origin.y).max(px(MIN_SIZE.1));
-        floating.bounds.size = size(width, height);
+        let moved = Bounds {
+            origin: point(pointer.x - origin.x - grab.x, pointer.y - origin.y - grab.y),
+            size: floating.bounds.size,
+        };
+        floating.bounds = within(moved, area);
+    }
+
+    fn resize_floating(&mut self, panel: PanelId, pointer: Point<Pixels>, window: &Window) {
+        let origin = self.workspace_origin();
+        let area = self.floating_area(window);
+        let Some(floating) = self.floating.panels.iter_mut().find(|f| f.id == panel) else {
+            return;
+        };
+        let corner = floating.bounds.origin;
+        let width = (pointer.x - origin.x - corner.x)
+            .min(area.width - corner.x)
+            .max(px(MIN_SIZE.0));
+        let height = (pointer.y - origin.y - corner.y)
+            .min(area.height - corner.y)
+            .max(px(MIN_SIZE.1));
+        floating.bounds = within(
+            Bounds {
+                origin: floating.bounds.origin,
+                size: size(width, height),
+            },
+            area,
+        );
     }
 
     /// The workspace area's top-left corner in the window: under the 40px

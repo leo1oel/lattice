@@ -448,6 +448,10 @@ macro_rules! m {
 /// The default keymap, as the Tauri app's command table and Trellis's keymap
 /// bind it, plus the window's own (quit, hide, minimize).
 pub fn bind_keys(cx: &mut App) {
+    cx.bind_keys(default_bindings());
+}
+
+fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, None),
         KeyBinding::new(m!("b"), Build, None),
@@ -486,7 +490,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-alt-h", HideOthers, None),
         KeyBinding::new("cmd-m", Minimize, None),
     ]);
-    cx.bind_keys(bindings);
+    bindings
 }
 
 /// The keys bound to `action`, as the palette and the shortcut sheet draw
@@ -609,5 +613,47 @@ mod tests {
             })
             .count();
         assert_eq!(switches, 9);
+    }
+}
+
+#[cfg(test)]
+mod keymap_tests {
+    use gpui::{KeyContext, Keymap, Keystroke};
+
+    use super::*;
+
+    /// What `keys` runs in a focused full-mode editor inside the window, with
+    /// Zed's default keymap loaded before Lattice's, as the app loads them.
+    fn resolve_in_editor(zed: KeyBinding, keys: &'static str) -> Option<&'static str> {
+        let mut bindings = vec![zed];
+        bindings.extend(default_bindings());
+        let keymap = Keymap::new(bindings);
+        let stack = ["LatticeShell", "LatticeEditor", "Editor mode = full"]
+            .map(|context| KeyContext::parse(context).unwrap());
+        let (matched, _) = keymap.bindings_for_input(&[Keystroke::parse(keys).unwrap()], &stack);
+        matched.first().map(|binding| binding.action().name())
+    }
+
+    #[test]
+    fn maximize_wins_over_zeds_newline_above_in_an_editor() {
+        // default-macos.json: "Editor && mode == full": cmd-shift-enter.
+        let zed = KeyBinding::new(
+            m!("shift-enter"),
+            editor::actions::NewlineAbove,
+            Some("Editor && mode == full"),
+        );
+        assert_eq!(
+            resolve_in_editor(zed, m!("shift-enter")),
+            Some(ToggleMaximize.name())
+        );
+    }
+
+    #[test]
+    fn tab_switching_wins_over_zeds_folding_in_an_editor() {
+        // default-windows.json: "Editor": ctrl-shift-] unfolds, ctrl-shift-[ folds.
+        let unfold = KeyBinding::new(m!("shift-]"), editor::actions::UnfoldLines, Some("Editor"));
+        assert_eq!(resolve_in_editor(unfold, m!("shift-]")), Some(NextTab.name()));
+        let fold = KeyBinding::new(m!("shift-["), editor::actions::Fold, Some("Editor"));
+        assert_eq!(resolve_in_editor(fold, m!("shift-[")), Some(PreviousTab.name()));
     }
 }

@@ -215,13 +215,8 @@ impl Shell {
                 }
             }
         });
-        let room = self.room(window);
-        self.floating.set(
-            &arrangement.floating,
-            &panels,
-            gpui::size(px(room.area()), px(room.column())),
-            cx,
-        );
+        let area = self.floating_area(window);
+        self.floating.set(&arrangement.floating, &panels, area, cx);
         drop(panels);
         self.layout.installing = false;
         self.refresh_dirty(cx);
