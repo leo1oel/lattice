@@ -349,17 +349,37 @@ impl Shell {
     /// project open before keeps its tab in the window: its layout is
     /// recorded and its edited files saved first.
     pub fn open_project(&mut self, root: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        self.leave_for(root, None, window, cx);
+    }
+
+    /// Open `root` in place of the project shown, once the shown project's
+    /// edits are saved, taking the `closing` project's tab out with it. A
+    /// save that fails or is held keeps the shown project, its editors and
+    /// the save's notice, as closing the window does.
+    fn leave_for(
+        &mut self,
+        root: PathBuf,
+        closing: Option<PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.save_layout(cx);
-        let editors = self.open_editors();
-        let saves = Self::save_dirty(&editors, cx);
+        let saved = self.save_before_leaving(cx);
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
-            for save in saves {
-                save.await.ok();
+            if let Some(saved) = saved
+                && !saved.await
+            {
+                return;
             }
             match crate::project::open(root.clone(), cx).await {
                 Ok(project) => {
-                    this.update_in(cx, |this, window, cx| this.set_project(project, window, cx))
-                        .ok();
+                    this.update_in(cx, |this, window, cx| {
+                        this.set_project(project, window, cx);
+                        if let Some(closing) = closing {
+                            this.projects.retain(|p| p.root != closing);
+                        }
+                    })
+                    .ok();
                 }
                 Err(error) => {
                     log::error!("could not open {}: {error}", root.display());

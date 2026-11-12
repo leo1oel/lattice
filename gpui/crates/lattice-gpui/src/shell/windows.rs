@@ -146,8 +146,9 @@ impl Shell {
         }
     }
 
-    /// Take `root` out of this window, switching to its right-hand
-    /// neighbour (else its left) first when it is the one shown.
+    /// Take `root` out of this window. The one shown goes once its right-hand
+    /// neighbour (else its left) is open in its place, which waits for its
+    /// edits to be saved (`leave_for`).
     pub(crate) fn close_project(
         &mut self,
         root: &PathBuf,
@@ -167,8 +168,9 @@ impl Shell {
                 .or_else(|| index.checked_sub(1).and_then(|ix| self.projects.get(ix)))
                 .map(|p| p.root.clone());
             if let Some(next) = next {
-                self.open_project(next, window, cx);
+                self.leave_for(next, Some(root.clone()), window, cx);
             }
+            return;
         }
         self.projects.retain(|p| p.root != *root);
         cx.notify();

@@ -2,7 +2,7 @@
 //! and the app, each closed within the autosave pause, so the save is the
 //! close's own and not the autosave's; the vanished-file notice going with
 //! its tab; a project kept in its window when its edits cannot be saved
-//! before it moves; and SyncTeX from a .bib entry.
+//! before it moves or another project opens; and SyncTeX from a .bib entry.
 
 use std::{
     path::Path,
@@ -11,6 +11,7 @@ use std::{
 
 use anyhow::Result;
 use gpui::{App, AsyncApp, Entity};
+use gpui_kit::component::dock::PanelId;
 use serde_json::{Value, json};
 
 use super::Steps;
@@ -167,7 +168,8 @@ impl Run {
 
     /// "Open in New Window" on a second window's only project, holding edits
     /// to a file deleted outside Lattice, which cannot be saved until the
-    /// writer chooses: the window stays, with the notice, and none opens.
+    /// writer chooses: the window stays, with the notice, and none opens;
+    /// opening another project in it keeps the project shown.
     async fn held_save_keeps_window(
         &self,
         cx: &mut AsyncApp,
@@ -196,7 +198,6 @@ impl Run {
             second.type_text(cx, "x").await?;
             second.pause(cx, Duration::from_millis(400)).await;
         }
-        drop(editor);
         let id = window.window_id();
         let windows = |cx: &mut AsyncApp| cx.update(|cx| cx.windows().len());
         let before = windows(cx);
@@ -211,9 +212,46 @@ impl Run {
             announced && stayed && after == before,
             json!({ "announced": announced, "stayed": stayed, "before": before, "after": after }),
         );
+
+        // Switching to another project waits for the same saves: the project
+        // shown stays, with its editor and the notice.
+        let other =
+            std::env::temp_dir().join(format!("lattice-gpui-switch-{}", std::process::id()));
+        std::fs::create_dir_all(&other)?;
+        std::fs::write(other.join("main.tex"), "\\documentclass{article}\n")?;
+        let shown = |cx: &mut AsyncApp| cx.update(|cx| second.shell.read(cx).root(cx));
+        let before = shown(cx);
+        second.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_project(other.clone(), window, cx)
+            })
+        })?;
+        second.pause(cx, Duration::from_secs(3)).await;
+        let after = shown(cx);
+        let panel = PanelId::from(editor.entity_id());
+        let (kept_editor, dirty, notice) = cx.update(|cx| {
+            (
+                second.shell.read(cx).panel_shown(panel, cx),
+                editor.read(cx).is_dirty(cx),
+                showing(&stack, title, cx),
+            )
+        });
+        steps.check(
+            "switching projects with edits that cannot be saved keeps the project, its editor and the notice",
+            announced && after == before && kept_editor && dirty && notice,
+            json!({
+                "before": before,
+                "after": after,
+                "editor_shown": kept_editor,
+                "dirty": dirty,
+                "notice": notice,
+            }),
+        );
+        drop(editor);
         window
             .update(cx, |_, window, _| window.remove_window())
             .ok();
+        std::fs::remove_dir_all(&other).ok();
         Ok(())
     }
 
