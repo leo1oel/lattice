@@ -55,7 +55,7 @@ use crate::{
     build_panel::BuildPanel,
     editor_status,
     project::Project,
-    shell::{Build, ForwardSync, ToggleVimMode},
+    shell::{Build, CleanRebuild, ForwardSync, StopBuild, ToggleVimMode},
 };
 
 /// How often the open file is checked for an edit made behind the editor.
@@ -306,6 +306,11 @@ impl EditorPanel {
         self.words
     }
 
+    /// The folder of the project the file belongs to.
+    pub(crate) fn project_root(&self, cx: &App) -> PathBuf {
+        self.project.read(cx).root().to_path_buf()
+    }
+
     pub(crate) fn save_status(&self) -> &SaveStatus {
         &self.status
     }
@@ -422,7 +427,12 @@ impl Panel for EditorPanel {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> PopupMenu {
+        let building = self.build.read(cx).is_running();
         menu.menu("Build", Box::new(Build))
+            .menu("Clean rebuild", Box::new(CleanRebuild))
+            .when(building, |menu| {
+                menu.menu("Stop the build", Box::new(StopBuild))
+            })
             .menu("Reveal cursor in PDF", Box::new(ForwardSync))
             .menu("Find", Box::new(Deploy::find()))
             .separator()

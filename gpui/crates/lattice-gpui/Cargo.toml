@@ -36,6 +36,8 @@ lattice-core.workspace = true
 lattice-ui.workspace = true
 log.workspace = true
 pdfium-render.workspace = true
+# The Tauri app's TeX message and word patterns (crate::build).
+regex = "1"
 release_channel.workspace = true
 search.workspace = true
 semver.workspace = true

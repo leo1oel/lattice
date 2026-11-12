@@ -9,6 +9,7 @@
 
 mod app;
 mod assets;
+mod build;
 mod build_panel;
 mod confirm;
 mod editor_panel;

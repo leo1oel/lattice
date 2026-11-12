@@ -8,19 +8,19 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-11 against upstream
-`v1.5.1` (`10f7801bfa141df4bab83f3238c65a534d8884fb`), the current integration changes
-**838 files, +85,819 / −8,968 lines** (about 6,000 of the added lines are the zh-CN catalogs,
+The fork as a whole is **not** small. Measured on 2026-11-12 against upstream
+`v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
+**843 files, +86,372 / −9,145 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.5.1 HEAD
+git diff --shortstat v1.5.2 HEAD
 ```
 
-The current pin is the upstream **1.5.1 stable release** (see [its entry](#synara-151-compatibility)), merged with the complete previous
-`amp/lattice-v1.1.0-sync` history (which carries the earlier `amp/lattice-v1.0.9-sync`, `amp/lattice-v1.0.8-sync`, `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.5.2 stable release** (see [its entry](#synara-152-compatibility)), merged with the complete previous
+`amp/lattice-v1.5.1-sync` history (which carries the earlier `amp/lattice-v1.1.0-sync`, `amp/lattice-v1.0.9-sync`, `amp/lattice-v1.0.8-sync`, `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -351,3 +351,23 @@ The server migrates a 1.1.0-era state database in place: the Remote lineage's mi
 After a quit mid-turn the reply keeps what had streamed and ends in a "Task interrupted" card (the provider's stop reason, Continue task and Change model) rather than 1.1.0's "Interrupted after …" header; after a crash the header still reads "Interrupted after …". Nothing continues by itself either way.
 
 The staged runtime is 175.0 MB (1.1.0 at fork PR 23: 170.9 MB); the lab bundle installs at 341.5 MiB (335.5 MiB with the earlier runtime) against the 400 MiB ceiling.
+
+## Synara 1.5.2 compatibility
+
+The pin is upstream 1.5.2 (`83e0533b2`) merged with the whole `amp/lattice-v1.5.1-sync` history through fork PR 24 (fork `9b253d49d5b6185adf383a3507b62d95cdafbade`, [fork PR 25](https://github.com/leo1oel/synara/pull/25)). `amp/lattice-v1.5.2-sync` started as upstream's 1.5.2 commit; the Lattice integration reached it through that one pull request, merged with a merge commit, so the branch carries upstream's history unchanged.
+
+Upstream's chat recovery and backend reliability fixes (#2107), rate-limit resets in days and hours (#2099) and the onboarding fixes (#2096–#2098) reach the panel. Onboarding takes upstream's `useProviderSetup` on top of the fork's server-owned provider switches, and the full-window onboarding still does not mount in the embed. Every account RPC except the signed-out status read is still refused under the Lattice profile.
+
+Upstream moved status warnings out of the chat into an Environment panel (#2111), hiding the approaching-limit banner and missing-checkpoint notices whenever that panel is enabled. Lattice's panel has no Environment panel, so the embed keeps the quota banner at the composer and the checkpoint notices in the chat (`environmentPanelReachable` in the fork's `apps/web/src/components/ChatView.tsx`, with the browser test "keeps the quota warning at the composer in Lattice's embedded chat").
+
+Settings → Agent → Usage & limits gains upstream's Overview and Analytics tabs (#2109); the Billing tab and the Connections plan offer stay out of the embed (`billingEnabled = ACCOUNT_BILLING_ENABLED && !isEmbed` in `apps/web/src/routes/_chat.settings.tsx`). Analytics charts cost and tokens by day, provider, model and project, and reads in Chinese through 83 new `lattice:` keys (upstream ships it as English literals); its scope reads "In Lattice" in the embed. Settings → Agent shows which account each provider is signed in as (#2100), read from `claude auth status` and Codex's local `auth.json`, with no network or keychain access. The connected-computer settings picker (#2105) needs the Remote capability the profile turns off, and the spotlight app tour and redesigned announcements (#2089) stay unmounted in the embed.
+
+Three upstream behaviours are kept as they are, on the captain's call:
+
+- Analytics' opt-in **This Mac** scope reads the local Claude Code (`~/.claude/projects`) and Codex (`~/.codex/sessions`) session logs once the writer picks it. It keeps only timestamps, model names, token counts and working directories, and uploads nothing; the default scope is In Lattice.
+- Analytics downloads LiteLLM's public price table from `raw.githubusercontent.com`, refreshing a good copy at most once a day and retrying a failed download after 15 minutes, only when tokens without a reported cost need pricing (`apps/server/src/usagePricing.ts`). No user data is sent, and offline Analytics shows tokens without cost.
+- Rate-limit warnings are always visible in Lattice. Upstream's setting that hides them lives on the Behavior settings page, which Lattice does not frame, so it stays at upstream's default.
+
+The server adds migration 143 (usage analytics deleted tokens), which runs once after the pre-migration backup on a 1.5.1-era database; a Lattice that pins 1.5.1 again would meet the newer database. Upstream's macOS update and shutdown, Linux ARM64, simulator control and CI changes have no embedded surface. Pi stays at 1.4.0.
+
+The staged runtime is 175.2 MB (1.5.1: 175.0 MB); the lab bundle installs at 342.3 MiB (342.1 MiB with the 1.5.1 runtime) against the 400 MiB ceiling.

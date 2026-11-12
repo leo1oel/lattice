@@ -18,7 +18,7 @@ use std::{
 };
 
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, App, Bounds, Context, Edges, EventEmitter,
+    Animation, AnimationExt as _, AnyElement, AnyView, App, Bounds, Context, Edges, EventEmitter,
     FocusHandle, Focusable, InteractiveElement as _, IntoElement, ListAlignment, ListOffset,
     ListState, MouseButton, MouseDownEvent, ParentElement as _, Pixels, Render, RenderImage,
     SharedString, Styled as _, Task, Window, canvas, div, img, list, prelude::*, px,
@@ -96,6 +96,10 @@ pub struct PdfPanel {
     page_bounds: Rc<RefCell<HashMap<usize, Bounds<Pixels>>>>,
     sync_mark: Option<SyncMark>,
     next_mark: usize,
+    /// The build's diagnostics card (`crate::build::card`), over the top of
+    /// the pages or docked under them, as the Tauri app puts it in its PDF
+    /// column.
+    build_output: Option<AnyView>,
     _open_task: Option<Task<()>>,
     _mark_task: Option<Task<()>>,
 }
@@ -122,9 +126,16 @@ impl PdfPanel {
             page_bounds: Rc::default(),
             sync_mark: None,
             next_mark: 0,
+            build_output: None,
             _open_task: None,
             _mark_task: None,
         }
+    }
+
+    /// Show the build's diagnostics card over (or under) the pages.
+    pub fn set_build_output(&mut self, view: AnyView, cx: &mut Context<Self>) {
+        self.build_output = Some(view);
+        cx.notify();
     }
 
     /// Mark `target` (a forward SyncTeX answer) and scroll it to the middle
@@ -762,10 +773,12 @@ impl Render for PdfPanel {
             .size_full()
             .flex()
             .flex_col()
+            .relative()
             .bg(palette.editor)
             .rounded_b(PANEL_RADIUS)
             .child(self.toolbar(cx))
             .child(div().flex_1().min_h_0().child(body))
+            .children(self.build_output.clone())
     }
 }
 

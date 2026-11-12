@@ -26,6 +26,13 @@ actions!(
         ToggleAgentPanel,
         TogglePdfPanel,
         ToggleBuildPanel,
+        StopBuild,
+        CleanRebuild,
+        CleanBuildFiles,
+        NextProblem,
+        PreviousProblem,
+        OpenTexDoctor,
+        InstallLatexTools,
         CommandPalette,
         ShowShortcuts,
         NewWindow,
@@ -487,6 +494,12 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("b"), Build, beside_vim("!VimControl")),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-j"), ForwardSync, None),
+        // The Tauri app's next and previous build problem, in the editor
+        // too, where Zed's keymap binds them to its own diagnostics.
+        KeyBinding::new("f8", NextProblem, None),
+        KeyBinding::new("shift-f8", PreviousProblem, None),
+        KeyBinding::new("f8", NextProblem, Some("Editor")),
+        KeyBinding::new("shift-f8", PreviousProblem, Some("Editor")),
         // ⌘K last: the later binding is the one menus and keycaps show.
         KeyBinding::new(m!("shift-p"), CommandPalette, None),
         KeyBinding::new(

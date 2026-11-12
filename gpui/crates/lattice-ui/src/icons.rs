@@ -201,6 +201,8 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "check-heavy.svg",
     "check-mark.svg",
     "close.svg",
+    // Lucide's `copy` (LICENSE-LUCIDE), whose name Zed's icon set shadows.
+    "copy.svg",
     "disclosure.svg",
     "dots.svg",
     "git.svg",
