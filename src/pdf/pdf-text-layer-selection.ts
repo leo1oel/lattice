@@ -148,18 +148,21 @@ function clearSelectionOverlays() {
   }
 }
 
-function rangeInsideGlyph(range: Range, glyph: HTMLElement): Range | null {
-  if (!range.intersectsNode(glyph)) return null;
-  const glyphRange = document.createRange();
-  glyphRange.selectNodeContents(glyph);
-  const clipped = range.cloneRange();
-  if (clipped.compareBoundaryPoints(Range.START_TO_START, glyphRange) < 0) {
-    clipped.setStart(glyphRange.startContainer, glyphRange.startOffset);
-  }
-  if (clipped.compareBoundaryPoints(Range.END_TO_END, glyphRange) > 0) {
-    clipped.setEnd(glyphRange.endContainer, glyphRange.endOffset);
-  }
-  return clipped.collapsed ? null : clipped;
+/**
+ * Sets `scratch` to the part of `range` inside `glyph`; false when they do not
+ * overlap. One scratch range serves every glyph of a measurement: WebKit
+ * keeps each Range it has not yet collected in a list it walks on every DOM
+ * insertion and removal. Two new ranges per glyph on each selectionchange
+ * left thousands in that list during a drag over a dense page, so replacing
+ * the highlight marks, and cloning the selection for its text, slowed with
+ * every pointer move, most of all when the pointer swept back (#865).
+ */
+function clipToGlyph(range: Range, glyph: HTMLElement, scratch: Range): boolean {
+  if (!range.intersectsNode(glyph)) return false;
+  scratch.selectNodeContents(glyph);
+  if (range.compareBoundaryPoints(Range.START_TO_START, scratch) > 0) scratch.setStart(range.startContainer, range.startOffset);
+  if (range.compareBoundaryPoints(Range.END_TO_END, scratch) < 0) scratch.setEnd(range.endContainer, range.endOffset);
+  return !scratch.collapsed;
 }
 
 /**
@@ -172,6 +175,7 @@ function rangeInsideGlyph(range: Range, glyph: HTMLElement): Range | null {
  */
 function measureSelectionMarks(layerRanges: Map<HTMLElement, Range[]>): Map<HTMLElement, DocumentFragment> {
   const fragments = new Map<HTMLElement, DocumentFragment>();
+  const scratch = document.createRange();
   for (const [textLayer, ranges] of layerRanges) {
     const origin = textLayer.getBoundingClientRect();
     if (origin.width < 0.5 || origin.height < 0.5) continue;
@@ -183,7 +187,8 @@ function measureSelectionMarks(layerRanges: Map<HTMLElement, Range[]>): Map<HTML
       // clipping node can never become a page-sized visual highlight.
       for (const glyph of textLayer.querySelectorAll<HTMLElement>(GLYPH_SPANS)) {
         // The full scaled line box keeps low glyphs and descenders highlighted.
-        for (const rect of rangeInsideGlyph(range, glyph)?.getClientRects() ?? []) {
+        if (!clipToGlyph(range, glyph, scratch)) continue;
+        for (const rect of scratch.getClientRects()) {
           if (rect.width < 0.5 || rect.height < 0.5) continue;
           const mark = document.createElement("div");
           mark.className = "pdf-sel-rect";
@@ -453,6 +458,10 @@ function enableGlobalSelectionListener() {
       paintSelectionOverlays(selection);
     }
     updateHasSelection(selection);
+    // A drag's text is read once, when it ends (the pointerup above): nothing
+    // reads the cache while the button is held, and cloning a selection that
+    // spans pages for its text on every pointer move scales with its size.
+    if (pointerDown) return;
     const live = pdfSelectedPlainText(selection);
     if (live) rememberPdfSelection(live, selection);
   }, { signal });
