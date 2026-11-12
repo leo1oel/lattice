@@ -23,8 +23,11 @@ import { arxivAnswer } from "./bench-arxiv";
 import { paintStandInDesktop } from "./bench-glass";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { bibliographyAnswer } from "./bench-bibliography";
+import { benchScale } from "./bench-scale";
+import { compareVersions, olderText } from "./bench-compare";
 import { addNestedTree } from "./bench-nested-tree";
 import { overleafAnswer } from "./bench-overleaf";
+import { BENCH_PAPERS, LIBRARY_PAPERS, LITERATURE_HITS } from "./bench-papers";
 import { rootsAnswer } from "./bench-roots";
 import { terminalAnswer } from "./bench-terminal";
 import type { ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
@@ -47,95 +50,15 @@ for (const key of ["largeMarkdownBytes", "chapterBytes", "chapters", "longTexByt
 }
 const fixture = perfFixture(sizes);
 
-/**
- * A large project's libraries, each off unless asked for, so the budgeted
- * scenarios keep the fixture they were set on: `?paperCount=<n>` papers in
- * the library, `?bibEntries=<n>` entries in `references.bib` (the primary
- * bibliography), `?historyEntries=<n>` records in Lattice's own history and
- * `?gitVersions=<n>` versions in a git repository. Deterministic, like the
- * fixture.
- */
-const scale = Object.fromEntries((["paperCount", "bibEntries", "historyEntries", "gitVersions"] as const).map((key) => {
-  const value = Number(params.get(key));
-  return [key, Number.isFinite(value) && value > 0 ? Math.floor(value) : 0];
-})) as Record<"paperCount" | "bibEntries" | "historyEntries" | "gitVersions", number>;
-
-const SCALE_WORDS = ["Sparse", "Attention", "Retrieval", "Long-Context", "Diffusion", "Alignment", "Scaling", "Graph", "Contrastive", "Multimodal", "Efficient", "Robust", "Causal", "Federated", "Neural"];
-const SCALE_NAMES = ["Chen, Wei", "Garcia, Maria", "Smith, John", "Kumar, Priya", "Müller, Anna", "Tanaka, Hiro", "Okafor, Ngozi", "Dubois, Claire", "Ivanov, Petr", "Silva, Ana"];
-const scaleTitle = (index: number) => `${SCALE_WORDS[index % 15]} ${SCALE_WORDS[(index * 7 + 3) % 15]} for ${SCALE_WORDS[(index * 11 + 5) % 15]} Models: Study ${index + 1}`;
-const scaleAuthors = (index: number) => [0, 1, 2].slice(0, 1 + (index % 3)).map((offset) => SCALE_NAMES[(index + offset * 3) % 10]).join(" and ");
-const scaleKey = (index: number) => `${SCALE_NAMES[index % 10].split(",")[0].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")}${2000 + (index % 26)}${SCALE_WORDS[(index * 7 + 3) % 15].toLowerCase().replace(/[^a-z]/g, "")}${index}`;
+const { scale, papers: SCALE_PAPERS, history: SCALE_HISTORY, versions: SCALE_VERSIONS, bibliography: scaleBibliography } = benchScale(params);
 
 addNestedTree(params, fixture.files);
 const linkedBibliography = linkedLibraryBibliography(params);
 if (linkedBibliography) fixture.files.set("references.bib", linkedBibliography);
 
-if (scale.bibEntries) {
-  fixture.files.set("references.bib", Array.from({ length: scale.bibEntries }, (_, index) => {
-    const article = index % 3 !== 2;
-    return [
-      `@${article ? "article" : "inproceedings"}{${scaleKey(index)},`,
-      `  title = {${scaleTitle(index)}},`,
-      `  author = {${scaleAuthors(index)}},`,
-      `  year = {${2000 + (index % 26)}},`,
-      article ? `  journal = {Journal of ${SCALE_WORDS[index % 15]} Research},` : `  booktitle = {Proceedings of the ${SCALE_WORDS[(index * 5) % 15]} Conference},`,
-      `  volume = {${1 + (index % 40)}},`,
-      `  pages = {${1 + index}--${12 + index}},`,
-      index % 4 === 0 ? `  eprint = {${2100 + (index % 500)}.${String(10000 + index).slice(-5)}},` : `  doi = {10.5555/scale.${index}},`,
-      "}",
-    ].join("\n");
-  }).join("\n\n"));
-}
+if (scaleBibliography) fixture.files.set("references.bib", scaleBibliography);
 
-const SCALE_PAPERS = Array.from({ length: scale.paperCount }, (_, index) => ({
-  arxivId: index % 5 === 4 ? "" : `${2100 + (index % 500)}.${String(10000 + index).slice(-5)}`,
-  ...index % 5 === 4 ? { doi: `10.5555/scale.${index}`, url: `https://doi.org/10.5555/scale.${index}` } : {},
-  title: scaleTitle(index), citationKey: scaleKey(index), year: String(2000 + (index % 26)), authors: scaleAuthors(index),
-  hasFullText: index % 5 !== 4 && index % 3 !== 0, hasBlog: index % 7 === 0,
-  ...index % 41 === 0 ? { citationHealth: { kind: "retracted", source: "retraction-watch", date: "2024-06-02", checkedAt: "2026-10-01T00:00:00Z" } } : {},
-}));
-
-/** The newest record an hour ago, one more every 37 minutes back. */
-const scaleTime = (index: number) => new Date(Date.UTC(2026, 9, 12, 12) - index * 37 * 60_000).toISOString();
-const SCALE_HISTORY = Array.from({ length: scale.historyEntries }, (_, index) => ({
-  id: `scale-history-${index}`, label: index % 4 === 0 ? `Agent edit ${index}` : `Edit chapters/ch0${1 + (index % 8)}.tex`,
-  timestamp: scaleTime(index), files: [`chapters/ch0${1 + (index % 8)}.tex`],
-  actor: index % 4 === 0 ? "agent" : index % 9 === 0 ? "citation" : "user", kind: "edit", source: "editor",
-}));
-const SCALE_VERSIONS = Array.from({ length: scale.gitVersions }, (_, index) => {
-  const hash = (index * 2654435761 >>> 0).toString(16).padStart(8, "0").repeat(5);
-  return {
-    hash, shortHash: hash.slice(0, 7), authorName: SCALE_NAMES[index % 10].split(", ").reverse().join(" "), timestamp: scaleTime(index * 2 + 1),
-    message: index % 3 === 0 ? "Auto-saved" : `Revise section ${1 + (index % 30)}`,
-    files: [{ path: `chapters/ch0${1 + (index % 8)}.tex`, kind: "modified" }],
-  };
-});
-
-/**
- * `?versions=compare`: a paper's saved versions, for comparing two of them
- * (History → Compare…): named ones with automatic syncs between, one with a
- * long name. A compared file's older side is the open project's with three of
- * the tutorial's rewritten sentences put back, and `?export=failed` makes the
- * PDF with changes marked fail as it does without latexdiff.
- */
-const COMPARE_VERSIONS = params.get("versions") === "compare"
-  ? [
-    ["Rebuttal draft", "You", "2026-08-01T09:12:00Z"],
-    ["Overleaf sync", "Lattice", "2026-07-20T16:40:00Z"],
-    ["Overleaf sync", "Lattice", "2026-07-20T11:05:00Z"],
-    ["Camera-ready for NeurIPS 2026, after the area chair’s second round of comments", "Mina Park", "2026-06-02T18:30:00Z"],
-    ["Submitted to NeurIPS", "You", "2026-05-15T21:58:00Z"],
-  ].map(([message, authorName, timestamp], index) => {
-    const hash = `c0ffee${index}`.padEnd(40, "0");
-    return { hash, shortHash: hash.slice(0, 7), authorName, timestamp, message, files: [{ path: "main.tex", kind: "modified" }] };
-  })
-  : null;
-const OLDER_SENTENCES: Array<[string, string]> = [
-  ["a learned alignment mechanism that let a decoder retrieve different encoder states instead of compressing an entire source sentence into one fixed vector", "an alignment mechanism that let a decoder look at encoder states instead of compressing a source sentence into one vector"],
-  ["Attention visualizations describe routing weights inside a model, not a causal explanation of the model's final prediction.", "Attention maps explain what the model attends to and why it made its prediction."],
-  ["FlashAttention computes exact attention while tiling operations to reduce expensive transfers between levels of GPU memory", "FlashAttention is a faster approximation of attention for GPUs"],
-];
-const olderText = (text: string) => OLDER_SENTENCES.reduce((older, [now, before]) => older.replace(now, before), text);
+const COMPARE_VERSIONS = compareVersions(params);
 
 /**
  * The project the page has open: the fixture, until the Guided tutorial entry
@@ -275,74 +198,6 @@ function snapshot() {
     submissionItems: benchItems,
   });
 }
-
-/** A library Paper with both a full text and a blog, so its panel carries the Blog / Paper switch. */
-const BENCH_PAPERS = [
-  {
-    arxivId: "1706.03762v7", title: "Attention Is All You Need", citationKey: "vaswani2017attention", year: "2017", hasFullText: true, hasBlog: true,
-    authors: "Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, Lukasz and Polosukhin, Illia",
-  },
-];
-
-/**
- * `?papers=library`: the rows a real library mixes — a long title, a captured
- * webpage, a citation with only a DOI, an advisory citation-health notice, and
- * a Paper with a very long DOI and corporate author (perf-bench/layout-checks.mjs),
- * a retraction whose notice links out, and an arXiv preprint not yet fetched.
- * Everything but the first paper is fictional.
- */
-const LIBRARY_PAPERS = [
-  // Crossref found no notice for it, so its citation card says Verified.
-  ...BENCH_PAPERS.map((paper) => ({ ...paper, citationHealth: { kind: "unknown", checkedAt: "2026-10-01T00:00:00Z" } })),
-  {
-    arxivId: "2409.01234", title: "Grounded Visual Reasoning in Long Contexts with Sparse Multimodal Supervision", citationKey: "example2024grounded", year: "2024",
-    authors: "Example, Ada and Sample, Grace", hasFullText: true, hasBlog: false,
-    citationHealth: { kind: "expressionOfConcern", source: "publisher", date: "2025-03-14", checkedAt: "2026-10-01T00:00:00Z" },
-  },
-  {
-    arxivId: "web-0123456789abcdef", url: "https://www.example.org/research/notes-on-sparse-retrieval", title: "Notes on sparse retrieval",
-    citationKey: "notes2025sparse", hasFullText: true, hasBlog: false,
-  },
-  {
-    arxivId: "", doi: "10.5555/example.2021.42", url: "https://doi.org/10.5555/example.2021.42", title: "A citation that only names its DOI",
-    citationKey: "doe2021citation", year: "2021", authors: "Doe, Jane", hasFullText: false, hasBlog: false,
-  },
-  {
-    arxivId: "doi-10.5555-proceedings.2023.long-form", doi: "10.5555/proceedings.international-symposium-on-scholarly-communication.2023.volume-12.issue-4.part-b.supplementary-material.long-form-chapter-identifier.version-of-record",
-    url: "https://publisher.example.org/content/proceedings-2023/long-form-chapter.pdf", title: "Reading the original of a paper with a very long DOI",
-    citationKey: "consortium2023reading", year: "2023", authors: "{International Consortium for Long-Form Persistent Identifiers in Scholarly Communication and Research Infrastructure}", hasFullText: true, hasBlog: false,
-  },
-  {
-    arxivId: "2311.04567", title: "Self-Correcting Language Models Through Iterative Retrieval-Augmented Verification", citationKey: "placeholder2023selfcorrecting", year: "2023",
-    authors: "Placeholder, Kim and Instance, Lee and Demo, Sam", hasFullText: true, hasBlog: false,
-    citationHealth: { kind: "retracted", source: "retraction-watch", date: "2024-06-02", link: "https://example.org/retraction-notice", checkedAt: "2026-10-01T00:00:00Z" },
-  },
-  {
-    arxivId: "2502.07890", title: "Scaling Laws for Sparse Mixture-of-Experts Decoders", citationKey: "specimen2025scaling", year: "2025",
-    authors: "Specimen, Ray and Mock, Ivy", hasFullText: false, hasBlog: false,
-  },
-];
-
-/**
- * What Discover literature finds: alphaXiv hits (year and votes, no authors)
- * ahead of OpenAlex works (authors, citation counts, DOIs), as the backend
- * merges them, with abstracts as OpenAlex gives them. Fictional apart from
- * the first and the last (a six-figure citation count, for the row's width).
- */
-const LITERATURE_HITS = [
-  { source: "alphaxiv", arxivId: "1706.03762", title: "Attention Is All You Need", year: 2017, authors: [], votes: 412,
-    snippet: "We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely." },
-  { source: "alphaxiv", arxivId: "2410.05258", title: "Differential Attention for Long-Context Retrieval with Sparse Multimodal Supervision", year: 2024, authors: [], votes: 87 },
-  { source: "alphaxiv", arxivId: "2502.07890", title: "Scaling Laws for Sparse Mixture-of-Experts Decoders", year: 2025, authors: [], votes: 9 },
-  { source: "openalex", title: "Effective Approaches to Attention-based Neural Machine Translation", year: 2015,
-    authors: ["Minh-Thang Luong", "Hieu Pham", "Christopher D. Manning"], citedByCount: 9214, doi: "10.18653/v1/d15-1166", landingUrl: "https://doi.org/10.18653/v1/d15-1166",
-    abstract: "An attentional mechanism has lately been used to improve neural machine translation (NMT) by selectively focusing on parts of the source sentence during translation. This paper examines two simple and effective classes of attentional mechanism: a global approach which always attends to all source words and a local one that only looks at a subset of source words at a time." },
-  { source: "openalex", title: "A Survey of Attention in Long-Form Document Understanding for the Proceedings of the International Symposium on Scholarly Communication", year: 2023,
-    authors: ["Ada Example", "Grace Sample", "Kim Placeholder", "Lee Instance"], citedByCount: 31, doi: "10.5555/proceedings.international-symposium-on-scholarly-communication.2023.volume-12.issue-4" },
-  { source: "openalex", arxivId: "1512.03385", title: "Deep Residual Learning for Image Recognition", year: 2016,
-    authors: ["Kaiming He", "Xiangyu Zhang", "Shaoqing Ren", "Jian Sun"], citedByCount: 228417, doi: "10.48550/arxiv.1512.03385", landingUrl: "https://arxiv.org/abs/1512.03385",
-    abstract: "Deeper neural networks are more difficult to train. We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously." },
-];
 
 /**
  * `?doctor=ready` answers the TeX toolchain check with everything installed
