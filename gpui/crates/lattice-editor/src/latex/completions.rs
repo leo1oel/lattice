@@ -59,14 +59,21 @@ pub(crate) fn match_rank(label: &str, query: &str) -> Option<u8> {
 /// The entries matching `typed`, best first; equally good matches in label
 /// order, as CodeMirror's `compareCompletions` (`localeCompare`) puts them,
 /// a lower-case letter before its capital.
+/// `localeCompare`'s order for ASCII names: case-insensitive, and between
+/// names that differ only in case, lowercase first.
+fn locale_order(a: &str, b: &str) -> std::cmp::Ordering {
+    a.to_lowercase()
+        .cmp(&b.to_lowercase())
+        .then_with(|| b.cmp(a))
+}
+
 fn ranked<'a>(entries: impl Iterator<Item = &'a Entry>, typed: &str) -> Vec<&'a Entry> {
     let mut ranked: Vec<_> = entries
         .filter_map(|entry| Some((match_rank(entry.name, typed)?, entry)))
         .collect();
     ranked.sort_by(|(rank, entry), (other_rank, other)| {
         rank.cmp(other_rank)
-            .then_with(|| entry.name.to_lowercase().cmp(&other.name.to_lowercase()))
-            .then_with(|| other.name.cmp(entry.name))
+            .then_with(|| locale_order(entry.name, other.name))
     });
     ranked.into_iter().map(|(_, entry)| entry).collect()
 }
@@ -145,10 +152,6 @@ impl CompletionSource for CommandSource {
         }
         let word = COMMAND_WORD.find(before)?;
         let typed = word.as_str();
-        // A lone backslash opens the menu; an empty word only when asked.
-        if typed.is_empty() && !query.explicit {
-            return None;
-        }
         let from = query.before_start() + word.start();
         // Maths is decided in the caret's paragraph; 2,000 bytes each way
         // hold any paragraph a writer types maths in.
@@ -201,7 +204,7 @@ impl CompletionSource for CitationSource {
                     || citation.title.to_lowercase().contains(&typed)
             })
             .collect();
-        citations.sort_by(|a, b| a.key.cmp(&b.key));
+        citations.sort_by(|a, b| locale_order(&a.key, &b.key));
         let items = citations
             .into_iter()
             .map(|citation| {
@@ -290,6 +293,15 @@ mod tests {
         assert_eq!(match_rank("\\subsection", "section"), Some(2));
         assert_eq!(match_rank("\\textbf", "\\tbf"), Some(3));
         assert_eq!(match_rank("\\emph", "\\x"), None);
+    }
+
+    #[test]
+    fn keys_sort_as_locale_compare_does() {
+        // ["Vaswani2017", "Devlin2019", "devlin2019"].sort((a, b) =>
+        // a.localeCompare(b)) in the Tauri app's webview.
+        let mut keys = ["Vaswani2017", "Devlin2019", "devlin2019"];
+        keys.sort_by(|a, b| locale_order(a, b));
+        assert_eq!(keys, ["devlin2019", "Devlin2019", "Vaswani2017"]);
     }
 
     #[test]

@@ -34,8 +34,6 @@ pub struct CompletionQuery<'a> {
     pub offset: usize,
     /// Up to [`TEXT_BEFORE`] bytes before the caret, on a character boundary.
     pub before: &'a str,
-    /// The menu was asked for (Ctrl-Space), not opened by typing.
-    pub explicit: bool,
 }
 
 impl CompletionQuery<'_> {
@@ -105,7 +103,6 @@ pub(crate) fn collect(
     sources: &[Rc<dyn CompletionSource>],
     text: &BufferSnapshot,
     offset: usize,
-    explicit: bool,
     cx: &App,
 ) -> Vec<CompletionList> {
     let before = text_before(text, offset);
@@ -113,7 +110,6 @@ pub(crate) fn collect(
         text,
         offset,
         before: &before,
-        explicit,
     };
     sources
         .iter()
@@ -219,15 +215,14 @@ impl CompletionProvider for Provider {
         &self,
         buffer: &Entity<Buffer>,
         buffer_position: language::Anchor,
-        trigger: editor::CompletionContext,
+        _trigger: editor::CompletionContext,
         _window: &mut Window,
         cx: &mut Context<Editor>,
     ) -> Task<Result<Vec<CompletionResponse>>> {
         let snapshot = buffer.read(cx).snapshot();
         let offset = buffer_position.to_offset(&snapshot);
-        let explicit = trigger.trigger_kind == lsp_trigger_invoked();
         let sources = self.sources.borrow().clone();
-        let lists = collect(&sources, &snapshot, offset, explicit, cx);
+        let lists = collect(&sources, &snapshot, offset, cx);
         *self.offered.borrow_mut() = lists
             .iter()
             .flat_map(|list| list.items.iter().map(|item| item.label.clone()))
@@ -264,7 +259,7 @@ impl CompletionProvider for Provider {
         let snapshot = buffer.read(cx).snapshot();
         let offset = position.to_offset(&snapshot);
         let sources = self.sources.borrow().clone();
-        !collect(&sources, &snapshot, offset, false, cx).is_empty()
+        !collect(&sources, &snapshot, offset, cx).is_empty()
     }
 
     fn filter_completions(&self) -> bool {
@@ -274,8 +269,4 @@ impl CompletionProvider for Provider {
     fn sort_completions(&self) -> bool {
         false
     }
-}
-
-fn lsp_trigger_invoked() -> lsp::CompletionTriggerKind {
-    lsp::CompletionTriggerKind::INVOKED
 }

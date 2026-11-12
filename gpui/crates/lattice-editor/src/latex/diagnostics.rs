@@ -1,19 +1,16 @@
 //! TexLab's diagnostics on the adapter: each one a mark (CodeMirror lint's
-//! wavy underline, in its colours), each line with any a gutter mark, and a
-//! hover card over either that says what TexLab found.
+//! wavy underline, in its colours) with a hover card that says what TexLab
+//! found.
 //!
 //! As in the Tauri app (`src/build/use-texlab-diagnostics.ts`,
 //! `texlab-diagnostics.ts`): the file is synced to TexLab 700 ms after the
-//! last edit and again after every build, and what TexLab publishes for it
-//! replaces what was shown. A diagnostic's range is clamped into the
+//! last edit, when its editor gains focus, and again after every build
+//! while it is the document TexLab has open, and what TexLab publishes for
+//! it replaces what was shown. A diagnostic's range is clamped into the
 //! buffer, an empty one underlines up to 12 characters, and a box warning
 //! TexLab pins to the very start of the root document (it comes from a
-//! generated file) is not drawn there.
-//!
-//! The Tauri app draws no gutter marker for its lint (its lint gutter is
-//! gone); here each line with a diagnostic gets a dot in the gutter in its
-//! most severe diagnostic's status colour, as the editor adapter's proof of
-//! its gutter marks.
+//! generated file) is not drawn there. As in the Tauri app, whose lint
+//! gutter is gone, nothing is drawn in the gutter.
 
 use std::{cell::RefCell, ops::Range, rc::Rc, time::Duration};
 
@@ -23,23 +20,22 @@ use gpui::{
 };
 use language::{Anchor, BufferEvent, BufferSnapshot, ToOffset as _};
 use lattice_core::models::Diagnostic;
-use lattice_ui::{ActiveLattice as _, Elevation, LatticeTheme};
+use lattice_ui::{ActiveLattice as _, Elevation};
 use theme::ActiveTheme as _;
 
 use crate::{
     LatticeEditor, TexlabService,
     decorations::{Mark, MarkStyle},
-    gutter::{GutterMark, GutterShape},
     hover::{HoverProvider, HoverTarget},
     texlab::TexlabEvent,
 };
 
-/// The adapter layer TexLab's marks and gutter marks are in.
+/// The adapter layer TexLab's marks are in.
 pub const LAYER: &str = "texlab";
 /// How long after the last edit the file goes to TexLab.
 pub const SYNC_DELAY: Duration = Duration::from_millis(700);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Severity {
     Info,
     Warning,
@@ -62,17 +58,6 @@ impl Severity {
             Severity::Error => rgb(0xdd1111).into(),
             Severity::Warning => rgb(0xffa500).into(),
             Severity::Info => rgb(0x999999).into(),
-        }
-    }
-
-    /// A gutter mark: the status colours, danger, warning and the accent,
-    /// so the mark reads as the squiggle beside it does.
-    fn mark(self, cx: &App) -> Hsla {
-        let palette = cx.palette();
-        match self {
-            Severity::Error => palette.danger,
-            Severity::Warning => palette.warning,
-            Severity::Info => palette.accent,
         }
     }
 
@@ -236,8 +221,6 @@ impl TexlabDiagnostics {
                         this.show(cx);
                     }
                 }),
-                // A new appearance or code theme recolours the gutter.
-                cx.observe_global::<LatticeTheme>(|this, cx| this.show(cx)),
             ];
             let mut this = Self {
                 editor: editor.downgrade(),
@@ -261,8 +244,16 @@ impl TexlabDiagnostics {
         self.schedule_sync(cx);
     }
 
-    /// Sync again, as after a build: TexLab reads the new log.
+    /// Sync again after a build, so TexLab reads the new log, when this is
+    /// the document TexLab has open.
     pub fn resync(&mut self, cx: &mut Context<Self>) {
+        if self.service.read(cx).document() == Some(self.path.as_str()) {
+            self.schedule_sync(cx);
+        }
+    }
+
+    /// Its editor gained focus: make this the document TexLab has open.
+    pub fn focused(&mut self, cx: &mut Context<Self>) {
         self.schedule_sync(cx);
     }
 
@@ -284,7 +275,7 @@ impl TexlabDiagnostics {
     }
 
     fn schedule_sync(&mut self, cx: &mut Context<Self>) {
-        if !self.path.ends_with(".tex") || !TexlabService::available() {
+        if !self.path.ends_with(".tex") {
             return;
         }
         self._sync = Some(cx.spawn(async move |this, cx| {
@@ -324,52 +315,8 @@ impl TexlabDiagnostics {
                 style: MarkStyle::squiggle(located.severity.underline()),
             })
             .collect();
-        // One mark per line, in its most severe diagnostic's colour.
-        let mut rows: Vec<(u32, Severity)> = Vec::new();
-        for located in &located {
-            let row = text.offset_to_point(located.range.start).row;
-            match rows.iter_mut().find(|(existing, _)| *existing == row) {
-                Some((_, severity)) => *severity = (*severity).max(located.severity),
-                None => rows.push((row, located.severity)),
-            }
-        }
-        let gutter = rows
-            .into_iter()
-            .map(|(row, severity)| {
-                let shown = self.shown.clone();
-                GutterMark {
-                    line: row,
-                    color: severity.mark(cx),
-                    shape: GutterShape::Dot,
-                    hover: Some(Rc::new(move |context, _, _| {
-                        let items = on_row(&shown.borrow(), row, &context.text);
-                        DiagnosticCard {
-                            items,
-                            max_width: context.max_width,
-                        }
-                        .into_any_element()
-                    })),
-                }
-            })
-            .collect();
-        editor.update(cx, |editor, cx| {
-            editor.set_marks(LAYER, marks, cx);
-            editor.set_gutter_marks(LAYER, gutter, cx);
-        });
+        editor.update(cx, |editor, cx| editor.set_marks(LAYER, marks, cx));
     }
-}
-
-/// The diagnostics on buffer row `row`, as the card lists them.
-fn on_row(shown: &[Anchored], row: u32, text: &BufferSnapshot) -> Vec<(Severity, String)> {
-    shown
-        .iter()
-        .filter(|anchored| {
-            text.offset_to_point(anchored.range.start.to_offset(text))
-                .row
-                == row
-        })
-        .map(|anchored| (anchored.severity, anchored.message.clone()))
-        .collect()
 }
 
 /// The card over a diagnostic's underline: what TexLab found there.

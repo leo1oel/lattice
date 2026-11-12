@@ -78,11 +78,6 @@ impl ProjectIndex {
         self.read(REFRESH_SETTLE, cx);
     }
 
-    /// Whether a read is under way.
-    pub fn loading(&self) -> bool {
-        self.loading.is_some()
-    }
-
     fn read(&mut self, settle: Duration, cx: &mut Context<Self>) {
         self.generation += 1;
         let generation = self.generation;

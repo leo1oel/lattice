@@ -1,7 +1,8 @@
 //! The editor adapter's extension points, each checked through its real
 //! Lattice use in `main.tex`: the citation and reference cards (hover), other
-//! people's carets, a block widget, TexLab's diagnostics (marks, gutter
-//! marks, their cards), and command and citation completion.
+//! people's carets, a block widget, TexLab's diagnostics (marks and their
+//! card), and command and citation completion. Gutter marks have no Lattice
+//! use yet, so they are checked with a layer of the scenario's own.
 //!
 //! The pointer moves with native mouse-moved events, and completion is
 //! driven with native keys, as the rest of the scenario is. With
@@ -16,6 +17,7 @@ use gpui::{AsyncApp, Bounds, Entity, Pixels, Point, point, px};
 use lattice_editor::{
     LatticeEditor, TexlabService,
     blocks::{BlockSide, BlockWidget},
+    gutter::{GutterMark, GutterShape},
     latex::diagnostics,
     remote_cursors::{RemoteCursor, presence_color},
 };
@@ -26,6 +28,8 @@ use crate::{editor_panel::EditorPanel, native, scenario::Run};
 
 /// Long enough for a hover card's delay (300 ms) and its entrance.
 const CARD_WAIT: Duration = Duration::from_secs(3);
+/// The scenario's own gutter layer.
+const GUTTER_LAYER: &str = "e2e-gutter";
 
 impl Run {
     pub(super) async fn editor_adapter(
@@ -56,6 +60,7 @@ impl Run {
         self.hover_cards(cx, steps, &panel, &lattice).await?;
         self.remote_carets(cx, steps, &lattice).await?;
         self.block_widget(cx, steps, &lattice).await?;
+        self.gutter_marks(cx, steps, &lattice).await?;
         self.texlab_marks(cx, steps, &panel, &lattice).await?;
         self.completions(cx, steps, &panel).await?;
         self.park(cx)?;
@@ -166,12 +171,16 @@ impl Run {
         let covers_key = shown
             .as_ref()
             .is_some_and(|(range, _)| text.get(range.clone()) == Some("knuth1984"));
-        // The card rises above the key (or hangs below it near the top).
+        // The card rises above the key (or hangs below it near the top),
+        // inside the editor.
+        let editor_top = cx.update(|cx| lattice.read(cx).painted().bounds.map(|b| b.top()));
         let placed = shown
             .as_ref()
             .and_then(|(_, card)| *card)
-            .is_some_and(|card| {
-                card.bottom() <= key.top() + px(1.) || card.top() >= key.bottom() - px(1.)
+            .zip(editor_top)
+            .is_some_and(|(card, editor_top)| {
+                card.top() >= editor_top
+                    && (card.bottom() <= key.top() + px(1.) || card.top() >= key.bottom() - px(1.))
             });
         self.adapter_shot(cx, "citation-card").await;
         steps.check(
@@ -359,6 +368,94 @@ impl Run {
         Ok(())
     }
 
+    async fn gutter_marks(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        lattice: &Entity<LatticeEditor>,
+    ) -> Result<()> {
+        lattice.update(cx, |lattice, cx| {
+            lattice.set_gutter_marks(
+                GUTTER_LAYER,
+                vec![GutterMark {
+                    line: 7,
+                    color: gpui::rgb(0x0b6e4f).into(),
+                    shape: GutterShape::Dot,
+                    hover: Some(std::rc::Rc::new(|_, _, _| {
+                        use gpui::{IntoElement as _, ParentElement as _};
+                        gpui::div().child("A gutter card").into_any_element()
+                    })),
+                }],
+                cx,
+            )
+        });
+        let wait_lattice = lattice.clone();
+        let painted = self
+            .wait_for(cx, Duration::from_secs(3), move |_, cx| {
+                wait_lattice
+                    .read(cx)
+                    .painted()
+                    .gutter
+                    .iter()
+                    .any(|(layer, _, _)| *layer == GUTTER_LAYER)
+            })
+            .await;
+        let (gutter, line_top, line_height) = {
+            let lattice = lattice.clone();
+            self.with_window(cx, move |_, window, cx| {
+                lattice.update(cx, |lattice, cx| {
+                    (
+                        lattice.painted().gutter,
+                        lattice.line_top(7, window, cx),
+                        lattice.painted().line_height,
+                    )
+                })
+            })?
+        };
+        let mark = gutter
+            .iter()
+            .find(|(layer, _, _)| *layer == GUTTER_LAYER)
+            .map(|(_, row, bounds)| (*row, *bounds));
+        // Centred on its line's row, in the editor's own coordinates.
+        let on_line =
+            mark.zip(line_top.zip(line_height))
+                .is_some_and(|((row, bounds), (top, height))| {
+                    row == 7 && (bounds.center().y - (top + height / 2.)).abs() < px(1.)
+                });
+        let card = match mark {
+            Some((_, bounds)) => {
+                self.hover_at(cx, bounds.center()).await?;
+                self.wait_for_card(cx, lattice, GUTTER_LAYER)
+                    .await
+                    .is_some()
+            }
+            None => false,
+        };
+        self.adapter_shot(cx, "gutter-card").await;
+        self.park(cx)?;
+        self.pause(cx, Duration::from_millis(400)).await;
+        lattice.update(cx, |lattice, cx| {
+            lattice.set_gutter_marks(GUTTER_LAYER, Vec::new(), cx)
+        });
+        let wait_lattice = lattice.clone();
+        let cleared = self
+            .wait_for(cx, Duration::from_secs(3), move |_, cx| {
+                wait_lattice.read(cx).painted().gutter.is_empty()
+            })
+            .await;
+        steps.check(
+            "a gutter mark is painted beside its line, opens its card on hover, and goes with its layer",
+            painted && on_line && card && cleared,
+            json!({
+                "mark": mark.map(|(row, bounds)| json!({ "row": row, "bounds": bounds_json(bounds) })),
+                "line_top": line_top.map(f32::from),
+                "card": card,
+                "cleared": cleared,
+            }),
+        );
+        Ok(())
+    }
+
     async fn texlab_marks(
         &self,
         cx: &mut AsyncApp,
@@ -368,7 +465,7 @@ impl Run {
     ) -> Result<()> {
         if !TexlabService::available() {
             steps.check(
-                "TexLab's diagnostics show as marks, gutter marks and cards",
+                "TexLab's diagnostics show as marks with their card",
                 true,
                 json!({ "skipped": "texlab is not installed" }),
             );
@@ -396,19 +493,12 @@ impl Run {
             })
         })?;
         let wait_diagnostics = diagnostics.clone();
-        let wait_lattice = lattice.clone();
         let found = self
             .wait_for(cx, Duration::from_secs(40), move |_, cx| {
                 let located = wait_diagnostics.read(cx).located(cx);
                 located
                     .iter()
                     .any(|located| located.message.contains("Undefined reference"))
-                    && wait_lattice
-                        .read(cx)
-                        .painted()
-                        .gutter
-                        .iter()
-                        .any(|(layer, row, _)| *layer == diagnostics::LAYER && *row == 7)
             })
             .await;
         let (located, marks, painted) = cx.update(|cx| {
@@ -418,14 +508,16 @@ impl Run {
                 lattice.read(cx).painted(),
             )
         });
+        // As in the Tauri app, the lint draws nothing in the gutter.
+        let no_gutter = painted.gutter.is_empty();
         let text = self.editor_text(cx, panel);
         let underlined = marks.iter().any(|range| {
             text.get(range.clone())
                 .is_some_and(|marked| marked.contains("nolabel"))
         });
         steps.check(
-            "TexLab's diagnostics show as wavy marks and a gutter mark on their line",
-            found && underlined,
+            "TexLab's diagnostics show as wavy marks, with nothing in the gutter",
+            found && underlined && no_gutter,
             json!({
                 "located": located.iter().map(|l| json!({ "range": [l.range.start, l.range.end], "message": l.message, "severity": format!("{:?}", l.severity) })).collect::<Vec<_>>(),
                 "marks": marks.iter().map(|r| [r.start, r.end]).collect::<Vec<_>>(),
@@ -433,24 +525,6 @@ impl Run {
             }),
         );
 
-        // The gutter mark's card, then the underline's.
-        let mark = painted
-            .gutter
-            .iter()
-            .find(|(layer, row, _)| *layer == diagnostics::LAYER && *row == 7)
-            .map(|(_, _, bounds)| bounds.center());
-        let gutter_card = match mark {
-            Some(center) => {
-                self.hover_at(cx, center).await?;
-                self.wait_for_card(cx, lattice, diagnostics::LAYER)
-                    .await
-                    .is_some()
-            }
-            None => false,
-        };
-        self.adapter_shot(cx, "diagnostic-gutter-card").await;
-        self.park(cx)?;
-        self.pause(cx, Duration::from_millis(400)).await;
         let (_, underline) = self.text_point(cx, panel, lattice, "nolabel", 3).await?;
         self.hover_at(cx, underline.center()).await?;
         let underline_card = self
@@ -460,9 +534,9 @@ impl Run {
         self.adapter_shot(cx, "diagnostic-card").await;
         self.park(cx)?;
         steps.check(
-            "a diagnostic's gutter mark and its underline each open the lint card",
-            gutter_card && underline_card,
-            json!({ "gutter_card": gutter_card, "underline_card": underline_card }),
+            "a diagnostic's underline opens the lint card",
+            underline_card,
+            json!({ "underline_card": underline_card }),
         );
 
         // Taking the reference out again clears the line.

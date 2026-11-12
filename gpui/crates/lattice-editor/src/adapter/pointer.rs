@@ -104,24 +104,6 @@ impl LatticeEditor {
         cx.emit(LatticeEditorEvent::OpenLocation { path, line });
     }
 
-    /// Open the card for the text at `offset` at once, as a pointer resting
-    /// there would after the delay: for scripted checks and keyboard use.
-    pub fn hover_offset(&mut self, offset: usize, cx: &mut Context<Self>) -> bool {
-        let text = self.buffer.read(cx).snapshot();
-        match self.text_target(&text, offset, cx) {
-            Some(target) => {
-                self.hover = Hover::Shown {
-                    target,
-                    over_card: false,
-                    closing: None,
-                };
-                cx.notify();
-                true
-            }
-            None => false,
-        }
-    }
-
     fn text_target(&self, text: &BufferSnapshot, offset: usize, cx: &App) -> Option<Anchored> {
         self.hover_providers.iter().find_map(|provider| {
             let HoverTarget { range, id, card } = provider.target(text, offset, cx)?;
@@ -364,14 +346,30 @@ impl LatticeEditor {
         };
         // The card stays inside the editor, as the Tauri app's tooltip space
         // keeps it: shifted left from its target when it would cross the
-        // editor's right edge. Its width is last frame's; a card's first
-        // frame is the transparent start of its entrance.
-        let width = self
-            .painted
-            .borrow()
-            .card
-            .map_or(CARD_WIDTH, |card| card.size.width)
+        // editor's right edge, and hung below it when it would cross the
+        // editor's top. Its size is last frame's; a card's first frame is
+        // the transparent start of its entrance.
+        let last = self.painted.borrow().card.map(|card| card.size);
+        let width = last
+            .map_or(CARD_WIDTH, |size| size.width)
             .min(context.max_width);
+        let height = last.map_or(px(0.), |size| size.height);
+        let above = rect.top() - CARD_GAP - height >= bounds.top() + CARD_INSET;
+        let (attach, anchor, offset, from) = if above {
+            (
+                Corner::TopLeft,
+                Corner::BottomLeft,
+                -CARD_GAP,
+                PopFrom::Below,
+            )
+        } else {
+            (
+                Corner::BottomLeft,
+                Corner::TopLeft,
+                CARD_GAP,
+                PopFrom::Above,
+            )
+        };
         let left = rect
             .left()
             .min(bounds.right() - CARD_INSET - width)
@@ -395,16 +393,16 @@ impl LatticeEditor {
         Some(
             deferred(
                 anchored()
-                    .attach(rect, Corner::TopLeft)
-                    .anchor(Corner::BottomLeft)
-                    .offset(point(px(0.), -CARD_GAP))
+                    .attach(rect, attach)
+                    .anchor(anchor)
+                    .offset(point(px(0.), offset))
                     .snap_to_window_with_margin(px(8.))
                     .child(
                         div()
                             .id(id.clone())
                             .occlude()
                             .on_hover(hovered)
-                            .child(pop_in(id, PopFrom::Below, card))
+                            .child(pop_in(id, from, card))
                             .child(record),
                     ),
             )

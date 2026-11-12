@@ -8245,7 +8245,6 @@ dependencies = [
  "lattice-core",
  "lattice-ui",
  "log",
- "lsp",
  "project",
  "regex",
  "theme",
