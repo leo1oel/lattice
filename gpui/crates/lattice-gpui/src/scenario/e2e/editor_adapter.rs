@@ -44,12 +44,11 @@ impl Run {
         steps: &mut Steps,
         root: &std::path::Path,
     ) -> Result<()> {
-        // What follows reads the editor's layout and paint, which a covered
-        // window does not get: put it above the others, leaving the keyboard
-        // where it is.
-        #[cfg(target_os = "macos")]
-        native::order_front(self.native(cx)?);
-        #[cfg(target_os = "windows")]
+        // What follows waits for the overlay to paint the editor's carets,
+        // gutter marks and cards, as a writer pointing at the window sees
+        // them. A scenario's window is never activated (`main.rs`), and on
+        // macOS one merely ordered above the others drew none of them, so
+        // the window is brought to the front and made key on both systems.
         native::bring_to_front(self.native(cx)?);
         let panel = self.open(cx, &root.join("main.tex"), Some(8))?;
         self.pause(cx, Duration::from_millis(600)).await;
@@ -942,10 +941,9 @@ impl Run {
 
     /// Put the writer in `editor`, as clicking into it does: give it the
     /// window's focus, and the `Focused` event the editor panel follows.
-    /// GPUI emits that only in an active window, and a scenario leaves the
-    /// user's frontmost app alone (on a locked screen nothing can become
-    /// active), so in an inactive window the scenario emits it, as GPUI
-    /// would once the window became key.
+    /// GPUI emits that only in an active window, and on a locked screen
+    /// nothing can become active, so in an inactive window the scenario
+    /// emits it, as GPUI would once the window became key.
     async fn writer_in(&self, cx: &mut AsyncApp, editor: &Entity<editor::Editor>) -> Result<Value> {
         let handle = cx.update(|cx| editor.read(cx).focus_handle(cx));
         let focus = handle.clone();
