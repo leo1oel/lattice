@@ -61,7 +61,8 @@ impl LatticeEditor {
         Frame::read(&self.editor, bounds, window, cx).map(|frame| frame.row_top(row))
     }
 
-    /// Paint gutter marks and remote carets, and record where they went.
+    /// Paint gutter marks and remote carets, record where they went, and
+    /// follow the pointer for hover cards and caret tags.
     pub(super) fn paint_overlay(
         &mut self,
         bounds: Bounds<Pixels>,
@@ -69,6 +70,33 @@ impl LatticeEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // The pointer: hover cards and caret tags. A listener for the
+        // window, so the editor's own hitboxes need not let anything through;
+        // the hitbox says whether something above the editor has the pointer.
+        // Registered every frame, before the early return below: the text's
+        // hover cards need it in an editor with no gutter marks or carets.
+        let hitbox = hitbox.clone();
+        let this = cx.weak_entity();
+        window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+            if phase != DispatchPhase::Bubble {
+                return;
+            }
+            let over = hitbox.is_hovered(window);
+            let position = event.position;
+            this.update(cx, |this, cx| {
+                if over {
+                    this.update_hovered_cursor(position, cx);
+                    this.pointer_moved(position, window, cx);
+                } else {
+                    if this.hovered_cursor.take().is_some() {
+                        cx.notify();
+                    }
+                    this.pointer_left(cx);
+                }
+            })
+            .ok();
+        });
+
         let mut painted = Painted {
             bounds: Some(bounds),
             card: self.painted.borrow().card,
@@ -155,31 +183,6 @@ impl LatticeEditor {
             }
         });
         *self.painted.borrow_mut() = painted;
-
-        // The pointer: hover cards and caret tags. A listener for the
-        // window, so the editor's own hitboxes need not let anything through;
-        // the hitbox says whether something above the editor has the pointer.
-        let hitbox = hitbox.clone();
-        let this = cx.weak_entity();
-        window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
-            if phase != DispatchPhase::Bubble {
-                return;
-            }
-            let over = hitbox.is_hovered(window);
-            let position = event.position;
-            this.update(cx, |this, cx| {
-                if over {
-                    this.update_hovered_cursor(position, cx);
-                    this.pointer_moved(position, window, cx);
-                } else {
-                    if this.hovered_cursor.take().is_some() {
-                        cx.notify();
-                    }
-                    this.pointer_left(cx);
-                }
-            })
-            .ok();
-        });
     }
 
     fn update_hovered_cursor(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {

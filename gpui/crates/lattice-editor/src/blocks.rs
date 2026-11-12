@@ -32,6 +32,7 @@ pub struct BlockWidget {
     pub line: u32,
     pub side: BlockSide,
     /// Its height in lines of the editor's text; Zed lays blocks out in rows.
+    /// A widget taller than that grows the block to its own height.
     pub lines: u32,
     pub render: RenderBlockWidget,
 }

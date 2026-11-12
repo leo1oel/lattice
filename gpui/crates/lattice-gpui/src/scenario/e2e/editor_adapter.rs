@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::{Context as _, Result};
 use editor::SelectionEffects;
-use gpui::{AsyncApp, Bounds, Entity, Pixels, Point, point, px};
+use gpui::{AsyncApp, Bounds, Entity, Focusable as _, Pixels, Point, point, px};
 use lattice_editor::{
     LatticeEditor, TexlabService,
     blocks::{BlockSide, BlockWidget},
@@ -90,6 +90,24 @@ impl Run {
         }
         #[cfg(not(target_os = "macos"))]
         let _ = (cx, name);
+    }
+
+    /// The editor's line height, from its own layout: the distance between
+    /// its first two lines (with no block widget between them). The overlay
+    /// records it only in frames that draw gutter marks or carets.
+    fn line_height(
+        &self,
+        cx: &mut AsyncApp,
+        lattice: &Entity<LatticeEditor>,
+    ) -> Result<Option<Pixels>> {
+        let lattice = lattice.clone();
+        self.with_window(cx, move |_, window, cx| {
+            lattice.update(cx, |lattice, cx| {
+                let first = lattice.line_top(0, window, cx)?;
+                let second = lattice.line_top(1, window, cx)?;
+                Some(second - first)
+            })
+        })
     }
 
     fn park(&self, cx: &mut AsyncApp) -> Result<()> {
@@ -172,6 +190,8 @@ impl Run {
         panel: &Entity<EditorPanel>,
         lattice: &Entity<LatticeEditor>,
     ) -> Result<()> {
+        // First, before anything sets a gutter mark or a caret: the cards
+        // open in an editor with nothing of the overlay's to paint.
         let (offset, key) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
         self.hover_at(cx, key.center()).await?;
         let shown = self.wait_for_card(cx, lattice, "citation").await;
@@ -244,8 +264,8 @@ impl Run {
     ) -> Result<()> {
         let editor = cx.update(|cx| lattice.read(cx).editor().clone());
         let start = cx.update(|cx| editor.update(cx, |editor, cx| editor.scroll_position(cx)));
-        let line_height = cx
-            .update(|cx| lattice.read(cx).painted().line_height)
+        let line_height = self
+            .line_height(cx, lattice)?
             .context("the editor was drawn")?;
         let needed = card_height + CARD_GAP + CARD_INSET;
 
@@ -271,13 +291,13 @@ impl Run {
         let roomy = self.citation_card(cx, panel, lattice).await?;
         self.adapter_shot(cx, "citation-card-above").await;
         self.park(cx)?;
-        lattice.update(cx, |lattice, cx| lattice.set_blocks("e2e-room", Vec::new(), cx));
+        lattice.update(cx, |lattice, cx| {
+            lattice.set_blocks("e2e-room", Vec::new(), cx)
+        });
         self.pause(cx, Duration::from_millis(400)).await;
 
         // Near the top: scrolled so the key sits a line short of the room.
-        let (_, key) = self
-            .text_point(cx, panel, lattice, "knuth1984", 4)
-            .await?;
+        let (_, key) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
         let editor_top = cx
             .update(|cx| lattice.read(cx).painted().bounds.map(|b| b.top()))
             .context("the editor was drawn")?;
@@ -297,12 +317,14 @@ impl Run {
         };
         let above = roomy.as_ref().is_some_and(|shown| {
             let (key, card, editor) = *shown;
-            room(shown) >= needed && card.bottom() <= key.top() + px(1.)
+            room(shown) >= needed
+                && card.bottom() <= key.top() + px(1.)
                 && card_placed(key, card, editor)
         });
         let below = near.as_ref().is_some_and(|shown| {
             let (key, card, editor) = *shown;
-            room(shown) < needed && card.top() >= key.bottom() - px(1.)
+            room(shown) < needed
+                && card.top() >= key.bottom() - px(1.)
                 && card_placed(key, card, editor)
         });
         let json = |shown: &Option<(Bounds<Pixels>, Bounds<Pixels>, Bounds<Pixels>)>| {
@@ -460,7 +482,7 @@ impl Run {
             })
         };
         let before = line_top(self, cx)?;
-        let line_height = cx.update(|cx| lattice.read(cx).painted().line_height);
+        let line_height = self.line_height(cx, lattice)?;
         lattice.update(cx, |lattice, cx| {
             lattice.set_blocks(
                 "e2e",
@@ -491,7 +513,7 @@ impl Run {
         steps.check(
             "a block widget between lines pushes the lines below it down by its height, and goes again",
             pushed && after == before,
-            json!({ "before": before.map(f32::from), "with_block": with_block.map(f32::from), "after": after.map(f32::from) }),
+            json!({ "before": before.map(f32::from), "with_block": with_block.map(f32::from), "after": after.map(f32::from), "line_height": line_height.map(f32::from) }),
         );
         Ok(())
     }
@@ -610,6 +632,9 @@ impl Run {
                 .map(|at| at + "\\ref{sec:method}.".len())
         });
         let end = end.context("main.tex has its reference")?;
+        // TexLab keeps one document, and syncs only the editor the writer is
+        // in (or the one already its document): put the writer in main.tex.
+        let writer = self.writer_in(cx, &editor).await?;
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| {
                 editor.change_selections(SelectionEffects::default(), window, cx, |selections| {
@@ -629,11 +654,19 @@ impl Run {
                     .any(|located| located.message.contains("Undefined reference"))
             })
             .await;
-        let (located, marks, painted) = cx.update(|cx| {
+        let (located, marks, painted, document) = cx.update(|cx| {
             (
                 diagnostics.read(cx).located(cx),
                 lattice.read(cx).mark_ranges(diagnostics::LAYER, cx),
                 lattice.read(cx).painted(),
+                self.shell.read(cx).project().and_then(|project| {
+                    project
+                        .read(cx)
+                        .texlab()
+                        .read(cx)
+                        .document()
+                        .map(str::to_string)
+                }),
             )
         });
         // As in the Tauri app, the lint draws nothing in the gutter.
@@ -647,6 +680,8 @@ impl Run {
             "TexLab's diagnostics show as wavy marks, with nothing in the gutter",
             found && underlined && no_gutter,
             json!({
+                "writer": writer,
+                "texlab_document": document,
                 "located": located.iter().map(|l| json!({ "range": [l.range.start, l.range.end], "message": l.message, "severity": format!("{:?}", l.severity) })).collect::<Vec<_>>(),
                 "marks": marks.iter().map(|r| [r.start, r.end]).collect::<Vec<_>>(),
                 "gutter": painted.gutter.iter().map(|(layer, row, bounds)| json!({ "layer": layer, "row": row, "bounds": bounds_json(*bounds) })).collect::<Vec<_>>(),
@@ -687,10 +722,32 @@ impl Run {
             .await;
         steps.check(
             "fixing the reference clears its diagnostic",
-            cleared,
-            json!({}),
+            // Only a diagnostic that showed can clear.
+            found && cleared,
+            json!({ "found": found, "cleared": cleared }),
         );
         Ok(())
+    }
+
+    /// Put the writer in `editor`, as clicking into it does: give it the
+    /// window's focus, and the `Focused` event the editor panel follows.
+    /// GPUI emits that only in an active window, and a scenario leaves the
+    /// user's frontmost app alone (on a locked screen nothing can become
+    /// active), so in an inactive window the scenario emits it, as GPUI
+    /// would once the window became key.
+    async fn writer_in(&self, cx: &mut AsyncApp, editor: &Entity<editor::Editor>) -> Result<Value> {
+        let handle = cx.update(|cx| editor.read(cx).focus_handle(cx));
+        let focus = handle.clone();
+        self.with_window(cx, move |_, window, cx| window.focus(&focus, cx))?;
+        // Focus listeners run as a frame finishes.
+        self.pause(cx, Duration::from_millis(100)).await;
+        let (focused, active) = self.with_window(cx, move |_, window, _| {
+            (handle.is_focused(window), window.is_window_active())
+        })?;
+        if focused && !active {
+            editor.update(cx, |_, cx| cx.emit(editor::EditorEvent::Focused));
+        }
+        Ok(json!({ "focused": focused, "window_active": active }))
     }
 
     async fn completions(

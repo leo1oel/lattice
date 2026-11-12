@@ -308,14 +308,24 @@ impl LatticeEditor {
                 };
                 let anchor = self.multi_anchor(text.anchor_before(point), cx)?;
                 let render = block.render.clone();
+                let lines = block.lines.max(1);
                 Some(BlockProperties {
                     placement: match block.side {
                         BlockSide::Above => BlockPlacement::Above(anchor),
                         BlockSide::Below => BlockPlacement::Below(anchor),
                     },
-                    height: Some(block.lines.max(1)),
+                    height: Some(lines),
                     style: BlockStyle::Flex,
-                    render: std::sync::Arc::new(move |context| render(context)),
+                    // Zed measures a block's content and resizes the block to
+                    // it, so a widget shorter than its lines would shrink to
+                    // one: hold it to its lines (a taller one still grows).
+                    render: std::sync::Arc::new(move |context| {
+                        let height = context.line_height * lines as f32;
+                        div()
+                            .min_h(height)
+                            .child(render(context))
+                            .into_any_element()
+                    }),
                     priority: 0,
                 })
             })
