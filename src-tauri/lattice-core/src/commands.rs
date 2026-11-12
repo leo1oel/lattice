@@ -53,7 +53,29 @@ pub(crate) fn with_child_path(mut command: Command) -> Command {
 /// launches can be signalled together with `signal_process_group`.
 pub(crate) fn in_new_process_group(command: &mut Command) -> &mut Command {
     #[cfg(unix)]
-    std::os::unix::process::CommandExt::process_group(command, 0);
+    {
+        use std::os::unix::process::CommandExt as _;
+        command.process_group(0);
+        // The group is stopped with SIGTERM (`signal_process_group`), so it
+        // must start able to receive it. A child inherits the spawning
+        // thread's signal mask (std no longer clears it) and any signal its
+        // parent ignores, and both happen: the GPUI app spawns builds from
+        // libdispatch's worker threads, which block signals, and a Cocoa app
+        // can ignore SIGTERM to take it as a quit. The whole group then
+        // shrugged off the TERM that was to stop it, and a build that looped
+        // could not be stopped.
+        // SAFETY: `sigemptyset`, `pthread_sigmask` and `signal` are
+        // async-signal-safe, the only calls made between fork and exec.
+        unsafe {
+            command.pre_exec(|| {
+                let mut none = std::mem::MaybeUninit::<libc::sigset_t>::uninit();
+                libc::sigemptyset(none.as_mut_ptr());
+                libc::pthread_sigmask(libc::SIG_SETMASK, none.as_ptr(), std::ptr::null_mut());
+                libc::signal(libc::SIGTERM, libc::SIG_DFL);
+                Ok(())
+            });
+        }
+    }
     #[cfg(windows)]
     crate::platform_windows::configure(command);
     command
@@ -429,6 +451,55 @@ mod tests {
         assert!(!is_executable(&script));
         fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).unwrap();
         assert!(is_executable(&script));
+    }
+
+    /// A build's Stop is a SIGTERM to its process group. The GPUI app spawns
+    /// builds from libdispatch worker threads, which block signals, and a
+    /// Cocoa app may ignore SIGTERM; a child inherits both, so without the
+    /// reset at spawn the group shrugged off the TERM and a looping build
+    /// could not be stopped. Oracle: POSIX — a process with SIGTERM at its
+    /// default disposition and unblocked dies of it.
+    #[cfg(unix)]
+    #[test]
+    fn a_group_spawned_with_sigterm_blocked_and_ignored_still_stops_on_term() {
+        use std::os::unix::process::ExitStatusExt as _;
+        use std::time::{Duration, Instant};
+
+        let mut child = std::thread::spawn(|| unsafe {
+            let mut blocked = std::mem::MaybeUninit::<libc::sigset_t>::uninit();
+            libc::sigemptyset(blocked.as_mut_ptr());
+            libc::sigaddset(blocked.as_mut_ptr(), libc::SIGTERM);
+            libc::pthread_sigmask(libc::SIG_BLOCK, blocked.as_ptr(), std::ptr::null_mut());
+            let previous = libc::signal(libc::SIGTERM, libc::SIG_IGN);
+            let mut sleeper = Command::new("sleep");
+            sleeper.arg("30");
+            let spawned = in_new_process_group(&mut sleeper).spawn();
+            libc::signal(libc::SIGTERM, previous);
+            spawned.unwrap()
+        })
+        .join()
+        .unwrap();
+
+        signal_process_group(child.id(), TERM_SIGNAL);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break Some(status);
+            }
+            if Instant::now() > deadline {
+                break None;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        if status.is_none() {
+            signal_process_group(child.id(), KILL_SIGNAL);
+            let _ = child.wait();
+        }
+        assert_eq!(
+            status.and_then(|status| status.signal()),
+            Some(libc::SIGTERM),
+            "the group must die of the TERM"
+        );
     }
 
     #[test]

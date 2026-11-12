@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+mod build_flow;
 mod editor_adapter;
 mod saves;
 
@@ -40,6 +41,12 @@ impl Run {
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
         let mut steps = Steps(Vec::new());
         let root = self.root(cx).await?;
+        // No step may reach a real TeX install.
+        let stub = self.stub_tex_setup(cx, &root);
+        // The look-review shots find the Build button by its probe.
+        if std::env::var_os("LATTICE_E2E_SHOTS").is_some() {
+            lattice_ui::parity::enable();
+        }
         let chapter = root.join("chapters/intro.tex");
         let original = std::fs::read_to_string(&chapter)
             .context("the e2e project needs chapters/intro.tex")?;
@@ -79,6 +86,7 @@ impl Run {
                 .any(|row| row.ends_with(".aux") || row.ends_with(".log") || row == "main.pdf"),
             json!({ "rows": rows }),
         );
+        self.sequence_and_words(cx, &mut steps).await?;
 
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
@@ -156,6 +164,7 @@ impl Run {
             !built && located,
             json!({ "seconds": took.as_secs_f32(), "error": error.as_ref().map(|(d, _)| format!("{:?}:{:?} {}", d.file, d.line, d.message)) }),
         );
+        self.explained_failure(cx, &mut steps).await?;
 
         if let Some((_, Some(location))) = error {
             self.with_window(cx, |shell, window, cx| {
@@ -225,6 +234,8 @@ impl Run {
             reloaded && built,
             json!({ "reloaded": reloaded }),
         );
+        self.build_fixes(cx, &mut steps, &root, &stub).await?;
+        self.doctor_and_setup(cx, &mut steps, &stub).await?;
 
         // The editor adapter's extension points, through their LaTeX uses.
         self.editor_adapter(cx, &mut steps, &root).await?;

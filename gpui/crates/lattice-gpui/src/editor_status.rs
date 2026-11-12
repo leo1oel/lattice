@@ -16,14 +16,14 @@
 //! click, as ⌘B does.
 
 use gpui::{
-    AnyElement, AnyView, App, BoxShadow, Edges, Entity, FontFeatures, InteractiveElement as _,
-    IntoElement, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
-    div, prelude::FluentBuilder as _, px,
+    AnyElement, App, BoxShadow, Edges, Entity, FontFeatures, InteractiveElement as _, IntoElement,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div,
+    prelude::FluentBuilder as _, px,
 };
 use language::Rope;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{LatticeTooltip, StatusItem},
+    components::StatusItem,
     dock::PANEL_RADIUS,
     elevation::ring,
     parity,
@@ -31,9 +31,10 @@ use lattice_ui::{
 };
 
 use crate::{
+    build::{hover_card::HoverCard, sequence, word_count},
     build_panel::{BuildPanel, ChipState},
     editor_panel::{EditorPanel, SaveStatus},
-    shell::{BUILD_SHORTCUT_LABEL, Build},
+    shell::{Build, CleanRebuild},
 };
 
 pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
@@ -97,19 +98,33 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
         )
         .child(div().flex_1())
         .when_some(panel.words(), |this, words| {
-            this.child(
-                StatusItem::new("word-count")
-                    .parity("status/words")
-                    .label("This file ·")
-                    .child({
-                        let count: SharedString = format!("{} words", grouped(words)).into();
-                        div()
-                            .text_color(palette.text)
-                            .children(parity::text_probe("status/words", 1, count.clone()))
-                            .child(count)
-                    }),
-            )
+            this.child(word_count(panel, words, cx))
         })
+}
+
+/// The selection while there is one, else the manuscript, else this file
+/// (`crate::build::word_count`).
+fn word_count(panel: &EditorPanel, file_words: usize, cx: &App) -> AnyElement {
+    use editor::ToOffset as _;
+    let editor = panel.editor().read(cx);
+    let buffer = editor.buffer().read(cx).snapshot(cx);
+    let selection = editor.selections.newest_anchor();
+    let (start, end) = (
+        selection.start.to_offset(&buffer),
+        selection.end.to_offset(&buffer),
+    );
+    let selected: String = if start == end {
+        String::new()
+    } else {
+        buffer
+            .text_for_range(start.min(end)..start.max(end))
+            .collect()
+    };
+    let root = panel.project_root(cx);
+    let manuscript = word_count::manuscript_count(&root, cx);
+    let file_chars = buffer.text_summary().len_utf16.0;
+    let labels = word_count::labels(manuscript.as_ref(), file_words, file_chars, &selected);
+    crate::build::word_count_item::item(labels, cx)
 }
 
 pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
@@ -140,7 +155,7 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
         inset: true,
         ..ring(palette.line)
     };
-    div()
+    let chip = div()
         .id("build-chip")
         .flex()
         .flex_none()
@@ -166,76 +181,23 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
                 .child(label),
         )
         .children(parity::probe("build-chip"))
-        .tooltip(|_, cx| -> AnyView {
-            LatticeTooltip::view("Build", Some(BUILD_SHORTCUT_LABEL.into()), cx)
-        })
-        .on_click(|_, window, cx| window.dispatch_action(Box::new(Build), cx))
-        .into_any_element()
+        // ⇧-click is the clean rebuild, as the Tauri app's Build button has it.
+        .on_click(|event, window, cx| {
+            if event.modifiers().shift {
+                window.dispatch_action(Box::new(CleanRebuild), cx);
+            } else {
+                window.dispatch_action(Box::new(Build), cx);
+            }
+        });
+    // The build as the sequence it was, in a card under the chip's end.
+    let build = build.clone();
+    HoverCard::new("build-card", chip, move |_, cx| sequence::card(&build, cx)).into_any_element()
 }
 
-/// `120400` → `120,400`.
-fn grouped(count: usize) -> String {
-    let digits = count.to_string();
-    let mut out = String::new();
-    for (ix, digit) in digits.chars().enumerate() {
-        if ix > 0 && (digits.len() - ix) % 3 == 0 {
-            out.push(',');
-        }
-        out.push(digit);
-    }
-    out
-}
-
-/// A rough word count of LaTeX source: comments and command names are not
-/// words; a run of letters or digits is one; each CJK character is one, as
-/// writers of Chinese count.
+/// The file's word count, as the Tauri app counts it
+/// (`crate::build::word_count::count_words`).
 pub fn count_words(text: &Rope) -> usize {
-    let mut words = 0;
-    let mut in_word = false;
-    let mut in_comment = false;
-    let mut in_command = false;
-    let mut escaped = false;
-    for chunk in text.chunks() {
-        for c in chunk.chars() {
-            if in_comment {
-                if c == '\n' {
-                    in_comment = false;
-                }
-                continue;
-            }
-            if in_command {
-                if c.is_alphabetic() || c == '@' {
-                    // A command's name ends the backslash's escape: only the
-                    // character straight after it (`\\`, `\%`) is escaped.
-                    escaped = false;
-                    continue;
-                }
-                in_command = false;
-            }
-            if c == '%' && !escaped {
-                in_comment = true;
-                in_word = false;
-                continue;
-            }
-            let backslash = c == '\\' && !escaped;
-            if backslash {
-                in_command = true;
-                in_word = false;
-            } else if is_cjk(c) {
-                words += 1;
-                in_word = false;
-            } else if c.is_alphanumeric() {
-                if !in_word {
-                    words += 1;
-                    in_word = true;
-                }
-            } else if c != '\'' && c != '-' {
-                in_word = false;
-            }
-            escaped = backslash;
-        }
-    }
-    words
+    word_count::count_words(&text.to_string())
 }
 
 /// The caret's 1-based column from the text between the line's start and the
@@ -248,39 +210,9 @@ pub fn caret_column<'a>(before_caret: impl IntoIterator<Item = &'a str>) -> u32 
     chars as u32 + 1
 }
 
-fn is_cjk(c: char) -> bool {
-    matches!(c as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF | 0x3040..=0x30FF)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn commands_and_comments_are_not_words() {
-        let text = Rope::from("\\section{Attention turns} tokens % not these\nINTO 2 things 你好");
-        assert_eq!(count_words(&text), 2 + 1 + 1 + 1 + 1 + 2);
-    }
-
-    #[test]
-    fn a_command_after_a_command_is_not_a_word() {
-        assert_eq!(
-            count_words(&Rope::from("\\centering\\includegraphics{fig}")),
-            1
-        );
-    }
-
-    #[test]
-    fn a_comment_straight_after_a_command_is_not_counted() {
-        assert_eq!(count_words(&Rope::from("\\maketitle% note")), 0);
-    }
-
-    #[test]
-    fn escaped_symbols_stay_escaped() {
-        // `\\` is a line break and `\%` a literal percent sign: the words
-        // after each still count.
-        assert_eq!(count_words(&Rope::from("one\\\\two 50\\% three")), 4);
-    }
 
     #[test]
     fn the_column_counts_characters_not_bytes() {
@@ -292,9 +224,10 @@ mod tests {
     }
 
     #[test]
-    fn counts_are_grouped_in_thousands() {
-        assert_eq!(grouped(120_400), "120,400");
-        assert_eq!(grouped(999), "999");
-        assert_eq!(grouped(1_000_000), "1,000,000");
+    fn the_file_is_counted_as_the_tauri_app_counts_it() {
+        assert_eq!(
+            count_words(&Rope::from("\\section{Attention} it's well-known")),
+            4
+        );
     }
 }
