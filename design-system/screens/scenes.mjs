@@ -24,7 +24,9 @@ const SKIP = [".trellis-workspace-dirty"];
 async function open(env, theme, query, ready = ".cm-content") {
   const browser = await chromium.launch();
   // Reduced motion: each screen at rest, nothing caught mid-animation (the welcome field's pulses, a spinner).
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, reducedMotion: "reduce" });
+  // Paper draws at 1440×900 @1x; the GPUI parity harness asks for the GPUI window's size and scale (env.viewport, env.deviceScaleFactor).
+  const viewport = env.viewport ?? { width: 1440, height: 900 };
+  const page = await browser.newPage({ viewport, deviceScaleFactor: env.deviceScaleFactor ?? 1, reducedMotion: "reduce" });
   await page.goto(`${env.benchUrl.split("?")[0]}?theme=${theme}&lang=en${query ? `&${query}` : ""}`);
   await page.waitForSelector(ready, { timeout: 60_000 });
   await page.waitForTimeout(800);

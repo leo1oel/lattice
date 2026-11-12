@@ -4,9 +4,10 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, BoxShadow, ClickEvent, ElementId, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement as _, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Window, div, point, prelude::FluentBuilder as _, px,
+    AnyElement, App, BoxShadow, ClickEvent, Edges, ElementId, Hsla, InteractiveElement as _,
+    IntoElement, ParentElement as _, Pixels, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Window, div, point, prelude::FluentBuilder as _,
+    px,
 };
 
 use gpui::AnyView;
@@ -17,6 +18,7 @@ use crate::{
     elevation::ring,
     icons::ICON,
     interaction::tab_stop,
+    parity,
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -38,11 +40,22 @@ fn inset_ring(color: Hsla) -> BoxShadow {
 #[derive(IntoElement)]
 pub struct Keycap {
     keys: SharedString,
+    parity: Option<(SharedString, usize)>,
 }
 
 impl Keycap {
     pub fn new(keys: impl Into<SharedString>) -> Self {
-        Self { keys: keys.into() }
+        Self {
+            keys: keys.into(),
+            parity: None,
+        }
+    }
+
+    /// Record its keys' text style as slot `slot` of the parity-harness
+    /// region `name` (`crate::parity`).
+    pub fn parity(mut self, name: impl Into<SharedString>, slot: usize) -> Self {
+        self.parity = Some((name.into(), slot));
+        self
     }
 }
 
@@ -69,6 +82,10 @@ impl RenderOnce for Keycap {
             .text_role(TextRole::Caption, cx)
             .font_weight(FONT_WEIGHT_MEDIUM)
             .text_color(palette.text_secondary)
+            .children(
+                self.parity
+                    .and_then(|(name, slot)| parity::text_probe(name, slot, self.keys.clone())),
+            )
             .child(self.keys)
     }
 }
@@ -91,6 +108,7 @@ pub struct SearchField {
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
     trailing: Option<AnyElement>,
+    parity: Option<SharedString>,
 }
 
 impl SearchField {
@@ -105,7 +123,16 @@ impl SearchField {
             tooltip: None,
             on_click: None,
             trailing: None,
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and its placeholder's and keycap's text styles are recorded
+    /// under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn width(mut self, width: Pixels) -> Self {
@@ -192,10 +219,25 @@ impl RenderOnce for SearchField {
                     .whitespace_nowrap()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text_secondary)
+                    .children(
+                        self.parity
+                            .clone()
+                            .and_then(|name| parity::text_probe(name, 0, self.placeholder.clone())),
+                    )
                     .child(self.placeholder),
             )
+            .children(self.parity.clone().and_then(|name| {
+                let border = if self.filled { px(0.) } else { px(1.) };
+                parity::bordered_probe(name, Edges::all(border))
+            }))
             .children(self.trailing)
-            .children(self.keycap.map(Keycap::new))
+            .children(self.keycap.map(|keys| {
+                let keycap = Keycap::new(keys);
+                match self.parity {
+                    Some(name) => keycap.parity(name, 1),
+                    None => keycap,
+                }
+            }))
             .when_some(self.width, |this, width| this.w(width).flex_none())
             .when_some(self.tooltip, |this, tooltip| {
                 this.tooltip(move |_, cx| -> AnyView {
@@ -220,6 +262,7 @@ impl RenderOnce for SearchField {
 pub struct Segmented {
     id: ElementId,
     segments: Vec<Segment>,
+    parity: Option<SharedString>,
 }
 
 pub struct Segment {
@@ -234,7 +277,16 @@ impl Segmented {
         Self {
             id: id.into(),
             segments: Vec::new(),
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and each labelled segment's text style are recorded under
+    /// `name`, in the slot of the segment's place.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn label(
@@ -281,10 +333,16 @@ impl RenderOnce for Segmented {
             .p(px(2.))
             .rounded(px(11.))
             .shadow(vec![inset_ring(palette.line)])
+            .children(self.parity.clone().and_then(parity::probe))
             .children(self.segments.into_iter().enumerate().map(|(ix, segment)| {
                 let hover = palette.hover;
                 let focus = focus.clone();
                 let segment_box = div().id(ix);
+                let text_probe = self
+                    .parity
+                    .clone()
+                    .zip(segment.label.clone())
+                    .and_then(|(name, label)| parity::text_probe(name, ix, label));
                 // Each segment is a tab stop, as each is a button in the app.
                 let segment_box = if segment.on_click.is_some() {
                     tab_stop(segment_box)
@@ -310,6 +368,7 @@ impl RenderOnce for Segmented {
                             .line_height(px(14.))
                             .text_color(palette.text)
                             .child(label)
+                            .children(text_probe)
                     })
                     .when_some(segment.icon, |this, icon| {
                         this.w(px(28.))

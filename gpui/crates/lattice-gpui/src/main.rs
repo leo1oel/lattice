@@ -35,6 +35,15 @@ fn main() {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let root = std::env::args_os().nth(1).map(std::path::PathBuf::from);
 
+    // The parity harness's named regions are recorded from the first frame.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    if scenario
+        .as_ref()
+        .is_some_and(|scenario| scenario.name == "parity")
+    {
+        lattice_ui::parity::enable();
+    }
+
     gpui_kit::application()
         .with_assets(assets::Assets)
         .run(move |cx| {

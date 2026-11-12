@@ -17,13 +17,13 @@
 // agent.mjs to have rendered Synara first, or its slot stays empty.
 import { execFileSync, spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import http from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connect } from "../paper.mjs";
 import { tokenOptions } from "./options.mjs";
 import { scenes, SCREENS } from "./scenes.mjs";
+import { servePdf, TUTORIAL_TEMPLATE } from "./tutorial.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "../..");
@@ -43,18 +43,14 @@ mkdirSync(join(out, "assets"), { recursive: true });
 function tutorialPdf() {
   const dir = join(out, "tutorial");
   rmSync(dir, { recursive: true, force: true });
-  cpSync(join(repo, "src-tauri/templates/tutorial"), dir, { recursive: true });
+  cpSync(TUTORIAL_TEMPLATE, dir, { recursive: true });
   cpSync(join(repo, "src-tauri/templates/neurips-2026/neurips_2026.sty"), join(dir, "neurips.sty"));
   try {
     execFileSync("latexmk", ["-pdf", "-interaction=nonstopmode", "main.tex"], { cwd: dir, stdio: "ignore", timeout: 300_000 });
   } catch {
     if (!existsSync(join(dir, "main.pdf"))) return null;
   }
-  const pdf = readFileSync(join(dir, "main.pdf"));
-  return new Promise((resolve) => {
-    const server = http.createServer((_, res) => { res.writeHead(200, { "Access-Control-Allow-Origin": "*", "Content-Type": "application/pdf" }); res.end(pdf); });
-    server.listen(0, "127.0.0.1", () => resolve({ url: `http://127.0.0.1:${server.address().port}/main.pdf`, close: () => server.close() }));
-  });
+  return servePdf(join(dir, "main.pdf"));
 }
 
 /** Open Slide over a throwaway copy of the tutorial deck, as the native host would start it. */

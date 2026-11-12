@@ -39,6 +39,7 @@ use crate::{
     components::{IconButton, PanelTab, Surface, TAB_RADIUS},
     elevation::panel_ring,
     icons::{ICON, file_glyph},
+    parity,
     token_types::Srgb,
 };
 
@@ -188,11 +189,27 @@ fn group_surface(group: &TabGroupContext, palette: &Palette, cx: &App) -> (Surfa
     (surface, color)
 }
 
+/// A panel's name on its tab.
+fn tab_name(panel: &Arc<dyn BasePanelView>, cx: &App) -> SharedString {
+    PanelHandle::of(panel)
+        .and_then(|handle| handle.tab_name(cx))
+        .unwrap_or_else(|| panel.panel_name(cx).into())
+}
+
+/// The group's parity-harness name: its displayed panel's tab name.
+fn group_parity_name(group: &TabGroupContext, cx: &App) -> Option<SharedString> {
+    parity::enabled()
+        .then(|| group.active_panel().map(|panel| tab_name(panel, cx)))
+        .flatten()
+}
+
 impl TabGroupRenderer for LatticeTabs {
     fn frame(&self, group: &TabGroupContext, _: &mut Window, cx: &mut App) -> Stateful<Div> {
         let palette = cx.palette();
         let (_, surface) = group_surface(group, palette, cx);
         let close = group.clone();
+        let card_probe =
+            group_parity_name(group, cx).and_then(|name| parity::probe(format!("card/{name}")));
         div()
             .id("lattice-tab-group")
             .relative()
@@ -207,7 +224,8 @@ impl TabGroupRenderer for LatticeTabs {
                     .bottom(GROUP_INSET)
                     .rounded(PANEL_RADIUS)
                     .bg(surface.hsla())
-                    .shadow(panel_ring(palette)),
+                    .shadow(panel_ring(palette))
+                    .children(card_probe),
             )
             .when(!group.is_collapsed(), |this| {
                 this.on_action(move |_: &ClosePanel, window, cx| {
@@ -250,9 +268,7 @@ impl TabGroupRenderer for LatticeTabs {
             .filter(|(_, panel)| panel.visible(cx))
             .map(|(ix, panel)| {
                 let look = TabPresenter::look(panel, cx);
-                let name: SharedString = PanelHandle::of(panel)
-                    .and_then(|handle| handle.tab_name(cx))
-                    .unwrap_or_else(|| panel.panel_name(cx).into());
+                let name = tab_name(panel, cx);
                 let selected = !collapsed && Some(panel.panel_id(cx)) == displayed;
                 let panel_id = panel.panel_id(cx);
                 let drag = group
@@ -265,11 +281,12 @@ impl TabGroupRenderer for LatticeTabs {
                     icon: look.icon,
                 };
                 let refocus = selected.then(|| panel.focus_handle(cx));
-                PanelTab::new(("lattice-tab", ix), name, surface)
+                PanelTab::new(("lattice-tab", ix), name.clone(), surface)
                     .icon(icon)
                     .selected(selected)
                     .strong(focused)
                     .dirty(look.dirty)
+                    .when(parity::enabled(), |tab| tab.parity(format!("tab/{name}")))
                     // The X follows the panel's own permission, as the app
                     // draws it; the group may still keep its last panel.
                     .when(!collapsed && panel.closable(cx), |tab| {
@@ -332,6 +349,8 @@ impl TabGroupRenderer for LatticeTabs {
                     })
             });
 
+        let strip_probe =
+            group_parity_name(group, cx).and_then(|name| parity::probe(format!("strip/{name}")));
         let menu = (!collapsed).then(|| {
             IconButton::new("lattice-panel-menu", Icon::DOTS)
                 .frame(px(24.), px(28.))
@@ -358,6 +377,7 @@ impl TabGroupRenderer for LatticeTabs {
             .h(STRIP_HEIGHT)
             .px(px(6.))
             .gap(px(4.))
+            .children(strip_probe)
             .child(
                 div()
                     .flex()

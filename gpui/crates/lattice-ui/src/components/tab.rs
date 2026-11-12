@@ -23,6 +23,7 @@ use crate::{
     components::focus_ring,
     icons::ICON,
     interaction::{mix, tab_stop, track_pointer, use_interaction},
+    parity,
     token_types::Srgb,
     tokens::OPACITY_HOVER,
 };
@@ -44,6 +45,7 @@ pub struct PanelTab {
     strong: bool,
     dirty: bool,
     on_close: Option<ClickHandler>,
+    parity: Option<SharedString>,
 }
 
 impl PanelTab {
@@ -60,7 +62,15 @@ impl PanelTab {
             strong: false,
             dirty: false,
             on_close: None,
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and its label's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn icon(mut self, icon: impl IntoElement) -> Self {
@@ -160,6 +170,7 @@ impl RenderOnce for PanelTab {
             .rounded(TAB_RADIUS)
             .cursor_pointer()
             .bg(bg)
+            .children(self.parity.clone().and_then(parity::probe))
             .child(
                 div()
                     .relative()
@@ -175,6 +186,10 @@ impl RenderOnce for PanelTab {
                     .text_role(TextRole::BodyCompact, cx)
                     .line_height(px(15.6))
                     .text_color(label_ink)
+                    .children(
+                        self.parity
+                            .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
+                    )
                     .child(self.label),
             )
             .child(

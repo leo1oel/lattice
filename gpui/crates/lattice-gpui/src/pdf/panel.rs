@@ -9,7 +9,7 @@
 use std::{ops::Range, path::PathBuf, rc::Rc, sync::Arc};
 
 use gpui::{
-    AnyElement, App, Context, EventEmitter, FocusHandle, Focusable, InteractiveElement as _,
+    AnyElement, App, Context, Edges, EventEmitter, FocusHandle, Focusable, InteractiveElement as _,
     IntoElement, ListAlignment, ListState, ParentElement as _, Pixels, Render, RenderImage,
     SharedString, Styled as _, Task, Window, div, img, list, prelude::*, px,
 };
@@ -338,6 +338,13 @@ impl PdfPanel {
             .px(px(6.))
             .border_b_1()
             .border_color(palette.line)
+            .children(lattice_ui::parity::bordered_probe(
+                "pdf/toolbar",
+                Edges {
+                    bottom: px(1.),
+                    ..Edges::default()
+                },
+            ))
             .child(
                 div()
                     .flex()
@@ -352,7 +359,12 @@ impl PdfPanel {
                                 this.go_to_page(current.saturating_sub(1), cx)
                             })),
                     )
-                    .child(
+                    .child({
+                        let page: SharedString = if has_document {
+                            format!("{} / {count}", current + 1).into()
+                        } else {
+                            "– / –".into()
+                        };
                         div()
                             .w(px(44.))
                             .flex()
@@ -361,12 +373,10 @@ impl PdfPanel {
                             .text_role(TextRole::Micro, cx)
                             .font_weight(lattice_ui::tokens::FONT_WEIGHT_REGULAR)
                             .text_color(palette.text_secondary)
-                            .child(if has_document {
-                                format!("{} / {count}", current + 1)
-                            } else {
-                                "– / –".to_string()
-                            }),
-                    )
+                            .children(lattice_ui::parity::probe("pdf/page"))
+                            .children(lattice_ui::parity::text_probe("pdf/page", 0, page.clone()))
+                            .child(page)
+                    })
                     .child(
                         nav("pdf-next", Icon::CHEVRON_RIGHT)
                             .disabled(!has_document || current + 1 >= count)
@@ -390,6 +400,7 @@ impl PdfPanel {
                     .child(
                         div().flex_1().min_w_0().child(
                             SearchField::new("pdf-find", "Find in PDF")
+                                .parity("pdf/find")
                                 .tooltip("Find in PDF — not in the GPUI preview yet"),
                         ),
                     ),

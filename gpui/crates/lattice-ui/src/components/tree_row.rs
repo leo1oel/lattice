@@ -16,6 +16,7 @@ use gpui_kit::component::list::ListItem;
 use crate::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     icons::{ICON, ICON_SMALL, file_glyph},
+    parity,
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -29,6 +30,7 @@ pub struct TreeRow {
     /// `Some(expanded)` for a folder.
     folder: Option<bool>,
     selected: bool,
+    parity: Option<SharedString>,
 }
 
 impl TreeRow {
@@ -39,6 +41,7 @@ impl TreeRow {
             depth,
             folder: None,
             selected: false,
+            parity: None,
         }
     }
 
@@ -56,6 +59,13 @@ impl TreeRow {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Name this row as a parity-harness region (`crate::parity`): its
+    /// bounds and its label's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
         self
     }
 
@@ -102,15 +112,16 @@ impl TreeRow {
             .h(px(28.))
             .py_0()
             .px_0()
-            .pr(px(8.))
             .rounded(px(6.))
             .when(self.selected, |item| item.bg(palette.row_selected))
+            .children(self.parity.clone().and_then(parity::probe))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .gap(px(6.))
                     .h(px(28.))
+                    .pr(px(8.))
                     .child(lead)
                     .child(
                         div()
@@ -123,6 +134,11 @@ impl TreeRow {
                             .line_height(px(28.))
                             .text_color(label_ink)
                             .when(self.selected, |label| label.font_weight(FONT_WEIGHT_MEDIUM))
+                            .children(
+                                self.parity.and_then(|name| {
+                                    parity::text_probe(name, 0, self.name.clone())
+                                }),
+                            )
                             .child(self.name),
                     ),
             )

@@ -22,6 +22,7 @@ use lattice_ui::{
     components::{IconButton, SearchField, Segmented, Surface, ToolbarButton},
     dock::STRIP_HEIGHT,
     elevation::bottom_hairline,
+    parity,
 };
 
 use crate::shell::{OpenFolder, Shell, ToggleBuildPanel, TogglePdfPanel, ToggleProjectPanel};
@@ -55,6 +56,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         ToolbarButton::new("project-switcher", project)
             .switcher()
             .max_w(px(260.))
+            .parity("titlebar/project")
             // Called on the shell, not dispatched: with nothing focused an
             // action would start at the root and never reach the shell.
             .on_click(
@@ -64,17 +66,21 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
 
     let panels = ToolbarButton::new("panels", "Panels")
         .icon(Icon::LAYOUT_PANEL_LEFT)
+        .parity("titlebar/panels")
         .dropdown_menu(move |menu, _, _| {
             menu.menu_with_check("Project", project_open, Box::new(ToggleProjectPanel))
                 .menu_with_check("PDF", pdf_open, Box::new(TogglePdfPanel))
                 .menu_with_check("Build", build_open, Box::new(ToggleBuildPanel))
         });
 
-    let workspace = Segmented::new("workspace").label("Workspace", true, |_, _, _| {});
+    let workspace = Segmented::new("workspace")
+        .label("Workspace", true, |_, _, _| {})
+        .parity("titlebar/workspace");
 
     let search = SearchField::new("titlebar-search", "Search")
         .filled()
         .keycap("⌘K")
+        .parity("titlebar/search")
         .width(px(320.))
         .tooltip(format!("Search files, papers and commands — {NOT_YET}"));
 
@@ -94,6 +100,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         .pl(px(if fullscreen { 6. } else { TRAFFIC_LIGHTS }))
         .bg(palette.titlebar)
         .shadow(vec![bottom_hairline(palette.line)])
+        .children(parity::probe("titlebar"))
         .window_control_area(WindowControlArea::Drag)
         .on_double_click(|_, window, _| window.titlebar_double_click())
         .on_mouse_down(
@@ -137,6 +144,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
                 div()
                     .flex()
                     .gap(px(2.))
+                    .children(parity::probe("titlebar/tools"))
                     .child(not_yet("annotations", Icon::ANNOTATIONS, "Annotations"))
                     .child(not_yet(
                         "overleaf",

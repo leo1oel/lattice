@@ -14,7 +14,7 @@ use gpui::{
 
 use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::focus_ring,
-    icons::ICON_SMALL, interaction::tab_stop,
+    icons::ICON_SMALL, interaction::tab_stop, parity,
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -24,7 +24,10 @@ pub struct StatusItem {
     id: ElementId,
     icon: Option<Icon>,
     children: Vec<AnyElement>,
+    /// Each caption with its place among `children`, for the parity probes.
+    labels: Vec<(usize, SharedString)>,
     on_click: Option<ClickHandler>,
+    parity: Option<SharedString>,
 }
 
 impl StatusItem {
@@ -33,8 +36,18 @@ impl StatusItem {
             id: id.into(),
             icon: None,
             children: Vec::new(),
+            labels: Vec::new(),
             on_click: None,
+            parity: None,
         }
+    }
+
+    /// Name this control as a parity-harness region (`crate::parity`): its
+    /// bounds and its captions' text styles are recorded under `name`, each
+    /// in the slot of its place among the item's children.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn icon(mut self, icon: Icon) -> Self {
@@ -44,7 +57,9 @@ impl StatusItem {
 
     /// A caption in secondary ink.
     pub fn label(mut self, label: impl Into<SharedString>) -> Self {
-        self.children.push(label.into().into_any_element());
+        let label = label.into();
+        self.labels.push((self.children.len(), label.clone()));
+        self.children.push(label.into_any_element());
         self
     }
 
@@ -88,6 +103,17 @@ impl RenderOnce for StatusItem {
                 this.child(icon.element(ICON_SMALL, palette.text_secondary))
             })
             .children(self.children)
+            .children(self.parity.clone().and_then(parity::probe))
+            .children(
+                self.parity
+                    .map(|name| {
+                        self.labels.into_iter().filter_map(move |(slot, label)| {
+                            parity::text_probe(name.clone(), slot, label)
+                        })
+                    })
+                    .into_iter()
+                    .flatten(),
+            )
             .when_some(self.on_click, |this, on_click| {
                 this.hover(move |style| style.bg(hover))
                     .focus_visible(move |style| style.shadow(focus))
