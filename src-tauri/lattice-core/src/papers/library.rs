@@ -585,6 +585,8 @@ mod tests {
         assert_eq!(cached.citation_key.as_deref(), Some("vaswani2017attention"));
         assert_eq!(cached.full_text_path.as_deref(), Some(ATTENTION_PAPER));
         assert_eq!(cached.overview_path.as_deref(), Some(".research/papers/1706.03762/blog.md"));
+        // An arXiv bundle keeps no PDF of its own.
+        assert_eq!(cached.pdf_path, None);
         let uncached = library.iter().find(|paper| paper.arxiv_id == "1412.6980").unwrap();
         let paths = (uncached.full_text_path.as_deref(), uncached.overview_path.as_deref());
         assert_eq!(paths, (None, None), "got: {uncached:?}");

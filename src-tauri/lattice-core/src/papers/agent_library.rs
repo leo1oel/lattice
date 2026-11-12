@@ -7,8 +7,9 @@ use serde::Serialize;
 use std::path::Path;
 
 /// One library entry as the agent sees it: what the work is, how to cite it,
-/// and which cached files hold its text. Paths are workspace-relative so the
-/// agent can read them directly with its own file tools.
+/// which cached files hold its text, and the PDF that text was converted from
+/// when the bundle keeps one. Paths are workspace-relative so the agent can
+/// read them directly with its own file tools.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryPaper {
@@ -27,12 +28,18 @@ pub struct LibraryPaper {
     pub full_text_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub overview_path: Option<String>,
+    /// The paper's own pages (a Zotero attachment, attach.rs). Text converted
+    /// from a PDF tells its reader to verify formulas and tables against the
+    /// PDF; without this path an agent asked for the paper itself searched
+    /// the project for a PDF and reported it could not open one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pdf_path: Option<String>,
 }
 
 /// The paper library for the agent's `list_papers` tool: the same cited works
 /// the Papers panel and the composer's @-picker show, with readable cache
-/// paths attached. An entry without paths is cited but not downloaded — the
-/// agent can fetch_paper it by arXiv id.
+/// paths attached. An entry without paths is cited but not downloaded; the
+/// agent can fetch_paper it only when it has an arXiv id.
 pub fn list_library(root: &Path) -> Result<Vec<LibraryPaper>, String> {
     // The agent asked for this list and reads its health once, so it waits
     // for the recheck the Papers panel runs in the background.
@@ -62,6 +69,7 @@ pub(super) fn library_entries(root: &Path) -> Result<Vec<LibraryPaper>, String> 
             LibraryPaper {
                 full_text_path: cached(paper.has_full_text, "paper.md"),
                 overview_path: cached(paper.has_blog, "blog.md"),
+                pdf_path: cached(paper.has_local_pdf, super::attach::ORIGINAL_PDF),
                 title: paper.title,
                 citation_key: paper.citation_key,
                 arxiv_id: paper.arxiv_id,

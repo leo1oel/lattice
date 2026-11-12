@@ -116,6 +116,32 @@ describe("agent host context", () => {
     });
   });
 
+  it("names the PDF a paper's bundle keeps beside the text converted from it", () => {
+    const zotero = {
+      arxivId: "web-100a0cfa150bb5b9",
+      title: "Why Most Published Research Findings Are False",
+      citationKey: "ioannidis_why_2005",
+      hasFullText: true,
+      hasBlog: false,
+    };
+    const paper = (hasLocalPdf: boolean) => buildAgentHostContext({
+      ...baseInput,
+      activePaper: { ...zotero, hasLocalPdf },
+      paperView: "fulltext",
+      activeSurface: "paper",
+    }).paper;
+    expect(paper(true)).toEqual({
+      title: zotero.title,
+      arxivId: zotero.arxivId,
+      citationKey: zotero.citationKey,
+      path: ".research/papers/web-100a0cfa150bb5b9/paper.md",
+      view: "fulltext",
+      pdfPath: ".research/papers/web-100a0cfa150bb5b9/original.pdf",
+    });
+    // A paper Lattice keeps no PDF of names none, rather than a missing file.
+    expect(paper(false)).not.toHaveProperty("pdfPath");
+  });
+
   it("uses the actually focused split-view surface and reports only the omitted selection length at 12k", () => {
     const context = buildAgentHostContext({
       ...baseInput,
