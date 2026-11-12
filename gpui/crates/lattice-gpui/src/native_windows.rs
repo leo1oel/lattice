@@ -27,8 +27,8 @@ use windows::Win32::{
             VK_LCONTROL, VK_LSHIFT, VK_SHIFT, VkKeyScanW,
         },
         WindowsAndMessaging::{
-            PostMessageW, SendMessageW, SetForegroundWindow, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN,
-            WM_LBUTTONUP, WM_MOUSEMOVE,
+            PostMessageW, SendMessageW, SetForegroundWindow, WM_CLOSE, WM_KEYDOWN, WM_KEYUP,
+            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE,
         },
     },
 };
@@ -158,6 +158,14 @@ pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> 
         send_mouse(native, Mouse::Up, position)?;
     }
     Ok(())
+}
+
+/// Close the window as its close button does: `WM_CLOSE`, which GPUI hands
+/// to the window's should-close handler before destroying it.
+pub fn request_close(native: Native) {
+    unsafe {
+        SendMessageW(native.hwnd, WM_CLOSE, None, None);
+    }
 }
 
 pub fn bring_to_front(native: Native) {

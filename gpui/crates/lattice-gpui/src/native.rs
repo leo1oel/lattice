@@ -188,6 +188,14 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
     send_mouse_clicks(native, kind, position, 1)
 }
 
+/// Close the window as its close button does (`performClose:`), which asks
+/// the window's delegate first, so GPUI's should-close handler runs.
+pub fn request_close(native: Native) {
+    unsafe {
+        let _: () = msg_send![native.window, performClose: std::ptr::null_mut::<AnyObject>()];
+    }
+}
+
 /// A left double click at `position`: AppKit counts a click by the event's
 /// `clickCount`, so the second press says 2.
 pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> {

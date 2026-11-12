@@ -10,6 +10,8 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+mod saves;
+
 /// Each step's name, whether it passed, and what it saw.
 struct Steps(Vec<Value>);
 
@@ -24,11 +26,14 @@ impl Steps {
 impl Run {
     /// The writing flow, end to end, on a scratch copy of a small project:
     /// open it through lattice-core, build, jump from the source to the PDF
-    /// and back (SyncTeX), autosave, take an outside edit into a clean buffer
-    /// and merge one into an edited buffer, break the document by typing,
-    /// save with the shortcut, build, follow the error to its line, search,
-    /// Vim, repair, build; then create, rename, move and delete files in the
-    /// tree, and drag a tab into a dock.
+    /// and back (SyncTeX), and from a .bib entry to the PDF, autosave, take
+    /// an outside edit into a clean buffer and merge one into an edited
+    /// buffer, break the document by typing, save with the shortcut, build,
+    /// follow the error to its line, search, Vim, repair, build; then create,
+    /// rename, move and delete files in the tree, drag a tab into a dock,
+    /// close a dirty tab, a vanished file's tab and a window, and type
+    /// before the quit that ends the run, which the result's `after_quit`
+    /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
         let mut steps = Steps(Vec::new());
         let root = self.root(cx).await?;
@@ -95,7 +100,8 @@ impl Run {
             json!({ "language": language }),
         );
 
-        self.synctex(cx, &mut steps, &root, &editor).await?;
+        let intro_top = self.synctex(cx, &mut steps, &root, &editor).await?;
+        self.bib_sync(cx, &mut steps, &root, intro_top).await?;
         self.autosave_and_outside_edits(cx, &mut steps, &chapter, &editor)
             .await?;
         // The chapter as the merge left it, for the repair below.
@@ -230,19 +236,24 @@ impl Run {
             layout,
         );
 
+        self.closing_saves(cx, &mut steps, &root).await?;
+        // Last: `scenario::start` quits once the result is written.
+        let quit = self.type_before_quit(cx, &mut steps, &root).await?;
+
         let passed = steps.0.iter().all(|step| step["passed"] == true);
-        Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps.0 }))
+        Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps.0, "after_quit": quit }))
     }
 
     /// SyncTeX both ways: from the caret on the chapter's second line to its
     /// box in the PDF, then a double-click on that box back to the line.
+    /// Returns the top of the box on its page.
     async fn synctex(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
         root: &Path,
         editor: &Entity<EditorPanel>,
-    ) -> Result<()> {
+    ) -> Result<Option<f32>> {
         self.open(cx, &root.join("chapters/intro.tex"), Some(2))?;
         self.pause(cx, Duration::from_millis(200)).await;
         // What ⌘⇧J and the PDF toolbar's locate button run.
@@ -261,7 +272,10 @@ impl Run {
                     .is_some_and(|(_, scroll)| !scroll)
             })
             .await;
-        let mark = cx.update(|cx| self.shell.read(cx).pdf().read(cx).sync_mark());
+        let (mark, top) = cx.update(|cx| {
+            let pdf = self.shell.read(cx).pdf().read(cx);
+            (pdf.sync_mark(), pdf.sync_mark_top())
+        });
         steps.check(
             "SyncTeX: the caret's line is found and marked in the PDF",
             marked && mark.is_some_and(|(page, _)| page == 0),
@@ -293,7 +307,7 @@ impl Run {
             landed && (1..=3).contains(&row),
             json!({ "at": center.map(|c| [f32::from(c.x), f32::from(c.y)]), "row": row + 1 }),
         );
-        Ok(())
+        Ok(top)
     }
 
     /// Autosave after a pause in typing; an outside edit reloads a clean

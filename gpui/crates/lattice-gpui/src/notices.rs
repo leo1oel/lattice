@@ -190,6 +190,15 @@ impl NoticeStack {
         self.shown.retain(|shown| shown.id != id);
         cx.notify();
     }
+
+    /// The titles of the notices showing, oldest first, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn titles(&self) -> Vec<SharedString> {
+        self.shown
+            .iter()
+            .map(|shown| shown.notice.title.clone())
+            .collect()
+    }
 }
 
 impl Render for NoticeStack {

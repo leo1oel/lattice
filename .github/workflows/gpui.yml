@@ -114,14 +114,20 @@ jobs:
             latexmk
       # --include-ignored runs the latexmk build test, which needs TeX.
       - run: cargo test --release --locked --workspace -- --include-ignored
+      # The scenario ends by quitting with text typed and not yet saved
+      # (its result's `after_quit`); once the app has exited, the file must
+      # hold that text.
       - name: e2e scenario
         timeout-minutes: 10
         run: |
           project="$RUNNER_TEMP/e2e-project"
+          out="$RUNNER_TEMP/e2e-macos.json"
           cp -R fixtures/e2e "$project"
-          target/release/lattice-gpui "$project" --scenario e2e --out "$RUNNER_TEMP/e2e-macos.json"
-          cat "$RUNNER_TEMP/e2e-macos.json"
-          jq -e '.passed == true' "$RUNNER_TEMP/e2e-macos.json" > /dev/null
+          target/release/lattice-gpui "$project" --scenario e2e --out "$out"
+          cat "$out"
+          jq -e '.passed == true' "$out" > /dev/null
+          file="$(jq -r '.after_quit.file' "$out")"
+          grep -qF "$(jq -r '.after_quit.text' "$out")" "$file" || { echo "quitting did not save $file"; exit 1; }
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
@@ -207,7 +213,11 @@ jobs:
             -NoNewWindow -PassThru
           if (-not $app.WaitForExit(600000)) { $app.Kill(); throw "the e2e scenario did not finish in 10 minutes" }
           Get-Content $out
-          if (-not (Get-Content $out -Raw | ConvertFrom-Json).passed) { throw "the e2e scenario failed" }
+          $result = Get-Content $out -Raw | ConvertFrom-Json
+          if (-not $result.passed) { throw "the e2e scenario failed" }
+          # As on macOS: the text typed just before the scenario quit is saved.
+          $quit = $result.after_quit
+          if (-not (Get-Content $quit.file -Raw).Contains($quit.text)) { throw "quitting did not save $($quit.file)" }
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:

@@ -175,6 +175,13 @@ impl PdfPanel {
         self.sync_mark.map(|mark| (mark.page, mark.scroll))
     }
 
+    /// The top of the last jump's mark on its page, in PDF points from the
+    /// page's top, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn sync_mark_top(&self) -> Option<f32> {
+        self.sync_mark.map(|mark| mark.y)
+    }
+
     /// The middle of the last jump's mark on screen, in window coordinates,
     /// for a scenario that double-clicks it.
     #[cfg(any(target_os = "macos", target_os = "windows"))]

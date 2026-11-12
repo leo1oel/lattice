@@ -141,7 +141,9 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 `e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
 
 - `e2e`: opens a project through `lattice-core`, builds, jumps from the caret to the PDF and back with a native double-click (SyncTeX), autosaves after a pause in typing (and builds), reloads an outside edit into a clean buffer and merges one made while the buffer holds edits, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs the file outside Lattice and rebuilds, creates, renames, moves and deletes a file in the tree, and drags an editor tab into the right dock with native mouse events.
-  It needs `chapters/intro.tex` in the project.
+  It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, and that closing the tab of a file deleted outside Lattice takes down its notice.
+  It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
+  It needs `chapters/intro.tex` and `references.bib` in the project.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
 - `memory`: `footprint` after opening the project, after opening `long.tex`, and after scrolling through the whole PDF.
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
