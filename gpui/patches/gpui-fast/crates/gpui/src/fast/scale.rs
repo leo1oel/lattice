@@ -245,7 +245,7 @@ impl Window {
     /// Call it around both an element's prepaint and its paint, as
     /// [`scaled`] does, so the views inside are cached for the transform
     /// they are drawn under.
-    pub fn with_element_transform<R>(
+    pub(crate) fn with_element_transform<R>(
         &mut self,
         scale: f32,
         origin: Point<Pixels>,
@@ -276,7 +276,8 @@ impl Window {
 
 /// Wraps `child` so that it paints scaled, about its center unless
 /// [`Scaled::origin`] says otherwise, and moved by [`Scaled::translate`].
-/// See [`Window::with_element_transform`].
+/// Only paint is transformed: layout and hit testing keep the child's
+/// untransformed geometry.
 ///
 /// ```ignore
 /// scaled(menu).scale(0.95).origin(point(0.5, 0.)) // grows from its top edge

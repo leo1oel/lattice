@@ -290,10 +290,10 @@ index f8df69f..9e16990 100644
      match operation {
 diff --git a/gpui-fast/crates/gpui/src/fast/scale.rs b/gpui-fast/crates/gpui/src/fast/scale.rs
 new file mode 100644
-index 0000000..9c5a367
+index 0000000..9a27f66
 --- /dev/null
 +++ b/gpui-fast/crates/gpui/src/fast/scale.rs
-@@ -0,0 +1,690 @@
+@@ -0,0 +1,691 @@
 +//! Uniform element scale: CSS's `transform: scale(s)` about a
 +//! `transform-origin`, for entrances that grow a popup in from 95%, with the
 +//! `translate()` that such an entrance pairs with it (a toast dropping in by
@@ -541,7 +541,7 @@ index 0000000..9c5a367
 +    /// Call it around both an element's prepaint and its paint, as
 +    /// [`scaled`] does, so the views inside are cached for the transform
 +    /// they are drawn under.
-+    pub fn with_element_transform<R>(
++    pub(crate) fn with_element_transform<R>(
 +        &mut self,
 +        scale: f32,
 +        origin: Point<Pixels>,
@@ -572,7 +572,8 @@ index 0000000..9c5a367
 +
 +/// Wraps `child` so that it paints scaled, about its center unless
 +/// [`Scaled::origin`] says otherwise, and moved by [`Scaled::translate`].
-+/// See [`Window::with_element_transform`].
++/// Only paint is transformed: layout and hit testing keep the child's
++/// untransformed geometry.
 +///
 +/// ```ignore
 +/// scaled(menu).scale(0.95).origin(point(0.5, 0.)) // grows from its top edge
