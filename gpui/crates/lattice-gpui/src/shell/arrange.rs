@@ -148,10 +148,12 @@ impl Shell {
         self.dock_area.read(cx).panel(panel).is_some() || self.floating.contains(panel)
     }
 
-    /// The arrangement on screen, floating panels left out.
+    /// The arrangement on screen, the floating panels with it.
     pub(crate) fn current_arrangement(&self, cx: &App) -> Arrangement {
         let area = self.dock_area.read(cx);
-        layout::read(area, &|panel| self.view_of(panel, cx))
+        let mut arrangement = layout::read(area, &|panel| self.view_of(panel, cx));
+        arrangement.floating = self.floating.records();
+        arrangement
     }
 
     /// Lay the window out as `arrangement`, with the window's own panels.
@@ -165,9 +167,6 @@ impl Shell {
         // from them. The handles are held until the dock holds them.
         let mut panels: HashMap<View, Arc<dyn BasePanelView>> = HashMap::new();
         for view in arrangement.views() {
-            if self.floating.contains_view(view) {
-                continue;
-            }
             if let Some(panel) = self.panel_of(view, window, cx) {
                 panels.insert(view.clone(), panel);
             }
@@ -216,6 +215,7 @@ impl Shell {
                 }
             }
         });
+        self.floating.set(&arrangement.floating, &panels, cx);
         drop(panels);
         self.layout.installing = false;
         self.refresh_dirty(cx);
@@ -335,23 +335,6 @@ impl Shell {
         self.install(&arrangement, window, cx);
     }
 
-    /// `arrangement` with the floating panels put back where their kinds
-    /// belong, as the project's layout keeps them.
-    pub(super) fn with_floating(&self, mut arrangement: Arrangement, cx: &App) -> Arrangement {
-        let mut views = self.floating.views().peekable();
-        if views.peek().is_none() {
-            return arrangement;
-        }
-        let area = self.dock_area.read(cx).bounds().size;
-        let home = Arrangement::default_for(layout::Room::for_area(area.width, area.height));
-        for view in views {
-            if !arrangement.contains(view) {
-                place_view(&mut arrangement, view.clone(), &home);
-            }
-        }
-        arrangement
-    }
-
     /// Take `view` off screen; its region closes when nothing is left in it.
     pub(crate) fn hide_view(&mut self, view: &View, window: &mut Window, cx: &mut Context<Self>) {
         if let View::File(key) = view
@@ -416,15 +399,6 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if let Some(floating) = self.floating.remove(panel) {
-            if let (View::File(key), Some(root)) = (&floating.view, &self.root) {
-                self.closed_tabs.push(root.join(key));
-            }
-            self.refresh_dirty(cx);
-            self.schedule_save(window, cx);
-            cx.notify();
-            return true;
-        }
         let Some(view) = self.view_of(panel, cx) else {
             return false;
         };

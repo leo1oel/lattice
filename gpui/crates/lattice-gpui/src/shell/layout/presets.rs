@@ -70,6 +70,7 @@ impl Preset {
                         open: true,
                     }),
                     bottom: None,
+                    floating: Vec::new(),
                 }
             }
             Preset::Reading => {
@@ -94,6 +95,7 @@ impl Preset {
                         left: None,
                         right: None,
                         bottom: None,
+                        floating: Vec::new(),
                     }
                 } else {
                     let note = active_view
@@ -118,6 +120,7 @@ impl Preset {
                         }),
                         right: None,
                         bottom: None,
+                        floating: Vec::new(),
                     }
                 }
             }
@@ -127,14 +130,19 @@ impl Preset {
 
 /// The project's own layout to return to from a preset, brought up to date
 /// (`returnLayout` in trellis-layout.ts): documents closed meanwhile stay
-/// closed, and documents opened meanwhile join the group holding the active
-/// document, else the first group holding a document.
+/// closed, panels floated meanwhile float, and documents opened meanwhile
+/// join the group holding the active document, else the first group holding
+/// a document.
 pub fn return_layout(previous: &Arrangement, current: &Arrangement) -> Arrangement {
     let open: Vec<String> = current.documents();
+    let floated: Vec<&View> = current.floating.iter().map(|f| &f.view).collect();
     let mut out = previous.clone();
-    let mut keep = |view: &View| match view {
-        View::File(path) => open.contains(path),
-        _ => true,
+    let mut keep = |view: &View| {
+        !floated.contains(&view)
+            && match view {
+                View::File(path) => open.contains(path),
+                _ => true,
+            }
     };
     out.center = std::mem::take(&mut out.center)
         .retain(&mut keep)
@@ -144,6 +152,8 @@ pub fn return_layout(previous: &Arrangement, current: &Arrangement) -> Arrangeme
             *dock = d.node.retain(&mut keep).map(|node| Dock { node, ..d });
         }
     }
+    out.floating.retain(|floating| keep(&floating.view));
+    out.floating.extend(current.floating.iter().cloned());
     for path in open {
         out.add_view(View::File(path), View::is_document);
     }
@@ -214,5 +224,27 @@ mod tests {
             }
         );
         assert_eq!(back.left, own.left);
+    }
+
+    #[test]
+    fn a_panel_floating_before_a_preset_floats_again_after_it() {
+        let mut own = Arrangement::default_for(room()).without(&View::Pdf);
+        own.center = Node::tabs([file("main.tex")]);
+        let pdf = super::super::FloatingView {
+            view: View::Pdf,
+            x: 600.,
+            y: 72.,
+            width: 420.,
+            height: 480.,
+        };
+        own.floating.push(pdf.clone());
+        let writing = Preset::Writing.arrange(&own, Some("main.tex"), room());
+        assert!(writing.floating.is_empty());
+        assert!(writing.right.as_ref().is_some_and(|dock| dock.node.views() == [&View::Pdf]));
+
+        let back = return_layout(&own, &writing);
+        assert_eq!(back.floating, vec![pdf]);
+        assert!(back.right.is_none());
+        assert_eq!(back.documents(), vec!["main.tex".to_string()]);
     }
 }

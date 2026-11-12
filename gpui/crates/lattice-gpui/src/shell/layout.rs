@@ -291,6 +291,20 @@ pub struct Arrangement {
     pub right: Option<Dock>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom: Option<Dock>,
+    /// Panels floating over the workspace, frontmost last.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub floating: Vec<FloatingView>,
+}
+
+/// A panel floating over the workspace, and where it stands within the
+/// workspace area.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FloatingView {
+    pub view: View,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Default for Node {
@@ -312,15 +326,6 @@ impl Room {
         Room {
             width: f32::from(width),
             height: f32::from(height),
-        }
-    }
-
-    /// The room around a dock area `width` by `height`: the inverse of
-    /// [`Room::area`] and [`Room::column`].
-    pub fn for_area(width: Pixels, height: Pixels) -> Room {
-        Room {
-            width: f32::from(width) + 18.,
-            height: f32::from(height) + 40. + 3. + 9.,
         }
     }
 
@@ -367,6 +372,7 @@ impl Arrangement {
                 open: true,
             }),
             bottom: None,
+            floating: Vec::new(),
         }
     }
 
@@ -394,6 +400,7 @@ impl Arrangement {
                 out.extend(dock.node.views());
             }
         }
+        out.extend(self.floating.iter().map(|floating| &floating.view));
         out
     }
 
@@ -407,6 +414,7 @@ impl Arrangement {
         for node in out.nodes_mut() {
             *node = node.as_arrangement();
         }
+        out.floating.retain(|floating| !floating.view.is_document());
         if !out.contains(&View::Documents) {
             // Somewhere for documents to go: the center.
             out.center = Node::tabs([View::Documents]);
@@ -429,6 +437,15 @@ impl Arrangement {
                 ));
                 dock.node.shape(&mut out);
             }
+        }
+        if !arrangement.floating.is_empty() {
+            let mut floating: Vec<String> = arrangement
+                .floating
+                .iter()
+                .map(|floating| format!("{:?}", floating.view))
+                .collect();
+            floating.sort();
+            out.push_str(&format!(";floating:{}", floating.join(",")));
         }
         out
     }
@@ -502,6 +519,7 @@ impl Arrangement {
     /// The arrangement without `view`.
     pub fn without(&self, view: &View) -> Arrangement {
         let mut out = self.clone();
+        out.floating.retain(|floating| floating.view != *view);
         let mut keep = |v: &View| v != view;
         out.center = std::mem::take(&mut out.center)
             .retain(&mut keep)
@@ -701,6 +719,52 @@ mod tests {
     #[test]
     fn an_arrangement_round_trips_through_json() {
         let layout = Arrangement::default_for(room());
+        let json = serde_json::to_string(&layout).unwrap();
+        assert_eq!(serde_json::from_str::<Arrangement>(&json).unwrap(), layout);
+    }
+
+    fn floating(view: View) -> FloatingView {
+        FloatingView {
+            view,
+            x: 600.,
+            y: 72.,
+            width: 420.,
+            height: 480.,
+        }
+    }
+
+    #[test]
+    fn a_floating_panel_differs_from_its_workspace_until_reverted() {
+        let workspace = Arrangement::default_for(room()).as_workspace();
+        let documents = vec!["main.tex".to_string()];
+        let project = workspace.with_documents(&documents, Some("main.tex"), &BTreeMap::new());
+        assert_eq!(project.shape(), workspace.shape());
+
+        let mut floated = project.without(&View::Pdf);
+        floated.floating.push(floating(View::Pdf));
+        assert_ne!(floated.shape(), workspace.shape());
+
+        // Revert: the workspace as saved, the project's documents in it.
+        let reverted =
+            workspace.with_documents(&floated.documents(), Some("main.tex"), &floated.places());
+        assert!(reverted.floating.is_empty());
+        assert!(reverted.right.as_ref().is_some_and(|dock| dock.node.views() == [&View::Pdf]));
+        assert_eq!(reverted.shape(), workspace.shape());
+    }
+
+    #[test]
+    fn a_workspace_keeps_floating_panels_but_not_floating_documents() {
+        let mut project = Arrangement::default_for(room()).without(&View::Pdf);
+        project.floating = vec![floating(View::Pdf), floating(file("notes.md"))];
+        let workspace = project.as_workspace();
+        assert_eq!(workspace.floating, vec![floating(View::Pdf)]);
+        assert_eq!(project.documents(), vec!["notes.md".to_string()]);
+    }
+
+    #[test]
+    fn a_layout_with_floating_panels_is_saved_and_read_back() {
+        let mut layout = Arrangement::default_for(room()).without(&View::Agent);
+        layout.floating.push(floating(View::Agent));
         let json = serde_json::to_string(&layout).unwrap();
         assert_eq!(serde_json::from_str::<Arrangement>(&json).unwrap(), layout);
     }

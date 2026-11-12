@@ -20,7 +20,7 @@ const SAVE_DELAY: Duration = Duration::from_millis(400);
 impl Shell {
     /// The project's own layout: the one on screen, or under a preset or
     /// focus mode the one they keep to return to, holding the documents open
-    /// now and the floating panels where their kinds belong.
+    /// and the panels floating now.
     fn own_arrangement(&self, cx: &App) -> Arrangement {
         let mut own = self.current_arrangement(cx);
         if let Some(previous) = &self.layout.focus {
@@ -29,7 +29,7 @@ impl Shell {
         if let Some(preset) = &self.layout.preset {
             own = layout::return_layout(&preset.previous, &own);
         }
-        self.with_floating(own, cx)
+        own
     }
 
     /// The workspace's saved arrangement, or the default for a workspace

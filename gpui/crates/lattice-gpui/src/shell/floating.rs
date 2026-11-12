@@ -5,10 +5,10 @@
 //! its 40px strip, moved by its strip and resized from its corner. Dock (the
 //! same menu item) puts it back where its kind belongs.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use gpui::{
-    AnyElement, AnyView, AppContext as _, Bounds, Context, Empty, InteractiveElement as _,
+    AnyElement, AnyView, App, AppContext as _, Bounds, Context, Empty, InteractiveElement as _,
     IntoElement, ParentElement as _, Pixels, Point, Render, StatefulInteractiveElement as _,
     StyleRefinement, Styled as _, Window, div, point, px, size,
 };
@@ -23,7 +23,10 @@ use lattice_ui::{
     icons::{ICON, file_glyph},
 };
 
-use super::{Shell, layout::View};
+use super::{
+    Shell,
+    layout::{FloatingView, View},
+};
 
 /// A new floating panel's size, and how far from the workspace's corner it
 /// first stands.
@@ -53,12 +56,43 @@ impl FloatingLayer {
             .any(|floating| floating.panel_id() == panel)
     }
 
-    pub fn views(&self) -> impl Iterator<Item = &View> {
-        self.panels.iter().map(|floating| &floating.view)
+    /// The floating panels as an arrangement records them.
+    pub fn records(&self) -> Vec<FloatingView> {
+        self.panels
+            .iter()
+            .map(|floating| FloatingView {
+                view: floating.view.clone(),
+                x: f32::from(floating.bounds.origin.x),
+                y: f32::from(floating.bounds.origin.y),
+                width: f32::from(floating.bounds.size.width),
+                height: f32::from(floating.bounds.size.height),
+            })
+            .collect()
     }
 
-    pub fn contains_view(&self, view: &View) -> bool {
-        self.panels.iter().any(|floating| floating.view == *view)
+    /// Float exactly the panels `records` lists, at their bounds, with the
+    /// window's panels for their views.
+    pub fn set(
+        &mut self,
+        records: &[FloatingView],
+        panels: &HashMap<View, Arc<dyn BasePanelView>>,
+        cx: &App,
+    ) {
+        self.panels = records
+            .iter()
+            .filter_map(|record| {
+                let panel = panels.get(&record.view)?.clone();
+                Some(FloatingPanel {
+                    id: panel.panel_id(cx),
+                    panel,
+                    view: record.view.clone(),
+                    bounds: Bounds {
+                        origin: point(px(record.x), px(record.y)),
+                        size: size(px(record.width), px(record.height)),
+                    },
+                })
+            })
+            .collect();
     }
 
     pub fn remove(&mut self, panel: PanelId) -> Option<FloatingPanel> {
@@ -237,7 +271,7 @@ impl FloatingPanel {
             })
             .on_drag_move::<MoveDrag>({
                 let weak = weak.clone();
-                move |event, _, cx| {
+                move |event, window, cx| {
                     let drag = event.drag(cx).clone();
                     if drag.panel != id {
                         return;
@@ -245,6 +279,7 @@ impl FloatingPanel {
                     let position = event.event.position;
                     weak.update(cx, |shell, cx| {
                         shell.move_floating(id, position, drag.grab);
+                        shell.schedule_save(window, cx);
                         cx.notify();
                     })
                     .ok();
@@ -252,13 +287,14 @@ impl FloatingPanel {
             })
             .on_drag_move::<ResizeDrag>({
                 let weak = weak.clone();
-                move |event, _, cx| {
+                move |event, window, cx| {
                     if event.drag(cx).panel != id {
                         return;
                     }
                     let position = event.event.position;
                     weak.update(cx, |shell, cx| {
                         shell.resize_floating(id, position);
+                        shell.schedule_save(window, cx);
                         cx.notify();
                     })
                     .ok();
@@ -306,9 +342,9 @@ impl Shell {
         let Some(view) = self.view_of(panel, cx) else {
             return;
         };
-        let Some(handle) = self.dock_area.read(cx).panel(panel).cloned() else {
+        if self.dock_area.read(cx).panel(panel).is_none() {
             return;
-        };
+        }
         let area = self.dock_area.read(cx).bounds();
         let width = px(FLOAT_SIZE.0)
             .min(area.size.width - px(2. * FLOAT_OFFSET))
@@ -317,17 +353,14 @@ impl Shell {
             .min(area.size.height - px(FLOAT_OFFSET))
             .max(px(MIN_SIZE.1));
         let offset = px(FLOAT_OFFSET + 24. * self.floating.panels.len() as f32);
-        let bounds = Bounds {
-            origin: point(area.size.width - width - offset, offset),
-            size: size(width, height),
-        };
-        self.floating.panels.push(FloatingPanel {
-            id: panel,
-            panel: handle,
-            view: view.clone(),
-            bounds,
+        let mut arrangement = self.current_arrangement(cx).without(&view);
+        arrangement.floating.push(FloatingView {
+            view,
+            x: f32::from(area.size.width - width - offset),
+            y: f32::from(offset),
+            width: f32::from(width),
+            height: f32::from(height),
         });
-        let arrangement = self.current_arrangement(cx).without(&view);
         self.install(&arrangement, window, cx);
     }
 

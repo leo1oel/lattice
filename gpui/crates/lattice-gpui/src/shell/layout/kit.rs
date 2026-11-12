@@ -29,6 +29,7 @@ pub fn read(area: &DockArea, view_of: &impl Fn(PanelId) -> Option<View>) -> Arra
         left: dock_of(DockPlacement::Left),
         right: dock_of(DockPlacement::Right),
         bottom: dock_of(DockPlacement::Bottom),
+        floating: Vec::new(),
     }
 }
 

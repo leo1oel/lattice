@@ -50,7 +50,7 @@ fn menus() -> Vec<Menu> {
             MenuItem::action("Open Folder…", OpenFolder),
             MenuItem::action("Open in New Window", OpenInNewWindow),
             MenuItem::separator(),
-            MenuItem::action("Save", Save),
+            MenuItem::action("Save and Build", Save),
             MenuItem::action("Build", Build),
             MenuItem::separator(),
             MenuItem::action("Close Tab", CloseTab),
