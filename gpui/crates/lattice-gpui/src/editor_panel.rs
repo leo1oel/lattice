@@ -343,11 +343,13 @@ impl EditorPanel {
     }
 
     /// The adapter the LaTeX extensions decorate the editor through.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn lattice_editor(&self) -> &Entity<LatticeEditor> {
         &self.lattice
     }
 
     /// TexLab's diagnostics for this file, when it is a `.tex` source.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn texlab_diagnostics(&self) -> Option<&Entity<TexlabDiagnostics>> {
         self.diagnostics.as_ref()
     }

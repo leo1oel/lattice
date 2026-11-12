@@ -29,6 +29,10 @@ const CARD_GAP: Pixels = px(4.);
 const TARGET_MARGIN: Pixels = px(4.);
 /// The room a card leaves to the editor's edges (`createHoverCard`'s 16px).
 const CARD_MARGIN: Pixels = px(16.);
+/// How far inside the editor a card stays (`citationTooltipSpace`'s inset).
+const CARD_INSET: Pixels = px(8.);
+/// A card's width before it has been laid out: the cards' 360px.
+const CARD_WIDTH: Pixels = px(360.);
 
 /// A target in the buffer, anchored so it follows edits until it closes.
 #[derive(Clone)]
@@ -357,6 +361,24 @@ impl LatticeEditor {
             editor: cx.weak_entity(),
             max_width: (bounds.size.width - CARD_MARGIN).max(px(160.)),
             text: self.buffer.read(cx).snapshot(),
+        };
+        // The card stays inside the editor, as the Tauri app's tooltip space
+        // keeps it: shifted left from its target when it would cross the
+        // editor's right edge. Its width is last frame's; a card's first
+        // frame is the transparent start of its entrance.
+        let width = self
+            .painted
+            .borrow()
+            .card
+            .map_or(CARD_WIDTH, |card| card.size.width)
+            .min(context.max_width);
+        let left = rect
+            .left()
+            .min(bounds.right() - CARD_INSET - width)
+            .max(bounds.left() + CARD_INSET);
+        let rect = Bounds {
+            origin: point(left, rect.top()),
+            size: rect.size,
         };
         let card = (target.card)(&context, window, cx);
         let id = SharedString::from(format!("lattice-hover-{}", target.id));
