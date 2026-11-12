@@ -115,10 +115,19 @@ impl PdfPanel {
                 view.set_action(Some(open_in_window()), cx);
             }
         });
-        let subscription = cx.subscribe_in(&view, window, Self::on_view_event);
+        let subscriptions = vec![
+            cx.subscribe_in(&view, window, Self::on_view_event),
+            // A window that goes with its panel (the workspace closing) keeps
+            // the project's choice.
+            cx.on_release(|this, cx| {
+                if let Some((handle, _)) = this.window.take() {
+                    window::close(handle, this.project.as_deref(), cx);
+                }
+            }),
+        ];
         let label = match &kind {
             PdfPanelKind::Live => "PDF".into(),
-            PdfPanelKind::Root(document) => pdf_tab_label(document, &[]).into(),
+            PdfPanelKind::Root(_) => SharedString::default(),
             PdfPanelKind::File(path) => path
                 .file_name()
                 .map(|name| name.to_string_lossy().to_string())
@@ -137,7 +146,7 @@ impl PdfPanel {
             building: false,
             title: "PDF".into(),
             outline: None,
-            _subscriptions: vec![subscription],
+            _subscriptions: subscriptions,
         }
     }
 
@@ -284,7 +293,13 @@ impl PdfPanel {
         }
     }
 
-    pub fn set_window_title(&mut self, title: SharedString) {
+    /// The separate window's title, now and for when it opens.
+    pub fn set_window_title(&mut self, title: SharedString, cx: &mut App) {
+        if let Some((handle, _)) = &self.window {
+            handle
+                .update(cx, |_, window, _| window.set_window_title(&title))
+                .ok();
+        }
         self.title = title;
     }
 

@@ -495,7 +495,7 @@ fn page_text(open: &mut Open, index: usize) -> Result<Arc<PageText>> {
                 return local.destination().ok().and_then(place);
             }
             let uri = action.as_uri_action()?.uri().ok()?;
-            (!uri.is_empty()).then_some(LinkTarget::Uri(uri))
+            super::text::openable_uri(&uri).then_some(LinkTarget::Uri(uri))
         });
         let Some(target) = target else {
             continue;

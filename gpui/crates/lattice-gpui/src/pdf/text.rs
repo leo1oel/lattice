@@ -49,6 +49,18 @@ pub enum LinkTarget {
     Uri(String),
 }
 
+/// Whether a link's address may be opened: http, https, mailto and tel, the
+/// Tauri app's opener scope (`opener:allow-default-urls`). Anything else (a
+/// file, an app's own scheme) would launch whatever handles it.
+pub fn openable_uri(uri: &str) -> bool {
+    ["http://", "https://", "mailto:", "tel:"]
+        .iter()
+        .any(|scheme| {
+            uri.get(..scheme.len())
+                .is_some_and(|start| start.eq_ignore_ascii_case(scheme))
+        })
+}
+
 /// A link's box on its page, in PDF points from the top-left corner.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Link {
@@ -277,6 +289,27 @@ impl Selection {
 #[cfg(test)]
 pub(super) mod tests {
     use super::*;
+
+    #[test]
+    fn only_web_mail_and_phone_links_open() {
+        for uri in [
+            "https://arxiv.org/abs/1706.03762",
+            "HTTP://example.com",
+            "mailto:someone@example.com",
+            "tel:+15551234567",
+        ] {
+            assert!(openable_uri(uri), "{uri}");
+        }
+        for uri in [
+            "file:///Applications/Utilities/Terminal.app",
+            "javascript:alert(1)",
+            "x-apple-systempreferences:com.apple.preference.security",
+            "httpx://example.com",
+            "",
+        ] {
+            assert!(!openable_uri(uri), "{uri}");
+        }
+    }
 
     /// A page of `lines`, each 10pt tall, glyphs 5pt wide, a generated line
     /// end after each line but the last.

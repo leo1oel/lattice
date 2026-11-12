@@ -207,7 +207,7 @@ impl Shell {
             self.project_name(cx)
         );
         self.pdf
-            .update(cx, |panel, _| panel.set_window_title(title.into()));
+            .update(cx, |panel, cx| panel.set_window_title(title.into(), cx));
     }
 
     /// A root document's tab or a PDF file the reader closed is let go of:

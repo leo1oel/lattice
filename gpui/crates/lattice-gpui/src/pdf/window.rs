@@ -93,11 +93,15 @@ impl PdfWindow {
                 });
                 let subscription = cx.subscribe_in(&view, window, {
                     let owner = owner.clone();
-                    move |_, _, event: &PdfViewEvent, _, cx| {
+                    move |_, _, event: &PdfViewEvent, window, cx| {
                         let owner = owner.clone();
                         match event {
                             // Return to workspace: the panel takes the PDF
-                            // back and closes the window.
+                            // back and closes the window; without its panel,
+                            // the window just closes.
+                            PdfViewEvent::Action if owner.upgrade().is_none() => {
+                                window.remove_window()
+                            }
                             PdfViewEvent::Action => with_owner(&owner, cx, |panel, window, cx| {
                                 panel.dock(true, window, cx)
                             }),
