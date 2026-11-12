@@ -80,12 +80,49 @@ pub struct TitlebarDrag {
 
 /// The titlebar's measured groups, in window coordinates: where the left
 /// group ends when its workspaces are unfolded (and folded), and where the
-/// tools begin.
+/// tools begin; and what the unfolded left group drew when it was measured.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Room {
     left_unfolded: Option<f32>,
     left_folded: Option<f32>,
     tools_start: Option<f32>,
+    drawn: u64,
+}
+
+impl Room {
+    /// Folded, the left group's unfolded width is not measured again, so a
+    /// change to what it would draw forgets that width: the next frame
+    /// unfolds and measures it afresh.
+    fn redrawn(self, drawn: u64) -> Room {
+        if drawn == self.drawn {
+            return self;
+        }
+        Room {
+            left_unfolded: None,
+            drawn,
+            ..self
+        }
+    }
+}
+
+/// What the unfolded left group's width depends on: the project switcher or
+/// tabs, the workspaces' names and the dot on a workspace that differs.
+fn left_group_drawn<'a>(
+    projects: impl IntoIterator<Item = &'a str>,
+    workspaces: impl IntoIterator<Item = &'a str>,
+    dirty: bool,
+) -> u64 {
+    use std::hash::{Hash as _, Hasher as _};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for project in projects {
+        project.hash(&mut hasher);
+    }
+    0xff_u8.hash(&mut hasher);
+    for workspace in workspaces {
+        workspace.hash(&mut hasher);
+    }
+    dirty.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// How far the titlebar folds: 0 none, 1 the search field to its icon, 2 the
@@ -190,7 +227,24 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     }
 
     let room_cell = shell.titlebar_drag().room.clone();
-    let room = room_cell.get();
+    let project_name = shell.project_name(cx);
+    let drawn = {
+        let workspaces = Workspaces::global(cx).list();
+        let projects: Vec<&str> = if shell.projects.len() < 2 {
+            vec![project_name.as_ref()]
+        } else {
+            std::iter::once(project_name.as_ref())
+                .chain(shell.projects.iter().map(|open| open.name.as_ref()))
+                .collect()
+        };
+        left_group_drawn(
+            projects,
+            workspaces.iter().map(|entry| entry.name.as_str()),
+            shell.layout.dirty,
+        )
+    };
+    let room = room_cell.get().redrawn(drawn);
+    room_cell.set(room);
     let width = f32::from(window.viewport_size().width);
     let folds = folds(room, width);
 
@@ -623,6 +677,7 @@ mod tests {
             left_unfolded: Some(left),
             left_folded: Some(left - 60.),
             tools_start: Some(tools),
+            drawn: 0,
         }
     }
 
@@ -648,6 +703,35 @@ mod tests {
     fn short_of_room_the_search_folds_then_the_workspaces() {
         assert_eq!(folds(room(513., 700.), 900.), 1);
         assert_eq!(folds(room(513., 540.), 760.), 2);
+    }
+
+    #[test]
+    fn folded_workspaces_unfold_to_measure_again_once_the_group_changes() {
+        // Five workspaces fold in a narrow window; deleting three, closing a
+        // project tab or renaming one must not leave the old, wider unfolded
+        // width deciding the fold, or the switch stays folded for good.
+        let five = left_group_drawn(["paper"], ["A", "B", "C", "D", "E"], false);
+        let folded = Room {
+            drawn: five,
+            ..room(513., 540.)
+        };
+        assert_eq!(folds(folded, 760.), 2);
+        assert_eq!(folds(folded.redrawn(five), 760.), 2);
+        let two = left_group_drawn(["paper"], ["A", "B"], false);
+        assert_eq!(folds(folded.redrawn(two), 760.), 0);
+        let one_tab = left_group_drawn(
+            ["paper", "paper", "notes"],
+            ["A", "B", "C", "D", "E"],
+            false,
+        );
+        assert_ne!(one_tab, five);
+        let renamed = left_group_drawn(["paper"], ["A", "B", "C", "D", "Eve"], false);
+        assert_ne!(renamed, five);
+        assert_ne!(
+            left_group_drawn(["paper"], ["A", "B", "C", "D", "E"], true),
+            five
+        );
+        assert_eq!(folded.redrawn(two).tools_start, folded.tools_start);
     }
 
     #[test]
