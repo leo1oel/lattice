@@ -4,8 +4,9 @@
 //! missing-package install, clean and clean rebuild, stopping a build that
 //! loops, the TeX doctor, the setup wizard and the manuscript word count.
 //!
-//! The installers are lattice-core's stand-in (`StubTexSetup`): nothing here
-//! runs a real install or anything privileged.
+//! lattice-core's doctor and installers are replaced by a stand-in
+//! (`tex_setup::backend::StubTexSetup`): nothing here runs a real install or
+//! anything privileged.
 //!
 //! On macOS, `LATTICE_E2E_SHOTS=DIR` saves each surface as it shows (the
 //! Build button's card, the diagnostics card, the package chooser, the TeX
