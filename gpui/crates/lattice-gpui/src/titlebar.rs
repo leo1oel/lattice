@@ -301,7 +301,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
 
 /// The project switcher, or one tab per project once the window holds two.
 fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
-    let switcher = ToolbarButton::new("project-switcher", shell.project_name())
+    let switcher = ToolbarButton::new("project-switcher", shell.project_name(cx))
         .switcher()
         .max_w(px(260.))
         .parity("titlebar/project")
@@ -317,7 +317,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
             .into_any_element();
     }
     let palette = cx.palette().clone();
-    let active = shell.root().cloned();
+    let active = shell.root(cx);
     let tabs = shell.projects.iter().enumerate().map(|(ix, root)| {
         let current = Some(root) == active.as_ref();
         let name = project_display_name(root);
@@ -330,7 +330,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
         let menu_weak = weak.clone();
         let group: gpui::SharedString = format!("project-tab-{ix}").into();
         let body: AnyElement = if current {
-            div().child(switcher_for(shell)).into_any_element()
+            div().child(switcher_for(shell, cx)).into_any_element()
         } else {
             div()
                 .id(("project-tab-name", ix))
@@ -431,8 +431,8 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
         .into_any_element()
 }
 
-fn switcher_for(shell: &Shell) -> impl IntoElement {
-    ToolbarButton::new("project-switcher", shell.project_name())
+fn switcher_for(shell: &Shell, cx: &gpui::App) -> impl IntoElement {
+    ToolbarButton::new("project-switcher", shell.project_name(cx))
         .switcher()
         .max_w(px(220.))
         .parity("titlebar/project")
@@ -571,7 +571,7 @@ fn focus_bar(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> imp
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or(path)
         })
-        .unwrap_or_else(|| shell.project_name().to_string());
+        .unwrap_or_else(|| shell.project_name(cx).to_string());
     let keys = keys_label(&ToggleFocusMode, window);
     div()
         .flex()

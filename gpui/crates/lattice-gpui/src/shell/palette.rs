@@ -100,7 +100,7 @@ impl CommandPaletteView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let in_project = shell.root.is_some();
+        let in_project = shell.project.is_some();
         let input = cx.new(|cx| {
             InputState::new(window, cx).placeholder(if in_project {
                 "Search commands and files…"
@@ -126,7 +126,11 @@ impl CommandPaletteView {
                 keywords: command.keywords,
             })
             .collect::<Vec<_>>();
-        let files = shell.root.as_deref().map(project_files).unwrap_or_default();
+        let files = shell
+            .root(cx)
+            .as_deref()
+            .map(project_files)
+            .unwrap_or_default();
         let mut this = Self {
             shell: weak,
             input,
@@ -692,7 +696,7 @@ impl Shell {
         self.shortcuts = None;
         // Back to the document in front, where the keyboard was.
         if let Some(active) = self.active_document(cx)
-            && let Some(root) = self.root.clone()
+            && let Some(root) = self.root(cx)
             && let Some(editor) = self.open_editor(&root.join(active), cx)
         {
             window.focus(&editor.read(cx).editor().focus_handle(cx), cx);

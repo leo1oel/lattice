@@ -19,6 +19,7 @@ actions!(
         OpenFolder,
         Build,
         Save,
+        ForwardSync,
         ToggleVimMode,
         ToggleProjectPanel,
         TogglePapersPanel,
@@ -200,6 +201,12 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Build,
         ));
         out.push(Command::new("save", "Save and build", Section::Build, Save).keys_only());
+        out.push(Command::new(
+            "reveal-cursor",
+            "Reveal cursor in PDF",
+            Section::Build,
+            ForwardSync,
+        ));
         out.push(Command::new(
             "build-panel",
             "Show or hide the build log",
@@ -469,6 +476,7 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("b"), Build, beside_vim("!VimControl")),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
+        KeyBinding::new(m!("shift-j"), ForwardSync, None),
         // ⌘K last: the later binding is the one menus and keycaps show.
         KeyBinding::new(m!("shift-p"), CommandPalette, None),
         KeyBinding::new(

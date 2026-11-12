@@ -30,7 +30,7 @@ impl Run {
     /// meter runs, click a line and type with 110 ms between keys, then read
     /// the process footprint.
     pub(super) async fn perf(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let root = self.root(cx)?;
+        let root = self.root(cx).await?;
         sleep(cx, Duration::from_millis(1500)).await;
         let active_at_start = self.with_window(cx, |_, window, _| window.is_window_active())?;
 
@@ -157,7 +157,7 @@ impl Run {
     /// (marked `ni`, `nih`, …, `nihao`, then the commit), made directly on the
     /// view, so the result does not depend on focus or on the IME process.
     pub(super) async fn ime_protocol(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let root = self.root(cx)?;
+        let root = self.root(cx).await?;
         let scratch = root.join("ime-protocol-check.tex");
         std::fs::write(&scratch, "x\n")?;
         let editor = self.open(cx, &scratch, Some(1))?;
@@ -200,7 +200,7 @@ impl Run {
     /// Footprint at each stage of a session, to attribute memory: the project
     /// with its PDF, then `long.tex` open, then the PDF scrolled to its end.
     pub(super) async fn memory(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let root = self.root(cx)?;
+        let root = self.root(cx).await?;
         let mut stages = Vec::new();
         sleep(cx, Duration::from_secs(4)).await;
         stages.push(json!({ "stage": "project open, main.tex and main.pdf shown", "memory": footprint_summary() }));
@@ -235,7 +235,7 @@ impl Run {
             "com.apple.inputmethod.SCIM.ITABC",
             "com.sogou.inputmethod.sogou.pinyin",
         ];
-        let root = self.root(cx)?;
+        let root = self.root(cx).await?;
         let scratch = root.join("ime-check.tex");
         std::fs::write(&scratch, "")?;
         let editor = self.open(cx, &scratch, Some(1))?;

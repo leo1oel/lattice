@@ -97,12 +97,12 @@ impl Shell {
         if is(self.build_panel.entity_id()) {
             return Some(View::Build);
         }
-        let root = self.root.as_deref()?;
+        let root = self.root(cx)?;
         self.editors
             .iter()
             .filter_map(gpui::WeakEntity::upgrade)
             .find(|editor| is(editor.entity_id()))
-            .map(|editor| View::File(layout::document_key(root, editor.read(cx).path())))
+            .map(|editor| View::File(layout::document_key(&root, editor.read(cx).path())))
     }
 
     /// The panel a singleton view stands for (Project, Papers, the Agent,
@@ -133,7 +133,7 @@ impl Shell {
             View::Pdf => panel_handle(self.pdf.clone()),
             View::Build => panel_handle(self.build_panel.clone()),
             View::File(key) => {
-                let path = self.root.as_ref()?.join(key);
+                let path = self.root(cx)?.join(key);
                 if !path.is_file() {
                     return None;
                 }
@@ -280,7 +280,7 @@ impl Shell {
                         };
                         if view.view().downcast::<EditorPanel>().is_ok() {
                             first.get_or_insert(node.id());
-                            if self.focused_document == Some(*panel) {
+                            if self.active_editor_panel() == Some(*panel) {
                                 focused = Some(node.id());
                             }
                         }
@@ -339,7 +339,7 @@ impl Shell {
     /// Take `view` off screen; its region closes when nothing is left in it.
     pub(crate) fn hide_view(&mut self, view: &View, window: &mut Window, cx: &mut Context<Self>) {
         if let View::File(key) = view
-            && let Some(root) = &self.root
+            && let Some(root) = self.root(cx)
         {
             self.closed_tabs.push(root.join(key));
         }
@@ -448,7 +448,7 @@ impl Shell {
     /// The Project tree marks the document in front, whichever tab brought
     /// it there.
     pub(super) fn follow_active_document(&mut self, cx: &mut Context<Self>) {
-        let (Some(root), Some(active)) = (self.root.clone(), self.active_document(cx)) else {
+        let (Some(root), Some(active)) = (self.root(cx), self.active_document(cx)) else {
             return;
         };
         let path = root.join(active);
@@ -460,7 +460,7 @@ impl Shell {
     /// last focused, else that editor while it is on screen (floating, or
     /// behind another tab), else the first group's selected one.
     pub(crate) fn active_document(&self, cx: &App) -> Option<String> {
-        let root = self.root.as_deref()?;
+        let root = self.root(cx)?;
         let area = self.dock_area.read(cx);
         let mut focused = None;
         let mut first = None;
@@ -478,10 +478,10 @@ impl Shell {
                     && let Some(panel) = panels.get(active_ix).and_then(|id| area.panel(*id))
                     && let Ok(editor) = panel.view().downcast::<EditorPanel>()
                 {
-                    let key = || layout::document_key(root, editor.read(cx).path());
+                    let key = || layout::document_key(&root, editor.read(cx).path());
                     if focused.is_none()
                         && self
-                            .focused_document
+                            .active_editor_panel()
                             .is_some_and(|focused| panels.contains(&focused))
                     {
                         focused = Some(key());
@@ -495,10 +495,16 @@ impl Shell {
         focused.or_else(|| self.last_focused_document(cx)).or(first)
     }
 
+    /// The panel of the editor the writer was last in.
+    fn active_editor_panel(&self) -> Option<PanelId> {
+        self.active_editor()
+            .map(|editor| PanelId::from(editor.entity_id()))
+    }
+
     /// The editor last focused, while it is on screen: in a dock or floating.
     fn last_focused_document(&self, cx: &App) -> Option<String> {
         let panel = self
-            .focused_document
+            .active_editor_panel()
             .filter(|panel| self.panel_shown(*panel, cx))?;
         match self.view_of(panel, cx)? {
             View::File(key) => Some(key),
@@ -630,7 +636,7 @@ pub(super) fn empty_center(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement
         .dock_size(DockPlacement::Right)
         .filter(|_| area.is_dock_open(DockPlacement::Right))
         .unwrap_or_default();
-    let message = if shell.root.is_some() {
+    let message = if shell.project.is_some() {
         "Open a file from Project to start writing"
     } else {
         "Open a LaTeX project folder to start"

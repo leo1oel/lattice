@@ -2,10 +2,12 @@
 //! writing flow (macOS and Windows), and the measurements the pass criteria
 //! ask for (macOS).
 //!
-//! `lattice-gpui PROJECT --scenario e2e|perf|memory|ime|ime-protocol|shot|parity --out RESULT.json`
+//! `lattice-gpui PROJECT --scenario e2e|shell|perf|memory|ime|ime-protocol|shot|parity --out RESULT.json`
 
 use std::{
+    cell::Cell,
     path::{Path, PathBuf},
+    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -127,13 +129,65 @@ impl Run {
             if cx.update(|cx| done(&shell, cx)) {
                 return true;
             }
+            self.pump_frame(cx);
             sleep(cx, Duration::from_millis(50)).await;
         }
         false
     }
 
-    fn root(&self, cx: &mut AsyncApp) -> Result<PathBuf> {
-        cx.update(|cx| self.shell.read(cx).root().cloned())
+    /// Wait `duration`, drawing frames meanwhile (`pump_frame`).
+    async fn pause(&self, cx: &mut AsyncApp, duration: Duration) {
+        let started = Instant::now();
+        while started.elapsed() < duration {
+            self.pump_frame(cx);
+            sleep(cx, Duration::from_millis(50).min(duration)).await;
+        }
+    }
+
+    /// Draw a frame now, in a build with `offscreen-shots`: a window on a
+    /// locked screen gets none from the display, and some of what a scenario
+    /// checks waits for one (the tree's rename field takes focus once its
+    /// row is drawn). A window on screen draws its own, so this does nothing
+    /// in other builds.
+    fn pump_frame(&self, _cx: &mut AsyncApp) {
+        #[cfg(feature = "offscreen-shots")]
+        self.with_window(_cx, |_, window, cx| {
+            window.refresh();
+            let _ = window.draw(cx);
+            window.simulate_next_frame(cx);
+        })
+        .ok();
+    }
+
+    /// Wait until the window has drawn a frame from now on, as native
+    /// pointer input needs: it lands on the hitboxes of the last frame drawn,
+    /// and a dock rebuilt since (a tab closed, the layout reset) has replaced
+    /// the groups those name, so a drop on them moves nothing. The window
+    /// draws the frame itself (`pump_frame` draws it in an `offscreen-shots`
+    /// build); a locked screen draws none, which the false return records.
+    async fn drawn_frame(&self, cx: &mut AsyncApp) -> bool {
+        let drawn = Rc::new(Cell::new(false));
+        let flag = drawn.clone();
+        let asked = self.with_window(cx, move |_, window, _| {
+            window.refresh();
+            // Run as the frame starts; the frame is drawn in the same turn,
+            // before this wait looks again.
+            window.on_next_frame(move |_, _| flag.set(true));
+        });
+        asked.is_ok()
+            && self
+                .wait_for(cx, Duration::from_secs(2), |_, _| drawn.get())
+                .await
+    }
+
+    /// The project's folder, once lattice-core has opened it (in the
+    /// background) and its main document is in an editor.
+    async fn root(&self, cx: &mut AsyncApp) -> Result<PathBuf> {
+        self.wait_for(cx, Duration::from_secs(30), |shell, cx| {
+            shell.read(cx).root(cx).is_some()
+        })
+        .await;
+        cx.update(|cx| self.shell.read(cx).root(cx))
             .context("open a project folder first")
     }
 
@@ -158,10 +212,12 @@ impl Run {
                 shell.build(&crate::shell::Build, window, cx)
             })
         })?;
+        // Any build under way or queued (an automatic one after a save)
+        // finishes first; this one is queued behind it.
         let finished = self
             .wait_for(cx, Duration::from_secs(180), |shell, cx| {
-                let panel = shell.read(cx).build_panel().read(cx);
-                !panel.is_running() && panel.succeeded().is_some()
+                let shell = shell.read(cx);
+                !shell.building() && shell.build_panel().read(cx).succeeded().is_some()
             })
             .await;
         if !finished {
@@ -190,6 +246,7 @@ impl Run {
     /// Windows) held when `command`, handled by the window when this returns.
     async fn press(&self, cx: &mut AsyncApp, character: char, command: bool) -> Result<()> {
         native::send_key(self.native(cx)?, character, command)?;
+        self.pump_frame(cx);
         // AppKit handles a sent event before `sendEvent:` returns. Windows
         // posts the key for GPUI's message loop, which has to run first.
         #[cfg(target_os = "windows")]

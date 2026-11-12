@@ -114,7 +114,7 @@ impl Shell {
             .map(|editor| PanelId::from(editor.entity_id()));
         let target = focused
             .or_else(|| {
-                let path = self.root.as_ref()?.join(self.active_document(cx)?);
+                let path = self.root(cx)?.join(self.active_document(cx)?);
                 editors
                     .iter()
                     .find(|editor| editor.read(cx).path() == path)
@@ -125,7 +125,7 @@ impl Shell {
             Some(panel) => {
                 self.close_panel(panel, window, cx);
             }
-            None => window.remove_window(),
+            None => self.close_window(window, cx),
         }
     }
 
@@ -142,7 +142,7 @@ impl Shell {
     /// What the command table needs to know about this window.
     pub(crate) fn command_context(&self, cx: &App) -> CommandContext {
         CommandContext {
-            in_project: self.root.is_some(),
+            in_project: self.project.is_some(),
             maximized: self.dock_area.read(cx).is_zoomed(),
             focus_mode: self.layout.focus.is_some(),
             dirty: self.layout.dirty,
@@ -229,7 +229,9 @@ impl Shell {
             .on_action(cx.listener(|this, _: &OpenInNewWindow, window, cx| {
                 this.open_in_new_window(window, cx)
             }))
-            .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
+            .on_action(
+                cx.listener(|this, _: &CloseWindow, window, cx| this.close_window(window, cx)),
+            )
             .on_action(
                 cx.listener(|this, _: &NextProject, window, cx| this.step_project(1, window, cx)),
             )
@@ -237,7 +239,7 @@ impl Shell {
                 this.step_project(-1, window, cx)
             }))
             .on_action(cx.listener(|this, _: &CloseProject, window, cx| {
-                if let Some(root) = this.root.clone() {
+                if let Some(root) = this.root(cx) {
                     this.close_project(&root, window, cx);
                 }
             }))

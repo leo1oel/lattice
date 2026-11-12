@@ -1,45 +1,84 @@
 //! The end-to-end check of the writing flow, driven with native input on
 //! macOS and Windows.
 
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result};
-use gpui::AsyncApp;
+use gpui::{AsyncApp, Entity};
 use serde_json::{Value, json};
 
-use super::{Run, sleep};
-use crate::native;
+use super::Run;
+use crate::{editor_panel::EditorPanel, native};
+
+mod saves;
+
+/// Each step's name, whether it passed, and what it saw.
+struct Steps(Vec<Value>);
+
+impl Steps {
+    fn check(&mut self, name: &str, passed: bool, detail: Value) -> bool {
+        self.0
+            .push(json!({ "step": name, "passed": passed, "detail": detail }));
+        passed
+    }
+}
 
 impl Run {
     /// The writing flow, end to end, on a scratch copy of a small project:
-    /// open, build, break the document by typing, save with the shortcut,
-    /// build, follow the error to its line, search, Vim, repair, build.
+    /// open it through lattice-core, build, jump from the source to the PDF
+    /// and back (SyncTeX), and from a .bib entry to the PDF, autosave, take
+    /// an outside edit into a clean buffer and merge one into an edited
+    /// buffer, break the document by typing, save with the shortcut, build,
+    /// follow the error to its line, search, Vim, repair, build; then create,
+    /// rename, move and delete files in the tree, drag a tab into a dock,
+    /// close a dirty tab, a vanished file's tab and a window, and type
+    /// before the quit that ends the run, which the result's `after_quit`
+    /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Vec::<Value>::new();
-        let mut check = |name: &str, passed: bool, detail: Value| {
-            steps.push(json!({ "step": name, "passed": passed, "detail": detail }));
-            passed
-        };
-        let root = self.root(cx)?;
+        let mut steps = Steps(Vec::new());
+        let root = self.root(cx).await?;
         let chapter = root.join("chapters/intro.tex");
         let original = std::fs::read_to_string(&chapter)
             .context("the e2e project needs chapters/intro.tex")?;
-        sleep(cx, Duration::from_millis(800)).await;
+        self.pause(cx, Duration::from_millis(800)).await;
 
-        let main_open = cx.update(|cx| self.shell.read(cx).root().is_some());
-        check("project opens", main_open, json!({ "root": root }));
+        // Opened as the Tauri app opens a folder it did not create: adopted,
+        // with its manifest naming the main document.
+        let (main_document, rows) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            let main = shell
+                .project()
+                .and_then(|project| project.read(cx).main_document().map(str::to_string));
+            (main, shell.file_tree().read(cx).row_paths(cx))
+        });
+        steps.check(
+            "the project opens through lattice-core, adopted with main.tex as its main document",
+            main_document.as_deref() == Some("main.tex")
+                && root.join(".research/project.json").is_file()
+                && rows.iter().any(|row| row == "main.tex")
+                && rows.iter().any(|row| row == "chapters"),
+            json!({ "root": root, "main": main_document, "rows": rows }),
+        );
 
         let (built, took) = self.build(cx).await?;
-        sleep(cx, Duration::from_millis(800)).await;
+        self.pause(cx, Duration::from_millis(800)).await;
         let pages = cx.update(|cx| self.shell.read(cx).pdf().read(cx).page_count());
-        check(
+        let rows = cx.update(|cx| self.shell.read(cx).file_tree().read(cx).row_paths(cx));
+        steps.check(
             "build succeeds and the PDF shows",
             built && pages > 0,
             json!({ "seconds": took.as_secs_f32(), "pages": pages }),
         );
+        steps.check(
+            "the tree hides the build's output, as the Tauri app's does",
+            !rows
+                .iter()
+                .any(|row| row.ends_with(".aux") || row.ends_with(".log") || row == "main.pdf"),
+            json!({ "rows": rows }),
+        );
 
-        let editor = self.open(cx, &chapter, Some(3))?;
-        sleep(cx, Duration::from_millis(300)).await;
+        let editor = self.open(cx, &chapter, Some(2))?;
+        self.pause(cx, Duration::from_millis(300)).await;
         let language = cx.update(|cx| {
             editor
                 .read(cx)
@@ -55,16 +94,26 @@ impl Run {
                         .map(|language| language.name().to_string())
                 })
         });
-        check(
+        steps.check(
             "a .tex file opens with LaTeX highlighting",
             language.as_deref() == Some("LaTeX"),
             json!({ "language": language }),
         );
 
+        let intro_top = self.synctex(cx, &mut steps, &root, &editor).await?;
+        self.bib_sync(cx, &mut steps, &root, intro_top).await?;
+        self.autosave_and_outside_edits(cx, &mut steps, &chapter, &editor)
+            .await?;
+        // The chapter as the merge left it, for the repair below.
+        let merged = std::fs::read_to_string(&chapter).unwrap_or_else(|_| original.clone());
+
+        // The broken macro goes on its own line 3.
+        self.open(cx, &chapter, Some(3))?;
+        self.pause(cx, Duration::from_millis(200)).await;
         self.type_text(cx, "\\undefinedmacro ").await?;
         let typed = self.editor_text(cx, &editor).contains("\\undefinedmacro ");
         let dirty = cx.update(|cx| editor.read(cx).is_dirty(cx));
-        check(
+        steps.check(
             "typing with native key events edits the buffer",
             typed && dirty,
             json!({ "dirty": dirty }),
@@ -77,7 +126,7 @@ impl Run {
                     .is_ok_and(|text| text.contains("\\undefinedmacro"))
             })
             .await;
-        check(
+        steps.check(
             "the save shortcut (⌘S / Ctrl+S) saves the file",
             saved,
             json!({}),
@@ -89,7 +138,7 @@ impl Run {
             panel
                 .diagnostics()
                 .iter()
-                .find(|diagnostic| diagnostic.level == tex::Level::Error)
+                .find(|diagnostic| diagnostic.level == "error")
                 .map(|diagnostic| (diagnostic.clone(), panel.location(diagnostic)))
         });
         let located = error.as_ref().is_some_and(|(diagnostic, _)| {
@@ -99,7 +148,7 @@ impl Run {
                 .is_some_and(|file| file.ends_with("intro.tex"))
                 && diagnostic.line == Some(3)
         });
-        check(
+        steps.check(
             "a broken build reports the error at its file and line",
             !built && located,
             json!({ "seconds": took.as_secs_f32(), "error": error.as_ref().map(|(d, _)| format!("{:?}:{:?} {}", d.file, d.line, d.message)) }),
@@ -111,9 +160,9 @@ impl Run {
                     shell.open_path(location.path.clone(), location.line, window, cx)
                 });
             })?;
-            sleep(cx, Duration::from_millis(200)).await;
+            self.pause(cx, Duration::from_millis(200)).await;
             let row = self.cursor_row(cx, &editor);
-            check(
+            steps.check(
                 "following the error puts the cursor on its line",
                 row == 2,
                 json!({ "row": row + 1 }),
@@ -128,64 +177,358 @@ impl Run {
                 })
             })?;
             searched.await.ok();
-            sleep(cx, Duration::from_millis(200)).await;
+            self.pause(cx, Duration::from_millis(200)).await;
             cx.update(|cx| bar.read(cx).has_active_match())
         };
-        check("buffer search finds the text", found, json!({}));
+        steps.check("buffer search finds the text", found, json!({}));
 
         // Vim: Normal mode's `x` deletes the character under the cursor.
         cx.update(|cx| crate::app::set_vim_mode(true, cx));
         let scratch = root.join("vim-check.txt");
         std::fs::write(&scratch, "abc\n")?;
         let vim_editor = self.open(cx, &scratch, Some(1))?;
-        sleep(cx, Duration::from_millis(300)).await;
+        self.pause(cx, Duration::from_millis(300)).await;
         self.type_text(cx, "x").await?;
-        sleep(cx, Duration::from_millis(100)).await;
+        self.pause(cx, Duration::from_millis(100)).await;
         let vim_text = self.editor_text(cx, &vim_editor);
-        check(
+        steps.check(
             "Vim mode: x deletes the character under the cursor",
             vim_text == "bc\n",
             json!({ "text": vim_text }),
         );
-        // Its tab closed with the edit unsaved, the file on disk has the edit.
-        let vim_panel = gpui_kit::component::dock::PanelId::from(vim_editor.entity_id());
-        drop(vim_editor);
-        self.with_window(cx, |shell, window, cx| {
-            shell.update(cx, |shell, cx| shell.close_panel(vim_panel, window, cx))
-        })?;
-        let written = self
-            .wait_for(cx, Duration::from_secs(2), |_, _| {
-                std::fs::read_to_string(&scratch).is_ok_and(|text| text == "bc\n")
-            })
-            .await;
-        check(
-            "closing a tab with unsaved edits writes them to the file",
-            written,
-            json!({ "on_disk": std::fs::read_to_string(&scratch).ok() }),
-        );
         cx.update(|cx| crate::app::set_vim_mode(false, cx));
+        // Once the edit is saved, its tab closes by itself when the file goes.
+        self.wait_for(cx, Duration::from_secs(6), |_, cx| {
+            !vim_editor.read(cx).is_dirty(cx)
+        })
+        .await;
         std::fs::remove_file(&scratch).ok();
 
-        std::fs::write(&chapter, &original)?;
+        // Repairing the file outside Lattice reloads the clean buffer.
+        std::fs::write(&chapter, &merged)?;
+        let reloaded = self
+            .wait_for(cx, Duration::from_secs(8), |_, cx| {
+                !editor
+                    .read(cx)
+                    .editor()
+                    .read(cx)
+                    .text(cx)
+                    .contains("undefinedmacro")
+            })
+            .await;
         let (built, _) = self.build(cx).await?;
-        check("repairing the file builds cleanly again", built, json!({}));
+        steps.check(
+            "repairing the file outside Lattice reloads it and builds cleanly again",
+            reloaded && built,
+            json!({ "reloaded": reloaded }),
+        );
+
+        self.tree_operations(cx, &mut steps, &root).await?;
 
         // Docking: drag an editor tab out of the center into the right dock,
         // beside the PDF, with native mouse events. (The shell steps after
         // it drag the PDF out of its dock alone.)
         let (moved, layout) = self.drag_editor_tab_to_right_dock(cx).await?;
-        check(
+        steps.check(
             "an editor tab drags from the center into the right dock",
             moved,
             layout,
         );
 
         for (name, passed, detail) in self.shell_steps(cx).await? {
-            check(name, passed, detail);
+            steps.check(name, passed, detail);
         }
 
-        let passed = steps.iter().all(|step| step["passed"] == true);
-        Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps }))
+        self.closing_saves(cx, &mut steps, &root).await?;
+        // Last: `scenario::start` quits once the result is written.
+        let quit = self.type_before_quit(cx, &mut steps, &root).await?;
+
+        let passed = steps.0.iter().all(|step| step["passed"] == true);
+        Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps.0, "after_quit": quit }))
+    }
+
+    /// SyncTeX both ways: from the caret on the chapter's second line to its
+    /// box in the PDF, then a double-click on that box back to the line.
+    /// Returns the top of the box on its page.
+    async fn synctex(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+        editor: &Entity<EditorPanel>,
+    ) -> Result<Option<f32>> {
+        self.open(cx, &root.join("chapters/intro.tex"), Some(2))?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        // What ⌘⇧J and the PDF toolbar's locate button run.
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.forward_sync(&crate::shell::ForwardSync, window, cx)
+            })
+        })?;
+        let marked = self
+            .wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                shell
+                    .read(cx)
+                    .pdf()
+                    .read(cx)
+                    .sync_mark()
+                    .is_some_and(|(_, scroll)| !scroll)
+            })
+            .await;
+        let (mark, top) = cx.update(|cx| {
+            let pdf = self.shell.read(cx).pdf().read(cx);
+            (pdf.sync_mark(), pdf.sync_mark_top())
+        });
+        steps.check(
+            "SyncTeX: the caret's line is found and marked in the PDF",
+            marked && mark.is_some_and(|(page, _)| page == 0),
+            json!({ "mark": mark.map(|(page, _)| page + 1) }),
+        );
+
+        // Somewhere else first, so the jump back is seen to land.
+        self.open(cx, &root.join("main.tex"), Some(1))?;
+        self.pause(cx, Duration::from_millis(400)).await;
+        let center = cx.update(|cx| self.shell.read(cx).pdf().read(cx).sync_mark_center());
+        let landed = match center {
+            Some(center) => {
+                native::send_double_click(self.native(cx)?, center)?;
+                self.wait_for(cx, Duration::from_secs(20), |shell, cx| {
+                    shell
+                        .read(cx)
+                        .active_editor_path(cx)
+                        .is_some_and(|path| path.ends_with("intro.tex"))
+                })
+                .await
+            }
+            None => false,
+        };
+        // Lines 2–4 are one paragraph, typeset as one; SyncTeX may name any
+        // of them for a point inside it.
+        let row = self.cursor_row(cx, editor);
+        steps.check(
+            "SyncTeX: a double-click in the PDF opens its source line",
+            landed && (1..=3).contains(&row),
+            json!({ "at": center.map(|c| [f32::from(c.x), f32::from(c.y)]), "row": row + 1 }),
+        );
+        Ok(top)
+    }
+
+    /// Autosave after a pause in typing; an outside edit reloads a clean
+    /// buffer; one made while the buffer holds edits is merged by the save.
+    async fn autosave_and_outside_edits(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        chapter: &Path,
+        editor: &Entity<EditorPanel>,
+    ) -> Result<()> {
+        self.open(cx, chapter, Some(4))?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let builds = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).builds());
+        self.type_text(cx, "Autosaved. ").await?;
+        let autosaved = self
+            .wait_for(cx, Duration::from_secs(6), |_, cx| {
+                !editor.read(cx).is_dirty(cx)
+                    && std::fs::read_to_string(chapter)
+                        .is_ok_and(|text| text.contains("Autosaved. "))
+            })
+            .await;
+        // Automatic builds are on, as the Tauri app's are by default: one
+        // follows the save.
+        let built = self
+            .wait_for(cx, Duration::from_secs(120), |shell, cx| {
+                let shell = shell.read(cx);
+                let panel = shell.build_panel().read(cx);
+                !shell.building() && panel.builds() > builds && panel.succeeded() == Some(true)
+            })
+            .await;
+        steps.check(
+            "a pause in typing saves the file and builds",
+            autosaved && built,
+            json!({ "saved": autosaved, "built": built }),
+        );
+
+        // Clean buffer: an outside edit reloads it.
+        let on_disk = std::fs::read_to_string(chapter)?;
+        let outside = on_disk.replace("The last line.", "The last line, edited outside.");
+        std::fs::write(chapter, &outside)?;
+        let reloaded = self
+            .wait_for(cx, Duration::from_secs(8), |_, cx| {
+                let text = editor.read(cx).editor().read(cx).text(cx);
+                text.contains("edited outside") && !editor.read(cx).is_dirty(cx)
+            })
+            .await;
+        steps.check(
+            "an edit made outside Lattice reloads a clean buffer",
+            reloaded,
+            json!({}),
+        );
+        // Let the automatic build that reload starts finish.
+        self.wait_for(cx, Duration::from_secs(120), |shell, cx| {
+            !shell.read(cx).building()
+        })
+        .await;
+
+        // Edited buffer: the outside edit waits for the save, which merges.
+        self.open(cx, chapter, Some(1))?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.type_text(cx, "Typed here.\n").await?;
+        let outside = std::fs::read_to_string(chapter)?.replace(
+            "A second line of the introduction.",
+            "A second line, changed outside.",
+        );
+        std::fs::write(chapter, &outside)?;
+        // The poll sees the outside edit and leaves the edited buffer alone.
+        self.pause(cx, Duration::from_millis(400)).await;
+        self.press(cx, 's', true).await?;
+        let merged = self
+            .wait_for(cx, Duration::from_secs(8), |_, cx| {
+                let disk = std::fs::read_to_string(chapter).unwrap_or_default();
+                let buffer = editor.read(cx).editor().read(cx).text(cx);
+                let both =
+                    |text: &str| text.contains("Typed here.") && text.contains("changed outside");
+                both(&disk) && both(&buffer) && !editor.read(cx).is_dirty(cx)
+            })
+            .await;
+        steps.check(
+            "an outside edit made while the buffer holds edits is merged by the save, not lost",
+            merged,
+            json!({ "disk": std::fs::read_to_string(chapter).unwrap_or_default() }),
+        );
+        self.wait_for(cx, Duration::from_secs(120), |shell, cx| {
+            !shell.read(cx).building()
+        })
+        .await;
+        Ok(())
+    }
+
+    /// New file, rename, move and delete in the tree, as its menu runs them.
+    async fn tree_operations(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
+
+        // New file in chapters/: an "untitled" row named in place, ".tex"
+        // added, opened.
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| {
+                tree.begin_create("chapters", false, window, cx)
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let placeholder = self.naming_state(cx, &tree)?;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| tree.confirm_name("methods", window, cx))
+        })?;
+        let created = root.join("chapters/methods.tex");
+        let opened = self
+            .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                created.is_file()
+                    && shell
+                        .read(cx)
+                        .active_editor_path(cx)
+                        .is_some_and(|path| path == "chapters/methods.tex")
+            })
+            .await;
+        steps.check(
+            "New file names an untitled row in place, creates chapters/methods.tex and opens it",
+            opened
+                && placeholder.as_ref().is_some_and(|(path, name, _)| {
+                    path == "chapters/untitled" && name == "untitled"
+                }),
+            json!({ "placeholder": placeholder }),
+        );
+
+        // Rename: the name before the extension is what is typed; the open
+        // tab follows.
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| {
+                tree.begin_rename("chapters/methods.tex".into(), window, cx)
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let renaming = self.naming_state(cx, &tree)?;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| tree.confirm_name("results.tex", window, cx))
+        })?;
+        let renamed = self
+            .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                root.join("chapters/results.tex").is_file()
+                    && !created.exists()
+                    && shell
+                        .read(cx)
+                        .active_editor_path(cx)
+                        .is_some_and(|path| path == "chapters/results.tex")
+            })
+            .await;
+        steps.check(
+            "Rename renames the file in place and its tab follows",
+            renamed
+                && renaming
+                    .as_ref()
+                    .is_some_and(|(_, name, _)| name == "methods.tex"),
+            json!({ "renaming": renaming }),
+        );
+
+        // Move to the top level: the tab follows again.
+        cx.update(|cx| {
+            tree.update(cx, |tree, cx| {
+                tree.drop_on("chapters/results.tex".into(), String::new(), cx)
+            })
+        });
+        let moved = self
+            .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                root.join("results.tex").is_file()
+                    && shell
+                        .read(cx)
+                        .active_editor_path(cx)
+                        .is_some_and(|path| path == "results.tex")
+            })
+            .await;
+        steps.check(
+            "a row dropped on the top level moves there and its tab follows",
+            moved,
+            json!({}),
+        );
+
+        // Delete: asked first; the tab closes with the file.
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete("results.tex".into(), cx)));
+        self.pause(cx, Duration::from_millis(200)).await;
+        let question = cx.update(|cx| self.shell.read(cx).confirm().read(cx).question());
+        let confirm = cx.update(|cx| self.shell.read(cx).confirm().clone());
+        self.with_window(cx, |_, window, cx| {
+            confirm.update(cx, |confirm, cx| confirm.accept(window, cx))
+        })?;
+        let deleted = self
+            .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                !root.join("results.tex").exists()
+                    && shell
+                        .read(cx)
+                        .active_editor_path(cx)
+                        .is_none_or(|path| path != "results.tex")
+            })
+            .await;
+        steps.check(
+            "Delete asks first, then deletes the file and closes its tab",
+            question.as_deref() == Some("Delete “results.tex” from this project?") && deleted,
+            json!({ "question": question }),
+        );
+        Ok(())
+    }
+
+    /// The tree's naming state, for a step's detail.
+    fn naming_state(
+        &self,
+        cx: &mut AsyncApp,
+        tree: &Entity<crate::file_tree::FileTreePanel>,
+    ) -> Result<Option<(String, String, bool)>> {
+        let tree = tree.clone();
+        self.with_window(cx, move |_, window, cx| {
+            tree.read(cx).naming_state(window, cx)
+        })
     }
 
     async fn drag_editor_tab_to_right_dock(&self, cx: &mut AsyncApp) -> Result<(bool, Value)> {
@@ -218,17 +561,18 @@ impl Run {
             area_bounds.right() - right_width / 2.,
             area_bounds.top() + area_bounds.size.height / 2.,
         );
+        let drawn = self.drawn_frame(cx).await;
         let native = self.native(cx)?;
         native::send_mouse(native, native::Mouse::Down, from)?;
-        sleep(cx, Duration::from_millis(50)).await;
+        super::sleep(cx, Duration::from_millis(50)).await;
         for step in 1..=24 {
             let t = step as f32 / 24.;
             let point = gpui::point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
             native::send_mouse(native, native::Mouse::Dragged, point)?;
-            sleep(cx, Duration::from_millis(20)).await;
+            super::sleep(cx, Duration::from_millis(20)).await;
         }
         native::send_mouse(native, native::Mouse::Up, to)?;
-        sleep(cx, Duration::from_millis(400)).await;
+        super::sleep(cx, Duration::from_millis(400)).await;
         let state = cx.update(|cx| {
             let area = self.shell.read(cx).dock_area().read(cx);
             serde_json::to_value(area.dump(cx)).unwrap_or_default()
@@ -237,7 +581,7 @@ impl Run {
         let moved = right.contains("EditorPanel") && right.contains("PdfPanel");
         Ok((
             moved,
-            json!({ "from": [f32::from(from.x), f32::from(from.y)], "to": [f32::from(to.x), f32::from(to.y)], "right_dock": state["right_dock"] }),
+            json!({ "frame_drawn": drawn, "from": [f32::from(from.x), f32::from(from.y)], "to": [f32::from(to.x), f32::from(to.y)], "right_dock": state["right_dock"] }),
         ))
     }
 }

@@ -23,7 +23,7 @@ pub(super) type Step = (&'static str, bool, Value);
 impl Run {
     /// The shell steps alone, on any project: no TeX needed.
     pub(super) async fn shell(&self, cx: &mut AsyncApp) -> Result<Value> {
-        sleep(cx, Duration::from_millis(800)).await;
+        self.root(cx).await?;
         let steps: Vec<Value> = self
             .shell_steps(cx)
             .await?
@@ -56,10 +56,7 @@ impl Run {
     /// with it (`patches/gpui-base-dock-drag-out.diff`).
     async fn drag_last_panel_out(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
-        // The drop lands on the hitboxes of the frame drawn after the reset;
-        // a window that draws no frames (a locked screen) keeps last frame's,
-        // whose groups the reset replaced.
-        sleep(cx, Duration::from_millis(600)).await;
+        let drawn = self.drawn_frame(cx).await;
         let (area_bounds, left_width, right_width) = cx.update(|cx| {
             let area = self.shell.read(cx).dock_area().read(cx);
             (
@@ -118,6 +115,7 @@ impl Run {
                 "right_dock": right_dock,
                 "pdf_in_center": pdf_in_center,
                 "dragging": dragging,
+                "frame_drawn": drawn,
                 "arrangement": arrangement,
                 "from": [f32::from(from.x), f32::from(from.y)],
                 "to": [f32::from(to.x), f32::from(to.y)],

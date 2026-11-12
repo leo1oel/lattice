@@ -1,4 +1,4 @@
 mod engine;
 mod panel;
 
-pub use panel::PdfPanel;
+pub use panel::{PdfEvent, PdfPanel};

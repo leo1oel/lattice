@@ -10,19 +10,23 @@
 mod app;
 mod assets;
 mod build_panel;
+mod confirm;
 mod editor_panel;
 mod editor_status;
 mod file_tree;
 mod gallery;
 mod latex;
+mod moved_paths;
 #[cfg(target_os = "macos")]
 mod native;
 #[cfg(target_os = "windows")]
 #[path = "native_windows.rs"]
 mod native;
+mod notices;
 mod paint_probe;
 mod panels;
 mod pdf;
+mod project;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
 mod shell;

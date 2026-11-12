@@ -56,7 +56,7 @@ impl Shell {
     }
 
     pub(super) fn schedule_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.root.is_none() {
+        if self.project.is_none() {
             return;
         }
         self.save_task = Some(cx.spawn_in(window, async move |this, cx| {
@@ -77,7 +77,7 @@ impl Shell {
     /// its documents stand in the workspace.
     pub(crate) fn save_layout(&mut self, cx: &mut App) {
         self.save_task = None;
-        let Some(root) = self.root.clone() else {
+        let Some(root) = self.root(cx) else {
             return;
         };
         let own = self.own_arrangement(cx);
@@ -178,7 +178,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if Workspaces::global(cx).get(id).is_none() || self.root.is_none() {
+        if Workspaces::global(cx).get(id).is_none() || self.project.is_none() {
             return;
         }
         if self.layout.workspace.as_deref() == Some(id) {
@@ -299,7 +299,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.root.is_none() {
+        if self.project.is_none() {
             return;
         }
         if self.layout.preset.as_ref().map(|active| active.preset) == Some(preset) {
@@ -332,7 +332,7 @@ impl Shell {
     /// them, the chrome down to the window's controls and a way out; off,
     /// the layout comes back as it was, a preset's included.
     pub(crate) fn set_focus_mode(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if on == self.layout.focus.is_some() || self.root.is_none() {
+        if on == self.layout.focus.is_some() || self.project.is_none() {
             return;
         }
         if on {

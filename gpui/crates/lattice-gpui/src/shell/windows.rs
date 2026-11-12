@@ -87,11 +87,12 @@ impl Shell {
     /// The project in front, moved to a window of its own; this window goes
     /// on with its next project, or closes when it held no other.
     pub(crate) fn open_in_new_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(root) = self.root.clone() else {
+        let Some(root) = self.root(cx) else {
             return;
         };
         self.save_layout(cx);
-        let saves = self.save_edited(cx);
+        let editors = self.open_editors();
+        let saves = Self::save_dirty(&editors, cx);
         cx.spawn_in(window, async move |this, cx| {
             for save in saves {
                 if let Err(error) = save.await {
@@ -119,9 +120,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         let Some(current) = self
-            .root
-            .as_ref()
-            .and_then(|root| self.projects.iter().position(|p| p == root))
+            .root(cx)
+            .and_then(|root| self.projects.iter().position(|p| *p == root))
         else {
             return;
         };
@@ -140,7 +140,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.root.as_ref() != Some(&root) {
+        if self.root(cx).as_ref() != Some(&root) {
             self.open_project(root, window, cx);
         }
     }
@@ -159,7 +159,7 @@ impl Shell {
         if self.projects.len() < 2 {
             return;
         }
-        if self.root.as_ref() == Some(root) {
+        if self.root(cx).as_ref() == Some(root) {
             let next = self
                 .projects
                 .get(index + 1)
@@ -180,7 +180,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.root.as_ref() == Some(&root) {
+        if self.root(cx).as_ref() == Some(&root) {
             self.open_in_new_window(window, cx);
         } else {
             self.projects.retain(|p| *p != root);

@@ -16,7 +16,8 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use gpui::AsyncApp;
+use gpui::{App, AsyncApp, Entity, SharedString};
+use language::{LanguageAwareStyling, Point};
 use lattice_ui::{
     ActiveLattice as _, Appearance,
     parity::{self, Region, TextLook},
@@ -25,7 +26,44 @@ use serde_json::{Map, Value, json};
 use settings::Settings as _;
 
 use super::{Run, sleep};
-use crate::native;
+use crate::{editor_panel::EditorPanel, native};
+use theme::ActiveTheme as _;
+
+/// The editor's first line as runs of text the way its highlighting splits
+/// it, each with the weight its syntax style (or the buffer font) draws it in.
+fn first_line_runs(editor: &Entity<EditorPanel>, base: f32, cx: &App) -> Vec<(String, f32)> {
+    let Some(buffer) = editor
+        .read(cx)
+        .editor()
+        .read(cx)
+        .buffer()
+        .read(cx)
+        .as_singleton()
+    else {
+        return Vec::new();
+    };
+    let snapshot = buffer.read(cx).snapshot();
+    let end = Point::new(0, snapshot.line_len(0));
+    let syntax = cx.theme().syntax().clone();
+    snapshot
+        .chunks(
+            Point::new(0, 0)..end,
+            LanguageAwareStyling {
+                tree_sitter: true,
+                diagnostics: false,
+            },
+        )
+        .filter(|chunk| !chunk.text.trim().is_empty())
+        .map(|chunk| {
+            let weight = chunk
+                .syntax_highlight_id
+                .and_then(|id| syntax.get(id))
+                .and_then(|style| style.font_weight)
+                .map_or(base, |weight| weight.0);
+            (chunk.text.trim().to_string(), weight)
+        })
+        .collect()
+}
 
 /// The Project card's width once the scene has widened the sidebar.
 const SIDEBAR_CARD: f32 = 329.;
@@ -57,36 +95,50 @@ impl Run {
         let out = std::env::var("LATTICE_SHOT_OUT").unwrap_or_else(|_| "parity.png".into());
         self.capture(cx, &out).await?;
 
-        let (viewport, scale, appearance, ui_font) = self.with_window(cx, |_, window, cx| {
-            // Zed's editor styles its text from the settings, out of the
-            // probes' reach, so its region is recorded from them.
-            let settings = theme_settings::ThemeSettings::get_global(cx);
-            let size = f32::from(settings.buffer_font_size(cx));
-            parity::record(
-                "editor/text",
-                Region {
-                    bounds: None,
-                    texts: [(
-                        0,
-                        TextLook {
-                            content: None,
-                            family: settings.buffer_font.family.clone(),
-                            size,
-                            weight: settings.buffer_font.weight.0,
-                            line_height: size * settings.line_height(),
-                        },
-                    )]
-                    .into(),
-                },
-            );
-            let lattice = cx.lattice();
-            (
-                window.viewport_size(),
-                window.scale_factor(),
-                lattice.palette.appearance,
-                lattice.fonts.ui.clone(),
-            )
-        })?;
+        let (viewport, scale, appearance, ui_font) =
+            self.with_window(cx, |shell, window, cx| {
+                // Zed's editor styles its text from the settings and its syntax
+                // theme, out of the probes' reach, so its region is recorded from
+                // them: the first line's runs as its highlighting splits them
+                // (a command, each brace, the argument), each in its weight.
+                let settings = theme_settings::ThemeSettings::get_global(cx);
+                let size = f32::from(settings.buffer_font_size(cx));
+                let look = |content: Option<SharedString>, weight: f32| TextLook {
+                    content,
+                    family: settings.buffer_font.family.clone(),
+                    size,
+                    weight,
+                    line_height: size * settings.line_height(),
+                };
+                let base = settings.buffer_font.weight.0;
+                let runs = shell
+                    .read(cx)
+                    .active_editor()
+                    .map(|editor| first_line_runs(&editor, base, cx))
+                    .unwrap_or_default();
+                let texts = if runs.is_empty() {
+                    [(0, look(None, base))].into()
+                } else {
+                    runs.into_iter()
+                        .enumerate()
+                        .map(|(slot, (text, weight))| (slot, look(Some(text.into()), weight)))
+                        .collect()
+                };
+                parity::record(
+                    "editor/text",
+                    Region {
+                        bounds: None,
+                        texts,
+                    },
+                );
+                let lattice = cx.lattice();
+                (
+                    window.viewport_size(),
+                    window.scale_factor(),
+                    lattice.palette.appearance,
+                    lattice.fonts.ui.clone(),
+                )
+            })?;
 
         let mut regions = Map::new();
         for (name, region) in parity::regions() {
