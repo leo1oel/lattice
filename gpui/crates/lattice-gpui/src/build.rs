@@ -13,6 +13,7 @@ pub mod card;
 pub mod diagnostics;
 pub mod doctor;
 pub mod explain;
+pub mod hover_card;
 mod icons;
 pub mod outcome;
 pub mod sequence;

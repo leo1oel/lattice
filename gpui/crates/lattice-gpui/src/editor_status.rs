@@ -16,9 +16,9 @@
 //! click, as ⌘B does.
 
 use gpui::{
-    AnyElement, AnyView, App, AppContext as _, BoxShadow, Edges, Entity, FontFeatures,
-    InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled as _, div, prelude::FluentBuilder as _, px,
+    AnyElement, App, BoxShadow, Edges, Entity, FontFeatures, InteractiveElement as _, IntoElement,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div,
+    prelude::FluentBuilder as _, px,
 };
 use language::Rope;
 use lattice_ui::{
@@ -31,7 +31,7 @@ use lattice_ui::{
 };
 
 use crate::{
-    build::{sequence::BuildSequence, word_count},
+    build::{hover_card::HoverCard, sequence, word_count},
     build_panel::{BuildPanel, ChipState},
     editor_panel::{EditorPanel, SaveStatus},
     shell::{Build, CleanRebuild},
@@ -155,7 +155,7 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
         inset: true,
         ..ring(palette.line)
     };
-    div()
+    let chip = div()
         .id("build-chip")
         .flex()
         .flex_none()
@@ -181,12 +181,6 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
                 .child(label),
         )
         .children(parity::probe("build-chip"))
-        // The build as the sequence it was, after the hover card's 280 ms.
-        .hoverable_tooltip({
-            let build = build.clone();
-            move |_, cx| -> AnyView { cx.new(|cx| BuildSequence::new(build.clone(), cx)).into() }
-        })
-        .tooltip_show_delay(std::time::Duration::from_millis(280))
         // ⇧-click is the clean rebuild, as the Tauri app's Build button has it.
         .on_click(|event, window, cx| {
             if event.modifiers().shift {
@@ -194,8 +188,10 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
             } else {
                 window.dispatch_action(Box::new(Build), cx);
             }
-        })
-        .into_any_element()
+        });
+    // The build as the sequence it was, in a card under the chip's end.
+    let build = build.clone();
+    HoverCard::new("build-card", chip, move |_, cx| sequence::card(&build, cx)).into_any_element()
 }
 
 /// The file's word count, as the Tauri app counts it

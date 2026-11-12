@@ -14,9 +14,9 @@
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, Context, Entity, Hsla, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _,
-    Transformation, Window, div, percentage, prelude::*, px,
+    AnimationExt as _, AnyElement, App, Entity, Hsla, InteractiveElement as _, IntoElement,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Transformation, div,
+    percentage, prelude::*, px,
 };
 use lattice_core::latex::BuildStep;
 use lattice_ui::{
@@ -112,18 +112,6 @@ enum StepState {
     None,
 }
 
-/// The card, a view of its own while it is open, redrawn as the build goes.
-pub struct BuildSequence {
-    build: Entity<BuildPanel>,
-}
-
-impl BuildSequence {
-    pub fn new(build: Entity<BuildPanel>, cx: &mut Context<Self>) -> Self {
-        cx.observe(&build, |_, _, cx| cx.notify()).detach();
-        Self { build }
-    }
-}
-
 fn mark(state: StepState, cx: &App) -> AnyElement {
     let palette = cx.palette().clone();
     let (ground, ink): (Hsla, Hsla) = match state {
@@ -211,10 +199,12 @@ fn step_row(
         .into_any_element()
 }
 
-impl Render for BuildSequence {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+/// The card, drawn afresh with the build: its owner redraws as the build
+/// goes (the Build button's panel observes it).
+pub fn card(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
+    {
         let palette = cx.palette().clone();
-        let build = self.build.clone();
+        let build = build.clone();
         let panel = build.read(cx);
         let running = panel.running();
         let building = running.is_some();
