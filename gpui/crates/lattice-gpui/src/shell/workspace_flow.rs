@@ -122,7 +122,7 @@ impl Shell {
         Workspaces::update(cx, |library| library.note_used(&workspace));
         let arrangement = match (saved.preset.clone(), saved.arrangement.clone()) {
             (Some(preset), _) => {
-                let active = self.active_document(cx);
+                let active = preset.previous.front_document();
                 let laid =
                     preset
                         .preset

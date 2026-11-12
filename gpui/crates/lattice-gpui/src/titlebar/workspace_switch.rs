@@ -43,15 +43,24 @@ const ADD_WIDTH: f32 = 28.;
 const RENAME_PAD: f32 = 6.;
 const RENAME_MIN: f32 = 6. * 7. + 20.;
 
-/// A workspace tab's width around a label `label` wide, with the dot when
-/// the project's layout differs from it.
-pub(super) fn tab_width(label: f32, dot: bool) -> f32 {
-    TAB_PAD * 2. + label + if dot { TAB_GAP + DOT } else { 0. }
+/// A workspace tab as the unfolded track draws it.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum SwitchTab {
+    /// A label this wide, with the dot when the project's layout differs
+    /// from the workspace.
+    Named { label: f32, dot: bool },
+    /// The rename field, which keeps its least width whatever is typed
+    /// (the text scrolls inside it).
+    Renaming,
 }
 
-/// The rename field's width around its text.
-fn rename_width(text: f32) -> f32 {
-    (text + RENAME_PAD * 2.).max(RENAME_MIN)
+pub(super) fn tab_width(tab: SwitchTab) -> f32 {
+    match tab {
+        SwitchTab::Named { label, dot } => {
+            TAB_PAD * 2. + label + if dot { TAB_GAP + DOT } else { 0. }
+        }
+        SwitchTab::Renaming => RENAME_MIN,
+    }
 }
 
 /// The unfolded track's width around tabs this wide, with "+".
@@ -66,14 +75,15 @@ pub(super) fn unfolded_switch_width(shell: &Shell, window: &Window, cx: &App) ->
     let renaming = shell.layout.renaming.as_deref();
     let shaped = |text: &str| f32::from(shaped_width(text, TextRole::Caption, None, window, cx));
     track_width(Workspaces::global(cx).list().iter().map(|entry| {
-        if renaming == Some(entry.id.as_str())
-            && let Some(input) = shell.rename_input()
-        {
-            return rename_width(shaped(&input.read(cx).value()));
-        }
         tab_width(
-            shaped(&entry.name),
-            shell.layout.dirty && current == Some(entry.id.as_str()),
+            if renaming == Some(entry.id.as_str()) && shell.rename_input().is_some() {
+                SwitchTab::Renaming
+            } else {
+                SwitchTab::Named {
+                    label: shaped(&entry.name),
+                    dot: shell.layout.dirty && current == Some(entry.id.as_str()),
+                }
+            },
         )
     }))
 }

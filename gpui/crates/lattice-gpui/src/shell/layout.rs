@@ -334,6 +334,16 @@ impl Node {
         }
     }
 
+    fn front_document(&self) -> Option<String> {
+        match self {
+            Node::Tabs { views, active, .. } => match views.get(*active) {
+                Some(View::File(path)) => Some(path.clone()),
+                _ => None,
+            },
+            Node::Split { children, .. } => children.iter().find_map(Node::front_document),
+        }
+    }
+
     fn first_group_mut(&mut self) -> Option<&mut Node> {
         match self {
             Node::Tabs { .. } => Some(self),
@@ -656,6 +666,18 @@ impl Arrangement {
             }
         }
         out
+    }
+
+    /// The document in front of the first group that shows one: the one a
+    /// saved layout was left on.
+    pub fn front_document(&self) -> Option<String> {
+        std::iter::once(&self.center)
+            .chain(
+                self.docks()
+                    .into_iter()
+                    .filter_map(|(_, dock)| dock.map(|d| &d.node)),
+            )
+            .find_map(Node::front_document)
     }
 
     /// The project's documents, in the order the arrangement holds them.

@@ -39,10 +39,13 @@ use lattice_ui::{
     elevation::bottom_hairline,
     icons::{ICON, ICON_SMALL},
     parity,
+    typography::shaped_width,
 };
 
 mod workspace_switch;
 
+#[cfg(test)]
+use workspace_switch::{SwitchTab, tab_width};
 use workspace_switch::{unfolded_switch_width, workspace_switcher};
 
 use crate::shell::{
@@ -79,12 +82,93 @@ pub struct TitlebarDrag {
 }
 
 /// What the titlebar measured of itself last frame, in window coordinates:
-/// where the workspace switch begins, folded or not, and where the tools
+/// where the left group begins, whatever it holds, and where the tools
 /// begin.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Measured {
-    switch_start: Option<f32>,
+    left_start: Option<f32>,
     tools_start: Option<f32>,
+}
+
+/// The project switcher's chrome around its name (`ToolbarButton::switcher`:
+/// 8px in at each side, the 12px chevron 8px after the name), and the
+/// widest it grows, alone or as the current project's tab.
+const SWITCHER_CHROME: f32 = 8. + 8. + 12. + 8.;
+const SWITCHER_MAX: f32 = 260.;
+const TAB_SWITCHER_MAX: f32 = 220.;
+/// Another project's tab: its name 8px in and 4px before the close button,
+/// cut at 180px, then the 20px close button 4px from the tab's end; tabs
+/// 2px apart; the group 6px before the Panels menu's own 6px.
+const PROJECT_TAB_PAD: f32 = 8. + 4.;
+const PROJECT_TAB_MAX: f32 = 180.;
+const PROJECT_CLOSE: f32 = 20. + 4.;
+const PROJECT_TAB_GAP: f32 = 2.;
+const PROJECT_GROUP_END: f32 = 6.;
+const PANELS_START: f32 = 6.;
+/// The Panels menu's chrome around its label (`ToolbarButton` with an
+/// icon: 8px in at each side, the 14px icon 6px before the label).
+const PANELS_CHROME: f32 = 8. + 14. + 6. + 8.;
+
+/// The project group's width from its names' widths: the switcher alone
+/// (`switcher` its name), or a tab per project once there are two (`tabs`,
+/// each name and whether it is the current project).
+fn project_group_width(switcher: f32, tabs: &[(f32, bool)]) -> f32 {
+    if tabs.len() < 2 {
+        return (switcher + SWITCHER_CHROME).min(SWITCHER_MAX) + PROJECT_GROUP_END;
+    }
+    let tabs_width: f32 = tabs
+        .iter()
+        .map(|&(name, current)| {
+            let body = if current {
+                (name + SWITCHER_CHROME).min(TAB_SWITCHER_MAX)
+            } else {
+                (name + PROJECT_TAB_PAD).min(PROJECT_TAB_MAX)
+            };
+            body + PROJECT_CLOSE
+        })
+        .sum();
+    tabs_width + PROJECT_TAB_GAP * (tabs.len() - 1) as f32 + PROJECT_GROUP_END
+}
+
+/// How wide the left group draws with its workspaces unfolded, from its
+/// labels' shaped widths, so the folds are right on the frame that changes
+/// any of them.
+fn unfolded_left_width(shell: &Shell, window: &Window, cx: &gpui::App) -> f32 {
+    let subtitle = |text: &str, weight| {
+        f32::from(shaped_width(
+            text,
+            TextRole::Subtitle,
+            Some(weight),
+            window,
+            cx,
+        ))
+    };
+    let switcher = subtitle(
+        &shell.project_name(cx),
+        lattice_ui::tokens::FONT_WEIGHT_SEMIBOLD,
+    );
+    let active = shell.root(cx);
+    let tabs: Vec<(f32, bool)> = shell
+        .projects
+        .iter()
+        .map(|open| {
+            if Some(&open.root) == active.as_ref() {
+                (switcher, true)
+            } else {
+                (
+                    subtitle(&open.name, lattice_ui::tokens::FONT_WEIGHT_REGULAR),
+                    false,
+                )
+            }
+        })
+        .collect();
+    let panels = f32::from(shaped_width("Panels", TextRole::Caption, None, window, cx));
+    project_group_width(switcher, &tabs)
+        + PANELS_START
+        + PANELS_CHROME
+        + panels
+        + GROUP_GAP
+        + unfolded_switch_width(shell, window, cx)
 }
 
 /// The room the folds are decided in: where the left group ends with its
@@ -195,8 +279,8 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     let measured = room_cell.get();
     let room = Room {
         left_unfolded: measured
-            .switch_start
-            .map(|start| start + unfolded_switch_width(shell, window, cx)),
+            .left_start
+            .map(|start| start + unfolded_left_width(shell, window, cx)),
         tools_start: measured.tools_start,
     };
     let width = f32::from(window.viewport_size().width);
@@ -216,18 +300,15 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
                 .items_center()
                 .gap(px(GROUP_GAP))
                 .h_full()
-                .pl(px(6.))
+                .pl(px(PANELS_START))
                 .child(controls(panels_menu(shell, cx)))
-                .child(
-                    controls(workspace_switcher(shell, folds >= 2, window, cx))
-                        .relative()
-                        .child(edge_probe(
-                            room_cell.clone(),
-                            |room, left, _| room.switch_start = Some(left),
-                            weak.clone(),
-                        )),
-                ),
-        );
+                .child(controls(workspace_switcher(shell, folds >= 2, window, cx))),
+        )
+        .child(edge_probe(
+            room_cell.clone(),
+            |room, left, _| room.left_start = Some(left),
+            weak.clone(),
+        ));
 
     let search_tooltip = "Search files, papers and commands";
     let search_keys = keys_label(&CommandPalette, window).unwrap_or_else(|| "⌘K".into());
@@ -309,7 +390,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
 fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
     let switcher = ToolbarButton::new("project-switcher", shell.project_name(cx))
         .switcher()
-        .max_w(px(260.))
+        .max_w(px(SWITCHER_MAX))
         .parity("titlebar/project")
         .dropdown_menu(|menu, _, _| {
             menu.menu("Open Folder…", Box::new(OpenFolder))
@@ -318,7 +399,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
     if shell.projects.len() < 2 {
         return div()
             .pt(px(4.))
-            .pr(px(6.))
+            .pr(px(PROJECT_GROUP_END))
             .child(controls(switcher))
             .into_any_element();
     }
@@ -342,7 +423,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
             div()
                 .id(("project-tab-name", ix))
                 .h(px(28.))
-                .max_w(px(180.))
+                .max_w(px(PROJECT_TAB_MAX))
                 .flex()
                 .items_center()
                 .pl(px(8.))
@@ -427,9 +508,9 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
     div()
         .flex()
         .items_center()
-        .gap(px(2.))
+        .gap(px(PROJECT_TAB_GAP))
         .h_full()
-        .pr(px(6.))
+        .pr(px(PROJECT_GROUP_END))
         .children(tabs.map(controls))
         .into_any_element()
 }
@@ -437,7 +518,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
 fn switcher_for(shell: &Shell, cx: &gpui::App) -> impl IntoElement {
     ToolbarButton::new("project-switcher", shell.project_name(cx))
         .switcher()
-        .max_w(px(220.))
+        .max_w(px(TAB_SWITCHER_MAX))
         .parity("titlebar/project")
         .dropdown_menu(|menu, _, _| {
             menu.menu("Open Folder…", Box::new(OpenFolder))
@@ -667,7 +748,7 @@ mod tests {
             switch_start
                 + workspace_switch::track_width(
                     tabs.iter()
-                        .map(|&(label, dot)| workspace_switch::tab_width(label, dot)),
+                        .map(|&(label, dot)| tab_width(SwitchTab::Named { label, dot })),
                 )
         };
         let five = [(60., false); 5];
@@ -682,6 +763,41 @@ mod tests {
         let snug = left(&two) + GROUP_GAP + SEARCH_MIN + GROUP_GAP;
         assert_eq!(folds(room(left(&two), snug), 1015.), 0);
         assert_eq!(folds(room(left(&differs), snug), 1015.), 1);
+    }
+
+    #[test]
+    fn a_rename_keeps_the_width_its_field_draws() {
+        // The rename field is at least 6×7+20px wide and its Input adds no
+        // width of its own, so a long name typed in it scrolls instead of
+        // widening the track.
+        let renaming = [SwitchTab::Renaming];
+        assert_eq!(
+            workspace_switch::track_width(renaming.map(tab_width)),
+            2. + 62. + 2. + 28.
+        );
+    }
+
+    #[test]
+    fn the_fold_follows_the_project_group_without_a_frame_late() {
+        // ToolbarButton::switcher: 8px in, the name, 8px, a 12px chevron,
+        // 8px; cut at 260px alone, then 6px before the Panels menu.
+        assert_eq!(project_group_width(100., &[(100., true)]), 136. + 6.);
+        assert_eq!(project_group_width(400., &[]), 260. + 6.);
+        // A second project turns the switcher into two tabs, each with its
+        // 20px close button 4px from its end, 2px apart.
+        let two = project_group_width(100., &[(100., true), (80., false)]);
+        assert_eq!(two, (136. + 24.) + 2. + (92. + 24.) + 6.);
+        assert_eq!(
+            project_group_width(100., &[(100., true), (400., false)]),
+            (136. + 24.) + 2. + (180. + 24.) + 6.
+        );
+        // Snug at 1015px with one project, the second one folds the search
+        // field on the frame it opens.
+        let rest = 300.;
+        let one = 95. + project_group_width(100., &[(100., true)]) + rest;
+        let snug = one + GROUP_GAP + SEARCH_MIN + GROUP_GAP;
+        assert_eq!(folds(room(one, snug), 1015.), 0);
+        assert_eq!(folds(room(95. + two + rest, snug), 1015.), 1);
     }
 
     #[test]

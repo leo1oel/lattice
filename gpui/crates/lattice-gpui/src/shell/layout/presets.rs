@@ -218,6 +218,30 @@ mod tests {
     }
 
     #[test]
+    fn a_project_reopened_under_writing_brings_back_the_document_it_was_on() {
+        // Writing with intro.tex in front; the project is left (save_layout
+        // keeps the way back, return_layout's, as the preset's `previous`)
+        // and opened again: intro.tex is in front, not the first source.
+        let mut own = Arrangement::default_for(room());
+        own.center = Node::tabs([file("main.tex"), file("chapters/intro.tex")]);
+        let writing = Preset::Writing.arrange(&own, Some("chapters/intro.tex"), room());
+        let saved = return_layout(&own, &writing, Some("chapters/intro.tex"));
+        assert_eq!(
+            saved.front_document().as_deref(),
+            Some("chapters/intro.tex")
+        );
+        let reopened = Preset::Writing.arrange(&saved, saved.front_document().as_deref(), room());
+        assert_eq!(
+            reopened.center,
+            Node::Tabs {
+                views: vec![file("main.tex"), file("chapters/intro.tex")],
+                active: 1,
+                slot: None,
+            }
+        );
+    }
+
+    #[test]
     fn returning_from_a_preset_keeps_what_was_opened_and_closed_meanwhile() {
         let mut own = Arrangement::default_for(room());
         own.center = Node::tabs([file("a.tex"), file("b.tex")]);
