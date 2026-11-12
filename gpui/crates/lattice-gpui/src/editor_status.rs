@@ -13,8 +13,8 @@
 //! click, as ⌘B does.
 
 use gpui::{
-    AnyElement, AnyView, App, BoxShadow, Entity, InteractiveElement as _, IntoElement,
-    ParentElement as _, StatefulInteractiveElement as _, Styled as _, div,
+    AnyElement, AnyView, App, BoxShadow, Edges, Entity, InteractiveElement as _, IntoElement,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div,
     prelude::FluentBuilder as _, px,
 };
 use language::Rope;
@@ -37,6 +37,7 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
     let palette = cx.palette();
     let (line, column) = panel.cursor();
     let saved = !panel.is_dirty(cx);
+    let position: SharedString = format!("Ln {line}, Col {column}").into();
     div()
         .flex()
         .flex_none()
@@ -49,7 +50,13 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
         .border_color(palette.line)
         .bg(palette.editor)
         .rounded_b(PANEL_RADIUS)
-        .children(parity::probe("status-bar"))
+        .children(parity::bordered_probe(
+            "status-bar",
+            Edges {
+                top: px(1.),
+                ..Edges::default()
+            },
+        ))
         .child(
             div()
                 .flex_none()
@@ -57,9 +64,9 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
                 .whitespace_nowrap()
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
-                .child(format!("Ln {line}, Col {column}"))
                 .children(parity::probe("status/position"))
-                .children(parity::text_probe("status/position")),
+                .children(parity::text_probe("status/position", 0, position.clone()))
+                .child(position),
         )
         .child(
             StatusItem::new("save-state")
@@ -73,11 +80,13 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
                 StatusItem::new("word-count")
                     .parity("status/words")
                     .label("This file ·")
-                    .child(
+                    .child({
+                        let count: SharedString = format!("{} words", grouped(words)).into();
                         div()
                             .text_color(palette.text)
-                            .child(format!("{} words", grouped(words))),
-                    ),
+                            .children(parity::text_probe("status/words", 1, count.clone()))
+                            .child(count)
+                    }),
             )
         })
 }
@@ -132,8 +141,8 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
                 .line_height(px(15.6))
                 .font_weight(FONT_WEIGHT_SEMIBOLD)
                 .text_color(palette.text)
-                .child(label)
-                .children(parity::text_probe("build-chip")),
+                .children(parity::text_probe("build-chip", 0, label.clone()))
+                .child(label),
         )
         .children(parity::probe("build-chip"))
         .tooltip(|_, cx| -> AnyView {

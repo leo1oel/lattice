@@ -142,7 +142,6 @@ jobs:
           name: gpui-parity-macos
           path: |
             ${{ runner.temp }}/parity/*.md
-            ${{ runner.temp }}/parity/*.html
             ${{ runner.temp }}/parity/*.json
             ${{ runner.temp }}/parity/*.png
             ${{ runner.temp }}/parity/runs/*.json

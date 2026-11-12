@@ -2,13 +2,16 @@
 // GPUI runs in, a verdict per check and the images out.
 //
 //   bounds  each named region within ±1 px (logical) of the reference
-//   text    each label's family, size, weight and line height
+//   text    every run of text in a text region: family, size, weight and
+//           line height, the two apps' runs matched by content, then in order
 //   chrome  each chrome region's ground colour within ΔE2000 1
 //   pixels  the share of pixels that differ visibly (ΔE2000 > 2.3), outside
 //           text (every reference text run's box, 2 px wider), outside the
 //           content regions (the PDF pages, drawn by pdf.js and PDFium), and
-//           outside what changed between two runs of the same app, within a
-//           budget of three times that run-to-run noise (at least 0.1%)
+//           outside what changed between the reference's two runs, within a
+//           budget of three times that run-to-run noise (at least 0.1%). What
+//           changed between the GPUI app's two runs is reported beside it,
+//           and stays in the comparison.
 //
 // Families are compared without their weight and width words: Chrome names
 // the face it drew ("Timeless Sans Grotesk Light", the variable font's
@@ -98,7 +101,30 @@ function compareText(ref, gpui) {
     weight: { ref: ref.weight, gpui: gpui.weight, pass: Math.abs(ref.weight - gpui.weight) <= TOLERANCE.weight },
     lineHeight: { ref: ref.lineHeight, gpui: gpui.lineHeight, pass: ref.lineHeight != null && Math.abs(ref.lineHeight - gpui.lineHeight) <= TOLERANCE.lineHeight },
   };
-  return { pass: Object.values(checks).every((c) => c.pass), checks };
+  return { ref: ref.content, gpui: gpui.content, pass: Object.values(checks).every((c) => c.pass), checks };
+}
+
+/**
+ * A region's runs of text, the reference's against the GPUI app's: each
+ * reference run takes the first unmatched GPUI run with the same text, then
+ * the runs left over are paired in order. A GPUI run without content (the
+ * editor's one style) stands for every reference run. Returns one entry per
+ * pair or unpaired run.
+ */
+export function compareTexts(refRuns, gpuiRuns) {
+  const shared = gpuiRuns.find((run) => run.content == null);
+  if (shared) return refRuns.map((run) => compareText(run, shared));
+  const taken = new Set();
+  const pairs = refRuns.map((run) => {
+    const i = gpuiRuns.findIndex((other, j) => other.content === run.content && !taken.has(j));
+    if (i >= 0) taken.add(i);
+    return i;
+  });
+  const left = gpuiRuns.map((_, j) => j).filter((j) => !taken.has(j));
+  for (let k = 0; k < pairs.length; k++) if (pairs[k] < 0 && left.length) pairs[k] = left.shift();
+  const runs = refRuns.map((run, k) => (pairs[k] >= 0 ? compareText(run, gpuiRuns[pairs[k]]) : { ref: run.content, pass: false, missing: "gpui" }));
+  for (const j of left) runs.push({ gpui: gpuiRuns[j].content, pass: false, missing: "reference" });
+  return runs;
 }
 
 /**
@@ -120,7 +146,10 @@ export function diffScreen(spec, runs) {
     else if (!b) row.missing = "gpui";
     if (!row.missing) {
       if (r.bounds !== false && a.bounds && b.bounds) row.bounds = compareBounds(a.bounds, b.bounds);
-      if (r.text) row.text = a.text && b.text ? compareText(a.text, b.text) : { pass: false, missing: !a.text ? "reference" : "gpui" };
+      if (r.text) {
+        const runs = compareTexts(a.texts, b.texts);
+        row.text = runs.length ? { pass: runs.every((run) => run.pass), runs } : { pass: false, runs: [{ pass: false, missing: "both" }] };
+      }
       if (r.chrome && a.bounds && b.bounds) {
         const ca = groundColor(images.ref, a.bounds, scale);
         const cb = groundColor(images.gpui, b.bounds, gpui.scale);
@@ -142,21 +171,23 @@ export function diffScreen(spec, runs) {
     const textMask = rectMask(width, height, ref.textRects, scale, TOLERANCE.textPad);
     const contentMask = rectMask(width, height, ref.contentRects, scale);
     const noisy = new Uint8Array(width * height);
-    for (let i = 0; i < noisy.length; i++) noisy[i] = refNoise[i] > TOLERANCE.pixel || gpuiNoise[i] > TOLERANCE.pixel ? 1 : 0;
+    for (let i = 0; i < noisy.length; i++) noisy[i] = refNoise[i] > TOLERANCE.pixel ? 1 : 0;
     const noiseMask = dilate(noisy, width, height, 1);
-    let compared = 0, differing = 0, noise = 0;
+    let area = 0, compared = 0, differing = 0, noise = 0, gpuiUnstable = 0;
     for (let i = 0; i < delta.length; i++) {
       if (textMask[i] || contentMask[i]) continue;
+      area++;
       if (noisy[i]) noise++;
+      if (gpuiNoise[i] > TOLERANCE.pixel) gpuiUnstable++;
       if (noiseMask[i]) continue;
       compared++;
       if (delta[i] > TOLERANCE.pixel) differing++;
     }
-    const area = compared + noise;
     const noiseRate = area ? noise / area : 0;
+    const gpuiNoiseRate = area ? gpuiUnstable / area : 0;
     const budget = Math.max(BUDGET_FLOOR, BUDGET_NOISE_FACTOR * noiseRate);
     const rate = compared ? differing / compared : 0;
-    pixels = { compared, differing, rate, noiseRate, budget, pass: rate <= budget };
+    pixels = { compared, differing, rate, noiseRate, budget, pass: rate <= budget, gpuiNoiseRate };
     // Where inside each region the pixels differ.
     for (const row of regions) {
       if (!row.ref) continue;
@@ -172,19 +203,16 @@ export function diffScreen(spec, runs) {
     heat = heatmap(images.ref, delta, { textMask, contentMask, noiseMask });
     outline(heat, regions, scale);
   }
-  const verdict = (key) => {
-    const rows = regions.filter((r) => r[key]);
-    return { passed: rows.filter((r) => r[key].pass).length, total: rows.length };
-  };
+  const verdict = (checks) => ({ passed: checks.filter((c) => c.pass).length, total: checks.length });
+  const checks = (key) => regions.filter((r) => r[key]).map((r) => r[key]);
   const report = {
     screen: spec.label,
     theme: ref.theme,
     viewport: ref.viewport,
     scale,
-    pdf: ref.pdf,
     uiFont: gpui.uiFont,
     summary: {
-      bounds: verdict("bounds"), text: verdict("text"), chrome: verdict("chrome"),
+      bounds: verdict(checks("bounds")), text: verdict(checks("text").flatMap((t) => t.runs)), chrome: verdict(checks("chrome")),
       missing: regions.filter((r) => r.missing).map((r) => `${r.name} (not in ${r.missing === "gpui" ? "the GPUI app" : "the reference"})`),
       pixels,
       sizes: sameSize ? null : Object.fromEntries(Object.entries(images).map(([k, v]) => [k, `${v.width}×${v.height}`])),
@@ -196,7 +224,7 @@ export function diffScreen(spec, runs) {
   return { report, images: { sideBySide: sideBySide(images.ref, images.gpui, heat, scale), heatmap: heat } };
 }
 
-/** The reference greyed out, with differing pixels in red (by how far apart), noise in amber, text in blue, content hatched. */
+/** The reference greyed out, with differing pixels in red (by how far apart), the reference's noise in amber, text in blue, content hatched. */
 function heatmap(ref, delta, { textMask, contentMask, noiseMask }) {
   const out = blankImage(ref.width, ref.height);
   for (let i = 0; i < delta.length; i++) {

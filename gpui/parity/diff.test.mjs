@@ -1,8 +1,11 @@
 // node --test gpui/parity/*.test.mjs
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { familyKey, groundColor } from "./diff.mjs";
-import { blankImage } from "./png.mjs";
+import { compareTexts, diffScreen, familyKey, groundColor } from "./diff.mjs";
+import { blankImage, writePng } from "./png.mjs";
 
 test("families compare without their weight and style words", () => {
   // Chrome names the variable font's default instance; GPUI the family it asked for.
@@ -27,4 +30,52 @@ test("a region's ground is its most common colour, inside its edge", () => {
     }
   }
   assert.deepEqual(groundColor(image, { x: 0, y: 0, w: 10, h: 5 }, 2), [239, 239, 240]);
+});
+
+test("pixels that differ between the GPUI app's two runs still count against it", () => {
+  // Two identical reference runs (no noise, so the 0.1% floor is the budget);
+  // the GPUI app draws a 4×4 block differently in each run and unlike the reference.
+  const dir = mkdtempSync(join(tmpdir(), "parity-diff-"));
+  const image = (block) => {
+    const out = blankImage(20, 20);
+    for (let i = 0; i < 400; i++) {
+      const inBlock = block != null && i % 20 >= 8 && i % 20 < 12 && Math.floor(i / 20) >= 8 && Math.floor(i / 20) < 12;
+      const v = inBlock ? block : 200;
+      out.data.set([v, v, v, 255], i * 4);
+    }
+    return out;
+  };
+  const files = { ref: image(null), ref2: image(null), gpui: image(0), gpui2: image(255) };
+  for (const [name, img] of Object.entries(files)) writePng(join(dir, `${name}.png`), img);
+  const ref = (name) => ({ pngPath: join(dir, `${name}.png`), scale: 1, regions: {}, textRects: [], contentRects: [], theme: "light", viewport: { width: 20, height: 20 } });
+  const gpui = (name) => ({ png: join(dir, `${name}.png`), scale: 1, regions: {} });
+  const { report } = diffScreen({ label: "test", regions: [] }, { ref: [ref("ref"), ref("ref2")], gpui: [gpui("gpui"), gpui("gpui2")] });
+  const { pixels } = report.summary;
+  assert.equal(pixels.noiseRate, 0);
+  assert.equal(pixels.budget, 0.001);
+  assert.equal(pixels.differing, 16);
+  assert.equal(pixels.rate, 16 / 400);
+  assert.equal(pixels.pass, false);
+  assert.equal(pixels.gpuiNoiseRate, 16 / 400);
+});
+
+test("a region's runs of text pair by their text, then in order", () => {
+  const look = (content, size = 12) => ({ content, family: "Timeless Sans", size, weight: 400, lineHeight: 16 });
+  const runs = compareTexts(
+    [look("This file ·"), look("1,204 words"), look("⌘K")],
+    [look("1,204 words", 13), look("This file ·"), look("1204 words"), look("Extra")],
+  );
+  // "This file ·" and "1,204 words" find their twins; "⌘K" takes the first run left over.
+  assert.deepEqual(runs.map((r) => [r.ref, r.gpui, r.pass]), [
+    ["This file ·", "This file ·", true],
+    ["1,204 words", "1,204 words", false],
+    ["⌘K", "1204 words", true],
+    [undefined, "Extra", false],
+  ]);
+  assert.equal(runs[1].checks.size.pass, false);
+  assert.equal(runs[3].missing, "reference");
+  assert.equal(compareTexts([look("Saved"), look("Build")], [look("Saved")])[1].missing, "gpui");
+  // The editor's one style, with no content, is checked against every run on the line.
+  const editor = compareTexts([look("\\section"), look("{Intro}")], [{ ...look(null), content: null }]);
+  assert.deepEqual(editor.map((r) => r.pass), [true, true]);
 });

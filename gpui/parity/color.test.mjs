@@ -27,6 +27,30 @@ test("sRGB colours that differ by one step are well inside ΔE 1", () => {
   assert.equal(hex([219, 219, 220]), "#DBDBDC");
 });
 
+// A 4×4 image, one row per filter, as PNG bytes encoded from the PNG spec
+// outside this module and checked against PIXELS by Pillow and ImageMagick.
+// Row 1's Paeth row hits both of the predictor's ties (pb = pc < pa picks b,
+// pa = pc < pb picks a), and row 2's Average sums past 255.
+const PIXELS = [
+  [[10, 10, 200, 255], [30, 0, 201, 128], [250, 5, 7, 0], [128, 64, 32, 200]],
+  [[0, 30, 201, 10], [77, 99, 180, 255], [255, 255, 255, 255], [1, 2, 3, 4]],
+  [[200, 150, 100, 50], [201, 151, 101, 51], [0, 0, 0, 0], [99, 199, 249, 149]],
+  [[5, 250, 128, 0], [255, 0, 1, 2], [3, 3, 3, 3], [100, 100, 100, 100]],
+];
+// Colour type 6, rows filtered Sub, Paeth, Average, Up.
+const RGBA_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAATUlEQVR42mPk4jrxX+QbY+MdVruGNmvJEyzfRBi59V1ff2Wd86O+kZmFlflEO4OuvfTN2TKmfunJx35MZrJNkTlnljnnPDMQMM7NPg8AbMQZP1XfnlkAAAAASUVORK5CYII=";
+// Colour type 2 (the same pixels without alpha), rows filtered Up, Sub, Paeth, Average.
+const RGB_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAO0lEQVR42mPi4johx3DyFyt7g4MCI4PcSV/X15vmeDMxs7CcqJjNCAI+ycd/Mi9c7zfDor+Fmdnw/zMAonYRpjxkRoIAAAAASUVORK5CYII=";
+
+test("PNGs written with every filter, in RGB and RGBA, decode to their pixels", () => {
+  const rgba = decodePng(Buffer.from(RGBA_PNG, "base64"));
+  assert.equal(rgba.width, 4);
+  assert.equal(rgba.height, 4);
+  assert.deepEqual([...rgba.data], PIXELS.flat(2));
+  const rgb = decodePng(Buffer.from(RGB_PNG, "base64"));
+  assert.deepEqual([...rgb.data], PIXELS.flat().flatMap(([r, g, b]) => [r, g, b, 255]));
+});
+
 test("PNG round trip", () => {
   const image = blankImage(3, 2);
   image.data.set([255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 255, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);

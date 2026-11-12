@@ -159,8 +159,11 @@ impl RenderOnce for ToolbarButton {
                 div()
                     .min_w_0()
                     .truncate()
-                    .child(self.label)
-                    .children(self.parity.and_then(parity::text_probe)),
+                    .children(
+                        self.parity
+                            .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
+                    )
+                    .child(self.label),
             )
             .when(self.chevron, |this| {
                 this.child(Icon::CHEVRON_DOWN.element(ICON_SMALL, ink))

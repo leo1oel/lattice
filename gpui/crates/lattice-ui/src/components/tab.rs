@@ -186,8 +186,11 @@ impl RenderOnce for PanelTab {
                     .text_role(TextRole::BodyCompact, cx)
                     .line_height(px(15.6))
                     .text_color(label_ink)
-                    .child(self.label)
-                    .children(self.parity.and_then(parity::text_probe)),
+                    .children(
+                        self.parity
+                            .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
+                    )
+                    .child(self.label),
             )
             .child(
                 div()

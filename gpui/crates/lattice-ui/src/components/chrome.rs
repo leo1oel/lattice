@@ -4,9 +4,10 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, BoxShadow, ClickEvent, ElementId, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement as _, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Window, div, point, prelude::FluentBuilder as _, px,
+    AnyElement, App, BoxShadow, ClickEvent, Edges, ElementId, Hsla, InteractiveElement as _,
+    IntoElement, ParentElement as _, Pixels, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Window, div, point, prelude::FluentBuilder as _,
+    px,
 };
 
 use gpui::AnyView;
@@ -39,11 +40,22 @@ fn inset_ring(color: Hsla) -> BoxShadow {
 #[derive(IntoElement)]
 pub struct Keycap {
     keys: SharedString,
+    parity: Option<(SharedString, usize)>,
 }
 
 impl Keycap {
     pub fn new(keys: impl Into<SharedString>) -> Self {
-        Self { keys: keys.into() }
+        Self {
+            keys: keys.into(),
+            parity: None,
+        }
+    }
+
+    /// Record its keys' text style as slot `slot` of the parity-harness
+    /// region `name` (`crate::parity`).
+    pub fn parity(mut self, name: impl Into<SharedString>, slot: usize) -> Self {
+        self.parity = Some((name.into(), slot));
+        self
     }
 }
 
@@ -70,6 +82,10 @@ impl RenderOnce for Keycap {
             .text_role(TextRole::Caption, cx)
             .font_weight(FONT_WEIGHT_MEDIUM)
             .text_color(palette.text_secondary)
+            .children(
+                self.parity
+                    .and_then(|(name, slot)| parity::text_probe(name, slot, self.keys.clone())),
+            )
             .child(self.keys)
     }
 }
@@ -112,7 +128,8 @@ impl SearchField {
     }
 
     /// Name this control as a parity-harness region (`crate::parity`): its
-    /// bounds and its placeholder's text style are recorded under `name`.
+    /// bounds and its placeholder's and keycap's text styles are recorded
+    /// under `name`.
     pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
         self.parity = Some(name.into());
         self
@@ -202,12 +219,25 @@ impl RenderOnce for SearchField {
                     .whitespace_nowrap()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text_secondary)
-                    .child(self.placeholder)
-                    .children(self.parity.clone().and_then(parity::text_probe)),
+                    .children(
+                        self.parity
+                            .clone()
+                            .and_then(|name| parity::text_probe(name, 0, self.placeholder.clone())),
+                    )
+                    .child(self.placeholder),
             )
-            .children(self.parity.and_then(parity::probe))
+            .children(self.parity.clone().and_then(|name| {
+                let border = if self.filled { px(0.) } else { px(1.) };
+                parity::bordered_probe(name, Edges::all(border))
+            }))
             .children(self.trailing)
-            .children(self.keycap.map(Keycap::new))
+            .children(self.keycap.map(|keys| {
+                let keycap = Keycap::new(keys);
+                match self.parity {
+                    Some(name) => keycap.parity(name, 1),
+                    None => keycap,
+                }
+            }))
             .when_some(self.width, |this, width| this.w(width).flex_none())
             .when_some(self.tooltip, |this, tooltip| {
                 this.tooltip(move |_, cx| -> AnyView {
@@ -252,7 +282,8 @@ impl Segmented {
     }
 
     /// Name this control as a parity-harness region (`crate::parity`): its
-    /// bounds and its selected segment's text style are recorded under `name`.
+    /// bounds and each labelled segment's text style are recorded under
+    /// `name`, in the slot of the segment's place.
     pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
         self.parity = Some(name.into());
         self
@@ -307,11 +338,11 @@ impl RenderOnce for Segmented {
                 let hover = palette.hover;
                 let focus = focus.clone();
                 let segment_box = div().id(ix);
-                let text_probe = segment
-                    .selected
-                    .then(|| self.parity.clone())
-                    .flatten()
-                    .and_then(parity::text_probe);
+                let text_probe = self
+                    .parity
+                    .clone()
+                    .zip(segment.label.clone())
+                    .and_then(|(name, label)| parity::text_probe(name, ix, label));
                 // Each segment is a tab stop, as each is a button in the app.
                 let segment_box = if segment.on_click.is_some() {
                     tab_stop(segment_box)

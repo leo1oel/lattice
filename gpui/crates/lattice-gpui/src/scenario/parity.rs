@@ -49,12 +49,17 @@ impl Run {
                 "editor/text",
                 Region {
                     bounds: None,
-                    text: Some(TextLook {
-                        family: settings.buffer_font.family.clone(),
-                        size,
-                        weight: settings.buffer_font.weight.0,
-                        line_height: size * settings.line_height(),
-                    }),
+                    texts: [(
+                        0,
+                        TextLook {
+                            content: None,
+                            family: settings.buffer_font.family.clone(),
+                            size,
+                            weight: settings.buffer_font.weight.0,
+                            line_height: size * settings.line_height(),
+                        },
+                    )]
+                    .into(),
                 },
             );
             let lattice = cx.lattice();
@@ -76,15 +81,23 @@ impl Run {
                     "h": f32::from(b.size.height),
                 })
             });
-            let text = region.text.map(|t| {
-                json!({
-                    "family": t.family.as_ref(),
-                    "size": t.size,
-                    "weight": t.weight,
-                    "lineHeight": t.line_height,
+            let texts: Vec<Value> = region
+                .texts
+                .values()
+                .map(|t| {
+                    json!({
+                        "content": t.content.as_deref(),
+                        "family": t.family.as_ref(),
+                        "size": t.size,
+                        "weight": t.weight,
+                        "lineHeight": t.line_height,
+                    })
                 })
-            });
-            regions.insert(name.to_string(), json!({ "bounds": bounds, "text": text }));
+                .collect();
+            regions.insert(
+                name.to_string(),
+                json!({ "bounds": bounds, "texts": texts }),
+            );
         }
         Ok(json!({
             "png": out,

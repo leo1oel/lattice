@@ -7,11 +7,11 @@ import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { TUTORIAL_TEMPLATE } from "../../design-system/screens/tutorial.mjs";
 
-/** A fresh copy of the tutorial at `dir`, with its built PDF when there is one (the scene shows it). */
+/** A fresh copy of the tutorial at `dir`, with its built PDF (the scene shows it). */
 export function stageProject(dir, pdf) {
   rmSync(dir, { recursive: true, force: true });
   cpSync(TUTORIAL_TEMPLATE, dir, { recursive: true });
-  if (pdf) cpSync(pdf, join(dir, "main.pdf"));
+  cpSync(pdf, join(dir, "main.pdf"));
   return dir;
 }
 

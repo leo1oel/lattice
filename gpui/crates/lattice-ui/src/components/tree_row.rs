@@ -134,8 +134,12 @@ impl TreeRow {
                             .line_height(px(28.))
                             .text_color(label_ink)
                             .when(self.selected, |label| label.font_weight(FONT_WEIGHT_MEDIUM))
-                            .child(self.name)
-                            .children(self.parity.and_then(parity::text_probe)),
+                            .children(
+                                self.parity.and_then(|name| {
+                                    parity::text_probe(name, 0, self.name.clone())
+                                }),
+                            )
+                            .child(self.name),
                     ),
             )
     }

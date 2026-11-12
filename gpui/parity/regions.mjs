@@ -1,14 +1,15 @@
 // The named regions the parity diff compares, per screen: what each one is in
 // the Tauri app's DOM, and which checks apply to it. The GPUI app records the
 // same names with `lattice_ui::parity` probes (the titlebar, the dock's
-// cards, strips and tabs, tree rows, the status bar, the build chip).
+// cards, strips and tabs, tree rows, the status bar, the build chip), and
+// each run of text in a region with a `lattice_ui::parity::text_probe`.
 //
 // A region is found by a CSS selector (`css`, searched through shadow roots,
 // so the file tree's rows are found too), or as part of a panel's tab group
 // (`group`: the card, the 40px strip or the tab of the panel whose tab reads
 // that label). Checks:
 //   bounds  its box within ±1 px (default on)
-//   text    its label's family, size, weight and line height
+//   text    every run of text in it: family, size, weight and line height
 //   chrome  its ground colour (the most common colour inside it) within ΔE2000 1
 
 const group = (label) => [
@@ -39,12 +40,16 @@ export const SCREENS = {
       row("main.tex"),
       row("references.bib"),
       { name: "pdf/toolbar", css: ".pdf-toolbar", chrome: true },
+      { name: "pdf/page", css: ".pdf-page-value", text: true },
+      { name: "pdf/find", css: ".pdf-search", text: true },
+      { name: "pdf/zoom", css: ".pdf-zoom-value", text: true },
       { name: "build-chip", css: ".trellis-build-button", text: true, chrome: true },
       { name: "status-bar", css: ".editor-status-bar", chrome: true },
       { name: "status/position", css: ".status-goto", text: true },
       { name: "status/save", css: ".status-save", text: true },
       { name: "status/words", css: ".status-body-words", text: true },
-      // Zed's editor in the GPUI app: its text style only, its box is not the same element.
+      // Zed's editor in the GPUI app: its box is not the same element, and its
+      // one text style (from the settings, with no content) stands for every run on the line.
       { name: "editor/text", css: ".cm-content .cm-line", text: true, bounds: false },
     ],
     // Drawn by different engines in the two apps (pdf.js and PDFium), so left out of the pixel budget.
@@ -54,10 +59,13 @@ export const SCREENS = {
 
 /**
  * Runs in the page: tags each region's element with data-parity-region (and
- * its label's element with data-parity-text) and measures it. Returns
- * { regions: {name: {bounds, text}}, textRects, contentRects }; textRects are
- * every visible text run's boxes, contentRects the content regions' boxes,
- * which the pixel budget leaves out.
+ * the element that holds each of its runs of text with data-parity-text) and
+ * measures it. Returns { regions: {name: {bounds, texts}}, textRects,
+ * contentRects }; textRects are every visible text node's boxes,
+ * contentRects the content regions' boxes, which the pixel budget leaves out.
+ *
+ * A run of text is a text node, or the value (else the placeholder) a
+ * visible input shows; `texts` lists a region's runs in document order.
  */
 export function measureInPage({ regions, content }) {
   const deepAll = (root, selector, out = []) => {
@@ -71,7 +79,8 @@ export function measureInPage({ regions, content }) {
     return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && parseFloat(cs.opacity) > 0.01;
   };
   const box = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
-  const textNodes = (root) => {
+  const inputText = (el) => (el.value || el.placeholder || "").trim();
+  const textRuns = (root) => {
     const out = [];
     const walk = (node) => {
       for (const child of node.childNodes) {
@@ -80,12 +89,19 @@ export function measureInPage({ regions, content }) {
         const cs = getComputedStyle(child);
         if (cs.display === "none" || cs.visibility === "hidden") continue;
         if (child.matches(".sr-only")) continue;
+        if (child.matches("input, textarea")) { if (visible(child) && inputText(child)) out.push(child); continue; }
         walk(child);
         if (child.shadowRoot) walk(child.shadowRoot);
       }
     };
     walk(root);
     return out;
+  };
+  const runRects = (run) => {
+    if (run.nodeType === 1) return [box(run)];
+    const range = document.createRange();
+    range.selectNodeContents(run);
+    return [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: r.x, y: r.y, w: r.width, h: r.height }));
   };
   const tabFor = (label) => deepAll(document, ".trellis [role=tablist] [role=tab]").find((tab) => tab.textContent.trim() === label && visible(tab));
   const find = (spec) => {
@@ -104,40 +120,36 @@ export function measureInPage({ regions, content }) {
     }
     return 1;
   };
+  let tags = 0;
+  const measureRun = (run) => {
+    const input = run.nodeType === 1;
+    const holder = input ? run : run.parentElement;
+    const rects = runRects(run);
+    if (!holder || !rects.length) return null;
+    // Runs that share an element share its tag, and the face CDP reports for it.
+    if (!holder.hasAttribute("data-parity-text")) holder.setAttribute("data-parity-text", String(tags++));
+    const cs = getComputedStyle(holder);
+    // "normal" leaves the line box to the font: take the box the run occupies (an input's content box).
+    const runHeight = input ? holder.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) : rects[0].h;
+    return {
+      content: (input ? inputText(run) : run.data.trim()).replace(/\s+/g, " ").slice(0, 60),
+      tag: holder.getAttribute("data-parity-text"),
+      stack: cs.fontFamily,
+      cssSize: parseFloat(cs.fontSize),
+      size: parseFloat(cs.fontSize) * sizeAdjust(cs.fontFamily),
+      weight: parseFloat(cs.fontWeight),
+      lineHeight: cs.lineHeight === "normal" ? runHeight : parseFloat(cs.lineHeight),
+    };
+  };
   const out = {};
   for (const spec of regions) {
     const el = find(spec);
     if (!el) { out[spec.name] = null; continue; }
     el.setAttribute("data-parity-region", spec.name);
-    const entry = { bounds: box(el), text: null };
-    if (spec.text) {
-      const node = textNodes(el)[0];
-      if (node) {
-        const parent = node.parentElement;
-        parent.setAttribute("data-parity-text", spec.name);
-        const cs = getComputedStyle(parent);
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        const line = range.getClientRects()[0];
-        entry.text = {
-          content: node.data.trim().slice(0, 60),
-          stack: cs.fontFamily,
-          cssSize: parseFloat(cs.fontSize),
-          size: parseFloat(cs.fontSize) * sizeAdjust(cs.fontFamily),
-          weight: parseFloat(cs.fontWeight),
-          // "normal" leaves the line box to the font: take the box the run occupies.
-          lineHeight: cs.lineHeight === "normal" ? (line?.height ?? null) : parseFloat(cs.lineHeight),
-        };
-      }
-    }
-    out[spec.name] = entry;
+    const texts = spec.text ? textRuns(el).map(measureRun).filter(Boolean) : [];
+    out[spec.name] = { bounds: box(el), texts };
   }
-  const textRects = [];
-  for (const node of textNodes(document.body)) {
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    for (const r of range.getClientRects()) if (r.width > 0 && r.height > 0) textRects.push({ x: r.x, y: r.y, w: r.width, h: r.height });
-  }
+  const textRects = textRuns(document.body).filter((run) => run.nodeType === 3).flatMap(runRects);
   const contentRects = content.flatMap((selector) => deepAll(document, selector).filter(visible).map(box));
   return { regions: out, textRects, contentRects };
 }
