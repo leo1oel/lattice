@@ -77,6 +77,23 @@ pub struct TexInstallProgress {
     progress: f64,
 }
 
+impl TexInstallProgress {
+    pub fn new(stage: impl Into<String>, progress: f64) -> Self {
+        Self { stage: stage.into(), progress }
+    }
+
+    /// What the install is doing: `downloading`, `authorizing`,
+    /// `installing-base`, … `complete` (src/build/tex-setup.ts lists them).
+    pub fn stage(&self) -> &str {
+        &self.stage
+    }
+
+    /// How far along it is, from 0 to 1.
+    pub fn progress(&self) -> f64 {
+        self.progress
+    }
+}
+
 /// How a missing-package install ended without an error.
 // Only `macos` installs packages; the other platforms' stub always refuses.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]

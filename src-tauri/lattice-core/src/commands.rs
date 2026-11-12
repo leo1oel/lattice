@@ -53,7 +53,29 @@ pub(crate) fn with_child_path(mut command: Command) -> Command {
 /// launches can be signalled together with `signal_process_group`.
 pub(crate) fn in_new_process_group(command: &mut Command) -> &mut Command {
     #[cfg(unix)]
-    std::os::unix::process::CommandExt::process_group(command, 0);
+    {
+        use std::os::unix::process::CommandExt as _;
+        command.process_group(0);
+        // The group is stopped with SIGTERM (`signal_process_group`), so it
+        // must start able to receive it. A child inherits the spawning
+        // thread's signal mask (std no longer clears it) and any signal its
+        // parent ignores, and both happen: the GPUI app spawns builds from
+        // libdispatch's worker threads, which block signals, and a Cocoa app
+        // can ignore SIGTERM to take it as a quit. The whole group then
+        // shrugged off the TERM that was to stop it, and a build that looped
+        // could not be stopped.
+        // SAFETY: `sigemptyset`, `pthread_sigmask` and `signal` are
+        // async-signal-safe, the only calls made between fork and exec.
+        unsafe {
+            command.pre_exec(|| {
+                let mut none = std::mem::MaybeUninit::<libc::sigset_t>::uninit();
+                libc::sigemptyset(none.as_mut_ptr());
+                libc::pthread_sigmask(libc::SIG_SETMASK, none.as_ptr(), std::ptr::null_mut());
+                libc::signal(libc::SIGTERM, libc::SIG_DFL);
+                Ok(())
+            });
+        }
+    }
     #[cfg(windows)]
     crate::platform_windows::configure(command);
     command

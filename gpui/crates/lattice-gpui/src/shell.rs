@@ -20,13 +20,18 @@ use gpui_kit::component::{
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock};
 
 mod build;
+mod build_tools;
 mod entries;
 mod synctex;
 
 use build::BuildRequest;
 
 use crate::{
-    build_panel::{BuildPanel, OpenLocation},
+    build::{
+        tex_setup::center::{self as tex_setup, TexSetupCenter, TexSetupEvent},
+        word_count::{self, ManuscriptWords},
+    },
+    build_panel::{BuildAction, BuildPanel, DiagnosticsCard, OpenLocation},
     confirm::{self, ConfirmHost},
     editor_panel::{EditorPanel, EditorPanelEvent},
     file_tree::FileTreePanel,
@@ -46,7 +51,14 @@ actions!(
         ToggleVimMode,
         ToggleProjectPanel,
         TogglePdfPanel,
-        ToggleBuildPanel
+        ToggleBuildPanel,
+        StopBuild,
+        CleanRebuild,
+        CleanBuildFiles,
+        NextProblem,
+        PreviousProblem,
+        OpenTexDoctor,
+        InstallLatexTools
     ]
 );
 
@@ -81,6 +93,12 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(build, Build, None),
         KeyBinding::new(save, Save, None),
         KeyBinding::new(forward, ForwardSync, None),
+        // The Tauri app's next and previous build problem, in the editor
+        // too, where Zed's keymap binds them to its own diagnostics.
+        KeyBinding::new("f8", NextProblem, None),
+        KeyBinding::new("shift-f8", PreviousProblem, None),
+        KeyBinding::new("f8", NextProblem, Some("Editor")),
+        KeyBinding::new("shift-f8", PreviousProblem, Some("Editor")),
     ]);
 }
 
@@ -92,6 +110,14 @@ pub struct Shell {
     file_tree: Entity<FileTreePanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
+    /// The TeX doctor, setup and package installs (one for the app).
+    tex_setup: Entity<TexSetupCenter>,
+    /// The open project's manuscript word count (one for the app).
+    words: Entity<ManuscriptWords>,
+    /// The auxiliary files are being deleted.
+    cleaning: bool,
+    /// A setup dialog or the TeX doctor is up.
+    setup_dialog_open: bool,
     notices: Entity<NoticeStack>,
     confirm: Entity<ConfirmHost>,
     editors: Vec<WeakEntity<EditorPanel>>,
@@ -153,6 +179,11 @@ impl Shell {
         let file_tree = cx.new(FileTreePanel::new);
         let pdf = cx.new(PdfPanel::new);
         let build_panel = cx.new(BuildPanel::new);
+        let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
+        pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
+        let tex_setup = tex_setup::install(cx);
+        tex_setup.update(cx, |center, cx| center.check_at_launch(cx));
+        let words = word_count::manuscript_words(cx);
         let notices = notices::install(cx);
         let confirm = confirm::install(cx);
 
@@ -173,6 +204,32 @@ impl Shell {
                 this.open_path(location.path.clone(), location.line, window, cx);
             },
         )
+        .detach();
+        cx.subscribe_in(
+            &build_panel,
+            window,
+            |this, _, action: &BuildAction, window, cx| this.on_build_action(action, window, cx),
+        )
+        .detach();
+        cx.subscribe_in(
+            &tex_setup,
+            window,
+            |this, _, event: &TexSetupEvent, window, cx| match event {
+                TexSetupEvent::Rebuild => this.run_build(BuildRequest::requested(), window, cx),
+            },
+        )
+        .detach();
+        cx.observe_in(&tex_setup, window, |this, center, window, cx| {
+            this.setup_dialog_closed(center.read(cx).dialog_open(), window, cx);
+            cx.notify();
+        })
+        .detach();
+        // The status bars read the manuscript count: redraw them when it lands.
+        cx.observe(&words, |this, _, cx| {
+            for editor in this.open_editors() {
+                editor.update(cx, |_, cx| cx.notify());
+            }
+        })
         .detach();
         cx.subscribe_in(
             &pdf,
@@ -222,6 +279,10 @@ impl Shell {
             file_tree,
             pdf,
             build_panel,
+            tex_setup,
+            words,
+            cleaning: false,
+            setup_dialog_open: false,
             notices,
             confirm,
             editors: Vec::new(),
@@ -338,6 +399,9 @@ impl Shell {
         };
         self.project = Some(project.clone());
         self.queued_build = None;
+        self.tex_setup
+            .update(cx, |center, _| center.set_root(Some(root.clone())));
+        self.refresh_words(cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         window.set_window_title(&format!(
@@ -472,6 +536,7 @@ impl Shell {
                 if let Some(project) = &self.project {
                     project.update(cx, |project, _| project.mark_inputs_changed());
                 }
+                self.refresh_words(cx);
             }
             EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
                 self.run_build(BuildRequest::automatic(), window, cx);
@@ -564,6 +629,23 @@ impl Shell {
             })
             .detach();
         }
+    }
+
+    /// Count the manuscript's words again, and redraw the status bars that
+    /// show the count once it lands.
+    fn refresh_words(&mut self, cx: &mut Context<Self>) {
+        let root = self.root(cx);
+        self.words.update(cx, |words, cx| words.refresh(root, cx));
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn tex_setup(&self) -> &Entity<TexSetupCenter> {
+        &self.tex_setup
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn words(&self) -> &Entity<ManuscriptWords> {
+        &self.words
     }
 
     fn toggle_vim_mode(&mut self, _: &ToggleVimMode, _: &mut Window, cx: &mut Context<Self>) {
@@ -663,6 +745,13 @@ impl Render for Shell {
             .on_action(cx.listener(Self::save_all))
             .on_action(cx.listener(Self::forward_sync))
             .on_action(cx.listener(Self::toggle_vim_mode))
+            .on_action(cx.listener(Self::stop_build))
+            .on_action(cx.listener(Self::clean_rebuild))
+            .on_action(cx.listener(Self::clean_build_files))
+            .on_action(cx.listener(Self::next_problem))
+            .on_action(cx.listener(Self::previous_problem))
+            .on_action(cx.listener(Self::open_tex_doctor))
+            .on_action(cx.listener(Self::install_latex_tools))
             .on_action(cx.listener(|this, _: &ToggleProjectPanel, window, cx| {
                 this.toggle_dock(DockPlacement::Left, window, cx)
             }))
@@ -690,6 +779,7 @@ impl Render for Shell {
                     .child(self.dock_area.clone()),
             )
             .child(self.notices.clone())
+            .child(self.tex_setup.clone())
             .child(self.confirm.clone())
     }
 }
