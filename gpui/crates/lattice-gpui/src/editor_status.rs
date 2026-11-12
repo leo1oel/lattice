@@ -1,11 +1,14 @@
 //! The editor's status bar and the build chip in its tab strip, as the
 //! running app draws them (Paper's Main window).
 //!
-//! Status bar: 28px under a hairline, on the editor's sheet; the caret's
-//! "Ln, Col" 12px in, then the save state, and the word count at the far end
-//! ("This file · 1,204 words", the count in the primary ink). The app's
-//! "Manuscript" count is the whole project's, which the GPUI app does not
-//! count yet, so the buffer's count is always labelled as the file's.
+//! Status bar: 28px under a hairline, on the editor's sheet, its items 22px
+//! slabs 6px in; the caret's "Ln 1, Col 1" (four runs of text, the words and
+//! the numbers each their own, as the app writes them), then the save state
+//! ("Saved", "Saving…", "Couldn’t save": unsaved typing is the tab's dot to
+//! say, not this), and the word count at the far end ("This file · 1,204
+//! words", the count in the primary ink). The app's "Manuscript" count is
+//! the whole project's, which the GPUI app does not count yet, so the
+//! buffer's count is always labelled as the file's.
 //!
 //! Build chip: 24px with control corners, the ink at 9% laid on the sheet
 //! (#E7E7E7 light, #313134 dark, as measured) under an inset hairline; a 13px
@@ -13,9 +16,9 @@
 //! click, as ⌘B does.
 
 use gpui::{
-    AnyElement, AnyView, App, BoxShadow, Edges, Entity, InteractiveElement as _, IntoElement,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, AnyView, App, BoxShadow, Edges, Entity, FontFeatures, InteractiveElement as _,
+    IntoElement, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
+    div, prelude::FluentBuilder as _, px,
 };
 use language::Rope;
 use lattice_ui::{
@@ -29,23 +32,47 @@ use lattice_ui::{
 
 use crate::{
     build_panel::{BuildPanel, ChipState},
-    editor_panel::EditorPanel,
+    editor_panel::{EditorPanel, SaveStatus},
     shell::{BUILD_SHORTCUT_LABEL, Build},
 };
 
 pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
     let palette = cx.palette();
     let (line, column) = panel.cursor();
-    let saved = !panel.is_dirty(cx);
-    let position: SharedString = format!("Ln {line}, Col {column}").into();
+    let (save_icon, save_label) = match panel.save_status() {
+        SaveStatus::Saved => (Icon::HARD_DRIVE, "Saved"),
+        SaveStatus::Saving => (Icon::LOADER, "Saving…"),
+        SaveStatus::Failed(_) => (Icon::CIRCLE_ALERT, "Couldn’t save"),
+    };
+    // The caret's words and numbers, each its own run, as the app's
+    // `.status-caret` spans are.
+    let runs: [(SharedString, &str); 4] = [
+        ("Ln ".into(), "Ln"),
+        (line.to_string().into(), ""),
+        (", Col ".into(), ", Col"),
+        (column.to_string().into(), ""),
+    ];
+    let caret = div()
+        .flex()
+        .children(runs.into_iter().enumerate().map(|(slot, (shown, word))| {
+            let content: SharedString = if word.is_empty() {
+                shown.clone()
+            } else {
+                word.into()
+            };
+            div()
+                .children(parity::text_probe("status/position", slot, content))
+                .child(shown)
+        }));
     div()
         .flex()
         .flex_none()
         .items_center()
         .h(px(28.))
-        .pl(px(12.))
-        .pr(px(6.))
+        .px(px(6.))
         .gap(px(2.))
+        // The bar's numbers are tabular, as `.editor-status-bar` sets them.
+        .font_features(FontFeatures(std::sync::Arc::new(vec![("tnum".into(), 1)])))
         .border_t_1()
         .border_color(palette.line)
         .bg(palette.editor)
@@ -58,20 +85,14 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
             },
         ))
         .child(
-            div()
-                .flex_none()
-                .mr(px(4.))
-                .whitespace_nowrap()
-                .text_role(TextRole::Caption, cx)
-                .text_color(palette.text_secondary)
-                .children(parity::probe("status/position"))
-                .children(parity::text_probe("status/position", 0, position.clone()))
-                .child(position),
+            StatusItem::new("caret-position")
+                .parity("status/position")
+                .child(caret),
         )
         .child(
             StatusItem::new("save-state")
-                .icon(Icon::HARD_DRIVE)
-                .label(if saved { "Saved" } else { "Edited" })
+                .icon(save_icon)
+                .label(save_label)
                 .parity("status/save"),
         )
         .child(div().flex_1())

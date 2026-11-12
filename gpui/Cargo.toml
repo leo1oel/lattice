@@ -8,9 +8,9 @@ members = [
     "compat/gpui-fast/gpui-fast",
     "compat/gpui-fast/gpui-fast-platform",
     "compat/gpui-fast/gpui-fast-web",
+    "compat/sqlite/libsqlite3-sys",
     "crates/lattice-gpui",
     "crates/lattice-ui",
-    "crates/tex",
 ]
 # Vendored, patched upstream crates (patches/README.md): path dependencies
 # through `[patch]` below, never workspace members.
@@ -60,13 +60,16 @@ anyhow = "1"
 codebook-tree-sitter-latex = "0.6.1"
 futures = "0.3"
 image = { version = "0.25", default-features = false }
+# Lattice's domain logic, shared with the Tauri app (`../src-tauri/lattice-core`,
+# Apache-2.0): projects, the file tree, builds, SyncTeX, saving and the
+# project watcher.
+lattice-core = { path = "../src-tauri/lattice-core" }
 lattice-ui = { path = "crates/lattice-ui" }
 log = "0.4"
 pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
 semver = "1"
 serde_json = "1"
 smallvec = "1"
-tex = { path = "crates/tex" }
 
 # Zed's GPUI family, replaced by gpui-fast. `util` stays Zed's: gpui-fast's
 # copy has its own `rel_path` types, which Zed's crates reject. GPUI itself
@@ -110,6 +113,11 @@ gpui-fast = { path = "compat/gpui-fast/gpui-fast" }
 gpui-fast-platform = { path = "compat/gpui-fast/gpui-fast-platform" }
 gpui-fast-web = { path = "compat/gpui-fast/gpui-fast-web" }
 gpui-component = { path = "patches/gpui-component" }
+# One SQLite: Zed's `sqlez` asks for libsqlite3-sys 0.30 and lattice-core's
+# rusqlite for 0.38, and only one crate in a graph may link `sqlite3`. The
+# shim carries 0.30's name and version and re-exports 0.38
+# (compat/sqlite/README.md).
+libsqlite3-sys = { path = "compat/sqlite/libsqlite3-sys" }
 
 # Copied from Zed's workspace at the pinned revision: a dependency's
 # `[patch]` table does not apply, so Zed's crates only build with these here.

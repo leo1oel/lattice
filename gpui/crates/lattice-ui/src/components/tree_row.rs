@@ -6,10 +6,15 @@
 //! glyph at the top level stands in the chevron's column. The open file's
 //! row is the selected-row wash with its label a step under the primary ink
 //! at medium weight.
+//!
+//! The name is two runs of text, as the app's tree (Pierre's
+//! `MiddleTruncate`) draws it: the head truncates with an ellipsis and the
+//! tail stays whole, so a long name keeps its extension in view
+//! ([`split_name`]). A row being renamed shows its field in the name's place.
 
 use gpui::{
-    App, ElementId, ParentElement as _, SharedString, Styled as _, Transformation, div,
-    prelude::FluentBuilder as _, px, radians, svg,
+    AnyElement, App, ElementId, IntoElement, ParentElement as _, SharedString, Styled as _,
+    Transformation, div, prelude::FluentBuilder as _, px, radians, svg,
 };
 use gpui_kit::component::list::ListItem;
 
@@ -31,6 +36,8 @@ pub struct TreeRow {
     folder: Option<bool>,
     selected: bool,
     parity: Option<SharedString>,
+    /// The rename field, drawn in the name's place.
+    editing: Option<AnyElement>,
 }
 
 impl TreeRow {
@@ -42,6 +49,7 @@ impl TreeRow {
             folder: None,
             selected: false,
             parity: None,
+            editing: None,
         }
     }
 
@@ -59,6 +67,12 @@ impl TreeRow {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Draw `field` (a rename's text field) in the name's place.
+    pub fn editing(mut self, field: impl IntoElement) -> Self {
+        self.editing = Some(field.into_any_element());
         self
     }
 
@@ -123,24 +137,125 @@ impl TreeRow {
                     .h(px(28.))
                     .pr(px(8.))
                     .child(lead)
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .text_ellipsis()
-                            .text_role(TextRole::Body, cx)
-                            .line_height(px(28.))
+                    .child(match self.editing {
+                        Some(field) => div().flex_1().min_w_0().child(field),
+                        None => label(self.name, self.parity, cx)
                             .text_color(label_ink)
-                            .when(self.selected, |label| label.font_weight(FONT_WEIGHT_MEDIUM))
-                            .children(
-                                self.parity.and_then(|name| {
-                                    parity::text_probe(name, 0, self.name.clone())
-                                }),
-                            )
-                            .child(self.name),
-                    ),
+                            .when(self.selected, |label| label.font_weight(FONT_WEIGHT_MEDIUM)),
+                    }),
             )
+    }
+}
+
+/// The name's two runs: the head ellipsizes, the tail stays whole.
+fn label(name: SharedString, parity: Option<SharedString>, cx: &App) -> gpui::Div {
+    let (head, tail) = split_name(&name);
+    let run = |slot: usize, text: String| {
+        let text = SharedString::from(text);
+        div()
+            .children(
+                parity
+                    .clone()
+                    .and_then(|name| parity::text_probe(name, slot, text.clone())),
+            )
+            .child(text)
+    };
+    let mut label = div()
+        .flex()
+        .flex_1()
+        .min_w_0()
+        .overflow_hidden()
+        .whitespace_nowrap()
+        .text_role(TextRole::Body, cx)
+        .line_height(px(28.))
+        .child(run(0, head).min_w_0().overflow_hidden().text_ellipsis());
+    if !tail.is_empty() {
+        label = label.child(run(1, tail).flex_none());
+    }
+    label
+}
+
+/// Where the app's tree splits a name into its two runs (Pierre's
+/// `MiddleTruncate` with `split: "extension"` and `minimumLength: 5`): a
+/// name under five characters stays whole; otherwise the tail is its
+/// extension, dot and all ("main" · ".tex"), unless it has none or one over
+/// ten characters, when the name splits at its middle, off any whitespace
+/// ("figu" · "res"). A dotfile keeps its leading dot in the head.
+pub fn split_name(name: &str) -> (String, String) {
+    let chars: Vec<char> = name.chars().collect();
+    let length = chars.len();
+    if length < 5 {
+        return (name.to_string(), String::new());
+    }
+    let extension = chars
+        .iter()
+        .rposition(|&c| c == '.')
+        .map_or(0, |dot| dot + 1);
+    let too_long = length - extension > 10;
+    let split = if extension >= 1 && !too_long {
+        extension
+    } else {
+        center_split(&chars)
+    };
+    let keep_dot = usize::from(split == extension && extension > 1);
+    let at = split - keep_dot;
+    (chars[..at].iter().collect(), chars[at..].iter().collect())
+}
+
+/// The middle of `chars`, moved off a whitespace boundary.
+fn center_split(chars: &[char]) -> usize {
+    let whitespace = |ix: usize| chars.get(ix).is_some_and(|c| c.is_whitespace());
+    let on_boundary = |ix: usize| (ix > 0 && whitespace(ix - 1)) || whitespace(ix);
+    let center = chars.len().div_ceil(2);
+    if !on_boundary(center) {
+        return center;
+    }
+    for offset in 1..chars.len() {
+        if center > offset && !on_boundary(center - offset) {
+            return center - offset;
+        }
+        let after = center + offset;
+        if after < chars.len() && !on_boundary(after) {
+            return after;
+        }
+    }
+    center
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_name;
+
+    fn split(name: &str) -> (String, String) {
+        split_name(name)
+    }
+
+    fn runs(head: &str, tail: &str) -> (String, String) {
+        (head.to_string(), tail.to_string())
+    }
+
+    #[test]
+    fn names_split_as_the_apps_tree_splits_them() {
+        // As the parity report read the Main window's rows.
+        assert_eq!(split("main.tex"), runs("main", ".tex"));
+        assert_eq!(split("references.bib"), runs("references", ".bib"));
+        assert_eq!(
+            split("attention-demo.html"),
+            runs("attention-demo", ".html")
+        );
+        assert_eq!(split("figures"), runs("figu", "res"));
+        // Under five characters a name is one run.
+        assert_eq!(split("a.md"), runs("a.md", ""));
+        assert_eq!(split("res"), runs("res", ""));
+        // A dotfile keeps its dot in the head; an extension over ten
+        // characters is not an extension.
+        assert_eq!(split(".latexmkrc"), runs(".", "latexmkrc"));
+        assert_eq!(
+            split("table.verylongextension"),
+            runs("table.verylo", "ngextension")
+        );
+        // The middle moves off whitespace.
+        assert_eq!(split("my notes"), runs("my n", "otes"));
+        assert_eq!(split("abc defg"), runs("abc d", "efg"));
     }
 }

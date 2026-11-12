@@ -3,21 +3,22 @@
 A native GPUI version of Lattice's LaTeX writing flow, growing beside the Tauri app in this repository.
 The Tauri app in `../src` and `../src-tauri` keeps shipping; nothing here is built, tested or released with it, and `gpui/` is its own Cargo workspace.
 
-What it does so far, and nothing more:
+Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`), the crate both apps share. What it does so far, and nothing more:
 
-1. Opens a LaTeX project folder, with the file tree on the left.
-2. Edits sources in Zed's editor with LaTeX highlighting, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim).
-3. Shows the PDF on the right, rendered natively by PDFium.
-4. Builds with latexmk on one click (or ⌘B / Ctrl+B), reloads the PDF in place, and lists errors that jump to their line.
-5. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
+1. Opens a project folder as the Tauri app does (a folder Lattice did not create is adopted the same way), with the Project tree on the left: the same files shown and hidden, New file, New folder, Rename, a dragged row moved into a folder, Delete, Set as main document, Show hidden files.
+2. Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim).
+3. Saves as the Tauri app does: after a pause in typing, on leaving the editor, and before a tab or window closes or the app quits, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
+4. Shows the PDF on the right, rendered natively by PDFium, and jumps between it and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, and a double-click in the PDF opens its source line.
+5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B), and after each save and each outside edit it loads (the Tauri app's default automatic builds), reloads the PDF in place, and lists errors that jump to their line.
+6. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
 
 Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent panel, canvas, spreadsheet, slides, live preview and i18n.
 
 ## License
 
 This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, workspace).
-`crates/tex` and `compat/` are Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)), and the upstream crates in `patches/` keep their Apache-2.0 license, with Lattice's diffs under it.
-Everything outside `gpui/`, the Tauri app and the backend crate the two apps will share included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
+`compat/` is Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)), and the upstream crates in `patches/` keep their Apache-2.0 license, with Lattice's diffs under it.
+Everything outside `gpui/`, the Tauri app and the backend crate the two apps share (`lattice-core`) included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it
 
@@ -41,6 +42,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘O / Ctrl+O | Open a project folder |
 | ⌘B / Ctrl+B | Save edited files and build |
 | ⌘S / Ctrl+S | Save |
+| ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
 | ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
 | Zed's default keymap | Everything else in the editor |
 
@@ -48,28 +50,40 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 
 ## CI
 
-`.github/workflows/gpui.yml` runs only when `gpui/**`, the workflow itself, one of the design-system exports `crates/lattice-ui` generates from changes (`../design-system/tokens.json`, `../design-system/code-themes.json` and what that is generated from; the workflow lists them), or the scene staging the parity report uses (`../design-system/screens/`).
+`.github/workflows/gpui.yml` runs only when `gpui/**`, `lattice-core` (`../src-tauri/lattice-core/**`, which the app builds on), the workflow itself, one of the design-system exports `crates/lattice-ui` generates from changes (`../design-system/tokens.json`, `../design-system/code-themes.json` and what that is generated from; the workflow lists them), or the scene staging the parity report uses (`../design-system/screens/`).
 Its `code-themes` job fails while `code-themes.json` is stale (`node design-system/code-themes.mjs --check`), and its `patches` job while `patches/` is not upstream plus its diffs (`script/check-patches`). A separate workflow, `.github/workflows/gpui-patches.yml`, runs only when `patches/` changes: it applies the diffs to gpui-fast at the pin and runs the tests they add (element scale, letter spacing).
-On macOS and Windows it builds the app (release profile), runs the unit tests (including the latexmk test that is ignored by default) and the `e2e` scenario on `fixtures/e2e`; on macOS it then writes the parity report (below), which does not fail the job.
-macOS builds with TeX Live; Windows builds with MiKTeX, and a second Windows job runs the TeX tests against TeX Live.
+On macOS and Windows it builds the app (release profile), runs the unit tests and the `e2e` scenario on `fixtures/e2e`; on macOS it then writes the parity report (below), which does not fail the job. `lattice-core`'s own tests run with the Tauri app's (`ci.yml`).
+macOS builds with TeX Live; Windows builds with MiKTeX.
 The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-install prompts are checked by hand; CI cannot drive them.
 
 ## How it is put together
 
 ```
-crates/lattice-gpui   the app: shell (titlebar + dock), file tree, editor panel,
-                      PDF panel (PDFium on its own thread), build panel,
-                      LaTeX language, scripted scenarios (macOS, Windows)
+crates/lattice-gpui   the app: shell (titlebar + dock), project, file tree,
+                      editor panel, PDF panel (PDFium on its own thread), build
+                      panel, notices and confirmations, LaTeX language,
+                      scripted scenarios (macOS, Windows)
 crates/lattice-ui     Lattice's look: design tokens generated from
                       ../design-system/tokens.json, the palette, GPUI Kit and
                       Zed editor themes, fonts, type roles, motion, elevation,
                       icons, components and the dock's skin
-crates/tex            TeX discovery, latexmk runs, log diagnostics (from ../src-tauri)
-compat/               shims that leave one GPUI in the graph (gpui-pre, gpui-fast)
+../src-tauri/lattice-core
+                      the backend the Tauri app runs on (a path dependency):
+                      projects, the tree and its file operations, builds,
+                      SyncTeX, saving with merge, the project watcher
+compat/               shims that leave one GPUI (gpui-pre, gpui-fast) and one
+                      SQLite (sqlite) in the graph
 patches/              upstream crates with Lattice's diffs: gpui-fast's GPUI and
                       macOS platform, GPUI Kit's components (patches/README.md)
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
 ```
+
+### lattice-core
+
+The app depends on `../src-tauri/lattice-core` by path, the crate the Tauri app's commands call, so both apps run one backend: opening a project (and adopting a folder Lattice did not create, with its `.research/` folder), the Project tree's scan and file operations, the build, SyncTeX, the editor save that merges an outside edit, and the project watcher.
+Its dependencies resolve in this workspace's `Cargo.lock`, at the Tauri app's versions where it pins them (`harper-core` and its family are held at the Tauri app's 2.7.0).
+`lattice-core`'s version follows the app's; `../scripts/bump-version.mjs` rewrites its entry in this lockfile too, so `cargo build --locked` keeps passing after a release.
+Zed's `sqlez` and `lattice-core`'s `rusqlite` link different `libsqlite3-sys` versions, which Cargo refuses in one graph; `compat/sqlite` gives 0.38 the version 0.30 (its README).
 
 ### One GPUI for Zed's editor and GPUI Kit
 
@@ -105,9 +119,17 @@ Pages are laid out from their sizes at once and drawn only near the viewport; im
 
 ### The build
 
-`crates/tex` runs `latexmk -cd -outdir=. -auxdir=. -pv- -pvc- -interaction=nonstopmode -synctex=1 -file-line-error -f -pdf|-pdfxe|-pdflua`, like Lattice, with `max_print_line=10000`.
-The engine follows a `% !TEX program =` comment or a CJK/fontspec package; with a `latexmkrc` or `.latexmkrc` beside the document it is only a default (`-e '$pdf_mode ||= N;'`), so the rc file's engine wins.
-The log parser is Lattice's `parse_diagnostics`, without Lattice's translated advice.
+The build is `lattice-core`'s `latex::build`, the Tauri app's own: the main document from the project's manifest (or a compilable `.tex` open in the editor, which it adopts), its engine, rc-file handling, preamble format, stale-build recovery and log diagnostics.
+While it runs, the build panel names the passes latexmk announces; one build runs at a time, and a build asked for meanwhile runs once it ends, standing for every ask made in between.
+A build after a save is unattended, as the Tauri app's automatic builds are, so a failing document nothing changed in is not typeset again.
+
+### Saving and outside edits
+
+The editor saves the way the Tauri app's open documents do (`../src/app/use-document-save.ts`, `use-document-autosave.ts`, `use-document-disk-sync.ts`, `vanished-file.ts`): through `lattice-core`'s editor transaction, with the text the buffer grew from as the base of a three-way merge, so an outside edit is kept and a clash is marked with conflict markers and a notice. The file is checked every 2.5 s and whenever the project watcher names it.
+
+### SyncTeX
+
+Both directions are `lattice-core`'s (`latex::forward_search`, `latex::inverse_search`). A jump to the PDF saves first and builds when the PDF is older than the sources, as the Tauri app's `ensureCompiled` does; the PDF scrolls the line's box to the middle of the panel and marks it with an accent box that fades after 1.44 s.
 
 ## Scripted runs
 
@@ -118,8 +140,10 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 
 `e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
 
-- `e2e`: opens a project, builds, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs and rebuilds, and drags an editor tab into the right dock with native mouse events.
-  It needs `chapters/intro.tex` in the project.
+- `e2e`: opens a project through `lattice-core`, builds, jumps from the caret to the PDF and back with a native double-click (SyncTeX), autosaves after a pause in typing (and builds), reloads an outside edit into a clean buffer and merges one made while the buffer holds edits, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs the file outside Lattice and rebuilds, creates, renames, moves and deletes a file in the tree, and drags an editor tab into the right dock with native mouse events.
+  It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, and that closing the tab of a file deleted outside Lattice takes down its notice.
+  It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
+  It needs `chapters/intro.tex` and `references.bib` in the project.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
 - `memory`: `footprint` after opening the project, after opening `long.tex`, and after scrolling through the whole PDF.
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
@@ -151,7 +175,7 @@ CI's macos job writes the report after the e2e scenario and uploads it as the `g
 ## Reference projects
 
 Checked on 2026-11-11 before reusing anything.
-Only GPUI Kit, gpui-webview, gpui-fast, Zed's crates, pdfium-render and the LaTeX grammar are dependencies; code was copied only from Lattice (`crates/tex`, see its `NOTICE`), besides the upstream crates vendored with diffs in `patches/`.
+Only GPUI Kit, gpui-webview, gpui-fast, Zed's crates, pdfium-render, the LaTeX grammar and Lattice's own `lattice-core` are dependencies; no code was copied, besides the upstream crates vendored with diffs in `patches/`.
 
 | Project | License | GPUI it pins | Used here |
 |---|---|---|---|
@@ -168,7 +192,7 @@ Only GPUI Kit, gpui-webview, gpui-fast, Zed's crates, pdfium-render and the LaTe
 | [pdfium-render](https://crates.io/crates/pdfium-render) 0.9.5 | MIT OR Apache-2.0 | none | dependency |
 | [PDFium binaries](https://github.com/bblanchon/pdfium-binaries) chromium/8125 | BSD-3-Clause and bundled notices | none | downloaded by `script/fetch-pdfium` |
 | [tree-sitter-latex](https://github.com/latex-lsp/tree-sitter-latex) (`codebook-tree-sitter-latex` 0.6.1) | MIT | none | dependency |
-| Lattice v0.16.13 (`../src-tauri`) | Apache-2.0 | none | code adapted into `crates/tex` |
+| Lattice's `lattice-core` (`../src-tauri/lattice-core`) | Apache-2.0 | none | dependency (path): the backend both apps share |
 
 tldraw is not used.
 
