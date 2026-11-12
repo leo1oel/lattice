@@ -292,12 +292,18 @@ impl TexlabDiagnostics {
         if !self.path.ends_with(".tex") || !self.may_sync(cx) {
             return;
         }
+        // When it fires, it still syncs unless another editor took TexLab's
+        // document in the meantime while the writer is not in this one.
+        let document = self.service.read(cx).document().map(str::to_string);
         self._sync = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SYNC_DELAY).await;
             this.update(cx, |this, cx| {
                 let Some(editor) = this.editor.upgrade() else {
                     return;
                 };
+                if !this.focused && this.service.read(cx).document() != document.as_deref() {
+                    return;
+                }
                 let text = editor.read(cx).buffer().read(cx).text();
                 let path = this.path.clone();
                 this.service
