@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+mod pdf;
 mod saves;
 
 /// Each step's name, whether it passed, and what it saw.
@@ -30,7 +31,8 @@ impl Run {
     /// an outside edit into a clean buffer and merge one into an edited
     /// buffer, break the document by typing, save with the shortcut, build,
     /// follow the error to its line, search, Vim, repair, build; then create,
-    /// rename, move and delete files in the tree, drag a tab into a dock,
+    /// rename, move and delete files in the tree, check the PDF viewer on a
+    /// second root document (`pdf.rs`), drag a tab into a dock,
     /// close a dirty tab, a vanished file's tab and a window, and type
     /// before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
@@ -62,7 +64,7 @@ impl Run {
 
         let (built, took) = self.build(cx).await?;
         self.pause(cx, Duration::from_millis(800)).await;
-        let pages = cx.update(|cx| self.shell.read(cx).pdf().read(cx).page_count());
+        let pages = cx.update(|cx| self.shell.read(cx).pdf().read(cx).page_count(cx));
         let rows = cx.update(|cx| self.shell.read(cx).file_tree().read(cx).row_paths(cx));
         steps.check(
             "build succeeds and the PDF shows",
@@ -224,6 +226,7 @@ impl Run {
         );
 
         self.tree_operations(cx, &mut steps, &root).await?;
+        self.pdf_viewer(cx, &mut steps, &root).await?;
 
         // Docking: drag an editor tab out of the center into the right dock,
         // beside the PDF, with native mouse events. (GPUI Kit keeps a dock's
@@ -268,13 +271,13 @@ impl Run {
                     .read(cx)
                     .pdf()
                     .read(cx)
-                    .sync_mark()
+                    .sync_mark(cx)
                     .is_some_and(|(_, scroll)| !scroll)
             })
             .await;
         let (mark, top) = cx.update(|cx| {
             let pdf = self.shell.read(cx).pdf().read(cx);
-            (pdf.sync_mark(), pdf.sync_mark_top())
+            (pdf.sync_mark(cx), pdf.sync_mark_top(cx))
         });
         steps.check(
             "SyncTeX: the caret's line is found and marked in the PDF",
@@ -285,7 +288,7 @@ impl Run {
         // Somewhere else first, so the jump back is seen to land.
         self.open(cx, &root.join("main.tex"), Some(1))?;
         self.pause(cx, Duration::from_millis(400)).await;
-        let center = cx.update(|cx| self.shell.read(cx).pdf().read(cx).sync_mark_center());
+        let center = cx.update(|cx| self.shell.read(cx).pdf().read(cx).sync_mark_center(cx));
         let landed = match center {
             Some(center) => {
                 native::send_double_click(self.native(cx)?, center)?;

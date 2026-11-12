@@ -17,6 +17,7 @@ offscreen-shots = ["gpui/test-support", "gpui_platform/test-support"]
 anyhow.workspace = true
 assets.workspace = true
 codebook-tree-sitter-latex.workspace = true
+dirs.workspace = true
 editor.workspace = true
 # The Tauri app's figure-path patterns use lookahead (moved_paths.rs).
 fancy-regex = "0.19"
@@ -38,6 +39,7 @@ pdfium-render.workspace = true
 release_channel.workspace = true
 search.workspace = true
 semver.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 settings.workspace = true
 smallvec.workspace = true

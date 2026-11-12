@@ -21,6 +21,7 @@ use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock
 
 mod build;
 mod entries;
+mod pdfs;
 mod synctex;
 
 use build::BuildRequest;
@@ -31,7 +32,7 @@ use crate::{
     editor_panel::{EditorPanel, EditorPanelEvent},
     file_tree::FileTreePanel,
     notices::{self, NoticeStack},
-    pdf::{PdfEvent, PdfPanel},
+    pdf::{PdfPanel, PdfPanelKind},
     project::Project,
     titlebar::TitlebarDrag,
 };
@@ -103,6 +104,15 @@ pub struct Shell {
     queued_build: Option<BuildRequest>,
     /// Told when the builds under way, queued ones included, are over.
     build_waiters: Vec<oneshot::Sender<()>>,
+    /// The root document the next build compiles, asked for from its PDF
+    /// tab; otherwise the editor's or the project's.
+    build_target: Option<String>,
+    /// The root document whose PDF the live panel shows.
+    live_document: Option<String>,
+    /// The other root documents' tabs, each with its last PDF.
+    root_pdfs: Vec<(String, Entity<PdfPanel>)>,
+    /// The project's PDFs opened from the tree.
+    file_pdfs: Vec<Entity<PdfPanel>>,
     _open_task: Option<Task<()>>,
     vim_mode: bool,
 }
@@ -151,7 +161,7 @@ impl Shell {
         crate::panels::present_tabs(cx);
         let dock_area = LatticeDock::dock_area("lattice", Some(1), window, cx);
         let file_tree = cx.new(FileTreePanel::new);
-        let pdf = cx.new(PdfPanel::new);
+        let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let build_panel = cx.new(BuildPanel::new);
         let notices = notices::install(cx);
         let confirm = confirm::install(cx);
@@ -174,14 +184,7 @@ impl Shell {
             },
         )
         .detach();
-        cx.subscribe_in(
-            &pdf,
-            window,
-            |this, _, event: &PdfEvent, window, cx| match event {
-                PdfEvent::SourceAt { page, x, y } => this.inverse_sync(*page, *x, *y, window, cx),
-            },
-        )
-        .detach();
+        cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
 
@@ -229,6 +232,10 @@ impl Shell {
             build_task: None,
             queued_build: None,
             build_waiters: Vec::new(),
+            build_target: None,
+            live_document: None,
+            root_pdfs: Vec::new(),
+            file_pdfs: Vec::new(),
             _open_task: None,
             vim_mode: crate::app::vim_mode_enabled(cx),
         }
@@ -338,6 +345,9 @@ impl Shell {
         };
         self.project = Some(project.clone());
         self.queued_build = None;
+        self.build_target = None;
+        self.close_root_pdfs(window, cx);
+        self.live_document = project.read(cx).main_document().map(str::to_string);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         window.set_window_title(&format!(
@@ -347,9 +357,17 @@ impl Shell {
         if let Some(main) = main {
             self.open_path(main, None, window, cx);
         }
-        self.pdf.update(cx, |panel, cx| match pdf {
-            Some(pdf) => panel.open(pdf, window, cx),
-            None => panel.close(window, cx),
+        let title = format!(
+            "{} — {}",
+            crate::pdf::pdf_tab_label(self.live_document.as_deref().unwrap_or("main.tex"), &[]),
+            self.project_name(cx)
+        );
+        self.pdf.update(cx, |panel, cx| {
+            panel.set_window_title(title.into());
+            match pdf {
+                Some(pdf) => panel.open(pdf, window, cx),
+                None => panel.close(window, cx),
+            }
         });
         cx.notify();
     }
@@ -400,9 +418,11 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<Entity<EditorPanel>> {
-        if path.extension().is_some_and(|extension| extension == "pdf") {
-            self.pdf
-                .update(cx, |panel, cx| panel.open(path, window, cx));
+        if path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
+        {
+            self.open_file_pdf(path, window, cx);
             return None;
         }
         let project = self.project.clone()?;

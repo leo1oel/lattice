@@ -44,14 +44,14 @@ impl Run {
         let marked = self
             .wait_for(cx, Duration::from_secs(60), |shell, cx| {
                 let pdf = shell.read(cx).pdf().read(cx);
-                let below = match (pdf.sync_mark_top(), intro_top) {
+                let below = match (pdf.sync_mark_top(cx), intro_top) {
                     (Some(top), Some(intro)) => top > intro,
                     _ => false,
                 };
-                below && pdf.sync_mark() == Some((0, false))
+                below && pdf.sync_mark(cx) == Some((0, false))
             })
             .await;
-        let top = cx.update(|cx| self.shell.read(cx).pdf().read(cx).sync_mark_top());
+        let top = cx.update(|cx| self.shell.read(cx).pdf().read(cx).sync_mark_top(cx));
         steps.check(
             "SyncTeX from a .bib entry (⌘⇧J) marks its reference in the PDF",
             marked,

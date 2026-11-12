@@ -29,14 +29,18 @@ impl Icon {
     // Lucide, from GPUI Kit's assets.
     pub const BOOK_OPEN: Icon = Icon("icons/book-open.svg");
     pub const BOT: Icon = Icon("icons/bot.svg");
+    pub const CASE_SENSITIVE: Icon = Icon("icons/case-sensitive.svg");
     pub const CHECK: Icon = Icon("icons/check.svg");
     pub const CHEVRON_DOWN: Icon = Icon("icons/chevron-down.svg");
     pub const CHEVRON_LEFT: Icon = Icon("icons/chevron-left.svg");
     pub const CHEVRON_RIGHT: Icon = Icon("icons/chevron-right.svg");
+    pub const CHEVRON_UP: Icon = Icon("icons/chevron-up.svg");
     pub const CIRCLE_ALERT: Icon = Icon("icons/circle-alert.svg");
     pub const CIRCLE_CHECK: Icon = Icon("icons/circle-check.svg");
     pub const CLIPBOARD_CHECK: Icon = Icon("icons/clipboard-check.svg");
     pub const CLOUD: Icon = Icon("icons/cloud.svg");
+    pub const CORNER_UP_LEFT: Icon = Icon("icons/corner-up-left.svg");
+    pub const CORNER_UP_RIGHT: Icon = Icon("icons/corner-up-right.svg");
     pub const FILE_TEXT: Icon = Icon("icons/file-text.svg");
     pub const FOLDER_TREE: Icon = Icon("icons/folder-tree.svg");
     pub const GLOBE: Icon = Icon("icons/globe.svg");
@@ -50,14 +54,26 @@ impl Icon {
     pub const LOADER: Icon = Icon("icons/loader-circle.svg");
     pub const LOCATE_FIXED: Icon = Icon("icons/locate-fixed.svg");
     pub const MESSAGE_SQUARE_TEXT: Icon = Icon("icons/message-square-text.svg");
+    pub const MOON: Icon = Icon("icons/moon.svg");
+    pub const PLAY: Icon = Icon("icons/play.svg");
     pub const PLUS: Icon = Icon("icons/plus.svg");
     pub const RECTANGLE_HORIZONTAL: Icon = Icon("icons/rectangle-horizontal.svg");
+    pub const RECTANGLE_VERTICAL: Icon = Icon("icons/rectangle-vertical.svg");
     pub const REFRESH: Icon = Icon("icons/refresh-cw.svg");
     pub const SEARCH: Icon = Icon("icons/search.svg");
+    pub const SQUARE_ARROW_DOWN_LEFT: Icon = Icon("icons/square-arrow-down-left.svg");
+    pub const SQUARE_ARROW_OUT_UP_RIGHT: Icon = Icon("icons/square-arrow-out-up-right.svg");
     pub const TRIANGLE_ALERT: Icon = Icon("icons/triangle-alert.svg");
+    pub const WHOLE_WORD: Icon = Icon("icons/whole-word.svg");
+    pub const X: Icon = Icon("icons/x.svg");
     pub const ZOOM_IN: Icon = Icon("icons/zoom-in.svg");
     pub const ZOOM_OUT: Icon = Icon("icons/zoom-out.svg");
-    pub const ELLIPSIS: Icon = Icon("icons/ellipsis.svg");
+
+    // Names Zed's icon set also has, which the app's asset source finds
+    // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
+    // (ISC, `assets/LICENSE-LUCIDE`).
+    pub const DOWNLOAD: Icon = Icon("lattice/download.svg");
+    pub const ELLIPSIS: Icon = Icon("lattice/ellipsis.svg");
 
     // The app's own, from `assets/icons`.
     /// The 1.5-stroke X a panel tab closes with.
@@ -148,6 +164,8 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "close.svg",
     "disclosure.svg",
     "dots.svg",
+    "download.svg",
+    "ellipsis.svg",
     "git.svg",
     "history.svg",
     "glyph-bib-body.svg",
