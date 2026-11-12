@@ -255,16 +255,6 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         );
         out.push(
             Command::new(
-                "reopen-tab",
-                "Reopen the closed tab",
-                Section::Navigate,
-                ReopenClosedTab,
-            )
-            .keys_only(),
-        );
-        out.push(Command::new("next-tab", "Next tab", Section::Navigate, NextTab).keys_only());
-        out.push(
-            Command::new(
                 "next-problem",
                 "Next build problem",
                 Section::Navigate,
@@ -281,6 +271,16 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             )
             .keys_only(),
         );
+        out.push(
+            Command::new(
+                "reopen-tab",
+                "Reopen the closed tab",
+                Section::Navigate,
+                ReopenClosedTab,
+            )
+            .keys_only(),
+        );
+        out.push(Command::new("next-tab", "Next tab", Section::Navigate, NextTab).keys_only());
         out.push(
             Command::new(
                 "previous-tab",
@@ -740,6 +740,18 @@ mod tests {
         context.building = true;
         assert_eq!(row(&context, &StopBuild), Some(true));
         assert_eq!(row(&CommandContext::default(), &OpenTexDoctor), Some(true));
+        // The shortcut sheet lists a section in table order: the Tauri table
+        // puts the build problems before Reopen the closed tab, and the tab
+        // pair stays together.
+        let navigate: Vec<_> = commands(&context)
+            .into_iter()
+            .filter(|command| command.section == Section::Navigate)
+            .map(|command| command.id.to_string())
+            .collect();
+        let at = |id: &str| navigate.iter().position(|other| other == id).unwrap();
+        assert_eq!(at("previous-problem"), at("next-problem") + 1);
+        assert!(at("previous-problem") < at("reopen-tab"));
+        assert_eq!(at("previous-tab"), at("next-tab") + 1);
     }
 }
 
