@@ -151,7 +151,7 @@ CI's macos job writes the report after the e2e scenario and uploads it as the `g
 ## Reference projects
 
 Checked on 2026-11-11 before reusing anything.
-Only GPUI Kit, Zed's crates, pdfium-render and the LaTeX grammar are dependencies; code was copied only from Lattice (`crates/tex`, see its `NOTICE`).
+Only GPUI Kit, gpui-webview, gpui-fast, Zed's crates, pdfium-render and the LaTeX grammar are dependencies; code was copied only from Lattice (`crates/tex`, see its `NOTICE`), besides the upstream crates vendored with diffs in `patches/`.
 
 | Project | License | GPUI it pins | Used here |
 |---|---|---|---|
