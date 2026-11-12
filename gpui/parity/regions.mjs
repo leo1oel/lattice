@@ -41,8 +41,10 @@ export const SCREENS = {
       row("references.bib"),
       { name: "pdf/toolbar", css: ".pdf-toolbar", chrome: true },
       { name: "pdf/page", css: ".pdf-page-value", text: true },
+      // No zoom label: the PDF panel is narrower than the toolbar's 640 px
+      // container query at this size, so the Tauri app folds zoom into the
+      // overflow menu (pdf-viewer.css); the GPUI app's toolbar has none either.
       { name: "pdf/find", css: ".pdf-search", text: true },
-      { name: "pdf/zoom", css: ".pdf-zoom-value", text: true },
       { name: "build-chip", css: ".trellis-build-button", text: true, chrome: true },
       { name: "status-bar", css: ".editor-status-bar", chrome: true },
       { name: "status/position", css: ".status-goto", text: true },
