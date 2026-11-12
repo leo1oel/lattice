@@ -364,12 +364,17 @@ impl Run {
         self.rewrite_open_file(cx, &main, &original_main).await?;
 
         // Clean deletes the auxiliary files; a clean rebuild writes them anew.
+        // `latexmk -c` deletes main.aux before it exits, and a clean rebuild
+        // asked for while the clean runs is turned away (`clean_rebuild`), so
+        // wait for the clean itself to finish, not only for the file to go.
         let aux = root.join("main.aux");
         self.with_window(cx, |_, window, cx| {
             window.dispatch_action(Box::new(CleanBuildFiles), cx)
         })?;
         let cleaned = self
-            .wait_for(cx, Duration::from_secs(30), |_, _| !aux.exists())
+            .wait_for(cx, Duration::from_secs(30), |shell, cx| {
+                !aux.exists() && !shell.read(cx).cleaning()
+            })
             .await;
         let before = self.builds(cx);
         self.with_window(cx, |_, window, cx| {
@@ -377,10 +382,16 @@ impl Run {
         })?;
         let rebuilt = self.built_after(cx, before).await;
         let clean_build = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).succeeded());
+        let rewritten = aux.exists();
         steps.check(
             "Clean deletes the build files, and a clean rebuild writes them again",
-            cleaned && rebuilt && clean_build == Some(true) && aux.exists(),
-            json!({ "cleaned": cleaned, "succeeded": clean_build }),
+            cleaned && rebuilt && clean_build == Some(true) && rewritten,
+            json!({
+                "cleaned": cleaned,
+                "rebuilt": rebuilt,
+                "succeeded": clean_build,
+                "aux_written": rewritten,
+            }),
         );
 
         // A document that loops: Stop ends the build, which reports nothing.
