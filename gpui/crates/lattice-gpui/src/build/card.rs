@@ -15,9 +15,9 @@
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement,
-    ListSizingBehavior, ListState, ParentElement as _, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window, div, list, prelude::*, px, relative,
+    AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement, ListState,
+    ParentElement as _, Pixels, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
+    div, list, prelude::*, px, relative,
 };
 use lattice_core::models::Diagnostic;
 use lattice_ui::{
@@ -908,19 +908,36 @@ fn floor_char(text: &str, at: usize) -> usize {
     at
 }
 
+/// The raw log's type and insets, which the floating box sizes itself by.
+const LOG_TEXT_SIZE: f32 = 11.;
+const LOG_LINE_HEIGHT: f32 = 1.45;
+const LOG_PADDING_Y: f32 = 8.;
+/// The floating log's cap (`.compile-log`'s `max-height`).
+const LOG_MAX_HEIGHT: f32 = 220.;
+
 fn log_view(panel: &BuildPanel, last: &LastBuild, docked: bool, cx: &App) -> AnyElement {
     let lines = log_lines(&panel.card_log, last, cx);
     if docked {
         lines.flex_1().min_h_0().into_any_element()
     } else {
-        lines.max_h(px(220.)).into_any_element()
+        lines
+            .h(floating_log_height(last.log_lines.len()))
+            .into_any_element()
     }
+}
+
+/// The floating log fits a short log and stops at its cap. The list only
+/// measures the rows in view, so the box is sized from the line count: a
+/// line that wraps only makes the log taller than this.
+fn floating_log_height(lines: usize) -> Pixels {
+    let content = lines as f32 * LOG_TEXT_SIZE * LOG_LINE_HEIGHT;
+    px((content + 2. * LOG_PADDING_Y + 2.).min(LOG_MAX_HEIGHT))
 }
 
 /// The raw log, opened where a failed build went wrong rather than at
 /// TeX's banner (the build panel scrolls it to the error's line). Its
 /// lines wrap, so they are not one height: a `list` lays out only the
-/// rows in view, and the box still fits a short log.
+/// rows in view.
 fn log_lines(rows: &ListState, last: &LastBuild, cx: &App) -> gpui::Div {
     let palette = cx.palette().clone();
     let font = cx.lattice().fonts.editor.clone();
@@ -933,17 +950,16 @@ fn log_lines(rows: &ListState, last: &LastBuild, cx: &App) -> gpui::Div {
         .rounded(px(6.))
         .bg(palette.raised.opacity(0.9))
         .font_family(font)
-        .text_size(px(11.))
-        .line_height(relative(1.45))
+        .text_size(px(LOG_TEXT_SIZE))
+        .line_height(relative(LOG_LINE_HEIGHT))
         .text_color(palette.text)
         .child(
             list(rows.clone(), move |ix, _, _| {
                 div().child(lines[ix].clone()).into_any_element()
             })
-            .with_sizing_behavior(ListSizingBehavior::Infer)
             .flex_1()
             .min_h_0()
-            .py(px(8.))
+            .py(px(LOG_PADDING_Y))
             .px(px(10.)),
         )
 }

@@ -39,8 +39,8 @@ use crate::build::{
 /// The log view keeps the tail; a full multi-pass log can run to megabytes.
 const LOG_TAIL_LINES: usize = 2_000;
 
-/// A raw log's rows, measured a screen beyond the card's 220px so it can
-/// size itself to a short log on its first frame.
+/// A raw log's rows, measured a little beyond the box so a scroll does not
+/// show them arriving.
 fn log_list() -> ListState {
     ListState::new(0, ListAlignment::Top, px(240.))
 }
