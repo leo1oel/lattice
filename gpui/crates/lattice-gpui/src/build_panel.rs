@@ -11,12 +11,14 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    rc::Rc,
     time::{Duration, Instant},
 };
 
 use gpui::{
     App, Context, EventEmitter, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, ScrollHandle, SharedString, Styled as _, Task, Window, div,
+    ListAlignment, ListOffset, ListState, ParentElement as _, Render, SharedString, Styled as _,
+    Task, Window, div, px,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
@@ -36,6 +38,12 @@ use crate::build::{
 
 /// The log view keeps the tail; a full multi-pass log can run to megabytes.
 const LOG_TAIL_LINES: usize = 2_000;
+
+/// A raw log's rows, measured a screen beyond the card's 220px so it can
+/// size itself to a short log on its first frame.
+fn log_list() -> ListState {
+    ListState::new(0, ListAlignment::Top, px(240.))
+}
 
 /// What the build chip in the editor's strip shows.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -89,7 +97,7 @@ pub struct LastBuild {
     pub diagnostics: Vec<Diagnostic>,
     pub explained: Vec<Option<Explained>>,
     pub log: String,
-    pub log_lines: Vec<SharedString>,
+    pub log_lines: Rc<[SharedString]>,
     /// The log line a failed build's log opens at.
     pub log_anchor: Option<usize>,
 }
@@ -123,7 +131,10 @@ pub struct BuildPanel {
     pub(crate) replaced: HashMap<usize, String>,
     /// The copy button that just copied, which shows a check for a moment.
     pub(crate) copied: Option<(usize, Instant)>,
-    pub(crate) log_scroll: ScrollHandle,
+    /// The raw log's rows, laid out only where they show: the card's and
+    /// the dock panel's, which can both be on screen at different widths.
+    pub(crate) card_log: ListState,
+    pub(crate) panel_log: ListState,
     /// The diagnostic F8 last went to.
     cycle: Option<usize>,
     /// Builds finished so far, for a scenario to tell a new one from the last.
@@ -151,7 +162,8 @@ impl BuildPanel {
             tab: OutputTab::Messages,
             replaced: HashMap::new(),
             copied: None,
-            log_scroll: ScrollHandle::new(),
+            card_log: log_list(),
+            panel_log: log_list(),
             cycle: None,
             builds: 0,
             _ticker: None,
@@ -396,9 +408,10 @@ impl BuildPanel {
                 .collect(),
             log_anchor,
         });
-        if let Some(anchor) = log_anchor {
-            self.log_scroll.scroll_to_item(anchor);
+        for list in [&self.card_log, &self.panel_log] {
+            list.reset(lines.len() - tail);
         }
+        self.scroll_log_to_anchor();
         cx.notify();
     }
 
@@ -463,12 +476,23 @@ impl BuildPanel {
 
     pub fn set_tab(&mut self, tab: OutputTab, cx: &mut Context<Self>) {
         self.tab = tab;
-        if tab == OutputTab::Log
-            && let Some(anchor) = self.last.as_ref().and_then(|last| last.log_anchor)
-        {
-            self.log_scroll.scroll_to_item(anchor);
+        if tab == OutputTab::Log {
+            self.scroll_log_to_anchor();
         }
         cx.notify();
+    }
+
+    /// A failed build's log opens with the line before the error on top.
+    fn scroll_log_to_anchor(&self) {
+        let Some(anchor) = self.last.as_ref().and_then(|last| last.log_anchor) else {
+            return;
+        };
+        for list in [&self.card_log, &self.panel_log] {
+            list.scroll_to(ListOffset {
+                item_ix: anchor,
+                offset_in_item: px(0.),
+            });
+        }
     }
 
     /// Go to the diagnostic at `ix` in the list.

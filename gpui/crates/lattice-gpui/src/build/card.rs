@@ -16,8 +16,8 @@ use std::time::Duration;
 
 use gpui::{
     AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::*, px, relative,
+    ListSizingBehavior, ListState, ParentElement as _, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Window, div, list, prelude::*, px, relative,
 };
 use lattice_core::models::Diagnostic;
 use lattice_ui::{
@@ -333,7 +333,7 @@ pub fn panel(panel: &BuildPanel, build: &Entity<BuildPanel>, cx: &App) -> AnyEle
             })
     });
     let content = if on_log {
-        log_lines(panel, last, cx)
+        log_lines(&panel.panel_log, last, cx)
             .flex_1()
             .min_h_0()
             .into_any_element()
@@ -909,7 +909,7 @@ fn floor_char(text: &str, at: usize) -> usize {
 }
 
 fn log_view(panel: &BuildPanel, last: &LastBuild, docked: bool, cx: &App) -> AnyElement {
-    let lines = log_lines(panel, last, cx);
+    let lines = log_lines(&panel.card_log, last, cx);
     if docked {
         lines.flex_1().min_h_0().into_any_element()
     } else {
@@ -918,23 +918,32 @@ fn log_view(panel: &BuildPanel, last: &LastBuild, docked: bool, cx: &App) -> Any
 }
 
 /// The raw log, opened where a failed build went wrong rather than at
-/// TeX's banner (the build panel scrolls it to the error's line).
-fn log_lines(panel: &BuildPanel, last: &LastBuild, cx: &App) -> gpui::Stateful<gpui::Div> {
+/// TeX's banner (the build panel scrolls it to the error's line). Its
+/// lines wrap, so they are not one height: a `list` lays out only the
+/// rows in view, and the box still fits a short log.
+fn log_lines(rows: &ListState, last: &LastBuild, cx: &App) -> gpui::Div {
     let palette = cx.palette().clone();
     let font = cx.lattice().fonts.editor.clone();
+    let lines = last.log_lines.clone();
     div()
-        .id("compile-log")
-        .track_scroll(&panel.log_scroll)
-        .overflow_y_scroll()
+        .flex()
+        .flex_col()
         .border_1()
         .border_color(palette.line_strong)
         .rounded(px(6.))
-        .py(px(8.))
-        .px(px(10.))
         .bg(palette.raised.opacity(0.9))
         .font_family(font)
         .text_size(px(11.))
         .line_height(relative(1.45))
         .text_color(palette.text)
-        .children(last.log_lines.iter().map(|line| div().child(line.clone())))
+        .child(
+            list(rows.clone(), move |ix, _, _| {
+                div().child(lines[ix].clone()).into_any_element()
+            })
+            .with_sizing_behavior(ListSizingBehavior::Infer)
+            .flex_1()
+            .min_h_0()
+            .py(px(8.))
+            .px(px(10.)),
+        )
 }
