@@ -178,9 +178,31 @@ pub fn close_panel(group: &TabGroupContext, panel: PanelId, window: &mut Window,
 /// a change is recorded after the frame and the window drawn again, so the
 /// strip catches up one frame later (`measure`).
 #[derive(Default)]
-struct StripRoom(HashMap<(EntityId, NodeId), Measured>);
+struct StripRoom {
+    groups: HashMap<(EntityId, NodeId), Measured>,
+    /// The same by the panel each group displays: a group rebuilt around that
+    /// panel has a new node, and starts from the width it had.
+    panels: HashMap<(EntityId, PanelId), Measured>,
+}
 
 impl Global for StripRoom {}
+
+impl StripRoom {
+    fn get(&self, key: StripKey) -> Option<Measured> {
+        self.groups
+            .get(&(key.area, key.node))
+            .or_else(|| self.panels.get(&(key.area, key.panel?)))
+            .copied()
+    }
+}
+
+/// A strip: its area, its group and the panel it displays.
+#[derive(Clone, Copy)]
+struct StripKey {
+    area: EntityId,
+    node: NodeId,
+    panel: Option<PanelId>,
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Measured {
@@ -194,36 +216,64 @@ enum Measure {
     Tools,
 }
 
-/// Drop the measurements of `area`'s groups that `keep` refuses.
-fn forget_strips(area: EntityId, keep: impl Fn(NodeId) -> bool, cx: &mut App) {
+impl Measure {
+    fn of(self, measured: &Measured) -> Option<Pixels> {
+        match self {
+            Measure::Strip => measured.strip,
+            Measure::Tools => measured.tools,
+        }
+    }
+
+    fn set(self, measured: &mut Measured, width: Pixels) {
+        match self {
+            Measure::Strip => measured.strip = Some(width),
+            Measure::Tools => measured.tools = Some(width),
+        }
+    }
+}
+
+/// Drop the measurements of `area`'s groups and panels that `keep_node` and
+/// `keep_panel` refuse.
+fn forget_strips(
+    area: EntityId,
+    keep_node: impl Fn(NodeId) -> bool,
+    keep_panel: impl Fn(PanelId) -> bool,
+    cx: &mut App,
+) {
     if cx.has_global::<StripRoom>() {
-        cx.global_mut::<StripRoom>()
-            .0
-            .retain(|(owner, node), _| *owner != area || keep(*node));
+        let room = cx.global_mut::<StripRoom>();
+        room.groups
+            .retain(|(owner, node), _| *owner != area || keep_node(*node));
+        room.panels
+            .retain(|(owner, panel), _| *owner != area || keep_panel(*panel));
     }
 }
 
 /// An invisible layer over its parent that records the parent's width.
-fn measure(key: (EntityId, NodeId), what: Measure) -> impl IntoElement {
+fn measure(key: StripKey, what: Measure) -> impl IntoElement {
     canvas(
         move |bounds, window, cx| {
             let width = bounds.size.width;
-            let known = cx
-                .try_global::<StripRoom>()
-                .and_then(|room| room.0.get(&key))
-                .and_then(|measured| match what {
-                    Measure::Strip => measured.strip,
-                    Measure::Tools => measured.tools,
-                });
-            if known.is_none_or(|known| (known - width).abs() > px(0.5)) {
+            let stale = |measured: Option<&Measured>| {
+                measured
+                    .and_then(|measured| what.of(measured))
+                    .is_none_or(|known| (known - width).abs() > px(0.5))
+            };
+            let changed = cx.try_global::<StripRoom>().is_none_or(|room| {
+                stale(room.groups.get(&(key.area, key.node)))
+                    || key
+                        .panel
+                        .is_some_and(|panel| stale(room.panels.get(&(key.area, panel))))
+            });
+            if changed {
                 // Recorded once this frame is done, then the window drawn
                 // again; a deferred effect runs whatever paces the frames.
                 let handle = window.window_handle();
                 cx.defer(move |cx| {
-                    let measured = cx.default_global::<StripRoom>().0.entry(key).or_default();
-                    match what {
-                        Measure::Strip => measured.strip = Some(width),
-                        Measure::Tools => measured.tools = Some(width),
+                    let room = cx.default_global::<StripRoom>();
+                    what.set(room.groups.entry((key.area, key.node)).or_default(), width);
+                    if let Some(panel) = key.panel {
+                        what.set(room.panels.entry((key.area, panel)).or_default(), width);
                     }
                     handle.update(cx, |_, window, _| window.refresh()).ok();
                 });
@@ -258,6 +308,7 @@ impl LatticeDock {
             cx.subscribe_self(move |area: &mut DockArea, event: &DockEvent, cx| {
                 if matches!(event, DockEvent::LayoutChanged) {
                     let mut live = HashSet::new();
+                    let mut shown = HashSet::new();
                     for placement in [
                         DockPlacement::Left,
                         DockPlacement::Center,
@@ -267,14 +318,22 @@ impl LatticeDock {
                         if let Some(tree) = area.layout(placement) {
                             tree.root().walk(&mut |node| {
                                 live.insert(node.id());
+                                if let PaneRef::Tabs { panels, .. } = node.kind() {
+                                    shown.extend(panels.iter().copied());
+                                }
                             });
                         }
                     }
-                    forget_strips(area_id, |node| live.contains(&node), cx);
+                    forget_strips(
+                        area_id,
+                        |node| live.contains(&node),
+                        |panel| shown.contains(&panel),
+                        cx,
+                    );
                 }
             })
             .detach();
-            cx.on_release(move |_, cx| forget_strips(area_id, |_| false, cx))
+            cx.on_release(move |_, cx| forget_strips(area_id, |_| false, |_| false, cx))
                 .detach();
             let this = Rc::new(LatticeDock {
                 kit,
@@ -418,7 +477,11 @@ impl TabGroupRenderer for LatticeTabs {
             .is_some_and(|panel| panel.focus_handle(cx).contains_focused(window, cx));
         let handle = group.active_panel().and_then(PanelHandle::of);
         let tab_count = group.panels().len();
-        let key = (self.area.entity_id(), group.node());
+        let key = StripKey {
+            area: self.area.entity_id(),
+            node: group.node(),
+            panel: displayed,
+        };
 
         // What each tab needs, and how the strip fits them.
         let visible: Vec<(usize, Arc<dyn BasePanelView>, TabLook, SharedString)> = group
@@ -442,7 +505,7 @@ impl TabGroupRenderer for LatticeTabs {
             .collect();
         let measured = cx
             .try_global::<StripRoom>()
-            .and_then(|room| room.0.get(&key).copied())
+            .and_then(|room| room.get(key))
             .unwrap_or_default();
         let suffix = (!collapsed)
             .then(|| handle.and_then(|handle| handle.title_suffix(window, cx)))

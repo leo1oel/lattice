@@ -10,7 +10,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use gpui::{
-    AnyElement, App, Context, Entity, IntoElement, ParentElement as _, Styled as _, Window, div, px,
+    AnyElement, App, Context, Entity, Focusable as _, IntoElement, ParentElement as _, Styled as _,
+    Window, div, px,
 };
 use gpui_kit::component::dock::{
     BasePanelView, DockPlacement, InsertTarget, PaneRef, PanelId, panel_handle,
@@ -163,6 +164,15 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // The panel holding the keyboard, which hands it on if it leaves.
+        let mut focused = None;
+        for view in self.current_arrangement(cx).views() {
+            if let Some(panel) = self.panel_of(view, window, cx)
+                && panel.focus_handle(cx).contains_focused(window, cx)
+            {
+                focused = Some(panel.panel_id(cx));
+            }
+        }
         // Every panel first, editors opened as needed; then Kit's layouts
         // from them. The handles are held until the dock holds them.
         let mut panels: HashMap<View, Arc<dyn BasePanelView>> = HashMap::new();
@@ -217,10 +227,27 @@ impl Shell {
         let area = self.floating_area(window);
         self.floating
             .set(&arrangement.floating, &panels, area, window, cx);
+        let focus_left = focused
+            .is_some_and(|focused| !panels.values().any(|panel| panel.panel_id(cx) == focused));
         drop(panels);
+        if focus_left || window.focused(cx).is_none() {
+            self.focus_front(window, cx);
+        }
         self.refresh_dirty(cx);
         self.schedule_save(window, cx);
         cx.notify();
+    }
+
+    /// The keyboard to the document in front, else to the window.
+    pub(crate) fn focus_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(active) = self.active_document(cx)
+            && let Some(root) = self.root(cx)
+            && let Some(editor) = self.open_editor(&root.join(active), cx)
+        {
+            window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
+        } else {
+            window.focus(&self.focus_handle, cx);
+        }
     }
 
     /// Put a document that is not on screen beside the documents: in the

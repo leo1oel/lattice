@@ -697,14 +697,7 @@ impl Shell {
         self.palette = None;
         self.shortcuts = None;
         // Back to the document in front, where the keyboard was.
-        if let Some(active) = self.active_document(cx)
-            && let Some(root) = self.root(cx)
-            && let Some(editor) = self.open_editor(&root.join(active), cx)
-        {
-            window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
-        } else {
-            window.focus(&self.focus_handle, cx);
-        }
+        self.focus_front(window, cx);
         cx.notify();
     }
 }
