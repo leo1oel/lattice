@@ -268,7 +268,11 @@ impl TexlabDiagnostics {
     /// Whether this file may sync now: the writer is in it, or it is the
     /// document TexLab has open already.
     fn may_sync(&self, cx: &App) -> bool {
-        self.focused || self.service.read(cx).document() == Some(self.path.as_str())
+        may_schedule(
+            self.focused,
+            self.service.read(cx).document(),
+            self.path.as_str(),
+        )
     }
 
     /// What is shown now, placed in the buffer as it is.
@@ -301,7 +305,11 @@ impl TexlabDiagnostics {
                 let Some(editor) = this.editor.upgrade() else {
                     return;
                 };
-                if !this.focused && this.service.read(cx).document() != document.as_deref() {
+                if !may_fire(
+                    this.focused,
+                    this.service.read(cx).document(),
+                    document.as_deref(),
+                ) {
                     return;
                 }
                 let text = editor.read(cx).buffer().read(cx).text();
@@ -426,6 +434,21 @@ impl RenderOnce for DiagnosticCard {
     }
 }
 
+/// Whether an editor for `path` may schedule a sync: the writer is in it, or
+/// it is TexLab's `document` already. TexLab keeps one document, so any other
+/// editor syncing would take it from the file being written.
+fn may_schedule(focused: bool, document: Option<&str>, path: &str) -> bool {
+    focused || document == Some(path)
+}
+
+/// Whether a sync scheduled while TexLab's document was `then` still runs
+/// when its timer fires and the document is `now`: the writer is in its
+/// editor, or no other editor has taken the document in between. The path is
+/// not compared again, as a file moved meanwhile syncs under its new one.
+fn may_fire(focused: bool, now: Option<&str>, then: Option<&str>) -> bool {
+    focused || now == then
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -448,6 +471,95 @@ mod tests {
             code: None,
             params: Default::default(),
         }
+    }
+
+    /// Two editors and TexLab's one document, driven through the gate as
+    /// the panels drive it: `schedule` when an editor schedules a sync, and
+    /// `fire` when its 700 ms timer runs out (which syncs, so the editor
+    /// becomes TexLab's document).
+    struct Texlab {
+        document: Option<&'static str>,
+    }
+
+    struct Pending {
+        path: &'static str,
+        then: Option<&'static str>,
+    }
+
+    impl Texlab {
+        fn schedule(&self, path: &'static str, focused: bool) -> Option<Pending> {
+            may_schedule(focused, self.document, path).then_some(Pending {
+                path,
+                then: self.document,
+            })
+        }
+
+        fn fire(&mut self, pending: Option<Pending>, focused: bool) {
+            if let Some(pending) = pending
+                && may_fire(focused, self.document, pending.then)
+            {
+                self.document = Some(pending.path);
+            }
+        }
+    }
+
+    #[test]
+    fn a_focus_switch_before_the_timer_keeps_texlab_on_the_focused_file() {
+        // The writer typed in A, which is TexLab's document; a build runs.
+        let mut texlab = Texlab {
+            document: Some("a.tex"),
+        };
+        // They click into B: B schedules its focus sync.
+        let b = texlab.schedule("b.tex", true);
+        // The build finishes: A, no longer focused but still TexLab's
+        // document, schedules its resync; B's own resync replaces its task.
+        let a = texlab.schedule("a.tex", false);
+        assert!(a.is_some(), "TexLab's document may still resync");
+        let b = texlab.schedule("b.tex", true).or(b);
+        // B's timer fires first and takes the document.
+        texlab.fire(b, true);
+        assert_eq!(texlab.document, Some("b.tex"));
+        // A's fires later: it must not take TexLab back from B.
+        texlab.fire(a, false);
+        assert_eq!(texlab.document, Some("b.tex"));
+    }
+
+    #[test]
+    fn a_background_reload_does_not_take_texlab_from_the_focused_file() {
+        // The writer is in main.tex, TexLab's document.
+        let mut texlab = Texlab {
+            document: Some("main.tex"),
+        };
+        // intro.tex, open in the background, reloads an outside edit (or is
+        // opened, moved, or resynced after a build): it does not schedule.
+        let intro = texlab.schedule("chapters/intro.tex", false);
+        assert!(intro.is_none());
+        texlab.fire(intro, false);
+        assert_eq!(texlab.document, Some("main.tex"));
+        // main.tex's own resync after the build still runs.
+        let main = texlab.schedule("main.tex", true);
+        texlab.fire(main, true);
+        assert_eq!(texlab.document, Some("main.tex"));
+    }
+
+    #[test]
+    fn the_focused_or_still_current_file_syncs_when_its_timer_fires() {
+        // An edit made in A just before the writer clicks into the PDF pane
+        // (no editor focused) still syncs: nobody took the document.
+        let mut texlab = Texlab {
+            document: Some("a.tex"),
+        };
+        let a = texlab.schedule("a.tex", true);
+        texlab.fire(a, false);
+        assert_eq!(texlab.document, Some("a.tex"));
+        // A focused editor syncs even if another took the document meanwhile.
+        let b = texlab.schedule("b.tex", true);
+        texlab.document = Some("c.tex");
+        texlab.fire(b, true);
+        assert_eq!(texlab.document, Some("b.tex"));
+        // Nothing open yet: the first focused file takes TexLab.
+        assert!(may_schedule(true, None, "a.tex"));
+        assert!(!may_schedule(false, None, "a.tex"));
     }
 
     #[test]

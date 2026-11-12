@@ -30,6 +30,11 @@ use crate::{editor_panel::EditorPanel, native, scenario::Run};
 const CARD_WAIT: Duration = Duration::from_secs(3);
 /// The scenario's own gutter layer.
 const GUTTER_LAYER: &str = "e2e-gutter";
+/// How far inside the editor a hover card stays: the Tauri app's
+/// `citationTooltipSpace` insets the editor's edges by 8 px.
+const CARD_INSET: Pixels = px(8.);
+/// The adapter's gap between a card and its key.
+const CARD_GAP: Pixels = px(4.);
 
 impl Run {
     pub(super) async fn editor_adapter(
@@ -149,6 +154,9 @@ impl Run {
         if !shown {
             return None;
         }
+        // A card's first frame is placed before its height is known; its side
+        // is settled on the next one, under its entrance.
+        self.pause(cx, Duration::from_millis(450)).await;
         cx.update(|cx| {
             let lattice = lattice.read(cx);
             lattice
@@ -171,17 +179,13 @@ impl Run {
         let covers_key = shown
             .as_ref()
             .is_some_and(|(range, _)| text.get(range.clone()) == Some("knuth1984"));
-        // The card rises above the key (or hangs below it near the top),
-        // inside the editor.
-        let editor_top = cx.update(|cx| lattice.read(cx).painted().bounds.map(|b| b.top()));
-        let placed = shown
-            .as_ref()
-            .and_then(|(_, card)| *card)
-            .zip(editor_top)
-            .is_some_and(|(card, editor_top)| {
-                card.top() >= editor_top
-                    && (card.bottom() <= key.top() + px(1.) || card.top() >= key.bottom() - px(1.))
-            });
+        // The card rises above the key where it fits under the editor's top
+        // edge, and hangs below it where it does not.
+        let editor = cx.update(|cx| lattice.read(cx).painted().bounds);
+        let card = shown.as_ref().and_then(|(_, card)| *card);
+        let placed = card
+            .zip(editor)
+            .is_some_and(|(card, editor)| card_placed(key, card, editor));
         self.adapter_shot(cx, "citation-card").await;
         steps.check(
             "hovering a citation key opens its card (key, title, authors, actions) by the key",
@@ -202,6 +206,10 @@ impl Run {
             closed,
             json!({}),
         );
+        if let Some(card) = card {
+            self.card_sides(cx, steps, panel, lattice, card.size.height)
+                .await?;
+        }
 
         let (_, label) = self
             .text_point(cx, panel, lattice, "sec:method}.", 4)
@@ -220,6 +228,126 @@ impl Run {
         self.park(cx)?;
         self.pause(cx, Duration::from_millis(400)).await;
         Ok(())
+    }
+
+    /// The citation card on each side of its key: with room above the key
+    /// inside the editor it rises above it, and with the key too near the
+    /// editor's top for that it hangs below it, though the window has room
+    /// above the editor (the tab strip and titlebar) for the card.
+    async fn card_sides(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+        lattice: &Entity<LatticeEditor>,
+        card_height: Pixels,
+    ) -> Result<()> {
+        let editor = cx.update(|cx| lattice.read(cx).editor().clone());
+        let start = cx.update(|cx| editor.update(cx, |editor, cx| editor.scroll_position(cx)));
+        let line_height = cx
+            .update(|cx| lattice.read(cx).painted().line_height)
+            .context("the editor was drawn")?;
+        let needed = card_height + CARD_GAP + CARD_INSET;
+
+        // Room above: blank lines above the key's line push it down.
+        let lines = (needed / line_height).ceil() as u32 + 2;
+        lattice.update(cx, |lattice, cx| {
+            lattice.set_blocks(
+                "e2e-room",
+                vec![BlockWidget {
+                    line: 7,
+                    side: BlockSide::Above,
+                    lines,
+                    render: std::sync::Arc::new(|_| {
+                        use gpui::IntoElement as _;
+                        gpui::div().into_any_element()
+                    }),
+                }],
+                cx,
+            )
+        });
+        self.scroll_editor(cx, &editor, point(start.x, 0.))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let roomy = self.citation_card(cx, panel, lattice).await?;
+        self.adapter_shot(cx, "citation-card-above").await;
+        self.park(cx)?;
+        lattice.update(cx, |lattice, cx| lattice.set_blocks("e2e-room", Vec::new(), cx));
+        self.pause(cx, Duration::from_millis(400)).await;
+
+        // Near the top: scrolled so the key sits a line short of the room.
+        let (_, key) = self
+            .text_point(cx, panel, lattice, "knuth1984", 4)
+            .await?;
+        let editor_top = cx
+            .update(|cx| lattice.read(cx).painted().bounds.map(|b| b.top()))
+            .context("the editor was drawn")?;
+        let target = (needed - line_height).max(line_height * 0.5);
+        let top = cx.update(|cx| editor.update(cx, |editor, cx| editor.scroll_position(cx).y));
+        let rows = top + ((key.top() - editor_top - target) / line_height) as f64;
+        self.scroll_editor(cx, &editor, point(start.x, rows.max(0.)))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let near = self.citation_card(cx, panel, lattice).await?;
+        self.adapter_shot(cx, "citation-card-below").await;
+        self.park(cx)?;
+        self.scroll_editor(cx, &editor, start)?;
+        self.pause(cx, Duration::from_millis(400)).await;
+
+        let room = |(key, _, editor): &(Bounds<Pixels>, Bounds<Pixels>, Bounds<Pixels>)| {
+            key.top() - editor.top()
+        };
+        let above = roomy.as_ref().is_some_and(|shown| {
+            let (key, card, editor) = *shown;
+            room(shown) >= needed && card.bottom() <= key.top() + px(1.)
+                && card_placed(key, card, editor)
+        });
+        let below = near.as_ref().is_some_and(|shown| {
+            let (key, card, editor) = *shown;
+            room(shown) < needed && card.top() >= key.bottom() - px(1.)
+                && card_placed(key, card, editor)
+        });
+        let json = |shown: &Option<(Bounds<Pixels>, Bounds<Pixels>, Bounds<Pixels>)>| {
+            shown.map(|(key, card, editor)| {
+                json!({ "key": bounds_json(key), "card": bounds_json(card), "editor": bounds_json(editor) })
+            })
+        };
+        steps.check(
+            "a hover card rises above its key with room inside the editor above it, and hangs below a key near the editor's top",
+            above && below,
+            json!({ "needed": f32::from(needed), "above": json(&roomy), "below": json(&near) }),
+        );
+        Ok(())
+    }
+
+    fn scroll_editor(
+        &self,
+        cx: &mut AsyncApp,
+        editor: &Entity<editor::Editor>,
+        position: Point<f64>,
+    ) -> Result<()> {
+        let editor = editor.clone();
+        self.with_window(cx, move |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.set_scroll_position(position, window, cx);
+            })
+        })
+    }
+
+    /// Hover `knuth1984` and return its key, its card and the editor, once
+    /// the card is shown.
+    async fn citation_card(
+        &self,
+        cx: &mut AsyncApp,
+        panel: &Entity<EditorPanel>,
+        lattice: &Entity<LatticeEditor>,
+    ) -> Result<Option<(Bounds<Pixels>, Bounds<Pixels>, Bounds<Pixels>)>> {
+        let (_, key) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
+        self.hover_at(cx, key.center()).await?;
+        let card = self
+            .wait_for_card(cx, lattice, "citation")
+            .await
+            .and_then(|(_, card)| card);
+        let editor = cx.update(|cx| lattice.read(cx).painted().bounds);
+        Ok(card.zip(editor).map(|(card, editor)| (key, card, editor)))
     }
 
     async fn remote_carets(
@@ -664,6 +792,20 @@ impl Run {
         );
         Ok(())
     }
+}
+
+/// Whether a hover card for `key` sits where the Tauri app's tooltip space
+/// puts it: inside the editor's top edge, above the key when it fits there
+/// and below it when it does not.
+fn card_placed(key: Bounds<Pixels>, card: Bounds<Pixels>, editor: Bounds<Pixels>) -> bool {
+    let fits_above = key.top() - editor.top() >= card.size.height + CARD_GAP + CARD_INSET;
+    let inside = card.top() >= editor.top() + CARD_INSET - px(1.);
+    let side = if fits_above {
+        card.bottom() <= key.top() + px(1.)
+    } else {
+        card.top() >= key.bottom() - px(1.)
+    };
+    inside && side
 }
 
 fn bounds_json(bounds: Bounds<Pixels>) -> Value {
