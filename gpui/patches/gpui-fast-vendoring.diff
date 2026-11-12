@@ -1,0 +1,269 @@
+diff --git a/gpui-fast/Cargo.toml b/gpui-fast/Cargo.toml
+index f9aeb75..53250e9 100644
+--- a/gpui-fast/Cargo.toml
++++ b/gpui-fast/Cargo.toml
+@@ -1,43 +1,9 @@
+ [workspace]
+ resolver = "2"
+ members = [
+-    "compat/gpui-pre",
+-    "compat/gpui-pre-macros",
+-    "compat/gpui-pre-platform",
+-    "compat/gpui-pre-reqwest-client",
+-    "compat/gpui-pre-sum-tree",
+-    "compat/gpui-pre-web",
+-    "crates/bench_metrics",
+-    "crates/collections",
+     "crates/gpui",
+-    "crates/gpui_apple",
+-    "crates/gpui_ios",
+-    "crates/gpui_linux",
+     "crates/gpui_macos",
+-    "crates/gpui_macros",
+-    "crates/gpui_perf",
+-    "crates/gpui_platform",
+-    "crates/gpui_shared_string",
+-    "crates/gpui_util",
+-    "crates/gpui_web",
+-    "crates/gpui_wgpu",
+-    "crates/gpui_windows",
+-    "crates/http_client",
+-    "crates/http_client_tls",
+-    "crates/path",
+-    "crates/refineable",
+-    "crates/refineable/derive_refineable",
+-    "crates/reqwest_client",
+-    "crates/scheduler",
+-    "crates/sum_tree",
+-    "crates/util",
+-    "crates/util_macros",
+-    "crates/zlog",
+-    "crates/ztracing",
+-    "crates/ztracing_macro",
+-    "tooling/perf",
+ ]
+-default-members = ["crates/gpui"]
+ 
+ [workspace.package]
+ publish = false
+@@ -57,33 +23,33 @@ objc2-security = { version = "0.3.2", default-features = false, features = ["std
+ objc2-quartz-core = { version = "=0.3.2", default-features = false, features = ["std", "CALayer", "CAMetalDisplayLink", "CAMetalLayer", "objc2-metal"] }
+ dispatch2 = { version = "0.3", default-features = false, features = ["std"] }
+ bytemuck = "1"
+-bench_metrics = { path = "crates/bench_metrics" }
+-collections = { path = "crates/collections", version = "0.1.0" }
+-derive_refineable = { path = "crates/refineable/derive_refineable" }
++bench_metrics = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++collections = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", version = "0.1.0" }
++derive_refineable = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+ gpui = { path = "crates/gpui", default-features = false }
+-gpui_apple = { path = "crates/gpui_apple" }
+-gpui_ios = { path = "crates/gpui_ios" }
+-gpui_linux = { path = "crates/gpui_linux", default-features = false }
++gpui_apple = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++gpui_ios = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++gpui_linux = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", default-features = false }
+ gpui_macos = { path = "crates/gpui_macos", default-features = false }
+-gpui_macros = { path = "crates/gpui_macros" }
+-gpui_platform = { path = "crates/gpui_platform", default-features = false }
+-gpui_shared_string = { path = "crates/gpui_shared_string" }
+-gpui_util = { path = "crates/gpui_util" }
+-gpui_web = { path = "crates/gpui_web", default-features = false }
+-gpui_wgpu = { path = "crates/gpui_wgpu" }
+-gpui_windows = { path = "crates/gpui_windows", default-features = false }
+-http_client = { path = "crates/http_client" }
+-http_client_tls = { path = "crates/http_client_tls" }
+-path = { path = "crates/path" }
+-perf = { path = "tooling/perf", default-features = false }
+-refineable = { path = "crates/refineable" }
+-reqwest_client = { path = "crates/reqwest_client" }
+-scheduler = { path = "crates/scheduler" }
+-sum_tree = { path = "crates/sum_tree" }
+-util_macros = { path = "crates/util_macros" }
+-zlog = { path = "crates/zlog" }
+-ztracing = { path = "crates/ztracing" }
+-ztracing_macro = { path = "crates/ztracing_macro" }
++gpui_macros = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++gpui_platform = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", default-features = false }
++gpui_shared_string = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++gpui_util = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++gpui_web = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", default-features = false }
++gpui_wgpu = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++gpui_windows = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", default-features = false }
++http_client = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++http_client_tls = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++path = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++perf = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", default-features = false }
++refineable = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++reqwest_client = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++scheduler = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++sum_tree = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++util_macros = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++zlog = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++ztracing = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
++ztracing_macro = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+ 
+ accesskit = { version = "0.24.0", features = ["enumn"] }
+ accesskit_macos = "0.26.0"
+@@ -456,56 +422,3 @@ nonminimal_bool = "allow"
+ # runs them without a `--path` argument. The `lints` package pins its own
+ # nightly toolchain (see `tooling/lints/rust-toolchain.toml`) and is kept out of
+ # this workspace on purpose.
+-
+-[patch.crates-io]
+-async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
+-async-task = { git = "https://github.com/zed-industries/async-task.git", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
+-windows-capture = { git = "https://github.com/zed-industries/windows-capture.git", rev = "f0d6c1b6691db75461b732f6d5ff56eed002eeb9" }
+-calloop = { git = "https://github.com/zed-industries/calloop" }
+-# Avoid panicking when a failed EGL call reports EGL_SUCCESS.
+-# https://github.com/timothee-haudebourg/khronos-egl/pull/37
+-khronos-egl = { git = "https://github.com/zed-industries/khronos-egl", rev = "42214b36347b108fd9630ca6254b96dde59e04fe" }
+-
+-[profile.dev]
+-split-debuginfo = "unpacked"
+-incremental = true
+-codegen-units = 16
+-debug = "limited"
+-# mirror configuration for crates compiled for the build platform
+-# (without this cargo will compile ~400 crates twice)
+-
+-[profile.dev.build-override]
+-codegen-units = 16
+-split-debuginfo = "unpacked"
+-debug = "limited"
+-# "debug" is a reserved profile name.
+-
+-[profile.dbg]
+-inherits = "dev"
+-debug = "full"
+-
+-[profile.dbg.build-override]
+-debug = "full"
+-
+-[profile.dev.package]
+-# proc-macros start
+-gpui_macros = { opt-level = 3 }
+-derive_refineable = { opt-level = 3 }
+-util_macros = { opt-level = 3 }
+-# proc-macros end
+-# Build single-source-file crates with cg=1 as it helps make `cargo build` of a whole workspace a bit faster
+-collections = { codegen-units = 1 }
+-refineable = { codegen-units = 1 }
+-reqwest_client = { codegen-units = 1 }
+-
+-[profile.release]
+-debug = "limited"
+-lto = "thin"
+-codegen-units = 1
+-
+-[profile.release-fast]
+-inherits = "release"
+-debug = "full"
+-lto = false
+-codegen-units = 16
+-
+diff --git a/gpui-fast/crates/gpui/Cargo.toml b/gpui-fast/crates/gpui/Cargo.toml
+index 2472ea9..0809e60 100644
+--- a/gpui-fast/crates/gpui/Cargo.toml
++++ b/gpui-fast/crates/gpui/Cargo.toml
+@@ -208,100 +208,3 @@ ignored = [
+     "objc2-metal",
+ ]
+ ignored-paths = ["src/_ownership_and_data_flow.rs", "benches/focus_cleanup.rs"]
+-
+-[[example]]
+-name = "hello_world"
+-path = "examples/hello_world.rs"
+-
+-[[example]]
+-name = "move_entity_between_windows"
+-path = "examples/move_entity_between_windows.rs"
+-
+-[[example]]
+-name = "image"
+-path = "examples/image/image.rs"
+-
+-[[example]]
+-name = "input"
+-path = "examples/input.rs"
+-
+-[[example]]
+-name = "on_window_close_quit"
+-path = "examples/on_window_close_quit.rs"
+-
+-[[example]]
+-name = "window_movable"
+-path = "examples/window_movable.rs"
+-
+-[[example]]
+-name = "opacity"
+-path = "examples/opacity.rs"
+-
+-[[example]]
+-name = "pattern"
+-path = "examples/pattern.rs"
+-
+-[[example]]
+-name = "set_menus"
+-path = "examples/set_menus.rs"
+-
+-[[example]]
+-name = "system_notifications"
+-path = "examples/system_notifications.rs"
+-
+-
+-[[example]]
+-name = "shadow"
+-path = "examples/shadow.rs"
+-
+-[[example]]
+-name = "svg"
+-path = "examples/svg/svg.rs"
+-
+-[[example]]
+-name = "tab_stop"
+-path = "examples/tab_stop.rs"
+-
+-[[example]]
+-name = "text"
+-path = "examples/text.rs"
+-
+-[[example]]
+-name = "text_wrapper"
+-path = "examples/text_wrapper.rs"
+-
+-[[example]]
+-name = "tree"
+-path = "examples/tree.rs"
+-
+-[[example]]
+-name = "uniform_list"
+-path = "examples/uniform_list.rs"
+-
+-[[example]]
+-name = "window_shadow"
+-path = "examples/window_shadow.rs"
+-
+-[[example]]
+-name = "grid_layout"
+-path = "examples/grid_layout.rs"
+-
+-[[example]]
+-name = "list_example"
+-path = "examples/list_example.rs"
+-
+-[[example]]
+-name = "mouse_pressure"
+-path = "examples/mouse_pressure.rs"
+-
+-[[example]]
+-name = "a11y"
+-path = "examples/a11y.rs"
+-
+-[[example]]
+-name = "view_example"
+-path = "examples/view_example/view_example_main.rs"
+-
+-[[example]]
+-name = "toggle_headless"
+-path = "examples/toggle_headless.rs"

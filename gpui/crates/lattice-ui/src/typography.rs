@@ -6,8 +6,12 @@
 //! (12/16 medium) is the text inside a control, and Typeset (14/22) is prose.
 //! A region that is read rather than scanned (Settings) runs every role one
 //! step up; Display does not step up.
+//!
+//! Every role sets normal tracking (`--tracking-normal`); an uppercase micro
+//! label (a venue's kind, a colour's hex, a board's eyebrow) opens it to
+//! `--tracking-caps` with [`TextRoleStyle::tracking`].
 
-use gpui::{App, FontWeight, Rems, Styled};
+use gpui::{App, FontWeight, Rems, Styled, relative};
 
 use crate::{ActiveLattice as _, fonts::Fonts, tokens::*};
 
@@ -21,6 +25,25 @@ pub enum TextRole {
     Caption,
     Micro,
     Typeset,
+}
+
+/// How open a run of type is set, in ems of its size.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Tracking {
+    /// Every interface role.
+    #[default]
+    Normal,
+    /// An uppercase micro label.
+    Caps,
+}
+
+impl Tracking {
+    pub fn em(self) -> f32 {
+        match self {
+            Tracking::Normal => TRACKING_NORMAL,
+            Tracking::Caps => TRACKING_CAPS,
+        }
+    }
 }
 
 /// Which scale a role is read from: the interface's, or Settings' one step up.
@@ -102,8 +125,8 @@ impl TextRole {
     }
 }
 
-/// Set a role's family, size, leading and weight in one call, so no
-/// component sets a size without its leading.
+/// Set a role's family, size, leading, weight and tracking in one call, so
+/// no component sets a size without its leading.
 pub trait TextRoleStyle: Styled + Sized {
     fn text_role(self, role: TextRole, cx: &App) -> Self {
         self.text_role_in(role, TypeScale::Interface, cx)
@@ -120,9 +143,16 @@ pub trait TextRoleStyle: Styled + Sized {
             .font_family(family)
             .text_size(role.font_size(scale, cx))
             .line_height(role.leading(scale))
-            .font_weight(role.weight());
+            .font_weight(role.weight())
+            .letter_spacing(relative(Tracking::Normal.em()));
         this.text_style().font_fallbacks = Some(fallbacks);
         this
+    }
+
+    /// Open (or close) the tracking of what the role set; type it in capitals
+    /// yourself, GPUI has no text transform.
+    fn tracking(self, tracking: Tracking) -> Self {
+        self.letter_spacing(relative(tracking.em()))
     }
 }
 
@@ -131,6 +161,17 @@ impl<T: Styled> TextRoleStyle for T {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn caps_tracking_opens_a_label_by_the_token() {
+        assert_eq!(Tracking::Normal.em(), 0.);
+        let mut label = gpui::div().tracking(Tracking::Caps);
+        assert_eq!(
+            label.text_style().letter_spacing,
+            Some(relative(TRACKING_CAPS))
+        );
+        assert_eq!(TRACKING_CAPS, 0.04);
+    }
 
     #[test]
     fn only_the_interface_sans_is_scaled() {

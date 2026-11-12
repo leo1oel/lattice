@@ -34,7 +34,9 @@ pub use icon_button::IconButton;
 pub use menu::{
     MENU_INSET, MENU_OFFSET, MenuItem, MenuLabel, MenuSeparator, MenuSurface, Step, step_highlight,
 };
-pub use overlays::{DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in};
+pub use overlays::{
+    DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in, rise_in, toast_in,
+};
 pub use popover::{Menu, MenuAction, MenuPopover, Popover, PopoverCard};
 pub use row::{DetailPlacement, Row, RowDensity};
 pub use select::{Select, SelectTrigger};

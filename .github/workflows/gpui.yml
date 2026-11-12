@@ -78,6 +78,15 @@ jobs:
           node-version: 22
       - run: node design-system/code-themes.mjs --check
 
+  # gpui/patches holds upstream crates with Lattice's diffs; this rebuilds
+  # them from upstream at their pins and fails unless they match.
+  patches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: script/check-patches
+
   macos:
     runs-on: macos-latest
     timeout-minutes: 75

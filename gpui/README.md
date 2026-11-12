@@ -16,7 +16,7 @@ Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent pan
 ## License
 
 This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, workspace).
-`crates/tex` and `compat/` are Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)).
+`crates/tex` and `compat/` are Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)), and the upstream crates in `patches/` keep their Apache-2.0 license, with Lattice's diffs under it.
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps will share included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it
@@ -49,7 +49,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 ## CI
 
 `.github/workflows/gpui.yml` runs only when `gpui/**`, the workflow itself, one of the design-system exports `crates/lattice-ui` generates from changes (`../design-system/tokens.json`, `../design-system/code-themes.json` and what that is generated from; the workflow lists them), or the scene staging the parity report uses (`../design-system/screens/`).
-Its `code-themes` job fails while `code-themes.json` is stale (`node design-system/code-themes.mjs --check`).
+Its `code-themes` job fails while `code-themes.json` is stale (`node design-system/code-themes.mjs --check`), and its `patches` job while `patches/` is not upstream plus its diffs (`script/check-patches`).
 On macOS and Windows it builds the app (release profile), runs the unit tests (including the latexmk test that is ignored by default) and the `e2e` scenario on `fixtures/e2e`; on macOS it then writes the parity report (below), which does not fail the job.
 macOS builds with TeX Live; Windows builds with MiKTeX, and a second Windows job runs the TeX tests against TeX Live.
 The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-install prompts are checked by hand; CI cannot drive them.
@@ -65,17 +65,21 @@ crates/lattice-ui     Lattice's look: design tokens generated from
                       Zed editor themes, fonts, type roles, motion, elevation,
                       icons, components and the dock's skin
 crates/tex            TeX discovery, latexmk runs, log diagnostics (from ../src-tauri)
-compat/gpui-pre       four shims that put GPUI Kit on Zed's GPUI
+compat/               shims that leave one GPUI in the graph (gpui-pre, gpui-fast)
+patches/              upstream crates with Lattice's diffs: gpui-fast's GPUI and
+                      macOS platform, GPUI Kit's components (patches/README.md)
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
-experiments/          how to run the same app on gpui-fast
 ```
 
 ### One GPUI for Zed's editor and GPUI Kit
 
-GPUI Kit 0.9.1 depends on the `gpui-pre` 0.3.12 snapshot, which is Zed's GPUI at commit `d2a4fb6ded7c470be25d1541281da3882495b65b`.
-The workspace pins Zed's crates (the editor, search, Vim, settings, themes, GPUI) at that same commit.
-Cargo would still build two GPUIs, because the packages have different names, so the shims in `compat/gpui-pre` carry the snapshot names and version and re-export Zed's crates, and `[patch.crates-io]` swaps them in.
-`Cargo.lock` is seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
+The app runs on gpui-fast (longbridge/gpui-fast), a fork of Zed's GPUI with retained-mode rendering, cached scroll layers and window composition (native views between GPUI's content and its overlays).
+gpui-fast `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` tracks Zed commit `d2a4fb6ded7c470be25d1541281da3882495b65b` (its `UPSTREAM` file), the commit the workspace pins Zed's crates (the editor, search, Vim, settings, themes) at, and keeps Zed's crate names, so the `[patch."https://github.com/zed-industries/zed"]` table swaps Zed's GPUI family for gpui-fast's. `util` stays Zed's: gpui-fast's copy has its own `rel_path` types, which Zed's crates reject.
+
+GPUI Kit 0.9.1 and gpui-webview 0.9.1 run on gpui-fast through their `gpui-fast` feature (gpui-webview checks that the two agree). That feature asks for the crates.io `gpui-fast*` 0.1.14 packages, and GPUI Kit still names the `gpui-pre` 0.3.12 snapshot besides, so Cargo would build three GPUIs; the shims in `compat/` carry those names and versions and re-export the workspace's GPUI, and `[patch.crates-io]` swaps them in.
+`Cargo.lock` was seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
+
+GPUI itself, gpui-fast's macOS platform and GPUI Kit's components are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), and GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
 
 ### Lattice's look
 
@@ -86,7 +90,7 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 - The dock keeps GPUI Kit's behaviour and wears Lattice's skin (`dock.rs`): rounded panel cards on the chrome, 40px strips of pill tabs, no dividers.
 - Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them). The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
-- Components (`lattice-ui/src/components/`) follow Paper's Components boards; hover and press fade on the motion tiers (`interaction.rs`). `lattice-gpui --gallery` draws them all on one sheet (`LATTICE_GALLERY_PAGE=2` for the overlays and surfaces) and, with `LATTICE_SHOT_OUT` and `--features offscreen-shots`, saves it.
+- Components (`lattice-ui/src/components/`) follow Paper's Components boards; hover and press fade on the motion tiers (`interaction.rs`). Menus, selects and popovers spring from their trigger from 95%, tooltips grow from 98%, dialogs and sheets rise from 98%, and toasts drop in from 96%, each on its tier as the Tauri app's CSS has it (`motion::Entrance`, drawn with GPUI's element scale). Type roles set normal tracking, and an uppercase micro label opens it to the caps tracking (`Tracking::Caps`). `lattice-gpui --gallery` draws them all on one sheet (`LATTICE_GALLERY_PAGE=2` for the overlays and surfaces) and, with `LATTICE_SHOT_OUT` and `--features offscreen-shots`, saves it.
 
 ### The LaTeX language
 
@@ -151,9 +155,10 @@ Only GPUI Kit, Zed's crates, pdfium-render and the LaTeX grammar are dependencie
 
 | Project | License | GPUI it pins | Used here |
 |---|---|---|---|
-| [GPUI Kit](https://github.com/longbridge/gpui-kit) 0.9.1 | Apache-2.0 | `gpui-pre =0.3.12` (Zed `d2a4fb6`) | dependency: dock, tree, buttons, theme |
+| [GPUI Kit](https://github.com/longbridge/gpui-kit) 0.9.1 | Apache-2.0 | `gpui-pre =0.3.12` (Zed `d2a4fb6`), or gpui-fast 0.1.14 with its `gpui-fast` feature | dependency: dock, tree, buttons, theme (feature `gpui-fast`; its components crate vendored with a diff, `patches/`) |
 | [Zed](https://github.com/zed-industries/zed) `d2a4fb6` | GPL-3.0-or-later (editor, search, Vim, workspace, project); Apache-2.0 (GPUI) | in-tree `gpui` 0.2.2 | dependency: GPUI, editor, search, Vim |
-| [gpui-fast](https://github.com/longbridge/gpui-fast) `bbf6dea` | Apache-2.0 (modified fork of Zed's GPUI) | tracks Zed `d2a4fb6` | optional swap-in, tried and working: `experiments/gpui-fast.md` |
+| [gpui-fast](https://github.com/longbridge/gpui-fast) `bbf6dea` | Apache-2.0 (modified fork of Zed's GPUI) | tracks Zed `d2a4fb6` | dependency: the app's GPUI (two crates vendored with diffs, `patches/`) |
+| [gpui-webview](https://crates.io/crates/gpui-webview) 0.9.1 | Apache-2.0 | `gpui-kit` 0.9.1, feature `gpui-fast` | dependency, for the webview islands to come |
 | [Ely GPUI Components](https://github.com/ELY-Open-Source/Ely-GPUI-Components) | MIT | `gpui-pre =0.3.11` (Zed `f816e1f`) | not needed: nothing was missing from GPUI Kit |
 | [pdf-reader](https://github.com/joelfickson/pdf-reader) | MIT | `gpui =0.2.2` | reference for the PDFium approach (BGRA bitmaps into `RenderImage`) |
 | [kkpdf-zed](https://github.com/kk376/kkpdf-zed) | Apache-2.0 OR GPL-3.0-or-later | none (engine only) | reference |

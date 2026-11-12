@@ -12,22 +12,24 @@
 //!   16 at the foot, a serif title, one line of copy, fields 12px apart,
 //!   actions 24px below. A 36px mark only when it asks something risky.
 //!
-//! Popups spring out of their trigger's side on the pop tier: most of the
-//! way within a few frames, from 6px away. (The app also scales them from
-//! 95%; GPUI draws no element scale yet, so the travel and the fade carry the
-//! entrance until it does.)
+//! Each arrives as the app's CSS has it (`motion::Entrance`): popups spring
+//! out of their trigger's side on the pop tier, from 95% and 6px away, most
+//! of the way within a few frames; a tooltip grows from 98% on the fast tier;
+//! a dialog rises 6px from 98% on the slow tier; a toast drops in its own
+//! height from 96%. The scale is a paint transform (`gpui::scaled`), so
+//! layout and the pointer see the surface at rest throughout.
 
 use gpui::{
     AnimationExt as _, AnyElement, AnyView, App, AppContext as _, ElementId, Hsla, IntoElement,
-    ParentElement as _, Render, RenderOnce, SharedString, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    ParentElement as _, Render, RenderOnce, SharedString, Styled as _, Window, div, point,
+    prelude::FluentBuilder as _, px, scaled,
 };
 
 use crate::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     components::IconButton,
     icons::ICON_LARGE,
-    motion::Motion,
+    motion::Entrance,
     tokens::{CONTAINER_DIALOG, CONTAINER_TOAST, FONT_WEIGHT_MEDIUM},
 };
 
@@ -41,20 +43,72 @@ pub enum PopFrom {
     Below,
 }
 
-/// Wrap a popup's content so it enters on the pop tier: it fades in and
-/// travels the last 6px from its trigger's side. Keyed by `id`, so it plays
-/// once, when the popup first appears.
+/// Wrap a popup's content so it enters on the pop tier
+/// ([`Entrance::POPUP`]): it fades in, grows from 95% about the edge that
+/// faces its trigger and travels the last 6px from that side. Keyed by `id`,
+/// so it plays once, when the popup first appears.
 pub fn pop_in(id: impl Into<ElementId>, from: PopFrom, content: impl IntoElement) -> AnyElement {
-    let direction = match from {
-        PopFrom::Above => -1.,
-        PopFrom::Below => 1.,
+    enter(id.into(), Entrance::POPUP, from, content)
+}
+
+/// An entrance from a trigger's side: `from` says which edge stays put.
+fn enter(
+    id: ElementId,
+    entrance: Entrance,
+    from: PopFrom,
+    content: impl IntoElement,
+) -> AnyElement {
+    let (direction, edge) = match from {
+        PopFrom::Above => (-1., 0.),
+        PopFrom::Below => (1., 1.),
     };
-    div()
-        .relative()
-        .child(content)
-        .with_animation(id, Motion::Pop.animation(), move |this, progress| {
-            this.top(px(direction * (1. - progress) * 6.))
-                .opacity(progress.clamp(0., 1.))
+    scaled(div().relative().child(content))
+        .origin(point(0.5, edge))
+        .with_animation(id, entrance.animation(), move |this, t| {
+            let (movement, fade) = entrance.sample_at(t);
+            this.scale(entrance.scale(movement)).map_child(|child| {
+                child
+                    .top(px(direction * (1. - movement) * entrance.travel))
+                    .opacity(fade)
+            })
+        })
+        .into_any_element()
+}
+
+/// Wrap a dialog or sheet so it enters on the slow tier
+/// ([`Entrance::DIALOG`]): it fades in, grows from 98% about its centre and
+/// rises the last 6px.
+pub fn rise_in(id: impl Into<ElementId>, content: impl IntoElement) -> AnyElement {
+    let entrance = Entrance::DIALOG;
+    scaled(div().relative().child(content))
+        .with_animation(id, entrance.animation(), move |this, t| {
+            let (movement, fade) = entrance.sample_at(t);
+            this.scale(entrance.scale(movement)).map_child(|child| {
+                child
+                    .top(px((1. - movement) * entrance.travel))
+                    .opacity(fade)
+            })
+        })
+        .into_any_element()
+}
+
+/// Wrap a toast so it enters as the app's toast stack has it
+/// ([`Entrance::TOAST`]): from a stack at the top (`PopFrom::Above`) it drops
+/// in its own height from 96% about its lower edge, from one at the bottom it
+/// rises, moving on the slow tier and fading on the moderate.
+pub fn toast_in(id: impl Into<ElementId>, from: PopFrom, content: impl IntoElement) -> AnyElement {
+    let entrance = Entrance::TOAST;
+    let (direction, edge) = match from {
+        PopFrom::Above => (-1., 1.),
+        PopFrom::Below => (1., 0.),
+    };
+    scaled(div().child(content))
+        .origin(point(0.5, edge))
+        .with_animation(id, entrance.animation(), move |this, t| {
+            let (movement, fade) = entrance.sample_at(t);
+            this.scale(entrance.scale(movement))
+                .translate(point(0., direction * (1. - movement)))
+                .map_child(|child| child.opacity(fade))
         })
         .into_any_element()
 }
@@ -98,7 +152,12 @@ impl Render for LatticeTooltip {
             .when_some(self.shortcut.clone(), |this, keys| {
                 this.child(div().text_color(palette.text_secondary).child(keys))
             });
-        pop_in(("lattice-tooltip", cx.entity_id()), PopFrom::Above, card)
+        enter(
+            ("lattice-tooltip", cx.entity_id()).into(),
+            Entrance::TOOLTIP,
+            PopFrom::Above,
+            card,
+        )
     }
 }
 
@@ -266,7 +325,11 @@ impl DialogCard {
 impl RenderOnce for DialogCard {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        div()
+        let id = ElementId::NamedChild(
+            std::sync::Arc::new(ElementId::Name("dialog-card".into())),
+            self.title.clone(),
+        );
+        let card = div()
             .w(CONTAINER_DIALOG)
             .flex()
             .flex_col()
@@ -319,6 +382,7 @@ impl RenderOnce for DialogCard {
                     .gap(px(8.))
                     .pt(px(24.))
                     .children(self.actions),
-            )
+            );
+        rise_in(id, card)
     }
 }
