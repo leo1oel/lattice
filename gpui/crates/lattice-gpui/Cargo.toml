@@ -22,8 +22,9 @@ futures.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 gpui-kit.workspace = true
-# On the pin with GPUI Kit (the same `gpui-fast` feature, which it checks):
-# the webview islands (the Agent, the HTML and slide viewers) are built on it.
+# Unused for now, kept on purpose as the graph check that its `gpui-fast`
+# feature agrees with GPUI Kit's and adds no second GPUI, until the first
+# webview island (the Agent, the HTML and slide viewers) uses it.
 gpui-webview.workspace = true
 hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
