@@ -1,6 +1,8 @@
-//! One open file: Zed's editor over a local buffer, with Zed's buffer search
-//! bar and Lattice's status bar, as a dock panel. Its tab strip carries the
-//! build chip.
+//! One open file: Zed's editor over a local buffer, behind Lattice's editor
+//! adapter (`lattice-editor`), with Zed's buffer search bar and Lattice's
+//! status bar, as a dock panel. Its tab strip carries the build chip. A TeX
+//! source gets the LaTeX extensions: citation and reference cards, command,
+//! citation and label completion, and TexLab's diagnostics.
 //!
 //! The file is kept in step with disk the way the Tauri app's open documents
 //! keep theirs (`src/app/use-document-save.ts`, `use-document-autosave.ts`,
@@ -40,6 +42,10 @@ use gpui_kit::component::{
 };
 use language::{Buffer, BufferEvent, Point};
 use lattice_core::project::{self as core_project, ProjectFileStat};
+use lattice_editor::{
+    LatticeEditor, LatticeEditorEvent,
+    latex::{self, diagnostics::TexlabDiagnostics},
+};
 use lattice_ui::ActiveLattice as _;
 use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
@@ -71,6 +77,9 @@ pub enum EditorPanelEvent {
     DiskEdit,
     /// The file was deleted outside Lattice with nothing unsaved: close the tab.
     Close,
+    /// Open the project-relative `path` at the 1-based `line` (a hover
+    /// card's Go to entry, a reference card's title).
+    OpenLocation { path: String, line: u32 },
 }
 
 /// The last write's outcome, for the status bar's save slot.
@@ -105,7 +114,13 @@ pub struct EditorPanel {
     /// `path` within the project, as lattice-core names it.
     relative: String,
     buffer: Entity<Buffer>,
+    /// The adapter over Zed's editor, and the editor itself.
+    lattice: Entity<LatticeEditor>,
     editor: Entity<Editor>,
+    /// TexLab's diagnostics, for a `.tex` file.
+    diagnostics: Option<Entity<TexlabDiagnostics>>,
+    /// Builds seen finishing; each one has TexLab read the new log.
+    builds_seen: usize,
     search_bar: Entity<BufferSearchBar>,
     search_visible: bool,
     build: Entity<BuildPanel>,
@@ -171,13 +186,26 @@ impl EditorPanel {
         cx: &mut Context<Self>,
     ) -> Self {
         let started = std::time::Instant::now();
-        let language = crate::latex::language_for_path(&path, cx);
+        let language = latex::language_for_path(&path, cx);
         let saved_text = normalize_breaks(&text);
         let buffer = cx.new(|cx| Buffer::local(text, cx));
         let buffered = started.elapsed();
         buffer.update(cx, |buffer, cx| buffer.set_language(language, cx));
         let languaged = started.elapsed();
-        let editor = cx.new(|cx| Editor::for_buffer(buffer.clone(), None, window, cx));
+        let tex = latex::is_tex_source(&path);
+        let index = project.read(cx).index().clone();
+        let lattice = cx.new(|cx| {
+            let mut lattice = LatticeEditor::new(buffer.clone(), window, cx);
+            if tex {
+                latex::attach(&mut lattice, &index);
+            }
+            lattice
+        });
+        let editor = lattice.read(cx).editor().clone();
+        let diagnostics = tex.then(|| {
+            let texlab = project.read(cx).texlab().clone();
+            TexlabDiagnostics::attach(&lattice, texlab, relative.clone(), cx)
+        });
         log::debug!(
             "opened {}: buffer {buffered:?}, language {languaged:?}, editor {:?}",
             path.display(),
@@ -196,8 +224,29 @@ impl EditorPanel {
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
                 _ => {}
             }),
-            // The build chip in this panel's strip follows the build.
-            cx.observe(&build, |_, _, cx| cx.notify()),
+            // The build chip in this panel's strip follows the build, and
+            // TexLab reads each finished build's log.
+            cx.observe(&build, |this, build, cx| {
+                let builds = build.read(cx).builds();
+                if builds != this.builds_seen {
+                    this.builds_seen = builds;
+                    if let Some(diagnostics) = &this.diagnostics {
+                        diagnostics.update(cx, |diagnostics, cx| diagnostics.resync(cx));
+                    }
+                }
+                cx.notify();
+            }),
+            cx.subscribe(
+                &lattice,
+                |_, _, event: &LatticeEditorEvent, cx| match event {
+                    LatticeEditorEvent::OpenLocation { path, line } => {
+                        cx.emit(EditorPanelEvent::OpenLocation {
+                            path: path.clone(),
+                            line: *line,
+                        })
+                    }
+                },
+            ),
             cx.subscribe(
                 &editor,
                 |this, editor, event: &EditorEvent, cx| match event {
@@ -242,12 +291,16 @@ impl EditorPanel {
                 }
             }
         });
+        let builds_seen = build.read(cx).builds();
         let mut this = Self {
             project,
             path,
             relative,
             buffer,
+            lattice,
             editor,
+            diagnostics,
+            builds_seen,
             search_bar,
             search_visible: false,
             build,
@@ -289,6 +342,16 @@ impl EditorPanel {
         &self.editor
     }
 
+    /// The adapter the LaTeX extensions decorate the editor through.
+    pub fn lattice_editor(&self) -> &Entity<LatticeEditor> {
+        &self.lattice
+    }
+
+    /// TexLab's diagnostics for this file, when it is a `.tex` source.
+    pub fn texlab_diagnostics(&self) -> Option<&Entity<TexlabDiagnostics>> {
+        self.diagnostics.as_ref()
+    }
+
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn search_bar(&self) -> &Entity<BufferSearchBar> {
         &self.search_bar
@@ -315,9 +378,13 @@ impl EditorPanel {
     pub fn moved_to(&mut self, relative: String, cx: &mut Context<Self>) {
         let root = self.project.read(cx).root().to_path_buf();
         self.path = root.join(&relative);
+        if let Some(diagnostics) = &self.diagnostics {
+            let relative = relative.clone();
+            diagnostics.update(cx, |diagnostics, cx| diagnostics.set_path(relative, cx));
+        }
         self.relative = relative;
         self.disk = DiskVersion::Unread;
-        let language = crate::latex::language_for_path(&self.path, cx);
+        let language = latex::language_for_path(&self.path, cx);
         self.buffer
             .update(cx, |buffer, cx| buffer.set_language(language, cx));
         cx.notify();
@@ -460,7 +527,7 @@ impl Render for EditorPanel {
                         .child(self.search_bar.clone()),
                 )
             })
-            .child(div().flex_1().min_h_0().child(self.editor.clone()))
+            .child(div().flex_1().min_h_0().child(self.lattice.clone()))
             .child(status)
             .child(crate::paint_probe::probe())
     }

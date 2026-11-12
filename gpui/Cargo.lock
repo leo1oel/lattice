@@ -8233,6 +8233,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "lattice-editor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "codebook-tree-sitter-latex",
+ "editor",
+ "futures",
+ "gpui",
+ "language",
+ "lattice-core",
+ "lattice-ui",
+ "log",
+ "lsp",
+ "project",
+ "regex",
+ "theme",
+]
+
+[[package]]
 name = "lattice-gpui"
 version = "0.1.0"
 dependencies = [
@@ -8250,6 +8269,7 @@ dependencies = [
  "image",
  "language",
  "lattice-core",
+ "lattice-editor",
  "lattice-ui",
  "libc",
  "log",

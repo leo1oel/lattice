@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+mod editor_adapter;
 mod saves;
 
 /// Each step's name, whether it passed, and what it saw.
@@ -29,7 +30,9 @@ impl Run {
     /// and back (SyncTeX), and from a .bib entry to the PDF, autosave, take
     /// an outside edit into a clean buffer and merge one into an edited
     /// buffer, break the document by typing, save with the shortcut, build,
-    /// follow the error to its line, search, Vim, repair, build; then create,
+    /// follow the error to its line, search, Vim, repair, build; hover a
+    /// citation and a reference, draw remote carets and a block widget, show
+    /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, drag a tab into a dock,
     /// close a dirty tab, a vanished file's tab and a window, and type
     /// before the quit that ends the run, which the result's `after_quit`
@@ -222,6 +225,9 @@ impl Run {
             reloaded && built,
             json!({ "reloaded": reloaded }),
         );
+
+        // The editor adapter's extension points, through their LaTeX uses.
+        self.editor_adapter(cx, &mut steps, &root).await?;
 
         self.tree_operations(cx, &mut steps, &root).await?;
 

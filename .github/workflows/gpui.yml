@@ -115,6 +115,12 @@ jobs:
             scheme-basic
             latexmk
             synctex
+      # TexLab, for the editor's diagnostics, which the e2e scenario checks
+      # (the Windows job has none and skips that step).
+      - name: Install TexLab
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install texlab
       # --include-ignored runs the latexmk build test, which needs TeX.
       - run: cargo test --release --locked --workspace -- --include-ignored
       # The scenario ends by quitting with text typed and not yet saved

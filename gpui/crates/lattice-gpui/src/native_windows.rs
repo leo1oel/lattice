@@ -126,6 +126,8 @@ pub fn release_keys() -> Result<()> {
 pub enum Mouse {
     Down,
     Up,
+    /// The pointer moving with no button held, as for a hover.
+    Moved,
     Dragged,
 }
 
@@ -134,6 +136,7 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
     let (message, buttons) = match kind {
         Mouse::Down => (WM_LBUTTONDOWN, LEFT_BUTTON_DOWN),
         Mouse::Dragged => (WM_MOUSEMOVE, LEFT_BUTTON_DOWN),
+        Mouse::Moved => (WM_MOUSEMOVE, 0),
         Mouse::Up => (WM_LBUTTONUP, 0),
     };
     // Client coordinates in device pixels, packed as two signed 16-bit words.

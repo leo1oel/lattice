@@ -1,0 +1,534 @@
+//! TexLab's diagnostics on the adapter: each one a mark (CodeMirror lint's
+//! wavy underline, in its colours), each line with any a gutter mark, and a
+//! hover card over either that says what TexLab found.
+//!
+//! As in the Tauri app (`src/build/use-texlab-diagnostics.ts`,
+//! `texlab-diagnostics.ts`): the file is synced to TexLab 700 ms after the
+//! last edit and again after every build, and what TexLab publishes for it
+//! replaces what was shown. A diagnostic's range is clamped into the
+//! buffer, an empty one underlines up to 12 characters, and a box warning
+//! TexLab pins to the very start of the root document (it comes from a
+//! generated file) is not drawn there.
+//!
+//! The Tauri app draws no gutter marker for its lint (its lint gutter is
+//! gone); here each line with a diagnostic gets a dot in the gutter in its
+//! most severe diagnostic's status colour, as the editor adapter's proof of
+//! its gutter marks.
+
+use std::{cell::RefCell, ops::Range, rc::Rc, time::Duration};
+
+use gpui::{
+    App, AppContext as _, Context, Entity, Hsla, IntoElement, ParentElement as _, RenderOnce,
+    Styled as _, Subscription, Task, WeakEntity, Window, div, px, relative, rgb,
+};
+use language::{Anchor, BufferEvent, BufferSnapshot, ToOffset as _};
+use lattice_core::models::Diagnostic;
+use lattice_ui::{ActiveLattice as _, Elevation, LatticeTheme};
+use theme::ActiveTheme as _;
+
+use crate::{
+    LatticeEditor, TexlabService,
+    decorations::{Mark, MarkStyle},
+    gutter::{GutterMark, GutterShape},
+    hover::{HoverProvider, HoverTarget},
+    texlab::TexlabEvent,
+};
+
+/// The adapter layer TexLab's marks and gutter marks are in.
+pub const LAYER: &str = "texlab";
+/// How long after the last edit the file goes to TexLab.
+pub const SYNC_DELAY: Duration = Duration::from_millis(700);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Severity {
+    Info,
+    Warning,
+    Error,
+}
+
+impl Severity {
+    /// `diagnosticSeverity`: error and fatal, warning and warn, else info.
+    pub fn of(level: &str) -> Self {
+        match level.trim().to_lowercase().as_str() {
+            "error" | "fatal" => Severity::Error,
+            "warning" | "warn" => Severity::Warning,
+            _ => Severity::Info,
+        }
+    }
+
+    /// CodeMirror lint's underline colours, which the Tauri app keeps.
+    fn underline(self) -> Hsla {
+        match self {
+            Severity::Error => rgb(0xdd1111).into(),
+            Severity::Warning => rgb(0xffa500).into(),
+            Severity::Info => rgb(0x999999).into(),
+        }
+    }
+
+    /// A gutter mark: the status colours, danger, warning and the accent,
+    /// so the mark reads as the squiggle beside it does.
+    fn mark(self, cx: &App) -> Hsla {
+        let palette = cx.palette();
+        match self {
+            Severity::Error => palette.danger,
+            Severity::Warning => palette.warning,
+            Severity::Info => palette.accent,
+        }
+    }
+
+    /// The lint tooltip's left edge: danger, the code theme's attribute
+    /// colour, the accent (`.cm-diagnostic-*` in editor-workspace.css).
+    fn edge(self, cx: &App) -> Hsla {
+        let palette = cx.palette();
+        match self {
+            Severity::Error => palette.danger,
+            Severity::Warning => cx
+                .theme()
+                .syntax()
+                .style_for_name("attribute")
+                .and_then(|style| style.color)
+                .unwrap_or(palette.warning),
+            Severity::Info => palette.accent,
+        }
+    }
+}
+
+/// A diagnostic placed in the buffer.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Located {
+    pub range: Range<usize>,
+    pub severity: Severity,
+    pub message: String,
+}
+
+#[derive(Clone)]
+struct Anchored {
+    range: Range<Anchor>,
+    severity: Severity,
+    message: String,
+}
+
+/// `file` with forward slashes and no `.` or empty segments.
+fn clean_path(file: &str) -> String {
+    let file = file.replace('\\', "/");
+    file.split('/')
+        .enumerate()
+        .filter(|(index, part)| *part != "." && (!part.is_empty() || *index == 0))
+        .map(|(_, part)| part)
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// Whether a diagnostic's `file` names the project-relative `active` file.
+pub fn matches_file(file: Option<&str>, active: &str) -> bool {
+    let (Some(file), false) = (file, active.is_empty()) else {
+        return false;
+    };
+    let (file, active) = (clean_path(file), clean_path(active));
+    let absolute = file.starts_with('/') || file.get(1..3) == Some(":/");
+    file == active || (absolute && file.ends_with(&format!("/{active}")))
+}
+
+/// The byte offset of the 1-based UTF-16 `column` (LSP's unit) in `line`,
+/// clamped to the line.
+fn utf16_column(line: &str, column: u32) -> usize {
+    let mut units = 0u32;
+    for (at, character) in line.char_indices() {
+        if units >= column.saturating_sub(1) {
+            return at;
+        }
+        units += character.len_utf16() as u32;
+    }
+    line.len()
+}
+
+/// TexLab's diagnostics for `path`, placed in `text`
+/// (`editorTexlabDiagnosticsForFile`).
+pub fn locate(diagnostics: &[Diagnostic], path: &str, text: &str) -> Vec<Located> {
+    let mut starts = vec![0usize];
+    starts.extend(text.match_indices('\n').map(|(at, _)| at + 1));
+    let rows = starts.len() as u32;
+    let line = |row: u32| {
+        let start = starts[row as usize];
+        let end = starts
+            .get(row as usize + 1)
+            .map_or(text.len(), |next| next - 1);
+        (start, &text[start..end])
+    };
+    diagnostics
+        .iter()
+        .filter(|diagnostic| matches_file(diagnostic.file.as_deref(), path))
+        .filter(|diagnostic| {
+            // A box warning from a generated file (main.bbl), pinned to
+            // the root document's origin: not a source location.
+            let at_origin = diagnostic.line == Some(1)
+                && diagnostic.column == Some(1)
+                && diagnostic.end_line == Some(1)
+                && diagnostic.end_column == Some(1);
+            let boxed = diagnostic.message.starts_with("Underfull \\")
+                || diagnostic.message.starts_with("Overfull \\");
+            !(at_origin && boxed)
+        })
+        .filter_map(|diagnostic| {
+            let start_row = diagnostic.line.unwrap_or(1).clamp(1, rows) - 1;
+            let end_row = diagnostic
+                .end_line
+                .map_or(start_row, |line| line.clamp(1, rows) - 1);
+            let (start_at, start_line) = line(start_row);
+            let (end_at, end_line) = line(end_row);
+            let from = start_at + diagnostic.column.map_or(0, |c| utf16_column(start_line, c));
+            let mut to = end_at
+                + diagnostic
+                    .end_column
+                    .map_or(end_line.len(), |c| utf16_column(end_line, c));
+            if to <= from {
+                // An empty or inverted range underlines up to 12 characters
+                // of the start line.
+                let rest = &text[from..start_at + start_line.len()];
+                to = from + rest.char_indices().nth(12).map_or(rest.len(), |(at, _)| at);
+            }
+            (to > from).then(|| Located {
+                range: from..to,
+                severity: Severity::of(&diagnostic.level),
+                message: diagnostic.message.clone(),
+            })
+        })
+        .collect()
+}
+
+/// TexLab's diagnostics for one editor, kept in step with its buffer.
+pub struct TexlabDiagnostics {
+    editor: WeakEntity<LatticeEditor>,
+    service: Entity<TexlabService>,
+    path: String,
+    shown: Rc<RefCell<Vec<Anchored>>>,
+    raw: Vec<Diagnostic>,
+    _sync: Option<Task<()>>,
+    _subscriptions: Vec<Subscription>,
+}
+
+impl TexlabDiagnostics {
+    /// Show TexLab's diagnostics for `path` (project-relative) in `editor`.
+    pub fn attach(
+        editor: &Entity<LatticeEditor>,
+        service: Entity<TexlabService>,
+        path: String,
+        cx: &mut App,
+    ) -> Entity<Self> {
+        let shown: Rc<RefCell<Vec<Anchored>>> = Rc::default();
+        editor.update(cx, |editor, _| {
+            editor.add_hover_provider(Rc::new(DiagnosticCards {
+                shown: shown.clone(),
+            }));
+        });
+        let buffer = editor.read(cx).buffer().clone();
+        cx.new(|cx: &mut Context<Self>| {
+            let subscriptions = vec![
+                cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| {
+                    if matches!(event, BufferEvent::Edited { .. }) {
+                        this.schedule_sync(cx);
+                    }
+                }),
+                cx.subscribe(&service, |this, _, event: &TexlabEvent, cx| {
+                    let TexlabEvent::Diagnostics { path, diagnostics } = event;
+                    if matches_file(Some(path), &this.path) {
+                        this.raw = diagnostics.clone();
+                        this.show(cx);
+                    }
+                }),
+                // A new appearance or code theme recolours the gutter.
+                cx.observe_global::<LatticeTheme>(|this, cx| this.show(cx)),
+            ];
+            let mut this = Self {
+                editor: editor.downgrade(),
+                service,
+                path,
+                shown,
+                raw: Vec::new(),
+                _sync: None,
+                _subscriptions: subscriptions,
+            };
+            this.schedule_sync(cx);
+            this
+        })
+    }
+
+    /// The file was renamed or moved: sync it under its new path.
+    pub fn set_path(&mut self, path: String, cx: &mut Context<Self>) {
+        self.path = path;
+        self.raw.clear();
+        self.show(cx);
+        self.schedule_sync(cx);
+    }
+
+    /// Sync again, as after a build: TexLab reads the new log.
+    pub fn resync(&mut self, cx: &mut Context<Self>) {
+        self.schedule_sync(cx);
+    }
+
+    /// What is shown now, placed in the buffer as it is.
+    pub fn located(&self, cx: &App) -> Vec<Located> {
+        let Some(editor) = self.editor.upgrade() else {
+            return Vec::new();
+        };
+        let text = editor.read(cx).buffer().read(cx).snapshot();
+        self.shown
+            .borrow()
+            .iter()
+            .map(|anchored| Located {
+                range: anchored.range.start.to_offset(&text)..anchored.range.end.to_offset(&text),
+                severity: anchored.severity,
+                message: anchored.message.clone(),
+            })
+            .collect()
+    }
+
+    fn schedule_sync(&mut self, cx: &mut Context<Self>) {
+        if !self.path.ends_with(".tex") || !TexlabService::available() {
+            return;
+        }
+        self._sync = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(SYNC_DELAY).await;
+            this.update(cx, |this, cx| {
+                let Some(editor) = this.editor.upgrade() else {
+                    return;
+                };
+                let text = editor.read(cx).buffer().read(cx).text();
+                let path = this.path.clone();
+                this.service
+                    .update(cx, |service, cx| service.sync(path, text, cx));
+            })
+            .ok();
+        }));
+    }
+
+    fn show(&mut self, cx: &mut Context<Self>) {
+        let Some(editor) = self.editor.upgrade() else {
+            return;
+        };
+        let text = editor.read(cx).buffer().read(cx).snapshot();
+        let located = locate(&self.raw, &self.path, &text.text());
+        *self.shown.borrow_mut() = located
+            .iter()
+            .map(|located| Anchored {
+                range: text.anchor_before(located.range.start)
+                    ..text.anchor_after(located.range.end),
+                severity: located.severity,
+                message: located.message.clone(),
+            })
+            .collect();
+        let marks = located
+            .iter()
+            .map(|located| Mark {
+                range: located.range.clone(),
+                style: MarkStyle::squiggle(located.severity.underline()),
+            })
+            .collect();
+        // One mark per line, in its most severe diagnostic's colour.
+        let mut rows: Vec<(u32, Severity)> = Vec::new();
+        for located in &located {
+            let row = text.offset_to_point(located.range.start).row;
+            match rows.iter_mut().find(|(existing, _)| *existing == row) {
+                Some((_, severity)) => *severity = (*severity).max(located.severity),
+                None => rows.push((row, located.severity)),
+            }
+        }
+        let gutter = rows
+            .into_iter()
+            .map(|(row, severity)| {
+                let shown = self.shown.clone();
+                GutterMark {
+                    line: row,
+                    color: severity.mark(cx),
+                    shape: GutterShape::Dot,
+                    hover: Some(Rc::new(move |context, _, _| {
+                        let items = on_row(&shown.borrow(), row, &context.text);
+                        DiagnosticCard {
+                            items,
+                            max_width: context.max_width,
+                        }
+                        .into_any_element()
+                    })),
+                }
+            })
+            .collect();
+        editor.update(cx, |editor, cx| {
+            editor.set_marks(LAYER, marks, cx);
+            editor.set_gutter_marks(LAYER, gutter, cx);
+        });
+    }
+}
+
+/// The diagnostics on buffer row `row`, as the card lists them.
+fn on_row(shown: &[Anchored], row: u32, text: &BufferSnapshot) -> Vec<(Severity, String)> {
+    shown
+        .iter()
+        .filter(|anchored| {
+            text.offset_to_point(anchored.range.start.to_offset(text))
+                .row
+                == row
+        })
+        .map(|anchored| (anchored.severity, anchored.message.clone()))
+        .collect()
+}
+
+/// The card over a diagnostic's underline: what TexLab found there.
+struct DiagnosticCards {
+    shown: Rc<RefCell<Vec<Anchored>>>,
+}
+
+impl HoverProvider for DiagnosticCards {
+    fn target(&self, text: &BufferSnapshot, offset: usize, _: &App) -> Option<HoverTarget> {
+        let shown = self.shown.borrow();
+        let hits: Vec<_> = shown
+            .iter()
+            .filter(|anchored| {
+                let range =
+                    anchored.range.start.to_offset(text)..anchored.range.end.to_offset(text);
+                offset >= range.start && offset < range.end
+            })
+            .cloned()
+            .collect();
+        if hits.is_empty() {
+            return None;
+        }
+        let start = hits
+            .iter()
+            .map(|hit| hit.range.start.to_offset(text))
+            .min()?;
+        let end = hits.iter().map(|hit| hit.range.end.to_offset(text)).max()?;
+        let items: Vec<_> = hits
+            .into_iter()
+            .map(|hit| (hit.severity, hit.message))
+            .collect();
+        Some(HoverTarget {
+            range: start..end,
+            id: "diagnostic",
+            card: Rc::new(move |context, _, _| {
+                DiagnosticCard {
+                    items: items.clone(),
+                    max_width: context.max_width,
+                }
+                .into_any_element()
+            }),
+        })
+    }
+}
+
+/// The lint tooltip: one row per diagnostic, its message over the source,
+/// a 5px edge in its severity's colour (`.cm-tooltip-lint .cm-diagnostic`).
+#[derive(IntoElement)]
+struct DiagnosticCard {
+    items: Vec<(Severity, String)>,
+    max_width: gpui::Pixels,
+}
+
+impl RenderOnce for DiagnosticCard {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        let palette = cx.palette().clone();
+        let editor_font = cx.lattice().fonts.editor.clone();
+        div()
+            .flex()
+            .flex_col()
+            .max_w(px(440.).min(self.max_width))
+            .rounded(px(6.))
+            .overflow_hidden()
+            .bg(palette.raised)
+            .shadow(Elevation::Popover.shadows(&palette))
+            .text_color(palette.text)
+            .font_family(editor_font)
+            .text_size(px(13.))
+            .line_height(relative(1.45))
+            .children(self.items.into_iter().map(|(severity, message)| {
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(6.))
+                    .py(px(8.))
+                    .px(px(10.))
+                    .border_l(px(5.))
+                    .border_color(severity.edge(cx))
+                    .child(message)
+                    .child(
+                        div()
+                            .text_color(palette.text_secondary)
+                            .text_size(px(13. * 0.9))
+                            .child("texlab"),
+                    )
+            }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn diagnostic(
+        line: u32,
+        column: Option<u32>,
+        end: Option<(u32, u32)>,
+        level: &str,
+        message: &str,
+    ) -> Diagnostic {
+        Diagnostic {
+            file: Some("chapters/intro.tex".into()),
+            line: Some(line),
+            column,
+            end_line: end.map(|(line, _)| line),
+            end_column: end.map(|(_, column)| column),
+            level: level.into(),
+            message: message.into(),
+            code: None,
+            params: Default::default(),
+        }
+    }
+
+    #[test]
+    fn files_match_relative_or_by_their_tail() {
+        assert!(matches_file(
+            Some("./chapters//intro.tex"),
+            "chapters/intro.tex"
+        ));
+        assert!(matches_file(
+            Some("/tmp/p/chapters/intro.tex"),
+            "chapters/intro.tex"
+        ));
+        assert!(!matches_file(Some("intro.tex"), "chapters/intro.tex"));
+        assert!(!matches_file(None, "chapters/intro.tex"));
+        assert_eq!(Severity::of(" Fatal "), Severity::Error);
+        assert_eq!(Severity::of("hint"), Severity::Info);
+    }
+
+    #[test]
+    fn diagnostics_are_clamped_into_the_buffer() {
+        let text = "\\documentclass{article}\nSee \\ref{x} and é\\cite{k}.\n";
+        let located = locate(
+            &[
+                // TexLab's columns are UTF-16 units: é is one.
+                diagnostic(2, Some(18), Some((2, 26)), "warning", "Unknown citation"),
+                // Past the last line: clamped to it.
+                diagnostic(9, Some(1), None, "error", "Clamped"),
+                // An empty range underlines up to 12 characters.
+                diagnostic(2, Some(5), Some((2, 5)), "warning", "Empty"),
+                // A box warning at the origin is not drawn there.
+                diagnostic(
+                    1,
+                    Some(1),
+                    Some((1, 1)),
+                    "warning",
+                    "Overfull \\hbox (1pt too wide)",
+                ),
+            ],
+            "chapters/intro.tex",
+            text,
+        );
+        assert_eq!(located.len(), 2, "{located:?}");
+        assert_eq!(&text[located[0].range.clone()], "\\cite{k}");
+        assert_eq!(located[0].severity, Severity::Warning);
+        // Clamped to the last line, which is empty: nothing to underline.
+        let empty = &located[1];
+        assert_eq!(empty.message, "Empty");
+        assert_eq!(&text[empty.range.clone()], "\\ref{x} and ");
+        assert!(located.iter().all(|l| l.range.end <= text.len()));
+    }
+}
