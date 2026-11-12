@@ -209,7 +209,6 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "history.svg",
     "play-filled.svg",
     "check.svg",
-    "copy.svg",
     "eye.svg",
     "info.svg",
     "pencil.svg",
