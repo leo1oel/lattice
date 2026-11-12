@@ -26,7 +26,7 @@ impl Shell {
             let editor = editor.read(cx);
             (editor.relative().to_string(), editor.cursor())
         };
-        if !relative.to_ascii_lowercase().ends_with(".tex") || self.project.is_none() {
+        if self.project.is_none() {
             return;
         }
         log::debug!("SyncTeX: from {relative} at {position:?}");

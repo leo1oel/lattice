@@ -6,8 +6,8 @@
 //! keep theirs (`src/app/use-document-save.ts`, `use-document-autosave.ts`,
 //! `use-document-disk-sync.ts`, `vanished-file.ts`):
 //!
-//! - It saves after a pause in typing (900 ms, or 1.2 s when a build follows
-//!   each save) and when the writer leaves the editor, one save at a time.
+//! - It saves after a pause in typing (1.2 s, and a build follows), when the
+//!   writer leaves the editor and when its tab closes, one save at a time.
 //! - A save goes through lattice-core's editor transaction with the text the
 //!   buffer grew from (`saved_text`) as its base, so an edit made outside
 //!   Lattice since then is merged in rather than written over, with conflict
@@ -64,8 +64,8 @@ const DISK_POLL: Duration = Duration::from_millis(2500);
 pub enum EditorPanelEvent {
     /// A save wrote the file: the PDF is older than the sources now.
     Saved,
-    /// Automatic builds are on and a save just wrote the file, from a pause
-    /// in typing or from leaving the editor: build now, unattended.
+    /// A save just wrote the file, from a pause in typing or from leaving
+    /// the editor: build now, unattended.
     SavedForBuild,
     /// An edit made outside Lattice was loaded into the clean buffer.
     DiskEdit,
@@ -319,12 +319,17 @@ impl EditorPanel {
         cx.notify();
     }
 
+    /// Its file was deleted in Lattice: closing its tab discards what it
+    /// holds.
+    pub fn file_deleted(&mut self) {
+        self.closed = true;
+    }
+
     /// Take `text` as both the buffer and what it was saved as, keeping the
     /// caret where the text allows: a move rewrote the file's asset paths.
     pub fn accept_written(&mut self, text: String, cx: &mut Context<Self>) {
-        self.saved_text = normalize_breaks(&text);
         self.disk = DiskVersion::Unread;
-        self.replace_text(self.saved_text.clone(), cx);
+        self.replace_text(normalize_breaks(&text), cx);
     }
 
     /// Recount the words from the buffer's text, off the main thread.
@@ -377,6 +382,10 @@ impl Focusable for EditorPanel {
 impl BasePanel for EditorPanel {
     fn panel_name(&self) -> &'static str {
         "EditorPanel"
+    }
+
+    fn on_removed(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+        self.flush(cx);
     }
 }
 

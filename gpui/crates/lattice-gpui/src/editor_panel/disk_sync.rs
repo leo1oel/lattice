@@ -31,19 +31,22 @@ impl EditorPanel {
         let disk = self.disk.clone();
         cx.spawn(async move |this, cx| {
             let read = cx
-                .background_spawn(async move {
-                    let stat = core_project::stat_file(&root, &relative)?;
-                    let unchanged = match &disk {
-                        DiskVersion::Seen(seen) => same_version(seen, &stat),
-                        DiskVersion::Unknown => true,
-                        DiskVersion::Unread => false,
-                    };
-                    let content = if stat.exists && !unchanged {
-                        Some(core_project::read_file(&root, &relative)?)
-                    } else {
-                        None
-                    };
-                    Ok::<_, String>((stat, content))
+                .background_spawn({
+                    let relative = relative.clone();
+                    async move {
+                        let stat = core_project::stat_file(&root, &relative)?;
+                        let unchanged = match &disk {
+                            DiskVersion::Seen(seen) => same_version(seen, &stat),
+                            DiskVersion::Unknown => true,
+                            DiskVersion::Unread => false,
+                        };
+                        let content = if stat.exists && !unchanged {
+                            Some(core_project::read_file(&root, &relative)?)
+                        } else {
+                            None
+                        };
+                        Ok::<_, String>((stat, content))
+                    }
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -52,6 +55,7 @@ impl EditorPanel {
                 if this.saves_pending > 0
                     || this.save_generation != generation
                     || this.saved_text != saved
+                    || this.relative != relative
                 {
                     return;
                 }
@@ -69,20 +73,22 @@ impl EditorPanel {
                     notices::dismiss(&vanished_key(&this.relative), cx);
                 }
                 let first = matches!(this.disk, DiskVersion::Unknown);
-                this.disk = DiskVersion::Seen(stat);
-                let Some(content) = content.filter(|_| !first) else {
+                let content = content
+                    .filter(|_| !first)
+                    .map(|content| normalize_breaks(&content))
+                    .filter(|content| *content != this.saved_text);
+                let Some(content) = content else {
+                    this.disk = DiskVersion::Seen(stat);
                     return;
                 };
-                let content = normalize_breaks(&content);
-                if content == this.saved_text {
-                    return;
-                }
                 // An edited buffer keeps its edits: its next save merges the
-                // outside edit in against `saved_text`.
+                // outside edit in against `saved_text`. Until then the
+                // version stays unseen, so a buffer that goes back to clean
+                // without writing (edits undone) still loads it.
                 if this.is_dirty(cx) {
                     return;
                 }
-                this.saved_text = content.clone();
+                this.disk = DiskVersion::Seen(stat);
                 this.replace_text(content, cx);
                 this.project
                     .update(cx, |project, _| project.mark_inputs_changed());
@@ -113,22 +119,29 @@ impl EditorPanel {
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(VANISH_CONFIRM).await;
             let found = cx
-                .background_spawn(async move {
-                    let back = core_project::stat_file(&root, &relative)
-                        .map(|stat| stat.exists)
-                        .unwrap_or(false);
-                    if back {
-                        return None;
+                .background_spawn({
+                    let relative = relative.clone();
+                    async move {
+                        let back = core_project::stat_file(&root, &relative)
+                            .map(|stat| stat.exists)
+                            .unwrap_or(false);
+                        if back {
+                            return None;
+                        }
+                        Some(
+                            core_project::find_moved_file(&root, &file_id, Some(&saved))
+                                .ok()
+                                .flatten(),
+                        )
                     }
-                    Some(
-                        core_project::find_moved_file(&root, &file_id, Some(&saved))
-                            .ok()
-                            .flatten(),
-                    )
                 })
                 .await;
             this.update(cx, |this, cx| {
                 this.looking_for_file = false;
+                // The tab followed a move made in Lattice meanwhile.
+                if this.relative != relative {
+                    return;
+                }
                 let Some(moved) = found else {
                     return;
                 };

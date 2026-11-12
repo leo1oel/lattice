@@ -9,7 +9,7 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
 2. Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim).
 3. Saves as the Tauri app does: after a pause in typing and on leaving the editor, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
 4. Shows the PDF on the right, rendered natively by PDFium, and jumps between it and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, and a double-click in the PDF opens its source line.
-5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B), and after each save (the Tauri app's default automatic builds; `LATTICE_GPUI_AUTO_BUILD=0` turns them off), reloads the PDF in place, and lists errors that jump to their line.
+5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B), and after each save and each outside edit it loads (the Tauri app's default automatic builds), reloads the PDF in place, and lists errors that jump to their line.
 6. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
 
 Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent panel, canvas, spreadsheet, slides, live preview and i18n.
@@ -53,7 +53,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 `.github/workflows/gpui.yml` runs only when `gpui/**`, `lattice-core` (`../src-tauri/lattice-core/**`, which the app builds on), the workflow itself, one of the design-system exports `crates/lattice-ui` generates from changes (`../design-system/tokens.json`, `../design-system/code-themes.json` and what that is generated from; the workflow lists them), or the scene staging the parity report uses (`../design-system/screens/`).
 Its `code-themes` job fails while `code-themes.json` is stale (`node design-system/code-themes.mjs --check`), and its `patches` job while `patches/` is not upstream plus its diffs (`script/check-patches`). A separate workflow, `.github/workflows/gpui-patches.yml`, runs only when `patches/` changes: it applies the diffs to gpui-fast at the pin and runs the tests they add (element scale, letter spacing).
 On macOS and Windows it builds the app (release profile), runs the unit tests and the `e2e` scenario on `fixtures/e2e`; on macOS it then writes the parity report (below), which does not fail the job. `lattice-core`'s own tests run with the Tauri app's (`ci.yml`).
-macOS builds with TeX Live; Windows builds with MiKTeX, and a second Windows job runs the TeX tests against TeX Live.
+macOS builds with TeX Live; Windows builds with MiKTeX.
 The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-install prompts are checked by hand; CI cannot drive them.
 
 ## How it is put together

@@ -1,75 +1,74 @@
 //! Saving, as the Tauri app's open documents save (`use-document-save.ts`,
-//! `use-document-autosave.ts`): after a pause in typing and on leaving the
-//! editor, one save at a time, through lattice-core's editor transaction with
-//! the text the buffer grew from as the base of a three-way merge.
+//! `use-document-autosave.ts`): after a pause in typing, on leaving the
+//! editor and when its tab closes, one save at a time, through lattice-core's
+//! editor transaction with the text the buffer grew from as the base of a
+//! three-way merge.
 
 use std::time::Duration;
 
 use anyhow::Result;
 use futures::{FutureExt as _, channel::oneshot};
-use gpui::{AppContext as _, Context, Task, WeakEntity};
+use gpui::{AppContext as _, Context, Task};
 use lattice_core::project as core_project;
 
 use super::{DiskVersion, EditorPanel, EditorPanelEvent, SaveStatus, vanished_key};
 use crate::notices;
 
-/// The pause in typing after which the file saves.
-const AUTOSAVE_DELAY: Duration = Duration::from_millis(900);
-/// The same with automatic builds, which follow each save.
-const AUTOSAVE_BUILD_DELAY: Duration = Duration::from_millis(1200);
+/// The pause in typing after which the file saves; a build follows each save.
+const AUTOSAVE_DELAY: Duration = Duration::from_millis(1200);
 
 impl EditorPanel {
-    /// Save after a pause in typing; with automatic builds a build follows.
+    /// Save after a pause in typing, then build.
     pub(super) fn schedule_autosave(&mut self, cx: &mut Context<Self>) {
         if !self.is_dirty(cx) {
             self._autosave = None;
             return;
         }
-        let automatic = crate::app::auto_build(cx);
-        let delay = if automatic {
-            AUTOSAVE_BUILD_DELAY
-        } else {
-            AUTOSAVE_DELAY
-        };
         // Only the wait is replaced by the next keystroke; a save it started
         // runs on.
         self._autosave = Some(cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(delay).await;
-            cx.spawn(async move |cx| Self::save_from(this, automatic, cx).await)
-                .detach();
+            cx.background_executor().timer(AUTOSAVE_DELAY).await;
+            this.update(cx, |this, cx| this.save_for_build(cx)).ok();
         }));
     }
 
-    /// The writer left the editor: save now, and build with automatic builds
-    /// when there was something to save.
+    /// The writer left the editor: save now, and build when there was
+    /// something to save.
     pub(super) fn leave(&mut self, cx: &mut Context<Self>) {
         if !self.is_dirty(cx) {
             return;
         }
         self._autosave = None;
-        let automatic = crate::app::auto_build(cx);
-        let this = cx.entity().downgrade();
-        cx.spawn(async move |_, cx| Self::save_from(this, automatic, cx).await)
-            .detach();
+        self.save_for_build(cx);
     }
 
-    async fn save_from(this: WeakEntity<Self>, automatic: bool, cx: &mut gpui::AsyncApp) {
-        let Ok(save) = this.update(cx, |this, cx| this.save(cx)) else {
+    /// The tab left the dock: what it holds is saved first, unless the file
+    /// went from disk, where closing the tab discards it.
+    pub(super) fn flush(&mut self, cx: &mut Context<Self>) {
+        if self.closed || self.vanished.is_some() || !self.is_dirty(cx) {
             return;
-        };
-        if let Ok(true) = save.await
-            && automatic
-        {
-            this.update(cx, |_, cx| cx.emit(EditorPanelEvent::SavedForBuild))
-                .ok();
         }
+        self._autosave = None;
+        self.save(cx).detach();
+    }
+
+    fn save_for_build(&mut self, cx: &mut Context<Self>) {
+        let save = self.save(cx);
+        cx.spawn(async move |this, cx| {
+            if let Ok(true) = save.await {
+                this.update(cx, |_, cx| cx.emit(EditorPanelEvent::SavedForBuild))
+                    .ok();
+            }
+        })
+        .detach();
     }
 
     /// Write the buffer to disk, after any save already under way. Resolves
     /// true when the buffer is on disk (nothing to write counts), false when
     /// the write is held or failed, which the save slot and a notice report.
-    /// The save runs to its end even if the returned task is dropped, so a
-    /// write is never cut off halfway through its bookkeeping.
+    /// The save runs to its end even if the returned task is dropped or the
+    /// tab closes, so a write is never cut off halfway through its
+    /// bookkeeping.
     pub fn save(&mut self, cx: &mut Context<Self>) -> Task<Result<bool>> {
         let previous = self.save_queue.take();
         self.saves_pending += 1;
@@ -80,6 +79,7 @@ impl EditorPanel {
         });
         self.save_queue = Some(queued.shared());
         let (answer, answered) = oneshot::channel::<Result<bool>>();
+        let panel = cx.entity();
         cx.spawn(async move |this, cx| {
             if let Some(previous) = previous {
                 previous.await;
@@ -95,6 +95,7 @@ impl EditorPanel {
             .ok();
             done.send(()).ok();
             answer.send(result).ok();
+            drop(panel);
         })
         .detach();
         cx.background_spawn(async move {
@@ -169,9 +170,10 @@ impl EditorPanel {
                 }
                 // The saved text is the base the next save merges against,
                 // so it must be what the buffer grew from: when this save
-                // merged in an outside edit while typing went on, the buffer
-                // grew from `content`, and the next save merges again.
-                this.saved_text = if written_text != content && typed_on {
+                // merged in an outside edit, the buffer grew from `content`
+                // until the merge comes back into it, and if typing goes on
+                // before it does, the next save merges again.
+                this.saved_text = if written_text != content {
                     content.clone()
                 } else {
                     written_text.clone()
@@ -198,24 +200,42 @@ impl EditorPanel {
         })
     }
 
-    /// Put `text` in the buffer as what is on disk, as a reload does: the
-    /// change is computed as a diff so the caret and scroll stay where the
-    /// text allows, it is not the writer's to undo, and the buffer is clean
-    /// after it.
+    /// Put `text` in the buffer as what is on disk, and take it as the saved
+    /// text, as a reload does: the change is computed as a diff so the caret
+    /// and scroll stay where the text allows, it is not the writer's to undo,
+    /// and the buffer is clean after it. Typing while the diff is computed
+    /// keeps the buffer as typed and the text it grew from as its saved
+    /// text, with the disk version unread, so the next save merges `text` in.
     pub(super) fn replace_text(&mut self, text: String, cx: &mut Context<Self>) {
-        let buffer = self.buffer.clone();
-        let diff = buffer.update(cx, |buffer, cx| buffer.diff(text, cx));
+        let base = std::mem::replace(&mut self.saved_text, text.clone());
+        let diff = self
+            .buffer
+            .update(cx, |buffer, cx| buffer.diff(text.clone(), cx));
         cx.spawn(async move |this, cx| {
             let diff = diff.await;
-            buffer.update(cx, |buffer, cx| {
-                buffer.finalize_last_transaction();
-                if let Some(transaction) = buffer.apply_diff(diff, cx) {
-                    buffer.forget_transaction(transaction);
+            this.update(cx, |this, cx| {
+                let replaced = this.buffer.update(cx, |buffer, cx| {
+                    if buffer.version() != diff.base_version {
+                        return false;
+                    }
+                    buffer.finalize_last_transaction();
+                    if let Some(transaction) = buffer.apply_diff(diff, cx) {
+                        buffer.forget_transaction(transaction);
+                    }
+                    let version = buffer.version();
+                    buffer.did_save(version, None, cx);
+                    true
+                });
+                if replaced {
+                    this.count_words(cx);
+                    return;
                 }
-                let version = buffer.version();
-                buffer.did_save(version, None, cx);
-            });
-            this.update(cx, |this, cx| this.count_words(cx)).ok();
+                if this.saved_text == text {
+                    this.saved_text = base;
+                }
+                this.disk = DiskVersion::Unread;
+            })
+            .ok();
         })
         .detach();
     }

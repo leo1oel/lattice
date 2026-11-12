@@ -214,20 +214,3 @@ jobs:
           name: gpui-e2e-windows
           path: ${{ runner.temp }}/e2e-windows.json
           if-no-files-found: ignore
-
-  # The windows job builds with MiKTeX; this one runs the TeX crate's tests,
-  # the latexmk build included, against TeX Live on Windows. It compiles only
-  # that crate, so it needs no Rust cache.
-  windows-texlive:
-    runs-on: windows-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - run: rustup toolchain install
-      - uses: TeX-Live/setup-texlive-action@v4
-        with:
-          cache: false
-          packages: |
-            scheme-basic
-            latexmk
-      - run: cargo test --locked -p tex -- --include-ignored

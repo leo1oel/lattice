@@ -4,7 +4,7 @@
 //! project, open a file, build, jump between the source and the PDF
 //! (SyncTeX), and the file tree's create, rename, move and delete.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use futures::channel::oneshot;
 use gpui::{
@@ -271,18 +271,12 @@ impl Shell {
     }
 
     /// The open project's name, as the titlebar's switcher shows it: the
-    /// title in its `project.toml`, else the folder's name.
+    /// name in its manifest, as the Tauri titlebar shows it.
     pub fn project_name(&self, cx: &App) -> SharedString {
-        let Some(root) = self.root(cx) else {
-            return "Open a project".into();
-        };
-        project_title(&root)
-            .or_else(|| {
-                root.file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-            })
-            .unwrap_or_default()
-            .into()
+        match &self.project {
+            Some(project) => project.read(cx).manifest().name.clone().into(),
+            None => "Open a project".into(),
+        }
     }
 
     /// Open a project folder with lattice-core, as the Tauri app opens it:
@@ -442,13 +436,8 @@ impl Shell {
                     project.update(cx, |project, _| project.mark_inputs_changed());
                 }
             }
-            EditorPanelEvent::SavedForBuild => {
+            EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
                 self.run_build(BuildRequest::automatic(), window, cx);
-            }
-            EditorPanelEvent::DiskEdit => {
-                if crate::app::auto_build(cx) {
-                    self.run_build(BuildRequest::automatic(), window, cx);
-                }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
         }
@@ -600,22 +589,6 @@ impl Shell {
             .update(cx, |area, cx| area.toggle_dock(placement, window, cx));
         cx.notify();
     }
-}
-
-/// `title` in the `[project]` table of a Lattice project's `project.toml`.
-/// A line scan, not a TOML parser: the manifest is the app's own.
-fn project_title(root: &Path) -> Option<String> {
-    let manifest = std::fs::read_to_string(root.join("project.toml")).ok()?;
-    let mut in_project = false;
-    for line in manifest.lines().map(str::trim) {
-        if line.starts_with('[') {
-            in_project = line == "[project]";
-        } else if in_project && let Some(value) = line.strip_prefix("title") {
-            let value = value.trim_start().strip_prefix('=')?.trim();
-            return Some(value.trim_matches('"').to_string()).filter(|title| !title.is_empty());
-        }
-    }
-    None
 }
 
 #[cfg(target_os = "macos")]

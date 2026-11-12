@@ -227,6 +227,14 @@ impl Project {
         }));
     }
 
+    /// A rename, move or delete went through lattice-core, which rewrites
+    /// the manifest when it names what changed (a main document, the primary
+    /// bibliography): read it and the tree again.
+    pub fn entries_changed(&mut self, cx: &mut Context<Self>) {
+        self.reload_manifest(cx);
+        self.rescan(cx);
+    }
+
     /// Make `path` the document Build compiles (Set as main document).
     pub fn choose_main_document(&mut self, path: String, cx: &mut Context<Self>) -> Task<()> {
         let root = self.root.clone();
@@ -251,6 +259,7 @@ impl Project {
         match project::read_manifest(&self.root) {
             Ok(manifest) => {
                 self.manifest = manifest;
+                cx.emit(ProjectEvent::ManifestChanged);
                 cx.notify();
             }
             Err(error) => log::warn!("could not read the project manifest: {error}"),

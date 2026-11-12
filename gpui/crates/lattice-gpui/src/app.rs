@@ -2,7 +2,7 @@
 //! the editor's code theme), Zed's settings, editor, search and Vim; key
 //! bindings.
 
-use gpui::{App, Global};
+use gpui::App;
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, editor_theme};
 use settings::{KeymapFile, Settings as _, SettingsStore};
 
@@ -57,22 +57,7 @@ pub(crate) fn appearance_override() -> Option<Appearance> {
     }
 }
 
-/// Whether a build follows each save (from a pause in typing or leaving the
-/// editor) and each outside edit loaded into a clean buffer: the Tauri app's
-/// default "automatic" builds (Settings › Build). `LATTICE_GPUI_AUTO_BUILD=0`
-/// starts with them off, as its "manual" mode.
-struct AutoBuild(bool);
-
-impl Global for AutoBuild {}
-
-pub fn auto_build(cx: &App) -> bool {
-    cx.try_global::<AutoBuild>().is_none_or(|auto| auto.0)
-}
-
 pub fn init(cx: &mut App) {
-    cx.set_global(AutoBuild(
-        std::env::var("LATTICE_GPUI_AUTO_BUILD").as_deref() != Ok("0"),
-    ));
     release_channel::init(semver::Version::new(0, 1, 0), cx);
     settings::init(cx);
     theme_settings::init(theme::LoadThemes::All(Box::new(assets::Assets)), cx);

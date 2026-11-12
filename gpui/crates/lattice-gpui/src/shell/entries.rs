@@ -90,7 +90,7 @@ impl Shell {
         cx.spawn_in(window, async move |this, cx| {
             let renamed = renamed.await;
             this.update(cx, |this, cx| {
-                project.update(cx, |project, cx| project.rescan(cx));
+                project.update(cx, |project, cx| project.entries_changed(cx));
                 match renamed {
                     Ok(renamed) => this.apply_path_changes(&[(path, renamed)], cx),
                     Err(error) => notices::error("Could not rename it", error, cx),
@@ -181,7 +181,7 @@ impl Shell {
                 })
                 .await;
             this.update(cx, |this, cx| {
-                project.update(cx, |project, cx| project.rescan(cx));
+                project.update(cx, |project, cx| project.entries_changed(cx));
                 match moved {
                     Ok((changes, rewritten)) => {
                         this.apply_path_changes(&changes, cx);
@@ -220,7 +220,7 @@ impl Shell {
         cx.spawn_in(window, async move |this, cx| {
             let deleted = deleted.await;
             this.update_in(cx, |this, window, cx| {
-                project.update(cx, |project, cx| project.rescan(cx));
+                project.update(cx, |project, cx| project.entries_changed(cx));
                 if let Err(error) = &deleted {
                     notices::error("Could not delete it", error.clone(), cx);
                 }
@@ -238,6 +238,7 @@ impl Shell {
                     })
                     .collect();
                 for editor in gone {
+                    editor.update(cx, |editor, _| editor.file_deleted());
                     this.close_editor(&editor, window, cx);
                 }
             })
