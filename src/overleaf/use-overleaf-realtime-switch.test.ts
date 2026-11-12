@@ -167,7 +167,12 @@ const insertAfter = (anchor: string, text: string): OtOp[] => [{ p: overleaf.tex
 
 /** Overleaf applies our oldest operation, if it has not yet, and answers it. */
 async function acknowledge() {
-  if (!overleaf.acks.length) overleaf.land();
+  if (!overleaf.acks.length) {
+    // The first send of a document hashes its text on the way out, which takes
+    // real time the fake clock does not advance: wait for it to arrive.
+    await waitFor(() => expect(overleaf.incoming.length).toBeGreaterThan(0));
+    overleaf.land();
+  }
   emit({ type: "docAck", docId: DOC_A, version: overleaf.acks.shift()! });
   await settle();
 }
