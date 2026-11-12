@@ -445,12 +445,18 @@ macro_rules! m {
     };
 }
 
-/// Off macOS these shortcuts are Ctrl keys Zed's Vim keymap binds too; in an
-/// editor with Vim on, Vim keeps them. Quitting there is Alt+F4 or the menu.
+/// Off macOS a shortcut's Ctrl key is Vim's in the editor where `context`
+/// does not hold: vim.json binds it there to an action of its own, so the
+/// shortcut yields in those Vim modes and works everywhere else. Quitting
+/// there is Alt+F4 or the menu.
 #[cfg(target_os = "macos")]
-const BESIDE_VIM: Option<&str> = None;
+fn beside_vim(_context: &'static str) -> Option<&'static str> {
+    None
+}
 #[cfg(not(target_os = "macos"))]
-const BESIDE_VIM: Option<&str> = Some("!vim_mode");
+fn beside_vim(context: &'static str) -> Option<&'static str> {
+    Some(context)
+}
 
 /// The default keymap, as the Tauri app's command table and Trellis's keymap
 /// bind it, plus the window's own (quit, hide, minimize).
@@ -460,14 +466,18 @@ pub fn bind_keys(cx: &mut App) {
 
 fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
-        KeyBinding::new(m!("o"), OpenFolder, BESIDE_VIM),
-        KeyBinding::new(m!("b"), Build, BESIDE_VIM),
-        KeyBinding::new(m!("s"), Save, BESIDE_VIM),
+        KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
+        KeyBinding::new(m!("b"), Build, beside_vim("!VimControl")),
+        KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
         // ⌘K last: the later binding is the one menus and keycaps show.
         KeyBinding::new(m!("shift-p"), CommandPalette, None),
-        KeyBinding::new(m!("k"), CommandPalette, BESIDE_VIM),
+        KeyBinding::new(
+            m!("k"),
+            CommandPalette,
+            beside_vim("!(vim_mode == insert || vim_mode == replace || vim_mode == waiting)"),
+        ),
         KeyBinding::new(m!("shift-/"), ShowShortcuts, None),
-        KeyBinding::new(m!("w"), CloseTab, BESIDE_VIM),
+        KeyBinding::new(m!("w"), CloseTab, beside_vim("!vim_mode")),
         KeyBinding::new(m!("shift-w"), CloseWindow, None),
         KeyBinding::new(m!("shift-t"), ReopenClosedTab, None),
         KeyBinding::new(m!("shift-]"), NextTab, None),
@@ -665,13 +675,50 @@ mod keymap_tests {
         let deletes = Some(editor::actions::DeleteToPreviousWordStart::default().name());
         let insert = "Editor mode = full vim_mode = insert";
         // At startup Vim's keymap loads before Lattice's; turned on later,
-        // after it.
+        // after it, and Lattice's binds again.
         let mut startup = vec![vim_insert_ctrl_w()];
         startup.extend(default_bindings());
         let mut turned_on = default_bindings();
         turned_on.push(vim_insert_ctrl_w());
+        turned_on.extend(default_bindings());
         assert_eq!(resolve(startup, insert, "ctrl-w"), deletes);
         assert_eq!(resolve(turned_on, insert, "ctrl-w"), deletes);
+    }
+
+    #[test]
+    fn save_keeps_its_key_in_vims_normal_mode() {
+        // vim.json binds ctrl-s only in insert mode (and its literal and
+        // helix modes): normal mode leaves it to the shell.
+        let mut bindings = vec![KeyBinding::new(
+            "ctrl-s",
+            editor::actions::ShowSignatureHelp,
+            Some("vim_mode == insert"),
+        )];
+        bindings.extend(default_bindings());
+        let normal = "Editor mode = full vim_mode = normal VimControl";
+        assert_eq!(resolve(bindings, normal, m!("s")), Some(Save.name()));
+    }
+
+    #[test]
+    fn close_tab_survives_vims_null_ctrl_w_outside_an_editor() {
+        // vim.json unbinds ctrl-w wherever no editor or terminal has focus.
+        // Turned on at runtime, it loads after Lattice's keymap, which then
+        // binds again.
+        let mut bindings = default_bindings();
+        bindings.push(KeyBinding::new(
+            "ctrl-w",
+            gpui::NoAction,
+            Some("VimControl && !menu || !Editor && !Terminal"),
+        ));
+        bindings.extend(default_bindings());
+        let keymap = Keymap::new(bindings);
+        let stack = [KeyContext::parse("LatticeShell").unwrap()];
+        let (matched, _) =
+            keymap.bindings_for_input(&[Keystroke::parse(m!("w")).unwrap()], &stack);
+        assert_eq!(
+            matched.first().map(|binding| binding.action().name()),
+            Some(CloseTab.name())
+        );
     }
 
     #[test]
