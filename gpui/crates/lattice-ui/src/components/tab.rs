@@ -332,16 +332,30 @@ mod tests {
         assert_eq!(TabFit::natural_width(px(41.64), true), px(107.64));
     }
 
-    #[test]
-    fn a_tab_without_a_close_square_ends_14px_after_its_label() {
-        assert_eq!(
-            TabFit::natural_width(px(20.), false),
-            px(14. + 14. + 6. + 20. + 14.)
-        );
+    /// A design token's size at the 16px root the Tauri app lays out on.
+    fn token(rems: gpui::Rems) -> Pixels {
+        px(rems.0 * 16.)
     }
 
     #[test]
-    fn an_icon_only_tab_is_30px() {
-        assert_eq!(TabFit::icon_only_width(), px(30.));
+    fn a_tab_without_a_close_square_ends_one_inset_after_its_label() {
+        // trellis.css: a tab pads `--tab-inset-inline` at its start, spaces
+        // its icon and title by `--space-3`, and pads `--tab-inset-inline` at
+        // its end while its close square is hidden.
+        let inset = token(crate::tokens::SPACING_TAB_INSET);
+        let expected = inset
+            + token(crate::tokens::SPACING_ICON)
+            + token(crate::tokens::SPACING_3)
+            + px(20.)
+            + inset;
+        assert_eq!(TabFit::natural_width(px(20.), false), expected);
+    }
+
+    #[test]
+    fn an_icon_only_tab_is_its_icon_inside_space_4() {
+        // trellis.css: `[data-icon-only]` drops the gap and pads
+        // `--space-4` on each side of the icon.
+        let expected = token(crate::tokens::SPACING_4) * 2. + token(crate::tokens::SPACING_ICON);
+        assert_eq!(TabFit::icon_only_width(), expected);
     }
 }

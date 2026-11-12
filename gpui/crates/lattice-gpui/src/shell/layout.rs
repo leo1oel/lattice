@@ -415,10 +415,8 @@ impl Arrangement {
             *node = node.as_arrangement();
         }
         out.floating.retain(|floating| !floating.view.is_document());
-        if !out.contains(&View::Documents) {
-            // Somewhere for documents to go: the center.
-            out.center = Node::tabs([View::Documents]);
-        }
+        // Somewhere for documents to go: the center.
+        out.add_view(View::Documents, |_| false);
         out
     }
 
@@ -670,6 +668,22 @@ mod tests {
             }
         );
         assert_eq!(workspace.shape(), layout.shape());
+    }
+
+    #[test]
+    fn a_panel_alone_in_the_center_stays_in_the_workspace_it_is_saved_to() {
+        // Build dragged beside a document, then the document closed.
+        let mut layout = Arrangement::default_for(room());
+        layout.center = Node::tabs([View::Build]);
+        let workspace = layout.as_workspace();
+        assert!(workspace.contains(&View::Build));
+        assert!(workspace.contains(&View::Documents));
+        // Loaded with a document, the workspace brings Build back too.
+        let filled = workspace.with_documents(&["main.tex".into()], None, &BTreeMap::new());
+        assert!(filled.contains(&View::Build) && filled.contains(&file("main.tex")));
+        let mut without_build = layout.clone();
+        without_build.center = Node::empty();
+        assert_ne!(layout.shape(), without_build.shape());
     }
 
     #[test]

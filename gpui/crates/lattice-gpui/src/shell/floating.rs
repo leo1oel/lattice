@@ -123,7 +123,12 @@ impl FloatingLayer {
         }
     }
 
-    pub fn render(&self, cx: &mut Context<Shell>) -> Vec<AnyElement> {
+    /// The floating panels, first kept within the workspace `area`, which
+    /// shrinks with the window.
+    pub fn render(&mut self, area: Size<Pixels>, cx: &mut Context<Shell>) -> Vec<AnyElement> {
+        for floating in &mut self.panels {
+            floating.bounds = within(floating.bounds, area);
+        }
         self.panels
             .iter()
             .map(|floating| floating.render(cx))

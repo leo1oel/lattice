@@ -824,7 +824,7 @@ impl Render for Shell {
                         self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
                         |this| this.child(arrange::empty_center(self, cx)),
                     )
-                    .children(self.floating.render(cx)),
+                    .children(self.floating.render(self.floating_area(window), cx)),
             )
             .children(self.palette.clone())
             .children(self.shortcuts.clone())

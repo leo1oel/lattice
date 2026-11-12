@@ -150,7 +150,7 @@ impl Shell {
             workspaces: Workspaces::global(cx)
                 .list()
                 .iter()
-                .map(|entry| entry.name.clone().into())
+                .map(|entry| (entry.id.clone(), entry.name.clone().into()))
                 .collect(),
             projects: self.projects.len(),
         }
@@ -225,7 +225,9 @@ impl Shell {
                     this.leave_preset(window, cx)
                 }),
             )
-            .on_action(cx.listener(|_, _: &NewWindow, _, cx| windows::new_window(None, cx)))
+            .on_action(cx.listener(|_, _: &NewWindow, window, cx| {
+                windows::new_window(None, Some(window.bounds()), cx)
+            }))
             .on_action(cx.listener(|this, _: &OpenInNewWindow, window, cx| {
                 this.open_in_new_window(window, cx)
             }))
@@ -243,18 +245,25 @@ impl Shell {
                     this.close_project(&root, window, cx);
                 }
             }))
-            .on_action(cx.listener(|_, _: &ThemeLight, _, cx| {
-                crate::app::choose_appearance(Some(lattice_ui::Appearance::Light), cx)
+            .on_action(cx.listener(|_, _: &ThemeLight, window, cx| {
+                crate::app::choose_appearance(
+                    Some(lattice_ui::Appearance::Light),
+                    window.appearance().into(),
+                    cx,
+                )
             }))
-            .on_action(cx.listener(|_, _: &ThemeDark, _, cx| {
-                crate::app::choose_appearance(Some(lattice_ui::Appearance::Dark), cx)
+            .on_action(cx.listener(|_, _: &ThemeDark, window, cx| {
+                crate::app::choose_appearance(
+                    Some(lattice_ui::Appearance::Dark),
+                    window.appearance().into(),
+                    cx,
+                )
             }))
             .on_action(cx.listener(|_, _: &ThemeSystem, window, cx| {
-                crate::app::choose_appearance(None, cx);
-                lattice_ui::LatticeTheme::set_appearance(
-                    lattice_ui::Appearance::from(window.appearance()),
-                    cx,
-                );
+                crate::app::choose_appearance(None, window.appearance().into(), cx)
+            }))
+            .on_action(cx.listener(|this, action: &SwitchWorkspace, window, cx| {
+                this.switch_workspace(&action.id, window, cx)
             }))
             .on_action(cx.listener(|_, _: &Minimize, window, _| window.minimize_window()))
             .on_action(cx.listener(|_, _: &Zoom, window, _| window.zoom_window()));

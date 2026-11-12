@@ -120,9 +120,11 @@ impl Workspaces {
     pub fn load(dir: Option<PathBuf>) -> Workspaces {
         let mut library = dir
             .as_ref()
-            .and_then(|dir| std::fs::read_to_string(dir.join("workspaces.json")).ok())
-            .and_then(|text| serde_json::from_str::<Library>(&text).ok())
-            .filter(|library| !library.workspaces.is_empty())
+            .and_then(|dir| {
+                read_json(&dir.join("workspaces.json"), |library: &Library| {
+                    library.version == LIBRARY_VERSION && !library.workspaces.is_empty()
+                })
+            })
             .unwrap_or_else(|| Library {
                 version: LIBRARY_VERSION,
                 workspaces: vec![Workspace {
@@ -335,9 +337,11 @@ impl Workspaces {
         let layout = self
             .dir
             .as_ref()
-            .and_then(|dir| std::fs::read_to_string(project_file(dir, root)).ok())
-            .and_then(|text| serde_json::from_str::<ProjectLayout>(&text).ok())
-            .filter(|layout| layout.version == LAYOUT_VERSION)
+            .and_then(|dir| {
+                read_json(&project_file(dir, root), |layout: &ProjectLayout| {
+                    layout.version == LAYOUT_VERSION
+                })
+            })
             .unwrap_or_default();
         self.projects.insert(root.to_path_buf(), layout.clone());
         layout
@@ -390,6 +394,27 @@ fn project_file(dir: &Path, root: &Path) -> PathBuf {
         hash = hash.wrapping_mul(0x0100_0000_01b3);
     }
     dir.join("layouts").join(format!("{hash:016x}.json"))
+}
+
+/// The value saved at `path`. A file this build cannot read (`usable`
+/// refuses it, or it does not parse) is moved aside to `<name>.unreadable`
+/// before the caller falls back, so the next save does not overwrite it.
+fn read_json<T: serde::de::DeserializeOwned>(
+    path: &Path,
+    usable: impl Fn(&T) -> bool,
+) -> Option<T> {
+    let text = std::fs::read_to_string(path).ok()?;
+    match serde_json::from_str::<T>(&text) {
+        Ok(value) if usable(&value) => return Some(value),
+        Ok(_) => log::warn!("{} is from another version of Lattice", path.display()),
+        Err(error) => log::warn!("{} does not parse: {error}", path.display()),
+    }
+    let aside = path.with_extension("json.unreadable");
+    match std::fs::rename(path, &aside) {
+        Ok(()) => log::warn!("moved it aside to {}", aside.display()),
+        Err(error) => log::warn!("could not move {} aside: {error}", path.display()),
+    }
+    None
 }
 
 /// Written whole beside the target, then moved over it, so a crash mid-write
@@ -505,6 +530,32 @@ mod tests {
             Some(library.list()[1].id.as_str())
         );
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn unreadable_files_are_kept_aside_instead_of_overwritten() {
+        let dir = std::env::temp_dir().join(format!(
+            "lattice-gpui-ws-unreadable-test-{}",
+            std::process::id()
+        ));
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(dir.join("layouts")).unwrap();
+        let root = PathBuf::from("/projects/paper");
+        let library_text = r#"{"version": 1, "workspaces": [{"id": "ws-1", "#;
+        let layout_text = r#"{"version": 99, "workspace": "ws-1"}"#;
+        std::fs::write(dir.join("workspaces.json"), library_text).unwrap();
+        std::fs::write(project_file(&dir, &root), layout_text).unwrap();
+        let mut library = Workspaces::load(Some(dir.clone()));
+        assert_eq!(library.list().len(), 1);
+        library.persist_library();
+        assert_eq!(library.project(&root), ProjectLayout::default());
+        library.save_project(&root, ProjectLayout::default());
+        let library_aside = std::fs::read_to_string(dir.join("workspaces.json.unreadable"));
+        let layout_aside =
+            std::fs::read_to_string(project_file(&dir, &root).with_extension("json.unreadable"));
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(library_aside.unwrap(), library_text);
+        assert_eq!(layout_aside.unwrap(), layout_text);
     }
 
     #[test]

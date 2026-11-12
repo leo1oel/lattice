@@ -182,9 +182,10 @@ impl CommandPaletteView {
             Entry::Command { action, .. } => {
                 let action = action.boxed_clone();
                 window.defer(cx, move |window, cx| {
-                    if let Some(shell) = shell.upgrade() {
+                    if window.focused(cx).is_none()
+                        && let Some(shell) = shell.upgrade()
+                    {
                         let focus = shell.read(cx).focus_handle.clone();
-                        // Run where the shell listens, whatever held focus.
                         window.focus(&focus, cx);
                     }
                     window.dispatch_action(action, cx);
@@ -287,7 +288,8 @@ fn project_files(root: &Path) -> Vec<Entry> {
                 continue;
             }
             if path.is_dir() {
-                if !SKIPPED.contains(&name.as_str()) {
+                let linked = entry.file_type().is_ok_and(|kind| kind.is_symlink());
+                if !linked && !SKIPPED.contains(&name.as_str()) {
                     stack.push(path);
                 }
                 continue;
@@ -768,6 +770,22 @@ mod tests {
             .collect();
         std::fs::remove_dir_all(root.parent().unwrap()).ok();
         assert_eq!(names, ["thesis.tex"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_linked_back_into_the_project_lists_its_files_once() {
+        let root = std::env::temp_dir()
+            .join(format!("lattice-gpui-palette-link-{}", std::process::id()))
+            .join("thesis");
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::create_dir_all(root.join("chapters")).unwrap();
+        std::fs::write(root.join("main.tex"), "").unwrap();
+        std::fs::write(root.join("chapters").join("intro.tex"), "").unwrap();
+        std::os::unix::fs::symlink(&root, root.join("chapters").join("loop")).unwrap();
+        let count = project_files(&root).len();
+        std::fs::remove_dir_all(root.parent().unwrap()).ok();
+        assert_eq!(count, 2);
     }
 
     #[test]

@@ -512,6 +512,7 @@ impl Shell {
 /// under the editors in a bottom dock of its own, a document beside the
 /// documents.
 fn place_view(arrangement: &mut Arrangement, view: View, home: &Arrangement) {
+    let shown = view.clone();
     match &view {
         View::Project | View::Agent => {
             let other = if view == View::Project {
@@ -562,6 +563,18 @@ fn place_view(arrangement: &mut Arrangement, view: View, home: &Arrangement) {
             }
         },
         View::File(_) | View::Documents => arrangement.add_view(view, View::is_document),
+    }
+    for dock in [
+        &mut arrangement.left,
+        &mut arrangement.right,
+        &mut arrangement.bottom,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if dock.node.views().contains(&&shown) {
+            dock.open = true;
+        }
     }
 }
 
@@ -701,6 +714,19 @@ mod tests {
             groups,
             vec![vec![View::Project, View::Agent], vec![View::Papers]]
         );
+    }
+
+    #[test]
+    fn project_shown_beside_the_agent_in_a_collapsed_dock_opens_it() {
+        let home = home();
+        let mut arrangement = home.without(&View::Project);
+        if let Some(left) = &mut arrangement.left {
+            left.open = false;
+        }
+        place_view(&mut arrangement, View::Project, &home);
+        let left = arrangement.left.expect("the left dock stays");
+        assert!(left.node.views().contains(&&View::Project));
+        assert!(left.open);
     }
 
     #[test]

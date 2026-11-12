@@ -13,7 +13,7 @@ pub fn install(cx: &mut App) {
     cx.on_action(|_: &Hide, cx| cx.hide());
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
-    cx.on_action(|_: &NewWindow, cx| windows::new_window(None, cx));
+    cx.on_action(|_: &NewWindow, cx| windows::new_window(None, None, cx));
     cx.on_action(|_: &About, cx| {
         if let Some(window) = cx.active_window() {
             window

@@ -10,8 +10,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use gpui::{
-    AnyWindowHandle, App, Bounds, Context, Entity, Global, WeakEntity, Window, WindowId, point, px,
-    size,
+    AnyWindowHandle, App, Bounds, Context, Entity, Global, Pixels, WeakEntity, Window, WindowId,
+    point, px,
 };
 
 use super::Shell;
@@ -67,16 +67,18 @@ pub fn shell_for(window: &Window, cx: &App) -> Option<Entity<Shell>> {
 }
 
 /// A new window, opening `root` when given, a step down and right from the
-/// window in front.
-pub fn new_window(root: Option<PathBuf>, cx: &mut App) {
-    let bounds = cx
-        .active_window()
-        .and_then(|window| window.update(cx, |_, window, _| window.bounds()).ok())
-        .map(|bounds| Bounds {
-            origin: point(bounds.origin.x + px(CASCADE), bounds.origin.y + px(CASCADE)),
-            size: bounds.size,
-        })
-        .or_else(|| Some(Bounds::centered(None, size(px(1440.), px(900.)), cx)));
+/// window at `from` (else the window in front). A caller inside a window's
+/// update passes that window's bounds: the window being updated cannot be
+/// read through its handle.
+pub fn new_window(root: Option<PathBuf>, from: Option<Bounds<Pixels>>, cx: &mut App) {
+    let from = from.or_else(|| {
+        cx.active_window()
+            .and_then(|window| window.update(cx, |_, window, _| window.bounds()).ok())
+    });
+    let bounds = from.map(|bounds| Bounds {
+        origin: point(bounds.origin.x + px(CASCADE), bounds.origin.y + px(CASCADE)),
+        size: bounds.size,
+    });
     match Shell::open_window_with(root, bounds, cx) {
         Ok(_) => cx.activate(true),
         Err(error) => log::error!("could not open a window: {error:#}"),
@@ -101,12 +103,13 @@ impl Shell {
                 return;
             }
             this.update_in(cx, |this, window, cx| {
+                let from = window.bounds();
                 if this.projects.len() > 1 {
                     this.close_project(&root, window, cx);
                 } else {
                     window.remove_window();
                 }
-                new_window(Some(root), cx);
+                new_window(Some(root), Some(from), cx);
             })
             .ok();
         })
@@ -188,7 +191,7 @@ impl Shell {
         } else {
             self.projects.retain(|p| p.root != root);
             cx.notify();
-            new_window(Some(root), cx);
+            new_window(Some(root), Some(window.bounds()), cx);
         }
     }
 }

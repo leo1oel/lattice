@@ -69,6 +69,14 @@ actions!(
     ]
 );
 
+/// Switch to the workspace with this id: the palette lists one per
+/// workspace, however many there are.
+#[derive(Clone, Debug, PartialEq, Eq, gpui::Action)]
+#[action(namespace = lattice, no_json)]
+pub struct SwitchWorkspace {
+    pub id: String,
+}
+
 #[cfg(target_os = "macos")]
 pub const MOD_LABEL: &str = "⌘";
 #[cfg(not(target_os = "macos"))]
@@ -122,8 +130,8 @@ pub struct CommandContext {
     pub focus_mode: bool,
     pub dirty: bool,
     pub preset: Option<Preset>,
-    /// The workspaces' names, in order.
-    pub workspaces: Vec<SharedString>,
+    /// The workspaces' ids and names, in order.
+    pub workspaces: Vec<(String, SharedString)>,
     pub projects: usize,
 }
 
@@ -270,14 +278,22 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Section::Layout,
             ToggleMaximize,
         ));
-        for (index, name) in context.workspaces.iter().enumerate() {
+        for (id, name) in &context.workspaces {
+            out.push(Command::new(
+                format!("switch-{id}"),
+                format!("Switch to {name}"),
+                Section::Layout,
+                SwitchWorkspace { id: id.clone() },
+            ));
+        }
+        for index in 0..context.workspaces.len() {
             if let Some(action) = switch_workspace_action(index) {
                 out.push(Command {
                     id: format!("workspace-{}", index + 1).into(),
-                    label: format!("Switch to {name}").into(),
+                    label: format!("Switch to workspace {}", index + 1).into(),
                     section: Section::Layout,
                     action,
-                    palette: true,
+                    palette: false,
                     keywords: "",
                 });
             }
@@ -609,19 +625,38 @@ mod tests {
     }
 
     #[test]
-    fn every_workspace_has_a_switch_command_up_to_nine() {
+    fn a_tenth_workspace_is_reachable_from_the_palette() {
+        // The Tauri table lists every workspace by name in the palette and
+        // keeps ⌘1 to ⌘9 as keys only (use-command-table.ts).
         let context = CommandContext {
             in_project: true,
-            workspaces: (1..=11).map(|n| format!("W{n}").into()).collect(),
+            workspaces: (1..=11)
+                .map(|n| (format!("ws-{n}"), format!("W{n}").into()))
+                .collect(),
             ..CommandContext::default()
         };
-        let switches = commands(&context)
-            .into_iter()
+        let commands = commands(&context);
+        let tenth = commands
+            .iter()
+            .find(|command| command.palette && command.label == "Switch to W10")
+            .expect("the palette lists the tenth workspace");
+        assert!(
+            tenth
+                .action
+                .partial_eq(&SwitchWorkspace { id: "ws-10".into() })
+        );
+        let positional: Vec<_> = commands
+            .iter()
             .filter(|command| {
-                command.id.starts_with("workspace-") && command.label.starts_with("Switch")
+                (0..9).any(|index| {
+                    command
+                        .action
+                        .partial_eq(switch_workspace_action(index).unwrap().as_ref())
+                })
             })
-            .count();
-        assert_eq!(switches, 9);
+            .collect();
+        assert_eq!(positional.len(), 9);
+        assert!(positional.iter().all(|command| !command.palette));
     }
 }
 
@@ -723,7 +758,7 @@ mod keymap_tests {
     }
 
     #[test]
-    fn each_workspace_key_runs_the_palettes_switch_to_that_workspace() {
+    fn each_workspace_key_switches_to_the_workspace_at_that_place() {
         // The README: ⌘1 … ⌘9 (Ctrl off macOS) is the workspace at that place.
         let keymap = Keymap::new(default_bindings());
         let stack = [KeyContext::parse("LatticeShell").unwrap()];

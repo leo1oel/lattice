@@ -71,12 +71,14 @@ pub(crate) fn appearance_chosen(cx: &App) -> bool {
             .is_some_and(|choice| choice.0.is_some())
 }
 
-/// Fix the appearance, or (`None`) follow the system's again.
-pub(crate) fn choose_appearance(appearance: Option<Appearance>, cx: &mut App) {
+/// Fix the appearance, or (`None`) follow the system's (`system`) again,
+/// unless the run fixed one.
+pub(crate) fn choose_appearance(appearance: Option<Appearance>, system: Appearance, cx: &mut App) {
     cx.set_global(AppearanceChoice(appearance));
-    if let Some(appearance) = appearance {
-        LatticeTheme::set_appearance(appearance, cx);
-    }
+    LatticeTheme::set_appearance(
+        appearance.or_else(appearance_override).unwrap_or(system),
+        cx,
+    );
 }
 
 /// `scripted`: a scenario run, which keeps the layouts in memory unless

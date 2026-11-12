@@ -22,7 +22,11 @@
 
 pub mod strip;
 
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+    sync::Arc,
+};
 
 use gpui::{
     Anchor, AnimationExt as _, AnyElement, AnyView, App, AppContext as _, Axis, Context, Div,
@@ -33,9 +37,9 @@ use gpui::{
 use gpui_kit::base::ResizeHandleContext;
 use gpui_kit::component::{
     dock::{
-        BasePanelView, ClosePanel, DockArea, DockAreaRenderer, DockContext, DockPlacement,
-        DockSkin, DragPanel, DropIndicator, InsertTarget, NodeId, PaneRef, PanelHandle, PanelId,
-        PanelState, TabGroupContext, TabGroupRenderer,
+        BasePanelView, ClosePanel, DockArea, DockAreaRenderer, DockContext, DockEvent,
+        DockPlacement, DockSkin, DragPanel, DropIndicator, InsertTarget, NodeId, PaneRef,
+        PanelHandle, PanelId, PanelState, TabGroupContext, TabGroupRenderer,
     },
     menu::{DropdownMenu as _, PopupMenu, PopupMenuItem},
 };
@@ -190,6 +194,15 @@ enum Measure {
     Tools,
 }
 
+/// Drop the measurements of `area`'s groups that `keep` refuses.
+fn forget_strips(area: EntityId, keep: impl Fn(NodeId) -> bool, cx: &mut App) {
+    if cx.has_global::<StripRoom>() {
+        cx.global_mut::<StripRoom>()
+            .0
+            .retain(|(owner, node), _| *owner != area || keep(*node));
+    }
+}
+
 /// An invisible layer over its parent that records the parent's width.
 fn measure(key: (EntityId, NodeId), what: Measure) -> impl IntoElement {
     canvas(
@@ -241,6 +254,28 @@ impl LatticeDock {
     ) -> Entity<DockArea> {
         cx.new(|cx: &mut Context<DockArea>| {
             let kit = DockSkin::new(cx);
+            let area_id = cx.entity_id();
+            cx.subscribe_self(move |area: &mut DockArea, event: &DockEvent, cx| {
+                if matches!(event, DockEvent::LayoutChanged) {
+                    let mut live = HashSet::new();
+                    for placement in [
+                        DockPlacement::Left,
+                        DockPlacement::Center,
+                        DockPlacement::Right,
+                        DockPlacement::Bottom,
+                    ] {
+                        if let Some(tree) = area.layout(placement) {
+                            tree.root().walk(&mut |node| {
+                                live.insert(node.id());
+                            });
+                        }
+                    }
+                    forget_strips(area_id, |node| live.contains(&node), cx);
+                }
+            })
+            .detach();
+            cx.on_release(move |_, cx| forget_strips(area_id, |_| false, cx))
+                .detach();
             let this = Rc::new(LatticeDock {
                 kit,
                 area: cx.weak_entity(),
@@ -755,7 +790,7 @@ fn panel_menu(
         let others: Vec<PanelId> = group
             .panels()
             .iter()
-            .filter(|other| other.closable(cx))
+            .filter(|other| other.visible(cx) && other.closable(cx))
             .map(|other| other.panel_id(cx))
             .filter(|other| *other != panel_id)
             .collect();
