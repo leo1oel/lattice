@@ -5,9 +5,7 @@
 //! `lattice-gpui PROJECT --scenario e2e|perf|memory|ime|ime-protocol|shot|parity --out RESULT.json`
 
 use std::{
-    cell::Cell,
     path::{Path, PathBuf},
-    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -18,6 +16,7 @@ use serde_json::json;
 
 use crate::{editor_panel::EditorPanel, native, shell::Shell};
 
+mod drag;
 mod e2e;
 #[cfg(target_os = "macos")]
 mod measure;
@@ -156,27 +155,6 @@ impl Run {
             window.simulate_next_frame(cx);
         })
         .ok();
-    }
-
-    /// Wait until the window has drawn a frame from now on, as native
-    /// pointer input needs: it lands on the hitboxes of the last frame drawn,
-    /// and a dock rebuilt since (a tab closed, the layout reset) has replaced
-    /// the groups those name, so a drop on them moves nothing. The window
-    /// draws the frame itself (`pump_frame` draws it in an `offscreen-shots`
-    /// build); a locked screen draws none, which the false return records.
-    async fn drawn_frame(&self, cx: &mut AsyncApp) -> bool {
-        let drawn = Rc::new(Cell::new(false));
-        let flag = drawn.clone();
-        let asked = self.with_window(cx, move |_, window, _| {
-            window.refresh();
-            // Run as the frame starts; the frame is drawn in the same turn,
-            // before this wait looks again.
-            window.on_next_frame(move |_, _| flag.set(true));
-        });
-        asked.is_ok()
-            && self
-                .wait_for(cx, Duration::from_secs(2), |_, _| drawn.get())
-                .await
     }
 
     /// The project's folder, once lattice-core has opened it (in the

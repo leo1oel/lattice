@@ -561,27 +561,14 @@ impl Run {
             area_bounds.right() - right_width / 2.,
             area_bounds.top() + area_bounds.size.height / 2.,
         );
-        let drawn = self.drawn_frame(cx).await;
-        let native = self.native(cx)?;
-        native::send_mouse(native, native::Mouse::Down, from)?;
-        super::sleep(cx, Duration::from_millis(50)).await;
-        for step in 1..=24 {
-            let t = step as f32 / 24.;
-            let point = gpui::point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
-            native::send_mouse(native, native::Mouse::Dragged, point)?;
-            super::sleep(cx, Duration::from_millis(20)).await;
-        }
-        native::send_mouse(native, native::Mouse::Up, to)?;
-        super::sleep(cx, Duration::from_millis(400)).await;
+        let mut detail = self.native_drag(cx, from, to).await?;
         let state = cx.update(|cx| {
             let area = self.shell.read(cx).dock_area().read(cx);
             serde_json::to_value(area.dump(cx)).unwrap_or_default()
         });
         let right = state["right_dock"].to_string();
         let moved = right.contains("EditorPanel") && right.contains("PdfPanel");
-        Ok((
-            moved,
-            json!({ "frame_drawn": drawn, "from": [f32::from(from.x), f32::from(from.y)], "to": [f32::from(to.x), f32::from(to.y)], "right_dock": state["right_dock"] }),
-        ))
+        detail["right_dock"] = state["right_dock"].clone();
+        Ok((moved, detail))
     }
 }

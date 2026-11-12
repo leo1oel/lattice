@@ -4,18 +4,13 @@
 //! its tab and brought back from the Panels menu, a panel floated and docked,
 //! and the command palette listing the commands.
 
-use std::time::Duration;
-
 use anyhow::{Context as _, Result};
 use gpui::AsyncApp;
 use gpui_kit::component::dock::DockPlacement;
 use serde_json::{Value, json};
 
-use super::{Run, sleep};
-use crate::{
-    native,
-    shell::layout::{Preset, View},
-};
+use super::Run;
+use crate::shell::layout::{Preset, View};
 
 /// What one step found: its name, whether it passed, and what it saw.
 pub(super) type Step = (&'static str, bool, Value);
@@ -43,7 +38,6 @@ impl Run {
     /// with it (`patches/gpui-base-dock-drag-out.diff`).
     async fn drag_last_panel_out(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
-        let drawn = self.drawn_frame(cx).await;
         let (area_bounds, left_width, right_width) = cx.update(|cx| {
             let area = self.shell.read(cx).dock_area().read(cx);
             (
@@ -67,19 +61,7 @@ impl Run {
             center_left + (area_bounds.right() - right_width - center_left) / 2.,
             area_bounds.top() + area_bounds.size.height / 2.,
         );
-        let native = self.native(cx)?;
-        native::send_mouse(native, native::Mouse::Down, from)?;
-        sleep(cx, Duration::from_millis(50)).await;
-        let mut dragging = false;
-        for step in 1..=24 {
-            let t = step as f32 / 24.;
-            let point = gpui::point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
-            native::send_mouse(native, native::Mouse::Dragged, point)?;
-            sleep(cx, Duration::from_millis(20)).await;
-            dragging |= cx.update(|cx| cx.has_active_drag());
-        }
-        native::send_mouse(native, native::Mouse::Up, to)?;
-        sleep(cx, Duration::from_millis(400)).await;
+        let mut detail = self.native_drag(cx, from, to).await?;
         let arrangement = cx.update(|cx| {
             serde_json::to_value(self.shell.read(cx).current_arrangement(cx)).unwrap_or_default()
         });
@@ -95,18 +77,13 @@ impl Run {
                 }),
             )
         });
+        detail["right_dock"] = json!(right_dock);
+        detail["pdf_in_center"] = json!(pdf_in_center);
+        detail["arrangement"] = arrangement;
         Ok((
             "the PDF drags out of its dock into the center, and the dock goes",
             !right_dock && pdf_in_center,
-            json!({
-                "right_dock": right_dock,
-                "pdf_in_center": pdf_in_center,
-                "dragging": dragging,
-                "frame_drawn": drawn,
-                "arrangement": arrangement,
-                "from": [f32::from(from.x), f32::from(from.y)],
-                "to": [f32::from(to.x), f32::from(to.y)],
-            }),
+            detail,
         ))
     }
 
