@@ -365,7 +365,7 @@ Settings → Agent → Usage & limits gains upstream's Overview and Analytics ta
 Three upstream behaviours are kept as they are, on the captain's call:
 
 - Analytics' opt-in **This Mac** scope reads the local Claude Code (`~/.claude/projects`) and Codex (`~/.codex/sessions`) session logs once the writer picks it. It keeps only timestamps, model names, token counts and working directories, and uploads nothing; the default scope is In Lattice.
-- Analytics downloads LiteLLM's public price table from `raw.githubusercontent.com` at most once a day, only when tokens without a reported cost need pricing (`apps/server/src/usagePricing.ts`). No user data is sent, and offline Analytics shows tokens without cost.
+- Analytics downloads LiteLLM's public price table from `raw.githubusercontent.com`, refreshing a good copy at most once a day and retrying a failed download after 15 minutes, only when tokens without a reported cost need pricing (`apps/server/src/usagePricing.ts`). No user data is sent, and offline Analytics shows tokens without cost.
 - Rate-limit warnings are always visible in Lattice. Upstream's setting that hides them lives on the Behavior settings page, which Lattice does not frame, so it stays at upstream's default.
 
 The server adds migration 143 (usage analytics deleted tokens), which runs once after the pre-migration backup on a 1.5.1-era database; a Lattice that pins 1.5.1 again would meet the newer database. Upstream's macOS update and shutdown, Linux ARM64, simulator control and CI changes have no embedded surface. Pi stays at 1.4.0.
