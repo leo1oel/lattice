@@ -250,11 +250,13 @@ impl Run {
         ))
     }
 
-    /// ⌘W on the focused document closes its tab, and the window's commands
-    /// still reach the shell: the palette opens from the keyboard after it.
+    /// ⌘W on the focused document closes its tab, and the keyboard stays in
+    /// the window: on the shell or the document now in front, so the
+    /// palette opens from it. A dispatched action runs once the update that
+    /// sent it is over, so each is looked at in a later one.
     async fn closing_the_focused_tab_keeps_the_keyboard(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
-        let (closed, editor_focused) = self.with_window(cx, |shell, window, cx| {
+        let (before, editor_focused) = self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.focus_front(window, cx));
             let before = shell.read(cx).current_arrangement(cx).documents();
             let editor_focused = shell.read(cx).active_editor().is_some_and(|editor| {
@@ -264,22 +266,49 @@ impl Run {
                     .focus_handle(cx)
                     .contains_focused(window, cx)
             });
-            window.dispatch_action(Box::new(CloseTab), cx);
+            (before, editor_focused)
+        })?;
+        self.frame_after_input(cx).await?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(CloseTab), cx)
+        })?;
+        self.frame_after_input(cx).await?;
+        let (closed, keyboard_kept) = self.with_window(cx, |shell, window, cx| {
             let after = shell.read(cx).current_arrangement(cx).documents();
-            (after.len() + 1 == before.len(), editor_focused)
+            let focused = window.focused(cx);
+            let shell = shell.read(cx);
+            let kept = focused.as_ref() == Some(&shell.focus_handle)
+                || shell.active_editor().is_some_and(|editor| {
+                    focused.as_ref() == Some(&editor.read(cx).editor().focus_handle(cx))
+                });
+            (after.len() + 1 == before.len(), kept)
+        })?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(CommandPalette), cx)
         })?;
         self.frame_after_input(cx).await?;
         let rows = self.with_window(cx, |shell, window, cx| {
-            window.dispatch_action(Box::new(CommandPalette), cx);
             let rows = shell.read(cx).palette_rows(cx);
             shell.update(cx, |shell, cx| shell.close_overlays(window, cx));
-            window.dispatch_action(Box::new(ReopenClosedTab), cx);
             rows
         })?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(ReopenClosedTab), cx)
+        })?;
+        self.frame_after_input(cx).await?;
+        let reopened = self.with_window(cx, |shell, _, cx| {
+            shell.read(cx).current_arrangement(cx).documents().len() == before.len()
+        })?;
         Ok((
-            "closing the focused document's tab leaves the window's commands working",
-            editor_focused && closed && rows.is_some(),
-            json!({ "editor_focused": editor_focused, "closed": closed, "palette_rows": rows }),
+            "closing the focused document's tab leaves the keyboard in the window",
+            editor_focused && closed && keyboard_kept && rows.is_some() && reopened,
+            json!({
+                "editor_focused": editor_focused,
+                "closed": closed,
+                "keyboard_kept": keyboard_kept,
+                "palette_rows": rows,
+                "reopened": reopened,
+            }),
         ))
     }
 }
