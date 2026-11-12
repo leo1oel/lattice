@@ -415,10 +415,7 @@ impl TabGroupRenderer for LatticeTabs {
         let plan = strip::plan(
             measured.strip.unwrap_or(px(f32::MAX / 4.)),
             &specs,
-            suffix
-                .as_ref()
-                .and(measured.tools)
-                .unwrap_or_default(),
+            suffix.as_ref().and(measured.tools).unwrap_or_default(),
         );
         let suffix = suffix.filter(|_| plan.tools);
 

@@ -240,7 +240,12 @@ mod tests {
         own.floating.push(pdf.clone());
         let writing = Preset::Writing.arrange(&own, Some("main.tex"), room());
         assert!(writing.floating.is_empty());
-        assert!(writing.right.as_ref().is_some_and(|dock| dock.node.views() == [&View::Pdf]));
+        assert!(
+            writing
+                .right
+                .as_ref()
+                .is_some_and(|dock| dock.node.views() == [&View::Pdf])
+        );
 
         let back = return_layout(&own, &writing);
         assert_eq!(back.floating, vec![pdf]);

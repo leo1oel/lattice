@@ -713,8 +713,7 @@ mod keymap_tests {
         bindings.extend(default_bindings());
         let keymap = Keymap::new(bindings);
         let stack = [KeyContext::parse("LatticeShell").unwrap()];
-        let (matched, _) =
-            keymap.bindings_for_input(&[Keystroke::parse(m!("w")).unwrap()], &stack);
+        let (matched, _) = keymap.bindings_for_input(&[Keystroke::parse(m!("w")).unwrap()], &stack);
         assert_eq!(
             matched.first().map(|binding| binding.action().name()),
             Some(CloseTab.name())
@@ -755,8 +754,14 @@ mod keymap_tests {
     fn tab_switching_wins_over_zeds_folding_in_an_editor() {
         // default-windows.json: "Editor": ctrl-shift-] unfolds, ctrl-shift-[ folds.
         let unfold = KeyBinding::new(m!("shift-]"), editor::actions::UnfoldLines, Some("Editor"));
-        assert_eq!(resolve_in_editor(unfold, m!("shift-]")), Some(NextTab.name()));
+        assert_eq!(
+            resolve_in_editor(unfold, m!("shift-]")),
+            Some(NextTab.name())
+        );
         let fold = KeyBinding::new(m!("shift-["), editor::actions::Fold, Some("Editor"));
-        assert_eq!(resolve_in_editor(fold, m!("shift-[")), Some(PreviousTab.name()));
+        assert_eq!(
+            resolve_in_editor(fold, m!("shift-[")),
+            Some(PreviousTab.name())
+        );
     }
 }

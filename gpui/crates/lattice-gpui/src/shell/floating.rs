@@ -9,8 +9,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use gpui::{
     AnyElement, AnyView, App, AppContext as _, Bounds, Context, Empty, InteractiveElement as _,
-    IntoElement, ParentElement as _, Pixels, Point, Render, StatefulInteractiveElement as _,
-    Size, StyleRefinement, Styled as _, Window, div, point, px, size,
+    IntoElement, ParentElement as _, Pixels, Point, Render, Size, StatefulInteractiveElement as _,
+    StyleRefinement, Styled as _, Window, div, point, px, size,
 };
 use gpui_kit::component::{
     dock::{BasePanelView, PanelHandle, PanelId},

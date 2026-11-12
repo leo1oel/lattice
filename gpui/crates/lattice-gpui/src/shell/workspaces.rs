@@ -509,10 +509,8 @@ mod tests {
 
     #[test]
     fn a_deleted_workspace_id_is_not_handed_out_after_a_restart() {
-        let dir = std::env::temp_dir().join(format!(
-            "lattice-gpui-ws-id-test-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("lattice-gpui-ws-id-test-{}", std::process::id()));
         std::fs::remove_dir_all(&dir).ok();
         let deleted = {
             let mut library = Workspaces::load(Some(dir.clone()));

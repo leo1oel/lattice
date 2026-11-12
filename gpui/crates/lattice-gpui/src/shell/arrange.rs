@@ -497,7 +497,9 @@ impl Shell {
 
     /// The editor last focused, while it is on screen: in a dock or floating.
     fn last_focused_document(&self, cx: &App) -> Option<String> {
-        let panel = self.focused_document.filter(|panel| self.panel_shown(*panel, cx))?;
+        let panel = self
+            .focused_document
+            .filter(|panel| self.panel_shown(*panel, cx))?;
         match self.view_of(panel, cx)? {
             View::File(key) => Some(key),
             _ => None,
@@ -518,7 +520,12 @@ fn place_view(arrangement: &mut Arrangement, view: View, home: &Arrangement) {
                 View::Project
             };
             let docked = std::iter::once(&arrangement.center)
-                .chain(arrangement.docks().into_iter().flat_map(|(_, dock)| dock.map(|d| &d.node)))
+                .chain(
+                    arrangement
+                        .docks()
+                        .into_iter()
+                        .flat_map(|(_, dock)| dock.map(|d| &d.node)),
+                )
                 .any(|node| node.views().contains(&&other));
             if docked {
                 arrangement.add_view(view, |v| *v == other);

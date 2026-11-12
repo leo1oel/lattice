@@ -50,7 +50,9 @@ pub(crate) fn for_shells(
     for handle in cx.windows() {
         if let Some((_, shell)) = shells.iter().find(|(id, _)| *id == handle.window_id()) {
             handle
-                .update(cx, |_, window, cx| shell.update(cx, |shell, cx| f(shell, window, cx)))
+                .update(cx, |_, window, cx| {
+                    shell.update(cx, |shell, cx| f(shell, window, cx))
+                })
                 .ok();
         }
     }

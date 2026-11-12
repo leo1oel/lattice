@@ -759,7 +759,12 @@ mod tests {
         let reverted =
             workspace.with_documents(&floated.documents(), Some("main.tex"), &floated.places());
         assert!(reverted.floating.is_empty());
-        assert!(reverted.right.as_ref().is_some_and(|dock| dock.node.views() == [&View::Pdf]));
+        assert!(
+            reverted
+                .right
+                .as_ref()
+                .is_some_and(|dock| dock.node.views() == [&View::Pdf])
+        );
         assert_eq!(reverted.shape(), workspace.shape());
     }
 
