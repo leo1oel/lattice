@@ -101,19 +101,23 @@ impl CommandSource {
     }
 }
 
-impl CompletionSource for CommandSource {
-    fn complete(&self, query: &CompletionQuery, _: &App) -> Option<CompletionList> {
-        let before = query.before;
-        if let Some(argument) = ARGUMENT.captures(before) {
-            let kind = argument.get(1)?.as_str();
-            let word = ARGUMENT_WORD.find(before)?;
-            let typed = word.as_str();
-            let from = query.before_start() + word.start();
-            // A closing brace already there is taken over, not doubled.
-            let next = query.text.chars_at(query.offset).next();
-            let to = query.offset + usize::from(next == Some('}'));
-            let items: Vec<CompletionItem> = match kind {
-                "begin" | "end" => ranked(vocabulary::ENVIRONMENTS.iter(), typed)
+impl CommandSource {
+    /// The options for a `\\begin`, `\\end`, `\\documentclass` or package
+    /// argument being typed, when `before` (the text up to the caret at
+    /// `offset`) ends in one; `next` is the character after the caret. An
+    /// environment closes its brace, taking over a closing brace already
+    /// there rather than doubling it; a package or class is its bare name,
+    /// as the Tauri app's options insert their label.
+    fn argument(before: &str, offset: usize, next: Option<char>) -> Option<CompletionList> {
+        let argument = ARGUMENT.captures(before)?;
+        let kind = argument.get(1)?.as_str();
+        let word = ARGUMENT_WORD.find(before)?;
+        let typed = word.as_str();
+        let from = offset - before.len() + word.start();
+        if matches!(kind, "begin" | "end") {
+            return Some(CompletionList {
+                range: from..offset + usize::from(next == Some('}')),
+                items: ranked(vocabulary::ENVIRONMENTS.iter(), typed)
                     .into_iter()
                     .map(|entry| CompletionItem {
                         label: entry.name.into(),
@@ -124,30 +128,37 @@ impl CompletionSource for CommandSource {
                         reopen: false,
                     })
                     .collect(),
-                _ => {
-                    let names = if kind == "documentclass" {
-                        vocabulary::DOCUMENT_CLASSES
-                    } else {
-                        vocabulary::PACKAGES
-                    };
-                    names
-                        .iter()
-                        .filter(|name| match_rank(name, typed).is_some())
-                        .map(|name| CompletionItem {
-                            label: (*name).into(),
-                            insert: format!("{name}}}"),
-                            caret: None,
-                            detail: None,
-                            kind: CompletionKind::Package,
-                            reopen: false,
-                        })
-                        .collect()
-                }
-            };
-            return Some(CompletionList {
-                range: from..to,
-                items,
             });
+        }
+        let names = if kind == "documentclass" {
+            vocabulary::DOCUMENT_CLASSES
+        } else {
+            vocabulary::PACKAGES
+        };
+        Some(CompletionList {
+            range: from..offset,
+            items: names
+                .iter()
+                .filter(|name| match_rank(name, typed).is_some())
+                .map(|name| CompletionItem {
+                    label: (*name).into(),
+                    insert: (*name).to_string(),
+                    caret: None,
+                    detail: None,
+                    kind: CompletionKind::Package,
+                    reopen: false,
+                })
+                .collect(),
+        })
+    }
+}
+
+impl CompletionSource for CommandSource {
+    fn complete(&self, query: &CompletionQuery, _: &App) -> Option<CompletionList> {
+        let before = query.before;
+        if ARGUMENT.is_match(before) {
+            let next = query.text.chars_at(query.offset).next();
+            return Self::argument(before, query.offset, next);
         }
         let word = COMMAND_WORD.find(before)?;
         let typed = word.as_str();
@@ -323,5 +334,33 @@ mod tests {
             item.detail.as_deref(),
             Some("Bibliographic citation (requires natbib or compatible package)")
         );
+    }
+
+    #[test]
+    fn a_package_inserts_its_bare_name_and_an_environment_closes_its_brace() {
+        // `\\usepackage{amsmath,gra|amssymb}`: the Tauri app's package
+        // option inserts `graphicx` alone, so the list stays well formed.
+        let before = "\\usepackage{amsmath,gra";
+        let list = CommandSource::argument(before, 100, Some('a')).expect("package options");
+        assert_eq!(list.range, 100 - "gra".len()..100);
+        let item = list
+            .items
+            .iter()
+            .find(|item| item.label.as_ref() == "graphicx")
+            .expect("graphicx is offered");
+        assert_eq!(item.insert, "graphicx");
+        // Before the closing brace, the brace stays where it is.
+        let list = CommandSource::argument("\\documentclass{art", 50, Some('}')).unwrap();
+        assert_eq!(list.range, 50 - "art".len()..50);
+        assert!(list.items.iter().all(|item| !item.insert.ends_with('}')));
+        // An environment closes its brace and takes over the one there.
+        let list = CommandSource::argument("\\begin{ite", 40, Some('}')).unwrap();
+        assert_eq!(list.range, 40 - "ite".len()..41);
+        let itemize = list
+            .items
+            .iter()
+            .find(|item| item.label.as_ref() == "itemize")
+            .expect("itemize is offered");
+        assert_eq!(itemize.insert, "itemize}");
     }
 }

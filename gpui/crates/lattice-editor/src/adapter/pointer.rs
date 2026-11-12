@@ -249,7 +249,8 @@ impl LatticeEditor {
         // Near them, the stack follows the targets under the pointer, as
         // each of CodeMirror's hover sources follows its own range: a card
         // whose target the pointer came onto joins after the hover delay,
-        // and one whose target it left goes after the grace.
+        // and one whose target it left goes after the grace. Targets none
+        // of which is shown are other targets, as off the stack.
         if let Hover::Shown {
             targets,
             over_card,
@@ -262,7 +263,17 @@ impl LatticeEditor {
             let near_target = self
                 .targets_rect(&targets, window, cx)
                 .is_some_and(|rect| geometry::near(rect, position, TARGET_MARGIN));
-            if on_card || near_target {
+            let kept: Vec<_> = candidates
+                .iter()
+                .filter(|candidate| {
+                    targets
+                        .iter()
+                        .any(|target| target.same_place(candidate, &text))
+                })
+                .cloned()
+                .collect();
+            let moved_on = !candidates.is_empty() && kept.is_empty();
+            if on_card || (near_target && !moved_on) {
                 let follow = !on_card
                     && !candidates.is_empty()
                     && !same_places(&targets, &candidates, &text);
@@ -273,7 +284,7 @@ impl LatticeEditor {
                     }
                 }
                 if follow {
-                    self.schedule_next(&targets, candidates, &text, cx);
+                    self.schedule_next(&targets, kept, candidates, &text, cx);
                 }
                 return;
             }
@@ -322,12 +333,14 @@ impl LatticeEditor {
         }
     }
 
-    /// Make `candidates` the shown stack after a moment, unless a timer for
-    /// the same set runs already: the grace when they only drop cards, the
-    /// hover delay when a card joins.
+    /// Make `candidates` the shown stack, unless a timer for the same set
+    /// runs already: the cards whose targets are not among them go after the
+    /// grace, leaving those `kept`, and the new ones join after the hover
+    /// delay.
     fn schedule_next(
         &mut self,
         shown: &[Anchored],
+        kept: Vec<Anchored>,
         candidates: Vec<Anchored>,
         text: &BufferSnapshot,
         cx: &mut Context<Self>,
@@ -341,12 +354,27 @@ impl LatticeEditor {
         {
             return;
         }
-        let only_drops = candidates
-            .iter()
-            .all(|candidate| shown.iter().any(|target| target.same_place(candidate, text)));
-        let delay = if only_drops { HOVER_GRACE } else { HOVER_DELAY };
+        let drops = kept.len() < shown.len();
+        let joins = kept.len() < candidates.len();
         let timer = cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(delay).await;
+            if drops {
+                cx.background_executor().timer(HOVER_GRACE).await;
+                this.update(cx, |this, cx| {
+                    if let Hover::Shown { targets, .. } = &mut this.hover {
+                        *targets = kept;
+                        cx.notify();
+                    }
+                })
+                .ok();
+            }
+            if joins {
+                let rest = if drops {
+                    HOVER_DELAY.saturating_sub(HOVER_GRACE)
+                } else {
+                    HOVER_DELAY
+                };
+                cx.background_executor().timer(rest).await;
+            }
             this.update(cx, |this, cx| {
                 if let Hover::Shown { targets, next, .. } = &mut this.hover
                     && let Some((pending, _)) = next.take()
@@ -471,14 +499,17 @@ impl LatticeEditor {
         // Each card stands on its own surface, apart by the gap the Tauri
         // app leaves between hover cards that share a popover; the gap is
         // inside the stack, so the pointer crossing it is still over it.
-        // A card joining the stack enters on its own; those shown stay put.
+        // A card joining the stack enters on its own, keyed by its target
+        // so a new target of the same provider enters too; those shown stay
+        // put.
         let cards = div().flex().flex_col().items_start().gap(CARD_GAP).children(
             targets
                 .iter()
                 .map(|target| {
                     let card = (target.card)(&context, window, cx);
+                    let start = target.offsets(&context.text).start;
                     pop_in(
-                        SharedString::from(format!("lattice-hover-{}", target.id)),
+                        SharedString::from(format!("lattice-hover-{}-{start}", target.id)),
                         from,
                         card,
                     )
