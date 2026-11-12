@@ -1,5 +1,5 @@
 /**
- * What the Zotero command (src-tauri/src/zotero.rs) answers: one read of the
+ * What the Zotero command (src-tauri/lattice-core/src/zotero.rs) answers: one read of the
  * whole library, which the browser filters by folder here, so opening a folder
  * never reads the database again.
  */

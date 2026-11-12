@@ -20,7 +20,7 @@ use gpui_kit::component::{
 use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, components::TreeRow};
 
 /// What a LaTeX run leaves beside its source, which the Tauri app's tree
-/// hides (`LATEX_ARTIFACT_EXTENSIONS` in src-tauri/src/project/tree.rs), and
+/// hides (`LATEX_ARTIFACT_EXTENSIONS` in src-tauri/lattice-core/src/project/tree.rs), and
 /// a bare `.gz` with them.
 const HIDDEN_EXTENSIONS: &[&str] = &[
     "aux",

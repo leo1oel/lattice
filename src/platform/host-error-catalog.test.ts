@@ -6,7 +6,7 @@
  * error a Rust command returns is in the catalog, or listed below with the
  * reason no person reads it.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { activateAppLocale } from "../i18n";
 import { HOST_ERRORS } from "./host-error-catalog";
@@ -25,11 +25,28 @@ function unescapeRust(literal: string): string {
   });
 }
 
+/**
+ * Where the Rust sources live: the Tauri shell, and the core it ships on. A
+ * file is named by its path under its own root; only `lib.rs` is in both.
+ */
+const RUST_ROOTS = ["src-tauri/src", "src-tauri/lattice-core/src"];
+
+/** The source of `rustFile`, from whichever root holds it. */
+function rustSource(rustFile: string): string {
+  const root = RUST_ROOTS.find((candidate) => existsSync(`${candidate}/${rustFile}`)) ?? RUST_ROOTS[0];
+  return readFileSync(`${root}/${rustFile}`, "utf8");
+}
+
+/** Every root's copy of `rustFile`: `lib.rs` is in both. */
+function rustSources(rustFile: string): string[] {
+  return RUST_ROOTS.filter((root) => existsSync(`${root}/${rustFile}`)).map((root) => readFileSync(`${root}/${rustFile}`, "utf8"));
+}
+
 const literalsByFile = new Map<string, Set<string>>();
 function stringLiterals(rustFile: string): Set<string> {
   let literals = literalsByFile.get(rustFile);
   if (!literals) {
-    const source = readFileSync(`src-tauri/src/${rustFile}`, "utf8");
+    const source = rustSource(rustFile);
     literals = new Set([...source.matchAll(RUST_TOKEN)].flatMap((token) => token[2] ?? (token[3] === undefined ? [] : unescapeRust(token[3]))));
     literalsByFile.set(rustFile, literals);
   }
@@ -59,7 +76,7 @@ afterEach(async () => {
 });
 
 describe("host error catalog", () => {
-  it.each(RUST_ENTRIES)("src-tauri/src/%s still writes %j", (rustFile, literal) => {
+  it.each(RUST_ENTRIES)("%s still writes %j", (rustFile, literal) => {
     expect(stringLiterals(rustFile)).toContain(literal);
   });
 
@@ -90,7 +107,7 @@ describe("host error catalog", () => {
 
 /**
  * Host errors that stay English because no person reads them, each with why.
- * A key is a path under `src-tauri/src` (a file, or a folder ending in `/`)
+ * A key is a path under one of `RUST_ROOTS` (a file, or a folder ending in `/`)
  * for every error written there, or `<file>: <literal>` for one.
  */
 const UNTRANSLATED: Record<string, string> = {
@@ -108,19 +125,21 @@ const UNTRANSLATED: Record<string, string> = {
   "ipc/build.rs: The PDF was not sent as binary data.": "the interface always sends the PDF's bytes",
   "ipc/live_preview.rs: Unknown live preview file kind {other:?}.": "the interface sends one of the known kinds",
   "live_preview/session.rs: Live preview does not accept the command {command:?}.": "the interface sends one of the known commands",
-  "ipc/overleaf_realtime.rs: Invalid Overleaf checkpoint version.": "the interface sends Overleaf's own version back",
+  "app_state/overleaf_realtime.rs: Invalid Overleaf checkpoint version.": "the interface sends Overleaf's own version back",
   "synara.rs: Invalid agent task action.": "the agent panel sends one of the known actions",
   "synara/preferences.rs: The disabled agent skills must contain only names.": "the settings page writes the list of names itself",
   "pdf_window.rs: The PDF window was closed while it opened.": "only the page that closed it hears it, and that page has let it go",
 };
 
-/** Files under `src-tauri/src` holding only tests: `#[cfg(test)] mod name;` declares each. */
+/** The attribute of test-only code, including fixtures a shell's tests share (`test-support`). */
+const TEST_CFG = String.raw`#\[cfg\((?:test|any\(test, feature = "test-support"\))\)\]`;
+
+/** Files holding only tests: `#[cfg(test)] mod name;` declares each. */
 function testOnlyFiles(files: string[]): Set<string> {
   const tests = new Set<string>();
   for (const file of files) {
-    const source = readFileSync(`src-tauri/src/${file}`, "utf8");
     const parent = /(^|\/)(lib|main|mod)\.rs$/.test(file) ? file.replace(/[^/]*$/, "") : file.replace(/\.rs$/, "/");
-    for (const [, name] of source.matchAll(/#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod (\w+);/g)) {
+    for (const [, name] of rustSources(file).join("\n").matchAll(new RegExp(String.raw`${TEST_CFG}\s*(?:pub(?:\([^)]*\))?\s+)?mod (\w+);`, "g"))) {
       tests.add(`${parent}${name}.rs`);
       tests.add(`${parent}${name}/mod.rs`);
     }
@@ -130,12 +149,13 @@ function testOnlyFiles(files: string[]): Set<string> {
 
 /** Each `Err("…")` or `Err(format!("…"))` sentence a Rust file outside its tests returns, as the audit counted them. */
 function returnedErrors(): Array<{ file: string; literal: string }> {
-  const files = (readdirSync("src-tauri/src", { recursive: true }) as string[]).filter((file) => file.endsWith(".rs"));
+  const files = [...new Set(RUST_ROOTS.flatMap((root) => readdirSync(root, { recursive: true }) as string[]))]
+    .filter((file) => file.endsWith(".rs"));
   const tests = testOnlyFiles(files);
   return files.filter((file) => !tests.has(file) && ![...tests].some((test) => file.startsWith(test.replace(/\.rs$/, "/")))).flatMap((file) => {
     // An inline test module closes the file.
-    const source = readFileSync(`src-tauri/src/${file}`, "utf8").split(/#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod \w+\s*\{/)[0];
-    return [...source.matchAll(/\bErr\(\s*(?:format!\(\s*)?"((?:[^"\\]|\\[\s\S])*)"/g)]
+    const sources = rustSources(file).map((source) => source.split(new RegExp(String.raw`${TEST_CFG}\s*(?:pub(?:\([^)]*\))?\s+)?mod \w+\s*\{`))[0]);
+    return [...sources.join("\n").matchAll(/\bErr\(\s*(?:format!\(\s*)?"((?:[^"\\]|\\[\s\S])*)"/g)]
       .map((match) => ({ file, literal: unescapeRust(match[1]) }))
       .filter(({ literal }) => /^[A-Z]/.test(literal) && literal.length >= 12);
   });

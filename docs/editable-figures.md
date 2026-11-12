@@ -63,7 +63,7 @@ The entry file is compiled as it is, like any other project file.
 ## What Lattice does on paste
 
 Pasting into a LaTeX source (`import_editable_figure`,
-`src-tauri/src/project/editable_figure.rs`; the editor side is
+`src-tauri/lattice-core/src/project/editable_figure.rs`; the editor side is
 `src/editor/insert/editable-figure.ts` and `src/app/editable-figure-paste.ts`):
 
 1. creates the source and the outputs in `figures/`, never over anything and

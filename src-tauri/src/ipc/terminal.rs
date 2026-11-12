@@ -1,11 +1,13 @@
 //! The Terminal panel (terminal.rs): a shell per tab in the window's project
 //! folder, typed into, resized and closed by id. Every command first checks
-//! its caller is a Lattice window's own page (terminal/caller.rs), and names
+//! its caller is a Lattice window's own page (ipc/terminal/caller.rs), and names
 //! that window, so a window reaches only the terminals it opened.
+
+mod caller;
 
 use super::{pinned_root, run_blocking};
 use crate::app_state::AppState;
-use crate::terminal::{self, Session};
+use crate::terminal::Session;
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody, Request};
 use tauri::{Manager, Runtime, State, Webview, Window};
@@ -14,20 +16,16 @@ use tauri::{Manager, Runtime, State, Webview, Window};
 /// longer paste.
 const MAX_WRITE_BYTES: usize = 256 * 1024;
 
-/// The calling window, once its page passed [`terminal::caller::check`].
+/// The calling window, once its page passed [`caller::check`].
 fn caller_window<R: Runtime>(
     webview: &Webview<R>, request: &Request<'_>,
 ) -> Result<Window<R>, String> {
     let window = webview.window();
     let page = webview.url().map(|url| url.to_string()).unwrap_or_default();
     let origin = request.headers().get("origin").and_then(|value| value.to_str().ok());
-    let caller = terminal::caller::Caller {
-        window: window.label(),
-        webview: webview.label(),
-        page: &page,
-        origin,
-    };
-    terminal::caller::check(&caller, &terminal::caller::local_origins(webview.app_handle()))?;
+    let caller =
+        caller::Caller { window: window.label(), webview: webview.label(), page: &page, origin };
+    caller::check(&caller, &caller::local_origins(webview.app_handle()))?;
     Ok(window)
 }
 
@@ -50,7 +48,7 @@ pub async fn terminal_open<R: Runtime>(
     let label = window.label().to_string();
     let session = run_blocking("Terminal start", {
         let root = root.clone();
-        move || Session::spawn(label, root, cols, rows, on_output)
+        move || Session::spawn(label, root, cols, rows, super::stream_sink(on_output))
     })
     .await?;
     let shell = session.name().to_string();

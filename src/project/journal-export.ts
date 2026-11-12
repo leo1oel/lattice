@@ -2,7 +2,7 @@
  * Export figures for a journal: each figure made from a drawing as the files
  * a journal asks for (`Scheme1.pdf`, `Scheme1.tiff`), with the compound numbers
  * the document sets over it, and the paper as a source pack that includes
- * those files (`src-tauri/src/latex/arxiv/journal.rs`). Loaded only when the
+ * those files (`src-tauri/lattice-core/src/latex/arxiv/journal.rs`). Loaded only when the
  * command runs.
  */
 import { msg } from "@lingui/core/macro";

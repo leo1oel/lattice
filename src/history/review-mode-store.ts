@@ -2,7 +2,7 @@
  * Review mode for the project in this window: whether it is on, and the base
  * each LaTeX file is reviewed against.
  *
- * The bases live in `.research/review/` (src-tauri/src/project/review_mode.rs),
+ * The bases live in `.research/review/` (src-tauri/lattice-core/src/project/review_mode.rs),
  * never in the writer's files: those hold the writer's edits, as a document
  * in Word does with Track Changes on. Turning review mode on copies every
  * file in; accepting a change rewrites that file's copy; turning it off

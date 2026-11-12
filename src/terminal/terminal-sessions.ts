@@ -8,7 +8,7 @@
  * window, rather than in React state. A shell ends only when its tab is
  * closed, the Terminal panel is closed, or the window's project changes; the
  * host ends the rest (a reload, the window closing, quitting; see
- * src-tauri/src/terminal.rs).
+ * src-tauri/lattice-core/src/terminal.rs).
  *
  * The store knows nothing of xterm.js or of Tauri: it is handed a backend and
  * a way to make a terminal's screen, so its rules are tested with fakes.

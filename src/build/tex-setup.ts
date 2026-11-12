@@ -17,7 +17,7 @@ export function texDistributionName(): string {
 }
 
 /* eslint-disable lingui/no-unlocalized-strings -- phrase matched in backend error text */
-/** `CANCELLED` in src-tauri/src/tex_setup/windows.rs: what a cancelled install rejects with. */
+/** `CANCELLED` in src-tauri/lattice-core/src/tex_setup/windows.rs: what a cancelled install rejects with. */
 export const TEX_INSTALL_CANCELLED = "The TeX installation was cancelled.";
 /* eslint-enable lingui/no-unlocalized-strings */
 
@@ -74,7 +74,7 @@ export function isRequiredSetupMissing(report: DoctorReportLike | null | undefin
 }
 
 /* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
-/** `PAPER_TOOLS_MISSING` in src-tauri/src/commands/python_tools.rs. */
+/** `PAPER_TOOLS_MISSING` in src-tauri/lattice-core/src/commands/python_tools.rs. */
 export const PAPER_TOOLS_MISSING = "Lattice's paper tools are not installed.";
 /** latex/build.rs's spawn failure and build_log.rs's missing-tool diagnostic. */
 export const LATEXMK_NOT_STARTED = "could not start latexmk";
@@ -92,7 +92,7 @@ export function isMissingTexBuildError(message: string): boolean {
 }
 
 /*
- * The first lines `dependency_install_error` (src-tauri/src/tex_setup/installer.rs)
+ * The first lines `dependency_install_error` (src-tauri/lattice-core/src/tex_setup/installer.rs)
  * gives a failed package install, in the interface language. Keys are the
  * backend's exact English and must change with it.
  */

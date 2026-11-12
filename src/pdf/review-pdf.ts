@@ -1,6 +1,6 @@
 /**
  * Where each annotation goes in a review copy of the compiled PDF
- * (`save_review_pdf`, src-tauri/src/review_pdf.rs), measured on the PDF the
+ * (`save_review_pdf`, src-tauri/lattice-core/src/review_pdf.rs), measured on the PDF the
  * preview shows. The words the annotation quotes are looked for on its page
  * — the page it was made on, or the one SyncTeX gives for its source line —
  * and on the pages either side, compared as letters alone as

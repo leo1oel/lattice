@@ -1,0 +1,502 @@
+//! Which project each window shows, and the resources an open project owns:
+//! the project registry every shell resolves its requests against.
+
+mod overleaf_realtime;
+mod pdf_windows;
+
+use crate::{fs_watch, git, latex, live_preview, project, terminal, texlab};
+pub use overleaf_realtime::OverleafRealtimeState;
+pub use pdf_windows::{is_pdf_window, PdfWindows};
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use tokio::sync::{OwnedMutexGuard, OwnedRwLockReadGuard, OwnedRwLockWriteGuard};
+
+/// Label of the window the app opens with.
+pub const MAIN_WINDOW_LABEL: &str = "main";
+
+pub struct AppState {
+    /// The project each window is looking at.
+    ///
+    /// There is deliberately no process-wide "current project": a command
+    /// resolves against the project of the window that sent it, or window A's
+    /// next file write would land in whichever project window B opened last.
+    pub roots: Mutex<HashMap<String, PathBuf>>,
+    /// Resources owned by an open project rather than by the process.
+    projects: Mutex<HashMap<PathBuf, Arc<ProjectResources>>>,
+    /// Process-wide backstop for Overleaf's ten-project-downloads-per-minute
+    /// limit. Frontend instances also debounce, but page reloads, multiple
+    /// windows, and different projects still share the same account allowance.
+    /// When the last project download started.
+    pub overleaf_download_started: Arc<Mutex<Option<std::time::Instant>>>,
+    /// Overleaf sign-ins under way, which Cancel and Sign out end.
+    pub overleaf_logins: Arc<crate::overleaf::LoginAttempts>,
+    /// One import per window. The request id prevents a late Cancel click from
+    /// stopping the next import after the UI has already moved on.
+    pub paper_imports: Mutex<HashMap<String, (String, Arc<AtomicBool>)>>,
+    /// Full-text downloads under way, by window and request id: several papers
+    /// can download at once, and each Cancel stops only its own.
+    pub paper_fetches: Mutex<HashMap<(String, String), Arc<AtomicBool>>>,
+    /// The Terminal panel's shells. Each belongs to a window and the project
+    /// it showed: they end with that binding (see `retire_unused_projects`).
+    pub terminals: terminal::Terminals,
+    /// The PDF windows, each showing its owner's project (see `root_for`).
+    pub pdf_windows: PdfWindows,
+}
+
+/// State that belongs to one project, not the process: with two windows open,
+/// one window's build would otherwise inherit the other's latexmk pid, one
+/// window's LaTeX language server would be torn down by the other's file, and
+/// connecting one window to Overleaf would cancel the other's connection.
+#[derive(Default)]
+pub struct ProjectResources {
+    pub active_build: latex::ActiveBuild,
+    /// The Export for arXiv sheet's checks, whose test build is its own.
+    pub arxiv_checks: latex::ArxivChecks,
+    /// The PDF with changes marked, while its latexdiff or build runs.
+    pub changes_exports: Arc<latex::ChangesExports>,
+    /// Review mode's PDF with changes marked, apart from the export so neither stops the other.
+    pub review_changes: Arc<latex::ChangesExports>,
+    pub texlab: Arc<Mutex<texlab::TexlabPool>>,
+    /// Live connection to Overleaf's editing channel, when one is open.
+    pub realtime: Arc<Mutex<OverleafRealtimeState>>,
+    /// Serializes a whole ZIP sync against document join/leave and outgoing
+    /// realtime mutations, closing the ownership-snapshot race.
+    overleaf_sync_lease: Arc<tokio::sync::RwLock<()>>,
+    /// Serializes project-wide create/delete/rename/move file-tree mutations.
+    structural_mutation: Arc<tokio::sync::Mutex<()>>,
+    /// Filesystem watcher feeding `project-fs-changed` events. Dropped with the
+    /// project's resources when the last window showing it closes.
+    pub fs_watcher: Mutex<Option<fs_watch::ProjectWatcher>>,
+    /// The rtex live preview, while the project's window has it on.
+    pub live_preview: Mutex<Option<live_preview::Session>>,
+}
+
+/// How a command is serialized against the rest of its project's work.
+#[derive(Clone, Copy)]
+pub enum Lease {
+    /// File writes and Overleaf traffic: they wait out a full sync, a document
+    /// join or a project switch, but run beside each other.
+    Shared,
+    /// Full syncs (once their download is in), document joins and leaves,
+    /// publishing, pausing, renames: nothing else that touches the project
+    /// runs meanwhile.
+    Exclusive,
+}
+
+/// Locks a command holds on the project it named until its work is done.
+pub struct ProjectLease {
+    pub project: Arc<ProjectResources>,
+    _shared: Option<OwnedRwLockReadGuard<()>>,
+    _exclusive: Option<OwnedRwLockWriteGuard<()>>,
+    _structural: Option<OwnedMutexGuard<()>>,
+}
+
+impl AppState {
+    pub fn from_environment() -> Self {
+        let mut roots = HashMap::new();
+        // LATTICE_PROJECT belongs to the window the app opens with; a window
+        // created later is told its project when it is built.
+        if let Some(root) = std::env::var_os("LATTICE_PROJECT")
+            .map(PathBuf::from)
+            .filter(|path| path.is_dir())
+            .and_then(|path| path.canonicalize().ok())
+        {
+            roots.insert(MAIN_WINDOW_LABEL.to_string(), root);
+        }
+        Self {
+            roots: Mutex::new(roots),
+            projects: Mutex::default(),
+            overleaf_download_started: Arc::default(),
+            overleaf_logins: Arc::default(),
+            paper_imports: Mutex::default(),
+            paper_fetches: Mutex::default(),
+            terminals: terminal::Terminals::default(),
+            pdf_windows: PdfWindows::default(),
+        }
+    }
+
+    pub fn roots(&self) -> Result<MutexGuard<'_, HashMap<String, PathBuf>>, String> {
+        self.roots.lock().map_err(|_| "Project state is unavailable.".to_string())
+    }
+
+    /// Resources of the project a request names, created on first use.
+    ///
+    /// Deliberately keyed by the project the *caller* named rather than by
+    /// whatever the window currently shows: a command takes this project's
+    /// lease first and only then checks the window still has it open, so a
+    /// project switch racing the request is caught by that check instead of
+    /// slipping between it and the work.
+    pub fn project(&self, root: &Path) -> Arc<ProjectResources> {
+        // The map holds only Arc handles, so a thread that panicked while
+        // holding this lock cannot have left it half-written.
+        let mut projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        Arc::clone(projects.entry(root.to_path_buf()).or_default())
+    }
+
+    /// Take the named project's Overleaf sync lease.
+    pub async fn lease(&self, project_root: impl AsRef<Path>, lease: Lease) -> ProjectLease {
+        ProjectLease::take(self.project(project_root.as_ref()), lease).await
+    }
+
+    /// The sync lease plus the lock serializing create/delete/rename/move, in
+    /// the same order `set_root` takes them.
+    pub async fn structural_lease(
+        &self, project_root: impl AsRef<Path>, lease: Lease,
+    ) -> ProjectLease {
+        let mut held = self.lease(project_root, lease).await;
+        held._structural = Some(Arc::clone(&held.project.structural_mutation).lock_owned().await);
+        held
+    }
+
+    /// Forget projects no window has open, shutting down what they still hold.
+    ///
+    /// A mismatched request creates an entry before its project check fails, so
+    /// without this the map would keep an entry for every path ever named. The
+    /// per-project memos in the domain modules go too; a project opened again
+    /// rebuilds them.
+    pub fn retire_unused_projects(&self) {
+        let (live, bound): (HashSet<PathBuf>, HashMap<String, PathBuf>) = match self.roots.lock() {
+            Ok(roots) => (roots.values().cloned().collect(), roots.clone()),
+            Err(_) => return,
+        };
+        // A terminal ends with its window's project: a switch, or the window
+        // closing. Its shell would otherwise keep running in the old folder.
+        self.terminals.retain(|window, root| bound.get(window).is_some_and(|open| open == root));
+        project::retain_open_history(&live);
+        project::retain_open_annotation_saves(&live);
+        git::retain_open_remotes(&live);
+        let mut projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        projects.retain(|root, resources| {
+            if live.contains(root) {
+                return true;
+            }
+            // A build outlives the window that started it otherwise: latexmk
+            // keeps compiling into a project nobody has open, and nothing is
+            // left watching for it to finish or holding a handle to stop it.
+            let _ = latex::abort(&resources.active_build);
+            resources.arxiv_checks.cancel();
+            resources.changes_exports.cancel();
+            resources.review_changes.cancel();
+            if let Ok(mut pool) = resources.texlab.lock() {
+                pool.reset();
+            }
+            resources.shutdown_realtime();
+            resources.stop_live_preview();
+            false
+        });
+    }
+
+    /// Stop every project's live preview and wait for it: the app is exiting,
+    /// or rtex is about to be removed.
+    pub fn stop_all_live_previews(&self) {
+        let projects: Vec<_> = self
+            .projects
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+            .cloned()
+            .collect();
+        for project in projects {
+            let session =
+                project.live_preview.lock().unwrap_or_else(PoisonError::into_inner).take();
+            if let Some(session) = session {
+                session.stop_and_wait();
+            }
+        }
+    }
+
+    /// Stop the named project's export with changes marked, if it has one.
+    /// It changes no files, so it needs no window still showing the project:
+    /// the comparison may close after its window switched to another.
+    pub fn cancel_changes_export(&self, root: &Path) {
+        let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(project) = projects.get(root) {
+            project.changes_exports.cancel();
+        }
+    }
+
+    /// Stop every project's export with changes marked: the app is exiting,
+    /// and its latexdiff would otherwise run on with nobody waiting for it.
+    pub fn cancel_all_changes_exports(&self) {
+        let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        for project in projects.values() {
+            project.changes_exports.cancel();
+            project.review_changes.cancel();
+        }
+    }
+
+    /// How many projects have a build running: a restart would stop them.
+    pub fn running_builds(&self) -> usize {
+        let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        projects.values().filter(|project| latex::is_running(&project.active_build)).count()
+    }
+
+    /// Close every project's live channel.
+    ///
+    /// Only for signing out: the Overleaf session is shared by every window, so
+    /// throwing it away has to take down the connections that authenticate with it,
+    /// not just the one belonging to whichever window asked.
+    pub fn shutdown_all_realtime(&self) {
+        let projects: Vec<_> = self
+            .projects
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+            .cloned()
+            .collect();
+        for project in projects {
+            project.shutdown_realtime();
+        }
+    }
+
+    pub fn root_for(&self, label: &str) -> Result<Option<PathBuf>, String> {
+        // A PDF window shows the project of the workspace window that opened it.
+        let owner = self.pdf_windows.owner(label);
+        Ok(self.roots()?.get(owner.as_deref().unwrap_or(label)).cloned())
+    }
+
+    /// Bind a window to a project before it loads, so the window's own startup
+    /// request already resolves against it.
+    pub fn bind_window(&self, label: &str, root: PathBuf) -> Result<(), String> {
+        self.roots()?.insert(label.to_string(), root);
+        Ok(())
+    }
+
+    /// Drop a closed window's binding. Without this the map grows for the life
+    /// of the process and a recycled label would inherit a stale project.
+    pub fn release_window(&self, label: &str) {
+        if let Ok(mut roots) = self.roots.lock() {
+            roots.remove(label);
+        }
+    }
+
+    /// Release a window whose creation failed and drop what only it held.
+    pub fn abandon_window(&self, label: &str) {
+        self.release_window(label);
+        self.retire_unused_projects();
+    }
+
+    /// The window currently showing `root`, if any.
+    pub fn window_showing(&self, root: &Path) -> Option<String> {
+        let roots = self.roots.lock().ok()?;
+        roots.iter().find(|(_, open)| open.as_path() == root).map(|(label, _)| label.clone())
+    }
+
+    /// Point a window at another project.
+    ///
+    /// Everything torn down here is scoped to the project the window is
+    /// leaving, so a switch in one window never disturbs another window's
+    /// build, language server or Overleaf connection.
+    pub async fn set_root(&self, label: &str, root: PathBuf) -> Result<(), String> {
+        let Some(leaving) = self.root_for(label)? else {
+            // Nothing open in this window yet: no in-flight work to wait for.
+            return self.bind_window(label, root);
+        };
+        // A root switch must wait for a ZIP sync or a root-scoped Overleaf
+        // mutation to finish. The UI invalidates its old generation immediately,
+        // while this lease ensures the backend cannot reinterpret a request for A
+        // against B halfway through it. Root-scoped structural commands take the
+        // same locks in the same order: Overleaf lease, then file-tree mutation.
+        let lease = self.structural_lease(&leaving, Lease::Exclusive).await;
+        let leaving = &lease.project;
+        if let Ok(mut pool) = leaving.texlab.lock() {
+            pool.reset();
+        }
+        // Hold the project root while invalidating realtime under the same lock
+        // order used by connect. This makes "claim generation for A" and "switch
+        // to B" mutually exclusive rather than two checks with a gap between.
+        let mut roots = self.roots()?;
+        let previous = leaving.realtime()?.cancel(None);
+        roots.insert(label.to_string(), root);
+        drop(roots);
+        if let Some(previous) = previous {
+            previous.shutdown();
+        }
+        self.retire_unused_projects();
+        Ok(())
+    }
+}
+
+impl ProjectLease {
+    pub async fn take(project: Arc<ProjectResources>, lease: Lease) -> Self {
+        let sync = Arc::clone(&project.overleaf_sync_lease);
+        let (shared, exclusive) = match lease {
+            Lease::Shared => (Some(sync.read_owned().await), None),
+            Lease::Exclusive => (None, Some(sync.write_owned().await)),
+        };
+        Self { project, _shared: shared, _exclusive: exclusive, _structural: None }
+    }
+}
+
+impl ProjectResources {
+    /// End the project's rtex session, if one runs. Safe to call when none does.
+    pub fn stop_live_preview(&self) {
+        let session = self.live_preview.lock().unwrap_or_else(PoisonError::into_inner).take();
+        if let Some(session) = session {
+            session.stop();
+        }
+    }
+
+    pub fn realtime(&self) -> Result<MutexGuard<'_, OverleafRealtimeState>, String> {
+        self.realtime.lock().map_err(|_| "The Overleaf connection is unavailable.".to_string())
+    }
+
+    /// Close the live channel if one is open. Safe to call when there is none.
+    pub fn shutdown_realtime(&self) {
+        let previous = self.realtime.lock().ok().and_then(|mut realtime| realtime.cancel(None));
+        if let Some(previous) = previous {
+            previous.shutdown();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppState;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+
+    #[test]
+    fn each_window_keeps_its_own_project_and_build() {
+        let state = AppState::from_environment();
+        let (a, b) = (PathBuf::from("/project/a"), PathBuf::from("/project/b"));
+        state.bind_window("main", a.clone()).unwrap();
+        state.bind_window("project-1", b.clone()).unwrap();
+
+        assert_eq!(state.root_for("main").unwrap(), Some(a.clone()));
+        assert_eq!(state.root_for("project-1").unwrap(), Some(b.clone()));
+        assert_eq!(state.root_for("project-2").unwrap(), None);
+        // This is what makes "open in a new window" raise the existing window
+        // instead of putting one project in two.
+        assert_eq!(state.window_showing(&b).as_deref(), Some("project-1"));
+        assert_eq!(state.window_showing(Path::new("/project/c")), None);
+
+        // A second window building project B must not be able to abort the
+        // build project A already has running.
+        assert!(Arc::ptr_eq(&state.project(&a).active_build, &state.project(&a).active_build));
+        assert!(!Arc::ptr_eq(&state.project(&a).active_build, &state.project(&b).active_build));
+    }
+
+    #[test]
+    fn closing_a_window_releases_its_project_and_retires_its_resources() {
+        let state = AppState::from_environment();
+        let (a, b, gone) = (Path::new("/project/a"), Path::new("/project/b"), "/project/gone");
+        state.bind_window("project-1", a.to_path_buf()).unwrap();
+        state.bind_window("project-2", b.to_path_buf()).unwrap();
+        let kept = state.project(b);
+        state.project(a);
+        // A command takes the named project's lease before checking the window
+        // still has it open, so a stale request creates an entry for a project
+        // nobody has. The map must not keep it forever.
+        state.project(Path::new(gone));
+
+        state.release_window("project-1");
+        state.retire_unused_projects();
+
+        assert_eq!(state.root_for("project-1").unwrap(), None);
+        for retired in [a, Path::new(gone)] {
+            assert!(!state.projects.lock().unwrap().contains_key(retired), "{retired:?}");
+        }
+        // The surviving window keeps the very same resources, not a rebuilt set.
+        assert!(Arc::ptr_eq(&state.project(b), &kept));
+    }
+
+    /// #658: latexdiff ran on for half an hour after its export was left.
+    /// Closing the project, or quitting, kills it.
+    #[cfg(unix)]
+    #[test]
+    fn closing_the_project_or_quitting_stops_its_export_with_changes_marked() {
+        let folder = crate::test_support::TempDir::new("changes-export-close");
+        let pid = |name: &str| -> u32 {
+            let path = folder.join(name).join("pid");
+            for _ in 0..200 {
+                if let Some(pid) =
+                    std::fs::read_to_string(&path).ok().and_then(|s| s.trim().parse().ok())
+                {
+                    return pid;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            panic!("the stand-in latexdiff never started");
+        };
+        let state = AppState::from_environment();
+        let (closed, open) = (PathBuf::from("/project/closed"), PathBuf::from("/project/open"));
+        state.bind_window("project-1", closed.clone()).unwrap();
+        state.bind_window("project-2", open.clone()).unwrap();
+        for name in ["closed", "open"] {
+            std::fs::create_dir_all(folder.join(name)).unwrap();
+        }
+        let closing = state.project(&closed).changes_exports.sleep_for_test(&folder.join("closed"));
+        let quitting = state.project(&open).changes_exports.sleep_for_test(&folder.join("open"));
+        let (closing_pid, quitting_pid) = (pid("closed"), pid("open"));
+        let gone = |pid: u32| {
+            (0..100).any(|_| {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+                unsafe { libc::kill(pid as i32, 0) != 0 }
+            })
+        };
+
+        state.release_window("project-1");
+        state.retire_unused_projects();
+        assert!(gone(closing_pid), "latexdiff outlived the project it compared");
+        assert!(closing.join().unwrap());
+        // The other window's export is its own, and keeps running.
+        assert!(!gone(quitting_pid));
+
+        state.cancel_all_changes_exports();
+        assert!(gone(quitting_pid), "latexdiff outlived Lattice");
+        assert!(quitting.join().unwrap());
+    }
+
+    /// The comparison closing after its window switched projects still
+    /// stops the export it left; naming a project nobody has creates nothing.
+    #[cfg(unix)]
+    #[test]
+    fn cancelling_an_export_needs_no_window_on_its_project() {
+        let folder = crate::test_support::TempDir::new("changes-export-cancel");
+        let state = AppState::from_environment();
+        let (left, other) = (PathBuf::from("/project/left"), PathBuf::from("/project/other"));
+        state.bind_window("project-1", left.clone()).unwrap();
+        state.bind_window("project-2", left.clone()).unwrap();
+        let export = state.project(&left).changes_exports.sleep_for_test(&folder);
+        state.bind_window("project-1", other).unwrap();
+
+        state.cancel_changes_export(&left);
+        assert!(export.join().unwrap(), "the export outlived the comparison that started it");
+
+        let unknown = Path::new("/project/unknown");
+        state.cancel_changes_export(unknown);
+        assert!(!state.projects.lock().unwrap().contains_key(unknown));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn closing_the_last_window_on_a_project_stops_its_build() {
+        use std::os::unix::process::CommandExt;
+        // A process this test owns, in its own group: abort signals a whole
+        // process group, so a made-up pid would be some other program's.
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .process_group(0)
+            .spawn()
+            .expect("spawn a stand-in build");
+        let state = AppState::from_environment();
+        let root = PathBuf::from("/project/building");
+        state.bind_window("project-1", root.clone()).unwrap();
+        crate::latex::begin_for_test(&state.project(&root).active_build, child.id()).unwrap();
+
+        state.release_window("project-1");
+        state.retire_unused_projects();
+
+        let stopped = (0..100).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            matches!(child.try_wait(), Ok(Some(_)))
+        });
+        let _ = child.kill();
+        // Without this, latexmk keeps compiling into a project no window has
+        // open, with nothing left holding a handle to stop it.
+        assert!(stopped, "the build outlived the window that started it");
+    }
+}

@@ -147,7 +147,7 @@ start_step "Installing uv (optional; set SKIP_UV=1 to skip)"
 # never uses a `uv` from PATH. It downloads and checksum-verifies its own copy
 # under ~/Library/Application Support and refuses to fall back to a PATH install
 # (see MANAGED_UV_VERSION and managed_uv_tool_status in
-# src-tauri/src/commands.rs). This copy is only so you can drive those tools by
+# src-tauri/lattice-core/src/commands.rs). This copy is only so you can drive those tools by
 # hand on a Linux dev box, which is why the step is skippable.
 #
 # It is pinned to the version the app manages, and the archive digest is

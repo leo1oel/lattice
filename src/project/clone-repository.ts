@@ -1,6 +1,6 @@
 /**
  * Cloning a Git repository into a new project folder: the backend's answers
- * (src-tauri/src/git/clone.rs) and the folder the clone lands in.
+ * (src-tauri/lattice-core/src/git/clone.rs) and the folder the clone lands in.
  */
 
 /** How far a clone has come, as `clone_repository` reports it. */

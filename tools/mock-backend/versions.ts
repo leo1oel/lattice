@@ -1,6 +1,6 @@
 /**
  * Version tracking over the project in memory, as the backend's `git_*`
- * commands answer it (src-tauri/src/git.rs): a repository whose first version
+ * commands answer it (src-tauri/lattice-core/src/git.rs): a repository whose first version
  * is the project as the page opened it, and whose later ones are what the
  * writer saves or restores. Each version keeps its files whole, so the
  * timeline, Compare and the restores read real text.

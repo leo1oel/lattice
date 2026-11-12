@@ -27,9 +27,10 @@ import { i18n } from "@lingui/core";
 import { escapeRegExp } from "../lib/escape-regexp";
 
 /**
- * One host message: the file under `src-tauri/src` that writes it, its Rust
- * literal, and its text in the interface language, given the values of the
- * literal's placeholders in order (each already translated in turn).
+ * One host message: the file that writes it (its path under `src-tauri/src`
+ * or `src-tauri/lattice-core/src`), its Rust literal, and its text in the
+ * interface language, given the values of the literal's placeholders in order
+ * (each already translated in turn).
  */
 export type HostErrorEntry = readonly [rustFile: string, rustLiteral: string, text: (params: string[]) => string];
 

@@ -27,7 +27,7 @@ import type { PresenceUser } from "./use-overleaf-presence";
 
 const OVERLEAF_REALTIME_EVENT = "overleaf-realtime";
 
-/** What the live channel says, mirroring `RealtimeEvent` in src-tauri/src/overleaf_rt/events.rs. */
+/** What the live channel says, mirroring `RealtimeEvent` in src-tauri/lattice-core/src/overleaf_rt/events.rs. */
 type ChannelEvent =
   | { type: "connected"; publicId: string }
   | { type: "projectJoined"; rootFolderId: string; docs: DocEntry[]; permission: OverleafPermission }

@@ -13,7 +13,7 @@ export const BUILD_STEPS = [
   { tool: "bibtex", run: 1, draft: false, startedMs: 612, durationMs: 96 },
   { tool: "pdflatex", run: 2, draft: false, startedMs: 708, durationMs: 431 },
 ];
-/** The same after a preamble edit: the preamble format is made first (src-tauri/src/latex/preamble_format.rs). */
+/** The same after a preamble edit: the preamble format is made first (src-tauri/lattice-core/src/latex/preamble_format.rs). */
 export const PREAMBLE_BUILD_STEPS = [
   { tool: "pdflatex -ini", run: 1, draft: false, startedMs: 0, durationMs: 251 },
   { tool: "pdflatex", run: 1, draft: false, startedMs: 251, durationMs: 402 },

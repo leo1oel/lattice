@@ -2,7 +2,7 @@
  * The Build button's card: the build as the sequence it was, pass by pass.
  *
  * Every row is a pass latexmk really ran, in its order and with its own time
- * (`src-tauri/src/latex/build_steps.rs` reads them off latexmk's output): a
+ * (`src-tauri/lattice-core/src/latex/build_steps.rs` reads them off latexmk's output): a
  * second pdflatex for references, biber in place of bibtex, xdvipdfmx after
  * XeLaTeX, the prewarm's draft passes on a cold build, the run that saves the
  * preamble as a format when it changed, or none at all when the PDF was

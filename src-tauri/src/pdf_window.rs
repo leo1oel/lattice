@@ -14,16 +14,13 @@
 //! the PDF again; a window torn down with its owner, by a project switch or by
 //! quitting is not, so the choice to keep the PDF apart outlives the session.
 
+pub(crate) use crate::app_state::is_pdf_window;
 use crate::app_state::AppState;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, PoisonError};
 use tauri::{
     AppHandle, Emitter, EventTarget, Manager, Runtime, State, WebviewWindowBuilder, Window,
 };
 
-const LABEL_PREFIX: &str = "pdf-";
 const CLOSED_EVENT: &str = "pdf-window-closed";
 const FRAME_EVENT: &str = "pdf-window-frame";
 const DEFAULT_SIZE: (f64, f64) = (760.0, 880.0);
@@ -32,12 +29,6 @@ const MIN_SIZE: (f64, f64) = (420.0, 360.0);
 const TITLE_BAR: f64 = 28.0;
 /// How much of the title bar's width must stay on one screen.
 const GRIP: f64 = 64.0;
-
-/// Whether `label` names a PDF window rather than a workspace, browser host or
-/// sign-in window.
-pub(crate) fn is_pdf_window(label: &str) -> bool {
-    label.starts_with(LABEL_PREFIX)
-}
 
 /// A window's place on the desktop, in logical points: its outer top-left
 /// corner and its content size, as the window builder takes them.
@@ -69,52 +60,6 @@ pub(crate) fn placement(saved: Frame, screens: &[Frame]) -> Option<Frame> {
         height: saved.height.clamp(MIN_SIZE.1, screen.height.max(MIN_SIZE.1)),
         ..saved
     })
-}
-
-/// Which workspace window owns each PDF window. A workspace window has at
-/// most one: asking again brings that one forward.
-#[derive(Default)]
-pub(crate) struct PdfWindows {
-    owners: Mutex<HashMap<String, String>>,
-    next: AtomicU64,
-}
-
-impl PdfWindows {
-    fn owners(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
-        self.owners.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// The workspace window that owns the PDF window `label`.
-    pub(crate) fn owner(&self, label: &str) -> Option<String> {
-        self.owners().get(label).cloned()
-    }
-
-    /// The label of `owner`'s PDF window, and whether it already had one.
-    /// Claimed before the window is built, so two quick requests open one.
-    fn claim(&self, owner: &str) -> (String, bool) {
-        let mut owners = self.owners();
-        if let Some((label, _)) = owners.iter().find(|(_, open)| open.as_str() == owner) {
-            return (label.clone(), true);
-        }
-        let label = format!("{LABEL_PREFIX}{}", self.next.fetch_add(1, Ordering::Relaxed) + 1);
-        owners.insert(label.clone(), owner.to_string());
-        (label, false)
-    }
-
-    fn forget(&self, label: &str) -> Option<String> {
-        self.owners().remove(label)
-    }
-
-    /// Forget `owner`'s PDF window, returning its label.
-    fn forget_owner(&self, owner: &str) -> Option<String> {
-        let mut owners = self.owners();
-        let label = owners
-            .iter()
-            .find(|(_, open)| open.as_str() == owner)
-            .map(|(label, _)| label.clone())?;
-        owners.remove(&label);
-        Some(label)
-    }
 }
 
 /// The attached screens, in logical points. macOS places screens in one space
@@ -274,7 +219,7 @@ pub(crate) fn on_window_event<R: Runtime>(window: &Window<R>, event: &tauri::Win
 
 #[cfg(test)]
 mod tests {
-    use super::{is_pdf_window, placement, Frame, PdfWindows};
+    use super::{placement, Frame};
 
     const MAIN: Frame = Frame { x: 0.0, y: 0.0, width: 1512.0, height: 982.0 };
     const RIGHT: Frame = Frame { x: 1512.0, y: -200.0, width: 2560.0, height: 1440.0 };
@@ -304,22 +249,5 @@ mod tests {
         );
         assert_eq!(placement(Frame { width: f64::NAN, ..tall }, &[MAIN]), None);
         assert_eq!(placement(Frame { height: 0.0, ..tall }, &[MAIN]), None);
-    }
-
-    #[test]
-    fn each_workspace_window_has_one_pdf_window() {
-        let windows = PdfWindows::default();
-        let (first, existing) = windows.claim("main");
-        assert!(is_pdf_window(&first) && !existing);
-        // Asking again, even before the window is built, names the same one.
-        assert_eq!(windows.claim("main"), (first.clone(), true));
-        let (other, _) = windows.claim("project-2");
-        assert_ne!(other, first);
-        assert_eq!(windows.owner(&first).as_deref(), Some("main"));
-        assert_eq!(windows.forget_owner("main"), Some(first.clone()));
-        assert_eq!(windows.owner(&first), None);
-        // A label is never reused, so a late close of the old window cannot reach a new one.
-        assert_ne!(windows.claim("main").0, first);
-        assert!(!is_pdf_window("project-1") && !is_pdf_window("main"));
     }
 }

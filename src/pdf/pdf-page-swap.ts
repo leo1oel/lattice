@@ -5,7 +5,7 @@
  * Replacing the whole viewer (use-pdf-document.ts's staged load) blanks every
  * visible page until PDF.js draws it again, and drops the reader's text
  * selection and search. Most rebuilds change one page of a paper, though, and
- * the backend can tell which (src-tauri/src/pdf_pages.rs): every page has a
+ * the backend can tell which (src-tauri/lattice-core/src/pdf_pages.rs): every page has a
  * signature of everything it draws, and two builds that give a page the same
  * one draw it the same. So the open viewer moves to the new document, the
  * pages that did not change keep their canvas, text layer and links as they

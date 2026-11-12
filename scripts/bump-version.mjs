@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Bump the app version in lockstep across package.json, tauri.conf.json, and
-// Cargo.toml, so every release ships one coherent version number.
+// both crates' Cargo.toml (the Tauri shell and lattice-core, which reports
+// its CARGO_PKG_VERSION as Lattice's own), so every release ships one
+// coherent version number.
 //
 // Usage:
 //   node scripts/bump-version.mjs            # patch: 0.1.37 -> 0.1.38
@@ -22,7 +24,7 @@ import { writeReleaseNotes } from "./release-notes.mjs";
 
 const pkgPath = join(projectRoot, "package.json");
 const confPath = join(projectRoot, "src-tauri/tauri.conf.json");
-const cargoPath = join(projectRoot, "src-tauri/Cargo.toml");
+const cargoPaths = ["src-tauri/Cargo.toml", "src-tauri/lattice-core/Cargo.toml"].map((path) => join(projectRoot, path));
 const lockPath = join(projectRoot, "src-tauri/Cargo.lock");
 
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -68,27 +70,30 @@ if (!confVersionReplaced) {
 writeFileSync(confPath, nextConf);
 
 // Cargo.toml — replace the first `version = "..."` line (the [package] one).
-const cargo = readFileSync(cargoPath, "utf8");
-let replaced = false;
-const nextCargo = cargo.replace(/^version = "[^"]*"$/m, () => {
-  replaced = true;
-  return `version = "${next}"`;
-});
-if (!replaced) {
-  throw new Error(`Could not find a [package] version line in ${cargoPath}.`);
+for (const cargoPath of cargoPaths) {
+  const cargo = readFileSync(cargoPath, "utf8");
+  let replaced = false;
+  const nextCargo = cargo.replace(/^version = "[^"]*"$/m, () => {
+    replaced = true;
+    return `version = "${next}"`;
+  });
+  if (!replaced) {
+    throw new Error(`Could not find a [package] version line in ${cargoPath}.`);
+  }
+  writeFileSync(cargoPath, nextCargo);
 }
-writeFileSync(cargoPath, nextCargo);
 
 // Cargo.lock — cargo would fix this on the next build, but leaving it stale
 // means every release commit carries an unrelated lockfile diff.
-const lock = readFileSync(lockPath, "utf8");
-const lockEntry = new RegExp(
-  `(\\[\\[package\\]\\]\\nname = "${pkg.name === "research-writer" ? "research-writer" : pkg.name}"\\nversion = )"[^"]*"`,
-);
-if (!lockEntry.test(lock)) {
-  throw new Error(`Could not find the research-writer package entry in ${lockPath}.`);
+let lock = readFileSync(lockPath, "utf8");
+for (const crate of [pkg.name === "research-writer" ? "research-writer" : pkg.name, "lattice-core"]) {
+  const lockEntry = new RegExp(`(\\[\\[package\\]\\]\\nname = "${crate}"\\nversion = )"[^"]*"`);
+  if (!lockEntry.test(lock)) {
+    throw new Error(`Could not find the ${crate} package entry in ${lockPath}.`);
+  }
+  lock = lock.replace(lockEntry, `$1"${next}"`);
 }
-writeFileSync(lockPath, lock.replace(lockEntry, `$1"${next}"`));
+writeFileSync(lockPath, lock);
 
 const notes = writeReleaseNotes(next, new Date().toISOString().slice(0, 10), projectRoot);
 
@@ -102,7 +107,7 @@ if (notes) {
 }
 console.log("");
 console.log("Next steps:");
-console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock${notes ? ` src/release-notes/${next}.json` : ""}`);
+console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/lattice-core/Cargo.toml src-tauri/Cargo.lock${notes ? ` src/release-notes/${next}.json` : ""}`);
 console.log(`  git commit -m "Release v${next}"`);
 console.log(`  git tag v${next}`);
 console.log(`  git push origin main`);

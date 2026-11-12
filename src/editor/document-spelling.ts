@@ -5,7 +5,7 @@ import { notifyInfo, notifySuccess, notifyWarning } from "../telemetry/app-notif
 
 /**
  * A LaTeX document's language when it is not English, from
- * `spelling_document_language` (src-tauri/src/spelling.rs): the language its
+ * `spelling_document_language` (src-tauri/lattice-core/src/spelling.rs): the language its
  * babel or polyglossia options name, read from the compile root's preamble.
  * Such a document is checked for spelling with that language's dictionary
  * and never with Harper, whose English lints would flag every word.

@@ -1,6 +1,6 @@
 /**
  * One wide log event per UI-side operation, in the shape the backend writes
- * (`src-tauri/src/wide_event.rs`): a single JSON line
+ * (`src-tauri/lattice-core/src/wide_event.rs`): a single JSON line
  * `{"event","outcome","duration_ms",…fields}`, plus `error_kind`, `error_cause`
  * and `error_fix` when it failed. It also carries `event_id` and `started_at`,
  * fixed when the operation starts: the file queue retries a write whose IPC

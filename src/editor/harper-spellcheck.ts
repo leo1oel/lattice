@@ -15,7 +15,7 @@ type HarperSuggestionSnapshot = {
   replacement: string;
 };
 
-/** Shape of `harper_lint` results (src-tauri/src/harper.rs), spans in UTF-16 code units. */
+/** Shape of `harper_lint` results (src-tauri/lattice-core/src/harper.rs), spans in UTF-16 code units. */
 type HarperLintResult = {
   start: number;
   end: number;
@@ -453,9 +453,9 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
     // A finding's tooltip names its rule in the interface language, from a
     // table loaded on first use; have it ready before the first tooltip.
     if (!language) void loadGrammarRuleCatalog();
-    // The engine is harper-core on the Rust side (src-tauri/src/harper.rs) —
+    // The engine is harper-core on the Rust side (src-tauri/lattice-core/src/harper.rs) —
     // the same engine harper.js wrapped, but off the WebView thread entirely —
-    // or, for another language, its Hunspell dictionary (src-tauri/src/spelling).
+    // or, for another language, its Hunspell dictionary (src-tauri/lattice-core/src/spelling).
     // Masking stays here so spans keep matching the document.
     const lints = language
       ? await invoke<HarperLintResult[]>("spelling_lint", { code: language, text: prose, projectWords })

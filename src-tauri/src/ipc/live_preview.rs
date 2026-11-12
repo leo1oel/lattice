@@ -18,7 +18,10 @@ pub async fn live_preview_status() -> Result<live_preview::InstallStatus, String
 pub async fn live_preview_install(
     on_progress: Channel<live_preview::InstallProgress>,
 ) -> Result<live_preview::InstallStatus, String> {
-    run_blocking("Live preview install", move || live_preview::install(&on_progress)).await
+    run_blocking("Live preview install", move || {
+        live_preview::install(&super::channel_sink(on_progress))
+    })
+    .await
 }
 
 /// Stop every session, then delete rtex and its build folders.
@@ -41,7 +44,7 @@ pub async fn live_preview_start(
     let root = pinned_root(&state, &window, &project_root, "live preview could start")?;
     let project = state.project(&root);
     let session = run_blocking("Live preview start", move || {
-        live_preview::Session::start(&root, &main_file, on_event)
+        live_preview::Session::start(&root, &main_file, super::stream_sink(on_event))
     })
     .await?;
     let id = session.id();

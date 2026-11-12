@@ -5,7 +5,7 @@
 // that already carries a rendered page back as an image, with the action
 // `preview_figure`. Rust typesets the figure body alone in a scratch folder
 // with the paper's preamble, at the paper's column width
-// (src-tauri/src/latex/figure_preview.rs), and this renders the one-page PDF
+// (src-tauri/lattice-core/src/latex/figure_preview.rs), and this renders the one-page PDF
 // it returns as a PNG.
 //
 // Inserting is not a host action: given a caption and label, the result

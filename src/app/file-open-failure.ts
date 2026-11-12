@@ -6,7 +6,7 @@ import { notifyError } from "../telemetry/app-notify";
 import { showError } from "./notify";
 import { baseName } from "../lib/base-name";
 
-// Matched in backend text: src-tauri/src/project/tree.rs `too_large`.
+// Matched in backend text: src-tauri/lattice-core/src/project/tree.rs `too_large`.
 const TOO_LARGE = /^This file is too large to open in the editor \((\d+) bytes; the limit is (\d+) bytes\)\.$/;
 
 /**

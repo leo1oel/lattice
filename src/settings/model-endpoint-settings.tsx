@@ -18,7 +18,7 @@ import { toMessage } from "../app-utils";
 import { describeProbe, type ProbeReport, PROBE_CHECKS } from "./model-endpoint-probe";
 import "./model-endpoint-settings.css";
 
-/** Pi's API names (`src-tauri/src/model_endpoint.rs`). */
+/** Pi's API names (`src-tauri/lattice-core/src/model_endpoint.rs`). */
 type Protocol = "openai-completions" | "anthropic-messages" | "openai-responses" | "google-generative-ai";
 type EndpointModel = { id: string; contextWindow: number; maxTokens: number; images: boolean };
 type Endpoint = { protocol: Protocol; baseUrl: string; models: EndpointModel[] };

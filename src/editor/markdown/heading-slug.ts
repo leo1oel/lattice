@@ -8,7 +8,7 @@
  * and hyphens at the edges are dropped. A slug seen before in the same
  * document gets `-1`, `-2`, … in document order. This is the rule the paper
  * converter writes Contents links with (`wiki_link_slug` in
- * src-tauri/src/papers/markdown.rs), so the two must change together.
+ * src-tauri/lattice-core/src/papers/markdown.rs), so the two must change together.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */

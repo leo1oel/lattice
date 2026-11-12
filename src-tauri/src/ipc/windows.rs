@@ -78,7 +78,7 @@ pub async fn open_project_window(
             false
         };
         if raised {
-            fs_watch::announce_reopened(&app, &root);
+            fs_watch::announce_reopened(&super::WindowEvents(app.clone()), &root);
             return Ok(OpenedProjectWindow { label, focused_existing: true });
         }
         // The binding outlived its window. Drop it and open a fresh one.

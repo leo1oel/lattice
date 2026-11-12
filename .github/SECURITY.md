@@ -102,7 +102,7 @@ signing key"). New attacks on the *mechanism* are still in scope.
 Connecting Overleaf stores the **full session cookie**, which is equivalent to
 an active browser login, in
 `~/Library/Application Support/app.leo1oel.researchwriter/overleaf-session.json`
-(`src-tauri/src/overleaf.rs`). The file is written atomically with mode `0600`.
+(`src-tauri/lattice-core/src/overleaf.rs`). The file is written atomically with mode `0600`.
 
 In scope: anything that moves that cookie somewhere it should never be — app
 logs, the sidecar log, agent-readable context, a crash/telemetry path, an error
@@ -120,7 +120,7 @@ Moving it into the Keychain is tracked hardening work.
 ### 3. The AI agent sidecar: permission model and boundary
 
 The agent (Synara) runs as a **child process of the app** and is embedded as an
-iframe over loopback HTTP (`src-tauri/src/synara.rs`,
+iframe over loopback HTTP (`src-tauri/lattice-core/src/synara.rs`,
 `src/agent/synara-runtime.ts`). The boundary is:
 
 - the server binds `127.0.0.1` on a dynamic port; the app trusts the discovered
@@ -172,7 +172,7 @@ imported paper content, project chat, or comments matters here because
 ## Out of scope
 
 - **The compiled-in shared Firecrawl key** (`LATTICE_FIRECRAWL_KEY`,
-  `src-tauri/src/firecrawl.rs`). It is extractable from any shipped binary by
+  `src-tauri/lattice-core/src/firecrawl.rs`). It is extractable from any shipped binary by
   design; that is a documented, accepted trade-off, rotated on abuse.
 - **The two known issues named above**: the un-rotated updater signing key and
   the unencrypted Overleaf session file. Both are already public in `docs/`.

@@ -185,7 +185,7 @@ export class MockProject implements Contents {
         const path = this.path(args);
         const content = this.files.get(path);
         if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${path}`);
-        // As src-tauri/src/project/assets.rs answers: a PDF is read a range at
+        // As src-tauri/lattice-core/src/project/assets.rs answers: a PDF is read a range at
         // a time, a figure arrives inline and is shown as an image.
         if (path.toLowerCase().endsWith(".pdf")) {
           return { path, mimeType: "application/pdf", ranges: { length: content.byteLength, version: "bench" } };

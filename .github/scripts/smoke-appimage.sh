@@ -72,7 +72,7 @@ echo "ldd: every bundled ELF resolves its libraries"
 # web process must still be running too.
 #
 # The programs Lattice starts must get the host's libraries, not the
-# AppImage's (src-tauri/src/commands/appimage.rs): with Ubuntu 22.04's
+# AppImage's (src-tauri/lattice-core/src/commands/appimage.rs): with Ubuntu 22.04's
 # libsystemd, Ubuntu 26.04's /usr/bin/env cannot start. The guest has no TeX,
 # so a latexmk that writes down its environment, started through
 # /usr/bin/env as TeX Live's is, stands in for it: setup's check and the

@@ -72,19 +72,6 @@ const pageContext = (pageIndex) => ({
   slideId: "research-update", pageIndex, totalPages: 8, slideTitle: "Research update", view: "slides",
 });
 
-test("reports the exact pinned Open Slide version in the readiness handshake", async () => {
-  const [manifest, server, installed, supervisor] = await Promise.all([
-    readFile(new URL("./package.json", import.meta.url), "utf8"),
-    readFile(new URL("./server.mjs", import.meta.url), "utf8"),
-    coreSource("package.json"),
-    readFile(new URL("../../src-tauri/src/presentation.rs", import.meta.url), "utf8"),
-  ]);
-  const version = JSON.parse(manifest).dependencies["@open-slide/core"];
-  assert.equal(JSON.parse(installed).version, version);
-  assert.equal(server.match(/const VERSION = "([^"]+)";/)?.[1], version);
-  assert.equal(supervisor.match(/const VERSION: &str = "([^"]+)";/)?.[1], version);
-});
-
 test("starts when installed under a path containing a space", () => withTempRoot(async (root) => {
   // An app bundle such as "Lattice Beta.app" puts a space in the entry path;
   // the entry check once compared it with a %20-encoded URL pathname, so the

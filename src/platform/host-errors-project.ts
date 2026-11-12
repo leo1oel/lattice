@@ -1,5 +1,5 @@
 /**
- * Project file and folder errors (`src-tauri/src/project/`), in the interface
+ * Project file and folder errors (`src-tauri/lattice-core/src/project/`), in the interface
  * language. See `host-error-text.ts` for how an entry is matched and pinned.
  */
 import { t } from "@lingui/core/macro";

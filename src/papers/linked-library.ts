@@ -4,7 +4,7 @@
  * project's own .bib only once the writer has seen them.
  *
  * Three texts are compared. The base is the library as it was when its
- * changes were last taken in (src-tauri/src/project/linked_bibliography.rs
+ * changes were last taken in (src-tauri/lattice-core/src/project/linked_bibliography.rs
  * keeps it); the library is the file now; local is the project's .bib. A
  * field the library changed since the base, which the writer left alone
  * here, is an update. One the writer changed here too is theirs until they

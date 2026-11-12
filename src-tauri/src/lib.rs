@@ -3,46 +3,21 @@
 //! `run` wires plugins, the window lifecycle and the command table together.
 //! Which project each window shows lives in `app_state`; most handlers live in
 //! `ipc`, a few self-contained features register their own, and the behaviour
-//! behind them lives in the domain modules below.
+//! behind them lives in the domain modules of `lattice_core`, imported below
+//! under their own names.
 
 mod about_links;
-mod agent_literature;
-mod alphaxiv;
-mod app_identity;
 mod app_log;
 mod app_restart;
-mod app_state;
 #[cfg(target_os = "macos")]
 mod app_terminate;
 #[cfg(not(target_os = "macos"))]
 #[path = "app_terminate_stub.rs"]
 mod app_terminate;
 mod browser_host;
-mod citation_audit;
-mod citation_batch;
-mod citation_health;
-mod command_diagnostics;
-mod commands;
-mod diagnostic_logs;
-mod doctor;
-mod export;
-mod firecrawl;
-mod format_latex;
-mod fs_watch;
-mod fts;
-mod git;
-mod harper;
-mod host_paths;
-mod http;
 mod ipc;
-mod latex;
-mod link_preview;
 #[cfg(any(target_os = "linux", test))]
 mod linux_release_notice;
-mod literature;
-mod literature_credentials;
-mod literature_service;
-mod live_preview;
 #[cfg(target_os = "macos")]
 mod macos_about;
 #[cfg(target_os = "macos")]
@@ -50,44 +25,12 @@ mod macos_window;
 #[cfg(not(target_os = "macos"))]
 #[path = "macos_window_stub.rs"]
 mod macos_window;
-mod model_endpoint;
-mod models;
 mod native_locale;
 mod open_slide_presenter;
-mod openalex;
-mod overleaf;
-mod overleaf_rt;
-mod paper_pdf_proxy;
-mod papers;
-mod pdf_fonts;
-mod pdf_pages;
 mod pdf_window;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
-mod platform_fs;
-#[cfg(windows)]
-mod platform_windows;
-mod presentation;
-#[cfg(target_os = "macos")]
-mod process_inspector;
-mod project;
-#[cfg(unix)]
-mod project_fs;
-#[cfg(windows)]
-#[path = "project_fs_windows.rs"]
-mod project_fs;
-mod research_env;
-mod review_pdf;
 mod save_before_close;
-mod sidecar;
-mod spelling;
-mod synara;
-mod terminal;
-#[cfg(test)]
-mod test_support;
-mod tex_setup;
-mod texcount;
-mod texlab;
 #[cfg(target_os = "macos")]
 mod title_bar;
 #[cfg(not(target_os = "macos"))]
@@ -98,20 +41,25 @@ mod traffic_lights;
 #[cfg(not(target_os = "macos"))]
 #[path = "traffic_lights_stub.rs"]
 mod traffic_lights;
-mod util;
-mod web_metadata;
-mod wide_event;
-#[cfg(all(test, windows))]
-mod windows_tests;
 #[cfg(target_os = "linux")]
 mod xlib_threads;
-mod zotero;
 
-use app_state::AppState;
+#[cfg(target_os = "macos")]
+use lattice_core::process_inspector;
+#[cfg(test)]
+use lattice_core::test_support;
+use lattice_core::{
+    agent_literature, app_identity, app_state, citation_audit, citation_health,
+    command_diagnostics, commands, diagnostic_logs, doctor, export, format_latex, fs_watch, git,
+    harper, http, latex, link_preview, literature, literature_credentials, live_preview,
+    model_endpoint, models, overleaf, overleaf_rt, paper_pdf_proxy, papers, pdf_pages,
+    presentation, project, research_env, review_pdf, spelling, synara, terminal, tex_setup,
+    texcount, texlab, util, wide_event, zotero,
+};
+
+// Also the label Tauri gives the window declared in tauri.conf.json.
+use app_state::{AppState, MAIN_WINDOW_LABEL};
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
-
-/// Label Tauri gives the window declared in tauri.conf.json.
-const MAIN_WINDOW_LABEL: &str = "main";
 
 /// A desktop window running Lattice's own page (`workspace_window`): the
 /// launch window or a project window, not a browser host, a presenter popup
@@ -255,6 +203,17 @@ fn on_page_load<R: Runtime>(
     }
 }
 
+/// Where the core finds the bundled sidecars and this build's app folders.
+fn resources(app: &tauri::App) -> tauri::Result<lattice_core::host::Resources> {
+    let resource_dir = app.path().resource_dir()?;
+    Ok(lattice_core::host::Resources {
+        bundle_dir: lattice_core::host::development_bundle()
+            .map_or(resource_dir, std::path::Path::to_path_buf),
+        app_data_dir: app.path().app_data_dir()?,
+        app_cache_dir: app.path().app_cache_dir()?,
+    })
+}
+
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
     #[cfg(feature = "perf-lab")]
@@ -264,8 +223,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(save_before_close::SaveBeforeClose::default());
     app.manage(app_restart::AppRestart::default());
     app_terminate::install(app.handle());
-    app.manage(synara::SynaraRuntime::new(app)?);
-    app.manage(presentation::PresentationRuntime::new(app)?);
+    let resources = resources(app)?;
+    let events = std::sync::Arc::new(ipc::WindowEvents(app.handle().clone()));
+    app.manage(synara::SynaraRuntime::new(&resources, events));
+    app.manage(presentation::PresentationRuntime::new(&resources)?);
     let background = browser_host_launch();
     if let Err(reason) = app.state::<browser_host::BrowserHost>().start(app.handle()) {
         if background {
@@ -317,6 +278,13 @@ fn reopen(app: &AppHandle) {
 pub fn run() {
     #[cfg(target_os = "linux")]
     xlib_threads::init();
+    // `tauri dev` resolves the sidecars and bundled tools from this checkout.
+    // `debug_assertions` is also true for `tauri build --debug`, whose app
+    // must use its packaged resources rather than the build machine's source
+    // tree; Tauri's development marker tells that package from `tauri dev`.
+    if tauri::is_dev() {
+        lattice_core::host::set_development_bundle(env!("CARGO_MANIFEST_DIR").into());
+    }
     let context = tauri::generate_context!();
     // The process inspector is a bare helper with no identity of its own, so it
     // runs even from a binary whose flavor and config disagree (`cargo test`
@@ -324,7 +292,7 @@ pub fn run() {
     // agent sidecar it serves never starts (synara.rs).
     #[cfg(target_os = "macos")]
     process_inspector::run_if_requested();
-    app_identity::init(&context.config().identifier);
+    app_identity::init(&context.config().identifier, cfg!(lattice_beta));
     http::install_tls_provider();
     if agent_literature::run_cli() || research_env::run_cli() || model_endpoint::run_cli() {
         return;
@@ -336,6 +304,8 @@ pub fn run() {
     }));
     // Operation spans become wide events written through the log plugin below.
     wide_event::init();
+    // The core's tasks share Tauri's runtime and blocking pool.
+    lattice_core::runtime::install(tauri::async_runtime::handle().inner().clone());
     let builder = tauri::Builder::default()
         // Registered first so init-time logs from the other plugins are captured.
         .plugin(app_log::plugin().build())
@@ -623,28 +593,28 @@ pub fn run() {
             ipc::overleaf_realtime::overleaf_rt_doc_ranges,
             ipc::overleaf_realtime::overleaf_rt_send_comment,
             ipc::overleaf_realtime::overleaf_reject_changes,
-            link_preview::link_preview,
-            literature_credentials::get_literature_credentials,
-            literature_credentials::set_literature_credential,
-            literature_credentials::set_literature_contact,
-            literature_credentials::test_literature_credential,
-            model_endpoint::get_model_endpoint,
-            model_endpoint::save_model_endpoint,
-            model_endpoint::remove_model_endpoint,
-            model_endpoint::test_model_endpoint,
-            diagnostic_logs::collect_diagnostic_logs,
-            diagnostic_logs::save_problem_report,
+            ipc::link_preview::link_preview,
+            ipc::literature_credentials::get_literature_credentials,
+            ipc::literature_credentials::set_literature_credential,
+            ipc::literature_credentials::set_literature_contact,
+            ipc::literature_credentials::test_literature_credential,
+            ipc::agent::get_model_endpoint,
+            ipc::agent::save_model_endpoint,
+            ipc::agent::remove_model_endpoint,
+            ipc::agent::test_model_endpoint,
+            ipc::diagnostics::collect_diagnostic_logs,
+            ipc::diagnostics::save_problem_report,
             browser_host::dialogs::browser_dialog_open,
             browser_host::dialogs::browser_dialog_save,
             macos_window::set_pdf_copy_text,
-            synara::synara_ensure_ready,
-            synara::synara_open_skills_folder,
-            synara::synara_open_log_folder,
-            synara::restart::synara_agent_environment,
-            synara::restart::synara_restart,
-            presentation::presentation_ensure_ready,
-            presentation::presentation_release,
-            presentation::presentation_refresh_native_workspace,
+            ipc::agent::synara_ensure_ready,
+            ipc::agent::synara_open_skills_folder,
+            ipc::agent::synara_open_log_folder,
+            ipc::agent::synara_agent_environment,
+            ipc::agent::synara_restart,
+            ipc::presentation::presentation_ensure_ready,
+            ipc::presentation::presentation_release,
+            ipc::presentation::presentation_refresh_native_workspace,
             ipc::terminal::terminal_open,
             ipc::terminal::terminal_write,
             ipc::terminal::terminal_resize,
@@ -694,6 +664,13 @@ mod tests {
         for label in ["project-", "browser-1", "overleaf-login", "presenter", "mainly"] {
             assert!(!is_workspace_window(label), "{label}");
         }
+    }
+
+    /// The core reports its own `CARGO_PKG_VERSION` as Lattice's (user agents,
+    /// the terminal, TexLab), so scripts/bump-version.mjs moves both.
+    #[test]
+    fn the_core_carries_the_app_version() {
+        assert_eq!(lattice_core::VERSION, env!("CARGO_PKG_VERSION"));
     }
 
     #[test]

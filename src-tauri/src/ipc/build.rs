@@ -409,7 +409,10 @@ pub async fn start_tex_install(
     mode: tex_setup::TexInstallMode,
     on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
 ) -> Result<Option<String>, String> {
-    run_blocking("TeX installer launch", move || tex_setup::install_tex(mode, &on_progress)).await
+    run_blocking("TeX installer launch", move || {
+        tex_setup::install_tex(mode, &super::channel_sink(on_progress))
+    })
+    .await
 }
 
 /// Stop the TeX install that is running. `false` when none is (only the
@@ -431,7 +434,10 @@ pub async fn check_tex_package_updates() -> Result<Option<tex_setup::TexPackageU
 pub async fn start_tex_package_update(
     on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
 ) -> Result<(), String> {
-    run_blocking("TeX package update", move || tex_setup::update_packages(&on_progress)).await
+    run_blocking("TeX package update", move || {
+        tex_setup::update_packages(&super::channel_sink(on_progress))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -440,7 +446,11 @@ pub async fn start_tex_dependency_install(
     on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
 ) -> Result<tex_setup::TexDependencyInstall, String> {
     run_blocking("TeX package installer launch", move || {
-        tex_setup::install_dependency(&missing_file, package.as_deref(), &on_progress)
+        tex_setup::install_dependency(
+            &missing_file,
+            package.as_deref(),
+            &super::channel_sink(on_progress),
+        )
     })
     .await
 }

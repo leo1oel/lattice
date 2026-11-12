@@ -1,6 +1,6 @@
 import { subscribeTauriEvent } from "../app/effect-helpers";
 
-/** What the Rust watcher (`src-tauri/src/fs_watch.rs`) broadcasts to every window after a burst of changes. */
+/** What the Rust watcher (`src-tauri/lattice-core/src/fs_watch.rs`) broadcasts to every window after a burst of changes. */
 type ProjectFilesChangedPayload = { root: string; paths?: string[] | null };
 
 /**

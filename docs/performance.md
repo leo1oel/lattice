@@ -297,7 +297,7 @@ Two items that used to sit in this list have **shipped** and are described under
 "Library replacements" in [`performance-history.md`](performance-history.md#library-replacements-second-round-august-2026) — do not re-plan them:
 
 - The `notify` filesystem watcher replacing the 2-second poll
-  (`src-tauri/src/fs_watch.rs`, the `watch_project` command, the
+  (`src-tauri/lattice-core/src/fs_watch.rs`, the `watch_project` command, the
   `project-fs-changed` event).
 - The incremental BM25 workspace index (`PageSearchIndex` in
   `src/project/workspace-search.ts`, updated on every corpus publication by

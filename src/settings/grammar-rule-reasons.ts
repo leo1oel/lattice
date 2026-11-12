@@ -3,7 +3,7 @@ import { msg } from "@lingui/core/macro";
 
 /**
  * Why the academic grammar profile turns each rule off, as Settings shows it
- * beside the rule. The list itself is `ACADEMIC_OFF` in src-tauri/src/harper.rs,
+ * beside the rule. The list itself is `ACADEMIC_OFF` in src-tauri/lattice-core/src/harper.rs,
  * whose tests keep the two in step: a reason per rule, and no other.
  */
 export const ACADEMIC_RULE_REASONS: Readonly<Record<string, MessageDescriptor>> = {

@@ -78,6 +78,7 @@ sources = [
   # shipped notices (tauri-security-config, window-layout, native-locale,
   # open-slide-skill, board-store, third-party-notices, ...).
   "src-tauri/src/**",
+  "src-tauri/lattice-core/src/**",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/**",
   "src-tauri/templates/**",
@@ -155,10 +156,11 @@ description = "Rust unit and integration tests"
 run = "cargo test --manifest-path src-tauri/Cargo.toml"
 sources = [
   "src-tauri/**/*.rs",
-  "src-tauri/src/**/*.c",
-  "src-tauri/src/**/*.sh",
+  "src-tauri/lattice-core/src/**/*.c",
+  "src-tauri/lattice-core/src/**/*.sh",
   "!src-tauri/target/**",
   "src-tauri/Cargo.toml",
+  "src-tauri/lattice-core/Cargo.toml",
   "src-tauri/Cargo.lock",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/**",
@@ -177,10 +179,11 @@ description = "Clippy with warnings denied"
 run = "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings"
 sources = [
   "src-tauri/**/*.rs",
-  "src-tauri/src/**/*.c",
-  "src-tauri/src/**/*.sh",
+  "src-tauri/lattice-core/src/**/*.c",
+  "src-tauri/lattice-core/src/**/*.sh",
   "!src-tauri/target/**",
   "src-tauri/Cargo.toml",
+  "src-tauri/lattice-core/Cargo.toml",
   "src-tauri/Cargo.lock",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/**",
@@ -265,7 +268,7 @@ sources = [
   "tools/open-slide-runtime/*.mjs",
   "tools/open-slide-runtime/package.json",
   "tools/open-slide-runtime/pnpm-lock.yaml",
-  "src-tauri/src/presentation.rs",
+  "src-tauri/lattice-core/src/presentation.rs",
   "scripts/prepare-presentation-runtime.mjs",
   "scripts/check-presentation-runtime.mjs",
   "src-tauri/templates/tutorial/**",

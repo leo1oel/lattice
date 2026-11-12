@@ -1,6 +1,6 @@
 /**
  * The project's activity history over the files in memory, as the backend
- * keeps it (src-tauri/src/project/history.rs): every save the editor makes is
+ * keeps it (src-tauri/lattice-core/src/project/history.rs): every save the editor makes is
  * an "Edit <path>" entry, saves of one file within 45 seconds of each other
  * fold into one, a citation the page adds is a "Cite <key>" entry, and an
  * entry can be put back file by file or deleted.

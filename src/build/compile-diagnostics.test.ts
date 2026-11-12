@@ -50,7 +50,7 @@ describe("compile diagnostics helpers", () => {
   });
 
   // The build names every project file by its exact path from the project
-  // root (src-tauri/src/latex/diagnostic_paths.rs). A project that keeps an
+  // root (src-tauri/lattice-core/src/latex/diagnostic_paths.rs). A project that keeps an
   // `arxiv/` or `old/` copy, or a supplement with its own `sections/`, has
   // several files sharing a name: the error belongs to the one it names.
   it("resolves a diagnostic to the exact project file, not another that shares its name", () => {

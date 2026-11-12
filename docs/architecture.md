@@ -68,14 +68,14 @@ which there are only **four** emitted from the project and editor layers:
 
 | Event | Emitted in | Meaning |
 | --- | --- | --- |
-| `project-fs-changed` | `src-tauri/src/fs_watch.rs` | something under the project root changed on disk |
+| `project-fs-changed` | `src-tauri/lattice-core/src/fs_watch.rs` | something under the project root changed on disk |
 | `paper-import-progress` | `src-tauri/src/ipc/papers.rs` | streaming progress while importing a paper |
 | `overleaf-realtime` | `src-tauri/src/ipc/overleaf_realtime.rs` | multiplexed Overleaf socket.io traffic (ops, presence, chat, comments, tracked changes) |
 | `texlab-diagnostics` | `src-tauri/src/ipc/build.rs` | TexLab diagnostics published for the open `.tex` file, including updates long after the last edit |
 
 `overleaf-realtime` is a single channel carrying **14** distinct
 `RealtimeEvent::*` payload variants — the whole enum is in
-`src-tauri/src/overleaf_rt/events.rs` (`Connected`, `ProjectJoined`,
+`src-tauri/lattice-core/src/overleaf_rt/events.rs` (`Connected`, `ProjectJoined`,
 `DocUpdate`, `OtError`, `DocAck`, `CommentAnchored`, `TreeChanged`,
 `PresenceUpdated`, `PresenceLeft`, `ChangesAccepted`, `TrackChangesToggled`,
 `ThreadsChanged`, `ChatMessage`, `Disconnected`), each stamped with the
@@ -176,9 +176,9 @@ Two properties of this boundary are worth internalising before you touch it:
 
 ### 1.3 Rust ↔ sidecar: spawn + loopback HTTP
 
-`src-tauri/src/synara.rs` supervises the sidecar. It is a pull-based supervisor;
+`src-tauri/lattice-core/src/synara.rs` supervises the sidecar. It is a pull-based supervisor;
 it emits **no** Tauri events, only three commands (`synara_ensure_ready`,
-`synara_open_skills_folder`, `synara_open_log_folder`).
+`synara_open_skills_folder`, `synara_open_log_folder`, in `src-tauri/src/ipc/agent.rs`).
 
 - Launch: `SynaraRuntime::spawn` runs the sidecar's Node — the standalone
   `synara-runtime/bin/node`, in development and release builds alike
@@ -216,11 +216,11 @@ source-control / review / agent-settings surface calls `synara_ensure_ready`.
 
 `lib.rs::run()` returns early when `agent_literature::run_cli()` handled the
 invocation (only the macOS process-inspector hook runs before it). `run_cli()`
-(`src-tauri/src/agent_literature.rs`) is a headless entry point that runs before
+(`src-tauri/lattice-core/src/agent_literature.rs`) is a headless entry point that runs before
 any Tauri or AppKit initialisation. Two more modes return early the same way:
 `research_env::run_cli()` (`env`) and `model_endpoint::run_cli()`
 (`agent-endpoint-key`, which Pi runs to read the model endpoint's key from the
-keychain; see the module doc of `src-tauri/src/model_endpoint.rs`). The rest of
+keychain; see the module doc of `src-tauri/lattice-core/src/model_endpoint.rs`). The rest of
 this section is the literature mode.
 
 It handles exactly one argv subcommand — `literature` — and takes its real
@@ -258,17 +258,29 @@ which tools reach the model, and under what names.
 
 ## 2. The Rust backend
 
-`src-tauri/src/` is about 130 Rust files and ~50k lines (tests included). `main.rs` is
-a 6-line shim; all the work starts in `lib.rs::run()`. Large areas follow the
-2018 module layout: a short `x.rs` that maps the area (module docs, the `mod`
-list, the few re-exports other code uses) beside an `x/` directory holding the
-parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
-`latex/`, `tex_setup/`, `browser_host/`, `synara/`, `commands/`, `git/`,
-`ipc/`.
+The backend is two crates in one Cargo workspace rooted at `src-tauri/`
+(one `Cargo.lock`, one `target/`; `cargo test`, `clippy` and `fmt` there cover
+both). `src-tauri/lattice-core/` (Apache-2.0) holds every domain module:
+projects, builds, Overleaf, papers, the sidecar supervisors, and the project
+registry (`app_state`). `src-tauri/src/` is the Tauri shell: `lib.rs`, the
+command handlers in `ipc/`, the window chrome and the browser host. A shell
+hands the core what only it has through `lattice_core::host` — an `EventSink`
+for broadcasts, a `Sink<T>` for streamed output, and the `Resources` paths of
+its bundle and app folders — and shares its tokio runtime through
+`lattice_core::runtime::install`. The shell imports each core module under its
+own name (`use lattice_core::{project, latex, …}` in `lib.rs`), so its code
+still says `crate::project`.
+
+`main.rs` is a 6-line shim; all the work starts in `lib.rs::run()`. Large areas
+follow the 2018 module layout: a short `x.rs` that maps the area (module docs,
+the `mod` list, the few re-exports other code uses) beside an `x/` directory
+holding the parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`,
+`citation_audit/`, `latex/`, `tex_setup/`, `synara/`, `commands/`, `git/` in the
+core; `browser_host/` and `ipc/` in the shell.
 
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
-`lib.rs` (~700 lines) declares the modules, sets up plugins, the window
+`lib.rs` (~700 lines) declares the shell's modules, sets up plugins, the window
 lifecycle and the child runtimes, and registers **259** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
@@ -276,19 +288,20 @@ registered, and every registered command has a caller in `src/`.
 
 The command handlers live in `src-tauri/src/ipc/`, one module per area of the
 app (`workspace`, `files`, `history`, `search`, `build`, `git`, `bibliography`,
-`papers`, `overleaf`, `overleaf_realtime`, `overleaf_comments`, `windows`). A handler is a thin
+`papers`, `overleaf`, `overleaf_realtime`, `overleaf_comments`, `windows`,
+`agent`, `presentation`, `literature_credentials`, `link_preview`,
+`diagnostics`). A handler is a thin
 shell: resolve the calling window's project (`ipc::current_root`, or
 `pinned_root` / `scoped_root` when the request names the project it was made
 for), take the project lease the operation needs (`AppState::lease`), and run
 the domain call on the blocking pool (`ipc::run_blocking` / `in_project`).
-Behaviour belongs in the domain modules. A few self-contained services keep
-their commands beside their state: `synara.rs`, `presentation.rs`,
-`browser_host/dialogs.rs`, `literature_credentials.rs`, `link_preview.rs`,
-`diagnostic_logs.rs`, `macos_window.rs`, `pdf_window.rs`.
+Behaviour belongs in the domain modules. A few shell services keep their
+commands beside their state: `browser_host/dialogs.rs`, `macos_window.rs`,
+`pdf_window.rs`.
 
 Which project each window shows, and the per-project resources that must not be
 shared between windows (the active build, the TexLab pool, the Overleaf
-channel, the file watcher), live in `app_state.rs`.
+channel, the file watcher), live in `lattice-core/src/app_state.rs`.
 
 Practical consequence: to find what a button does, grep the command name in
 `src-tauri/src/ipc/` (or the service module), then follow the one call it makes.
@@ -307,7 +320,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `papers` | 12 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
 | `git` | 12 | `git_status`, `git_user_name`, `clone_repository`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
-| service modules | 15 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
+| `agent` + `presentation` + `literature_credentials` + `link_preview` + `diagnostics` | 19 | `synara_ensure_ready`, `save_model_endpoint`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
 
 Overleaf alone is a quarter of the IPC surface — still the single most
 surprising fact about this backend.
@@ -383,7 +396,7 @@ do, so the preview never shows that PDF as this copy's build.
 ## 3. On-disk data model
 
 A Lattice project is an ordinary folder. Everything Lattice adds lives under
-`.research/`. `prepare_project_skeleton` (`src-tauri/src/project/create.rs`)
+`.research/`. `prepare_project_skeleton` (`src-tauri/lattice-core/src/project/create.rs`)
 creates it.
 
 | Path | Owner | Contents |
