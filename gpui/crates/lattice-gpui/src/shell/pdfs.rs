@@ -126,15 +126,8 @@ impl Shell {
             })
             .unwrap_or(false);
         let pdf = root.join(&document).with_extension("pdf");
-        let title = format!(
-            "{} — {}",
-            pdf_tab_label(&document, &[]),
-            self.project_name(cx)
-        );
-        self.pdf.update(cx, |panel, cx| {
-            panel.set_window_title(title.into());
-            panel.open(pdf, window, cx);
-        });
+        self.label_pdfs(cx);
+        self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
         self.refresh_outline(window, cx);
         let live = PanelId::from(self.pdf.entity_id());
         match left {
@@ -153,9 +146,8 @@ impl Shell {
         cx.notify();
     }
 
-    /// Read the live document's outline again, with each heading's page in
-    /// its PDF, and offer it in the live PDF's Outline while the document in
-    /// front is a LaTeX source.
+    /// Read the live document's outline again, and offer it in the live
+    /// PDF's Outline while the document in front is a LaTeX source.
     pub(super) fn refresh_outline(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(root), Some(document)) = (self.root(cx), self.live_document.clone()) else {
             self.outline = std::rc::Rc::from([]);
@@ -166,11 +158,8 @@ impl Shell {
             let editor = editor.read(cx);
             (editor.relative().to_string(), editor.cursor().0)
         });
-        let reading = cx.background_spawn(async move {
-            let mut headings = crate::outline::read_outline(&root, &document);
-            crate::outline::heading_pages(&root, &mut headings);
-            headings
-        });
+        let reading =
+            cx.background_spawn(async move { crate::outline::read_outline(&root, &document) });
         self._outline_task = Some(cx.spawn_in(window, async move |this, cx| {
             let headings: std::rc::Rc<[crate::outline::Heading]> = reading.await.into();
             this.update(cx, |this, cx| {
@@ -192,10 +181,54 @@ impl Shell {
         }));
     }
 
-    /// The live document's outline, each heading with its page in the PDF
-    /// when the last build's SyncTeX map recorded it.
+    /// The live document's outline.
     pub fn outline(&self) -> &[crate::outline::Heading] {
         &self.outline
+    }
+
+    /// Name each root document's tab, and the live PDF's window, among the
+    /// root documents open now (the live one and those with tabs): a name
+    /// another of them shares gains its folder.
+    pub(super) fn label_pdfs(&mut self, cx: &mut Context<Self>) {
+        let documents: Vec<String> = self
+            .live_document
+            .iter()
+            .cloned()
+            .chain(self.root_pdfs.iter().map(|(document, _)| document.clone()))
+            .collect();
+        for (document, panel) in &self.root_pdfs {
+            let label = pdf_tab_label(document, &documents);
+            panel.update(cx, |panel, cx| panel.set_label(label.into(), cx));
+        }
+        let live = self.live_document.as_deref().unwrap_or("main.tex");
+        let title = format!(
+            "{} — {}",
+            pdf_tab_label(live, &documents),
+            self.project_name(cx)
+        );
+        self.pdf
+            .update(cx, |panel, _| panel.set_window_title(title.into()));
+    }
+
+    /// A root document's tab or a PDF file the reader closed is let go of:
+    /// it opens anew when asked for again, and its viewer lets go of its
+    /// document.
+    pub(super) fn forget_closed_pdfs(&mut self, cx: &mut Context<Self>) {
+        let area = self.dock_area.read(cx);
+        let held = |panel: &Entity<PdfPanel>| {
+            let id = PanelId::from(panel.entity_id());
+            PLACEMENTS.into_iter().any(|placement| {
+                area.layout(placement)
+                    .and_then(|tree| tree.find_panel_node(id))
+                    .is_some()
+            })
+        };
+        let roots = self.root_pdfs.len();
+        self.root_pdfs.retain(|(_, panel)| held(panel));
+        self.file_pdfs.retain(held);
+        if self.root_pdfs.len() != roots {
+            self.label_pdfs(cx);
+        }
     }
 
     /// A tab for `document`'s last PDF, where the live tab stands.
@@ -292,8 +325,6 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.file_pdfs
-            .retain(|panel| matches!(panel.read(cx).kind(), PdfPanelKind::File(_)));
         let existing = self
             .file_pdfs
             .iter()

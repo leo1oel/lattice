@@ -1,14 +1,10 @@
 //! The manuscript's outline: its headings, read from the root document
 //! through each `\input` and `\include` as TeX reads them, in reading order
-//! (`src/editor/latex/latex-outline.ts`), and the PDF page each heading
-//! landed on (lattice-core's `heading_pages`, one read of the SyncTeX map).
+//! (`src/editor/latex/latex-outline.ts`).
 //!
-//! The PDF toolbar's Outline lists it; the source editor's outline rail
-//! shows each heading's page beside it.
+//! The PDF toolbar's Outline lists it.
 
 use std::path::Path;
-
-use lattice_core::latex::{self, SourceLine};
 
 /// One heading, flattened from the outline's tree in reading order.
 #[derive(Clone, Debug, PartialEq)]
@@ -26,8 +22,6 @@ pub struct Heading {
     pub starred: bool,
     /// After `\appendix` (or in an `appendices` environment).
     pub appendix: bool,
-    /// The PDF page it is typeset on, once a build's SyncTeX map says.
-    pub page: Option<u32>,
 }
 
 const SECTIONS: [(&str, u8); 5] = [
@@ -77,8 +71,8 @@ pub fn visible_source(source: &str) -> String {
                 .map(|at| start + at + end.len())
                 .unwrap_or(visible.len());
             let blank: String = visible[start..stop]
-                .chars()
-                .map(|ch| if ch == '\n' { '\n' } else { ' ' })
+                .bytes()
+                .map(|byte| if byte == b'\n' { '\n' } else { ' ' })
                 .collect();
             visible.replace_range(start..stop, &blank);
             from = start + blank.len();
@@ -220,12 +214,15 @@ pub fn heading_title(text: &str) -> String {
             continue;
         }
         if let Some(command) = rest.strip_prefix('\\') {
-            let name_len = command
-                .chars()
-                .take_while(|ch| ch.is_ascii_alphabetic())
-                .count()
-                .max(usize::from(!command.is_empty()));
-            let name = &command[..name_len.min(command.len())];
+            let letters = command
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphabetic())
+                .count();
+            let name_len = match letters {
+                0 => command.chars().next().map_or(0, char::len_utf8),
+                letters => letters,
+            };
+            let name = &command[..name_len];
             let after = ix + 1 + name.len();
             if WRAPPERS.contains(&name) {
                 let start = skip_space(text, after);
@@ -430,7 +427,6 @@ fn walk(
                     depth: levels.iter().filter(|open| **open != 0).count(),
                     starred,
                     appendix: *appendix,
-                    page: None,
                 });
                 levels.push(level);
             }
@@ -457,22 +453,6 @@ fn walk(
     visiting.pop();
 }
 
-/// Each heading's page in the compiled PDF, by its SyncTeX map: `None` for
-/// one it did not record, or every one when the PDF has no map.
-pub fn heading_pages(root: &Path, headings: &mut [Heading]) {
-    let lines: Vec<SourceLine> = headings
-        .iter()
-        .map(|heading| SourceLine {
-            path: heading.path.clone(),
-            line: heading.line,
-        })
-        .collect();
-    let pages = latex::heading_pages(root, &lines).unwrap_or_default();
-    for (heading, page) in headings.iter_mut().zip(pages) {
-        heading.page = page;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -485,6 +465,23 @@ mod tests {
         );
         assert_eq!(heading_title(r"Costs \& $O(n^2)$"), "Costs & $O(n^2)$");
         assert_eq!(heading_title(r"\protect\textbf{Bold} title"), "Bold title");
+        assert_eq!(heading_title(r"结果\（附录）"), r"结果\（附录）");
+    }
+
+    #[test]
+    fn wide_characters_in_a_listing_keep_the_lines_after_it() {
+        let root =
+            std::env::temp_dir().join(format!("lattice-outline-wide-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let source = "\\begin{lstlisting}# 中文注释中文注释中文注释\\end{lstlisting}\n结论。\\section{X}\n\n\\section{Y}\n";
+        std::fs::write(root.join("main.tex"), source).unwrap();
+        assert_eq!(visible_source(source).len(), source.len());
+        let lines: Vec<_> = read_outline(&root, "main.tex")
+            .iter()
+            .map(|heading| (heading.title.clone(), heading.line))
+            .collect();
+        assert_eq!(lines, [("X".to_string(), 2), ("Y".to_string(), 4)]);
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

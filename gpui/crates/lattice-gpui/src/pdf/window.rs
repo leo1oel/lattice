@@ -6,7 +6,7 @@
 //! keeps the build, SyncTeX and the documents, and everything the reader
 //! asks there (a jump to the source, Reveal cursor in PDF, Build, Return to
 //! workspace) goes back to it. It opens where it was last left for the
-//! PDF's folder, at the place the panel showed, 760 by 880 the first time;
+//! project, at the place the panel showed, 760 by 880 the first time;
 //! closing it is the same as Return to workspace.
 
 use std::path::{Path, PathBuf};
@@ -20,7 +20,7 @@ use lattice_ui::{ActiveLattice as _, Icon};
 
 use super::{
     panel::PdfPanel,
-    preferences::{self, ProjectWindow, WindowFrame},
+    preferences::{self, WindowFrame},
     view::{PdfView, PdfViewEvent, ToolbarAction, ViewPlace},
 };
 
@@ -33,20 +33,24 @@ pub struct PdfWindow {
 }
 
 impl PdfWindow {
-    /// Open the window for `owner`'s live PDF, showing `source` at `place`.
+    /// Open the window for `owner`'s live PDF in `project`, showing `source`
+    /// at `place`; `focus` brings it forward, else it opens behind the
+    /// workspace.
+    #[allow(clippy::too_many_arguments)]
     pub fn open(
         owner: WeakEntity<PdfPanel>,
+        project: Option<PathBuf>,
         title: SharedString,
         source: Option<PathBuf>,
         place: ViewPlace,
         building: bool,
         outline: Option<super::OutlineState>,
+        focus: bool,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<PdfView>)> {
-        let key = frame_key(source.as_deref());
-        let remembered = key
-            .as_ref()
-            .and_then(|key| preferences::get().windows.get(key).and_then(|w| w.frame));
+        let remembered = project
+            .as_deref()
+            .and_then(|root| preferences::get().window(root).frame);
         let bounds = match remembered {
             Some(frame) => Bounds {
                 origin: point(px(frame.x), px(frame.y)),
@@ -64,6 +68,7 @@ impl PdfWindow {
                 title: Some(title),
                 ..Default::default()
             }),
+            focus,
             ..Default::default()
         };
         let (handle, window_view) = gpui_kit::open_window(options, cx, |window, cx| {
@@ -88,15 +93,14 @@ impl PdfWindow {
                 });
                 let subscription = cx.subscribe_in(&view, window, {
                     let owner = owner.clone();
-                    move |_, _, event: &PdfViewEvent, window, cx| {
+                    move |_, _, event: &PdfViewEvent, _, cx| {
                         let owner = owner.clone();
                         match event {
-                            // Return to workspace: the window goes and the
-                            // panel takes the PDF back.
-                            PdfViewEvent::Action => {
-                                window.remove_window();
-                                notify_closed(&owner, cx);
-                            }
+                            // Return to workspace: the panel takes the PDF
+                            // back and closes the window.
+                            PdfViewEvent::Action => with_owner(&owner, cx, |panel, window, cx| {
+                                panel.dock(true, window, cx)
+                            }),
                             other => forward(&owner, other, cx),
                         }
                     }
@@ -110,26 +114,33 @@ impl PdfWindow {
         let view = window_view.read(cx).view.clone();
         handle.update(cx, |_, window, cx| {
             let owner = owner.clone();
-            let key = key.clone();
             window.on_window_should_close(cx, move |window, cx| {
-                remember_frame(key.as_ref(), window);
-                notify_closed(&owner, cx);
+                remember_frame(project.as_deref(), window);
+                with_owner(&owner, cx, |panel, window, cx| {
+                    panel.dock(false, window, cx)
+                });
                 true
             });
-            window.activate_window();
+            if focus {
+                window.activate_window();
+            }
         })?;
         Ok((handle, view))
     }
 }
 
-/// The PDF's folder names its window's frame: the project, for a compiled
-/// PDF beside its document.
-fn frame_key(source: Option<&Path>) -> Option<PathBuf> {
-    source.and_then(Path::parent).map(Path::to_path_buf)
+/// Close the window, remembering where it was left for `project`.
+pub(super) fn close(handle: AnyWindowHandle, project: Option<&Path>, cx: &mut App) {
+    handle
+        .update(cx, |_, window, _| {
+            remember_frame(project, window);
+            window.remove_window();
+        })
+        .ok();
 }
 
-fn remember_frame(key: Option<&PathBuf>, window: &Window) {
-    let Some(key) = key.cloned() else {
+fn remember_frame(project: Option<&Path>, window: &Window) {
+    let Some(root) = project else {
         return;
     };
     let bounds = window.window_bounds().get_bounds();
@@ -139,24 +150,23 @@ fn remember_frame(key: Option<&PathBuf>, window: &Window) {
         width: f32::from(bounds.size.width),
         height: f32::from(bounds.size.height),
     };
-    preferences::update(|preferences| {
-        preferences
-            .windows
-            .entry(key)
-            .or_insert_with(ProjectWindow::default)
-            .frame = Some(frame);
-    });
+    preferences::update(|preferences| preferences.window_mut(root).frame = Some(frame));
 }
 
-/// The window went: the panel takes the PDF back, in its own window.
-fn notify_closed(owner: &WeakEntity<PdfPanel>, cx: &mut App) {
+/// Ask the panel something in its own window, once the window's event is
+/// over.
+fn with_owner(
+    owner: &WeakEntity<PdfPanel>,
+    cx: &mut App,
+    ask: impl FnOnce(&mut PdfPanel, &mut Window, &mut Context<PdfPanel>) + 'static,
+) {
     let Some(owner) = owner.upgrade() else {
         return;
     };
     cx.defer(move |cx| {
         let home = owner.read(cx).home();
         home.update(cx, |_, window, cx| {
-            owner.update(cx, |panel, cx| panel.window_closed(window, cx));
+            owner.update(cx, |panel, cx| ask(panel, window, cx));
         })
         .ok();
     });

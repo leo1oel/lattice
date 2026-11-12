@@ -122,7 +122,7 @@ impl Run {
             json!({ "built": built, "pages": shown, "main_tab": tabs, "live": live }),
         );
 
-        self.outline_and_heading_pages(cx, steps).await?;
+        self.outline(cx, steps).await?;
         self.navigation_and_zoom(cx, steps).await?;
         self.find_in_pdf(cx, steps).await?;
         self.page_draft(cx, steps).await?;
@@ -157,10 +157,9 @@ impl Run {
         Ok(())
     }
 
-    /// The live document's outline, each heading with its PDF page (for the
-    /// outline rail), and an Outline row that opens its line and marks its
-    /// place in the PDF.
-    async fn outline_and_heading_pages(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+    /// The live document's outline, and an Outline row that opens its line
+    /// and marks its place in the PDF.
+    async fn outline(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
         let read = self
             .wait_for(cx, Duration::from_secs(15), |shell, cx| {
                 let shell = shell.read(cx);
@@ -168,7 +167,7 @@ impl Run {
                     && shell
                         .outline()
                         .iter()
-                        .any(|heading| heading.title == "Target" && heading.page == Some(9))
+                        .any(|heading| heading.title == "Target")
                     && shell.pdf().read(cx).live_view().read(cx).has_outline()
             })
             .await;
@@ -199,9 +198,9 @@ impl Run {
                 .await;
         }
         steps.check(
-            "PDF: the Outline lists the headings with their pages, and a row opens its line and marks it in the PDF",
+            "PDF: the Outline lists the headings, and a row opens its line and marks it in the PDF",
             read && marked,
-            json!({ "target": target.map(|heading| (heading.line, heading.page)), "marked": marked }),
+            json!({ "target": target.map(|heading| heading.line), "marked": marked }),
         );
         Ok(())
     }
@@ -537,6 +536,10 @@ impl Run {
 
     async fn separate_window(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
         let windows = cx.update(|cx| cx.windows().len());
+        let root = cx
+            .update(|cx| self.shell.read(cx).root(cx))
+            .context("no project is open")?;
+        let remembered_open = || crate::pdf::preferences::get().window(&root).open;
         self.with_window(cx, |shell, window, cx| {
             let pdf = shell.read(cx).pdf().clone();
             pdf.update(cx, |pdf, cx| pdf.detach(window, cx));
@@ -552,6 +555,7 @@ impl Run {
                 view.page_count() == 12 && view.current_page() == 11
             })
             .await;
+        let remembered = remembered_open();
         self.with_window(cx, |shell, window, cx| {
             let pdf = shell.read(cx).pdf().clone();
             pdf.update(cx, |pdf, cx| pdf.dock(true, window, cx));
@@ -567,10 +571,16 @@ impl Run {
                 view.page_count() == 12 && view.current_page() == 11
             })
             .await;
+        let forgotten = !remembered_open();
         steps.check(
             "PDF: Open in separate window shows the PDF in a window of its own at the same page, and Return to workspace brings it back",
             opened && shown && docked && back,
             json!({ "opened": opened, "shown": shown, "docked": docked, "back": back }),
+        );
+        steps.check(
+            "PDF: the project remembers its PDF in its own window, and Return to workspace clears that",
+            remembered && forgotten,
+            json!({ "remembered": remembered, "forgotten": forgotten }),
         );
         Ok(())
     }

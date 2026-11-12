@@ -6,7 +6,11 @@
 //! window are the build pipeline's. It can move into a window of its own
 //! (`window.rs`); the panel then shows the way back, and everything the
 //! shell asks of the live PDF (a new build, a jump into it) goes to the
-//! window. A root document's tab shows the copy this machine last built of
+//! window. Whether the project's PDF is in its window is remembered per
+//! project (`src/app/pdf-window-state.ts`): the window opens again, behind
+//! the workspace, when the project opens next. A window that goes with its
+//! project (another one opening, the app quitting) leaves that choice as it
+//! was. A root document's tab shows the copy this machine last built of
 //! it and jumps through that document's own SyncTeX map.
 
 use std::path::PathBuf;
@@ -27,8 +31,9 @@ use lattice_ui::{
 };
 
 use super::{
+    preferences,
     view::{PdfView, PdfViewEvent, ToolbarAction},
-    window::PdfWindow,
+    window::{self, PdfWindow},
 };
 
 /// Which PDF a panel shows.
@@ -76,6 +81,12 @@ pub struct PdfPanel {
     kind: PdfPanelKind,
     /// The workspace window the panel is in.
     home: AnyWindowHandle,
+    /// The open project's folder, which the separate window is remembered
+    /// by.
+    project: Option<PathBuf>,
+    /// A root document's tab name, which tells it from the other open
+    /// documents' (`pdf_tab_label`).
+    label: SharedString,
     view: Entity<PdfView>,
     /// The live PDF's separate window and the viewer in it.
     window: Option<(AnyWindowHandle, Entity<PdfView>)>,
@@ -105,10 +116,21 @@ impl PdfPanel {
             }
         });
         let subscription = cx.subscribe_in(&view, window, Self::on_view_event);
+        let label = match &kind {
+            PdfPanelKind::Live => "PDF".into(),
+            PdfPanelKind::Root(document) => pdf_tab_label(document, &[]).into(),
+            PdfPanelKind::File(path) => path
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+                .unwrap_or_else(|| "PDF".into())
+                .into(),
+        };
         Self {
             focus_handle: cx.focus_handle(),
             kind,
             home: window.window_handle(),
+            project: None,
+            label,
             view,
             window: None,
             source: None,
@@ -179,6 +201,29 @@ impl PdfPanel {
         }
     }
 
+    /// Show `project`'s live PDF, `pdf` (`None`: it has none yet). The window
+    /// of the project before goes, its choice left as it was, and a window
+    /// this project left open opens again, behind the workspace.
+    pub fn show_project(
+        &mut self,
+        project: PathBuf,
+        pdf: Option<PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.project.as_ref() != Some(&project) {
+            self.take_back(true, window, cx);
+            self.project = Some(project.clone());
+        }
+        match pdf {
+            Some(pdf) => self.open(pdf, window, cx),
+            None => self.close(window, cx),
+        }
+        if preferences::get().window(&project).open {
+            self.open_window(false, window, cx);
+        }
+    }
+
     /// Show `path`, or show it again after a build, wherever the live PDF is.
     pub fn open(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         self.source = Some(path.clone());
@@ -243,6 +288,14 @@ impl PdfPanel {
         self.title = title;
     }
 
+    /// A root document's tab name, among the documents open now.
+    pub fn set_label(&mut self, label: SharedString, cx: &mut Context<Self>) {
+        if self.label != label {
+            self.label = label;
+            cx.notify();
+        }
+    }
+
     /// Mark `target` (a forward SyncTeX answer) in the live PDF, and bring
     /// its window forward when it has one.
     pub fn show_sync_target(&mut self, target: &PdfSyncTarget, cx: &mut Context<Self>) {
@@ -258,19 +311,43 @@ impl PdfPanel {
     /// Move the live PDF into a window of its own: the window opens where it
     /// was last left for this project, at the place the panel showed.
     pub fn detach(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_window(true, window, cx);
+    }
+
+    /// Open the separate window, in front (`focus`) or behind the workspace,
+    /// and remember that the project's PDF is in it.
+    fn open_window(&mut self, focus: bool, window: &mut Window, cx: &mut Context<Self>) {
         if self.kind != PdfPanelKind::Live || self.window.is_some() {
             return;
         }
         let place = self.view.read(cx).view_place();
         let source = self.source.clone();
         let owner = cx.entity().downgrade();
+        let project = self.project.clone();
         let title = self.title.clone();
         let outline = self.outline.clone();
-        match PdfWindow::open(owner, title, source, place, self.building, outline, cx) {
+        let opened = PdfWindow::open(
+            owner,
+            project.clone(),
+            title,
+            source,
+            place,
+            self.building,
+            outline,
+            focus,
+            cx,
+        );
+        match opened {
             Ok((handle, view)) => {
                 // The panel's own viewer lets go of its pages.
                 self.view.update(cx, |view, cx| view.close(window, cx));
                 self.window = Some((handle, view));
+                if let Some(root) = project {
+                    preferences::update(|preferences| preferences.window_mut(&root).open = true);
+                }
+                if !focus {
+                    window.activate_window();
+                }
                 cx.emit(PdfEvent::Detached);
                 cx.notify();
             }
@@ -285,17 +362,32 @@ impl PdfPanel {
         }
     }
 
-    /// Bring the live PDF back into its panel, at the place the window
-    /// showed; the window closes (unless it is closing already).
+    /// Return to workspace: the live PDF comes back into its panel and the
+    /// project remembers it there; the window closes (unless the reader is
+    /// closing it already).
     pub fn dock(&mut self, close_window: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.take_back(close_window, window, cx)
+            && let Some(root) = self.project.clone()
+        {
+            preferences::update(|preferences| preferences.window_mut(&root).open = false);
+        }
+    }
+
+    /// Bring the live PDF back into its panel, at the place the window
+    /// showed, closing the window when `close_window`; whether there was a
+    /// window to take it from.
+    fn take_back(
+        &mut self,
+        close_window: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let Some((handle, view)) = self.window.take() else {
-            return;
+            return false;
         };
         let place = view.read(cx).view_place();
         if close_window {
-            handle
-                .update(cx, |_, window, _| window.remove_window())
-                .ok();
+            window::close(handle, self.project.as_deref(), cx);
         }
         if let Some(source) = self.source.clone() {
             self.view.update(cx, |view, cx| {
@@ -305,11 +397,7 @@ impl PdfPanel {
         }
         cx.emit(PdfEvent::Docked);
         cx.notify();
-    }
-
-    /// The window the live PDF is in was closed by the reader.
-    pub(super) fn window_closed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.dock(false, window, cx);
+        true
     }
 
     // ---- What scenarios read ------------------------------------------------
@@ -339,21 +427,6 @@ impl PdfPanel {
         self.live_view()
             .clone()
             .update(cx, |view, cx| view.go_to_page(page, cx));
-    }
-}
-
-impl PdfPanel {
-    /// The tab's name: "PDF" for the live one, the PDF's file name for the
-    /// others.
-    fn name(&self) -> String {
-        match &self.kind {
-            PdfPanelKind::Live => "PDF".to_string(),
-            PdfPanelKind::Root(document) => pdf_tab_label(document, &[]),
-            PdfPanelKind::File(path) => path
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())
-                .unwrap_or_else(|| "PDF".into()),
-        }
     }
 }
 
@@ -396,11 +469,11 @@ impl BasePanel for PdfPanel {
 
 impl Panel for PdfPanel {
     fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some(self.name().into())
+        Some(self.label.clone())
     }
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        self.name()
+        self.label.clone()
     }
 
     fn dropdown_menu(

@@ -14,7 +14,7 @@ use gpui::{
     WindowOptions, actions, div, px, size,
 };
 use gpui_kit::component::{
-    dock::{DockArea, DockLayout, DockPlacement, PanelId, panel_handle},
+    dock::{DockArea, DockEvent, DockLayout, DockPlacement, PanelId, panel_handle},
     v_flex,
 };
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock};
@@ -113,7 +113,7 @@ pub struct Shell {
     root_pdfs: Vec<(String, Entity<PdfPanel>)>,
     /// The project's PDFs opened from the tree.
     file_pdfs: Vec<Entity<PdfPanel>>,
-    /// The live document's outline, with each heading's page in its PDF.
+    /// The live document's outline.
     outline: std::rc::Rc<[crate::outline::Heading]>,
     _outline_task: Option<Task<()>>,
     _open_task: Option<Task<()>>,
@@ -188,6 +188,12 @@ impl Shell {
         )
         .detach();
         cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
+        cx.subscribe(&dock_area, |this, _, event: &DockEvent, cx| {
+            if matches!(event, DockEvent::LayoutChanged) {
+                this.forget_closed_pdfs(cx);
+            }
+        })
+        .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
 
@@ -363,18 +369,9 @@ impl Shell {
         if let Some(main) = main {
             self.open_path(main, None, window, cx);
         }
-        let title = format!(
-            "{} — {}",
-            crate::pdf::pdf_tab_label(self.live_document.as_deref().unwrap_or("main.tex"), &[]),
-            self.project_name(cx)
-        );
-        self.pdf.update(cx, |panel, cx| {
-            panel.set_window_title(title.into());
-            match pdf {
-                Some(pdf) => panel.open(pdf, window, cx),
-                None => panel.close(window, cx),
-            }
-        });
+        self.label_pdfs(cx);
+        self.pdf
+            .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
         cx.notify();
     }
 

@@ -11,7 +11,7 @@ mod layout;
 mod outline_menu;
 mod overflow;
 mod panel;
-mod preferences;
+pub(crate) mod preferences;
 mod sheet;
 mod text;
 mod toolbar;

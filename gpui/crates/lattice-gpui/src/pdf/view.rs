@@ -146,6 +146,8 @@ pub struct PdfView {
     /// The scale page images are drawn at, which follows `scale` once a
     /// zoom or resize settles.
     render_scale: f32,
+    /// A zoom whose fit and scale are remembered once it rests.
+    zoom_unsaved: bool,
     pub(super) scroll: ScrollHandle,
     /// The scroll container's size and window position as of the last frame.
     pub(super) viewport: Bounds<Pixels>,
@@ -216,6 +218,7 @@ impl PdfView {
             scale: preference.scale,
             fit: preference.fit_mode,
             render_scale: preference.scale,
+            zoom_unsaved: false,
             scroll: ScrollHandle::new(),
             viewport: Bounds::default(),
             width: px(0.),
@@ -380,6 +383,9 @@ impl PdfView {
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self._open_task = None;
         self.reset(window);
+        if let (Ok(engine), Some(doc)) = (&self.engine, self.doc.take()) {
+            engine.close(doc);
+        }
         self.current_page = 0;
         self.pending_scroll = None;
         self.source = None;
@@ -594,16 +600,20 @@ impl PdfView {
             let next = layout::anchored_scroll(&before, &self.layout, scroll, anchor, viewport);
             self.set_scroll(next);
         }
-        self.remember_view();
+        self.zoom_unsaved = true;
         self.settle(ZOOM_SETTLE, cx);
         cx.notify();
     }
 
-    /// Draw the pages at the new scale once the zoom or resize rests.
+    /// Draw the pages at the new scale once the zoom or resize rests, and
+    /// remember a zoom's fit and scale then rather than at each of its steps.
     fn settle(&mut self, after: Duration, cx: &mut Context<Self>) {
         self.settle_task = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(after).await;
             this.update(cx, |this, cx| {
+                if std::mem::take(&mut this.zoom_unsaved) {
+                    this.remember_view();
+                }
                 if this.render_scale != this.scale {
                     this.render_scale = this.scale;
                     cx.notify();

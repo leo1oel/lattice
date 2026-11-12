@@ -60,6 +60,17 @@ fn default_scale() -> f32 {
     DEFAULT_SCALE
 }
 
+impl Preferences {
+    /// What is remembered of `root`'s separate window.
+    pub fn window(&self, root: &Path) -> ProjectWindow {
+        self.windows.get(root).cloned().unwrap_or_default()
+    }
+
+    pub fn window_mut(&mut self, root: &Path) -> &mut ProjectWindow {
+        self.windows.entry(root.to_path_buf()).or_default()
+    }
+}
+
 impl Default for Preferences {
     fn default() -> Self {
         Self {
@@ -80,18 +91,17 @@ fn store() -> &'static Mutex<Store> {
     static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
     STORE.get_or_init(|| {
         let file = state_dir().map(|dir| dir.join("pdf.json"));
-        let preferences = file
-            .as_deref()
-            .and_then(|file| std::fs::read(file).ok())
-            .and_then(|bytes| serde_json::from_slice::<Preferences>(&bytes).ok())
-            .map(|mut preferences| {
-                preferences.scale = clamp_scale(preferences.scale);
-                preferences
-            })
-            .unwrap_or_default();
+        let preferences = file.as_deref().and_then(read).unwrap_or_default();
         super::dark::set_enabled(preferences.dark_pages);
         Mutex::new(Store { file, preferences })
     })
+}
+
+fn read(file: &Path) -> Option<Preferences> {
+    let bytes = std::fs::read(file).ok()?;
+    let mut preferences = serde_json::from_slice::<Preferences>(&bytes).ok()?;
+    preferences.scale = clamp_scale(preferences.scale);
+    Some(preferences)
 }
 
 fn state_dir() -> Option<PathBuf> {
@@ -159,5 +169,43 @@ mod tests {
         assert_eq!(zoomed.fit_mode, None);
         assert_eq!(zoomed.scale, 1.5);
         assert!(zoomed.dark_pages);
+    }
+
+    #[test]
+    fn each_project_keeps_whether_its_pdf_window_is_open_and_where() {
+        let dir = std::env::temp_dir().join(format!("lattice-pdf-prefs-{}", std::process::id()));
+        let file = dir.join("pdf.json");
+        let (a, b) = (Path::new("/papers/a"), Path::new("/papers/b"));
+        let frame = WindowFrame {
+            x: 40.,
+            y: 60.,
+            width: 760.,
+            height: 880.,
+        };
+        let mut preferences = Preferences::default();
+        preferences.window_mut(a).open = true;
+        preferences.window_mut(a).frame = Some(frame);
+        write_json(&file, &preferences).unwrap();
+
+        let read_back = read(&file).unwrap();
+        assert!(read_back.window(a).open);
+        assert_eq!(read_back.window(a).frame, Some(frame));
+        assert_eq!(read_back.window(b), ProjectWindow::default());
+
+        // Docking clears the choice and keeps where the window was left.
+        let mut docked = read_back;
+        docked.window_mut(a).open = false;
+        write_json(&file, &docked).unwrap();
+        let read_back = read(&file).unwrap();
+        assert!(!read_back.window(a).open);
+        assert_eq!(read_back.window(a).frame, Some(frame));
+
+        // Each root is recorded under its path, as the Tauri app keys
+        // `lattice.pdf-window.v1:<root>`.
+        let json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(json["windows"]["/papers/a"]["open"], false);
+        assert_eq!(json["windows"]["/papers/a"]["frame"]["width"], 760.0);
+        std::fs::remove_dir_all(&dir).ok();
     }
 }
