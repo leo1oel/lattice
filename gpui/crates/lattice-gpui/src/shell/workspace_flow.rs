@@ -23,11 +23,12 @@ impl Shell {
     /// and the panels floating now.
     fn own_arrangement(&self, cx: &App) -> Arrangement {
         let mut own = self.current_arrangement(cx);
+        let active = self.active_document(cx);
         if let Some(previous) = &self.layout.focus {
-            own = layout::return_layout(previous, &own);
+            own = layout::return_layout(previous, &own, active.as_deref());
         }
         if let Some(preset) = &self.layout.preset {
-            own = layout::return_layout(&preset.previous, &own);
+            own = layout::return_layout(&preset.previous, &own, active.as_deref());
         }
         own
     }
@@ -310,11 +311,11 @@ impl Shell {
             self.set_focus_mode(false, window, cx);
         }
         let current = self.current_arrangement(cx);
+        let active = self.active_document(cx);
         let previous = match self.layout.preset.take() {
-            Some(active) => layout::return_layout(&active.previous, &current),
+            Some(on) => layout::return_layout(&on.previous, &current, active.as_deref()),
             None => current,
         };
-        let active = self.active_document(cx);
         let laid = preset.arrange(&previous, active.as_deref(), self.room(window));
         self.layout.preset = Some(ActivePreset { preset, previous });
         self.install(&laid, window, cx);
@@ -324,7 +325,11 @@ impl Shell {
         let Some(active) = self.layout.preset.take() else {
             return;
         };
-        let back = layout::return_layout(&active.previous, &self.current_arrangement(cx));
+        let back = layout::return_layout(
+            &active.previous,
+            &self.current_arrangement(cx),
+            self.active_document(cx).as_deref(),
+        );
         self.install(&back, window, cx);
     }
 
@@ -342,7 +347,11 @@ impl Shell {
             self.layout.focus = Some(current);
             self.install(&laid, window, cx);
         } else if let Some(previous) = self.layout.focus.take() {
-            let back = layout::return_layout(&previous, &self.current_arrangement(cx));
+            let back = layout::return_layout(
+                &previous,
+                &self.current_arrangement(cx),
+                self.active_document(cx).as_deref(),
+            );
             self.install(&back, window, cx);
         }
     }

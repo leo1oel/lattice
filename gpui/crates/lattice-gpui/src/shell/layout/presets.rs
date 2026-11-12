@@ -132,8 +132,12 @@ impl Preset {
 /// (`returnLayout` in trellis-layout.ts): documents closed meanwhile stay
 /// closed, panels floated meanwhile float, and documents opened meanwhile
 /// join the group holding the active document, else the first group holding
-/// a document.
-pub fn return_layout(previous: &Arrangement, current: &Arrangement) -> Arrangement {
+/// a document, in the order they are open; the active document is selected.
+pub fn return_layout(
+    previous: &Arrangement,
+    current: &Arrangement,
+    active: Option<&str>,
+) -> Arrangement {
     let open: Vec<String> = current.documents();
     let floated: Vec<&View> = current.floating.iter().map(|f| &f.view).collect();
     let mut out = previous.clone();
@@ -154,9 +158,7 @@ pub fn return_layout(previous: &Arrangement, current: &Arrangement) -> Arrangeme
     }
     out.floating.retain(|floating| keep(&floating.view));
     out.floating.extend(current.floating.iter().cloned());
-    for path in open {
-        out.add_view(View::File(path), View::is_document);
-    }
+    out.join_documents(open, active);
     out
 }
 
@@ -215,15 +217,60 @@ mod tests {
         own.center = Node::tabs([file("a.tex"), file("b.tex")]);
         let mut current = Preset::Writing.arrange(&own, None, room());
         current.center = Node::tabs([file("a.tex"), file("c.tex")]);
-        let back = return_layout(&own, &current);
+        let back = return_layout(&own, &current, Some("a.tex"));
         assert_eq!(
             back.center,
             Node::Tabs {
                 views: vec![file("a.tex"), file("c.tex")],
-                active: 1
+                active: 0
             }
         );
         assert_eq!(back.left, own.left);
+    }
+
+    #[test]
+    fn documents_opened_under_a_preset_return_in_order_behind_the_active_one() {
+        // returnLayout (trellis-layout.ts) appends the documents opened
+        // meanwhile to the active document's group and selects that document.
+        let mut own = Arrangement::default_for(room());
+        own.center = Node::tabs([file("a.tex")]);
+        let mut current = Preset::Writing.arrange(&own, Some("a.tex"), room());
+        current.center = Node::Tabs {
+            views: vec![file("a.tex"), file("c.tex"), file("d.tex")],
+            active: 0,
+        };
+        let back = return_layout(&own, &current, Some("a.tex"));
+        assert_eq!(
+            back.center,
+            Node::Tabs {
+                views: vec![file("a.tex"), file("c.tex"), file("d.tex")],
+                active: 0
+            }
+        );
+    }
+
+    #[test]
+    fn documents_opened_under_a_preset_join_the_active_documents_group() {
+        let mut own = Arrangement::default_for(room());
+        own.center = Node::Split {
+            axis: super::super::SplitAxis::Row,
+            children: vec![Node::tabs([file("a.tex")]), Node::tabs([file("b.tex")])],
+            sizes: vec![None, None],
+        };
+        let mut current = Preset::Writing.arrange(&own, Some("b.tex"), room());
+        current.center = Node::tabs([file("a.tex"), file("b.tex"), file("c.tex")]);
+        let back = return_layout(&own, &current, Some("b.tex"));
+        let Node::Split { children, .. } = &back.center else {
+            panic!("the center stays split");
+        };
+        assert_eq!(children[0], Node::tabs([file("a.tex")]));
+        assert_eq!(
+            children[1],
+            Node::Tabs {
+                views: vec![file("b.tex"), file("c.tex")],
+                active: 0
+            }
+        );
     }
 
     #[test]
@@ -247,7 +294,7 @@ mod tests {
                 .is_some_and(|dock| dock.node.views() == [&View::Pdf])
         );
 
-        let back = return_layout(&own, &writing);
+        let back = return_layout(&own, &writing, Some("main.tex"));
         assert_eq!(back.floating, vec![pdf]);
         assert!(back.right.is_none());
         assert_eq!(back.documents(), vec!["main.tex".to_string()]);

@@ -254,6 +254,16 @@ impl Node {
         }
     }
 
+    /// The views of the first group holding a view `matches`.
+    fn group_with(&mut self, matches: &impl Fn(&View) -> bool) -> Option<&mut Vec<View>> {
+        match self {
+            Node::Tabs { views, .. } => views.iter().any(matches).then_some(views),
+            Node::Split { children, .. } => children
+                .iter_mut()
+                .find_map(|child| child.group_with(matches)),
+        }
+    }
+
     fn first_group_mut(&mut self) -> Option<&mut Node> {
         match self {
             Node::Tabs { .. } => Some(self),
@@ -522,6 +532,43 @@ impl Arrangement {
                 *active = views.len() - 1;
             }
             _ => self.center = Node::tabs([view]),
+        }
+    }
+
+    /// `documents` not yet here, appended in order to the group holding
+    /// `active`, else the first group holding a document, else the center's
+    /// first group; then `active` selected.
+    pub fn join_documents(&mut self, documents: Vec<String>, active: Option<&str>) {
+        let active = active.map(|path| View::File(path.to_string()));
+        let joining: Vec<View> = documents
+            .into_iter()
+            .map(View::File)
+            .filter(|view| !self.contains(view))
+            .collect();
+        if !joining.is_empty() {
+            let active_grouped = active.as_ref().is_some_and(|active| {
+                self.contains(active) && !self.floating.iter().any(|f| f.view == *active)
+            });
+            let target = if active_grouped {
+                self.nodes_mut()
+                    .find_map(|node| node.group_with(&|view: &View| Some(view) == active.as_ref()))
+            } else {
+                self.nodes_mut()
+                    .find_map(|node| node.group_with(&View::is_document))
+            };
+            match target {
+                Some(views) => views.extend(joining),
+                None => {
+                    for view in joining {
+                        self.add_view(view, |_| false);
+                    }
+                }
+            }
+        }
+        if let Some(active) = &active {
+            for node in self.nodes_mut() {
+                node.select(active);
+            }
         }
     }
 
