@@ -9,12 +9,13 @@ import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
 import { isTitleQuery, paperPdfUrl } from "../papers/paper-source";
 import { addQueueRunning, cancelAddQueue, runAddQueue, type PaperAddOutcome, type PaperAddRequest } from "../papers/add-papers-queue";
-import { updatePaperNote } from "../papers/paper-notes";
 import type { ZoteroAnnotation } from "../papers/zotero";
-import { withZoteroAnnotations } from "../papers/zotero-annotations";
 import { refreshCitedEntry } from "../papers/refresh-cited-entry";
 import { subscribeTauriEvent } from "./effect-helpers";
 import { showError, showNotice, showWarning } from "./notify";
+
+/** The note writer for Zotero annotations, loaded when a batch brings some, so the app's first load carries none of it. */
+const zoteroNotes = () => import("../papers/zotero-annotations");
 
 type ImportResult = {
   arxivId: string;
@@ -331,12 +332,8 @@ export function useReferenceImport({
         const annotations = (await readAnnotations())[item.annotations.item] ?? [];
         const paper = annotations.length ? await paperFor() : undefined;
         if (!paper) return result;
-        let added = 0;
-        const path = await updatePaperNote(root, paper, (current) => {
-          const next = withZoteroAnnotations(current, paper, annotations, labels);
-          added = next.added;
-          return added ? next.content : null;
-        });
+        const { addZoteroAnnotations } = await zoteroNotes();
+        const { path, added } = await addZoteroAnnotations(root, paper, annotations, labels);
         const note = added === 0 ? t`Annotations already in ${path}`
           : added === 1 ? t`1 annotation in ${path}` : t`${added} annotations in ${path}`;
         return { ...result, note };

@@ -1,10 +1,6 @@
 /** Where a link clicked in the visual editor goes: an in-document anchor, a project file, or the web. */
-import { t } from "@lingui/core/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { hostErrorMessage } from "../../app-utils";
 import { baseArxivId } from "../../papers/arxiv-id";
-import { isZoteroAnnotationHref, openZoteroAnnotation } from "../../papers/zotero-annotations";
-import { notifyError } from "../../telemetry/app-notify";
 import { scrollToTarget } from "./engine/block-window";
 
 const toSlashes = (path: string) => path.replace(/\\/g, "/");
@@ -110,9 +106,7 @@ export function openMarkdownLink(
   if (path) onOpenProjectPath?.(path);
   else if (/^(?:https?:|mailto:)/i.test(href)) void openUrl(href).catch(() => undefined);
   // An annotation a paper's note brought in from Zotero (papers/zotero-annotations.ts).
-  else if (isZoteroAnnotationHref(href)) {
-    void openZoteroAnnotation(href).catch((reason: unknown) => {
-      notifyError(t`Papers`, t`Could not open Zotero`, { detail: hostErrorMessage(reason) });
-    });
+  else if (/^zotero:\/\/open-pdf\/library\/items\//i.test(href)) {
+    void import("../../papers/zotero-link").then(({ openZoteroAnnotation }) => openZoteroAnnotation(href));
   }
 }

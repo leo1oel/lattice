@@ -16,9 +16,8 @@ describe("a link in a note", () => {
   it("into Zotero's PDF reader goes to the backend, which opens only that kind", async () => {
     invoke.mockResolvedValue(undefined);
     openMarkdownLink("notes/Lee2024Sparse.md", ZOTERO);
-    expect(invoke).toHaveBeenCalledWith("open_zotero_link", { url: ZOTERO });
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith("open_zotero_link", { url: ZOTERO }));
     expect(openUrl).not.toHaveBeenCalled();
-    await Promise.resolve();
     expect(notifyError).not.toHaveBeenCalled();
   });
 
@@ -36,8 +35,9 @@ describe("a link in a note", () => {
     expect(onOpenProjectPath).toHaveBeenCalledWith(".research/papers/web-0123456789abcdef/original.pdf");
   });
 
-  it("of any other zotero:// kind opens nothing", () => {
+  it("of any other zotero:// kind opens nothing", async () => {
     openMarkdownLink("notes/Lee2024Sparse.md", "zotero://select/library/items/PDF00001");
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(invoke).not.toHaveBeenCalled();
     expect(openUrl).not.toHaveBeenCalled();
   });

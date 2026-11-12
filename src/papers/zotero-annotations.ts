@@ -5,16 +5,15 @@
  * links: the page in Lattice's own reader (a source link, paper-source.ts,
  * which opens the paper's PDF there with the passage marked) and the
  * annotation in Zotero (`zotero://open-pdf/…`, opened through the backend's
- * `open_zotero_link`).
+ * `open_zotero_link`, zotero-link.ts).
  *
  * Bringing them in again adds only the ones the note does not hold yet, found
  * by the annotation key in their Zotero link, so what the writer edited or
  * deleted in the note stays as they left it; nothing is written back to Zotero.
  */
-import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary } from "../app-types";
 import { escapeRegExp } from "../lib/escape-regexp";
-import { withPaperNoteEntry } from "./paper-notes";
+import { updatePaperNote, withPaperNoteEntry } from "./paper-notes";
 import { markdownLinkText, paperSourceHref, sourceLinkMarkdown, sourceQuoteAnchors, sourceQuoteMarkdown } from "./paper-source";
 import type { ZoteroAnnotation } from "./zotero";
 
@@ -30,12 +29,6 @@ export function zoteroAnnotationHref(annotation: Pick<ZoteroAnnotation, "attachm
   // eslint-disable-next-line lingui/no-unlocalized-strings -- Zotero's URL scheme
   return `zotero://open-pdf/library/items/${encodeURIComponent(annotation.attachment)}?${page}annotation=${encodeURIComponent(annotation.key)}`;
 }
-
-/** Whether `href` is a link `zoteroAnnotationHref` writes, the one kind the backend opens. */
-export const isZoteroAnnotationHref = (href: string) => /^zotero:\/\/open-pdf\/library\/items\//i.test(href);
-
-/** Open a note's link into Zotero; rejects with the host's reason when Zotero cannot be reached. */
-export const openZoteroAnnotation = (href: string) => invoke<void>("open_zotero_link", { url: href });
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " " };
 
@@ -126,4 +119,21 @@ export function withZoteroAnnotations(
   const first = !/\(zotero:\/\/open-pdf\//i.test(note);
   const entry = first ? `## ${markdownLinkText(labels.heading)}\n\n${entries}` : entries;
   return { content: withPaperNoteEntry(current, paper, entry), added: fresh.length };
+}
+
+/**
+ * Add `annotations` to `paper`'s note in the project at `projectRoot`, as
+ * `withZoteroAnnotations` gives it; a note that holds them all is left alone.
+ * Resolves the note's path and how many were added.
+ */
+export async function addZoteroAnnotations(
+  projectRoot: string, paper: NotedPaper, annotations: readonly ZoteroAnnotation[], labels: AnnotationLabels,
+): Promise<{ path: string; added: number }> {
+  let added = 0;
+  const path = await updatePaperNote(projectRoot, paper, (current) => {
+    const next = withZoteroAnnotations(current, paper, annotations, labels);
+    added = next.added;
+    return added ? next.content : null;
+  });
+  return { path, added };
 }

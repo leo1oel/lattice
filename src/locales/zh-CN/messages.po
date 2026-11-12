@@ -4798,7 +4798,7 @@ msgstr "Overleaf 地址无效，无法打开"
 msgid "Could not open the project on Overleaf: {message}"
 msgstr "无法打开 Overleaf 项目：{message}"
 
-#: src/editor/markdown/markdown-link-routing.ts
+#: src/papers/zotero-link.ts
 msgid "Could not open Zotero"
 msgstr "无法打开 Zotero"
 
@@ -11734,8 +11734,8 @@ msgstr "纸面色"
 #: src/app/command-palette.tsx
 #: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
-#: src/editor/markdown/markdown-link-routing.ts
 #: src/papers/zotero-browser.tsx
+#: src/papers/zotero-link.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
