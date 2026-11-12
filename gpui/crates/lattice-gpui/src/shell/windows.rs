@@ -62,7 +62,6 @@ impl Shell {
         let Some(root) = self.root.clone() else {
             return;
         };
-        self.dock_floating(window, cx);
         self.save_layout(cx);
         let saves = self.save_edited(cx);
         cx.spawn_in(window, async move |this, cx| {

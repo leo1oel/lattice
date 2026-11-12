@@ -215,7 +215,13 @@ impl Shell {
                 }
             }
         });
-        self.floating.set(&arrangement.floating, &panels, cx);
+        let room = self.room(window);
+        self.floating.set(
+            &arrangement.floating,
+            &panels,
+            gpui::size(px(room.area()), px(room.column())),
+            cx,
+        );
         drop(panels);
         self.layout.installing = false;
         self.refresh_dirty(cx);
@@ -503,7 +509,10 @@ fn place_view(arrangement: &mut Arrangement, view: View, home: &Arrangement) {
             } else {
                 View::Project
             };
-            if arrangement.contains(&other) {
+            let docked = std::iter::once(&arrangement.center)
+                .chain(arrangement.docks().into_iter().flat_map(|(_, dock)| dock.map(|d| &d.node)))
+                .any(|node| node.views().contains(&&other));
+            if docked {
                 arrangement.add_view(view, |v| *v == other);
             } else {
                 insert_in_dock(&mut arrangement.left, view, home.left.as_ref(), true);
@@ -672,6 +681,26 @@ mod tests {
         assert_eq!(
             groups,
             vec![vec![View::Project, View::Agent], vec![View::Papers]]
+        );
+    }
+
+    #[test]
+    fn the_agent_docks_on_the_left_while_project_floats() {
+        let home = home();
+        let mut arrangement = home.without(&View::Project).without(&View::Agent);
+        arrangement.floating.push(layout::FloatingView {
+            view: View::Project,
+            x: 600.,
+            y: 72.,
+            width: 420.,
+            height: 480.,
+        });
+        place_view(&mut arrangement, View::Agent, &home);
+        assert!(!arrangement.center.views().contains(&&View::Agent));
+        assert!(
+            arrangement
+                .left
+                .is_some_and(|dock| dock.node.views().contains(&&View::Agent))
         );
     }
 }

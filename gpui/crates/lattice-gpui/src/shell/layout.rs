@@ -337,13 +337,13 @@ impl Room {
 
     /// The docks' height: the window less the 40px titlebar and the chrome
     /// above and below the cards (less the groups' own half-gutters).
-    fn column(&self) -> f32 {
+    pub fn column(&self) -> f32 {
         (self.height - 40. - 3. - 9.).max(0.)
     }
 
     /// The dock area's width: the window less the chrome at its sides (less
     /// the groups' own half-gutters).
-    fn area(&self) -> f32 {
+    pub fn area(&self) -> f32 {
         (self.width - 18.).max(0.)
     }
 }

@@ -10,7 +10,7 @@ use std::{collections::HashMap, sync::Arc};
 use gpui::{
     AnyElement, AnyView, App, AppContext as _, Bounds, Context, Empty, InteractiveElement as _,
     IntoElement, ParentElement as _, Pixels, Point, Render, StatefulInteractiveElement as _,
-    StyleRefinement, Styled as _, Window, div, point, px, size,
+    Size, StyleRefinement, Styled as _, Window, div, point, px, size,
 };
 use gpui_kit::component::{
     dock::{BasePanelView, PanelHandle, PanelId},
@@ -70,12 +70,13 @@ impl FloatingLayer {
             .collect()
     }
 
-    /// Float exactly the panels `records` lists, at their bounds, with the
-    /// window's panels for their views.
+    /// Float exactly the panels `records` lists, at their bounds kept
+    /// within the workspace `area`, with the window's panels for their views.
     pub fn set(
         &mut self,
         records: &[FloatingView],
         panels: &HashMap<View, Arc<dyn BasePanelView>>,
+        area: Size<Pixels>,
         cx: &App,
     ) {
         self.panels = records
@@ -86,10 +87,13 @@ impl FloatingLayer {
                     id: panel.panel_id(cx),
                     panel,
                     view: record.view.clone(),
-                    bounds: Bounds {
-                        origin: point(px(record.x), px(record.y)),
-                        size: size(px(record.width), px(record.height)),
-                    },
+                    bounds: within(
+                        Bounds {
+                            origin: point(px(record.x), px(record.y)),
+                            size: size(px(record.width), px(record.height)),
+                        },
+                        area,
+                    ),
                 })
             })
             .collect();
@@ -115,6 +119,20 @@ impl FloatingLayer {
             .iter()
             .map(|floating| floating.render(cx))
             .collect()
+    }
+}
+
+/// `bounds` moved and shrunk as far as it takes to lie within `area`, so a
+/// panel saved in a larger window can still be reached by its strip.
+fn within(bounds: Bounds<Pixels>, area: Size<Pixels>) -> Bounds<Pixels> {
+    let width = bounds.size.width.min(area.width);
+    let height = bounds.size.height.min(area.height);
+    Bounds {
+        origin: point(
+            bounds.origin.x.min(area.width - width).max(px(0.)),
+            bounds.origin.y.min(area.height - height).max(px(0.)),
+        ),
+        size: size(width, height),
     }
 }
 
@@ -364,14 +382,6 @@ impl Shell {
         self.install(&arrangement, window, cx);
     }
 
-    /// Every floating panel docked where its kind belongs, so the project's
-    /// layout holds them before another project takes the window.
-    pub(super) fn dock_floating(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        for floating in std::mem::take(&mut self.floating.panels) {
-            self.show_view(floating.view, window, cx);
-        }
-    }
-
     /// Follow the pointer, held where it grabbed the strip, kept on screen.
     fn move_floating(&mut self, panel: PanelId, pointer: Point<Pixels>, grab: Point<Pixels>) {
         let origin = self.workspace_origin();
@@ -397,5 +407,23 @@ impl Shell {
     /// titlebar.
     fn workspace_origin(&self) -> Point<Pixels> {
         point(px(0.), STRIP_HEIGHT)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panel_saved_beyond_a_smaller_window_comes_back_inside_it() {
+        let saved = Bounds {
+            origin: point(px(1000.), px(72.)),
+            size: size(px(420.), px(480.)),
+        };
+        let area = size(px(782.), px(428.));
+        let shown = within(saved, area);
+        assert_eq!(shown.size, size(px(420.), px(428.)));
+        assert_eq!(shown.origin, point(px(362.), px(0.)));
+        assert_eq!(within(shown, area), shown);
     }
 }

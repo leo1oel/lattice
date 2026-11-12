@@ -266,7 +266,6 @@ impl Shell {
     /// when one was already built.
     pub fn open_project(&mut self, root: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         let root = root.canonicalize().unwrap_or(root);
-        self.dock_floating(window, cx);
         self.save_layout(cx);
         self.save_in_background(cx);
         if !self.projects.contains(&root) {
