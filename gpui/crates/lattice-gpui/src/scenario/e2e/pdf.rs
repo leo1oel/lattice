@@ -1,10 +1,13 @@
 //! The e2e checks of the PDF viewer, on a second root document the scenario
-//! writes into the project: twelve pages with a section link, a web link and
-//! a word to find on four of them.
+//! writes into the project: twelve pages with a section link, a web link,
+//! links to a file and to an app's own scheme, and a word to find on four of
+//! them.
 //!
 //! Building it makes it the live PDF and gives main.tex a tab of its own
-//! with its last PDF; then the viewer's page navigation, zoom and fit, find,
-//! a link followed with a native click and undone with Back, a selection
+//! with its last PDF; then the outline (its heading lines past a comment
+//! block of wide characters), the viewer's page navigation, zoom and fit,
+//! find, a link followed with a native click and undone with Back (and the
+//! file and app-scheme links left unfollowed), a selection
 //! dragged with the native mouse and copied with ⌘C / Ctrl+C, dark pages, a
 //! rebuild that changes one page and redraws only that one, the page window
 //! letting go of pages far from the screen, and the separate window. Building
@@ -23,14 +26,24 @@ use crate::{
     scenario::Run,
 };
 
-/// Twelve pages: a link to section 9 and a web link on the first, the word
+/// Twelve pages: a link to section 9, a web link, and a link to a file and
+/// one to an app's own scheme (neither may open) on the first, the word
 /// "zebracorn" on pages 2, 4 and 6 and "zebracorns" on page 8, and a
 /// sentence on page 10 the rebuild check rewrites with the same letters.
+/// Before the first heading, a comment block pdfLaTeX skips: it hides a
+/// heading from the outline, and its wide characters (three bytes each) must
+/// not move the lines of the headings after it.
 const SUPPLEMENT: &str = r"\documentclass{article}
 \usepackage{hyperref}
+\usepackage{verbatim}
 \begin{document}
+\begin{comment}
+中文注释：这一段不会排版，大纲也不读它。
+\section{Hidden}
+\end{comment}
 \section{Overview}
 Selectable sentence here. See Section~\ref{sec:target} and \url{https://example.org}.
+Never opened: \href{file:///System/Applications/Calculator.app}{Fileanchor} and \href{lattice-test://x}{Schemeanchor}.
 \newpage
 \section{Two} A zebracorn appears.
 \newpage
@@ -201,6 +214,31 @@ impl Run {
             "PDF: the Outline lists the headings, and a row opens its line and marks it in the PDF",
             read && marked,
             json!({ "target": target.map(|heading| heading.line), "marked": marked }),
+        );
+
+        // Each heading's line is the line of its `\section` in the source
+        // the scenario wrote; the one inside the comment block is not listed.
+        let expected: Vec<(String, u32)> = SUPPLEMENT
+            .lines()
+            .zip(1..)
+            .filter_map(|(text, line)| {
+                let title = text.strip_prefix("\\section{")?.split('}').next()?;
+                (title != "Hidden").then(|| (title.to_string(), line))
+            })
+            .collect();
+        let listed: Vec<(String, u32)> = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .outline()
+                .iter()
+                .filter(|heading| heading.path == "supplement.tex")
+                .map(|heading| (heading.title.clone(), heading.line))
+                .collect()
+        });
+        steps.check(
+            "PDF: a comment block of wide characters before the headings hides its own heading and keeps every heading's line",
+            expected.len() == 12 && listed == expected,
+            json!({ "expected": expected, "listed": listed }),
         );
         Ok(())
     }
@@ -398,6 +436,37 @@ impl Run {
             "PDF: a click on a section link jumps to it, Back returns, and the web link is read",
             read && followed && back && web,
             json!({ "links": links.len(), "followed": followed, "back": back, "web": web }),
+        );
+
+        // The file link and the app-scheme link are on the page, but no
+        // link the viewer would follow covers their words.
+        let text = cx
+            .update(|cx| self.live_view_of(cx).read(cx).page_text(0))
+            .context("page 1's text was not read")?;
+        let chars: String = text.chars.iter().map(|ch| ch.ch).collect();
+        let covered = |anchor: &str| {
+            let index = chars.find(anchor)?;
+            let first = text.chars[chars[..index].chars().count()];
+            let (x, y) = ((first.x0 + first.x1) / 2., (first.y0 + first.y1) / 2.);
+            Some(
+                text.links
+                    .iter()
+                    .any(|link| link.x0 <= x && x <= link.x1 && link.y0 <= y && y <= link.y1),
+            )
+        };
+        let (file, scheme) = (covered("Fileanchor"), covered("Schemeanchor"));
+        let launchers: Vec<String> = text
+            .links
+            .iter()
+            .filter_map(|link| match &link.target {
+                LinkTarget::Uri(uri) if !uri.starts_with("https://") => Some(uri.clone()),
+                _ => None,
+            })
+            .collect();
+        steps.check(
+            "PDF: a link to a file or to an app's own scheme is not followed",
+            file == Some(false) && scheme == Some(false) && launchers.is_empty(),
+            json!({ "file_covered": file, "scheme_covered": scheme, "other_uris": launchers }),
         );
         Ok(())
     }
