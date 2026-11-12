@@ -84,11 +84,14 @@ pub(crate) struct LayoutState {
     pub dirty: bool,
     /// The workspace whose name is being edited in place.
     pub renaming: Option<String>,
-    /// While an arrangement is being installed, the dock's change events are
-    /// the install's own.
-    pub installing: bool,
     /// Where each document stood in each workspace, by workspace id.
     pub places: std::collections::BTreeMap<String, std::collections::BTreeMap<String, usize>>,
+}
+
+/// A project open in a window, with the name its tab shows.
+pub(crate) struct OpenProject {
+    pub root: PathBuf,
+    pub name: SharedString,
 }
 
 pub struct Shell {
@@ -121,7 +124,7 @@ pub struct Shell {
     shortcuts: Option<Entity<palette::ShortcutSheet>>,
     /// The projects open in this window, in tab order; the open one is
     /// `project`'s.
-    pub(crate) projects: Vec<PathBuf>,
+    pub(crate) projects: Vec<OpenProject>,
     /// Documents closed in this window, most recent last, for ⌘⇧T.
     closed_tabs: Vec<PathBuf>,
     save_task: Option<Task<()>>,
@@ -386,13 +389,17 @@ impl Shell {
                 project.main_pdf().filter(|pdf| pdf.is_file()),
             )
         };
-        if !self.projects.contains(&root) {
+        if !self.projects.iter().any(|p| p.root == root) {
+            let open = OpenProject {
+                name: project_display_name(&root),
+                root: root.clone(),
+            };
             match self
                 .root(cx)
-                .and_then(|current| self.projects.iter().position(|p| *p == current))
+                .and_then(|current| self.projects.iter().position(|p| p.root == current))
             {
-                Some(ix) => self.projects.insert(ix + 1, root.clone()),
-                None => self.projects.push(root.clone()),
+                Some(ix) => self.projects.insert(ix + 1, open),
+                None => self.projects.push(open),
             }
         }
         self.project = Some(project.clone());
@@ -422,20 +429,39 @@ impl Shell {
     /// closes once they are, staying open (with the save's notice) when one
     /// could not be.
     fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let saves = Self::save_dirty(&self.open_editors(), cx);
-        if saves.is_empty() {
+        let Some(saved) = self.save_before_leaving(cx) else {
             return true;
-        }
+        };
         cx.spawn_in(window, async move |_, cx| {
-            for save in saves {
-                if !save.await.unwrap_or(false) {
-                    return;
-                }
+            if saved.await {
+                cx.update(|window, _| window.remove_window()).ok();
             }
-            cx.update(|window, _| window.remove_window()).ok();
         })
         .detach();
         false
+    }
+
+    /// Save every editor holding unsaved edits: `None` when none does, else
+    /// a task that resolves true once each is saved, false when one could
+    /// not be (its notice says why).
+    fn save_before_leaving(&mut self, cx: &mut Context<Self>) -> Option<Task<bool>> {
+        let saves = Self::save_dirty(&self.open_editors(), cx);
+        if saves.is_empty() {
+            return None;
+        }
+        Some(cx.spawn(async move |_, _| {
+            for save in saves {
+                match save.await {
+                    Ok(true) => {}
+                    Ok(false) => return false,
+                    Err(error) => {
+                        log::error!("{error:#}");
+                        return false;
+                    }
+                }
+            }
+            true
+        }))
     }
 
     /// Close the window as its close button does (`should_close`).
@@ -707,9 +733,9 @@ fn window_size() -> gpui::Size<gpui::Pixels> {
         .unwrap_or_else(|| size(px(1440.), px(900.)))
 }
 
-/// The name of a project that is not open, as its tab shows it: the name in
-/// its manifest, else the folder's.
-pub fn project_display_name(root: &Path) -> SharedString {
+/// The name of a project as its tab shows it: the name in its manifest,
+/// else the folder's.
+fn project_display_name(root: &Path) -> SharedString {
     lattice_core::project::read_manifest(root)
         .ok()
         .map(|manifest| manifest.name)
@@ -774,9 +800,10 @@ impl Render for Shell {
                     .pb(px(WORKSPACE_SIDE))
                     .children(lattice_ui::parity::probe("workspace"))
                     .child(self.dock_area.clone())
-                    .when(self.center_empty(cx), |this| {
-                        this.child(arrange::empty_center(self, cx))
-                    })
+                    .when(
+                        self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
+                        |this| this.child(arrange::empty_center(self, cx)),
+                    )
                     .children(self.floating.render(cx)),
             )
             .children(self.palette.clone())

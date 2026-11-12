@@ -183,12 +183,6 @@ pub fn switch_workspace_action(index: usize) -> Option<Box<dyn Action>> {
     WORKSPACE_ACTIONS.get(index).map(|action| action())
 }
 
-/// The workspace index a switch action names.
-#[cfg(test)]
-pub fn workspace_index(action: &dyn Action) -> Option<usize> {
-    (0..WORKSPACE_ACTIONS.len()).find(|ix| WORKSPACE_ACTIONS[*ix]().partial_eq(action))
-}
-
 /// The commands that apply now, in the table's order.
 pub fn commands(context: &CommandContext) -> Vec<Command> {
     let mut out = Vec::new();
@@ -575,16 +569,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_workspace_actions_name_their_place() {
-        for index in 0..9 {
-            let action = switch_workspace_action(index).unwrap();
-            assert_eq!(workspace_index(action.as_ref()), Some(index));
-        }
-        assert!(switch_workspace_action(9).is_none());
-        assert_eq!(workspace_index(&Build), None);
-    }
-
-    #[test]
     fn without_a_project_only_project_and_appearance_commands_apply() {
         let commands = commands(&CommandContext::default());
         assert!(
@@ -736,6 +720,36 @@ mod keymap_tests {
             resolve(bindings, "Editor mode = full", m!("w")),
             Some(CloseTab.name())
         );
+    }
+
+    #[test]
+    fn each_workspace_key_runs_the_palettes_switch_to_that_workspace() {
+        // The README: ⌘1 … ⌘9 (Ctrl off macOS) is the workspace at that place.
+        let keymap = Keymap::new(default_bindings());
+        let stack = [KeyContext::parse("LatticeShell").unwrap()];
+        let keys = [
+            m!("1"),
+            m!("2"),
+            m!("3"),
+            m!("4"),
+            m!("5"),
+            m!("6"),
+            m!("7"),
+            m!("8"),
+            m!("9"),
+        ];
+        for (index, keys) in keys.into_iter().enumerate() {
+            let (matched, _) =
+                keymap.bindings_for_input(&[Keystroke::parse(keys).unwrap()], &stack);
+            let bound = matched.first().map(|binding| binding.action());
+            let palette = switch_workspace_action(index).unwrap();
+            assert!(
+                bound.is_some_and(|bound| bound.partial_eq(palette.as_ref())),
+                "{keys} should switch to workspace {}",
+                index + 1
+            );
+        }
+        assert!(switch_workspace_action(9).is_none());
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //! writing flow (macOS and Windows), and the measurements the pass criteria
 //! ask for (macOS).
 //!
-//! `lattice-gpui PROJECT --scenario e2e|shell|perf|memory|ime|ime-protocol|shot|parity --out RESULT.json`
+//! `lattice-gpui PROJECT --scenario e2e|perf|memory|ime|ime-protocol|shot|parity --out RESULT.json`
 
 use std::{
     cell::Cell,
@@ -66,7 +66,6 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
         }
         let result = match args.name.as_str() {
             "e2e" => run.e2e(cx).await,
-            "shell" => run.shell(cx).await,
             #[cfg(target_os = "macos")]
             "perf" => run.perf(cx).await,
             #[cfg(target_os = "macos")]

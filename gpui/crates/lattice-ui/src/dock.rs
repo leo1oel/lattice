@@ -843,13 +843,3 @@ impl Render for TabDragPreview {
             )
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_named_tab_by_default() {
-        assert!(!TabLook::default().document);
-    }
-}

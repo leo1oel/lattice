@@ -53,7 +53,6 @@ use crate::shell::{
         keys_label,
     },
     layout::{Preset, View},
-    project_display_name,
     workspaces::Workspaces,
 };
 
@@ -318,10 +317,11 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
     }
     let palette = cx.palette().clone();
     let active = shell.root(cx);
-    let tabs = shell.projects.iter().enumerate().map(|(ix, root)| {
+    let tabs = shell.projects.iter().enumerate().map(|(ix, open)| {
+        let root = &open.root;
         let current = Some(root) == active.as_ref();
-        let name = project_display_name(root);
-        let close_root = root.clone();
+        let name = open.name.clone();
+        let close_name = name.clone();
         let switch_root = root.clone();
         let move_root = root.clone();
         let menu_root = root.clone();
@@ -382,11 +382,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
                     })
                     .hover(|style| style.bg(palette.chrome_hover))
                     .tooltip(move |_, cx| -> AnyView {
-                        LatticeTooltip::view(
-                            format!("Close {}", project_display_name(&close_root)),
-                            None,
-                            cx,
-                        )
+                        LatticeTooltip::view(format!("Close {close_name}"), None, cx)
                     })
                     .on_click(move |_, window, cx| {
                         let root = move_root.clone();

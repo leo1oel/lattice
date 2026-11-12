@@ -84,20 +84,21 @@ pub fn new_window(root: Option<PathBuf>, cx: &mut App) {
 }
 
 impl Shell {
-    /// The project in front, moved to a window of its own; this window goes
-    /// on with its next project, or closes when it held no other.
+    /// The project in front, moved to a window of its own once its edits
+    /// are saved, as `should_close` saves them; this window goes on with its
+    /// next project, or closes when it held no other. A save that fails or
+    /// is held keeps the project here, with the save's notice.
     pub(crate) fn open_in_new_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(root) = self.root(cx) else {
             return;
         };
         self.save_layout(cx);
-        let editors = self.open_editors();
-        let saves = Self::save_dirty(&editors, cx);
+        let saved = self.save_before_leaving(cx);
         cx.spawn_in(window, async move |this, cx| {
-            for save in saves {
-                if let Err(error) = save.await {
-                    log::error!("{error:#}");
-                }
+            if let Some(saved) = saved
+                && !saved.await
+            {
+                return;
             }
             this.update_in(cx, |this, window, cx| {
                 if this.projects.len() > 1 {
@@ -121,7 +122,7 @@ impl Shell {
     ) {
         let Some(current) = self
             .root(cx)
-            .and_then(|root| self.projects.iter().position(|p| *p == root))
+            .and_then(|root| self.projects.iter().position(|p| p.root == root))
         else {
             return;
         };
@@ -130,7 +131,7 @@ impl Shell {
             return;
         }
         let next = (current as isize + step).rem_euclid(count) as usize;
-        let root = self.projects[next].clone();
+        let root = self.projects[next].root.clone();
         self.open_project(root, window, cx);
     }
 
@@ -153,7 +154,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(index) = self.projects.iter().position(|p| p == root) else {
+        let Some(index) = self.projects.iter().position(|p| p.root == *root) else {
             return;
         };
         if self.projects.len() < 2 {
@@ -164,12 +165,12 @@ impl Shell {
                 .projects
                 .get(index + 1)
                 .or_else(|| index.checked_sub(1).and_then(|ix| self.projects.get(ix)))
-                .cloned();
+                .map(|p| p.root.clone());
             if let Some(next) = next {
                 self.open_project(next, window, cx);
             }
         }
-        self.projects.retain(|p| p != root);
+        self.projects.retain(|p| p.root != *root);
         cx.notify();
     }
 
@@ -183,7 +184,7 @@ impl Shell {
         if self.root(cx).as_ref() == Some(&root) {
             self.open_in_new_window(window, cx);
         } else {
-            self.projects.retain(|p| *p != root);
+            self.projects.retain(|p| p.root != root);
             cx.notify();
             new_window(Some(root), cx);
         }

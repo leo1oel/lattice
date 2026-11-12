@@ -1,7 +1,8 @@
 //! The e2e checks that closing loses nothing typed: a dirty tab, a window
 //! and the app, each closed within the autosave pause, so the save is the
 //! close's own and not the autosave's; the vanished-file notice going with
-//! its tab; and SyncTeX from a .bib entry.
+//! its tab; a project kept in its window when its edits cannot be saved
+//! before it moves; and SyncTeX from a .bib entry.
 
 use std::{
     path::Path,
@@ -161,6 +162,58 @@ impl Run {
             json!({ "unsaved_before": unsaved, "disk": std::fs::read_to_string(&file).ok() }),
         );
         std::fs::remove_file(&file).ok();
+        self.held_save_keeps_window(cx, steps, root).await
+    }
+
+    /// "Open in New Window" on a second window's only project, holding edits
+    /// to a file deleted outside Lattice, which cannot be saved until the
+    /// writer chooses: the window stays, with the notice, and none opens.
+    async fn held_save_keeps_window(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let file = root.join("move-check.txt");
+        std::fs::write(&file, "draft\n")?;
+        let opened = cx.update(|cx| Shell::open_window(Some(root.to_path_buf()), cx));
+        let (window, shell) = opened?;
+        let second = Run { shell, window };
+        second.root(cx).await?;
+        let editor = second.open(cx, &file, Some(1))?;
+        second.pause(cx, Duration::from_millis(300)).await;
+        second.type_text(cx, "x").await?;
+        std::fs::remove_file(&file)?;
+        let title = "move-check.txt is no longer on disk";
+        let stack = cx.update(notices::install);
+        let started = Instant::now();
+        let mut announced = false;
+        while started.elapsed() < Duration::from_secs(12) {
+            if cx.update(|cx| showing(&stack, title, cx)) {
+                announced = true;
+                break;
+            }
+            second.type_text(cx, "x").await?;
+            second.pause(cx, Duration::from_millis(400)).await;
+        }
+        drop(editor);
+        let id = window.window_id();
+        let windows = |cx: &mut AsyncApp| cx.update(|cx| cx.windows().len());
+        let before = windows(cx);
+        second.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_in_new_window(window, cx))
+        })?;
+        second.pause(cx, Duration::from_secs(2)).await;
+        let after = windows(cx);
+        let stayed = cx.update(|cx| cx.windows().iter().any(|open| open.window_id() == id));
+        steps.check(
+            "Open in New Window with edits that cannot be saved keeps the window and opens none",
+            announced && stayed && after == before,
+            json!({ "announced": announced, "stayed": stayed, "before": before, "after": after }),
+        );
+        window
+            .update(cx, |_, window, _| window.remove_window())
+            .ok();
         Ok(())
     }
 

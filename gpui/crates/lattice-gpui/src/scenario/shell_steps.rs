@@ -21,19 +21,6 @@ use crate::{
 pub(super) type Step = (&'static str, bool, Value);
 
 impl Run {
-    /// The shell steps alone, on any project: no TeX needed.
-    pub(super) async fn shell(&self, cx: &mut AsyncApp) -> Result<Value> {
-        self.root(cx).await?;
-        let steps: Vec<Value> = self
-            .shell_steps(cx)
-            .await?
-            .into_iter()
-            .map(|(name, passed, detail)| json!({ "step": name, "passed": passed, "detail": detail }))
-            .collect();
-        let passed = steps.iter().all(|step| step["passed"] == true);
-        Ok(json!({ "scenario": "shell", "passed": passed, "steps": steps }))
-    }
-
     pub(super) async fn shell_steps(&self, cx: &mut AsyncApp) -> Result<Vec<Step>> {
         let mut steps = Vec::new();
         steps.push(self.drag_last_panel_out(cx).await?);

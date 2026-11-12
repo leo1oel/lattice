@@ -154,15 +154,15 @@ cp -R fixtures/e2e /tmp/lattice-gpui-e2e        # the scenario edits and builds 
 target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
 
-`e2e` and `shell` run on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
+`e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
 
 A scripted run keeps the workspaces and the projects' layouts in memory, so it neither reads nor changes the writer's own; `LATTICE_GPUI_STATE_DIR` names a directory for them instead (an ordinary run keeps them in the system's data directory, under `lattice-gpui/`). `LATTICE_WINDOW_SIZE=1015x680` opens the window at another size, as a smaller screen would (GitHub's runners shrink it to about 1015px wide).
 
 - `e2e`: opens a project through `lattice-core`, builds, jumps from the caret to the PDF and back with a native double-click (SyncTeX), autosaves after a pause in typing (and builds), reloads an outside edit into a clean buffer and merges one made while the buffer holds edits, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs the file outside Lattice and rebuilds, creates, renames, moves and deletes a file in the tree, and drags an editor tab into the right dock with native mouse events.
-  It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, and that closing the tab of a file deleted outside Lattice takes down its notice; the `shell` steps run before those checks.
+  Before those checks it runs the window's own steps: the PDF dragged by its tab out of its dock with native mouse events (the dock goes), the Writing preset and the way back, a new workspace keeping its own arrangement (the dot until it is saved), Project closed from its tab and brought back from the Panels toggle, the PDF floated and docked, and the command palette listing the commands. Each drag waits for the window to draw a frame of the layout as it is, which a locked screen never draws.
+  It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, that closing the tab of a file deleted outside Lattice takes down its notice, and that "Open in New Window" with edits that cannot be saved keeps the window and opens no other.
   It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
   It needs `chapters/intro.tex` and `references.bib` in the project.
-- `shell`: the window's own steps, on any project and without TeX: the PDF dragged by its tab out of its dock with native mouse events (the dock goes), the Writing preset and the way back, a new workspace keeping its own arrangement (the dot until it is saved), Project closed from its tab and brought back from the Panels toggle, the PDF floated and docked, and the command palette listing the commands. Each drag waits for the window to draw a frame of the layout as it is, which a locked screen never draws.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
 - `memory`: `footprint` after opening the project, after opening `long.tex`, and after scrolling through the whole PDF.
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.

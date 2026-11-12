@@ -72,13 +72,17 @@ impl FloatingLayer {
 
     /// Float exactly the panels `records` lists, at their bounds kept
     /// within the workspace `area`, with the window's panels for their views.
+    /// A floating panel in none of `panels` leaves the window: `on_removed`.
     pub fn set(
         &mut self,
         records: &[FloatingView],
         panels: &HashMap<View, Arc<dyn BasePanelView>>,
         area: Size<Pixels>,
-        cx: &App,
+        window: &mut Window,
+        cx: &mut App,
     ) {
+        let kept: Vec<PanelId> = panels.values().map(|panel| panel.panel_id(cx)).collect();
+        let previous = std::mem::take(&mut self.panels);
         self.panels = records
             .iter()
             .filter_map(|record| {
@@ -97,6 +101,11 @@ impl FloatingLayer {
                 })
             })
             .collect();
+        for floating in previous {
+            if !kept.contains(&floating.id) {
+                floating.panel.on_removed(window, cx);
+            }
+        }
     }
 
     pub fn remove(&mut self, panel: PanelId) -> Option<FloatingPanel> {

@@ -184,7 +184,6 @@ impl Shell {
                 (placement, described)
             })
             .collect();
-        self.layout.installing = true;
         self.dock_area.update(cx, |area, cx| {
             if area.is_zoomed() {
                 area.set_zoomed_out(window, cx);
@@ -216,9 +215,9 @@ impl Shell {
             }
         });
         let area = self.floating_area(window);
-        self.floating.set(&arrangement.floating, &panels, area, cx);
+        self.floating
+            .set(&arrangement.floating, &panels, area, window, cx);
         drop(panels);
-        self.layout.installing = false;
         self.refresh_dirty(cx);
         self.schedule_save(window, cx);
         cx.notify();
@@ -411,9 +410,6 @@ impl Shell {
     /// arrangement still matches the workspace, close regions left empty, and
     /// save the project's layout soon.
     pub(super) fn layout_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.layout.installing {
-            return;
-        }
         // A region whose last panel was dragged out goes away, as Trellis
         // lets a column go.
         let empty: Vec<DockPlacement> = {
@@ -431,13 +427,11 @@ impl Shell {
             .collect()
         };
         if !empty.is_empty() {
-            self.layout.installing = true;
             self.dock_area.update(cx, |area, cx| {
                 for placement in empty {
                     area.remove_dock(placement, window, cx);
                 }
             });
-            self.layout.installing = false;
         }
         self.refresh_dirty(cx);
         self.follow_active_document(cx);
@@ -636,6 +630,10 @@ pub(super) fn empty_center(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement
         .dock_size(DockPlacement::Right)
         .filter(|_| area.is_dock_open(DockPlacement::Right))
         .unwrap_or_default();
+    let bottom = area
+        .dock_size(DockPlacement::Bottom)
+        .filter(|_| area.is_dock_open(DockPlacement::Bottom))
+        .unwrap_or_default();
     let message = if shell.project.is_some() {
         "Open a file from Project to start writing"
     } else {
@@ -644,7 +642,7 @@ pub(super) fn empty_center(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement
     div()
         .absolute()
         .top(px(super::WORKSPACE_TOP) + px(3.))
-        .bottom(px(super::WORKSPACE_SIDE) + px(3.))
+        .bottom(px(super::WORKSPACE_SIDE) + bottom + px(3.))
         .left(px(super::WORKSPACE_SIDE) + left + px(3.))
         .right(px(super::WORKSPACE_SIDE) + right + px(3.))
         .rounded(lattice_ui::dock::PANEL_RADIUS)
