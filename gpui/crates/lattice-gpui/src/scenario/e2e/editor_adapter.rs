@@ -18,6 +18,7 @@ use lattice_editor::{
     LatticeEditor, TexlabService,
     blocks::{BlockSide, BlockWidget},
     gutter::{GutterMark, GutterShape},
+    hover::HoverTarget,
     latex::diagnostics,
     remote_cursors::{RemoteCursor, presence_color},
 };
@@ -250,6 +251,89 @@ impl Run {
         );
         self.park(cx)?;
         self.pause(cx, Duration::from_millis(400)).await;
+        self.following_stack(cx, steps, panel, lattice).await
+    }
+
+    /// Wait for the shown cards to be `expected`, top to bottom.
+    async fn wait_for_stack(
+        &self,
+        cx: &mut AsyncApp,
+        lattice: &Entity<LatticeEditor>,
+        expected: &'static [&'static str],
+    ) -> bool {
+        let lattice = lattice.clone();
+        self.wait_for(cx, CARD_WAIT, move |_, cx| {
+            let lattice = lattice.read(cx);
+            let ids: Vec<_> = lattice
+                .shown_hover(cx)
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect();
+            ids == expected && lattice.painted().card.is_some()
+        })
+        .await
+    }
+
+    /// A stack follows the targets under the pointer while the pointer stays
+    /// by it, as each of CodeMirror's hover sources follows its own range: a
+    /// scenario provider's span over the whole `\cite{knuth1984}` opens alone
+    /// on `\cite`, the citation card joins once the pointer rests on the key,
+    /// and goes again once the pointer is back on `\cite`.
+    async fn following_stack(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+        lattice: &Entity<LatticeEditor>,
+    ) -> Result<()> {
+        let command = "\\cite{knuth1984}";
+        let start = self
+            .editor_text(cx, panel)
+            .find(command)
+            .context("main.tex cites knuth1984")?;
+        let span = start..start + command.len();
+        let enabled = std::rc::Rc::new(std::cell::Cell::new(true));
+        let provider_on = enabled.clone();
+        lattice.update(cx, |lattice, _| {
+            lattice.add_hover_provider(std::rc::Rc::new(
+                move |_: &language::BufferSnapshot, offset: usize, _: &gpui::App| {
+                    (provider_on.get() && span.contains(&offset)).then(|| HoverTarget {
+                        range: span.clone(),
+                        id: "e2e-span",
+                        card: std::rc::Rc::new(|_, _, _| {
+                            use gpui::{IntoElement as _, ParentElement as _};
+                            gpui::div().child("A span card").into_any_element()
+                        }),
+                    })
+                },
+            ))
+        });
+        let native = self.native(cx)?;
+        let (_, on_command) = self.text_point(cx, panel, lattice, command, 2).await?;
+        let (_, on_key) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
+        self.hover_at(cx, on_command.center()).await?;
+        let alone = self.wait_for_stack(cx, lattice, &["e2e-span"]).await;
+        native::send_mouse(native, native::Mouse::Moved, on_key.center())?;
+        let joined = alone
+            && self
+                .wait_for_stack(cx, lattice, &["citation", "e2e-span"])
+                .await;
+        native::send_mouse(native, native::Mouse::Moved, on_command.center())?;
+        let dropped = joined && self.wait_for_stack(cx, lattice, &["e2e-span"]).await;
+        let shown = cx.update(|cx| lattice.read(cx).shown_hover(cx));
+        enabled.set(false);
+        self.park(cx)?;
+        self.pause(cx, Duration::from_millis(400)).await;
+        steps.check(
+            "a shown stack follows the targets under the pointer: a card joins on its target and goes when the pointer leaves it",
+            alone && joined && dropped,
+            json!({
+                "alone": alone,
+                "joined": joined,
+                "dropped": dropped,
+                "shown": shown.iter().map(|(id, range)| json!({ "id": id, "range": [range.start, range.end] })).collect::<Vec<_>>(),
+            }),
+        );
         Ok(())
     }
 
@@ -805,17 +889,8 @@ impl Run {
             .await;
         let (_, rect) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
         self.hover_at(cx, rect.center()).await?;
-        let lattice_wait = lattice.clone();
         let stacked = self
-            .wait_for(cx, CARD_WAIT, move |_, cx| {
-                let lattice = lattice_wait.read(cx);
-                let ids: Vec<_> = lattice
-                    .shown_hover(cx)
-                    .into_iter()
-                    .map(|(id, _)| id)
-                    .collect();
-                ids == ["citation", "diagnostic"] && lattice.painted().card.is_some()
-            })
+            .wait_for_stack(cx, lattice, &["citation", "diagnostic"])
             .await;
         let shown = cx.update(|cx| lattice.read(cx).shown_hover(cx));
         let located = cx.update(|cx| diagnostics.read(cx).located(cx));

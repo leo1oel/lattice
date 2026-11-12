@@ -81,6 +81,9 @@ pub(super) enum Hover {
         /// The pointer left the targets and the cards; they close when this
         /// fires.
         closing: Option<Task<()>>,
+        /// The pointer, still by the shown targets, rests on another set of
+        /// them: the stack becomes that set when this fires.
+        next: Option<(Vec<Anchored>, Task<()>)>,
     },
 }
 
@@ -236,11 +239,22 @@ impl LatticeEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let candidates = if self.editor.read(cx).has_visible_completions_menu() {
+            Vec::new()
+        } else {
+            self.targets_at(position, window, cx)
+        };
+        let text = self.buffer.read(cx).snapshot();
         // Cards the pointer is still on, or still near their targets, stay.
+        // Near them, the stack follows the targets under the pointer, as
+        // each of CodeMirror's hover sources follows its own range: a card
+        // whose target the pointer came onto joins after the hover delay,
+        // and one whose target it left goes after the grace.
         if let Hover::Shown {
             targets,
             over_card,
             closing,
+            ..
         } = &self.hover
         {
             let targets = targets.clone();
@@ -249,8 +263,17 @@ impl LatticeEditor {
                 .targets_rect(&targets, window, cx)
                 .is_some_and(|rect| geometry::near(rect, position, TARGET_MARGIN));
             if on_card || near_target {
-                if let Hover::Shown { closing, .. } = &mut self.hover {
+                let follow = !on_card
+                    && !candidates.is_empty()
+                    && !same_places(&targets, &candidates, &text);
+                if let Hover::Shown { closing, next, .. } = &mut self.hover {
                     *closing = None;
+                    if !follow {
+                        *next = None;
+                    }
+                }
+                if follow {
+                    self.schedule_next(&targets, candidates, &text, cx);
                 }
                 return;
             }
@@ -258,12 +281,6 @@ impl LatticeEditor {
                 self.schedule_close(cx);
             }
         }
-        let candidates = if self.editor.read(cx).has_visible_completions_menu() {
-            Vec::new()
-        } else {
-            self.targets_at(position, window, cx)
-        };
-        let text = self.buffer.read(cx).snapshot();
         match &self.hover {
             Hover::Shown { targets, .. } | Hover::Pending { targets, .. }
                 if same_places(targets, &candidates, &text) => {}
@@ -299,9 +316,48 @@ impl LatticeEditor {
                 targets: targets.clone(),
                 over_card: false,
                 closing: None,
+                next: None,
             };
             cx.notify();
         }
+    }
+
+    /// Make `candidates` the shown stack after a moment, unless a timer for
+    /// the same set runs already: the grace when they only drop cards, the
+    /// hover delay when a card joins.
+    fn schedule_next(
+        &mut self,
+        shown: &[Anchored],
+        candidates: Vec<Anchored>,
+        text: &BufferSnapshot,
+        cx: &mut Context<Self>,
+    ) {
+        let Hover::Shown { next, .. } = &mut self.hover else {
+            return;
+        };
+        if next
+            .as_ref()
+            .is_some_and(|(pending, _)| same_places(pending, &candidates, text))
+        {
+            return;
+        }
+        let only_drops = candidates
+            .iter()
+            .all(|candidate| shown.iter().any(|target| target.same_place(candidate, text)));
+        let delay = if only_drops { HOVER_GRACE } else { HOVER_DELAY };
+        let timer = cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(delay).await;
+            this.update(cx, |this, cx| {
+                if let Hover::Shown { targets, next, .. } = &mut this.hover
+                    && let Some((pending, _)) = next.take()
+                {
+                    *targets = pending;
+                    cx.notify();
+                }
+            })
+            .ok();
+        });
+        *next = Some((candidates, timer));
     }
 
     fn schedule_close(&mut self, cx: &mut Context<Self>) {
@@ -319,19 +375,24 @@ impl LatticeEditor {
             })
             .ok();
         });
-        if let Hover::Shown { closing, .. } = &mut self.hover {
+        if let Hover::Shown { closing, next, .. } = &mut self.hover {
             *closing = Some(task);
+            *next = None;
         }
     }
 
     fn card_hovered(&mut self, hovered: bool, cx: &mut Context<Self>) {
         if let Hover::Shown {
-            over_card, closing, ..
+            over_card,
+            closing,
+            next,
+            ..
         } = &mut self.hover
         {
             *over_card = hovered;
             if hovered {
                 *closing = None;
+                *next = None;
             } else {
                 self.schedule_close(cx);
             }
@@ -410,14 +471,20 @@ impl LatticeEditor {
         // Each card stands on its own surface, apart by the gap the Tauri
         // app leaves between hover cards that share a popover; the gap is
         // inside the stack, so the pointer crossing it is still over it.
+        // A card joining the stack enters on its own; those shown stay put.
         let cards = div().flex().flex_col().items_start().gap(CARD_GAP).children(
             targets
                 .iter()
-                .map(|target| (target.card)(&context, window, cx))
+                .map(|target| {
+                    let card = (target.card)(&context, window, cx);
+                    pop_in(
+                        SharedString::from(format!("lattice-hover-{}", target.id)),
+                        from,
+                        card,
+                    )
+                })
                 .collect::<Vec<_>>(),
         );
-        let ids: Vec<_> = targets.iter().map(|target| target.id).collect();
-        let id = SharedString::from(format!("lattice-hover-{}", ids.join("-")));
         let hovered = cx.listener(|this, hovered: &bool, _, cx| this.card_hovered(*hovered, cx));
         let painted = self.painted.clone();
         let record = canvas(
@@ -437,10 +504,10 @@ impl LatticeEditor {
                     .snap_to_window_with_margin(px(8.))
                     .child(
                         div()
-                            .id(id.clone())
+                            .id("lattice-hover")
                             .occlude()
                             .on_hover(hovered)
-                            .child(pop_in(id, from, cards))
+                            .child(cards)
                             .child(record),
                     ),
             )

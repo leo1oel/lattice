@@ -145,7 +145,7 @@ mod tests {
             },
             // Inverted: dropped.
             Mark {
-                range: 9..3,
+                range: std::ops::Range { start: 9, end: 3 },
                 style: error,
             },
         ];
