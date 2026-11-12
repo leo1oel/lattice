@@ -8730,7 +8730,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 2. MIT OR Apache-2.0 (+14 other declarations) — 429 package(s), from `LICENSE-APACHE.md`
+#### 2. MIT OR Apache-2.0 (+14 other declarations) — 429 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -9118,7 +9118,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 4. MIT OR Apache-2.0 (+8 other declarations) — 91 package(s), from `LICENSE-APACHE.md`
+#### 4. MIT OR Apache-2.0 (+8 other declarations) — 91 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 

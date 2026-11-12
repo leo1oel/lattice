@@ -195,3 +195,52 @@ fn shadow_sync_does_not_walk_unrelated_project_directories() {
     );
     assert!(!shadow.join("large-paper-cache").exists());
 }
+
+/// Start a stand-in runtime that prints `line` as its readiness handshake and
+/// then idles until the supervisor stops it, in its own process group as
+/// `spawn` starts the real one.
+#[cfg(unix)]
+fn child_announcing(line: &str) -> Child {
+    use std::os::unix::process::CommandExt;
+    Command::new("/bin/sh")
+        .args(["-c", "printf '%s\\n' \"$1\"; exec sleep 30", "sh", line])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .process_group(0)
+        .spawn()
+        .unwrap()
+}
+
+#[cfg(unix)]
+#[test]
+fn accepts_only_the_open_slide_version_the_runtime_pins() {
+    // The oracle is the runtime's own manifest: the version of @open-slide/core
+    // it installs is the version its server reports in the handshake
+    // (tools/open-slide-runtime/version-pin.node-test.mjs).
+    let manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tools/open-slide-runtime/package.json"))
+            .unwrap();
+    let pinned = manifest["dependencies"]["@open-slide/core"].as_str().unwrap();
+    let handshake = |version: &str| {
+        serde_json::json!({
+            "ready": true,
+            "port": 4100,
+            "sessionToken": "session",
+            "controlToken": "control",
+            "version": version,
+        })
+        .to_string()
+    };
+
+    let mut current = child_announcing(&handshake(pinned));
+    let ready = await_ready(&mut current, "control");
+    terminate_process_group(&mut current);
+    assert_eq!(ready.map(|ready| ready.port), Ok(4100));
+
+    let mut stale = child_announcing(&handshake("0.0.0-other"));
+    assert_eq!(
+        await_ready(&mut stale, "control").map(|ready| ready.port),
+        Err("Open Slide returned invalid readiness data.".to_string())
+    );
+    assert!(matches!(stale.try_wait(), Ok(Some(_))), "a refused runtime is stopped");
+}
