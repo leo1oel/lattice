@@ -3,9 +3,10 @@
 //!
 //! The Tauri app imports Lucide through `lucide-react`; GPUI Kit bundles the
 //! same set as SVG assets (`icons/<name>.svg`), so the Lucide icons here are
-//! paths into Kit's assets. GPUI paints an SVG as a mask in one colour, so a
-//! file glyph, a stroke in its hue over a body filled with a tint of it, is
-//! two SVGs stacked (`assets/icons/glyph-<kind>-body.svg` under
+//! paths into Kit's assets, except the few whose names Zed's icon set
+//! shadows, bundled here under `lattice/`. GPUI paints an SVG as a mask in
+//! one colour, so a file glyph, a stroke in its hue over a body filled with a
+//! tint of it, is two SVGs stacked (`assets/icons/glyph-<kind>-body.svg` under
 //! `glyph-<kind>.svg`).
 //!
 //! Sizes (DESIGN.md, Icons): 14px in the chrome, 16px on a default control,

@@ -55,7 +55,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
 | Zed's default keymap | Everything else in the editor |
 
-On Windows and Linux, Ctrl stands in for ⌘.
+On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` starts with it on.
 
@@ -82,7 +82,8 @@ crates/lattice-ui     Lattice's look: design tokens generated from
 crates/tex            TeX discovery, latexmk runs, log diagnostics (from ../src-tauri)
 compat/               shims that leave one GPUI in the graph (gpui-pre, gpui-fast)
 patches/              upstream crates with Lattice's diffs: gpui-fast's GPUI and
-                      macOS platform, GPUI Kit's components (patches/README.md)
+                      macOS platform, GPUI Kit's components and foundation
+                      (patches/README.md)
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
 ```
 
