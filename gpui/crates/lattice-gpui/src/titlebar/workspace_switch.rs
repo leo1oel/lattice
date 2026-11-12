@@ -384,11 +384,17 @@ impl Shell {
         cx.notify();
     }
 
+    /// Close the rename field. The keyboard comes back to the window only
+    /// from the field itself: a click elsewhere keeps the focus it moved.
     pub(crate) fn finish_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let held = self.rename_input.take().is_some_and(|input| {
+            gpui::Focusable::focus_handle(input.read(cx), cx).contains_focused(window, cx)
+        });
         self.layout.renaming = None;
-        self.rename_input = None;
         self.rename_subscription = None;
-        window.focus(&self.focus_handle, cx);
+        if held || window.focused(cx).is_none() {
+            window.focus(&self.focus_handle, cx);
+        }
         cx.notify();
     }
 
