@@ -1826,6 +1826,22 @@ msgstr "Add papers"
 msgid "Add papers…"
 msgstr "Add papers…"
 
+#: src/papers/zotero-browser.tsx
+msgid "Add PDF"
+msgstr "Add PDF"
+
+#: src/papers/zotero-browser.tsx
+msgid "Add PDF and annotations"
+msgstr "Add PDF and annotations"
+
+#: src/papers/zotero-browser.tsx
+msgid "Add PDFs"
+msgstr "Add PDFs"
+
+#: src/papers/zotero-browser.tsx
+msgid "Add PDFs and annotations"
+msgstr "Add PDFs and annotations"
+
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "Add project term"

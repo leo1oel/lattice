@@ -1826,6 +1826,22 @@ msgstr "添加论文"
 msgid "Add papers…"
 msgstr "添加论文…"
 
+#: src/papers/zotero-browser.tsx
+msgid "Add PDF"
+msgstr "添加 PDF"
+
+#: src/papers/zotero-browser.tsx
+msgid "Add PDF and annotations"
+msgstr "添加 PDF 和批注"
+
+#: src/papers/zotero-browser.tsx
+msgid "Add PDFs"
+msgstr "添加 PDF"
+
+#: src/papers/zotero-browser.tsx
+msgid "Add PDFs and annotations"
+msgstr "添加 PDF 和批注"
+
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "添加词语"

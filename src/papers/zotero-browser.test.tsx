@@ -44,10 +44,10 @@ const zoteroWith = (library: ZoteroLibrary) => (command: string) =>
 /** Zotero answering with LIBRARY. */
 const zotero = zoteroWith(LIBRARY);
 
-function sheet(onAdd = vi.fn(), onClose = vi.fn()) {
+function sheet(onAdd = vi.fn(), onClose = vi.fn(), papers: PaperSummary[] = [IN_PAPERS]) {
   render(
     <AddPapersSheet
-      seed="" papers={[IN_PAPERS]} importing={false}
+      seed="" papers={papers} importing={false}
       onResolve={vi.fn() as unknown as (query: string) => Promise<ResolvedCitationDraft>}
       onAdd={onAdd} onStop={vi.fn()} onEnterManually={vi.fn()} onLinkLibrary={vi.fn()} onClose={onClose}
     />,
@@ -156,6 +156,38 @@ describe("Add papers from Zotero", () => {
       id: "zotero:vaswani2017attention", input: annotated.items[2].bibtex, label: "Attention Is All You Need", pdf: undefined,
       existing: "vaswani2017attention", annotations: { item: "ATTN0001", dataDir: null },
     }]);
+  });
+
+  it("ticks a paper Papers holds without its PDF for that PDF, and not once the PDF is kept", async () => {
+    // Imported from Zotero before the bundle kept its PDF (#862): its text is
+    // there, its pages are not, and its Zotero PDF has no annotations.
+    const unannotated = { ...LIBRARY, items: LIBRARY.items.map((item) => item.key === "SPARSE01" ? { ...item, annotations: 0 } : item) };
+    const held = {
+      arxivId: "web-0123456789abcdef", title: "Sparse attention for long documents", authors: "Lee, Ada", citationKey: "Lee2024Sparse",
+      doi: "10.1000/sparse", hasFullText: true, hasBlog: false, hasLocalPdf: false, assetPaths: [],
+    } as PaperSummary;
+    const open = async (papers: PaperSummary[], onAdd = vi.fn()) => {
+      cleanup();
+      invoke.mockImplementation(zoteroWith(unannotated));
+      sheet(onAdd, vi.fn(), papers);
+      await screen.findByRole("tree", { name: "Zotero folders" });
+      fireEvent.click(screen.getByRole("button", { name: "Expand Thesis" }));
+      openFolder(LONG_NAME);
+      return { box: await screen.findByRole("checkbox", { name: "Sparse attention for long documents" }), onAdd };
+    };
+
+    const { box, onAdd } = await open([IN_PAPERS, held]);
+    expect(box).toBeEnabled();
+    expect(within(box.closest("li")!).getByText("In Papers")).toBeInTheDocument();
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole("button", { name: "Add PDF" }));
+    expect(onAdd).toHaveBeenCalledWith([{
+      id: "zotero:Lee2024Sparse", input: unannotated.items[0].bibtex, label: "Sparse attention for long documents",
+      pdf: "PDF00001", existing: "Lee2024Sparse", annotations: undefined,
+    }]);
+
+    const kept = await open([IN_PAPERS, { ...held, hasLocalPdf: true }]);
+    expect(kept.box).toBeDisabled();
   });
 
   it("says an empty folder is empty, with nothing to add", async () => {
