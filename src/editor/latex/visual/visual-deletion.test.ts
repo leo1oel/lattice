@@ -114,7 +114,7 @@ describe("LaTeX Visual mode deletion", () => {
   });
 
   // A chip shows its source while the caret is at its edge; its tokens are stepped over as a revealed heading's are.
-  for (const chip of ["\\cite{knuth}", "\\citep[p.~3]{knuth}", "\\ref{knuth}", "\\label{knuth}"]) {
+  for (const chip of ["\\cite{knuth}", "\\citep[p.~3]{knuth}", "\\ref{knuth}", "\\label{knuth}", "\\cmpd{knuth}", "\\cmpd[pre-label-code=]{knuth}"]) {
     it(`steps over ${chip}'s braces from either edge, never deleting one alone, and one undo restores it`, async () => {
       const doc = `A ${chip} B`;
       const end = doc.indexOf(" B");
@@ -136,7 +136,7 @@ describe("LaTeX Visual mode deletion", () => {
   }
 
   it("removes an empty key command whole from either side, one undo restoring it, and empties a chip into one", async () => {
-    for (const command of ["\\cite{}", "\\citep[p.~3]{ }", "\\ref{}", "\\label{}"]) {
+    for (const command of ["\\cite{}", "\\citep[p.~3]{ }", "\\ref{}", "\\label{}", "\\cmpd{}", "\\rcmpd{}"]) {
       const doc = `A ${command} B`;
       const end = doc.indexOf(" B");
       for (const { anchor, key } of [{ anchor: end, key: "Backspace" }, { anchor: 2, key: "Delete" }]) {

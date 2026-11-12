@@ -3,7 +3,7 @@ import { EditorSelection, EditorState, Prec, findClusterBreak, type Extension } 
 import { EditorView, keymap, type Command, type DecorationSet } from "@codemirror/view";
 import { endDocumentOf, preambleOf } from "./visual-environments";
 import type { Construct, Span } from "./visual-scan";
-import { CITATION_COMMANDS, REFERENCE_COMMANDS } from "./visual-symbols";
+import { CITATION_COMMANDS, COMPOUND_COMMANDS, REFERENCE_COMMANDS } from "./visual-symbols";
 
 /** What Visual mode has scanned and drawn, as deletion reads it. */
 type DrawnState = { constructs: readonly Construct[]; replacements: DecorationSet };
@@ -35,8 +35,8 @@ export function visualDeletion(read: ReadDrawn): Extension {
  * Ctrl-h, Ctrl-d) works as in a word processor:
  * - It never deletes a token Visual mode draws, hidden or as a faint brace
  *   (`\textbf{`, `}`, `\href{url}{`, `{\bf `, a term's `\item[` and `]`), nor
- *   a heading's or caption's, drawn or not, nor a reference's, citation's or
- *   label's `\cite{` and `}` while the caret at its edge shows the chip's
+ *   a heading's or caption's, drawn or not, nor a reference's, citation's,
+ *   label's or compound number's `\cite{` and `}` while the caret at its edge shows the chip's
  *   source. It steps over them, deletes the character beyond (a widget
  *   beyond them goes whole), and the caret stays on its side of them.
  * - Leaving a description term over its bracket removes the item's marker
@@ -47,7 +47,7 @@ export function visualDeletion(read: ReadDrawn): Extension {
  *   of text onto an environment's or a display's (a blank line next to one
  *   still goes).
  * - With the caret just outside a construct whose content is empty, it
- *   removes the construct (an empty `\cite{}`, `\ref{}` or `\label{}` too,
+ *   removes the construct (an empty `\cite{}`, `\ref{}`, `\label{}` or `\cmpd{}` too,
  *   which draws no chip); inside one, the deletion is Source's.
  * - Past the start or end of the document it deletes nothing.
  * A word or line deletion from the caret (Option- or Cmd-Backspace and
@@ -64,7 +64,7 @@ export function visualDeletion(read: ReadDrawn): Extension {
  * A construct drawn between an opening and a closing token. `always`: its
  * tokens are stepped over even while its source shows (a heading's or
  * caption's with a title, a chip's). `term`: a description item's `[…]`.
- * `chip`: a reference, citation or label, drawn as one widget over all of
+ * `chip`: a reference, citation, label or compound number, drawn as one widget over all of
  * it, so its tokens are never drawn on their own.
  */
 type TokenPair = { from: number; to: number; open: Span; close: Span; brackets: string; always: boolean; term: boolean; chip: boolean };
@@ -81,7 +81,7 @@ function tokenPairs(state: EditorState, value: DrawnState): TokenPair[] {
     } else if (construct.kind === "item" && construct.term) {
       const close = { from: construct.term.to, to: construct.term.to + 1 };
       pairs.push({ from, to: close.to, open: { from, to: construct.term.from }, close, brackets: "[]", always: false, term: true, chip: false });
-    } else if (construct.kind === "reference" || construct.kind === "citation" || construct.kind === "label") {
+    } else if (construct.kind === "reference" || construct.kind === "citation" || construct.kind === "label" || construct.kind === "compound") {
       // The scan only reads a key list without braces, and never an empty one: its last `{` opens the keys.
       const brace = from + state.sliceDoc(from, to).lastIndexOf("{");
       pairs.push({ from, to, open: { from, to: brace + 1 }, close: { from: to - 1, to }, brackets: "{}", always: true, term: false, chip: true });
@@ -91,7 +91,7 @@ function tokenPairs(state: EditorState, value: DrawnState): TokenPair[] {
 }
 
 /**
- * An empty key command (`\cite{}`, `\ref{ }`, `\label{}`) just beside the
+ * An empty key command (`\cite{}`, `\ref{ }`, `\label{}`, `\cmpd{}`) just beside the
  * caret on its side of the deletion, whole. The scan draws no chip for one,
  * so it is found in the text.
  */
@@ -101,9 +101,10 @@ function emptyKeyCommand(state: EditorState, at: number, forward: boolean): Span
   const match = pattern.exec(forward ? line.text.slice(at - line.from) : line.text.slice(0, at - line.from));
   if (!match) return null;
   const [whole, name, options] = match;
-  const citation = CITATION_COMMANDS.has(name);
-  if (!citation && !REFERENCE_COMMANDS.has(name) && name !== "label") return null;
-  if (options && !citation) return null;
+  if (!CITATION_COMMANDS.has(name) && !REFERENCE_COMMANDS.has(name) && !COMPOUND_COMMANDS.has(name) && name !== "label") return null;
+  // A citation takes up to two options, `\cmpd` and `\refcmpd` one, the others none.
+  const optionCount = CITATION_COMMANDS.has(name) ? 2 : COMPOUND_COMMANDS.has(name) && name !== "rcmpd" ? 1 : 0;
+  if ((options.match(/\[/g)?.length ?? 0) > optionCount) return null;
   const from = forward ? at : at - whole.length;
   // `\\cite{}` is a line break before plain text.
   if (state.sliceDoc(from - 1, from) === "\\") return null;
