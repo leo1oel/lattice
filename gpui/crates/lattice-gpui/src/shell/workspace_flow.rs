@@ -66,12 +66,11 @@ impl Shell {
         }));
     }
 
-    /// A layout change still waiting to be saved, saved now: the window is
-    /// closing or the app quitting.
+    /// The layout saved now, the window closing or the app quitting: a
+    /// change still waiting, and the document the writer was last on, which
+    /// moves without a layout change (an unchanged layout is not written).
     pub(super) fn flush_layout(&mut self, cx: &mut App) {
-        if self.save_task.is_some() {
-            self.save_layout(cx);
-        }
+        self.save_layout(cx);
     }
 
     /// Remember the project's layout, its workspace and preset, and where
