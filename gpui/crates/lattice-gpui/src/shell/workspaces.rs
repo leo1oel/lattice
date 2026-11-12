@@ -57,6 +57,20 @@ struct Library {
 pub struct ActivePreset {
     pub preset: Preset,
     pub previous: Arrangement,
+    /// The document the writer was on when the layout was saved.
+    #[serde(default)]
+    pub active: Option<String>,
+}
+
+impl ActivePreset {
+    /// The document to bring to the front when the preset is laid out
+    /// again: the one the writer was on, wherever it stood, else the one in
+    /// front of the own layout's first document group.
+    pub fn front_document(&self) -> Option<String> {
+        self.active
+            .clone()
+            .or_else(|| self.previous.front_document())
+    }
 }
 
 /// What a project remembers about its layout.
@@ -432,6 +446,80 @@ fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shell::layout::{FloatingView, Node, Room, SplitAxis, View};
+
+    fn file(path: &str) -> View {
+        View::File(path.into())
+    }
+
+    /// Writing laid out again from `saved`, with the document it brings to
+    /// the front.
+    fn writing_again(saved: &ActivePreset) -> Node {
+        let saved: ActivePreset =
+            serde_json::from_str(&serde_json::to_string(saved).unwrap()).unwrap();
+        let room = Room {
+            width: 1440.,
+            height: 900.,
+        };
+        saved
+            .preset
+            .arrange(&saved.previous, saved.front_document().as_deref(), room)
+            .center
+    }
+
+    fn in_front(node: &Node) -> Option<&View> {
+        match node {
+            Node::Tabs { views, active, .. } => views.get(*active),
+            Node::Split { .. } => None,
+        }
+    }
+
+    #[test]
+    fn writing_comes_back_on_the_document_in_a_second_group() {
+        // The center split in two, intro.tex focused in the second group,
+        // main.tex still in front of the first: reopened under Writing, the
+        // writer is on intro.tex again.
+        let mut previous = Arrangement::default();
+        previous.center = Node::Split {
+            axis: SplitAxis::Row,
+            children: vec![
+                Node::tabs([file("main.tex")]),
+                Node::tabs([file("chapters/intro.tex")]),
+            ],
+            sizes: vec![None, None],
+        };
+        let saved = ActivePreset {
+            preset: Preset::Writing,
+            previous,
+            active: Some("chapters/intro.tex".into()),
+        };
+        assert_eq!(
+            in_front(&writing_again(&saved)),
+            Some(&file("chapters/intro.tex"))
+        );
+    }
+
+    #[test]
+    fn writing_comes_back_on_a_floating_document() {
+        let mut previous = Arrangement::default();
+        previous.center = Node::tabs([file("main.tex")]);
+        previous.floating = vec![FloatingView {
+            view: file("chapters/intro.tex"),
+            x: 600.,
+            y: 72.,
+            width: 420.,
+            height: 480.,
+        }];
+        let saved = ActivePreset {
+            preset: Preset::Writing,
+            previous,
+            active: Some("chapters/intro.tex".into()),
+        };
+        assert_eq!(
+            in_front(&writing_again(&saved)),
+            Some(&file("chapters/intro.tex"))
+        );
+    }
 
     fn library() -> Workspaces {
         Workspaces::load(None)

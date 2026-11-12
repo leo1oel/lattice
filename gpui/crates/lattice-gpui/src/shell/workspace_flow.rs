@@ -90,6 +90,7 @@ impl Shell {
             preset: self.layout.preset.as_ref().map(|active| ActivePreset {
                 preset: active.preset,
                 previous: own.clone(),
+                active: self.active_document(cx),
             }),
             arrangement: Some(own),
             places: self.layout.places.clone(),
@@ -122,7 +123,7 @@ impl Shell {
         Workspaces::update(cx, |library| library.note_used(&workspace));
         let arrangement = match (saved.preset.clone(), saved.arrangement.clone()) {
             (Some(preset), _) => {
-                let active = preset.previous.front_document();
+                let active = preset.front_document();
                 let laid =
                     preset
                         .preset
@@ -317,7 +318,11 @@ impl Shell {
             None => current,
         };
         let laid = preset.arrange(&previous, active.as_deref(), self.room(window));
-        self.layout.preset = Some(ActivePreset { preset, previous });
+        self.layout.preset = Some(ActivePreset {
+            preset,
+            previous,
+            active: None,
+        });
         self.install(&laid, window, cx);
     }
 
