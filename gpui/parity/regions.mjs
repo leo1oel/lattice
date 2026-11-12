@@ -61,7 +61,7 @@ export const SCREENS = {
  * Runs in the page: tags each region's element with data-parity-region (and
  * the element that holds each of its runs of text with data-parity-text) and
  * measures it. Returns { regions: {name: {bounds, texts}}, textRects,
- * contentRects }; textRects are every visible text node's boxes,
+ * contentRects }; textRects are every visible run's boxes,
  * contentRects the content regions' boxes, which the pixel budget leaves out.
  *
  * A run of text is a text node, or the value (else the placeholder) a
@@ -98,7 +98,13 @@ export function measureInPage({ regions, content }) {
     return out;
   };
   const runRects = (run) => {
-    if (run.nodeType === 1) return [box(run)];
+    if (run.nodeType === 1) {
+      const r = box(run), cs = getComputedStyle(run);
+      const left = parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft), right = parseFloat(cs.borderRightWidth) + parseFloat(cs.paddingRight);
+      const top = parseFloat(cs.borderTopWidth) + parseFloat(cs.paddingTop), bottom = parseFloat(cs.borderBottomWidth) + parseFloat(cs.paddingBottom);
+      const content = { x: r.x + left, y: r.y + top, w: r.w - left - right, h: r.h - top - bottom };
+      return content.w > 0 && content.h > 0 ? [content] : [];
+    }
     const range = document.createRange();
     range.selectNodeContents(run);
     return [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: r.x, y: r.y, w: r.width, h: r.height }));
@@ -129,8 +135,6 @@ export function measureInPage({ regions, content }) {
     // Runs that share an element share its tag, and the face CDP reports for it.
     if (!holder.hasAttribute("data-parity-text")) holder.setAttribute("data-parity-text", String(tags++));
     const cs = getComputedStyle(holder);
-    // "normal" leaves the line box to the font: take the box the run occupies (an input's content box).
-    const runHeight = input ? holder.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) : rects[0].h;
     return {
       content: (input ? inputText(run) : run.data.trim()).replace(/\s+/g, " ").slice(0, 60),
       tag: holder.getAttribute("data-parity-text"),
@@ -138,7 +142,8 @@ export function measureInPage({ regions, content }) {
       cssSize: parseFloat(cs.fontSize),
       size: parseFloat(cs.fontSize) * sizeAdjust(cs.fontFamily),
       weight: parseFloat(cs.fontWeight),
-      lineHeight: cs.lineHeight === "normal" ? runHeight : parseFloat(cs.lineHeight),
+      // "normal" leaves the line box to the font: take the box the run occupies (an input's content box).
+      lineHeight: cs.lineHeight === "normal" ? rects[0].h : parseFloat(cs.lineHeight),
     };
   };
   const out = {};
@@ -149,7 +154,7 @@ export function measureInPage({ regions, content }) {
     const texts = spec.text ? textRuns(el).map(measureRun).filter(Boolean) : [];
     out[spec.name] = { bounds: box(el), texts };
   }
-  const textRects = textRuns(document.body).filter((run) => run.nodeType === 3).flatMap(runRects);
+  const textRects = textRuns(document.body).flatMap(runRects);
   const contentRects = content.flatMap((selector) => deepAll(document, selector).filter(visible).map(box));
   return { regions: out, textRects, contentRects };
 }

@@ -112,7 +112,6 @@ impl TreeRow {
             .h(px(28.))
             .py_0()
             .px_0()
-            .pr(px(8.))
             .rounded(px(6.))
             .when(self.selected, |item| item.bg(palette.row_selected))
             .children(self.parity.clone().and_then(parity::probe))
@@ -122,6 +121,7 @@ impl TreeRow {
                     .items_center()
                     .gap(px(6.))
                     .h(px(28.))
+                    .pr(px(8.))
                     .child(lead)
                     .child(
                         div()

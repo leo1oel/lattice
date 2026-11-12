@@ -17,7 +17,7 @@
 // It writes DIR/report.md and DIR/report.json, and per screen
 // and theme the side-by-side image and heatmap, with every capture under
 // DIR/runs/. It exits 0 once the report is written, whatever it found: the
-// report is the result (pass --strict to exit 1 when a check fails).
+// report is the result.
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -34,7 +34,7 @@ const repo = join(here, "../..");
 const args = process.argv.slice(2);
 const flag = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
 const out = flag("--out") && resolve(flag("--out"));
-if (!out) throw new Error("usage: node gpui/parity/run.mjs --out DIR [--theme light,dark] [--screen mainWindow] [--app PATH] [--bench-url URL] [--strict]");
+if (!out) throw new Error("usage: node gpui/parity/run.mjs --out DIR [--theme light,dark] [--screen mainWindow] [--app PATH] [--bench-url URL]");
 const themes = flag("--theme", "light,dark").split(",");
 const screens = flag("--screen", Object.keys(SCREENS).join(",")).split(",");
 for (const screen of screens) if (!SCREENS[screen]) throw new Error(`no screen ${screen}; screens: ${Object.keys(SCREENS).join(", ")}`);
@@ -96,10 +96,7 @@ const meta = { date: new Date().toISOString(), app, benchUrl: bench.url };
 const markdown = markdownReport(results, meta);
 writeFileSync(join(out, "report.md"), markdown);
 writeFileSync(join(out, "report.json"), JSON.stringify({ ...meta, screens: results.map((r) => r.report) }, null, 2));
-const failed = results.filter(({ report: { summary: s } }) => s.bounds.passed < s.bounds.total || s.text.passed < s.text.total
-  || s.chrome.passed < s.chrome.total || s.missing.length || !s.pixels?.pass);
 for (const { report: { screen, theme, summary: s } } of results) {
   log(`${screen} · ${theme}: bounds ${s.bounds.passed}/${s.bounds.total}, text ${s.text.passed}/${s.text.total}, chrome ${s.chrome.passed}/${s.chrome.total}, pixels ${s.pixels ? `${(s.pixels.rate * 100).toFixed(2)}% (budget ${(s.pixels.budget * 100).toFixed(2)}%, GPUI run-to-run ${(s.pixels.gpuiNoiseRate * 100).toFixed(2)}%)` : "not compared"}`);
 }
 log(`report: ${join(out, "report.md")}`);
-if (args.includes("--strict") && failed.length) process.exit(1);

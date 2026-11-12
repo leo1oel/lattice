@@ -5,7 +5,7 @@
 //
 //   <name>.png         the viewport, at the device scale
 //   <name>.json        the named regions' bounds and the styles of their runs
-//                      of text, every text node's box, and the content
+//                      of text, every run of text's box, and the content
 //                      regions' boxes
 //   <name>.paper.html  the page as serialize.js draws it into Paper, its
 //                      layers named after the regions (the layout record the
