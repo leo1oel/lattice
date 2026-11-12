@@ -453,6 +453,55 @@ mod tests {
         assert!(is_executable(&script));
     }
 
+    /// A build's Stop is a SIGTERM to its process group. The GPUI app spawns
+    /// builds from libdispatch worker threads, which block signals, and a
+    /// Cocoa app may ignore SIGTERM; a child inherits both, so without the
+    /// reset at spawn the group shrugged off the TERM and a looping build
+    /// could not be stopped. Oracle: POSIX — a process with SIGTERM at its
+    /// default disposition and unblocked dies of it.
+    #[cfg(unix)]
+    #[test]
+    fn a_group_spawned_with_sigterm_blocked_and_ignored_still_stops_on_term() {
+        use std::os::unix::process::ExitStatusExt as _;
+        use std::time::{Duration, Instant};
+
+        let mut child = std::thread::spawn(|| unsafe {
+            let mut blocked = std::mem::MaybeUninit::<libc::sigset_t>::uninit();
+            libc::sigemptyset(blocked.as_mut_ptr());
+            libc::sigaddset(blocked.as_mut_ptr(), libc::SIGTERM);
+            libc::pthread_sigmask(libc::SIG_BLOCK, blocked.as_ptr(), std::ptr::null_mut());
+            let previous = libc::signal(libc::SIGTERM, libc::SIG_IGN);
+            let mut sleeper = Command::new("sleep");
+            sleeper.arg("30");
+            let spawned = in_new_process_group(&mut sleeper).spawn();
+            libc::signal(libc::SIGTERM, previous);
+            spawned.unwrap()
+        })
+        .join()
+        .unwrap();
+
+        signal_process_group(child.id(), TERM_SIGNAL);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break Some(status);
+            }
+            if Instant::now() > deadline {
+                break None;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        if status.is_none() {
+            signal_process_group(child.id(), KILL_SIGNAL);
+            let _ = child.wait();
+        }
+        assert_eq!(
+            status.and_then(|status| status.signal()),
+            Some(libc::SIGTERM),
+            "the group must die of the TERM"
+        );
+    }
+
     #[test]
     fn child_commands_can_find_mactex_tools() {
         let command = command("sh");
