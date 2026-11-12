@@ -4,9 +4,7 @@
 //! width with what is wrong, and the install when something required is
 //! missing.
 
-use gpui::{
-    AnyElement, App, Hsla, IntoElement, ParentElement as _, Styled as _, div, prelude::*, px,
-};
+use gpui::{AnyElement, App, Hsla, IntoElement, ParentElement as _, Styled as _, div, px};
 use lattice_core::doctor::{DoctorCheck, DoctorReport};
 use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, tokens::FONT_WEIGHT_SEMIBOLD};
 
@@ -55,9 +53,112 @@ fn mix(color: Hsla, amount: f32, ground: Hsla) -> Hsla {
     .into()
 }
 
-/// The verdict and the tiles; `install` is the button offered when a
-/// required tool is missing.
-pub fn report_view(report: &DoctorReport, install: Option<AnyElement>, cx: &App) -> AnyElement {
+/// How a tile in the checklist reads.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TileState {
+    Ready,
+    /// Something to act on that does not stop a build (package updates).
+    Warn,
+    Unavailable,
+}
+
+/// One check: its state, its name and, for one that is not ready, what is
+/// wrong (and what to do).
+pub struct Tile {
+    pub state: TileState,
+    pub label: String,
+    pub details: Vec<String>,
+}
+
+impl Tile {
+    fn of(check: &DoctorCheck) -> Self {
+        let state = if check.ok {
+            TileState::Ready
+        } else {
+            TileState::Unavailable
+        };
+        Self {
+            state,
+            label: check_label(&check.name).to_string(),
+            details: (!check.ok)
+                .then(|| check_detail(check))
+                .into_iter()
+                .collect(),
+        }
+    }
+}
+
+fn tile(tile: Tile, cx: &App) -> AnyElement {
+    let palette = cx.palette().clone();
+    let (icon, ink, border, ground) = match tile.state {
+        TileState::Ready => (
+            icons::CIRCLE_CHECK_BIG,
+            palette.success,
+            palette.line,
+            palette.window,
+        ),
+        // The hairline is a translucent ink: the hue is laid over it.
+        TileState::Warn => (
+            icons::CIRCLE_ALERT,
+            palette.warning,
+            palette.warning.opacity(0.26),
+            mix(palette.warning, 0.06, palette.window),
+        ),
+        TileState::Unavailable => (
+            icons::CIRCLE_X,
+            palette.danger,
+            palette.danger.opacity(0.22),
+            mix(palette.danger, 0.05, palette.window),
+        ),
+    };
+    div()
+        .flex()
+        .gap(px(6.))
+        .min_h(px(32.))
+        .py(px(6.))
+        .px(px(8.))
+        .border_1()
+        .border_color(border)
+        .rounded(px(6.))
+        .bg(ground)
+        .flex_1()
+        .min_w_0()
+        .child(div().pt(px(1.)).child(icon.element(px(15.), ink)))
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .min_w_0()
+                .flex_1()
+                .gap(px(2.))
+                .child(
+                    div()
+                        .truncate()
+                        .text_role(TextRole::Caption, cx)
+                        .font_weight(FONT_WEIGHT_SEMIBOLD)
+                        .text_color(palette.text)
+                        .child(tile.label),
+                )
+                .children(tile.details.into_iter().map(|detail| {
+                    div()
+                        .text_role(TextRole::Caption, cx)
+                        .line_height(px(16.8))
+                        .text_color(palette.text_secondary)
+                        .child(detail)
+                })),
+        )
+        .into_any_element()
+}
+
+/// The verdict and the tiles, `extra` (the package-update check) last;
+/// `actions` go under them: the install when a required tool is missing,
+/// the package update.
+pub fn report_view(
+    report: &DoctorReport,
+    extra: Option<Tile>,
+    actions: Vec<AnyElement>,
+    cx: &App,
+) -> AnyElement {
     let palette = cx.palette().clone();
     let (ink, wash, verdict) = if report.ok {
         (
@@ -72,77 +173,20 @@ pub fn report_view(report: &DoctorReport, install: Option<AnyElement>, cx: &App)
             "Missing required tools",
         )
     };
-    let tile = |check: &DoctorCheck| {
-        let bad = !check.ok;
-        let (icon, icon_ink) = if bad {
-            (icons::CIRCLE_X, palette.danger)
-        } else {
-            (icons::CIRCLE_CHECK_BIG, palette.success)
-        };
-        let border = if bad {
-            mix(palette.danger, 0.22, palette.line)
-        } else {
-            palette.line
-        };
-        let ground = if bad {
-            mix(palette.danger, 0.05, palette.window)
-        } else {
-            palette.window
-        };
-        div()
-            .flex()
-            .gap(px(6.))
-            .min_h(px(32.))
-            .py(px(6.))
-            .px(px(8.))
-            .border_1()
-            .border_color(border)
-            .rounded(px(6.))
-            .bg(ground)
-            .flex_1()
-            .min_w_0()
-            .child(div().pt(px(1.)).child(icon.element(px(15.), icon_ink)))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .min_w_0()
-                    .flex_1()
-                    .gap(px(2.))
-                    .child(
-                        div()
-                            .truncate()
-                            .text_role(TextRole::Caption, cx)
-                            .font_weight(FONT_WEIGHT_SEMIBOLD)
-                            .text_color(palette.text)
-                            .child(check_label(&check.name).to_string()),
-                    )
-                    .when(bad, |tile| {
-                        tile.child(
-                            div()
-                                .text_role(TextRole::Caption, cx)
-                                .line_height(px(16.8))
-                                .text_color(palette.text_secondary)
-                                .child(check_detail(check)),
-                        )
-                    }),
-            )
-            .into_any_element()
-    };
     // The checklist's grid: two columns at the sheet's width (170px at the
-    // least, as Settings lays them), a check that failed taking a row of
-    // its own and the ones after it starting the next.
+    // least, as Settings lays them), a check that is not ready taking a row
+    // of its own and the ones after it starting the next.
     let mut rows: Vec<Vec<AnyElement>> = Vec::new();
     let mut row: Vec<AnyElement> = Vec::new();
-    for check in &report.checks {
-        if !check.ok {
+    for item in report.checks.iter().map(Tile::of).chain(extra) {
+        if item.state != TileState::Ready {
             if !row.is_empty() {
                 rows.push(std::mem::take(&mut row));
             }
-            rows.push(vec![tile(check)]);
+            rows.push(vec![tile(item, cx)]);
             continue;
         }
-        row.push(tile(check));
+        row.push(tile(item, cx));
         if row.len() == 2 {
             rows.push(std::mem::take(&mut row));
         }
@@ -170,7 +214,7 @@ pub fn report_view(report: &DoctorReport, install: Option<AnyElement>, cx: &App)
                 .child(verdict),
         )
         .child(div().flex().flex_col().gap(px(6.)).children(tiles))
-        .children(install)
+        .children(actions)
         .into_any_element()
 }
 

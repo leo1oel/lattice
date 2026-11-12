@@ -6,6 +6,7 @@
 use lattice_ui::Icon;
 
 pub const CIRCLE_X: Icon = Icon("icons/circle-x.svg");
+pub const CIRCLE_ALERT: Icon = Icon("icons/circle-alert.svg");
 pub const CIRCLE_HELP: Icon = Icon("icons/circle-question-mark.svg");
 pub const CIRCLE_CHECK_BIG: Icon = Icon("icons/circle-check-big.svg");
 pub const TRIANGLE_ALERT: Icon = Icon("icons/triangle-alert.svg");
@@ -31,6 +32,7 @@ mod tests {
         let kit = gpui_kit::assets::AllAssets::new("");
         for (icon, name) in [
             (CIRCLE_X, "circle-x"),
+            (CIRCLE_ALERT, "circle-alert"),
             (CIRCLE_HELP, "circle-question-mark"),
             (CIRCLE_CHECK_BIG, "circle-check-big"),
             (TRIANGLE_ALERT, "triangle-alert"),

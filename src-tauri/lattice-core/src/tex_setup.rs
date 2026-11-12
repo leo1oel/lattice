@@ -52,7 +52,7 @@ pub(crate) use fetch::download as download_pinned;
 pub(crate) use installer::{create_private_file, PinnedDownload};
 #[cfg(target_os = "macos")]
 pub use macos::{check_package_updates, install_dependency, install_tex, update_packages};
-pub use package_updates::TexPackageUpdates;
+pub use package_updates::{TexPackageUpdate, TexPackageUpdates};
 #[cfg(not(any(target_os = "macos", windows)))]
 pub use stub::{check_package_updates, install_dependency, install_tex, update_packages};
 // Windows installs TeX itself; it has no package-update step yet.

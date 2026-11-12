@@ -18,7 +18,7 @@ use lattice_ui::{
 use super::{
     TEX_INSTALL_SIZE_HINT,
     center::{InstallProgress, TexSetupCenter},
-    only_paper_tools_missing, required_setup_missing, stage_copy,
+    only_paper_tools_missing, package_updates, required_setup_missing, stage_copy,
 };
 use crate::build::{doctor, icons};
 
@@ -363,18 +363,102 @@ impl TexSetupCenter {
         ))
     }
 
+    /// The doctor's "TeX packages" check, once the repository has answered.
+    fn package_tile(&self) -> Option<doctor::Tile> {
+        let report = self.packages.report.as_ref()?;
+        let detail = package_updates::check_detail(report);
+        let mut details: Vec<String> = detail.iter().cloned().collect();
+        if let Some(error) = &report.error {
+            let (_, words) = package_updates::check_problem(error);
+            details.extend((!words.is_empty()).then_some(words));
+        } else if !report.packages.is_empty() && !report.managed {
+            // A TeX Lattice did not install is the writer's to update.
+            details.push(format!("In Terminal: {}", package_updates::UPDATE_COMMAND));
+        }
+        Some(doctor::Tile {
+            state: if detail.is_some() {
+                doctor::TileState::Warn
+            } else {
+                doctor::TileState::Ready
+            },
+            label: "TeX packages".into(),
+            details,
+        })
+    }
+
+    /// Under the checklist, for the BasicTeX Lattice installed: the
+    /// one-click update, its progress and its result.
+    fn package_actions(&self, center: &Entity<TexSetupCenter>, cx: &App) -> AnyElement {
+        let palette = cx.palette().clone();
+        let updates = &self.packages;
+        let mut parts: Vec<AnyElement> = Vec::new();
+        if updates.offer() {
+            let center = center.clone();
+            parts.push(
+                div()
+                    .flex()
+                    .child(
+                        Button::new(("tex-packages-update", self.serial), "Update TeX packages")
+                            .disabled(self.busy())
+                            .on_click(move |_, _, cx| {
+                                center.update(cx, |center, cx| center.update_packages(cx));
+                            }),
+                    )
+                    .into_any_element(),
+            );
+        }
+        if let Some(run) = &updates.run {
+            if run.running {
+                parts.push(progress(&run.progress, cx));
+            } else if let Some(error) = &run.error {
+                let (summary, detail) = package_updates::update_failure(error);
+                parts.push(failure(
+                    summary,
+                    Some(detail),
+                    center,
+                    self.details_open,
+                    cx,
+                ));
+            } else {
+                parts.push(
+                    div()
+                        .py(px(8.))
+                        .px(px(10.))
+                        .rounded(px(6.))
+                        .bg(palette.success_soft)
+                        .text_role(TextRole::Body, cx)
+                        .text_color(palette.success)
+                        .child("TeX packages updated. Build again to use them.")
+                        .into_any_element(),
+                );
+            }
+        }
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(8.))
+            .children(parts)
+            .into_any_element()
+    }
+
     fn doctor_sheet(&self, center: &Entity<TexSetupCenter>, cx: &App) -> AnyElement {
         let palette = cx.palette().clone();
         let busy = self.busy();
         let install = {
             let center = center.clone();
-            Button::new(
-                ("tex-doctor-install", self.serial),
-                "Install required tools",
-            )
-            .disabled(busy)
-            .on_click(move |_, _, cx| center.update(cx, |center, cx| center.open_wizard(cx)))
-            .into_any_element()
+            div()
+                .flex()
+                .child(
+                    Button::new(
+                        ("tex-doctor-install", self.serial),
+                        "Install required tools",
+                    )
+                    .disabled(busy)
+                    .on_click(move |_, _, cx| {
+                        center.update(cx, |center, cx| center.open_wizard(cx))
+                    }),
+                )
+                .into_any_element()
         };
         let rerun = {
             let center = center.clone();
@@ -388,7 +472,13 @@ impl TexSetupCenter {
                 })
         };
         let content = match self.report() {
-            Some(report) => doctor::report_view(report, (!report.ok).then_some(install), cx),
+            Some(report) => {
+                let mut actions = vec![self.package_actions(center, cx)];
+                if !report.ok {
+                    actions.push(install);
+                }
+                doctor::report_view(report, self.package_tile(), actions, cx)
+            }
             None if !busy => doctor::not_checked(install, cx),
             None => div()
                 .text_role(TextRole::Caption, cx)

@@ -624,6 +624,9 @@ pub struct DiagnosticsCard {
 impl DiagnosticsCard {
     pub fn new(build: gpui::Entity<BuildPanel>, cx: &mut Context<Self>) -> Self {
         cx.observe(&build, |_, _, cx| cx.notify()).detach();
+        // A notice's package update reports its progress in the card.
+        let center = crate::build::tex_setup::center::install(cx);
+        cx.observe(&center, |_, _, cx| cx.notify()).detach();
         Self { build }
     }
 }

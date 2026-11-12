@@ -19,7 +19,9 @@ use std::{
 use gpui::{App, Global};
 use lattice_core::{
     doctor::{self, DoctorCheck, DoctorReport},
-    tex_setup::{self, TexDependencyInstall, TexInstallMode, TexInstallProgress},
+    tex_setup::{
+        self, TexDependencyInstall, TexInstallMode, TexInstallProgress, TexPackageUpdates,
+    },
 };
 
 /// Hears an install's progress as it goes.
@@ -46,6 +48,11 @@ pub trait TexSetupBackend: Send + Sync {
         package: Option<&str>,
         progress: Progress,
     ) -> Result<TexDependencyInstall, String>;
+    /// What the TeX Live repository has newer than what is installed;
+    /// `None` without a tlmgr to ask.
+    fn check_package_updates(&self) -> Option<TexPackageUpdates>;
+    /// Update tlmgr and every package of the BasicTeX Lattice installed.
+    fn update_packages(&self, progress: Progress) -> Result<(), String>;
 }
 
 /// lattice-core's doctor and installers, as the Tauri app runs them.
@@ -83,6 +90,18 @@ impl TexSetupBackend for CoreTexSetup {
             Ok(())
         };
         tex_setup::install_dependency(missing_file, package, &sink)
+    }
+
+    fn check_package_updates(&self) -> Option<TexPackageUpdates> {
+        tex_setup::check_package_updates()
+    }
+
+    fn update_packages(&self, progress: Progress) -> Result<(), String> {
+        let sink = move |value: TexInstallProgress| -> Result<(), lattice_core::host::Closed> {
+            progress(value);
+            Ok(())
+        };
+        tex_setup::update_packages(&sink)
     }
 }
 
@@ -272,5 +291,37 @@ impl TexSetupBackend for StubTexSetup {
         })?;
         progress(TexInstallProgress::new("complete", 1.0));
         Ok(TexDependencyInstall::Installed)
+    }
+
+    /// Lattice's own BasicTeX with one package out of date, until updated.
+    fn check_package_updates(&self) -> Option<TexPackageUpdates> {
+        let updated = self
+            .state()
+            .calls
+            .iter()
+            .any(|call| call == "update_packages");
+        Some(TexPackageUpdates {
+            managed: true,
+            packages: if updated {
+                Vec::new()
+            } else {
+                vec![lattice_core::tex_setup::TexPackageUpdate {
+                    name: "lineno".into(),
+                    installed: "5.7".into(),
+                    available: "5.8".into(),
+                }]
+            },
+            error: None,
+        })
+    }
+
+    fn update_packages(&self, progress: Progress) -> Result<(), String> {
+        self.state().calls.push("update_packages".into());
+        Self::walk(
+            &[("authorizing", 0.1), ("updating-packages", 0.6)],
+            &progress,
+        );
+        progress(TexInstallProgress::new("complete", 1.0));
+        Ok(())
     }
 }

@@ -11,6 +11,7 @@ use std::{
     collections::HashMap,
     hash::{Hash as _, Hasher as _},
     path::Path,
+    time::Duration,
 };
 
 use futures::{StreamExt as _, channel::mpsc, channel::oneshot};
@@ -19,16 +20,21 @@ use lattice_core::{
     latex::{self, BuildResult, BuildStep, BuildSteps},
     models::FileNode,
 };
+use lattice_ui::components::ToastLevel;
 
 use super::{Build, Shell};
 use crate::{
     build::{diagnostics, tex_setup},
-    notices,
+    notices::{self, Notice, NoticeAction},
     project::Project,
 };
 
 const NO_DOCUMENT: &str = "This project has no LaTeX document to build yet. Add a .tex file, or \
                            set one as the root document in project settings.";
+
+/// How long a build runs before Lattice says so and offers to stop it.
+const SLOW_BUILD: Duration = Duration::from_secs(10 * 60);
+const SLOW_BUILD_NOTICE: &str = "build-still-running";
 
 /// How a build was asked for, which decides what it may do.
 #[derive(Clone, Copy, Debug, Default)]
@@ -190,6 +196,24 @@ impl Shell {
             panel.started(&root, &label, cx);
         });
 
+        // A build still going after minutes may be looping: say so, with Stop.
+        self.slow_build = Some(cx.spawn(async move |_, cx| {
+            cx.background_executor().timer(SLOW_BUILD).await;
+            cx.update(|cx| {
+                let stop = NoticeAction::new("Stop", |window, cx| {
+                    window.dispatch_action(Box::new(super::StopBuild), cx)
+                });
+                let notice = Notice::new(
+                    ToastLevel::Warning,
+                    "Still building after 10 minutes. Something in the document may be looping; \
+                     stop the build if it does not finish.",
+                )
+                .action(stop)
+                .key(SLOW_BUILD_NOTICE)
+                .persistent();
+                notices::show(notice, cx);
+            });
+        }));
         let build_panel = self.build_panel.clone();
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
             for save in saves {
@@ -272,6 +296,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         self.build_task = None;
+        self.slow_build = None;
+        notices::dismiss(SLOW_BUILD_NOTICE, cx);
         let current = self.project.as_ref() == Some(project);
         match outcome {
             // A build of the project open before shows nothing in this one.

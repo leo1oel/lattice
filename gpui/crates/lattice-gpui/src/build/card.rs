@@ -645,6 +645,11 @@ fn row(
                 });
             })
     });
+    // `lineno-outdated`: only an update fixes it, the doctor's, behind the
+    // same administrator prompt, so either place shows its progress.
+    let update = (diagnostic.code == Some("lineno-outdated"))
+        .then(|| package_update(ix, cx))
+        .flatten();
     let undo = (diagnostic.code == Some("engine-switched"))
         .then(|| diagnostic.params.get("previous").cloned())
         .flatten()
@@ -679,9 +684,65 @@ fn row(
         ))
         .children(install)
         .children(switch)
+        .children(update)
         .children(undo)
         .child(copy)
         .into_any_element()
+}
+
+/// A build notice's way to the TeX doctor's package update: its progress
+/// while it runs, its result after, else the button.
+fn package_update(ix: usize, cx: &App) -> Option<AnyElement> {
+    let center = crate::build::tex_setup::center::center(cx)?;
+    let palette = cx.palette().clone();
+    let status = |text: String, ink: Hsla| {
+        div()
+            .flex_initial()
+            .max_w(relative(0.45))
+            .text_role(TextRole::Micro, cx)
+            .line_height(px(16.))
+            .text_color(ink)
+            .child(text)
+            .into_any_element()
+    };
+    let run = center.read(cx).packages().run.clone();
+    Some(match run {
+        Some(run) if run.running => {
+            let waiting = run.progress.stage == "authorizing";
+            let what = if waiting {
+                "Waiting for administrator approval…"
+            } else {
+                "Updating LaTeX packages…"
+            };
+            status(
+                format!("{what} {}%", run.progress.percent()),
+                palette.text_secondary,
+            )
+        }
+        Some(run) if run.error.is_none() => status(
+            "TeX packages updated. Build again to use them.".into(),
+            palette.text_secondary,
+        ),
+        run => {
+            let failure = run
+                .and_then(|run| run.error)
+                .map(|error| crate::build::tex_setup::package_updates::update_failure(&error).0);
+            div()
+                .flex()
+                .items_center()
+                .gap(px(2.))
+                .children(failure.map(|failure| status(failure, palette.danger)))
+                .child(
+                    Button::new(("compile-diagnostic-update", ix), "Update TeX packages")
+                        .ghost()
+                        .compact()
+                        .on_click(move |_, _, cx| {
+                            center.update(cx, |center, cx| center.update_packages(cx));
+                        }),
+                )
+                .into_any_element()
+        }
+    })
 }
 
 fn explained_row(

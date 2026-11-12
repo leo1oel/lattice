@@ -118,6 +118,8 @@ pub struct Shell {
     cleaning: bool,
     /// A setup dialog or the TeX doctor is up.
     setup_dialog_open: bool,
+    /// Says a build has run for minutes, and offers to stop it.
+    slow_build: Option<Task<()>>,
     notices: Entity<NoticeStack>,
     confirm: Entity<ConfirmHost>,
     editors: Vec<WeakEntity<EditorPanel>>,
@@ -283,6 +285,7 @@ impl Shell {
             words,
             cleaning: false,
             setup_dialog_open: false,
+            slow_build: None,
             notices,
             confirm,
             editors: Vec::new(),

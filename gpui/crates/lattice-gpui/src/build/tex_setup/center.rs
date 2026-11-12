@@ -25,7 +25,9 @@ use super::{
     TEX_INSTALL_CANCELLED,
     backend::{self, TexSetupBackend},
     conference_fonts_missing, dependency_install_failure, distribution_name, missing_paper_tools,
-    missing_tex_tools, only_paper_tools_missing, required_setup_missing,
+    missing_tex_tools, only_paper_tools_missing,
+    package_updates::{PackageUpdates, UpdateRun},
+    required_setup_missing,
 };
 use crate::notices::{self, Notice};
 
@@ -105,6 +107,8 @@ pub struct TexSetupCenter {
     pub(super) doctor_open: bool,
     /// Whether a failed install's own words are unfolded under its summary.
     pub(super) details_open: bool,
+    /// The doctor's package-update check and the update.
+    pub(super) packages: PackageUpdates,
     /// Bumped per dialog opened, so each one enters afresh.
     pub(super) serial: usize,
     _launch_check: Option<Task<()>>,
@@ -116,6 +120,12 @@ impl EventEmitter<TexSetupEvent> for TexSetupCenter {}
 struct TexSetupCenterGlobal(Entity<TexSetupCenter>);
 
 impl Global for TexSetupCenterGlobal {}
+
+/// The center, once a shell has made it.
+pub fn center(cx: &App) -> Option<Entity<TexSetupCenter>> {
+    cx.try_global::<TexSetupCenterGlobal>()
+        .map(|global| global.0.clone())
+}
 
 /// The center every window's shell draws; made on first use.
 pub fn install(cx: &mut App) -> Entity<TexSetupCenter> {
@@ -134,6 +144,7 @@ pub fn install(cx: &mut App) -> Entity<TexSetupCenter> {
         dependency_attempt: 0,
         doctor_open: false,
         details_open: false,
+        packages: PackageUpdates::default(),
         serial: 0,
         _launch_check: None,
         _install: None,
@@ -150,6 +161,10 @@ impl TexSetupCenter {
     /// Whether a setup dialog or the TeX doctor is up.
     pub fn dialog_open(&self) -> bool {
         self.wizard_open || self.doctor_open || self.dependency.is_some()
+    }
+
+    pub fn packages(&self) -> &PackageUpdates {
+        &self.packages
     }
 
     pub fn report(&self) -> Option<&DoctorReport> {
@@ -296,6 +311,94 @@ impl TexSetupCenter {
         }
         self.doctor_open = true;
         self.run_doctor(false, cx).detach();
+        // The repository may have news since the last look.
+        self.check_package_updates(false, cx);
+    }
+
+    /// Ask the repository what it has newer. Never while an update runs: it
+    /// would only see the packages before it. `after_update` keeps the
+    /// update's result on show.
+    pub fn check_package_updates(&mut self, after_update: bool, cx: &mut Context<Self>) {
+        if self.packages.run.as_ref().is_some_and(|run| run.running) {
+            return;
+        }
+        self.packages.generation += 1;
+        let generation = self.packages.generation;
+        self.packages.checking = true;
+        cx.notify();
+        let backend = Self::backend(cx);
+        cx.spawn(async move |this, cx| {
+            let report = cx
+                .background_spawn(async move { backend.check_package_updates() })
+                .await;
+            this.update(cx, |this, cx| {
+                if generation != this.packages.generation {
+                    return;
+                }
+                this.packages.report = report;
+                this.packages.checking = false;
+                if !after_update {
+                    this.packages.run = None;
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// The one-click update of Lattice's BasicTeX, behind the
+    /// administrator prompt; it checks again once it is done.
+    pub fn update_packages(&mut self, cx: &mut Context<Self>) {
+        if self.packages.run.as_ref().is_some_and(|run| run.running) {
+            return;
+        }
+        // A check still running answers for the packages before the update.
+        self.packages.generation += 1;
+        self.packages.checking = false;
+        self.packages.run = Some(UpdateRun {
+            progress: InstallProgress::at("authorizing"),
+            running: true,
+            error: None,
+        });
+        cx.notify();
+        let backend = Self::backend(cx);
+        let (sender, mut received) = mpsc::unbounded::<TexInstallProgress>();
+        cx.spawn(async move |this, cx| {
+            let update = cx.background_spawn(async move {
+                backend.update_packages(Box::new(move |progress| {
+                    sender.unbounded_send(progress).ok();
+                }))
+            });
+            while let Some(progress) = received.next().await {
+                this.update(cx, |this, cx| {
+                    if let Some(run) = this.packages.run.as_mut().filter(|run| run.running) {
+                        run.progress = progress.into();
+                        cx.notify();
+                    }
+                })
+                .ok();
+            }
+            let outcome = update.await;
+            this.update(cx, |this, cx| {
+                if let Some(run) = this.packages.run.as_mut() {
+                    run.running = false;
+                    match outcome {
+                        Ok(()) => {
+                            run.progress = InstallProgress {
+                                stage: "complete".into(),
+                                progress: 1.,
+                            };
+                            this.check_package_updates(true, cx);
+                        }
+                        Err(error) => run.error = Some(error),
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub fn close_doctor(&mut self, cx: &mut Context<Self>) {

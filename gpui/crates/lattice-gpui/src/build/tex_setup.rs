@@ -9,6 +9,7 @@ use lattice_core::doctor::DoctorReport;
 pub mod backend;
 pub mod center;
 mod dialogs;
+pub mod package_updates;
 
 /// Rough installed size after the one-click scripts finish.
 pub const TEX_INSTALL_SIZE_HINT: &str = "1 GB";

@@ -435,9 +435,36 @@ impl Run {
                     && center.report().is_some_and(|report| report.ok)
             })
             .await;
+        // Its package check (the stand-in has lineno out of date).
+        let found = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                let packages = center.read(cx).packages();
+                !packages.checking && packages.offer()
+            })
+            .await;
         self.snapshot(cx, "tex-doctor").await;
-        cx.update(|cx| center.update(cx, |center, cx| center.close_doctor(cx)));
         steps.check("the TeX doctor reports every check", reported, json!({}));
+        cx.update(|cx| center.update(cx, |center, cx| center.update_packages(cx)));
+        let updated = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                let packages = center.read(cx).packages();
+                !packages.checking
+                    && packages
+                        .run
+                        .as_ref()
+                        .is_some_and(|run| !run.running && run.error.is_none())
+                    && packages
+                        .report
+                        .as_ref()
+                        .is_some_and(|report| report.packages.is_empty())
+            })
+            .await;
+        cx.update(|cx| center.update(cx, |center, cx| center.close_doctor(cx)));
+        steps.check(
+            "the TeX doctor finds a package update, and its one-click update runs and rechecks (stand-in installer)",
+            found && updated && stub.calls().iter().any(|call| call == "update_packages"),
+            json!({ "found": found, "updated": updated }),
+        );
 
         stub.set_reports(vec![
             StubTexSetup::report(&["latexmk"]),
