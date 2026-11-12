@@ -367,7 +367,27 @@ impl Run {
         // `latexmk -c` deletes main.aux before it exits, and a clean rebuild
         // asked for while the clean runs is turned away (`clean_rebuild`), so
         // wait for the clean itself to finish, not only for the file to go.
+        // Clean also does nothing while a build runs, so a build the removed
+        // .sty or the rewrite set off late settles first.
         let aux = root.join("main.aux");
+        let started = std::time::Instant::now();
+        let state = |shell: &gpui::Entity<crate::shell::Shell>, cx: &mut gpui::App| {
+            let shell = shell.read(cx);
+            json!({
+                "ms": started.elapsed().as_millis() as u64,
+                "building": shell.building(),
+                "cleaning": shell.cleaning(),
+                "builds": shell.build_panel().read(cx).builds(),
+                "aux": aux.exists(),
+            })
+        };
+        let settled = self
+            .wait_for(cx, Duration::from_secs(180), |shell, cx| {
+                let shell = shell.read(cx);
+                !shell.building() && !shell.cleaning()
+            })
+            .await;
+        let at_clean = cx.update(|cx| state(&self.shell, cx));
         self.with_window(cx, |_, window, cx| {
             window.dispatch_action(Box::new(CleanBuildFiles), cx)
         })?;
@@ -376,21 +396,27 @@ impl Run {
                 !aux.exists() && !shell.read(cx).cleaning()
             })
             .await;
+        let at_rebuild = cx.update(|cx| state(&self.shell, cx));
         let before = self.builds(cx);
         self.with_window(cx, |_, window, cx| {
             window.dispatch_action(Box::new(CleanRebuild), cx)
         })?;
         let rebuilt = self.built_after(cx, before).await;
+        let at_end = cx.update(|cx| state(&self.shell, cx));
         let clean_build = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).succeeded());
         let rewritten = aux.exists();
         steps.check(
             "Clean deletes the build files, and a clean rebuild writes them again",
             cleaned && rebuilt && clean_build == Some(true) && rewritten,
             json!({
+                "settled": settled,
                 "cleaned": cleaned,
                 "rebuilt": rebuilt,
                 "succeeded": clean_build,
                 "aux_written": rewritten,
+                "at_clean": at_clean,
+                "at_rebuild": at_rebuild,
+                "at_end": at_end,
             }),
         );
 
