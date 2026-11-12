@@ -238,6 +238,15 @@ impl PdfView {
         }
     }
 
+    /// Type `query` into the find field, as a scenario stages it.
+    pub fn show_query(&mut self, query: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let query = query.to_string();
+        self.find
+            .input
+            .update(cx, |input, cx| input.set_value(query.clone(), window, cx));
+        self.set_query(query, true, cx);
+    }
+
     pub fn find_query(&self) -> &str {
         &self.find.query
     }

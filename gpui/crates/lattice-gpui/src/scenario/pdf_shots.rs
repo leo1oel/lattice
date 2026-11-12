@@ -33,13 +33,40 @@ impl Run {
         sleep(cx, Duration::from_millis(1500)).await;
         shots.push(self.snap(cx, &dir, "rest").await?);
 
-        // Find, with a query that hits the first page.
-        self.update_view(cx, &view, |view, _, cx| {
-            view.set_query("attention".into(), true, cx)
+        // Find, with a query that hits the first page; then in narrower
+        // panels, where the toolbar folds for the query.
+        self.update_view(cx, &view, |view, window, cx| {
+            view.show_query("attention", window, cx)
         })?;
         sleep(cx, Duration::from_millis(1500)).await;
         shots.push(self.snap(cx, &dir, "find").await?);
+        let width = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .dock_area()
+                .read(cx)
+                .dock_size(DockPlacement::Right)
+        });
+        for (name, size) in [("find-fold-controls", 416.), ("find-fold-search", 360.)] {
+            self.with_window(cx, |shell, window, cx| {
+                let area = shell.read(cx).dock_area().clone();
+                area.update(cx, |area, cx| {
+                    area.set_dock_size(DockPlacement::Right, px(size), window, cx)
+                });
+            })?;
+            sleep(cx, Duration::from_millis(800)).await;
+            shots.push(self.snap(cx, &dir, name).await?);
+        }
+        if let Some(width) = width {
+            self.with_window(cx, |shell, window, cx| {
+                let area = shell.read(cx).dock_area().clone();
+                area.update(cx, |area, cx| {
+                    area.set_dock_size(DockPlacement::Right, width, window, cx)
+                });
+            })?;
+        }
         self.update_view(cx, &view, |view, window, cx| view.clear_find(window, cx))?;
+        sleep(cx, Duration::from_millis(500)).await;
 
         // The narrow toolbar's ⋯ and the Outline, opened with clicks.
         let toolbar = cx.update(|cx| toolbar_points(view.read(cx)));
@@ -101,11 +128,11 @@ impl Run {
         sleep(cx, Duration::from_millis(800)).await;
         shots.push(self.snap(cx, &dir, "in-window-panel").await?);
         let handle = cx.update(|cx| self.shell.read(cx).pdf().read(cx).window_handle());
-        if let Some(handle) = handle {
+        if let Some(_handle) = handle {
             let out = dir.join("separate-window.png");
             #[cfg(feature = "offscreen-shots")]
             for _ in 0..12 {
-                handle.update(cx, |_, window, cx| {
+                _handle.update(cx, |_, window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
                 })?;
@@ -113,7 +140,7 @@ impl Run {
             }
             #[cfg(feature = "offscreen-shots")]
             {
-                let image = handle.update(cx, |_, window, _| window.render_to_image())??;
+                let image = _handle.update(cx, |_, window, _| window.render_to_image())??;
                 image.save(&out)?;
             }
             shots.push(out.display().to_string());

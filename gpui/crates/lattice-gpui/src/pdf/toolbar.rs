@@ -17,17 +17,16 @@ use gpui::{
     IntoElement, KeyDownEvent, ParentElement as _, SharedString, StatefulInteractiveElement as _,
     Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
-use gpui_kit::{base::Popover as BasePopover, component::input::Input};
+use gpui_kit::component::input::Input;
 use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{IconButton, MenuItem, MenuSeparator, MenuSurface, PopFrom, pop_in},
-    icons::ICON,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::IconButton, icons::ICON,
     tokens::FONT_WEIGHT_REGULAR,
 };
 
 use super::{
     find::FindOptions,
     layout::{FitMode, MAX_SCALE, MIN_SCALE},
+    overflow::Fold,
     view::{PdfView, PdfViewEvent},
 };
 
@@ -67,6 +66,7 @@ impl PdfView {
         let palette = cx.palette().clone();
         let narrow = self.narrow();
         let empty = self.document.is_none();
+        let fold = self.search_fold();
         div()
             .id("pdf-toolbar")
             .flex()
@@ -86,9 +86,13 @@ impl PdfView {
                     ..Edges::default()
                 },
             ))
-            .child(self.navigation(narrow, empty, cx))
-            .child(self.find_controls(empty, window, cx))
-            .child(self.zoom_controls(narrow, empty, window, cx))
+            .when(fold != Fold::Search, |this| {
+                this.child(self.navigation(narrow, empty, cx))
+            })
+            .child(self.find_controls(empty, fold, window, cx))
+            .when(fold != Fold::Search, |this| {
+                this.child(self.zoom_controls(narrow, empty, fold, window, cx))
+            })
             .into_any_element()
     }
 
@@ -216,6 +220,7 @@ impl PdfView {
     fn find_controls(
         &self,
         empty: bool,
+        fold: Fold,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -225,7 +230,11 @@ impl PdfView {
             .min_w_0()
             .items_center()
             .gap(px(4.))
-            .children(self.outline_trigger(cx))
+            .children(
+                (fold != Fold::Search)
+                    .then(|| self.outline_trigger(cx))
+                    .flatten(),
+            )
             .child(
                 div()
                     .flex_1()
@@ -281,10 +290,14 @@ impl PdfView {
                 this.child(Icon::SEARCH.element(ICON, palette.text_secondary))
             })
             .child(
+                // One line of the caption role, centred in the field as the
+                // Tauri app's input centres its text.
                 div()
                     .flex_1()
                     .min_w_0()
                     .h_full()
+                    .flex()
+                    .items_center()
                     .text_role(TextRole::Caption, cx)
                     .children(lattice_ui::parity::text_probe("pdf/find", 0, "Find in PDF"))
                     .child(
@@ -293,7 +306,7 @@ impl PdfView {
                             .disabled(empty)
                             .px_0()
                             .py_0()
-                            .h_full()
+                            .h(TextRole::Caption.leading(Default::default()))
                             .text_size(TextRole::Caption.font_size(Default::default(), cx)),
                     ),
             )
@@ -368,9 +381,11 @@ impl PdfView {
         &self,
         narrow: bool,
         empty: bool,
+        fold: Fold,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let folded = fold >= Fold::Controls;
         if empty {
             return div().flex_none().min_w(px(74.)).into_any_element();
         }
@@ -426,25 +441,27 @@ impl PdfView {
                         .top_0()
                         .bottom_0()
                         .right(gpui::relative(1.))
-                        .mr(px(4.))
+                        .pr(px(4.))
                         .flex()
                         .items_center()
                         .child(self.zoom_value(window, cx)),
                 )
             })
-            .when(self.can_reveal, |this| {
+            .when(self.can_reveal && !folded, |this| {
                 this.child(
                     tool("pdf-locate", Icon::LOCATE_FIXED, "Reveal cursor in PDF")
                         .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::RevealCursor))),
                 )
                 .child(divider(cx))
             })
-            .when(!narrow || shown_fit == FitMode::Width, |this| {
-                this.child(fit_button(FitMode::Width, cx))
-            })
-            .when(!narrow || shown_fit == FitMode::Height, |this| {
-                this.child(fit_button(FitMode::Height, cx))
-            })
+            .when(
+                !folded && (!narrow || shown_fit == FitMode::Width),
+                |this| this.child(fit_button(FitMode::Width, cx)),
+            )
+            .when(
+                !folded && (!narrow || shown_fit == FitMode::Height),
+                |this| this.child(fit_button(FitMode::Height, cx)),
+            )
             .when(!narrow, |this| {
                 this.child(
                     tool("pdf-dark-pages", Icon::MOON, "Dark pages")
@@ -465,7 +482,9 @@ impl PdfView {
                         .on_click(cx.listener(|this, _, window, cx| this.save_as(window, cx))),
                 )
             })
-            .when(narrow, |this| this.child(self.overflow_menu(cx)))
+            .when(narrow || folded, |this| {
+                this.child(self.overflow_menu(fold, cx))
+            })
             .into_any_element()
     }
 
@@ -517,131 +536,6 @@ impl PdfView {
         }
     }
 
-    /// The narrow toolbar's ⋯: the zoom row, then each group it stands in
-    /// for, as `pdf-overflow-menu.tsx` lists them.
-    fn overflow_menu(&self, cx: &mut Context<Self>) -> AnyElement {
-        let view = cx.entity();
-        let fit = self.fit;
-        let shown_fit = fit.unwrap_or(FitMode::Width);
-        let other_fit = match shown_fit {
-            FitMode::Width => FitMode::Height,
-            FitMode::Height => FitMode::Width,
-        };
-        let scale = self.scale;
-        let can_back = self.can_go_back();
-        let can_forward = self.can_go_forward();
-        let action = self.action.clone();
-        let can_save = self.source.is_some();
-        BasePopover::new("pdf-overflow")
-            .anchor(gpui::Anchor::TopRight)
-            .offset(px(6.))
-            .trigger(tool(
-                "pdf-overflow-trigger",
-                Icon::ELLIPSIS,
-                "More PDF actions",
-            ))
-            .content(move |_, _, cx| {
-                let popover = cx.entity();
-                let close = move |window: &mut Window, cx: &mut App| {
-                    popover.update(cx, |state, cx| state.dismiss(window, cx));
-                };
-                let item = |id: &'static str,
-                            label: &'static str,
-                            icon: Icon,
-                            checked: Option<bool>,
-                            disabled: bool,
-                            run: Box<dyn Fn(&mut PdfView, &mut Window, &mut Context<PdfView>)>| {
-                    let view = view.clone();
-                    let close = close.clone();
-                    MenuItem::new(id, label)
-                        .icon(icon)
-                        .disabled(disabled)
-                        .when_some(checked, |item, checked| item.checked(checked))
-                        .on_click(move |_, window, cx| {
-                            close(window, cx);
-                            view.update(cx, |view, cx| run(view, window, cx));
-                        })
-                        .into_any_element()
-                };
-                let fit_item = |mode: FitMode| {
-                    let (id, label, icon) = match mode {
-                        FitMode::Width => (
-                            "pdf-menu-fit-width",
-                            "Fit page to width",
-                            Icon::RECTANGLE_HORIZONTAL,
-                        ),
-                        FitMode::Height => (
-                            "pdf-menu-fit-height",
-                            "Fit page to height",
-                            Icon::RECTANGLE_VERTICAL,
-                        ),
-                    };
-                    item(
-                        id,
-                        label,
-                        icon,
-                        None,
-                        false,
-                        Box::new(move |view, _, cx| view.toggle_fit(mode, cx)),
-                    )
-                };
-                let mut menu = MenuSurface::new()
-                    .min_w(px(216.))
-                    .child(zoom_row(&view, scale, close.clone(), cx))
-                    .child(MenuSeparator)
-                    .child(fit_item(other_fit))
-                    .child(MenuSeparator)
-                    .child(item(
-                        "pdf-menu-dark",
-                        "Dark pages",
-                        Icon::MOON,
-                        Some(super::dark::enabled()),
-                        false,
-                        Box::new(|view, _, cx| view.toggle_dark_pages(cx)),
-                    ))
-                    .child(MenuSeparator)
-                    .child(item(
-                        "pdf-menu-back",
-                        "Previous PDF location",
-                        Icon::CORNER_UP_LEFT,
-                        None,
-                        !can_back,
-                        Box::new(|view, _, cx| view.navigate(false, cx)),
-                    ))
-                    .child(item(
-                        "pdf-menu-forward",
-                        "Next PDF location",
-                        Icon::CORNER_UP_RIGHT,
-                        None,
-                        !can_forward,
-                        Box::new(|view, _, cx| view.navigate(true, cx)),
-                    ))
-                    .child(MenuSeparator);
-                if let Some(action) = action.clone() {
-                    let view = view.clone();
-                    let close = close.clone();
-                    menu = menu.child(
-                        MenuItem::new("pdf-menu-action", action.label)
-                            .icon(action.icon)
-                            .on_click(move |_, window, cx| {
-                                close(window, cx);
-                                view.update(cx, |_, cx| cx.emit(PdfViewEvent::Action));
-                            }),
-                    );
-                }
-                menu = menu.child(item(
-                    "pdf-menu-save",
-                    "Save PDF as…",
-                    Icon::DOWNLOAD,
-                    None,
-                    !can_save,
-                    Box::new(|view, window, cx| view.save_as(window, cx)),
-                ));
-                pop_in("pdf-overflow-menu", PopFrom::Above, menu)
-            })
-            .into_any_element()
-    }
-
     /// Save PDF as…: the file as it is on disk now, copied where the reader
     /// picks (`saveProjectPdf`).
     pub(super) fn save_as(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -685,75 +579,4 @@ impl PdfView {
         })
         .detach();
     }
-}
-
-/// The menu's zoom row: steps around the percentage, which hands off to the
-/// toolbar's own field. Stepping keeps the menu open, so a reader can click
-/// until the page is right.
-fn zoom_row(
-    view: &gpui::Entity<PdfView>,
-    scale: f32,
-    close: impl Fn(&mut Window, &mut App) + 'static,
-    cx: &mut App,
-) -> AnyElement {
-    let palette = cx.palette().clone();
-    let step =
-        |id: &'static str, icon: Icon, label: &'static str, direction: f32, disabled: bool| {
-            let view = view.clone();
-            IconButton::new(id, icon)
-                .frame(px(32.), px(28.))
-                .tooltip(label)
-                .disabled(disabled)
-                .on_click(move |_, _, cx| view.update(cx, |view, cx| view.step_zoom(direction, cx)))
-        };
-    let percent = format!("{}%", (scale * 100.).round() as i64);
-    let entry = {
-        let view = view.clone();
-        div()
-            .id("pdf-menu-zoom-value")
-            .flex()
-            .items_center()
-            .justify_center()
-            .min_w(px(52.))
-            .h(px(28.))
-            .rounded(px(6.))
-            .cursor_pointer()
-            .hover(|style| style.bg(palette.hover))
-            .text_role(TextRole::Body, cx)
-            .text_color(palette.text)
-            .child(percent)
-            .on_click(move |_, window, cx| {
-                close(window, cx);
-                view.update(cx, |view, cx| view.enter_zoom(window, cx));
-            })
-    };
-    div()
-        .flex()
-        .items_center()
-        .gap(px(1.))
-        .py(px(1.))
-        .pl(px(10.))
-        .child(
-            div()
-                .flex_1()
-                .text_role(TextRole::Body, cx)
-                .text_color(palette.text_secondary)
-                .child("Zoom"),
-        )
-        .child(step(
-            "pdf-menu-zoom-out",
-            Icon::ZOOM_OUT,
-            "Zoom out",
-            -1.,
-            scale <= MIN_SCALE,
-        ))
-        .child(entry)
-        .child(step(
-            "pdf-menu-zoom-in",
-            Icon::ZOOM_IN,
-            "Zoom in",
-            1.,
-            scale >= MAX_SCALE,
-        ))
-        .into_any_element()
 }

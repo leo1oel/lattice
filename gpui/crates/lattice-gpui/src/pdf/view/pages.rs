@@ -204,17 +204,26 @@ impl PdfView {
         if !text_current && self.pages[page].text_pending != Some(generation) {
             self.read_text(page, generation, cx);
         }
-        // The part of a capped page on screen (and half a screen around it)
-        // at full size, snapped to 256px so a small scroll asks for nothing.
+        // The part of a capped page on screen, and a quarter of a screen
+        // around it while that stays within the same pixel budget, at full
+        // size, snapped to 256px so a small scroll asks for nothing.
         if capped && self.render_scale == self.scale {
             let Some(rect) = self.layout.page(page) else {
                 return;
             };
             let to_px = |value: f32| value * scale_factor;
-            let left = to_px((scroll_x - width / 2. - rect.x).max(0.));
-            let top = to_px((scroll_y - height / 2. - rect.y).max(0.));
-            let right = to_px((scroll_x + width * 1.5 - rect.x).min(rect.w));
-            let bottom = to_px((scroll_y + height * 1.5 - rect.y).min(rect.h));
+            let around = if f64::from(width * 1.5 * scale_factor)
+                * f64::from(height * 1.5 * scale_factor)
+                <= MAX_PAGE_PIXELS as f64
+            {
+                0.25
+            } else {
+                0.
+            };
+            let left = to_px((scroll_x - width * around - rect.x).max(0.));
+            let top = to_px((scroll_y - height * around - rect.y).max(0.));
+            let right = to_px((scroll_x + width * (1. + around) - rect.x).min(rect.w));
+            let bottom = to_px((scroll_y + height * (1. + around) - rect.y).min(rect.h));
             if right <= left || bottom <= top {
                 return;
             }
