@@ -539,9 +539,8 @@ impl ShortcutSheet {
                         rows.push((label, keys));
                     } else if let Some(row) =
                         rows.iter_mut().find(|(existing, _)| *existing == label)
-                        && !row.1.contains('–')
                     {
-                        row.1 = format!("{}–{}", row.1, keys).into();
+                        row.1 = key_range(&row.1, &keys).into();
                     }
                 }
                 None => groups.push((command.section.label(), vec![(label, keys)])),
@@ -705,9 +704,25 @@ impl Shell {
     }
 }
 
+/// The keys of a row standing for several commands: from the first one's
+/// keys to `last`'s.
+fn key_range(keys: &str, last: &str) -> String {
+    let first = keys.split('–').next().unwrap_or(keys);
+    format!("{first}–{last}")
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Entry, FILE_LIMIT, project_files, ranked, score};
+    use super::{Entry, FILE_LIMIT, key_range, project_files, ranked, score};
+
+    #[test]
+    fn workspace_switch_keys_read_as_one_range_to_the_last() {
+        let mut keys = "⌘1".to_string();
+        for next in ["⌘2", "⌘3", "⌘9"] {
+            keys = key_range(&keys, next);
+        }
+        assert_eq!(keys, "⌘1–⌘9");
+    }
 
     #[test]
     fn files_rank_by_their_path_inside_the_project() {

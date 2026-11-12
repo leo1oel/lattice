@@ -409,14 +409,18 @@ impl TabGroupRenderer for LatticeTabs {
             .try_global::<StripRoom>()
             .and_then(|room| room.0.get(&key).copied())
             .unwrap_or_default();
+        let suffix = (!collapsed)
+            .then(|| handle.and_then(|handle| handle.title_suffix(window, cx)))
+            .flatten();
         let plan = strip::plan(
             measured.strip.unwrap_or(px(f32::MAX / 4.)),
             &specs,
-            measured.tools.unwrap_or_default(),
+            suffix
+                .as_ref()
+                .and(measured.tools)
+                .unwrap_or_default(),
         );
-        let suffix = (plan.tools && !collapsed)
-            .then(|| handle.and_then(|handle| handle.title_suffix(window, cx)))
-            .flatten();
+        let suffix = suffix.filter(|_| plan.tools);
 
         let tabs = visible
             .into_iter()
@@ -491,7 +495,7 @@ impl TabGroupRenderer for LatticeTabs {
             .id("lattice-tab-strip-end")
             .h_full()
             .flex_1()
-            .min_w(px(8.))
+            .min_w(strip::END_DROP_MIN)
             .when(droppable && !collapsed, |this| {
                 let group = group.clone();
                 let node = group.node();

@@ -26,6 +26,8 @@ pub const STRIP_GAP: Pixels = px(4.);
 pub const TAB_SPACING: Pixels = px(2.);
 /// The ⋯ menu button.
 pub const MENU_WIDTH: Pixels = px(24.);
+/// The drop target past the last tab, at its narrowest.
+pub const END_DROP_MIN: Pixels = px(8.);
 /// The most a document's tab shrinks to while anything else can give way:
 /// the selected tab keeps room for two letters and an ellipsis beside its
 /// close square.
@@ -76,7 +78,7 @@ pub fn plan(width: Pixels, tabs: &[TabSpec], tools: Pixels) -> StripPlan {
         (Names::Selected, DOCUMENT_TAB_FLOOR, false),
         (Names::None, DOCUMENT_TAB_FLOOR, false),
     ];
-    let room = width - STRIP_PADDING * 2. - MENU_WIDTH - STRIP_GAP;
+    let room = width - STRIP_PADDING * 2. - MENU_WIDTH - STRIP_GAP - TAB_SPACING - END_DROP_MIN;
     let mut last = None;
     for (names, document_min, with_tools) in steps {
         let fits: Vec<TabFit> = tabs
@@ -175,11 +177,21 @@ mod tests {
     #[test]
     fn named_tabs_drop_to_icons_except_the_selected_one() {
         // Project (42px label) and Agent (36px): 108 + 102 + 2 = 212px of
-        // tabs, in a strip that leaves 200.
+        // tabs, in a strip that leaves 200 beside its end drop.
         let tabs = [named(42., true), named(36., false)];
-        let plan = plan(px(200. + 12. + 28.), &tabs, px(0.));
+        let plan = plan(px(200. + 12. + 28. + 10.), &tabs, px(0.));
         assert_eq!(plan.tabs, vec![TabFit::Full, TabFit::IconOnly]);
         assert!(plan.tools);
+    }
+
+    #[test]
+    fn named_tabs_leave_room_for_the_end_drop() {
+        // The same 212px of tabs in a strip whose row holds exactly 212px:
+        // the end drop's 2px gap and 8px don't fit beside them, so they give
+        // way rather than be clipped.
+        let tabs = [named(42., true), named(36., false)];
+        let plan = plan(px(212. + 12. + 28.), &tabs, px(0.));
+        assert_eq!(plan.tabs, vec![TabFit::Full, TabFit::IconOnly]);
     }
 
     #[test]
