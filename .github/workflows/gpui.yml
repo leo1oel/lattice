@@ -104,7 +104,9 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: script/fetch-pdfium
       - run: cargo build --release --locked
-      # A small TeX Live on PATH, where the app looks first.
+      # A small TeX Live on PATH, where the app looks first. scheme-basic has
+      # no `synctex` binary (its own package, as in lattice-core's TeX Live
+      # install), and the e2e scenario's SyncTeX steps run it.
       - name: Install TeX Live
         uses: TeX-Live/setup-texlive-action@v4
         with:
@@ -112,6 +114,7 @@ jobs:
           packages: |
             scheme-basic
             latexmk
+            synctex
       # --include-ignored runs the latexmk build test, which needs TeX.
       - run: cargo test --release --locked --workspace -- --include-ignored
       # The scenario ends by quitting with text typed and not yet saved
