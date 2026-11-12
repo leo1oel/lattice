@@ -10,7 +10,7 @@
 use std::{
     collections::HashMap,
     hash::{Hash as _, Hasher as _},
-    path::Path,
+    path::{Path, PathBuf},
     time::Duration,
 };
 
@@ -109,6 +109,23 @@ fn fingerprint(path: &Path) -> Option<u64> {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     bytes.hash(&mut hasher);
     Some(hasher.finish())
+}
+
+/// The PDF of each document a build could compile, fingerprinted before it.
+fn fingerprint_pdfs(root: &Path, documents: &[String]) -> HashMap<PathBuf, u64> {
+    documents
+        .iter()
+        .filter_map(|document| {
+            let pdf = root.join(document).with_extension("pdf");
+            fingerprint(&pdf).map(|hash| (pdf, hash))
+        })
+        .collect()
+}
+
+/// The build wrote `pdf` anew: it holds other bytes than before the build,
+/// or there was none.
+fn rewrote(pdf: &Path, before: &HashMap<PathBuf, u64>) -> bool {
+    fingerprint(pdf) != before.get(pdf).copied()
 }
 
 /// The text of each project file the diagnostics name, keyed as they name
@@ -217,9 +234,7 @@ impl Shell {
             .clone()
             .or_else(|| open_document.clone())
             .unwrap_or_default();
-        let pdf_before = main
-            .as_ref()
-            .map(|main| root.join(main).with_extension("pdf"));
+        let candidates: Vec<String> = main.iter().chain(&open_document).cloned().collect();
         self.build_panel.update(cx, |panel, cx| {
             panel.set_project_files(files.clone());
             panel.started(&root, &label, cx);
@@ -278,7 +293,7 @@ impl Shell {
             let build = cx.background_spawn({
                 let root = root.clone();
                 async move {
-                    let before = pdf_before.as_deref().and_then(fingerprint);
+                    let before = fingerprint_pdfs(&root, &candidates);
                     let result = latex::build(
                         &root,
                         request.force,
@@ -289,7 +304,7 @@ impl Shell {
                     );
                     result.map(|result| {
                         let pdf = root.join(&result.root_document).with_extension("pdf");
-                        let rewritten = fingerprint(&pdf) != before;
+                        let rewritten = rewrote(&pdf, &before);
                         let sources = read_sources(
                             &root,
                             &result.diagnostics,
@@ -519,6 +534,31 @@ mod tests {
         assert!(automatic.unattended && !automatic.requested);
         let clean = BuildRequest::automatic().merge(BuildRequest::clean_rebuild());
         assert!(clean.clean && clean.force && clean.requested && !clean.unattended);
+    }
+
+    #[test]
+    fn a_pdf_is_rewritten_only_against_its_own_bytes_before_the_build() {
+        let root = std::env::temp_dir().join(format!("lattice-rewrote-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("figures")).unwrap();
+        std::fs::write(root.join("main.pdf"), "the paper").unwrap();
+        std::fs::write(root.join("figures/plot.pdf"), "the figure").unwrap();
+        let documents = ["main.tex".to_string(), "figures/plot.tex".to_string()];
+        let before = fingerprint_pdfs(&root, &documents);
+        let plot = root.join("figures/plot.pdf");
+        let main = root.join("main.pdf");
+        let chapter = root.join("chapters/intro.pdf");
+
+        let left_in_place = rewrote(&plot, &before);
+        std::fs::write(&main, "the paper, typeset again").unwrap();
+        let typeset = rewrote(&main, &before);
+        std::fs::create_dir_all(root.join("chapters")).unwrap();
+        std::fs::write(&chapter, "a first chapter").unwrap();
+        let first = rewrote(&chapter, &before);
+        std::fs::remove_dir_all(&root).ok();
+
+        assert!(!left_in_place);
+        assert!(typeset);
+        assert!(first);
     }
 
     fn naming(file: &str) -> Diagnostic {
