@@ -54,22 +54,23 @@ impl PdfView {
             });
             return;
         }
-        if let Some(link) = self.pages[page]
-            .text
-            .as_ref()
-            .and_then(|text| text.links.iter().find(|link| link.contains(page_x, page_y)))
-            .cloned()
-        {
-            self.selection = None;
-            self.follow(&link.target, cx);
-            return;
-        }
+        // A link is followed when the press ends on it, as a click; a drag
+        // that starts on one selects its text.
+        self.pressed_link = self
+            .link_at(page, page_x, page_y)
+            .map(|target| (page, target));
         self.selection = self.caret_at(event.position).map(|caret| Selection {
             anchor: caret,
             focus: caret,
         });
         self.selecting = self.selection.is_some();
         cx.notify();
+    }
+
+    fn link_at(&self, page: usize, x: f32, y: f32) -> Option<LinkTarget> {
+        let text = self.pages.get(page)?.text.as_ref()?;
+        let link = text.links.iter().find(|link| link.contains(x, y))?;
+        Some(link.target.clone())
     }
 
     pub(in crate::pdf) fn on_sheet_mouse_move(
@@ -92,14 +93,28 @@ impl PdfView {
 
     pub(in crate::pdf) fn on_sheet_mouse_up(
         &mut self,
-        _: &MouseUpEvent,
+        event: &MouseUpEvent,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.selecting = false;
-        if self.selection.is_some_and(|selection| selection.is_empty()) {
+        let collapsed = self.selection.is_none_or(|selection| selection.is_empty());
+        if collapsed {
             self.selection = None;
             cx.notify();
+        }
+        // Released on the link it was pressed on, without a selection made:
+        // a click.
+        if let Some((page, target)) = self.pressed_link.take()
+            && collapsed
+        {
+            let (x, y) = self.sheet_point(event.position);
+            let on_it = self.layout.to_page(x, y).is_some_and(|(at, x, y)| {
+                at == page && self.link_at(at, x, y).as_ref() == Some(&target)
+            });
+            if on_it {
+                self.follow(&target, cx);
+            }
         }
     }
 

@@ -159,6 +159,8 @@ pub struct PdfView {
     pub(super) zoom_field: DraftField,
     pub(super) selection: Option<Selection>,
     selecting: bool,
+    /// A link pressed on, followed if the press ends on it.
+    pressed_link: Option<(usize, LinkTarget)>,
     back: Vec<Location>,
     forward: Vec<Location>,
     pub(super) sync_mark: Option<SyncMark>,
@@ -240,6 +242,7 @@ impl PdfView {
             },
             selection: None,
             selecting: false,
+            pressed_link: None,
             back: Vec::new(),
             forward: Vec::new(),
             sync_mark: None,
