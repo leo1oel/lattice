@@ -127,7 +127,7 @@ pub struct EditorPanel {
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
-    /// Saves in flight, which the disk check waits out.
+    /// Saves and reloads in flight, which the disk check waits out.
     saves_pending: usize,
     /// Bumped by every save, so a disk read that raced one is dropped.
     save_generation: u64,

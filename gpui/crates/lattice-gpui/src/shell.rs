@@ -122,6 +122,23 @@ impl Shell {
         let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {
             cx.new(|cx| Shell::new(window, cx))
         })?;
+        window.update(cx, |_, window, cx| {
+            let closing = shell.downgrade();
+            window.on_window_should_close(cx, move |window, cx| {
+                closing
+                    .update(cx, |shell, cx| shell.should_close(window, cx))
+                    .unwrap_or(true)
+            });
+        })?;
+        shell.update(cx, |_, cx| {
+            cx.on_app_quit(|shell, cx| {
+                for editor in shell.open_editors() {
+                    editor.update(cx, |editor, cx| editor.write_before_quit(cx));
+                }
+                async {}
+            })
+            .detach();
+        });
         if let Some(root) = root {
             window.update(cx, |_, window, cx| {
                 shell.update(cx, |shell, cx| shell.open_project(root, window, cx));
@@ -335,6 +352,26 @@ impl Shell {
             None => panel.close(window, cx),
         });
         cx.notify();
+    }
+
+    /// The window is closing: unsaved edits are saved first, and the window
+    /// closes once they are, staying open (with the save's notice) when one
+    /// could not be.
+    fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let saves = Self::save_dirty(&self.open_editors(), cx);
+        if saves.is_empty() {
+            return true;
+        }
+        cx.spawn_in(window, async move |_, cx| {
+            for save in saves {
+                if !save.await.unwrap_or(false) {
+                    return;
+                }
+            }
+            cx.update(|window, _| window.remove_window()).ok();
+        })
+        .detach();
+        false
     }
 
     /// Save every open file and close its tab, before another project opens.

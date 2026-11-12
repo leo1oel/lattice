@@ -45,11 +45,31 @@ impl EditorPanel {
     /// The tab left the dock: what it holds is saved first, unless the file
     /// went from disk, where closing the tab discards it.
     pub(super) fn flush(&mut self, cx: &mut Context<Self>) {
-        if self.closed || self.vanished.is_some() || !self.is_dirty(cx) {
+        if self.vanished.is_some() {
+            notices::dismiss(&vanished_key(&self.relative), cx);
+            return;
+        }
+        if self.closed || !self.is_dirty(cx) {
             return;
         }
         self._autosave = None;
         self.save(cx).detach();
+    }
+
+    /// The app is quitting and no task runs again: write what the buffer
+    /// holds now, on this thread, merging as a save does.
+    pub fn write_before_quit(&mut self, cx: &mut Context<Self>) {
+        if self.closed || self.vanished.is_some() || !self.is_dirty(cx) {
+            return;
+        }
+        let root = self.project.read(cx).root().to_path_buf();
+        let content = self.buffer.read(cx).text();
+        let base = Some(self.saved_text.clone());
+        if let Err(error) =
+            core_project::apply_editor_transaction(&root, self.relative.clone(), content, base, None)
+        {
+            log::error!("could not save {} before quitting: {error}", self.relative);
+        }
     }
 
     fn save_for_build(&mut self, cx: &mut Context<Self>) {
@@ -110,8 +130,10 @@ impl EditorPanel {
             let buffer = self.buffer.read(cx);
             (buffer.text(), buffer.version())
         };
-        if content == self.saved_text && self.vanished.is_none() {
-            // Edits typed and undone back to the saved text: nothing to write.
+        if self.vanished.is_none() && (!self.is_dirty(cx) || content == self.saved_text) {
+            // Nothing of the writer's to write: a clean buffer (one whose
+            // reload is still on its way included), or edits typed and
+            // undone back to the saved text.
             if self.is_dirty(cx) {
                 self.buffer
                     .update(cx, |buffer, cx| buffer.did_save(version, None, cx));
@@ -203,17 +225,20 @@ impl EditorPanel {
     /// Put `text` in the buffer as what is on disk, and take it as the saved
     /// text, as a reload does: the change is computed as a diff so the caret
     /// and scroll stay where the text allows, it is not the writer's to undo,
-    /// and the buffer is clean after it. Typing while the diff is computed
-    /// keeps the buffer as typed and the text it grew from as its saved
-    /// text, with the disk version unread, so the next save merges `text` in.
+    /// and the buffer is clean after it. Until it lands the disk check waits
+    /// and the saved text stays what the buffer grew from, so a save
+    /// meanwhile merges against that. Typing while the diff is computed
+    /// keeps the buffer as typed, with the disk version unread, so the next
+    /// save merges `text` in.
     pub(super) fn replace_text(&mut self, text: String, cx: &mut Context<Self>) {
-        let base = std::mem::replace(&mut self.saved_text, text.clone());
+        self.saves_pending += 1;
         let diff = self
             .buffer
             .update(cx, |buffer, cx| buffer.diff(text.clone(), cx));
         cx.spawn(async move |this, cx| {
             let diff = diff.await;
             this.update(cx, |this, cx| {
+                this.saves_pending -= 1;
                 let replaced = this.buffer.update(cx, |buffer, cx| {
                     if buffer.version() != diff.base_version {
                         return false;
@@ -227,13 +252,11 @@ impl EditorPanel {
                     true
                 });
                 if replaced {
+                    this.saved_text = text;
                     this.count_words(cx);
-                    return;
+                } else {
+                    this.disk = DiskVersion::Unread;
                 }
-                if this.saved_text == text {
-                    this.saved_text = base;
-                }
-                this.disk = DiskVersion::Unread;
             })
             .ok();
         })
