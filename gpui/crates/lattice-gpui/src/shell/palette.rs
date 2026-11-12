@@ -486,14 +486,11 @@ impl Render for CommandPaletteView {
             .bg(palette.scrim)
             .occlude()
             .track_focus(&self.focus)
-            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                 match event.keystroke.key.as_str() {
                     "up" => this.step(-1, cx),
                     "down" => this.step(1, cx),
                     "escape" => cx.emit(PaletteEvent::Dismiss),
-                    "enter" => {
-                        this.run(this.highlighted, window, cx);
-                    }
                     _ => return,
                 }
                 cx.stop_propagation();

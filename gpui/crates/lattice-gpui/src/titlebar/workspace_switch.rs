@@ -68,7 +68,15 @@ pub(super) fn workspace_switcher(
         }])
         .children(parity::probe("titlebar/workspace"));
 
+    let renaming = shell.layout.renaming.clone();
     if folded {
+        if renaming.is_some()
+            && let Some(input) = shell.rename_input()
+        {
+            return track
+                .child(rename_field("workspace-rename", &input, &palette, cx))
+                .into_any_element();
+        }
         let name = current
             .as_ref()
             .and_then(|id| workspaces.iter().find(|(entry, _)| entry == id))
@@ -127,30 +135,11 @@ pub(super) fn workspace_switcher(
         return track.child(button).into_any_element();
     }
 
-    let renaming = shell.layout.renaming.clone();
     let tabs = workspaces.iter().enumerate().map(|(ix, (id, name))| {
         if renaming.as_deref() == Some(id.as_str())
             && let Some(input) = shell.rename_input()
         {
-            return div()
-                .id(("workspace-rename", ix))
-                .h(px(24.))
-                .min_w(px(6. * 7. + 20.))
-                .px(px(6.))
-                .flex()
-                .items_center()
-                .rounded(px(7.4))
-                .bg(palette.panel)
-                .shadow(raised_plate(&palette))
-                .text_role(TextRole::Caption, cx)
-                .capture_key_down(cx.listener(|shell, event: &KeyDownEvent, window, cx| {
-                    if event.keystroke.key == "escape" {
-                        shell.finish_rename(window, cx);
-                        cx.stop_propagation();
-                    }
-                }))
-                .child(Input::new(&input).appearance(false).bordered(false))
-                .into_any_element();
+            return rename_field(("workspace-rename", ix), &input, &palette, cx);
         }
         let selected = preset.is_none() && current.as_deref() == Some(id.as_str());
         let underlying = preset.is_some() && current.as_deref() == Some(id.as_str());
@@ -499,6 +488,35 @@ impl gpui::RenderOnce for FoldedSwitch {
 
 /// The selected segment's plate: the panel surface raised, with the strong
 /// hairline for its edge.
+/// The field a workspace's name is edited in, where its tab (or the folded
+/// switch) stands; Escape keeps the old name.
+fn rename_field(
+    id: impl Into<gpui::ElementId>,
+    input: &gpui::Entity<InputState>,
+    palette: &lattice_ui::Palette,
+    cx: &mut Context<Shell>,
+) -> AnyElement {
+    div()
+        .id(id)
+        .h(px(24.))
+        .min_w(px(6. * 7. + 20.))
+        .px(px(6.))
+        .flex()
+        .items_center()
+        .rounded(px(7.4))
+        .bg(palette.panel)
+        .shadow(raised_plate(palette))
+        .text_role(TextRole::Caption, cx)
+        .capture_key_down(cx.listener(|shell, event: &KeyDownEvent, window, cx| {
+            if event.keystroke.key == "escape" {
+                shell.finish_rename(window, cx);
+                cx.stop_propagation();
+            }
+        }))
+        .child(Input::new(input).appearance(false).bordered(false))
+        .into_any_element()
+}
+
 fn raised_plate(palette: &lattice_ui::Palette) -> Vec<gpui::BoxShadow> {
     let mut plate = vec![ring(palette.line_strong)];
     plate.extend(Elevation::Raised.shadows(palette).into_iter().skip(1));
