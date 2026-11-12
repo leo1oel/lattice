@@ -99,6 +99,27 @@ impl Run {
         .await
     }
 
+    /// Rewrite `path`, which is open in an editor, as an edit made outside
+    /// Lattice, and wait for the build its reload starts to settle. The file
+    /// watcher picks when that reload lands, so a build started here at once
+    /// may settle first and leave the reload's own build running into the
+    /// next step, where a Clean then finds the build files busy and does
+    /// nothing. Builds here only when no reload build comes.
+    async fn rewrite_open_file(&self, cx: &mut AsyncApp, path: &Path, text: &str) -> Result<bool> {
+        let before = self.builds(cx);
+        std::fs::write(path, text)?;
+        let started = self
+            .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                let shell = shell.read(cx);
+                shell.building() || shell.build_panel().read(cx).builds() > before
+            })
+            .await;
+        if !started {
+            self.build(cx).await.ok();
+        }
+        Ok(self.built_after(cx, before).await)
+    }
+
     /// After the first, clean build: the Build button's card lists the
     /// passes latexmk ran, and the status bar counts the manuscript.
     pub(super) async fn sequence_and_words(
@@ -292,13 +313,12 @@ impl Run {
         // A package no distribution has: Install asks which of the packages
         // that provide it, "installs" the pick (the stand-in), and builds.
         let usepackage = format!("\\usepackage{{{MISSING_PACKAGE}}}\n\\begin{{document}}");
-        std::fs::write(
+        self.rewrite_open_file(
+            cx,
             &main,
-            original_main.replacen("\\begin{document}", &usepackage, 1),
-        )?;
-        let before = self.builds(cx);
-        self.build(cx).await.ok();
-        self.built_after(cx, before).await;
+            &original_main.replacen("\\begin{document}", &usepackage, 1),
+        )
+        .await?;
         let file = format!("{MISSING_PACKAGE}.sty");
         let offered = cx.update(|cx| {
             let panel = self.shell.read(cx).build_panel().read(cx);
@@ -340,11 +360,8 @@ impl Run {
             offered && choices && rebuilt && installed && root.join(&file).is_file(),
             json!({ "offered": offered, "choices": choices, "installed": installed, "calls": stub.calls() }),
         );
-        std::fs::write(&main, &original_main)?;
         std::fs::remove_file(root.join(&file)).ok();
-        let before = self.builds(cx);
-        self.build(cx).await.ok();
-        self.built_after(cx, before).await;
+        self.rewrite_open_file(cx, &main, &original_main).await?;
 
         // Clean deletes the auxiliary files; a clean rebuild writes them anew.
         let aux = root.join("main.aux");
@@ -409,10 +426,7 @@ impl Run {
             started && stopped && report == (true, true),
             json!({ "started": started, "stopped": stopped, "no_outcome": report.0, "cancelled": report.1 }),
         );
-        std::fs::write(&main, &original_main)?;
-        let before = self.builds(cx);
-        self.build(cx).await.ok();
-        self.built_after(cx, before).await;
+        self.rewrite_open_file(cx, &main, &original_main).await?;
         Ok(())
     }
 
