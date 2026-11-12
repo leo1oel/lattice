@@ -327,47 +327,29 @@ impl Shell {
             }
         }
         let mut arrangement = self.current_arrangement(cx);
-        let room = self.room(window);
-        let home = Arrangement::default_for(room);
-        match &view {
-            View::Project | View::Agent => {
-                let other = if view == View::Project {
-                    View::Agent
-                } else {
-                    View::Project
-                };
-                if arrangement.contains(&other) {
-                    arrangement.add_view(view.clone(), |v| *v == other);
-                } else {
-                    insert_in_dock(
-                        &mut arrangement.left,
-                        view.clone(),
-                        home.left.as_ref(),
-                        true,
-                    );
-                }
-            }
-            View::Papers => insert_in_dock(
-                &mut arrangement.left,
-                view.clone(),
-                home.left.as_ref(),
-                false,
-            ),
-            View::Pdf => insert_in_dock(
-                &mut arrangement.right,
-                view.clone(),
-                home.right.as_ref(),
-                true,
-            ),
-            View::Build => {
-                self.show_build_panel(true, window, cx);
-                return;
-            }
-            View::File(_) | View::Documents => {
-                arrangement.add_view(view.clone(), View::is_document)
+        place_view(
+            &mut arrangement,
+            view,
+            &Arrangement::default_for(self.room(window)),
+        );
+        self.install(&arrangement, window, cx);
+    }
+
+    /// `arrangement` with the floating panels put back where their kinds
+    /// belong, as the project's layout keeps them.
+    pub(super) fn with_floating(&self, mut arrangement: Arrangement, cx: &App) -> Arrangement {
+        let mut views = self.floating.views().peekable();
+        if views.peek().is_none() {
+            return arrangement;
+        }
+        let area = self.dock_area.read(cx).bounds().size;
+        let home = Arrangement::default_for(layout::Room::for_area(area.width, area.height));
+        for view in views {
+            if !arrangement.contains(view) {
+                place_view(&mut arrangement, view.clone(), &home);
             }
         }
-        self.install(&arrangement, window, cx);
+        arrangement
     }
 
     /// Take `view` off screen; its region closes when nothing is left in it.
@@ -533,6 +515,56 @@ impl Shell {
     }
 }
 
+/// `view` put back in its place in the default layout `home`: Project and
+/// the Agent over Papers on the left, the PDF on the right, the build log
+/// under the editors in a bottom dock of its own, a document beside the
+/// documents.
+fn place_view(arrangement: &mut Arrangement, view: View, home: &Arrangement) {
+    match &view {
+        View::Project | View::Agent => {
+            let other = if view == View::Project {
+                View::Agent
+            } else {
+                View::Project
+            };
+            if arrangement.contains(&other) {
+                arrangement.add_view(view, |v| *v == other);
+            } else {
+                insert_in_dock(&mut arrangement.left, view, home.left.as_ref(), true);
+            }
+        }
+        View::Papers => insert_in_dock(&mut arrangement.left, view, home.left.as_ref(), false),
+        View::Pdf => insert_in_dock(&mut arrangement.right, view, home.right.as_ref(), true),
+        View::Build => match &mut arrangement.bottom {
+            Some(dock) => {
+                match &mut dock.node {
+                    Node::Tabs { views, active } => {
+                        views.push(view);
+                        *active = views.len() - 1;
+                    }
+                    node @ Node::Split { .. } => {
+                        let existing = std::mem::take(node);
+                        *node = Node::Split {
+                            axis: layout::SplitAxis::Row,
+                            children: vec![existing, Node::tabs([view])],
+                            sizes: vec![None, None],
+                        };
+                    }
+                }
+                dock.open = true;
+            }
+            None => {
+                arrangement.bottom = Some(layout::Dock {
+                    node: Node::tabs([view]),
+                    size: super::BUILD_DOCK,
+                    open: true,
+                })
+            }
+        },
+        View::File(_) | View::Documents => arrangement.add_view(view, View::is_document),
+    }
+}
+
 /// `view` into the dock `slot`, made from `home` (the default layout's dock)
 /// when there is none: Project and the Agent into its first group (`first`),
 /// Papers into a group of its own under it.
@@ -619,4 +651,51 @@ pub(super) fn empty_center(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement
         .text_color(palette.text_secondary)
         .child(message)
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shell::layout::Room;
+
+    fn home() -> Arrangement {
+        Arrangement::default_for(Room {
+            width: 1440.,
+            height: 900.,
+        })
+    }
+
+    #[test]
+    fn a_floated_pdf_comes_back_as_the_default_right_dock() {
+        let home = home();
+        let mut floated = home.without(&View::Pdf);
+        assert!(floated.right.is_none());
+        place_view(&mut floated, View::Pdf, &home);
+        assert_eq!(floated, home);
+    }
+
+    #[test]
+    fn a_floated_papers_panel_comes_back_under_project_and_the_agent() {
+        let home = home();
+        let mut floated = home.without(&View::Papers);
+        place_view(&mut floated, View::Papers, &home);
+        let groups = match floated.left.map(|dock| dock.node) {
+            Some(Node::Split {
+                axis: layout::SplitAxis::Column,
+                children,
+                ..
+            }) => children
+                .into_iter()
+                .map(|child| match child {
+                    Node::Tabs { views, .. } => views,
+                    Node::Split { .. } => Vec::new(),
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        assert_eq!(
+            groups,
+            vec![vec![View::Project, View::Agent], vec![View::Papers]]
+        );
+    }
 }

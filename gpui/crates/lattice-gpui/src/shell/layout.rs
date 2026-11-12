@@ -315,6 +315,15 @@ impl Room {
         }
     }
 
+    /// The room around a dock area `width` by `height`: the inverse of
+    /// [`Room::area`] and [`Room::column`].
+    pub fn for_area(width: Pixels, height: Pixels) -> Room {
+        Room {
+            width: f32::from(width) + 18.,
+            height: f32::from(height) + 40. + 3. + 9.,
+        }
+    }
+
     /// The cards' total width, with the gutters between three of them taken
     /// out, as Trellis shares a row.
     fn row(&self) -> f32 {

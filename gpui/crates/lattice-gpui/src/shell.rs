@@ -564,34 +564,7 @@ impl Shell {
             return;
         }
         if shown {
-            let mut arrangement = self.current_arrangement(cx);
-            match &mut arrangement.bottom {
-                Some(dock) => {
-                    match &mut dock.node {
-                        layout::Node::Tabs { views, active } => {
-                            views.push(layout::View::Build);
-                            *active = views.len() - 1;
-                        }
-                        node @ layout::Node::Split { .. } => {
-                            let existing = std::mem::take(node);
-                            *node = layout::Node::Split {
-                                axis: layout::SplitAxis::Row,
-                                children: vec![existing, layout::Node::tabs([layout::View::Build])],
-                                sizes: vec![None, None],
-                            };
-                        }
-                    }
-                    dock.open = true;
-                }
-                None => {
-                    arrangement.bottom = Some(layout::Dock {
-                        node: layout::Node::tabs([layout::View::Build]),
-                        size: BUILD_DOCK,
-                        open: true,
-                    })
-                }
-            }
-            self.install(&arrangement, window, cx);
+            self.show_view(layout::View::Build, window, cx);
         } else {
             self.hide_view(&layout::View::Build, window, cx);
         }

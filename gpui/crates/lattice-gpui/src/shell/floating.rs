@@ -53,6 +53,10 @@ impl FloatingLayer {
             .any(|floating| floating.panel_id() == panel)
     }
 
+    pub fn views(&self) -> impl Iterator<Item = &View> {
+        self.panels.iter().map(|floating| &floating.view)
+    }
+
     pub fn contains_view(&self, view: &View) -> bool {
         self.panels.iter().any(|floating| floating.view == *view)
     }
