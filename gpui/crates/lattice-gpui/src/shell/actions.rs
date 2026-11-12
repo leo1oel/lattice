@@ -146,6 +146,7 @@ impl Shell {
             maximized: self.dock_area.read(cx).is_zoomed(),
             focus_mode: self.layout.focus.is_some(),
             dirty: self.layout.dirty,
+            building: self.build_task.is_some(),
             preset: self.layout.preset.as_ref().map(|active| active.preset),
             workspaces: Workspaces::global(cx)
                 .list()

@@ -34,8 +34,3 @@ design-system/paper-export.json linguist-generated
 gpui/patches/gpui-fast/** linguist-vendored
 gpui/patches/gpui-component/** linguist-vendored
 gpui/patches/gpui-base/** linguist-vendored
-
-# lattice-ui embeds its assets byte for byte (include_bytes!), and its Lucide
-# icons must equal GPUI Kit's own files (lattice-gpui's assets test), so a
-# Windows checkout must not turn their line endings into CRLF.
-gpui/crates/lattice-ui/assets/** -text

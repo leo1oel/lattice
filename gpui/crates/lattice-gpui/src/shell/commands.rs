@@ -136,6 +136,8 @@ pub struct CommandContext {
     pub maximized: bool,
     pub focus_mode: bool,
     pub dirty: bool,
+    /// A build is under way or queued.
+    pub building: bool,
     pub preset: Option<Preset>,
     /// The workspaces' ids and names, in order.
     pub workspaces: Vec<(String, SharedString)>,
@@ -210,6 +212,24 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Build,
         ));
         out.push(Command::new("save", "Save and build", Section::Build, Save).keys_only());
+        out.push(
+            Command::new("rebuild", "Clean rebuild", Section::Build, CleanRebuild)
+                .keywords("latexmk"),
+        );
+        out.push(Command::new(
+            "clean",
+            "Clean aux files",
+            Section::Build,
+            CleanBuildFiles,
+        ));
+        if context.building {
+            out.push(Command::new(
+                "stop-build",
+                "Stop build",
+                Section::Build,
+                StopBuild,
+            ));
+        }
         out.push(Command::new(
             "reveal-cursor",
             "Reveal cursor in PDF",
@@ -243,6 +263,24 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             .keys_only(),
         );
         out.push(Command::new("next-tab", "Next tab", Section::Navigate, NextTab).keys_only());
+        out.push(
+            Command::new(
+                "next-problem",
+                "Next build problem",
+                Section::Navigate,
+                NextProblem,
+            )
+            .keys_only(),
+        );
+        out.push(
+            Command::new(
+                "previous-problem",
+                "Previous build problem",
+                Section::Navigate,
+                PreviousProblem,
+            )
+            .keys_only(),
+        );
         out.push(
             Command::new(
                 "previous-tab",
@@ -410,6 +448,12 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             OpenInNewWindow,
         ));
     }
+    out.push(Command::new(
+        "doctor",
+        "Run TeX doctor",
+        Section::Project,
+        OpenTexDoctor,
+    ));
     if context.projects > 1 {
         out.push(Command::new(
             "next-project",
@@ -670,6 +714,32 @@ mod tests {
             .collect();
         assert_eq!(positional.len(), 9);
         assert!(positional.iter().all(|command| !command.palette));
+    }
+
+    #[test]
+    fn the_build_commands_reach_the_palette_and_the_shortcut_sheet() {
+        // use-command-table.ts: Clean rebuild and Clean aux files in a
+        // project, Stop build only while a build runs, the next and previous
+        // build problem as keys only, and the TeX doctor everywhere.
+        let row = |context: &CommandContext, action: &dyn Action| {
+            commands(context)
+                .into_iter()
+                .find(|command| command.action.partial_eq(action))
+                .map(|command| command.palette)
+        };
+        let mut context = CommandContext {
+            in_project: true,
+            ..CommandContext::default()
+        };
+        assert_eq!(row(&context, &CleanRebuild), Some(true));
+        assert_eq!(row(&context, &CleanBuildFiles), Some(true));
+        assert_eq!(row(&context, &NextProblem), Some(false));
+        assert_eq!(row(&context, &PreviousProblem), Some(false));
+        assert_eq!(row(&context, &OpenTexDoctor), Some(true));
+        assert_eq!(row(&context, &StopBuild), None);
+        context.building = true;
+        assert_eq!(row(&context, &StopBuild), Some(true));
+        assert_eq!(row(&CommandContext::default(), &OpenTexDoctor), Some(true));
     }
 }
 
