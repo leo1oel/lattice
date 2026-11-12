@@ -75,7 +75,7 @@ fi
 
 status=0
 for dir in gpui-fast gpui-component; do
-  diff -r "$out/$dir" "$patches/$dir" || status=1
+  diff -r -x target -x Cargo.lock "$out/$dir" "$patches/$dir" || status=1
 done
 if [ "$status" -ne 0 ]; then
   echo "patches/ is not upstream plus its diffs; see patches/README.md" >&2
