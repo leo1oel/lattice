@@ -71,9 +71,10 @@ export type OverleafRemoteTextContext = {
    * Whether the buffer may already hold the writer's typing on top of
    * `baseContent`, to be carried onto the new text the way the server will
    * place it. True for a co-author's operation, which OT built on the text
-   * this side last sent, and for a joined snapshot made from the held
-   * document's last shared text; false for any other joined snapshot, which
-   * the buffer has to match (or already show) before anything is taken.
+   * this side last sent, for a replay carrying a resumed document's local
+   * copy forward, and for a joined snapshot made from a held document's
+   * settled local copy; false for any other joined snapshot, which the
+   * buffer has to match (or already show) before anything is taken.
    */
   carryTyping: boolean;
   isCurrent: () => boolean;
@@ -188,26 +189,6 @@ export function reconnectingDetail(cause: string, delayMs: number): string {
   return delayMs === 0
     ? i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting now…`)
     : i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting in ${seconds} s…`);
-}
-
-/**
- * What a document's disk copy provably shares with Overleaf. OT's text may
- * include a peer update the editor or disk rejected, so settled OT alone is
- * not proof of a locally materialized common ancestor; the leave checkpoint
- * handed back to sync is `lastShared`, promoted only when both agree.
- */
-export type DocumentProof = {
-  receipt: string;
-  lastShared: { text: string; version: number } | null;
-  locallyAppliedText: string | null;
-  /** False once an operation was sent outside OtDocument, until a full reset. */
-  textModelValid: boolean;
-};
-
-export function promoteShared(doc: OtDocument, proof: DocumentProof | undefined) {
-  if (proof?.textModelValid && doc.settled && doc.text === proof.locallyAppliedText) {
-    proof.lastShared = { text: doc.text, version: doc.version };
-  }
 }
 
 /**

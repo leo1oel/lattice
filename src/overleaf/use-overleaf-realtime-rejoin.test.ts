@@ -137,11 +137,12 @@ describe("joining a document Overleaf moved on from since the last sync", () => 
     expect([buffer.state.text, disk]).toEqual(["Merged by the sync. Typed during the sync.\n", AGREED]);
   });
 
-  // The writer's edit went out as they left the file, a co-author's operation
-  // reached Overleaf before it, and the writer came back before any sync. The
-  // text the document checkpoints is then from before the writer's edit,
-  // which both sides hold since: a merge from it would type the edit twice.
-  it("never types the writer's edit twice when the agreed text is older than an edit both sides hold", async () => {
+  // The writer's edit went out as they left the file, a co-author's
+  // operation reached Overleaf before it, and the writer came back before any
+  // sync. The checkpoint is the writer's text with the edit, acknowledged by
+  // then: the text from before it would make a merge type the edit twice,
+  // and coming back used to hand the file to regular sync for that reason.
+  it("takes Overleaf's text on return, never typing the writer's edit twice, when it went out as they left", async () => {
     const shared = "Shared.";
     const mine = "Shared. Mine.";
     const both = "Theirs. Shared. Mine.";
@@ -156,13 +157,14 @@ describe("joining a document Overleaf moved on from since the last sync", () => 
     emit({ type: "docAck", docId: DOC_A, version: 11 });
     await waitFor(() => expect(invokeCalls("overleaf_rt_leave_doc")).toHaveLength(1));
     const checkpoint = (invokeCalls("overleaf_rt_leave_doc")[0]!.checkpoint as { text: string } | null)?.text ?? null;
-    expect(checkpoint).toBe(shared);
+    expect(checkpoint).toBe(mine);
     Object.assign(buffer.state, { text: mine, saved: mine });
     disk = mine;
     join = { text: both, agreed: checkpoint };
     await returnTo(view);
-    await waitFor(() => expect(needsSync).toHaveBeenCalledWith(["a.tex"]));
-    expect([buffer.state.text, disk]).toEqual([mine, mine]);
+    await waitFor(() => expect(view.result.current.liveFile).toBe(true));
+    expect(needsSync).not.toHaveBeenCalled();
+    expect([buffer.state.text, disk]).toEqual([both, both]);
     expect(sends()).toHaveLength(1);
   });
 
@@ -180,7 +182,7 @@ describe("joining a document Overleaf moved on from since the last sync", () => 
       "First paragraph, by the writer.\n\nSecond paragraph.\n",
       "First paragraph, by the writer.\n\nSecond paragraph, by the co-author.\n",
     ],
-  ])("merges both sides' typing live from the held document's last shared text in %s", async (_label, shared, ahead, typed, merged) => {
+  ])("merges both sides' typing live from the held document's settled local copy in %s", async (_label, shared, ahead, typed, merged) => {
     join = { text: shared, agreed: null };
     const buffer = editor(shared);
     const { view, needsSync } = await joinWith(buffer);

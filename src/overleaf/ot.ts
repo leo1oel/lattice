@@ -308,6 +308,14 @@ export function rebaseOnto(base: string, current: string, remote: OtOp[], remote
   return applyOps(remoteText, typed);
 }
 
+/**
+ * The operation that takes `applyOps(text, ops)` back to `text`: each op
+ * undone, last first.
+ */
+export function invertOps(ops: OtOp[]): OtOp[] {
+  return ops.slice().reverse().map(({ p, i, d }) => ({ p, ...(typeof i === "string" ? { d: i } : {}), ...(typeof d === "string" ? { i: d } : {}) }));
+}
+
 /** Combine two operations that apply one after the other into a single one. */
 export function composeOps(first: OtOp[], second: OtOp[]): OtOp[] {
   const result = first.slice();
@@ -353,9 +361,27 @@ export class OtDocument {
    * still recognise it as our own acknowledgement.
    */
   private submitted: string[] = [];
+  /** See `serverText`. */
+  private atVersion: string;
 
   /** `text` includes unsent work; `version` is the last server version seen. */
-  constructor(public text: string, public version: number) {}
+  constructor(public text: string, public version: number) {
+    this.atVersion = text;
+  }
+
+  /**
+   * Overleaf's text at `version`: everything the server has applied that this
+   * side has heard about, its own acknowledged work and everyone else's, and
+   * none of the work still owed to it. `text` is this with the operation in
+   * flight and the typing queued behind it on top.
+   *
+   * It is the one text both sides provably held, which is what a merge needs
+   * as its ancestor. The latest text this side typed is not one — the server
+   * may never apply it — and `text` after an unanswered send is not either.
+   */
+  get serverText(): string {
+    return this.atVersion;
+  }
 
   /** True while the server still owes us an acknowledgement. */
   get waiting(): boolean {
@@ -450,6 +476,11 @@ export class OtDocument {
       throw new OtDesyncError(i18n._(msg`Overleaf acknowledged version ${version} while this document is at ${current}.`));
     }
     if (!this.inflight) return { send: null };
+    // The operation in flight was kept transformed to apply at `version`, so
+    // it is exactly what the server applied to its copy.
+    const atVersion = applyOps(this.atVersion, this.inflight);
+    if (atVersion === null) throw new OtDesyncError(i18n._(msg`An update from Overleaf did not fit this document; it needs to be reloaded.`));
+    this.atVersion = atVersion;
     this.inflight = null;
     this.submitted = [];
     this.version += 1;
@@ -491,6 +522,10 @@ export class OtDocument {
     // both typing at one spot — ours lands first there and has to land first
     // here, or the two copies order those inserts differently and never
     // converge. The next hash Overleaf checks would then reject the document.
+    // The server's own copy takes the operation as sent, untransformed: it
+    // was built on exactly the text the server held at `version`.
+    const atVersion = applyOps(this.atVersion, ops);
+    if (atVersion === null) throw new OtDesyncError(i18n._(msg`An update from Overleaf did not fit this document; it needs to be reloaded.`));
     let incoming = ops;
     if (this.inflight) [this.inflight, incoming] = transformBoth(this.inflight, incoming);
     if (this.pending) {
@@ -501,6 +536,7 @@ export class OtDocument {
     const next = applyOps(this.text, incoming);
     if (next === null) throw new OtDesyncError(i18n._(msg`An update from Overleaf did not fit this document; it needs to be reloaded.`));
     this.text = next;
+    this.atVersion = atVersion;
     this.version = version + 1;
     return { text: next, applied: incoming };
   }
@@ -529,6 +565,7 @@ export class OtDocument {
   /** Start again from the server's copy, dropping unsent work: guessing at reconciliation risks writing text neither side wrote. */
   reset(text: string, version: number) {
     this.text = text;
+    this.atVersion = text;
     this.version = version;
     this.inflight = null;
     this.pending = null;
