@@ -7,7 +7,8 @@
 //!   drawers' 40px header (the title, the icon-only X), its content 14px in
 //!   with 12px between sections, and its actions sit at the foot over a
 //!   hairline; title and actions stay put while a long form scrolls
-//!   between them. It rises 6px into place and fades on the slow tier.
+//!   between them. It rises 6px into place from 98% and fades on the slow
+//!   tier, as a dialog does (`overlays::rise_in`).
 //! - A drawer is the app's right-edge `ResizableDrawer` (surfaces.css
 //!   `.resizable-drawer`): the window's full height on the input surface at
 //!   the floating level, square to the window edge, its content 14px in
@@ -16,7 +17,9 @@
 //!
 //! [`ModalLayer`] holds one over the window on GPUI Kit's headless sheet
 //! host (`gpui_kit::base::Sheet`), which owns the focus trap, Escape and the
-//! press on the scrim that closes it. The scrim fades in on the slow tier
+//! press on the scrim that closes it. The layer is deferred, as Kit's dialogs
+//! are, so it is drawn on the window's overlay surface, above a webview
+//! island rather than under it. The scrim fades in on the slow tier
 //! with its surface: the dialog scrim behind a sheet, the lighter
 //! `--scrim-surface` behind a drawer.
 
@@ -25,12 +28,14 @@ use std::rc::Rc;
 use gpui::{
     AnimationExt as _, AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement,
     ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Window, div, hsla, prelude::FluentBuilder as _, px,
+    Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Sheet as SheetHost;
 
 use crate::{
-    ActiveLattice as _, Elevation, components::PanelHeader, motion::Motion,
+    ActiveLattice as _, Elevation,
+    components::{PanelHeader, rise_in},
+    motion::Motion,
     tokens::CONTAINER_DIALOG_LARGE,
 };
 
@@ -168,10 +173,7 @@ impl RenderOnce for Sheet {
                         .children(self.actions),
                 )
             });
-        div()
-            .w(width)
-            .h(height)
-            .child(slide_in(child("rise"), 0., 6., card))
+        div().w(width).h(height).child(rise_in(child("rise"), card))
     }
 }
 
@@ -340,19 +342,21 @@ impl RenderOnce for ModalLayer {
         };
         let on_close = self.on_close;
         let layer = focus.clone();
-        SheetHost::new(cx)
-            .focus_handle(focus)
-            .overlay_closable(self.closable)
-            .request_close(move |window, cx| {
-                if layer.contains_focused(window, cx) {
-                    match &previous {
-                        Some(previous) => previous.focus(window, cx),
-                        None => window.blur(cx),
+        deferred(
+            SheetHost::new(cx)
+                .focus_handle(focus)
+                .overlay_closable(self.closable)
+                .request_close(move |window, cx| {
+                    if layer.contains_focused(window, cx) {
+                        match &previous {
+                            Some(previous) => previous.focus(window, cx),
+                            None => window.blur(cx),
+                        }
                     }
-                }
-                on_close(window, cx)
-            })
-            .overlay(overlay)
-            .surface(surface)
+                    on_close(window, cx)
+                })
+                .overlay(overlay)
+                .surface(surface),
+        )
     }
 }

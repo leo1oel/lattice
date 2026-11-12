@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Rebuilds patches/ from its upstream sources and the diffs beside it, and
+# fails unless the result is exactly what is committed (patches/README.md).
+#
+#   script/check-patches           compare the rebuilt copies with patches/
+#   script/check-patches --write   replace patches/ with the rebuilt copies,
+#                                  after editing a diff or moving a pin
+#
+# Needs git, curl, tar and shasum (or sha256sum), and the network.
+set -euo pipefail
+
+GPUI_FAST_REPO=https://github.com/longbridge/gpui-fast
+GPUI_FAST_REV=bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa
+GPUI_COMPONENT_VERSION=0.9.1
+# crates.io's checksum for the crate file, as Cargo.lock recorded it before
+# the crate was patched in.
+GPUI_COMPONENT_SHA256=e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+patches="$root/patches"
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+sha256() {
+  if command -v sha256sum > /dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1
+}
+
+# gpui-fast at the pinned commit.
+git init -q "$work/gpui-fast-src"
+git -C "$work/gpui-fast-src" fetch -q --depth 1 "$GPUI_FAST_REPO" "$GPUI_FAST_REV"
+git -C "$work/gpui-fast-src" -c advice.detachedHead=false checkout -q FETCH_HEAD
+test "$(git -C "$work/gpui-fast-src" rev-parse HEAD)" = "$GPUI_FAST_REV"
+
+# gpui-component from crates.io, checked against its recorded checksum.
+curl -fsSL -o "$work/gpui-component.crate" \
+  "https://static.crates.io/crates/gpui-component/gpui-component-$GPUI_COMPONENT_VERSION.crate"
+actual="$(sha256 "$work/gpui-component.crate")"
+if [ "$actual" != "$GPUI_COMPONENT_SHA256" ]; then
+  echo "gpui-component $GPUI_COMPONENT_VERSION: checksum $actual, expected $GPUI_COMPONENT_SHA256" >&2
+  exit 1
+fi
+tar -xzf "$work/gpui-component.crate" -C "$work"
+
+# What is vendored of each, before any diff: the crates' sources without
+# their examples, benches and docs (upstream's own tests are not run here),
+# and crates.io's packaging files left out.
+out="$work/patches"
+src="$work/gpui-fast-src"
+mkdir -p "$out/gpui-fast/crates"
+cp "$src/Cargo.toml" "$src/LICENSE-APACHE" "$out/gpui-fast/"
+for crate in gpui gpui_macos; do
+  mkdir -p "$out/gpui-fast/crates/$crate"
+  (cd "$src/crates/$crate" && tar -cf - --exclude ./examples --exclude ./benches --exclude ./docs .) |
+    (cd "$out/gpui-fast/crates/$crate" && tar -xf -)
+  # Upstream links the license from the repository root; a copy keeps the
+  # vendored crate whole on a checkout without symlinks.
+  rm "$out/gpui-fast/crates/$crate/LICENSE-APACHE"
+  cp "$src/LICENSE-APACHE" "$out/gpui-fast/crates/$crate/LICENSE-APACHE"
+done
+cp -R "$work/gpui-component-$GPUI_COMPONENT_VERSION" "$out/gpui-component"
+rm -f "$out/gpui-component/Cargo.lock" "$out/gpui-component/Cargo.toml.orig" \
+  "$out/gpui-component/.cargo_vcs_info.json" "$out/gpui-component/.cargo-ok"
+
+# The diffs, in order.
+for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-component-overlays; do
+  git -C "$out" apply --whitespace=nowarn "$patches/$diff.diff"
+done
+
+if [ "${1:-}" = "--write" ]; then
+  rm -rf "$patches/gpui-fast" "$patches/gpui-component"
+  cp -R "$out/gpui-fast" "$out/gpui-component" "$patches/"
+  echo "patches/ rebuilt from gpui-fast $GPUI_FAST_REV and gpui-component $GPUI_COMPONENT_VERSION"
+  exit 0
+fi
+
+status=0
+for dir in gpui-fast gpui-component; do
+  diff -r -x target -x Cargo.lock "$out/$dir" "$patches/$dir" || status=1
+done
+if [ "$status" -ne 0 ]; then
+  echo "patches/ is not upstream plus its diffs; see patches/README.md" >&2
+  exit 1
+fi
+echo "patches/ is gpui-fast $GPUI_FAST_REV and gpui-component $GPUI_COMPONENT_VERSION plus its diffs"

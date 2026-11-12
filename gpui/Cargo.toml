@@ -5,10 +5,16 @@ members = [
     "compat/gpui-pre/gpui-pre-macros",
     "compat/gpui-pre/gpui-pre-platform",
     "compat/gpui-pre/gpui-pre-sum-tree",
+    "compat/gpui-fast/gpui-fast",
+    "compat/gpui-fast/gpui-fast-platform",
+    "compat/gpui-fast/gpui-fast-web",
     "crates/lattice-gpui",
     "crates/lattice-ui",
     "crates/tex",
 ]
+# Vendored, patched upstream crates (patches/README.md): path dependencies
+# through `[patch]` below, never workspace members.
+exclude = ["patches"]
 default-members = ["crates/lattice-gpui"]
 
 [workspace.package]
@@ -16,13 +22,19 @@ edition = "2024"
 publish = false
 license = "GPL-3.0-or-later"
 
-# One GPUI for the whole graph: Zed's in-tree crates at this revision.
+# One GPUI for the whole graph: gpui-fast, a fork of Zed's GPUI that tracks
+# the Zed commit the editor crates below are pinned at.
 #
-# GPUI Kit 0.9.1 pins the `gpui-pre` 0.3.12 snapshot, which is Zed's GPUI at
-# this same commit (see `package.metadata.gpui-pre.zed-rev` in the published
-# crate). The crates under `compat/gpui-pre` carry the snapshot names and
-# version and re-export the Zed crates, so `[patch.crates-io]` below moves GPUI
-# Kit onto the very GPUI that Zed's editor is compiled against.
+# Zed's crates (the editor, search, Vim, settings, themes) are pinned at
+# `d2a4fb6`, and the `[patch."https://github.com/zed-industries/zed"]` table
+# swaps Zed's GPUI family for gpui-fast `bbf6dea`, whose `UPSTREAM` file names
+# that same Zed commit. GPUI Kit 0.9.1 and gpui-webview 0.9.1 run on
+# gpui-fast through their `gpui-fast` feature, which asks for the crates.io
+# `gpui-fast*` packages, and GPUI Kit still names the `gpui-pre` snapshot
+# besides. The crates under `compat/` carry those names and versions and
+# re-export the workspace's GPUI, so `[patch.crates-io]` below leaves exactly
+# one GPUI in the graph. Lattice's own changes to GPUI and GPUI Kit live in
+# `patches/` (see its README).
 [workspace.dependencies]
 assets = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 editor = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
@@ -41,7 +53,8 @@ vim_mode_setting = { git = "https://github.com/zed-industries/zed", rev = "d2a4f
 workspace = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 zed_actions = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 
-gpui-kit = { version = "=0.9.1" }
+gpui-kit = { version = "=0.9.1", features = ["gpui-fast"] }
+gpui-webview = { version = "=0.9.1", features = ["gpui-fast"] }
 
 anyhow = "1"
 codebook-tree-sitter-latex = "0.6.1"
@@ -55,11 +68,48 @@ serde_json = "1"
 smallvec = "1"
 tex = { path = "crates/tex" }
 
+# Zed's GPUI family, replaced by gpui-fast. `util` stays Zed's: gpui-fast's
+# copy has its own `rel_path` types, which Zed's crates reject. GPUI itself
+# is the vendored, patched copy (patches/README.md).
+[patch."https://github.com/zed-industries/zed"]
+gpui = { path = "patches/gpui-fast/crates/gpui" }
+bench_metrics = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+collections = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_apple = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_ios = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_linux = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_macros = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_platform = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_shared_string = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_util = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_web = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_wgpu = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_windows = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+http_client = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+http_client_tls = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+refineable = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+derive_refineable = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+scheduler = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+sum_tree = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+zlog = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+ztracing = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+ztracing_macro = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+
+# gpui-fast's own crates name GPUI and its macOS platform by gpui-fast's
+# source; both are the vendored copies.
+[patch."https://github.com/longbridge/gpui-fast"]
+gpui = { path = "patches/gpui-fast/crates/gpui" }
+gpui_macos = { path = "patches/gpui-fast/crates/gpui_macos" }
+
 [patch.crates-io]
 gpui-pre = { path = "compat/gpui-pre/gpui-pre" }
 gpui-pre-macros = { path = "compat/gpui-pre/gpui-pre-macros" }
 gpui-pre-platform = { path = "compat/gpui-pre/gpui-pre-platform" }
 gpui-pre-sum-tree = { path = "compat/gpui-pre/gpui-pre-sum-tree" }
+gpui-fast = { path = "compat/gpui-fast/gpui-fast" }
+gpui-fast-platform = { path = "compat/gpui-fast/gpui-fast-platform" }
+gpui-fast-web = { path = "compat/gpui-fast/gpui-fast-web" }
+gpui-component = { path = "patches/gpui-component" }
 
 # Copied from Zed's workspace at the pinned revision: a dependency's
 # `[patch]` table does not apply, so Zed's crates only build with these here.

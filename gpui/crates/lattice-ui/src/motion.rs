@@ -77,6 +77,94 @@ impl Motion {
     }
 }
 
+/// How a floating surface arrives: the tier it moves on, the scale it grows
+/// from and the few pixels it travels into place, as the app's CSS has them.
+/// It fades in on the same tier, except where [`Entrance::fade`] says.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Entrance {
+    pub motion: Motion,
+    /// The fade's tier, when it is not the movement's.
+    pub fade: Option<Motion>,
+    /// The scale it starts at; it ends at 1.
+    pub from_scale: f32,
+    /// How far it travels, in pixels, from the side it comes from.
+    pub travel: f32,
+}
+
+impl Entrance {
+    /// Menus, selects and popovers (`popup-motion.css`): the pop tier, from
+    /// 95% about the trigger's side and 6px towards it.
+    pub const POPUP: Entrance = Entrance {
+        motion: Motion::Pop,
+        fade: None,
+        from_scale: 0.95,
+        travel: 6.,
+    };
+
+    /// Tooltips (`chrome.css`, `ui-tooltip-enter`): the fast tier, from 98%
+    /// and `--space-2` away.
+    pub const TOOLTIP: Entrance = Entrance {
+        motion: Motion::Fast,
+        fade: None,
+        from_scale: 0.98,
+        travel: 4.,
+    };
+
+    /// Dialogs and sheets (`dialogs.css`, `modal-rise`): the slow tier, from
+    /// 98% about the centre, rising `--space-3`.
+    pub const DIALOG: Entrance = Entrance {
+        motion: Motion::Slow,
+        fade: None,
+        from_scale: 0.98,
+        travel: 6.,
+    };
+
+    /// Toasts (`toast-stack.css`): the card drops in its own height from the
+    /// stack's edge (see `toast_in`, which travels by that height rather than
+    /// by `travel`), from 96%, on the slow tier, and fades on the moderate.
+    pub const TOAST: Entrance = Entrance {
+        motion: Motion::Slow,
+        fade: Some(Motion::Moderate),
+        from_scale: 0.96,
+        travel: 0.,
+    };
+
+    /// The scale at the movement's progress `p` (a spring may overshoot 1).
+    pub fn scale(self, progress: f32) -> f32 {
+        self.from_scale + (1. - self.from_scale) * progress
+    }
+
+    /// How long the entrance runs: its longer tier.
+    pub fn duration(self) -> Duration {
+        self.fade
+            .map_or(self.motion.duration(), |fade| fade.duration())
+            .max(self.motion.duration())
+    }
+
+    /// The movement's and the fade's progress `elapsed` into the entrance,
+    /// each on its own curve; the fade is clamped to 0..=1.
+    pub fn sample(self, elapsed: Duration) -> (f32, f32) {
+        let at = |motion: Motion| {
+            let t = elapsed.as_secs_f32() / motion.duration().as_secs_f32();
+            motion.sample(t.clamp(0., 1.))
+        };
+        let movement = at(self.motion);
+        let fade = at(self.fade.unwrap_or(self.motion)).clamp(0., 1.);
+        (movement, fade)
+    }
+
+    /// A GPUI animation over the whole entrance, linear: feed its progress
+    /// to [`Entrance::sample_at`].
+    pub fn animation(self) -> Animation {
+        Animation::new(self.duration())
+    }
+
+    /// [`Entrance::sample`] at the linear progress `t` of [`Entrance::animation`].
+    pub fn sample_at(self, t: f32) -> (f32, f32) {
+        self.sample(self.duration().mul_f32(t.clamp(0., 1.)))
+    }
+}
+
 /// Things that arrive in turn wait this long each, eight turns at most.
 pub fn stagger(index: usize) -> Duration {
     DURATION_STAGGER * index.min(8) as u32
@@ -115,6 +203,36 @@ mod tests {
         let ease = Ease::Linear(&[0., 0.5, 1.]);
         assert!((ease.sample(0.25) - 0.25).abs() < 1e-6);
         assert!((ease.sample(0.75) - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn entrances_grow_from_the_css_scales_and_land_at_full_size() {
+        assert_eq!(Entrance::POPUP.scale(0.), 0.95);
+        assert_eq!(Entrance::DIALOG.scale(0.), 0.98);
+        assert_eq!(Entrance::TOAST.scale(0.), 0.96);
+        for entrance in [
+            Entrance::POPUP,
+            Entrance::TOOLTIP,
+            Entrance::DIALOG,
+            Entrance::TOAST,
+        ] {
+            let (movement, fade) = entrance.sample_at(1.);
+            assert!((entrance.scale(movement) - 1.).abs() < 1e-3);
+            assert!((fade - 1.).abs() < 1e-3);
+            assert_eq!(entrance.sample_at(0.), (0., 0.));
+        }
+    }
+
+    #[test]
+    fn a_toast_fades_in_on_the_moderate_tier_while_it_moves_on_the_slow() {
+        let toast = Entrance::TOAST;
+        assert_eq!(toast.duration(), DURATION_SLOW);
+        // The fade is done at the moderate tier's end, and ahead of the drop
+        // before it.
+        let (_, fade) = toast.sample(DURATION_MODERATE);
+        assert!((fade - 1.).abs() < 1e-3);
+        let (movement, fade) = toast.sample(DURATION_MODERATE / 2);
+        assert!(fade > movement, "fade {fade}, movement {movement}");
     }
 
     #[test]

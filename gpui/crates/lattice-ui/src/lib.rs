@@ -39,10 +39,10 @@ pub mod typography;
 pub use editor_theme::CodeTheme;
 pub use elevation::Elevation;
 pub use icons::{Icon, UiAssets};
-pub use motion::Motion;
+pub use motion::{Entrance, Motion};
 pub use palette::{Accent, GlyphKind, Palette, Tint};
 pub use theme::{ActiveLattice, LatticeTheme};
-pub use typography::{TextRole, TextRoleStyle, TypeScale};
+pub use typography::{TextRole, TextRoleStyle, Tracking, TypeScale};
 
 /// Light or dark: which value of every two-valued token is painted.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

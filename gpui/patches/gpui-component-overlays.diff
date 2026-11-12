@@ -1,0 +1,30 @@
+diff --git a/gpui-component/src/root.rs b/gpui-component/src/root.rs
+index 28a7cb8..9833c0a 100644
+--- a/gpui-component/src/root.rs
++++ b/gpui-component/src/root.rs
+@@ -12,8 +12,8 @@ use crate::{
+ use gpui::{
+     App, AppContext, Bounds, Context, DefiniteLength, DispatchPhase, ElementId, Entity,
+     FocusHandle, GlobalElementId, InteractiveElement, IntoElement, MouseMoveEvent,
+-    ParentElement as _, Pixels, Render, RenderOnce, Styled, WeakFocusHandle, Window, canvas, div,
+-    prelude::FluentBuilder as _,
++    ParentElement as _, Pixels, Render, RenderOnce, Styled, WeakFocusHandle, Window, canvas,
++    deferred, div, prelude::FluentBuilder as _,
+ };
+ use gpui_base::{TextSelection, TextSelectionScopeId, motion::Presence};
+ use std::{any::TypeId, cell::Cell, rc::Rc};
+@@ -772,8 +772,12 @@ impl RenderOnce for WindowStateLayers {
+             .absolute()
+             .inset_0()
+             .debug_selector(|| "root-layers".to_string())
+-            .children(WindowState::sheet_layer(root.clone(), window, cx))
++            // lattice-gpui patch: the sheet and notification layers are
++            // deferred, as dialogs already are, so that gpui-fast draws them
++            // on the window's overlay surface, above native views (a webview
++            // island) rather than under them.
++            .children(WindowState::sheet_layer(root.clone(), window, cx).map(deferred))
+             .children(WindowState::dialog_layer(&root, window, cx))
+-            .children(WindowState::notification_layer(&root, window, cx))
++            .children(WindowState::notification_layer(&root, window, cx).map(deferred))
+     }
+ }

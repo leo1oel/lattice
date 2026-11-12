@@ -23,3 +23,8 @@ design-system/tokens.css linguist-generated
 design-system/tokens.json linguist-generated
 design-system/DESIGN.md linguist-generated
 design-system/paper-export.json linguist-generated
+
+# The GPUI app's patched upstream crates are upstream's source plus the diffs
+# beside them (gpui/patches/README.md); script/check-patches keeps them so.
+gpui/patches/gpui-fast/** linguist-vendored
+gpui/patches/gpui-component/** linguist-vendored

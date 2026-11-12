@@ -28,7 +28,9 @@ use gpui_kit::{
     base::slider::SliderState,
     component::input::{InputState, TextareaState},
 };
-use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, components::LatticeTooltip};
+use lattice_ui::{
+    ActiveLattice as _, TextRole, TextRoleStyle as _, Tracking, components::LatticeTooltip,
+};
 
 pub struct Gallery {
     page: u8,
@@ -195,11 +197,30 @@ fn noop(_: &gpui::ClickEvent, _: &mut Window, _: &mut App) {}
 impl Render for Gallery {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let boards = match self.page {
-            2 => overlays::boards(self, cx),
-            3 => surfaces::boards(self, cx),
-            _ => controls::boards(self, cx),
+        let (title, boards) = match self.page {
+            2 => ("Menus, toasts and dialogs", overlays::boards(self, cx)),
+            3 => ("Surfaces", surfaces::boards(self, cx)),
+            _ => ("Controls", controls::boards(self, cx)),
         };
+        // The page head as Paper's Components artboards set it: the eyebrow
+        // in micro capitals on the caps tracking, then the serif title.
+        let head = div()
+            .flex()
+            .flex_col()
+            .gap(px(8.))
+            .child(
+                div()
+                    .text_role(TextRole::Micro, cx)
+                    .tracking(Tracking::Caps)
+                    .text_color(palette.text_secondary)
+                    .child("LATTICE DESIGN SYSTEM · COMPONENTS"),
+            )
+            .child(
+                div()
+                    .text_role(TextRole::Display, cx)
+                    .text_color(palette.text)
+                    .child(title),
+            );
         div()
             .id("gallery")
             .size_full()
@@ -209,6 +230,7 @@ impl Render for Gallery {
             .flex()
             .flex_col()
             .gap(px(28.))
+            .child(head)
             .children(boards)
     }
 }
