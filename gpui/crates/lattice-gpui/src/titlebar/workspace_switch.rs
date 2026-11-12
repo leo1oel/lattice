@@ -22,6 +22,7 @@ use lattice_ui::{
     icons::{ICON, ICON_SMALL},
     interaction::{mix, tab_stop, track_pointer, use_interaction},
     parity,
+    typography::shaped_width,
 };
 
 use crate::shell::{
@@ -32,6 +33,50 @@ use crate::shell::{
 
 /// The workspace a folded switch names is cut at about 9em.
 const FOLDED_NAME_MAX: f32 = 112.;
+/// The track's padding, a tab's side padding and the gap before its dot,
+/// the dot, "+", and the rename field's side padding and least width.
+const TRACK_PAD: f32 = 2.;
+const TAB_PAD: f32 = 10.;
+const TAB_GAP: f32 = 6.;
+const DOT: f32 = 5.;
+const ADD_WIDTH: f32 = 28.;
+const RENAME_PAD: f32 = 6.;
+const RENAME_MIN: f32 = 6. * 7. + 20.;
+
+/// A workspace tab's width around a label `label` wide, with the dot when
+/// the project's layout differs from it.
+pub(super) fn tab_width(label: f32, dot: bool) -> f32 {
+    TAB_PAD * 2. + label + if dot { TAB_GAP + DOT } else { 0. }
+}
+
+/// The rename field's width around its text.
+fn rename_width(text: f32) -> f32 {
+    (text + RENAME_PAD * 2.).max(RENAME_MIN)
+}
+
+/// The unfolded track's width around tabs this wide, with "+".
+pub(super) fn track_width(tabs: impl IntoIterator<Item = f32>) -> f32 {
+    TRACK_PAD * 2. + tabs.into_iter().sum::<f32>() + ADD_WIDTH
+}
+
+/// How wide the switch draws unfolded, from its labels' shaped widths: the
+/// titlebar decides whether it folds without drawing it unfolded first.
+pub(super) fn unfolded_switch_width(shell: &Shell, window: &Window, cx: &App) -> f32 {
+    let current = shell.layout.workspace.as_deref();
+    let renaming = shell.layout.renaming.as_deref();
+    let shaped = |text: &str| f32::from(shaped_width(text, TextRole::Caption, None, window, cx));
+    track_width(Workspaces::global(cx).list().iter().map(|entry| {
+        if renaming == Some(entry.id.as_str())
+            && let Some(input) = shell.rename_input()
+        {
+            return rename_width(shaped(&input.read(cx).value()));
+        }
+        tab_width(
+            shaped(&entry.name),
+            shell.layout.dirty && current == Some(entry.id.as_str()),
+        )
+    }))
+}
 
 /// The layout switch: a hairline track holding the named workspaces and
 /// "+"; the project's workspace a raised plate (none while a preset lies
@@ -60,7 +105,7 @@ pub(super) fn workspace_switcher(
         .flex_none()
         .items_center()
         .h(px(28.))
-        .p(px(2.))
+        .p(px(TRACK_PAD))
         .rounded(px(11.))
         .shadow(vec![gpui::BoxShadow {
             inset: true,
@@ -174,9 +219,9 @@ pub(super) fn workspace_switcher(
             .flex()
             .flex_none()
             .items_center()
-            .gap(px(6.))
+            .gap(px(TAB_GAP))
             .h(px(24.))
-            .px(px(10.))
+            .px(px(TAB_PAD))
             .rounded(px(7.4))
             .when(selected, |this| {
                 this.bg(palette.panel).shadow(raised_plate(&palette))
@@ -224,7 +269,7 @@ pub(super) fn workspace_switcher(
                 .flex_none()
                 .items_center()
                 .justify_center()
-                .w(px(28.))
+                .w(px(ADD_WIDTH))
                 .h(px(24.))
                 .rounded(px(7.4))
                 .cursor_pointer()
@@ -523,8 +568,8 @@ fn rename_field(
     div()
         .id(id)
         .h(px(24.))
-        .min_w(px(6. * 7. + 20.))
-        .px(px(6.))
+        .min_w(px(RENAME_MIN))
+        .px(px(RENAME_PAD))
         .flex()
         .items_center()
         .rounded(px(7.4))
@@ -553,7 +598,7 @@ fn raised_plate(palette: &lattice_ui::Palette) -> Vec<gpui::BoxShadow> {
 fn dirty_dot(palette: &lattice_ui::Palette) -> impl IntoElement {
     div()
         .flex_none()
-        .size(px(5.))
+        .size(px(DOT))
         .rounded_full()
         .bg(palette.text_secondary)
 }

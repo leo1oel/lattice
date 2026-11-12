@@ -43,7 +43,7 @@ use lattice_ui::{
 
 mod workspace_switch;
 
-use workspace_switch::workspace_switcher;
+use workspace_switch::{unfolded_switch_width, workspace_switcher};
 
 use crate::shell::{
     Shell,
@@ -75,54 +75,24 @@ const NOT_YET: &str = "not in the GPUI preview yet";
 #[derive(Default)]
 pub struct TitlebarDrag {
     pressed: Cell<bool>,
-    room: Rc<Cell<Room>>,
+    measured: Rc<Cell<Measured>>,
 }
 
-/// The titlebar's measured groups, in window coordinates: where the left
-/// group ends when its workspaces are unfolded (and folded), and where the
-/// tools begin; and what the unfolded left group drew when it was measured.
+/// What the titlebar measured of itself last frame, in window coordinates:
+/// where the workspace switch begins, folded or not, and where the tools
+/// begin.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Measured {
+    switch_start: Option<f32>,
+    tools_start: Option<f32>,
+}
+
+/// The room the folds are decided in: where the left group ends with its
+/// workspaces unfolded, and where the tools begin.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Room {
     left_unfolded: Option<f32>,
-    left_folded: Option<f32>,
     tools_start: Option<f32>,
-    drawn: u64,
-}
-
-impl Room {
-    /// Folded, the left group's unfolded width is not measured again, so a
-    /// change to what it would draw forgets that width: the next frame
-    /// unfolds and measures it afresh.
-    fn redrawn(self, drawn: u64) -> Room {
-        if drawn == self.drawn {
-            return self;
-        }
-        Room {
-            left_unfolded: None,
-            drawn,
-            ..self
-        }
-    }
-}
-
-/// What the unfolded left group's width depends on: the project switcher or
-/// tabs, the workspaces' names and the dot on a workspace that differs.
-fn left_group_drawn<'a>(
-    projects: impl IntoIterator<Item = &'a str>,
-    workspaces: impl IntoIterator<Item = &'a str>,
-    dirty: bool,
-) -> u64 {
-    use std::hash::{Hash as _, Hasher as _};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    for project in projects {
-        project.hash(&mut hasher);
-    }
-    0xff_u8.hash(&mut hasher);
-    for workspace in workspaces {
-        workspace.hash(&mut hasher);
-    }
-    dirty.hash(&mut hasher);
-    hasher.finish()
 }
 
 /// How far the titlebar folds: 0 none, 1 the search field to its icon, 2 the
@@ -144,13 +114,8 @@ fn folds(room: Room, width: f32) -> u8 {
 /// Where the unfolded search field stands: centred on the window, moved only
 /// as far as the room between its neighbours lets it, and narrowed to that
 /// room down to its minimum.
-fn search_place(room: Room, folds: u8, window_width: f32) -> (f32, f32) {
-    let left = if folds >= 2 {
-        room.left_folded
-    } else {
-        room.left_unfolded
-    }
-    .unwrap_or(0.);
+fn search_place(room: Room, window_width: f32) -> (f32, f32) {
+    let left = room.left_unfolded.unwrap_or(0.);
     let tools = room.tools_start.unwrap_or(window_width);
     let from = left + GROUP_GAP;
     let to = tools - GROUP_GAP;
@@ -162,8 +127,8 @@ fn search_place(room: Room, folds: u8, window_width: f32) -> (f32, f32) {
 
 /// An invisible layer that reports its parent's left or right edge.
 fn edge_probe(
-    room: Rc<Cell<Room>>,
-    write: fn(&mut Room, f32, f32),
+    room: Rc<Cell<Measured>>,
+    write: fn(&mut Measured, f32, f32),
     shell: gpui::WeakEntity<Shell>,
 ) -> impl IntoElement {
     canvas(
@@ -226,25 +191,14 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         return bar.child(focus_bar(shell, window, cx)).into_any_element();
     }
 
-    let room_cell = shell.titlebar_drag().room.clone();
-    let project_name = shell.project_name(cx);
-    let drawn = {
-        let workspaces = Workspaces::global(cx).list();
-        let projects: Vec<&str> = if shell.projects.len() < 2 {
-            vec![project_name.as_ref()]
-        } else {
-            std::iter::once(project_name.as_ref())
-                .chain(shell.projects.iter().map(|open| open.name.as_ref()))
-                .collect()
-        };
-        left_group_drawn(
-            projects,
-            workspaces.iter().map(|entry| entry.name.as_str()),
-            shell.layout.dirty,
-        )
+    let room_cell = shell.titlebar_drag().measured.clone();
+    let measured = room_cell.get();
+    let room = Room {
+        left_unfolded: measured
+            .switch_start
+            .map(|start| start + unfolded_switch_width(shell, window, cx)),
+        tools_start: measured.tools_start,
     };
-    let room = room_cell.get().redrawn(drawn);
-    room_cell.set(room);
     let width = f32::from(window.viewport_size().width);
     let folds = folds(room, width);
 
@@ -264,17 +218,16 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
                 .h_full()
                 .pl(px(6.))
                 .child(controls(panels_menu(shell, cx)))
-                .child(controls(workspace_switcher(shell, folds >= 2, window, cx))),
-        )
-        .child(edge_probe(
-            room_cell.clone(),
-            if folds >= 2 {
-                |room, _, right| room.left_folded = Some(right)
-            } else {
-                |room, _, right| room.left_unfolded = Some(right)
-            },
-            weak.clone(),
-        ));
+                .child(
+                    controls(workspace_switcher(shell, folds >= 2, window, cx))
+                        .relative()
+                        .child(edge_probe(
+                            room_cell.clone(),
+                            |room, left, _| room.switch_start = Some(left),
+                            weak.clone(),
+                        )),
+                ),
+        );
 
     let search_tooltip = "Search files, papers and commands";
     let search_keys = keys_label(&CommandPalette, window).unwrap_or_else(|| "⌘K".into());
@@ -287,7 +240,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             .into_any_element();
         (None, Some(folded))
     } else {
-        let (x, search_width) = search_place(room, folds, width);
+        let (x, search_width) = search_place(room, width);
         let inline = div()
             .absolute()
             .top(px(6.))
@@ -675,9 +628,7 @@ mod tests {
     fn room(left: f32, tools: f32) -> Room {
         Room {
             left_unfolded: Some(left),
-            left_folded: Some(left - 60.),
             tools_start: Some(tools),
-            drawn: 0,
         }
     }
 
@@ -685,7 +636,7 @@ mod tests {
     fn a_wide_window_folds_nothing_and_centres_the_search() {
         let room = room(513., 1288.);
         assert_eq!(folds(room, 1440.), 0);
-        assert_eq!(search_place(room, 0, 1440.), (560., 320.));
+        assert_eq!(search_place(room, 1440.), (560., 320.));
     }
 
     #[test]
@@ -694,7 +645,7 @@ mod tests {
         let room = room(513., 863.);
         let fold = folds(room, 1015.);
         assert_eq!(fold, 0);
-        let (x, width) = search_place(room, fold, 1015.);
+        let (x, width) = search_place(room, 1015.);
         assert!(x >= 513. + GROUP_GAP, "{x} starts inside the switcher");
         assert!(x + width <= 863. - GROUP_GAP);
     }
@@ -706,32 +657,31 @@ mod tests {
     }
 
     #[test]
-    fn folded_workspaces_unfold_to_measure_again_once_the_group_changes() {
-        // Five workspaces fold in a narrow window; deleting three, closing a
-        // project tab or renaming one must not leave the old, wider unfolded
-        // width deciding the fold, or the switch stays folded for good.
-        let five = left_group_drawn(["paper"], ["A", "B", "C", "D", "E"], false);
-        let folded = Room {
-            drawn: five,
-            ..room(513., 540.)
+    fn the_fold_follows_the_workspaces_without_measuring_them_unfolded() {
+        // In a narrow window five workspaces fold; with three deleted the
+        // same switch start leaves room for them unfolded, and a longer name
+        // or the dot on a workspace that differs takes that room back.
+        let switch_start = 300.;
+        let tools = 760.;
+        let left = |tabs: &[(f32, bool)]| {
+            switch_start
+                + workspace_switch::track_width(
+                    tabs.iter()
+                        .map(|&(label, dot)| workspace_switch::tab_width(label, dot)),
+                )
         };
-        assert_eq!(folds(folded, 760.), 2);
-        assert_eq!(folds(folded.redrawn(five), 760.), 2);
-        let two = left_group_drawn(["paper"], ["A", "B"], false);
-        assert_eq!(folds(folded.redrawn(two), 760.), 0);
-        let one_tab = left_group_drawn(
-            ["paper", "paper", "notes"],
-            ["A", "B", "C", "D", "E"],
-            false,
-        );
-        assert_ne!(one_tab, five);
-        let renamed = left_group_drawn(["paper"], ["A", "B", "C", "D", "Eve"], false);
-        assert_ne!(renamed, five);
-        assert_ne!(
-            left_group_drawn(["paper"], ["A", "B", "C", "D", "E"], true),
-            five
-        );
-        assert_eq!(folded.redrawn(two).tools_start, folded.tools_start);
+        let five = [(60., false); 5];
+        assert_eq!(folds(room(left(&five), tools), 1015.), 2);
+        let two = [(60., false), (60., false)];
+        assert_eq!(folds(room(left(&two), tools), 1015.), 0);
+        let renamed = [(60., false), (150., false)];
+        assert_eq!(folds(room(left(&renamed), tools), 1015.), 1);
+        // Just room for two clean tabs and the least search field: the dot
+        // on one of them folds the search field.
+        let differs = [(60., true), (60., false)];
+        let snug = left(&two) + GROUP_GAP + SEARCH_MIN + GROUP_GAP;
+        assert_eq!(folds(room(left(&two), snug), 1015.), 0);
+        assert_eq!(folds(room(left(&differs), snug), 1015.), 1);
     }
 
     #[test]
