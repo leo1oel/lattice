@@ -143,7 +143,7 @@ function build(lab, { reuseRuntimes, suffix = "" }) {
 }
 
 // The app reads the runtime from Contents/Resources/synara-runtime at launch
-// (src-tauri/src/synara.rs), including its manifest.json; nothing in the
+// (src-tauri/lattice-core/src/synara.rs), including its manifest.json; nothing in the
 // binary pins its contents, so a swap needs no rebuild. Tauri's bundler copies
 // the resource tree with symlinks (node_modules/.bin) resolved, and so does
 // `cp -L`. The bundle-level ad hoc signature then reseals the new resources.

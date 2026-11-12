@@ -1,5 +1,5 @@
 /**
- * Paper import and citation errors (`src-tauri/src/papers/`), in the
+ * Paper import and citation errors (`src-tauri/lattice-core/src/papers/`), in the
  * interface language. See `host-error-text.ts` for how an entry is matched
  * and pinned. Cache-integrity diagnostics (an unsafe asset path, a manifest
  * version) stay English: they are for a bug report, not for the writer.

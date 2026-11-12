@@ -268,7 +268,7 @@ function snapshot() {
     primaryBibliography: "references.bib",
     trusted: true,
     // The sample carries the venue `create_tutorial` gives it
-    // (src-tauri/src/project/create.rs): Get started tells it from a project
+    // (lattice_core::project::create): Get started tells it from a project
     // of the writer's own by that.
     venue: current.root === TUTORIAL_ROOT ? "tutorial" : "neurips",
     deadline: benchDeadline,
@@ -371,7 +371,7 @@ const counts = new Map<string, number>();
  * `?build=clean` drops the warnings, `?build=failed` fails it and
  * `?build=typo` fails it on a mistyped command (stageTypo), for looking at
  * the other results. `?build=preamble` first makes the preamble format, as a
- * build after a preamble edit does (src-tauri/src/latex/preamble_format.rs).
+ * build after a preamble edit does (lattice_core::latex::preamble_format).
  * `?build=running` never finishes (mock-backend/build.ts).
  */
 function buildResult() {
@@ -508,7 +508,7 @@ function answer(command: string, args: Args): unknown {
       return current.tree();
     case "open_tutorial_project":
       return openTutorial();
-    // `?signatures=<url>`: page signatures (src-tauri/src/pdf_pages.rs) of the
+    // `?signatures=<url>`: page signatures (lattice_core::pdf_pages) of the
     // PDFs `?pdf=` answers with, computed outside the page and keyed by byte
     // length, so a rebuild can be shown in place. Without it the preview
     // reloads whole, as it does for a PDF the backend cannot read.

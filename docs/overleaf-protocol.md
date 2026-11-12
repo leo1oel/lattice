@@ -6,8 +6,8 @@ versioning and no deprecation notice. Everything Lattice relies on was observed,
 and this document is the record of what was observed, what the implementation
 now depends on, and what it takes to change any of it safely.
 
-Read this before changing anything under `src-tauri/src/overleaf.rs` and
-`overleaf/`, `src-tauri/src/overleaf_rt.rs` and `overleaf_rt/`, or `src/overleaf/`.
+Read this before changing anything under `src-tauri/lattice-core/src/overleaf.rs` and
+`overleaf/`, `src-tauri/lattice-core/src/overleaf_rt.rs` and `overleaf_rt/`, or `src/overleaf/`.
 
 This document is not a legal opinion about license compatibility. The dated
 project-stage material that used to live here — a baseline commit, test-count
@@ -118,15 +118,15 @@ replace it.
 
 | Area | Responsibility | External evidence behind it |
 | --- | --- | --- |
-| `src-tauri/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download or fetching only what changed, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
-| `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
+| `src-tauri/lattice-core/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download or fetching only what changed, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
+| `src-tauri/lattice-core/src/overleaf_rt.rs` + `overleaf_rt/` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
 | `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes through the same ops that move the text, and `overleaf-suggestions.ts` does the same for tracked changes, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
 | `src/overleaf/use-overleaf-realtime.ts` (connection and reconnect: `use-overleaf-realtime-connection.ts`) | React-side document ownership, send interval, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
 | `src/app/use-overleaf-workspace.ts` (`useOverleafWorkspace`) | Owns the workspace-level Overleaf state and reads the sync mode and remote-delete choice shared by every window from `src/overleaf/overleaf-sync-settings.ts`; consumed by `src/App.tsx`, which chooses between Overleaf OT and ordinary Overleaf sync, and excludes live-owned paths from ordinary sync | Lattice safety policy |
 | `scripts/verify-overleaf.mjs` | Explicit opt-in cloud smoke test against a user-selected project and document | Live compatibility check; never a default test |
 
 The wire format itself is documented where it is implemented, in the module
-header of `src-tauri/src/overleaf_rt.rs` — handshake URL, upgrade URL, the nine
+header of `src-tauri/lattice-core/src/overleaf_rt.rs` — handshake URL, upgrade URL, the nine
 frame types, the exact frames Lattice emits, and the threading model. That
 header is the authority; this document does not restate it, so that the two
 cannot drift apart.
@@ -147,7 +147,7 @@ What that implies, in practice:
   must not be retried as a transport error. Overleaf Cloud's handshake answers
   200 to any cookie, though, so a dead session usually first shows as a
   `connectionRejected` "invalid session", which fails the pending join as an
-  expired session (`handle_event` in `src-tauri/src/overleaf_rt/client.rs`).
+  expired session (`handle_event` in `src-tauri/lattice-core/src/overleaf_rt/client.rs`).
 - Frames are `{type}:{id}:{endpoint}:{data}`, with the trailing `:{data}`
   omitted when there is no payload. A heartbeat is therefore the three-byte
   string `2::`, and the server drops clients that do not echo it promptly.
@@ -174,7 +174,7 @@ purpose.
   origins must not silently move authentication to another host.
 - The browser session cookie is an **opaque credential**. Its name is
   `overleaf_session2` on Overleaf Cloud or `sharelatex.sid` on a self-hosted
-  instance (`has_session_cookie` in `src-tauri/src/overleaf/account.rs`). It must never
+  instance (`has_session_cookie` in `src-tauri/lattice-core/src/overleaf/account.rs`). It must never
   be normalized, partially reconstructed, or logged.
 - The persisted session file is written through a private temporary file,
   synchronized, and atomically renamed. On Unix it stays mode `0600`. That
@@ -197,20 +197,20 @@ purpose.
   sign-in, and every window hears `overleaf-session`; one that still opens
   makes the error `SESSION_STILL_VALID`, retried a few times
   (`OVERLEAF_REFUSAL_RETRIES`) and then reported as a refusal of this project
-  (`settle_session_error` in `src-tauri/src/overleaf/account.rs`).
+  (`settle_session_error` in `src-tauri/lattice-core/src/overleaf/account.rs`).
 - A transient failure is retried at most twice, with backoff, and only when
   the retry cannot do anything twice: any request that never connected or was
   answered 429 (honouring a `Retry-After` of up to 8 s), and a safe one (GET
   or HEAD) on a reset, 502, 503 or 504. An idempotent DELETE is not retried
   there: a repeat after it landed answers 404. Timeouts, other statuses and non-replayable
-  bodies are never retried (`retry_wait` in `src-tauri/src/overleaf/api.rs`).
+  bodies are never retried (`retry_wait` in `src-tauri/lattice-core/src/overleaf/api.rs`).
 - The project ZIP is the exception for timeouts. It can be tens of megabytes
   and take minutes, so the client deadline bounds each read of its body (a
   stall), never the whole download, and an attempt that stalls or breaks off
   is tried again from the start, three attempts in all: Overleaf builds the
   ZIP per request, so there is nothing to resume. The window cloning a
   project hears `overleaf-download-progress` as it arrives
-  (`download_project_zip` in `src-tauri/src/overleaf/api.rs`).
+  (`download_project_zip` in `src-tauri/lattice-core/src/overleaf/api.rs`).
 - Creating a project from local files uses `POST /project/new/upload` with
   multipart fields `name` and `qqfile`; success is identified by the returned
   `project_id`, not by a redirect.
@@ -242,13 +242,13 @@ purpose.
   project's size pays for (one per 320 KiB of the agreed copy, from 8 up to
   40: each fetch costs a round trip, the ZIP one round trip and the project's
   bytes), and any fetch that fails or mismatches its hash (`remote_copy` and
-  `fetch` in `src-tauri/src/overleaf/sync/changes.rs`).
+  `fetch` in `src-tauri/lattice-core/src/overleaf/sync/changes.rs`).
   What went up in a sync differs from the agreed copy only by Lattice's own
   write, which the history names, so an upload no longer forces the next sync
   to download.
 - A full sync downloads before it takes the project's exclusive lease, so
   creating, deleting and saving files do not wait out the download
-  (`prefetch` in `src-tauri/src/overleaf/sync/prefetch.rs`). Under the lease
+  (`prefetch` in `src-tauri/lattice-core/src/overleaf/sync/prefetch.rs`). Under the lease
   the download is used only if the sync state still agrees with the one it
   was taken against, apart from live documents, files only whose agreed
   hash moved on, and documents the read ahead kept on their agreed copy
@@ -380,7 +380,7 @@ purpose.
   observed later.
 - Conflict markers are never uploaded. Conflict copies stay local and stay
   excluded from synchronization, and a new one never takes the name of an
-  existing file (`conflict_copy_name` in `src-tauri/src/overleaf/files.rs`).
+  existing file (`conflict_copy_name` in `src-tauri/lattice-core/src/overleaf/files.rs`).
 - A file still carrying conflict markers is never merged again while
   Overleaf moves on: it keeps its recorded base and is reported as
   `unresolvedConflicts` until resolved, when the next sync merges in what
@@ -412,7 +412,7 @@ purpose.
   switch cannot reinterpret the operation midway.
 - Only a freshly known `owner` or `readAndWrite` permission performs ordinary
   remote file mutations. `readOnly` and `Unknown` fail closed
-  (`Permission::can_write` in `src-tauri/src/overleaf_rt/events.rs`); reviewers
+  (`Permission::can_write` in `src-tauri/lattice-core/src/overleaf_rt/events.rs`); reviewers
   contribute only through tracked operations (`can_suggest`).
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and

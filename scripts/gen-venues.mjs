@@ -1,7 +1,7 @@
 // Generate src/papers/venues.ts — a snapshot of bibcite's canonical venue list,
 // plus Lattice's own additions in scripts/venues-overlay.bib. It is the one venue
 // vocabulary: the bibliography-entry editor's venue autocomplete offers it, and
-// the citation audit (src-tauri/src/citation_audit/venue.rs) proposes its names. The venue's category
+// the citation audit (src-tauri/lattice-core/src/citation_audit/venue.rs) proposes its names. The venue's category
 // decides the BibTeX entry type (journal -> @article, conference/workshop ->
 // @inproceedings), so picking a venue can set the type automatically.
 //
@@ -75,7 +75,7 @@ const rows = venues.map(({ name, entryType, search }) =>
 
 const out = `// Snapshot of bibcite's canonical venues plus Lattice's overlay (${venues.length} entries),
 // used by the bibliography-entry editor's venue autocomplete and read by the
-// citation audit (src-tauri/src/citation_audit/venue.rs), so both name a venue
+// citation audit (src-tauri/lattice-core/src/citation_audit/venue.rs), so both name a venue
 // the same way. The category sets the entry type: journal -> @article,
 // conference/workshop -> @inproceedings.
 //

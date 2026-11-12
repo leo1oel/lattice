@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-// The engine itself now lives in Rust (src-tauri/src/harper.rs, covered by
+// The engine itself now lives in Rust (src-tauri/lattice-core/src/harper.rs, covered by
 // cargo tests); these tests exercise the JS layer's real responsibilities —
 // masking, span filtering, action building — against a miniature engine fake
 // that mirrors harper-core's observable behavior for the fixtures below.

@@ -1,6 +1,6 @@
 // Snapshot of bibcite's canonical venues plus Lattice's overlay (178 entries),
 // used by the bibliography-entry editor's venue autocomplete and read by the
-// citation audit (src-tauri/src/citation_audit/venue.rs), so both name a venue
+// citation audit (src-tauri/lattice-core/src/citation_audit/venue.rs), so both name a venue
 // the same way. The category sets the entry type: journal -> @article,
 // conference/workshop -> @inproceedings.
 //

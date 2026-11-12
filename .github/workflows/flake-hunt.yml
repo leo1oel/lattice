@@ -120,7 +120,7 @@ jobs:
           path: ${{ runner.temp }}/perf-bench/lattice-perf-bench-*.png
           if-no-files-found: ignore
 
-  # The core compile and SyncTeX paths (src-tauri/src/latex/build.rs and
+  # The core compile and SyncTeX paths (src-tauri/lattice-core/src/latex/build.rs and
   # synctex.rs) are `#[ignore]`d because they need latexmk and a TeX tree,
   # which CI's runners lack. BasicTeX installs into /Library/TeX/texbin, where
   # the app looks for TeX on a Mac; tlmgr adds what it leaves out: latexmk,

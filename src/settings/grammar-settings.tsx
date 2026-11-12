@@ -13,7 +13,7 @@ import { ACADEMIC_RULE_REASONS } from "./grammar-rule-reasons";
 import { SelectRow } from "./settings-controls";
 import "./grammar-settings.css";
 
-/** One rule as `harper_rules` lists it (src-tauri/src/harper.rs). */
+/** One rule as `harper_rules` lists it (src-tauri/lattice-core/src/harper.rs). */
 type HarperRule = { name: string; description: string; defaultOn: boolean; academicOff: boolean };
 
 /** A filter shows at most this many rules; Harper has several hundred. */

@@ -2,7 +2,7 @@ import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
 import { hostErrorText } from "../platform/host-error-text";
 
-/** `TexPackageUpdates` in src-tauri/src/tex_setup/package_updates.rs. */
+/** `TexPackageUpdates` in src-tauri/lattice-core/src/tex_setup/package_updates.rs. */
 export type TexPackageUpdatesReport = {
   /** The TeX is a BasicTeX, which Lattice installed and may update itself. */
   managed: boolean;

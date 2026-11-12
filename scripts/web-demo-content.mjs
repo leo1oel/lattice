@@ -38,7 +38,7 @@ const SOURCE_DATE_EPOCH = "1767225600";
  * The tutorial as the demo opens it, by project-relative path: the bundled
  * one with the demo's edits (content/overrides.json), its figures replaced
  * by Lattice's own, and the NeurIPS style beside it as a new tutorial gets
- * it (src-tauri/src/project/create.rs).
+ * it (src-tauri/lattice-core/src/project/create.rs).
  */
 export function demoTutorial() {
   const files = new Map();

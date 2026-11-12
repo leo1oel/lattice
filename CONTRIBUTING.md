@@ -53,8 +53,8 @@ opening a project with no root document" is a changelog entry; "fix bug" is not.
 Most of the codebase takes an ordinary pull request. One area does not, because
 there the tests can keep passing while the thing they protect breaks:
 
-- **The Overleaf bridge** (`src-tauri/src/overleaf.rs` + `overleaf/`,
-  `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/`, `src/overleaf/`). Lattice speaks Overleaf's
+- **The Overleaf bridge** (`src-tauri/lattice-core/src/overleaf.rs` + `overleaf/`,
+  `src-tauri/lattice-core/src/overleaf_rt.rs` + `overleaf_rt/`, `src/overleaf/`). Lattice speaks Overleaf's
   undocumented browser protocol, including a hand-written **Socket.IO 0.9**
   client — the legacy protocol, not the modern one every current library
   implements. UI and bug-fix work is fine, but a change to the wire format, the
@@ -244,7 +244,8 @@ a stage passes locally and fails in CI, suspect the freshness cache first —
 | Path | What belongs there |
 | --- | --- |
 | `src/` | The desktop interface, editors, and frontend tests |
-| `src-tauri/src/` | Project operations, LaTeX builds, Git, papers, Overleaf, and agent supervision |
+| `src-tauri/lattice-core/` | Project operations, LaTeX builds, Git, papers, Overleaf, and agent supervision |
+| `src-tauri/src/` | The Tauri shell: command handlers (`ipc/`), windows and their chrome |
 | `literature-worker/` | The public literature proxy Worker and its tests |
 | `docs/` | Design decisions and subsystem documentation for contributors |
 

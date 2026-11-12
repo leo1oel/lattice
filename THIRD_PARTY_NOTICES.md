@@ -236,7 +236,7 @@ The `SEE LICENSE IN README.md` field on the first package is also a dead
 reference — the README it names contains no license text at all — so the
 `LICENSE.md` quoted above is the only statement of terms in the artifact.
 
-## tantivy and jieba-rs (paper full-text search, `src-tauri/src/papers/search_index.rs`)
+## tantivy and jieba-rs (paper full-text search, `src-tauri/lattice-core/src/papers/search_index.rs`)
 
 The Papers panel's full-text search and the agent's `search_library` tool run on [tantivy](https://github.com/quickwit-oss/tantivy) (`tantivy@0.27`, MIT), with Chinese word segmentation from [jieba-rs](https://github.com/messense/jieba-rs) (`jieba-rs@0.11`, MIT), which compiles in the word-frequency dictionary (`dict.txt`) of the original Python [jieba](https://github.com/fxsjy/jieba) project (MIT).
 
@@ -297,7 +297,7 @@ Modifications: `react-icons` converts each icon's SVG path data into a React com
 
 ## Spelling dictionaries (downloaded on first use, not shipped)
 
-Spell checking in languages other than English reads Hunspell dictionaries with [`spellbook`](https://github.com/helix-editor/spellbook) (MPL-2.0, attributed in the generated section below). The dictionaries themselves are **not part of the app**: when a document's babel or polyglossia language first needs one, Lattice downloads that language's `index.aff`, `index.dic` and `license` from [wooorm/dictionaries](https://github.com/wooorm/dictionaries) at the revision pinned in `src-tauri/src/spelling/dictionaries.json`, checks each file against the SHA-256 recorded there, and keeps them in the app's data folder with the licence text they came with. Each dictionary keeps its own licence (MPL, LGPL, GPL, BSD and others; the SPDX expression is recorded per language in that file, and the app shows it before and after the download, and in Settings). The dictionaries come from LibreOffice and other upstream projects; see each language's folder in wooorm/dictionaries for its origin and authors.
+Spell checking in languages other than English reads Hunspell dictionaries with [`spellbook`](https://github.com/helix-editor/spellbook) (MPL-2.0, attributed in the generated section below). The dictionaries themselves are **not part of the app**: when a document's babel or polyglossia language first needs one, Lattice downloads that language's `index.aff`, `index.dic` and `license` from [wooorm/dictionaries](https://github.com/wooorm/dictionaries) at the revision pinned in `src-tauri/lattice-core/src/spelling/dictionaries.json`, checks each file against the SHA-256 recorded there, and keeps them in the app's data folder with the licence text they came with. Each dictionary keeps its own licence (MPL, LGPL, GPL, BSD and others; the SPDX expression is recorded per language in that file, and the app shows it before and after the download, and in Settings). The dictionaries come from LibreOffice and other upstream projects; see each language's folder in wooorm/dictionaries for its origin and authors.
 
 ## Known attribution gaps (TODO)
 

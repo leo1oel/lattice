@@ -36,7 +36,7 @@ was and was not read stands as written.
   - Observed black-box behavior of the current app: an input document, a user
     action, and the saved output.
   - Saved-file formats: the paper converter
-    (`src-tauri/src/papers/markdown.rs`) for the formats it writes, the
+    (`src-tauri/lattice-core/src/papers/markdown.rs`) for the formats it writes, the
     tutorial template (`src-tauri/templates/tutorial/notes.md`), and Lattice's
     own Markdown documents.
   - Lattice docs and UX, and the English message catalog
@@ -1907,7 +1907,7 @@ untouched, and write the E forms on the listed actions.
 "---\ntitle: \"Attention Is All You Need\"\nsections: 28\n---\n\n## Contents\n"
 "---\ntitle: \"T\"\nauthors: [\"A\", \"B\"]\n---\n\nOne sentence that was wrapped, and continues here. Still the same paragraph.\n"
 ```
-Cite: `src/editor/markdown/markdown-collab.test.ts:51`; `src-tauri/src/papers/markdown.rs:409-412,479-481,494`.
+Cite: `src/editor/markdown/markdown-collab.test.ts:51`; `src-tauri/lattice-core/src/papers/markdown.rs:409-412,479-481,494`.
 
 **11.2 Block Markdown (E/T).** The editor and tutorial write:
 - ATX headings `#`–`######`;
@@ -1952,7 +1952,7 @@ Cite: `src-tauri/templates/tutorial/notes.md:11-13`; `src/editor/markdown/visual
 "See [Figure 10(a)](#S7.F10.sf1), [the paper](https://arxiv.org/html/2407.06438v3), and [another paper](https://arxiv.org/html/2407.00001#S1).\n"
 "Editable paragraph\n\nRead [Results][paper].\n\n[paper]: results.md \"Title\""
 ```
-Cite: `src-tauri/src/papers/markdown.rs:199-276,278-290,427-469`; `src/editor/markdown/visual-markdown-editor.test.tsx:2455,891`.
+Cite: `src-tauri/lattice-core/src/papers/markdown.rs:199-276,278-290,427-469`; `src/editor/markdown/visual-markdown-editor.test.tsx:2455,891`.
 
 **11.5 Images (E/T/H/C).**
 - Markdown images: `![alt](src)`, `![alt](src "title")`, and an angle-bracket destination.
@@ -1970,7 +1970,7 @@ Cite: `src-tauri/src/papers/markdown.rs:199-276,278-290,427-469`; `src/editor/ma
 "<img src=\"figures/plot.png\" alt=\"Plot\" width={223} />"
 "> **Figure:** <caption>"      "> **Figure unavailable in source conversion.**"
 ```
-Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:2478,2455,1774,1801,2975,2998`; `src-tauri/templates/tutorial/notes.md:105`; `src/App.test.tsx:4198`; `src-tauri/src/papers/markdown.rs:315-332`.
+Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:2478,2455,1774,1801,2975,2998`; `src-tauri/templates/tutorial/notes.md:105`; `src/App.test.tsx:4198`; `src-tauri/lattice-core/src/papers/markdown.rs:315-332`.
 
 **11.6 Code fences with metadata (E/T).**
 - Backtick and tilde fences, of 3 or more characters, with open and close lengths preserved.
@@ -2000,7 +2000,7 @@ Cite: `src-tauri/templates/tutorial/notes.md:80,109,123`; `src/editor/markdown/v
 "\\[E=mc^2\\]\n"
 "<a id=\"eq\"></a>\n\n$$\nx_{p} \\%\n$$"   (converter adds the blank line between anchor and $$)
 ```
-Cite: `src-tauri/templates/tutorial/notes.md:12,71-73`; `src/editor/markdown/visual-markdown-editor.test.tsx:2455,2781,2680`; `src-tauri/src/papers/markdown.rs:181-197,388-389`.
+Cite: `src-tauri/templates/tutorial/notes.md:12,71-73`; `src/editor/markdown/visual-markdown-editor.test.tsx:2455,2781,2680`; `src-tauri/lattice-core/src/papers/markdown.rs:181-197,388-389`.
 
 **11.8 Footnotes (E/T).** A reference `[^id]` and a definition `[^id]: text`. Continuation
 paragraphs are indented 4 spaces; internal double spaces are preserved.
@@ -2134,7 +2134,7 @@ in:  "- •\n  (1)\n  Constrained visual capabilities.\n2. Existing ordered item
 out: "1. Constrained visual capabilities.\n2. Existing ordered item.\n"
 unchanged: "Before math\n\n$$\na = b\n+ c\n$$\n\n```\nline one\nline two\n```\n"
 ```
-Cite: `src-tauri/src/papers/markdown.rs:16-197,295-313,383-424`; `src/editor/markdown/visual-markdown-editor.test.tsx:852`.
+Cite: `src-tauri/lattice-core/src/papers/markdown.rs:16-197,295-313,383-424`; `src/editor/markdown/visual-markdown-editor.test.tsx:852`.
 *Note:* the converter's raw output, before this normalization, also contains `- •` items and bare
 `1.` / `2\.` ordinals. The editor must accept both (R-ELIG-3/4, R-RT-22).
 

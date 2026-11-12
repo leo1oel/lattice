@@ -177,7 +177,7 @@ interface PdfExportedEvent {
   passes: number;
 }
 
-/** Lattice's own: rtex exited without being asked to (src-tauri/src/live_preview/session.rs). */
+/** Lattice's own: rtex exited without being asked to (src-tauri/lattice-core/src/live_preview/session.rs). */
 interface SessionExitedEvent {
   event: "SessionExited";
   session: number;

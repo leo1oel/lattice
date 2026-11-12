@@ -242,7 +242,7 @@ type EditorNavigation = SyncTexTarget & { id: string; word?: SyncTexWord | null 
 export type EditorPosition = { path: string; line: number; column: number };
 export type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
 
-/** One pass a build ran, as latexmk announced it (`src-tauri/src/latex/build_steps.rs`). */
+/** One pass a build ran, as latexmk announced it (`src-tauri/lattice-core/src/latex/build_steps.rs`). */
 export type BuildStep = {
   /** The program: pdflatex, xelatex, lualatex, bibtex, biber, makeindex, xdvipdfmx, … */
   tool: string;

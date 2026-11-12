@@ -193,7 +193,7 @@ export function TerminalPanel({ controller, shown, focused, moving }: { controll
   useEffect(() => followProject(controller), [controller]);
   // Opening the panel opens a terminal: there is nothing else to do in it.
   // A panel whose last tab was closed waits for the writer instead.
-  // A browser tab never gets a shell (see src-tauri/src/terminal/caller.rs).
+  // A browser tab never gets a shell (see src-tauri/src/ipc/terminal/caller.rs).
   const hosted = isBrowserHosted();
   useEffect(() => {
     if (root && !hosted && !terminals.get().sessions.length) openTerminal();

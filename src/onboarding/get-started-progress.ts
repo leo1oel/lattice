@@ -19,7 +19,7 @@ export type GetStartedProgress = { done: GetStartedStepId[]; skipped: GetStarted
 
 export const GET_STARTED_KEY = "lattice.get-started.v1";
 
-/** The venue `create_tutorial` (src-tauri/src/project/create.rs) gives the sample: any other project is the writer's own. */
+/** The venue `create_tutorial` (src-tauri/lattice-core/src/project/create.rs) gives the sample: any other project is the writer's own. */
 export const TUTORIAL_VENUE = "tutorial";
 
 function stepsIn(value: unknown): GetStartedStepId[] {

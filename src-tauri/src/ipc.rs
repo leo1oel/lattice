@@ -5,17 +5,22 @@
 //! the domain call off the async runtime. The helpers below are those steps;
 //! behaviour belongs in the domain modules, not here.
 
+pub(crate) mod agent;
 pub(crate) mod bibliography;
 pub(crate) mod build;
+pub(crate) mod diagnostics;
 pub(crate) mod files;
 pub(crate) mod git;
 pub(crate) mod history;
+pub(crate) mod link_preview;
+pub(crate) mod literature_credentials;
 pub(crate) mod live_preview;
 pub(crate) mod overleaf;
 pub(crate) mod overleaf_comments;
 pub(crate) mod overleaf_history;
 pub(crate) mod overleaf_realtime;
 pub(crate) mod papers;
+pub(crate) mod presentation;
 pub(crate) mod search;
 pub(crate) mod spelling;
 pub(crate) mod terminal;
@@ -24,8 +29,11 @@ pub(crate) mod workspace;
 
 use crate::app_state::{AppState, Lease, ProjectLease};
 use base64::{engine::general_purpose::STANDARD, Engine};
+use lattice_core::host::{Closed, EventSink, Sink, StreamBody};
 use std::path::{Path, PathBuf};
-use tauri::{Runtime, Window};
+use std::sync::Arc;
+use tauri::ipc::{Channel, InvokeResponseBody, IpcResponse};
+use tauri::{AppHandle, Emitter, Runtime, Window};
 
 /// The project of the window that sent the request.
 pub(crate) fn current_root<R: Runtime>(
@@ -140,6 +148,32 @@ pub(crate) fn binary_save(
         return Err(not_binary.to_string());
     };
     Ok((PathBuf::from(path), bytes.clone()))
+}
+
+/// The core's [`EventSink`]: a broadcast to every window, as `Emitter::emit`
+/// sends it; each window filters by its own project.
+pub(crate) struct WindowEvents(pub(crate) AppHandle);
+
+impl EventSink for WindowEvents {
+    fn emit(&self, event: &str, payload: serde_json::Value) {
+        let _ = Emitter::emit(&self.0, event, payload);
+    }
+}
+
+/// A page's channel as the core's [`Sink`] of `T`.
+pub(crate) fn channel_sink<T: IpcResponse + Send + Sync>(channel: Channel<T>) -> impl Sink<T> {
+    move |value: T| -> Result<(), Closed> { channel.send(value).map_err(|_| Closed) }
+}
+
+/// A page's channel of raw bytes and JSON text as the core's stream.
+pub(crate) fn stream_sink(channel: Channel<InvokeResponseBody>) -> Arc<dyn Sink<StreamBody>> {
+    Arc::new(move |body: StreamBody| -> Result<(), Closed> {
+        let body = match body {
+            StreamBody::Raw(bytes) => InvokeResponseBody::Raw(bytes),
+            StreamBody::Json(json) => InvokeResponseBody::Json(json),
+        };
+        channel.send(body).map_err(|_| Closed)
+    })
 }
 
 #[cfg(test)]

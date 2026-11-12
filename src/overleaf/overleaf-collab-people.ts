@@ -4,7 +4,7 @@
  * comment marks in the source.
  *
  * Overleaf gives each account a hue (`presence_hue` in
- * `src-tauri/src/overleaf_rt/events.rs`), but only two things carry it here:
+ * `src-tauri/lattice-core/src/overleaf_rt/events.rs`), but only two things carry it here:
  * the people online now and the authors of tracked changes. Comments and chat
  * messages name their author and, at most, an email. So the hues that are
  * known are collected under both keys and looked up by email first, then by

@@ -8,7 +8,7 @@ import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 
 /**
  * The agent's provider CLIs inherit the proxy and provider settings the
- * sidecar started with (`src-tauri/src/synara/environment.rs`). A system
+ * sidecar started with (`src-tauri/lattice-core/src/synara/environment.rs`). A system
  * proxy turned on or changed afterwards reaches them only through a restart,
  * which stops running turns, so it is offered, never forced.
  */

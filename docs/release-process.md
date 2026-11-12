@@ -31,12 +31,12 @@ node scripts/bump-version.mjs patch     # or: minor | major | 0.3.0
 
 The script only edits files — it does not commit or tag. It bumps the version in
 lockstep across `package.json`, `src-tauri/tauri.conf.json`,
-`src-tauri/Cargo.toml`, and the `research-writer` entry in
-`src-tauri/Cargo.lock` (and writes the What's new notes, below), then prints
-the exact next commands:
+`src-tauri/Cargo.toml`, `src-tauri/lattice-core/Cargo.toml`, and the
+`research-writer` and `lattice-core` entries in `src-tauri/Cargo.lock` (and
+writes the What's new notes, below), then prints the exact next commands:
 
 ```bash
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock src/release-notes/X.Y.Z.json
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/lattice-core/Cargo.toml src-tauri/Cargo.lock src/release-notes/X.Y.Z.json
 git commit -m "Release vX.Y.Z"
 git tag vX.Y.Z
 git push origin main
@@ -126,7 +126,7 @@ create the Release and upload assets.
    - `TAURI_SIGNING_PRIVATE_KEY` / `..._PASSWORD` sign the updater artifact
      (`bundle.createUpdaterArtifacts` is on);
    - `LATTICE_FIRECRAWL_KEY` is compiled into the binary here via `option_env!`
-     in `src-tauri/src/literature_credentials.rs`. It is extractable from the shipped app —
+     in `src-tauri/lattice-core/src/literature_credentials.rs`. It is extractable from the shipped app —
      that is a known and accepted trade-off; rotate it on abuse.
 12. **Check the built app for loose font files** with
     `node scripts/check-font-leaks.mjs app <Lattice.app>`, before it is packaged
@@ -178,7 +178,7 @@ From the release's commit (`workflow_run.head_sha`), on GitHub's runners:
    20 s after launch under Xvfb, with WebKit's web process still running at
    15 s (when it dies, the app stays up with an empty window). A stand-in
    `latexmk` the app starts must run through `/usr/bin/env` with none of the
-   AppImage's folders in its environment (`src-tauri/src/commands/appimage.rs`).
+   AppImage's folders in its environment (`src-tauri/lattice-core/src/commands/appimage.rs`).
 3. **e2e** (`ubuntu-22.04`, TeX Live from apt): `tauri-driver` with
    WebKitGTK's `WebKitWebDriver` launches the AppImage itself under Xvfb, and
    `scripts/linux-e2e.mjs` checks that the first launch opens the tutorial,
@@ -243,8 +243,8 @@ From the release's commit, on GitHub's runners:
    DMG is notarized `.github/scripts/staple-dmg-app.sh` staples the app
    inside it when its ticket is missing (v0.16.6's first attempt).
    The app's own downloads follow its architecture: the managed `uv`
-   (`src-tauri/src/tex_setup/installer.rs`) and rtex for live preview
-   (`src-tauri/src/live_preview/install.rs`) pin one archive per CPU.
+   (`src-tauri/lattice-core/src/tex_setup/installer.rs`) and rtex for live preview
+   (`src-tauri/lattice-core/src/live_preview/install.rs`) pin one archive per CPU.
 2. **smoke** (a fresh `macos-15-intel`): `.github/scripts/smoke-macos-dmg.sh`
    installs the app from the DMG, runs the bundled Node (which must report
    `x64`), checks Gatekeeper accepts the app, launches it, and requires a
@@ -349,7 +349,7 @@ and it needs both halves:
   identity: identifier `app.leo1oel.researchwriter.beta`, product and binary
   name `Lattice Beta`, and no updater endpoint or artifacts. App data, caches,
   logs, WebKit data, managed tools and the literature keychain item all derive
-  from the identifier (`src-tauri/src/app_identity.rs`), so Beta never touches
+  from the identifier (`src-tauri/lattice-core/src/app_identity.rs`), so Beta never touches
   the release app's.
 - `LATTICE_FLAVOR=beta`, read at build time by `src-tauri/build.rs` and
   `vite.config.ts`, moves the browser host to `http://127.0.0.1:18472`

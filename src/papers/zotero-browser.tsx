@@ -2,7 +2,7 @@
  * The Zotero library inside Add papers: its folders as a tree to open and
  * search, and the papers of the folder in view, to tick and add. Lattice
  * finds the library itself and reads a copy of its database
- * (src-tauri/src/zotero.rs), so nothing needs turning on in Zotero and it
+ * (src-tauri/lattice-core/src/zotero.rs), so nothing needs turning on in Zotero and it
  * works whether or not Zotero is open; a library kept somewhere Lattice cannot
  * find is chosen by its folder.
  *

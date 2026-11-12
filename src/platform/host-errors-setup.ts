@@ -109,7 +109,7 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   // The terminal (terminal.rs, terminal/caller.rs, ipc/terminal.rs)
   ["terminal/windows.rs", "Could not supervise the Windows terminal process tree.", () => t`Could not supervise the Windows terminal process tree.`],
   ["terminal.rs", "This terminal has closed.", () => t`This terminal has closed.`],
-  ["terminal/caller.rs", "The terminal is only available in a Lattice window.", () => t`The terminal is only available in a Lattice window.`],
+  ["ipc/terminal/caller.rs", "The terminal is only available in a Lattice window.", () => t`The terminal is only available in a Lattice window.`],
 
   // Open Slide, the presentation editor (presentation.rs). What was being
   // refreshed is Rust's English (" for slides/deck.tsx"), so the

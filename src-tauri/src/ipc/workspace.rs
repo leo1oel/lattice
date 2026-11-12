@@ -350,7 +350,7 @@ pub fn watch_project(
     let resources = state.project(&root);
     let mut watcher = resources.fs_watcher.lock().unwrap_or_else(PoisonError::into_inner);
     if watcher.is_none() {
-        *watcher = Some(fs_watch::spawn(app, root)?);
+        *watcher = Some(fs_watch::spawn(super::WindowEvents(app), root)?);
     }
     Ok(())
 }

@@ -1,6 +1,6 @@
 /**
  * The arXiv export sheet's model: the pack and checks the backend reports
- * (`src-tauri/src/latex/arxiv.rs`), and how each check reads as a row.
+ * (`src-tauri/lattice-core/src/latex/arxiv.rs`), and how each check reads as a row.
  *
  * A row's state is the backend's finding put as the sheet shows it: a
  * warning (TODO comments, a non-pdfLaTeX engine, a file named in another

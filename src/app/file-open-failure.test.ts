@@ -9,7 +9,7 @@ vi.mock("../telemetry/app-notify", () => ({ notifyError: vi.fn() }));
 vi.mock("./notify", () => ({ showError: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
 
-// What `read_file` and `read_asset` say about a 9 MB library (src-tauri/src/project/tree.rs).
+// What `read_file` and `read_asset` say about a 9 MB library (src-tauri/lattice-core/src/project/tree.rs).
 const TOO_LARGE = "This file is too large to open in the editor (9437248 bytes; the limit is 8388608 bytes).";
 
 it("says a text file is too large, with both sizes, and offers it in Finder", async () => {

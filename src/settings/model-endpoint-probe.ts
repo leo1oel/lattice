@@ -1,7 +1,7 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 
-/** `test_model_endpoint` (`src-tauri/src/model_endpoint/probe.rs`). */
+/** `test_model_endpoint` (`src-tauri/lattice-core/src/model_endpoint/probe.rs`). */
 type ProbeCheck = "reach" | "key" | "model" | "stream" | "tools";
 type ProbeProblem =
   | "unreachable" | "timeout" | "wrongAddress" | "keyRejected" | "modelNotFound" | "rateLimited"

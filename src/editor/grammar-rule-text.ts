@@ -10,7 +10,7 @@ type GrammarRuleCatalog = Readonly<Record<string, GrammarRuleText>>;
  * Harper names and describes its ~800 rules in English only, so each other
  * interface language keeps a table of every rule beside its Lingui catalog.
  * A table is loaded on first use and never in the eager bundle. A test in
- * src-tauri/src/harper.rs fails when Harper has a rule a table lacks, so a
+ * src-tauri/lattice-core/src/harper.rs fails when Harper has a rule a table lacks, so a
  * Harper upgrade surfaces its new rules for translation.
  */
 const catalogLoaders: Readonly<Record<string, () => Promise<{ default: GrammarRuleCatalog }>>> = {
