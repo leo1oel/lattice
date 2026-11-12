@@ -92,7 +92,7 @@ describe("guarded remote delivery", () => {
     }
     if (!mixed) act(() => view.result.current.suspendPaths(["a.tex"]));
     await waitFor(() => expect(leaves()).toContain(DOC_A));
-    expectLeft({ checkpoint: mixed ? { text: "alpha", version: 10 } : { text: "alpha human", version: 11 } });
+    expectLeft({ checkpoint: { text: "alpha human", version: mixed ? 12 : 11 } });
   });
 
   it("hands external writes to sync, drains owned operations, and rejoins only after reconciliation", async () => {
