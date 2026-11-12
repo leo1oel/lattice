@@ -93,9 +93,8 @@ impl Shell {
         }
     }
 
-    /// ⌘W: the document in front (the focused editor, else the one selected
-    /// beside the editor last focused, else the editor last focused, else
-    /// any document on screen), or the window when no document is open.
+    /// ⌘W: the focused editor, else the document in front, else any document
+    /// on screen; the window when no document is open.
     pub(crate) fn close_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let editors = self.open_editors();
         let shown: Vec<PanelId> = editors
@@ -121,7 +120,6 @@ impl Shell {
                     .find(|editor| editor.read(cx).path() == path)
                     .map(|editor| PanelId::from(editor.entity_id()))
             })
-            .or(self.focused_document.filter(|panel| shown.contains(panel)))
             .or_else(|| shown.first().copied());
         match target {
             Some(panel) => {

@@ -462,7 +462,8 @@ impl Shell {
     }
 
     /// The document in front: the one selected in the group of the editor
-    /// last focused, else the first group's selected one.
+    /// last focused, else that editor while it is on screen (floating, or
+    /// behind another tab), else the first group's selected one.
     pub(crate) fn active_document(&self, cx: &App) -> Option<String> {
         let root = self.root.as_deref()?;
         let area = self.dock_area.read(cx);
@@ -472,6 +473,7 @@ impl Shell {
             DockPlacement::Center,
             DockPlacement::Left,
             DockPlacement::Right,
+            DockPlacement::Bottom,
         ] {
             let Some(tree) = area.layout(placement) else {
                 continue;
@@ -489,11 +491,22 @@ impl Shell {
                     {
                         focused = Some(key());
                     }
-                    first.get_or_insert_with(key);
+                    if placement != DockPlacement::Bottom {
+                        first.get_or_insert_with(key);
+                    }
                 }
             });
         }
-        focused.or(first)
+        focused.or_else(|| self.last_focused_document(cx)).or(first)
+    }
+
+    /// The editor last focused, while it is on screen: in a dock or floating.
+    fn last_focused_document(&self, cx: &App) -> Option<String> {
+        let panel = self.focused_document.filter(|panel| self.panel_shown(*panel, cx))?;
+        match self.view_of(panel, cx)? {
+            View::File(key) => Some(key),
+            _ => None,
+        }
     }
 }
 
