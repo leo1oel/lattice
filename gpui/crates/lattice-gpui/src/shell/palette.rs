@@ -693,7 +693,7 @@ impl Shell {
         self.palette = None;
         self.shortcuts = None;
         // Back to the document in front, where the keyboard was.
-        if let Some(active) = self.active_document(window, cx)
+        if let Some(active) = self.active_document(cx)
             && let Some(root) = self.root.clone()
             && let Some(editor) = self.open_editor(&root.join(active), cx)
         {

@@ -147,6 +147,22 @@ impl Run {
             vim_text == "bc\n",
             json!({ "text": vim_text }),
         );
+        // Its tab closed with the edit unsaved, the file on disk has the edit.
+        let vim_panel = gpui_kit::component::dock::PanelId::from(vim_editor.entity_id());
+        drop(vim_editor);
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_panel(vim_panel, window, cx))
+        })?;
+        let written = self
+            .wait_for(cx, Duration::from_secs(2), |_, _| {
+                std::fs::read_to_string(&scratch).is_ok_and(|text| text == "bc\n")
+            })
+            .await;
+        check(
+            "closing a tab with unsaved edits writes them to the file",
+            written,
+            json!({ "on_disk": std::fs::read_to_string(&scratch).ok() }),
+        );
         cx.update(|cx| crate::app::set_vim_mode(false, cx));
         std::fs::remove_file(&scratch).ok();
 

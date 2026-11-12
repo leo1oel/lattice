@@ -233,7 +233,7 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         let id = PanelId::from(editor.entity_id());
-        let target = self.document_group(window, cx);
+        let target = self.document_group(cx);
         let panel = panel_handle(editor.clone());
         self.dock_area.update(cx, |area, cx| {
             area.add_panel_view(panel, DockPlacement::Center, None, window, cx);
@@ -258,11 +258,7 @@ impl Shell {
     }
 
     /// The group documents open into.
-    fn document_group(
-        &self,
-        window: &Window,
-        cx: &App,
-    ) -> Option<gpui_kit::component::dock::NodeId> {
+    pub(super) fn document_group(&self, cx: &App) -> Option<gpui_kit::component::dock::NodeId> {
         let area = self.dock_area.read(cx);
         let mut focused = None;
         let mut first = None;
@@ -283,7 +279,7 @@ impl Shell {
                         };
                         if view.view().downcast::<EditorPanel>().is_ok() {
                             first.get_or_insert(node.id());
-                            if view.focus_handle(cx).contains_focused(window, cx) {
+                            if self.focused_document == Some(*panel) {
                                 focused = Some(node.id());
                             }
                         }
@@ -485,16 +481,15 @@ impl Shell {
             self.layout.installing = false;
         }
         self.refresh_dirty(cx);
-        self.follow_active_document(window, cx);
+        self.follow_active_document(cx);
         self.schedule_save(window, cx);
         cx.notify();
     }
 
     /// The Project tree marks the document in front, whichever tab brought
     /// it there.
-    pub(super) fn follow_active_document(&mut self, window: &Window, cx: &mut Context<Self>) {
-        let (Some(root), Some(active)) = (self.root.clone(), self.active_document(window, cx))
-        else {
+    pub(super) fn follow_active_document(&mut self, cx: &mut Context<Self>) {
+        let (Some(root), Some(active)) = (self.root.clone(), self.active_document(cx)) else {
             return;
         };
         let path = root.join(active);
@@ -502,9 +497,9 @@ impl Shell {
             .update(cx, |tree, cx| tree.set_current(Some(path), cx));
     }
 
-    /// The document in front: the focused editor's, else the first group's
-    /// selected one.
-    pub(crate) fn active_document(&self, window: &Window, cx: &App) -> Option<String> {
+    /// The document in front: the one selected in the group of the editor
+    /// last focused, else the first group's selected one.
+    pub(crate) fn active_document(&self, cx: &App) -> Option<String> {
         let root = self.root.as_deref()?;
         let area = self.dock_area.read(cx);
         let mut focused = None;
@@ -523,7 +518,11 @@ impl Shell {
                     && let Ok(editor) = panel.view().downcast::<EditorPanel>()
                 {
                     let key = || layout::document_key(root, editor.read(cx).path());
-                    if focused.is_none() && panel.focus_handle(cx).contains_focused(window, cx) {
+                    if focused.is_none()
+                        && self
+                            .focused_document
+                            .is_some_and(|focused| panels.contains(&focused))
+                    {
                         focused = Some(key());
                     }
                     first.get_or_insert_with(key);

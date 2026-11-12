@@ -118,7 +118,24 @@ impl EditorPanel {
             _subscriptions: subscriptions,
         };
         this.count_words(cx);
+        cx.on_release(|this, cx| {
+            if let Err(error) = this.write_unsaved(cx) {
+                log::error!("{error:#}");
+            }
+        })
+        .detach();
         this
+    }
+
+    /// Write the buffer to disk now when it has edits not yet saved: the
+    /// editor is leaving (its tab or window closed, the app quitting).
+    fn write_unsaved(&self, cx: &App) -> Result<()> {
+        let buffer = self.buffer.read(cx);
+        if !buffer.is_dirty() {
+            return Ok(());
+        }
+        std::fs::write(&self.path, buffer.line_ending().apply(buffer.text()))
+            .with_context(|| format!("writing {}", self.path.display()))
     }
 
     pub fn path(&self) -> &Path {

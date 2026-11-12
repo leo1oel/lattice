@@ -92,6 +92,9 @@ pub struct Shell {
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
     editors: Vec<WeakEntity<EditorPanel>>,
+    /// The editor that last held the keyboard, which an overlay (the
+    /// palette, a menu) taking focus does not change.
+    focused_document: Option<PanelId>,
     build_task: Option<Task<()>>,
     vim_mode: bool,
     pub(crate) layout: LayoutState,
@@ -203,6 +206,7 @@ impl Shell {
             pdf,
             build_panel,
             editors: Vec::new(),
+            focused_document: None,
             build_task: None,
             vim_mode: crate::app::vim_mode_enabled(cx),
             layout: LayoutState::default(),
@@ -360,6 +364,11 @@ impl Shell {
         match EditorPanel::open(path.to_path_buf(), self.build_panel.clone(), window, cx) {
             Ok(editor) => {
                 self.editors.push(editor.downgrade());
+                let id = PanelId::from(editor.entity_id());
+                cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
+                    this.focused_document = Some(id);
+                })
+                .detach();
                 Some(editor)
             }
             Err(error) => {

@@ -564,7 +564,7 @@ fn toggle_item(
 fn focus_bar(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> impl IntoElement {
     let palette = cx.palette().clone();
     let title = shell
-        .active_document(window, cx)
+        .active_document(cx)
         .map(|path| {
             std::path::Path::new(&path)
                 .file_name()

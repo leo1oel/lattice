@@ -121,7 +121,7 @@ impl Shell {
         Workspaces::update(cx, |library| library.note_used(&workspace));
         let arrangement = match (saved.preset.clone(), saved.arrangement.clone()) {
             (Some(preset), _) => {
-                let active = self.active_document(window, cx);
+                let active = self.active_document(cx);
                 let laid =
                     preset
                         .preset
@@ -147,13 +147,13 @@ impl Shell {
         };
         self.install(&arrangement, window, cx);
         let documents = self.current_arrangement(cx).documents();
-        if let Some(active) = self.active_document(window, cx) {
+        if let Some(active) = self.active_document(cx) {
             let path = root.join(active);
             if let Some(editor) = self.open_editor(&path, cx) {
                 window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
             }
         }
-        self.follow_active_document(window, cx);
+        self.follow_active_document(cx);
         !documents.is_empty()
     }
 
@@ -198,7 +198,7 @@ impl Shell {
         self.layout.focus = None;
         self.ensure_workspace_saved(id, window, cx);
         let documents = own.documents();
-        let active = self.active_document(window, cx);
+        let active = self.active_document(cx);
         let places = self.layout.places.get(id).cloned().unwrap_or_default();
         let arrangement = self.workspace_arrangement(id, window, cx).with_documents(
             &documents,
@@ -263,7 +263,7 @@ impl Shell {
             return;
         };
         let own = self.own_arrangement(cx);
-        let active = self.active_document(window, cx);
+        let active = self.active_document(cx);
         let places = self.layout.places.get(&id).cloned().unwrap_or_default();
         self.layout.preset = None;
         self.layout.focus = None;
@@ -280,7 +280,7 @@ impl Shell {
     /// otherwise.
     pub(crate) fn reset_layout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let own = self.own_arrangement(cx);
-        let active = self.active_document(window, cx);
+        let active = self.active_document(cx);
         self.layout.preset = None;
         self.layout.focus = None;
         let arrangement = Arrangement::default_for(self.room(window)).with_documents(
@@ -314,7 +314,7 @@ impl Shell {
             Some(active) => layout::return_layout(&active.previous, &current),
             None => current,
         };
-        let active = self.active_document(window, cx);
+        let active = self.active_document(cx);
         let laid = preset.arrange(&previous, active.as_deref(), self.room(window));
         self.layout.preset = Some(ActivePreset { preset, previous });
         self.install(&laid, window, cx);
@@ -337,7 +337,7 @@ impl Shell {
         }
         if on {
             let current = self.current_arrangement(cx);
-            let active = self.active_document(window, cx);
+            let active = self.active_document(cx);
             let laid = Preset::Writing.arrange(&current, active.as_deref(), self.room(window));
             self.layout.focus = Some(current);
             self.install(&laid, window, cx);

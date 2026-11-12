@@ -74,6 +74,8 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 if this.projects.len() > 1 {
                     this.close_project(&root, window, cx);
+                } else {
+                    window.remove_window();
                 }
                 new_window(Some(root), cx);
             })
