@@ -30,6 +30,32 @@ pub(super) fn register(window: AnyWindowHandle, shell: &Entity<Shell>, cx: &mut 
         .insert(window.window_id(), shell.downgrade());
 }
 
+/// Run `f` on the shell of each window `which` picks, in its own window.
+pub(crate) fn for_shells(
+    cx: &mut App,
+    which: impl Fn(WindowId) -> bool,
+    mut f: impl FnMut(&mut Shell, &mut Window, &mut Context<Shell>),
+) {
+    let shells: Vec<(WindowId, Entity<Shell>)> = cx
+        .try_global::<Shells>()
+        .map(|shells| {
+            shells
+                .0
+                .iter()
+                .filter(|(id, _)| which(**id))
+                .filter_map(|(id, shell)| Some((*id, shell.upgrade()?)))
+                .collect()
+        })
+        .unwrap_or_default();
+    for handle in cx.windows() {
+        if let Some((_, shell)) = shells.iter().find(|(id, _)| *id == handle.window_id()) {
+            handle
+                .update(cx, |_, window, cx| shell.update(cx, |shell, cx| f(shell, window, cx)))
+                .ok();
+        }
+    }
+}
+
 /// The shell of the window `window`.
 pub fn shell_for(window: &Window, cx: &App) -> Option<Entity<Shell>> {
     cx.try_global::<Shells>()?

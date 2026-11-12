@@ -461,11 +461,22 @@ impl Arrangement {
         places: &BTreeMap<String, usize>,
     ) -> Arrangement {
         let mut out = self.clone();
+        // A place this workspace has no slot for counts as no place.
+        let slots = self
+            .views()
+            .into_iter()
+            .filter(|view| **view == View::Documents)
+            .count();
+        let places: BTreeMap<String, usize> = places
+            .iter()
+            .filter(|(_, place)| **place < slots)
+            .map(|(doc, place)| (doc.clone(), *place))
+            .collect();
         // Number the slots in reading order, center first.
         let mut slot = 0;
         let mut first_slot = None;
         for node in out.nodes_mut() {
-            fill_slots(node, &mut slot, &mut first_slot, documents, places);
+            fill_slots(node, &mut slot, &mut first_slot, documents, &places);
         }
         let mut keep = |view: &View| *view != View::Documents;
         out.center = std::mem::take(&mut out.center)
@@ -767,5 +778,17 @@ mod tests {
         layout.floating.push(floating(View::Agent));
         let json = serde_json::to_string(&layout).unwrap();
         assert_eq!(serde_json::from_str::<Arrangement>(&json).unwrap(), layout);
+    }
+
+    #[test]
+    fn a_place_beyond_the_workspaces_slots_lands_in_the_first() {
+        // The default workspace has one documents slot; b.tex last stood in a
+        // second group the workspace no longer has.
+        let workspace = Arrangement::default_for(room()).as_workspace();
+        let documents = vec!["a.tex".to_string(), "b.tex".to_string()];
+        let places = BTreeMap::from([("a.tex".to_string(), 0), ("b.tex".to_string(), 1)]);
+        let filled = workspace.with_documents(&documents, Some("b.tex"), &places);
+        assert_eq!(filled.documents(), documents);
+        assert_eq!(filled.center.views(), [&file("a.tex"), &file("b.tex")]);
     }
 }

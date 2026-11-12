@@ -413,8 +413,22 @@ impl Shell {
         }
         let fallback = list.get(index + 1).or_else(|| list.get(index - 1)).cloned();
         let was_current = self.layout.workspace.as_deref() == Some(id);
-        if was_current && let Some(fallback) = &fallback {
-            self.switch_workspace(fallback, window, cx);
+        let here = window.window_handle().window_id();
+        let mut moved = Vec::new();
+        if let Some(fallback) = &fallback {
+            if was_current {
+                self.switch_workspace(fallback, window, cx);
+            }
+            crate::shell::windows::for_shells(
+                cx,
+                |other| other != here,
+                |shell, window, cx| {
+                    if shell.layout.workspace.as_deref() == Some(id) {
+                        shell.switch_workspace(fallback, window, cx);
+                        moved.push(window.window_handle().window_id());
+                    }
+                },
+            );
         }
         let Some(removed) = Workspaces::update(cx, |library| library.remove(id)) else {
             return;
@@ -429,6 +443,7 @@ impl Shell {
                 let removed = removed.clone();
                 let weak = weak.clone();
                 let id = id.clone();
+                let moved = moved.clone();
                 gpui_kit::component::button::Button::new("undo-delete-workspace")
                     .label("Undo")
                     .on_click(move |_, window, cx| {
@@ -437,6 +452,11 @@ impl Shell {
                             weak.update(cx, |shell, cx| shell.switch_workspace(&id, window, cx))
                                 .ok();
                         }
+                        crate::shell::windows::for_shells(
+                            cx,
+                            |other| moved.contains(&other),
+                            |shell, window, cx| shell.switch_workspace(&id, window, cx),
+                        );
                     })
             });
         use gpui_kit::component::WindowExt as _;
