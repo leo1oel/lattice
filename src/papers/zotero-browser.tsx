@@ -8,8 +8,9 @@
  *
  * Folders and papers sit side by side; in a narrow sheet the papers replace
  * the folders and the Folders button (or Escape) returns to them. A paper
- * Papers already holds (same DOI, arXiv id or citation key) is marked and
- * cannot be ticked.
+ * Papers already holds (same DOI, arXiv id or citation key) is marked, and
+ * can be ticked only for the annotations its PDF holds in Zotero, which go
+ * to its note (zotero-annotations.ts) as they do for a paper added new.
  * What is added is what is ticked in the list in view: a tick a search or
  * the subfolder switch hides is neither counted nor added, and opening
  * another folder starts with nothing ticked. A tick kept out of sight made
@@ -21,7 +22,7 @@ import { useEffect, useImperativeHandle, useMemo, useReducer, useRef, type CSSPr
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { ChevronLeft, ChevronRight, Folder, Library, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Folder, Highlighter, Library, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -45,6 +46,9 @@ export type ZoteroPaper = {
 
 /** "" stands for My Library, the whole library. */
 type FolderKey = string;
+
+/** A paper can be ticked to add it, or, once in Papers, to bring its annotations. */
+const canTick = (paper: ZoteroPaper) => !paper.existing || paper.item.annotations > 0;
 
 type BrowserState = {
   library: ZoteroLibrary | null;
@@ -97,7 +101,7 @@ function browserReducer(state: BrowserState, action: BrowserAction): BrowserStat
     case "tick": {
       const ticked = new Map(state.ticked);
       for (const paper of action.papers) {
-        if (action.on && !paper.existing) ticked.set(paper.item.citationKey, paper);
+        if (action.on && canTick(paper)) ticked.set(paper.item.citationKey, paper);
         else ticked.delete(paper.item.citationKey);
       }
       return { ...state, ticked };
@@ -113,13 +117,15 @@ export function ZoteroBrowser(props: {
   papers: readonly PaperSummary[];
   /** Another import holds the pipeline. */
   busy: boolean;
-  onAdd: (papers: ZoteroPaper[]) => void;
+  /** Add the ticked papers, read from `dataDir` (null: the library Lattice found). */
+  onAdd: (papers: ZoteroPaper[], dataDir: string | null) => void;
   /** How many papers are ticked; 0 once the browser closes. */
   onTicked: (count: number) => void;
   onBack: () => void;
   handle: Ref<ZoteroBrowserHandle>;
 }) {
   const { t } = useLingui();
+  const annotationsLabel = (count: number) => count === 1 ? t`1 annotation` : t`${count} annotations`;
   const [state, dispatch] = useReducer(browserReducer, {
     library: null, libraryError: null, chosenDir: null, attempt: 0, expanded: new Set<string>(), folderQuery: "",
     paperQuery: "", folder: null, includeSubfolders: false, ticked: new Map(), pane: "folders",
@@ -158,7 +164,7 @@ export function ZoteroBrowser(props: {
   const shownPapers = needle
     ? papers.filter((paper) => `${paper.title} ${paper.byline} ${paper.item.citationKey}`.toLocaleLowerCase().includes(needle))
     : papers;
-  const tickable = shownPapers.filter((paper) => !paper.existing);
+  const tickable = shownPapers.filter(canTick);
   const ticked = tickable.filter((paper) => state.ticked.has(paper.item.citationKey));
   const tickedHere = ticked.length;
   const { onTicked } = props;
@@ -236,11 +242,11 @@ export function ZoteroBrowser(props: {
         {shownPapers.map((paper) => {
           const on = state.ticked.has(paper.item.citationKey);
           return (
-            <li key={paper.item.citationKey} data-existing={paper.existing ? true : undefined}>
+            <li key={paper.item.citationKey} data-existing={paper.existing ? true : undefined} data-locked={canTick(paper) ? undefined : true}>
               <label className="zotero-paper">
                 <Checkbox
                   checked={on}
-                  disabled={Boolean(paper.existing)}
+                  disabled={!canTick(paper)}
                   aria-label={paper.title}
                   onChange={(event) => dispatch({ type: "tick", papers: [paper], on: event.currentTarget.checked })}
                 />
@@ -249,6 +255,13 @@ export function ZoteroBrowser(props: {
                   {paper.byline && <span title={paper.byline}>{paper.byline}</span>}
                 </span>
                 <span className="zotero-paper-badges">
+                  {paper.item.annotations > 0 && (
+                    <Badge size="compact" className="zotero-annotations" title={annotationsLabel(paper.item.annotations)}>
+                      <Highlighter size={11} aria-hidden="true" />
+                      <span aria-hidden="true">{paper.item.annotations.toLocaleString()}</span>
+                      <span className="sr-only">{annotationsLabel(paper.item.annotations)}</span>
+                    </Badge>
+                  )}
                   {paper.item.pdf && <Badge size="compact">PDF</Badge>}
                   {paper.existing && <Badge size="compact" tone="success">{t`In Papers`}</Badge>}
                 </span>
@@ -337,10 +350,11 @@ export function ZoteroBrowser(props: {
           variant="primary"
           disabled={!ticked.length || props.busy}
           title={props.busy ? t`Another paper is being added` : undefined}
-          onClick={() => props.onAdd(ticked)}
+          onClick={() => props.onAdd(ticked, chosenDir)}
         >
           <Plus size={14} aria-hidden="true" />
-          {ticked.length === 1 ? t`Add 1 paper` : ticked.length ? t`Add ${ticked.length} papers` : t`Add papers`}
+          {ticked.length && ticked.every((paper) => paper.existing) ? t`Add annotations`
+            : ticked.length === 1 ? t`Add 1 paper` : ticked.length ? t`Add ${ticked.length} papers` : t`Add papers`}
         </Button>
       </div>
     </div>

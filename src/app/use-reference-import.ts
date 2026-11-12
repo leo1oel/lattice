@@ -7,11 +7,15 @@ import { isMissingPaperToolsError } from "../build/tex-setup";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bib-entry";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
-import { isTitleQuery } from "../papers/paper-source";
-import { addQueueRunning, cancelAddQueue, runAddQueue, type PaperAddItem } from "../papers/add-papers-queue";
+import { isTitleQuery, paperPdfUrl } from "../papers/paper-source";
+import { addQueueRunning, cancelAddQueue, runAddQueue, type PaperAddOutcome, type PaperAddRequest } from "../papers/add-papers-queue";
+import type { ZoteroAnnotation } from "../papers/zotero";
 import { refreshCitedEntry } from "../papers/refresh-cited-entry";
 import { subscribeTauriEvent } from "./effect-helpers";
 import { showError, showNotice, showWarning } from "./notify";
+
+/** The note writer for Zotero annotations, loaded when a batch brings some, so the app's first load carries none of it. */
+const zoteroNotes = () => import("../papers/zotero-annotations");
 
 type ImportResult = {
   arxivId: string;
@@ -275,25 +279,67 @@ export function useReferenceImport({
   /**
    * The Add papers sheet's batch (papers/add-papers-queue.ts): one import
    * after another, so each gets the pipeline's progress and its own Cancel,
-   * while the writer keeps writing with the sheet closed.
+   * while the writer keeps writing with the sheet closed. A Zotero paper
+   * brings its PDF and its annotations; one Papers already holds brings only
+   * what it lacks of them.
    */
-  const addPapers = (items: ReadonlyArray<Pick<PaperAddItem, "id" | "input" | "label" | "pdf">>) => {
+  const addPapers = (items: ReadonlyArray<PaperAddRequest>) => {
     if (inFlightRef.current || addQueueRunning()) return;
     const root = projectRootRef.current;
     startBatch();
+    // One read of Zotero for the whole batch, made when the first paper with
+    // annotations needs it; every item of a batch comes from one library.
+    const wanted = items.filter((item) => item.annotations);
+    let annotationsRead: Promise<Record<string, ZoteroAnnotation[]>> | null = null;
+    const readAnnotations = () => {
+      if (!annotationsRead) {
+        annotationsRead = invoke<Record<string, ZoteroAnnotation[]>>("zotero_annotations", {
+          dataDir: wanted[0]?.annotations?.dataDir ?? null, items: wanted.map((item) => item.annotations!.item),
+        });
+      }
+      return annotationsRead;
+    };
+    const labels = { heading: t`Zotero annotations`, page: (page: string) => t`p. ${page}` };
     void runAddQueue(items, async (item) => {
-      const result = await importReference(item.input, { notices: "none", label: item.label });
+      const imported: (PaperAddOutcome & { alreadyImported?: boolean; paperPath?: string }) | undefined = item.existing
+        ? { citationKey: item.existing, alreadyImported: true }
+        : await importReference(item.input, { notices: "none", label: item.label });
+      if (!imported?.citationKey || imported.cancelled || projectRootRef.current !== root) return imported;
+      const citationKey = imported.citationKey;
+      let result: PaperAddOutcome = imported;
+      const paperFor = async () => (await invoke<PaperSummary[]>("list_papers"))
+        .find((paper) => paper.citationKey?.toLowerCase() === citationKey.toLowerCase());
       // A Zotero item's PDF is its text when the import brought none (no
-      // arXiv id, or arXiv refused); the citation stands either way, so a
-      // PDF that cannot be read is the row's note, not a failure.
-      if (!item.pdf || !result?.citationKey || result.cancelled || result.alreadyImported || result.paperPath) return result;
-      if (projectRootRef.current !== root) return result;
+      // arXiv id, or arXiv refused), and the pages its annotations link to;
+      // a paper already held gets it when it has no PDF of its own. The
+      // citation stands either way, so a PDF that cannot be read is the
+      // row's note, not a failure.
+      const existing = item.existing && item.pdf ? await paperFor() : undefined;
+      const needsPdf = item.pdf && (item.existing
+        ? existing && !existing.hasLocalPdf && !paperPdfUrl(existing)
+        : !imported.alreadyImported && !imported.paperPath);
+      if (needsPdf) {
+        try {
+          await invoke("attach_zotero_pdf", { citationKey, attachment: item.pdf });
+          await refreshProject();
+          result = { ...result, fetchError: undefined };
+        } catch (reason) {
+          result = { ...result, fetchError: hostErrorMessage(reason) };
+        }
+      }
+      if (!item.annotations || !root || projectRootRef.current !== root) return result;
       try {
-        await invoke("attach_zotero_pdf", { citationKey: result.citationKey, attachment: item.pdf });
-        await refreshProject();
-        return { ...result, fetchError: undefined };
+        const annotations = (await readAnnotations())[item.annotations.item] ?? [];
+        const paper = annotations.length ? await paperFor() : undefined;
+        if (!paper) return result;
+        const { addZoteroAnnotations } = await zoteroNotes();
+        const { path, added } = await addZoteroAnnotations(root, paper, annotations, labels);
+        const note = added === 0 ? t`Annotations already in ${path}`
+          : added === 1 ? t`1 annotation in ${path}` : t`${added} annotations in ${path}`;
+        return { ...result, note };
       } catch (reason) {
-        return { ...result, fetchError: hostErrorMessage(reason) };
+        const problem = hostErrorMessage(reason);
+        return { ...result, note: t`Could not add the annotations: ${problem}` };
       }
     }, () => projectRootRef.current === root);
   };

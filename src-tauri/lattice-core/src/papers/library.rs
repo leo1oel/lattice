@@ -24,6 +24,8 @@ struct CachedBundle {
     citation_key: String,
     has_full_text: bool,
     has_blog: bool,
+    /// The bundle keeps the PDF it was converted from (attach.rs).
+    has_local_pdf: bool,
     asset_paths: Vec<String>,
 }
 
@@ -76,6 +78,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             citation_key: Some(citation.key),
             has_full_text: matched.as_ref().is_some_and(|bundle| bundle.has_full_text),
             has_blog: matched.as_ref().is_some_and(|bundle| bundle.has_blog),
+            has_local_pdf: matched.as_ref().is_some_and(|bundle| bundle.has_local_pdf),
             asset_paths: matched.map(|bundle| bundle.asset_paths).unwrap_or_default(),
         });
     }
@@ -113,6 +116,7 @@ pub fn list_bibliography_downloads(root: &Path) -> Result<Vec<PaperSummary>, Str
             citation_key: None,
             has_full_text: bundle.has_full_text,
             has_blog: bundle.has_blog,
+            has_local_pdf: bundle.has_local_pdf,
             asset_paths: bundle.asset_paths,
         });
     }
@@ -198,6 +202,7 @@ fn cached_bundles(root: &Path) -> Result<Vec<CachedBundle>, String> {
             citation_key,
             has_full_text,
             has_blog,
+            has_local_pdf: bundle_dir.join(super::attach::ORIGINAL_PDF).is_file(),
             asset_paths,
         });
     }

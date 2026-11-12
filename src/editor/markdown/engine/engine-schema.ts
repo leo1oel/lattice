@@ -412,7 +412,10 @@ function markExtensions(): AnyExtension[] {
     Highlight.extend({ addKeyboardShortcuts: () => ({}) }).configure({ multicolor: false }),
     Underline,
     Link.extend({ addAttributes() { return { ...this.parent?.(), ...markStyle({ autolink: null }) }; } })
-      .configure({ openOnClick: false, autolink: false, linkOnPaste: true }),
+      // A paper's note links each annotation it brought from Zotero into
+      // Zotero's reader (papers/zotero-annotations.ts); Tiptap blanks the href
+      // of a scheme it does not know.
+      .configure({ openOnClick: false, autolink: false, linkOnPaste: true, protocols: ["zotero"] }),
   ];
 }
 

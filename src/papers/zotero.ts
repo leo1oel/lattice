@@ -8,8 +8,36 @@ export type ZoteroCollection = {
   name: string;
   parent: string | null;
 };
-/** One item: its BibTeX entry, its citation key, its PDF attachment's item key, and the collections it sits in directly. */
-export type ZoteroItem = { bibtex: string; citationKey: string; pdf: string | null; collections: string[] };
+/**
+ * One item: its Zotero key, its BibTeX entry, its citation key, its PDF
+ * attachment's item key, the collections it sits in directly, and how many
+ * annotations with words in them its PDFs hold.
+ */
+export type ZoteroItem = {
+  key: string;
+  bibtex: string;
+  citationKey: string;
+  pdf: string | null;
+  collections: string[];
+  annotations: number;
+};
+/** One annotation on an item's PDF, as the `zotero_annotations` command reads it. */
+export type ZoteroAnnotation = {
+  /** Its own item key, which a zotero:// link names to select it. */
+  key: string;
+  /** The PDF attachment it is on, by item key. */
+  attachment: string;
+  kind: "highlight" | "underline" | "note" | "text" | "image" | "ink";
+  /** The passage a highlight or underline marks; empty for the others. */
+  text: string;
+  /** The writer's comment, with Zotero's few inline HTML tags. */
+  comment: string;
+  /** The PDF page, from 1. */
+  page: number | null;
+  /** The page's printed number, when the PDF names its pages. */
+  pageLabel: string | null;
+  color: string | null;
+};
 /** The library Lattice found: its collections and its items. */
 export type ZoteroLibrary = { collections: ZoteroCollection[]; items: ZoteroItem[] };
 

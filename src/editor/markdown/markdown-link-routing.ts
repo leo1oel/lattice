@@ -105,4 +105,8 @@ export function openMarkdownLink(
   const path = resolveProjectLink(activePath, href);
   if (path) onOpenProjectPath?.(path);
   else if (/^(?:https?:|mailto:)/i.test(href)) void openUrl(href).catch(() => undefined);
+  // An annotation a paper's note brought in from Zotero (papers/zotero-annotations.ts).
+  else if (/^zotero:\/\/open-pdf\/library\/items\//i.test(href)) {
+    void import("../../papers/zotero-link").then(({ openZoteroAnnotation }) => openZoteroAnnotation(href));
+  }
 }

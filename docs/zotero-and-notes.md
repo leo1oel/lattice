@@ -41,11 +41,23 @@ text from arXiv; otherwise its PDF attachment, when the file is on this computer
 becomes the paper's readable text. Items without either are added as citations
 only.
 
+### Annotations
+
+A paper whose PDF you highlighted or commented on in Zotero shows how many annotations it holds beside its title.
+Adding it brings them into the paper's note, `notes/<citation key>.md`, under **Zotero annotations**: each highlight or underline as a quote, each comment as a paragraph, in Zotero's reading order.
+Every annotation ends with two links.
+The page link (**p. 12**, the page as the PDF prints it) opens the paper's PDF in Lattice at that page, with the passage marked.
+**Zotero** opens the annotation in Zotero's own PDF reader (`zotero://open-pdf/library/items/<KEY>?page=N&annotation=<KEY>`).
+
+A paper already in Papers can still be ticked when it has annotations; **Add annotations** brings them into its note without adding the paper again.
+Bringing annotations in again adds only the ones the note does not hold yet, so your own edits to the note stay as they are.
+The PDF of a paper added from Zotero is kept with the paper, so the page links work even after Zotero moves or renames the file.
+
 To bring in a library from another computer, export the collection from Zotero (or
 with Better BibTeX) as a `.bib` file and paste the whole file into **Add papers**,
 or link it with **Linked library…** to take in later changes after review.
 
-The import only reads from Zotero; nothing is written back.
+The import only reads from Zotero; nothing is written back, annotations included.
 
 ## Let the Agent use Zotero and your notes
 

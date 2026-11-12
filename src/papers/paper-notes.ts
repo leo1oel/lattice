@@ -33,15 +33,26 @@ export function withPaperNoteEntry(current: string | null, paper: NotedPaper, en
   return kept ? `${kept}\n\n${entry}\n` : `${entry}\n`;
 }
 
-/** Append `entry` to `paper`'s note in the project at `projectRoot`, writing the note if it is new; resolves its path. */
-export async function addToPaperNote(projectRoot: string, paper: NotedPaper, entry: string): Promise<string> {
+/**
+ * Rewrite `paper`'s note in the project at `projectRoot` as `change` gives it
+ * from what is there now (null for a note not yet written); `change` answers
+ * null to leave it as it is. Resolves the note's path.
+ */
+export async function updatePaperNote(
+  projectRoot: string, paper: Pick<PaperSummary, "arxivId" | "citationKey">, change: (current: string | null) => string | null,
+): Promise<string> {
   const path = paperNotePath(paper);
   const { exists } = await invoke<{ exists: boolean }>("stat_project_file", { path });
   const current = exists ? await invoke<string>("read_project_file", { path, projectRoot }) : null;
+  const content = change(current);
+  if (content === null) return path;
   // The text read is the base: an edit that lands meanwhile is merged, not overwritten.
-  await invoke("write_project_file", {
-    path, projectRoot, content: withPaperNoteEntry(current, paper, entry), ...(current === null ? {} : { baseContent: current }),
-  });
+  await invoke("write_project_file", { path, projectRoot, content, ...(current === null ? {} : { baseContent: current }) });
   if (!exists) requestProjectTreeRefresh();
   return path;
+}
+
+/** Append `entry` to `paper`'s note in the project at `projectRoot`, writing the note if it is new; resolves its path. */
+export function addToPaperNote(projectRoot: string, paper: NotedPaper, entry: string): Promise<string> {
+  return updatePaperNote(projectRoot, paper, (current) => withPaperNoteEntry(current, paper, entry));
 }

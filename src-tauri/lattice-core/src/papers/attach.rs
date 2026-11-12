@@ -3,6 +3,11 @@
 //! id nor a URL for the library to join on, so its bundle names the citation it
 //! belongs to (`PaperMetadata::citation_key`), and is keyed by that citation:
 //! attaching again replaces it.
+//!
+//! The bundle keeps a copy of the PDF beside its text (`original.pdf`), so the
+//! reader shows the very pages the writer read and annotated in Zotero, and a
+//! note's page links (zotero-annotations.ts) open at the right page whether
+//! or not Zotero still has the file where it was.
 
 use super::bundle::{
     build_in_scratch, bundle_result, reset_asset_manifest, swap_in_bundle, validate_paper_bundle,
@@ -14,6 +19,9 @@ use crate::project;
 use crate::util::err;
 use std::fs;
 use std::path::Path;
+
+/// The bundle's copy of the PDF its text came from.
+pub(super) const ORIGINAL_PDF: &str = "original.pdf";
 
 /// Convert the PDF at `path` into the bundle of the citation `citation_key`.
 pub fn attach_pdf_file(
@@ -45,6 +53,7 @@ pub fn attach_pdf_file(
             serde_json::to_string(&title).map_err(err)?,
         ));
         fs::write(output_dir.join("paper.md"), &markdown).map_err(err)?;
+        fs::write(output_dir.join(ORIGINAL_PDF), &bytes).map_err(err)?;
         reset_asset_manifest(output_dir)?;
         let metadata = PaperMetadata {
             complete: markdown_has_body(&body),
@@ -133,6 +142,11 @@ mod tests {
         assert_eq!(papers[0].arxiv_id, fetched.arxiv_id);
         let text = fs::read_to_string(project.root.join(&fetched.paper_path)).unwrap();
         assert!(text.contains("citation key stable"), "{text}");
+        // The PDF itself stays beside its text, for the reader to show.
+        assert!(papers[0].has_local_pdf);
+        let kept =
+            project.root.join(format!(".research/papers/{}/{ORIGINAL_PDF}", fetched.arxiv_id));
+        assert_eq!(fs::read(kept).unwrap(), fs::read(&pdf).unwrap());
         // Attaching again replaces the bundle rather than adding a second one.
         let again = attach_pdf_file(&project.root, "lee2024sparse", &pdf).unwrap();
         assert_eq!(again.arxiv_id, fetched.arxiv_id);

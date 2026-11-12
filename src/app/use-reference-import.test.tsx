@@ -70,6 +70,87 @@ describe("adding a Zotero item", () => {
   });
 });
 
+describe("bringing a Zotero item's annotations to its note", () => {
+  const HIGHLIGHT = {
+    key: "ANNHIGH1", attachment: "PDF00001", kind: "highlight", text: "Sparse attention keeps long documents in reach",
+    comment: "Key idea", page: 3, pageLabel: "3", color: "#ffd400",
+  };
+  const NOTE = { ...HIGHLIGHT, key: "ANNNOTE1", kind: "note", text: "", comment: "Compare with dense retrieval", page: 1, pageLabel: "1" };
+  const PAPER = {
+    arxivId: "web-0123456789abcdef", title: "Sparse attention", citationKey: "Lee2024Sparse",
+    hasFullText: true, hasBlog: false, hasLocalPdf: true,
+  };
+
+  /** The backend for one batch: the import, the attach, Zotero's annotations, the library, and the note on disk (`note`, null when not written). */
+  function backend({ note = null as string | null, imported = ADDED as object, papers = [PAPER] as object[] } = {}) {
+    const written: string[] = [];
+    invoke.mockImplementation(async (command: string, args: { content?: string }) => {
+      switch (command) {
+        case "import_reference": return imported;
+        case "attach_zotero_pdf": return { arxivId: PAPER.arxivId, paperPath: "x/paper.md" };
+        case "zotero_annotations": return { SPARSE01: [HIGHLIGHT, NOTE] };
+        case "list_papers": return papers;
+        case "stat_project_file": return { exists: note !== null };
+        case "read_project_file": return note;
+        case "write_project_file": written.push(args.content!); return undefined;
+        default: throw new Error(`unexpected ${command}`);
+      }
+    });
+    return written;
+  }
+
+  async function add(items: Array<Record<string, unknown>>) {
+    const { result } = mount();
+    act(() => result.current.addPapers(items.map((item, index) => ({ id: `zotero:${index}`, input: ENTRY, label: "Sparse attention", ...item }))));
+    await waitFor(() => expect(getAddQueue().every((item) => item.state === "added")).toBe(true));
+    return getAddQueue();
+  }
+
+  it("writes a new paper's annotations to its note, with links to the page here and in Zotero", async () => {
+    const written = backend();
+    const [item] = await add([{ pdf: "PDF00001", annotations: { item: "SPARSE01", dataDir: null } }]);
+    expect(invoke).toHaveBeenCalledWith("zotero_annotations", { dataDir: null, items: ["SPARSE01"] });
+    expect(written).toHaveLength(1);
+    expect(written[0]).toContain("## Zotero annotations");
+    expect(written[0]).toContain("> Sparse attention keeps long documents in reach [p. 3](/.research/papers/web-0123456789abcdef/original.pdf#page=3 ");
+    expect(written[0]).toContain("[Zotero](zotero://open-pdf/library/items/PDF00001?page=3&annotation=ANNHIGH1)");
+    expect(item.note).toBe("2 annotations in notes/Lee2024Sparse.md");
+  });
+
+  it("reads Zotero once for the whole batch", async () => {
+    backend();
+    await add([
+      { pdf: "PDF00001", annotations: { item: "SPARSE01", dataDir: "/Volumes/Zotero" } },
+      { annotations: { item: "OTHER001", dataDir: "/Volumes/Zotero" } },
+    ]);
+    expect(invoke.mock.calls.filter(([command]) => command === "zotero_annotations")).toEqual([
+      ["zotero_annotations", { dataDir: "/Volumes/Zotero", items: ["SPARSE01", "OTHER001"] }],
+    ]);
+  });
+
+  it("adds to a paper Papers holds only the annotations its note lacks, without importing it again", async () => {
+    const note = "# Sparse attention\n\n> Earlier [Zotero](zotero://open-pdf/library/items/PDF00001?page=3&annotation=ANNHIGH1)\n";
+    const written = backend({ note, papers: [{ ...PAPER, hasLocalPdf: false }] });
+    const [item] = await add([{ pdf: "PDF00001", existing: "Lee2024Sparse", annotations: { item: "SPARSE01", dataDir: null } }]);
+    expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
+    // It had no PDF of its own, so the Zotero one comes with its annotations.
+    expect(invoke).toHaveBeenCalledWith("attach_zotero_pdf", { citationKey: "Lee2024Sparse", attachment: "PDF00001" });
+    expect(written).toHaveLength(1);
+    expect(written[0].startsWith(note.trimEnd())).toBe(true);
+    expect(written[0]).not.toContain("## Zotero annotations");
+    expect(written[0]).toContain("annotation=ANNNOTE1");
+    expect(item.note).toBe("1 annotation in notes/Lee2024Sparse.md");
+  });
+
+  it("leaves a note that holds every annotation as it is", async () => {
+    const note = "> a [Zotero](zotero://open-pdf/library/items/PDF00001?annotation=ANNHIGH1)\n\nb [Zotero](zotero://open-pdf/library/items/PDF00001?page=1&annotation=ANNNOTE1)\n";
+    const written = backend({ note });
+    const [item] = await add([{ existing: "Lee2024Sparse", annotations: { item: "SPARSE01", dataDir: null } }]);
+    expect(written).toEqual([]);
+    expect(item.note).toBe("Annotations already in notes/Lee2024Sparse.md");
+  });
+});
+
 describe("re-adding a cited paper", () => {
   it("offers to refresh its entry through the check Add papers runs", async () => {
     const entry = { path: "references.bib", key: "Lee2024Sparse", title: "Sparse attention", bibtex: ENTRY, issues: [] };

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { paperPdfUrl, type PaperSourceCitation } from "../papers/paper-source";
+import { localPdfPath, paperPdfUrl, type PaperSourceCitation } from "../papers/paper-source";
+import { readProjectPdfBytes } from "../pdf/project-pdf";
 import { sourceQuoteDomRange } from "../papers/source-quote";
 import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { notifyError } from "../telemetry/app-notify";
@@ -12,8 +13,12 @@ import { toMessage } from "../app-utils";
 import { loadPdfPreviewModule, loadPdfQuotePageModule } from "./canvas-lazy-modules";
 import { capturePreviewViewport } from "./markdown-preview-sync";
 
-/** An original PDF a Paper links to; `generic` sources are fetched through the backend rather than opened directly. */
-type PaperPdfSource = { key: string; url: string; fileName: string; generic: boolean };
+/**
+ * An original PDF a Paper links to. `generic` sources are fetched through the
+ * backend rather than opened directly; a `local` one is the PDF the Paper's
+ * bundle keeps (a Zotero attachment), read from the project by its path.
+ */
+type PaperPdfSource = { key: string; url: string; fileName: string; generic: boolean; local?: boolean };
 
 type PaperPdfView = PaperPdfSource & {
   bytes: ArrayBuffer | null;
@@ -23,7 +28,7 @@ type PaperPdfView = PaperPdfSource & {
   quote: PdfSourceQuote | null;
 };
 
-type PaperLink = Pick<PaperSummary, "arxivId" | "url">;
+type PaperLink = Pick<PaperSummary, "arxivId" | "url" | "hasLocalPdf">;
 
 /** `value` as an http(s) URL; anything malformed or unsafe to hand the OS opener is null. */
 function httpUrl(value: string | null | undefined): URL | null {
@@ -36,6 +41,11 @@ function httpUrl(value: string | null | undefined): URL | null {
 }
 
 function paperPdfSource(paper: PaperLink): PaperPdfSource | null {
+  // The pages the writer read and annotated, before any copy on the web.
+  if (paper.hasLocalPdf) {
+    const path = localPdfPath(paper);
+    return { key: path, url: path, fileName: "original.pdf", generic: false, local: true };
+  }
   // With no URL beside it, paperPdfUrl answers only for a well-formed arXiv id.
   const arxivId = paper.arxivId.trim();
   const arxivUrl = paperPdfUrl({ arxivId });
@@ -51,7 +61,7 @@ function paperPdfSource(paper: PaperLink): PaperPdfSource | null {
   return { key: parsed.href, url: parsed.href, fileName, generic: true };
 }
 
-function paperBrowserUrl(paper: PaperLink): string | null {
+function paperBrowserUrl(paper: Pick<PaperSummary, "arxivId" | "url">): string | null {
   return paperPdfUrl(paper) || httpUrl(paper.url)?.href || null;
 }
 
@@ -81,10 +91,11 @@ export function usePaperPdf({
   const { t } = useLingui();
   const activePaperId = activePaper?.arxivId;
   const activePaperUrl = activePaper?.url;
+  const activePaperLocalPdf = activePaper?.hasLocalPdf;
   const { pdfSource, browserUrl } = useMemo(() => {
-    const paper = activePaperId !== undefined ? { arxivId: activePaperId, url: activePaperUrl } : null;
+    const paper = activePaperId !== undefined ? { arxivId: activePaperId, url: activePaperUrl, hasLocalPdf: activePaperLocalPdf } : null;
     return { pdfSource: paper && paperPdfSource(paper), browserUrl: paper && paperBrowserUrl(paper) };
-  }, [activePaperId, activePaperUrl]);
+  }, [activePaperId, activePaperLocalPdf, activePaperUrl]);
   const [pdfView, setPdfView] = useState<PaperPdfView | null>(null);
   const [quoteFallback, setQuoteFallback] = useState<PaperQuoteFallback | null>(null);
   const returnViewportRef = useRef<VisualMarkdownViewState & { path: string } | null>(null);
@@ -159,12 +170,25 @@ export function usePaperPdf({
     setPdfView({
       ...pdfSource,
       bytes,
-      previewUrl: pdfSource.generic || bytes ? null : pdfSource.url,
+      previewUrl: pdfSource.generic || pdfSource.local || bytes ? null : pdfSource.url,
       error: false,
       initialPage: quote?.page ?? pagesRef.current.get(pdfSource.key) ?? 1,
       quote,
     });
-    if (!pdfSource.generic || bytes) return;
+    if (bytes) return;
+    if (pdfSource.local) {
+      void readProjectPdfBytes(pdfSource.url).then((read) => {
+        if (requestRef.current !== request) return;
+        bytesRef.current = { key: pdfSource.key, bytes: read };
+        updateView(pdfSource.key, { bytes: read });
+      }).catch(() => {
+        if (requestRef.current !== request) return;
+        updateView(pdfSource.key, { error: true });
+        fallbackToQuote(quote);
+      });
+      return;
+    }
+    if (!pdfSource.generic) return;
     void invoke<string>("paper_pdf_preview_url", { url: pdfSource.url }).then((previewUrl) => {
       if (requestRef.current === request) updateView(pdfSource.key, { previewUrl });
     }).catch(() => {
@@ -210,6 +234,7 @@ export function usePaperPdf({
     if (!pdfSource) return null;
     const cached = bytesRef.current?.key === pdfSource.key ? bytesRef.current.bytes : null;
     const source = cached ? { data: cached }
+      : pdfSource.local ? { data: await readProjectPdfBytes(pdfSource.url) }
       : { url: pdfSource.generic ? await invoke<string>("paper_pdf_preview_url", { url: pdfSource.url }) : pdfSource.url };
     const { place, bytes } = await (await loadPdfQuotePageModule()).findQuotePage(source, quote);
     if (!cached) bytesRef.current = { key: pdfSource.key, bytes };
