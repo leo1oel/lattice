@@ -6,12 +6,13 @@
 //! still reaching the shell once the focused document's tab is closed.
 
 use anyhow::{Context as _, Result};
-use gpui::{AsyncApp, Focusable as _};
+use gpui::{App, AsyncApp, Entity, Focusable as _, Window};
 use gpui_kit::component::dock::DockPlacement;
 use serde_json::{Value, json};
 
 use super::Run;
 use crate::shell::{
+    Shell,
     commands::{CloseTab, CommandPalette, ReopenClosedTab},
     layout::{Preset, View},
 };
@@ -251,38 +252,37 @@ impl Run {
     }
 
     /// ⌘W on the focused document closes its tab, and the keyboard stays in
-    /// the window: on the shell or the document now in front, so the
-    /// palette opens from it. A dispatched action runs once the update that
-    /// sent it is over, so each is looked at in a later one.
+    /// the window, under the shell, so the window's commands still reach it
+    /// and the palette opens from it. A dispatched action runs once the
+    /// update that sent it is over, so each is looked at in a later one; and
+    /// focus is read through the last drawn frame's dispatch tree, so it is
+    /// looked at only after a frame (`frame_after_input`).
     async fn closing_the_focused_tab_keeps_the_keyboard(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
-        let (before, editor_focused) = self.with_window(cx, |shell, window, cx| {
-            shell.update(cx, |shell, cx| shell.focus_front(window, cx));
-            let before = shell.read(cx).current_arrangement(cx).documents();
-            let editor_focused = shell.read(cx).active_editor().is_some_and(|editor| {
-                editor
-                    .read(cx)
-                    .editor()
-                    .focus_handle(cx)
-                    .contains_focused(window, cx)
-            });
-            (before, editor_focused)
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.focus_front(window, cx))
         })?;
         self.frame_after_input(cx).await?;
+        let (before, focus_before) = self.with_window(cx, |shell, window, cx| {
+            let before = shell.read(cx).current_arrangement(cx).documents();
+            (before, keyboard_holder(shell, window, cx))
+        })?;
         self.with_window(cx, |_, window, cx| {
             window.dispatch_action(Box::new(CloseTab), cx)
         })?;
         self.frame_after_input(cx).await?;
-        let (closed, keyboard_kept) = self.with_window(cx, |shell, window, cx| {
+        let (closed, focus_after) = self.with_window(cx, |shell, window, cx| {
             let after = shell.read(cx).current_arrangement(cx).documents();
-            let focused = window.focused(cx);
-            let shell = shell.read(cx);
-            let kept = focused.as_ref() == Some(&shell.focus_handle)
-                || shell.active_editor().is_some_and(|editor| {
-                    focused.as_ref() == Some(&editor.read(cx).editor().focus_handle(cx))
-                });
-            (after.len() + 1 == before.len(), kept)
+            (
+                after.len() + 1 == before.len(),
+                keyboard_holder(shell, window, cx),
+            )
         })?;
+        let editor_focused = focus_before == "the active editor";
+        let keyboard_kept = matches!(
+            focus_after,
+            "the shell" | "the active editor" | "inside the shell"
+        );
         self.with_window(cx, |_, window, cx| {
             window.dispatch_action(Box::new(CommandPalette), cx)
         })?;
@@ -303,12 +303,35 @@ impl Run {
             "closing the focused document's tab leaves the keyboard in the window",
             editor_focused && closed && keyboard_kept && rows.is_some() && reopened,
             json!({
-                "editor_focused": editor_focused,
+                "focus_before": focus_before,
                 "closed": closed,
-                "keyboard_kept": keyboard_kept,
+                "focus_after": focus_after,
                 "palette_rows": rows,
                 "reopened": reopened,
             }),
         ))
+    }
+}
+
+/// Where the keyboard is, for a step's detail: on the shell's own handle, on
+/// the active document's editor, elsewhere inside the shell (whose actions
+/// still bubble to the shell's handlers), outside it, or nowhere. Read after
+/// a drawn frame, since containment goes through that frame's dispatch tree.
+fn keyboard_holder(shell: &Entity<Shell>, window: &Window, cx: &App) -> &'static str {
+    let Some(focused) = window.focused(cx) else {
+        return "nowhere";
+    };
+    let shell = shell.read(cx);
+    if focused == shell.focus_handle {
+        "the shell"
+    } else if shell
+        .active_editor()
+        .is_some_and(|editor| editor.read(cx).editor().focus_handle(cx) == focused)
+    {
+        "the active editor"
+    } else if shell.focus_handle.contains_focused(window, cx) {
+        "inside the shell"
+    } else {
+        "outside the shell"
     }
 }
