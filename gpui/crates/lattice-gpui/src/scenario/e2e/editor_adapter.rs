@@ -93,9 +93,11 @@ impl Run {
         let _ = (cx, name);
     }
 
-    /// The editor's line height, from its own layout: the distance between
-    /// its first two lines (with no block widget between them). The overlay
-    /// records it only in frames that draw gutter marks or carets.
+    /// The height of one of the editor's display rows, from its own layout:
+    /// a caret's height. (The overlay records it only in frames that draw
+    /// gutter marks or carets.) Not the distance between two lines: a narrow
+    /// editor (a 1024px CI screen leaves the center ~170px) wraps a line
+    /// over several rows.
     fn line_height(
         &self,
         cx: &mut AsyncApp,
@@ -104,9 +106,9 @@ impl Run {
         let lattice = lattice.clone();
         self.with_window(cx, move |_, window, cx| {
             lattice.update(cx, |lattice, cx| {
-                let first = lattice.line_top(0, window, cx)?;
-                let second = lattice.line_top(1, window, cx)?;
-                Some(second - first)
+                lattice
+                    .offset_bounds(0, window, cx)
+                    .map(|caret| caret.size.height)
             })
         })
     }
@@ -373,8 +375,11 @@ impl Run {
                 cx,
             )
         });
-        self.scroll_editor(cx, &editor, point(start.x, 0.))?;
         self.pause(cx, Duration::from_millis(300)).await;
+        // Then scrolled so the key sits a line past the room: in a narrow
+        // editor, whose lines wrap, the room alone pushes it out of view.
+        self.scroll_key_to(cx, panel, lattice, &editor, needed + line_height)
+            .await?;
         let roomy = self.citation_card(cx, panel, lattice).await?;
         self.adapter_shot(cx, "citation-card-above").await;
         self.park(cx)?;
@@ -384,15 +389,9 @@ impl Run {
         self.pause(cx, Duration::from_millis(400)).await;
 
         // Near the top: scrolled so the key sits a line short of the room.
-        let (_, key) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
-        let editor_top = cx
-            .update(|cx| lattice.read(cx).painted().bounds.map(|b| b.top()))
-            .context("the editor was drawn")?;
         let target = (needed - line_height).max(line_height * 0.5);
-        let top = cx.update(|cx| editor.update(cx, |editor, cx| editor.scroll_position(cx).y));
-        let rows = top + ((key.top() - editor_top - target) / line_height) as f64;
-        self.scroll_editor(cx, &editor, point(start.x, rows.max(0.)))?;
-        self.pause(cx, Duration::from_millis(300)).await;
+        self.scroll_key_to(cx, panel, lattice, &editor, target)
+            .await?;
         let near = self.citation_card(cx, panel, lattice).await?;
         self.adapter_shot(cx, "citation-card-below").await;
         self.park(cx)?;
@@ -424,6 +423,30 @@ impl Run {
             above && below,
             json!({ "needed": f32::from(needed), "above": json(&roomy), "below": json(&near) }),
         );
+        Ok(())
+    }
+
+    /// Scroll the editor so the top of `knuth1984` sits `target` below the
+    /// editor's top edge (or as near as scrolling from the top gets it).
+    async fn scroll_key_to(
+        &self,
+        cx: &mut AsyncApp,
+        panel: &Entity<EditorPanel>,
+        lattice: &Entity<LatticeEditor>,
+        editor: &Entity<editor::Editor>,
+        target: Pixels,
+    ) -> Result<()> {
+        let line_height = self
+            .line_height(cx, lattice)?
+            .context("the editor was drawn")?;
+        let (_, key) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
+        let editor_top = cx
+            .update(|cx| lattice.read(cx).painted().bounds.map(|b| b.top()))
+            .context("the editor was drawn")?;
+        let scroll = cx.update(|cx| editor.update(cx, |editor, cx| editor.scroll_position(cx)));
+        let rows = scroll.y + ((key.top() - editor_top - target) / line_height) as f64;
+        self.scroll_editor(cx, editor, point(scroll.x, rows.max(0.)))?;
+        self.pause(cx, Duration::from_millis(300)).await;
         Ok(())
     }
 
@@ -483,6 +506,11 @@ impl Run {
                 },
             ]
         };
+        // Both carets' lines in view: the editor opened centred on line 8,
+        // which in a narrow editor, whose lines wrap, scrolls line 1 out.
+        let editor = cx.update(|cx| lattice.read(cx).editor().clone());
+        let start = cx.update(|cx| editor.update(cx, |editor, cx| editor.scroll_position(cx)));
+        self.scroll_editor(cx, &editor, point(start.x, 0.))?;
         lattice.update(cx, |lattice, cx| {
             lattice.set_remote_cursors(cursors(10), cx)
         });
@@ -587,6 +615,8 @@ impl Run {
             }),
         );
         lattice.update(cx, |lattice, cx| lattice.set_remote_cursors(Vec::new(), cx));
+        self.scroll_editor(cx, &editor, start)?;
+        self.pause(cx, Duration::from_millis(300)).await;
         Ok(())
     }
 

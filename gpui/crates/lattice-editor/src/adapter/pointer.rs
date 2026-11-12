@@ -228,8 +228,14 @@ impl LatticeEditor {
                 .map(|(_, _, mark)| mark.center().y - line_height / 2.)?;
             return Some(gutter::hover_bounds(bounds.left(), frame_top, line_height));
         }
-        let start = targets.iter().map(|target| target.offsets(&text).start).min()?;
-        let end = targets.iter().map(|target| target.offsets(&text).end).max()?;
+        let start = targets
+            .iter()
+            .map(|target| target.offsets(&text).start)
+            .min()?;
+        let end = targets
+            .iter()
+            .map(|target| target.offsets(&text).end)
+            .max()?;
         geometry::first_row_rect(&self.editor, &text, start..end, bounds, window, cx)
     }
 
@@ -502,20 +508,25 @@ impl LatticeEditor {
         // A card joining the stack enters on its own, keyed by its target
         // so a new target of the same provider enters too; those shown stay
         // put.
-        let cards = div().flex().flex_col().items_start().gap(CARD_GAP).children(
-            targets
-                .iter()
-                .map(|target| {
-                    let card = (target.card)(&context, window, cx);
-                    let start = target.offsets(&context.text).start;
-                    pop_in(
-                        SharedString::from(format!("lattice-hover-{}-{start}", target.id)),
-                        from,
-                        card,
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
+        let cards = div()
+            .flex()
+            .flex_col()
+            .items_start()
+            .gap(CARD_GAP)
+            .children(
+                targets
+                    .iter()
+                    .map(|target| {
+                        let card = (target.card)(&context, window, cx);
+                        let start = target.offsets(&context.text).start;
+                        pop_in(
+                            SharedString::from(format!("lattice-hover-{}-{start}", target.id)),
+                            from,
+                            card,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            );
         let hovered = cx.listener(|this, hovered: &bool, _, cx| this.card_hovered(*hovered, cx));
         let painted = self.painted.clone();
         let record = canvas(

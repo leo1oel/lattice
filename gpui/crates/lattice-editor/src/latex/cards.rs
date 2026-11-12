@@ -410,8 +410,7 @@ impl RenderOnce for ReferenceCard {
                     .text_size(lattice_ui::tokens::TEXT_MICRO)
                     .child(capitalize(&format!(
                         "{} {}",
-                        reference.kind,
-                        reference.label
+                        reference.kind, reference.label
                     ))),
             )
             .child(
