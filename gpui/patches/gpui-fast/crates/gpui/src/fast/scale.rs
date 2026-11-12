@@ -688,4 +688,76 @@ mod tests {
         cx.run_until_parked();
         assert_eq!(child_quad(cx), (point(125., 100.), size(150., 75.)));
     }
+
+    #[gpui::test]
+    fn a_view_drawn_again_inside_a_replayed_scale_is_still_scaled(cx: &mut TestAppContext) {
+        struct Child {
+            color: Hsla,
+        }
+        impl crate::Render for Child {
+            fn render(&mut self, _: &mut Window, _: &mut crate::Context<Self>) -> impl IntoElement {
+                div().w(px(200.)).h(px(100.)).bg(self.color)
+            }
+        }
+        struct Parent {
+            child: crate::Entity<Child>,
+            renders: std::rc::Rc<std::cell::Cell<usize>>,
+        }
+        impl crate::Render for Parent {
+            fn render(&mut self, _: &mut Window, _: &mut crate::Context<Self>) -> impl IntoElement {
+                self.renders.set(self.renders.get() + 1);
+                div().size_full().child(
+                    div().absolute().top(px(100.)).left(px(100.)).child(
+                        scaled(self.child.clone())
+                            .scale(0.5)
+                            .origin(point(0.5, 0.)),
+                    ),
+                )
+            }
+        }
+
+        let renders = std::rc::Rc::new(std::cell::Cell::new(0));
+        let (parent, cx) = cx.add_window_view(|_, cx| Parent {
+            child: cx.new(|_| Child {
+                color: gpui::blue(),
+            }),
+            renders: renders.clone(),
+        });
+        cx.run_until_parked();
+        let child_quad = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|window, _| {
+                let factor = window.scale_factor();
+                let quads = &window.rendered_frame.scene.quads;
+                assert_eq!(quads.len(), 1);
+                let quad = &quads[0];
+                (
+                    point(quad.bounds.origin.x.0 / factor, quad.bounds.origin.y.0 / factor),
+                    size(
+                        quad.bounds.size.width.0 / factor,
+                        quad.bounds.size.height.0 / factor,
+                    ),
+                    quad.background.as_solid(),
+                )
+            })
+        };
+        assert_eq!(
+            child_quad(cx),
+            (point(150., 100.), size(100., 50.), Some(gpui::blue()))
+        );
+        let parent_renders = renders.get();
+
+        // Only the child is notified: the parent is replayed around it, and
+        // the child, drawn again, is drawn under the scale it sat in.
+        let child = parent.read_with(cx, |parent, _| parent.child.clone());
+        child.update(cx, |child, cx| {
+            child.color = gpui::red();
+            cx.notify();
+        });
+        cx.run_until_parked();
+        assert_eq!(renders.get(), parent_renders);
+        assert_eq!(
+            child_quad(cx),
+            (point(150., 100.), size(100., 50.), Some(gpui::red()))
+        );
+    }
 }
