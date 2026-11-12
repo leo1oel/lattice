@@ -52,7 +52,7 @@ pub(crate) use fetch::download as download_pinned;
 pub(crate) use installer::{create_private_file, PinnedDownload};
 #[cfg(target_os = "macos")]
 pub use macos::{check_package_updates, install_dependency, install_tex, update_packages};
-pub use package_updates::TexPackageUpdates;
+pub use package_updates::{TexPackageUpdate, TexPackageUpdates};
 #[cfg(not(any(target_os = "macos", windows)))]
 pub use stub::{check_package_updates, install_dependency, install_tex, update_packages};
 // Windows installs TeX itself; it has no package-update step yet.
@@ -75,6 +75,23 @@ pub fn cancel_install() -> bool {
 pub struct TexInstallProgress {
     stage: String,
     progress: f64,
+}
+
+impl TexInstallProgress {
+    pub fn new(stage: impl Into<String>, progress: f64) -> Self {
+        Self { stage: stage.into(), progress }
+    }
+
+    /// What the install is doing: `downloading`, `authorizing`,
+    /// `installing-base`, … `complete` (src/build/tex-setup.ts lists them).
+    pub fn stage(&self) -> &str {
+        &self.stage
+    }
+
+    /// How far along it is, from 0 to 1.
+    pub fn progress(&self) -> f64 {
+        self.progress
+    }
 }
 
 /// How a missing-package install ended without an error.

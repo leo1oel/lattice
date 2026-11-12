@@ -9,8 +9,9 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
 2. Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim).
 3. Saves as the Tauri app does: after a pause in typing, on leaving the editor, and before a tab or window closes or the app quits, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
 4. Shows the PDF on the right, rendered natively by PDFium, and jumps between it and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, and a double-click in the PDF opens its source line.
-5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B), and after each save and each outside edit it loads (the Tauri app's default automatic builds), reloads the PDF in place, and lists errors that jump to their line.
-6. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
+5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B; ⇧-click rebuilds clean), and after each save and each outside edit it loads (the Tauri app's default automatic builds), and reloads the PDF in place. The Build button's hover card lists the passes latexmk ran; a build can be stopped, and the build files cleaned. The build's diagnostics are the Tauri app's card over the PDF (or docked under it): TeX's messages in plain words with the failing line quoted, a typo's one-click fix, a missing package's install, and errors that jump to their line (F8 / ⇧F8 step through them).
+6. The TeX doctor (the Tauri app's Settings › TeX doctor, in a sheet of its own until Settings is ported), the setup wizard that installs BasicTeX (TeX Live on Windows) when a build finds no TeX, and the status bar's word counts (the manuscript's through TeXcount, this file's, the selection's).
+7. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
 
 Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent panel, canvas, spreadsheet, slides, live preview and i18n.
 
@@ -120,8 +121,11 @@ Pages are laid out from their sizes at once and drawn only near the viewport; im
 ### The build
 
 The build is `lattice-core`'s `latex::build`, the Tauri app's own: the main document from the project's manifest (or a compilable `.tex` open in the editor, which it adopts), its engine, rc-file handling, preamble format, stale-build recovery and log diagnostics.
-While it runs, the build panel names the passes latexmk announces; one build runs at a time, and a build asked for meanwhile runs once it ends, standing for every ask made in between.
-A build after a save is unattended, as the Tauri app's automatic builds are, so a failing document nothing changed in is not typeset again.
+While it runs, the Build button's card fills in the passes latexmk announces; one build runs at a time, and a build asked for meanwhile runs once it ends, standing for every ask made in between.
+A build after a save is unattended, as the Tauri app's automatic builds are, so a failing document nothing changed in is not typeset again: its errors are restated from the log the failed build left.
+
+`crates/lattice-gpui/src/build/` ports the Tauri app's build surfaces line by line, with their tests: `compile-diagnostics.ts` (`diagnostics.rs`), `compile-explain.ts` (`explain.rs`), `build-result-text.ts` and `build-outcome.ts` (`outcome.rs`), the diagnostics card (`card.rs`), the Build button's sequence (`sequence.rs`), `tex-setup.ts` and the setup dialogs (`tex_setup/`), the TeX doctor pane (`doctor.rs`) and the status bar's word counts (`word_count.rs`).
+The doctor and the installers are lattice-core's (`doctor::run`, `tex_setup::install_tex`, `install_dependency`); the scripted scenarios replace them with a stand-in (`tex_setup::backend::StubTexSetup`), so no run of them installs anything or asks for an administrator.
 
 ### Saving and outside edits
 
@@ -140,7 +144,7 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 
 `e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
 
-- `e2e`: opens a project through `lattice-core`, builds, jumps from the caret to the PDF and back with a native double-click (SyncTeX), autosaves after a pause in typing (and builds), reloads an outside edit into a clean buffer and merges one made while the buffer holds edits, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs the file outside Lattice and rebuilds, creates, renames, moves and deletes a file in the tree, and drags an editor tab into the right dock with native mouse events.
+- `e2e`: opens a project through `lattice-core`, builds, jumps from the caret to the PDF and back with a native double-click (SyncTeX), autosaves after a pause in typing (and builds), reloads an outside edit into a clean buffer and merges one made while the buffer holds edits, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs the file outside Lattice and rebuilds, checks the build's card (the passes, the explained error, the unattended rebuild that restates an unchanged failure, a typo's fix, a missing package's install with the stand-in installer, clean and clean rebuild, stopping a build that loops), the TeX doctor and the setup wizard (stand-in), and the manuscript's word count, creates, renames, moves and deletes a file in the tree, and drags an editor tab into the right dock with native mouse events.
   It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, and that closing the tab of a file deleted outside Lattice takes down its notice.
   It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
   It needs `chapters/intro.tex` and `references.bib` in the project.

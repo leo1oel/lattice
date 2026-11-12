@@ -194,6 +194,17 @@ impl Project {
         });
     }
 
+    /// The last build left no PDF of its inputs (it failed without writing
+    /// one, or was stopped): no PDF on disk answers for any revision.
+    pub fn forget_compiled(&mut self) {
+        self.compiled = None;
+    }
+
+    /// Some build left a PDF of the inputs it started from.
+    pub fn has_compiled(&self) -> bool {
+        self.compiled.is_some()
+    }
+
     /// The sources changed (a save here): the PDF is older than them.
     pub fn mark_inputs_changed(&mut self) {
         self.input_revision += 1;
