@@ -28,7 +28,7 @@ use std::{
 
 use anyhow::{Context as _, Result};
 use editor::{Editor, EditorEvent, SelectionEffects, ToPoint as _, scroll::Autoscroll};
-use futures::future::Shared;
+use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
@@ -131,6 +131,9 @@ pub struct EditorPanel {
     saves_pending: usize,
     /// Bumped by every save, so a disk read that raced one is dropped.
     save_generation: u64,
+    /// The write under way off the main thread until its result is taken
+    /// in: it settles with the text it sent once that is on disk.
+    writing: Option<Shared<oneshot::Receiver<Option<String>>>>,
     _autosave: Option<Task<()>>,
     _count: Option<Task<()>>,
     _poll: Task<()>,
@@ -263,6 +266,7 @@ impl EditorPanel {
             save_queue: None,
             saves_pending: 0,
             save_generation: 0,
+            writing: None,
             _autosave: None,
             _count: None,
             _poll: poll,

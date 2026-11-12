@@ -56,20 +56,36 @@ impl EditorPanel {
         self.save(cx).detach();
     }
 
-    /// The app is quitting and no task runs again: write what the buffer
-    /// holds now, on this thread, merging as a save does.
-    pub fn write_before_quit(&mut self, cx: &mut Context<Self>) {
+    /// The app is quitting and no task on the main thread runs again: write
+    /// what the buffer holds off it, merging as a save does. A write already
+    /// under way lands first, and the buffer grew from the text it sent.
+    pub fn write_before_quit(&mut self, cx: &mut Context<Self>) -> Task<()> {
         if self.closed || self.vanished.is_some() || !self.is_dirty(cx) {
-            return;
+            return Task::ready(());
         }
         let root = self.project.read(cx).root().to_path_buf();
+        let relative = self.relative.clone();
         let content = self.buffer.read(cx).text();
-        let base = Some(self.saved_text.clone());
-        if let Err(error) =
-            core_project::apply_editor_transaction(&root, self.relative.clone(), content, base, None)
-        {
-            log::error!("could not save {} before quitting: {error}", self.relative);
-        }
+        let saved = self.saved_text.clone();
+        let writing = self.writing.clone();
+        cx.background_spawn(async move {
+            let base = match writing {
+                Some(writing) => writing.await.ok().flatten().unwrap_or(saved),
+                None => saved,
+            };
+            if content == base {
+                return;
+            }
+            if let Err(error) = core_project::apply_editor_transaction(
+                &root,
+                relative.clone(),
+                content,
+                Some(base),
+                None,
+            ) {
+                log::error!("could not save {relative} before quitting: {error}");
+            }
+        })
     }
 
     fn save_for_build(&mut self, cx: &mut Context<Self>) {
@@ -155,17 +171,27 @@ impl EditorPanel {
         let base = (!recreating).then(|| self.saved_text.clone());
         self.status = SaveStatus::Saving;
         cx.notify();
-        let written =
-            cx.background_spawn({
-                let content = content.clone();
-                let relative = relative.clone();
-                async move {
-                    core_project::apply_editor_transaction(&root, relative, content, base, None)
-                }
-            });
+        let (landed, landing) = oneshot::channel::<Option<String>>();
+        self.writing = Some(landing.shared());
+        let written = cx.background_spawn({
+            let content = content.clone();
+            let relative = relative.clone();
+            async move {
+                let written = core_project::apply_editor_transaction(
+                    &root,
+                    relative,
+                    content.clone(),
+                    base,
+                    None,
+                );
+                landed.send(written.is_ok().then_some(content)).ok();
+                written
+            }
+        });
         cx.spawn(async move |this, cx| {
             let written = written.await;
             let merged = this.update(cx, |this, cx| {
+                this.writing = None;
                 let result = match written {
                     Ok(result) => result,
                     Err(error) => {
