@@ -417,10 +417,12 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> bool {
         if let Some(floating) = self.floating.remove(panel) {
-            cx.notify();
             if let (View::File(key), Some(root)) = (&floating.view, &self.root) {
                 self.closed_tabs.push(root.join(key));
             }
+            self.refresh_dirty(cx);
+            self.schedule_save(window, cx);
+            cx.notify();
             return true;
         }
         let Some(view) = self.view_of(panel, cx) else {
