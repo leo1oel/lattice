@@ -57,35 +57,35 @@ impl EditorPanel {
     }
 
     /// The app is quitting and no task on the main thread runs again: write
-    /// what the buffer holds off it, merging as a save does. A write already
-    /// under way lands first, and the buffer grew from the text it sent.
-    pub fn write_before_quit(&mut self, cx: &mut Context<Self>) -> Task<()> {
+    /// what the buffer holds now, on this thread, merging as a save does. A
+    /// write already under way lands first (it needs nothing from this
+    /// thread), and the buffer grew from the text it sent.
+    pub fn write_before_quit(&mut self, cx: &mut Context<Self>) {
         if self.closed || self.vanished.is_some() || !self.is_dirty(cx) {
-            return Task::ready(());
+            return;
         }
-        let root = self.project.read(cx).root().to_path_buf();
-        let relative = self.relative.clone();
         let content = self.buffer.read(cx).text();
         let saved = self.saved_text.clone();
-        let writing = self.writing.clone();
-        cx.background_spawn(async move {
-            let base = match writing {
-                Some(writing) => writing.await.ok().flatten().unwrap_or(saved),
-                None => saved,
-            };
-            if content == base {
-                return;
-            }
-            if let Err(error) = core_project::apply_editor_transaction(
-                &root,
-                relative.clone(),
-                content,
-                Some(base),
-                None,
-            ) {
-                log::error!("could not save {relative} before quitting: {error}");
-            }
-        })
+        let base = match self.writing.clone() {
+            Some(writing) => futures::executor::block_on(writing)
+                .ok()
+                .flatten()
+                .unwrap_or(saved),
+            None => saved,
+        };
+        if content == base {
+            return;
+        }
+        let root = self.project.read(cx).root().to_path_buf();
+        if let Err(error) = core_project::apply_editor_transaction(
+            &root,
+            self.relative.clone(),
+            content,
+            Some(base),
+            None,
+        ) {
+            log::error!("could not save {} before quitting: {error}", self.relative);
+        }
     }
 
     fn save_for_build(&mut self, cx: &mut Context<Self>) {

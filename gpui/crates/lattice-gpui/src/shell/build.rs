@@ -162,34 +162,34 @@ impl Shell {
         self.build_task = None;
         let current = self.project.as_ref() == Some(project);
         match outcome {
+            // A build of the project open before shows nothing in this one.
+            _ if !current => self.build_panel.update(cx, |panel, cx| panel.cleared(cx)),
             Ok(result) => {
                 self.build_panel
                     .update(cx, |panel, cx| panel.finished(&result, cx));
-                if current {
-                    let root = project.read(cx).root().to_path_buf();
-                    project.update(cx, |project, cx| {
-                        // A build may adopt the open document or switch the
-                        // engine, which it writes to the manifest.
-                        project.reload_manifest(cx);
-                        if result.has_pdf {
-                            project.record_compiled(
-                                revision,
-                                result.root_document.clone(),
-                                result.one_off,
-                            );
-                        }
-                    });
+                let root = project.read(cx).root().to_path_buf();
+                project.update(cx, |project, cx| {
+                    // A build may adopt the open document or switch the
+                    // engine, which it writes to the manifest.
+                    project.reload_manifest(cx);
                     if result.has_pdf {
-                        let pdf = root.join(&result.root_document).with_extension("pdf");
-                        self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+                        project.record_compiled(
+                            revision,
+                            result.root_document.clone(),
+                            result.one_off,
+                        );
                     }
-                    let errors = result
-                        .diagnostics
-                        .iter()
-                        .any(|diagnostic| diagnostic.level == "error");
-                    if request.requested && errors {
-                        self.show_build_panel(true, window, cx);
-                    }
+                });
+                if result.has_pdf {
+                    let pdf = root.join(&result.root_document).with_extension("pdf");
+                    self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+                }
+                let errors = result
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.level == "error");
+                if request.requested && errors {
+                    self.show_build_panel(true, window, cx);
                 }
             }
             Err(error) => {
@@ -202,9 +202,11 @@ impl Shell {
                 }
             }
         }
+        // `set_project` drops the queue, so what is queued now was asked of
+        // the project open now.
         match self.queued_build.take() {
-            Some(queued) if current => self.run_build(queued, window, cx),
-            _ => self.settle_builds(),
+            Some(queued) => self.run_build(queued, window, cx),
+            None => self.settle_builds(),
         }
         cx.notify();
     }

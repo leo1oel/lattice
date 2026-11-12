@@ -132,14 +132,10 @@ impl Shell {
         })?;
         shell.update(cx, |_, cx| {
             cx.on_app_quit(|shell, cx| {
-                let writes: Vec<_> = shell
-                    .open_editors()
-                    .into_iter()
-                    .map(|editor| editor.update(cx, |editor, cx| editor.write_before_quit(cx)))
-                    .collect();
-                async move {
-                    futures::future::join_all(writes).await;
+                for editor in shell.open_editors() {
+                    editor.update(cx, |editor, cx| editor.write_before_quit(cx));
                 }
+                async {}
             })
             .detach();
         });

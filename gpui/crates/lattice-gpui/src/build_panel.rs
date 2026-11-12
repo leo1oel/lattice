@@ -219,6 +219,16 @@ impl BuildPanel {
         cx.notify();
     }
 
+    /// The build under way was of a project no longer open: none of it
+    /// is shown.
+    pub fn cleared(&mut self, cx: &mut Context<Self>) {
+        self.status = Status::Idle;
+        self.diagnostics.clear();
+        self.log_lines.clear();
+        self.show_log = false;
+        cx.notify();
+    }
+
     pub fn failed(&mut self, message: String, cx: &mut Context<Self>) {
         self.builds += 1;
         self.status = Status::Failed(message.into());
