@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-12 against upstream
 `v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
-**843 files, +86,372 / −9,145 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+**857 files, +87,790 / −9,244 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -202,6 +202,20 @@ A model endpoint saved in Settings → Agent → Model endpoint ([Lattice PR 834
 
 Lattice's own copy from PR 834 changes with this pin: the permission menu's endpoint note and the Model endpoint pane now say Pi asks before edits and commands in "Ask before outside edits and network" and not in "Never ask", and the pane says Proofread, Polish and revisions use the endpoint once one of its models is chosen under Providers › Proofreading model (en, zh-CN).
 No in-app Lattice session was needed, and no real endpoint or key was used. Fork unit tests drive the Pi text backend against a local mock OpenAI-compatible streaming endpoint configured only through a scratch `models.json`, and a real SDK session with a fake model stream covers approve, deny and full-access. The embed browser and server regressions in [`synara-runtime.md`](synara-runtime.md) pass on this pin.
+
+The agent panel now shows the images a tool call returned or wrote as thumbnails under its row (fork `0b5dab489156244829ba0029d7955fb38c888159`, [fork PR 26](https://github.com/leo1oel/synara/pull/26), Lattice [issue 860](https://github.com/leo1oel/lattice/issues/860)).
+Before, a Read of a figure, `preview_latex_figure`, `device_screenshot` or an MCP image result showed only its status line, because the fork strips image bytes from tool results before they reach the transcript.
+The adapters now first copy each inline PNG, JPEG, GIF or WebP a tool returned to `tool-images/<thread>/<sha256>.<ext>` under the runtime state directory (`apps/server/src/provider/toolResultImages.ts`), and the activity carries those paths; the bytes are still stripped.
+A Codex `view_image` and an image file a completed edit wrote (such as an SVG) are previewed from disk instead.
+- **Thumbnails** sit under the tool row and open full size in Synara's image viewer.
+  A row with images never folds into a "Ran N tools" group, and a settled turn whose "Worked for" header is closed keeps its images visible under the header.
+- **Versions.** Each copy is content-addressed, so a row keeps the picture the agent saw after the file is overwritten.
+  The viewer steps through every copy in the thread with the arrow keys, which compares iterations of one figure.
+- **Not covered:** PDF pages get no thumbnail, an image a shell command writes is shown only once the agent reads it, and full size opens in the panel's viewer rather than Lattice's file viewer.
+
+Nothing prunes the copies yet; thread deletion is soft and restorable, so removing them with the thread is a follow-up.
+The fork PR's CI passed, and the embed browser and server regressions in [`synara-runtime.md`](synara-runtime.md) pass on this pin.
+Live Claude turns in an isolated Synara instance showed the Read thumbnails, three versions of a recolored figure, a written SVG with no error card, and the strip under a closed "Worked for" header.
 
 ## Synara 0.9.1 compatibility
 
