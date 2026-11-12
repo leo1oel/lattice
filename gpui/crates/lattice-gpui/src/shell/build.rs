@@ -18,7 +18,7 @@ use futures::{StreamExt as _, channel::mpsc, channel::oneshot};
 use gpui::{App, AppContext as _, AsyncWindowContext, Context, Entity, WeakEntity, Window};
 use lattice_core::{
     latex::{self, BuildResult, BuildStep, BuildSteps},
-    models::FileNode,
+    models::{Diagnostic, FileNode},
 };
 use lattice_ui::components::ToastLevel;
 
@@ -35,6 +35,9 @@ const NO_DOCUMENT: &str = "This project has no LaTeX document to build yet. Add 
 /// How long a build runs before Lattice says so and offers to stop it.
 const SLOW_BUILD: Duration = Duration::from_secs(10 * 60);
 const SLOW_BUILD_NOTICE: &str = "build-still-running";
+/// A build that could not run: each autosave's failure replaces the last, and
+/// a build that succeeds takes it down.
+const BUILD_FAILED_NOTICE: &str = "build-failed";
 
 /// How a build was asked for, which decides what it may do.
 #[derive(Clone, Copy, Debug, Default)]
@@ -108,19 +111,32 @@ fn fingerprint(path: &Path) -> Option<u64> {
     Some(hasher.finish())
 }
 
-/// The text of each file the diagnostics name, keyed as they name it, read
-/// once the build ends: what the build compiled, since it saved first.
-fn read_sources(root: &Path, result: &BuildResult, files: &[String]) -> HashMap<String, String> {
+/// The text of each project file the diagnostics name, keyed as they name
+/// it: what the build compiled. An editor's text as the build saved it, since
+/// an autosave during the build writes newer text to disk; else the file on
+/// disk, and only a file in the project tree.
+fn read_sources(
+    root: &Path,
+    diagnostics: &[Diagnostic],
+    root_document: &str,
+    files: &[String],
+    saved: &HashMap<String, String>,
+) -> HashMap<String, String> {
     let mut sources = HashMap::new();
-    for diagnostic in &result.diagnostics {
+    for diagnostic in diagnostics {
         let Some(file) = &diagnostic.file else {
             continue;
         };
         if sources.contains_key(file) {
             continue;
         }
-        let path = diagnostics::resolve_path(Some(file), files, &result.root_document);
-        if let Ok(text) = std::fs::read_to_string(root.join(path)) {
+        let path = diagnostics::resolve_path(Some(file), files, root_document);
+        let text = match saved.get(&path) {
+            Some(text) => Some(text.clone()),
+            None if files.contains(&path) => std::fs::read_to_string(root.join(&path)).ok(),
+            None => None,
+        };
+        if let Some(text) = text {
             sources.insert(file.clone(), text);
         }
     }
@@ -181,6 +197,19 @@ impl Shell {
         let open_document = open_document.map(|(path, _)| path);
         let editors = self.open_editors();
         let saves = Self::save_dirty(&editors, cx);
+        let saved: HashMap<String, String> = editors
+            .iter()
+            .filter_map(|editor| {
+                let editor = editor.read(cx);
+                let relative = editor.relative().to_ascii_lowercase();
+                (relative.ends_with(".tex") || relative.ends_with(".bib")).then(|| {
+                    (
+                        editor.relative().to_string(),
+                        editor.editor().read(cx).text(cx),
+                    )
+                })
+            })
+            .collect();
         let root = project.read(cx).root().to_path_buf();
         let mut files = Vec::new();
         flatten(project.read(cx).files(), &mut files);
@@ -261,7 +290,13 @@ impl Shell {
                     result.map(|result| {
                         let pdf = root.join(&result.root_document).with_extension("pdf");
                         let rewritten = fingerprint(&pdf) != before;
-                        let sources = read_sources(&root, &result, &files);
+                        let sources = read_sources(
+                            &root,
+                            &result.diagnostics,
+                            &result.root_document,
+                            &files,
+                            &saved,
+                        );
                         Finished {
                             result,
                             rewritten,
@@ -303,7 +338,10 @@ impl Shell {
             // A build of the project open before shows nothing in this one.
             _ if !current => self.build_panel.update(cx, |panel, cx| panel.cleared(cx)),
             // The clean before it failed, and said so.
-            None => self.build_panel.update(cx, |panel, cx| panel.failed(cx)),
+            None => {
+                project.update(cx, |project, _| project.forget_compiled());
+                self.build_panel.update(cx, |panel, cx| panel.failed(cx));
+            }
             Some(Ok(Finished {
                 result,
                 rewritten,
@@ -327,14 +365,19 @@ impl Shell {
                     // A build may adopt the open document or switch the
                     // engine, which it writes to the manifest.
                     project.reload_manifest(cx);
-                    if result.has_pdf {
+                    if wrote_pdf {
                         project.record_compiled(
                             revision,
                             result.root_document.clone(),
                             result.one_off,
                         );
+                    } else {
+                        project.forget_compiled();
                     }
                 });
+                if result.success && !cancelled {
+                    notices::dismiss(BUILD_FAILED_NOTICE, cx);
+                }
                 if result.has_pdf {
                     let pdf = root.join(&result.root_document).with_extension("pdf");
                     self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
@@ -367,8 +410,14 @@ impl Shell {
             Some(Err(error)) => {
                 let failure = latex::classify_build_error(&error);
                 log::warn!("build {}: {error}", failure.kind);
+                project.update(cx, |project, _| project.forget_compiled());
                 self.build_panel.update(cx, |panel, cx| panel.failed(cx));
-                notices::error("LaTeX compilation failed.", error.clone(), cx);
+                notices::show(
+                    Notice::new(ToastLevel::Error, "LaTeX compilation failed.")
+                        .detail(error.clone())
+                        .key(BUILD_FAILED_NOTICE),
+                    cx,
+                );
                 if tex_setup::is_missing_tex_build_error(&error) {
                     self.tex_setup
                         .update(cx, |center, cx| center.open_for_missing_tex(cx));
@@ -424,6 +473,16 @@ impl Shell {
                 return false;
             };
             settled.await.ok();
+            let Ok(compiled) = this.update(cx, |this, cx| {
+                this.project
+                    .as_ref()
+                    .is_some_and(|project| project.read(cx).has_compiled())
+            }) else {
+                return false;
+            };
+            if !compiled {
+                return false;
+            }
         }
         this.update(cx, |this, cx| this.compiled_is_current(cx))
             .unwrap_or(false)
@@ -460,5 +519,60 @@ mod tests {
         assert!(automatic.unattended && !automatic.requested);
         let clean = BuildRequest::automatic().merge(BuildRequest::clean_rebuild());
         assert!(clean.clean && clean.force && clean.requested && !clean.unattended);
+    }
+
+    fn naming(file: &str) -> Diagnostic {
+        Diagnostic {
+            file: Some(file.to_string()),
+            line: Some(1),
+            column: None,
+            end_line: None,
+            end_column: None,
+            level: "error".into(),
+            message: "Undefined control sequence.".into(),
+            code: None,
+            params: Default::default(),
+        }
+    }
+
+    #[test]
+    fn sources_are_the_text_the_build_saved_and_only_project_files() {
+        let base =
+            std::env::temp_dir().join(format!("lattice-read-sources-{}", std::process::id()));
+        let root = base.join("paper");
+        std::fs::create_dir_all(root.join("chapters")).unwrap();
+        std::fs::write(root.join("main.tex"), "autosaved during the build").unwrap();
+        std::fs::write(root.join("chapters/intro.tex"), "on disk").unwrap();
+        std::fs::write(base.join("secret.tex"), "outside the project").unwrap();
+        let files = vec![
+            "main.tex".to_string(),
+            "chapters".to_string(),
+            "chapters/intro.tex".to_string(),
+        ];
+        let saved = HashMap::from([("main.tex".to_string(), "as built".to_string())]);
+
+        let sources = read_sources(
+            &root,
+            &[
+                naming("main.tex"),
+                naming("./chapters/intro.tex"),
+                naming("../secret.tex"),
+            ],
+            "main.tex",
+            &files,
+            &saved,
+        );
+        std::fs::remove_dir_all(&base).ok();
+
+        assert_eq!(
+            sources.get("main.tex").map(String::as_str),
+            Some("as built")
+        );
+        assert_eq!(
+            sources.get("./chapters/intro.tex").map(String::as_str),
+            Some("on disk")
+        );
+        assert_eq!(sources.get("../secret.tex"), None);
+        assert_eq!(sources.len(), 2);
     }
 }

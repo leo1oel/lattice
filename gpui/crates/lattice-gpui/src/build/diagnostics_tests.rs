@@ -76,6 +76,24 @@ fn normalizes_absolute_and_dotted_log_paths() {
 }
 
 #[test]
+fn cuts_an_absolute_path_whose_case_changes_length_at_its_project_folder() {
+    // 'İ' lowercases to three bytes and 'Ω' (U+2126) to two: the folder found
+    // must still be cut at its own place in the path as TeX gave it.
+    assert_eq!(
+        normalize_path(Some("/Users/İlker/thesis/chapters/intro.tex")).as_deref(),
+        Some("chapters/intro.tex")
+    );
+    assert_eq!(
+        normalize_path(Some("/Users/ΩΩΩΩ/thesis/chapters/intro.tex")).as_deref(),
+        Some("chapters/intro.tex")
+    );
+    assert_eq!(
+        normalize_path(Some("/Users/İlker/Thesis/Sections/Intro.tex")).as_deref(),
+        Some("Sections/Intro.tex")
+    );
+}
+
+#[test]
 fn resolves_diagnostics_against_the_project_tree() {
     let tree = files(&["main.tex", "chapters", "chapters/intro.tex"]);
     assert_eq!(

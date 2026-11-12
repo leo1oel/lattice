@@ -84,7 +84,7 @@ pub fn normalize_path(file: Option<&str>) -> Option<String> {
     if !is_absolute(&cleaned) {
         return Some(cleaned);
     }
-    let lower = cleaned.to_lowercase();
+    let lower = cleaned.to_ascii_lowercase();
     for marker in ["/src/", "/chapters/", "/sections/", "/figures/"] {
         if let Some(index) = lower.rfind(marker) {
             return Some(cleaned[index + 1..].to_string());
