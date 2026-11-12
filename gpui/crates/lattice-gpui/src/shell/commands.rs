@@ -627,11 +627,39 @@ mod keymap_tests {
     fn resolve_in_editor(zed: KeyBinding, keys: &'static str) -> Option<&'static str> {
         let mut bindings = vec![zed];
         bindings.extend(default_bindings());
+        resolve(bindings, "Editor mode = full", keys)
+    }
+
+    /// What `keys` runs with `bindings` loaded in order, in a focused editor
+    /// whose own context is `editor`.
+    fn resolve(
+        bindings: Vec<KeyBinding>,
+        editor: &str,
+        keys: &'static str,
+    ) -> Option<&'static str> {
         let keymap = Keymap::new(bindings);
-        let stack = ["LatticeShell", "LatticeEditor", "Editor mode = full"]
+        let stack = ["LatticeShell", "LatticeEditor", editor]
             .map(|context| KeyContext::parse(context).unwrap());
         let (matched, _) = keymap.bindings_for_input(&[Keystroke::parse(keys).unwrap()], &stack);
         matched.first().map(|binding| binding.action().name())
+    }
+
+    #[test]
+    fn shell_keys_win_again_once_vim_is_turned_on() {
+        // vim.json binds ctrl-w, ctrl-s and the like in "VimControl"; turning
+        // Vim on loads it after Lattice's keymap, which then binds again.
+        let vim = || KeyBinding::new(m!("w"), editor::actions::Fold, Some("VimControl"));
+        let editor = "Editor mode = full VimControl";
+        let mut vim_last = default_bindings();
+        vim_last.push(vim());
+        assert_eq!(
+            resolve(vim_last.clone(), editor, m!("w")),
+            Some(editor::actions::Fold.name()),
+            "without binding again, Vim's later binding takes the key"
+        );
+        let mut rebound = vim_last;
+        rebound.extend(default_bindings());
+        assert_eq!(resolve(rebound, editor, m!("w")), Some(CloseTab.name()));
     }
 
     #[test]

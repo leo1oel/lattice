@@ -164,6 +164,7 @@ pub fn set_vim_mode(enabled: bool, cx: &mut App) {
     apply_settings(enabled, cx);
     if enabled {
         bind_asset_keymap(VIM_KEYMAP_PATH, cx);
+        crate::shell::bind_keys(cx);
     }
 }
 
