@@ -6,10 +6,13 @@
 //! question here, with the range the card belongs to and a builder for the
 //! card. Zed's editor only hovers for its own language servers, so the
 //! adapter runs the pointer itself (`adapter.rs`): after the pointer rests on
-//! a target for [`HOVER_DELAY`] (CodeMirror's `hoverTime`), the card rises
-//! above the target's first character (below when there is no room), stays
-//! while the pointer is over the target or the card, and goes when it
-//! leaves both, on a key press, or when the text changes.
+//! its targets for [`HOVER_DELAY`] (CodeMirror's `hoverTime`), every
+//! provider's card there opens, stacked in provider order as CodeMirror's
+//! hover host stacks its sources' tooltips (a citation card over the lint
+//! card of a diagnostic on the same key). The stack rises above the targets'
+//! first character (below when there is no room), stays while the pointer is
+//! over the targets or the stack, and goes when it leaves both, on a key
+//! press, or when the text changes.
 
 use std::{ops::Range, rc::Rc, time::Duration};
 
@@ -27,8 +30,8 @@ pub const HOVER_GRACE: Duration = Duration::from_millis(150);
 /// What a card is built with.
 #[derive(Clone)]
 pub struct HoverCardContext {
-    /// The editor the card belongs to: a card closes itself through it, and
-    /// asks the host to open a location ([`crate::LatticeEditorEvent`]).
+    /// The editor the card belongs to: a card asks the host to open a
+    /// location through it ([`crate::LatticeEditorEvent`]).
     pub editor: WeakEntity<LatticeEditor>,
     /// The widest the card may be: the editor's width less a margin, as the
     /// Tauri app caps its cards (`createHoverCard`).
@@ -39,13 +42,6 @@ pub struct HoverCardContext {
 }
 
 impl HoverCardContext {
-    /// Close the card (before an action that leaves the editor).
-    pub fn close(&self, cx: &mut App) {
-        self.editor
-            .update(cx, |editor, cx| editor.dismiss_hover(cx))
-            .ok();
-    }
-
     /// Ask the host to open `path` (project-relative) at the 1-based `line`.
     pub fn open_location(&self, path: String, line: u32, cx: &mut App) {
         self.editor

@@ -159,13 +159,14 @@ impl Run {
         id: &str,
     ) -> Option<(std::ops::Range<usize>, Option<Bounds<Pixels>>)> {
         let lattice_wait = lattice.clone();
-        let id = id.to_string();
+        let wait_id = id.to_string();
         let shown = self
             .wait_for(cx, CARD_WAIT, move |_, cx| {
                 let lattice = lattice_wait.read(cx);
                 lattice
                     .shown_hover(cx)
-                    .is_some_and(|(shown, _)| shown == id)
+                    .iter()
+                    .any(|(shown, _)| *shown == wait_id)
                     && lattice.painted().card.is_some()
             })
             .await;
@@ -179,6 +180,8 @@ impl Run {
             let lattice = lattice.read(cx);
             lattice
                 .shown_hover(cx)
+                .into_iter()
+                .find(|(shown, _)| *shown == id)
                 .map(|(_, range)| (range, lattice.painted().card))
         })
     }
@@ -218,7 +221,7 @@ impl Run {
         let lattice_wait = lattice.clone();
         let closed = self
             .wait_for(cx, CARD_WAIT, move |_, cx| {
-                lattice_wait.read(cx).shown_hover(cx).is_none()
+                lattice_wait.read(cx).shown_hover(cx).is_empty()
             })
             .await;
         steps.check(
@@ -413,6 +416,38 @@ impl Run {
                         .all(|cursor| cursor.label_opacity == 0.)
             })
             .await;
+        // The pointer on a caret's line beside it, above its bar, shows the
+        // faded tag: the caret's hover area is its whole line.
+        let grace_faded = cx.update(|cx| {
+            lattice
+                .read(cx)
+                .painted()
+                .cursors
+                .into_iter()
+                .find(|cursor| cursor.id.as_ref() == "grace")
+        });
+        let hover_point = grace_faded
+            .as_ref()
+            .map(|cursor| point(cursor.bar.center().x, cursor.hover.top() + px(1.)));
+        let mut hover_tag = false;
+        if let Some((at, cursor)) = hover_point.zip(grace_faded.as_ref())
+            && at.y < cursor.bar.top()
+        {
+            native::send_mouse(self.native(cx)?, native::Mouse::Moved, at)?;
+            let lattice_wait = lattice.clone();
+            hover_tag = self
+                .wait_for(cx, Duration::from_secs(2), move |_, cx| {
+                    lattice_wait
+                        .read(cx)
+                        .painted()
+                        .cursors
+                        .iter()
+                        .any(|cursor| cursor.id.as_ref() == "grace" && cursor.label_opacity == 1.)
+                })
+                .await;
+            self.park(cx)?;
+            self.pause(cx, Duration::from_millis(100)).await;
+        }
         // A caret that moves shows its name again, two characters along.
         lattice.update(cx, |lattice, cx| {
             lattice.set_remote_cursors(cursors(12), cx)
@@ -457,12 +492,14 @@ impl Run {
                         .any(|cursor| cursor.id.as_ref() == "ada" && cursor.label_opacity == 0.)
             });
         steps.check(
-            "remote carets draw as Overleaf's: bar, dot and a name tag that shows, fades, and shows again when the caret moves",
-            drawn && faded && stepped,
+            "remote carets draw as Overleaf's: bar, dot and a name tag that shows, fades, shows while the pointer is on the caret's line beside it, and shows again when the caret moves",
+            drawn && faded && hover_tag && stepped,
             json!({
                 "first": first.cursors.iter().map(cursor_json).collect::<Vec<_>>(),
                 "moved": moved.cursors.iter().map(cursor_json).collect::<Vec<_>>(),
                 "faded": faded,
+                "hover_point": hover_point.map(|at| [f32::from(at.x), f32::from(at.y)]),
+                "hover_tag": hover_tag,
             }),
         );
         lattice.update(cx, |lattice, cx| lattice.set_remote_cursors(Vec::new(), cx));
@@ -726,6 +763,75 @@ impl Run {
             found && cleared,
             json!({ "found": found, "cleared": cleared }),
         );
+        self.stacked_cards(cx, steps, panel, lattice, &diagnostics)
+            .await
+    }
+
+    /// A TexLab diagnostic on a citation key the index knows: with the
+    /// bibliography unlinked, TexLab calls `knuth1984` undefined, though the
+    /// project's `references.bib` (which the index reads) has it. Hovering
+    /// the key opens both cards, the citation card over the lint card, as the
+    /// Tauri app's hover host stacks its sources' tooltips.
+    async fn stacked_cards(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+        lattice: &Entity<LatticeEditor>,
+        diagnostics: &Entity<diagnostics::TexlabDiagnostics>,
+    ) -> Result<()> {
+        let link = "\\bibliography{references}";
+        let at = self
+            .editor_text(cx, panel)
+            .find(link)
+            .context("main.tex links its bibliography")?;
+        let buffer = cx.update(|cx| lattice.read(cx).buffer().clone());
+        buffer.update(cx, |buffer, cx| {
+            buffer.edit([(at..at + link.len(), "")], None, cx)
+        });
+        let key = self
+            .editor_text(cx, panel)
+            .find("knuth1984")
+            .context("main.tex cites knuth1984")?;
+        let wait_diagnostics = diagnostics.clone();
+        let found = self
+            .wait_for(cx, Duration::from_secs(40), move |_, cx| {
+                wait_diagnostics
+                    .read(cx)
+                    .located(cx)
+                    .iter()
+                    .any(|located| located.range.start <= key && key < located.range.end)
+            })
+            .await;
+        let (_, rect) = self.text_point(cx, panel, lattice, "knuth1984", 4).await?;
+        self.hover_at(cx, rect.center()).await?;
+        let lattice_wait = lattice.clone();
+        let stacked = self
+            .wait_for(cx, CARD_WAIT, move |_, cx| {
+                let lattice = lattice_wait.read(cx);
+                let ids: Vec<_> = lattice
+                    .shown_hover(cx)
+                    .into_iter()
+                    .map(|(id, _)| id)
+                    .collect();
+                ids == ["citation", "diagnostic"] && lattice.painted().card.is_some()
+            })
+            .await;
+        let shown = cx.update(|cx| lattice.read(cx).shown_hover(cx));
+        let located = cx.update(|cx| diagnostics.read(cx).located(cx));
+        self.adapter_shot(cx, "stacked-cards").await;
+        self.park(cx)?;
+        buffer.update(cx, |buffer, cx| buffer.edit([(at..at, link)], None, cx));
+        steps.check(
+            "a TexLab diagnostic on a citation key the index knows opens the citation card over its lint card",
+            found && stacked,
+            json!({
+                "found": found,
+                "shown": shown.iter().map(|(id, range)| json!({ "id": id, "range": [range.start, range.end] })).collect::<Vec<_>>(),
+                "located": located.iter().map(|l| json!({ "range": [l.range.start, l.range.end], "message": l.message })).collect::<Vec<_>>(),
+            }),
+        );
+        self.pause(cx, Duration::from_millis(300)).await;
         Ok(())
     }
 
@@ -879,6 +985,7 @@ fn cursor_json(cursor: &lattice_editor::PaintedCursor) -> Value {
         "id": cursor.id.as_ref(),
         "bar": bounds_json(cursor.bar),
         "label": bounds_json(cursor.label),
+        "hover": bounds_json(cursor.hover),
         "opacity": cursor.label_opacity,
         "below": cursor.label_below,
     })

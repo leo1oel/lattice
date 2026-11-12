@@ -1,10 +1,12 @@
-//! Hover cards: the pointer over the editor, the target it rests on, and
-//! the card that opens for it (`hover.rs` has the providers' side).
+//! Hover cards: the pointer over the editor, the targets it rests on, and
+//! the stack of cards that opens for them (`hover.rs` has the providers'
+//! side).
 //!
 //! The overlay's mouse listener (`overlay.rs`) reports every move over the
-//! editor here. A target the pointer rests on for [`HOVER_DELAY`] opens its
-//! card; the card closes [`HOVER_GRACE`] after the pointer is off both the
-//! target and the card, on a key or an edit, or at once for another target.
+//! editor here. Targets the pointer rests on for [`HOVER_DELAY`] open their
+//! cards, one under another; the stack closes [`HOVER_GRACE`] after the
+//! pointer is off both the targets and the stack, on a key or an edit, or at
+//! once for other targets.
 
 use std::{ops::Range, rc::Rc};
 
@@ -31,7 +33,7 @@ const TARGET_MARGIN: Pixels = px(4.);
 const CARD_MARGIN: Pixels = px(16.);
 /// How far inside the editor a card stays (`citationTooltipSpace`'s inset).
 const CARD_INSET: Pixels = px(8.);
-/// A card's width before it has been laid out: the cards' 360px.
+/// A stack's width before it has been laid out: the cards' 360px.
 const CARD_WIDTH: Pixels = px(360.);
 
 /// A target in the buffer, anchored so it follows edits until it closes.
@@ -51,19 +53,33 @@ impl Anchored {
             && self.range.start.to_offset(text) == other.range.start.to_offset(text)
             && self.range.end.to_offset(text) == other.range.end.to_offset(text)
     }
+
+    fn offsets(&self, text: &BufferSnapshot) -> Range<usize> {
+        self.range.start.to_offset(text)..self.range.end.to_offset(text)
+    }
+}
+
+fn same_places(targets: &[Anchored], others: &[Anchored], text: &BufferSnapshot) -> bool {
+    targets.len() == others.len()
+        && targets
+            .iter()
+            .zip(others)
+            .all(|(target, other)| target.same_place(other, text))
 }
 
 pub(super) enum Hover {
     Idle,
-    /// The pointer rests on a target; the card opens when the timer fires.
+    /// The pointer rests on targets (never none); their cards open when the
+    /// timer fires.
     Pending {
-        target: Anchored,
+        targets: Vec<Anchored>,
         _timer: Task<()>,
     },
     Shown {
-        target: Anchored,
+        targets: Vec<Anchored>,
         over_card: bool,
-        /// The pointer left the target and the card; it closes when this fires.
+        /// The pointer left the targets and the cards; they close when this
+        /// fires.
         closing: Option<Task<()>>,
     },
 }
@@ -73,19 +89,20 @@ impl LatticeEditor {
         self.hover_providers.push(provider);
     }
 
-    /// The card shown, if any: its provider's id and its range now.
-    pub fn shown_hover(&self, cx: &App) -> Option<(&'static str, Range<usize>)> {
-        let Hover::Shown { target, .. } = &self.hover else {
-            return None;
+    /// The cards shown, top to bottom: each one's provider id and its
+    /// range now. Empty when none is.
+    pub fn shown_hover(&self, cx: &App) -> Vec<(&'static str, Range<usize>)> {
+        let Hover::Shown { targets, .. } = &self.hover else {
+            return Vec::new();
         };
         let text = self.buffer.read(cx).snapshot();
-        Some((
-            target.id,
-            target.range.start.to_offset(&text)..target.range.end.to_offset(&text),
-        ))
+        targets
+            .iter()
+            .map(|target| (target.id, target.offsets(&text)))
+            .collect()
     }
 
-    /// Close the card, and forget a target the pointer was resting on.
+    /// Close the cards, and forget targets the pointer was resting on.
     pub fn dismiss_hover(&mut self, cx: &mut Context<Self>) {
         if !matches!(self.hover, Hover::Idle) {
             self.hover = Hover::Idle;
@@ -104,46 +121,57 @@ impl LatticeEditor {
         cx.emit(LatticeEditorEvent::OpenLocation { path, line });
     }
 
-    fn text_target(&self, text: &BufferSnapshot, offset: usize, cx: &App) -> Option<Anchored> {
-        self.hover_providers.iter().find_map(|provider| {
-            let HoverTarget { range, id, card } = provider.target(text, offset, cx)?;
-            Some(Anchored {
-                id,
-                range: text.anchor_before(range.start)..text.anchor_after(range.end),
-                gutter_row: None,
-                card,
+    /// Every provider's target at `offset`, in the order they were added.
+    fn text_targets(&self, text: &BufferSnapshot, offset: usize, cx: &App) -> Vec<Anchored> {
+        self.hover_providers
+            .iter()
+            .filter_map(|provider| {
+                let HoverTarget { range, id, card } = provider.target(text, offset, cx)?;
+                Some(Anchored {
+                    id,
+                    range: text.anchor_before(range.start)..text.anchor_after(range.end),
+                    gutter_row: None,
+                    card,
+                })
             })
-        })
+            .collect()
     }
 
-    /// What the pointer at `position` rests on: a gutter mark's line, or a
-    /// provider's target under it.
-    fn target_at(
+    /// What the pointer at `position` rests on: a gutter mark's line, or the
+    /// providers' targets under it.
+    fn targets_at(
         &self,
         position: Point<Pixels>,
         window: &mut Window,
         cx: &mut App,
-    ) -> Option<Anchored> {
+    ) -> Vec<Anchored> {
         let painted = self.painted.borrow().clone();
-        let bounds = painted.bounds?;
+        let Some(bounds) = painted.bounds else {
+            return Vec::new();
+        };
         let text = self.buffer.read(cx).snapshot();
         // The line height is read only in frames that drew gutter marks.
         if let Some(line_height) = painted.line_height
             && let Some(target) =
                 self.gutter_target(&painted.gutter, bounds, line_height, position, &text)
         {
-            return Some(target);
+            return vec![target];
         }
-        let offset = geometry::offset_at(&self.editor, &text, position, window, cx)?;
-        let target = self.text_target(&text, offset, cx)?;
-        let range = target.range.start.to_offset(&text)..target.range.end.to_offset(&text);
+        let Some(offset) = geometry::offset_at(&self.editor, &text, position, window, cx) else {
+            return Vec::new();
+        };
+        let mut targets = self.text_targets(&text, offset, cx);
         // `character_index_for_point` clamps a point past a line's end to
-        // the end: the pointer must be over the target's own text.
-        let rect =
-            geometry::first_row_rect(&self.editor, &text, range.clone(), bounds, window, cx)?;
-        let multi_row =
-            text.offset_to_point(range.end).row != text.offset_to_point(range.start).row;
-        (multi_row || geometry::near(rect, position, px(1.))).then_some(target)
+        // the end: the pointer must be over each target's own text.
+        targets.retain(|target| {
+            let range = target.offsets(&text);
+            let multi_row =
+                text.offset_to_point(range.end).row != text.offset_to_point(range.start).row;
+            multi_row
+                || geometry::first_row_rect(&self.editor, &text, range, bounds, window, cx)
+                    .is_some_and(|rect| geometry::near(rect, position, px(1.)))
+        });
+        targets
     }
 
     /// The gutter mark whose line the pointer is beside, when it has a card.
@@ -175,16 +203,19 @@ impl LatticeEditor {
         })
     }
 
-    /// The rectangle a target's card hangs from.
-    fn target_rect(
+    /// The rectangle the targets' cards hang from: a gutter mark's line, or
+    /// the first row of the text from the earliest target's start to the
+    /// latest one's end (CodeMirror's hover host spans its tooltips' ranges).
+    fn targets_rect(
         &self,
-        target: &Anchored,
+        targets: &[Anchored],
         window: &mut Window,
         cx: &mut App,
     ) -> Option<Bounds<Pixels>> {
         let painted = self.painted.borrow().clone();
         let bounds = painted.bounds?;
         let text = self.buffer.read(cx).snapshot();
+        let target = targets.first()?;
         if let Some(row) = target.gutter_row {
             let line_height = painted.line_height?;
             let frame_top = painted
@@ -194,8 +225,9 @@ impl LatticeEditor {
                 .map(|(_, _, mark)| mark.center().y - line_height / 2.)?;
             return Some(gutter::hover_bounds(bounds.left(), frame_top, line_height));
         }
-        let range = target.range.start.to_offset(&text)..target.range.end.to_offset(&text);
-        geometry::first_row_rect(&self.editor, &text, range, bounds, window, cx)
+        let start = targets.iter().map(|target| target.offsets(&text).start).min()?;
+        let end = targets.iter().map(|target| target.offsets(&text).end).max()?;
+        geometry::first_row_rect(&self.editor, &text, start..end, bounds, window, cx)
     }
 
     pub(super) fn pointer_moved(
@@ -204,17 +236,17 @@ impl LatticeEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // A card the pointer is still on, or still near its target, stays.
+        // Cards the pointer is still on, or still near their targets, stay.
         if let Hover::Shown {
-            target,
+            targets,
             over_card,
             closing,
         } = &self.hover
         {
-            let target = target.clone();
+            let targets = targets.clone();
             let (on_card, closing_already) = (*over_card, closing.is_some());
             let near_target = self
-                .target_rect(&target, window, cx)
+                .targets_rect(&targets, window, cx)
                 .is_some_and(|rect| geometry::near(rect, position, TARGET_MARGIN));
             if on_card || near_target {
                 if let Hover::Shown { closing, .. } = &mut self.hover {
@@ -226,22 +258,21 @@ impl LatticeEditor {
                 self.schedule_close(cx);
             }
         }
-        let candidate = if self.editor.read(cx).has_visible_completions_menu() {
-            None
+        let candidates = if self.editor.read(cx).has_visible_completions_menu() {
+            Vec::new()
         } else {
-            self.target_at(position, window, cx)
+            self.targets_at(position, window, cx)
         };
         let text = self.buffer.read(cx).snapshot();
-        match (&self.hover, candidate) {
-            (Hover::Shown { target, .. }, Some(candidate))
-                if target.same_place(&candidate, &text) => {}
-            (Hover::Pending { target, .. }, Some(candidate))
-                if target.same_place(&candidate, &text) => {}
-            (Hover::Shown { .. }, None) => {}
-            // Another target (the pointer left the shown one, or moved on
-            // from the one it was resting on): its card comes after the delay,
-            // and a card shown for the last one goes now.
-            (_, Some(candidate)) => {
+        match &self.hover {
+            Hover::Shown { targets, .. } | Hover::Pending { targets, .. }
+                if same_places(targets, &candidates, &text) => {}
+            Hover::Shown { .. } | Hover::Idle if candidates.is_empty() => {}
+            Hover::Pending { .. } if candidates.is_empty() => self.hover = Hover::Idle,
+            // Other targets (the pointer left the shown ones, or moved on
+            // from the ones it was resting on): their cards come after the
+            // delay, and cards shown for the last ones go now.
+            _ => {
                 if matches!(self.hover, Hover::Shown { .. }) {
                     self.painted.borrow_mut().card = None;
                     cx.notify();
@@ -251,23 +282,21 @@ impl LatticeEditor {
                     this.update(cx, |this, cx| this.open_pending(cx)).ok();
                 });
                 self.hover = Hover::Pending {
-                    target: candidate,
+                    targets: candidates,
                     _timer: timer,
                 };
             }
-            (Hover::Pending { .. }, None) => self.hover = Hover::Idle,
-            (Hover::Idle, None) => {}
         }
     }
 
     fn open_pending(&mut self, cx: &mut Context<Self>) {
-        if let Hover::Pending { target, .. } = &self.hover {
+        if let Hover::Pending { targets, .. } = &self.hover {
             if self.editor.read(cx).has_visible_completions_menu() {
                 self.hover = Hover::Idle;
                 return;
             }
             self.hover = Hover::Shown {
-                target: target.clone(),
+                targets: targets.clone(),
                 over_card: false,
                 closing: None,
             };
@@ -326,16 +355,16 @@ impl LatticeEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
-        let Hover::Shown { target, .. } = &self.hover else {
+        let Hover::Shown { targets, .. } = &self.hover else {
             return None;
         };
         if self.editor.read(cx).has_visible_completions_menu() {
             return None;
         }
-        let target = target.clone();
-        let rect = self.target_rect(&target, window, cx)?;
+        let targets = targets.clone();
+        let rect = self.targets_rect(&targets, window, cx)?;
         let bounds = self.painted.borrow().bounds?;
-        // A target scrolled out of the editor takes its card with it.
+        // Targets scrolled out of the editor take their cards with them.
         if rect.bottom() < bounds.top() || rect.top() > bounds.bottom() {
             return None;
         }
@@ -344,10 +373,10 @@ impl LatticeEditor {
             max_width: (bounds.size.width - CARD_MARGIN).max(px(160.)),
             text: self.buffer.read(cx).snapshot(),
         };
-        // The card stays inside the editor, as the Tauri app's tooltip space
-        // keeps it: shifted left from its target when it would cross the
-        // editor's right edge, and hung below it when it would cross the
-        // editor's top. Its size is last frame's; a card's first frame is
+        // The stack stays inside the editor, as the Tauri app's tooltip space
+        // keeps it: shifted left from its targets when it would cross the
+        // editor's right edge, and hung below them when it would cross the
+        // editor's top. Its size is last frame's; a stack's first frame is
         // the transparent start of its entrance.
         let last = self.painted.borrow().card.map(|card| card.size);
         let width = last
@@ -378,8 +407,17 @@ impl LatticeEditor {
             origin: point(left, rect.top()),
             size: rect.size,
         };
-        let card = (target.card)(&context, window, cx);
-        let id = SharedString::from(format!("lattice-hover-{}", target.id));
+        // Each card stands on its own surface, apart by the gap the Tauri
+        // app leaves between hover cards that share a popover; the gap is
+        // inside the stack, so the pointer crossing it is still over it.
+        let cards = div().flex().flex_col().items_start().gap(CARD_GAP).children(
+            targets
+                .iter()
+                .map(|target| (target.card)(&context, window, cx))
+                .collect::<Vec<_>>(),
+        );
+        let ids: Vec<_> = targets.iter().map(|target| target.id).collect();
+        let id = SharedString::from(format!("lattice-hover-{}", ids.join("-")));
         let hovered = cx.listener(|this, hovered: &bool, _, cx| this.card_hovered(*hovered, cx));
         let painted = self.painted.clone();
         let record = canvas(
@@ -402,7 +440,7 @@ impl LatticeEditor {
                             .id(id.clone())
                             .occlude()
                             .on_hover(hovered)
-                            .child(pop_in(id, from, card))
+                            .child(pop_in(id, from, cards))
                             .child(record),
                     ),
             )

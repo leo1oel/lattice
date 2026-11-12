@@ -192,20 +192,10 @@ impl EditorPanel {
         let buffered = started.elapsed();
         buffer.update(cx, |buffer, cx| buffer.set_language(language, cx));
         let languaged = started.elapsed();
-        let tex = latex::is_tex_source(&path);
-        let index = project.read(cx).index().clone();
-        let lattice = cx.new(|cx| {
-            let mut lattice = LatticeEditor::new(buffer.clone(), window, cx);
-            if tex {
-                latex::attach(&mut lattice, &index);
-            }
-            lattice
-        });
+        let lattice = cx.new(|cx| LatticeEditor::new(buffer.clone(), window, cx));
         let editor = lattice.read(cx).editor().clone();
-        let diagnostics = tex.then(|| {
-            let texlab = project.read(cx).texlab().clone();
-            TexlabDiagnostics::attach(&lattice, texlab, relative.clone(), cx)
-        });
+        let diagnostics = latex::is_tex_source(&path)
+            .then(|| attach_latex(&lattice, &project, relative.clone(), cx));
         log::debug!(
             "opened {}: buffer {buffered:?}, language {languaged:?}, editor {:?}",
             path.display(),
@@ -401,6 +391,13 @@ impl EditorPanel {
         if let Some(diagnostics) = &self.diagnostics {
             let relative = relative.clone();
             diagnostics.update(cx, |diagnostics, cx| diagnostics.set_path(relative, cx));
+        } else if latex::is_tex_source(&self.path) {
+            self.diagnostics = Some(attach_latex(
+                &self.lattice,
+                &self.project,
+                relative.clone(),
+                cx,
+            ));
         }
         self.relative = relative;
         self.disk = DiskVersion::Unread;
@@ -562,4 +559,18 @@ fn file_name(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default()
+}
+
+/// Put the LaTeX extensions that read the project on `lattice` (cards and
+/// completion), and TexLab's diagnostics for the file at `relative`.
+fn attach_latex(
+    lattice: &Entity<LatticeEditor>,
+    project: &Entity<Project>,
+    relative: String,
+    cx: &mut App,
+) -> Entity<TexlabDiagnostics> {
+    let index = project.read(cx).index().clone();
+    lattice.update(cx, |lattice, _| latex::attach(lattice, &index));
+    let texlab = project.read(cx).texlab().clone();
+    TexlabDiagnostics::attach(lattice, texlab, relative, cx)
 }

@@ -432,7 +432,7 @@ pub(crate) const ENVIRONMENTS: &[Entry] = &[
     e("description", "Labeled description list"),
     e("quote", "Block quotation"),
     e("abstract", "Abstract environment"),
-    e("theorem", "Theorem block (requires amsthm and a \\\\newtheorem declaration)"),
+    e("theorem", "Theorem block (requires amsthm and a \\newtheorem declaration)"),
     e("proof", "Proof environment (requires amsthm)"),
     e("verbatim", "Literal code / text block"),
     e("algorithm", "Algorithm block (requires algorithm and algpseudocode)"),

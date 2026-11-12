@@ -188,13 +188,6 @@ pub fn source_label(citation: &Citation) -> Option<String> {
     (!host.is_empty()).then(|| host.to_string())
 }
 
-/// The reference kind as cards and completions name it: `figure`, `table`,
-/// `equation`, `section` or `reference`, the English source strings of the
-/// Tauri app's `REFERENCE_KINDS`; any other kind as it is.
-pub fn reference_kind_label(kind: &str) -> String {
-    kind.to_string()
-}
-
 /// CSS `text-transform: capitalize`: each word's first letter in capitals.
 fn capitalize(text: &str) -> String {
     text.split(' ')
@@ -417,7 +410,7 @@ impl RenderOnce for ReferenceCard {
                     .text_size(lattice_ui::tokens::TEXT_MICRO)
                     .child(capitalize(&format!(
                         "{} {}",
-                        reference_kind_label(&reference.kind),
+                        reference.kind,
                         reference.label
                     ))),
             )
@@ -465,10 +458,10 @@ impl HoverProvider for CitationCards {
         let (window, start) = around(text, offset);
         let target = syntax::citation_target(&window, offset - start)?;
         let index = self.index.upgrade()?;
-        let citation = index.read(cx).citation(&target.key.key)?.clone();
+        let citation = index.read(cx).citation(&target.key)?.clone();
         let weak = self.index.clone();
         Some(HoverTarget {
-            range: target.key.range.start + start..target.key.range.end + start,
+            range: target.range.start + start..target.range.end + start,
             id: "citation",
             card: std::rc::Rc::new(move |context, _, _| {
                 CitationCard {

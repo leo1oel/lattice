@@ -33,27 +33,12 @@ static REFERENCE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(r"\\(?:{REFERENCE_COMMANDS})\*?\{{([^}}]*)\}}"))
         .expect("the reference pattern compiles")
 });
-static NOTE_PAGE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?i)^\s*(?:(?:pp?|pg|pages?)\.?(?:\s|~|\\[ ,])*)?(\d+)(?:\s*(?:-{1,3}|–|—)\s*\d+)?\s*$",
-    )
-    .expect("the note page pattern compiles")
-});
-static OPTION: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([^\]]*)\]").expect("the option pattern compiles"));
 
 /// A key in an argument list, in byte offsets of the text it was found in.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeySpan {
     pub range: Range<usize>,
     pub key: String,
-}
-
-/// A citation key under a position, with the page its note names.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CitationTarget {
-    pub key: KeySpan,
-    pub page: Option<u32>,
 }
 
 /// A slot being typed: where its key starts and what is typed of it.
@@ -179,18 +164,17 @@ pub fn key_end(after: &str) -> usize {
 }
 
 /// The comma-separated key under `position` in a citation or reference
-/// command, and that command's argument.
-fn key_at(text: &str, pattern: &Regex, position: usize) -> Option<(KeySpan, Argument)> {
+/// command.
+fn key_at(text: &str, pattern: &Regex, position: usize) -> Option<KeySpan> {
     let start = floor_boundary(text, position.saturating_sub(800));
     let end = floor_boundary(text, (position + 800).min(text.len()));
     arguments_of(&text[start..end], pattern, start)
         .into_iter()
         .filter(|argument| position >= argument.start && position <= argument.end)
         .find_map(|argument| {
-            let hovered = key_spans(&argument.content, argument.from)
+            key_spans(&argument.content, argument.from)
                 .into_iter()
-                .find(|key| position >= key.range.start && position <= key.range.end)?;
-            Some((hovered, argument))
+                .find(|key| position >= key.range.start && position <= key.range.end)
         })
 }
 
@@ -201,28 +185,14 @@ fn floor_boundary(text: &str, mut index: usize) -> usize {
     index
 }
 
-/// The page a citation's note names: `p.~5`, `p. 5`, `pp.~5--7` (its first
-/// page), `page 5`, or a bare `5`.
-pub fn citation_note_page(note: &str) -> Option<u32> {
-    let page: u32 = NOTE_PAGE.captures(note)?.get(1)?.as_str().parse().ok()?;
-    (page >= 1).then_some(page)
-}
-
-/// The citation key under `position`, with the page its note names. The
-/// note is the last optional argument.
-pub fn citation_target(text: &str, position: usize) -> Option<CitationTarget> {
-    let (key, argument) = key_at(text, &CITATION, position)?;
-    let options = &text[argument.start..argument.from.saturating_sub(1)];
-    let page = OPTION
-        .captures_iter(options)
-        .last()
-        .and_then(|captures| citation_note_page(captures.get(1)?.as_str()));
-    Some(CitationTarget { key, page })
+/// The citation key under `position`.
+pub fn citation_target(text: &str, position: usize) -> Option<KeySpan> {
+    key_at(text, &CITATION, position)
 }
 
 /// The label under `position` in a `\ref`-like command.
 pub fn reference_target(text: &str, position: usize) -> Option<KeySpan> {
-    key_at(text, &REFERENCE, position).map(|(key, _)| key)
+    key_at(text, &REFERENCE, position)
 }
 
 /// The 1-based line of `key`'s entry in a bibliography source.
@@ -349,24 +319,14 @@ mod tests {
         let text = r"As \citet[p.~5]{vaswani2017, devlin2019} show in \cref{fig:model}.";
         let at = text.find("devlin").unwrap() + 2;
         let target = citation_target(text, at).expect("a citation");
-        assert_eq!(target.key.key, "devlin2019");
-        assert_eq!(&text[target.key.range.clone()], "devlin2019");
-        assert_eq!(target.page, Some(5));
+        assert_eq!(target.key, "devlin2019");
+        assert_eq!(&text[target.range.clone()], "devlin2019");
         let first = citation_target(text, text.find("vaswani").unwrap()).unwrap();
-        assert_eq!(first.key.key, "vaswani2017");
+        assert_eq!(first.key, "vaswani2017");
         let reference = reference_target(text, text.find("fig:").unwrap() + 3).unwrap();
         assert_eq!(reference.key, "fig:model");
         assert_eq!(citation_target(text, 1), None);
         assert_eq!(reference_target(text, text.find("devlin").unwrap()), None);
-    }
-
-    #[test]
-    fn note_pages_read_as_biblatex_does() {
-        assert_eq!(citation_note_page("p.~5"), Some(5));
-        assert_eq!(citation_note_page("pp. 5--7"), Some(5));
-        assert_eq!(citation_note_page("12"), Some(12));
-        assert_eq!(citation_note_page("Theorem 2"), None);
-        assert_eq!(citation_note_page("0"), None);
     }
 
     #[test]

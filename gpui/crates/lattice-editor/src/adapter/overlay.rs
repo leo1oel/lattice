@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use gpui::{
     App, Bounds, Context, DispatchPhase, Hitbox, MouseMoveEvent, Pixels, Point, SharedString,
-    Window, point, px,
+    Window,
 };
 use language::{ToOffset as _, ToPoint as _};
 
@@ -24,8 +24,9 @@ pub struct Painted {
     pub line_height: Option<Pixels>,
     /// Each gutter mark drawn: its layer, buffer row and bounds.
     pub gutter: Vec<(&'static str, u32, Bounds<Pixels>)>,
-    /// Each remote caret drawn: its id, bar, tag, the tag's opacity and
-    /// whether the tag is below the caret.
+    /// Each remote caret drawn: its id, bar, tag, the area that shows its
+    /// tag on hover, the tag's opacity and whether the tag is below the
+    /// caret.
     pub cursors: Vec<PaintedCursor>,
     /// The open hover card's bounds, once it has been laid out.
     pub card: Option<Bounds<Pixels>>,
@@ -36,6 +37,7 @@ pub struct PaintedCursor {
     pub id: SharedString,
     pub bar: Bounds<Pixels>,
     pub label: Bounds<Pixels>,
+    pub hover: Bounds<Pixels>,
     pub label_opacity: f32,
     pub label_below: bool,
 }
@@ -174,6 +176,7 @@ impl LatticeEditor {
                     id: anchored.cursor.id.clone(),
                     bar: geometry.bar,
                     label: geometry.label,
+                    hover: geometry.hover,
                     label_opacity: opacity,
                     label_below: geometry.label_below,
                 });
@@ -187,11 +190,10 @@ impl LatticeEditor {
 
     fn update_hovered_cursor(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
         let hovered = self.painted.borrow().cursors.iter().find_map(|painted| {
-            let hover = Bounds {
-                origin: point(painted.bar.left() - px(4.), painted.bar.top()),
-                size: gpui::size(painted.bar.size.width + px(8.), painted.bar.size.height),
-            };
-            hover.contains(&position).then(|| painted.id.clone())
+            painted
+                .hover
+                .contains(&position)
+                .then(|| painted.id.clone())
         });
         if hovered != self.hovered_cursor {
             self.hovered_cursor = hovered;

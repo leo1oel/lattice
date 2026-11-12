@@ -269,7 +269,7 @@ impl CompletionSource for ReferenceSource {
                 label: reference.label.clone().into(),
                 insert: reference.label.clone(),
                 caret: None,
-                detail: Some(super::cards::reference_kind_label(&reference.kind).into()),
+                detail: Some(reference.kind.clone().into()),
                 kind: CompletionKind::Label,
                 reopen: false,
             })
