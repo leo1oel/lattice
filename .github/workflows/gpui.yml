@@ -216,8 +216,10 @@ jobs:
           $result = Get-Content $out -Raw | ConvertFrom-Json
           if (-not $result.passed) { throw "the e2e scenario failed" }
           # As on macOS: the text typed just before the scenario quit is saved.
+          # The path is a verbatim one (\\?\D:\...), whose `?` Get-Content
+          # would read as a wildcard, so .NET reads it.
           $quit = $result.after_quit
-          if (-not (Get-Content $quit.file -Raw).Contains($quit.text)) { throw "quitting did not save $($quit.file)" }
+          if (-not [System.IO.File]::ReadAllText($quit.file).Contains($quit.text)) { throw "quitting did not save $($quit.file)" }
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:

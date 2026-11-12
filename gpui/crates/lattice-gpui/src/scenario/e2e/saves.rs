@@ -79,8 +79,7 @@ impl Run {
         self.close_tab(cx, editor)?;
         let saved = self
             .wait_for(cx, Duration::from_secs(5), |_, _| {
-                std::fs::read_to_string(&file)
-                    .is_ok_and(|text| text.contains(typed))
+                std::fs::read_to_string(&file).is_ok_and(|text| text.contains(typed))
             })
             .await;
         steps.check(
@@ -213,8 +212,7 @@ impl Run {
 }
 
 fn on_disk(file: &Path, typed: &str) -> bool {
-    std::fs::read_to_string(file)
-        .is_ok_and(|text| text.contains(typed))
+    std::fs::read_to_string(file).is_ok_and(|text| text.contains(typed))
 }
 
 /// Whether a notice titled `title` is showing.
