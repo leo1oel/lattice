@@ -164,15 +164,24 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // The panel holding the keyboard, which hands it on if it leaves.
-        let mut focused = None;
-        for view in self.current_arrangement(cx).views() {
-            if let Some(panel) = self.panel_of(view, window, cx)
-                && panel.focus_handle(cx).contains_focused(window, cx)
-            {
-                focused = Some(panel.panel_id(cx));
-            }
+        // The panel holding the keyboard, among those on screen now, which
+        // hands it on if it leaves.
+        let focused = {
+            let area = self.dock_area.read(cx);
+            [
+                DockPlacement::Left,
+                DockPlacement::Center,
+                DockPlacement::Right,
+                DockPlacement::Bottom,
+            ]
+            .into_iter()
+            .filter_map(|placement| area.layout(placement))
+            .flat_map(|tree| tree.panels().collect::<Vec<_>>())
+            .filter_map(|id| area.panel(id))
+            .find(|panel| panel.focus_handle(cx).contains_focused(window, cx))
+            .map(|panel| panel.panel_id(cx))
         }
+        .or_else(|| self.floating.focused(window, cx));
         // Every panel first, editors opened as needed; then Kit's layouts
         // from them. The handles are held until the dock holds them.
         let mut panels: HashMap<View, Arc<dyn BasePanelView>> = HashMap::new();

@@ -2,15 +2,19 @@
 //! dragged out with native mouse events, the Writing preset and the way
 //! back, a named workspace keeping its own arrangement, a panel closed from
 //! its tab and brought back from the Panels menu, a panel floated and docked,
-//! and the command palette listing the commands.
+//! the command palette listing the commands, and the window's commands
+//! still reaching the shell once the focused document's tab is closed.
 
 use anyhow::{Context as _, Result};
-use gpui::AsyncApp;
+use gpui::{AsyncApp, Focusable as _};
 use gpui_kit::component::dock::DockPlacement;
 use serde_json::{Value, json};
 
 use super::Run;
-use crate::shell::layout::{Preset, View};
+use crate::shell::{
+    commands::{CloseTab, CommandPalette, ReopenClosedTab},
+    layout::{Preset, View},
+};
 
 /// What one step found: its name, whether it passed, and what it saw.
 pub(super) type Step = (&'static str, bool, Value);
@@ -24,6 +28,7 @@ impl Run {
         steps.push(self.close_and_bring_back(cx).await?);
         steps.push(self.float_and_dock(cx).await?);
         steps.push(self.palette_lists_commands(cx).await?);
+        steps.push(self.closing_the_focused_tab_keeps_the_keyboard(cx).await?);
         Ok(steps)
     }
 
@@ -242,6 +247,39 @@ impl Run {
             "the command palette lists the commands",
             rows.is_some_and(|rows| rows >= 10),
             json!({ "rows": rows }),
+        ))
+    }
+
+    /// ⌘W on the focused document closes its tab, and the window's commands
+    /// still reach the shell: the palette opens from the keyboard after it.
+    async fn closing_the_focused_tab_keeps_the_keyboard(&self, cx: &mut AsyncApp) -> Result<Step> {
+        self.reset_layout(cx)?;
+        let (closed, editor_focused) = self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.focus_front(window, cx));
+            let before = shell.read(cx).current_arrangement(cx).documents();
+            let editor_focused = shell.read(cx).active_editor().is_some_and(|editor| {
+                editor
+                    .read(cx)
+                    .editor()
+                    .focus_handle(cx)
+                    .contains_focused(window, cx)
+            });
+            window.dispatch_action(Box::new(CloseTab), cx);
+            let after = shell.read(cx).current_arrangement(cx).documents();
+            (after.len() + 1 == before.len(), editor_focused)
+        })?;
+        self.frame_after_input(cx).await?;
+        let rows = self.with_window(cx, |shell, window, cx| {
+            window.dispatch_action(Box::new(CommandPalette), cx);
+            let rows = shell.read(cx).palette_rows(cx);
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx));
+            window.dispatch_action(Box::new(ReopenClosedTab), cx);
+            rows
+        })?;
+        Ok((
+            "closing the focused document's tab leaves the window's commands working",
+            editor_focused && closed && rows.is_some(),
+            json!({ "editor_focused": editor_focused, "closed": closed, "palette_rows": rows }),
         ))
     }
 }

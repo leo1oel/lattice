@@ -108,6 +108,14 @@ impl FloatingLayer {
         }
     }
 
+    /// The floating panel holding the keyboard.
+    pub fn focused(&self, window: &Window, cx: &App) -> Option<PanelId> {
+        self.panels
+            .iter()
+            .find(|floating| floating.panel.focus_handle(cx).contains_focused(window, cx))
+            .map(|floating| floating.id)
+    }
+
     pub fn remove(&mut self, panel: PanelId) -> Option<FloatingPanel> {
         let ix = self
             .panels

@@ -63,7 +63,7 @@ impl Run {
     /// window can be, partway through a run) gets no frames from the display,
     /// so the frame is drawn here, as it is when a presented window has not
     /// drawn one within half a second. Returns whether the window drew it.
-    async fn frame_after_input(&self, cx: &mut AsyncApp) -> Result<bool> {
+    pub(super) async fn frame_after_input(&self, cx: &mut AsyncApp) -> Result<bool> {
         let drawn = Rc::new(Cell::new(false));
         let flag = drawn.clone();
         let presented = self.with_window(cx, move |_, window, _| {
