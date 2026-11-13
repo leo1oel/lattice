@@ -173,7 +173,9 @@ impl ManuscriptWords {
     /// The status bar's annotation and TODO counts are read again at the
     /// same moments (`status_counters`).
     pub fn refresh(&mut self, root: Option<PathBuf>, cx: &mut Context<Self>) {
-        crate::status_counters::refresh(root.clone(), cx);
+        if let Some(root) = root.clone() {
+            crate::status_counters::refresh(root, cx);
+        }
         self.generation += 1;
         let generation = self.generation;
         if self.root != root {

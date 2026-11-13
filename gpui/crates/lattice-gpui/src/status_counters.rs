@@ -10,16 +10,24 @@
 //! rescans the open file, so a marker counts as it is typed (the editor
 //! rescans its buffer once typing settles, `EditorPanel::scan_todos`).
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use gpui::{App, AppContext as _, Context, Entity, Global, Task};
 use lattice_core::project::{self, TodoHit};
 
-/// What the open project holds for the counters. One per app: every
-/// editor's status bar reads it for the project it belongs to.
+/// What each open project holds for the counters, by its root. One per app:
+/// every editor's status bar reads the entry of the project it belongs to,
+/// so windows on different projects keep their own counts.
 #[derive(Default)]
 pub struct ProjectCounters {
-    root: Option<PathBuf>,
+    projects: HashMap<PathBuf, ProjectEntry>,
+}
+
+#[derive(Default)]
+struct ProjectEntry {
     todos: Vec<TodoHit>,
     /// Each annotation's file and whether it is resolved.
     annotations: Vec<(String, bool)>,
@@ -40,35 +48,26 @@ pub fn project_counters(cx: &mut App) -> Entity<ProjectCounters> {
     entity
 }
 
-/// Read `root`'s counts again (`None`: the project closed). Called with the
-/// manuscript's word count (`ManuscriptWords::refresh`): when the project
-/// opens, after each save and after an outside edit.
-pub fn refresh(root: Option<PathBuf>, cx: &mut App) {
+/// Read `root`'s counts again. Called with the manuscript's word count
+/// (`ManuscriptWords::refresh`): when the project opens, after each save
+/// and after an outside edit.
+pub fn refresh(root: PathBuf, cx: &mut App) {
     project_counters(cx).update(cx, |counters, cx| counters.refresh(root, cx));
 }
 
 impl ProjectCounters {
-    /// Read `root`'s annotations and TODOs again in the background; `None`
-    /// forgets those of the project that closed. What the project open
-    /// before held never lands on this one.
-    pub fn refresh(&mut self, root: Option<PathBuf>, cx: &mut Context<Self>) {
-        self.generation += 1;
-        let generation = self.generation;
-        if self.root != root {
-            self.todos.clear();
-            self.annotations.clear();
-        }
-        self.root = root.clone();
-        let Some(root) = root else {
-            self._task = None;
-            cx.notify();
-            return;
-        };
-        self._task = Some(cx.spawn(async move |this, cx| {
+    /// Read `root`'s annotations and TODOs again in the background; the
+    /// other projects' counts stay as they are.
+    pub fn refresh(&mut self, root: PathBuf, cx: &mut Context<Self>) {
+        let entry = self.projects.entry(root.clone()).or_default();
+        entry.generation += 1;
+        let generation = entry.generation;
+        entry._task = Some(cx.spawn(async move |this, cx| {
+            let read = root.clone();
             let (todos, annotations) = cx
                 .background_spawn(async move {
-                    let todos = project::list_todos(&root).unwrap_or_default();
-                    let annotations = project::read_annotations(&root)
+                    let todos = project::list_todos(&read).unwrap_or_default();
+                    let annotations = project::read_annotations(&read)
                         .map(|read| {
                             read.annotations
                                 .into_iter()
@@ -80,14 +79,30 @@ impl ProjectCounters {
                 })
                 .await;
             this.update(cx, |this, cx| {
-                if this.generation == generation {
-                    this.todos = todos;
-                    this.annotations = annotations;
+                if let Some(entry) = this.projects.get_mut(&root)
+                    && entry.generation == generation
+                {
+                    entry.todos = todos;
+                    entry.annotations = annotations;
                     cx.notify();
                 }
             })
             .ok();
         }));
+    }
+
+    fn counts(&self, root: &Path, relative: &str, buffer_todos: Option<usize>) -> Counts {
+        let Some(entry) = self.projects.get(root) else {
+            return Counts::default();
+        };
+        Counts {
+            annotations: entry
+                .annotations
+                .iter()
+                .filter(|(path, resolved)| path == relative && !resolved)
+                .count(),
+            todos: merged_todos(&entry.todos, relative, buffer_todos),
+        }
     }
 }
 
@@ -103,21 +118,9 @@ pub struct Counts {
 /// The counts for the editor on `relative` (its path in the project at
 /// `root`), whose buffer held `buffer_todos` markers when last scanned.
 pub fn counts(root: &Path, relative: &str, buffer_todos: Option<usize>, cx: &App) -> Counts {
-    let Some(counters) = cx
-        .try_global::<ProjectCountersGlobal>()
-        .map(|global| global.0.read(cx))
-        .filter(|counters| counters.root.as_deref() == Some(root))
-    else {
-        return Counts::default();
-    };
-    Counts {
-        annotations: counters
-            .annotations
-            .iter()
-            .filter(|(path, resolved)| path == relative && !resolved)
-            .count(),
-        todos: merged_todos(&counters.todos, relative, buffer_todos),
-    }
+    cx.try_global::<ProjectCountersGlobal>()
+        .map(|global| global.0.read(cx).counts(root, relative, buffer_todos))
+        .unwrap_or_default()
 }
 
 /// The scan's markers with the open file's replaced by its buffer's, once
@@ -174,6 +177,50 @@ mod tests {
         // A file that is neither TeX nor Markdown keeps the scan.
         assert_eq!(buffer_todos("refs.bib", "% TODO"), None);
         assert_eq!(merged_todos(&scanned, "refs.bib", None), 3);
+    }
+
+    #[test]
+    fn each_project_keeps_its_own_counts() {
+        let entry = |todos: Vec<TodoHit>, annotations: Vec<(String, bool)>| ProjectEntry {
+            todos,
+            annotations,
+            ..ProjectEntry::default()
+        };
+        let counters = ProjectCounters {
+            projects: HashMap::from([
+                (
+                    PathBuf::from("/a"),
+                    entry(
+                        vec![hit("main.tex", 1), hit("main.tex", 2), hit("intro.tex", 4)],
+                        vec![("main.tex".into(), false), ("main.tex".into(), true)],
+                    ),
+                ),
+                (
+                    PathBuf::from("/b"),
+                    entry(vec![hit("paper.tex", 7)], vec![]),
+                ),
+            ]),
+        };
+        let a = counters.counts(Path::new("/a"), "main.tex", None);
+        let b = counters.counts(Path::new("/b"), "paper.tex", None);
+        assert_eq!(
+            a,
+            Counts {
+                annotations: 1,
+                todos: 3
+            }
+        );
+        assert_eq!(
+            b,
+            Counts {
+                annotations: 0,
+                todos: 1
+            }
+        );
+        assert_eq!(
+            counters.counts(Path::new("/c"), "main.tex", None),
+            Counts::default()
+        );
     }
 
     #[test]
