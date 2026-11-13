@@ -212,7 +212,7 @@ impl Run {
         let _editor = self.open(cx, &big, None)?;
         sleep(cx, Duration::from_secs(4)).await;
         stages.push(json!({ "stage": format!("{} open", big.file_name().unwrap_or_default().to_string_lossy()), "memory": footprint_summary() }));
-        let pages = cx.update(|cx| self.shell.read(cx).pdf().read(cx).page_count());
+        let pages = cx.update(|cx| self.shell.read(cx).pdf().read(cx).page_count(cx));
         for page in 0..pages {
             cx.update(|cx| {
                 let pdf = self.shell.read(cx).pdf().clone();

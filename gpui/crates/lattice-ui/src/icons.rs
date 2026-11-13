@@ -99,11 +99,22 @@ lucide! {
     SPARKLES = "icons" / "sparkles";
     TEXT_CURSOR_INPUT = "icons" / "text-cursor-input";
     WRENCH = "icons" / "wrench";
+    CHEVRON_UP = "icons" / "chevron-up";
+    CORNER_UP_LEFT = "icons" / "corner-up-left";
+    CORNER_UP_RIGHT = "icons" / "corner-up-right";
+    MOON = "icons" / "moon";
+    PLAY = "icons" / "play";
+    RECTANGLE_VERTICAL = "icons" / "rectangle-vertical";
+    SQUARE_ARROW_DOWN_LEFT = "icons" / "square-arrow-down-left";
+    SQUARE_ARROW_OUT_UP_RIGHT = "icons" / "square-arrow-out-up-right";
+    WHOLE_WORD = "icons" / "whole-word";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
     CHECK = "lattice" / "check";
     COPY = "lattice" / "copy";
+    DOWNLOAD = "lattice" / "download";
+    ELLIPSIS = "lattice" / "ellipsis";
     EYE = "lattice" / "eye";
     FOLDER = "lattice" / "folder";
     HASH = "lattice" / "hash";
@@ -217,6 +228,8 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "copy.svg",
     "disclosure.svg",
     "dots.svg",
+    "download.svg",
+    "ellipsis.svg",
     "git.svg",
     "history.svg",
     "play-filled.svg",

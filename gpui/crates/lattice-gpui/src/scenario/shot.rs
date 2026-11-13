@@ -39,7 +39,7 @@ impl Run {
         let (pages, editor_theme) = cx.update(|cx| {
             use theme::ActiveTheme as _;
             (
-                self.shell.read(cx).pdf().read(cx).page_count(),
+                self.shell.read(cx).pdf().read(cx).page_count(cx),
                 cx.theme().name.to_string(),
             )
         });
@@ -67,7 +67,7 @@ impl Run {
     /// Whether the project's PDF showed within 30 s.
     pub(super) async fn wait_for_pdf(&self, cx: &mut AsyncApp) -> bool {
         self.wait_for(cx, Duration::from_secs(30), |shell, cx| {
-            shell.read(cx).pdf().read(cx).page_count() > 0
+            shell.read(cx).pdf().read(cx).page_count(cx) > 0
         })
         .await
     }
@@ -85,7 +85,7 @@ impl Run {
                 let _ = window.draw(cx);
             })?;
             sleep(cx, Duration::from_millis(250)).await;
-            let drawn = cx.update(|cx| self.shell.read(cx).pdf().read(cx).pages_drawn());
+            let drawn = cx.update(|cx| self.shell.read(cx).pdf().read(cx).pages_drawn(cx));
             if drawn >= 2 || started.elapsed() > Duration::from_secs(8) {
                 break;
             }

@@ -7,11 +7,14 @@
 //! and the last one left folds the tabs back into the project's title. A
 //! project moves to a window of its own from its tab's menu.
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use gpui::{
-    AnyWindowHandle, App, Bounds, Context, Entity, Global, Pixels, WeakEntity, Window, WindowId,
-    point, px, size,
+    AnyWindowHandle, App, Bounds, Context, Entity, Global, Pixels, SharedString, WeakEntity,
+    Window, WindowId, point, px, size,
 };
 
 use super::Shell;
@@ -227,4 +230,19 @@ pub(super) fn titlebar_options() -> Option<gpui::TitlebarOptions> {
 #[cfg(not(target_os = "macos"))]
 pub(super) fn titlebar_options() -> Option<gpui::TitlebarOptions> {
     None
+}
+
+/// The name of a project as its tab shows it: the name in its manifest,
+/// else the folder's.
+pub(super) fn project_display_name(root: &Path) -> SharedString {
+    lattice_core::project::read_manifest(root)
+        .ok()
+        .map(|manifest| manifest.name)
+        .filter(|name| !name.is_empty())
+        .or_else(|| {
+            root.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_default()
+        .into()
 }

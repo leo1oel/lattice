@@ -6,7 +6,10 @@
 # inside: once the app has quit, the file holds the text typed just before.
 #
 # Usage: script/e2e [result.json]   (default: a file in the scratch folder)
-# Build first: cargo build --release --locked --features lattice-gpui/offscreen-shots
+# Build first, from the repository root: node scripts/gpui-build.mjs (the
+# release build with offscreen-shots, in the machine's shared build tree, copied
+# back to target/release/lattice-gpui; a plain cargo build here starts cold in
+# every new worktree).
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
