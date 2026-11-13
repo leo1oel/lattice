@@ -36,9 +36,9 @@ impl Run {
     /// citation and a reference, draw remote carets and a block widget, show
     /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, check the PDF viewer on a
-    /// second root document (`pdf.rs`), drag a tab into a dock,
-    /// close a dirty tab, a vanished file's tab and a window, and type
-    /// before the quit that ends the run, which the result's `after_quit`
+    /// second root document and in a second window (`pdf.rs`), drag a tab
+    /// into a dock, close a dirty tab, a vanished file's tab and a window,
+    /// and type before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
         let mut steps = Steps(Vec::new());
@@ -244,6 +244,7 @@ impl Run {
 
         self.tree_operations(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
+        self.second_window_pdf(cx, &mut steps, &root).await?;
 
         // Docking: drag an editor tab out of the center into the right dock,
         // beside the PDF, with native mouse events. (The shell steps after
