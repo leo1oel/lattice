@@ -671,6 +671,7 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
                         .icon(match preset_kind {
                             Preset::Writing => Icon::PEN_LINE.kit(),
                             Preset::Reading => Icon::BOOK_OPEN_TEXT.kit(),
+                            Preset::Bibliography => Icon::LIBRARY.kit(),
                         })
                         .checked(preset == Some(preset_kind))
                         .on_click(move |_, window, cx| {

@@ -45,6 +45,10 @@ msgid "Reading Layout"
 msgstr "阅读布局"
 
 #: lattice-gpui/src/shell/menus.rs
+msgid "Bibliography Layout"
+msgstr "参考文献布局"
+
+#: lattice-gpui/src/shell/menus.rs
 msgid "Focus Mode"
 msgstr "专注模式"
 
@@ -221,12 +225,20 @@ msgid "Reading layout"
 msgstr "阅读布局"
 
 #: lattice-gpui/src/shell/commands.rs
+msgid "Bibliography layout"
+msgstr "参考文献布局"
+
+#: lattice-gpui/src/shell/commands.rs
 msgid "Leave the Writing layout"
 msgstr "退出写作布局"
 
 #: lattice-gpui/src/shell/commands.rs
 msgid "Leave the Reading layout"
 msgstr "退出阅读布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Leave the Bibliography layout"
+msgstr "退出参考文献布局"
 
 #: lattice-gpui/src/shell/commands.rs
 msgid "Show or hide Project"
