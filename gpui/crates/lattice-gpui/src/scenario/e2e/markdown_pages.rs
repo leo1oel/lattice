@@ -90,6 +90,58 @@ impl Run {
             added["found"] == true && changed["found"] == true,
             json!({ "placed": placed, "added": added, "changed": changed, "heard": heard }),
         );
+
+        // Pages the project tree leaves out (installed packages, dotted
+        // folders) are not offered, though the watcher reports them; a page
+        // of the same name in the tree is, which shows the query works.
+        let outside = "Markdown pages outside the project tree (node_modules/, .github/) changed on disk are not offered by [[page#, while a page of the same name in the tree is";
+        for (dir, heading) in [("node_modules/e2e-pkg", "Gamma3"), (".github", "Delta4")] {
+            std::fs::create_dir_all(root.join(dir))?;
+            std::fs::write(
+                root.join(dir).join("e2e-ghost.md"),
+                format!("# Ghost\n\n## {heading}\n"),
+            )?;
+        }
+        // A page in the tree changes in the same burst, so the host does
+        // post `md:pages-changed` for it.
+        std::fs::write(&other, OTHER_BEFORE)?;
+        let reread = self.offered(cx, &island, "Alpha1", Some("Beta22")).await;
+        // Turn `[[e2e-other#` into `[[e2e-ghost#`.
+        for _ in 0.."e2e-other#".len() {
+            self.evaluate(cx, &island, DROP_HASH).await;
+        }
+        self.pause(cx, Duration::from_millis(150)).await;
+        self.evaluate(
+            cx,
+            &island,
+            "document.execCommand('insertText', false, 'e2e-ghost#')",
+        )
+        .await;
+        self.pause(cx, Duration::from_millis(1500)).await;
+        let ghost_labels = self.evaluate(cx, &island, LABELS).await;
+        std::fs::write(root.join("e2e-ghost.md"), "# Ghost\n\n## Omega5\n")?;
+        let in_tree = self.offered(cx, &island, "Omega5", None).await;
+        let heard = self
+            .evaluate(cx, &island, "JSON.stringify(window.__e2eHeard)")
+            .await;
+        let leaked = |labels: &Value| {
+            labels.as_array().is_some_and(|labels| {
+                labels.iter().any(|label| label == "Gamma3" || label == "Delta4")
+            })
+        };
+        let heard_outside = {
+            let heard = heard.to_string();
+            heard.contains("node_modules") || heard.contains(".github")
+        };
+        steps.check(
+            outside,
+            reread["found"] == true
+                && in_tree["found"] == true
+                && !leaked(&ghost_labels)
+                && !leaked(&in_tree["labels"])
+                && !heard_outside,
+            json!({ "reread": reread, "ghost_labels": ghost_labels, "in_tree": in_tree, "heard": heard }),
+        );
         self.close_panel(cx, &panel).await?;
         Ok(())
     }
