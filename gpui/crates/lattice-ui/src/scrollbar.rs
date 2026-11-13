@@ -34,6 +34,7 @@
 //! `inset_0`); the container itself draws no scrollbar of its own.
 
 use std::{
+    cell::Cell,
     rc::Rc,
     time::{Duration, Instant},
 };
@@ -276,6 +277,7 @@ pub struct FluidScrollbar {
     axis: ScrollAxis,
     feel: ScrollbarFeel,
     ink: Option<Hsla>,
+    drawn: Option<Rc<Cell<f32>>>,
 }
 
 impl FluidScrollbar {
@@ -286,6 +288,7 @@ impl FluidScrollbar {
             axis: ScrollAxis::Vertical,
             feel: ScrollbarFeel::AREA,
             ink: None,
+            drawn: None,
         }
     }
 
@@ -299,6 +302,13 @@ impl FluidScrollbar {
     /// default, the code ink over the source editor (`--code-ink`).
     pub fn ink(mut self, ink: Hsla) -> Self {
         self.ink = Some(ink);
+        self
+    }
+
+    /// Where to note the thumb's opacity each time the bar is drawn, for a
+    /// caller that checks what is on screen.
+    pub fn drawn_opacity(mut self, drawn: Rc<Cell<f32>>) -> Self {
+        self.drawn = Some(drawn);
         self
     }
 
@@ -327,6 +337,7 @@ impl IntoElement for FluidScrollbar {
             axis,
             feel,
             ink: thumb_ink,
+            drawn,
         } = self;
         div()
             .absolute()
@@ -407,9 +418,6 @@ impl IntoElement for FluidScrollbar {
                         let reduce = cx.reduce_motion();
                         let running = state.update(cx, |state, _| state.reconcile(now, reduce));
                         schedule_timeout(&state, now, window, cx);
-                        let Some((_, geometry, track)) = prepainted.track else {
-                            return;
-                        };
                         let (opacity, width, ink) = {
                             let state = state.read(cx);
                             (
@@ -418,6 +426,15 @@ impl IntoElement for FluidScrollbar {
                                 state.ink.value(now),
                             )
                         };
+                        let Some((_, geometry, track)) = prepainted.track else {
+                            if let Some(drawn) = &drawn {
+                                drawn.set(0.);
+                            }
+                            return;
+                        };
+                        if let Some(drawn) = &drawn {
+                            drawn.set(opacity.clamp(0., 1.));
+                        }
                         if opacity > 0. {
                             let mut colour: Hsla = thumb_ink.unwrap_or(cx.palette().text);
                             colour.a = ink * opacity.clamp(0., 1.);

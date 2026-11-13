@@ -11,13 +11,13 @@
 //! (the bar notifies this view) gives to Zed.
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     rc::Rc,
-    time::{Duration, Instant},
 };
 
 use gpui::{
-    AnyElement, Bounds, Context, IntoElement, Pixels, Point, Size, Window, point, px, size,
+    AnyElement, Bounds, Context, IntoElement, Pixels, Point, ScrollDelta, ScrollEvent, Size,
+    Window, point, px, size,
 };
 use gpui_kit::base::ScrollbarHandle;
 use lattice_ui::{
@@ -35,12 +35,6 @@ struct Extent {
     total: f64,
 }
 
-impl Extent {
-    fn overflows(&self) -> bool {
-        self.total - self.visible > 0.01
-    }
-}
-
 #[derive(Debug, Default)]
 struct ScrollState {
     viewport: Bounds<Pixels>,
@@ -54,8 +48,8 @@ struct ScrollState {
 #[derive(Clone, Default)]
 pub(super) struct EditorScroll {
     state: Rc<RefCell<ScrollState>>,
-    /// When the text last scrolled: the bar shows for its feel's linger.
-    scrolled_at: Rc<RefCell<Option<Instant>>>,
+    /// The thumb's opacity as the bar last drew it.
+    drawn: Rc<Cell<f32>>,
 }
 
 impl ScrollbarHandle for EditorScroll {
@@ -88,21 +82,25 @@ impl ScrollbarHandle for EditorScroll {
 }
 
 impl LatticeEditor {
-    /// The text scrolled: the bar counts it as scrolling for its linger.
-    pub(super) fn note_scroll(&mut self, _: &mut Context<Self>) {
-        *self.scroll.scrolled_at.borrow_mut() = Some(Instant::now());
+    /// The thumb's opacity as the scrollbar last drew it: 0 while it hides.
+    pub fn scrollbar_opacity(&self) -> f32 {
+        self.scroll.drawn.get()
     }
 
-    /// Whether the scrollbar shows for a scroll: the text overflows, and it
-    /// scrolled within the editor feel's linger (180 ms).
-    pub fn scrollbar_shown(&mut self, cx: &mut Context<Self>) -> bool {
-        let linger: Duration = ScrollbarFeel::EDITOR.linger;
-        let scrolling = self
-            .scroll
-            .scrolled_at
-            .borrow()
-            .is_some_and(|at| at.elapsed() < linger);
-        scrolling && self.extent(cx).overflows()
+    /// A wheel the editor element did not take (over the gutter or the
+    /// padding above and below the text) scrolls the text all the same.
+    pub(super) fn scroll_by_wheel(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
+        let line_height = self.scroll.state.borrow().line_height;
+        let dy = match event.delta {
+            ScrollDelta::Pixels(pixels) => pixels.y,
+            ScrollDelta::Lines(lines) => line_height * lines.y,
+        };
+        let before = self.scroll.offset();
+        self.scroll.set_offset(point(before.x, before.y + dy));
+        if self.scroll.offset() != before {
+            cx.stop_propagation();
+            cx.notify();
+        }
     }
 
     fn extent(&self, cx: &mut Context<Self>) -> Extent {
@@ -153,6 +151,7 @@ impl LatticeEditor {
         )
         .feel(ScrollbarFeel::EDITOR)
         .ink(ink)
+        .drawn_opacity(self.scroll.drawn.clone())
         .into_any_element()
     }
 }

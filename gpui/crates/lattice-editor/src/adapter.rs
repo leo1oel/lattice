@@ -134,11 +134,10 @@ impl LatticeEditor {
         let subscriptions = vec![
             // The overlay follows the editor's layout.
             cx.observe(&editor, |_, _, cx| cx.notify()),
-            cx.subscribe(&editor, |this, _, event: &EditorEvent, cx| match event {
-                EditorEvent::Blurred => this.hovered_cursor = None,
-                // The overlay scrollbar shows while the text scrolls.
-                EditorEvent::ScrollPositionChanged { .. } => this.note_scroll(cx),
-                _ => {}
+            cx.subscribe(&editor, |this, _, event: &EditorEvent, _| {
+                if matches!(event, EditorEvent::Blurred) {
+                    this.hovered_cursor = None;
+                }
             }),
             // An edit closes the card, as typing into a key closes the
             // Tauri app's.
@@ -554,6 +553,10 @@ impl Render for LatticeEditor {
             )
             // Any key closes the card, as typing does in the Tauri app.
             .capture_key_down(cx.listener(|this, _, _, cx| this.dismiss_hover(cx)))
+            // Zed scrolls only under its own text: the gutter and the padding
+            // strips pass the wheel on, as CodeMirror's scroller takes it
+            // over its gutter.
+            .on_scroll(cx.listener(|this, event, _, cx| this.scroll_by_wheel(event, cx)))
             .child(
                 div()
                     .absolute()
