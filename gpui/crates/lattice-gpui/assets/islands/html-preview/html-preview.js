@@ -150,6 +150,11 @@
   let resources = new Map();
   const requested = new Set();
   let shown = "";
+  // The srcdoc the frame is loading, until its load event. WebKit drops a
+  // srcdoc set while another is still loading (the frame keeps the first and
+  // fires one load), so the document with its granted images, which comes a
+  // moment after the first, would never show: the next one waits for this.
+  let loading = null;
   let pageLoaded = false;
   // Republishing srcdoc reloads the frame at the top; carry the reading position across.
   let restoreScrollTop = 0;
@@ -162,7 +167,12 @@
     const html = buildPreviewDocument(source, path, resources, relativeLinkTitle);
     if (html === shown) return;
     shown = html;
-    frame.srcdoc = html;
+    if (loading === null) show();
+  }
+
+  function show() {
+    loading = shown;
+    frame.srcdoc = shown;
   }
 
   function loadResources() {
@@ -222,6 +232,13 @@
   host.on("host:relay", sendRelay);
 
   frame.addEventListener("load", () => {
+    const stale = loading !== null && loading !== shown;
+    loading = null;
+    // A newer document waited for this load: show it, and settle on its load.
+    if (stale) {
+      show();
+      return;
+    }
     postToFrame({ type: SET_ZOOM, scale });
     if (restoreScrollTop > 0) setScrollTop(restoreScrollTop);
     sendRelay();
