@@ -4,7 +4,7 @@
 //!
 //! The PDF toolbar's Outline lists it.
 
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 /// One heading, flattened from the outline's tree in reading order.
 #[derive(Clone, Debug, PartialEq)]
@@ -354,13 +354,30 @@ fn resolve(root: &Path, document: &str, raw: &str) -> Option<String> {
     };
     for base in [folder, Path::new("")] {
         for name in &names {
-            let candidate = base.join(name);
+            let candidate = lexical(&base.join(name));
             if root.join(&candidate).is_file() {
                 return Some(candidate.to_string_lossy().replace('\\', "/"));
             }
         }
     }
     None
+}
+
+/// `path` with `.` dropped and `..` folded into the folder before it.
+fn lexical(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir
+                if matches!(out.components().next_back(), Some(Component::Normal(_))) =>
+            {
+                out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 /// The outline of `document` (project-relative) as it is on disk.
@@ -529,6 +546,27 @@ mod tests {
             ]
         );
         assert!(outline[3].starred && outline[4].appendix);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn included_paths_match_the_project_relative_form() {
+        let root =
+            std::env::temp_dir().join(format!("lattice-outline-dots-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("paper/sections")).unwrap();
+        std::fs::create_dir_all(root.join("shared")).unwrap();
+        std::fs::write(
+            root.join("paper/main.tex"),
+            "\\input{./sections/intro}\n\\input{../shared/methods}\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("paper/sections/intro.tex"), "\\section{Intro}\n").unwrap();
+        std::fs::write(root.join("shared/methods.tex"), "\\section{Method}\n").unwrap();
+        let paths: Vec<_> = read_outline(&root, "paper/main.tex")
+            .into_iter()
+            .map(|heading| heading.path)
+            .collect();
+        assert_eq!(paths, ["paper/sections/intro.tex", "shared/methods.tex"]);
         std::fs::remove_dir_all(&root).ok();
     }
 }
