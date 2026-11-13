@@ -11,7 +11,7 @@
 import { hostErrorMessage } from "../app-utils";
 
 /** How many papers import at once: enough to hide each lookup's latency, few enough not to flood the services. */
-export const ADDS_AT_ONCE = 4;
+const ADDS_AT_ONCE = 4;
 
 /** One paper in the batch, as it moves through the import. */
 export type PaperAddItem = {

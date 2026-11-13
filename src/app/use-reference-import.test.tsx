@@ -1,7 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectSnapshot } from "../app-types";
 import { clearAddQueue, getAddQueue } from "../papers/add-papers-queue";
+import { saveFullTextSetting } from "../papers/save-full-text-setting";
 import { useReferenceImport } from "./use-reference-import";
 
 const invoke = vi.hoisted(() => vi.fn());
@@ -10,7 +11,12 @@ vi.mock("./effect-helpers", () => ({ subscribeTauriEvent: () => () => undefined 
 const showNotice = vi.hoisted(() => vi.fn());
 vi.mock("./notify", () => ({ showNotice, showError: vi.fn(), showWarning: vi.fn() }));
 
+// A Zotero PDF is attached only when adds save full text, which is off by
+// default; these tests cover that path.
+beforeEach(() => saveFullTextSetting.set(true));
+
 afterEach(() => {
+  saveFullTextSetting.set(false);
   invoke.mockReset();
   showNotice.mockReset();
   clearAddQueue();

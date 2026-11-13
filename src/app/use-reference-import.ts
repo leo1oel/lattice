@@ -325,10 +325,15 @@ export function useReferenceImport({
     // Missing paper tools fail every paper alike; offer the install once.
     let toolsOffered = false;
     // One paper's import, under its own request id so several run at once.
-    const importOne = async (input: string): Promise<ImportResult | undefined> => {
+    const importOne = (input: string): Promise<ImportResult | undefined> => {
       const requestId = crypto.randomUUID();
       const requests = batchRequestsRef.current;
       requests.add(requestId);
+      // Promise.finally rather than a try/finally block: React Compiler bails
+      // out of the whole hook on a finally clause.
+      return importRequest(input, requestId).finally(() => requests.delete(requestId));
+    };
+    const importRequest = async (input: string, requestId: string): Promise<ImportResult | undefined> => {
       try {
         const result = await invoke<ImportResult>("import_reference", { input, requestId, fullText });
         if (projectRootRef.current !== root) return undefined;
@@ -352,8 +357,6 @@ export function useReferenceImport({
           onMissingPaperTools(message);
         }
         throw reason instanceof Error ? reason : new Error(message);
-      } finally {
-        requests.delete(requestId);
       }
     };
     // One read of Zotero for the whole batch, made when the first paper with

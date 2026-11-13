@@ -298,7 +298,11 @@ export function AddPapersSheet(props: {
         <span className="add-papers-state" data-tone="failed" title={row.error}>
           <CircleAlert size={12} aria-hidden="true" />
           {t`Not found`}
-          <RetryButton onRetry={() => setLookups(({ [id]: _failed, ...rest }) => rest)} />
+          <RetryButton onRetry={() => setLookups((current) => {
+            const rest = { ...current };
+            delete rest[id];
+            return rest;
+          })} />
         </span>
       );
     }
