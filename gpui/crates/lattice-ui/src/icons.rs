@@ -119,6 +119,8 @@ lucide! {
     BOOK_MARKED = "icons" / "book-marked";
     CIRCLE_DOT = "icons" / "circle-dot";
     CODE_XML = "icons" / "code-xml";
+    HIGHLIGHTER = "icons" / "highlighter";
+    LINK_2 = "icons" / "link-2";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
     EXTERNAL_LINK = "icons" / "external-link";
     FILE_DOWN = "icons" / "file-down";

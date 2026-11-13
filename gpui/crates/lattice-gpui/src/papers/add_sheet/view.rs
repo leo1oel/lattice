@@ -362,6 +362,21 @@ impl Render for AddPapers {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         let batch: Vec<BatchItem> = self.papers.read(cx).batch.items.clone();
+        if let Some(zotero) = self.zotero.clone().filter(|_| batch.is_empty()) {
+            let view = cx.entity().downgrade();
+            let dirty = self.dirty(cx);
+            return SheetFrame {
+                id: "add-papers",
+                icon: Icon::BOOK_MARKED,
+                title: t!("Add papers"),
+                body: vec![zotero.into_any_element()],
+                actions: Vec::new(),
+                scrim_closes: !dirty,
+            }
+            .render(window, cx, move |_, cx| {
+                view.update(cx, |this, cx| this.close(cx)).ok();
+            });
+        }
         let adding = self.papers.read(cx).batch.adding();
         let importing_elsewhere = self.papers.read(cx).importing.is_some() && !adding;
         let rows = self.rows(cx);
@@ -432,6 +447,15 @@ impl Render for AddPapers {
                             .icon(Icon::PEN_LINE)
                             .on_click(
                                 cx.listener(|_, _, _, cx| cx.emit(AddPapersEvent::EnterManually)),
+                            ),
+                    )
+                    .child(
+                        Button::new("add-papers-zotero", t!("Zotero…"))
+                            .compact()
+                            .ghost()
+                            .icon(Icon::LIBRARY)
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.open_zotero(window, cx)),
                             ),
                     )
                     .into_any_element(),

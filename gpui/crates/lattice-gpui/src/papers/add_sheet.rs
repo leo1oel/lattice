@@ -114,6 +114,8 @@ pub struct AddPapers {
     /// The row whose candidates are open, and the one highlighted there.
     pub(super) choosing: Option<(String, usize)>,
     pub(super) tab: Tab,
+    /// The Zotero library, browsed in place of the paste box.
+    pub(super) zotero: Option<Entity<super::zotero::ZoteroBrowser>>,
     focus: FocusHandle,
     _settle: Option<Task<()>>,
     _lookups: Vec<Task<()>>,
@@ -150,6 +152,7 @@ impl AddPapers {
             chosen: HashMap::new(),
             choosing: None,
             tab: Tab::default(),
+            zotero: None,
             focus: cx.focus_handle(),
             _settle: None,
             _lookups: Vec::new(),
@@ -377,11 +380,63 @@ impl AddPapers {
                     id: row.reference.id.clone(),
                     input: row.import_input?,
                     label: row.title,
+                    zotero: None,
                 })
             })
             .collect();
         self.papers
             .update(cx, |papers, cx| papers.run_batch(requests, cx));
+    }
+
+    /// The Zotero library, in place of the paste box; its ticked papers go
+    /// to the same queue, each with its PDF and annotations.
+    pub fn open_zotero(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        use super::zotero::{ZoteroBrowser, ZoteroBrowserEvent};
+        let papers = self.papers.clone();
+        let browser = cx.new(|cx| ZoteroBrowser::new(papers, window, cx));
+        let events = cx.subscribe(&browser, |this, _, event: &ZoteroBrowserEvent, cx| {
+            match event {
+                ZoteroBrowserEvent::Add {
+                    papers,
+                    library,
+                    data_dir,
+                } => {
+                    let requests: Vec<BatchRequest> = papers
+                        .iter()
+                        .map(|paper| {
+                            let item = &library.items[paper.item];
+                            BatchRequest {
+                                id: format!("zotero:{}", paper.citation_key),
+                                input: item.bibtex.clone(),
+                                label: paper.title.clone(),
+                                zotero: Some(super::batch::ZoteroExtras {
+                                    pdf: paper.pdf.clone(),
+                                    existing: paper
+                                        .existing
+                                        .as_ref()
+                                        .and_then(|existing| existing.citation_key.clone()),
+                                    annotations: (paper.annotations > 0).then(|| item.key.clone()),
+                                    data_dir: data_dir.clone(),
+                                }),
+                            }
+                        })
+                        .collect();
+                    this.papers
+                        .update(cx, |papers, cx| papers.run_batch(requests, cx));
+                    this.zotero = None;
+                }
+                ZoteroBrowserEvent::Back => this.zotero = None,
+            }
+            cx.notify();
+        });
+        self._subscriptions.push(events);
+        self.zotero = Some(browser);
+        cx.notify();
+    }
+
+    /// The Zotero browser, while it stands in place of the paste box.
+    pub fn zotero(&self) -> Option<&Entity<super::zotero::ZoteroBrowser>> {
+        self.zotero.as_ref()
     }
 
     pub(super) fn stop(&mut self, cx: &mut Context<Self>) {
@@ -395,7 +450,12 @@ impl AddPapers {
 
     /// Whether closing would lose what was pasted.
     pub(super) fn dirty(&self, cx: &App) -> bool {
-        !self.text.read(cx).value().trim().is_empty() && self.papers.read(cx).batch.items.is_empty()
+        let ticked = self
+            .zotero
+            .as_ref()
+            .is_some_and(|zotero| zotero.read(cx).ticked_count(cx) > 0);
+        (!self.text.read(cx).value().trim().is_empty() || ticked)
+            && self.papers.read(cx).batch.items.is_empty()
     }
 
     /// The cards' titles and states, for a scenario.

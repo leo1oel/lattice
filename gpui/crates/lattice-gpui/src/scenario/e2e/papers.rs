@@ -243,6 +243,31 @@ impl Run {
             ],
             json!({ "rows": rows }),
         );
+        // Zotero… reads the library in place of the paste box; this HOME
+        // has none, and the browser says so with the way to choose one.
+        self.with_window(cx, |_, window, cx| {
+            sheet.update(cx, |sheet, cx| sheet.open_zotero(window, cx))
+        })?;
+        let answered = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                sheet.read(cx).zotero().is_some_and(|browser| {
+                    let (read, error) = browser.read(cx).read_state();
+                    read || error.is_some()
+                })
+            })
+            .await;
+        let state = cx.update(|cx| {
+            sheet.read(cx).zotero().map(|browser| {
+                let (read, error) = browser.read(cx).read_state();
+                json!({ "read": read, "error": error })
+            })
+        });
+        self.papers_shot(cx, "papers-4b-zotero").await;
+        steps.check(
+            "Add papers' Zotero… opens the library browser, which reads the library or says why not",
+            answered,
+            json!({ "zotero": state }),
+        );
         self.with_window(cx, |_, window, cx| {
             sheet.update(cx, |sheet, cx| sheet.cancel(window, cx))
         })?;

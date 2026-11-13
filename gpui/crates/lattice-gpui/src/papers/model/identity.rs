@@ -186,6 +186,40 @@ fn has_pdf_url(paper: &PaperSummary) -> bool {
     })
 }
 
+/// The paper's own PDF on the web (`paperPdfUrl`): arXiv's, alphaXiv's, or
+/// a cited `.pdf`.
+pub fn pdf_url(paper: &PaperSummary) -> Option<String> {
+    if ARXIV_ID.is_match(&paper.arxiv_id) {
+        return Some(format!("https://arxiv.org/pdf/{}", paper.arxiv_id));
+    }
+    let url = web_url(paper.url.as_deref())?;
+    if url
+        .host
+        .trim_start_matches("www.")
+        .eq_ignore_ascii_case("alphaxiv.org")
+    {
+        let id = ["/abs/", "/pdf/", "/overview/"]
+            .iter()
+            .find_map(|prefix| url.path.strip_prefix(prefix))?
+            .trim_end_matches('/');
+        let id = id
+            .strip_suffix(".pdf")
+            .or_else(|| id.strip_suffix(".md"))
+            .unwrap_or(id);
+        return (!id.is_empty()).then(|| format!("https://www.alphaxiv.org/abs/{id}.pdf"));
+    }
+    url.path
+        .to_ascii_lowercase()
+        .ends_with(".pdf")
+        .then(|| url.href.to_string())
+}
+
+/// Papers has no PDF of the paper at all, neither one its bundle keeps nor
+/// one on the web, so a Zotero attachment would give it one (`keepsNoPdf`).
+pub fn keeps_no_pdf(paper: &PaperSummary) -> bool {
+    !paper.has_local_pdf && pdf_url(paper).is_none()
+}
+
 /// DOI metadata identifies a work, not a downloadable full-text page.
 pub fn can_download(paper: &PaperSummary) -> bool {
     if !paper.arxiv_id.is_empty() {
