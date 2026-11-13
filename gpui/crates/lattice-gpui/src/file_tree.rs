@@ -451,7 +451,7 @@ impl Panel for FileTreePanel {
                     IconButton::new("project-new-entry", Icon::PLUS)
                         .radius(TAB_RADIUS)
                         .surface(Surface::Chrome)
-                        .tooltip("New…")
+                        .tooltip(t!("New…"))
                         .dropdown_menu_with_anchor(Anchor::TopRight, move |menu, _, _| {
                             Self::new_entries_menu(&view, menu)
                         }),
@@ -460,7 +460,10 @@ impl Panel for FileTreePanel {
                     IconButton::new("project-find", Icon::SEARCH)
                         .radius(TAB_RADIUS)
                         .surface(Surface::Chrome)
-                        .tooltip("Find in project — not in the GPUI preview yet"),
+                        .tooltip(t!(
+                            "{name} — not in the GPUI preview yet",
+                            name = t!("Find in project")
+                        )),
                 ),
         )
     }

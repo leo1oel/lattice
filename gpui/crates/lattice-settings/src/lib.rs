@@ -59,19 +59,31 @@ fn parse(path: &Path) -> Option<Result<Settings, String>> {
     })
 }
 
+/// Move the file at `path` aside to `settings.json.unreadable` (or
+/// `.unreadable.2`, `.3`… when that is taken), so no save overwrites it.
+fn set_aside(path: &Path) {
+    let aside = (1..)
+        .map(|n| match n {
+            1 => path.with_extension("json.unreadable"),
+            n => path.with_extension(format!("json.unreadable.{n}")),
+        })
+        .find(|aside| !aside.exists())
+        .expect("an unused name");
+    match std::fs::rename(path, &aside) {
+        Ok(()) => log::warn!("moved {} aside to {}", path.display(), aside.display()),
+        Err(error) => log::warn!("could not move {} aside: {error}", path.display()),
+    }
+}
+
 /// The settings in the file at `path` at startup; `None` when there is
 /// none. A file that does not parse, or one from a newer version of the
-/// layout, is moved aside to `settings.json.unreadable` so the next save
-/// does not overwrite it, and reads as the defaults.
+/// layout, is set aside and reads as the defaults.
 pub fn read(path: &Path) -> Option<Settings> {
     match parse(path)? {
         Ok(settings) => Some(settings),
         Err(reason) => {
             log::warn!("{reason}");
-            let aside = path.with_extension("json.unreadable");
-            if let Err(error) = std::fs::rename(path, &aside) {
-                log::warn!("could not move {} aside: {error}", path.display());
-            }
+            set_aside(path);
             Some(Settings::default())
         }
     }
@@ -88,10 +100,15 @@ pub fn read_live(path: &Path) -> Option<Settings> {
 }
 
 /// Write the file whole beside the target, then move it over, so a crash
-/// mid-write leaves the old file.
+/// mid-write leaves the old file. A file there that does not read (a hand
+/// edit with a typo, a newer layout) is set aside first, not overwritten.
 pub fn write(path: &Path, settings: &Settings) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
+    }
+    if let Some(Err(reason)) = parse(path) {
+        log::warn!("{reason}");
+        set_aside(path);
     }
     let partial = path.with_extension("json.partial");
     let mut text = serde_json::to_string_pretty(&settings.to_value())?;
@@ -171,6 +188,28 @@ mod tests {
         assert!(path.with_extension("json.unreadable").exists());
         std::fs::write(&path, r#"{"version": 99, "themePreference": "dark"}"#).unwrap();
         assert_eq!(read(&path), Some(Settings::default()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_save_over_an_unreadable_file_keeps_it_aside() {
+        let dir = scratch("save-over");
+        let path = file_in(&dir);
+        let typo = "{ \"themePreference\": \"dark\", }";
+        std::fs::write(&path, typo).unwrap();
+        std::fs::write(path.with_extension("json.unreadable"), "older").unwrap();
+        write(&path, &Settings::default()).unwrap();
+        assert_eq!(read_live(&path), Some(Settings::default()));
+        assert_eq!(
+            std::fs::read_to_string(path.with_extension("json.unreadable")).unwrap(),
+            "older"
+        );
+        assert_eq!(
+            std::fs::read_to_string(path.with_extension("json.unreadable.2")).unwrap(),
+            typo
+        );
+        write(&path, &Settings::default()).unwrap();
+        assert!(!path.with_extension("json.unreadable.3").exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
