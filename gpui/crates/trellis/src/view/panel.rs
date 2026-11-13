@@ -49,6 +49,7 @@ impl TrellisWorkspace {
             .rounded(card.radius)
             .bg(card.background)
             .shadow(shadow)
+            .block_mouse_except_scroll()
             // A press anywhere in a panel focuses its selected view and raises
             // it if it floats; a frame too small to use drags from anywhere.
             .capture_any_mouse_down({

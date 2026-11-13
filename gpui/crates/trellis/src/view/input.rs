@@ -5,9 +5,10 @@
 //! The pointer, wheel, pinch and Escape, turned into engine calls.
 
 use gpui::{
-    AnyElement, Context, DispatchPhase, InteractiveElement as _, IntoElement, Modifiers,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, PinchEvent,
-    ScrollDelta, ScrollEvent, Stateful, Styled as _, Subscription, WeakEntity, Window, canvas, div,
+    AnyElement, Context, DispatchPhase, HitboxBehavior, InteractiveElement as _, IntoElement,
+    Modifiers, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _,
+    PinchEvent, ScrollDelta, ScrollEvent, Stateful, Styled as _, Subscription, WeakEntity, Window,
+    canvas, div,
 };
 
 use crate::runtime::engine::ResizeDir;
@@ -29,9 +30,6 @@ impl TrellisWorkspace {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.topmost(panel, event.position) {
-            return;
-        }
         let selected = self.engine.doc().clone();
         let selected =
             crate::model::locate_panel(&selected, panel).map(|l| l.panel().selected.clone());
@@ -64,7 +62,7 @@ impl TrellisWorkspace {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.held.is_some() || !self.topmost(panel, event.position) {
+        if self.held.is_some() {
             return;
         }
         let p = self.local(event.position);
@@ -186,8 +184,16 @@ impl TrellisWorkspace {
         let listeners = {
             let entity = entity.clone();
             canvas(
-                |_, _, _| {},
-                move |_, _, window, _| {
+                |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
+                move |_, hitbox, window, _| {
+                    let pinch_entity = entity.clone();
+                    window.on_mouse_event(move |event: &PinchEvent, phase, window, cx| {
+                        if phase == DispatchPhase::Bubble && hitbox.should_handle_scroll(window) {
+                            pinch_entity
+                                .update(cx, |this, cx| this.pinch(event, cx))
+                                .ok();
+                        }
+                    });
                     let move_entity = entity.clone();
                     window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                         if phase == DispatchPhase::Capture {
@@ -212,17 +218,11 @@ impl TrellisWorkspace {
             .size_full()
         };
         let wheel_entity = entity.clone();
-        let pinch_entity = entity.clone();
         let nav_entity = entity;
         root.child(listeners)
             .on_scroll(move |event: &ScrollEvent, _, cx| {
                 wheel_entity
                     .update(cx, |this, cx| this.wheel(event, cx))
-                    .ok();
-            })
-            .on_pinch(move |event: &PinchEvent, _, cx| {
-                pinch_entity
-                    .update(cx, |this, cx| this.pinch(event, cx))
                     .ok();
             })
             // Shift or Alt on the gutters between panels: the navigator's.
@@ -234,7 +234,6 @@ impl TrellisWorkspace {
                     .update(cx, |this, cx| {
                         let p = this.local(event.position);
                         if this.held.is_none()
-                            && this.over_content(p).is_none()
                             && this
                                 .engine
                                 .nav_press(p, event.modifiers.shift, event.modifiers.alt)
@@ -257,13 +256,6 @@ impl TrellisWorkspace {
             .iter()
             .rev()
             .find(|panel| panel.rect.contains(p))
-    }
-
-    /// Whether `panel` is the one on top under a window position: panels
-    /// beneath a float never take its presses.
-    fn topmost(&self, panel: &str, position: gpui::Point<gpui::Pixels>) -> bool {
-        self.panel_at(self.local(position))
-            .is_some_and(|top| top.id == panel)
     }
 
     /// Whether a point (workspace px) is over a view's content.
