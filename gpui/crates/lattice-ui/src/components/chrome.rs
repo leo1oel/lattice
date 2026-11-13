@@ -269,11 +269,15 @@ pub struct Segmented {
     parity: Option<SharedString>,
     filled: bool,
     disabled: bool,
+    /// The choices' names shown beside their icons.
+    named: bool,
 }
 
 pub struct Segment {
     label: Option<SharedString>,
     icon: Option<Icon>,
+    /// An icon segment's name, shown as its tooltip.
+    tooltip: Option<SharedString>,
     selected: bool,
     on_click: Option<ClickHandler>,
 }
@@ -286,6 +290,7 @@ impl Segmented {
             parity: None,
             filled: false,
             disabled: false,
+            named: false,
         }
     }
 
@@ -306,6 +311,27 @@ impl Segmented {
         self
     }
 
+    /// Show each [`Segmented::icon_choice`]'s name beside its icon, as the
+    /// Tauri strip's view switch does in room to spare (`data-tools="named"`):
+    /// 8px in, the icon, 6px, the name in the caption's medium weight, 10px
+    /// out. The names fade in on the moderate tier.
+    pub fn named(mut self, named: bool) -> Self {
+        self.named = named;
+        self
+    }
+
+    /// The width [`Segmented::named`] adds to an icon choice named `name`.
+    pub fn name_room(name: &str, window: &Window, cx: &App) -> Pixels {
+        let label = crate::typography::shaped_width(
+            name,
+            TextRole::Caption,
+            Some(FONT_WEIGHT_MEDIUM),
+            window,
+            cx,
+        );
+        px(8. + 14. + 6. + 10. - 28.) + label
+    }
+
     /// Name this control as a parity-harness region (`crate::parity`): its
     /// bounds and each labelled segment's text style are recorded under
     /// `name`, in the slot of the segment's place.
@@ -323,6 +349,7 @@ impl Segmented {
         self.segments.push(Segment {
             label: Some(label.into()),
             icon: None,
+            tooltip: None,
             selected,
             on_click: Some(Rc::new(on_click)),
         });
@@ -337,7 +364,28 @@ impl Segmented {
         self.segments.push(Segment {
             label: None,
             icon: Some(icon),
+            tooltip: None,
             selected: false,
+            on_click: Some(Rc::new(on_click)),
+        });
+        self
+    }
+
+    /// An icon segment that is one of the choices: selectable, its name in
+    /// its tooltip, as the Tauri strip's view switch draws Edit, Split and
+    /// Preview. The chosen one's icon is in the primary ink.
+    pub fn icon_choice(
+        mut self,
+        icon: Icon,
+        name: impl Into<SharedString>,
+        selected: bool,
+        on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.segments.push(Segment {
+            label: None,
+            icon: Some(icon),
+            tooltip: Some(name.into()),
+            selected,
             on_click: Some(Rc::new(on_click)),
         });
         self
@@ -385,6 +433,25 @@ impl RenderOnce for Segmented {
                     SharedString::from(format!("segment-{ix}")),
                 );
                 use_interaction(id, window, cx)
+            })
+            .collect();
+        // Each name's fade in, when the choices are named.
+        let named = self.named;
+        let names: Vec<f32> = (0..self.segments.len())
+            .map(|ix| {
+                if !named {
+                    return 1.;
+                }
+                crate::interaction::fade(
+                    ElementId::NamedChild(
+                        std::sync::Arc::new(self.id.clone()),
+                        SharedString::from(format!("name-{ix}")),
+                    ),
+                    true,
+                    crate::Motion::Moderate,
+                    window,
+                    cx,
+                )
             })
             .collect();
         let chip = plate.plate(
@@ -470,8 +537,45 @@ impl RenderOnce for Segmented {
                                 this.child(label).children(text_probe)
                             })
                             .when_some(segment.icon, |this, icon| {
-                                this.w(px(28.))
-                                    .child(icon.element(ICON, palette.text_secondary))
+                                // A view switch's chosen icon is in the
+                                // primary ink, and another one's turns to it
+                                // under the pointer with its wash
+                                // (`.trellis-view-switcher .ui-segmented-tab`).
+                                let ink = match (&segment.tooltip, segment.selected) {
+                                    (Some(_), true) => palette.text,
+                                    (Some(_), false) => {
+                                        mix(palette.text_secondary, palette.text, interaction.hover)
+                                    }
+                                    (None, _) => palette.text_secondary,
+                                };
+                                match (&segment.tooltip, named) {
+                                    (Some(name), true) => {
+                                        let opacity = names[ix];
+                                        this.pl(px(8.))
+                                            .pr(px(10.))
+                                            .gap(px(6.))
+                                            .child(icon.element(ICON, ink))
+                                            .child(
+                                                div()
+                                                    .text_role(TextRole::Caption, cx)
+                                                    .font_weight(FONT_WEIGHT_MEDIUM)
+                                                    .line_height(px(14.))
+                                                    .text_color(ink)
+                                                    .opacity(opacity)
+                                                    .child(name.clone()),
+                                            )
+                                    }
+                                    _ => this.w(px(28.)).child(icon.element(ICON, ink)),
+                                }
+                            })
+                            .when_some(segment.tooltip, |this, tooltip| {
+                                this.tooltip(move |_, cx| -> gpui::AnyView {
+                                    crate::components::LatticeTooltip::view(
+                                        tooltip.clone(),
+                                        None,
+                                        cx,
+                                    )
+                                })
                             })
                             .when_some(segment.on_click, |this, on_click| {
                                 this.cursor_pointer()

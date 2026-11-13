@@ -48,7 +48,7 @@ jobs:
           # the checkout's root. The vendoring diff only reshapes manifests
           # for building out of the repository, so it is not applied here.
           cd "$work"
-          for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type; do
+          for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse; do
             git apply "$GITHUB_WORKSPACE/gpui/patches/$diff.diff"
           done
           echo "GPUI_FAST_DIR=$work/gpui-fast" >> "$GITHUB_ENV"

@@ -68,6 +68,25 @@ export const SCREENS = {
     // Drawn by different engines in the two apps (pdf.js and PDFium), so left out of the pixel budget.
     content: [".pdf-viewer-host"],
   },
+  // The tutorial with its HTML demo opened (`scenes.html`): the document's
+  // card, strip and tab, its Edit / Split / Preview switch, the preview and
+  // the zoom controls over it. The GPUI app draws the page in a webview
+  // island, which an offscreen capture does not include, so the page itself
+  // is left out of the pixel budget; the chrome over it is compared.
+  html: {
+    label: "HTML",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("attention-demo.html"),
+      { name: "html/views", css: "[data-trellis-part=\"accessory\"]:not([data-inactive]) .trellis-view-switcher" },
+      { name: "html/preview", css: ".html-preview" },
+      // Its percentage is an <input>'s value in the Tauri app, which has no
+      // text run to compare; the box is compared.
+      { name: "html/zoom", css: ".html-preview-zoom-controls" },
+    ],
+    content: [".html-preview-frame", ".pdf-viewer-host"],
+  },
   // A window without a project (`?welcome=1&recents=1`): the newest recent
   // project's folder is gone, so the welcome screen says so; the desk lays
   // out the next three. The GPUI side stages the same list

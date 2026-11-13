@@ -3,7 +3,8 @@
 //! empty center's hint and the floating panels over it.
 
 use gpui::{
-    Context, ParentElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    Context, InteractiveElement as _, ParentElement as _, Styled as _, Window, deferred, div,
+    prelude::FluentBuilder as _, px,
 };
 use lattice_ui::ActiveLattice as _;
 
@@ -22,11 +23,36 @@ impl Shell {
             .px(px(WORKSPACE_SIDE))
             .pb(px(WORKSPACE_SIDE))
             .children(lattice_ui::parity::probe("workspace"))
+            // While a dock panel is dragged, webview islands step aside: a
+            // page would hide the drop targets under it and swallow the drag.
+            .on_drag_move(cx.listener(
+                |this, _: &gpui::DragMoveEvent<gpui_kit::component::dock::DragPanel>, _, cx| {
+                    if !this.panel_dragging {
+                        this.panel_dragging = true;
+                        lattice_webview::set_dock_dragging(true, cx);
+                    }
+                },
+            ))
+            .capture_any_mouse_up(cx.listener(|this, _, window, cx| {
+                if this.panel_dragging {
+                    this.panel_dragging = false;
+                    window.defer(cx, |_, cx| lattice_webview::set_dock_dragging(false, cx));
+                }
+            }))
             .child(self.dock_area.clone())
             .when(
                 self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
                 |this| this.child(arrange::empty_center(self, cx)),
             )
-            .children(self.floating.render(self.floating_area(window), cx))
+            // Deferred, so a docked webview island does not cover a panel
+            // floating over it (gpui-fast puts native views under the
+            // overlay surface). An island floating in one is hosted on the
+            // overlay surface in turn, above the card it floats in.
+            .children(
+                self.floating
+                    .render(self.floating_area(window), cx)
+                    .into_iter()
+                    .map(|card| deferred(card).with_priority(super::layers::FLOATING_PRIORITY)),
+            )
     }
 }
