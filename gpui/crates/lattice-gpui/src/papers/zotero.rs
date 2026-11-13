@@ -410,6 +410,11 @@ impl ZoteroBrowser {
     }
 
     pub(super) fn toggle_folder(&mut self, key: String, cx: &mut Context<Self>) {
+        // A search opens every folder it shows; the writer's own choice
+        // stays as it was for when the search clears.
+        if !self.folder_query.read(cx).value().trim().is_empty() {
+            return;
+        }
         if !self.expanded.remove(&key) {
             self.expanded.insert(key);
         }

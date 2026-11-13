@@ -428,9 +428,12 @@ impl BibEditor {
             .into_any_element()
     }
 
-    fn list(&self, width: f32, cx: &mut Context<Self>) -> AnyElement {
+    fn list(&mut self, width: f32, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let shown = self.shown(cx);
+        // Consumed by the list that draws it: a narrow pane showing the
+        // reference keeps it for when the list comes back.
+        let reveal = self.reveal.take();
         if shown.is_empty() {
             let empty_file = self.rows.is_empty();
             let filtered = !self.query.read(cx).value().is_empty() || self.filter != BibFilter::All;
@@ -475,7 +478,7 @@ impl BibEditor {
         } else {
             ROW_HEIGHT
         };
-        if let Some(key) = self.reveal.clone()
+        if let Some(key) = reveal
             && let Some(at) = shown.iter().position(|index| {
                 self.rows
                     .iter()
@@ -671,7 +674,6 @@ impl Render for BibEditor {
                     ))
                     .into_any_element()
             };
-        self.reveal = None;
         div()
             .id("bib-visual")
             .key_context("BibEditor")

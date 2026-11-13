@@ -151,6 +151,17 @@ fn audit_key(entry: &AuditEntry) -> String {
     format!("{}\0{}", entry.path, entry.key)
 }
 
+/// The reference's title as a reader sees it, else its key
+/// (`auditEntryTitle`).
+pub(super) fn entry_title(entry: &AuditEntry) -> String {
+    let title = lattice_core::bib_document::bib_text_to_plain(&entry.title);
+    if title.trim().is_empty() {
+        entry.key.clone()
+    } else {
+        title
+    }
+}
+
 /// The order the reports were asked for in, and the newest written: a save
 /// that reaches the disk after a newer one is dropped.
 static REPORTS_ASKED: AtomicU64 = AtomicU64::new(0);
@@ -421,6 +432,10 @@ impl Audit {
         self.busy = true;
         self.stopping = false;
         self.error = None;
+        // Until the rescan says how many it checks, the last run's count
+        // would read as this one's.
+        self.run_total = 0;
+        self.run_done.clear();
         let root = self.root.clone();
         let saved: HashMap<String, Saved> = self
             .report()
@@ -763,5 +778,29 @@ impl Audit {
 impl Focusable for Audit {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_reference_reads_by_its_plain_title_else_its_key() {
+        let entry = |title: &str| AuditEntry {
+            path: "refs.bib".into(),
+            key: "devlin2019".into(),
+            title: title.into(),
+            bibtex: String::new(),
+            issues: Vec::new(),
+            inline: None,
+            line: None,
+            fingerprint: String::new(),
+        };
+        assert_eq!(
+            entry_title(&entry("{BERT}: Pre-training")),
+            "BERT: Pre-training"
+        );
+        assert_eq!(entry_title(&entry("")), "devlin2019");
     }
 }

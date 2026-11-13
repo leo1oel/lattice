@@ -260,7 +260,7 @@ pub fn comment_markdown(comment: &str) -> String {
             "p" | "div" if closing => out.push('\n'),
             "sub" | "sup" | "span" | "p" | "div" => {}
             // Not one of Zotero's tags: its text, as written.
-            _ => out.push_str(&markdown_text(&format!("<{tag}>"))),
+            _ => out.push_str(&markdown_text(&decode_entities(&format!("<{tag}>")))),
         }
     }
     out.push_str(&markdown_text(&decode_entities(rest)));
@@ -463,5 +463,9 @@ mod tests {
         let bold = comment_markdown("p<0.05, <b>significant</b>");
         assert!(bold.ends_with(", **significant**"), "{bold}");
         assert_eq!(comment_markdown("<p2>x"), "\\<p2\\>x");
+        assert_eq!(
+            comment_markdown("<x title=\"a &amp;amp; b\">"),
+            "\\<x title=\"a &amp; b\"\\>"
+        );
     }
 }

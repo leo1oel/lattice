@@ -16,14 +16,15 @@ use crate::{editor_panel::DocumentView, scenario::Run};
 
 impl Run {
     /// Focus the form's box for `field`, select what it holds, type `text`
-    /// and leave the box for the list, as a writer would; false when the
-    /// form has no such box.
+    /// and leave the box for the box of `then` (another field), else for
+    /// the list, as a writer would; false when the form has no such box.
     async fn type_into_field(
         &self,
         cx: &mut AsyncApp,
         bib: &gpui::Entity<crate::papers::bib_editor::BibEditor>,
         field: &str,
         text: &str,
+        then: Option<&str>,
     ) -> Result<bool> {
         let Some(focus) = cx.update(|cx| bib.read(cx).field_focus(field, cx)) else {
             return Ok(false);
@@ -32,8 +33,10 @@ impl Run {
         self.press(cx, 'a', true).await?;
         self.type_text(cx, text).await?;
         self.with_window(cx, |_, window, cx| {
-            let list = gpui::Focusable::focus_handle(bib.read(cx), cx);
-            window.focus(&list, cx);
+            let next = then
+                .and_then(|then| bib.read(cx).field_focus(then, cx))
+                .unwrap_or_else(|| gpui::Focusable::focus_handle(bib.read(cx), cx));
+            window.focus(&next, cx);
         })?;
         self.pause(cx, Duration::from_millis(100)).await;
         Ok(true)
@@ -91,7 +94,7 @@ impl Run {
         // A value typed into the form's year box lands in the source editor's
         // buffer when the box is left; ⌘Z in the form steps the file back.
         let before = self.editor_text(cx, &editor);
-        let typed = self.type_into_field(cx, &bib, "year", "1986").await?;
+        let typed = self.type_into_field(cx, &bib, "year", "1986", None).await?;
         let after = self.editor_text(cx, &editor);
         self.press(cx, 'z', true).await?;
         let undone = self
@@ -107,11 +110,14 @@ impl Run {
                 && undone,
             json!({ "typed": typed, "landed": after.contains("year = {1986}"), "undone": undone }),
         );
-        // Written, then typed back to what the file first held: the second
-        // write lands too.
-        let mut retyped = self.type_into_field(cx, &bib, "year", "1986").await?;
+        // Written, then typed back to what the file first held while the
+        // writer stays in the form (straight into the title box and back):
+        // the second write lands too.
+        let mut retyped = self
+            .type_into_field(cx, &bib, "year", "1986", Some("title"))
+            .await?;
         let changed = self.editor_text(cx, &editor);
-        retyped &= self.type_into_field(cx, &bib, "year", "1984").await?;
+        retyped &= self.type_into_field(cx, &bib, "year", "1984", None).await?;
         let back = self.editor_text(cx, &editor);
         steps.check(
             "a field typed back to its first value in the .bib form is written back",
