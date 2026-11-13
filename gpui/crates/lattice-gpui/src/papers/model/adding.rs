@@ -197,55 +197,55 @@ pub struct PastedReference {
 pub fn parse_pasted_references(text: &str) -> Vec<PastedReference> {
     let mut found: Vec<(usize, PastedReference)> = Vec::new();
     let mut rest = text.to_string();
-    if Regex::new(r"@\w+\s*\{").unwrap().is_match(text) {
-        if let Ok(document) = bib_document::parse(text) {
-            let mut blanked = text.as_bytes().to_vec();
-            for entry in &document.entries {
-                // The entry's bytes stand blank for the line pass, keeping
-                // its line breaks so offsets stay put.
-                for byte in &mut blanked[entry.from..entry.to] {
-                    if *byte != b'\n' {
-                        *byte = b' ';
-                    }
+    if Regex::new(r"@\w+\s*\{").unwrap().is_match(text)
+        && let Ok(document) = bib_document::parse(text)
+    {
+        let mut blanked = text.as_bytes().to_vec();
+        for entry in &document.entries {
+            // The entry's bytes stand blank for the line pass, keeping
+            // its line breaks so offsets stay put.
+            for byte in &mut blanked[entry.from..entry.to] {
+                if *byte != b'\n' {
+                    *byte = b' ';
                 }
-                let source = &text[entry.from..entry.to];
-                let summary = bib_document::summarize_entry(text, entry, &document.macros);
-                let doi = normal_doi(&summary.doi);
-                let arxiv = Some(summary.arxiv_id.clone())
-                    .filter(|id| !id.is_empty())
-                    .or_else(|| arxiv_of_doi(doi.as_deref()));
-                found.push((
-                    entry.from,
-                    PastedReference {
-                        id: format!("bibtex:{source}"),
-                        kind: ReferenceKind::Bibtex,
-                        input: source.to_string(),
-                        label: entry.key.clone(),
-                        record: Some(ReferenceRecord {
-                            title: if summary.title.is_empty() {
-                                entry.key.clone()
-                            } else {
-                                summary.title.clone()
-                            },
-                            byline: byline_of([
-                                summary.short_authors.as_str(),
-                                summary.year.as_str(),
-                                summary.venue.as_str(),
-                            ]),
-                            identity: WorkIdentity {
-                                arxiv_id: arxiv,
-                                doi,
-                                key: Some(entry.key.clone()),
-                                title: Some(summary.title.clone()),
-                            },
-                        }),
-                    },
-                ));
             }
-            // Blanking replaced ASCII bytes inside entries only; what is
-            // left outside them is the text as pasted.
-            rest = String::from_utf8_lossy(&blanked).into_owned();
+            let source = &text[entry.from..entry.to];
+            let summary = bib_document::summarize_entry(text, entry, &document.macros);
+            let doi = normal_doi(&summary.doi);
+            let arxiv = Some(summary.arxiv_id.clone())
+                .filter(|id| !id.is_empty())
+                .or_else(|| arxiv_of_doi(doi.as_deref()));
+            found.push((
+                entry.from,
+                PastedReference {
+                    id: format!("bibtex:{source}"),
+                    kind: ReferenceKind::Bibtex,
+                    input: source.to_string(),
+                    label: entry.key.clone(),
+                    record: Some(ReferenceRecord {
+                        title: if summary.title.is_empty() {
+                            entry.key.clone()
+                        } else {
+                            summary.title.clone()
+                        },
+                        byline: byline_of([
+                            summary.short_authors.as_str(),
+                            summary.year.as_str(),
+                            summary.venue.as_str(),
+                        ]),
+                        identity: WorkIdentity {
+                            arxiv_id: arxiv,
+                            doi,
+                            key: Some(entry.key.clone()),
+                            title: Some(summary.title.clone()),
+                        },
+                    }),
+                },
+            ));
         }
+        // Blanking replaced ASCII bytes inside entries only; what is
+        // left outside them is the text as pasted.
+        rest = String::from_utf8_lossy(&blanked).into_owned();
     }
     let mut offset = 0;
     for line in rest.split('\n') {

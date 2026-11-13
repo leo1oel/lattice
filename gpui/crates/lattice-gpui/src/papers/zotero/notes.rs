@@ -257,7 +257,7 @@ pub fn comment_markdown(comment: &str) -> String {
             .to_ascii_lowercase();
         match name.as_str() {
             "b" | "strong" => out.push_str("**"),
-            "i" | "em" => out.push_str("*"),
+            "i" | "em" => out.push('*'),
             "br" => out.push('\n'),
             "p" | "div" if closing => out.push('\n'),
             "sub" | "sup" | "span" | "p" | "div" => {}

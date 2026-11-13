@@ -268,12 +268,11 @@ impl AddPapers {
                     };
                 }
                 // An identifier the library already holds needs no lookup.
-                if reference.kind != ReferenceKind::Title {
-                    if let Some(known) =
+                if reference.kind != ReferenceKind::Title
+                    && let Some(known) =
                         model::find_in_library(library, &model::identity_of_input(&reference.input))
-                    {
-                        return from_library(known);
-                    }
+                {
+                    return from_library(known);
                 }
                 match self.lookups.get(&reference.id) {
                     None => row(

@@ -527,7 +527,7 @@ pub fn apply_library_changes(
             ),
         });
     }
-    edits.sort_by(|a, b| b.from.cmp(&a.from));
+    edits.sort_by_key(|edit| std::cmp::Reverse(edit.from));
     let mut next = edits.iter().fold(local.to_string(), |text, edit| {
         bib_document::apply_edit(&text, edit)
     });
