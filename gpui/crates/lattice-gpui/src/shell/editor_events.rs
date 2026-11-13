@@ -51,6 +51,11 @@ impl Shell {
                     self.open_path(root.join(path), Some(*line), window, cx);
                 }
             }
+            EditorPanelEvent::OpenFile { path } => {
+                if let Some(root) = self.root(cx) {
+                    self.open_path(root.join(path), None, window, cx);
+                }
+            }
             EditorPanelEvent::OutlineJump { path, line } => {
                 self.jump_to_heading(path, *line, window, cx)
             }

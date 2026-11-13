@@ -50,6 +50,7 @@ use zed_actions::buffer_search::Deploy;
 
 mod buffer_counts;
 mod disk_sync;
+mod markdown_view;
 mod outline_panel;
 pub mod outline_rail;
 pub mod rail_outline;
@@ -114,6 +115,9 @@ pub enum EditorPanelEvent {
     CaretLine,
     /// The editor took focus: it is the one the reader works in now.
     Focused,
+    /// Open the project-relative `path` (a link followed in a Markdown file's
+    /// visual editor).
+    OpenFile { path: String },
     /// An outline rail row: open `path` at the 1-based `line`, then show
     /// the same place in the PDF.
     OutlineJump { path: String, line: u32 },
@@ -194,6 +198,9 @@ pub struct EditorPanel {
     structured: Option<Entity<crate::structured::StructuredDocument>>,
     /// A closing tab waits for its page to hand over its edits.
     page_flushed: Option<oneshot::Sender<()>>,
+    /// Which side of a Markdown file's Split moved last, and when: `true` for
+    /// the source (`markdown_view.rs`).
+    markdown_led: Option<(bool, std::time::Instant)>,
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
@@ -250,7 +257,13 @@ impl EditorPanel {
         let saved_text = normalize_breaks(&text);
         let buffer = cx.new(|cx| Buffer::local(text, cx));
         let buffered = started.elapsed();
-        buffer.update(cx, |buffer, cx| buffer.set_language(language, cx));
+        // A Markdown file's inline text and fenced blocks are injections,
+        // resolved through the registry; a buffer moved to `.md` needs it too.
+        let registry = lattice_editor::markdown::registry(cx);
+        buffer.update(cx, |buffer, cx| {
+            buffer.set_language_registry(registry);
+            buffer.set_language(language, cx);
+        });
         let languaged = started.elapsed();
         let lattice = cx.new(|cx| LatticeEditor::new(buffer.clone(), window, cx));
         let editor = lattice.read(cx).editor().clone();
@@ -340,6 +353,8 @@ impl EditorPanel {
                         }
                         cx.emit(EditorPanelEvent::Focused);
                     }
+                    // A Markdown file's Split: the visual editor follows.
+                    EditorEvent::ScrollPositionChanged { .. } => this.markdown_source_scrolled(cx),
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
                         if let Some(diagnostics) = &this.diagnostics {
@@ -424,6 +439,7 @@ impl EditorPanel {
             views,
             structured: None,
             page_flushed: None,
+            markdown_led: None,
             status: SaveStatus::Saved,
             save_queue: None,
             saves_pending: 0,
@@ -583,6 +599,14 @@ impl EditorPanel {
     /// Put the cursor at the start of the 1-based `line` and scroll it to the
     /// middle of the editor.
     pub fn go_to_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
+        // Markdown's Preview is its visual editor, which takes the jump.
+        if let Some(document) = self.jumps_in_preview() {
+            document.update(cx, |document, cx| document.reveal_line(line, cx));
+            if let Some(focus) = document.read(cx).focus_handle(cx) {
+                window.focus(&focus, cx);
+            }
+            return;
+        }
         let point = Point::new(line.saturating_sub(1), 0);
         self.editor.update(cx, |editor, cx| {
             editor.change_selections(
@@ -620,7 +644,7 @@ impl Focusable for EditorPanel {
         match self.views.as_ref() {
             Some(views) if views.view() == DocumentView::Preview => views
                 .preview()
-                .map(|preview| preview.read(cx).island().focus_handle(cx))
+                .and_then(|preview| preview.focus_handle(cx))
                 .unwrap_or_else(|| self.editor.focus_handle(cx)),
             _ => self.editor.focus_handle(cx),
         }

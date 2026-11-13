@@ -15,7 +15,8 @@ offscreen-shots = ["gpui/test-support", "gpui_platform/test-support"]
 
 [dependencies]
 anyhow.workspace = true
-# The history timeline's dates in the local time zone (history/time.rs).
+# The history timeline's dates in the local time zone (history/time.rs), and
+# a pasted image's name, which carries the time as the Tauri app's does.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 assets.workspace = true
 # An Excel export's bytes cross the island bridge as base64.
@@ -53,6 +54,9 @@ serde_json.workspace = true
 settings.workspace = true
 smallvec.workspace = true
 theme.workspace = true
+# lattice-core's link preview runs on Tokio, on a thread of its own per
+# request; already in the graph through lattice-core.
+tokio = { version = "1", default-features = false, features = ["rt"] }
 theme_settings.workspace = true
 # Trellis ported to GPUI: under its own non-commercial license (crates/trellis/README.md).
 trellis.workspace = true

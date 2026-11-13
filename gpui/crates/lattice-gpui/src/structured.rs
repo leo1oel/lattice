@@ -51,6 +51,9 @@ use serde_json::{Value, json};
 
 use crate::notices::{self, Notice};
 
+pub use markdown::MarkdownEvent;
+
+mod markdown;
 mod presentation;
 pub mod resources;
 mod slides;
@@ -62,6 +65,9 @@ pub enum StructuredKind {
     Board,
     Sheet,
     Deck,
+    /// A Markdown file's visual editor, shown by its Split and Preview
+    /// views rather than alone (`markdown.rs`); never what [`Self::of`] names.
+    Markdown,
 }
 
 impl StructuredKind {
@@ -85,6 +91,7 @@ impl StructuredKind {
             Self::Board => "board",
             Self::Sheet => "sheet",
             Self::Deck => "slides",
+            Self::Markdown => "markdown",
         }
     }
 
@@ -93,6 +100,7 @@ impl StructuredKind {
             Self::Board => "board/index.html",
             Self::Sheet => "sheet/index.html",
             Self::Deck => "slides/index.html",
+            Self::Markdown => "markdown/index.html",
         }
     }
 }
@@ -109,6 +117,8 @@ pub enum StructuredEvent {
     /// An Open Slide save wrote `path` (not necessarily this deck's own
     /// file): a panel showing it takes the text that landed.
     Wrote { path: String, text: Option<String> },
+    /// A Markdown file's visual editor asks its panel for something.
+    Markdown(MarkdownEvent),
 }
 
 pub struct StructuredDocument {
@@ -127,6 +137,12 @@ pub struct StructuredDocument {
     /// The interface language the page was last given.
     locale: Locale,
     deck: Option<slides::DeckSession>,
+    /// A Markdown file's: the view, the project's files and TeX sources.
+    markdown: Option<markdown::MarkdownSession>,
+    /// The project, for a page that reads its files (a Markdown file's images).
+    files: Option<FileScope>,
+    /// Reveals asked for, so each has an id of its own.
+    reveals: u64,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -146,6 +162,10 @@ impl StructuredDocument {
                 "The island pages are not built: run gpui/script/build-islands.".to_string()
             })
             .and_then(|dir| FileScope::new(dir).map_err(|error| format!("{error:#}")));
+        // A Markdown file's images are the project's, granted one by one.
+        let files = (kind == StructuredKind::Markdown)
+            .then(|| FileScope::new(root).ok())
+            .flatten();
         let palette = cx.palette().clone();
         let mut subscriptions = Vec::new();
         let (island, unavailable) = match bundle {
@@ -154,7 +174,7 @@ impl StructuredDocument {
                     name: kind.island().into(),
                     entry: kind.entry(),
                     bundle: Bundle::Directory(scope),
-                    files: None,
+                    files: files.clone(),
                     // The editor's ground, as the canvas lays a structured
                     // editor on it.
                     ground: Some(palette.editor),
@@ -183,6 +203,9 @@ impl StructuredDocument {
             drawn: false,
             locale: lattice_i18n::locale(),
             deck,
+            markdown: None,
+            files,
+            reveals: 0,
             _subscriptions: subscriptions,
         }
     }
@@ -288,6 +311,7 @@ impl StructuredDocument {
             payload["projectRoot"] = json!(self.root.to_string_lossy());
             payload["editable"] = json!(true);
         }
+        self.markdown_open(&mut payload);
         self.post("doc:open", payload, cx);
     }
 
@@ -351,6 +375,9 @@ impl StructuredDocument {
                 t!("Open Slide’s Ask AI, Apply comments and Draft a deck need the Agent."),
                 cx,
             ),
+            _ if self.kind == StructuredKind::Markdown => {
+                self.on_markdown_message(kind, payload, cx)
+            }
             _ => log::debug!("{}: unhandled {kind}", self.kind.island()),
         }
     }
@@ -367,6 +394,8 @@ impl StructuredDocument {
             "doc:persist" => cx.emit(StructuredEvent::Persist(id)),
             "island:confirm" => self.confirm(id, &payload, cx),
             "tauri:invoke" => self.invoke(id, payload, window, cx),
+            _ if self.kind == StructuredKind::Markdown
+                && self.on_markdown_request(id, kind, &payload, cx) => {}
             "slides:mutation" if self.kind == StructuredKind::Deck => {
                 self.apply_mutation(id, payload, cx)
             }
@@ -424,6 +453,7 @@ impl StructuredDocument {
         match (self.kind, command.as_str()) {
             (_, "plugin:dialog|save") => self.save_panel(id, &args, window, cx),
             (StructuredKind::Sheet, "save_xlsx") => self.save_xlsx(id, &payload, cx),
+            (StructuredKind::Markdown, _) if self.invoke_markdown(id, &command, &args, cx) => {}
             (StructuredKind::Deck, _) if slides::handles(&command) => {
                 let result = self
                     .deck
@@ -624,6 +654,7 @@ impl Render for StructuredDocument {
                 StructuredKind::Board => "board/surface",
                 StructuredKind::Sheet => "sheet/surface",
                 StructuredKind::Deck => "slides/surface",
+                StructuredKind::Markdown => "markdown/surface",
             }))
             .when_some(failure, |this, failure| {
                 this.child(
@@ -644,6 +675,9 @@ impl Render for StructuredDocument {
                                     StructuredKind::Board => t!("Couldn’t open this board"),
                                     StructuredKind::Sheet => t!("Couldn’t open this spreadsheet"),
                                     StructuredKind::Deck => t!("Open Slide could not start"),
+                                    StructuredKind::Markdown => {
+                                        t!("Couldn’t open the Markdown editor")
+                                    }
                                 }),
                         )
                         .child(

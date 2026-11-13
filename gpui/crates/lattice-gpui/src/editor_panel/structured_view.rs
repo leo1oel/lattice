@@ -34,7 +34,7 @@ impl EditorPanel {
         self.structured.as_ref()
     }
 
-    fn on_structured(
+    pub(super) fn on_structured(
         &mut self,
         document: Entity<StructuredDocument>,
         event: &StructuredEvent,
@@ -56,6 +56,8 @@ impl EditorPanel {
                     flushed.send(()).ok();
                 }
             }
+            // A Markdown file's visual editor is the views' (`markdown_view.rs`).
+            StructuredEvent::Markdown(_) => {}
             StructuredEvent::Wrote { path, text } => {
                 // Open Slide saved this deck's own file: the buffer takes
                 // what landed as what is on disk.
@@ -117,7 +119,13 @@ impl EditorPanel {
     /// file saves. The panel stays alive until both are done, or the page has
     /// not answered within [`FLUSH_WAIT`].
     pub(super) fn close_structured(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some(document) = self.structured.clone() else {
+        // A Markdown file's visual editor, too, once its page has loaded:
+        // one never shown holds nothing.
+        let Some(document) = self.structured.clone().or_else(|| {
+            self.markdown_document()
+                .filter(|document| document.read(cx).page_ready(cx))
+                .cloned()
+        }) else {
             return false;
         };
         let (flushed, answered) = oneshot::channel();

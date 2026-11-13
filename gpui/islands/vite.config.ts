@@ -1,8 +1,9 @@
 /**
  * The GPUI app's island pages (`gpui/README.md`, "Webview islands"): the
- * spreadsheet, the board and the Open Slide workspace, each a page built
- * from the Tauri app's own modules in `src/`, compiled the way the app
- * compiles them (React Compiler, Lingui, Tailwind, the private faces), into
+ * spreadsheet, the board, the Open Slide workspace and the visual Markdown
+ * editor, each a page built from the Tauri app's own modules in `src/`,
+ * compiled the way the app compiles them (React Compiler, Lingui, Tailwind,
+ * the private faces), into
  * `gpui/islands/dist/`, which the GPUI app serves under its island protocol
  * (`lattice://island/bundle/<island>/index.html`).
  *
@@ -24,7 +25,7 @@ import { reactCompilerSuppressionRules } from "../../scripts/react-compiler-supp
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
-const ISLANDS = ["sheet", "board", "slides"] as const;
+const ISLANDS = ["sheet", "board", "slides", "markdown"] as const;
 
 export default defineConfig({
   root: here,

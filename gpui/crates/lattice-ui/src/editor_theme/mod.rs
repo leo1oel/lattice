@@ -19,7 +19,8 @@
 //! Lattice's token roles: commands are `keyword`, sectioning and title
 //! commands `function`, environment names `type`, maths `variable`, paths
 //! `string`, key-value keys `property`, label and reference keys `label`,
-//! citation keys `citation`.
+//! citation keys `citation`; and the ones the Markdown queries write, `markup.*`
+//! (headings, syntax marks, code, links, quotes, rules) and the emphases.
 
 pub mod code_palette;
 #[cfg(test)]
@@ -352,5 +353,16 @@ fn syntax(code: &CodePalette) -> Value {
     set("punctuation.bracket", s.bracket, None, false);
     set("emphasis", code.ink, None, true);
     set("emphasis.strong", code.ink, Some(700), false);
+    // Markdown's source, as the app's `markdownHighlightStyle` sets it
+    // (`src/editor/editor-languages.ts`): headings at 600 in the function
+    // colour, syntax marks in the keyword colour at the text's weight, code
+    // in the string colour, links in the special-variable colour, quotes in
+    // italic documentation comments, rules in the bracket colour.
+    set("markup.heading", s.function, Some(600), false);
+    set("markup.meta", s.keyword, None, false);
+    set("markup.raw", s.string, None, false);
+    set("markup.link", s.variable_special, None, false);
+    set("markup.quote", s.comment_doc, None, true);
+    set("markup.separator", s.bracket, None, false);
     Value::Object(map)
 }

@@ -48,6 +48,7 @@ fn build_language() -> Language {
 pub fn init(cx: &mut App) {
     let language = Arc::new(build_language());
     language.set_theme(cx.theme().syntax());
+    crate::markdown::init(language.clone(), cx);
     cx.set_global(LatexLanguage(language));
 
     cx.observe_global::<theme::GlobalTheme>(|cx| {
@@ -69,9 +70,13 @@ pub fn is_tex_source(path: &Path) -> bool {
         })
 }
 
-/// The language for a file, by extension: LaTeX for TeX sources, plain text
-/// for everything else.
+/// The language for a file, by extension: LaTeX for TeX sources, Markdown
+/// for `.md` files (whose buffer also needs [`crate::markdown::registry`]),
+/// plain text for everything else.
 pub fn language_for_path(path: &Path, cx: &App) -> Option<Arc<Language>> {
+    if crate::markdown::is_markdown(path) {
+        return Some(crate::markdown::language(cx));
+    }
     is_tex_source(path).then(|| cx.global::<LatexLanguage>().0.clone())
 }
 
