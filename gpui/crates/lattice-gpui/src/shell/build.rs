@@ -188,13 +188,13 @@ impl Shell {
             .as_ref()
             .is_some_and(|(_, compilable)| *compilable);
         let main = project.read(cx).main_document().map(str::to_string);
-        if main.is_none() && !compilable {
+        if main.is_none() && !compilable && self.build_target.is_none() {
             // Autosave and a jump to the PDF reach here too; only the writer
             // pressing Build is told what to add.
             if request.requested {
                 notices::error(t!("Build"), tr(NO_DOCUMENT), cx);
             }
-            self.settle_builds();
+            self.settle_builds(cx);
             return;
         }
         if self.build_task.is_some() {
@@ -204,7 +204,11 @@ impl Shell {
             });
             return;
         }
-        let open_document = open_document.map(|(path, _)| path);
+        // A root document's own tab builds that document.
+        let open_document = self
+            .build_target
+            .take()
+            .or_else(|| open_document.map(|(path, _)| path));
         let editors = self.open_editors();
         let saves = Self::save_dirty(&editors, cx);
         let saved: HashMap<String, String> = editors
@@ -255,6 +259,8 @@ impl Shell {
             });
         }));
         let build_panel = self.build_panel.clone();
+        self.pdf
+            .update(cx, |panel, cx| panel.set_building(true, cx));
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
             for save in saves {
                 if let Err(error) = save.await {
@@ -404,7 +410,6 @@ impl Shell {
                 self.build_panel.update(cx, |panel, cx| {
                     panel.finished(&result, wrote_pdf, request.requested, sources, cx)
                 });
-                let root = project.read(cx).root().to_path_buf();
                 project.update(cx, |project, cx| {
                     // A build may adopt the open document or switch the
                     // engine, which it writes to the manifest.
@@ -423,8 +428,12 @@ impl Shell {
                     notices::dismiss(BUILD_FAILED_NOTICE, cx);
                 }
                 if result.has_pdf {
-                    let pdf = root.join(&result.root_document).with_extension("pdf");
-                    self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+                    self.show_built_pdf(
+                        result.root_document.clone(),
+                        request.requested,
+                        window,
+                        cx,
+                    );
                 }
                 if !result.success && !cancelled {
                     // A build the writer asked for goes to its first error,
@@ -472,14 +481,16 @@ impl Shell {
         // the project open now.
         match self.queued_build.take() {
             Some(queued) => self.run_build(queued, window, cx),
-            None => self.settle_builds(),
+            None => self.settle_builds(cx),
         }
         cx.notify();
     }
 
     /// Tell whoever waits for the builds that they are over.
-    pub(super) fn settle_builds(&mut self) {
+    pub(super) fn settle_builds(&mut self, cx: &mut Context<Self>) {
         if self.build_task.is_none() {
+            self.pdf
+                .update(cx, |panel, cx| panel.set_building(false, cx));
             for waiter in self.build_waiters.drain(..) {
                 waiter.send(()).ok();
             }
@@ -487,10 +498,10 @@ impl Shell {
     }
 
     /// Resolves once no build is under way or queued.
-    fn builds_settled(&mut self) -> oneshot::Receiver<()> {
+    fn builds_settled(&mut self, cx: &mut Context<Self>) -> oneshot::Receiver<()> {
         let (settled, receiver) = oneshot::channel();
         self.build_waiters.push(settled);
-        self.settle_builds();
+        self.settle_builds(cx);
         receiver
     }
 
@@ -512,7 +523,7 @@ impl Shell {
                 if this.build_task.is_none() {
                     this.run_build(BuildRequest::default(), window, cx);
                 }
-                this.builds_settled()
+                this.builds_settled(cx)
             }) else {
                 return false;
             };

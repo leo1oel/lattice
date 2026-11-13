@@ -26,7 +26,7 @@ use super::{
     layout::{self, Arrangement, Node, View},
     windows,
 };
-use crate::editor_panel::EditorPanel;
+use crate::{editor_panel::EditorPanel, pdf::PdfPanelKind};
 
 /// The app's hooks into the dock skin: closing a panel arranges the window
 /// without it, and every panel's ⋯ menu offers Float and Hide.
@@ -103,6 +103,16 @@ impl Shell {
             return Some(View::Build);
         }
         let root = self.root(cx)?;
+        if let Some(path) = self
+            .file_pdfs
+            .iter()
+            .find_map(|pdf| match pdf.read(cx).kind() {
+                PdfPanelKind::File(path) if is(pdf.entity_id()) => Some(path),
+                _ => None,
+            })
+        {
+            return Some(View::File(layout::document_key(&root, path)));
+        }
         self.editors
             .iter()
             .filter_map(gpui::WeakEntity::upgrade)
@@ -141,6 +151,9 @@ impl Shell {
                 let path = self.root(cx)?.join(key);
                 if !path.is_file() {
                     return None;
+                }
+                if layout::is_pdf(key) {
+                    return Some(panel_handle(self.file_pdf_for(path, window, cx)));
                 }
                 panel_handle(self.editor_for(&path, window, cx)?)
             }

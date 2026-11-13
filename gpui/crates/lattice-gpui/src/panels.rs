@@ -15,7 +15,10 @@ use lattice_ui::{
 };
 
 use crate::{
-    build_panel::BuildPanel, editor_panel::EditorPanel, file_tree::FileTreePanel, pdf::PdfPanel,
+    build_panel::BuildPanel,
+    editor_panel::EditorPanel,
+    file_tree::FileTreePanel,
+    pdf::{PdfPanel, PdfPanelKind},
     stand_in_panels::StandInPanel,
 };
 
@@ -44,8 +47,18 @@ pub fn present_tabs(cx: &mut App) {
             look(Icon::FOLDER_TREE, Surface::Chrome)
         } else if let Ok(stand_in) = view.clone().downcast::<StandInPanel>() {
             look(stand_in.read(cx).kind().icon(), Surface::Chrome)
-        } else if view.clone().downcast::<PdfPanel>().is_ok() {
-            look(Icon::FILE_TEXT, Surface::Sheet)
+        } else if let Ok(pdf) = view.clone().downcast::<PdfPanel>() {
+            // A PDF of the project opened from the tree is a document, with
+            // its file's glyph; the compiled PDFs are the PDF panel's.
+            match pdf.read(cx).kind() {
+                PdfPanelKind::File(_) => TabLook {
+                    icon: TabIcon::Glyph(GlyphKind::Pdf),
+                    dirty: false,
+                    surface: Surface::Sheet,
+                    document: true,
+                },
+                _ => look(Icon::FILE_TEXT, Surface::Sheet),
+            }
         } else if view.downcast::<BuildPanel>().is_ok() {
             look(Icon::HAMMER, Surface::Sheet)
         } else {

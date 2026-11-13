@@ -48,6 +48,28 @@ Tauri host: never run those. The locally built GPUI binary
 on a scratch copy of `gpui/fixtures/e2e` with a scratch `HOME`, which is what
 `pnpm signoff` does.
 
+Build that binary with `node scripts/gpui-build.mjs` from the repository root,
+not with `cargo build` in your worktree.
+It mirrors your checkout, uncommitted edits included, into one build tree the
+machine shares, builds the release binary with `offscreen-shots` there under the
+machine-wide GPUI lock, and copies it back to `gpui/target/release/lattice-gpui`
+for `gpui/script/e2e`.
+Every checkout builds from the same paths there, so Cargo rebuilds only what
+changed since the last build, whichever worktree ran it: about 10 s for a change
+to `lattice-gpui` from a brand-new worktree, and about 2 minutes for one to the
+vendored `gpui` crate everything builds on.
+In a new worktree, a plain `cargo build` starts cold (about 5.5 minutes on an
+idle machine, much longer while other builds run), because sccache keys Rust
+compiles on the checkout's absolute paths.
+Run it in the foreground and wait for it; if a command timeout stops it, run it
+again, since the shared tree keeps what was already built.
+A worktree that builds GPUI only this way needs nothing else in its own
+`gpui/target`: a target left by an earlier plain `cargo build` (10–17 GB) can go
+with `rm -rf gpui/target`, and the next `node scripts/gpui-build.mjs` puts the
+binary back.
+Arguments after `--` run another cargo command there instead, for example
+`node scripts/gpui-build.mjs -- test --release --locked --workspace --features lattice-gpui/offscreen-shots`.
+
 The full local gate, `pnpm check` (stages and CI parity in
 [`architecture.md` §6](architecture.md#6-the-gate)), belongs to an official
 release; see [`release-process.md`](release-process.md). When you do run it and
