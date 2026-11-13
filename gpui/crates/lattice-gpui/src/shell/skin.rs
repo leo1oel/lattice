@@ -463,6 +463,14 @@ impl Skin for LatticeSkin {
         Some(super::layers::FLOATING_PRIORITY)
     }
 
+    fn card_children(&self, panel: &PanelFrame, _: &mut App) -> Vec<AnyElement> {
+        parity_probe("card", panel)
+    }
+
+    fn strip_children(&self, panel: &PanelFrame, _: &mut App) -> Vec<AnyElement> {
+        parity_probe("strip", panel)
+    }
+
     fn overlay(&self, window: &mut Window, _: &mut App) -> Option<AnyElement> {
         let state = self.menu.borrow();
         let open = state.as_ref()?;
@@ -489,6 +497,24 @@ impl Skin for LatticeSkin {
 
 fn trellis_root_pdf() -> &'static str {
     super::trellis_layout::ROOT_PDF
+}
+
+/// The parity harness's mark for a panel's card or strip, named by its
+/// selected tab, as the dock's skin named them.
+fn parity_probe(part: &str, panel: &PanelFrame) -> Vec<AnyElement> {
+    if !lattice_ui::parity::enabled() {
+        return Vec::new();
+    }
+    let name = panel
+        .tabs
+        .iter()
+        .find(|tab| tab.selected)
+        .map(|tab| tab.title.clone())
+        .unwrap_or_default();
+    lattice_ui::parity::probe(format!("{part}/{name}"))
+        .map(IntoElement::into_any_element)
+        .into_iter()
+        .collect()
 }
 
 /// The lifted pill "Add as tab" and "Release to focus" sit in.

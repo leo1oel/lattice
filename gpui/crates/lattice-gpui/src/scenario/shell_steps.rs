@@ -47,6 +47,7 @@ impl Run {
         steps.push(self.workspace_keeps_its_arrangement(cx).await?);
         steps.push(self.close_and_bring_back(cx).await?);
         steps.push(self.float_and_dock(cx).await?);
+        steps.push(self.hide_and_restore(cx).await?);
         steps.push(self.layout_survives_a_relaunch(cx).await?);
         steps.push(self.palette_lists_commands(cx).await?);
         steps.push(self.closing_the_focused_tab_keeps_the_keyboard(cx).await?);
@@ -411,6 +412,33 @@ impl Run {
             "the PDF floats over the workspace and docks back",
             floated && docked,
             json!({ "floated": floated, "docked": docked }),
+        ))
+    }
+
+    /// Hide puts Papers away with its place kept; its titlebar chip brings
+    /// it back there.
+    async fn hide_and_restore(&self, cx: &mut AsyncApp) -> Result<Step> {
+        self.reset_layout(cx)?;
+        self.settle_workspace(cx).await?;
+        let before = shape(&self.document(cx));
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| shell.hide_view("papers", cx))
+        })?;
+        self.settle_workspace(cx).await?;
+        let chips = cx.update(|cx| self.shell.read(cx).hidden_panels(cx));
+        let hidden = cx.update(|cx| !self.shell.read(cx).view_on_screen("papers", cx));
+        if let Some((panel, _)) = chips.first().cloned() {
+            self.with_window(cx, move |shell, _, cx| {
+                shell.update(cx, |shell, cx| shell.restore_panel(&panel, cx))
+            })?;
+        }
+        self.settle_workspace(cx).await?;
+        let back = cx.update(|cx| self.shell.read(cx).view_on_screen("papers", cx));
+        let same = shape(&self.document(cx)) == before;
+        Ok((
+            "Hide puts a panel away with a titlebar chip that brings it back where it was",
+            hidden && chips.len() == 1 && back && same,
+            json!({ "hidden": hidden, "chips": chips, "back": back, "same_place": same }),
         ))
     }
 

@@ -254,18 +254,18 @@ impl Shell {
             .map(|bounds| bounds.size.width)
     }
 
-    /// Give the top-level column holding `view` `width` px, the others
-    /// keeping their proportions, as a divider drag would leave it (for the
-    /// scenarios' sized shots).
+    /// Give the top-level column holding `view` `width` px as a drag of its
+    /// trailing divider would (the last column's leading one): only its
+    /// neighbour gives or takes the room. For the scenarios' sized shots.
     pub fn set_view_width(&mut self, view: &str, width: f32, cx: &mut Context<Self>) {
-        let mut doc = self.document(cx);
-        let (viewport, _) = self.workspace.read(cx).engine().viewport();
-        let Some(LayoutNode::Split(root)) = &mut doc.root else {
+        let Some(current) = self.view_width(view, cx).map(f32::from) else {
             return;
         };
-        let Some(panel) =
-            trellis::model::panel_of_view(&self.document(cx), view).map(|p| p.id.clone())
-        else {
+        let mut doc = self.document(cx);
+        let Some(panel) = trellis::model::panel_of_view(&doc, view).map(|p| p.id.clone()) else {
+            return;
+        };
+        let Some(LayoutNode::Split(root)) = &mut doc.root else {
             return;
         };
         let Some(at) = root.children.iter().position(|child| {
@@ -275,22 +275,19 @@ impl Shell {
         }) else {
             return;
         };
-        let gaps = 6. * (root.children.len() + 1) as f64;
-        let share = (f64::from(width) / (viewport - gaps)).clamp(0.05, 0.95);
-        let rest: f64 = root
-            .weights
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| *i != at)
-            .map(|(_, w)| w)
-            .sum();
-        for (i, weight) in root.weights.iter_mut().enumerate() {
-            *weight = if i == at {
-                share
-            } else {
-                *weight / rest * (1. - share)
-            };
+        if root.children.len() < 2 || current <= 0. {
+            return;
         }
+        let neighbour = if at + 1 < root.children.len() {
+            at + 1
+        } else {
+            at - 1
+        };
+        // Weights scale with the columns' widths, the gaps aside.
+        let per_px = root.weights[at] / f64::from(current);
+        let delta = (f64::from(width - current) * per_px).min(root.weights[neighbour] * 0.9);
+        root.weights[at] += delta;
+        root.weights[neighbour] -= delta;
         self.engine_do(cx, |engine| engine.set_document(doc, false));
     }
 

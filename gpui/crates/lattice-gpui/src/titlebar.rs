@@ -44,6 +44,7 @@ use lattice_ui::{
     typography::shaped_width,
 };
 
+mod hidden_chips;
 mod project_menu;
 mod workspace_switch;
 
@@ -440,6 +441,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
                 .gap(px(2.))
                 .pt(px(6.))
                 .pr(px(6.))
+                .children(hidden_chips::hidden_chips(shell, cx))
                 .children(search_folded.map(controls))
                 .child(controls(tools)),
         )

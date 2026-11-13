@@ -94,6 +94,7 @@ impl TrellisWorkspace {
                 el = el.child(self.render_strip(p, window, cx));
             }
         }
+        el = el.children(self.skin.clone().card_children(p, cx));
         if p.handles {
             el = el.children(self.render_handles(p, local, cx));
         }
@@ -304,6 +305,7 @@ impl TrellisWorkspace {
                 .absolute()
                 .size_full()
             })
+            .children(self.skin.clone().strip_children(p, cx))
             .child(list)
             .children(end.accessories.map(|tools| {
                 // A press on the tools belongs to them, never to a drag.

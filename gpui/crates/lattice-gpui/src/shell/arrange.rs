@@ -348,6 +348,40 @@ impl Shell {
         });
     }
 
+    /// The hidden panels the titlebar offers to bring back, with their
+    /// views' titles: in a preset or focus mode, only those holding a
+    /// document (the rest come back with the writer's own layout).
+    pub(crate) fn hidden_panels(&self, cx: &App) -> Vec<(String, String)> {
+        let doc = self.document(cx);
+        let engine = self.workspace.read(cx).engine();
+        let laid_over = self.layout.preset.is_some() || self.layout.focus.is_some();
+        doc.hidden
+            .iter()
+            .filter(|entry| {
+                !laid_over
+                    || entry.panel.views.iter().any(|view| {
+                        doc.views
+                            .get(view)
+                            .is_some_and(|record| record.kind == "file")
+                    })
+            })
+            .map(|entry| {
+                let titles: Vec<String> = entry
+                    .panel
+                    .views
+                    .iter()
+                    .map(|view| engine.title_of(view))
+                    .collect();
+                (entry.panel.id.clone(), titles.join(", "))
+            })
+            .collect()
+    }
+
+    /// Bring a hidden panel back where it was.
+    pub(crate) fn restore_panel(&mut self, panel: &str, cx: &mut Context<Self>) {
+        self.engine_do(cx, |engine| engine.restore(panel, None));
+    }
+
     /// Take a view off screen; it keeps its state, hidden.
     pub(crate) fn hide_view(&mut self, id: &str, cx: &mut Context<Self>) {
         self.engine_do(cx, |engine| engine.hide(id, None));

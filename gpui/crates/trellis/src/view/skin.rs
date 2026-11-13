@@ -152,6 +152,16 @@ pub trait Skin: 'static {
         None
     }
 
+    /// Extra elements laid inside a panel's card (marks for a test harness).
+    fn card_children(&self, _panel: &PanelFrame, _cx: &mut App) -> Vec<AnyElement> {
+        Vec::new()
+    }
+
+    /// Extra elements laid inside a panel's tab strip.
+    fn strip_children(&self, _panel: &PanelFrame, _cx: &mut App) -> Vec<AnyElement> {
+        Vec::new()
+    }
+
     /// What the skin draws over the whole workspace: a menu it opened with
     /// [`Skin::open_menu_at`].
     fn overlay(&self, _window: &mut Window, _cx: &mut App) -> Option<AnyElement> {
