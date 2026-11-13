@@ -5,7 +5,7 @@ use gpui::{AppContext as _, Context, Window};
 use lattice_core::latex;
 use lattice_i18n::{n, t, tr};
 
-use super::{ForwardSync, Shell, layout::View};
+use super::{ForwardSync, Shell};
 use crate::notices;
 
 /// Said when a jump to the PDF cannot be made from the PDF on screen.
@@ -93,7 +93,7 @@ impl Shell {
     /// The PDF panel comes on screen for a jump into it, wherever the
     /// arrangement holds it.
     fn reveal_pdf(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.show_view(View::Pdf, window, cx);
+        self.show_view("pdf", false, window, cx);
     }
 
     /// From a double-click in the PDF to its source line: in the live PDF

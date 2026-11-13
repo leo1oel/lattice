@@ -158,9 +158,7 @@ impl Engine {
             return;
         };
         let float = self.doc.floating.iter().find(|f| f.panel.id == panel.id);
-        let tab = view
-            .filter(|_| panel.views.len() > 1)
-            .map(str::to_string);
+        let tab = view.filter(|_| panel.views.len() > 1).map(str::to_string);
         let screen = self.last_rects.get(&panel.id).copied().unwrap_or_default();
         let state = self.panels.get(&panel.id);
         let tab_sort = tab.as_ref().and_then(|tab| {
@@ -275,8 +273,7 @@ impl Engine {
         }
         d.pointer = p;
         let now = self.now();
-        if d
-            .still
+        if d.still
             .is_none_or(|(at, _)| (p.x - at.x).hypot(p.y - at.y) > STILL_PX)
         {
             d.still = Some((p, now));
@@ -307,7 +304,9 @@ impl Engine {
         };
         sort.started = true;
         let list = sort.list;
-        let left = list.x.max((list.x + list.w - dragged.width).min(p.x - sort.grab));
+        let left = list
+            .x
+            .max((list.x + list.w - dragged.width).min(p.x - sort.grab));
         let mut x = sort.items[0].x;
         let mut index = 0;
         for id in &sort.order {
@@ -320,7 +319,8 @@ impl Engine {
             x += item.width;
         }
         sort.order.retain(|id| *id != dragged.id);
-        sort.order.insert(index.min(sort.order.len()), dragged.id.clone());
+        sort.order
+            .insert(index.min(sort.order.len()), dragged.id.clone());
         let mut x = sort.items[0].x;
         sort.offsets.clear();
         for id in &sort.order {
@@ -333,7 +333,9 @@ impl Engine {
     }
 
     fn activate(&mut self) {
-        let Some(mut d) = self.drag.take() else { return };
+        let Some(mut d) = self.drag.take() else {
+            return;
+        };
         // Active before any document change, so a torn-out view stays mounted
         // while it has no panel.
         d.active = true;
@@ -459,7 +461,8 @@ impl Engine {
                 float_panel(&without, &lifted, rect, float_layer)
             }
         };
-        let repositioning = target == DropTarget::Float && d.from_float.is_some() && !d.tab_rollback;
+        let repositioning =
+            target == DropTarget::Float && d.from_float.is_some() && !d.tab_rollback;
         self.doc = d.origin.clone();
         let settle = if repositioning || matches!(target, DropTarget::Tab { .. }) {
             None
@@ -476,7 +479,12 @@ impl Engine {
         self.events.push(Event::Announce(label(Label::Moved)));
     }
 
-    fn drag_commit(&mut self, next: LayoutDocument, from: HashMap<String, Rect>, settle: Option<String>) {
+    fn drag_commit(
+        &mut self,
+        next: LayoutDocument,
+        from: HashMap<String, Rect>,
+        settle: Option<String>,
+    ) {
         if let Some(settle) = settle {
             self.settling.insert(settle);
         }
@@ -517,8 +525,11 @@ impl Engine {
         let container = match layer {
             FloatingLayer::Overlay => Rect::new(0., 0., self.viewport.0, self.viewport.1),
             FloatingLayer::Stage => {
-                let world = find_stage(next.root.as_ref())
-                    .and_then(|s| self.layout_rects_of(next.root.as_ref()).get(&s.id).map(|e| e.rect));
+                let world = find_stage(next.root.as_ref()).and_then(|s| {
+                    self.layout_rects_of(next.root.as_ref())
+                        .get(&s.id)
+                        .map(|e| e.rect)
+                });
                 self.to_screen(world.unwrap_or(crate::model::UNIT))
             }
         };
@@ -543,7 +554,9 @@ impl Engine {
         // The unscaled content minimum wins over the drop cap.
         w = w.max(min.0 + self.pad() * 2.);
         h = h.max(min.1 + bar + self.pad() * 2.);
-        let grab_y = d.grab_y.min(18. + (d.grab_y - 18.) * (1. - d.compact_amount));
+        let grab_y = d
+            .grab_y
+            .min(18. + (d.grab_y - 18.) * (1. - d.compact_amount));
         let x = d.pointer.x - w * d.grab_x;
         let y = d.pointer.y - grab_y;
         Rect::new(
@@ -573,7 +586,13 @@ impl Engine {
                 let item = sort.items.iter().find(|i| i.id == *id).expect("sorted");
                 let shown = item.x + sort.offsets.get(id).copied().unwrap_or(0.);
                 if (shown - x).abs() >= 0.5 {
-                    self.tab_flips.insert(id.clone(), TabFlip { from: shown - x, start: now });
+                    self.tab_flips.insert(
+                        id.clone(),
+                        TabFlip {
+                            from: shown - x,
+                            start: now,
+                        },
+                    );
                 }
                 x += item.width;
             }
@@ -607,4 +626,3 @@ impl Engine {
             .map(|d| d.candidate.as_ref().map_or("none", DropTarget::kind))
     }
 }
-

@@ -58,7 +58,7 @@ use crate::shell::{
         CloseProject, CommandPalette, ResetLayout, ToggleAgentPanel, ToggleFocusMode,
         ToggleMaximize, TogglePapersPanel, TogglePdfPanel, ToggleProjectPanel, keys_label,
     },
-    layout::{Preset, View},
+    trellis_layout::Preset,
     workspaces::{Workspaces, shown_name},
 };
 
@@ -601,9 +601,9 @@ fn switcher_for(shell: &Shell, weak: WeakEntity<Shell>, cx: &gpui::App) -> impl 
 /// workspaces and the presets, focus mode, then maximize or restore and
 /// reset.
 fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
-    let on_screen: Vec<bool> = [View::Project, View::Papers, View::Agent, View::Pdf]
+    let on_screen: Vec<bool> = ["project", "papers", "agent", "pdf"]
         .iter()
-        .map(|view| shell.view_on_screen(view, cx))
+        .map(|kind| shell.view_on_screen(kind, cx))
         .collect();
     let workspaces: Vec<(String, String)> = Workspaces::global(cx)
         .list()
@@ -612,7 +612,7 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
         .collect();
     let current = shell.layout.workspace.clone();
     let preset = shell.layout.preset.as_ref().map(|active| active.preset);
-    let maximized = shell.dock_area().read(cx).is_zoomed();
+    let maximized = shell.workspace().read(cx).engine().framed().is_some();
     let weak = cx.entity().downgrade();
     ToolbarButton::new("panels", t!("Panels"))
         .icon(Icon::LAYOUT_PANEL_LEFT)

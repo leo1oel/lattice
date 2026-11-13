@@ -164,7 +164,9 @@ impl LayoutTween {
 
 /// A CSS cubic-bezier timing function, for animations driven per frame.
 pub fn cubic_bezier(x1: f64, y1: f64, x2: f64, y2: f64) -> impl Fn(f64) -> f64 {
-    let sample = |a: f64, b: f64, t: f64| ((1. - 3. * b + 3. * a) * t + (3. * b - 6. * a)) * t * t + 3. * a * t;
+    let sample = |a: f64, b: f64, t: f64| {
+        ((1. - 3. * b + 3. * a) * t + (3. * b - 6. * a)) * t * t + 3. * a * t
+    };
     move |x: f64| {
         if x <= 0. {
             return 0.;

@@ -15,22 +15,16 @@
 use std::path::PathBuf;
 
 use gpui::{AppContext as _, Context, Entity, Window};
-use gpui_kit::component::dock::{DockPlacement, InsertTarget, PaneRef, PanelId, panel_handle};
 use lattice_core::latex;
 use lattice_i18n::t;
+use trellis::model::{Placement, panel_of_view};
+use trellis::runtime::engine::OpenOptions;
 
-use super::{Shell, build::BuildRequest};
+use super::{Shell, build::BuildRequest, trellis_layout::ROOT_PDF, views::root_pdf_id};
 use crate::{
     notices,
     pdf::{OutlineState, PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label},
 };
-
-const PLACEMENTS: [DockPlacement; 4] = [
-    DockPlacement::Center,
-    DockPlacement::Left,
-    DockPlacement::Right,
-    DockPlacement::Bottom,
-];
 
 impl Shell {
     pub(super) fn on_pdf_event(
@@ -60,23 +54,9 @@ impl Shell {
             // An Outline row: the line in the editor, then the same place in
             // the PDF, as a jump from the caret makes it.
             PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
-            // In its own window, the PDF alone in the right dock leaves the
-            // dock its room; Return to workspace brings the panel back. Shared
-            // with other panels, the dock stays and shows the placeholder.
-            PdfEvent::Detached | PdfEvent::Docked => {
-                let open = matches!(event, PdfEvent::Docked);
-                let live = PanelId::from(self.pdf.entity_id());
-                self.dock_area.update(cx, |area, cx| {
-                    let alone = area.layout(DockPlacement::Right).is_some_and(|tree| {
-                        let mut panels = tree.panels();
-                        panels.next() == Some(live) && panels.next().is_none()
-                    });
-                    if alone && area.is_dock_open(DockPlacement::Right) != open {
-                        area.toggle_dock(DockPlacement::Right, window, cx);
-                    }
-                });
-                cx.notify();
-            }
+            // In its own window, the PDF's panel stays where it is and shows
+            // its placeholder, with the way back, as the Tauri app's does.
+            PdfEvent::Detached | PdfEvent::Docked => cx.notify(),
         }
     }
 
@@ -94,7 +74,7 @@ impl Shell {
             return;
         };
         let previous = self.live_document.replace(document.clone());
-        let live_in_front = self.panel_in_front(PanelId::from(self.pdf.entity_id()), cx);
+        let live_in_front = self.in_front("pdf", cx);
         // The PDF in its own window shows the build there: the panel's tabs
         // stay as they are.
         let in_window = self.pdf.read(cx).in_window();
@@ -111,10 +91,10 @@ impl Shell {
             .iter()
             .position(|(open, _)| *open == document)
             .map(|ix| {
-                let (_, panel) = self.root_pdfs.remove(ix);
-                let front = self.panel_in_front(PanelId::from(panel.entity_id()), cx);
-                self.dock_area
-                    .update(cx, |area, cx| area.remove_panel(panel, window, cx));
+                self.root_pdfs.remove(ix);
+                let id = root_pdf_id(&document);
+                let front = self.in_front(&id, cx);
+                self.engine_do(cx, |engine| engine.close(&id));
                 front
             })
             .unwrap_or(false);
@@ -122,17 +102,14 @@ impl Shell {
         self.label_pdfs(cx);
         self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
         self.refresh_outline(window, cx);
-        let live = PanelId::from(self.pdf.entity_id());
         match left {
             // A build not asked for leaves the reader on the document they
             // were reading, unless the arriving one's own tab was in front.
             Some(left) if !requested && live_in_front && !own_in_front => {
-                self.dock_area
-                    .update(cx, |area, cx| area.select_panel(left, window, cx));
+                self.engine_do(cx, |engine| engine.select(&left));
             }
             _ if requested || own_in_front => {
-                self.dock_area
-                    .update(cx, |area, cx| area.select_panel(live, window, cx));
+                self.engine_do(cx, |engine| engine.select("pdf"));
             }
             _ => {}
         }
@@ -252,108 +229,93 @@ impl Shell {
     /// it opens anew when asked for again, and its viewer lets go of its
     /// document.
     pub(super) fn forget_closed_pdfs(&mut self, cx: &mut Context<Self>) {
-        let held: std::collections::HashSet<_> = self
-            .root_pdfs
-            .iter()
-            .map(|(_, panel)| panel)
-            .chain(&self.file_pdfs)
-            .map(|panel| panel.entity_id())
-            .filter(|id| self.panel_shown(PanelId::from(*id), cx))
-            .collect();
         let roots = self.root_pdfs.len();
+        let views = self.views.clone();
         self.root_pdfs
-            .retain(|(_, panel)| held.contains(&panel.entity_id()));
-        self.file_pdfs
-            .retain(|panel| held.contains(&panel.entity_id()));
+            .retain(|(document, _)| views.borrow().contains_key(&root_pdf_id(document)));
+        self.file_pdfs.retain(|panel| {
+            views
+                .borrow()
+                .values()
+                .any(|view| view.view().entity_id() == panel.entity_id())
+        });
         if self.root_pdfs.len() != roots {
             self.label_pdfs(cx);
         }
     }
 
-    /// A tab for `document`'s last PDF, where the live tab stands.
+    /// A tab for `document`'s last PDF, where the live tab stands (else
+    /// where the PDF comes back), the live tab kept in front.
     fn add_root_pdf(
         &mut self,
         document: String,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<PanelId> {
-        let root = self.root(cx)?;
-        let path = latex::kept_pdf_path(&root, &document)?;
-        let panel = cx.new(|cx| PdfPanel::new(PdfPanelKind::Root(document.clone()), window, cx));
-        cx.subscribe_in(&panel, window, Self::on_pdf_event).detach();
-        panel.update(cx, |panel, cx| panel.open(path, window, cx));
-        let id = PanelId::from(panel.entity_id());
-        let live = PanelId::from(self.pdf.entity_id());
-        let slot = self.slot_of(live, cx);
-        let placement = slot.map_or(DockPlacement::Right, |(placement, ..)| placement);
-        self.dock_area.update(cx, |area, cx| {
-            area.add_panel_view(panel_handle(panel.clone()), placement, None, window, cx);
-            if let Some((_, node, ix)) = slot {
-                area.move_panel(
-                    id,
-                    InsertTarget::Tabs {
-                        node,
-                        ix: Some(ix),
-                        activate: false,
-                    },
-                    window,
-                    cx,
-                );
-            }
-            area.select_panel(live, window, cx);
+    ) -> Option<String> {
+        self.root_pdf_panel(&document, window, cx)?;
+        let doc = self.document(cx);
+        let placement = match panel_of_view(&doc, "pdf") {
+            Some(panel) => Placement::Into {
+                into: panel.id.clone(),
+                index: panel.views.iter().position(|view| view == "pdf"),
+            },
+            None => self.home_of("pdf", cx),
+        };
+        let mut params = trellis::model::Params::new();
+        params.insert("document".into(), document.clone().into());
+        let id = root_pdf_id(&document);
+        self.engine_do(cx, |engine| {
+            engine.open(
+                ROOT_PDF,
+                OpenOptions {
+                    id: Some(id.clone()),
+                    params: Some(params),
+                    placement: Some(placement),
+                    focus: Some(false),
+                    ..OpenOptions::default()
+                },
+            );
+            engine.select("pdf");
         });
-        self.root_pdfs.push((document, panel));
+        self.sync_views(window, cx);
         Some(id)
     }
 
-    /// Where a panel is: its region, its tab group and its place there.
-    fn slot_of(
-        &self,
-        panel: PanelId,
-        cx: &gpui::App,
-    ) -> Option<(DockPlacement, gpui_kit::component::dock::NodeId, usize)> {
-        let area = self.dock_area.read(cx);
-        PLACEMENTS.into_iter().find_map(|placement| {
-            let tree = area.layout(placement)?;
-            let node = tree.find_panel_node(panel)?;
-            match tree.find_node(node)?.kind() {
-                PaneRef::Tabs { panels, .. } => {
-                    let ix = panels.iter().position(|open| *open == panel)?;
-                    Some((placement, node, ix))
-                }
-                _ => None,
-            }
-        })
+    /// The viewer of `document`'s last PDF, made from lattice-core's kept
+    /// copy if it is not open yet.
+    pub(super) fn root_pdf_panel(
+        &mut self,
+        document: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<PdfPanel>> {
+        if let Some((_, panel)) = self.root_pdfs.iter().find(|(open, _)| open == document) {
+            return Some(panel.clone());
+        }
+        let root = self.root(cx)?;
+        let path = latex::kept_pdf_path(&root, document)?;
+        let kind = PdfPanelKind::Root(document.to_string());
+        let panel = cx.new(|cx| PdfPanel::new(kind, window, cx));
+        cx.subscribe_in(&panel, window, Self::on_pdf_event).detach();
+        panel.update(cx, |panel, cx| panel.open(path, window, cx));
+        self.root_pdfs.push((document.to_string(), panel.clone()));
+        self.label_pdfs(cx);
+        Some(panel)
     }
 
-    /// Whether a panel is the one shown in its tab group.
-    fn panel_in_front(&self, panel: PanelId, cx: &gpui::App) -> bool {
-        let area = self.dock_area.read(cx);
-        PLACEMENTS.into_iter().any(|placement| {
-            area.layout(placement)
-                .and_then(|tree| {
-                    let node = tree.find_panel_node(panel)?;
-                    match tree.find_node(node)?.kind() {
-                        PaneRef::Tabs { panels, active_ix } => {
-                            Some(panels.get(active_ix) == Some(&panel))
-                        }
-                        _ => None,
-                    }
-                })
-                .unwrap_or(false)
-        })
+    /// Whether a view is the one shown in its panel.
+    fn in_front(&self, view: &str, cx: &gpui::App) -> bool {
+        self.workspace
+            .read(cx)
+            .engine()
+            .view_state(view)
+            .is_some_and(|state| state.selected)
     }
 
     /// The other root documents' tabs go with the project they were of.
-    pub(super) fn close_root_pdfs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        for (_, panel) in std::mem::take(&mut self.root_pdfs) {
-            self.dock_area
-                .update(cx, |area, cx| area.remove_panel(panel, window, cx));
-        }
-        for panel in std::mem::take(&mut self.file_pdfs) {
-            self.dock_area
-                .update(cx, |area, cx| area.remove_panel(panel, window, cx));
-        }
+    pub(super) fn close_root_pdfs(&mut self, _: &mut Window, _: &mut Context<Self>) {
+        self.root_pdfs.clear();
+        self.file_pdfs.clear();
     }
 
     /// A PDF of the project, opened from the tree: a tab of its own among
@@ -364,15 +326,12 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let panel = self.file_pdf_for(path, window, cx);
-        let id = PanelId::from(panel.entity_id());
-        if !self.panel_shown(id, cx) {
-            self.dock_area.update(cx, |area, cx| {
-                area.add_panel_view(panel_handle(panel), DockPlacement::Center, None, window, cx);
-            });
-        }
-        self.dock_area
-            .update(cx, |area, cx| area.select_panel(id, window, cx));
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        self.file_pdf_for(path.clone(), window, cx);
+        self.place_document(&super::views::document_key(&root, &path), true, cx);
+        self.sync_views(window, cx);
     }
 
     /// The tab of a PDF of the project, opened if it is not yet; it is not

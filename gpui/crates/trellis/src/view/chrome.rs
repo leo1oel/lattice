@@ -41,7 +41,8 @@ impl TrellisWorkspace {
         }
         match &self.divider_hover {
             Some((hovered, since)) if hovered == key => {
-                let t = since.elapsed().saturating_sub(GRIP_DELAY).as_secs_f32() * 1000. / GRIP_FADE;
+                let t =
+                    since.elapsed().saturating_sub(GRIP_DELAY).as_secs_f32() * 1000. / GRIP_FADE;
                 GRIP_HOVER * t.clamp(0., 1.)
             }
             _ => 0.,
@@ -84,7 +85,10 @@ impl TrellisWorkspace {
                 let click_entity = entity.clone();
                 let hover_key = key.clone();
                 place(
-                    div().id(("trellis-divider", hash(&format!("{}:{}", d.split_id, d.index)))),
+                    div().id((
+                        "trellis-divider",
+                        hash(&format!("{}:{}", d.split_id, d.index)),
+                    )),
                     d.rect,
                 )
                 .cursor(match d.axis {
@@ -117,7 +121,9 @@ impl TrellisWorkspace {
                 .on_click(move |event, _, cx| {
                     if event.click_count() == 2 {
                         click_entity
-                            .update(cx, |this, cx| this.update_engine(cx, |e| e.equalize(&split, index)))
+                            .update(cx, |this, cx| {
+                                this.update_engine(cx, |e| e.equalize(&split, index))
+                            })
                             .ok();
                     }
                 })
@@ -126,10 +132,18 @@ impl TrellisWorkspace {
             .collect()
     }
 
-    pub(crate) fn render_source_slot(&self, frame: &Frame, chrome: &ChromeStyle) -> Option<AnyElement> {
+    pub(crate) fn render_source_slot(
+        &self,
+        frame: &Frame,
+        chrome: &ChromeStyle,
+    ) -> Option<AnyElement> {
         // Where the lifted panel came from: a place held, drawn as nothing.
         let r = frame.source_slot?;
-        Some(place(div(), r).rounded(chrome.slot_radius).into_any_element())
+        Some(
+            place(div(), r)
+                .rounded(chrome.slot_radius)
+                .into_any_element(),
+        )
     }
 
     pub(crate) fn render_drop_slot(
@@ -139,7 +153,8 @@ impl TrellisWorkspace {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let r = frame.drop_slot?;
-        let label = (!frame.drop_label.is_empty()).then(|| self.skin.drop_label(&frame.drop_label, cx));
+        let label =
+            (!frame.drop_label.is_empty()).then(|| self.skin.drop_label(&frame.drop_label, cx));
         Some(
             place(div(), r)
                 .rounded(chrome.slot_radius)
@@ -208,15 +223,18 @@ impl TrellisWorkspace {
         let mut out = Vec::new();
         let ring = |r: Rect, text: String, cx: &mut Context<Self>| {
             let pad = 3.;
-            place(div(), Rect::new(r.x - pad, r.y - pad, r.w + pad * 2., r.h + pad * 2.))
-                .rounded(chrome.slot_radius + px(3.))
-                .border_2()
-                .border_color(chrome.snap_ring)
-                .flex()
-                .justify_center()
-                .pt(px(12.))
-                .child(self.skin.snap_label(&text, cx))
-                .into_any_element()
+            place(
+                div(),
+                Rect::new(r.x - pad, r.y - pad, r.w + pad * 2., r.h + pad * 2.),
+            )
+            .rounded(chrome.slot_radius + px(3.))
+            .border_2()
+            .border_color(chrome.snap_ring)
+            .flex()
+            .justify_center()
+            .pt(px(12.))
+            .child(self.skin.snap_label(&text, cx))
+            .into_any_element()
         };
         if let Some(r) = frame.snap {
             out.push(ring(r, label(Label::ReleaseToFocus), cx));
@@ -231,7 +249,11 @@ impl TrellisWorkspace {
                     .into_any_element(),
             );
             if let Some((r, title)) = &m.target {
-                out.push(ring(*r, label(Label::ReleaseToFocusTarget(title.clone())), cx));
+                out.push(ring(
+                    *r,
+                    label(Label::ReleaseToFocusTarget(title.clone())),
+                    cx,
+                ));
             }
         }
         out

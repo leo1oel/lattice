@@ -5,7 +5,8 @@
 //! stage, the floating and hidden panels, and the views' records. The JSON
 //! shape is Trellis's own, so a document the Tauri app persisted reads here.
 
-use std::collections::BTreeMap;
+/// A document's views, in the order they were added (a JSON object's order).
+pub type Views = indexmap::IndexMap<String, ViewRecord>;
 
 use serde::{Deserialize, Serialize};
 
@@ -285,7 +286,7 @@ pub struct LayoutDocument {
     #[serde(default)]
     pub hidden: Vec<HiddenPanel>,
     #[serde(default)]
-    pub views: BTreeMap<String, ViewRecord>,
+    pub views: Views,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub navigation: Option<Navigation>,
 }
@@ -302,7 +303,7 @@ impl Default for LayoutDocument {
             root: None,
             floating: Vec::new(),
             hidden: Vec::new(),
-            views: BTreeMap::new(),
+            views: Views::new(),
             navigation: None,
         }
     }

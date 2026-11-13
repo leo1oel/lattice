@@ -56,7 +56,10 @@ pub fn focus_layout(root: Option<&LayoutNode>, metrics: Option<&LayoutMetrics>) 
                 let last = entries[children[children.len() - 1].id()].rect;
                 let id = range_id(
                     &node.id,
-                    &children.iter().map(|c| c.id().to_string()).collect::<Vec<_>>(),
+                    &children
+                        .iter()
+                        .map(|c| c.id().to_string())
+                        .collect::<Vec<_>>(),
                 );
                 let weights = &node.weights[start..end];
                 let total = sum(weights);
@@ -185,7 +188,11 @@ pub fn hierarchy_step(
     let LayoutNode::Split(split) = &entry.node else {
         return id;
     };
-    let coordinate = if split.axis == Axis::X { point.x } else { point.y };
+    let coordinate = if split.axis == Axis::X {
+        point.x
+    } else {
+        point.y
+    };
     for child in &split.children[..split.children.len() - 1] {
         let r = entries[child.id()].rect;
         let end = if split.axis == Axis::X {
@@ -338,7 +345,9 @@ pub fn drop_edge(point: Point, rect: Rect) -> Option<Edge> {
     if !(0. ..=1.).contains(&x) || !(0. ..=1.).contains(&y) {
         return None;
     }
-    nearest_edge(x, y).filter(|(_, d)| *d <= 0.28).map(|(e, _)| e)
+    nearest_edge(x, y)
+        .filter(|(_, d)| *d <= 0.28)
+        .map(|(e, _)| e)
 }
 
 /// The edge nearest a point in the unit square, and its distance; ties go
@@ -607,6 +616,13 @@ pub fn apply_dock_target(
     };
     match &target.seam {
         Some(seam) => insert_at_seam(root, seam, incoming, split_id),
-        None => insert_beside(Some(root), &target.id, incoming, target.edge, split_id, None),
+        None => insert_beside(
+            Some(root),
+            &target.id,
+            incoming,
+            target.edge,
+            split_id,
+            None,
+        ),
     }
 }

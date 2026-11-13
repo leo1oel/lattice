@@ -8,8 +8,7 @@
 use std::collections::HashMap;
 
 use crate::model::{
-    Axis, LayoutNode, PanelNode, Rect, TabbarMode, find_stage, panel_of_view,
-    panels_of,
+    Axis, LayoutNode, PanelNode, Rect, TabbarMode, find_stage, panel_of_view, panels_of,
 };
 use crate::runtime::drag::{DROP_SLOT, SORT_SETTLE_MS, SOURCE_SLOT};
 use crate::runtime::header::{HeaderMeasure, HeaderTools, plan_header};
@@ -216,7 +215,9 @@ impl Engine {
             None => self.stage_screen(),
         };
         let mut frame = Frame {
-            empty: self.doc.root.is_none() && self.doc.floating.is_empty() && self.lifted().is_none(),
+            empty: self.doc.root.is_none()
+                && self.doc.floating.is_empty()
+                && self.lifted().is_none(),
             dragging: self.drag_active(),
             drop_kind: self.drop_kind(),
             resizing: self.resizing(),
@@ -233,7 +234,14 @@ impl Engine {
         // z ordering
         let mut z_of: HashMap<String, f64> = HashMap::new();
         for p in panels_of(self.doc.root.as_ref()) {
-            z_of.insert(p.id.clone(), if self.settling.contains(&p.id) { 2900. } else { 10. });
+            z_of.insert(
+                p.id.clone(),
+                if self.settling.contains(&p.id) {
+                    2900.
+                } else {
+                    10.
+                },
+            );
         }
         let mut stage_floats: Vec<_> = self
             .doc
@@ -250,11 +258,19 @@ impl Engine {
             .collect();
         overlay_floats.sort_by(|a, b| a.z.partial_cmp(&b.z).unwrap_or(std::cmp::Ordering::Equal));
         for (i, f) in stage_floats.iter().enumerate() {
-            let z = if self.settling.contains(&f.panel.id) { 2900. } else { 30. + i as f64 * 3. };
+            let z = if self.settling.contains(&f.panel.id) {
+                2900.
+            } else {
+                30. + i as f64 * 3.
+            };
             z_of.insert(f.panel.id.clone(), z);
         }
         for (i, f) in overlay_floats.iter().enumerate() {
-            let z = if self.settling.contains(&f.panel.id) { 2900. } else { 1000. + i as f64 * 3. };
+            let z = if self.settling.contains(&f.panel.id) {
+                2900.
+            } else {
+                1000. + i as f64 * 3.
+            };
             z_of.insert(f.panel.id.clone(), z);
         }
         if let Some(l) = self.lifted() {
@@ -282,12 +298,21 @@ impl Engine {
                 Some(f) => f,
                 None => {
                     let Some(target) = target else { continue };
-                    (if lifted { target } else { self.tween.apply(&panel_id, target) }, 1.)
+                    (
+                        if lifted {
+                            target
+                        } else {
+                            self.tween.apply(&panel_id, target)
+                        },
+                        1.,
+                    )
                 }
             };
-            if self.entering.get(&panel_id).is_some_and(|(_, start)| {
-                now - start >= crate::runtime::motion::DOCK_RESTORE_MS
-            }) {
+            if self
+                .entering
+                .get(&panel_id)
+                .is_some_and(|(_, start)| now - start >= crate::runtime::motion::DOCK_RESTORE_MS)
+            {
                 self.entering.remove(&panel_id);
             }
             self.last_rects.insert(panel_id.clone(), r);
@@ -299,7 +324,12 @@ impl Engine {
             if !onscreen {
                 continue;
             }
-            let float = self.doc.floating.iter().find(|f| f.panel.id == panel_id).cloned();
+            let float = self
+                .doc
+                .floating
+                .iter()
+                .find(|f| f.panel.id == panel_id)
+                .cloned();
             let clip = match (&float, s_screen) {
                 (Some(f), Some(s)) if f.layer == crate::model::FloatingLayer::Stage && !lifted => {
                     clip_inset(r, s)
@@ -316,11 +346,27 @@ impl Engine {
             // drag handle.
             let frame_only = !lifted
                 && (r.w < FRAME_ONLY.0
-                    || r.h < FRAME_ONLY.1 + if panel.views.len() > 1 { self.tabbar_height() } else { 0. });
+                    || r.h
+                        < FRAME_ONLY.1
+                            + if panel.views.len() > 1 {
+                                self.tabbar_height()
+                            } else {
+                                0.
+                            });
             let compact = r.w < 140. || r.h < bar + 24.;
             let squeeze = self.squeeze_of(&panel_id);
-            let loose = panel.views.iter().filter(|v| !self.rules_of(v).singleton).count();
-            let header = self.fit_header(&panel, r.w, if loose > 0 { squeeze } else { 0. }, compact || frame_only, measure);
+            let loose = panel
+                .views
+                .iter()
+                .filter(|v| !self.rules_of(v).singleton)
+                .count();
+            let header = self.fit_header(
+                &panel,
+                r.w,
+                if loose > 0 { squeeze } else { 0. },
+                compact || frame_only,
+                measure,
+            );
             if let Some(state) = self.panels.get_mut(&panel_id) {
                 state.frame_only = frame_only;
             }
@@ -346,11 +392,10 @@ impl Engine {
                     reflow,
                 ));
             }
-            let labels = self
-                .panels
-                .get(&panel_id)
-                .and_then(|s| s.labels.clone());
-            let sort = self.tab_sort_offsets(&panel_id).map(|(o, d)| (o.clone(), d.to_string()));
+            let labels = self.panels.get(&panel_id).and_then(|s| s.labels.clone());
+            let sort = self
+                .tab_sort_offsets(&panel_id)
+                .map(|(o, d)| (o.clone(), d.to_string()));
             let tabs = panel
                 .views
                 .iter()
@@ -493,8 +538,12 @@ impl Engine {
                 })
                 .collect(),
         };
-        let has = self.panels.get(&panel.id).is_some_and(|s| s.header.is_some());
-        if !unmeasurable && !(held && has)
+        let has = self
+            .panels
+            .get(&panel.id)
+            .is_some_and(|s| s.header.is_some());
+        if !unmeasurable
+            && !(held && has)
             && let Some(measured) = measure(&input)
             && let Some(state) = self.panels.get_mut(&panel.id)
         {
@@ -506,7 +555,13 @@ impl Engine {
         let Some(header) = state.header.clone() else {
             return roomy;
         };
-        let plan = plan_header(&header, width, squeeze, Some(&panel.selected), state.label_mode);
+        let plan = plan_header(
+            &header,
+            width,
+            squeeze,
+            Some(&panel.selected),
+            state.label_mode,
+        );
         state.label_mode = Some(plan.label_mode);
         // The labels follow the selected tab. They ease when another tab is
         // selected or a label opens into new room; one that gives way
@@ -559,7 +614,9 @@ impl Engine {
             };
             stack.extend(split.children.iter());
             for index in 0..split.children.len() - 1 {
-                let active = held.as_ref().is_some_and(|(id, i)| *id == split.id && *i == index);
+                let active = held
+                    .as_ref()
+                    .is_some_and(|(id, i)| *id == split.id && *i == index);
                 let Some(effective) = self.effective_split(&split.id) else {
                     continue;
                 };
@@ -574,9 +631,19 @@ impl Engine {
                 let boundary = effective.weights[..=index].iter().sum::<f64>() / total;
                 let size = 8f64.max(self.gap() + 4.);
                 let rect = if effective.axis == Axis::X {
-                    Rect::new(r.x + r.w * boundary - size / 2., r.y + self.pad(), size, r.h - self.gap())
+                    Rect::new(
+                        r.x + r.w * boundary - size / 2.,
+                        r.y + self.pad(),
+                        size,
+                        r.h - self.gap(),
+                    )
                 } else {
-                    Rect::new(r.x + self.pad(), r.y + r.h * boundary - size / 2., r.w - self.gap(), size)
+                    Rect::new(
+                        r.x + self.pad(),
+                        r.y + r.h * boundary - size / 2.,
+                        r.w - self.gap(),
+                        size,
+                    )
                 };
                 let visible = rect.x < self.viewport.0
                     && rect.y < self.viewport.1
@@ -618,7 +685,6 @@ impl Engine {
         }
         frame.drop_label = self.drop_label().to_string();
     }
-
 }
 
 fn clip_inset(r: Rect, bounds: Rect) -> Option<Rect> {
@@ -644,4 +710,3 @@ pub(super) fn snap(r: Rect, round: bool) -> Rect {
     let y = r.y.round();
     Rect::new(x, y, x2 - x, y2 - y)
 }
-

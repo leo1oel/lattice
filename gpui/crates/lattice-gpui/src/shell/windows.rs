@@ -71,14 +71,6 @@ pub(crate) fn for_shells(
     }
 }
 
-/// The shell of the window `window`.
-pub fn shell_for(window: &Window, cx: &App) -> Option<Entity<Shell>> {
-    cx.try_global::<Shells>()?
-        .0
-        .get(&window.window_handle().window_id())?
-        .upgrade()
-}
-
 /// A new window, opening `root` when given, a step down and right from the
 /// window at `from` (else the window in front). A caller inside a window's
 /// update passes that window's bounds: the window being updated cannot be

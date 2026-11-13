@@ -2,129 +2,46 @@
 //! on the shell, and the tab and panel commands that act on the dock
 //! directly (maximize, next and previous tab, close and reopen a tab).
 
-use gpui::{App, Context, Focusable as _, InteractiveElement as _, Stateful, Window};
-use gpui_kit::component::dock::{DockPlacement, PaneRef, PanelId};
+use gpui::{App, Context, InteractiveElement as _, Stateful, Window};
+use trellis::runtime::engine::ViewPlacement;
+use trellis::runtime::keymap::Command as Trellis;
 
-use super::{
-    Shell,
-    commands::*,
-    layout::{Preset, View},
-    windows,
-    workspaces::Workspaces,
-};
+use super::{Shell, commands::*, trellis_layout::Preset, windows, workspaces::Workspaces};
 
 impl Shell {
-    pub(crate) fn toggle_maximize(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let focused = self.focused_group(window, cx);
-        self.dock_area.update(cx, |area, cx| {
-            if area.is_zoomed() {
-                area.set_zoomed_out(window, cx);
-            } else if let Some(node) = focused {
-                area.set_zoomed_in(node, window, cx);
-            }
-        });
+    /// One of the workspace's own commands, on the focused panel.
+    pub(crate) fn run_trellis(&mut self, command: Trellis, cx: &mut Context<Self>) {
+        self.workspace
+            .update(cx, |workspace, cx| workspace.run(command, cx));
         cx.notify();
     }
 
-    fn focused_group(
-        &self,
-        window: &Window,
-        cx: &App,
-    ) -> Option<gpui_kit::component::dock::NodeId> {
-        let area = self.dock_area.read(cx);
-        let mut found = None;
-        let mut first_document = None;
-        for placement in [
-            DockPlacement::Center,
-            DockPlacement::Left,
-            DockPlacement::Right,
-            DockPlacement::Bottom,
-        ] {
-            let Some(tree) = area.layout(placement) else {
-                continue;
-            };
-            tree.root().walk(&mut |node| {
-                if let PaneRef::Tabs { panels, .. } = node.kind() {
-                    for panel in panels.iter().filter_map(|id| area.panel(*id)) {
-                        if panel.focus_handle(cx).contains_focused(window, cx) {
-                            found = Some(node.id());
-                        }
-                        if placement == DockPlacement::Center {
-                            first_document.get_or_insert(node.id());
-                        }
-                    }
-                }
-            });
-        }
-        found.or_else(|| self.document_group(cx)).or(first_document)
-    }
-
-    /// The tab beside the selected one in the focused group, `step` along.
-    pub(crate) fn step_tab(&mut self, step: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(node) = self.focused_group(window, cx) else {
-            return;
-        };
-        let target = {
-            let area = self.dock_area.read(cx);
-            let mut target = None;
-            for placement in [
-                DockPlacement::Center,
-                DockPlacement::Left,
-                DockPlacement::Right,
-                DockPlacement::Bottom,
-            ] {
-                if let Some(found) = area.layout(placement).and_then(|tree| tree.find_node(node))
-                    && let PaneRef::Tabs { panels, active_ix } = found.kind()
-                    && !panels.is_empty()
-                {
-                    let count = panels.len() as isize;
-                    let ix = (active_ix as isize + step).rem_euclid(count) as usize;
-                    target = Some(panels[ix]);
-                }
-            }
-            target
-        };
-        if let Some(panel) = target {
-            self.dock_area
-                .update(cx, |area, cx| area.select_panel(panel, window, cx));
-            if let Some(view) = self.dock_area.read(cx).panel(panel).cloned() {
-                window.focus(&view.focus_handle(cx), cx);
-            }
-        }
-    }
-
-    /// ⌘W: the focused editor, else the document in front, else any document
-    /// on screen; the window when no document is open.
+    /// ⌘W, as an editor's or a browser's (`closeDocumentTab`): close the
+    /// focused document tab, else the active one, else any on screen, as
+    /// the tab's own X does; the window when no document is open.
     pub(crate) fn close_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let editors = self.open_editors();
-        let shown: Vec<PanelId> = editors
+        let doc = self.document(cx);
+        let engine = self.workspace.read(cx).engine();
+        let files: Vec<String> = doc
+            .views
             .iter()
-            .map(|editor| PanelId::from(editor.entity_id()))
-            .filter(|panel| self.panel_shown(*panel, cx))
+            .filter(|(id, view)| {
+                view.kind == "file" && engine.placement_of(id) != ViewPlacement::Hidden
+            })
+            .map(|(id, _)| id.clone())
             .collect();
-        let focused = editors
-            .iter()
-            .find(|editor| {
-                editor
-                    .read(cx)
-                    .editor()
-                    .focus_handle(cx)
-                    .contains_focused(window, cx)
-            })
-            .map(|editor| PanelId::from(editor.entity_id()));
+        let focused = engine.focused_view().map(str::to_string);
+        let active = self
+            .active_document(cx)
+            .and_then(|key| self.view_of_document(&key, cx));
         let target = focused
-            .or_else(|| {
-                let path = self.root(cx)?.join(self.active_document(cx)?);
-                editors
-                    .iter()
-                    .find(|editor| editor.read(cx).path() == path)
-                    .map(|editor| PanelId::from(editor.entity_id()))
-            })
-            .or_else(|| shown.first().copied());
+            .filter(|view| files.contains(view))
+            .or(active.filter(|view| files.contains(view)))
+            .or_else(|| files.first().cloned());
         match target {
-            Some(panel) => {
-                self.close_panel(panel, window, cx);
-            }
+            Some(view) => self
+                .workspace
+                .update(cx, |workspace, cx| workspace.close(&[view], cx)),
             None => self.close_window(window, cx),
         }
     }
@@ -143,7 +60,7 @@ impl Shell {
     pub(crate) fn command_context(&self, cx: &App) -> CommandContext {
         CommandContext {
             in_project: self.project.is_some(),
-            maximized: self.dock_area.read(cx).is_zoomed(),
+            maximized: self.workspace.read(cx).engine().framed().is_some(),
             focus_mode: self.layout.focus.is_some(),
             dirty: self.layout.dirty,
             building: self.build_task.is_some(),
@@ -176,16 +93,16 @@ impl Shell {
     ) -> Stateful<gpui::Div> {
         let element = element
             .on_action(cx.listener(|this, _: &ToggleProjectPanel, window, cx| {
-                this.toggle_view(View::Project, window, cx)
+                this.toggle_view("project", window, cx)
             }))
             .on_action(cx.listener(|this, _: &TogglePapersPanel, window, cx| {
-                this.toggle_view(View::Papers, window, cx)
+                this.toggle_view("papers", window, cx)
             }))
             .on_action(cx.listener(|this, _: &ToggleAgentPanel, window, cx| {
-                this.toggle_view(View::Agent, window, cx)
+                this.toggle_view("agent", window, cx)
             }))
             .on_action(cx.listener(|this, _: &TogglePdfPanel, window, cx| {
-                this.toggle_view(View::Pdf, window, cx)
+                this.toggle_view("pdf", window, cx)
             }))
             .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
                 let shown = this.build_panel_shown(cx);
@@ -239,14 +156,29 @@ impl Shell {
             .on_action(cx.listener(|this, _: &ReopenClosedTab, window, cx| {
                 this.reopen_closed_tab(window, cx)
             }))
-            .on_action(cx.listener(|this, _: &NextTab, window, cx| this.step_tab(1, window, cx)))
             .on_action(
-                cx.listener(|this, _: &PreviousTab, window, cx| this.step_tab(-1, window, cx)),
+                cx.listener(|this, _: &NextTab, _, cx| this.run_trellis(Trellis::TabNext, cx)),
             )
+            .on_action(cx.listener(|this, _: &PreviousTab, _, cx| {
+                this.run_trellis(Trellis::TabPrevious, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ToggleMaximize, _, cx| {
+                this.run_trellis(Trellis::FrameToggle, cx)
+            }))
             .on_action(
-                cx.listener(|this, _: &ToggleMaximize, window, cx| {
-                    this.toggle_maximize(window, cx)
-                }),
+                cx.listener(|this, _: &NextPanel, _, cx| this.run_trellis(Trellis::PanelNext, cx)),
+            )
+            .on_action(cx.listener(|this, _: &PreviousPanel, _, cx| {
+                this.run_trellis(Trellis::PanelPrevious, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NavigateBack, _, cx| {
+                this.run_trellis(Trellis::NavigationBack, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NavigateForward, _, cx| {
+                this.run_trellis(Trellis::NavigationForward, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &CloseView, _, cx| this.run_trellis(Trellis::ViewClose, cx)),
             )
             .on_action(cx.listener(|this, _: &ToggleFocusMode, window, cx| {
                 let on = this.layout.focus.is_none();

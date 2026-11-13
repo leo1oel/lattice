@@ -22,7 +22,7 @@ fn panel(id: &str, views: &[&str]) -> LayoutNode {
 /// Lattice's default row with a documents panel: Project and the Agent over
 /// Papers, the documents, the PDF.
 fn lattice_doc() -> LayoutDocument {
-    let mut views = std::collections::BTreeMap::new();
+    let mut views = crate::model::Views::new();
     for (id, kind) in [
         ("project", "project"),
         ("agent", "agent"),
@@ -208,10 +208,21 @@ fn a_tab_dragged_to_a_panels_right_edge_splits_beside_it() {
     let mut rig = Rig::new();
     let pdf = rig.rect("panel-pdf");
     let from = rig.tab("docs", 1);
-    rig.drag("docs", Some("b"), from, Point::new(pdf.x + pdf.w - 30., pdf.y + pdf.h / 2.));
+    rig.drag(
+        "docs",
+        Some("b"),
+        from,
+        Point::new(pdf.x + pdf.w - 30., pdf.y + pdf.h / 2.),
+    );
     let root = rig.root();
     assert_eq!(root.children.len(), 4, "{:?}", ids(root));
-    assert_eq!(locate_panel(rig.engine.doc(), "docs").unwrap().panel().views, ["a"]);
+    assert_eq!(
+        locate_panel(rig.engine.doc(), "docs")
+            .unwrap()
+            .panel()
+            .views,
+        ["a"]
+    );
     let last = root.children[3].as_panel().unwrap();
     assert_eq!(last.views, ["b"]);
 }
@@ -234,7 +245,12 @@ fn a_whole_panel_dragged_to_a_seam_lands_between_its_neighbours() {
     let pdf = rig.rect("panel-pdf");
     // The strip's empty end drags the whole panel.
     let from = Point::new(pdf.x + pdf.w - 60., pdf.y + 20.);
-    rig.drag("panel-pdf", None, from, Point::new(docs.x - 3., docs.y + docs.h / 2.));
+    rig.drag(
+        "panel-pdf",
+        None,
+        from,
+        Point::new(docs.x - 3., docs.y + docs.h / 2.),
+    );
     assert_eq!(ids(rig.root()), ["column", "panel-pdf", "docs"]);
 }
 
@@ -274,7 +290,13 @@ fn sorting_a_tab_inside_its_strip_reorders_without_lifting_it() {
     }
     rig.engine.drag_end(true);
     rig.settle();
-    assert_eq!(locate_panel(rig.engine.doc(), "docs").unwrap().panel().views, ["b", "a"]);
+    assert_eq!(
+        locate_panel(rig.engine.doc(), "docs")
+            .unwrap()
+            .panel()
+            .views,
+        ["b", "a"]
+    );
 }
 
 #[test]
@@ -283,7 +305,10 @@ fn a_hidden_tab_comes_back_at_its_index() {
     rig.engine.hide("project", None);
     rig.settle();
     assert_eq!(
-        locate_panel(rig.engine.doc(), "panel-project").unwrap().panel().views,
+        locate_panel(rig.engine.doc(), "panel-project")
+            .unwrap()
+            .panel()
+            .views,
         ["agent"]
     );
     let hidden = rig.engine.hidden_panels()[0].id.clone();
@@ -300,7 +325,11 @@ fn hiding_flies_the_panel_away_over_three_hundred_ms() {
     rig.engine.hide("panel-pdf", None);
     rig.advance(150.);
     let frame = rig.frame();
-    let pdf = frame.panels.iter().find(|p| p.id == "panel-pdf").expect("still flying");
+    let pdf = frame
+        .panels
+        .iter()
+        .find(|p| p.id == "panel-pdf")
+        .expect("still flying");
     assert!(pdf.flying && pdf.opacity < 1. && pdf.opacity > 0.1);
     rig.advance(200.);
     assert!(rig.frame().panels.iter().all(|p| p.id != "panel-pdf"));
@@ -330,8 +359,13 @@ fn float_then_dock_from_the_menu() {
             MenuEntry::Separator => None,
         })
         .collect();
-    assert_eq!(labels, ["dock", "move", "hide", "close"], "a float has no Maximize");
-    rig.engine.run_menu_action(&MenuAction::Dock("panel-pdf".into()));
+    assert_eq!(
+        labels,
+        ["dock", "move", "hide", "close"],
+        "a float has no Maximize"
+    );
+    rig.engine
+        .run_menu_action(&MenuAction::Dock("panel-pdf".into()));
     rig.settle();
     assert!(rig.engine.doc().floating.is_empty());
     let root = rig.root();
@@ -350,10 +384,25 @@ fn the_menu_lists_trellis_items_in_order() {
             MenuEntry::Separator => "-".into(),
         })
         .collect();
-    assert_eq!(ids, ["maximize", "float", "move", "hide", "-", "close", "close-others"]);
-    let MenuEntry::Item(maximize) = &menu[0] else { panic!() };
+    assert_eq!(
+        ids,
+        [
+            "maximize",
+            "float",
+            "move",
+            "hide",
+            "-",
+            "close",
+            "close-others"
+        ]
+    );
+    let MenuEntry::Item(maximize) = &menu[0] else {
+        panic!()
+    };
     assert_eq!(maximize.shortcut.as_deref(), Some("⌘⇧↩"));
-    let MenuEntry::Item(moves) = &menu[2] else { panic!() };
+    let MenuEntry::Item(moves) = &menu[2] else {
+        panic!()
+    };
     let targets: Vec<&str> = moves
         .items
         .iter()
@@ -364,7 +413,13 @@ fn the_menu_lists_trellis_items_in_order() {
         .collect();
     assert_eq!(
         targets,
-        ["project +1", "papers", "pdf", "New split right", "New split below"]
+        [
+            "project +1",
+            "papers",
+            "pdf",
+            "New split right",
+            "New split below"
+        ]
     );
 }
 
@@ -424,4 +479,35 @@ fn the_window_minimum_follows_the_layouts_minimums() {
     let rig = Rig::new();
     // Three columns of their widest minimums and the gaps between them.
     assert!(rig.engine.min_width() > 220. + 180. + 220.);
+}
+
+#[test]
+fn an_animated_document_change_draws_every_panel_on_its_first_frame() {
+    let mut rig = Rig::new();
+    // Writing-like: the navigators parked hidden, then the default again.
+    let mut writing = lattice_doc();
+    let LayoutNode::Split(root) = writing.root.as_mut().unwrap() else {
+        unreachable!()
+    };
+    root.children.remove(0);
+    root.weights = vec![0.5, 0.5];
+    writing.hidden.push(HiddenPanel {
+        panel: PanelNode {
+            id: "panel-project".into(),
+            views: vec!["project".into(), "agent".into()],
+            selected: "project".into(),
+        },
+        restore: RestoreTarget::Docked {
+            beside: "row".into(),
+            edge: Edge::Left,
+            share: 0.3,
+        },
+    });
+    rig.engine.set_document(writing, true);
+    rig.settle();
+    rig.engine.set_document(lattice_doc(), true);
+    rig.frame();
+    for id in ["panel-project", "panel-papers", "docs", "panel-pdf"] {
+        assert!(rig.engine.panel_rect(id).is_some(), "{id} has no rect");
+    }
 }

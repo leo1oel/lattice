@@ -45,12 +45,9 @@ impl Engine {
             return Reflow::Live;
         }
         match self.rest_rect(panel_id) {
-            Some(end) if self.in_view(end) => Reflow::SettleAt(Rect::new(
-                end.x,
-                end.y + bar,
-                end.w,
-                (end.h - bar).max(0.),
-            )),
+            Some(end) if self.in_view(end) => {
+                Reflow::SettleAt(Rect::new(end.x, end.y + bar, end.w, (end.h - bar).max(0.)))
+            }
             _ => Reflow::Keep,
         }
     }
@@ -102,10 +99,7 @@ impl Engine {
                     held = Some((w.round(), h.round()));
                 } else if held.is_none_or(|(hw, hh)| body.w > hw + 0.5 || body.h > hh + 0.5) {
                     let (hw, hh) = held.unwrap_or((0., 0.));
-                    held = Some((
-                        body.w.max(w).max(hw).round(),
-                        body.h.max(h).max(hh).round(),
-                    ));
+                    held = Some((body.w.max(w).max(hw).round(), body.h.max(h).max(hh).round()));
                 }
                 surface.held = held;
                 let (hw, hh) = held.expect("set");
@@ -119,12 +113,20 @@ impl Engine {
                 surface.held = None;
                 let target = layout_at(end.w, end.h);
                 surface.layout = Some(target);
-                (target.0, target.1, (body.w / target.0).max(body.h / target.1))
+                (
+                    target.0,
+                    target.1,
+                    (body.w / target.0).max(body.h / target.1),
+                )
             }
             Reflow::Keep if surface.layout.is_some() => {
                 surface.held = None;
                 let target = surface.layout.expect("checked");
-                (target.0, target.1, (body.w / target.0).max(body.h / target.1))
+                (
+                    target.0,
+                    target.1,
+                    (body.w / target.0).max(body.h / target.1),
+                )
             }
             _ => {
                 surface.held = None;
@@ -151,8 +153,16 @@ impl Engine {
             placement,
             interactive,
             // Size and scale settle once motion stops.
-            size: if moving { surface.state.size } else { surface.size },
-            scale: if moving { surface.state.scale } else { surface.scale },
+            size: if moving {
+                surface.state.size
+            } else {
+                surface.size
+            },
+            scale: if moving {
+                surface.state.scale
+            } else {
+                surface.scale
+            },
             panel_id: panel.id.clone(),
         };
         SurfaceFrame {

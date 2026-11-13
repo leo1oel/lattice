@@ -8,7 +8,9 @@
 
 use std::collections::HashSet;
 
-use super::tree::{find_node, find_stage, insert_beside, normalize, panels_of, remove_node, replace_node};
+use super::tree::{
+    find_node, find_stage, insert_beside, normalize, panels_of, remove_node, replace_node,
+};
 use super::types::{
     Axis, Edge, FloatingLayer, FloatingPanel, HiddenPanel, LayoutDocument, LayoutNode, PanelNode,
     Rect, RestoreTarget, SplitNode, StageNode,
@@ -68,7 +70,9 @@ pub enum PanelLocation {
 impl PanelLocation {
     pub fn panel(&self) -> &PanelNode {
         match self {
-            PanelLocation::Docked(p) | PanelLocation::Floating(p, _) | PanelLocation::Hidden(p, _) => p,
+            PanelLocation::Docked(p)
+            | PanelLocation::Floating(p, _)
+            | PanelLocation::Hidden(p, _) => p,
         }
     }
 
@@ -160,7 +164,12 @@ pub fn detach_view(doc: &LayoutDocument, view_id: &str) -> LayoutDocument {
     let Some(panel) = panel_of_view(doc, view_id).cloned() else {
         return doc.clone();
     };
-    let views: Vec<String> = panel.views.iter().filter(|id| *id != view_id).cloned().collect();
+    let views: Vec<String> = panel
+        .views
+        .iter()
+        .filter(|id| *id != view_id)
+        .cloned()
+        .collect();
     let mut selected = panel.selected.clone();
     if selected == view_id {
         let index = panel.views.iter().position(|v| v == view_id).unwrap_or(0);
@@ -181,7 +190,7 @@ pub fn detach_view(doc: &LayoutDocument, view_id: &str) -> LayoutDocument {
 
 pub fn close_view(doc: &LayoutDocument, view_id: &str) -> LayoutDocument {
     let mut next = detach_view(doc, view_id);
-    next.views.remove(view_id);
+    next.views.shift_remove(view_id);
     next
 }
 
@@ -212,7 +221,12 @@ pub fn add_tab(
         return doc.clone();
     };
     let panel = location.panel();
-    let mut views: Vec<String> = panel.views.iter().filter(|id| *id != view_id).cloned().collect();
+    let mut views: Vec<String> = panel
+        .views
+        .iter()
+        .filter(|id| *id != view_id)
+        .cloned()
+        .collect();
     let at = index.map_or(views.len(), |i| i.min(views.len()));
     views.insert(at, view_id.to_string());
     let selected = if select || panel.selected.is_empty() {
@@ -261,7 +275,11 @@ pub enum DockTarget {
 }
 
 /// Insert a panel that is not currently in the document.
-pub fn insert_panel(doc: &LayoutDocument, panel: &PanelNode, target: &DockTarget) -> LayoutDocument {
+pub fn insert_panel(
+    doc: &LayoutDocument,
+    panel: &PanelNode,
+    target: &DockTarget,
+) -> LayoutDocument {
     match target {
         DockTarget::Into { into, index } => {
             if let Some(LayoutNode::Stage(stage)) = find_node(doc.root.as_ref(), into) {
@@ -412,7 +430,11 @@ pub fn restore_target_for(doc: &LayoutDocument, panel_id: &str) -> Option<Restor
             });
         }
         return Some(RestoreTarget::Docked {
-            beside: doc.root.as_ref().map(|r| r.id().to_string()).unwrap_or_default(),
+            beside: doc
+                .root
+                .as_ref()
+                .map(|r| r.id().to_string())
+                .unwrap_or_default(),
             edge: Edge::Left,
             share: 0.5,
         });
@@ -446,7 +468,10 @@ pub fn parent_split<'a>(root: Option<&'a LayoutNode>, id: &str) -> Option<&'a Sp
             if split.children.iter().any(|c| c.id() == id) {
                 return Some(split);
             }
-            split.children.iter().find_map(|c| parent_split(Some(c), id))
+            split
+                .children
+                .iter()
+                .find_map(|c| parent_split(Some(c), id))
         }
     }
 }
@@ -667,8 +692,8 @@ pub fn sanitize(input: &LayoutDocument, is_known_type: &dyn Fn(&str) -> bool) ->
         true
     };
     let fix_panel = |panel: &PanelNode,
-                         seen: &mut HashSet<String>,
-                         seen_panels: &mut HashSet<String>|
+                     seen: &mut HashSet<String>,
+                     seen_panels: &mut HashSet<String>|
      -> Option<PanelNode> {
         if seen_panels.contains(&panel.id) {
             return None;

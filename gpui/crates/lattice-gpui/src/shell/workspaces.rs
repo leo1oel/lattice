@@ -22,15 +22,18 @@ use std::{
 use gpui::{App, Global};
 use serde::{Deserialize, Serialize};
 
-use super::layout::{Arrangement, Preset};
+use trellis::model::LayoutDocument;
+
+use super::trellis_layout::{ActiveFocus, ActivePreset, DocumentPlaces, LAYOUT_VERSION};
 
 /// Long enough for a word or two, short enough for a titlebar tab.
 pub const NAME_MAX: usize = 24;
 /// Workspaces with a shortcut (⌘1 to ⌘9).
 pub const WITH_SHORTCUT: usize = 9;
 const DEFAULT_NAME: &str = "Workspace";
-const LIBRARY_VERSION: u32 = 1;
-const LAYOUT_VERSION: u32 = 1;
+/// v2: arrangements are Trellis documents. A v1 library's arrangements
+/// (GPUI Kit's dock) are dropped on reading, its names and ids kept.
+const LIBRARY_VERSION: u32 = 2;
 
 /// `name` with a default name put as `base`, keeping its number; any other
 /// name as it is. The default name and "+"'s numbered ones ("Workspace 2"…)
@@ -74,7 +77,7 @@ pub struct Workspace {
     pub id: String,
     pub name: String,
     /// `None` until the workspace is first used: the default layout.
-    pub arrangement: Option<Arrangement>,
+    pub arrangement: Option<LayoutDocument>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -87,27 +90,27 @@ struct Library {
     /// workspace's id is never handed out again.
     #[serde(default)]
     next_id: u64,
-}
-
-/// A preset on screen, and the project's own layout under it.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ActivePreset {
-    pub preset: Preset,
-    pub previous: Arrangement,
-    /// The document the writer was on when the layout was saved.
+    /// Whether focus mode shows the PDF beside the documents: the writer's
+    /// last choice, in every project (`loadFocusPdf`).
     #[serde(default)]
-    pub active: Option<String>,
+    focus_pdf: bool,
 }
 
-impl ActivePreset {
-    /// The document to bring to the front when the preset is laid out
-    /// again: the one the writer was on, wherever it stood, else the one in
-    /// front of the own layout's first document group.
-    pub fn front_document(&self) -> Option<String> {
-        self.active
-            .clone()
-            .or_else(|| self.previous.front_document())
-    }
+/// A workspace as a v1 library saved it: its arrangement unreadable now.
+#[derive(Deserialize)]
+struct LegacyWorkspace {
+    id: String,
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct LegacyLibrary {
+    version: u32,
+    workspaces: Vec<LegacyWorkspace>,
+    #[serde(default)]
+    recent: Option<String>,
+    #[serde(default)]
+    next_id: u64,
 }
 
 /// What a project remembers about its layout.
@@ -120,13 +123,18 @@ pub struct ProjectLayout {
     pub root: String,
     #[serde(default)]
     pub workspace: Option<String>,
+    /// The layout on screen when the project was left.
     #[serde(default)]
-    pub arrangement: Option<Arrangement>,
+    pub document: Option<LayoutDocument>,
+    /// The preset it was left in, over the writer's own layout.
     #[serde(default)]
     pub preset: Option<ActivePreset>,
-    /// Where each document stood in each workspace, by workspace id.
+    /// Focus mode, when it was left in it.
     #[serde(default)]
-    pub places: BTreeMap<String, BTreeMap<String, u64>>,
+    pub focus: Option<ActiveFocus>,
+    /// Where each document sat in each workspace, by workspace id.
+    #[serde(default)]
+    pub places: BTreeMap<String, DocumentPlaces>,
 }
 
 /// Why a rename was refused.
@@ -172,8 +180,11 @@ impl Workspaces {
         let mut library = dir
             .as_ref()
             .and_then(|dir| {
-                read_json(&dir.join("workspaces.json"), |library: &Library| {
-                    library.version == LIBRARY_VERSION && !library.workspaces.is_empty()
+                let path = dir.join("workspaces.json");
+                legacy_library(&path).or_else(|| {
+                    read_json(&path, |library: &Library| {
+                        library.version == LIBRARY_VERSION && !library.workspaces.is_empty()
+                    })
                 })
             })
             .unwrap_or_else(|| Library {
@@ -185,6 +196,7 @@ impl Workspaces {
                 }],
                 recent: None,
                 next_id: 0,
+                focus_pdf: false,
             });
         let in_use = library
             .workspaces
@@ -246,7 +258,7 @@ impl Workspaces {
     }
 
     /// The workspace's arrangement from now on; false when it is gone.
-    pub fn set_arrangement(&mut self, id: &str, arrangement: Arrangement) -> bool {
+    pub fn set_arrangement(&mut self, id: &str, arrangement: LayoutDocument) -> bool {
         match self
             .library
             .workspaces
@@ -306,7 +318,7 @@ impl Workspaces {
     pub fn add(
         &mut self,
         name: &str,
-        arrangement: Option<Arrangement>,
+        arrangement: Option<LayoutDocument>,
         after: Option<&str>,
     ) -> String {
         let id = self.new_id();
@@ -383,6 +395,15 @@ impl Workspaces {
         self.library.workspaces.insert(at, workspace);
     }
 
+    /// Whether focus mode shows the PDF beside the documents.
+    pub fn focus_pdf(&self) -> bool {
+        self.library.focus_pdf
+    }
+
+    pub fn set_focus_pdf(&mut self, pdf: bool) {
+        self.library.focus_pdf = pdf;
+    }
+
     /// What `root` remembers, as saved.
     pub fn project(&mut self, root: &Path) -> ProjectLayout {
         if let Some(layout) = self.projects.get(root) {
@@ -392,7 +413,13 @@ impl Workspaces {
             .dir
             .as_ref()
             .and_then(|dir| {
-                read_json(&project_file(dir, root), |layout: &ProjectLayout| {
+                let path = project_file(dir, root);
+                // A layout from before Trellis documents (v1) starts again
+                // from its workspace; the next save replaces it.
+                if read_version(&path) == Some(1) {
+                    return None;
+                }
+                read_json(&path, |layout: &ProjectLayout| {
                     layout.version == LAYOUT_VERSION
                 })
             })
@@ -450,6 +477,40 @@ fn project_file(dir: &Path, root: &Path) -> PathBuf {
     dir.join("layouts").join(format!("{hash:016x}.json"))
 }
 
+/// The `version` a JSON file at `path` names, if it reads.
+fn read_version(path: &Path) -> Option<u64> {
+    let text = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str::<serde_json::Value>(&text)
+        .ok()?
+        .get("version")?
+        .as_u64()
+}
+
+/// A v1 library (GPUI Kit's arrangements) as a v2 one: the workspaces'
+/// names, ids and order kept, each arrangement left to the default.
+fn legacy_library(path: &Path) -> Option<Library> {
+    if read_version(path) != Some(1) {
+        return None;
+    }
+    let text = std::fs::read_to_string(path).ok()?;
+    let legacy: LegacyLibrary = serde_json::from_str(&text).ok()?;
+    (legacy.version == 1 && !legacy.workspaces.is_empty()).then(|| Library {
+        version: LIBRARY_VERSION,
+        workspaces: legacy
+            .workspaces
+            .into_iter()
+            .map(|entry| Workspace {
+                id: entry.id,
+                name: entry.name,
+                arrangement: None,
+            })
+            .collect(),
+        recent: legacy.recent,
+        next_id: legacy.next_id,
+        focus_pdf: false,
+    })
+}
+
 /// The value saved at `path`. A file this build cannot read (`usable`
 /// refuses it, or it does not parse) is moved aside to `<name>.unreadable`
 /// before the caller falls back, so the next save does not overwrite it.
@@ -486,33 +547,6 @@ pub(crate) fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shell::layout::{FloatingView, Node, Room, SplitAxis, View};
-
-    fn file(path: &str) -> View {
-        View::File(path.into())
-    }
-
-    /// Writing laid out again from `saved`, with the document it brings to
-    /// the front.
-    fn writing_again(saved: &ActivePreset) -> Node {
-        let saved: ActivePreset =
-            serde_json::from_str(&serde_json::to_string(saved).unwrap()).unwrap();
-        let room = Room {
-            width: 1440.,
-            height: 900.,
-        };
-        saved
-            .preset
-            .arrange(&saved.previous, saved.front_document().as_deref(), room)
-            .center
-    }
-
-    fn in_front(node: &Node) -> Option<&View> {
-        match node {
-            Node::Tabs { views, active, .. } => views.get(*active),
-            Node::Split { .. } => None,
-        }
-    }
 
     #[test]
     fn a_default_name_in_another_language_is_the_stored_default() {
@@ -526,53 +560,6 @@ mod tests {
         assert_eq!(workspaces.rename(&second, "工作区 2"), Ok(()));
         assert_eq!(workspaces.get(&second).unwrap().name, "Workspace 2");
         assert_eq!(workspaces.unique_name("布局"), "Workspace 3");
-    }
-
-    #[test]
-    fn writing_comes_back_on_the_document_in_a_second_group() {
-        // The center split in two, intro.tex focused in the second group,
-        // main.tex still in front of the first: reopened under Writing, the
-        // writer is on intro.tex again.
-        let mut previous = Arrangement::default();
-        previous.center = Node::Split {
-            axis: SplitAxis::Row,
-            children: vec![
-                Node::tabs([file("main.tex")]),
-                Node::tabs([file("chapters/intro.tex")]),
-            ],
-            sizes: vec![None, None],
-        };
-        let saved = ActivePreset {
-            preset: Preset::Writing,
-            previous,
-            active: Some("chapters/intro.tex".into()),
-        };
-        assert_eq!(
-            in_front(&writing_again(&saved)),
-            Some(&file("chapters/intro.tex"))
-        );
-    }
-
-    #[test]
-    fn writing_comes_back_on_a_floating_document() {
-        let mut previous = Arrangement::default();
-        previous.center = Node::tabs([file("main.tex")]);
-        previous.floating = vec![FloatingView {
-            view: file("chapters/intro.tex"),
-            x: 600.,
-            y: 72.,
-            width: 420.,
-            height: 480.,
-        }];
-        let saved = ActivePreset {
-            preset: Preset::Writing,
-            previous,
-            active: Some("chapters/intro.tex".into()),
-        };
-        assert_eq!(
-            in_front(&writing_again(&saved)),
-            Some(&file("chapters/intro.tex"))
-        );
     }
 
     fn library() -> Workspaces {
@@ -717,5 +704,98 @@ mod tests {
         let added = library.add("Drafts", None, None);
         assert_ne!(added, deleted);
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    fn temp(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("lattice-gpui-{name}-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        dir
+    }
+
+    #[test]
+    fn the_preset_and_focus_mode_persist_with_the_layout_per_project() {
+        use crate::shell::trellis_layout::{Preset, default_layout};
+        let dir = temp("ws-preset-test");
+        let own = default_layout();
+        {
+            let mut library = Workspaces::load(Some(dir.clone()));
+            library.save_project(
+                Path::new("/a"),
+                ProjectLayout {
+                    document: Some(own.clone()),
+                    preset: Some(ActivePreset {
+                        preset: Preset::Reading,
+                        previous: own.clone(),
+                        supplied: vec!["papers".into()],
+                    }),
+                    ..ProjectLayout::default()
+                },
+            );
+            library.save_project(
+                Path::new("/b"),
+                ProjectLayout {
+                    document: Some(own.clone()),
+                    focus: Some(ActiveFocus {
+                        previous: own.clone(),
+                        supplied: vec![],
+                        pdf: true,
+                    }),
+                    ..ProjectLayout::default()
+                },
+            );
+            library.set_focus_pdf(true);
+            library.persist_library();
+        }
+        let mut library = Workspaces::load(Some(dir.clone()));
+        let a = library.project(Path::new("/a"));
+        let b = library.project(Path::new("/b"));
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(
+            a.preset.as_ref().map(|active| active.preset),
+            Some(Preset::Reading)
+        );
+        assert_eq!(a.preset.unwrap().supplied, ["papers"]);
+        assert!(a.focus.is_none());
+        assert!(b.preset.is_none());
+        assert!(b.focus.is_some_and(|focus| focus.pdf));
+        assert_eq!(b.document, Some(own));
+        assert!(library.focus_pdf());
+    }
+
+    #[test]
+    fn a_library_from_before_trellis_keeps_its_workspaces_names() {
+        let dir = temp("ws-legacy-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let legacy = r#"{"version": 1, "workspaces": [
+            {"id": "ws-1", "name": "Workspace", "arrangement": {"center": {"kind": "tabs", "views": [], "active": 0}}},
+            {"id": "ws-4", "name": "Reading", "arrangement": null}
+        ], "recent": "ws-4", "next_id": 5}"#;
+        std::fs::write(dir.join("workspaces.json"), legacy).unwrap();
+        let mut library = Workspaces::load(Some(dir.clone()));
+        let names: Vec<String> = library
+            .list()
+            .iter()
+            .map(|entry| entry.name.clone())
+            .collect();
+        assert_eq!(names, ["Workspace", "Reading"]);
+        assert!(
+            library
+                .list()
+                .iter()
+                .all(|entry| entry.arrangement.is_none())
+        );
+        assert_eq!(library.recent(), "ws-4");
+        assert_eq!(library.add("Drafts", None, None), "ws-5");
+        // A project layout saved before Trellis starts again from its workspace.
+        let root = PathBuf::from("/projects/paper");
+        std::fs::create_dir_all(dir.join("layouts")).unwrap();
+        std::fs::write(
+            project_file(&dir, &root),
+            r#"{"version": 1, "workspace": "ws-4"}"#,
+        )
+        .unwrap();
+        let layout = library.project(&root);
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(layout, ProjectLayout::default());
     }
 }

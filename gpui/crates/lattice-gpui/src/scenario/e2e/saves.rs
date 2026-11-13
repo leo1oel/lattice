@@ -11,7 +11,6 @@ use std::{
 
 use anyhow::Result;
 use gpui::{App, AsyncApp, Entity};
-use gpui_kit::component::dock::PanelId;
 use serde_json::{Value, json};
 
 use super::Steps;
@@ -228,10 +227,9 @@ impl Run {
         })?;
         second.pause(cx, Duration::from_secs(3)).await;
         let after = shown(cx);
-        let panel = PanelId::from(editor.entity_id());
         let (kept_editor, dirty, notice) = cx.update(|cx| {
             (
-                second.shell.read(cx).panel_shown(panel, cx),
+                second.shell.read(cx).view_of_editor(&editor).is_some(),
                 editor.read(cx).is_dirty(cx),
                 showing(&stack, title, cx),
             )
@@ -292,12 +290,16 @@ impl Run {
         dirty && !on_disk(file, typed) && self.editor_text(cx, editor).contains(typed)
     }
 
-    /// What the tab's close button runs: the dock removes the panel and
-    /// tells it so. The panel is then held only by what it started.
+    /// What the tab's close button runs: the workspace closes the view and
+    /// the shell lets go of its panel, telling it so. The panel is then held
+    /// only by what it started.
     fn close_tab(&self, cx: &mut AsyncApp, editor: Entity<EditorPanel>) -> Result<()> {
-        self.with_window(cx, move |shell, window, cx| {
-            let area = shell.read(cx).dock_area().clone();
-            area.update(cx, |area, cx| area.remove_panel(editor, window, cx));
+        self.with_window(cx, move |shell, _, cx| {
+            let view = shell.read(cx).view_of_editor(&editor);
+            let workspace = shell.read(cx).workspace().clone();
+            if let Some(view) = view {
+                workspace.update(cx, |workspace, cx| workspace.close(&[view], cx));
+            }
         })
     }
 }

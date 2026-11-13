@@ -14,7 +14,9 @@ mod requirements;
 #[cfg(test)]
 mod tests;
 
-pub use builder::{FloatSpec, LayoutSpec, PanelSpec, SplitSpec, StageSpec, ViewSpec, create_document, layout};
+pub use builder::{
+    FloatSpec, LayoutSpec, PanelSpec, SplitSpec, StageSpec, ViewSpec, create_document, layout,
+};
 pub use document::*;
 pub use spatial::*;
 pub use tree::*;

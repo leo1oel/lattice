@@ -29,7 +29,12 @@ impl Engine {
     /// shortcuts without Ctrl, ⌘ or Alt never fire. `in_content`: inside a
     /// view's content, where Escape belongs to the content. Returns whether
     /// the key was the workspace's.
-    pub fn key_down(&mut self, press: &KeyPress, typing: bool, in_content: bool) -> Option<KeyOutcome> {
+    pub fn key_down(
+        &mut self,
+        press: &KeyPress,
+        typing: bool,
+        in_content: bool,
+    ) -> Option<KeyOutcome> {
         if self.drag_active() {
             if press.key == "Escape" {
                 self.drag_end(false);

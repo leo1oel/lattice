@@ -7,8 +7,7 @@
 use gpui::{
     AnyElement, Context, DispatchPhase, InteractiveElement as _, IntoElement, KeyDownEvent,
     Modifiers, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _,
-    PinchEvent, ScrollDelta, ScrollEvent, Stateful, Styled as _, WeakEntity, Window, canvas,
-    div,
+    PinchEvent, ScrollDelta, ScrollEvent, Stateful, Styled as _, WeakEntity, Window, canvas, div,
 };
 
 use crate::runtime::engine::ResizeDir;
@@ -31,13 +30,18 @@ impl TrellisWorkspace {
         cx: &mut Context<Self>,
     ) {
         let selected = self.engine.doc().clone();
-        let selected = crate::model::locate_panel(&selected, panel).map(|l| l.panel().selected.clone());
+        let selected =
+            crate::model::locate_panel(&selected, panel).map(|l| l.panel().selected.clone());
         self.update_engine(cx, |e| {
             if let Some(view) = &selected {
                 e.focus_view(view);
             }
         });
-        if frame_only && event.button == MouseButton::Left && plain(&event.modifiers) && self.held.is_none() {
+        if frame_only
+            && event.button == MouseButton::Left
+            && plain(&event.modifiers)
+            && self.held.is_none()
+        {
             let p = self.local(event.position);
             self.engine.drag_begin(panel, None, p);
             self.held = Some(Held::Press {
@@ -63,7 +67,9 @@ impl TrellisWorkspace {
         let p = self.local(event.position);
         // Shift on the chrome draws a marquee, Alt zooms (free navigation).
         if (event.modifiers.shift || event.modifiers.alt)
-            && self.engine.nav_press(p, event.modifiers.shift, event.modifiers.alt)
+            && self
+                .engine
+                .nav_press(p, event.modifiers.shift, event.modifiers.alt)
         {
             self.held = Some(Held::Navigation);
             cx.notify();
@@ -115,7 +121,12 @@ impl TrellisWorkspace {
         }
     }
 
-    fn pointer_released(&mut self, position: gpui::Point<gpui::Pixels>, commit: bool, cx: &mut Context<Self>) {
+    fn pointer_released(
+        &mut self,
+        position: gpui::Point<gpui::Pixels>,
+        commit: bool,
+        cx: &mut Context<Self>,
+    ) {
         let p = self.local(position);
         match self.held.take() {
             Some(Held::Press { view, .. }) => {
@@ -181,7 +192,8 @@ impl TrellisWorkspace {
                                     .update(cx, |this, cx| {
                                         cx.stop_propagation();
                                         let position = gpui::Point::default();
-                                        if this.engine.dragging() || this.engine.nav_pointer_held() {
+                                        if this.engine.dragging() || this.engine.nav_pointer_held()
+                                        {
                                             this.pointer_released(position, false, cx);
                                         }
                                     })
@@ -220,7 +232,9 @@ impl TrellisWorkspace {
                     .update(cx, |this, cx| {
                         let p = this.local(event.position);
                         if this.held.is_none()
-                            && this.engine.nav_press(p, event.modifiers.shift, event.modifiers.alt)
+                            && this
+                                .engine
+                                .nav_press(p, event.modifiers.shift, event.modifiers.alt)
                         {
                             this.held = Some(Held::Navigation);
                             cx.notify();
@@ -261,7 +275,13 @@ impl TrellisWorkspace {
         };
         // GPUI's deltas run opposite to the DOM's.
         let taken = self.update_engine(cx, |e| {
-            e.wheel(p, -delta.0, -delta.1, event.modifiers.control, event.modifiers.shift)
+            e.wheel(
+                p,
+                -delta.0,
+                -delta.1,
+                event.modifiers.control,
+                event.modifiers.shift,
+            )
         });
         if taken {
             cx.stop_propagation();
@@ -284,7 +304,10 @@ impl TrellisWorkspace {
 
     /// While a drag, resize or marquee holds the pointer: a shield over
     /// everything, holding its cursor, so nothing else lights up.
-    pub(crate) fn render_shield(&self, frame: &crate::runtime::engine::Frame) -> Option<AnyElement> {
+    pub(crate) fn render_shield(
+        &self,
+        frame: &crate::runtime::engine::Frame,
+    ) -> Option<AnyElement> {
         let cursor = if frame.dragging {
             gpui::CursorStyle::ClosedHand
         } else if let Some(kind) = frame.resizing {

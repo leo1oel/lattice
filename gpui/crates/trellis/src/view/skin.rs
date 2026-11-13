@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use gpui::{AnyElement, AnyView, App, BoxShadow, Hsla, Pixels, Window};
 
-use crate::runtime::engine::{MenuAction, MenuEntry};
 use crate::runtime::engine::frame::{HeaderInput, PanelFrame, TabFrame};
+use crate::runtime::engine::{MenuAction, MenuEntry};
 use crate::runtime::header::HeaderMeasure;
 
 /// A callback the workspace hands the skin (close a tab, open a menu).
@@ -63,6 +63,8 @@ pub struct TabActions {
 #[derive(Clone)]
 pub struct PanelMenu {
     pub panel_id: String,
+    /// The panel's selected view now (a right click selects its tab first).
+    pub selected: Rc<dyn Fn(&App) -> Option<String>>,
     pub built_ins: Rc<dyn Fn(&App) -> Vec<MenuEntry>>,
     pub run: Rc<dyn Fn(&MenuAction, &mut Window, &mut App)>,
 }
@@ -141,4 +143,18 @@ pub trait Skin: 'static {
 
     /// What the workspace shows when it holds nothing at all.
     fn empty(&self, window: &mut Window, cx: &mut App) -> Option<AnyElement>;
+
+    /// The deferred draw priority of everything above the docked panels
+    /// (the floats, the drop slot, a lifted panel, the navigation rings), so
+    /// they draw over what the host puts between GPUI's base content and its
+    /// overlays (a native view in a docked panel); `None` draws them in line.
+    fn raised_priority(&self) -> Option<usize> {
+        None
+    }
+
+    /// What the skin draws over the whole workspace: a menu it opened with
+    /// [`Skin::open_menu_at`].
+    fn overlay(&self, _window: &mut Window, _cx: &mut App) -> Option<AnyElement> {
+        None
+    }
 }

@@ -205,7 +205,10 @@ pub fn plan_header(
     HeaderPlan {
         label_mode,
         labelled: labels.len(),
-        labels: labels.iter().map(|item| item.view_id().to_string()).collect(),
+        labels: labels
+            .iter()
+            .map(|item| item.view_id().to_string())
+            .collect(),
         tools: HEADER_TOOLS[state],
         tab_min,
         min: 480f64.min(chrome[1] + gaps + named(&shown(LabelMode::None)) + loose_min),
@@ -262,8 +265,14 @@ mod tests {
             LabelMode::Selected
         );
         assert_eq!(
-            plan_header(&h, edge + 12., 0., Some("project"), Some(LabelMode::Selected))
-                .label_mode,
+            plan_header(
+                &h,
+                edge + 12.,
+                0.,
+                Some("project"),
+                Some(LabelMode::Selected)
+            )
+            .label_mode,
             LabelMode::All
         );
     }

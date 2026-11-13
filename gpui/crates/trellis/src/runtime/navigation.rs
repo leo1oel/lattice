@@ -187,7 +187,10 @@ impl Engine {
         {
             id = find_stage(self.doc.root.as_ref()).map(|s| s.id.clone());
         }
-        if id.as_ref().is_some_and(|i| !self.nav.entries.contains_key(i)) {
+        if id
+            .as_ref()
+            .is_some_and(|i| !self.nav.entries.contains_key(i))
+        {
             id = None;
         }
         if let Some(i) = &id {
@@ -196,7 +199,12 @@ impl Engine {
         if id.as_deref() == Some(self.root_id().as_str()) {
             id = None;
         }
-        if self.nav.session.as_ref().is_some_and(|s| Some(&s.id) != id.as_ref()) {
+        if self
+            .nav
+            .session
+            .as_ref()
+            .is_some_and(|s| Some(&s.id) != id.as_ref())
+        {
             self.nav.session = None;
         }
         if record {
@@ -208,7 +216,8 @@ impl Engine {
                 id: id.clone().unwrap_or_else(|| self.root_id()),
                 leaves,
             };
-            let (mut visits, mut index) = record_visit(&self.nav.visits, self.nav.visit_index, visit);
+            let (mut visits, mut index) =
+                record_visit(&self.nav.visits, self.nav.visit_index, visit);
             if visits.len() > MAX_HISTORY {
                 visits = visits[visits.len() - MAX_HISTORY..].to_vec();
                 index = visits.len() - 1;
@@ -535,7 +544,14 @@ impl Engine {
     /// A wheel over the workspace's chrome (the host leaves wheels over a
     /// view's content, a scrolling tab strip or a menu with them). Returns
     /// whether the workspace took it.
-    pub fn wheel(&mut self, at: Point, delta_y: f64, delta_x: f64, ctrl: bool, shift: bool) -> bool {
+    pub fn wheel(
+        &mut self,
+        at: Point,
+        delta_y: f64,
+        delta_x: f64,
+        ctrl: bool,
+        shift: bool,
+    ) -> bool {
         if !self.free() {
             return false;
         }
@@ -645,14 +661,18 @@ impl Engine {
             let viewport = Rect::new(0., 0., self.viewport.0, self.viewport.1);
             let world = rectangle_camera(m.start, at, viewport, m.view);
             let screen = self.to_screen(world);
-            let candidate = (screen.w >= 8. && screen.h >= 8.)
-                .then(|| best_fit(world, &self.nav.entries));
+            let candidate =
+                (screen.w >= 8. && screen.h >= 8.).then(|| best_fit(world, &self.nav.entries));
             if let Some(m) = &mut self.nav.marquee {
                 m.current = at;
                 m.candidate = candidate;
             }
         } else if let Some(z) = self.nav.drag_zoom.clone() {
-            self.zoom(((at.y - z.last_y) * 0.006).exp(), z.origin, Point::default());
+            self.zoom(
+                ((at.y - z.last_y) * 0.006).exp(),
+                z.origin,
+                Point::default(),
+            );
             if let Some(z) = &mut self.nav.drag_zoom {
                 z.last_y = at.y;
             }

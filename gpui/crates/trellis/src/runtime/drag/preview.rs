@@ -13,7 +13,9 @@ use crate::model::{
 
 use super::super::engine::Engine;
 use super::super::labels::{Label, label};
-use super::{COMPACT, DROP_SLOT, DragSession, DropTarget, PICKUP_MS, SETTLE_MS, SOURCE_SLOT, same_target};
+use super::{
+    COMPACT, DROP_SLOT, DragSession, DropTarget, PICKUP_MS, SETTLE_MS, SOURCE_SLOT, same_target,
+};
 
 /// The world rects of the docked nodes at rest, with the source slot.
 pub(super) fn resting_layout(d: &DragSession, engine: &Engine) -> HashMap<String, Rect> {
@@ -195,13 +197,21 @@ impl Engine {
         }
         let x = rects.iter().map(|r| r.x).fold(f64::INFINITY, f64::min);
         let y = rects.iter().map(|r| r.y).fold(f64::INFINITY, f64::min);
-        let r = rects.iter().map(|r| r.x + r.w).fold(f64::NEG_INFINITY, f64::max);
-        let b = rects.iter().map(|r| r.y + r.h).fold(f64::NEG_INFINITY, f64::max);
+        let r = rects
+            .iter()
+            .map(|r| r.x + r.w)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let b = rects
+            .iter()
+            .map(|r| r.y + r.h)
+            .fold(f64::NEG_INFINITY, f64::max);
         Some(Rect::new(x, y, r - x, b - y))
     }
 
     pub(super) fn apply_target(&mut self, next: Option<DropTarget>) {
-        let Some(mut d) = self.drag.take() else { return };
+        let Some(mut d) = self.drag.take() else {
+            return;
+        };
         if same_target(next.as_ref(), d.target.as_ref()) {
             self.drag = Some(d);
             return;
@@ -211,7 +221,8 @@ impl Engine {
             .layout_rects_of(d.origin.root.as_ref())
             .get(&d.lifted.id)
             .and_then(|e| e.parent.clone());
-        if next.is_some() && d.in_doc && d.from_float.is_none() && !d.collapsed && parent.is_some() {
+        if next.is_some() && d.in_doc && d.from_float.is_none() && !d.collapsed && parent.is_some()
+        {
             // Latch removal on the first target; leaving it never reopens the
             // source.
             d.collapsed = true;
@@ -354,11 +365,13 @@ impl Engine {
         } else if let Some(origin) = d.tab_origin {
             Some(origin)
         } else if d.from_float.is_some() && !d.from_frame {
-            Some(desktop.unwrap_or(if d.from_float == Some(FloatingLayer::Overlay) {
-                full_viewport
-            } else {
-                original
-            }))
+            Some(
+                desktop.unwrap_or(if d.from_float == Some(FloatingLayer::Overlay) {
+                    full_viewport
+                } else {
+                    original
+                }),
+            )
         } else {
             Some(original)
         };
@@ -405,7 +418,14 @@ impl Engine {
         let d = self.drag.as_ref().filter(|d| d.active)?;
         let min = self.min_size_for(&d.lifted.views);
         let bar = self.bar_height(Some(&d.lifted));
-        Some(lifted_size(d, d.compact_to, d.desktop_to, min, bar, self.pad()))
+        Some(lifted_size(
+            d,
+            d.compact_to,
+            d.desktop_to,
+            min,
+            bar,
+            self.pad(),
+        ))
     }
 
     /// The content minimum a lifted window grows to over the desktop.

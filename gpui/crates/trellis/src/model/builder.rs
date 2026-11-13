@@ -4,13 +4,13 @@
 //! Authoring nodes: a readable way to describe an initial layout, compiled
 //! into a document.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use super::document::uid;
 use super::tree::normalize;
 use super::types::{
     Axis, FloatingLayer, FloatingPanel, LayoutDocument, LayoutNode, PanelNode, Params, Rect,
-    SplitNode, StageNode, ViewRecord,
+    SplitNode, StageNode, ViewRecord, Views,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -115,7 +115,7 @@ pub fn create_document(
     floating: &[FloatSpec],
     version: Option<serde_json::Value>,
 ) -> Result<LayoutDocument, String> {
-    let mut views: BTreeMap<String, ViewRecord> = BTreeMap::new();
+    let mut views = Views::new();
     // Views without an explicit id get deterministic ones ("editor-1",
     // "editor-2"), so the same layout yields the same ids every time and
     // reset() can keep their content mounted.
@@ -149,7 +149,7 @@ pub fn create_document(
         collect(&f.panel, &mut explicit);
     }
     let mut counters: HashMap<String, usize> = HashMap::new();
-    let mut add_view = |spec: &ViewSpec, views: &mut BTreeMap<String, ViewRecord>| {
+    let mut add_view = |spec: &ViewSpec, views: &mut Views| {
         let id = match &spec.id {
             Some(id) => id.clone(),
             None => loop {
@@ -174,9 +174,7 @@ pub fn create_document(
         );
         Ok(id)
     };
-    let mut panel = |spec: &LayoutSpec,
-                     views: &mut BTreeMap<String, ViewRecord>|
-     -> Result<PanelNode, String> {
+    let mut panel = |spec: &LayoutSpec, views: &mut Views| -> Result<PanelNode, String> {
         let (specs, index, id): (Vec<&ViewSpec>, usize, Option<String>) = match spec {
             LayoutSpec::View(view) => (vec![view], 0, None),
             LayoutSpec::Panel(panel) => (
@@ -204,14 +202,13 @@ pub fn create_document(
     fn build(
         spec: &LayoutSpec,
         stages: &mut usize,
-        views: &mut BTreeMap<String, ViewRecord>,
-        panel: &mut dyn FnMut(
-            &LayoutSpec,
-            &mut BTreeMap<String, ViewRecord>,
-        ) -> Result<PanelNode, String>,
+        views: &mut Views,
+        panel: &mut dyn FnMut(&LayoutSpec, &mut Views) -> Result<PanelNode, String>,
     ) -> Result<LayoutNode, String> {
         match spec {
-            LayoutSpec::View(_) | LayoutSpec::Panel(_) => Ok(LayoutNode::Panel(panel(spec, views)?)),
+            LayoutSpec::View(_) | LayoutSpec::Panel(_) => {
+                Ok(LayoutNode::Panel(panel(spec, views)?))
+            }
             LayoutSpec::Stage(stage) => {
                 if *stages > 0 {
                     return Err("Trellis: a layout may contain one stage".into());

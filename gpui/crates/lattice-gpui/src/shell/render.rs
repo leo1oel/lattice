@@ -1,5 +1,5 @@
 //! The window's tree: the shell's actions, the welcome screen or the
-//! titlebar and the dock on the chrome, and the overlays above it (the
+//! titlebar and the Trellis workspace on the chrome, and the overlays above it (the
 //! palette, the shortcut sheet, Settings, quick open and Find in project,
 //! the welcome screen's dialogs, notices, the TeX setup dialogs,
 //! confirmations).
@@ -41,7 +41,7 @@ impl Render for Shell {
             .children(self.welcome().cloned())
             .when(self.welcome().is_none(), |this| {
                 this.child(crate::titlebar::render(self, window, cx))
-                    .child(self.workspace(window, cx))
+                    .child(self.ground(cx))
             })
             .children(self.window_overlays())
             .child(self.tex_setup.clone())

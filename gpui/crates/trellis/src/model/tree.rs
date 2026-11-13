@@ -127,7 +127,15 @@ fn layout_with_minimums(
         LayoutNode::Stage(stage) => {
             out.insert(stage.id.clone(), entry(node.clone()));
             if let Some(child) = &stage.child {
-                layout_with_minimums(Some(child), rect, size, scale, Some(&stage.id), metrics, out);
+                layout_with_minimums(
+                    Some(child),
+                    rect,
+                    size,
+                    scale,
+                    Some(&stage.id),
+                    metrics,
+                    out,
+                );
             }
             return;
         }
@@ -315,7 +323,11 @@ pub fn normalize(node: LayoutNode) -> Option<LayoutNode> {
             let mut weights = Vec::new();
             for (i, child) in split.children.into_iter().enumerate() {
                 let raw = split.weights.get(i).copied().unwrap_or(f64::NAN);
-                let weight = if raw.is_finite() && raw > 0. { raw } else { 1e-3 };
+                let weight = if raw.is_finite() && raw > 0. {
+                    raw
+                } else {
+                    1e-3
+                };
                 let Some(next) = normalize(child) else {
                     continue;
                 };
@@ -457,9 +469,15 @@ fn insert_beside_inner(
     if root.id() == target_id {
         let before = edge.before();
         let (weights, children) = if before {
-            (vec![share, 1. - share], vec![incoming.clone(), root.clone()])
+            (
+                vec![share, 1. - share],
+                vec![incoming.clone(), root.clone()],
+            )
         } else {
-            (vec![1. - share, share], vec![root.clone(), incoming.clone()])
+            (
+                vec![1. - share, share],
+                vec![root.clone(), incoming.clone()],
+            )
         };
         return normalize(LayoutNode::Split(SplitNode {
             id: split_id.to_string(),
@@ -626,7 +644,8 @@ mod tests {
 
     #[test]
     fn resize_boundary_clamps_to_minimums() {
-        let LayoutNode::Split(s) = split("a", Axis::X, vec![panel("p1"), panel("p2")], vec![1., 1.])
+        let LayoutNode::Split(s) =
+            split("a", Axis::X, vec![panel("p1"), panel("p2")], vec![1., 1.])
         else {
             panic!()
         };

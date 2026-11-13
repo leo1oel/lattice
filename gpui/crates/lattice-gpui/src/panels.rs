@@ -17,6 +17,7 @@ use lattice_ui::{
 use crate::{
     build_panel::BuildPanel,
     editor_panel::EditorPanel,
+    empty_slot::EmptySlotPanel,
     file_tree::FileTreePanel,
     pdf::{PdfPanel, PdfPanelKind},
     stand_in_panels::StandInPanel,
@@ -71,8 +72,14 @@ pub fn present_tabs(cx: &mut App) {
                 },
                 _ => look(Icon::FILE_TEXT, Surface::Sheet),
             }
-        } else if view.downcast::<BuildPanel>().is_ok() {
+        } else if view.clone().downcast::<BuildPanel>().is_ok() {
             look(Icon::HAMMER, Surface::Sheet)
+        } else if view.downcast::<EmptySlotPanel>().is_ok() {
+            // A document's place: a document's tab, with the empty state's icon.
+            TabLook {
+                document: true,
+                ..look(Icon::FILE_TEXT, Surface::Sheet)
+            }
         } else {
             TabLook::default()
         }

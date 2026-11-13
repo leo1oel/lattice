@@ -8,8 +8,8 @@
 use std::collections::HashSet;
 
 use crate::model::{
-    Axis, Entries, LayoutDocument, LayoutNode, Point, Rect, SplitNode, find_node,
-    replace_node, resize_boundary,
+    Axis, Entries, LayoutDocument, LayoutNode, Point, Rect, SplitNode, find_node, replace_node,
+    resize_boundary,
 };
 
 use super::{Engine, PANEL_MIN_W};
@@ -155,7 +155,12 @@ impl Engine {
                             .get(&panel.selected)
                             .map(|r| r.kind.as_str())
                             .unwrap_or("");
-                        let extra = self.options.header_fallback.get(kind).copied().unwrap_or(4.);
+                        let extra = self
+                            .options
+                            .header_fallback
+                            .get(kind)
+                            .copied()
+                            .unwrap_or(4.);
                         480f64.min(41. + extra + 80. * n + 2. * (n - 1.).max(0.))
                     });
                 width.max(header) - self.elastic_cut(&panel.id, axis)
@@ -259,7 +264,10 @@ impl Engine {
     /// A split with the proportions it actually has on screen (weights with
     /// minimums applied).
     pub(crate) fn effective_split(&self, id: &str) -> Option<SplitNode> {
-        self.entries.get(id).and_then(|e| e.node.as_split()).cloned()
+        self.entries
+            .get(id)
+            .and_then(|e| e.node.as_split())
+            .cloned()
     }
 
     fn stop_spring(&mut self) {
@@ -284,7 +292,11 @@ impl Engine {
             return;
         };
         let rect = self.to_screen(entry.rect);
-        let extent = if split.axis == Axis::X { rect.w } else { rect.h };
+        let extent = if split.axis == Axis::X {
+            rect.w
+        } else {
+            rect.h
+        };
         self.dividers.drag = Some(DividerDrag {
             split_id: split_id.to_string(),
             index,
@@ -434,7 +446,11 @@ impl Engine {
             &|i| self.min_fraction(&split, i),
         );
         let mut next = self.doc.clone();
-        next.root = replace_node(self.doc.root.as_ref(), &split.id, &LayoutNode::Split(resized));
+        next.root = replace_node(
+            self.doc.root.as_ref(),
+            &split.id,
+            &LayoutNode::Split(resized),
+        );
         self.commit(next, false, None);
     }
 

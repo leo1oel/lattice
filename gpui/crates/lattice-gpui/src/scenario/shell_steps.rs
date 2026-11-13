@@ -1,33 +1,53 @@
-//! The e2e scenario's shell steps (macOS and Windows): a dock's last panel
-//! dragged out with native mouse events, the Writing preset and the way
-//! back, a named workspace keeping its own arrangement, a panel closed from
-//! its tab and brought back from the Panels menu, a panel floated and docked,
-//! the command palette listing the commands, and the window's commands
-//! still reaching the shell once the focused document's tab is closed.
+//! The e2e scenario's shell steps (macOS and Windows), on the Trellis
+//! workspace: a panel dragged by its tab with native mouse events to a
+//! panel's edge (a new split) and into its middle (a tab), the focused panel
+//! maximized and restored, the Writing preset and the way back, a named
+//! workspace keeping its own arrangement, a panel closed from its tab and
+//! brought back from the Panels menu, a panel floated and docked, the
+//! layout surviving a relaunch, the command palette listing the commands,
+//! and the window's commands still reaching the shell once the focused
+//! document's tab is closed.
 
 use anyhow::{Context as _, Result};
-use gpui::{App, AsyncApp, Entity, Focusable as _, Window};
-use gpui_kit::component::dock::DockPlacement;
+use gpui::{App, AsyncApp, Bounds, Entity, Focusable as _, Pixels, Window};
 use serde_json::{Value, json};
+use trellis::model::{LayoutDocument, LayoutNode, panel_of_view};
+use trellis::runtime::engine::{MenuAction, ViewPlacement};
+use trellis::runtime::keymap::Command as Trellis;
 
 use super::Run;
 use crate::shell::{
     Shell,
     commands::{CloseTab, CommandPalette, ReopenClosedTab},
-    layout::{Preset, View},
+    trellis_layout::{Preset, arrangement_of, layout_shape},
+    views::documents_of,
+    workspaces::{ProjectLayout, Workspaces},
 };
 
 /// What one step found: its name, whether it passed, and what it saw.
 pub(super) type Step = (&'static str, bool, Value);
 
+/// The panel holding `view`, in `doc`.
+fn panel_with(doc: &LayoutDocument, view: &str) -> Option<String> {
+    panel_of_view(doc, view).map(|panel| panel.id.clone())
+}
+
+/// A layout's arrangement, as a workspace compares it.
+fn shape(doc: &LayoutDocument) -> String {
+    layout_shape(&arrangement_of(doc))
+}
+
 impl Run {
     pub(super) async fn shell_steps(&self, cx: &mut AsyncApp) -> Result<Vec<Step>> {
         let mut steps = Vec::new();
-        steps.push(self.drag_last_panel_out(cx).await?);
+        steps.push(self.drag_to_split(cx).await?);
+        steps.push(self.drag_into_tabs(cx).await?);
+        steps.push(self.maximize_and_restore(cx).await?);
         steps.push(self.writing_preset_round_trip(cx).await?);
         steps.push(self.workspace_keeps_its_arrangement(cx).await?);
         steps.push(self.close_and_bring_back(cx).await?);
         steps.push(self.float_and_dock(cx).await?);
+        steps.push(self.layout_survives_a_relaunch(cx).await?);
         steps.push(self.palette_lists_commands(cx).await?);
         steps.push(self.closing_the_focused_tab_keeps_the_keyboard(cx).await?);
         Ok(steps)
@@ -39,106 +59,243 @@ impl Run {
         })
     }
 
-    /// The PDF, alone in the right dock, dragged by its tab into the center:
-    /// GPUI Kit kept a region's last panel, Trellis lets it go and its dock
-    /// with it (`patches/gpui-base-dock-drag-out.diff`).
-    async fn drag_last_panel_out(&self, cx: &mut AsyncApp) -> Result<Step> {
-        self.reset_layout(cx)?;
-        let (area_bounds, left_width, right_width) = cx.update(|cx| {
-            let area = self.shell.read(cx).dock_area().read(cx);
-            (
-                area.bounds(),
-                area.dock_size(DockPlacement::Left).unwrap_or_default(),
-                area.dock_size(DockPlacement::Right),
-            )
-        });
-        let right_width = right_width.context("there is no right dock")?;
-        // The PDF tab's icon, as the editor's is found in the writing flow.
-        let from = gpui::point(
-            area_bounds.right() - right_width
-                + lattice_ui::dock::GROUP_INSET
-                + gpui::px(6. + 14.)
-                + lattice_ui::icons::ICON / 2.,
-            area_bounds.top() + gpui::px(18.),
-        );
-        // The middle of the center's card.
-        let center_left = area_bounds.left() + left_width;
-        let to = gpui::point(
-            center_left + (area_bounds.right() - right_width - center_left) / 2.,
-            area_bounds.top() + area_bounds.size.height / 2.,
-        );
-        let mut detail = self.native_drag(cx, from, to).await?;
-        let arrangement = cx.update(|cx| {
-            serde_json::to_value(self.shell.read(cx).current_arrangement(cx)).unwrap_or_default()
-        });
-        let (right_dock, pdf_in_center) = cx.update(|cx| {
+    /// Draw frames until the workspace's motion is over (at most 3 s), so
+    /// every panel is where the layout puts it. Returns the frames drawn.
+    pub(super) async fn settle_workspace(&self, cx: &mut AsyncApp) -> Result<usize> {
+        let mut frames = 0;
+        for _ in 0..60 {
+            self.frame_after_input(cx).await?;
+            frames += 1;
+            let moving = cx.update(|cx| self.shell.read(cx).workspace().read(cx).engine().moving());
+            if !moving && frames > 1 {
+                break;
+            }
+            super::sleep(cx, std::time::Duration::from_millis(50)).await;
+        }
+        Ok(frames)
+    }
+
+    fn document(&self, cx: &mut AsyncApp) -> LayoutDocument {
+        cx.update(|cx| self.shell.read(cx).document(cx))
+    }
+
+    /// A panel's bounds in the window, as last drawn.
+    fn panel_bounds(&self, cx: &mut AsyncApp, panel: &str) -> Option<Bounds<Pixels>> {
+        cx.update(|cx| self.shell.read(cx).workspace().read(cx).panel_bounds(panel))
+    }
+
+    /// The panel of the active document, after a reset: the documents'.
+    fn documents_panel(&self, cx: &mut AsyncApp) -> Result<String> {
+        cx.update(|cx| {
             let shell = self.shell.read(cx);
-            let area = shell.dock_area().read(cx);
-            let pdf = shell.singleton_panel(&View::Pdf);
-            (
-                area.has_dock(DockPlacement::Right),
-                pdf.is_some_and(|pdf| {
-                    area.layout(DockPlacement::Center)
-                        .is_some_and(|tree| tree.find_panel_node(pdf).is_some())
-                }),
+            let key = shell.active_document(cx)?;
+            let view = shell.view_of_document(&key, cx)?;
+            panel_with(&shell.document(cx), &view)
+        })
+        .context("no document is open")
+    }
+
+    /// Drag a view by its tab (the first tab of its panel) to `to`, a point
+    /// given as fractions of panel `onto`.
+    async fn drag_tab(
+        &self,
+        cx: &mut AsyncApp,
+        view: &str,
+        onto: &str,
+        to: (f32, f32),
+    ) -> Result<Value> {
+        let doc = self.document(cx);
+        let from_panel = panel_with(&doc, view).context("the view is in no panel")?;
+        let from = self
+            .panel_bounds(cx, &from_panel)
+            .context("its panel is not drawn")?;
+        let drawn = cx.update(|cx| {
+            let workspace = self.shell.read(cx).workspace().read(cx);
+            format!(
+                "workspace bounds {:?}, viewport {:?}, panels {:?}",
+                workspace.bounds(),
+                workspace.engine().viewport(),
+                trellis::model::panels_of(doc.root.as_ref())
+                    .iter()
+                    .map(|panel| (panel.id.clone(), workspace.engine().panel_rect(&panel.id)))
+                    .collect::<Vec<_>>()
             )
         });
-        detail["right_dock"] = json!(right_dock);
-        detail["pdf_in_center"] = json!(pdf_in_center);
-        detail["arrangement"] = arrangement;
+        let onto = self
+            .panel_bounds(cx, onto)
+            .with_context(|| format!("the target panel {onto} is not drawn: {drawn}"))?;
+        // The tab's icon: 6px into the strip, 14px into the tab, mid-strip.
+        let from = gpui::point(
+            from.left() + gpui::px(6. + 14.) + lattice_ui::icons::ICON / 2.,
+            from.top() + gpui::px(20.),
+        );
+        let to = gpui::point(
+            onto.left() + onto.size.width * to.0,
+            onto.top() + onto.size.height * to.1,
+        );
+        let detail = self.native_drag(cx, from, to).await;
+        self.settle_workspace(cx).await?;
+        detail
+    }
+
+    /// The PDF dragged by its tab onto the documents' left edge: the drop
+    /// slot there becomes a new split, the PDF left of the documents.
+    async fn drag_to_split(&self, cx: &mut AsyncApp) -> Result<Step> {
+        self.reset_layout(cx)?;
+        self.settle_workspace(cx).await?;
+        let documents = self.documents_panel(cx)?;
+        let mut detail = self.drag_tab(cx, "pdf", &documents, (0.08, 0.5)).await?;
+        let doc = self.document(cx);
+        let pdf = panel_with(&doc, "pdf");
+        let pdf_rect = pdf
+            .as_deref()
+            .and_then(|panel| self.panel_bounds(cx, panel));
+        let doc_rect = self.panel_bounds(cx, &documents);
+        let split = pdf.as_deref().is_some_and(|pdf| pdf != documents);
+        let left_of =
+            matches!((pdf_rect, doc_rect), (Some(pdf), Some(doc)) if pdf.left() < doc.left());
+        detail["pdf_panel"] = json!(pdf);
+        detail["documents_panel"] = json!(documents);
+        detail["shape"] = json!(shape(&doc));
         Ok((
-            "the PDF drags out of its dock into the center, and the dock goes",
-            !right_dock && pdf_in_center,
+            "the PDF dragged to the documents' left edge splits beside them",
+            split && left_of,
             detail,
         ))
     }
 
+    /// The PDF dragged by its tab into the documents' middle joins their
+    /// tabs, and the panel it left closes up.
+    async fn drag_into_tabs(&self, cx: &mut AsyncApp) -> Result<Step> {
+        self.reset_layout(cx)?;
+        self.settle_workspace(cx).await?;
+        let documents = self.documents_panel(cx)?;
+        // The PDF's panel closes up once the PDF leaves it, unless other
+        // PDFs' tabs (another root document's) stay in it.
+        let before = self.document(cx);
+        let alone = panel_of_view(&before, "pdf").is_some_and(|panel| panel.views.len() == 1);
+        let from = panel_with(&before, "pdf");
+        let mut detail = self.drag_tab(cx, "pdf", &documents, (0.5, 0.55)).await?;
+        let doc = self.document(cx);
+        let joined = panel_with(&doc, "pdf").as_deref() == Some(documents.as_str());
+        let gone = !alone
+            || !trellis::model::panels_of(doc.root.as_ref())
+                .iter()
+                .any(|panel| Some(&panel.id) == from.as_ref());
+        detail["joined"] = json!(joined);
+        detail["left_panel_gone"] = json!(gone);
+        Ok((
+            "the PDF dragged into the documents' middle becomes their tab",
+            joined && gone,
+            detail,
+        ))
+    }
+
+    /// ⌘⇧↩ frames the focused panel to the whole workspace, and again
+    /// brings the layout back.
+    async fn maximize_and_restore(&self, cx: &mut AsyncApp) -> Result<Step> {
+        self.reset_layout(cx)?;
+        self.settle_workspace(cx).await?;
+        let documents = self.documents_panel(cx)?;
+        let before = self.panel_bounds(cx, &documents);
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                let view = shell
+                    .active_document(cx)
+                    .and_then(|key| shell.view_of_document(&key, cx));
+                if let Some(view) = view {
+                    shell.engine_do(cx, |engine| engine.focus_view(&view));
+                }
+                shell.run_trellis(Trellis::FrameToggle, cx);
+            })
+        })?;
+        self.settle_workspace(cx).await?;
+        let framed = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .workspace()
+                .read(cx)
+                .engine()
+                .framed()
+                .map(str::to_string)
+        });
+        let during = self.panel_bounds(cx, &documents);
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| shell.run_trellis(Trellis::FrameToggle, cx))
+        })?;
+        self.settle_workspace(cx).await?;
+        let restored = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .workspace()
+                .read(cx)
+                .engine()
+                .framed()
+                .is_none()
+        });
+        let after = self.panel_bounds(cx, &documents);
+        let width = |b: Option<Bounds<Pixels>>| b.map(|b| f32::from(b.size.width));
+        let grew = matches!((width(before), width(during)), (Some(a), Some(b)) if b > a + 100.);
+        let back =
+            matches!((width(before), width(after)), (Some(a), Some(b)) if (a - b).abs() < 2.);
+        Ok((
+            "the focused panel maximizes to the workspace and restores",
+            framed.as_deref() == Some(documents.as_str()) && grew && restored && back,
+            json!({
+                "framed": framed,
+                "width_before": width(before),
+                "width_maximized": width(during),
+                "width_after": width(after),
+            }),
+        ))
+    }
+
     /// Writing gathers the documents beside the PDF and puts the navigators
-    /// away; choosing it again returns to the layout as it was.
+    /// away, hidden; choosing it again returns to the layout as it was.
     async fn writing_preset_round_trip(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
         let (before, during, after) = self.with_window(cx, |shell, window, cx| {
-            let before = shell.read(cx).current_arrangement(cx);
+            let before = shell.read(cx).document(cx);
             shell.update(cx, |shell, cx| {
                 shell.set_preset(Preset::Writing, window, cx)
             });
-            let during = shell.read(cx).current_arrangement(cx);
+            let during = shell.read(cx).document(cx);
             shell.update(cx, |shell, cx| {
                 shell.set_preset(Preset::Writing, window, cx)
             });
-            let after = shell.read(cx).current_arrangement(cx);
+            let after = shell.read(cx).document(cx);
             (before, during, after)
         })?;
-        let laid = during.left.is_none()
+        let ids: Vec<String> = trellis::model::panels_of(during.root.as_ref())
+            .iter()
+            .map(|panel| panel.id.clone())
+            .collect();
+        let laid = ids == ["panel-writing", "panel-pdf"]
             && during
-                .right
-                .as_ref()
-                .is_some_and(|dock| dock.node.views().contains(&&View::Pdf))
-            && !during.documents().is_empty();
-        let back = after.shape() == before.shape();
+                .hidden
+                .iter()
+                .any(|entry| entry.panel.views.iter().any(|view| view == "project"));
+        let back = shape(&after) == shape(&before);
         Ok((
             "the Writing preset puts the documents beside the PDF and returns",
             laid && back,
-            json!({ "laid": laid, "back": back }),
+            json!({ "during": ids, "laid": laid, "back": back }),
         ))
     }
 
     /// A new workspace holds the arrangement it was made from; widened, it
     /// shows the dot until it is saved, and then keeps its width while the
-    /// first workspace keeps its own. Each change is its own update, so the
-    /// dock's change events reach the shell between them, as they do when
-    /// the writer makes them.
+    /// first workspace keeps its own.
     async fn workspace_keeps_its_arrangement(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
         let left = |run: &Self, cx: &mut AsyncApp| {
-            cx.update(|cx| {
-                run.shell
-                    .read(cx)
-                    .dock_area()
-                    .read(cx)
-                    .dock_size(DockPlacement::Left)
-                    .map(f32::from)
-            })
+            let doc = run.document(cx);
+            match doc.root {
+                Some(LayoutNode::Split(root)) => {
+                    root.weights.first().map(|w| (w * 1000.).round() / 1000.)
+                }
+                _ => None,
+            }
         };
         let first = cx.update(|cx| self.shell.read(cx).layout.workspace.clone());
         let original = left(self, cx);
@@ -149,11 +306,21 @@ impl Run {
                 id
             })
         })?;
-        self.with_window(cx, |shell, window, cx| {
-            let area = shell.read(cx).dock_area().clone();
-            area.update(cx, |area, cx| {
-                area.set_dock_size(DockPlacement::Left, gpui::px(400.), window, cx)
-            });
+        // The navigators' column widened, as a divider drag leaves it.
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                let mut doc = shell.document(cx);
+                if let Some(LayoutNode::Split(root)) = &mut doc.root
+                    && root.weights.len() > 1
+                {
+                    root.weights[0] = 0.4;
+                    let rest: f64 = root.weights[1..].iter().sum();
+                    for weight in &mut root.weights[1..] {
+                        *weight *= 0.6 / rest;
+                    }
+                }
+                shell.engine_do(cx, |engine| engine.set_document(doc, false));
+            })
         })?;
         let dirty = cx.update(|cx| self.shell.read(cx).layout.dirty);
         self.with_window(cx, |shell, window, cx| {
@@ -172,7 +339,7 @@ impl Run {
         switch(self, cx, &second)?;
         let in_second = left(self, cx);
         switch(self, cx, &first)?;
-        let passed = dirty && saved_clean && in_first == original && in_second == Some(400.);
+        let passed = dirty && saved_clean && in_first == original && in_second == Some(0.4);
         Ok((
             "a new workspace keeps its own arrangement, the dot until it is saved",
             passed,
@@ -186,54 +353,100 @@ impl Run {
         ))
     }
 
-    /// Project's tab X takes it off screen; the Panels toggle brings it back.
+    /// Project's tab X closes it; the Panels toggle brings it back where it
+    /// belongs, with the Agent.
     async fn close_and_bring_back(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
-        let (closed, back) = self.with_window(cx, |shell, window, cx| {
-            let project = shell.read(cx).singleton_panel(&View::Project);
-            if let Some(project) = project {
-                shell.update(cx, |shell, cx| shell.close_panel(project, window, cx));
-            }
-            let closed = !shell.read(cx).view_on_screen(&View::Project, cx);
-            shell.update(cx, |shell, cx| shell.toggle_view(View::Project, window, cx));
-            let back = shell.read(cx).view_on_screen(&View::Project, cx);
-            (closed, back)
+        self.settle_workspace(cx).await?;
+        self.with_window(cx, |shell, _, cx| {
+            let workspace = shell.read(cx).workspace().clone();
+            workspace.update(cx, |workspace, cx| workspace.close(&["project".into()], cx))
         })?;
+        self.settle_workspace(cx).await?;
+        let closed = cx.update(|cx| !self.shell.read(cx).view_on_screen("project", cx));
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.toggle_view("project", window, cx))
+        })?;
+        // Whether a view shows is known once a frame lays it out.
+        self.settle_workspace(cx).await?;
+        let (back, with_agent) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            let doc = shell.document(cx);
+            let with_agent = panel_with(&doc, "project").is_some()
+                && panel_with(&doc, "project") == panel_with(&doc, "agent");
+            (shell.view_on_screen("project", cx), with_agent)
+        });
         Ok((
-            "closing Project's tab hides it and the Panels toggle brings it back",
-            closed && back,
-            json!({ "closed": closed, "back": back }),
+            "closing Project's tab closes it and the Panels toggle brings it back beside the Agent",
+            closed && back && with_agent,
+            json!({ "closed": closed, "back": back, "with_agent": with_agent }),
         ))
     }
 
-    /// The PDF floats over the dock, its dock going; Dock puts it back.
+    /// The PDF floats over the workspace, its panel's room going to its
+    /// neighbours; Dock puts it back.
     async fn float_and_dock(&self, cx: &mut AsyncApp) -> Result<Step> {
         self.reset_layout(cx)?;
-        let (floated, docked) = self.with_window(cx, |shell, window, cx| {
-            let Some(pdf) = shell.read(cx).singleton_panel(&View::Pdf) else {
-                return (false, false);
+        let (floated, docked) = self.with_window(cx, |shell, _, cx| {
+            let placement = |shell: &Entity<Shell>, cx: &mut App| {
+                shell
+                    .read(cx)
+                    .workspace()
+                    .read(cx)
+                    .engine()
+                    .placement_of("pdf")
             };
-            shell.update(cx, |shell, cx| shell.toggle_float(pdf, window, cx));
-            let floated = shell.read(cx).floating.contains(pdf)
-                && !shell
-                    .read(cx)
-                    .dock_area()
-                    .read(cx)
-                    .has_dock(DockPlacement::Right);
-            shell.update(cx, |shell, cx| shell.toggle_float(pdf, window, cx));
-            let docked = !shell.read(cx).floating.contains(pdf)
-                && shell
-                    .read(cx)
-                    .dock_area()
-                    .read(cx)
-                    .layout(DockPlacement::Right)
-                    .is_some_and(|tree| tree.find_panel_node(pdf).is_some());
+            let run = |shell: &Entity<Shell>, action: MenuAction, cx: &mut App| {
+                shell.update(cx, |shell, cx| {
+                    shell.engine_do(cx, |engine| engine.run_menu_action(&action));
+                })
+            };
+            run(shell, MenuAction::Float("pdf".into()), cx);
+            let floated = placement(shell, cx) == ViewPlacement::Floating;
+            run(shell, MenuAction::Dock("pdf".into()), cx);
+            let docked = placement(shell, cx) == ViewPlacement::Docked;
             (floated, docked)
         })?;
         Ok((
-            "the PDF floats over the dock and docks back on the right",
+            "the PDF floats over the workspace and docks back",
             floated && docked,
             json!({ "floated": floated, "docked": docked }),
+        ))
+    }
+
+    /// The layout as it is now, written to a state directory and read back
+    /// by a library loaded afresh, as the next launch reads it.
+    async fn layout_survives_a_relaunch(&self, cx: &mut AsyncApp) -> Result<Step> {
+        self.reset_layout(cx)?;
+        self.settle_workspace(cx).await?;
+        let documents = self.documents_panel(cx)?;
+        // A layout of the writer's own: the PDF split beside the documents.
+        self.drag_tab(cx, "pdf", &documents, (0.08, 0.5)).await?;
+        let (root, doc) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            (shell.root(cx), shell.document(cx))
+        });
+        let root = root.context("no project is open")?;
+        let dir =
+            std::env::temp_dir().join(format!("lattice-gpui-relaunch-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        {
+            let mut library = Workspaces::load(Some(dir.clone()));
+            library.save_project(
+                &root,
+                ProjectLayout {
+                    document: Some(doc.clone()),
+                    ..ProjectLayout::default()
+                },
+            );
+        }
+        let read = Workspaces::load(Some(dir.clone())).project(&root).document;
+        std::fs::remove_dir_all(&dir).ok();
+        let same = read.as_ref().is_some_and(|read| shape(read) == shape(&doc));
+        Ok((
+            "the layout comes back as it was after a relaunch",
+            same,
+            json!({ "saved": shape(&doc), "read": read.as_ref().map(shape) }),
         ))
     }
 
@@ -264,7 +477,7 @@ impl Run {
         })?;
         self.frame_after_input(cx).await?;
         let (before, focus_before) = self.with_window(cx, |shell, window, cx| {
-            let before = shell.read(cx).current_arrangement(cx).documents();
+            let before = documents_of(&shell.read(cx).document(cx));
             (before, keyboard_holder(shell, window, cx))
         })?;
         self.with_window(cx, |_, window, cx| {
@@ -272,7 +485,7 @@ impl Run {
         })?;
         self.frame_after_input(cx).await?;
         let (closed, focus_after) = self.with_window(cx, |shell, window, cx| {
-            let after = shell.read(cx).current_arrangement(cx).documents();
+            let after = documents_of(&shell.read(cx).document(cx));
             (
                 after.len() + 1 == before.len(),
                 keyboard_holder(shell, window, cx),
@@ -297,7 +510,7 @@ impl Run {
         })?;
         self.frame_after_input(cx).await?;
         let reopened = self.with_window(cx, |shell, _, cx| {
-            shell.read(cx).current_arrangement(cx).documents().len() == before.len()
+            documents_of(&shell.read(cx).document(cx)).len() == before.len()
         })?;
         Ok((
             "closing the focused document's tab leaves the keyboard in the window",

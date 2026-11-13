@@ -13,19 +13,20 @@
 //! [`Engine::frame`]); events go out through [`Engine::drain_events`].
 
 mod dividers;
+pub mod frame;
 mod geometry;
 mod groups;
-mod surfaces;
-pub mod frame;
 mod keys;
 mod menu;
 mod ops;
+mod surfaces;
 
 use std::collections::{HashMap, HashSet};
 
 use crate::model::{
     Allow, Entries, FloatingLayer, LayoutDocument, LayoutMetrics, LayoutNode, PanelNode, Params,
-    Rect, Scaling, TabbarMode, UNIT, ViewRecord, ViewRules, layout_rects, locate_panel, panel_of_view, panels_of, sanitize, view_ids,
+    Rect, Scaling, TabbarMode, UNIT, ViewRecord, ViewRules, layout_rects, locate_panel,
+    panel_of_view, panels_of, sanitize, view_ids,
 };
 
 use super::drag::DragSession;
@@ -297,7 +298,13 @@ impl Engine {
         let first = panels_of(engine.doc.root.as_ref())
             .first()
             .map(|p| p.selected.clone())
-            .or_else(|| engine.doc.floating.first().map(|f| f.panel.selected.clone()));
+            .or_else(|| {
+                engine
+                    .doc
+                    .floating
+                    .first()
+                    .map(|f| f.panel.selected.clone())
+            });
         if let Some(first) = first {
             engine.set_focus(Some(&first), false);
         }
@@ -466,7 +473,11 @@ impl Engine {
         let Some(panel) = panel else {
             return TabbarMode::Always;
         };
-        let modes: Vec<TabbarMode> = panel.views.iter().map(|v| self.rules_of(v).tabbar).collect();
+        let modes: Vec<TabbarMode> = panel
+            .views
+            .iter()
+            .map(|v| self.rules_of(v).tabbar)
+            .collect();
         if modes.iter().all(|m| *m == TabbarMode::Never) {
             return TabbarMode::Never;
         }
@@ -523,10 +534,12 @@ impl Engine {
         self.surfaces.retain(|id, _| live.contains(id));
         self.badges.retain(|id, _| live.contains(id));
         for id in &live {
-            self.surfaces.entry(id.clone()).or_insert_with(|| SurfaceState {
-                scale: 1.,
-                ..Default::default()
-            });
+            self.surfaces
+                .entry(id.clone())
+                .or_insert_with(|| SurfaceState {
+                    scale: 1.,
+                    ..Default::default()
+                });
         }
         let mut panel_ids: HashSet<String> = panels_of(self.doc.root.as_ref())
             .into_iter()
@@ -546,7 +559,12 @@ impl Engine {
         self.nav_sync();
     }
 
-    pub(crate) fn commit(&mut self, next: LayoutDocument, animate: bool, from: Option<HashMap<String, Rect>>) {
+    pub(crate) fn commit(
+        &mut self,
+        next: LayoutDocument,
+        animate: bool,
+        from: Option<HashMap<String, Rect>>,
+    ) {
         self.commit_with(next, animate, from, false);
     }
 
@@ -592,7 +610,11 @@ impl Engine {
                 let fallback = self
                     .last_focus_fallback()
                     .and_then(|v| panel_of_view(&self.doc, &v).cloned())
-                    .or_else(|| panels_of(self.doc.root.as_ref()).first().map(|p| (*p).clone()))
+                    .or_else(|| {
+                        panels_of(self.doc.root.as_ref())
+                            .first()
+                            .map(|p| (*p).clone())
+                    })
                     .or_else(|| self.doc.floating.first().map(|f| f.panel.clone()));
                 let selected = fallback.map(|p| p.selected);
                 self.set_focus(selected.as_deref(), false);
@@ -677,7 +699,9 @@ impl Engine {
     /// layout has to scale down.
     pub fn min_width(&self) -> f64 {
         match &self.doc.root {
-            Some(root) => self.content_min(root, crate::model::Axis::X) + self.gap() + self.pad() * 2.,
+            Some(root) => {
+                self.content_min(root, crate::model::Axis::X) + self.gap() + self.pad() * 2.
+            }
             None => 0.,
         }
     }

@@ -8,10 +8,9 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, Context, CursorStyle, InteractiveElement as _, IntoElement,
-    MouseButton, MouseDownEvent, ParentElement as _, StatefulInteractiveElement as _,
-    StyleRefinement, Styled as _, Window, canvas, div, point, prelude::FluentBuilder as _, px,
-    scaled,
+    AnyElement, Context, CursorStyle, InteractiveElement as _, IntoElement, MouseButton,
+    MouseDownEvent, ParentElement as _, StatefulInteractiveElement as _, StyleRefinement,
+    Styled as _, Window, canvas, div, point, prelude::FluentBuilder as _, px, scaled,
 };
 
 use crate::model::{Rect, TabbarMode};
@@ -145,7 +144,12 @@ impl TrellisWorkspace {
         )
     }
 
-    fn render_strip(&mut self, p: &PanelFrame, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn render_strip(
+        &mut self,
+        p: &PanelFrame,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let entity = cx.entity().downgrade();
         let panel_id = p.id.clone();
         let strips = self.strips.clone();
@@ -177,7 +181,9 @@ impl TrellisWorkspace {
             });
         {
             if let Some(boxes) = strips.borrow_mut().get_mut(&panel_id) {
-                boxes.tabs.retain(|(v, _)| p.tabs.iter().any(|t| t.view_id == *v));
+                boxes
+                    .tabs
+                    .retain(|(v, _)| p.tabs.iter().any(|t| t.view_id == *v));
             }
         }
         for tab in &p.tabs {
@@ -271,7 +277,11 @@ impl TrellisWorkspace {
                     }),
             );
         }
-        let bar_height = px(if p.bar_height > 0. { p.bar_height as f32 } else { 40. });
+        let bar_height = px(if p.bar_height > 0. {
+            p.bar_height as f32
+        } else {
+            40.
+        });
         div()
             .id(("trellis-strip", hash(&p.id)))
             .absolute()
@@ -318,7 +328,9 @@ impl TrellisWorkspace {
                 let panel = panel_id.clone();
                 move |event: &MouseDownEvent, window, cx| {
                     entity
-                        .update(cx, |this, cx| this.press_strip(&panel, None, event, window, cx))
+                        .update(cx, |this, cx| {
+                            this.press_strip(&panel, None, event, window, cx)
+                        })
                         .ok();
                 }
             })
@@ -342,9 +354,12 @@ impl TrellisWorkspace {
                 move |event: &MouseDownEvent, window, cx| {
                     entity
                         .update(cx, |this, cx| {
-                            this.skin
-                                .clone()
-                                .open_menu_at(menu.clone(), event.position, window, cx);
+                            this.skin.clone().open_menu_at(
+                                menu.clone(),
+                                event.position,
+                                window,
+                                cx,
+                            );
                         })
                         .ok();
                 }
@@ -366,8 +381,18 @@ impl TrellisWorkspace {
                     .unwrap_or_default()
             })
         };
+        let selected = {
+            let weak = weak.clone();
+            let id = id.clone();
+            Rc::new(move |cx: &gpui::App| {
+                let this = weak.upgrade()?;
+                let doc = this.read(cx).engine.doc();
+                crate::model::locate_panel(doc, &id).map(|l| l.panel().selected.clone())
+            })
+        };
         PanelMenu {
             panel_id: id,
+            selected,
             built_ins,
             run: Rc::new(move |action, _, cx| {
                 weak.update(cx, |this, cx| {
@@ -387,29 +412,64 @@ impl TrellisWorkspace {
         let entity = cx.entity().downgrade();
         let (w, h) = (r.w, r.h);
         let rects = [
-            (ResizeDir::N, Rect::new(8., -4., w - 16., 8.), CursorStyle::ResizeUpDown),
-            (ResizeDir::S, Rect::new(8., h - 4., w - 16., 8.), CursorStyle::ResizeUpDown),
-            (ResizeDir::E, Rect::new(w - 4., 8., 8., h - 16.), CursorStyle::ResizeLeftRight),
-            (ResizeDir::W, Rect::new(-4., 8., 8., h - 16.), CursorStyle::ResizeLeftRight),
-            (ResizeDir::NE, Rect::new(w - 9., -5., 14., 14.), CursorStyle::ResizeUpRightDownLeft),
-            (ResizeDir::NW, Rect::new(-5., -5., 14., 14.), CursorStyle::ResizeUpLeftDownRight),
-            (ResizeDir::SE, Rect::new(w - 9., h - 9., 14., 14.), CursorStyle::ResizeUpLeftDownRight),
-            (ResizeDir::SW, Rect::new(-5., h - 9., 14., 14.), CursorStyle::ResizeUpRightDownLeft),
+            (
+                ResizeDir::N,
+                Rect::new(8., -4., w - 16., 8.),
+                CursorStyle::ResizeUpDown,
+            ),
+            (
+                ResizeDir::S,
+                Rect::new(8., h - 4., w - 16., 8.),
+                CursorStyle::ResizeUpDown,
+            ),
+            (
+                ResizeDir::E,
+                Rect::new(w - 4., 8., 8., h - 16.),
+                CursorStyle::ResizeLeftRight,
+            ),
+            (
+                ResizeDir::W,
+                Rect::new(-4., 8., 8., h - 16.),
+                CursorStyle::ResizeLeftRight,
+            ),
+            (
+                ResizeDir::NE,
+                Rect::new(w - 9., -5., 14., 14.),
+                CursorStyle::ResizeUpRightDownLeft,
+            ),
+            (
+                ResizeDir::NW,
+                Rect::new(-5., -5., 14., 14.),
+                CursorStyle::ResizeUpLeftDownRight,
+            ),
+            (
+                ResizeDir::SE,
+                Rect::new(w - 9., h - 9., 14., 14.),
+                CursorStyle::ResizeUpLeftDownRight,
+            ),
+            (
+                ResizeDir::SW,
+                Rect::new(-5., h - 9., 14., 14.),
+                CursorStyle::ResizeUpRightDownLeft,
+            ),
         ];
         rects
             .into_iter()
             .map(|(dir, rect, cursor)| {
                 let panel = p.id.clone();
                 let entity = entity.clone();
-                place(div().id(("trellis-resize", hash(&format!("{}{dir:?}", p.id)))), rect)
-                    .cursor(cursor)
-                    .on_mouse_down(MouseButton::Left, move |event: &MouseDownEvent, _, cx| {
-                        cx.stop_propagation();
-                        entity
-                            .update(cx, |this, cx| this.press_resize(&panel, dir, event, cx))
-                            .ok();
-                    })
-                    .into_any_element()
+                place(
+                    div().id(("trellis-resize", hash(&format!("{}{dir:?}", p.id)))),
+                    rect,
+                )
+                .cursor(cursor)
+                .on_mouse_down(MouseButton::Left, move |event: &MouseDownEvent, _, cx| {
+                    cx.stop_propagation();
+                    entity
+                        .update(cx, |this, cx| this.press_resize(&panel, dir, event, cx))
+                        .ok();
+                })
+                .into_any_element()
             })
             .collect()
     }

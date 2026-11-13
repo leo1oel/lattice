@@ -27,6 +27,7 @@ gpui_platform.workspace = true
 gpui-kit.workspace = true
 hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
+indexmap = { version = "2", features = ["serde"] }
 language.workspace = true
 lattice-core.workspace = true
 lattice-editor.workspace = true
@@ -47,6 +48,8 @@ settings.workspace = true
 smallvec.workspace = true
 theme.workspace = true
 theme_settings.workspace = true
+# Trellis ported to GPUI: under its own non-commercial license (crates/trellis/README.md).
+trellis.workspace = true
 vim.workspace = true
 vim_mode_setting.workspace = true
 workspace.workspace = true

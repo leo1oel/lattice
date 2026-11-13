@@ -26,6 +26,8 @@ use gpui::{AsyncApp, Entity, point, px};
 use lattice_ui::{Appearance, LatticeTheme};
 use lattice_webview::IslandState;
 use serde_json::{Value, json};
+#[cfg(target_os = "macos")]
+use trellis::runtime::keymap::Command as Trellis;
 
 use super::{Run, Steps};
 use crate::{
@@ -189,15 +191,18 @@ impl Run {
 
         self.island_shortcuts(cx, steps, &island).await?;
         #[cfg(target_os = "macos")]
-        self.toast_above_island(cx, steps, &island).await?;
+        self.toast_above_island(cx, steps, &panel, &island).await?;
         self.island_views(cx, steps, &panel, &preview, root).await?;
 
         // Done: close the document's tab.
         self.with_window(cx, {
             let panel = panel.clone();
-            move |shell, window, cx| {
-                let area = shell.read(cx).dock_area().clone();
-                area.update(cx, |area, cx| area.remove_panel(panel, window, cx));
+            move |shell, _, cx| {
+                shell.update(cx, |shell, cx| {
+                    if let Some(view) = shell.view_of_editor(&panel) {
+                        shell.engine_do(cx, |engine| engine.close(&view));
+                    }
+                });
             }
         })?;
         self.pause(cx, Duration::from_millis(200)).await;
@@ -334,13 +339,12 @@ impl Run {
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
         island: &Entity<lattice_webview::Island>,
     ) -> Result<()> {
-        // The document's group fills the workspace, so the toast's corner
+        // The document's panel fills the workspace, so the toast's corner
         // is over the page; dark, so the toast is unlike the white page.
-        self.with_window(cx, |shell, window, cx| {
-            shell.update(cx, |shell, cx| shell.toggle_maximize(window, cx))
-        })?;
+        self.toggle_maximized(cx, panel)?;
         cx.update(|cx| LatticeTheme::set_appearance(Appearance::Dark, cx));
         cx.update(|cx| {
             crate::notices::show(
@@ -407,11 +411,23 @@ impl Run {
         }
         cx.update(|cx| crate::notices::dismiss("island-check", cx));
         cx.update(|cx| LatticeTheme::set_appearance(Appearance::Light, cx));
-        self.with_window(cx, |shell, window, cx| {
-            shell.update(cx, |shell, cx| shell.toggle_maximize(window, cx))
-        })?;
+        self.toggle_maximized(cx, panel)?;
         self.pause(cx, Duration::from_millis(300)).await;
         Ok(())
+    }
+
+    /// Maximize the document's panel, or restore it.
+    #[cfg(target_os = "macos")]
+    fn toggle_maximized(&self, cx: &mut AsyncApp, panel: &Entity<EditorPanel>) -> Result<()> {
+        let panel = panel.clone();
+        self.with_window(cx, move |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                if let Some(view) = shell.view_of_editor(&panel) {
+                    shell.engine_do(cx, |engine| engine.focus_view(&view));
+                }
+                shell.run_trellis(Trellis::FrameToggle, cx);
+            })
+        })
     }
 
     /// Edit, Split and Preview; another tab chosen over the document; the

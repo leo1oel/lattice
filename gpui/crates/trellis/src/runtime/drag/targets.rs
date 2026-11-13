@@ -6,14 +6,12 @@
 //! that remove targets.
 
 use crate::model::{
-    Edge, FloatingLayer, LayoutNode, PanelNode, Point, Rect, contains_node, drop_edge,
-    find_node, find_stage, frame_drop_target, leaf_ids, seam_target, tile_drop_target,
+    Edge, FloatingLayer, LayoutNode, PanelNode, Point, Rect, contains_node, drop_edge, find_node,
+    find_stage, frame_drop_target, leaf_ids, seam_target, tile_drop_target,
 };
 
 use super::super::engine::{Engine, Region};
-use super::{
-    DESKTOP_SPLIT_MAX_PX, DragSession, DropTarget, MIN_SEAM_HIT_WIDTH, OVERLAY_EDGE_BAND,
-};
+use super::{DESKTOP_SPLIT_MAX_PX, DragSession, DropTarget, MIN_SEAM_HIT_WIDTH, OVERLAY_EDGE_BAND};
 
 pub(super) fn overlay_edge(p: Point, r: Rect) -> Option<Edge> {
     let x = (p.x - r.x) / r.w;
@@ -100,7 +98,8 @@ impl Engine {
                 .drop_base
                 .get(collapsed)
                 .and_then(|e| drop_edge(point, e.rect));
-            next = edge.map(|edge| DropTarget::Dock(tile_drop_target(&d.drop_base, collapsed, edge)));
+            next =
+                edge.map(|edge| DropTarget::Dock(tile_drop_target(&d.drop_base, collapsed, edge)));
         } else if let (Some(hovered), Some(LayoutNode::Panel(node))) = (&hovered, hovered_node) {
             let world = d.drop_base[hovered].rect;
             let screen = self.panel_screen(world);
@@ -113,7 +112,9 @@ impl Engine {
                         drop_edge(point, world)
                     };
                     Some(match edge {
-                        Some(edge) => DropTarget::Dock(tile_drop_target(&d.drop_base, hovered, edge)),
+                        Some(edge) => {
+                            DropTarget::Dock(tile_drop_target(&d.drop_base, hovered, edge))
+                        }
                         None if float_move => DropTarget::Float,
                         None => DropTarget::Tab {
                             panel: hovered.clone(),
@@ -238,13 +239,8 @@ impl Engine {
             .and_then(|f| self.nav.entries.get(f))
             .map(|e| e.node.clone());
         if let Some(group) = framed.as_ref().or(doc.root.as_ref())
-            && let Some(frame) = frame_drop_target(
-                group,
-                p,
-                vw,
-                vh,
-                (self.pad() * 2.).max(MIN_SEAM_HIT_WIDTH),
-            )
+            && let Some(frame) =
+                frame_drop_target(group, p, vw, vh, (self.pad() * 2.).max(MIN_SEAM_HIT_WIDTH))
             && leaf_ids(Some(group)).iter().any(|id| *id != d.lifted.id)
         {
             next = Some(DropTarget::Dock(frame));
@@ -255,7 +251,10 @@ impl Engine {
         if let Some(DropTarget::Tab { panel, .. }) = &next
             && Some(panel) == d.excluded_host.as_ref()
         {
-            let host_float = doc.floating.iter().find(|f| Some(&f.panel.id) == d.excluded_host.as_ref());
+            let host_float = doc
+                .floating
+                .iter()
+                .find(|f| Some(&f.panel.id) == d.excluded_host.as_ref());
             next = host_float
                 .filter(|f| f.layer == FloatingLayer::Stage)
                 .map(|_| DropTarget::Float);
@@ -269,9 +268,19 @@ impl Engine {
     }
 
     /// Tab-bar drops insert at an index.
-    pub(super) fn tab_target(&self, panel: &PanelNode, p: Point, screen: Rect) -> Option<DropTarget> {
+    pub(super) fn tab_target(
+        &self,
+        panel: &PanelNode,
+        p: Point,
+        screen: Rect,
+    ) -> Option<DropTarget> {
         let bar = self.bar_height(Some(panel));
-        if bar == 0. || !(p.x >= screen.x && p.x <= screen.x + screen.w && p.y >= screen.y && p.y <= screen.y + bar) {
+        if bar == 0.
+            || !(p.x >= screen.x
+                && p.x <= screen.x + screen.w
+                && p.y >= screen.y
+                && p.y <= screen.y + bar)
+        {
             return None;
         }
         let mut index = panel.views.len();
@@ -307,7 +316,11 @@ impl Engine {
     }
 
     /// Allow rules remove targets; they never reroute a drop.
-    pub(super) fn filter_target(&self, d: &DragSession, next: Option<DropTarget>) -> Option<DropTarget> {
+    pub(super) fn filter_target(
+        &self,
+        d: &DragSession,
+        next: Option<DropTarget>,
+    ) -> Option<DropTarget> {
         let next = next?;
         let views = &d.lifted.views;
         let doc = &d.pdoc;

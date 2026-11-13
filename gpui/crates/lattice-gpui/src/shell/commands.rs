@@ -12,7 +12,7 @@ use gpui::{Action, App, KeyBinding, SharedString, actions};
 use lattice_i18n::{space_mixed_script, t};
 use lattice_ui::Icon;
 
-use super::layout::Preset;
+use super::trellis_layout::Preset;
 
 mod appearance;
 mod projects;
@@ -56,6 +56,11 @@ actions!(
         ReopenClosedTab,
         NextTab,
         PreviousTab,
+        NextPanel,
+        PreviousPanel,
+        NavigateBack,
+        NavigateForward,
+        CloseView,
         ToggleMaximize,
         ToggleFocusMode,
         ResetLayout,
@@ -330,6 +335,17 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             )
             .keys_only(),
         );
+        // The workspace's own keys (`TRELLIS_SHORTCUTS`).
+        let nav = Section::Navigate;
+        out.push(Command::new("next-panel", "Next panel", nav, NextPanel).keys_only());
+        out.push(Command::new("previous-panel", "Previous panel", nav, PreviousPanel).keys_only());
+        out.push(
+            Command::new("navigate-back", "Previous zoomed view", nav, NavigateBack).keys_only(),
+        );
+        out.push(
+            Command::new("navigate-forward", "Next zoomed view", nav, NavigateForward).keys_only(),
+        );
+        out.push(Command::new("close-view", "Close the tab", nav, CloseView).keys_only());
     }
     out.push(
         Command::new(
@@ -558,6 +574,11 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("shift-]"), NextTab, None),
         KeyBinding::new(m!("shift-["), PreviousTab, None),
         KeyBinding::new(m!("shift-enter"), ToggleMaximize, None),
+        KeyBinding::new("f6", NextPanel, None),
+        KeyBinding::new("shift-f6", PreviousPanel, None),
+        KeyBinding::new(m!("alt-left"), NavigateBack, None),
+        KeyBinding::new(m!("alt-right"), NavigateForward, None),
+        KeyBinding::new(m!("alt-w"), CloseView, None),
         KeyBinding::new(m!("shift-d"), ToggleFocusMode, None),
         // ⌘= is ⌘+ without Shift; ⌘+ comes last, so it is the one shown.
         KeyBinding::new(m!("="), LargerInterface, None),

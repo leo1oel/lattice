@@ -61,9 +61,10 @@ impl Engine {
                 LayoutNode::Panel(_) => continue,
                 LayoutNode::Split(s) => s,
             };
-            let nested = split.children.iter().any(|c| {
-                c.is_split() || c.stage_child().is_some_and(LayoutNode::is_split)
-            });
+            let nested = split
+                .children
+                .iter()
+                .any(|c| c.is_split() || c.stage_child().is_some_and(LayoutNode::is_split));
             if Some(&split.id) != framed.as_ref()
                 && nested
                 && (small(&split.id) || split.children.iter().all(|c| small(c.id())))
@@ -93,7 +94,10 @@ impl Engine {
                 let e = self.entries.get(id)?;
                 e.node.as_split()?;
                 let r = self.panel_screen(e.rect);
-                let onscreen = r.x < self.viewport.0 && r.y < self.viewport.1 && r.x + r.w > 0. && r.y + r.h > 0.;
+                let onscreen = r.x < self.viewport.0
+                    && r.y < self.viewport.1
+                    && r.x + r.w > 0.
+                    && r.y + r.h > 0.;
                 if !onscreen {
                     return None;
                 }
@@ -173,11 +177,10 @@ impl Engine {
             let Some(LayoutNode::Split(split)) = &node else {
                 break;
             };
-            let child = split.children.iter().find(|c| {
-                self.entries
-                    .get(c.id())
-                    .is_some_and(|e| e.rect.contains(p))
-            });
+            let child = split
+                .children
+                .iter()
+                .find(|c| self.entries.get(c.id()).is_some_and(|e| e.rect.contains(p)));
             let Some(child) = child.cloned() else {
                 break;
             };

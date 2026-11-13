@@ -17,7 +17,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use gpui::{
     App, Bounds, Context, EventEmitter, FocusHandle, Focusable, InteractiveElement as _,
-    IntoElement, ParentElement as _, Pixels, Render, Styled as _, Window, canvas, div, point, px,
+    IntoElement, ParentElement as _, Pixels, Render, Styled as _, Window, canvas, deferred, div, point, px,
 };
 
 use crate::model::{LayoutDocument, Point, Rect};
@@ -25,9 +25,7 @@ use crate::runtime::engine::frame::Frame;
 use crate::runtime::engine::{Engine, Event, KeyOutcome, Options};
 use crate::runtime::keymap::Command;
 
-pub use skin::{
-    CardStyle, ChromeStyle, PanelMenu, Skin, StripEnd, TabActions,
-};
+pub use skin::{CardStyle, ChromeStyle, PanelMenu, Skin, StripEnd, TabActions};
 
 /// What the workspace tells the app.
 #[derive(Clone, Debug, PartialEq)]
@@ -52,7 +50,10 @@ pub enum WorkspaceEvent {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Held {
     /// A press on a tab or strip that may become a drag.
-    Press { panel: String, view: Option<String> },
+    Press {
+        panel: String,
+        view: Option<String>,
+    },
     Divider,
     FloatResize,
     Navigation,
@@ -106,8 +107,18 @@ impl TrellisWorkspace {
         &self.engine
     }
 
+    /// The engine, for changes that draw nothing by themselves (titles,
+    /// badges, minimum sizes): the next frame picks them up.
+    pub fn engine_mut(&mut self) -> &mut Engine {
+        &mut self.engine
+    }
+
     /// Change the engine, then draw again (and tell the app what changed).
-    pub fn update_engine<R>(&mut self, cx: &mut Context<Self>, f: impl FnOnce(&mut Engine) -> R) -> R {
+    pub fn update_engine<R>(
+        &mut self,
+        cx: &mut Context<Self>,
+        f: impl FnOnce(&mut Engine) -> R,
+    ) -> R {
         let result = f(&mut self.engine);
         self.flush_events(cx);
         cx.notify();
@@ -154,12 +165,11 @@ impl TrellisWorkspace {
 
     /// A window point in workspace pixels.
     pub(crate) fn local(&self, p: gpui::Point<Pixels>) -> Point {
-        let origin = self
-            .bounds
-            .borrow()
-            .map(|b| b.origin)
-            .unwrap_or_default();
-        Point::new(f64::from(f32::from(p.x - origin.x)), f64::from(f32::from(p.y - origin.y)))
+        let origin = self.bounds.borrow().map(|b| b.origin).unwrap_or_default();
+        Point::new(
+            f64::from(f32::from(p.x - origin.x)),
+            f64::from(f32::from(p.y - origin.y)),
+        )
     }
 
     /// A rect in workspace pixels, from window bounds.
@@ -265,20 +275,30 @@ impl Render for TrellisWorkspace {
         root = root.children(self.render_groups(&frame, &chrome, cx));
         root = root.children(self.render_source_slot(&frame, &chrome));
         root = root.children(self.render_dividers(&frame, &chrome, cx));
+        // The layers above the docked panels, and the shield over them all
+        // while the pointer is held, draw together: deferred when the skin
+        // asks, clipped to the workspace as the root clips them.
         let (floats, top): (Vec<_>, Vec<_>) = high.into_iter().partition(|p| p.z < 2900.);
+        let mut raised = div().absolute().size_full().overflow_hidden();
         for p in &floats {
-            root = root.child(self.render_panel(p, &chrome, window, cx));
+            raised = raised.child(self.render_panel(p, &chrome, window, cx));
         }
-        root = root.children(self.render_drop_slot(&frame, &chrome, cx));
+        raised = raised.children(self.render_drop_slot(&frame, &chrome, cx));
         for p in &top {
-            root = root.child(self.render_panel(p, &chrome, window, cx));
+            raised = raised.child(self.render_panel(p, &chrome, window, cx));
         }
-        root = root.children(self.render_navigation(&frame, &chrome, cx));
+        raised = raised
+            .children(self.render_navigation(&frame, &chrome, cx))
+            .children(self.render_shield(&frame));
+        root = match skin.raised_priority() {
+            Some(priority) => root.child(deferred(raised).with_priority(priority)),
+            None => root.child(raised),
+        };
         if frame.empty {
             root = root.children(skin.empty(window, cx));
         }
         root = self.wire_root(root, entity, window, cx);
-        root.children(self.render_shield(&frame))
+        root.children(skin.overlay(window, cx))
     }
 }
 

@@ -59,7 +59,11 @@ impl Workspace {
             Some(&self.root),
             id,
             &LayoutNode::Panel(PanelNode::single(incoming, incoming)),
-            if axis == Axis::X { Edge::Right } else { Edge::Bottom },
+            if axis == Axis::X {
+                Edge::Right
+            } else {
+                Edge::Bottom
+            },
             &split_id,
             None,
         );
@@ -79,7 +83,10 @@ impl Workspace {
         self.root = replace_node(Some(&self.root), group, &LayoutNode::Split(resized)).unwrap();
     }
     fn move_to(&mut self, id: &str, target: &str, side: Edge) {
-        if id == target || find_node(Some(&self.root), id).is_none() || find_node(Some(&self.root), target).is_none() {
+        if id == target
+            || find_node(Some(&self.root), id).is_none()
+            || find_node(Some(&self.root), target).is_none()
+        {
             return;
         }
         let source = find_node(Some(&self.root), id).unwrap().clone();
@@ -152,7 +159,12 @@ fn all(w: &Workspace) -> Vec<Rect> {
 #[test]
 fn layout_01_splitting_halves_a_view_and_leaves_others_untouched() {
     for axis in [Axis::X, Axis::Y] {
-        let mut w = Workspace::new(Group("workspace", axis, vec![View("notes"), View("mail")], Some(vec![0.4, 0.6])));
+        let mut w = Workspace::new(Group(
+            "workspace",
+            axis,
+            vec![View("notes"), View("mail")],
+            Some(vec![0.4, 0.6]),
+        ));
         let untouched = w.bounds("mail");
         let original = w.bounds("notes");
         w.split("notes", "finder", axis);
@@ -184,7 +196,14 @@ fn layout_02_resizing_a_seam_changes_only_the_adjacent_views() {
         w.resize("workspace", 1, 0.4);
         same_bounds(w.bounds("a"), a);
         same_bounds(w.bounds("d"), d);
-        near(if axis == Axis::X { w.bounds("b").w } else { w.bounds("b").h }, 0.2);
+        near(
+            if axis == Axis::X {
+                w.bounds("b").w
+            } else {
+                w.bounds("b").h
+            },
+            0.2,
+        );
         partitions(&all(&w));
         for position in [-100., 100.] {
             w.resize("workspace", 1, position);
@@ -215,7 +234,12 @@ fn layout_03_closing_gives_space_to_the_next_neighbour_or_the_previous_at_the_en
 
 #[test]
 fn layout_04_the_last_remaining_view_stays_open() {
-    let mut w = Workspace::new(Group("workspace", Axis::X, vec![View("a"), View("b")], None));
+    let mut w = Workspace::new(Group(
+        "workspace",
+        Axis::X,
+        vec![View("a"), View("b")],
+        None,
+    ));
     w.close("a");
     w.close("b");
     assert_eq!(w.views(), ["b"]);
@@ -228,7 +252,10 @@ fn dock_01_moving_a_view_keeps_every_view_and_places_it_on_the_side() {
         let mut w = Workspace::new(Group(
             "workspace",
             Axis::X,
-            vec![View("a"), Group("right", Axis::Y, vec![View("b"), View("c")], None)],
+            vec![
+                View("a"),
+                Group("right", Axis::Y, vec![View("b"), View("c")], None),
+            ],
             None,
         ));
         w.move_to("a", "c", side);
@@ -250,7 +277,9 @@ fn dock_01_moving_a_view_keeps_every_view_and_places_it_on_the_side() {
 fn dock_02_the_preview_reserves_equal_space() {
     for side in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom] {
         let r = Rect::new(0., 0., 1., 1.);
-        let DropRects { slot, remaining, .. } = drop_rects(r, side);
+        let DropRects {
+            slot, remaining, ..
+        } = drop_rects(r, side);
         partitions(&[slot, remaining]);
         near(slot.w * slot.h, 0.5);
         assert_eq!(
@@ -278,8 +307,14 @@ fn dock_03_either_side_of_a_shared_edge_and_the_seam_agree() {
         assert_eq!(left.bounds(&id), right.bounds(&id));
         assert_eq!(left.bounds(&id), seam.bounds(&id));
     }
-    near(left.bounds("a").x + left.bounds("a").w, left.bounds("incoming").x);
-    near(left.bounds("incoming").x + left.bounds("incoming").w, left.bounds("b").x);
+    near(
+        left.bounds("a").x + left.bounds("a").w,
+        left.bounds("incoming").x,
+    );
+    near(
+        left.bounds("incoming").x + left.bounds("incoming").w,
+        left.bounds("b").x,
+    );
 }
 
 #[test]
@@ -302,18 +337,31 @@ fn dock_04_a_seam_between_nested_groups_spans_the_whole_group() {
 
 #[test]
 fn dock_05_the_outer_frame_inserts_around_the_group_and_ignores_outside_drops() {
-    let mut w = Workspace::new(Group("workspace", Axis::X, vec![View("a"), View("b")], None));
+    let mut w = Workspace::new(Group(
+        "workspace",
+        Axis::X,
+        vec![View("a"), View("b")],
+        None,
+    ));
     w.add_at_frame("outside", Point::new(-1., 300.));
     assert_eq!(w.views(), ["a", "b"]);
     w.add_at_frame("incoming", Point::new(500., 4.));
     near(w.bounds("incoming").w, 1.);
-    near(w.bounds("incoming").y + w.bounds("incoming").h, w.bounds("a").y);
+    near(
+        w.bounds("incoming").y + w.bounds("incoming").h,
+        w.bounds("a").y,
+    );
     partitions(&all(&w));
 }
 
 #[test]
 fn dock_06_dropping_a_view_onto_itself_changes_nothing() {
-    let mut w = Workspace::new(Group("workspace", Axis::X, vec![View("a"), View("b")], None));
+    let mut w = Workspace::new(Group(
+        "workspace",
+        Axis::X,
+        vec![View("a"), View("b")],
+        None,
+    ));
     let before = all(&w);
     w.move_to("a", "a", Edge::Left);
     assert_eq!(all(&w), before);
@@ -414,9 +462,16 @@ fn nav_06_marquee_clips_at_the_boundary_without_forcing_its_aspect() {
 fn nav_07_maximize_restores_the_exact_prior_framing() {
     let w = nested();
     for origin in ["workspace", "writing"] {
-        let (destination, session) = maximize_transition(&w.entries(), "workspace", origin, "notes", None);
+        let (destination, session) =
+            maximize_transition(&w.entries(), "workspace", origin, "notes", None);
         assert_eq!(destination, "notes");
-        let (back, _) = maximize_transition(&w.entries(), "workspace", "notes", "notes", session.as_ref());
+        let (back, _) = maximize_transition(
+            &w.entries(),
+            "workspace",
+            "notes",
+            "notes",
+            session.as_ref(),
+        );
         assert_eq!(back, origin);
     }
 }
@@ -426,7 +481,13 @@ fn nav_08_maximize_restores_the_nearest_surviving_ancestor() {
     let mut w = nested();
     let (_, session) = maximize_transition(&w.entries(), "workspace", "writing", "notes", None);
     w.close("mail");
-    let (restored, _) = maximize_transition(&w.entries(), "workspace", "notes", "notes", session.as_ref());
+    let (restored, _) = maximize_transition(
+        &w.entries(),
+        "workspace",
+        "notes",
+        "notes",
+        session.as_ref(),
+    );
     assert_eq!(restored, "workspace");
 }
 
@@ -434,9 +495,15 @@ fn nav_08_maximize_restores_the_nearest_surviving_ancestor() {
 fn nav_09_a_saved_framing_follows_remaining_views() {
     let mut w = nested();
     let leaves = ["notes".to_string(), "mail".to_string()];
-    assert_eq!(saved_frame_destination(Some(&w.root), &leaves).as_deref(), Some("writing"));
+    assert_eq!(
+        saved_frame_destination(Some(&w.root), &leaves).as_deref(),
+        Some("writing")
+    );
     w.close("mail");
-    assert_eq!(saved_frame_destination(Some(&w.root), &leaves).as_deref(), Some("notes"));
+    assert_eq!(
+        saved_frame_destination(Some(&w.root), &leaves).as_deref(),
+        Some("notes")
+    );
     w.close("notes");
     assert_eq!(saved_frame_destination(Some(&w.root), &leaves), None);
 }

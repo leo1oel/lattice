@@ -16,4 +16,6 @@ pub use runtime::engine::{Engine, Event, Options};
 pub mod view;
 
 #[cfg(feature = "gpui")]
-pub use view::{Skin, TrellisWorkspace, WorkspaceEvent};
+pub use view::{
+    CardStyle, ChromeStyle, PanelMenu, Skin, StripEnd, TabActions, TrellisWorkspace, WorkspaceEvent,
+};

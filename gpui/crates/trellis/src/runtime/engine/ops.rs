@@ -381,7 +381,8 @@ impl Engine {
                 && match reuse {
                     Reuse::Type => true,
                     Reuse::Params => {
-                        record.params.clone().unwrap_or_default() == o.params.clone().unwrap_or_default()
+                        record.params.clone().unwrap_or_default()
+                            == o.params.clone().unwrap_or_default()
                     }
                     _ => false,
                 }
@@ -546,8 +547,10 @@ impl Engine {
             && !self.reduced()
         {
             let now = self.now();
-            self.entering
-                .insert(panel_id.to_string(), (toward_rect(Some(from), Rect::ZERO), now));
+            self.entering.insert(
+                panel_id.to_string(),
+                (toward_rect(Some(from), Rect::ZERO), now),
+            );
         }
         self.commit(next, true, None);
         // A panel back as itself fades in; a tab that rejoined a group just
@@ -767,16 +770,27 @@ impl Engine {
     }
 
     /// The opacity of a panel flying away or back, and its rect, at `now`.
-    pub(crate) fn flying(&self, panel_id: &str, now: f64, target: Option<Rect>) -> Option<(Rect, f64)> {
+    pub(crate) fn flying(
+        &self,
+        panel_id: &str,
+        now: f64,
+        target: Option<Rect>,
+    ) -> Option<(Rect, f64)> {
         if let Some(l) = self.leaving.get(panel_id) {
             let e = dock_ease(((now - l.start) / l.duration).min(1.));
-            return Some((crate::runtime::motion::lerp_rect(l.from, l.to, e), 1. - 0.9 * e));
+            return Some((
+                crate::runtime::motion::lerp_rect(l.from, l.to, e),
+                1. - 0.9 * e,
+            ));
         }
         if let Some((from, start)) = self.entering.get(panel_id) {
             let target = target?;
             let t = ((now - start) / crate::runtime::motion::DOCK_RESTORE_MS).min(1.);
             let e = dock_ease(t);
-            return Some((crate::runtime::motion::lerp_rect(*from, target, e), 0.1 + 0.9 * e));
+            return Some((
+                crate::runtime::motion::lerp_rect(*from, target, e),
+                0.1 + 0.9 * e,
+            ));
         }
         None
     }

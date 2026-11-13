@@ -79,7 +79,12 @@ impl Engine {
 
     pub(crate) fn float_screen(&self, rect: Rect, layer: FloatingLayer) -> Rect {
         let c = self.float_container(layer);
-        Rect::new(c.x + rect.x * c.w, c.y + rect.y * c.h, rect.w * c.w, rect.h * c.h)
+        Rect::new(
+            c.x + rect.x * c.w,
+            c.y + rect.y * c.h,
+            rect.w * c.w,
+            rect.h * c.h,
+        )
     }
 
     pub(crate) fn screen_to_float(&self, r: Rect, layer: FloatingLayer) -> Rect {
@@ -119,7 +124,9 @@ impl Engine {
             return Region::Floating;
         }
         match find_stage(self.doc.root.as_ref()) {
-            Some(stage) if find_node(Some(&LayoutNode::Stage(stage.clone())), panel_id).is_some() => {
+            Some(stage)
+                if find_node(Some(&LayoutNode::Stage(stage.clone())), panel_id).is_some() =>
+            {
                 Region::Stage
             }
             _ => Region::Side,
@@ -131,7 +138,13 @@ impl Engine {
     /// The host's measurement of a panel's strip as last drawn: the bar, the
     /// tab list inside it and each tab's box (workspace pixels). Tab drops
     /// and tab sorting read them.
-    pub fn set_tab_boxes(&mut self, panel_id: &str, tabbar: Rect, tablist: Rect, tabs: Vec<(String, Rect)>) {
+    pub fn set_tab_boxes(
+        &mut self,
+        panel_id: &str,
+        tabbar: Rect,
+        tablist: Rect,
+        tabs: Vec<(String, Rect)>,
+    ) {
         if let Some(state) = self.panels.get_mut(panel_id) {
             state.tabbar = Some(tabbar);
             state.tablist = Some(tablist);

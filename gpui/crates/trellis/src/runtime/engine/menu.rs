@@ -18,9 +18,18 @@ pub enum MenuAction {
     Dock(String),
     Float(String),
     /// Move `view` into panel `into`.
-    MoveInto { view: String, into: String },
-    SplitRight { view: String, panel: String },
-    SplitBelow { view: String, panel: String },
+    MoveInto {
+        view: String,
+        into: String,
+    },
+    SplitRight {
+        view: String,
+        panel: String,
+    },
+    SplitBelow {
+        view: String,
+        panel: String,
+    },
     Hide(String),
     Close(String),
     CloseOthers(String),
@@ -133,7 +142,10 @@ impl Engine {
         }
         // Keyboard-accessible alternative to dragging a tab.
         let view_id = panel.selected.clone();
-        let mut targets: Vec<_> = panels_of(self.doc.root.as_ref()).into_iter().cloned().collect();
+        let mut targets: Vec<_> = panels_of(self.doc.root.as_ref())
+            .into_iter()
+            .cloned()
+            .collect();
         targets.extend(self.doc.floating.iter().map(|f| f.panel.clone()));
         let mut moves: Vec<MenuEntry> = targets
             .into_iter()
@@ -240,9 +252,9 @@ impl Engine {
             MenuAction::Dock(panel) => {
                 let target = match find_stage(self.doc.root.as_ref()) {
                     Some(_)
-                        if self.find_panel(panel).is_some_and(|p| {
-                            self.allowed(&p.views, Region::Stage)
-                        }) =>
+                        if self
+                            .find_panel(panel)
+                            .is_some_and(|p| self.allowed(&p.views, Region::Stage)) =>
                     {
                         None
                     }

@@ -31,7 +31,10 @@ pub(crate) fn ide() -> LayoutDocument {
     create_document(
         Some(&layout::row(
             vec![
-                panel_spec("left", vec![view("files", "files"), view("search", "search")]),
+                panel_spec(
+                    "left",
+                    vec![view("files", "files"), view("search", "search")],
+                ),
                 LayoutSpec::Stage(StageSpec {
                     id: Some("stage".into()),
                     child: Some(Box::new(panel_spec(
@@ -104,13 +107,17 @@ fn rejects_duplicate_ids_and_multiple_stages() {
         ],
         None,
     );
-    assert!(create_document(Some(&dup), &[], None)
-        .unwrap_err()
-        .contains("duplicate"));
+    assert!(
+        create_document(Some(&dup), &[], None)
+            .unwrap_err()
+            .contains("duplicate")
+    );
     let stages = layout::row(vec![layout::stage(None), layout::stage(None)], None);
-    assert!(create_document(Some(&stages), &[], None)
-        .unwrap_err()
-        .contains("one stage"));
+    assert!(
+        create_document(Some(&stages), &[], None)
+            .unwrap_err()
+            .contains("one stage")
+    );
 }
 
 #[test]
@@ -126,7 +133,10 @@ fn generates_deterministic_ids_that_avoid_explicit_ones() {
     );
     let a = view_ids(&create_document(Some(&spec), &[], None).unwrap());
     assert_eq!(a, ["x-1", "x-2", "x-3", "y-1"]);
-    assert_eq!(view_ids(&create_document(Some(&spec), &[], None).unwrap()), a);
+    assert_eq!(
+        view_ids(&create_document(Some(&spec), &[], None).unwrap()),
+        a
+    );
 }
 
 // ---------------------------------------------------------------- tree
@@ -223,7 +233,11 @@ fn inserts_beside_a_node_with_a_share() {
         None,
     );
     assert_eq!(
-        find_node(Some(&below), "t").unwrap().as_split().unwrap().axis,
+        find_node(Some(&below), "t")
+            .unwrap()
+            .as_split()
+            .unwrap()
+            .axis,
         Axis::Y
     );
 }
@@ -243,8 +257,14 @@ fn clamps_boundary_resizes_to_minimum_sizes() {
         resize_boundary(&split, 0, 0.3, &|_| DEFAULT_MIN_FRACTION).weights[0],
         0.3
     ));
-    assert!(close(resize_boundary(&split, 0, 0.01, &|_| 0.2).weights[0], 0.2));
-    assert!(close(resize_boundary(&split, 0, 0.99, &|_| 0.2).weights[1], 0.2));
+    assert!(close(
+        resize_boundary(&split, 0, 0.01, &|_| 0.2).weights[0],
+        0.2
+    ));
+    assert!(close(
+        resize_boundary(&split, 0, 0.99, &|_| 0.2).weights[1],
+        0.2
+    ));
 }
 
 // ---------------------------------------------------------------- document
@@ -300,7 +320,12 @@ fn docks_into_an_empty_stage_and_as_tabs_into_an_occupied_one() {
         },
     );
     assert_eq!(
-        find_stage(doc.root.as_ref()).unwrap().child.as_ref().unwrap().id(),
+        find_stage(doc.root.as_ref())
+            .unwrap()
+            .child
+            .as_ref()
+            .unwrap()
+            .id(),
         "p1"
     );
     doc.views.insert(
@@ -373,7 +398,7 @@ fn floats_hides_and_restores_panels_to_their_previous_place() {
 
 #[test]
 fn sanitizes_broken_documents() {
-    let mut views = std::collections::BTreeMap::new();
+    let mut views = crate::model::Views::new();
     for id in ["a", "c", "orphan"] {
         views.insert(
             id.to_string(),
@@ -483,7 +508,8 @@ fn a_column_hidden_one_panel_at_a_time_comes_back_in_any_order() {
             share: None,
         },
     );
-    let shape = |doc: &LayoutDocument| serde_json::to_string(&layout_shape(doc.root.as_ref())).unwrap();
+    let shape =
+        |doc: &LayoutDocument| serde_json::to_string(&layout_shape(doc.root.as_ref())).unwrap();
     let before = shape(&doc);
     // Hide outline then extra; show outline first (its anchor, extra, is
     // hidden), then extra.
@@ -493,7 +519,10 @@ fn a_column_hidden_one_panel_at_a_time_comes_back_in_any_order() {
         "extra",
         FloatingLayer::Overlay,
     );
-    assert!(back.floating.is_empty(), "nothing floats over the documents");
+    assert!(
+        back.floating.is_empty(),
+        "nothing floats over the documents"
+    );
     assert_eq!(shape(&back), before);
     // And the other way round.
     let back = restore_panel(
@@ -510,7 +539,9 @@ fn layout_shape(node: Option<&LayoutNode>) -> serde_json::Value {
     match node {
         None => serde_json::Value::Null,
         Some(LayoutNode::Panel(p)) => serde_json::json!(p.id),
-        Some(LayoutNode::Stage(s)) => serde_json::json!({"stage": layout_shape(s.child.as_deref())}),
+        Some(LayoutNode::Stage(s)) => {
+            serde_json::json!({"stage": layout_shape(s.child.as_deref())})
+        }
         Some(LayoutNode::Split(s)) => serde_json::json!({
             format!("{:?}", s.axis): s.children.iter().map(|c| layout_shape(Some(c))).collect::<Vec<_>>()
         }),
