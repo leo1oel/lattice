@@ -159,6 +159,8 @@ impl Run {
             json!({ "drawn": drawn, "state": format!("{state:?}"), "visible": visible, "page": facts }),
         );
 
+        self.island_shot(cx, "sheet-island").await?;
+
         // A word typed into a cell, with native keys, reaches the file.
         let typed = match cx.update(|cx| island.read(cx).bounds(cx)) {
             Some(bounds) => {
@@ -336,6 +338,32 @@ impl Run {
         Ok(image)
     }
 
+    /// Save the window as the screen composes it to `LATTICE_E2E_SHOTS`, for
+    /// the look review beside the parity report (whose offscreen frame has
+    /// no page in it).
+    async fn island_shot(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
+        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+            return Ok(());
+        };
+        for appearance in [Appearance::Light, Appearance::Dark] {
+            cx.update(|cx| LatticeTheme::set_appearance(appearance, cx));
+            self.pause(cx, Duration::from_millis(1500)).await;
+            if let Some(image) = self.window_capture(cx).await? {
+                let theme = if appearance == Appearance::Dark {
+                    "dark"
+                } else {
+                    "light"
+                };
+                image
+                    .save(Path::new(&dir).join(format!("{name}-{theme}.png")))
+                    .ok();
+            }
+        }
+        cx.update(|cx| LatticeTheme::set_appearance(Appearance::Light, cx));
+        self.pause(cx, Duration::from_millis(300)).await;
+        Ok(())
+    }
+
     async fn close_panel(&self, cx: &mut AsyncApp, panel: &Entity<EditorPanel>) -> Result<()> {
         self.with_window(cx, {
             let panel = panel.clone();
@@ -379,6 +407,8 @@ impl Run {
             drawn_shapes.as_u64().unwrap_or(0) > 0 && light == false && dark == true,
             json!({ "shapes": drawn_shapes, "light_dark_class": light, "dark_dark_class": dark }),
         );
+
+        self.island_shot(cx, "board-island").await?;
 
         // A shape taken out of the file on disk leaves the board. The board
         // writes the file once on opening (tldraw settles its records), so
@@ -491,6 +521,7 @@ impl Run {
             }
             self.pause(cx, Duration::from_millis(300)).await;
         }
+        self.island_shot(cx, "deck-island").await?;
         let framed = facts["frame"] == true;
         let explained = facts["status"]
             .as_str()

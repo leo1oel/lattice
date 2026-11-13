@@ -524,11 +524,20 @@ impl Run {
         // app's shortcuts again.
         let relayed = match cx.update(|cx| island.read(cx).bounds(cx)) {
             Some(bounds) => {
-                native::send_click(self.native(cx)?, bounds.center())?;
-                self.wait_for(cx, Duration::from_secs(3), |_, cx| {
-                    island.read(cx).page_focused()
-                })
-                .await;
+                // The page is unmasked in the frame after it reports loaded,
+                // and a click in that frame reaches no page: click again
+                // until one lands.
+                for _ in 0..3 {
+                    native::send_click(self.native(cx)?, bounds.center())?;
+                    if self
+                        .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                            island.read(cx).page_focused()
+                        })
+                        .await
+                    {
+                        break;
+                    }
+                }
                 // The relay lands with the page's focus report, which can
                 // trail the click on a loaded runner: ask until it is there.
                 let mut relayed = Value::Null;
@@ -549,7 +558,19 @@ impl Run {
         steps.check(
             "the page built again after its hibernation gets the app's shortcuts when it takes the keyboard",
             relayed.as_u64().is_some_and(|count| count > 0),
-            json!({ "relayed": relayed }),
+            json!({
+                "relayed": relayed,
+                "island": cx.update(|cx| {
+                    let island = island.read(cx);
+                    json!({
+                        "page_focused": island.page_focused(),
+                        "revealed": island.is_revealed(),
+                        "visible": island.native_visible(cx),
+                        "state": format!("{:?}", island.state()),
+                        "stats": island.stats(),
+                    })
+                }),
+            }),
         );
         Ok(())
     }
