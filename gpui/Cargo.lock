@@ -6373,8 +6373,6 @@ dependencies = [
 [[package]]
 name = "gpui-webview"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b355bcda56e128a7c2e27257653a6441ab792dcfbdae49c63ce329c846f4b5d"
 dependencies = [
  "anyhow",
  "gdkx11",
@@ -8345,6 +8343,7 @@ dependencies = [
  "lb-wry",
  "log",
  "objc2 0.6.3",
+ "objc2-foundation 0.3.2",
  "percent-encoding",
  "serde",
  "serde_json",

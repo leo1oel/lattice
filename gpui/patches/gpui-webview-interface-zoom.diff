@@ -1,0 +1,115 @@
+diff --git a/gpui-webview/src/composition.rs b/gpui-webview/src/composition.rs
+index b4f2344..0dcd248 100644
+--- a/gpui-webview/src/composition.rs
++++ b/gpui-webview/src/composition.rs
+@@ -15,6 +15,9 @@ pub(super) struct NativeWebViewSurface {
+     surface: WindowCompositionSurface,
+     original_parent: Retained<NSView>,
+     scale_factor: Cell<f32>,
++    /// The window's interface zoom: GPUI's pixels are this many points, so
++    /// the WebView's frame, which AppKit measures in points, is scaled by it.
++    interface_zoom: Cell<f32>,
+     window: AnyWindowHandle,
+     cx: AsyncApp,
+ }
+@@ -43,6 +46,7 @@ impl NativeWebViewSurface {
+                 surface,
+                 original_parent,
+                 scale_factor: Cell::new(window.scale_factor()),
++                interface_zoom: Cell::new(window.interface_zoom()),
+                 window: window.window_handle(),
+                 cx: cx.to_async(),
+             }),
+@@ -57,6 +61,10 @@ impl NativeWebViewSurface {
+         self.scale_factor.set(scale_factor);
+     }
+ 
++    pub(super) fn set_interface_zoom(&self, zoom: f32) {
++        self.interface_zoom.set(zoom);
++    }
++
+     pub(super) fn set_bounds(&self, webview: &wry::WebView, rect: wry::Rect) -> Result<()> {
+         let scale = self.scale_factor.get();
+         let (position, extent) = logical_bounds(rect, scale);
+@@ -69,9 +77,10 @@ impl NativeWebViewSurface {
+             .set_bounds(bounds.to_device_pixels(scale))?;
+         // WKWebView remains owned by Wry, on its creating UI thread.
+         // Its frame is local to the managed surface, whose frame is window-relative.
++        let zoom = f64::from(self.interface_zoom.get());
+         webview.webview().setFrame(NSRect::new(
+             NSPoint::new(0., 0.),
+-            NSSize::new(extent.width, extent.height),
++            NSSize::new(extent.width * zoom, extent.height * zoom),
+         ));
+         Ok(())
+     }
+@@ -88,14 +97,15 @@ impl NativeWebViewSurface {
+             .platform_surface()?
+             .set_bounds(visible.to_device_pixels(scale))?;
+         let offset = document.origin - visible.origin;
++        let zoom = self.interface_zoom.get();
+         webview.webview().setFrame(NSRect::new(
+             NSPoint::new(
+-                f64::from(offset.x),
+-                f64::from(visible.size.height - offset.y - document.size.height),
++                f64::from(offset.x * zoom),
++                f64::from((visible.size.height - offset.y - document.size.height) * zoom),
+             ),
+             NSSize::new(
+-                f64::from(document.size.width),
+-                f64::from(document.size.height),
++                f64::from(document.size.width * zoom),
++                f64::from(document.size.height * zoom),
+             ),
+         ));
+         Ok(())
+diff --git a/gpui-webview/src/lib.rs b/gpui-webview/src/lib.rs
+index 7341293..ec5bd1b 100644
+--- a/gpui-webview/src/lib.rs
++++ b/gpui-webview/src/lib.rs
+@@ -73,6 +73,10 @@ pub struct WebView {
+     /// The GPUI scale factor the page zoom was last matched to.
+     #[cfg(target_os = "linux")]
+     scale_factor: Cell<f32>,
++    /// The window's interface zoom the page zoom was last matched to: the
++    /// page is zoomed with the interface, as GPUI's own pixels are.
++    #[cfg(all(feature = "gpui-fast", target_os = "macos"))]
++    interface_zoom: Cell<f64>,
+     /// The window-relative origin that page clicks are forwarded to GPUI from.
+     #[cfg(target_os = "linux")]
+     origin: Rc<Cell<gpui::Point<Pixels>>>,
+@@ -123,6 +127,8 @@ impl WebView {
+             composition: None,
+             #[cfg(target_os = "linux")]
+             scale_factor: Cell::new(window.scale_factor()),
++            #[cfg(all(feature = "gpui-fast", target_os = "macos"))]
++            interface_zoom: Cell::new(1.0),
+             #[cfg(target_os = "linux")]
+             origin,
+         }
+@@ -310,7 +316,9 @@ impl WebView {
+         // GTK's integer one, so the page zoom is applied on top of it.
+         #[cfg(target_os = "linux")]
+         linux::match_scale_factor(&self.webview, self.scale_factor.get(), zoom);
+-        #[cfg(not(target_os = "linux"))]
++        #[cfg(all(feature = "gpui-fast", target_os = "macos"))]
++        self.webview.zoom(zoom * self.interface_zoom.get())?;
++        #[cfg(not(any(target_os = "linux", all(feature = "gpui-fast", target_os = "macos"))))]
+         self.webview.zoom(zoom)?;
+         Ok(())
+     }
+@@ -445,6 +453,14 @@ impl Element for WebViewElement {
+         if let Some(surface) = &parent.composition {
+             surface.set_scale_factor(window.scale_factor());
+         }
++        #[cfg(all(feature = "gpui-fast", target_os = "macos"))]
++        if let Some(surface) = &parent.composition {
++            let zoom = window.interface_zoom();
++            surface.set_interface_zoom(zoom);
++            if parent.interface_zoom.replace(f64::from(zoom)) != f64::from(zoom) {
++                let _ = parent.webview.zoom(parent.zoom.get() * f64::from(zoom));
++            }
++        }
+         #[cfg(target_os = "linux")]
+         if parent.scale_factor.replace(window.scale_factor()) != window.scale_factor() {
+             linux::match_scale_factor(&parent.webview, window.scale_factor(), parent.zoom.get());

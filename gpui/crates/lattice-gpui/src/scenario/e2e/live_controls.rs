@@ -45,7 +45,7 @@ impl Run {
         })
     }
 
-    async fn wait_for_zoom(&self, cx: &mut AsyncApp, zoom: f32) -> bool {
+    pub(super) async fn wait_for_zoom(&self, cx: &mut AsyncApp, zoom: f32) -> bool {
         for _ in 0..60 {
             if self
                 .zoom_state(cx)

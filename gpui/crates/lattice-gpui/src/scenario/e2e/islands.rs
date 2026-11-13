@@ -8,6 +8,8 @@
 //! - the bridge both ways: the page's scroll reported back, a scroll and a
 //!   zoom sent to it, and a native click on the zoom controls GPUI draws
 //!   above the page reaching GPUI, not the page;
+//! - at another interface size the page's view still covers the island, in
+//!   the window's points, and the page is zoomed with the interface;
 //! - the theme reaches the page;
 //! - a native click in the page gives it the keyboard and ⌘K / Ctrl+K typed
 //!   there opens GPUI's command palette, with the keyboard back in GPUI;
@@ -165,6 +167,9 @@ impl Run {
             json!({ "scale": scale, "page_presses": presses, "bounds": format!("{bounds:?}") }),
         );
 
+        #[cfg(target_os = "macos")]
+        self.island_interface_zoom(cx, steps, &island).await?;
+
         // The theme reaches the page.
         cx.update(|cx| LatticeTheme::set_appearance(Appearance::Dark, cx));
         self.pause(cx, Duration::from_millis(300)).await;
@@ -247,6 +252,78 @@ impl Run {
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
         })?;
+        Ok(())
+    }
+
+    /// At 120% and 90%, a GPUI pixel is that many points (`fast::interface_zoom`):
+    /// the page's view covers the island's laid-out bounds scaled so, where
+    /// the zoom controls GPUI draws over it are, and the page sees a viewport
+    /// of the island's size in its own pixels, zoomed as the interface is, as
+    /// the Tauri app's interface zoom zooms its pages.
+    #[cfg(target_os = "macos")]
+    async fn island_interface_zoom(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        island: &Entity<lattice_webview::Island>,
+    ) -> Result<()> {
+        let before = cx.update(|cx| crate::settings::get(cx).appearance.interface_scale);
+        let mut seen = Vec::new();
+        let mut passed = true;
+        for zoom in [1.2f32, 0.9] {
+            cx.update(|cx| crate::settings::update_appearance(cx, |a| a.interface_scale = zoom));
+            let zoomed = self.wait_for_zoom(cx, zoom).await;
+            self.pause(cx, Duration::from_millis(400)).await;
+            let (bounds, frame) =
+                cx.update(|cx| (island.read(cx).bounds(cx), island.read(cx).native_frame(cx)));
+            let viewport = self
+                .evaluate(
+                    cx,
+                    island,
+                    "JSON.stringify({ width: window.innerWidth, height: window.innerHeight })",
+                )
+                .await;
+            let near = |a: f32, b: f32, within: f32| (a - b).abs() <= within;
+            let covers = bounds.zip(frame).is_some_and(|(bounds, frame)| {
+                near(
+                    f32::from(frame.origin.x),
+                    f32::from(bounds.origin.x) * zoom,
+                    1.,
+                ) && near(
+                    f32::from(frame.origin.y),
+                    f32::from(bounds.origin.y) * zoom,
+                    1.,
+                ) && near(
+                    f32::from(frame.size.width),
+                    f32::from(bounds.size.width) * zoom,
+                    1.,
+                ) && near(
+                    f32::from(frame.size.height),
+                    f32::from(bounds.size.height) * zoom,
+                    1.,
+                )
+            });
+            let page_sized = bounds.is_some_and(|bounds| {
+                viewport["width"]
+                    .as_f64()
+                    .is_some_and(|width| near(width as f32, f32::from(bounds.size.width), 2.))
+                    && viewport["height"].as_f64().is_some_and(|height| {
+                        near(height as f32, f32::from(bounds.size.height), 2.)
+                    })
+            });
+            passed &= zoomed && covers && page_sized;
+            seen.push(json!({
+                "zoom": zoom, "zoomed": zoomed, "bounds": format!("{bounds:?}"),
+                "native_frame": format!("{frame:?}"), "page_viewport": viewport,
+            }));
+        }
+        cx.update(|cx| crate::settings::update_appearance(cx, |a| a.interface_scale = before));
+        self.wait_for_zoom(cx, before).await;
+        steps.check(
+            "at 120% and 90% the page fills its island where GPUI laid it out, and is zoomed with the interface",
+            passed,
+            json!(seen),
+        );
         Ok(())
     }
 

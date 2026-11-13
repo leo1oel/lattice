@@ -130,8 +130,8 @@ crates/lattice-ui     Lattice's look: design tokens generated from
 compat/               shims that leave one GPUI (gpui-pre, gpui-fast) and one
                       SQLite (sqlite) in the graph
 patches/              upstream crates with Lattice's diffs: gpui-fast's GPUI and
-                      macOS platform, GPUI Kit's components and foundation
-                      (patches/README.md)
+                      macOS platform, GPUI Kit's components, foundation and
+                      webview (patches/README.md)
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
 ```
 
@@ -150,7 +150,7 @@ gpui-fast `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` tracks Zed commit `d2a4fb6d
 GPUI Kit 0.9.1 and gpui-webview 0.9.1 run on gpui-fast through their `gpui-fast` feature (gpui-webview checks that the two agree). That feature asks for the crates.io `gpui-fast*` 0.1.14 packages, and GPUI Kit still names the `gpui-pre` 0.3.12 snapshot besides, so Cargo would build three GPUIs; the shims in `compat/` carry those names and versions and re-export the workspace's GPUI, and `[patch.crates-io]` swaps them in.
 `Cargo.lock` was seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
 
-GPUI itself, gpui-fast's macOS platform and GPUI Kit's components and foundation are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), the overlay surface taking the first click in a window that is not key as GPUI's own view does, GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them, and a dock region's last panel free to drag out, as Trellis lets it. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
+GPUI itself, gpui-fast's macOS platform and GPUI Kit's components, foundation and webview are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), the overlay surface taking the first click in a window that is not key as GPUI's own view does, GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them, a dock region's last panel free to drag out, as Trellis lets it, and a webview island's page placed and zoomed with the interface size. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
 
 ### Lattice's look
 
