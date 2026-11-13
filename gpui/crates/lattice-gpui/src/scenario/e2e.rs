@@ -46,8 +46,8 @@ impl Run {
     /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, check the PDF viewer on a
     /// second root document and in a second window (`pdf.rs`), drag a tab
-    /// into a dock, open Settings and change it (the interface language
-    /// included), close a dirty tab, a vanished file's tab and a window,
+    /// into the PDF's panel, open Settings and change it (the interface
+    /// language included), close a dirty tab, a vanished file's tab and a window,
     /// and type before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
@@ -265,9 +265,9 @@ impl Run {
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
-        // Docking: drag an editor tab out of the center into the right dock,
-        // beside the PDF, with native mouse events. (The shell steps after
-        // it drag the PDF out of its dock alone.)
+        // Docking: drag an editor tab from the documents' panel into the
+        // PDF's panel with native mouse events. (The shell steps after it
+        // drag the PDF by its tab to the documents' edge and middle.)
         //
         // A known flake, so it runs only when LATTICE_E2E_DRAG is set and
         // cannot block a release's gpui.yml run. On the 1024px macOS runner

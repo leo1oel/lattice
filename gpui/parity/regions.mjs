@@ -1,6 +1,6 @@
 // The named regions the parity diff compares, per screen: what each one is in
 // the Tauri app's DOM, and which checks apply to it. The GPUI app records the
-// same names with `lattice_ui::parity` probes (the titlebar, the dock's
+// same names with `lattice_ui::parity` probes (the titlebar, the panels'
 // cards, strips and tabs, tree rows, the status bar, the build chip), and
 // each run of text in a region with a `lattice_ui::parity::text_probe`.
 //
