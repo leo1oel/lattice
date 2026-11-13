@@ -140,7 +140,10 @@ crates/lattice-webview
 crates/lattice-ui     Lattice's look: design tokens generated from
                       ../design-system/tokens.json, the palette, GPUI Kit and
                       Zed editor themes, fonts, type roles, motion, elevation,
-                      icons, components and the dock's skin
+                      icons, components, and the tab-strip constants and
+                      helpers Lattice's Trellis skin (shell/skin.rs) uses;
+                      its GPUI Kit dock renderer is unused, kept until a
+                      follow-up prunes it
 ../src-tauri/lattice-core
                       the backend the Tauri app runs on (a path dependency):
                       projects, the tree and its file operations, builds,
