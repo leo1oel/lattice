@@ -280,3 +280,23 @@ fn an_ordinary_error_keeps_the_hidden_folder() {
     assert!(fixed.success, "{}", fixed.log);
     assert_eq!(fixed.aux_folder, ".research/build/paper");
 }
+
+#[test]
+#[ignore = "requires latexmk and pdfLaTeX"]
+fn a_missing_figure_fails_once_in_the_hidden_folder_and_keeps_its_state() {
+    let main = MAIN
+        .replace("\\usepackage{hyperref}", "\\usepackage{graphicx}\n\\usepackage{hyperref}")
+        .replace("\\tableofcontents", "\\tableofcontents\n\\includegraphics{figures/plot.pdf}");
+    let (_parent, root) = trusted_paper(&main);
+    let failed = build_in(&root, AuxFiles::Hidden, false);
+    assert!(!failed.success, "{}", failed.log);
+    assert_eq!(built_beside_notes(&failed), 0, "{:?}", failed.diagnostics);
+    assert_eq!(failed.aux_folder, ".research/build/paper");
+    assert!(root.join(".research/build/paper/main.fdb_latexmk").is_file());
+    assert_eq!(intermediates_outside_research(&root), Vec::<String>::new());
+
+    // latexmk still knows that build: built again unasked, it is restated.
+    let again = build_in(&root, AuxFiles::Hidden, true);
+    assert!(!again.success && again.unchanged, "{}", again.log);
+    assert_eq!(again.aux_folder, ".research/build/paper");
+}

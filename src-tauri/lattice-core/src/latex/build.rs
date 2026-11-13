@@ -124,10 +124,19 @@ pub fn clean(root: &Path) -> Result<String, String> {
 
 /// `latexmk -c` of `document` in the folder `layout` puts its files in.
 /// latexmk reads that folder's `.fdb_latexmk` for what the build generated,
-/// such as each `\include`d chapter's `.aux`.
+/// such as each `\include`d chapter's `.aux`. In the hidden folder only:
+/// latexmk also cleans its output folder, which for a build is the
+/// document's own and may hold a build beside it.
 fn clean_layout(root: &Path, document: &str, layout: AuxFiles) -> Result<String, String> {
+    let mut command = latexmk_into(root, layout, document);
+    if layout == AuxFiles::Hidden {
+        let folder = aux_files::folder(root, document, layout);
+        #[cfg(windows)]
+        let folder = std::path::PathBuf::from(crate::host_paths::tex_path(&folder));
+        command.arg(format!("-outdir={}", folder.display()));
+    }
     let output =
-        latexmk_into(root, layout, document).arg("-c").arg(document).output().map_err(|error| {
+        command.arg("-c").arg(document).output().map_err(|error| {
             format!("Could not start latexmk. Install MacTeX or TeX Live. {error}")
         })?;
     let log = trim_log(&commands::combined_output(&output));
