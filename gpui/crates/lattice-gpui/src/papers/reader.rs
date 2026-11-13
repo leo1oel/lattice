@@ -210,19 +210,36 @@ impl PaperReader {
         style
     }
 
-    /// The strip over the text: the paper's identity, its views, and the
-    /// way to the original PDF.
+    /// Blog and Paper, in the tab strip as the Tauri header has them
+    /// (`trellis-header-tools.tsx`), when the bundle has both.
+    fn content_switch(&self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
+        (self.paper.has_full_text && self.paper.has_blog).then(|| {
+            let view = self.view;
+            Segmented::new("paper-reader-view")
+                .label(
+                    t!("Blog"),
+                    view == ReaderView::Overview,
+                    cx.listener(|this, _, _, cx| this.show(ReaderView::Overview, cx)),
+                )
+                .label(
+                    t!("Paper"),
+                    view == ReaderView::FullText,
+                    cx.listener(|this, _, _, cx| this.show(ReaderView::FullText, cx)),
+                )
+        })
+    }
+
+    /// The strip over the text: the paper's identity and the way to the
+    /// original PDF.
     fn header(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         let source = model::source_label(&self.paper);
         let link = model::link_url(&self.paper);
         let authors = model::short_authors(&self.paper);
-        let both = self.paper.has_full_text && self.paper.has_blog;
         let pdf = self
             .paper
             .has_local_pdf
             .then(|| format!(".research/papers/{}/original.pdf", self.paper.arxiv_id));
-        let view = self.view;
         div()
             .flex()
             .flex_none()
@@ -281,21 +298,6 @@ impl PaperReader {
                         )
                     }),
             )
-            .when(both, |strip| {
-                strip.child(
-                    Segmented::new("paper-reader-view")
-                        .label(
-                            t!("Paper"),
-                            view == ReaderView::FullText,
-                            cx.listener(|this, _, _, cx| this.show(ReaderView::FullText, cx)),
-                        )
-                        .label(
-                            t!("Blog"),
-                            view == ReaderView::Overview,
-                            cx.listener(|this, _, _, cx| this.show(ReaderView::Overview, cx)),
-                        ),
-                )
-            })
             .when_some(pdf, |strip, pdf| {
                 strip.child(
                     Button::new("paper-reader-pdf", t!("PDF"))
@@ -345,6 +347,10 @@ impl Panel for PaperReader {
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         self.paper.title.clone()
+    }
+
+    fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        self.content_switch(cx)
     }
 
     fn inner_padding(&self, _: &App) -> bool {
