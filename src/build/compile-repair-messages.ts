@@ -4,7 +4,7 @@ import { i18n } from "../i18n";
 
 // Status and error text the compile-repair relay reports: the Synara
 // compile-repair route (latticeCompileRepairHttpRoute.ts upstream) and the Rust
-// relay in synara.rs. Keyed by their exact English.
+// relay in synara/task_relay.rs. Keyed by their exact English.
 const RELAY_MESSAGES: Record<string, MessageDescriptor> = {
   "The repair agent needs an answer. Open the repair thread to respond.": msg`The repair agent needs an answer. Open the repair thread to respond.`,
   "Cancellation requested; waiting for the provider to stop.": msg`Cancellation requested; waiting for the provider to stop.`,

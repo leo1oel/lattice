@@ -137,7 +137,7 @@ const UNTRANSLATED: Record<string, string> = {
   "ipc/project_tab_drag.rs: Project tab drop is covered by another window.": "the drag controller treats an ambiguous native hit as a cancelled drop",
   "live_preview/session.rs: Live preview does not accept the command {command:?}.": "the interface sends one of the known commands",
   "app_state/overleaf_realtime.rs: Invalid Overleaf checkpoint version.": "the interface sends Overleaf's own version back",
-  "synara.rs: Invalid agent task action.": "the agent panel sends one of the known actions",
+  "synara/task_relay.rs: Invalid agent task action.": "the agent panel sends one of the known actions",
   "synara/preferences.rs: The disabled agent skills must contain only names.": "the settings page writes the list of names itself",
   "pdf_window.rs: The PDF window was closed while it opened.": "only the page that closed it hears it, and that page has let it go",
   // `fetch_pdf` serves only the GPUI paper reader, which logs the reason and shows its own "Could not load PDF".

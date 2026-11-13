@@ -102,7 +102,7 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   )],
   ["synara.rs", " Startup log: {excerpt}", ([excerpt]) => t` Startup log: ${excerpt}`],
   ["synara.rs", "The bundled {what} is missing at {}.", ([what, path]) => t`The bundled ${bundledPart(what)} is missing at ${path}.`],
-  ["synara.rs", "The agent service returned {status}.", ([status]) => t`The agent service returned ${status}.`],
+  ["synara/task_relay.rs", "The agent service returned {status}.", ([status]) => t`The agent service returned ${status}.`],
   // What an agent task (compile repair, proofreading) answers where the agent never starts.
   ["synara/bibliography_guard.rs", "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.", () => t`The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.`],
 
