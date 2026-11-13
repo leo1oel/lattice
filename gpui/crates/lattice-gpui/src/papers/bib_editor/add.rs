@@ -3,6 +3,8 @@
 //! lattice-core's `resolve_citation_query`), its candidates when it found
 //! several, or the fields entered by hand; the entry as a reference list
 //! will print it above the fields, and Save entry appends it to the file.
+//! Add papers' Enter manually opens the same sheet over the window, saving
+//! into the project's bibliography (`save_bib_entry`).
 
 use gpui::{
     AnyElement, AppContext as _, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
@@ -59,8 +61,26 @@ const FIELDS: [Field; 8] = [
     Field::Key,
 ];
 
+/// Where Save entry writes.
+pub enum AddTarget {
+    /// The `.bib` file whose visual form opened it.
+    Bib(WeakEntity<BibEditor>),
+    /// The project's bibliography, from Add papers.
+    Project {
+        root: std::path::PathBuf,
+        papers: WeakEntity<crate::papers::PapersPanel>,
+    },
+}
+
+pub enum AddReferenceEvent {
+    Dismiss,
+}
+
+impl gpui::EventEmitter<AddReferenceEvent> for AddReference {}
+
 pub struct AddReference {
-    editor: WeakEntity<BibEditor>,
+    target: AddTarget,
+    saving: bool,
     lookup: Entity<InputState>,
     inputs: Vec<(Field, Entity<InputState>)>,
     entry_type: String,
@@ -76,7 +96,7 @@ pub struct AddReference {
 }
 
 impl AddReference {
-    pub fn new(editor: WeakEntity<BibEditor>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(target: AddTarget, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let lookup = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder(t!("10.1038/… or arXiv:1706.03762 or paper title"))
@@ -109,7 +129,8 @@ impl AddReference {
             subscriptions.push(cx.observe(input, |_, _, cx| cx.notify()));
         }
         Self {
-            editor,
+            target,
+            saving: false,
             lookup,
             inputs,
             entry_type: "article".into(),
@@ -296,23 +317,74 @@ impl AddReference {
         let draft = self.draft(cx);
         let entry = draft.format();
         let key = draft.key();
-        let saved = self
-            .editor
-            .update(cx, |editor, cx| editor.add_entry(&entry, &key, window, cx));
-        match saved {
-            Ok(Ok(())) => {}
-            Ok(Err(error)) => {
-                self.error = Some(error);
+        match &self.target {
+            AddTarget::Bib(editor) => {
+                let saved =
+                    editor.update(cx, |editor, cx| editor.add_entry(&entry, &key, window, cx));
+                if let Ok(Err(error)) = saved {
+                    self.error = Some(error);
+                    cx.notify();
+                }
+            }
+            AddTarget::Project { root, papers } => {
+                if self.saving {
+                    return;
+                }
+                let taken = papers
+                    .upgrade()
+                    .map(|papers| {
+                        papers.read(cx).papers.iter().any(|paper| {
+                            paper
+                                .citation_key
+                                .as_deref()
+                                .is_some_and(|own| own.eq_ignore_ascii_case(&key))
+                        })
+                    })
+                    .unwrap_or(false);
+                if taken {
+                    self.error = Some(t!(
+                        "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference.",
+                        key = key
+                    ));
+                    cx.notify();
+                    return;
+                }
+                self.saving = true;
+                self.error = None;
+                let (root, papers) = (root.clone(), papers.clone());
+                let write = cx.background_spawn(async move {
+                    lattice_core::project::save_bib_entry(&root, &key, &entry)
+                });
+                cx.spawn(async move |this, cx| {
+                    let saved = write.await;
+                    this.update(cx, |this, cx| {
+                        this.saving = false;
+                        match saved {
+                            Ok(()) => {
+                                papers.update(cx, |papers, cx| papers.reload(cx)).ok();
+                                cx.emit(AddReferenceEvent::Dismiss);
+                            }
+                            Err(error) => this.error = Some(error),
+                        }
+                        cx.notify();
+                    })
+                    .ok();
+                })
+                .detach();
                 cx.notify();
             }
-            Err(_) => {}
         }
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.editor
-            .update(cx, |editor, cx| editor.close_add(window, cx))
-            .ok();
+        match &self.target {
+            AddTarget::Bib(editor) => {
+                editor
+                    .update(cx, |editor, cx| editor.close_add(window, cx))
+                    .ok();
+            }
+            AddTarget::Project { .. } => cx.emit(AddReferenceEvent::Dismiss),
+        }
     }
 
     fn field(&self, field: Field, label: &'static str, cx: &Context<Self>) -> AnyElement {
@@ -688,7 +760,7 @@ impl Render for AddReference {
             actions.push(
                 Button::new("bib-save-entry", t!("Save entry"))
                     .primary()
-                    .disabled(!complete || resolving)
+                    .disabled(!complete || resolving || self.saving)
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save(window, cx)))
                     .into_any_element(),
             );
@@ -706,8 +778,18 @@ impl Render for AddReference {
         .render(window, cx, move |window, cx| {
             view.update(cx, |this, cx| this.close(window, cx)).ok();
         });
-        // Over the whole window, as the project's other sheets are, though
-        // it belongs to this editor.
+        // From a .bib file's form, over the whole window as the project's
+        // other sheets are, though it belongs to that editor; from Add
+        // papers it is one of the window's sheets already.
+        if matches!(self.target, AddTarget::Project { .. }) {
+            return div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .child(sheet)
+                .into_any_element();
+        }
         deferred(
             anchored().position(gpui::point(px(0.), px(0.))).child(
                 div()
@@ -718,5 +800,6 @@ impl Render for AddReference {
             ),
         )
         .with_priority(1)
+        .into_any_element()
     }
 }

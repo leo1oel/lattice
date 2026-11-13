@@ -18,7 +18,7 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use super::{AddPapers, Row, RowState, Tab};
+use super::{AddPapers, AddPapersEvent, Row, RowState, Tab};
 use crate::{
     papers::batch::{BatchItem, ItemState},
     search::sheet::SheetFrame,
@@ -417,6 +417,23 @@ impl Render for AddPapers {
                     } else {
                         92.
                     })))
+                    .into_any_element(),
+            );
+            // Other ways in: by hand, or from Zotero.
+            body.push(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap(px(4.))
+                    .child(
+                        Button::new("add-papers-manual", t!("Enter manually"))
+                            .compact()
+                            .ghost()
+                            .icon(Icon::PEN_LINE)
+                            .on_click(
+                                cx.listener(|_, _, _, cx| cx.emit(AddPapersEvent::EnterManually)),
+                            ),
+                    )
                     .into_any_element(),
             );
         }
