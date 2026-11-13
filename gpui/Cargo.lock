@@ -6029,8 +6029,6 @@ dependencies = [
 [[package]]
 name = "gpui-base"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -8239,6 +8237,7 @@ dependencies = [
  "anyhow",
  "assets",
  "codebook-tree-sitter-latex",
+ "dirs",
  "editor",
  "fancy-regex",
  "futures",
@@ -8261,6 +8260,7 @@ dependencies = [
  "release_channel",
  "search",
  "semver",
+ "serde",
  "serde_json",
  "settings",
  "smallvec",

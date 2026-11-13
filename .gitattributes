@@ -33,3 +33,4 @@ design-system/paper-export.json linguist-generated
 # beside them (gpui/patches/README.md); script/check-patches keeps them so.
 gpui/patches/gpui-fast/** linguist-vendored
 gpui/patches/gpui-component/** linguist-vendored
+gpui/patches/gpui-base/** linguist-vendored

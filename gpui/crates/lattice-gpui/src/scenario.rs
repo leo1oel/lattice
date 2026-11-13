@@ -16,11 +16,13 @@ use serde_json::json;
 
 use crate::{editor_panel::EditorPanel, native, shell::Shell};
 
+mod drag;
 mod e2e;
 #[cfg(target_os = "macos")]
 mod measure;
 #[cfg(target_os = "macos")]
 mod parity;
+mod shell_steps;
 #[cfg(target_os = "macos")]
 mod shot;
 

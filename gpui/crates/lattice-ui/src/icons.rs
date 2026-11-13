@@ -3,9 +3,10 @@
 //!
 //! The Tauri app imports Lucide through `lucide-react`; GPUI Kit bundles the
 //! same set as SVG assets (`icons/<name>.svg`), so the Lucide icons here are
-//! paths into Kit's assets. GPUI paints an SVG as a mask in one colour, so a
-//! file glyph, a stroke in its hue over a body filled with a tint of it, is
-//! two SVGs stacked (`assets/icons/glyph-<kind>-body.svg` under
+//! paths into Kit's assets, except the few whose names Zed's icon set
+//! shadows, bundled here under `lattice/`. GPUI paints an SVG as a mask in
+//! one colour, so a file glyph, a stroke in its hue over a body filled with a
+//! tint of it, is two SVGs stacked (`assets/icons/glyph-<kind>-body.svg` under
 //! `glyph-<kind>.svg`).
 //!
 //! Sizes (DESIGN.md, Icons): 14px in the chrome, 16px on a default control,
@@ -25,40 +26,85 @@ use crate::{GlyphKind, Palette};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Icon(pub &'static str);
 
-impl Icon {
-    // Lucide, from GPUI Kit's assets.
-    pub const BOOK_OPEN: Icon = Icon("icons/book-open.svg");
-    pub const BOT: Icon = Icon("icons/bot.svg");
-    pub const CHECK: Icon = Icon("icons/check.svg");
-    pub const CHEVRON_DOWN: Icon = Icon("icons/chevron-down.svg");
-    pub const CHEVRON_LEFT: Icon = Icon("icons/chevron-left.svg");
-    pub const CHEVRON_RIGHT: Icon = Icon("icons/chevron-right.svg");
-    pub const CIRCLE_ALERT: Icon = Icon("icons/circle-alert.svg");
-    pub const CIRCLE_CHECK: Icon = Icon("icons/circle-check.svg");
-    pub const CLIPBOARD_CHECK: Icon = Icon("icons/clipboard-check.svg");
-    pub const CLOUD: Icon = Icon("icons/cloud.svg");
-    pub const FILE_TEXT: Icon = Icon("icons/file-text.svg");
-    pub const FOLDER_TREE: Icon = Icon("icons/folder-tree.svg");
-    pub const GLOBE: Icon = Icon("icons/globe.svg");
-    pub const HAMMER: Icon = Icon("icons/hammer.svg");
-    pub const HARD_DRIVE: Icon = Icon("icons/hard-drive.svg");
-    pub const INFO: Icon = Icon("icons/info.svg");
-    pub const LAYOUT_PANEL_LEFT: Icon = Icon("icons/layout-panel-left.svg");
-    pub const LIBRARY: Icon = Icon("icons/library.svg");
-    pub const LIST_TODO: Icon = Icon("icons/list-todo.svg");
-    pub const LIST_TREE: Icon = Icon("icons/list-tree.svg");
-    pub const LOADER: Icon = Icon("icons/loader-circle.svg");
-    pub const LOCATE_FIXED: Icon = Icon("icons/locate-fixed.svg");
-    pub const MESSAGE_SQUARE_TEXT: Icon = Icon("icons/message-square-text.svg");
-    pub const PLUS: Icon = Icon("icons/plus.svg");
-    pub const RECTANGLE_HORIZONTAL: Icon = Icon("icons/rectangle-horizontal.svg");
-    pub const REFRESH: Icon = Icon("icons/refresh-cw.svg");
-    pub const SEARCH: Icon = Icon("icons/search.svg");
-    pub const TRIANGLE_ALERT: Icon = Icon("icons/triangle-alert.svg");
-    pub const ZOOM_IN: Icon = Icon("icons/zoom-in.svg");
-    pub const ZOOM_OUT: Icon = Icon("icons/zoom-out.svg");
-    pub const ELLIPSIS: Icon = Icon("icons/ellipsis.svg");
+/// Declares each Lucide icon once, as an `Icon` constant and as an entry in
+/// [`LUCIDE`] naming its file in Lucide's set.
+macro_rules! lucide {
+    ($($(#[$meta:meta])* $name:ident = $dir:literal / $file:literal;)*) => {
+        impl Icon {
+            $($(#[$meta])* pub const $name: Icon = Icon(concat!($dir, "/", $file, ".svg"));)*
+        }
 
+        /// Every Lucide icon, with its name in Lucide's set: what it must
+        /// draw, whichever asset source answers its path.
+        pub const LUCIDE: &[(Icon, &str)] = &[$((Icon::$name, $file)),*];
+    };
+}
+
+lucide! {
+    // From GPUI Kit's assets.
+    BOOK_OPEN = "icons" / "book-open";
+    BOT = "icons" / "bot";
+    CHEVRON_DOWN = "icons" / "chevron-down";
+    CHEVRON_LEFT = "icons" / "chevron-left";
+    CHEVRON_RIGHT = "icons" / "chevron-right";
+    CIRCLE_ALERT = "icons" / "circle-alert";
+    CIRCLE_CHECK = "icons" / "circle-check";
+    CLIPBOARD_CHECK = "icons" / "clipboard-check";
+    CLOUD = "icons" / "cloud";
+    FILE_TEXT = "icons" / "file-text";
+    FOLDER_TREE = "icons" / "folder-tree";
+    GLOBE = "icons" / "globe";
+    HAMMER = "icons" / "hammer";
+    HARD_DRIVE = "icons" / "hard-drive";
+    LAYOUT_PANEL_LEFT = "icons" / "layout-panel-left";
+    LIBRARY = "icons" / "library";
+    LIST_TODO = "icons" / "list-todo";
+    LIST_TREE = "icons" / "list-tree";
+    LOADER = "icons" / "loader-circle";
+    LOCATE_FIXED = "icons" / "locate-fixed";
+    MESSAGE_SQUARE_TEXT = "icons" / "message-square-text";
+    RECTANGLE_HORIZONTAL = "icons" / "rectangle-horizontal";
+    REFRESH = "icons" / "refresh-cw";
+    SEARCH = "icons" / "search";
+    TRIANGLE_ALERT = "icons" / "triangle-alert";
+    ZOOM_IN = "icons" / "zoom-in";
+    ZOOM_OUT = "icons" / "zoom-out";
+    ARROW_LEFT = "icons" / "arrow-left";
+    ARROW_RIGHT = "icons" / "arrow-right";
+    ARROW_RIGHT_LEFT = "icons" / "arrow-right-left";
+    BOOK_OPEN_TEXT = "icons" / "book-open-text";
+    COLUMNS_2 = "icons" / "columns-2";
+    COMPASS = "icons" / "compass";
+    EYE_OFF = "icons" / "eye-off";
+    FILE_PEN_LINE = "icons" / "file-pen-line";
+    FOCUS = "icons" / "focus";
+    FOLDER_OPEN = "icons" / "folder-open";
+    LAYOUT_DASHBOARD = "icons" / "layout-dashboard";
+    MAXIMIZE = "icons" / "maximize-2";
+    MINIMIZE = "icons" / "minimize-2";
+    PEN_LINE = "icons" / "pen-line";
+    PICTURE_IN_PICTURE = "icons" / "picture-in-picture-2";
+    ROTATE_CCW = "icons" / "rotate-ccw";
+    ROWS_2 = "icons" / "rows-2";
+    SAVE = "icons" / "save";
+    SUN_MOON = "icons" / "sun-moon";
+    UNDO = "icons" / "undo-2";
+    X = "icons" / "x";
+    CIRCLE_X = "icons" / "circle-x";
+    APP_WINDOW = "icons" / "app-window";
+    // Names Zed's icon set also has, which the app's asset source finds
+    // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
+    // (ISC, `assets/LICENSE-LUCIDE`).
+    CHECK = "lattice" / "check";
+    COPY = "lattice" / "copy";
+    EYE = "lattice" / "eye";
+    INFO = "lattice" / "info";
+    PENCIL = "lattice" / "pencil";
+    PLUS = "lattice" / "plus";
+    TRASH = "lattice" / "trash";
+}
+
+impl Icon {
     // The app's own, from `assets/icons`.
     /// The 1.5-stroke X a panel tab closes with.
     pub const CLOSE: Icon = Icon("lattice/close.svg");
@@ -74,9 +120,18 @@ impl Icon {
     pub const ANNOTATIONS: Icon = Icon("lattice/annotations.svg");
     pub const GIT: Icon = Icon("lattice/git.svg");
     pub const HISTORY: Icon = Icon("lattice/history.svg");
+    /// The Build button's idle mark: Lucide's play, filled, as the app
+    /// draws it (`<Play fill="currentColor" />`). Lucide's play.svg (ISC,
+    /// `assets/LICENSE-LUCIDE`) with its fill set to the ink.
+    pub const PLAY_FILLED: Icon = Icon("lattice/play-filled.svg");
 
     pub fn path(self) -> SharedString {
         self.0.into()
+    }
+
+    /// The icon as GPUI Kit's own, for a Kit menu item.
+    pub fn kit(self) -> gpui_kit::component::Icon {
+        gpui_kit::component::Icon::empty().path(self.0)
     }
 
     /// The icon at `size`, painted `color`.
@@ -152,6 +207,13 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "dots.svg",
     "git.svg",
     "history.svg",
+    "play-filled.svg",
+    "check.svg",
+    "eye.svg",
+    "info.svg",
+    "pencil.svg",
+    "plus.svg",
+    "trash.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",

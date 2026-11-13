@@ -31,6 +31,7 @@ mod project;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
 mod shell;
+mod stand_in_panels;
 mod titlebar;
 
 fn main() {
@@ -52,7 +53,10 @@ fn main() {
     gpui_kit::application()
         .with_assets(assets::Assets)
         .run(move |cx| {
-            app::init(cx);
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            app::init(scenario.is_some(), cx);
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            app::init(false, cx);
             // `--gallery`: the component sheet instead of a project window.
             if std::env::args().any(|arg| arg == "--gallery") {
                 if let Err(error) = gallery::open(cx) {

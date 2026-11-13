@@ -10,15 +10,19 @@
 //! the whole project's, which the GPUI app does not count yet, so the
 //! buffer's count is always labelled as the file's.
 //!
-//! Build chip: 24px with control corners, the ink at 9% laid on the sheet
-//! (#E7E7E7 light, #313134 dark, as measured) under an inset hairline; a 13px
-//! mark 8px in and the last build's time in 12px semibold. It builds on
-//! click, as ⌘B does.
+//! Build chip (`.trellis-build-button`): 24px with control corners, the ink
+//! at 9% laid on the sheet (#E7E7E7 light, #313134 dark, as measured) under
+//! an inset hairline; a 13px mark 8px in, 6px to its label in 12px semibold,
+//! 10px to the end. Idle it reads "Build" beside a filled play mark, a
+//! running build spins its mark, and the last build's result follows: a
+//! green check and its time, or "Failed". It is as wide as its widest state
+//! (the longest label, a time up to 999.9 s included), so the strip never
+//! shifts as it changes. It builds on click, as ⌘B does.
 
 use gpui::{
-    AnyElement, App, BoxShadow, Edges, Entity, FontFeatures, InteractiveElement as _, IntoElement,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, div,
-    prelude::FluentBuilder as _, px,
+    AnimationExt as _, AnyElement, App, BoxShadow, Edges, Entity, InteractiveElement as _,
+    IntoElement, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
+    Window, div, prelude::FluentBuilder as _, px,
 };
 use language::Rope;
 use lattice_ui::{
@@ -28,6 +32,7 @@ use lattice_ui::{
     elevation::ring,
     parity,
     tokens::{FONT_WEIGHT_SEMIBOLD, OPACITY_PRESSED},
+    typography::{shaped_width_with, tabular_nums},
 };
 
 use crate::{
@@ -72,10 +77,10 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
         .h(px(28.))
         .px(px(6.))
         .gap(px(2.))
-        // The bar's numbers are tabular, as `.editor-status-bar` sets them.
-        .font_features(FontFeatures(std::sync::Arc::new(vec![("tnum".into(), 1)])))
         .border_t_1()
         .border_color(palette.line)
+        // The bar's numbers are tabular, as `.editor-status-bar` sets them.
+        .font_features(tabular_nums())
         .bg(palette.editor)
         .rounded_b(PANEL_RADIUS)
         .children(parity::bordered_probe(
@@ -127,28 +132,51 @@ fn word_count(panel: &EditorPanel, file_words: usize, cx: &App) -> AnyElement {
     crate::build::word_count_item::item(labels, cx)
 }
 
-pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
+pub fn build_chip(build: &Entity<BuildPanel>, window: &Window, cx: &App) -> AnyElement {
     let palette = cx.palette().clone();
     let state = build.read(cx).chip();
-    let (icon, ink, label) = match state {
-        ChipState::Idle => (Icon::HAMMER, palette.text_secondary, "Build".to_string()),
-        ChipState::Running(elapsed) => (
+    let seconds = |took: std::time::Duration| format!("{:.1} s", took.as_secs_f32());
+    let (icon, icon_size, ink, label) = match state {
+        ChipState::Idle => (
+            Icon::PLAY_FILLED,
+            px(11.),
+            palette.text,
+            "Build".to_string(),
+        ),
+        ChipState::Running(_) => (
             Icon::LOADER,
+            px(13.),
             palette.text_secondary,
-            format!("{:.1} s", elapsed.as_secs_f32()),
+            "Build".to_string(),
         ),
-        ChipState::Succeeded(took) => (
-            Icon::CHECK_HEAVY,
-            palette.success,
-            format!("{:.1} s", took.as_secs_f32()),
-        ),
-        ChipState::Failed(0) => (Icon::CIRCLE_ALERT, palette.danger, "Failed".to_string()),
-        ChipState::Failed(errors) => (
-            Icon::CIRCLE_ALERT,
-            palette.danger,
-            format!("{errors} error{}", if errors == 1 { "" } else { "s" }),
-        ),
+        ChipState::Succeeded(took) => (Icon::CHECK_HEAVY, px(13.), palette.success, seconds(took)),
+        ChipState::Failed(_) => (Icon::X, px(13.), palette.danger, "Failed".to_string()),
     };
+    let label_ink = if matches!(state, ChipState::Failed(_)) {
+        palette.danger
+    } else {
+        palette.text
+    };
+    // The chip's width: its widest state, as the app's hidden sizer makes it.
+    let widest = [
+        "Build".to_string(),
+        "Failed".to_string(),
+        seconds(std::time::Duration::from_secs_f32(999.9)),
+    ]
+    .into_iter()
+    .chain(std::iter::once(label.clone()))
+    .map(|text| {
+        shaped_width_with(
+            &text,
+            TextRole::Caption,
+            Some(FONT_WEIGHT_SEMIBOLD),
+            Some(tabular_nums()),
+            window,
+            cx,
+        )
+    })
+    .fold(px(0.), |widest, width| widest.max(width));
+    let width = px(8.) + px(13.) + px(6.) + widest + px(10.);
     let ground = palette.ink_on(0.09, palette.editor_srgb);
     let hover = palette.ink_on(0.09 + OPACITY_PRESSED / 2., palette.editor_srgb);
     let edge = BoxShadow {
@@ -160,23 +188,48 @@ pub fn build_chip(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
         .flex()
         .flex_none()
         .items_center()
+        .justify_center()
         .gap(px(6.))
+        .w(width.ceil())
         .h(px(24.))
-        .pl(px(8.))
-        .pr(px(10.))
         .rounded(px(6.))
         .bg(ground)
         .shadow(vec![edge])
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(icon.element(px(13.), ink))
+        .child(
+            div()
+                .flex()
+                .flex_none()
+                .items_center()
+                .justify_center()
+                .size(px(13.))
+                .map(|slot| {
+                    let mark = icon.element(icon_size, ink);
+                    if matches!(state, ChipState::Running(_)) {
+                        // A running build turns its mark once a second.
+                        slot.child(mark.with_animation(
+                            "build-chip-spin",
+                            gpui::Animation::new(std::time::Duration::from_secs(1)).repeat(),
+                            |mark, t| {
+                                mark.with_transformation(gpui::Transformation::rotate(
+                                    gpui::percentage(t),
+                                ))
+                            },
+                        ))
+                    } else {
+                        slot.child(mark)
+                    }
+                }),
+        )
         .child(
             div()
                 .whitespace_nowrap()
                 .text_role(TextRole::Caption, cx)
                 .line_height(px(15.6))
                 .font_weight(FONT_WEIGHT_SEMIBOLD)
-                .text_color(palette.text)
+                .font_features(tabular_nums())
+                .text_color(label_ink)
                 .children(parity::text_probe("build-chip", 0, label.clone()))
                 .child(label),
         )

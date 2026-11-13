@@ -4,7 +4,10 @@
 //!
 //! The harness opens a copy of the tutorial project with its PDF built, as
 //! `design-system/screens/scenes.mjs` opens it on the mock backend. Here the
-//! pointer is parked in the bottom-right gutter, the PDF is waited for, and
+//! file sidebar is widened as the scene drags it (to the 329px Project card
+//! the reference measures, which leaves the workspace's dot on, as the drag
+//! does there), the pointer is parked in the bottom-right gutter, the PDF is
+//! waited for, and
 //! the build chip shows a clean 1.2 s build, as the mock backend's
 //! `build=clean` stages it, so no TeX is needed. Then the window is
 //! captured as `LATTICE_SHOT_OUT` (default `parity.png`) and the result
@@ -62,9 +65,23 @@ fn first_line_runs(editor: &Entity<EditorPanel>, base: f32, cx: &App) -> Vec<(St
         .collect()
 }
 
+/// The Project card's width once the scene has widened the sidebar.
+const SIDEBAR_CARD: f32 = 329.;
+
 impl Run {
     pub(super) async fn parity(&self, cx: &mut AsyncApp) -> Result<Value> {
         native::order_front(self.native(cx)?);
+        self.with_window(cx, |shell, window, cx| {
+            let area = shell.read(cx).dock_area().clone();
+            area.update(cx, |area, cx| {
+                area.set_dock_size(
+                    gpui_kit::component::dock::DockPlacement::Left,
+                    gpui::px(SIDEBAR_CARD + 6.),
+                    window,
+                    cx,
+                )
+            });
+        })?;
         self.park_pointer(cx)?;
         let pdf_shown = self.wait_for_pdf(cx).await;
         self.with_window(cx, |shell, _, cx| {

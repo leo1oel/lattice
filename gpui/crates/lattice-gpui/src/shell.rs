@@ -1,30 +1,52 @@
 //! The window: Lattice's titlebar over GPUI Kit's dock area in Lattice's
-//! look, holding the file tree, the editors, the PDF preview and the build
-//! panel; and the flows that tie them together on lattice-core: open a
-//! project, open a file, build, jump between the source and the PDF
-//! (SyncTeX), and the file tree's create, rename, move and delete.
+//! look, holding the file tree, Papers and the Agent, the editors, the PDF
+//! preview and the build panel; and the flows that tie them together on
+//! lattice-core: open a project, open a file, build, jump between the source
+//! and the PDF (SyncTeX), and the file tree's create, rename, move and
+//! delete.
+//!
+//! The shell's own parts live beside it: the arrangement of panels and the
+//! named workspaces (`layout`, `workspaces`, `arrange`, `workspace_flow`),
+//! the command table, keymap and palette (`commands`, `actions`, `palette`),
+//! the menu bar (`menus`), windows and project tabs (`windows`), floating
+//! panels (`floating`), builds (`build`, `build_tools`), the tree's operations (`entries`)
+//! and SyncTeX (`synctex`).
 
-use std::path::PathBuf;
+mod actions;
+mod arrange;
+mod build;
+mod build_tools;
+pub mod commands;
+mod entries;
+mod floating;
+pub mod layout;
+pub(crate) mod menus;
+mod palette;
+mod synctex;
+pub mod windows;
+mod workspace_flow;
+pub mod workspaces;
+
+use std::path::{Path, PathBuf};
 
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, KeyBinding, ParentElement as _, PathPromptOptions,
-    PromptLevel, Render, SharedString, Styled as _, Task, WeakEntity, Window, WindowBounds,
-    WindowOptions, actions, div, px, size,
+    InteractiveElement as _, IntoElement, ParentElement as _, PathPromptOptions, PromptLevel,
+    Render, SharedString, Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds,
+    WindowOptions, div, prelude::FluentBuilder as _, px, size,
 };
 use gpui_kit::component::{
-    dock::{DockArea, DockLayout, DockPlacement, PanelId, panel_handle},
+    dock::{DockArea, DockEvent, PanelId},
     v_flex,
 };
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock};
 
-mod build;
-mod build_tools;
-mod entries;
-mod synctex;
-
 use build::BuildRequest;
+pub use commands::{
+    Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem, OpenFolder,
+    OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
+};
 
 use crate::{
     build::{
@@ -38,35 +60,10 @@ use crate::{
     notices::{self, NoticeStack},
     pdf::{PdfEvent, PdfPanel},
     project::Project,
+    stand_in_panels::{StandIn, StandInPanel},
     titlebar::TitlebarDrag,
 };
 
-actions!(
-    lattice,
-    [
-        OpenFolder,
-        Build,
-        Save,
-        ForwardSync,
-        ToggleVimMode,
-        ToggleProjectPanel,
-        TogglePdfPanel,
-        ToggleBuildPanel,
-        StopBuild,
-        CleanRebuild,
-        CleanBuildFiles,
-        NextProblem,
-        PreviousProblem,
-        OpenTexDoctor,
-        InstallLatexTools
-    ]
-);
-
-/// The docks' widths as the running app lays out the Main window at
-/// 1440×900: a 329px Project card and a 485px PDF card, each with the 3px
-/// half-gutter its group pads itself by on either side.
-const LEFT_DOCK: f32 = 329. + 6.;
-const RIGHT_DOCK: f32 = 485. + 6.;
 /// The chrome around the cards: 12px from the window's sides and bottom and
 /// 6px under the titlebar, less the groups' own half-gutter.
 const WORKSPACE_SIDE: f32 = 12. - 3.;
@@ -74,40 +71,45 @@ const WORKSPACE_TOP: f32 = 6. - 3.;
 /// The build panel's height when it is shown under the editors.
 const BUILD_DOCK: f32 = 180. + 6.;
 
-/// Open folder, build, save and the jump to the PDF, on the platform's
-/// primary shortcut modifier; the jump is the Tauri app's ⌘⇧J.
-#[cfg(target_os = "macos")]
-const SHORTCUTS: [&str; 4] = ["cmd-o", "cmd-b", "cmd-s", "cmd-shift-j"];
-#[cfg(not(target_os = "macos"))]
-const SHORTCUTS: [&str; 4] = ["ctrl-o", "ctrl-b", "ctrl-s", "ctrl-shift-j"];
-
 #[cfg(target_os = "macos")]
 pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
 #[cfg(not(target_os = "macos"))]
 pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
 
 pub fn bind_keys(cx: &mut App) {
-    let [open, build, save, forward] = SHORTCUTS;
-    cx.bind_keys([
-        KeyBinding::new(open, OpenFolder, None),
-        KeyBinding::new(build, Build, None),
-        KeyBinding::new(save, Save, None),
-        KeyBinding::new(forward, ForwardSync, None),
-        // The Tauri app's next and previous build problem, in the editor
-        // too, where Zed's keymap binds them to its own diagnostics.
-        KeyBinding::new("f8", NextProblem, None),
-        KeyBinding::new("shift-f8", PreviousProblem, None),
-        KeyBinding::new("f8", NextProblem, Some("Editor")),
-        KeyBinding::new("shift-f8", PreviousProblem, Some("Editor")),
-    ]);
+    commands::bind_keys(cx);
+}
+
+/// The window's layout state: the workspace the project is in, a preset or
+/// focus mode laid over it, and whether its arrangement differs from the
+/// workspace's.
+#[derive(Default)]
+pub(crate) struct LayoutState {
+    pub workspace: Option<String>,
+    pub preset: Option<workspaces::ActivePreset>,
+    /// Focus mode's own layout to return to.
+    pub focus: Option<layout::Arrangement>,
+    pub dirty: bool,
+    /// The workspace whose name is being edited in place.
+    pub renaming: Option<String>,
+    /// Where each document stood in each workspace, by workspace id.
+    pub places: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u64>>,
+}
+
+/// A project open in a window, with the name its tab shows.
+pub(crate) struct OpenProject {
+    pub root: PathBuf,
+    pub name: SharedString,
 }
 
 pub struct Shell {
     project: Option<Entity<Project>>,
-    focus_handle: FocusHandle,
+    pub(crate) focus_handle: FocusHandle,
     dock_area: Entity<DockArea>,
     titlebar_drag: TitlebarDrag,
     file_tree: Entity<FileTreePanel>,
+    papers: Entity<StandInPanel>,
+    agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
     /// The TeX doctor, setup and package installs (one for the app).
@@ -123,8 +125,9 @@ pub struct Shell {
     notices: Entity<NoticeStack>,
     confirm: Entity<ConfirmHost>,
     editors: Vec<WeakEntity<EditorPanel>>,
-    /// The editor the writer was last in, which a build compiles from and a
-    /// jump to the PDF starts from.
+    /// The editor the writer was last in (opened, or holding the keyboard),
+    /// which a build compiles from and a jump to the PDF starts from. An
+    /// overlay (the palette, a menu) taking focus does not change it.
     active_editor: Option<WeakEntity<EditorPanel>>,
     build_task: Option<Task<()>>,
     /// The build to run once the one under way ends.
@@ -133,6 +136,23 @@ pub struct Shell {
     build_waiters: Vec<oneshot::Sender<()>>,
     _open_task: Option<Task<()>>,
     vim_mode: bool,
+    pub(crate) layout: LayoutState,
+    pub(crate) floating: floating::FloatingLayer,
+    /// Each of the dock's groups' own id (`layout::Node::Tabs`'s `slot`),
+    /// which Kit's node ids, new at every rebuild, do not keep.
+    slots: std::collections::HashMap<gpui_kit::component::dock::NodeId, u64>,
+    palette: Option<Entity<palette::CommandPaletteView>>,
+    shortcuts: Option<Entity<palette::ShortcutSheet>>,
+    /// The projects open in this window, in tab order; the open one is
+    /// `project`'s.
+    pub(crate) projects: Vec<OpenProject>,
+    /// Documents closed in this window, most recent last, for ⌘⇧T.
+    closed_tabs: Vec<PathBuf>,
+    save_task: Option<Task<()>>,
+    /// The field a workspace's name is edited in, while it is.
+    pub(crate) rename_input: Option<Entity<gpui_kit::component::input::InputState>>,
+    pub(crate) rename_subscription: Option<Subscription>,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl Shell {
@@ -140,7 +160,17 @@ impl Shell {
         root: Option<PathBuf>,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
-        let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx);
+        Self::open_window_with(root, None, cx)
+    }
+
+    /// A window `size` wide and high (1440×900 by default), cascaded from the
+    /// active one when there is one.
+    pub fn open_window_with(
+        root: Option<PathBuf>,
+        bounds: Option<Bounds<gpui::Pixels>>,
+        cx: &mut App,
+    ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
+        let bounds = bounds.unwrap_or_else(|| Bounds::centered(None, window_size(), cx));
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             window_min_size: Some(size(px(720.), px(480.))),
@@ -167,6 +197,7 @@ impl Shell {
             })
             .detach();
         });
+        windows::register(window, &shell, cx);
         if let Some(root) = root {
             window.update(cx, |_, window, cx| {
                 shell.update(cx, |shell, cx| shell.open_project(root, window, cx));
@@ -177,8 +208,11 @@ impl Shell {
 
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         crate::panels::present_tabs(cx);
+        arrange::install_dock_hooks(cx);
         let dock_area = LatticeDock::dock_area("lattice", Some(1), window, cx);
         let file_tree = cx.new(FileTreePanel::new);
+        let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
+        let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
         let pdf = cx.new(PdfPanel::new);
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
@@ -189,10 +223,12 @@ impl Shell {
         let notices = notices::install(cx);
         let confirm = confirm::install(cx);
 
-        // The system's appearance, unless the run fixed one.
+        // The system's appearance, unless the run or the writer fixed one.
         if crate::app::appearance_override().is_none() {
             cx.observe_window_appearance(window, |_, window, cx| {
-                LatticeTheme::set_appearance(Appearance::from(window.appearance()), cx);
+                if !crate::app::appearance_chosen(cx) {
+                    LatticeTheme::set_appearance(Appearance::from(window.appearance()), cx);
+                }
             })
             .detach();
         }
@@ -243,42 +279,30 @@ impl Shell {
         .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
-
-        dock_area.update(cx, |area, cx| {
-            area.set_center(DockLayout::v_split(), window, cx);
-            area.set_dock(
-                DockPlacement::Left,
-                DockLayout::v_split().child(
-                    DockLayout::tabs().panel_view(panel_handle(file_tree.clone()), cx),
-                    None,
-                ),
-                window,
-                cx,
-            );
-            area.set_dock_size(DockPlacement::Left, px(LEFT_DOCK), window, cx);
-            area.set_dock(
-                DockPlacement::Right,
-                DockLayout::v_split().child(
-                    DockLayout::tabs().panel_view(panel_handle(pdf.clone()), cx),
-                    None,
-                ),
-                window,
-                cx,
-            );
-            area.set_dock_size(DockPlacement::Right, px(RIGHT_DOCK), window, cx);
-            for placement in [DockPlacement::Left, DockPlacement::Right] {
-                area.set_dock_collapsible(placement, true, window, cx);
+        let dock_events = cx.subscribe_in(&dock_area, window, |this, _, event, window, cx| {
+            if let DockEvent::LayoutChanged = event {
+                this.layout_changed(window, cx);
             }
         });
-        // The Main window has no bottom panel: the build panel is added when a
-        // build reports errors, or from the Panels menu (`show_build_panel`).
+        let library = cx.observe_global::<workspaces::Workspaces>(|this, cx| {
+            this.refresh_dirty(cx);
+            cx.notify();
+        });
+        cx.on_release(|this, cx| this.flush_layout(cx)).detach();
+        cx.on_app_quit(|this, cx| {
+            this.flush_layout(cx);
+            async {}
+        })
+        .detach();
 
-        Self {
+        let mut shell = Self {
             project: None,
             focus_handle: cx.focus_handle(),
             dock_area,
             titlebar_drag: TitlebarDrag::default(),
             file_tree,
+            papers,
+            agent,
             pdf,
             build_panel,
             tex_setup,
@@ -295,7 +319,25 @@ impl Shell {
             build_waiters: Vec::new(),
             _open_task: None,
             vim_mode: crate::app::vim_mode_enabled(cx),
-        }
+            layout: LayoutState::default(),
+            floating: floating::FloatingLayer::default(),
+            slots: Default::default(),
+            palette: None,
+            shortcuts: None,
+            projects: Vec::new(),
+            closed_tabs: Vec::new(),
+            save_task: None,
+            rename_input: None,
+            rename_subscription: None,
+            _subscriptions: vec![dock_events, library],
+        };
+        // The Main window before a project opens: the default arrangement,
+        // its document slot empty.
+        let room = shell.room(window);
+        let arrangement =
+            layout::Arrangement::default_for(room).with_documents(&[], None, &Default::default());
+        shell.install(&arrangement, window, cx);
+        shell
     }
 
     /// The open project's folder.
@@ -367,20 +409,42 @@ impl Shell {
         }
     }
 
-    /// Open a project folder with lattice-core, as the Tauri app opens it:
-    /// show it in the tree, open its main document, and preview its PDF when
-    /// one was already built. The files of the project open before are saved
-    /// and their tabs closed.
+    /// Open a project folder with lattice-core, as the Tauri app opens it,
+    /// laid out as the project was left (its documents, its workspace). The
+    /// project open before keeps its tab in the window: its layout is
+    /// recorded and its edited files saved first.
     pub fn open_project(&mut self, root: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        let saves = self.close_editors(window, cx);
+        self.leave_for(root, None, window, cx);
+    }
+
+    /// Open `root` in place of the project shown, once the shown project's
+    /// edits are saved, taking the `closing` project's tab out with it. A
+    /// save that fails or is held keeps the shown project, its editors and
+    /// the save's notice, as closing the window does.
+    fn leave_for(
+        &mut self,
+        root: PathBuf,
+        closing: Option<PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.save_layout(cx);
+        let saved = self.save_before_leaving(cx);
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
-            for save in saves {
-                save.await.ok();
+            if let Some(saved) = saved
+                && !saved.await
+            {
+                return;
             }
             match crate::project::open(root.clone(), cx).await {
                 Ok(project) => {
-                    this.update_in(cx, |this, window, cx| this.set_project(project, window, cx))
-                        .ok();
+                    this.update_in(cx, |this, window, cx| {
+                        this.set_project(project, window, cx);
+                        if let Some(closing) = closing {
+                            this.projects.retain(|p| p.root != closing);
+                        }
+                    })
+                    .ok();
                 }
                 Err(error) => {
                     log::error!("could not open {}: {error}", root.display());
@@ -391,6 +455,9 @@ impl Shell {
         }));
     }
 
+    /// Show the opened project: in the tree, in the window's tabs, laid out
+    /// as it was left (else with its main document open), and its PDF when
+    /// one was already built.
     fn set_project(
         &mut self,
         project: Entity<Project>,
@@ -407,8 +474,25 @@ impl Shell {
                 project.main_pdf().filter(|pdf| pdf.is_file()),
             )
         };
+        if !self.projects.iter().any(|p| p.root == root) {
+            let open = OpenProject {
+                name: project_display_name(&root),
+                root: root.clone(),
+            };
+            match self
+                .root(cx)
+                .and_then(|current| self.projects.iter().position(|p| p.root == current))
+            {
+                Some(ix) => self.projects.insert(ix + 1, open),
+                None => self.projects.push(open),
+            }
+        }
         self.project = Some(project.clone());
+        // The editors of the project open before go with its arrangement.
+        self.editors.clear();
+        self.active_editor = None;
         self.queued_build = None;
+        self.closed_tabs.clear();
         self.tex_setup
             .update(cx, |center, _| center.set_root(Some(root.clone())));
         self.refresh_words(cx);
@@ -418,7 +502,8 @@ impl Shell {
             "{} — Lattice (GPUI preview)",
             root.file_name().unwrap_or_default().to_string_lossy()
         ));
-        if let Some(main) = main {
+        let restored = self.restore_layout(&root, main.as_deref(), window, cx);
+        if let Some(main) = main.filter(|_| !restored) {
             self.open_path(main, None, window, cx);
         }
         self.pdf.update(cx, |panel, cx| match pdf {
@@ -432,37 +517,46 @@ impl Shell {
     /// closes once they are, staying open (with the save's notice) when one
     /// could not be.
     fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let saves = Self::save_dirty(&self.open_editors(), cx);
-        if saves.is_empty() {
+        let Some(saved) = self.save_before_leaving(cx) else {
             return true;
-        }
+        };
         cx.spawn_in(window, async move |_, cx| {
-            for save in saves {
-                if !save.await.unwrap_or(false) {
-                    return;
-                }
+            if saved.await {
+                cx.update(|window, _| window.remove_window()).ok();
             }
-            cx.update(|window, _| window.remove_window()).ok();
         })
         .detach();
         false
     }
 
-    /// Save every open file and close its tab, before another project opens.
-    fn close_editors(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Vec<Task<anyhow::Result<bool>>> {
-        let editors = self.open_editors();
-        let saves = Self::save_dirty(&editors, cx);
-        for editor in editors {
-            self.dock_area
-                .update(cx, |area, cx| area.remove_panel(editor, window, cx));
+    /// Save every editor holding unsaved edits: `None` when none does, else
+    /// a task that resolves true once each is saved, false when one could
+    /// not be (its notice says why).
+    fn save_before_leaving(&mut self, cx: &mut Context<Self>) -> Option<Task<bool>> {
+        let saves = Self::save_dirty(&self.open_editors(), cx);
+        if saves.is_empty() {
+            return None;
         }
-        self.editors.clear();
-        self.active_editor = None;
-        saves
+        Some(cx.spawn(async move |_, _| {
+            for save in saves {
+                match save.await {
+                    Ok(true) => {}
+                    Ok(false) => return false,
+                    Err(error) => {
+                        log::error!("{error:#}");
+                        return false;
+                    }
+                }
+            }
+            true
+        }))
+    }
+
+    /// Close the window as its close button does (`should_close`).
+    pub(crate) fn close_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.should_close(window, cx) {
+            window.remove_window();
+        }
     }
 
     /// Open a source file in an editor tab (or switch to its tab), or a PDF in
@@ -477,51 +571,21 @@ impl Shell {
         if path.extension().is_some_and(|extension| extension == "pdf") {
             self.pdf
                 .update(cx, |panel, cx| panel.open(path, window, cx));
+            self.show_view(layout::View::Pdf, window, cx);
             return None;
         }
-        let project = self.project.clone()?;
         let path = path.canonicalize().unwrap_or(path);
-        let existing = self
-            .open_editors()
-            .into_iter()
-            .find(|editor| editor.read(cx).path() == path);
-        let editor = match existing {
-            Some(editor) => {
+        let editor = match self.open_editor(&path, cx) {
+            Some(editor) if self.panel_shown(PanelId::from(editor.entity_id()), cx) => {
                 let id = PanelId::from(editor.entity_id());
                 self.dock_area
                     .update(cx, |area, cx| area.select_panel(id, window, cx));
                 editor
             }
-            None => {
-                match EditorPanel::open(path.clone(), project, self.build_panel.clone(), window, cx)
-                {
-                    Ok(editor) => {
-                        cx.subscribe_in(&editor, window, Self::on_editor_event)
-                            .detach();
-                        self.dock_area.update(cx, |area, cx| {
-                            area.add_panel_view(
-                                panel_handle(editor.clone()),
-                                DockPlacement::Center,
-                                None,
-                                window,
-                                cx,
-                            );
-                        });
-                        self.editors.push(editor.downgrade());
-                        editor
-                    }
-                    Err(error) => {
-                        log::error!("{error:#}");
-                        let _ = window.prompt(
-                            PromptLevel::Critical,
-                            "Could not open the file",
-                            Some(&format!("{error:#}")),
-                            &["OK"],
-                            cx,
-                        );
-                        return None;
-                    }
-                }
+            _ => {
+                let editor = self.editor_for(&path, window, cx)?;
+                self.place_document(&editor, window, cx);
+                editor
             }
         };
         self.active_editor = Some(editor.downgrade());
@@ -532,6 +596,57 @@ impl Shell {
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
+    }
+
+    /// The editor already open on `path`, if any.
+    pub(crate) fn open_editor(&mut self, path: &Path, cx: &App) -> Option<Entity<EditorPanel>> {
+        self.open_editors()
+            .into_iter()
+            .find(|editor| editor.read(cx).path() == path)
+    }
+
+    /// The editor on `path`, opened if it is not yet; it is not placed in
+    /// the dock.
+    pub(crate) fn editor_for(
+        &mut self,
+        path: &Path,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<EditorPanel>> {
+        if let Some(editor) = self.open_editor(path, cx) {
+            return Some(editor);
+        }
+        let project = self.project.clone()?;
+        match EditorPanel::open(
+            path.to_path_buf(),
+            project,
+            self.build_panel.clone(),
+            window,
+            cx,
+        ) {
+            Ok(editor) => {
+                cx.subscribe_in(&editor, window, Self::on_editor_event)
+                    .detach();
+                self.editors.push(editor.downgrade());
+                let weak = editor.downgrade();
+                cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
+                    this.active_editor = Some(weak.clone());
+                })
+                .detach();
+                Some(editor)
+            }
+            Err(error) => {
+                log::error!("{error:#}");
+                let _ = window.prompt(
+                    PromptLevel::Critical,
+                    "Could not open the file",
+                    Some(&format!("{error:#}")),
+                    &["OK"],
+                    cx,
+                );
+                None
+            }
+        }
     }
 
     fn on_editor_event(
@@ -555,14 +670,15 @@ impl Shell {
         }
     }
 
+    /// Close an editor's tab, wherever it is, without asking: its file is
+    /// gone.
     fn close_editor(
         &mut self,
         editor: &Entity<EditorPanel>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.dock_area
-            .update(cx, |area, cx| area.remove_panel(editor.clone(), window, cx));
+        self.close_panel(PanelId::from(editor.entity_id()), window, cx);
         self.editors
             .retain(|open| open.upgrade().is_some_and(|open| open != *editor));
         if self
@@ -624,12 +740,7 @@ impl Shell {
             .collect()
     }
 
-    /// The editor the writer was last in, if it is still open.
-    pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
-        self.active_editor.as_ref().and_then(WeakEntity::upgrade)
-    }
-
-    fn save_all(&mut self, _: &Save, _: &mut Window, cx: &mut Context<Self>) {
+    fn save_in_background(&mut self, cx: &mut Context<Self>) {
         let editors = self.open_editors();
         for save in Self::save_dirty(&editors, cx) {
             cx.spawn(async move |_, _| {
@@ -638,6 +749,25 @@ impl Shell {
                 }
             })
             .detach();
+        }
+    }
+
+    /// The editor the writer was last in, if it is still open.
+    pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
+        self.active_editor.as_ref().and_then(WeakEntity::upgrade)
+    }
+
+    /// ⌘S: save, then build, as the Tauri app's "Save and build" does; only
+    /// a save when there is no document to build. A build under way queues
+    /// the next one, which would save only once it starts, so the save is
+    /// made now.
+    fn save_all(&mut self, _: &Save, window: &mut Window, cx: &mut Context<Self>) {
+        let build = self.has_document(cx);
+        if !build || self.build_task.is_some() {
+            self.save_in_background(cx);
+        }
+        if build {
+            self.run_build(BuildRequest::requested(), window, cx);
         }
     }
 
@@ -667,57 +797,61 @@ impl Shell {
     /// Whether the build panel is anywhere in the dock area (it can be
     /// dragged out of the bottom dock).
     pub fn build_panel_shown(&self, cx: &App) -> bool {
-        self.dock_area
-            .read(cx)
-            .panel(PanelId::from(self.build_panel.entity_id()))
-            .is_some()
+        self.panel_shown(PanelId::from(self.build_panel.entity_id()), cx)
     }
 
-    /// Add the build panel to the bottom dock, or take it out of wherever it
-    /// is. Only the build panel moves: anything else dragged into the bottom
-    /// dock stays. A closed bottom dock would keep a strip of its tabs on
-    /// screen, which the Tauri app does not have, so a bottom dock is made
-    /// for the panel and taken away once nothing is left in it.
+    /// Show the build panel under the editors, or take it out of wherever it
+    /// is. A closed bottom dock would keep a strip of its tabs on screen,
+    /// which the Tauri app does not have, so a bottom dock is made for the
+    /// panel and taken away once nothing is left in it.
     pub fn show_build_panel(&mut self, shown: bool, window: &mut Window, cx: &mut Context<Self>) {
         if shown == self.build_panel_shown(cx) {
             return;
         }
-        let build = self.build_panel.clone();
-        self.dock_area.update(cx, |area, cx| {
-            if !shown {
-                area.remove_panel(build, window, cx);
-                if area
-                    .layout(DockPlacement::Bottom)
-                    .is_some_and(|tree| tree.panels().next().is_none())
-                {
-                    area.remove_dock(DockPlacement::Bottom, window, cx);
-                }
-            } else if area.has_dock(DockPlacement::Bottom) {
-                area.add_panel_view(panel_handle(build), DockPlacement::Bottom, None, window, cx);
-            } else {
-                area.set_dock(
-                    DockPlacement::Bottom,
-                    DockLayout::v_split()
-                        .child(DockLayout::tabs().panel_view(panel_handle(build), cx), None),
-                    window,
-                    cx,
-                );
-                area.set_dock_size(DockPlacement::Bottom, px(BUILD_DOCK), window, cx);
-            }
-        });
+        if shown {
+            self.show_view(layout::View::Build, window, cx);
+        } else {
+            self.hide_view(&layout::View::Build, window, cx);
+        }
         cx.notify();
     }
 
-    fn toggle_dock(
-        &mut self,
-        placement: DockPlacement,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.dock_area
-            .update(cx, |area, cx| area.toggle_dock(placement, window, cx));
-        cx.notify();
+    /// The workspace area's size, for arrangements laid out to the window.
+    pub(crate) fn room(&self, window: &Window) -> layout::Room {
+        let size = window.viewport_size();
+        layout::Room::for_window(size.width, size.height)
     }
+}
+
+/// A new window's size: 1440×900, or `LATTICE_WINDOW_SIZE` (`1015x680`), which
+/// lets a run lay the window out as a smaller screen would (GitHub's runners
+/// shrink the window to about 1015px wide).
+fn window_size() -> gpui::Size<gpui::Pixels> {
+    std::env::var("LATTICE_WINDOW_SIZE")
+        .ok()
+        .and_then(|value| {
+            let (width, height) = value.split_once('x')?;
+            Some(size(
+                px(width.trim().parse().ok()?),
+                px(height.trim().parse().ok()?),
+            ))
+        })
+        .unwrap_or_else(|| size(px(1440.), px(900.)))
+}
+
+/// The name of a project as its tab shows it: the name in its manifest,
+/// else the folder's.
+fn project_display_name(root: &Path) -> SharedString {
+    lattice_core::project::read_manifest(root)
+        .ok()
+        .map(|manifest| manifest.name)
+        .filter(|name| !name.is_empty())
+        .or_else(|| {
+            root.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_default()
+        .into()
 }
 
 #[cfg(target_os = "macos")]
@@ -746,7 +880,7 @@ impl Focusable for Shell {
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        v_flex()
+        let shell = v_flex()
             .id("lattice-shell")
             .key_context("LatticeShell")
             .track_focus(&self.focus_handle)
@@ -761,17 +895,8 @@ impl Render for Shell {
             .on_action(cx.listener(Self::next_problem))
             .on_action(cx.listener(Self::previous_problem))
             .on_action(cx.listener(Self::open_tex_doctor))
-            .on_action(cx.listener(Self::install_latex_tools))
-            .on_action(cx.listener(|this, _: &ToggleProjectPanel, window, cx| {
-                this.toggle_dock(DockPlacement::Left, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &TogglePdfPanel, window, cx| {
-                this.toggle_dock(DockPlacement::Right, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
-                let shown = this.build_panel_shown(cx);
-                this.show_build_panel(!shown, window, cx)
-            }))
+            .on_action(cx.listener(Self::install_latex_tools));
+        self.register_commands(shell, cx)
             .relative()
             .size_full()
             .bg(palette.window)
@@ -779,6 +904,7 @@ impl Render for Shell {
             .child(crate::titlebar::render(self, window, cx))
             .child(
                 div()
+                    .relative()
                     .flex_1()
                     .min_h_0()
                     .bg(palette.chrome)
@@ -786,8 +912,15 @@ impl Render for Shell {
                     .px(px(WORKSPACE_SIDE))
                     .pb(px(WORKSPACE_SIDE))
                     .children(lattice_ui::parity::probe("workspace"))
-                    .child(self.dock_area.clone()),
+                    .child(self.dock_area.clone())
+                    .when(
+                        self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
+                        |this| this.child(arrange::empty_center(self, cx)),
+                    )
+                    .children(self.floating.render(self.floating_area(window), cx)),
             )
+            .children(self.palette.clone())
+            .children(self.shortcuts.clone())
             .child(self.notices.clone())
             .child(self.tex_setup.clone())
             .child(self.confirm.clone())
