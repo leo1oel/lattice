@@ -26,6 +26,8 @@ use super::{
     BibEditor,
     model::{self, Draft, QueryFill},
 };
+
+mod venue;
 use crate::search::sheet::SheetFrame;
 
 /// The types the form offers, as BibTeX writes them.
@@ -87,6 +89,10 @@ pub struct AddReference {
     lookup: Entity<InputState>,
     inputs: Vec<(Field, Entity<InputState>)>,
     entry_type: String,
+    /// The journal and booktitle the Venue box edits, and its suggestions.
+    venue: venue::VenueSlots,
+    venue_open: bool,
+    venue_active: Option<usize>,
     show_fields: bool,
     resolving: bool,
     candidates: Vec<ResolvedCitation>,
@@ -129,14 +135,18 @@ impl AddReference {
             })
             .collect();
         for (field, input) in &inputs {
-            let venue = *field == Field::Venue;
-            subscriptions.push(cx.observe(input, move |this, input, cx| {
-                if venue {
-                    this.entry_type =
-                        model::venue_type(&this.entry_type, &input.read(cx).value()).to_string();
-                }
-                cx.notify()
-            }));
+            subscriptions.push(cx.observe(input, |_, _, cx| cx.notify()));
+            if *field == Field::Venue {
+                subscriptions.push(cx.subscribe(
+                    input,
+                    |this, _, event: &InputEvent, cx| match event {
+                        InputEvent::Change => this.venue_typed(cx),
+                        InputEvent::Focus => this.set_venue_open(true, cx),
+                        InputEvent::Blur => this.set_venue_open(false, cx),
+                        InputEvent::PressEnter { .. } => {}
+                    },
+                ));
+            }
         }
         Self {
             target,
@@ -144,6 +154,9 @@ impl AddReference {
             lookup,
             inputs,
             entry_type: "article".into(),
+            venue: Default::default(),
+            venue_open: false,
+            venue_active: None,
             show_fields: false,
             resolving: false,
             candidates: Vec::new(),
@@ -174,23 +187,14 @@ impl AddReference {
     }
 
     fn draft(&self, cx: &gpui::App) -> Draft {
-        let venue = self.value(Field::Venue, cx);
         Draft {
             entry_type: self.entry_type.clone(),
             key: self.value(Field::Key, cx),
             title: self.value(Field::Title, cx),
             author: self.value(Field::Author, cx),
             year: self.value(Field::Year, cx),
-            journal: if self.entry_type == "article" {
-                venue.clone()
-            } else {
-                String::new()
-            },
-            booktitle: if self.entry_type == "article" {
-                String::new()
-            } else {
-                venue
-            },
+            journal: self.venue.journal.clone(),
+            booktitle: self.venue.booktitle.clone(),
             publisher: self.value(Field::Publisher, cx),
             url: self.value(Field::Url, cx),
             doi: self.value(Field::Doi, cx),
@@ -260,11 +264,11 @@ impl AddReference {
         } else {
             "misc".into()
         };
-        let venue = if self.entry_type == "article" {
-            record.journal.clone()
-        } else {
-            record.booktitle.clone()
+        self.venue = venue::VenueSlots {
+            journal: record.journal.clone(),
+            booktitle: record.booktitle.clone(),
         };
+        let venue = self.venue.get(&self.entry_type).to_string();
         for (field, value) in [
             (Field::Title, record.title.clone()),
             (Field::Author, record.author.clone()),
@@ -662,26 +666,13 @@ impl Render for AddReference {
                     let view = view.clone();
                     let choice = *choice;
                     menu.item(
-                        MenuAction::new(type_label(choice), move |_, cx| {
-                            view.update(cx, |this, cx| {
-                                this.entry_type = choice.into();
-                                cx.notify();
-                            })
-                            .ok();
+                        MenuAction::new(type_label(choice), move |window, cx| {
+                            view.update(cx, |this, cx| this.set_type(choice, window, cx))
+                                .ok();
                         })
                         .checked(choice == kind),
                     )
                 })
-            };
-            let venue_label = if self.entry_type == "book" {
-                t!("Publisher")
-            } else {
-                t!("Venue")
-            };
-            let venue_field = if self.entry_type == "book" {
-                Field::Publisher
-            } else {
-                Field::Venue
             };
             body.push(self.typeset(cx));
             body.push(
@@ -699,7 +690,11 @@ impl Render for AddReference {
                             .flex_wrap()
                             .gap(px(10.))
                             .child(self.field(Field::Year, t!("Year"), cx))
-                            .child(self.field(venue_field, venue_label, cx)),
+                            .child(if self.entry_type == "book" {
+                                self.field(Field::Publisher, t!("Publisher"), cx)
+                            } else {
+                                self.venue_field(cx)
+                            }),
                     )
                     .child(
                         div()
