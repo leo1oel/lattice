@@ -174,8 +174,7 @@ fn failure_line(error: &str) -> Option<String> {
     error
         .trim()
         .lines()
-        .filter(|line| !line.trim().is_empty())
-        .last()
+        .rfind(|line| !line.trim().is_empty())
         .map(|line| line.trim_start_matches("Error:").trim().to_string())
 }
 
@@ -199,14 +198,8 @@ impl PapersPanel {
         let data_dir = requests
             .iter()
             .find_map(|request| request.zotero.as_ref()?.data_dir.clone());
-        let annotations_read: Arc<
-            std::sync::OnceLock<
-                Result<
-                    std::collections::HashMap<String, Vec<lattice_core::zotero::ZoteroAnnotation>>,
-                    String,
-                >,
-            >,
-        > = Arc::new(std::sync::OnceLock::new());
+        let annotations_read: Arc<std::sync::OnceLock<Result<Annotations, String>>> =
+            Arc::new(std::sync::OnceLock::new());
         let labels = super::zotero::notes::Labels {
             heading: t!("Zotero annotations").to_string(),
             page: t!("p. {page}").to_string(),

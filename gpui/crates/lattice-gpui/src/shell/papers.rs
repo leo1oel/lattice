@@ -32,7 +32,7 @@ impl Shell {
                     self.open_path(root.join(path), *line, window, cx);
                 }
             }
-            PapersEvent::Read(paper) => self.open_reader(paper.clone(), window, cx),
+            PapersEvent::Read(paper) => self.open_reader((**paper).clone(), window, cx),
             PapersEvent::AddPapers(seed) => self.open_add_papers(seed.clone(), window, cx),
             PapersEvent::SearchLiterature(query) => self.open_literature(query.clone(), window, cx),
             PapersEvent::CheckReferences => self.open_audit(window, cx),

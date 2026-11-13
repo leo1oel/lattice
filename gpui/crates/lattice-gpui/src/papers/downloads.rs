@@ -209,7 +209,7 @@ impl PapersPanel {
                     path: hit.path.clone(),
                     line: Some(hit.line),
                 },
-                None => PapersEvent::Read(paper.clone()),
+                None => PapersEvent::Read(Box::new(paper.clone())),
             });
         } else if model::can_download(paper) {
             self.fetch(paper.clone(), cx);
@@ -306,7 +306,7 @@ impl PapersPanel {
                         paper.arxiv_id = fetched.arxiv_id.clone();
                         paper.has_full_text = !fetched.paper_path.is_empty();
                         paper.has_blog = fetched.blog_path.is_some();
-                        cx.emit(PapersEvent::Read(paper));
+                        cx.emit(PapersEvent::Read(Box::new(paper)));
                     }
                     (None, Some(path)) => cx.emit(PapersEvent::Open { path, line: None }),
                     (_, None) => {}
