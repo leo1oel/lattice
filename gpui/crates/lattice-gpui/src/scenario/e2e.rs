@@ -11,6 +11,7 @@ use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
 mod build_flow;
+mod documents;
 mod editor_adapter;
 mod saves;
 
@@ -241,6 +242,7 @@ impl Run {
         self.editor_adapter(cx, &mut steps, &root).await?;
 
         self.tree_operations(cx, &mut steps, &root).await?;
+        self.documents_and_project(cx, &mut steps, &root).await?;
 
         // Docking: drag an editor tab out of the center into the right dock,
         // beside the PDF, with native mouse events. (The shell steps after

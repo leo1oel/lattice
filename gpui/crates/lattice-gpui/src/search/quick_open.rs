@@ -170,15 +170,6 @@ impl QuickOpen {
         self.input.update(cx, |input, cx| input.focus(window, cx));
     }
 
-    /// Type `query` into the field, as the keyboard would, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn set_query(&mut self, query: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.input.update(cx, |input, cx| {
-            input.set_value(query.to_string(), window, cx)
-        });
-        self.search(cx);
-    }
-
     /// The rows' text as the list shows them (`name folder tag`), for a
     /// scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]

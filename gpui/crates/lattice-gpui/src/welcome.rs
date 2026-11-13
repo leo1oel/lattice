@@ -124,12 +124,6 @@ impl Welcome {
             .map(|project| project.name)
             .collect()
     }
-
-    /// The unopened project's message, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn unopened_message(&self) -> Option<String> {
-        self.unopened.as_ref().map(unopened_message)
-    }
 }
 
 /// The folder is gone (lattice-core's not-found errors), or it failed for

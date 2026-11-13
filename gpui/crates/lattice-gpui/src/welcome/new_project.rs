@@ -100,18 +100,6 @@ impl NewProjectDialog {
             venue: VENUES[self.venue].0,
         });
     }
-
-    /// Fill the form and create, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn submit(&mut self, name: &str, venue: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.name.update(cx, |input, cx| {
-            input.set_value(name.to_string(), window, cx)
-        });
-        if let Some(ix) = VENUES.iter().position(|(id, _)| *id == venue) {
-            self.venue = ix;
-        }
-        self.create(cx);
-    }
 }
 
 /// Create the project in `parent` from the venue, with lattice-core.

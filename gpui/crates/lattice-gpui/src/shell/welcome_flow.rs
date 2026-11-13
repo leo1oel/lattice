@@ -141,7 +141,7 @@ impl Shell {
             &dialog,
             window,
             |this, dialog, event, window, cx| match event {
-                NewProjectEvent::Dismiss => this.close_new_project(window, cx),
+                NewProjectEvent::Dismiss => this.dismiss_new_project(window, cx),
                 NewProjectEvent::Create { name, venue } => {
                     this.create_project(dialog.clone(), name.clone(), venue, window, cx)
                 }
@@ -153,7 +153,7 @@ impl Shell {
         cx.notify();
     }
 
-    fn close_new_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn dismiss_new_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.lobby.new_project = None;
         match &self.lobby.welcome {
             Some(welcome) => window.focus(&welcome.focus_handle(cx), cx),

@@ -327,15 +327,6 @@ impl ProjectFind {
         self.query_changed(cx);
     }
 
-    /// Type `query`, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn set_query(&mut self, query: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.input.update(cx, |input, cx| {
-            input.set_value(query.to_string(), window, cx)
-        });
-        self.query_changed(cx);
-    }
-
     /// The hits shown, as `path:line`, once the search answered; `None`
     /// while it runs, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
