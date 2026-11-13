@@ -156,6 +156,14 @@ impl EditorPanel {
         bib
     }
 
+    /// The file moved: the form names it where it is now.
+    pub(super) fn bib_moved(&mut self, cx: &mut Context<Self>) {
+        if let Some(bib) = &self.bib.editor {
+            let relative = self.relative.clone();
+            bib.update(cx, |bib, _| bib.set_path(relative));
+        }
+    }
+
     pub(super) fn bib_source_focused(&mut self, focused: bool) {
         self.bib.source_focused = focused;
     }

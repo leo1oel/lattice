@@ -524,6 +524,7 @@ impl EditorPanel {
             ));
         }
         self.relative = relative;
+        self.bib_moved(cx);
         // The spell check follows the file, or starts once it is prose.
         match &self.spelling {
             Some(spelling) => {

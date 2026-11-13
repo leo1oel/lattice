@@ -103,6 +103,21 @@ pub struct Row {
     pub error: Option<String>,
 }
 
+impl Row {
+    /// What the import is given when the writer adds now: a new reference's
+    /// input, or an identifier still being looked up, which its import
+    /// resolves anyway; a title waits, as it may need a choice.
+    pub fn addable(&self) -> Option<String> {
+        match self.state {
+            RowState::New => self.import_input.clone(),
+            RowState::Resolving if self.reference.kind != ReferenceKind::Title => {
+                Some(self.reference.input.clone())
+            }
+            _ => None,
+        }
+    }
+}
+
 pub struct AddPapers {
     papers: Entity<PapersPanel>,
     text: Entity<TextareaState>,
@@ -375,11 +390,10 @@ impl AddPapers {
         let requests: Vec<BatchRequest> = self
             .rows(cx)
             .into_iter()
-            .filter(|row| row.state == RowState::New)
             .filter_map(|row| {
                 Some(BatchRequest {
+                    input: row.addable()?,
                     id: row.reference.id.clone(),
-                    input: row.import_input?,
                     label: row.title,
                     zotero: None,
                 })

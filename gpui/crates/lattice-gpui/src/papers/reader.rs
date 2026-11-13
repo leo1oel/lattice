@@ -123,13 +123,14 @@ impl PaperReader {
         let changed = texts != (self.paper.has_full_text, self.paper.has_blog);
         self.paper = paper;
         if changed {
-            // A download left a full text where only the overview was.
-            self.view = if self.paper.has_full_text {
+            // A download left a full text where only the overview was; the
+            // view on screen stays where the writer is in it.
+            let view = if self.paper.has_full_text {
                 ReaderView::FullText
             } else {
                 ReaderView::Overview
             };
-            self.read(cx);
+            self.show(view, cx);
         }
         cx.notify();
     }

@@ -692,6 +692,7 @@ impl Render for Audit {
         let mut actions: Vec<AnyElement> = vec![div().flex_1().into_any_element()];
         actions.push(
             Button::new("audit-close", t!("Close"))
+                .disabled(self.applying)
                 .on_click(cx.listener(|this, _, _, cx| this.close(cx)))
                 .into_any_element(),
         );
@@ -702,7 +703,7 @@ impl Render for Audit {
             title: t!("Check references"),
             body,
             actions,
-            scrim_closes: !self.busy,
+            scrim_closes: !self.busy && !self.applying,
         }
         .render(window, cx, move |_, cx| {
             view.update(cx, |this, cx| this.close(cx)).ok();

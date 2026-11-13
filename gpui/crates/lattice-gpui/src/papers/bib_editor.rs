@@ -259,6 +259,11 @@ impl BibEditor {
         this
     }
 
+    /// The file moved to the project-relative `path`.
+    pub fn set_path(&mut self, path: String) {
+        self.path = path;
+    }
+
     /// The library the references open their papers from; its every new
     /// scan of the manuscript's citations is read here too.
     pub fn set_papers(&mut self, papers: Entity<PapersPanel>, cx: &mut Context<Self>) {
@@ -376,6 +381,11 @@ impl BibEditor {
     }
 
     pub(super) fn select(&mut self, key: String, open: bool, cx: &mut Context<Self>) {
+        // The source's offsets, not those of a parse it has moved past.
+        if self.parsed_edits != self.edits {
+            let text = self.buffer.read(cx).text();
+            self.apply_parse(parse_rows(text), self.edits, cx);
+        }
         if let Some(row) = self.rows.iter().find(|row| row.entry.key == key) {
             cx.emit(BibEditorEvent::Picked {
                 from: row.entry.from,

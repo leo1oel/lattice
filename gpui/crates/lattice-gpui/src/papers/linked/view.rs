@@ -387,7 +387,11 @@ impl LinkedLibrary {
         cx.notify();
     }
 
+    /// Closing waits for a write under way to land.
     fn close(&mut self, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
         cx.emit(LinkedLibraryEvent::Dismiss);
     }
 }
@@ -713,6 +717,7 @@ impl Render for LinkedLibrary {
                 .into_any_element(),
             Button::new("linked-cancel", t!("Cancel"))
                 .ghost()
+                .disabled(self.busy)
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.close(cx)))
                 .into_any_element(),
         ];
@@ -732,7 +737,7 @@ impl Render for LinkedLibrary {
             title: t!("Linked library"),
             body,
             actions,
-            scrim_closes: changes == 0,
+            scrim_closes: changes == 0 && !self.busy,
         }
         .render(window, cx, move |_, cx| {
             view.update(cx, |this, cx| this.close(cx)).ok();

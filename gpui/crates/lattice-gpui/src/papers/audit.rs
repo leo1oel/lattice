@@ -171,7 +171,7 @@ pub struct Audit {
     pub(super) applying: bool,
     pub(super) error: Option<String>,
     pub(super) view: Option<Bucket>,
-    /// The reference whose finding is open; `set_entries` keeps it on the
+    /// The reference whose finding is open; `set_scan` keeps it on the
     /// same reference when a rescan renumbers them.
     pub(super) open: Option<usize>,
     pub(super) scroll: ScrollHandle,
@@ -238,12 +238,7 @@ impl Audit {
                 this.loading = false;
                 match read {
                     Ok((scan, saved)) => {
-                        this.coverage = scan
-                            .coverage
-                            .iter()
-                            .map(|file| (file.path.clone(), file.kind.to_string(), file.entries))
-                            .collect();
-                        this.set_entries(scan.entries);
+                        this.set_scan(scan);
                         this.carry_over(&report::read(saved), true);
                     }
                     Err(error) => this.error = Some(error),
@@ -354,7 +349,7 @@ impl Audit {
                 }
                 match scan {
                     Ok(scan) => {
-                        this.set_entries(scan.entries);
+                        this.set_scan(scan);
                         this.carry_over(&saved, false);
                         cx.notify();
                         Some(
@@ -619,9 +614,14 @@ impl Audit {
         cx.notify();
     }
 
-    /// A fresh scan's references: the open one stays open by its file, key
-    /// and place among references sharing both.
-    fn set_entries(&mut self, entries: Vec<AuditEntry>) {
+    /// A fresh scan's references and the files they came from: the open one
+    /// stays open by its file, key and place among references sharing both.
+    fn set_scan(&mut self, scan: citation_audit::AuditScan) {
+        self.coverage = scan
+            .coverage
+            .iter()
+            .map(|file| (file.path.clone(), file.kind.to_string(), file.entries))
+            .collect();
         let open = self.open.and_then(|index| {
             let key = audit_key(self.entries.get(index)?);
             let nth = self.entries[..index]
@@ -630,7 +630,7 @@ impl Audit {
                 .count();
             Some((key, nth))
         });
-        self.entries = entries;
+        self.entries = scan.entries;
         self.open = open.and_then(|(key, nth)| {
             self.entries
                 .iter()
@@ -651,8 +651,11 @@ impl Audit {
     }
 
     /// A check under way stops with the sheet; what it found was saved as
-    /// it came in.
+    /// it came in. Fixes being written keep it open until they land.
     pub(super) fn close(&mut self, cx: &mut Context<Self>) {
+        if self.applying {
+            return;
+        }
         self.generation += 1;
         cx.emit(AuditEvent::Dismiss);
     }

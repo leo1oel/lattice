@@ -396,7 +396,11 @@ impl Render for AddPapers {
                         .unwrap_or_else(|| Row {
                             reference: crate::papers::model::PastedReference {
                                 id: item.id.clone(),
-                                kind: crate::papers::model::ReferenceKind::Title,
+                                kind: if item.id.starts_with("zotero:") {
+                                    crate::papers::model::ReferenceKind::Bibtex
+                                } else {
+                                    crate::papers::model::ReferenceKind::Title
+                                },
                                 input: item.input.clone(),
                                 label: item.label.clone(),
                                 record: None,
@@ -505,7 +509,7 @@ impl Render for AddPapers {
         }
 
         let count = |state: RowState| rows.iter().filter(|row| row.state == state).count();
-        let addable = count(RowState::New);
+        let addable = rows.iter().filter(|row| row.addable().is_some()).count();
         let done = batch
             .iter()
             .filter(|item| item.state == ItemState::Added)

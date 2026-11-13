@@ -413,7 +413,7 @@ impl Shell {
     }
 
     /// The panel a new document joins (`use-tab-sync.ts`): in the Reading
-    /// layout, its side (papers with the library, the rest with the notes);
+    /// and Bibliography layouts, its side (papers with the library, the rest with the notes);
     /// otherwise the active document's panel, else an empty document slot
     /// on screen, else any document panel.
     fn document_anchor(&self, key: &str, cx: &App) -> Option<String> {
@@ -424,7 +424,10 @@ impl Shell {
                 .map(|(_, panel, _)| panel)
         };
         let files = || doc.views.iter().filter(|(_, view)| view.kind == "file");
-        if self.layout.preset.as_ref().map(|active| active.preset) == Some(Preset::Reading) {
+        if matches!(
+            self.layout.preset.as_ref().map(|active| active.preset),
+            Some(Preset::Reading | Preset::Bibliography)
+        ) {
             let reading = is_reading(key);
             if reading && let Some(library) = shown("papers") {
                 return Some(library);

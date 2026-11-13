@@ -220,6 +220,7 @@ impl AddReference {
         let generation = self.generation;
         self.resolving = true;
         self.error = None;
+        self.extra.clear();
         let lookup = cx
             .background_spawn(async move { lattice_core::project::resolve_citation_query(&query) });
         self._lookup = Some(cx.spawn_in(window, async move |this, cx| {
@@ -293,6 +294,7 @@ impl AddReference {
     /// says about the work fills the fields still empty.
     fn enter_manually(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.abandon(cx);
+        self.extra.clear();
         let query = self.lookup.read(cx).value().to_string();
         let field = model::fields_from_query(&query).map(|fill| match fill {
             QueryFill::Doi(doi) => (Field::Doi, doi),
@@ -441,15 +443,12 @@ impl AddReference {
         let unfilled = palette.text_secondary.opacity(0.6);
         let title = bib_text_to_plain(draft.title.trim());
         let authors = draft.author.trim().replace(" and ", ", ");
-        let venue = if draft.entry_type == "book" {
-            bib_text_to_plain(&draft.publisher)
-        } else {
-            bib_text_to_plain(if draft.entry_type == "article" {
-                &draft.journal
-            } else {
-                &draft.booktitle
-            })
-        };
+        let venue = bib_text_to_plain(match draft.entry_type.as_str() {
+            "article" => &draft.journal,
+            "inproceedings" => &draft.booktitle,
+            "book" => &draft.publisher,
+            _ => "",
+        });
         let year = draft.year.trim().to_string();
         let doi = draft.doi();
         let mut tail = vec![venue.clone(), year.clone()]
