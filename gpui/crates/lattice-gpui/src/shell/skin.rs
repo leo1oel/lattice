@@ -8,24 +8,25 @@
 //!
 //! The content is the window's own panels (`views::Registry`), drawn as
 //! GPUI Kit panels: a panel's tab name, icon, unsaved dot and header tools
-//! come from it, as do the items its ⋯ menu leads with. A panel's spare
+//! come from it, as do the items its ⋯ menu leads with. Both the ⋯ button
+//! and a right click on a tab open Lattice's menu (`components::Menu`,
+//! design call 4). A panel's spare
 //! tools (a .tex file's Source / Visual switch) show before its own only
 //! while the header has room for them (`HeaderTools::Named`).
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use gpui::{
-    Anchor, AnyElement, AnyView, App, DismissEvent, Empty, Entity, IntoElement, ParentElement as _,
-    Pixels, Point, Styled as _, Subscription, Window, anchored, canvas, deferred, div,
-    prelude::FluentBuilder as _, px,
+    Anchor, AnyElement, AnyView, App, Empty, Entity, IntoElement, ParentElement as _, Pixels,
+    Point, Styled as _, Window, canvas, div, prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::{
-    dock::PanelHandle,
-    menu::{DropdownMenu as _, PopupMenu, PopupMenuItem},
-};
+use gpui_kit::component::dock::PanelHandle;
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, Palette, TextRole, TextRoleStyle as _,
-    components::{IconButton, PanelTab, Surface, TAB_RADIUS, TabFit},
+    components::{
+        ContextMenu, IconButton, Menu, MenuAction as Item, MenuPopover, PanelTab, Surface,
+        TAB_RADIUS, TabFit,
+    },
     dock::{PANEL_RADIUS, TabIcon, TabLook, TabPresenter, strip},
     elevation::panel_ring,
     icons::{ICON, file_glyph},
@@ -47,18 +48,12 @@ const TAB_GAP: f64 = 2.;
 /// A document's tab at most (trellis.css's `max-width`).
 const TAB_MAX: f32 = 200.;
 
-/// A menu opened by a right click, and what closes it.
-struct OpenMenu {
-    position: Point<Pixels>,
-    menu: Entity<PopupMenu>,
-    _dismiss: Subscription,
-}
-
 pub struct LatticeSkin {
     views: Registry,
     /// Each panel's header tools as last laid out.
     tools: Rc<RefCell<HashMap<String, f32>>>,
-    menu: Rc<RefCell<Option<OpenMenu>>>,
+    /// The menu a right click on a tab opens, as the overlay last kept it.
+    menu: Rc<RefCell<Option<Entity<ContextMenu<PanelMenu>>>>>,
 }
 
 impl LatticeSkin {
@@ -128,12 +123,10 @@ fn item_icon(id: &str, label: &str) -> Option<Icon> {
 
 /// The engine's entries as menu items, each running its action.
 fn add_entries(
-    mut menu: PopupMenu,
+    mut menu: Menu,
     entries: Vec<MenuEntry>,
     run: &Rc<dyn Fn(&MenuAction, &mut Window, &mut App)>,
-    window: &mut Window,
-    cx: &mut gpui::Context<PopupMenu>,
-) -> PopupMenu {
+) -> Menu {
     for entry in entries {
         let item = match entry {
             MenuEntry::Separator => {
@@ -142,29 +135,43 @@ fn add_entries(
             }
             MenuEntry::Item(item) => item,
         };
-        let icon = item_icon(&item.id, &item.label).map(Icon::kit);
+        let icon = item_icon(&item.id, &item.label);
         if !item.items.is_empty() {
             let run = run.clone();
             let items = item.items.clone();
-            menu = menu.submenu_with_icon(
-                icon,
-                item.label.clone(),
-                window,
-                cx,
-                move |submenu, window, cx| add_entries(submenu, items.clone(), &run, window, cx),
-            );
+            menu = menu.submenu(item.label.clone(), icon, move |submenu, _, _| {
+                add_entries(submenu, items.clone(), &run)
+            });
             continue;
         }
-        let Some(action) = item.action.clone() else {
-            menu = menu.item(PopupMenuItem::new(item.label.clone()).disabled(true));
-            continue;
+        let entry = match item.action.clone() {
+            Some(action) => {
+                let run = run.clone();
+                Item::new(item.label.clone(), move |window, cx| {
+                    run(&action, window, cx)
+                })
+            }
+            None => Item::new(item.label.clone(), |_, _| {}).disabled(true),
         };
-        let run = run.clone();
-        menu = menu.item(
-            PopupMenuItem::new(item.label.clone())
-                .when_some(icon, |item, icon| item.icon(icon))
-                .on_click(move |_, window, cx| run(&action, window, cx)),
-        );
+        menu = menu.item(match icon {
+            Some(icon) => entry.icon(icon),
+            None => entry,
+        });
+    }
+    menu
+}
+
+/// The items a panel's ⋯ menu leads with, for the view it shows: the
+/// editor's Build and Vim mode, the PDF's zoom, the Project tree's New file.
+fn own_items(menu: Menu, view: &AnyView, cx: &App) -> Menu {
+    if let Ok(tree) = view.clone().downcast::<crate::file_tree::FileTreePanel>() {
+        return crate::file_tree::FileTreePanel::background_menu(&tree.downgrade(), menu, cx);
+    }
+    if let Ok(editor) = view.clone().downcast::<crate::editor_panel::EditorPanel>() {
+        return editor.read(cx).panel_menu(menu, cx);
+    }
+    if let Ok(pdf) = view.clone().downcast::<crate::pdf::PdfPanel>() {
+        return crate::pdf::PdfPanel::panel_menu(&pdf, menu, cx);
     }
     menu
 }
@@ -172,24 +179,16 @@ fn add_entries(
 impl LatticeSkin {
     /// A panel's whole menu: its selected view's own items, then the
     /// workspace's (Maximize, Float or Dock, Move to, Hide, Close).
-    fn build_menu(
-        views: &Registry,
-        request: &PanelMenu,
-        menu: PopupMenu,
-        window: &mut Window,
-        cx: &mut gpui::Context<PopupMenu>,
-    ) -> PopupMenu {
+    fn build_menu(views: &Registry, request: &PanelMenu, menu: Menu, cx: &App) -> Menu {
         let selected = (request.selected)(cx).unwrap_or_default();
         let panel = views.borrow().get(&selected).cloned();
-        let mut menu = match panel.as_ref().and_then(PanelHandle::of) {
-            Some(handle) => handle.panel().dropdown_menu(menu, window, cx),
+        let menu = match panel {
+            Some(panel) => own_items(menu, &panel.view(), cx),
             None => menu,
-        };
-        if !menu.is_empty() {
-            menu = menu.separator();
         }
+        .separator();
         let built_ins = (request.built_ins)(cx);
-        add_entries(menu, built_ins, &request.run, window, cx)
+        add_entries(menu, built_ins, &request.run)
     }
 }
 
@@ -338,16 +337,16 @@ impl Skin for LatticeSkin {
             self.tools.borrow_mut().insert(panel.id.clone(), 0.);
         }
         let views = self.views.clone();
-        let button = IconButton::new(
-            ("lattice-panel-menu", crate::shell::skin::hash(&panel.id)),
-            Icon::DOTS,
+        let id = crate::shell::skin::hash(&panel.id);
+        let button = MenuPopover::new(
+            ("lattice-panel-menu-popover", id),
+            IconButton::new(("lattice-panel-menu", id), Icon::DOTS)
+                .frame(strip::MENU_WIDTH, px(28.))
+                .radius(TAB_RADIUS)
+                .surface(surface_kind),
+            move |popup, _, cx| Self::build_menu(&views, &menu, popup, cx),
         )
-        .frame(strip::MENU_WIDTH, px(28.))
-        .radius(TAB_RADIUS)
-        .surface(surface_kind)
-        .dropdown_menu_with_anchor(Anchor::TopRight, move |popup, window, cx| {
-            Self::build_menu(&views, &menu, popup, window, cx)
-        });
+        .anchor(Anchor::TopRight);
         StripEnd {
             accessories,
             menu: Some(button.into_any_element()),
@@ -361,27 +360,13 @@ impl Skin for LatticeSkin {
         window: &mut Window,
         cx: &mut App,
     ) {
-        let views = self.views.clone();
-        let state = self.menu.clone();
-        // The selected view once the right click has selected its tab.
+        let Some(menu) = self.menu.borrow().clone() else {
+            return;
+        };
+        // The selected view once the right click has selected its tab: the
+        // menu reads it when it builds.
         window.defer(cx, move |window, cx| {
-            let menu = PopupMenu::build(window, cx, move |popup, window, cx| {
-                Self::build_menu(&views, &request, popup, window, cx)
-            });
-            gpui::Focusable::focus_handle(menu.read(cx), cx).focus(window, cx);
-            let weak = Rc::downgrade(&state);
-            let dismiss = window.subscribe(&menu, cx, move |_, _: &DismissEvent, window, _| {
-                if let Some(state) = weak.upgrade() {
-                    state.borrow_mut().take();
-                    window.refresh();
-                }
-            });
-            *state.borrow_mut() = Some(OpenMenu {
-                position,
-                menu,
-                _dismiss: dismiss,
-            });
-            window.refresh();
+            menu.update(cx, |menu, cx| menu.open(position, request, window, cx));
         });
     }
 
@@ -500,27 +485,13 @@ impl Skin for LatticeSkin {
         parity_probe("strip", panel)
     }
 
-    fn overlay(&self, window: &mut Window, _: &mut App) -> Option<AnyElement> {
-        let state = self.menu.borrow();
-        let open = state.as_ref()?;
-        Some(
-            deferred(
-                anchored().child(
-                    div()
-                        .w(window.bounds().size.width)
-                        .h(window.bounds().size.height)
-                        .child(
-                            anchored()
-                                .position(open.position)
-                                .snap_to_window_with_margin(px(8.))
-                                .anchor(Anchor::TopLeft)
-                                .child(open.menu.clone()),
-                        ),
-                ),
-            )
-            .with_priority(1)
-            .into_any_element(),
-        )
+    fn overlay(&self, window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+        let menu = ContextMenu::<PanelMenu>::keyed("lattice-panel-context-menu", window, cx);
+        *self.menu.borrow_mut() = Some(menu.clone());
+        let views = self.views.clone();
+        ContextMenu::layer(&menu, window, cx, move |menu, request, _, cx| {
+            Self::build_menu(&views, request, menu, cx)
+        })
     }
 }
 

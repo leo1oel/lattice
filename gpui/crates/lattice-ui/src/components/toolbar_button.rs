@@ -130,8 +130,6 @@ impl Selectable for ToolbarButton {
     }
 }
 
-impl gpui_kit::component::menu::DropdownMenu for ToolbarButton {}
-
 impl RenderOnce for ToolbarButton {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();

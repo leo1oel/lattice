@@ -28,7 +28,7 @@ use windows::Win32::{
         },
         WindowsAndMessaging::{
             PostMessageW, SendMessageW, SetForegroundWindow, WM_CLOSE, WM_KEYDOWN, WM_KEYUP,
-            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE,
+            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_RBUTTONDOWN, WM_RBUTTONUP,
         },
     },
 };
@@ -39,6 +39,8 @@ pub const QUEUE_SETTLE: Duration = Duration::from_millis(50);
 
 /// `MK_LBUTTON` in a mouse message's `wParam`: the left button is down.
 const LEFT_BUTTON_DOWN: usize = 0x0001;
+/// `MK_RBUTTON`: the right button is down.
+const RIGHT_BUTTON_DOWN: usize = 0x0002;
 /// The high bit of a key's entry in the keyboard state: the key is down.
 const KEY_DOWN_STATE: u8 = 0x80;
 
@@ -133,6 +135,9 @@ pub fn release_keys() -> Result<()> {
 pub enum Mouse {
     Down,
     Up,
+    /// The right button, which opens a context menu.
+    RightDown,
+    RightUp,
     /// The pointer moving with no button held, as for a hover.
     Moved,
     Dragged,
@@ -145,6 +150,8 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
         Mouse::Dragged => (WM_MOUSEMOVE, LEFT_BUTTON_DOWN),
         Mouse::Moved => (WM_MOUSEMOVE, 0),
         Mouse::Up => (WM_LBUTTONUP, 0),
+        Mouse::RightDown => (WM_RBUTTONDOWN, RIGHT_BUTTON_DOWN),
+        Mouse::RightUp => (WM_RBUTTONUP, 0),
     };
     // Client coordinates in device pixels, packed as two signed 16-bit words.
     let x = (f32::from(position.x) * native.scale).round() as i16 as u16 as isize;
@@ -158,6 +165,12 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
         );
     }
     Ok(())
+}
+
+/// A right click at `position`, which opens a context menu.
+pub fn send_right_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_mouse(native, Mouse::RightDown, position)?;
+    send_mouse(native, Mouse::RightUp, position)
 }
 
 /// A left double click at `position`: GPUI counts two presses close in time

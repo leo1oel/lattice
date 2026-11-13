@@ -85,7 +85,7 @@ pub(super) fn boards(gallery: &mut Gallery, cx: &mut Context<Gallery>) -> Vec<An
                 .child(MenuPopover::new(
                     "menu-live",
                     Button::new("menu-trigger", "Project").icon(Icon::CHEVRON_DOWN),
-                    project_menu,
+                    |menu, _, _| project_menu(menu),
                 ))
                 .child(Popover::new(
                     "popover-live",

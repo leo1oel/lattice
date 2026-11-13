@@ -37,9 +37,9 @@ use crate::{
 };
 
 /// The tab chip's corner: `shape::PANEL_TABS` (the panel's 10px less the
-/// strip's 6px inset, held at a control's 6px), smoothed with the panel
-/// (`shape::CHROME`), as Paper's Main window measures it (11px).
-pub const TAB_RADIUS: gpui::Pixels = px(11.);
+/// strip's 6px inset, held at a control's 6px), drawn as `shape::CHROME`
+/// draws the panel, round (a test in `shape.rs` holds it to the derivation).
+pub const TAB_RADIUS: gpui::Pixels = crate::shape::RADIUS_TARGET;
 /// The tab's leading padding, which puts its icon on the panel's icon gutter.
 pub const TAB_INSET: Pixels = px(14.);
 /// Between the icon, the label and the close square.

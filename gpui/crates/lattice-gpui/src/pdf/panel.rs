@@ -20,14 +20,13 @@ use gpui::{
     Focusable, InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Point, Render,
     SharedString, Styled as _, Window, div, px,
 };
-use gpui_kit::component::{
-    dock::{BasePanel, Panel, PanelEvent},
-    menu::{PopupMenu, PopupMenuItem},
-};
+use gpui_kit::component::dock::{BasePanel, Panel, PanelEvent};
 use lattice_core::latex::PdfSyncTarget;
 use lattice_i18n::{n, t};
 use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::Button, dock::PANEL_RADIUS,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
+    components::{Button, Menu, MenuAction},
+    dock::PANEL_RADIUS,
     icons::ICON_LARGE,
 };
 
@@ -498,35 +497,21 @@ impl BasePanel for PdfPanel {
     }
 }
 
-impl Panel for PdfPanel {
-    fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some(self.label.clone())
-    }
-
-    fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        self.label.clone()
-    }
-
-    fn dropdown_menu(
-        &mut self,
-        menu: PopupMenu,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> PopupMenu {
-        let view = self.live_view().clone();
+impl PdfPanel {
+    /// The PDF's own items at the head of its ⋯ menu.
+    pub(crate) fn panel_menu(this: &Entity<Self>, menu: Menu, cx: &App) -> Menu {
+        let panel = this.read(cx);
+        let view = panel.live_view().clone();
         let zoom = |label: &'static str, direction: f32| {
             let view = view.downgrade();
-            PopupMenuItem::new(label).on_click(move |_, _, cx| {
+            MenuAction::new(label, move |_, cx| {
                 view.update(cx, |view, cx| view.step_zoom(direction, cx))
                     .ok();
             })
         };
-        let menu = menu
-            .item(zoom(t!("Zoom in"), 1.))
-            .item(zoom(t!("Zoom out"), -1.));
         let fit = {
             let view = view.downgrade();
-            PopupMenuItem::new(t!("Fit page to width")).on_click(move |_, _, cx| {
+            MenuAction::new(t!("Fit page to width"), move |_, cx| {
                 view.update(cx, |view, cx| {
                     if view.fit() != Some(super::layout::FitMode::Width) {
                         view.toggle_fit(super::layout::FitMode::Width, cx)
@@ -535,25 +520,36 @@ impl Panel for PdfPanel {
                 .ok();
             })
         };
-        let menu = menu.item(fit);
-        match &self.kind {
+        let menu = menu
+            .item(zoom(t!("Zoom in"), 1.))
+            .item(zoom(t!("Zoom out"), -1.))
+            .item(fit);
+        match &panel.kind {
             PdfPanelKind::Root(document) => {
-                let panel = cx.entity().downgrade();
+                let panel = this.downgrade();
                 let document = document.clone();
-                menu.item(PopupMenuItem::new(t!("Build this document")).on_click(
-                    move |_, _, cx| {
-                        panel
-                            .update(cx, |_, cx| {
-                                cx.emit(PdfEvent::Build {
-                                    document: Some(document.clone()),
-                                })
+                menu.item(MenuAction::new(t!("Build this document"), move |_, cx| {
+                    panel
+                        .update(cx, |_, cx| {
+                            cx.emit(PdfEvent::Build {
+                                document: Some(document.clone()),
                             })
-                            .ok();
-                    },
-                ))
+                        })
+                        .ok();
+                }))
             }
             PdfPanelKind::Live | PdfPanelKind::File(_) => menu,
         }
+    }
+}
+
+impl Panel for PdfPanel {
+    fn tab_name(&self, _: &App) -> Option<SharedString> {
+        Some(self.label.clone())
+    }
+
+    fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        self.label.clone()
     }
 
     fn inner_padding(&self, _: &App) -> bool {

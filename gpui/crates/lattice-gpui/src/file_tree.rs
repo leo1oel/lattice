@@ -35,19 +35,22 @@ use std::{
 use gpui::{
     Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     input::Input,
-    menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenu},
     tree::{TreeItem, TreeState, tree},
 };
 use lattice_core::models::FileNode;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
-    components::{GitMark, IconButton, Surface, TAB_RADIUS, TreeRow},
+    components::{
+        ContextMenu, GitMark, IconButton, MenuPopover, Surface, TAB_RADIUS, TreeRow,
+        context_menu_trigger,
+    },
     fluid_hover::{FluidHover, ItemKind},
     icons::{ICON, file_glyph},
     scrollbar::{FluidScrollbar, ScrollbarFeel},
@@ -144,6 +147,8 @@ pub struct FileTreePanel {
     copied: Option<clipboard::Copied>,
     /// The rows' fluid hover, as last drawn, for a scenario's check.
     hover: Option<FluidHover>,
+    /// The rows' context menu, as last drawn (for a scripted check).
+    row_menu: Option<Entity<ContextMenu<(String, bool)>>>,
     _project_subscription: Option<Subscription>,
 }
 
@@ -159,6 +164,7 @@ impl FileTreePanel {
             focus_handle: cx.focus_handle(),
             naming: None,
             hover: None,
+            row_menu: None,
             expanded: HashSet::new(),
             marks: Rc::default(),
             copied: None,
@@ -332,6 +338,21 @@ impl FileTreePanel {
     pub fn hover_snapshot(&self, cx: &App) -> Option<lattice_ui::fluid_hover::FluidHoverSnapshot> {
         self.hover.as_ref().map(|hover| hover.snapshot(cx))
     }
+
+    /// Whether the rows' context menu is open and holds focus, for a scripted
+    /// check.
+    pub fn row_menu_focused(&self, window: &Window, cx: &App) -> bool {
+        self.row_menu
+            .as_ref()
+            .is_some_and(|menu| menu.read(cx).is_focused(window))
+    }
+
+    /// The row whose context menu is open (its path), for a scripted check.
+    pub fn row_menu_target(&self, cx: &App) -> Option<String> {
+        self.row_menu
+            .as_ref()
+            .and_then(|menu| menu.read(cx).target().map(|(path, _)| path.clone()))
+    }
 }
 
 /// What Git says of each row: a changed file's mark, and the folders with a
@@ -425,16 +446,6 @@ impl Panel for FileTreePanel {
         t!("Project")
     }
 
-    fn dropdown_menu(
-        &mut self,
-        menu: PopupMenu,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> PopupMenu {
-        let view = cx.entity().downgrade();
-        Self::background_menu(&view, menu, cx)
-    }
-
     /// The strip's tools before ⋯, as the Tauri app's Project panel has them
     /// (`trellis-panel-actions.tsx`): + opens what can be added, and Find in
     /// project, which is not in the GPUI app yet. Each is a 28px square on
@@ -448,13 +459,15 @@ impl Panel for FileTreePanel {
                 .items_center()
                 .gap(px(1.))
                 .child(
-                    IconButton::new("project-new-entry", Icon::PLUS)
-                        .radius(TAB_RADIUS)
-                        .surface(Surface::Chrome)
-                        .tooltip(t!("New…"))
-                        .dropdown_menu_with_anchor(Anchor::TopRight, move |menu, _, _| {
-                            Self::new_entries_menu(&view, menu)
-                        }),
+                    MenuPopover::new(
+                        "project-new-entry-menu",
+                        IconButton::new("project-new-entry", Icon::PLUS)
+                            .radius(TAB_RADIUS)
+                            .surface(Surface::Chrome)
+                            .tooltip(t!("New…")),
+                        move |menu, _, _| Self::new_entries_menu(&view, menu),
+                    )
+                    .anchor(Anchor::TopRight),
                 )
                 .child(
                     IconButton::new("project-find", Icon::SEARCH)
@@ -490,6 +503,11 @@ impl Render for FileTreePanel {
         let view = cx.entity().downgrade();
         let menu_view = view.clone();
         let background_view = view.clone();
+        // The rows' menu and the empty area's: Lattice's menu at the pointer.
+        let row_menu = ContextMenu::<(String, bool)>::keyed("file-tree-row-menu", window, cx);
+        let background_menu = ContextMenu::<()>::keyed("file-tree-menu", window, cx);
+        let rows_menu = row_menu.clone();
+        self.row_menu = Some(row_menu.clone());
         let root_drop = view.clone();
         let current = self.current.clone();
         let root = project.read(cx).root().to_path_buf();
@@ -537,7 +555,21 @@ impl Render for FileTreePanel {
                     })
                     .ok();
             })
-            .context_menu(move |menu, _, cx| Self::background_menu(&background_view, menu, cx))
+            .map(|this| context_menu_trigger(this, &background_menu, ()))
+            .children(ContextMenu::layer(
+                &background_menu,
+                window,
+                cx,
+                move |menu, _, _, cx| Self::background_menu(&background_view, menu, cx),
+            ))
+            .children(ContextMenu::layer(
+                &row_menu,
+                window,
+                cx,
+                move |menu, (path, folder), _, cx| {
+                    Self::row_menu(&menu_view, path.clone(), *folder, menu, cx)
+                },
+            ))
             .relative()
             .child(hover.highlight())
             .child(
@@ -607,7 +639,9 @@ impl Render for FileTreePanel {
                     };
                     let open = view.clone();
                     let drop = view.clone();
-                    row.into_list_item(cx)
+                    let menu_target = (relative.clone(), is_folder);
+                    let item = row.into_list_item(cx);
+                    context_menu_trigger(item, &rows_menu, menu_target)
                         .on_drag(dragged, |dragged, _, _, cx| {
                             cx.new(|_| DragPreview(dragged.clone()))
                         })
@@ -631,15 +665,6 @@ impl Render for FileTreePanel {
                                     .ok();
                             }
                         })
-                })
-                .context_menu(move |_, entry, menu, _, cx| {
-                    Self::row_menu(
-                        &menu_view,
-                        entry.item().id.to_string(),
-                        entry.is_folder(),
-                        menu,
-                        cx,
-                    )
                 })
                 // Lattice's scrollbar, below, in place of Kit's.
                 .scrollbar(false),

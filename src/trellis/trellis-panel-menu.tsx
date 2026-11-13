@@ -11,9 +11,9 @@ import type { MenuEntry, MenuRequest } from "@danfessler/trellis-react";
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { Check, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { floatingSurfaceClassName, keepFocusOnClose, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
+import { floatingSurfaceClassName, keepFocusOnClose, menuContentClassName, menuItemClassName } from "@/components/ui/menu-surface";
+import { MenuViewport } from "@/components/ui/menu-viewport";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
-import { FluidHoverSurface } from "@/components/ui/fluid-hover-surface";
 import { MENU_ICONS } from "./trellis-icons";
 
 function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun: () => void }) {
@@ -37,10 +37,9 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
               <MenuPrimitive.Portal>
                 <MenuPrimitive.SubContent
                   sideOffset={4}
-                  className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[10rem]", popupMotionClassName)}
+                  className={cn(floatingSurfaceClassName, menuContentClassName, "min-w-[10rem]", popupMotionClassName)}
                 >
-                  <FluidHoverSurface />
-                  <MenuEntries entries={entry.items} onRun={onRun} />
+                  <MenuViewport><MenuEntries entries={entry.items} onRun={onRun} /></MenuViewport>
                 </MenuPrimitive.SubContent>
               </MenuPrimitive.Portal>
             </MenuPrimitive.Sub>
@@ -93,7 +92,7 @@ export function PanelMenu({ request, open, onDismiss, onClose }: {
           align={request.align}
           side="bottom"
           sideOffset={4}
-          className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[12rem] max-w-[20rem]", popupMotionClassName)}
+          className={cn(floatingSurfaceClassName, menuContentClassName, "min-w-[12rem] max-w-[20rem]", popupMotionClassName)}
           onCloseAutoFocus={(event) => event.preventDefault()}
           // A press on the button the menu opened from is that button's: its
           // click closes the menu (openMenu). Dismissed here too, the menu
@@ -106,8 +105,7 @@ export function PanelMenu({ request, open, onDismiss, onClose }: {
             if (!open && event.target === event.currentTarget) onClose();
           }}
         >
-          <FluidHoverSurface />
-          <MenuEntries entries={request.entries} onRun={onDismiss} />
+          <MenuViewport><MenuEntries entries={request.entries} onRun={onDismiss} /></MenuViewport>
         </MenuPrimitive.Content>
       </MenuPrimitive.Portal>
     </MenuPrimitive.Root>

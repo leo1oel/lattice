@@ -248,7 +248,9 @@ Surface strength runs in one direction so two states never read the same:
 hover < pressed, and hover < selected < active. A control's hover is 5% of
 the text colour (`--control-hover-surface`) and its press 8%
 (`--control-pressed-surface`); a selected row is 8% and turns medium; a hover
-on the darker chrome is 6% (`--chrome-hover-surface`). Selection is a fill,
+on the darker chrome is 6% (`--chrome-hover-surface`). A toolbar on a sheet
+(the PDF toolbar, an image preview's zoom, the spreadsheet's toolbar) hovers at the sheet's 5% too
+(`--toolbar-hover-surface`), under its 8% press. Selection is a fill,
 never a second outline: the focus ring stays the only ring.
 
 A Button's press is one step deeper than its hover in every variant (the
@@ -591,6 +593,10 @@ the primitive standardizes density without changing those semantics.
   A container whose exact native viewport is observed by feature code uses
   `native-hover-scrollbar`; this is an explicit compatibility path, not a second
   general scrollbar implementation.
+  Menus, context menus and selects take the ScrollArea's bar too: Radix owns
+  their content, so their rows scroll in `MenuViewport` (a select, in Radix's
+  own viewport) with the native bar hidden, and `ExternalScrollbar` draws the
+  same track over the surface.
   When an embedded engine owns the scroller and its layout depends on the
   viewport's own width — the PDF viewer, whose fitted page is scaled to
   `clientWidth` — `OverlayScrollbars` draws the same bars outside that width and
@@ -754,8 +760,11 @@ moves, the slower the tier.
   `transition-duration` override, a staggered delay.
 - **Exits are one tier quicker** and are plain tweens, so a dismissal reads as
   final rather than replaying the entrance backwards: `--motion-*-exit` in
-  CSS, `springExit` in JS. A CSS hover leaves on the same tier it entered on;
-  an element that leaves the screen takes the exit.
+  CSS, `springExit` in JS. A list row's hover fill leaves a tier quicker than
+  it arrives, as the fluid hover's does: in on the fast tier, out on
+  `--motion-fast-exit` (the Project tree, Papers, Literature). A control's own
+  wash fades both ways on the fast tier; an element that leaves the screen
+  takes the exit.
 - **JS takes the same tiers:** `spring.fast|moderate|slow` and `springExit`
   from `components/ui/motion-values.ts`. Motion run outside motion/react (an
   `element.animate()` call, a library's own transition) takes
@@ -834,9 +843,10 @@ reuse its vocabulary so the product reads as one thing:
   selection, in both themes and under every tint.
 - The source editor's outline rail (`latex-outline-rail.tsx`) marks the
   section being read in the weft's blue: a place in the paper, like the
-  syntax, not a control's state. The other marks take the secondary ink, and
-  the outline the rail opens selects its current row with a fill as any list
-  does.
+  syntax, not a control's state. The other marks take the secondary ink. The
+  outline the rail opens is a picker of places, like the PDF toolbar's
+  Outline, and lights as one: the accent wash (`--control-active-soft`) under
+  the pointer and on the current section, whose label takes the accent ink.
 - `EmptyIllustration` (`src/components/ui/empty-illustration.tsx`) holds the
   empty-state drawings: neutral line work in the host's text color with one
   weft or warp thread. Pass one to `EmptyState`'s `icon`.

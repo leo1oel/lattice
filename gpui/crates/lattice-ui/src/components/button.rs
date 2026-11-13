@@ -220,8 +220,6 @@ impl Selectable for Button {
     }
 }
 
-impl gpui_kit::component::menu::DropdownMenu for Button {}
-
 impl RenderOnce for Button {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();

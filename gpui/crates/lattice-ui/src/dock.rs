@@ -16,8 +16,8 @@ use gpui_kit::component::dock::{BasePanelView, PanelHandle};
 use crate::{GlyphKind, Icon, components::Surface};
 
 /// A panel card's corner: `--radius-panel` (10px) as `shape::CHROME` draws
-/// it, 18.4px.
-pub const PANEL_RADIUS: gpui::Pixels = px(18.4);
+/// it, round (a test in `shape.rs` holds it to the derivation).
+pub const PANEL_RADIUS: gpui::Pixels = crate::shape::RADIUS_SURFACE;
 /// Every panel's tab strip, and the titlebar.
 pub const STRIP_HEIGHT: gpui::Pixels = px(40.);
 

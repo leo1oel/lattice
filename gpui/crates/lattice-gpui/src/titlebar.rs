@@ -28,18 +28,19 @@ use gpui::{
     ParentElement as _, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window,
     WindowControlArea, canvas, div, prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::{
-    InteractiveElementExt as _,
-    menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenuItem},
-};
+use gpui_kit::component::InteractiveElementExt as _;
 use lattice_i18n::{space_mixed_script, t};
 use lattice_settings::TitlebarTool;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{IconButton, Keycap, LatticeTooltip, SearchField, Surface, ToolbarButton},
+    components::{
+        ContextMenu, IconButton, Keycap, LatticeTooltip, MenuAction, MenuPopover, SearchField,
+        Surface, ToolbarButton, context_menu_trigger,
+    },
     dock::STRIP_HEIGHT,
     elevation::bottom_hairline,
     icons::{ICON, ICON_SMALL},
+    interaction::hover_wash,
     parity,
     typography::shaped_width,
 };
@@ -321,7 +322,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         .flex_none()
         .items_start()
         .h_full()
-        .child(project_group(shell, cx))
+        .child(project_group(shell, window, cx))
         .child(
             div()
                 .flex()
@@ -444,15 +445,18 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
 }
 
 /// The project switcher, or one tab per project once the window holds two.
-fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
-    let switcher = ToolbarButton::new("project-switcher", shell.project_name(cx))
-        .switcher()
-        .max_w(px(SWITCHER_MAX))
-        .parity("titlebar/project")
-        .dropdown_menu({
+fn project_group(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> AnyElement {
+    let switcher = MenuPopover::new(
+        "project-switcher-menu",
+        ToolbarButton::new("project-switcher", shell.project_name(cx))
+            .switcher()
+            .max_w(px(SWITCHER_MAX))
+            .parity("titlebar/project"),
+        {
             let shell = cx.entity().downgrade();
             move |menu, window, cx| project_menu(shell.clone(), menu, window, cx)
-        });
+        },
+    );
     if shell.projects.len() < 2 {
         return div()
             .pt(px(4.))
@@ -462,6 +466,34 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
     }
     let palette = cx.palette().clone();
     let active = shell.root(cx);
+    // A project tab's right-click menu: Open in New Window, Close.
+    let tab_menu = ContextMenu::<std::path::PathBuf>::keyed("project-tab-menu", window, cx);
+    let menu_weak = cx.entity().downgrade();
+    let menu_layer = ContextMenu::layer(&tab_menu, window, cx, move |menu, root, _, _| {
+        let (weak, close, root, close_root) = (
+            menu_weak.clone(),
+            menu_weak.clone(),
+            root.clone(),
+            root.clone(),
+        );
+        menu.item(
+            MenuAction::new(t!("Open in New Window"), move |window, cx| {
+                weak.update(cx, |shell, cx| {
+                    shell.move_project_to_window(root.clone(), window, cx)
+                })
+                .ok();
+            })
+            .icon(Icon::APP_WINDOW),
+        )
+        .item(
+            MenuAction::new(t!("Close"), move |window, cx| {
+                close
+                    .update(cx, |shell, cx| shell.close_project(&close_root, window, cx))
+                    .ok();
+            })
+            .icon(Icon::X),
+        )
+    });
     let tabs = shell.projects.iter().enumerate().map(|(ix, open)| {
         let root = &open.root;
         let current = Some(root) == active.as_ref();
@@ -472,7 +504,6 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
         let menu_root = root.clone();
         let weak = cx.entity().downgrade();
         let close_weak = weak.clone();
-        let menu_weak = weak.clone();
         let group: gpui::SharedString = format!("project-tab-{ix}").into();
         let body: AnyElement = if current {
             div()
@@ -503,21 +534,37 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
                 .child(name.clone())
                 .into_any_element()
         };
-        div()
+        let tab = div()
             .id(("project-tab", ix))
             .group(group.clone())
             .flex()
             .flex_none()
             .items_center()
             .h(px(28.))
-            .rounded(px(6.))
-            .when(!current, |tab| {
-                tab.hover(|style| style.bg(palette.chrome_hover))
-            })
-            .child(body)
+            .rounded(px(6.));
+        let tab = if current {
+            tab
+        } else {
+            hover_wash(
+                tab,
+                ("project-tab-wash", ix),
+                gpui::transparent_black(),
+                palette.chrome_hover,
+                window,
+                cx,
+            )
+        };
+        let close = hover_wash(
+            div().id(("project-tab-close", ix)),
+            ("project-tab-close-wash", ix),
+            gpui::transparent_black(),
+            palette.chrome_hover,
+            window,
+            cx,
+        );
+        tab.child(body)
             .child(
-                div()
-                    .id(("project-tab-close", ix))
+                close
                     .size(px(20.))
                     .mr(px(4.))
                     .flex()
@@ -527,7 +574,6 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
                     .when(!current, |close| {
                         close.invisible().group_hover(group, |s| s.visible())
                     })
-                    .hover(|style| style.bg(palette.chrome_hover))
                     .tooltip(move |_, cx| -> AnyView {
                         LatticeTooltip::view(
                             space_mixed_script(&t!("Close {name}", name = close_name)),
@@ -543,33 +589,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
                     })
                     .child(Icon::X.element(ICON_SMALL, palette.text_secondary)),
             )
-            .context_menu(move |menu, _, _| {
-                let root = menu_root.clone();
-                let close_root = menu_root.clone();
-                let weak = menu_weak.clone();
-                let close = menu_weak.clone();
-                menu.item(
-                    PopupMenuItem::new(t!("Open in New Window"))
-                        .icon(Icon::APP_WINDOW.kit())
-                        .on_click(move |_, window, cx| {
-                            weak.update(cx, |shell, cx| {
-                                shell.move_project_to_window(root.clone(), window, cx)
-                            })
-                            .ok();
-                        }),
-                )
-                .item(
-                    PopupMenuItem::new(t!("Close"))
-                        .icon(Icon::X.kit())
-                        .on_click(move |_, window, cx| {
-                            close
-                                .update(cx, |shell, cx| {
-                                    shell.close_project(&close_root, window, cx)
-                                })
-                                .ok();
-                        }),
-                )
-            })
+            .map(|tab| context_menu_trigger(tab, &tab_menu, menu_root.clone()))
             .into_any_element()
     });
     div()
@@ -579,19 +599,26 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
         .h_full()
         .pr(px(PROJECT_GROUP_END))
         .children(tabs.map(controls))
+        .children(menu_layer)
         .into_any_element()
 }
 
 fn switcher_for(shell: &Shell, weak: WeakEntity<Shell>, cx: &gpui::App) -> impl IntoElement {
-    ToolbarButton::new("project-switcher", shell.project_name(cx))
-        .switcher()
-        .max_w(px(TAB_SWITCHER_MAX))
-        .parity("titlebar/project")
-        .dropdown_menu(move |menu, window, cx| {
+    MenuPopover::new(
+        "project-switcher-menu",
+        ToolbarButton::new("project-switcher", shell.project_name(cx))
+            .switcher()
+            .max_w(px(TAB_SWITCHER_MAX))
+            .parity("titlebar/project"),
+        move |menu, window, cx| {
             project_menu(weak.clone(), menu, window, cx)
                 .separator()
-                .menu(t!("Close this project"), Box::new(CloseProject))
-        })
+                .item(MenuAction::dispatch(
+                    t!("Close this project"),
+                    Box::new(CloseProject),
+                ))
+        },
+    )
 }
 
 /// The Panels menu: each panel's toggle (checked while on screen), the
@@ -611,10 +638,12 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
     let preset = shell.layout.preset.as_ref().map(|active| active.preset);
     let maximized = shell.workspace().read(cx).engine().framed().is_some();
     let weak = cx.entity().downgrade();
-    ToolbarButton::new("panels", t!("Panels"))
-        .icon(Icon::LAYOUT_PANEL_LEFT)
-        .parity("titlebar/panels")
-        .dropdown_menu(move |menu, _, _| {
+    MenuPopover::new(
+        "panels-menu",
+        ToolbarButton::new("panels", t!("Panels"))
+            .icon(Icon::LAYOUT_PANEL_LEFT)
+            .parity("titlebar/panels"),
+        move |menu, _, _| {
             let mut menu = menu
                 .min_w(px(224.))
                 .label(t!("Panels"))
@@ -648,58 +677,55 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
                 let chosen = preset.is_none() && current.as_deref() == Some(id.as_str());
                 let weak = weak.clone();
                 let id = id.clone();
-                let mut item = PopupMenuItem::new(name.clone()).checked(chosen).on_click(
-                    move |_, window, cx| {
-                        weak.update(cx, |shell, cx| shell.switch_workspace(&id, window, cx))
-                            .ok();
-                    },
-                );
-                if let Some(action) = crate::shell::commands::switch_workspace_action(ix) {
-                    item = item.action(action);
+                let mut item = MenuAction::new(name.clone(), move |window, cx| {
+                    weak.update(cx, |shell, cx| shell.switch_workspace(&id, window, cx))
+                        .ok();
+                })
+                .checked(chosen);
+                if let Some(keys) = crate::shell::workspaces::shortcut_label(ix) {
+                    item = item.shortcut(keys);
                 }
                 menu = menu.item(item);
             }
             for preset_kind in Preset::ALL {
                 let weak = weak.clone();
                 menu = menu.item(
-                    PopupMenuItem::new(preset_kind.label())
-                        .icon(match preset_kind {
-                            Preset::Writing => Icon::PEN_LINE.kit(),
-                            Preset::Reading => Icon::BOOK_OPEN_TEXT.kit(),
-                        })
-                        .checked(preset == Some(preset_kind))
-                        .on_click(move |_, window, cx| {
-                            weak.update(cx, |shell, cx| shell.set_preset(preset_kind, window, cx))
-                                .ok();
-                        }),
+                    MenuAction::new(preset_kind.label(), move |window, cx| {
+                        weak.update(cx, |shell, cx| shell.set_preset(preset_kind, window, cx))
+                            .ok();
+                    })
+                    .icon(match preset_kind {
+                        Preset::Writing => Icon::PEN_LINE,
+                        Preset::Reading => Icon::BOOK_OPEN_TEXT,
+                    })
+                    .checked(preset == Some(preset_kind)),
                 );
             }
-            menu.menu_with_icon(
-                t!("Focus mode"),
-                Icon::FOCUS.kit(),
-                Box::new(ToggleFocusMode),
+            menu.item(
+                MenuAction::dispatch(t!("Focus mode"), Box::new(ToggleFocusMode)).icon(Icon::FOCUS),
             )
             .separator()
-            .menu_with_icon(
-                if maximized {
-                    t!("Restore the layout")
-                } else {
-                    t!("Maximize focused panel")
-                },
-                if maximized {
+            .item(
+                MenuAction::dispatch(
+                    if maximized {
+                        t!("Restore the layout")
+                    } else {
+                        t!("Maximize focused panel")
+                    },
+                    Box::new(ToggleMaximize),
+                )
+                .icon(if maximized {
                     Icon::MINIMIZE
                 } else {
                     Icon::MAXIMIZE
-                }
-                .kit(),
-                Box::new(ToggleMaximize),
+                }),
             )
-            .menu_with_icon(
-                t!("Reset layout"),
-                Icon::ROTATE_CCW.kit(),
-                Box::new(ResetLayout),
+            .item(
+                MenuAction::dispatch(t!("Reset layout"), Box::new(ResetLayout))
+                    .icon(Icon::ROTATE_CCW),
             )
-        })
+        },
+    )
 }
 
 fn toggle_item(
@@ -707,11 +733,10 @@ fn toggle_item(
     icon: Icon,
     checked: bool,
     action: Box<dyn gpui::Action>,
-) -> PopupMenuItem {
-    PopupMenuItem::new(label.to_string())
-        .icon(icon.kit())
+) -> MenuAction {
+    MenuAction::dispatch(label.to_string(), action)
+        .icon(icon)
         .checked(checked)
-        .action(action)
 }
 
 /// Focus mode's bar: the document's name, and the way out with its key.
@@ -741,24 +766,27 @@ fn focus_bar(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> imp
                 .child(title),
         )
         .child(controls(
-            div()
-                .id("leave-focus-mode")
-                .flex()
-                .items_center()
-                .gap(px(6.))
-                .h(px(28.))
-                .px(px(8.))
-                .rounded(px(6.))
-                .cursor_pointer()
-                .hover(|style| style.bg(palette.chrome_hover))
-                .text_role(TextRole::Caption, cx)
-                .text_color(palette.text_secondary)
-                .on_click(
-                    cx.listener(|shell, _, window, cx| shell.set_focus_mode(false, window, cx)),
-                )
-                .child(Icon::MINIMIZE.element(ICON, palette.text_secondary))
-                .child(t!("Leave focus mode"))
-                .children(keys.map(Keycap::new)),
+            hover_wash(
+                div().id("leave-focus-mode"),
+                "leave-focus-mode-wash",
+                gpui::transparent_black(),
+                palette.chrome_hover,
+                window,
+                cx,
+            )
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .h(px(28.))
+            .px(px(8.))
+            .rounded(px(6.))
+            .cursor_pointer()
+            .text_role(TextRole::Caption, cx)
+            .text_color(palette.text_secondary)
+            .on_click(cx.listener(|shell, _, window, cx| shell.set_focus_mode(false, window, cx)))
+            .child(Icon::MINIMIZE.element(ICON, palette.text_secondary))
+            .child(t!("Leave focus mode"))
+            .children(keys.map(Keycap::new)),
         ))
 }
 

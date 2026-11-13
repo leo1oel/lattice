@@ -118,6 +118,11 @@ pub struct MenuItem {
     disabled: bool,
     destructive: bool,
     checked: Option<bool>,
+    /// A checkable menu's leading 14px gutter, and whether this row's check
+    /// shows in it.
+    check_gutter: Option<bool>,
+    /// The row opens a submenu: a chevron at the end.
+    submenu: bool,
     highlighted: bool,
     /// The list draws the hover fill (fluid hover): the row draws none, but
     /// a destructive row's own danger wash.
@@ -136,6 +141,8 @@ impl MenuItem {
             disabled: false,
             destructive: false,
             checked: None,
+            check_gutter: None,
+            submenu: false,
             highlighted: false,
             fluid: false,
             on_click: None,
@@ -178,6 +185,20 @@ impl MenuItem {
     /// every option keeps the check's gutter so the labels do not shift.
     pub fn checked(mut self, checked: bool) -> Self {
         self.checked = Some(checked);
+        self
+    }
+
+    /// A row of a menu with checkable items: a 14px gutter before the icon
+    /// (`.trellis-menu-check`), holding the check when `Some(true)`, so every
+    /// row's label lines up.
+    pub fn check_gutter(mut self, checked: Option<bool>) -> Self {
+        self.check_gutter = checked;
+        self
+    }
+
+    /// The row opens a submenu: the chevron at its end.
+    pub fn submenu(mut self) -> Self {
+        self.submenu = true;
         self
     }
 
@@ -250,6 +271,19 @@ impl RenderOnce for MenuItem {
             .bg(mix(transparent_black(), wash, glow))
             .text_color(ink)
             .when(disabled, |this| this.opacity(OPACITY_MENU_DISABLED))
+            .when_some(self.check_gutter, |this, checked| {
+                this.child(
+                    div()
+                        .flex_none()
+                        .w(ICON)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .when(checked, |this| {
+                            this.child(Icon::CHECK.element(ICON, palette.text))
+                        }),
+                )
+            })
             .when_some(self.icon, |this, icon| {
                 this.child(icon.element(ICON, icon_ink))
             })
@@ -262,6 +296,9 @@ impl RenderOnce for MenuItem {
                         .text_color(palette.text_secondary)
                         .child(keys),
                 )
+            })
+            .when(self.submenu, |this| {
+                this.child(Icon::CHEVRON_RIGHT.element(ICON, palette.text_secondary))
             })
             .when(self.checked == Some(true), |this| {
                 this.child(

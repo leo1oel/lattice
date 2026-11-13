@@ -2,9 +2,9 @@ import * as React from "react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { floatingSurfaceClassName, keepFocusOnClose, menuItemClassName, menuViewportClassName } from "./menu-surface"
+import { floatingSurfaceClassName, keepFocusOnClose, menuContentClassName, menuItemClassName } from "./menu-surface"
+import { MenuViewport } from "./menu-viewport"
 import { popupMotionClassName } from "./popup-motion"
-import { FluidHoverSurface } from "./fluid-hover-surface"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -29,16 +29,14 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
         className={cn(
           floatingSurfaceClassName,
-          menuViewportClassName,
-          "fluid-hover-surface",
+          menuContentClassName,
           "max-h-(--radix-dropdown-menu-content-available-height) max-w-[min(var(--menu-max-width),var(--radix-dropdown-menu-content-available-width))] min-w-[9rem] origin-(--radix-dropdown-menu-content-transform-origin)",
           popupMotionClassName,
           className
         )}
         {...props}
       >
-        <FluidHoverSurface />
-        {children}
+        <MenuViewport>{children}</MenuViewport>
       </DropdownMenuPrimitive.Content>
     </DropdownMenuPrimitive.Portal>
   )

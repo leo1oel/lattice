@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 import { FluidHoverSurface } from "./fluid-hover-surface"
+import { ExternalScrollbar } from "./external-scrollbar"
 import "./form-controls.css"
 
 const Select = SelectPrimitive.Root
@@ -48,6 +49,11 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  // Radix's viewport is the scroller (its item-aligned placement reads it) and
+  // hides its native bar, so the app's ScrollArea bar is drawn beside it, over
+  // the positioned content (menu-viewport.tsx).
+  const viewport = React.useRef<HTMLDivElement>(null)
+  const getViewport = React.useCallback(() => viewport.current, [])
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -65,6 +71,7 @@ function SelectContent({
         {...props}
       >
         <SelectPrimitive.Viewport
+          ref={viewport}
           className={cn(
             menuViewportClassName,
             "fluid-hover-surface",
@@ -74,6 +81,7 @@ function SelectContent({
           <FluidHoverSurface />
           {children}
         </SelectPrimitive.Viewport>
+        <ExternalScrollbar getViewport={getViewport} />
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   )

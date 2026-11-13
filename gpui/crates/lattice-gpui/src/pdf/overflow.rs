@@ -134,7 +134,8 @@ impl PdfView {
             .trigger(
                 IconButton::new("pdf-overflow-trigger", Icon::ELLIPSIS)
                     .frame(px(24.), px(28.))
-                    .tooltip(t!("More PDF actions")),
+                    .tooltip(t!("More PDF actions"))
+                    .fluid(),
             )
             .content(move |_, window, cx| {
                 let popover = cx.entity();
@@ -207,7 +208,7 @@ impl PdfView {
                 let mut menu = MenuSurface::new()
                     .min_w(px(216.))
                     .child(hover.highlight())
-                    .child(zoom_row(&view, scale, close.clone(), cx))
+                    .child(zoom_row(&view, scale, close.clone(), window, cx))
                     .child(separator());
                 // Folded for a query, SyncTeX and both fits wait here, each
                 // fit marked when in use; otherwise the fit not shown.
@@ -295,6 +296,7 @@ fn zoom_row(
     view: &gpui::Entity<PdfView>,
     scale: f32,
     close: impl Fn(&mut Window, &mut App) + 'static,
+    window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
     let palette = cx.palette().clone();
@@ -310,23 +312,28 @@ fn zoom_row(
     let percent = format!("{}%", (scale * 100.).round() as i64);
     let entry = {
         let view = view.clone();
-        div()
-            .id("pdf-menu-zoom-value")
-            .flex()
-            .items_center()
-            .justify_center()
-            .min_w(px(52.))
-            .h(px(28.))
-            .rounded(px(6.))
-            .cursor_pointer()
-            .hover(|style| style.bg(palette.hover))
-            .text_role(TextRole::Body, cx)
-            .text_color(palette.text)
-            .child(percent)
-            .on_click(move |_, window, cx| {
-                close(window, cx);
-                view.update(cx, |view, cx| view.enter_zoom(window, cx));
-            })
+        lattice_ui::interaction::hover_wash(
+            div().id("pdf-menu-zoom-value"),
+            "pdf-menu-zoom-value-wash",
+            gpui::transparent_black(),
+            palette.hover,
+            window,
+            cx,
+        )
+        .flex()
+        .items_center()
+        .justify_center()
+        .min_w(px(52.))
+        .h(px(28.))
+        .rounded(px(6.))
+        .cursor_pointer()
+        .text_role(TextRole::Body, cx)
+        .text_color(palette.text)
+        .child(percent)
+        .on_click(move |_, window, cx| {
+            close(window, cx);
+            view.update(cx, |view, cx| view.enter_zoom(window, cx));
+        })
     };
     div()
         .flex()

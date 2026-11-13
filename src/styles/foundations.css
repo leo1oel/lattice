@@ -299,7 +299,10 @@
   --toolbar-icon-width: 24px;
   --toolbar-icon-height: var(--control-height-compact);
   --toolbar-icon-radius: var(--radius-icon);
-  --toolbar-hover-surface: var(--border-subtle);
+  /* A toolbar stands on the sheet, so its icon buttons hover at the sheet's
+     5%, under their 8% press (hover < pressed). It was the hairline colour
+     (about 9%), a hover stronger than the press. */
+  --toolbar-hover-surface: var(--control-hover-surface);
   --toolbar-active-surface: color-mix(in srgb, var(--control-active) 14%, transparent);
   /* The floor for a pointer target, independent of how small the control is
      painted. See the `data-hit-area` note in styles/surfaces.css. */

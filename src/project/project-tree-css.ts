@@ -65,10 +65,13 @@ ${fluidHoverCSS}
   height: 0;
 }
 
+/* A row's fill leaves a tier quicker than it arrives, as the Papers and
+   Literature rows' do (app-shell.css): in on the fast tier under the pointer,
+   out on the fast exit once it moves on. */
 button[data-type="item"] {
   background: transparent;
   letter-spacing: -0.005em;
-  transition: background-color var(--motion-moderate),
+  transition: background-color var(--motion-fast-exit),
     box-shadow var(--motion-moderate),
     color var(--motion-fast),
     opacity var(--motion-fast);
@@ -136,6 +139,7 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
 button[data-type="item"]:hover:not([data-item-selected="true"]),
 button[data-type="item"][data-item-context-hover="true"]:not([data-item-selected="true"]) {
   background: var(--trees-bg-muted);
+  transition-duration: var(--duration-fast);
 }
 
 button[data-type="item"][data-item-selected="true"] {

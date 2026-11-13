@@ -181,6 +181,34 @@ describe("design token contract", () => {
     expect(chrome).not.toMatch(/\.ui-compact-selectable[^}]*\{[^}]*background: var\(--control-active\);/)
   })
 
+  it("hovers a toolbar's icon buttons at the sheet's 5%, under their 8% press", () => {
+    expect(foundations).toContain("--toolbar-hover-surface: var(--control-hover-surface);")
+    expect(foundations).toMatch(/--control-hover-surface: color-mix\(in srgb, var\(--text-primary\) 5%, transparent\);/)
+    const pdf = read("src/pdf/pdf-viewer.css")
+    expect(pdf).toContain(".pdf-toolbar button:hover:not(:disabled) { background: var(--toolbar-hover-surface);")
+    expect(pdf).toContain(".pdf-toolbar button:active:not(:disabled) { background: var(--control-pressed-surface); }")
+  })
+
+  it("fades a Project tree row's hover in on the fast tier and out on the fast exit, as the Papers rows do", () => {
+    const tree = read("src/project/project-tree-css.ts")
+    expect(tree).toMatch(/button\[data-type="item"\] \{[^}]*transition: background-color var\(--motion-fast-exit\),/)
+    expect(tree).toMatch(/button\[data-type="item"\]:hover:not\(\[data-item-selected="true"\]\),[^{]+\{[^}]*transition-duration: var\(--duration-fast\);/)
+    expect(tree).not.toMatch(/background-color var\(--motion-moderate\)/)
+    expect(read("src/styles/app-shell.css")).toMatch(/\.paper-row \{[^}]*transition: background-color var\(--motion-fast-exit\);/)
+  })
+
+  it("lights both outlines in the accent wash, the current section in the accent ink", () => {
+    const workspace = read("src/styles/editor-workspace.css")
+    // The PDF toolbar's Outline.
+    expect(workspace).toContain(".document-outline-popover { --fluid-hover-fill: var(--control-active-soft); }")
+    expect(workspace).toMatch(/\.document-outline-list button:hover, \.document-outline-list button\.active \{ background: var\(--control-active-soft\); color: var\(--control-active\); \}/)
+    // The LaTeX outline rail.
+    expect(workspace).toContain(".latex-outline-rail-scroll { --fluid-hover-fill: var(--control-active-soft);")
+    expect(workspace).toContain('.latex-outline-rail-row:hover:not([data-item-selected="true"]) { background: var(--control-active-soft); }')
+    expect(workspace).toMatch(/\.latex-outline-rail-row\[data-item-selected="true"\] \{ background: var\(--control-active-soft\); color: var\(--control-active\);/)
+    expect(workspace).not.toMatch(/\.latex-outline-rail-row[^{]*\{[^}]*var\(--control-(?:hover|pressed)-surface\)/)
+  })
+
   it("draws the Git workspace's views as flat drawer-view tabs", () => {
     expect(read("src/app/app-history-drawers.tsx")).toContain('tabClassName="drawer-view-tab"')
     const workspacePanels = read("src/styles/workspace-panels.css")

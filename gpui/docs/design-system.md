@@ -130,7 +130,9 @@ A surface flush inside another does not choose its corner: `shape::Nest { radius
 
 The steps are `shape::RADIUS_CHIP` (4), `RADIUS_TARGET` (6), `RADIUS_SURFACE` (10) and `RADIUS_MODAL` (14).
 The app draws its corners as squircles scaled by `--corner-smoothing` (1.84) where the engine can; GPUI draws round corners, and `shape::Corners` says which drawing a radius copies.
-The chrome (panels, tabs, segmented controls, the titlebar's search field, keycaps) copies Paper's measured, smoothed radii through `shape::CHROME`; the smoothing is applied after the nesting (`Nest::painted`), never before, so the inset holds along the diagonal.
+The chrome (panels, tabs, segmented controls, the titlebar's search field, keycaps) takes its drawing through `shape::CHROME`, which is `Corners::Round`: the plain steps (10, 6, 4) the shipped macOS app draws, since WKWebView has no `corner-shape` and its factor is 1, and the corners the menus, buttons and fields already take.
+Paper's App screens and the parity reference run in Chromium and measure the squircle's smoothed radius (18.4px panels, 11px tabs), so the parity report shows a small corner delta there that GPUI does not chase.
+Where a surface does copy the smoothed drawing, the smoothing is applied after the nesting (`Nest::painted`), never before, so the inset holds along the diagonal.
 A new radius picks a step and, when nested, a `Nest`; never a value between the steps.
 
 ## Labels that change weight

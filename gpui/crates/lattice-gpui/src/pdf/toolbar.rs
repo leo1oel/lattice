@@ -20,14 +20,15 @@ use gpui::{
 use gpui_kit::component::input::Input;
 use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::IconButton, icons::ICON,
-    tokens::FONT_WEIGHT_REGULAR,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::IconButton,
+    fluid_hover::FluidHover, icons::ICON, tokens::FONT_WEIGHT_REGULAR,
 };
 
 use super::{
     find::FindOptions,
     layout::{FitMode, MAX_SCALE, MIN_SCALE},
     overflow::Fold,
+    toolbar_hover::{Slot, toolbar_hover},
     view::{PdfView, PdfViewEvent},
 };
 
@@ -40,6 +41,7 @@ fn tool(id: impl Into<gpui::ElementId>, icon: Icon, label: &'static str) -> Icon
     IconButton::new(id, icon)
         .frame(px(24.), px(28.))
         .tooltip(label)
+        .fluid()
 }
 
 /// A match control inside the find field: 20 by 22, a 12px icon.
@@ -68,8 +70,11 @@ impl PdfView {
         let narrow = self.narrow();
         let empty = self.document.is_none();
         let fold = self.search_fold();
+        let strip = toolbar_hover(window, cx);
+        self.toolbar_hover = Some(strip.clone());
         div()
             .id("pdf-toolbar")
+            .relative()
             .flex()
             .flex_none()
             .items_center()
@@ -87,17 +92,24 @@ impl PdfView {
                     ..Edges::default()
                 },
             ))
+            .child(strip.highlight())
             .when(fold != Fold::Search, |this| {
-                this.child(self.navigation(narrow, empty, cx))
+                this.child(self.navigation(&strip, narrow, empty, cx))
             })
-            .child(self.find_controls(empty, fold, window, cx))
+            .child(self.find_controls(&strip, empty, fold, window, cx))
             .when(fold != Fold::Search, |this| {
-                this.child(self.zoom_controls(narrow, empty, fold, window, cx))
+                this.child(self.zoom_controls(&strip, narrow, empty, fold, window, cx))
             })
             .into_any_element()
     }
 
-    fn navigation(&self, narrow: bool, empty: bool, cx: &mut Context<Self>) -> AnyElement {
+    fn navigation(
+        &self,
+        strip: &FluidHover,
+        narrow: bool,
+        empty: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         if empty {
             // An empty toolbar keeps its columns' places (`.pdf-toolbar-empty`).
             return div().flex_none().min_w(px(74.)).into_any_element();
@@ -116,15 +128,23 @@ impl PdfView {
                     .items_center()
                     .gap(px(1.))
                     .child(
-                        tool("pdf-previous", Icon::CHEVRON_LEFT, t!("Previous page"))
-                            .disabled(current == 0)
-                            .on_click(cx.listener(|this, _, _, cx| this.step_page(-1, cx))),
+                        Slot::Previous.glide(
+                            strip,
+                            current > 0,
+                            tool("pdf-previous", Icon::CHEVRON_LEFT, t!("Previous page"))
+                                .disabled(current == 0)
+                                .on_click(cx.listener(|this, _, _, cx| this.step_page(-1, cx))),
+                        ),
                     )
                     .child(self.page_value(count, current, cx))
                     .child(
-                        tool("pdf-next", Icon::CHEVRON_RIGHT, t!("Next page"))
-                            .disabled(current + 1 >= count)
-                            .on_click(cx.listener(|this, _, _, cx| this.step_page(1, cx))),
+                        Slot::Next.glide(
+                            strip,
+                            current + 1 < count,
+                            tool("pdf-next", Icon::CHEVRON_RIGHT, t!("Next page"))
+                                .disabled(current + 1 >= count)
+                                .on_click(cx.listener(|this, _, _, cx| this.step_page(1, cx))),
+                        ),
                     ),
             )
             .when(!narrow, |this| {
@@ -135,22 +155,30 @@ impl PdfView {
                         .items_center()
                         .gap(px(1.))
                         .child(
-                            tool(
-                                "pdf-back",
-                                Icon::CORNER_UP_LEFT,
-                                t!("Previous PDF location"),
-                            )
-                            .disabled(!self.can_go_back())
-                            .on_click(cx.listener(|this, _, _, cx| this.navigate(false, cx))),
+                            Slot::Back.glide(
+                                strip,
+                                self.can_go_back(),
+                                tool(
+                                    "pdf-back",
+                                    Icon::CORNER_UP_LEFT,
+                                    t!("Previous PDF location"),
+                                )
+                                .disabled(!self.can_go_back())
+                                .on_click(cx.listener(|this, _, _, cx| this.navigate(false, cx))),
+                            ),
                         )
                         .child(
-                            tool(
-                                "pdf-forward",
-                                Icon::CORNER_UP_RIGHT,
-                                t!("Next PDF location"),
-                            )
-                            .disabled(!self.can_go_forward())
-                            .on_click(cx.listener(|this, _, _, cx| this.navigate(true, cx))),
+                            Slot::Forward.glide(
+                                strip,
+                                self.can_go_forward(),
+                                tool(
+                                    "pdf-forward",
+                                    Icon::CORNER_UP_RIGHT,
+                                    t!("Next PDF location"),
+                                )
+                                .disabled(!self.can_go_forward())
+                                .on_click(cx.listener(|this, _, _, cx| this.navigate(true, cx))),
+                            ),
                         ),
                 )
             })
@@ -228,6 +256,7 @@ impl PdfView {
 
     fn find_controls(
         &self,
+        strip: &FluidHover,
         empty: bool,
         fold: Fold,
         window: &mut Window,
@@ -241,7 +270,7 @@ impl PdfView {
             .gap(px(4.))
             .children(
                 (fold != Fold::Search)
-                    .then(|| self.outline_trigger(cx))
+                    .then(|| self.outline_trigger(strip, cx))
                     .flatten(),
             )
             .child(
@@ -393,6 +422,7 @@ impl PdfView {
 
     fn zoom_controls(
         &self,
+        strip: &FluidHover,
         narrow: bool,
         empty: bool,
         fold: Fold,
@@ -422,9 +452,17 @@ impl PdfView {
                     t!("Fit page to height"),
                 ),
             };
-            tool(id, icon, label)
-                .on(fit == Some(mode))
-                .on_click(cx.listener(move |this, _, _, cx| this.toggle_fit(mode, cx)))
+            let slot = match mode {
+                FitMode::Width => Slot::FitWidth,
+                FitMode::Height => Slot::FitHeight,
+            };
+            slot.glide(
+                strip,
+                fit != Some(mode),
+                tool(id, icon, label)
+                    .on(fit == Some(mode))
+                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_fit(mode, cx))),
+            )
         };
         div()
             .relative()
@@ -434,15 +472,23 @@ impl PdfView {
             .gap(px(if narrow { 2. } else { 4. }))
             .when(!narrow, |this| {
                 this.child(
-                    tool("pdf-zoom-out", Icon::ZOOM_OUT, t!("Zoom out"))
-                        .disabled(scale <= MIN_SCALE)
-                        .on_click(cx.listener(|this, _, _, cx| this.step_zoom(-1., cx))),
+                    Slot::ZoomOut.glide(
+                        strip,
+                        scale > MIN_SCALE,
+                        tool("pdf-zoom-out", Icon::ZOOM_OUT, t!("Zoom out"))
+                            .disabled(scale <= MIN_SCALE)
+                            .on_click(cx.listener(|this, _, _, cx| this.step_zoom(-1., cx))),
+                    ),
                 )
                 .child(self.zoom_value(window, cx))
                 .child(
-                    tool("pdf-zoom-in", Icon::ZOOM_IN, t!("Zoom in"))
-                        .disabled(scale >= MAX_SCALE)
-                        .on_click(cx.listener(|this, _, _, cx| this.step_zoom(1., cx))),
+                    Slot::ZoomIn.glide(
+                        strip,
+                        scale < MAX_SCALE,
+                        tool("pdf-zoom-in", Icon::ZOOM_IN, t!("Zoom in"))
+                            .disabled(scale >= MAX_SCALE)
+                            .on_click(cx.listener(|this, _, _, cx| this.step_zoom(1., cx))),
+                    ),
                 )
                 .child(divider(cx))
             })
@@ -463,8 +509,14 @@ impl PdfView {
             })
             .when(self.can_reveal && !folded, |this| {
                 this.child(
-                    tool("pdf-locate", Icon::LOCATE_FIXED, t!("Reveal cursor in PDF"))
-                        .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::RevealCursor))),
+                    Slot::Locate.glide(
+                        strip,
+                        true,
+                        tool("pdf-locate", Icon::LOCATE_FIXED, t!("Reveal cursor in PDF"))
+                            .on_click(
+                                cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::RevealCursor)),
+                            ),
+                    ),
                 )
                 .child(divider(cx))
             })
@@ -478,26 +530,37 @@ impl PdfView {
             )
             .when(!narrow, |this| {
                 this.child(
-                    tool("pdf-dark-pages", Icon::MOON, t!("Dark pages"))
-                        .on(dark)
-                        .on_click(cx.listener(|this, _, _, cx| this.toggle_dark_pages(cx))),
+                    Slot::DarkPages.glide(
+                        strip,
+                        !dark,
+                        tool("pdf-dark-pages", Icon::MOON, t!("Dark pages"))
+                            .on(dark)
+                            .on_click(cx.listener(|this, _, _, cx| this.toggle_dark_pages(cx))),
+                    ),
                 )
                 .when_some(self.action.clone(), |this, action| {
                     this.child(
-                        IconButton::new("pdf-action", action.icon)
-                            .frame(px(24.), px(28.))
-                            .tooltip(lattice_i18n::tr(action.label))
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::Action))),
+                        Slot::Action.glide(
+                            strip,
+                            true,
+                            tool("pdf-action", action.icon, "")
+                                .tooltip(lattice_i18n::tr(action.label))
+                                .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::Action))),
+                        ),
                     )
                 })
                 .child(
-                    tool("pdf-save", Icon::DOWNLOAD, t!("Save PDF as…"))
-                        .disabled(self.source.is_none())
-                        .on_click(cx.listener(|this, _, window, cx| this.save_as(window, cx))),
+                    Slot::Save.glide(
+                        strip,
+                        self.source.is_some(),
+                        tool("pdf-save", Icon::DOWNLOAD, t!("Save PDF as…"))
+                            .disabled(self.source.is_none())
+                            .on_click(cx.listener(|this, _, window, cx| this.save_as(window, cx))),
+                    ),
                 )
             })
             .when(narrow || folded, |this| {
-                this.child(self.overflow_menu(fold, cx))
+                this.child(Slot::Overflow.glide(strip, true, self.overflow_menu(fold, cx)))
             })
             .into_any_element()
     }

@@ -29,6 +29,12 @@ unsafe extern "C" {
         wheel3: i32,
     ) -> *mut c_void;
     fn CGEventSetLocation(event: *mut c_void, location: NSPoint);
+    fn CGEventCreateMouseEvent(
+        source: *const c_void,
+        kind: u32,
+        location: NSPoint,
+        button: u32,
+    ) -> *mut c_void;
     fn CGEventSetIntegerValueField(event: *mut c_void, field: u32, value: i64);
 }
 
@@ -261,6 +267,42 @@ fn send_mouse_clicks(
             _ => {
                 let _: () = msg_send![native.window, sendEvent: &*event];
             }
+        }
+    }
+    Ok(())
+}
+
+/// A right click at `position` (GPUI window coordinates), which opens a
+/// context menu. An `NSEvent` built with `mouseEventWithType:` reports
+/// button 0 whatever its type, so GPUI would read it as a left click; this
+/// goes through a CoreGraphics event, which names the right button.
+pub fn send_right_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    const RIGHT_MOUSE_DOWN: u32 = 3;
+    const RIGHT_MOUSE_UP: u32 = 4;
+    const RIGHT_BUTTON: u32 = 1;
+    for kind in [RIGHT_MOUSE_DOWN, RIGHT_MOUSE_UP] {
+        unsafe {
+            let in_window = to_window(
+                native.view,
+                f32::from(position.x) as f64,
+                f32::from(position.y) as f64,
+            );
+            let number: isize = msg_send![native.window, windowNumber];
+            // As for the wheel: a window-less event's screen location reads
+            // as the window point.
+            let primary_height = primary_screen_height();
+            let location = NSPoint::new(in_window.x, primary_height - in_window.y);
+            let event = CGEventCreateMouseEvent(std::ptr::null(), kind, location, RIGHT_BUTTON);
+            if event.is_null() {
+                return Err(anyhow!("CoreGraphics refused the right-click event"));
+            }
+            CGEventSetIntegerValueField(event, 91, number as i64); // window under the pointer
+            CGEventSetIntegerValueField(event, 92, number as i64); // window that can handle it
+            let ns_event: Option<Retained<AnyObject>> =
+                msg_send![class!(NSEvent), eventWithCGEvent: event];
+            CFRelease(event);
+            let ns_event = ns_event.context("NSEvent refused the right-click event")?;
+            let _: () = msg_send![native.window, sendEvent: &*ns_event];
         }
     }
     Ok(())

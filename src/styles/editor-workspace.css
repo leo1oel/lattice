@@ -1324,7 +1324,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .latex-outline-rail-document { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The panel only caps its height, so the viewport's 100% would resolve to
    nothing and the list would grow past the panel unscrolled: it flexes. */
-.latex-outline-rail-scroll { --fluid-hover-fill: var(--control-hover-surface); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.latex-outline-rail-scroll { --fluid-hover-fill: var(--control-active-soft); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .latex-outline-rail-scroll [data-slot="scroll-area-viewport"] { flex: 1 1 auto; height: auto; min-height: 0; overscroll-behavior: contain; }
 .latex-outline-rail-list { margin: 0; padding: 0; list-style: none; }
 /* A list long enough to scroll gives the overlay scrollbar (scroll-area.css)
@@ -1337,9 +1337,13 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .latex-outline-rail-row[data-depth="1"], .latex-outline-rail-row[data-depth="2"] { grid-template-columns: max-content minmax(0, 1fr) auto; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-row[data-depth="1"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-8)); }
 .latex-outline-rail-row[data-depth="2"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-16)); }
-.latex-outline-rail-row:hover:not([data-item-selected="true"]) { background: var(--control-hover-surface); }
+/* An outline is a picker of places, so it lights as the menus, the pickers and
+   the PDF toolbar's Outline do: the accent wash under the pointer, and the
+   current section in the accent ink on it. */
+.latex-outline-rail-row:hover:not([data-item-selected="true"]) { background: var(--control-active-soft); }
 .latex-outline-rail-row:focus-visible { outline-offset: calc(0px - var(--focus-ring-width)); }
-.latex-outline-rail-row[data-item-selected="true"] { background: var(--control-pressed-surface); font-weight: 500; }
+.latex-outline-rail-row[data-item-selected="true"] { background: var(--control-active-soft); color: var(--control-active); font-weight: 500; }
+.latex-outline-rail-row[data-item-selected="true"] .latex-outline-rail-number { color: inherit; }
 .latex-outline-rail-number, .latex-outline-rail-page { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .latex-outline-rail-page { font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
