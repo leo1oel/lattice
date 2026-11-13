@@ -25,10 +25,12 @@
  *               fixture with a scratch HOME (gpui/script/e2e)
  *
  * The host has 16 GB of memory, so cargo gets CARGO_BUILD_JOBS=4 unless the
- * caller set it, and the GPUI release build and tests (several GB of rustc per
- * job) run in the machine's shared GPUI build tree under its machine-wide lock
+ * caller set it, and every stage that compiles Rust (clippy, cargo-test, the
+ * GPUI release build and tests; several GB of rustc per job) runs in the
+ * machine's shared build tree under its machine-wide lock
  * (scripts/gpui-build.mjs): two builds at once, from two worktrees, swapped
- * the machine to a crawl, and each worktree's own build started cold.
+ * the machine to a crawl, and each worktree's own build started cold and left
+ * a multi-GB target/ behind in it.
  *
  * Every stage runs, so one pass shows every red. When all pass, the working
  * tree is clean and HEAD is pushed, it signs off with basecamp/gh-signoff
@@ -100,8 +102,8 @@ function extraStages(files, mergeBase, options) {
       ? {
           name: "clippy",
           why: "Tauri crates, warnings denied",
-          command: "cargo",
-          args: ["clippy", "--manifest-path", "src-tauri/Cargo.toml", "--all-targets", "--all-features", "--", "-D", "warnings"],
+          command: "node",
+          args: ["scripts/gpui-build.mjs", "--", "clippy", "--manifest-path", "src-tauri/Cargo.toml", "--all-targets", "--all-features", "--", "-D", "warnings"],
           env: cargoEnv,
           timeout: 1_200_000,
         }
@@ -110,8 +112,8 @@ function extraStages(files, mergeBase, options) {
       ? {
           name: "cargo-test",
           why: core ? "research-writer and lattice-core" : "research-writer (lattice-core unchanged)",
-          command: "cargo",
-          args: ["test", "--manifest-path", "src-tauri/Cargo.toml", ...(core ? [] : ["--package", "research-writer"])],
+          command: "node",
+          args: ["scripts/gpui-build.mjs", "--", "test", "--manifest-path", "src-tauri/Cargo.toml", ...(core ? [] : ["--package", "research-writer"])],
           env: cargoEnv,
           timeout: 1_200_000,
         }

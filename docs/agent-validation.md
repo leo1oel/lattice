@@ -69,6 +69,9 @@ with `rm -rf gpui/target`, and the next `node scripts/gpui-build.mjs` puts the
 binary back.
 Arguments after `--` run another cargo command there instead, for example
 `node scripts/gpui-build.mjs -- test --release --locked --workspace --features lattice-gpui/offscreen-shots`.
+A `--manifest-path` runs it on the Tauri crates in the same shared tree, for example
+`node scripts/gpui-build.mjs -- clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`.
+In a no-mistakes run worktree, send every cargo command that compiles (check, clippy, test, build) through it: a plain one there leaves a cold 8–10 GB `gpui/target` or 2–3 GB `src-tauri/target` in every run.
 
 The full local gate, `pnpm check` (stages and CI parity in
 [`architecture.md` §6](architecture.md#6-the-gate)), belongs to an official
