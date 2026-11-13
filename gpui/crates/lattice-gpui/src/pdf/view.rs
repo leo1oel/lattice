@@ -436,7 +436,21 @@ impl PdfView {
 
     /// Where the viewer is, to carry to another viewer of the same PDF.
     pub fn view_place(&self) -> ViewPlace {
-        let (x, y) = self.scroll_offset();
+        // A place not reached yet (a viewer that has not been laid out, such
+        // as a window macOS has not shown) is where the viewer is going, not
+        // the top of its first page.
+        let (x, y) = match self.pending_scroll {
+            Some(PendingScroll::PagePoint { page, x, y, at_y }) => {
+                return ViewPlace {
+                    page: self.current_page,
+                    scale: self.scale,
+                    fit: self.fit,
+                    top: (page, x.unwrap_or(0.), y - at_y / self.scale),
+                };
+            }
+            Some(PendingScroll::Offset(x, y)) => (x, y),
+            None => self.scroll_offset(),
+        };
         ViewPlace {
             page: self.current_page,
             scale: self.scale,
