@@ -42,6 +42,7 @@ mod shell;
 mod sounds;
 mod stand_in_panels;
 mod status_counters;
+mod structured;
 mod titlebar;
 mod welcome;
 mod window_material;

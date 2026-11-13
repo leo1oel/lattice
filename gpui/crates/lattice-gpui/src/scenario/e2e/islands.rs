@@ -543,7 +543,7 @@ impl Run {
 
     /// Evaluate `script` in the island's page; its value as JSON (a string
     /// the script built with `JSON.stringify` is parsed once more).
-    async fn evaluate(
+    pub(super) async fn evaluate(
         &self,
         cx: &mut AsyncApp,
         island: &Entity<lattice_webview::Island>,

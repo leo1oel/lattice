@@ -76,6 +76,17 @@
     for (const [name, value] of Object.entries(theme.vars || {})) {
       if (name.startsWith("--")) root.style.setProperty(name, String(value));
     }
+    // A page that loads the Tauri app's own stylesheets takes the root
+    // attributes the app sets (src/settings/use-appearance.ts), and a custom
+    // accent's colour, which those stylesheets cannot derive.
+    if (theme.dataset && typeof theme.dataset === "object") {
+      for (const name of ["theme", "tint", "accent"]) {
+        const value = theme.dataset[name];
+        if (typeof value === "string") root.dataset[name] = value;
+      }
+      if (typeof theme.accent === "string") root.style.setProperty("--accent", theme.accent);
+      else root.style.removeProperty("--accent");
+    }
   };
 
   const host = Object.freeze({

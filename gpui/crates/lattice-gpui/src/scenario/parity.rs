@@ -128,11 +128,20 @@ impl Run {
             None
         };
         // The HTML screen (`scenes.html`): the tutorial's HTML demo opened,
-        // in Preview, once its page has loaded.
-        let html_loaded = if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("html") {
-            Some(self.parity_open_html(cx).await?)
-        } else {
-            None
+        // in Preview, once its page has loaded; the spreadsheet and board
+        // screens (`scenes.sheet`, `scenes.board`): the tutorial's own, once
+        // their island has drawn.
+        let html_loaded = match std::env::var("LATTICE_PARITY_SCREEN").as_deref() {
+            Ok("html") => Some(self.parity_open_html(cx).await?),
+            Ok("sheet") => Some(
+                self.parity_open_structured(cx, "attention-results.lattice-sheet")
+                    .await?,
+            ),
+            Ok("board") => Some(
+                self.parity_open_structured(cx, "attention-map.tldr")
+                    .await?,
+            ),
+            _ => None,
         };
         // Page images, the editor's highlighting and the fonts settle.
         sleep(cx, Duration::from_millis(2500)).await;
@@ -239,6 +248,27 @@ impl Run {
             .await;
         self.park_pointer(cx)?;
         Ok(loaded)
+    }
+}
+
+impl Run {
+    /// Open the tutorial's structured document `name` as the scene does, and
+    /// wait for its island's page to draw; whether it did.
+    async fn parity_open_structured(&self, cx: &mut AsyncApp, name: &str) -> Result<bool> {
+        let Some(root) = cx.update(|cx| self.shell.read(cx).root(cx)) else {
+            return Ok(false);
+        };
+        let panel = self.open(cx, &root.join(name), None)?;
+        let drawn = self
+            .wait_for(cx, Duration::from_secs(30), |_, cx| {
+                panel
+                    .read(cx)
+                    .structured()
+                    .is_some_and(|document| document.read(cx).is_drawn())
+            })
+            .await;
+        self.park_pointer(cx)?;
+        Ok(drawn)
     }
 }
 

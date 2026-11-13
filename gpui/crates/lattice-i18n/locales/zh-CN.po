@@ -333,3 +333,11 @@ msgstr "保留 {name}"
 #: lattice-gpui/src/history/conflict_resolver.rs
 msgid "{name} removed this part."
 msgstr "{name} 删掉了这部分。"
+
+#: lattice-gpui/src/structured.rs
+msgid "Couldn’t open this board"
+msgstr "白板打不开"
+
+#: lattice-gpui/src/structured.rs
+msgid "Open Slide’s Ask AI, Apply comments and Draft a deck need the Agent."
+msgstr "幻灯片的“问 AI”“应用批注”和“起草幻灯片”需要 AI 助手。"

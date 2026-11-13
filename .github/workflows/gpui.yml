@@ -128,6 +128,13 @@ jobs:
       # steps with nothing painted partway through; the lab switch
       # (patches/README.md) paces the window by the display's CVDisplayLink
       # and keeps it drawing.
+      # The island pages the board, spreadsheet and deck checks open, built
+      # from the Tauri app's modules (gpui/script/build-islands), which needs
+      # the repository's node_modules; the parity report below reuses them.
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+      - name: Build the island pages
+        run: script/build-islands
       - name: e2e scenario
         timeout-minutes: 10
         env:
@@ -157,12 +164,8 @@ jobs:
       # gate: these steps never fail the job. The runner's screen shrinks the
       # window (about 1015 px wide), and the reference is drawn at whatever
       # size and scale the GPUI window got. Since it gates nothing, a release
-      # tag skips it (about 5-15 minutes of pnpm install, Chromium and both
-      # renders); the weekly run and a dispatch still write it.
-      - name: Set up pnpm for the parity report
-        if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
-        continue-on-error: true
-        uses: ./.github/actions/setup-pnpm
+      # tag skips it (about 5-15 minutes of Chromium and both renders); the
+      # weekly run and a dispatch still write it.
       - name: Parity report
         if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
         continue-on-error: true
