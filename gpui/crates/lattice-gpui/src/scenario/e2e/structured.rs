@@ -367,9 +367,12 @@ impl Run {
     async fn close_panel(&self, cx: &mut AsyncApp, panel: &Entity<EditorPanel>) -> Result<()> {
         self.with_window(cx, {
             let panel = panel.clone();
-            move |shell, window, cx| {
-                let area = shell.read(cx).dock_area().clone();
-                area.update(cx, |area, cx| area.remove_panel(panel, window, cx));
+            move |shell, _, cx| {
+                let view = shell.read(cx).view_of_editor(&panel);
+                let workspace = shell.read(cx).workspace().clone();
+                if let Some(view) = view {
+                    workspace.update(cx, |workspace, cx| workspace.close(&[view], cx));
+                }
             }
         })?;
         self.pause(cx, Duration::from_millis(200)).await;
