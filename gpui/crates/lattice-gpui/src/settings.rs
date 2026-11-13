@@ -56,9 +56,23 @@ pub struct AppSettings {
     /// tells an outside edit from this app's own write.
     seen: Option<SystemTime>,
     scripted: bool,
+    /// The keymap the file holds while `LATTICE_GPUI_VIM` puts Vim in its
+    /// place for this run; none once the writer chooses a keymap.
+    saved_keymap: Option<EditorKeymap>,
 }
 
 impl Global for AppSettings {}
+
+impl AppSettings {
+    /// The settings as the file keeps them.
+    fn to_save(&self) -> Settings {
+        let mut settings = self.settings.clone();
+        if let Some(keymap) = self.saved_keymap {
+            settings.appearance.editor_keymap = keymap;
+        }
+        settings
+    }
+}
 
 /// The settings now.
 pub fn get(cx: &App) -> &Settings {
@@ -96,6 +110,7 @@ pub fn init(scripted: bool, cx: &mut App) {
         path,
         seen,
         scripted,
+        saved_keymap: None,
     });
     apply(None, cx);
     watch(cx);
@@ -104,10 +119,9 @@ pub fn init(scripted: bool, cx: &mut App) {
 /// Turn Vim on for this run only, leaving the file as it is.
 pub fn use_vim_for_this_run(cx: &mut App) {
     let before = get(cx).clone();
-    cx.global_mut::<AppSettings>()
-        .settings
-        .appearance
-        .editor_keymap = EditorKeymap::Vim;
+    let state = cx.global_mut::<AppSettings>();
+    state.saved_keymap = Some(before.appearance.editor_keymap);
+    state.settings.appearance.editor_keymap = EditorKeymap::Vim;
     apply(Some(&before), cx);
 }
 
@@ -120,9 +134,12 @@ pub fn update(cx: &mut App, edit: impl FnOnce(&mut Settings)) {
         return;
     }
     let state = cx.global_mut::<AppSettings>();
+    if after.appearance.editor_keymap != before.appearance.editor_keymap {
+        state.saved_keymap = None;
+    }
     state.settings = after;
     if let Some(path) = state.path.clone() {
-        if let Err(error) = lattice_settings::write(&path, &state.settings) {
+        if let Err(error) = lattice_settings::write(&path, &state.to_save()) {
             log::warn!("could not save the settings: {error:#}");
         }
         state.seen = modified(&path);
@@ -141,7 +158,7 @@ pub fn update_appearance(cx: &mut App, edit: impl FnOnce(&mut AppearanceSettings
 pub(crate) fn use_file(path: PathBuf, cx: &mut App) {
     let watching = cx.global::<AppSettings>().path.is_some();
     let state = cx.global_mut::<AppSettings>();
-    if let Err(error) = lattice_settings::write(&path, &state.settings) {
+    if let Err(error) = lattice_settings::write(&path, &state.to_save()) {
         log::warn!("could not write {}: {error:#}", path.display());
     }
     state.seen = modified(&path);
@@ -176,7 +193,11 @@ fn watch(cx: &mut App) {
                 let before = get(cx).clone();
                 let state = cx.global_mut::<AppSettings>();
                 state.seen = now;
-                if let Some(settings) = read {
+                if let Some(mut settings) = read {
+                    if state.saved_keymap.is_some() {
+                        state.saved_keymap = Some(settings.appearance.editor_keymap);
+                        settings.appearance.editor_keymap = EditorKeymap::Vim;
+                    }
                     if settings != before {
                         state.settings = settings;
                         apply(Some(&before), cx);
@@ -293,11 +314,13 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
         if before.is_none() || lattice_i18n::locale() != locale {
             lattice_i18n::set_locale(locale);
             crate::shell::menus::install_menus(cx);
-            crate::shell::windows::for_shells(
-                cx,
-                |_| true,
-                |shell, window, cx| shell.set_window_title(window, cx),
-            );
+            cx.defer(|cx| {
+                crate::shell::windows::for_shells(
+                    cx,
+                    |_| true,
+                    |shell, window, cx| shell.set_window_title(window, cx),
+                );
+            });
             cx.refresh_windows();
         }
     }
