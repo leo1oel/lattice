@@ -209,7 +209,7 @@ impl Render for ArxivExportSheet {
         let this = cx.entity().downgrade();
         ModalLayer::new(
             "arxiv-export",
-            LayerPlacement::Center,
+            LayerPlacement::UpperThird,
             lattice_ui::components::rise_in("arxiv-export-rise", card),
             move |_, cx| {
                 this.update(cx, |sheet, cx| sheet.close(cx)).ok();
@@ -553,7 +553,8 @@ impl ArxivExportSheet {
             .into_any_element()
     }
 
-    /// A `SwitchField`: the label, the switch at the end.
+    /// A `SwitchField`: the label, the switch at the end, a default row's
+    /// 40px tall (`.ui-row`).
     fn switch_field(
         &self,
         id: &'static str,
@@ -569,6 +570,7 @@ impl ArxivExportSheet {
             .items_center()
             .justify_between()
             .gap(px(16.))
+            .min_h(px(40.))
             .py(px(4.))
             .child(
                 div()

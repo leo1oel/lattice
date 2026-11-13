@@ -535,7 +535,7 @@ impl Render for RenameSymbolDialog {
         let this = cx.entity().downgrade();
         ModalLayer::new(
             "rename-symbol",
-            LayerPlacement::Center,
+            LayerPlacement::UpperThird,
             lattice_ui::components::rise_in("rename-symbol-rise", card),
             move |_, cx| {
                 this.update(cx, |dialog, cx| {
