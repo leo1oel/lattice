@@ -113,16 +113,9 @@ impl BibEditor {
         };
         let value = field.input.value(cx);
         let (name, field_index, style) = (field.name.clone(), field.index, field.style);
-        // Unchanged from the file as it is now, not as the box opened: a
-        // value typed back to what it was before an earlier write is written.
-        let written = self
-            .rows
-            .iter()
-            .find(|row| row.entry.key == key)
-            .and_then(|row| field_named(&row.entry, &name, field_index))
-            .and_then(|field| self.text.get(field.value_from..field.value_to))
-            .map(|raw| bib_document::editable_value(raw).0);
-        if written.as_ref() == Some(&value) {
+        // Nothing typed since the box was last filled: whatever the file
+        // holds now (a source edit, say) stays.
+        if value == field.filled {
             self.set_invalid(at, false, cx);
             return;
         }
@@ -131,7 +124,7 @@ impl BibEditor {
             return;
         };
         self.set_invalid(at, false, cx);
-        self.edit_entry(
+        let written = self.edit_entry(
             &key,
             index,
             |_, entry| {
@@ -140,6 +133,15 @@ impl BibEditor {
             },
             cx,
         );
+        // Written: typing the earlier value back is a change again.
+        if written.is_some()
+            && let Some(field) = self
+                .detail
+                .as_mut()
+                .and_then(|detail| detail.fields.get_mut(at))
+        {
+            field.filled = value;
+        }
     }
 
     fn set_invalid(&mut self, at: usize, invalid: bool, cx: &mut Context<Self>) {
