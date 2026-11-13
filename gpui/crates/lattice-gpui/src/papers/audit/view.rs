@@ -580,14 +580,13 @@ impl Render for Audit {
                 )
             })
             .collect();
-        // A filter whose last finding was resolved falls back to everything,
-        // and stays there (`shownView`).
+        // A filter with nothing in it shows everything (`shownView`); the
+        // writer's choice stays, for when its findings come back.
         let view = self.view.filter(|view| {
             counts
                 .iter()
                 .any(|(bucket, count)| bucket == view && *count > 0)
         });
-        self.view = view;
         let shown: Vec<usize> = Bucket::ORDER
             .iter()
             .filter(|bucket| view.is_none_or(|view| view == **bucket))
