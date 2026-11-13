@@ -127,7 +127,7 @@ impl Run {
         std::fs::remove_file(&note).ok();
         self.open(cx, &root.join("main.tex"), Some(1))?;
 
-        self.outline_rail(cx, steps, &editor, &lattice).await
+        self.outline_rail(cx, steps, &editor, &lattice, root).await
     }
 
     async fn outline_rail(
@@ -136,6 +136,7 @@ impl Run {
         steps: &mut Steps,
         editor: &gpui::Entity<crate::editor_panel::EditorPanel>,
         lattice: &gpui::Entity<lattice_editor::LatticeEditor>,
+        root: &Path,
     ) -> Result<()> {
         let rail = cx
             .update(|cx| editor.read(cx).outline_rail().cloned())
@@ -265,6 +266,122 @@ impl Run {
             "the .tex editor keeps its Source / Visual switch after the layout is reinstalled",
             still,
             json!({ "offers": still }),
+        );
+        self.long_outline(cx, steps, root).await
+    }
+
+    /// A standalone file with more sections than the opened outline can
+    /// show: the outline opens with the current row in its middle, and a
+    /// wheel over the text ends a jump's hold on the current section.
+    async fn long_outline(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
+        let path = root.join("outline-check.tex");
+        let mut text = String::new();
+        for section in 1..=120 {
+            text.push_str(&format!("\\section{{Part {section}}}\n"));
+            for line in 1..=20 {
+                text.push_str(&format!("Text {section}.{line}\n"));
+            }
+        }
+        std::fs::write(&path, text)?;
+        let editor = self.open(cx, &path, Some(1))?;
+        let lattice = cx.update(|cx| editor.read(cx).lattice_editor().clone());
+        let rail = {
+            let editor = editor.clone();
+            let mut found = None;
+            for _ in 0..50 {
+                found = cx.update(|cx| editor.read(cx).outline_rail().cloned());
+                if found.is_some() {
+                    break;
+                }
+                self.pause(cx, Duration::from_millis(100)).await;
+            }
+            found.context("the long file has an outline rail")?
+        };
+        let shown = rail.clone();
+        self.wait_for(cx, Duration::from_secs(10), move |_, cx| {
+            shown.read(cx).shown()
+                && shown.read(cx).marks_bounds().is_some()
+                && shown.read(cx).outline().entries.len() == 120
+        })
+        .await;
+        // Read late in the file, around Part 100.
+        self.with_window(cx, |_, window, cx| {
+            let zed = editor.read(cx).editor().clone();
+            zed.update(cx, |zed, cx| zed.set_scroll_position(point(0., 2090.), window, cx));
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let bounds = cx
+            .update(|cx| rail.read(cx).marks_bounds())
+            .context("the long file's rail drew its marks")?;
+        self.move_pointer(cx, bounds.center()).await?;
+        let open = rail.clone();
+        let opened = self
+            .wait_for(cx, Duration::from_secs(2), move |_, cx| open.read(cx).is_open())
+            .await;
+        self.pause(cx, Duration::from_millis(500)).await;
+        let current = {
+            let rail = rail.clone();
+            self.with_window(cx, move |_, window, cx| {
+                rail.update(cx, |rail, cx| rail.current(window, cx))
+            })?
+        };
+        let (offset, viewport, max) = cx.update(|cx| rail.read(cx).list_scroll());
+        // Rows share one height, so the content height over 120 places the
+        // current row; centred means its middle sits at the viewport's.
+        let content = viewport.size.height + max.y;
+        let row = content / 120.;
+        let middle = current.map(|index| row * (index as f32 + 0.5) + offset.y);
+        let centred = middle.is_some_and(|middle| {
+            let want = viewport.size.height / 2.;
+            (middle - want).abs() <= row
+        });
+        steps.check(
+            "the outline of a long file opens with the current row in the middle of its list",
+            opened && max.y > px(0.) && current.is_some_and(|index| index >= 90) && centred,
+            json!({
+                "opened": opened,
+                "current": current,
+                "offset": f32::from(offset.y),
+                "viewport": f32::from(viewport.size.height),
+                "max": f32::from(max.y),
+                "row_middle": middle.map(f32::from),
+            }),
+        );
+
+        // Jump to Part 5, then wheel the text down: the hold ends.
+        cx.update(|cx| rail.update(cx, |rail, cx| rail.choose(4, cx)));
+        self.park_pointer(cx)?;
+        let closed = rail.clone();
+        self.wait_for(cx, Duration::from_secs(2), move |_, cx| !closed.read(cx).is_open())
+            .await;
+        let pinned = cx.update(|cx| rail.read(cx).is_pinned());
+        let view = cx
+            .update(|cx| lattice.read(cx).painted_gutter().bounds)
+            .context("the long file's gutter drew")?;
+        let over_text = point(view.left() + view.size.width / 3., view.center().y);
+        self.move_pointer(cx, over_text).await?;
+        let top = |cx: &mut gpui::App| {
+            let zed = editor.read(cx).editor().clone();
+            zed.update(cx, |zed, cx| zed.scroll_position(cx).y)
+        };
+        let before = cx.update(|cx| top(cx));
+        native::send_wheel(self.native(cx)?, over_text, -200)?;
+        let moved = {
+            let editor = editor.clone();
+            self.wait_for(cx, Duration::from_secs(2), move |_, cx| {
+                let zed = editor.read(cx).editor().clone();
+                zed.update(cx, |zed, cx| zed.scroll_position(cx).y) > before
+            })
+            .await
+        };
+        self.pause(cx, Duration::from_millis(200)).await;
+        let released = !cx.update(|cx| rail.read(cx).is_pinned());
+        self.park_pointer(cx)?;
+        std::fs::remove_file(&path).ok();
+        steps.check(
+            "after an outline jump, the wheel scrolling the text ends the jump's hold on the current section",
+            pinned && moved && released,
+            json!({ "pinned": pinned, "moved": moved, "released": released }),
         );
         Ok(())
     }

@@ -215,6 +215,17 @@ impl OutlineRail {
         self.open
     }
 
+    /// Whether a jump still holds the current section.
+    pub fn is_pinned(&self) -> bool {
+        self.pinned.is_some()
+    }
+
+    /// The opened outline's list: its scroll offset, viewport and how far it
+    /// can scroll.
+    pub fn list_scroll(&self) -> (gpui::Point<Pixels>, gpui::Bounds<Pixels>, gpui::Point<Pixels>) {
+        (self.list.offset(), self.list.bounds(), self.list.max_offset())
+    }
+
     /// Where the marks were last drawn.
     pub fn marks_bounds(&self) -> Option<gpui::Bounds<Pixels>> {
         self.marks_bounds.get()

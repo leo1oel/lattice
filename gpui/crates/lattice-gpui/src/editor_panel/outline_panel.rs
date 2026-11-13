@@ -215,7 +215,7 @@ impl OutlineRail {
             .occlude()
             .flex()
             .flex_col()
-            .max_h_full()
+            .min_h_0()
             .when(!leaving, |panel| {
                 panel.on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                     this.set_over(None, Some(*hovered), cx)
@@ -235,13 +235,13 @@ impl OutlineRail {
         let entrance = Entrance::POPUP;
         let body: AnyElement = if leaving {
             let movement = presence.opacity;
-            scaled(div().relative().child(panel))
+            scaled(div().relative().flex().flex_col().min_h_0().child(panel))
                 .origin(point(1., 0.))
                 .scale(entrance.scale(movement))
                 .map_child(|child| child.opacity(movement))
                 .into_any_element()
         } else {
-            scaled(div().relative().child(panel))
+            scaled(div().relative().flex().flex_col().min_h_0().child(panel))
                 .origin(point(1., 0.))
                 .with_animation(
                     ElementId::NamedInteger("outline-rail-enter".into(), self.opened as u64),
@@ -257,14 +257,19 @@ impl OutlineRail {
                 )
                 .into_any_element()
         };
+        // Anchored to both edges so the wrapper takes the source view's height;
+        // a `max_h_full` alone has no definite height to resolve against, and
+        // the list then grows to its whole content and never scrolls. Every
+        // level down to the list shrinks (`min_h_0`) so the panel caps there.
+        // The wrapper has no hitbox, so its empty lower part passes clicks on.
         Some(
             div()
                 .absolute()
                 .top_0()
+                .bottom_0()
                 .right_0()
                 .w(PANEL_WIDTH)
                 .max_w_full()
-                .max_h_full()
                 .flex()
                 .flex_col()
                 .child(body)
