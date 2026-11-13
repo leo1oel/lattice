@@ -147,11 +147,13 @@ impl Shell {
     }
 
     /// The workspace's focus moved to `view`: a document's editor is the
-    /// active one, and the tree marks it.
+    /// active one, and the tree marks it; a paper's reader is the one in
+    /// front, and Papers marks it.
     fn view_focused(&mut self, view: &str, cx: &mut Context<Self>) {
         let Some(panel) = self.panel_of_view(view) else {
             return;
         };
+        self.reader_focused(panel.view().entity_id(), cx);
         if let Ok(editor) = panel.view().downcast::<EditorPanel>() {
             self.active_editor = Some(editor.downgrade());
             let path = editor.read(cx).path().to_path_buf();

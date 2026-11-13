@@ -168,24 +168,36 @@ impl Shell {
         })
     }
 
-    /// The reader selected in a panel on screen: the document in front's
-    /// when it is a reader, else the one opened last.
+    /// The reader selected in a panel on screen: the focused one, else the
+    /// one the writer was in last.
     fn front_reader_entity(&self, cx: &gpui::App) -> Option<Entity<PaperReader>> {
         let engine = self.workspace.read(cx).engine();
         let shown: Vec<(String, &Entity<PaperReader>)> = self
             .documents
             .readers
             .iter()
-            .filter(|reader| {
-                self.view_of_panel(reader.entity_id()).is_some_and(|view| {
-                    engine.placement_of(&view) != ViewPlacement::Hidden && self.in_front(&view, cx)
-                })
+            .filter_map(|reader| {
+                let view = self.view_of_panel(reader.entity_id())?;
+                (engine.placement_of(&view) != ViewPlacement::Hidden && self.in_front(&view, cx))
+                    .then_some((view, reader))
             })
-            .map(|reader| (reader_key(&reader.read(cx).paper().arxiv_id), reader))
             .collect();
-        let keys: Vec<&str> = shown.iter().map(|(key, _)| key.as_str()).collect();
-        let active = self.active_document(cx);
-        front_of(&keys, active.as_deref()).map(|at| shown[at].1.clone())
+        let views: Vec<&str> = shown.iter().map(|(view, _)| view.as_str()).collect();
+        front_of(&views, engine.focused_view()).map(|at| shown[at].1.clone())
+    }
+
+    /// The panel `panel` took the focus: when it is a paper's reader, it is
+    /// the one the writer was in last.
+    pub(super) fn reader_focused(&mut self, panel: gpui::EntityId, cx: &mut Context<Self>) {
+        if !last_used(&mut self.documents.readers, |reader| {
+            reader.entity_id() == panel
+        }) {
+            return;
+        }
+        let document = self
+            .active_editor()
+            .map(|editor| editor.read(cx).path().to_path_buf());
+        self.mark_front_paper(document.as_deref(), cx);
     }
 
     /// Mark the paper in front: a reader's when one is, else the paper
@@ -359,12 +371,23 @@ pub(super) fn is_reader_key(key: &str) -> bool {
     key.starts_with(READER_PREFIX)
 }
 
-/// Which of the readers `shown` (keyed, in the order they were opened) is in
-/// front: the `active` document's, else the one opened last.
-fn front_of(shown: &[&str], active: Option<&str>) -> Option<usize> {
-    active
-        .and_then(|active| shown.iter().position(|key| *key == active))
+/// Which of the readers' views `shown` (from the one used longest ago) is
+/// in front: the `focused` view, else the one used last.
+fn front_of(shown: &[&str], focused: Option<&str>) -> Option<usize> {
+    focused
+        .and_then(|focused| shown.iter().position(|view| *view == focused))
         .or_else(|| shown.len().checked_sub(1))
+}
+
+/// Move the first of `list` that `is` to its end, as the one used last;
+/// whether there was one.
+fn last_used<T>(list: &mut Vec<T>, is: impl Fn(&T) -> bool) -> bool {
+    let Some(at) = list.iter().position(is) else {
+        return false;
+    };
+    let item = list.remove(at);
+    list.push(item);
+    true
 }
 
 #[cfg(test)]
@@ -372,13 +395,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_reader_the_writer_is_on_is_in_front_of_another_shown() {
-        let (a, b) = (reader_key("2401.00001"), reader_key("2401.00002"));
-        let shown = [a.as_str(), b.as_str()];
-        assert_eq!(front_of(&shown, Some(b.as_str())), Some(1));
-        assert_eq!(front_of(&shown, Some(a.as_str())), Some(0));
-        // An editor in front: the reader opened last.
-        assert_eq!(front_of(&shown, Some("notes.tex")), Some(1));
-        assert_eq!(front_of(&[], Some(b.as_str())), None);
+    fn the_focused_reader_is_in_front_of_the_others_shown() {
+        // A opened first, B last, C between; the writer is in C.
+        let shown = ["reader-a", "reader-c", "reader-b"];
+        assert_eq!(front_of(&shown, Some("reader-c")), Some(1));
+        // An editor focused: the reader used last.
+        assert_eq!(front_of(&shown, Some("editor")), Some(2));
+        assert_eq!(front_of(&shown, None), Some(2));
+        assert_eq!(front_of(&[], Some("reader-a")), None);
+    }
+
+    #[test]
+    fn a_reader_focused_after_another_opened_is_the_one_used_last() {
+        // A opened, then B; the writer goes back into A, then into an editor.
+        let mut readers = vec!["a", "b"];
+        assert!(last_used(&mut readers, |reader| *reader == "a"));
+        assert!(!last_used(&mut readers, |reader| *reader == "editor"));
+        assert_eq!(readers, ["b", "a"]);
+        assert_eq!(front_of(&readers, Some("editor")), Some(1));
     }
 }
