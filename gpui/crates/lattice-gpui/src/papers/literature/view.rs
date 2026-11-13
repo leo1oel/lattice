@@ -541,6 +541,9 @@ impl Literature {
     }
 }
 
+/// How near the window's bottom the list's end comes before more load.
+const SCROLL_THRESHOLD: f32 = 160.;
+
 impl Render for Literature {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
@@ -609,15 +612,38 @@ impl Render for Literature {
                 };
                 rows.push(hover.item_as(ix, kind, row));
             }
+            // Where the list ends, as last painted: a scroll that brings it
+            // within reach of the window's bottom loads more
+            // (`SCROLL_THRESHOLD_PX` in literature-discovery-panel.tsx).
+            let end = self.list_end.clone();
+            let more = self.visible < self.results.len() || self.has_more;
             body.push(
                 div()
+                    .id("literature-results")
                     .relative()
                     .flex()
                     .flex_col()
                     .children(rows)
+                    .child(
+                        gpui::canvas(
+                            move |bounds, _, _| end.set(f32::from(bounds.origin.y)),
+                            |_, _, _, _| {},
+                        )
+                        .h(px(1.))
+                        .w_full(),
+                    )
+                    .when(more, |list| {
+                        list.on_scroll(cx.listener(|this, _, window, cx| {
+                            let bottom = f32::from(window.viewport_size().height);
+                            if this.list_end.get() - bottom < SCROLL_THRESHOLD && !this.loading_more
+                            {
+                                this.load_more(cx);
+                            }
+                        }))
+                    })
                     .into_any_element(),
             );
-            if self.visible < self.results.len() || self.has_more {
+            if more {
                 body.push(
                     div()
                         .flex()

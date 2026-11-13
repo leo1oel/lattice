@@ -5,8 +5,9 @@
 //! where from and which id) in place. A result with an arXiv id adds to
 //! Papers in one click; any result can be added as a citation only, through
 //! Add papers. The same work from both sources, or on two pages, is shown
-//! once. Ten show at first and ten more as the list nears its end; a deeper
-//! page is fetched only once those run out.
+//! once. Ten show at first and ten more as a scroll brings the list's end
+//! near (or Load more is pressed); a deeper page is fetched only once those
+//! run out.
 
 use lattice_i18n::t;
 use std::collections::HashSet;
@@ -79,6 +80,8 @@ pub struct Literature {
     page: u32,
     seen: HashSet<String>,
     pub(super) scroll: ScrollHandle,
+    /// Where the results end in the window, as last painted.
+    pub(super) list_end: std::rc::Rc<std::cell::Cell<f32>>,
     focus: FocusHandle,
     _search: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -124,6 +127,7 @@ impl Literature {
             page: 0,
             seen: HashSet::new(),
             scroll: ScrollHandle::new(),
+            list_end: Default::default(),
             focus: cx.focus_handle(),
             _search: None,
             _subscriptions: vec![enter, refresh],
