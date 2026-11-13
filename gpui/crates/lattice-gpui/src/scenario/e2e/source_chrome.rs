@@ -219,6 +219,53 @@ impl Run {
                 "closed": closed,
             }),
         );
+
+        // A native click on the left edge of the marks, where they lie over
+        // the editor's text, toggles the outline and leaves the caret where
+        // it was: the rail occludes the text under it.
+        let before = cx.update(|cx| editor.read(cx).cursor());
+        let edge = point(bounds.left() + px(2.), bounds.center().y);
+        self.move_pointer(cx, edge).await?;
+        native::send_click(self.native(cx)?, edge)?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let after = cx.update(|cx| editor.read(cx).cursor());
+        self.park_pointer(cx)?;
+        let settled = rail.clone();
+        self.wait_for(cx, Duration::from_secs(2), move |_, cx| {
+            !settled.read(cx).is_open()
+        })
+        .await;
+        steps.check(
+            "a click on the outline rail's marks leaves the caret where it was",
+            before == after,
+            json!({ "before": before, "after": after, "at": [f32::from(edge.x), f32::from(edge.y)] }),
+        );
+
+        // Reinstalling the layout (Reset Layout, focus mode on and off) keeps
+        // the .tex editor's Source / Visual switch.
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.reset_layout(window, cx))
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.set_focus_mode(true, window, cx))
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.set_focus_mode(false, window, cx))
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let still = cx.update(|cx| {
+            lattice_ui::dock::offers_spare_tools(
+                gpui_kit::component::dock::PanelId::from(editor.entity_id()),
+                cx,
+            )
+        });
+        steps.check(
+            "the .tex editor keeps its Source / Visual switch after the layout is reinstalled",
+            still,
+            json!({ "offers": still }),
+        );
         Ok(())
     }
 
