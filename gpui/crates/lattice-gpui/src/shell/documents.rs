@@ -220,7 +220,7 @@ impl Shell {
         self.take_document_overlays(cx);
     }
 
-    fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
         self.documents.quick_open = None;
         if let Some(find) = self.documents.find.take() {
             self.documents.find_memory = find.read(cx).memory(cx);

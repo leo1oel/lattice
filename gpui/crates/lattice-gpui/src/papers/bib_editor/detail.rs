@@ -80,7 +80,7 @@ pub(in crate::papers) struct Detail {
     /// The reference it was built for, and its text then.
     pub(super) key: String,
     signature: String,
-    key_input: Entity<InputState>,
+    pub(super) key_input: Entity<InputState>,
     pub(super) key_error: Option<String>,
     pub(super) fields: Vec<FieldRow>,
     pub(super) new_name: Entity<InputState>,
@@ -117,6 +117,17 @@ impl BibEditor {
     /// box by its field's name, so the box the writer is in keeps its focus
     /// and what they typed; the others show the file as it is now.
     pub(super) fn ensure_detail(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Another reference came to the front before a box was left: what
+        // the writer typed is written to the reference it was typed for,
+        // before its form goes (its boxes' Blur would find no form).
+        let front = self.selected_row().map(|row| row.entry.key.clone());
+        if self
+            .detail
+            .as_ref()
+            .is_some_and(|detail| Some(&detail.key) != front.as_ref())
+        {
+            self.commit_form(cx);
+        }
         let Some(row) = self.selected_row().cloned() else {
             self.detail = None;
             return;

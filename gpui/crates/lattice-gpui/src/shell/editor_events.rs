@@ -72,11 +72,17 @@ impl Shell {
     /// The Project tree marks the document in front, and Papers the paper
     /// it is, whichever tab brought it there.
     pub(super) fn follow_active_document(&mut self, cx: &mut Context<Self>) {
-        let (Some(root), Some(active)) = (self.root(cx), self.active_document(cx)) else {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        let Some(active) = self.active_document(cx) else {
+            // A reader closed with no document behind it leaves no paper
+            // open.
+            self.mark_front_paper(None, cx);
             return;
         };
         let path = root.join(active);
-        self.mark_front_paper(&path, cx);
+        self.mark_front_paper(Some(&path), cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path), cx));
     }
