@@ -358,6 +358,13 @@ impl Shell {
             )
             .chain(
                 documents
+                    .literature
+                    .clone()
+                    .map(|view| view.into_any_element()),
+            )
+            .chain(documents.audit.clone().map(|view| view.into_any_element()))
+            .chain(
+                documents
                     .add_papers
                     .clone()
                     .map(|view| view.into_any_element()),
