@@ -532,6 +532,15 @@ pub fn apply_library_changes(
         });
     }
     edits.sort_by_key(|edit| std::cmp::Reverse(edit.from));
+    // Two neighbouring deletes can share the blank lines between them (the
+    // file's last entry takes those before it): each stops where the one
+    // after it, already applied, starts.
+    let mut floor = local.len();
+    for edit in &mut edits {
+        edit.to = edit.to.min(floor);
+        edit.from = edit.from.min(edit.to);
+        floor = edit.from;
+    }
     let mut next = edits.iter().fold(local.to_string(), |text, edit| {
         bib_document::apply_edit(&text, edit)
     });
@@ -614,6 +623,17 @@ mod tests {
             !apply_library_changes(BASE, library, &free)
                 .unwrap()
                 .contains("Beta")
+        );
+    }
+
+    #[test]
+    fn the_last_two_entries_dropped_together_both_go() {
+        let base = "@misc{a,t={A}}\n\n@misc{b,t={B}}\n";
+        let changes = compare(Some(base), "", base, &[]);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(
+            apply_library_changes(base, "", &changes).unwrap().trim(),
+            ""
         );
     }
 

@@ -66,11 +66,12 @@ pub struct ZoteroExtras {
 
 /// What the Zotero part of an import came to.
 struct ZoteroOutcome {
-    /// The PDF could not be attached, or the annotations could not be added;
-    /// else where the annotations went.
+    /// Where the annotations went, or why they could not be added.
     note: Option<String>,
-    /// The PDF was attached: the full text the import lacked is there now.
-    attached: bool,
+    /// The PDF was attached (the full text the import lacked is there now),
+    /// or why it could not be: that stands in for the import's own fetch
+    /// error, as `use-reference-import.ts` has it.
+    attached: Option<Result<(), String>>,
 }
 
 /// Attach a Zotero paper's PDF when Papers has none of it, and add its
@@ -99,7 +100,7 @@ fn bring_from_zotero<'a>(
     };
     let mut outcome = ZoteroOutcome {
         note: None,
-        attached: false,
+        attached: None,
     };
     if let Some(pdf) = &extras.pdf {
         let needs = if extras.existing.is_some() {
@@ -108,12 +109,11 @@ fn bring_from_zotero<'a>(
             fresh_without_text
         };
         if needs {
-            match lattice_core::zotero::attachment_path(pdf)
-                .and_then(|path| core_papers::attach_pdf_file(root, key, &path))
-            {
-                Ok(_) => outcome.attached = true,
-                Err(error) => outcome.note = Some(error),
-            }
+            outcome.attached = Some(
+                lattice_core::zotero::attachment_path(pdf)
+                    .and_then(|path| core_papers::attach_pdf_file(root, key, &path))
+                    .map(|_| ()),
+            );
         }
     }
     let Some(item) = &extras.annotations else {
@@ -130,7 +130,7 @@ fn bring_from_zotero<'a>(
         super::zotero::notes::add_annotations(root, &paper, list, labels).map(Some)
     });
     outcome.note = match added {
-        Ok(None) => outcome.note,
+        Ok(None) => None,
         Ok(Some((path, 0))) => Some(words.already.replace("{path}", &path)),
         Ok(Some((path, 1))) => Some(words.one.replace("{path}", &path)),
         Ok(Some((path, added))) => Some(
@@ -180,13 +180,18 @@ fn failure_line(error: &str) -> Option<String> {
 
 impl PapersPanel {
     /// Import `requests` one at a time; nothing starts while an import (the
-    /// box's or another batch) holds the pipeline.
-    pub(crate) fn run_batch(&mut self, requests: Vec<BatchRequest>, cx: &mut Context<Self>) {
+    /// box's or another batch) holds the pipeline. False when it did not
+    /// start.
+    pub(crate) fn run_batch(
+        &mut self,
+        requests: Vec<BatchRequest>,
+        cx: &mut Context<Self>,
+    ) -> bool {
         if self.batch.running || self.importing.is_some() || requests.is_empty() {
-            return;
+            return false;
         }
         let Some(root) = self.root.clone() else {
-            return;
+            return false;
         };
         let stop = Arc::new(AtomicBool::new(false));
         // One read of Zotero's annotations for the whole batch, made when the
@@ -319,8 +324,8 @@ impl PapersPanel {
                             &labels,
                             &words,
                         );
-                        if outcome.attached {
-                            imported.fetch_error = None;
+                        if let Some(attached) = outcome.attached {
+                            imported.fetch_error = attached.err();
                         }
                         Ok((imported, outcome.note))
                     })
@@ -342,8 +347,16 @@ impl PapersPanel {
                         }
                         Ok((imported, zotero_note)) => {
                             item.state = ItemState::Added;
-                            item.note = zotero_note
-                                .or_else(|| imported.fetch_error.as_deref().and_then(failure_line));
+                            // What failed first, then where the annotations
+                            // went: neither hides the other.
+                            let notes: Vec<String> = [
+                                imported.fetch_error.as_deref().and_then(failure_line),
+                                zotero_note,
+                            ]
+                            .into_iter()
+                            .flatten()
+                            .collect();
+                            item.note = (!notes.is_empty()).then(|| notes.join(" · "));
                             if let Some(key) = &imported.citation_key {
                                 this.just_added.insert(key.clone());
                             }
@@ -367,6 +380,7 @@ impl PapersPanel {
             .ok();
         }));
         cx.notify();
+        true
     }
 
     /// Stop the batch after the paper being imported; the rest are not

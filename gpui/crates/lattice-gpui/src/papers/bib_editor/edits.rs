@@ -5,10 +5,20 @@
 //! why, and nothing is spliced.
 
 use gpui::{Context, Window};
-use lattice_core::bib_document::{self, BibValueStyle};
+use lattice_core::bib_document::{self, BibEntry, BibField, BibValueStyle};
 use lattice_i18n::t;
 
 use super::{BibEditor, model};
+
+/// The field `name` of `entry`: the one at `index` when it still has that
+/// name, else the first so named, as fields before it come and go.
+fn field_named<'a>(entry: &'a BibEntry, name: &str, index: usize) -> Option<&'a BibField> {
+    entry
+        .fields
+        .get(index)
+        .filter(|field| field.name == name)
+        .or_else(|| entry.fields.iter().find(|field| field.name == name))
+}
 
 impl BibEditor {
     /// The reference the form was built for, by key, and its place as last
@@ -54,12 +64,18 @@ impl BibEditor {
                     cx,
                 )
                 .is_some()
-                && self
+            {
+                if self
                     .selected
                     .as_deref()
                     .is_some_and(|selected| selected.eq_ignore_ascii_case(&current))
-            {
-                self.selected = Some(key);
+                {
+                    self.selected = Some(key.clone());
+                }
+                // The same reference under its new key: its form is kept.
+                if let Some(detail) = &mut self.detail {
+                    detail.key = key;
+                }
             }
             None
         };
@@ -82,7 +98,16 @@ impl BibEditor {
         };
         let value = field.input.value(cx);
         let (name, field_index, style) = (field.name.clone(), field.index, field.style);
-        if value == field.text {
+        // Unchanged from the file as it is now, not as the box opened: a
+        // value typed back to what it was before an earlier write is written.
+        let written = self
+            .rows
+            .iter()
+            .find(|row| row.entry.key == key)
+            .and_then(|row| field_named(&row.entry, &name, field_index))
+            .and_then(|field| self.text.get(field.value_from..field.value_to))
+            .map(|raw| bib_document::editable_value(raw).0);
+        if written.as_ref() == Some(&value) {
             self.set_invalid(at, false, cx);
             return;
         }
@@ -95,10 +120,7 @@ impl BibEditor {
             &key,
             index,
             |_, entry| {
-                let field = entry
-                    .fields
-                    .get(field_index)
-                    .filter(|field| field.name == name)?;
+                let field = field_named(entry, &name, field_index)?;
                 Some(bib_document::replace_value_edit(field, &raw))
             },
             cx,
@@ -132,10 +154,7 @@ impl BibEditor {
             &key,
             index,
             |source, entry| {
-                let field = entry
-                    .fields
-                    .get(field_index)
-                    .filter(|field| field.name == name)?;
+                let field = field_named(entry, &name, field_index)?;
                 Some(bib_document::remove_field_edit(source, entry, field))
             },
             cx,

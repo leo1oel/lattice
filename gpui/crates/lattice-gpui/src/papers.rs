@@ -309,6 +309,9 @@ impl PapersPanel {
         self.abstracts = inspector::Abstracts::default();
         self.cancel_fetches(cx);
         self.fetching = Fetching::default();
+        // A batch belongs to the project it adds to: dropping it stops it
+        // after the paper under way, whose result is not taken in here.
+        self.batch = batch::Batch::default();
         if let Some(importing) = self.importing.take() {
             importing.cancel.store(true, Ordering::Release);
         }

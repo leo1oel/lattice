@@ -15,6 +15,30 @@ use super::Steps;
 use crate::{editor_panel::DocumentView, scenario::Run};
 
 impl Run {
+    /// Focus the form's box for `field`, select what it holds, type `text`
+    /// and leave the box for the list, as a writer would; false when the
+    /// form has no such box.
+    async fn type_into_field(
+        &self,
+        cx: &mut AsyncApp,
+        bib: &gpui::Entity<crate::papers::bib_editor::BibEditor>,
+        field: &str,
+        text: &str,
+    ) -> Result<bool> {
+        let Some(focus) = cx.update(|cx| bib.read(cx).field_focus(field, cx)) else {
+            return Ok(false);
+        };
+        self.with_window(cx, |_, window, cx| window.focus(&focus, cx))?;
+        self.press(cx, 'a', true).await?;
+        self.type_text(cx, text).await?;
+        self.with_window(cx, |_, window, cx| {
+            let list = gpui::Focusable::focus_handle(bib.read(cx), cx);
+            window.focus(&list, cx);
+        })?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        Ok(true)
+    }
+
     pub(super) async fn bib_visual_editor(
         &self,
         cx: &mut AsyncApp,
@@ -46,23 +70,29 @@ impl Run {
         cx.update(|cx| bib.update(cx, |bib, cx| bib.pick("knuth1984", cx)));
         self.pause(cx, Duration::from_millis(200)).await;
         let front = cx.update(|cx| bib.read(cx).selected_key().map(str::to_string));
+        // The form's boxes hold the entry as the fixture writes it.
+        let fields = cx.update(|cx| bib.read(cx).form_fields(cx));
+        let expected: Vec<(String, String)> = [
+            ("title", "The TeXbook"),
+            ("author", "Knuth, Donald E."),
+            ("publisher", "Addison-Wesley"),
+            ("year", "1984"),
+        ]
+        .iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect();
         steps.check(
-            "a .bib file's Preview lists its references and a click brings one to the front",
-            listed && front.as_deref() == Some("knuth1984"),
-            json!({ "listed": listed, "front": front }),
+            "a .bib file's Preview lists its references and brings one to the front with its fields",
+            listed && front.as_deref() == Some("knuth1984") && fields == expected,
+            json!({ "listed": listed, "front": front, "fields": fields }),
         );
         self.papers_shot(cx, "bib-1-preview").await;
 
-        // The form writes into the source editor's buffer; ⌘Z in the form
-        // steps the file back.
+        // A value typed into the form's year box lands in the source editor's
+        // buffer when the box is left; ⌘Z in the form steps the file back.
         let before = self.editor_text(cx, &editor);
-        let written = cx
-            .update(|cx| bib.update(cx, |bib, cx| bib.set_field("knuth1984", "year", "1986", cx)));
+        let typed = self.type_into_field(cx, &bib, "year", "1986").await?;
         let after = self.editor_text(cx, &editor);
-        self.with_window(cx, |_, window, cx| {
-            let focus = gpui::Focusable::focus_handle(bib.read(cx), cx);
-            window.focus(&focus, cx);
-        })?;
         self.press(cx, 'z', true).await?;
         let undone = self
             .wait_for(cx, Duration::from_secs(2), |_, cx| {
@@ -70,9 +100,23 @@ impl Run {
             })
             .await;
         steps.check(
-            "a field written in the .bib form lands in the source, and ⌘Z steps it back",
-            written && after.contains("year = {1986}") && !before.contains("1986") && undone,
-            json!({ "written": written, "landed": after.contains("year = {1986}"), "undone": undone }),
+            "a field typed in the .bib form lands in the source, and ⌘Z steps it back",
+            typed
+                && after == before.replace("year = {1984}", "year = {1986}")
+                && before.contains("year = {1984}")
+                && undone,
+            json!({ "typed": typed, "landed": after.contains("year = {1986}"), "undone": undone }),
+        );
+        // Written, then typed back to what the file first held: the second
+        // write lands too.
+        let mut retyped = self.type_into_field(cx, &bib, "year", "1986").await?;
+        let changed = self.editor_text(cx, &editor);
+        retyped &= self.type_into_field(cx, &bib, "year", "1984").await?;
+        let back = self.editor_text(cx, &editor);
+        steps.check(
+            "a field typed back to its first value in the .bib form is written back",
+            retyped && changed.contains("year = {1986}") && back == before,
+            json!({ "retyped": retyped, "changed": changed.contains("year = {1986}"), "back": back == before }),
         );
 
         // Alone, the form spans the panel; beside the source it is laid out

@@ -26,13 +26,13 @@ mod names;
 mod values;
 
 pub use edits::{
-    add_field_edit, apply_edit, change_type_edit, delete_entry_edit, remove_field_edit,
-    rename_key_edit, replace_value_edit, BibEdit,
+    BibEdit, add_field_edit, apply_edit, change_type_edit, delete_entry_edit, remove_field_edit,
+    rename_key_edit, replace_value_edit,
 };
 pub use names::{author_names, short_authors};
 pub use values::{
-    balanced_braces, bib_text_to_plain, editable_value, encode_value, entry_values, expand_value,
-    self_contained_value, summarize_entry, valid_citation_key, BibSummary, BibValueStyle,
+    BibSummary, BibValueStyle, balanced_braces, bib_text_to_plain, editable_value, encode_value,
+    entry_values, expand_value, self_contained_value, summarize_entry, valid_citation_key,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -73,6 +73,9 @@ pub struct BibDocument {
     pub entries: Vec<BibEntry>,
     /// `@string` macros by lower-cased name, each a raw value.
     pub macros: HashMap<String, String>,
+    /// The byte spans of the `@string`, `@comment` and `@preamble` blocks,
+    /// in file order: text that is no entry, yet no loose line either.
+    pub directives: Vec<std::ops::Range<usize>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -285,6 +288,7 @@ pub fn parse(text: &str) -> Result<BibDocument, BibParseError> {
                     }
                 }
             }
+            document.directives.push(from..end + 1);
             index = end + 1;
             continue;
         }

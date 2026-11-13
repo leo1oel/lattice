@@ -172,10 +172,25 @@ impl Run {
         self.check_references(cx, steps, &papers).await?;
 
         std::fs::write(&bibliography, original)?;
-        self.wait_for(cx, Duration::from_secs(15), |_, cx| {
-            papers.read(cx).papers.len() == 1
-        })
-        .await;
+        std::fs::remove_dir_all(root.join(BUNDLE))?;
+        let restored = self
+            .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                papers.read(cx).papers.len() == 1
+            })
+            .await;
+        let left: Vec<String> = cx.update(|cx| {
+            papers
+                .read(cx)
+                .papers
+                .iter()
+                .map(|paper| paper.title.clone())
+                .collect()
+        });
+        steps.check(
+            "the project's bibliography and papers are put back as they were",
+            restored && left == ["The TeXbook"],
+            json!({ "restored": restored, "papers": left }),
+        );
         Ok(())
     }
 
@@ -277,6 +292,17 @@ impl Run {
         self.with_window(cx, |_, window, cx| {
             sheet.update(cx, |sheet, cx| sheet.cancel(window, cx))
         })?;
+        // Closing it adds nothing: no rows queued, the library as it was.
+        self.pause(cx, Duration::from_millis(200)).await;
+        let (queued, held) = cx.update(|cx| {
+            let panel = papers.read(cx);
+            (panel.batch.items.len(), panel.papers.len())
+        });
+        steps.check(
+            "closing Add papers adds nothing",
+            queued == 0 && held == 2,
+            json!({ "queued": queued, "papers": held }),
+        );
         Ok(())
     }
 

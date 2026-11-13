@@ -422,9 +422,14 @@ impl AddPapers {
                             }
                         })
                         .collect();
-                    this.papers
-                        .update(cx, |papers, cx| papers.run_batch(requests, cx));
-                    this.zotero = None;
+                    // An import that started since the browser drew keeps
+                    // the ticked papers in it.
+                    if this
+                        .papers
+                        .update(cx, |papers, cx| papers.run_batch(requests, cx))
+                    {
+                        this.zotero = None;
+                    }
                 }
                 ZoteroBrowserEvent::Back => this.zotero = None,
             }

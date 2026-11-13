@@ -6,7 +6,7 @@ use std::{collections::HashMap, sync::LazyLock};
 
 use regex::{Captures, Regex};
 
-use super::{compose::compose, is_name, names, skip_gap, value_end, value_part_end, BibEntry};
+use super::{BibEntry, compose::compose, is_name, names, skip_gap, value_end, value_part_end};
 
 /// BibTeX's predefined macros, which a bare value may name without an
 /// `@string`.
