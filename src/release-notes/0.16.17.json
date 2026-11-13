@@ -1,0 +1,54 @@
+{
+  "version": "0.16.17",
+  "date": "2026-11-13",
+  "highlights": [
+    {
+      "title": {
+        "en": "Add citations without saving the full text",
+        "zh": "仅添加引用，不保存全文"
+      },
+      "body": {
+        "en": "Adding a paper to a project now saves just its citation by default, so you can cite a paper without downloading its PDF and full text, and adding a batch of papers runs in parallel instead of one at a time.",
+        "zh": "向项目添加论文时，现在默认只保存其引用信息，无需下载 PDF 和全文即可引用；批量添加论文时会并行处理，而不再逐篇进行。"
+      }
+    },
+    {
+      "title": {
+        "en": "Keep LaTeX auxiliary files out of sight",
+        "zh": "隐藏 LaTeX 辅助文件"
+      },
+      "body": {
+        "en": "A new global setting keeps the .aux, .log and other files LaTeX writes in a hidden .research/build folder instead of next to your sources. Thanks to @dromeroc for the request (#890).",
+        "zh": "新的全局设置可以把 LaTeX 生成的 `.aux`、`.log` 等文件放进隐藏的 `.research/build` 文件夹，而不是放在源文件旁边。感谢 @dromeroc 提出这一需求（#890）。"
+      }
+    },
+    {
+      "title": {
+        "en": "A Bibliography layout",
+        "zh": "参考文献布局"
+      },
+      "body": {
+        "en": "A new layout preset puts the bibliography beside your document, and each layout remembers which document it had open.",
+        "zh": "新的布局预设会把参考文献放在文档旁边，并且每个布局都会记住它打开的文档。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Visual mode renders figures, tables and the title block, and shows what citations and references point to so you can jump there.",
+      "zh": "可视模式现在会渲染图表、表格和标题区块，并显示引用和交叉引用指向的位置，可直接跳转过去。"
+    },
+    {
+      "en": "LaTeX formatting buttons toggle formatting off again instead of nesting another command.",
+      "zh": "LaTeX 格式按钮再次点击时会取消格式，而不再嵌套一层命令。"
+    },
+    {
+      "en": "You can delete a project's main .tex document.",
+      "zh": "现在可以删除项目的主 `.tex` 文档。"
+    },
+    {
+      "en": "Linux: an open project no longer rescans itself three times a second, and shortcuts read Ctrl+Shift+J instead of ⌘⇧J.",
+      "zh": "Linux：打开的项目不再每秒重复扫描三次，快捷键显示为 Ctrl+Shift+J 而不是 ⌘⇧J。"
+    }
+  ]
+}
