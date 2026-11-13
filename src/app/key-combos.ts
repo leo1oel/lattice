@@ -5,13 +5,13 @@
  * `Mod+Shift+Enter`, App's commands), so a sheet built from those keymaps
  * draws what they actually bind.
  *
- * Windows uses Ctrl/Alt/Shift labels; existing Mac/browser combinations
- * keep their compact glyphs.
+ * Windows and Linux use Ctrl/Alt/Shift labels, where ⌘ would name the
+ * Super key; Mac combinations keep their compact glyphs.
  */
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names and glyphs, not interface copy */
 
-import { isWindowsHost } from "../platform/host-platform";
+import { hostPlatform, type HostPlatform } from "../platform/host-platform";
 
 export type KeyCombo = {
   /** The key as KeyboardEvent.key names it: "j", "?", "Enter", "ArrowUp", "F8". */
@@ -48,19 +48,31 @@ const KEY_GLYPHS: Record<string, string> = {
 /** Characters that need Shift to type: their combination draws the character, not ⇧ (⌘? rather than ⌘⇧/). */
 const SHIFTED_SYMBOLS = new Set([..."?{}|:\"<>+_~!@#$%^&*()"]);
 
+/** How a host writes each modifier, and what joins a combination's keys written as one string. */
+type KeyLabels = { ctrl: string; mod: string; alt: string; shift: string; join: string };
+const WORDS: KeyLabels = { ctrl: "Ctrl", mod: "Ctrl", alt: "Alt", shift: "Shift", join: "+" };
+const KEY_LABELS: Record<HostPlatform, KeyLabels> = {
+  mac: { ctrl: "⌃", mod: "⌘", alt: "⌥", shift: "⇧", join: "" },
+  windows: WORDS,
+  linux: WORDS,
+};
+
 /** The keys of `combo` as drawn, one keycap each: ["⌘", "⇧", "J"]. */
 export function comboKeys(combo: KeyCombo): string[] {
   // A letter is drawn in capitals, as on the keycap; a named key (F8) too.
   const key = KEY_GLYPHS[combo.key.toLowerCase()] ?? (combo.key.length === 1 || /^f\d+$/i.test(combo.key) ? combo.key.toUpperCase() : combo.key);
-  const windows = isWindowsHost();
+  const labels = KEY_LABELS[hostPlatform()];
   return [
-    ...(combo.ctrl ? [windows ? "Ctrl" : "⌃"] : []),
-    ...(combo.mod ? [windows ? "Ctrl" : "⌘"] : []),
-    ...(combo.alt ? [windows ? "Alt" : "⌥"] : []),
-    ...(combo.shift && !SHIFTED_SYMBOLS.has(combo.key) ? [windows ? "Shift" : "⇧"] : []),
+    ...(combo.ctrl ? [labels.ctrl] : []),
+    ...(combo.mod ? [labels.mod] : []),
+    ...(combo.alt ? [labels.alt] : []),
+    ...(combo.shift && !SHIFTED_SYMBOLS.has(combo.key) ? [labels.shift] : []),
     key,
   ];
 }
 
-/** `combo` written as one string, as the palette and menus show it: "⌘⇧J". */
-export const comboText = (combo: KeyCombo) => comboKeys(combo).join(isWindowsHost() ? "+" : "");
+/** Shift as this host writes it, for a sentence about a click it changes ("⇧-click"). */
+export const shiftKeyLabel = () => KEY_LABELS[hostPlatform()].shift;
+
+/** `combo` written as one string, as the palette and menus show it: "⌘⇧J", or "Ctrl+Shift+J". */
+export const comboText = (combo: KeyCombo) => comboKeys(combo).join(KEY_LABELS[hostPlatform()].join);

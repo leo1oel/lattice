@@ -3,9 +3,10 @@
 //! document, and the viewers talk to it through a queue.
 //!
 //! One worker serves every viewer in the process (the live PDF, the other
-//! root documents' tabs, the separate window): PDFium is initialised once
-//! per process. Its queue has two lanes. Opening a document, drawing a page
-//! and reading a page's text go first; a search reads the pages it has not
+//! root documents' tabs, the separate window, every main window): PDFium
+//! is initialised once per process, as pdfium-render allows. Its queue has
+//! two lanes. Opening a document, drawing a page and reading a page's text
+//! go first; a search reads the pages it has not
 //! read yet one at a time behind them, so drawing what is on screen never
 //! waits for a long document's search. A draw whose page left the screen
 //! before its turn is skipped.

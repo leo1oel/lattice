@@ -14,6 +14,7 @@ import type { NewEntryType } from "../project/project-new-entries";
 import { loadRecentCommands, rememberRecentCommand, type ThemePreference } from "../settings/app-settings";
 import type { SettingsSearchEntry } from "../settings/settings-search-index";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
+import { CITE_KEY, GOTO_LINE_KEY, SAVE_KEY } from "./command-keys";
 import { pdfDarkPagesSetting, togglePdfDarkPages } from "../pdf/pdf-dark-pages";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { closeDocumentTab } from "../trellis/close-document-tab";
@@ -178,7 +179,7 @@ export function useCommandTable({
   const docTools = trellis.docTools.get();
   // ⌘S saves, then builds what it saved; on a Paper there is nothing to build.
   const saveCommand: AppCommand = {
-    id: "save", when: inProject, label: t`Save and build`, group: "build", key: "s", palette: false,
+    id: "save", when: inProject, label: t`Save and build`, group: "build", ...SAVE_KEY, palette: false,
     run: () => void save().then((saved) => {
       if (!saved) return;
       void overleaf.flushDeferredWholeFileSync();
@@ -203,7 +204,7 @@ export function useCommandTable({
     // Read, not subscribed: opening the palette renders the table afresh.
     { id: "pdf-dark-pages", label: pdfDarkPagesSetting.get() ? t`Light PDF pages` : t`Dark PDF pages`, group: "layout", run: togglePdfDarkPages },
     { id: "quick-open", when: inProject, label: t`Quick open file`, group: "navigate", key: "p", run: () => setSearchDialog("quick-open") },
-    { id: "goto-line", when: textEditor, label: t`Go to line`, group: "navigate", key: "g", run: () => setSearchDialog("goto-line") },
+    { id: "goto-line", when: textEditor, label: t`Go to line`, group: "navigate", ...GOTO_LINE_KEY, run: () => setSearchDialog("goto-line") },
     { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, group: "navigate", key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
     { id: "back", when: inProject, label: t({ message: "Back", context: "Document history" }), group: "navigate", key: "[", palette: false, run: () => void documents.go(-1) },
     { id: "forward", when: inProject, label: t({ message: "Forward", context: "Document history" }), group: "navigate", key: "]", palette: false, run: () => void documents.go(1) },
@@ -285,7 +286,7 @@ export function useCommandTable({
       run: () => documents.chooseMode(mode),
     })) : []),
     { id: "table", when: latexSource, label: t`Insert table`, group: "edit", run: () => setTableGeneratorOpen(true) },
-    { id: "cite", when: latexSource, label: t`Insert citation`, group: "edit", key: "k", shift: true, run: () => setSearchDialog("cite") },
+    { id: "cite", when: latexSource, label: t`Insert citation`, group: "edit", ...CITE_KEY, run: () => setSearchDialog("cite") },
     { id: "ref", when: latexSource, label: t`Insert reference`, group: "edit", key: "l", shift: true, run: () => setSearchDialog("ref") },
     // The editor's own ⌘⌥P proofreads a selection; from here, the one the editor still holds.
     // Rewrite asks for an instruction: the canvas shows the selection toolbar again, whose menu takes it.

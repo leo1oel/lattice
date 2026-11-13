@@ -3,6 +3,8 @@ import { useLingui } from "@lingui/react/macro";
 import { Ellipsis, ListTodo, MessageSquareText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { GOTO_LINE_KEY } from "../app/command-keys";
+import { comboText } from "../app/key-combos";
 import { countWords, textStats } from "../editor/latex/latex-edits";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
@@ -45,6 +47,7 @@ export function EditorStatusBar(props: {
 }) {
   const { position, breadcrumb, todoCount } = props;
   const { t } = useLingui();
+  const gotoLineKeys = comboText({ ...GOTO_LINE_KEY, mod: true });
   const openComments = props.comments.filter((comment) => !comment.resolved).length;
   const column = position.column + 1;
   // The caret's words in the reader's language ("Ln ", ", Col "; "第 ", " 行，第 ",
@@ -66,7 +69,7 @@ export function EditorStatusBar(props: {
       <button
         type="button"
         className="status-item status-goto"
-        title={t`Go to line (⌘G)`}
+        title={t`Go to line (${gotoLineKeys})`}
         onClick={props.onGotoLine}
       >
         <span className="status-caret">

@@ -27,6 +27,8 @@ import { SegmentedControl } from "../components/ui/segmented-control";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card";
 import { documentTools, useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
+import { SAVE_KEY } from "../app/command-keys";
+import { comboText, shiftKeyLabel } from "../app/key-combos";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import { buildHeadline } from "../build/build-result-text";
 import { formatSeconds, joinPhrases } from "../i18n";
@@ -119,6 +121,9 @@ const reserveSwitch = (children: ReactNode) => <Reserve>{children}</Reserve>;
 
 export function FileHeaderTools({ controller }: { controller: TrellisController }) {
   const { t, i18n } = useLingui();
+  // The Build card names the keys as this host writes them, from the save command's own.
+  const saveKeys = comboText({ ...SAVE_KEY, mod: true });
+  const shiftKey = shiftKeyLabel();
   const view = useView<{ key: string }>();
   const key = view.params.key;
   const active = useTrellisApp(controller, (state) => state.activeKey === key);
@@ -213,7 +218,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
               progress={tools.buildProgress}
               outcome={building ? null : lastBuild}
               place={place}
-              hint={t`⌘S, or ⇧-click for a clean rebuild`}
+              hint={t`${saveKeys}, or ${shiftKey}-click for a clean rebuild`}
               onProblem={() => controller.bridge?.nextBuildProblem()}
             />
           </HoverCardContent>
