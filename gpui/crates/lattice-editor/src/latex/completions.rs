@@ -64,17 +64,17 @@ fn locale_order(a: &str, b: &str) -> std::cmp::Ordering {
         .then_with(|| b.cmp(a))
 }
 
-/// The entries matching `typed`, best first; equally good matches in label
+/// The options matching `typed`, best first; equally good matches in label
 /// order, as CodeMirror's `compareCompletions` (`localeCompare`) puts them.
-fn ranked<'a>(entries: impl Iterator<Item = &'a Entry>, typed: &str) -> Vec<&'a Entry> {
-    let mut ranked: Vec<_> = entries
-        .filter_map(|entry| Some((match_rank(entry.name, typed)?, entry)))
+fn ranked<T>(options: impl Iterator<Item = T>, typed: &str, label: impl Fn(&T) -> &str) -> Vec<T> {
+    let mut ranked: Vec<_> = options
+        .filter_map(|option| Some((match_rank(label(&option), typed)?, option)))
         .collect();
-    ranked.sort_by(|(rank, entry), (other_rank, other)| {
+    ranked.sort_by(|(rank, option), (other_rank, other)| {
         rank.cmp(other_rank)
-            .then_with(|| locale_order(entry.name, other.name))
+            .then_with(|| locale_order(label(option), label(other)))
     });
-    ranked.into_iter().map(|(_, entry)| entry).collect()
+    ranked.into_iter().map(|(_, option)| option).collect()
 }
 
 /// Built-in commands after a backslash, maths ones only in maths, and
@@ -117,7 +117,7 @@ impl CommandSource {
         if matches!(kind, "begin" | "end") {
             return Some(CompletionList {
                 range: from..offset + usize::from(next == Some('}')),
-                items: ranked(vocabulary::ENVIRONMENTS.iter(), typed)
+                items: ranked(vocabulary::ENVIRONMENTS.iter(), typed, |entry| entry.name)
                     .into_iter()
                     .map(|entry| CompletionItem {
                         label: entry.name.into(),
@@ -137,9 +137,8 @@ impl CommandSource {
         };
         Some(CompletionList {
             range: from..offset,
-            items: names
-                .iter()
-                .filter(|name| match_rank(name, typed).is_some())
+            items: ranked(names.iter().copied(), typed, |name| *name)
+                .into_iter()
                 .map(|name| CompletionItem {
                     label: (*name).into(),
                     insert: (*name).to_string(),
@@ -179,7 +178,7 @@ impl CompletionSource for CommandSource {
             .filter(|entry| in_math || !entry.math);
         Some(CompletionList {
             range: from..query.offset,
-            items: ranked(commands, typed)
+            items: ranked(commands, typed, |entry| entry.name)
                 .into_iter()
                 .map(Self::command)
                 .collect(),
@@ -362,5 +361,26 @@ mod tests {
             .find(|item| item.label.as_ref() == "itemize")
             .expect("itemize is offered");
         assert_eq!(itemize.insert, "itemize}");
+    }
+
+    #[test]
+    fn packages_and_classes_list_prefix_matches_first() {
+        // CodeMirror ranks a prefix match above an infix one, so `x` offers
+        // `xcolor` before `graphicx` and `math` offers `mathtools` before
+        // `amsmath`.
+        let labels = |before: &str| -> Vec<String> {
+            CommandSource::argument(before, 100, None)
+                .unwrap()
+                .items
+                .iter()
+                .map(|item| item.label.to_string())
+                .collect()
+        };
+        let position =
+            |labels: &[String], name: &str| labels.iter().position(|l| l == name).unwrap();
+        let x = labels("\\usepackage{x");
+        assert!(position(&x, "xcolor") < position(&x, "graphicx"));
+        let math = labels("\\usepackage{math");
+        assert!(position(&math, "mathtools") < position(&math, "amsmath"));
     }
 }
