@@ -36,7 +36,7 @@ use std::{
 };
 
 use gpui::{App, Global};
-use lattice_i18n::{InterfaceLanguage as I18nLanguage, Locale};
+use lattice_i18n::Locale;
 use lattice_settings::{
     AccentPreset, Appearance as AppearanceSettings, CodeTheme as StoredCodeTheme, CodeThemeVariant,
     EditorKeymap, InterfaceLanguage, Settings, ThemePreference, Tint as StoredTint,
@@ -237,17 +237,17 @@ fn system_languages() -> Vec<String> {
 /// reads no system language, so it is English unless the settings say
 /// otherwise.
 pub fn locale_for(language: InterfaceLanguage, scripted: bool) -> Locale {
-    let preference = match language {
-        InterfaceLanguage::System => I18nLanguage::System,
-        InterfaceLanguage::En => I18nLanguage::Fixed(Locale::En),
-        InterfaceLanguage::ZhCn => I18nLanguage::Fixed(Locale::ZhCn),
+    let fixed = match language {
+        InterfaceLanguage::System => None,
+        InterfaceLanguage::En => Some(Locale::En),
+        InterfaceLanguage::ZhCn => Some(Locale::ZhCn),
     };
     let system = if scripted {
         Vec::new()
     } else {
         system_languages()
     };
-    preference.resolve(&system)
+    lattice_i18n::resolve_locale(fixed, &system)
 }
 
 pub fn tint(tint: StoredTint) -> Tint {

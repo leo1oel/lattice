@@ -330,7 +330,6 @@ pub fn select<T: Copy + PartialEq + 'static>(
         .into_any_element()
 }
 
-/// A switch, as a row's control.
 /// A control the GPUI preview draws but does not act on yet, shown
 /// disabled with the titlebar's stand-in tools' tooltip.
 pub fn not_yet(id: &'static str, name: SharedString, control: impl IntoElement) -> AnyElement {
@@ -342,6 +341,7 @@ pub fn not_yet(id: &'static str, name: SharedString, control: impl IntoElement) 
         .into_any_element()
 }
 
+/// A switch, as a row's control.
 pub fn switch(
     id: &'static str,
     on: bool,

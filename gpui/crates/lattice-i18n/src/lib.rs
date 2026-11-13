@@ -60,51 +60,22 @@ impl Locale {
     }
 }
 
-/// The writer's choice in Settings › Appearance › Interface language.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum InterfaceLanguage {
-    /// Follow the system's first preferred language.
-    #[default]
-    System,
-    Fixed(Locale),
-}
-
-impl InterfaceLanguage {
-    /// `system`, `en` or `zh-CN`, the Tauri app's stored values.
-    pub fn tag(self) -> &'static str {
-        match self {
-            InterfaceLanguage::System => "system",
-            InterfaceLanguage::Fixed(locale) => locale.tag(),
-        }
+/// The language the interface shows: `fixed` when the writer chose one,
+/// else from the system's preferred languages in order
+/// (`resolveAppLocale`): only the first decides, so a secondary Chinese
+/// reading language never overrides an English system.
+pub fn resolve_locale<S: AsRef<str>>(fixed: Option<Locale>, system_languages: &[S]) -> Locale {
+    if let Some(locale) = fixed {
+        return locale;
     }
-
-    pub fn from_tag(tag: &str) -> Option<Self> {
-        match tag {
-            "system" => Some(InterfaceLanguage::System),
-            "en" => Some(InterfaceLanguage::Fixed(Locale::En)),
-            "zh-CN" => Some(InterfaceLanguage::Fixed(Locale::ZhCn)),
-            _ => None,
-        }
-    }
-
-    /// The language the interface shows, from the system's preferred
-    /// languages in order (`resolveAppLocale`): only the first decides, so a
-    /// secondary Chinese reading language never overrides an English system.
-    pub fn resolve<S: AsRef<str>>(self, system_languages: &[S]) -> Locale {
-        match self {
-            InterfaceLanguage::Fixed(locale) => locale,
-            InterfaceLanguage::System => {
-                let first = system_languages
-                    .first()
-                    .map(|language| language.as_ref().to_ascii_lowercase())
-                    .unwrap_or_default();
-                if first == "zh" || first.starts_with("zh-") || first.starts_with("zh_") {
-                    Locale::ZhCn
-                } else {
-                    Locale::En
-                }
-            }
-        }
+    let first = system_languages
+        .first()
+        .map(|language| language.as_ref().to_ascii_lowercase())
+        .unwrap_or_default();
+    if first == "zh" || first.starts_with("zh-") || first.starts_with("zh_") {
+        Locale::ZhCn
+    } else {
+        Locale::En
     }
 }
 
@@ -183,26 +154,6 @@ pub fn tr_context(context: &'static str, msgid: &'static str) -> &'static str {
             .get(&(context, msgid))
             .copied()
             .unwrap_or(msgid),
-    }
-}
-
-/// A string made at run time (a host error, a name read from a file) in the
-/// interface language, if the catalog has it.
-pub fn tr_dynamic(msgid: &str) -> Option<&'static str> {
-    match locale() {
-        Locale::En => None,
-        Locale::ZhCn => ZH_CN.plain.get(msgid).copied(),
-    }
-}
-
-/// Whether the Chinese catalog translates `msgid` (with `context`).
-pub fn has_translation(context: Option<&str>, msgid: &str) -> bool {
-    match context {
-        None => ZH_CN.plain.contains_key(msgid),
-        Some(context) => ZH_CN
-            .contextual
-            .iter()
-            .any(|((c, id), _)| *c == context && *id == msgid),
     }
 }
 
@@ -346,17 +297,11 @@ mod tests {
 
     #[test]
     fn system_language_resolution_follows_the_first_preference_only() {
-        let system = InterfaceLanguage::System;
-        assert_eq!(system.resolve(&["zh-Hans-CN", "en"]), Locale::ZhCn);
-        assert_eq!(system.resolve(&["en-US", "zh-Hans"]), Locale::En);
-        assert_eq!(system.resolve(&["zh"]), Locale::ZhCn);
-        assert_eq!(system.resolve::<&str>(&[]), Locale::En);
-        assert_eq!(
-            InterfaceLanguage::Fixed(Locale::En).resolve(&["zh-CN"]),
-            Locale::En
-        );
-        assert_eq!(InterfaceLanguage::from_tag("zh-CN").unwrap().tag(), "zh-CN");
-        assert_eq!(InterfaceLanguage::from_tag("fr"), None);
+        assert_eq!(resolve_locale(None, &["zh-Hans-CN", "en"]), Locale::ZhCn);
+        assert_eq!(resolve_locale(None, &["en-US", "zh-Hans"]), Locale::En);
+        assert_eq!(resolve_locale(None, &["zh"]), Locale::ZhCn);
+        assert_eq!(resolve_locale::<&str>(None, &[]), Locale::En);
+        assert_eq!(resolve_locale(Some(Locale::En), &["zh-CN"]), Locale::En);
     }
 
     #[test]

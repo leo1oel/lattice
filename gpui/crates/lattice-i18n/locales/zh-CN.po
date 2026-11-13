@@ -85,6 +85,10 @@ msgid "Ctrl+S, or Shift-click for a clean rebuild"
 msgstr "Ctrl+S，按住 Shift 点击则从头编译"
 
 #: lattice-gpui/src/build/sequence.rs
+msgid "⌘S, or ⇧-click for a clean rebuild"
+msgstr "⌘S，按住 ⇧ 点击则从头编译"
+
+#: lattice-gpui/src/build/sequence.rs
 msgid "1 minute ago"
 msgstr "1 分钟前"
 
