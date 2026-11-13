@@ -30,6 +30,19 @@ impl TrellisWorkspace {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let p = self.local(event.position);
+        if event.button == MouseButton::Left
+            && (event.modifiers.shift || event.modifiers.alt)
+            && self.held.is_none()
+            && self.over_content(p).is_none()
+            && self
+                .engine
+                .nav_press(p, event.modifiers.shift, event.modifiers.alt)
+        {
+            self.held = Some(Held::Navigation);
+            cx.notify();
+            return;
+        }
         let selected = self.engine.doc().clone();
         let selected =
             crate::model::locate_panel(&selected, panel).map(|l| l.panel().selected.clone());
@@ -43,7 +56,6 @@ impl TrellisWorkspace {
             && plain(&event.modifiers)
             && self.held.is_none()
         {
-            let p = self.local(event.position);
             self.engine.drag_begin(panel, None, p);
             self.held = Some(Held::Press {
                 panel: panel.to_string(),

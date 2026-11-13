@@ -416,8 +416,8 @@ impl Run {
         ))
     }
 
-    /// A native double click on a floating panel's tab, over a docked
-    /// panel, reaches only the float: its view takes focus, and the docked
+    /// A native double click on a floating panel's strip background, over a
+    /// docked panel's strip, reaches only the float: its view takes focus, and the docked
     /// panel beneath is not maximized (an overlay float has no frame of its
     /// own, so nothing is).
     async fn press_on_a_float_reaches_only_the_float(&self, cx: &mut AsyncApp) -> Result<Step> {
@@ -426,8 +426,10 @@ impl Run {
         let documents = self.documents_panel(cx)?;
         self.with_window(cx, |shell, _, cx| {
             shell.update(cx, |shell, cx| {
+                // Over the top of the docked row, so the float's strip lies
+                // across the docked panels' strips.
                 shell.engine_do(cx, |engine| {
-                    engine.run_menu_action(&MenuAction::Float("pdf".into()))
+                    engine.float("pdf", Some(trellis::model::Rect::new(0.02, 0., 0.6, 0.5)))
                 });
             })
         })?;
@@ -436,8 +438,10 @@ impl Run {
         let float_bounds = self
             .panel_bounds(cx, &float)
             .context("the float is not drawn")?;
+        // The float's strip background, past its one tab and short of its
+        // tools at the strip's end.
         let at = gpui::point(
-            float_bounds.left() + gpui::px(6. + 14.) + lattice_ui::icons::ICON / 2.,
+            float_bounds.left() + gpui::px(200.),
             float_bounds.top() + gpui::px(20.),
         );
         let doc = self.document(cx);
@@ -446,6 +450,7 @@ impl Run {
             if panel.id != float
                 && let Some(b) = self.panel_bounds(cx, &panel.id)
                 && b.contains(&at)
+                && at.y < b.top() + gpui::px(40.)
             {
                 covered.push(panel.id.clone());
             }
@@ -484,7 +489,7 @@ impl Run {
         })?;
         self.settle_workspace(cx).await?;
         Ok((
-            "a double click on a floating panel's tab reaches the float, not the docked panel beneath it",
+            "a double click on a floating panel's strip reaches the float, not the docked strip beneath it",
             !covered.is_empty()
                 && framed.as_ref().is_none_or(|f| !covered.contains(f))
                 && focused.as_deref() == Some("pdf"),

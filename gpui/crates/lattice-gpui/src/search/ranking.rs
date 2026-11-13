@@ -26,10 +26,12 @@ fn subsequence_score(hay: &str, needle: &str, runs: bool) -> i64 {
     for character in needle.chars().filter(|c| !c.is_whitespace()) {
         let find = |from: usize| (from..hay.len()).find(|&at| hay[at] == character);
         let mut next = find(index);
-        while runs {
-            match next {
-                Some(at) if at > index && !word_start(&hay, at) => next = find(at + 1),
-                _ => break,
+        if runs {
+            while let Some(at) = next
+                && at > index
+                && !word_start(&hay, at)
+            {
+                next = find(at + 1);
             }
         }
         let Some(at) = next else {
