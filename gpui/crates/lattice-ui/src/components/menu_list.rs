@@ -615,12 +615,7 @@ impl RenderOnce for Menu {
         let submenu_open = *open_sub.read(cx);
         let submenu_layer = submenu_open.and_then(|(at, by_keys)| {
             let (_, submenu) = submenu_rows.iter().find(|(ix, _)| *ix == at)?;
-            let row = hover
-                .snapshot(cx)
-                .rows
-                .into_iter()
-                .find(|(ix, _, _)| *ix == at)
-                .map(|(_, bounds, _)| bounds)?;
+            let row = hover.row_bounds(at, cx)?;
             let back: Action0 = {
                 let open_sub = open_sub.clone();
                 let focus = self.focus.clone();

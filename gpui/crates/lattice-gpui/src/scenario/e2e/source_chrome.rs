@@ -383,6 +383,9 @@ impl Run {
         self.pause(cx, Duration::from_millis(200)).await;
         let released = !cx.update(|cx| rail.read(cx).is_pinned());
         self.park_pointer(cx)?;
+        // Close the tab before the file goes: a tab whose file vanished
+        // closes itself a disk check and a second later, in a later step.
+        self.close_tab(cx, editor)?;
         std::fs::remove_file(&path).ok();
         steps.check(
             "after an outline jump, the wheel scrolling the text ends the jump's hold on the current section",

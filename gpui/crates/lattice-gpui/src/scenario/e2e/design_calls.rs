@@ -293,6 +293,14 @@ impl Run {
     async fn panel_menu_submenu_click(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
         const NAME: &str = "a click on New split right in a panel's ⋯ Move … to submenu \
                             moves the panel into a split of its own";
+        // The ⋯ is found by its strip's probe, which records only once the
+        // probes are on (a shots run turns them on from the start); opening
+        // the step's own editor, whatever earlier steps left active, draws
+        // the strip again.
+        lattice_ui::parity::enable();
+        let root = self.root(cx).await?;
+        self.open(cx, &root.join("main.tex"), Some(1))?;
+        self.pause(cx, SETTLE).await;
         // How many panels the window shows: a new split adds one.
         let shape = |cx: &mut AsyncApp| {
             cx.update(|cx| {
@@ -320,12 +328,12 @@ impl Run {
         native::send_mouse(native, native::Mouse::Moved, dots)?;
         native::send_click(native, dots)?;
         self.pause(cx, SETTLE).await;
-        let maximize = t!("Maximize").to_string();
+        let move_label = lattice_i18n::space_mixed_script(&t!("Move {title} to", title = name));
         let move_row = cx.update(|cx| {
-            menu_snapshot(&maximize, cx).and_then(|menu| {
+            menu_snapshot(&move_label, cx).and_then(|menu| {
                 menu.rows
                     .into_iter()
-                    .find(|(_, label, _)| label.contains(name.as_str()))
+                    .find(|(_, label, _)| **label == *move_label)
                     .map(|(_, _, bounds)| bounds.center())
             })
         });
@@ -347,7 +355,19 @@ impl Run {
             })
         });
         let Some(split_row) = split_row else {
-            steps.check(NAME, false, json!({ "editor": name, "submenu": null }));
+            let menu = cx
+                .update(|cx| menu_snapshot(&move_label, cx))
+                .unwrap_or_default();
+            steps.check(
+                NAME,
+                false,
+                json!({
+                    "editor": name,
+                    "submenu": null,
+                    "menu_rows": menu.rows.iter().map(|(_, label, _)| label.to_string()).collect::<Vec<_>>(),
+                    "lit": menu.lit,
+                }),
+            );
             native::send_key(native, '\u{1b}', false)?;
             self.pause(cx, SETTLE).await;
             return Ok(());
