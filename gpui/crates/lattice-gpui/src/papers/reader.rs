@@ -292,7 +292,7 @@ impl PaperReader {
                                         .cursor_pointer()
                                         .hover(move |style| style.text_color(hover_ink))
                                         .tooltip(tooltip(label))
-                                        .on_click(move |_, _, cx| cx.open_url(&link))
+                                        .on_click(move |_, _, cx| model::open_link(&link, cx))
                                         .child(Icon::EXTERNAL_LINK.element(px(11.), source_ink))
                                 }),
                         )
@@ -370,11 +370,7 @@ impl Render for PaperReader {
                 .child(error.clone())
                 .into_any_element(),
             None => MarkdownElement::new(self.markdown.clone(), style)
-                .on_url_click(|url, _, cx| {
-                    if model::openable_link(&url) {
-                        cx.open_url(&url);
-                    }
-                })
+                .on_url_click(|url, _, cx| model::open_link(&url, cx))
                 .into_any_element(),
         };
         div()

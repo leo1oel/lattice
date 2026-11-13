@@ -94,6 +94,7 @@ fn byline(hit: &LiteratureHit) -> Vec<String> {
 fn page(hit: &LiteratureHit) -> Option<String> {
     hit.landing_url
         .clone()
+        .filter(|page| crate::papers::model::openable_link(page))
         .or_else(|| hit.doi.as_ref().map(|doi| format!("https://doi.org/{doi}")))
         .or_else(|| {
             hit.arxiv_id
@@ -448,7 +449,9 @@ impl Literature {
                             Button::new("literature-page", t!("Open page"))
                                 .compact()
                                 .icon(Icon::EXTERNAL_LINK)
-                                .on_click(move |_, _, cx| cx.open_url(&page)),
+                                .on_click(move |_, _, cx| {
+                                    crate::papers::model::open_link(&page, cx)
+                                }),
                         )
                     }),
             )

@@ -260,7 +260,7 @@ impl PapersPanel {
                 false,
                 window,
                 cx,
-                move |_, _, cx| cx.open_url(&link),
+                move |_, _, cx| model::open_link(&link, cx),
             ));
         }
         let remove_view = view;
@@ -541,7 +541,7 @@ impl PapersPanel {
                 menu = menu.item(
                     PopupMenuItem::new(t!("Open link in browser"))
                         .icon(Icon::EXTERNAL_LINK.kit())
-                        .on_click(move |_, _, cx| cx.open_url(&link)),
+                        .on_click(move |_, _, cx| model::open_link(&link, cx)),
                 );
             }
             if readable {
@@ -692,7 +692,9 @@ impl PapersPanel {
                 mix(palette.warning, palette.text, 0.22),
             )
         };
-        let link = health.and_then(|health| health.link.clone());
+        let link = health
+            .and_then(|health| health.link.clone())
+            .filter(|link| model::openable_link(link));
         let title = model::health_title(health).unwrap_or_default();
         let id = child_id(row_id, "health");
         let (interaction, pointer) = use_interaction(id.clone(), window, cx);
@@ -743,7 +745,7 @@ impl PapersPanel {
                 .cursor_pointer()
                 .on_click(move |_, _, cx| {
                     cx.stop_propagation();
-                    cx.open_url(&link);
+                    model::open_link(&link, cx);
                 })
                 .into_any_element(),
             None => notice.into_any_element(),

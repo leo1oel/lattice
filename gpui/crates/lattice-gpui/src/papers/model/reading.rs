@@ -57,14 +57,23 @@ fn strip_frontmatter(markdown: &str) -> &str {
     }
 }
 
-/// Whether a link in a paper's text may be handed to the system: a web
-/// page or a mail address, never a `file://` or other scheme the system
-/// would open or launch.
+/// Whether a link may be handed to the system: a web page or a mail
+/// address, never a `file://` or other scheme the system would open or
+/// launch. Links come from shared bibliographies, a paper's text and remote
+/// records (Crossref, OpenAlex), so every one Papers opens is checked.
 pub fn openable_link(url: &str) -> bool {
     let lower = url.trim_start().to_ascii_lowercase();
     ["http://", "https://", "mailto:"]
         .iter()
         .any(|scheme| lower.starts_with(scheme))
+}
+
+/// Open `url` in the browser when it is `openable_link`; any other is
+/// ignored. Every link Papers opens goes through here.
+pub fn open_link(url: &str, cx: &mut gpui::App) {
+    if openable_link(url) {
+        cx.open_url(url);
+    }
 }
 
 /// A use's line from just before its citation command, so the command is
