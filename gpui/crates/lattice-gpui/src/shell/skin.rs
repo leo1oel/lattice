@@ -8,7 +8,9 @@
 //!
 //! The content is the window's own panels (`views::Registry`), drawn as
 //! GPUI Kit panels: a panel's tab name, icon, unsaved dot and header tools
-//! come from it, as do the items its ⋯ menu leads with.
+//! come from it, as do the items its ⋯ menu leads with. A panel's spare
+//! tools (a .tex file's Source / Visual switch) show before its own only
+//! while the header has room for them (`HeaderTools::Named`).
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -74,6 +76,12 @@ impl LatticeSkin {
             .get(view_id)
             .map(|panel| TabPresenter::look_of(panel, cx))
             .unwrap_or_default()
+    }
+
+    /// The spare tools of `view_id`'s panel, if it offers any.
+    fn spare(&self, view_id: &str, cx: &App) -> Option<lattice_ui::dock::SpareTools> {
+        let panel = self.views.borrow().get(view_id)?.panel_id(cx);
+        lattice_ui::dock::spare_tools(panel, cx)
     }
 
     fn surface(
@@ -278,6 +286,10 @@ impl Skin for LatticeSkin {
         let (surface_kind, _) = self.surface(&panel.selected, &palette, cx);
         let handle = self.views.borrow().get(&panel.selected).cloned();
         let shown = panel.header.tools != trellis::runtime::header::HeaderTools::Hidden;
+        let spare = (panel.header.tools == trellis::runtime::header::HeaderTools::Named)
+            .then(|| self.spare(&panel.selected, cx))
+            .flatten()
+            .map(|spare| (spare.render)(window, cx));
         let accessories = shown
             .then(|| {
                 handle
@@ -289,7 +301,9 @@ impl Skin for LatticeSkin {
             .map(|tools| {
                 let measured = self.tools.clone();
                 let id = panel.id.clone();
-                div()
+                // Only the panel's own tools are measured: the spare ones
+                // are counted apart, for the named state alone.
+                let tools = div()
                     .relative()
                     .flex()
                     .flex_none()
@@ -308,7 +322,13 @@ impl Skin for LatticeSkin {
                         )
                         .absolute()
                         .size_full(),
-                    )
+                    );
+                div()
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .children(spare)
+                    .child(tools)
                     .into_any_element()
             });
         if accessories.is_none() && !shown {
@@ -378,6 +398,12 @@ impl Skin for LatticeSkin {
             .unwrap_or(0.);
         let bare = LIST_INSETS + STRIP_END + MENU;
         let full = bare + f64::from(tools);
+        // The spare tools go before the panel's own, so only with them.
+        let named = full
+            + self
+                .spare(&input.panel.selected, cx)
+                .filter(|_| tools > 0.)
+                .map_or(0., |spare| f64::from(f32::from((spare.width)(window, cx))));
         let items = input
             .tabs
             .iter()
@@ -402,7 +428,7 @@ impl Skin for LatticeSkin {
             })
             .collect();
         Some(HeaderMeasure {
-            chrome: [full, full, full, bare],
+            chrome: [named, full, full, bare],
             gap: TAB_GAP,
             items,
         })

@@ -387,7 +387,10 @@ impl Run {
         let (dependency, builds, succeeded) = cx.update(|cx| {
             let panel = self.shell.read(cx).build_panel().read(cx);
             (
-                center.read(cx).dependency().map(|install| install.error.clone()),
+                center
+                    .read(cx)
+                    .dependency()
+                    .map(|install| install.error.clone()),
                 panel.builds(),
                 panel.succeeded(),
             )

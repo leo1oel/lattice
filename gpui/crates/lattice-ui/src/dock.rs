@@ -32,7 +32,7 @@ pub mod strip;
 mod strip_room;
 
 use spare_tools::SpareToolsByPanel;
-pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools};
+pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools, spare_tools};
 pub use strip_room::strip_spare;
 use strip_room::{Measure, StripKey, StripRoom, forget_strips, measure};
 

@@ -26,6 +26,12 @@ pub fn offers_spare_tools(panel: PanelId, cx: &App) -> bool {
         .is_some_and(|registry| registry.0.contains_key(&panel))
 }
 
+/// The spare tools `panel` offers its strip.
+pub fn spare_tools(panel: PanelId, cx: &App) -> Option<SpareTools> {
+    cx.try_global::<SpareToolsByPanel>()
+        .and_then(|registry| registry.0.get(&panel).cloned())
+}
+
 /// Give `panel` spare tools for its strip, or (`None`) take them away.
 pub fn set_spare_tools(panel: PanelId, tools: Option<SpareTools>, cx: &mut App) {
     let registry = cx.default_global::<SpareToolsByPanel>();
