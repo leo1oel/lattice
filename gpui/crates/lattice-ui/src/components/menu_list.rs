@@ -396,7 +396,10 @@ impl RenderOnce for Menu {
                 _ => None,
             })
             .collect();
-        let keyed_secondary = (*on_secondary.read(cx)).filter(|at| lit == Some(*at));
+        if on_secondary.read(cx).is_some_and(|at| lit != Some(at)) {
+            on_secondary.update(cx, |at, _| *at = None);
+        }
+        let keyed_secondary = *on_secondary.read(cx);
         let dismiss = self.on_dismiss.clone();
         // Running an item closes the menu first, so the action finds focus
         // back where it was before the menu opened.
