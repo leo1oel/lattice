@@ -48,6 +48,7 @@ use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
+mod buffer_counts;
 mod disk_sync;
 mod outline_panel;
 pub mod outline_rail;
@@ -78,12 +79,10 @@ gpui::actions!(
 );
 
 use crate::{build_panel::BuildPanel, editor_status, project::Project};
+use buffer_counts::TODO_SETTLE;
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
-/// The pause in typing after which the buffer's TODOs are counted again, as
-/// the Tauri app settles the source it counts them in (`use-settled-source.ts`).
-const TODO_SETTLE: Duration = Duration::from_millis(500);
 gpui::actions!(
     lattice_editor_panel,
     [
@@ -579,54 +578,6 @@ impl EditorPanel {
     pub fn accept_written(&mut self, text: String, cx: &mut Context<Self>) {
         self.disk = DiskVersion::Unread;
         self.replace_text(normalize_breaks(&text), cx);
-    }
-
-    /// Recount the words from the buffer's text, off the main thread.
-    fn count_words(&mut self, cx: &mut Context<Self>) {
-        let text = self.buffer.read(cx).as_rope().clone();
-        let counted = cx.background_spawn(async move { editor_status::count_words(&text) });
-        self._count = Some(cx.spawn(async move |this, cx| {
-            let words = counted.await;
-            this.update(cx, |this, cx| {
-                this.words = Some(words);
-                cx.notify();
-            })
-            .ok();
-        }));
-    }
-
-    /// Count the buffer's TODO markers again once typing has paused for
-    /// `delay`, off the main thread; the next edit restarts the wait.
-    fn scan_todos(&mut self, delay: Duration, cx: &mut Context<Self>) {
-        let relative = self.relative.clone();
-        let text = self.buffer.read(cx).as_rope().clone();
-        self._todos = Some(cx.spawn(async move |this, cx| {
-            if !delay.is_zero() {
-                cx.background_executor().timer(delay).await;
-            }
-            let (found, source) = cx
-                .background_spawn(async move {
-                    let source = text.to_string();
-                    (
-                        crate::status_counters::buffer_todos(&relative, &source),
-                        source,
-                    )
-                })
-                .await;
-            this.update(cx, |this, cx| {
-                if this.buffer_todos != found {
-                    this.buffer_todos = found;
-                    cx.notify();
-                }
-                // The rail reads the file's own headings from the text as of
-                // this pause, as the Tauri app's settled source.
-                if let Some(rail) = &this.rail {
-                    let path = this.relative.clone();
-                    rail.update(cx, |rail, cx| rail.set_source(path, source, cx));
-                }
-            })
-            .ok();
-        }));
     }
 
     /// Put the cursor at the start of the 1-based `line` and scroll it to the
