@@ -34,16 +34,16 @@ use super::{
 /// A list's filter or sort: the tool's name quiet, its value in ink, a caret
 /// for the menu it opens; folded, its icon alone with a dot once it is set.
 #[derive(IntoElement)]
-struct ListTool {
-    id: ElementId,
-    icon: Icon,
-    label: SharedString,
-    value: Option<SharedString>,
-    on: bool,
-    caret: bool,
-    folded: bool,
-    tooltip: &'static str,
-    open: bool,
+pub(in crate::papers) struct ListTool {
+    pub id: ElementId,
+    pub icon: Icon,
+    pub label: SharedString,
+    pub value: Option<SharedString>,
+    pub on: bool,
+    pub caret: bool,
+    pub folded: bool,
+    pub tooltip: &'static str,
+    pub open: bool,
 }
 
 impl Selectable for ListTool {

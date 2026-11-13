@@ -35,7 +35,7 @@ pub use values::{
     self_contained_value, summarize_entry, valid_citation_key, BibSummary, BibValueStyle,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BibField {
     /// The field name as written.
     pub name: String,
@@ -46,7 +46,7 @@ pub struct BibField {
     pub value_to: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BibEntry {
     /// The entry type as written ("Article"); compare with `kind`.
     pub entry_type: String,

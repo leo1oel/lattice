@@ -645,6 +645,8 @@ impl Shell {
             Ok(editor) => {
                 cx.subscribe_in(&editor, window, Self::on_editor_event)
                     .detach();
+                let papers = self.papers.clone();
+                editor.update(cx, |editor, cx| editor.set_papers(papers, cx));
                 self.editors.push(editor.downgrade());
                 let weak = editor.downgrade();
                 cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {

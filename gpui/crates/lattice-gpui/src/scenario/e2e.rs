@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+mod bib;
 mod build_flow;
 mod documents;
 mod editor_adapter;
@@ -282,6 +283,7 @@ impl Run {
         }
 
         self.papers_panel(cx, &mut steps, &root).await?;
+        self.bib_visual_editor(cx, &mut steps, &root).await?;
         self.settings_and_language(cx, &mut steps).await?;
         self.closing_saves(cx, &mut steps, &root).await?;
         // Last: `scenario::start` quits once the result is written.

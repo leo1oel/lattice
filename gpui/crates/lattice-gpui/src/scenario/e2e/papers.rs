@@ -180,7 +180,7 @@ impl Run {
     }
 
     /// Save the window as `name` under `LATTICE_E2E_SHOTS`.
-    async fn papers_shot(&self, cx: &mut AsyncApp, name: &str) {
+    pub(super) async fn papers_shot(&self, cx: &mut AsyncApp, name: &str) {
         #[cfg(target_os = "macos")]
         if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
             self.pause(cx, Duration::from_millis(300)).await;

@@ -118,6 +118,7 @@ lucide! {
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
     BOOK_MARKED = "icons" / "book-marked";
     CIRCLE_DOT = "icons" / "circle-dot";
+    CODE_XML = "icons" / "code-xml";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
     EXTERNAL_LINK = "icons" / "external-link";
     FILE_DOWN = "icons" / "file-down";

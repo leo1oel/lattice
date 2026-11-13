@@ -52,8 +52,11 @@ use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
+mod bib_view;
 mod disk_sync;
 mod save;
+
+pub use bib_view::BibView;
 
 use disk_sync::vanished_key;
 use save::normalize_breaks;
@@ -169,6 +172,12 @@ pub struct EditorPanel {
     _todos: Option<Task<()>>,
     _poll: Task<()>,
     _subscriptions: Vec<Subscription>,
+    /// A `.bib` file's visual form, made the first time it is shown, and
+    /// the view the tab shows (`bib_view`).
+    bib: Option<Entity<crate::papers::bib_editor::BibEditor>>,
+    bib_view: BibView,
+    /// The library its references open their papers from.
+    papers: Option<Entity<crate::papers::PapersPanel>>,
 }
 
 impl EditorPanel {
@@ -274,6 +283,7 @@ impl EditorPanel {
                         let moved = this.cursor.0 != line;
                         this.cursor = (line, column);
                         if moved {
+                            this.bib_follow_caret(line, cx);
                             cx.emit(EditorPanelEvent::CaretLine);
                         }
                         cx.notify();
@@ -358,7 +368,11 @@ impl EditorPanel {
             _todos: None,
             _poll: poll,
             _subscriptions: subscriptions,
+            bib: None,
+            bib_view: BibView::Source,
+            papers: None,
         };
+        this.bib_view = this.remembered_bib_view(cx);
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);
         this
@@ -513,6 +527,20 @@ impl EditorPanel {
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 
+    /// Put the cursor at the start of the 1-based `line`, in the middle of
+    /// the editor, leaving the focus where it is.
+    pub(crate) fn show_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
+        let point = Point::new(line.saturating_sub(1), 0);
+        self.editor.update(cx, |editor, cx| {
+            editor.change_selections(
+                SelectionEffects::scroll(Autoscroll::center()),
+                window,
+                cx,
+                |selections| selections.select_ranges([point..point]),
+            );
+        });
+    }
+
     fn deploy_search(&mut self, action: &Deploy, window: &mut Window, cx: &mut Context<Self>) {
         self.search_visible = true;
         self.search_bar.update(cx, |bar, cx| {
@@ -526,8 +554,12 @@ impl EventEmitter<PanelEvent> for EditorPanel {}
 impl EventEmitter<EditorPanelEvent> for EditorPanel {}
 
 impl Focusable for EditorPanel {
+    /// The source editor's, or the visual form's when it alone shows.
     fn focus_handle(&self, cx: &App) -> FocusHandle {
-        self.editor.focus_handle(cx)
+        match (&self.bib, self.bib_view) {
+            (Some(bib), BibView::Preview) => bib.focus_handle(cx),
+            _ => self.editor.focus_handle(cx),
+        }
     }
 }
 
@@ -561,7 +593,16 @@ impl Panel for EditorPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<impl IntoElement> {
-        Some(editor_status::build_chip(&self.build, window, cx))
+        // A bibliography's Edit / Split / Preview goes before the chip.
+        let switch = self.bib_switch(cx);
+        Some(
+            div()
+                .flex()
+                .items_center()
+                .gap(gpui::px(8.))
+                .children(switch)
+                .child(editor_status::build_chip(&self.build, window, cx)),
+        )
     }
 
     fn dropdown_menu(
@@ -592,7 +633,7 @@ impl Panel for EditorPanel {
 }
 
 impl Render for EditorPanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Zed's search bar registers its key handlers on whatever element
         // hosts it; in Zed that is a pane, here it is this panel.
         let palette = cx.palette().clone();
@@ -617,7 +658,7 @@ impl Render for EditorPanel {
                         .child(self.search_bar.clone()),
                 )
             })
-            .child(div().flex_1().min_h_0().child(self.lattice.clone()))
+            .child(self.render_body(window, cx))
             .child(status)
             .child(crate::paint_probe::probe())
     }
