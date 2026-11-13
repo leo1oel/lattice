@@ -15,6 +15,7 @@ mod confirm;
 mod editor_panel;
 mod editor_status;
 mod file_tree;
+mod first_pages;
 mod gallery;
 mod moved_paths;
 #[cfg(target_os = "macos")]
@@ -28,12 +29,15 @@ mod paint_probe;
 mod panels;
 mod pdf;
 mod project;
+mod recents;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
+mod search;
 mod shell;
 mod stand_in_panels;
 mod status_counters;
 mod titlebar;
+mod welcome;
 
 fn main() {
     init_logging();
@@ -72,9 +76,17 @@ fn main() {
             let activate = scenario.is_none();
             #[cfg(not(any(target_os = "macos", target_os = "windows")))]
             let activate = true;
+            let launch = root.is_none() && activate;
             match shell::Shell::open_window(root, cx) {
-                Ok((_window, _shell)) =>
-                {
+                Ok((_window, _shell)) => {
+                    // Without a project named, reopen the one used last.
+                    if launch {
+                        _window
+                            .update(cx, |_, window, cx| {
+                                _shell.update(cx, |shell, cx| shell.launch(window, cx))
+                            })
+                            .ok();
+                    }
                     #[cfg(any(target_os = "macos", target_os = "windows"))]
                     if let Some(scenario) = scenario {
                         scenario::start(_shell, _window, scenario, cx);

@@ -11,6 +11,12 @@
 //! `MiddleTruncate`) draws it: the head truncates with an ellipsis and the
 //! tail stays whole, so a long name keeps its extension in view
 //! ([`split_name`]). A row being renamed shows its field in the name's place.
+//!
+//! A file Git sees changed takes its status's colour on its name, with the
+//! status's letter in a 12px lane at the row's end (Pierre's tree: A, D, M,
+//! R, U, semibold); an ignored one dims its glyph and takes the quiet
+//! grey; a folder holding changes shows a 6px dot in the modified colour at
+//! half strength in the same lane.
 
 use gpui::{
     AnyElement, App, ElementId, IntoElement, ParentElement as _, SharedString, Styled as _,
@@ -28,6 +34,61 @@ use crate::{
 /// How far each level of nesting moves a row in.
 const INDENT: f32 = 14.;
 
+/// What Git says of a row's file (Pierre's `GitStatusEntry`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GitMark {
+    Added,
+    Deleted,
+    Ignored,
+    Modified,
+    Renamed,
+    Untracked,
+}
+
+impl GitMark {
+    /// lattice-core's status word, as the Tauri app maps it for the tree
+    /// (`toPierreGitStatus`): a copy reads as added, anything else unknown
+    /// as modified.
+    pub fn from_status(status: &str) -> GitMark {
+        match status {
+            "added" | "copied" => GitMark::Added,
+            "deleted" => GitMark::Deleted,
+            "ignored" => GitMark::Ignored,
+            "renamed" => GitMark::Renamed,
+            "untracked" => GitMark::Untracked,
+            _ => GitMark::Modified,
+        }
+    }
+
+    fn letter(self) -> Option<&'static str> {
+        match self {
+            GitMark::Added => Some("A"),
+            GitMark::Deleted => Some("D"),
+            GitMark::Ignored => None,
+            GitMark::Modified => Some("M"),
+            GitMark::Renamed => Some("R"),
+            GitMark::Untracked => Some("U"),
+        }
+    }
+
+    /// Pierre's own colours, which the app keeps.
+    fn color(self, dark: bool) -> gpui::Hsla {
+        let hex = match (self, dark) {
+            (GitMark::Added | GitMark::Untracked, false) => 0x16a994,
+            (GitMark::Added | GitMark::Untracked, true) => 0x00cab1,
+            (GitMark::Deleted, false) => 0xff2e3f,
+            (GitMark::Deleted, true) => 0xff6762,
+            (GitMark::Ignored, false) => 0xadadb1,
+            (GitMark::Ignored, true) => 0x4a4a4e,
+            (GitMark::Modified, false) => 0x1ca1c7,
+            (GitMark::Modified, true) => 0x08c0ef,
+            (GitMark::Renamed, false) => 0xd5a910,
+            (GitMark::Renamed, true) => 0xffd452,
+        };
+        gpui::rgb(hex).into()
+    }
+}
+
 pub struct TreeRow {
     id: ElementId,
     name: SharedString,
@@ -38,6 +99,9 @@ pub struct TreeRow {
     parity: Option<SharedString>,
     /// The rename field, drawn in the name's place.
     editing: Option<AnyElement>,
+    git: Option<GitMark>,
+    /// A folder with a changed file somewhere under it.
+    contains_change: bool,
     /// The list's fluid hover probe (`FluidHover::probe`): the row records
     /// its bounds for the tree's one gliding fill and draws none of its own.
     fluid: Option<AnyElement>,
@@ -53,6 +117,8 @@ impl TreeRow {
             selected: false,
             parity: None,
             editing: None,
+            git: None,
+            contains_change: false,
             fluid: None,
         }
     }
@@ -71,6 +137,18 @@ impl TreeRow {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// What Git says of this row's file.
+    pub fn git(mut self, mark: Option<GitMark>) -> Self {
+        self.git = mark;
+        self
+    }
+
+    /// A folder with a changed file under it.
+    pub fn contains_change(mut self, contains: bool) -> Self {
+        self.contains_change = contains;
         self
     }
 
@@ -98,11 +176,44 @@ impl TreeRow {
     pub fn into_list_item(self, cx: &App) -> ListItem {
         let palette = cx.palette().clone();
         let indent = px(self.depth as f32 * INDENT);
-        let label_ink = if self.selected {
-            palette.nav_text_strong
-        } else {
-            palette.text_secondary
+        let dark = palette.appearance == crate::Appearance::Dark;
+        let git_ink = self.git.map(|mark| mark.color(dark));
+        let label_ink = match git_ink {
+            Some(ink) => ink,
+            None if self.selected => palette.nav_text_strong,
+            None => palette.text_secondary,
         };
+        let lane = match (self.git, self.contains_change) {
+            (Some(mark), _) => mark.letter().map(|letter| {
+                div()
+                    .w(px(12.))
+                    .flex_none()
+                    .flex()
+                    .justify_center()
+                    .text_role(TextRole::Caption, cx)
+                    .font_weight(crate::tokens::FONT_WEIGHT_SEMIBOLD)
+                    .text_color(mark.color(dark))
+                    .child(letter)
+                    .into_any_element()
+            }),
+            (None, true) => Some(
+                div()
+                    .w(px(12.))
+                    .flex_none()
+                    .flex()
+                    .justify_center()
+                    .child(
+                        div()
+                            .size(px(6.))
+                            .rounded(px(3.))
+                            .bg(GitMark::Modified.color(dark))
+                            .opacity(0.5),
+                    )
+                    .into_any_element(),
+            ),
+            (None, false) => None,
+        };
+        let dim_glyph = self.git == Some(GitMark::Ignored);
         let lead = match self.folder {
             Some(expanded) => div()
                 .flex()
@@ -125,11 +236,10 @@ impl TreeRow {
                         .ml(px(6.5))
                         .child(file_glyph(GlyphKind::Folder, ICON, &palette)),
                 ),
-            None => div().pl(px(8.) + indent).child(file_glyph(
-                GlyphKind::for_name(&self.name),
-                ICON,
-                &palette,
-            )),
+            None => div()
+                .pl(px(8.) + indent)
+                .when(dim_glyph, |lead| lead.opacity(0.5))
+                .child(file_glyph(GlyphKind::for_name(&self.name), ICON, &palette)),
         };
         // Kit's tree marks its own keyboard selection on the item after this
         // returns, so the open file's wash is set as the item's background.
@@ -158,7 +268,8 @@ impl TreeRow {
                         None => label(self.name, self.parity, cx)
                             .text_color(label_ink)
                             .when(self.selected, |label| label.font_weight(FONT_WEIGHT_MEDIUM)),
-                    }),
+                    })
+                    .children(lane),
             )
     }
 }

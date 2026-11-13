@@ -8,7 +8,10 @@
 //! does (a `.research/` folder, the build-output ignores), so both apps open
 //! the same folders.
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{AppContext as _, AsyncApp, Context, Entity, EventEmitter, Task};
@@ -29,6 +32,8 @@ pub enum ProjectEvent {
     FilesChanged(Option<Vec<String>>),
     /// The manifest changed (a new main document).
     ManifestChanged,
+    /// What Git says of the files changed.
+    GitChanged,
 }
 
 pub struct Project {
@@ -37,6 +42,11 @@ pub struct Project {
     files: Vec<FileNode>,
     /// The tree shows dotfiles and build output (Show hidden files).
     show_hidden: bool,
+    /// What Git says of each changed file, by path as `git status` names it
+    /// (lattice-core's status word), read again on every change the watcher
+    /// sees, as the Tauri app reads it beside each refresh; empty outside a
+    /// repository.
+    git: HashMap<String, String>,
     active_build: ActiveBuild,
     /// Bumped by every save here, as the Tauri app's build pipeline counts
     /// them (`markInputsChanged`); a build records the revision it started
@@ -54,6 +64,7 @@ pub struct Project {
     _watcher: Option<ProjectWatcher>,
     _watch_task: Option<Task<()>>,
     _scan: Option<Task<()>>,
+    _git: Option<Task<()>>,
 }
 
 impl EventEmitter<ProjectEvent> for Project {}
@@ -122,12 +133,14 @@ impl Project {
             index,
             texlab,
             show_hidden: false,
+            git: HashMap::new(),
             active_build: ActiveBuild::default(),
             input_revision: 0,
             compiled: None,
             _watcher: watcher,
             _watch_task: Some(watch_task),
             _scan: None,
+            _git: None,
         }
     }
 
@@ -153,6 +166,11 @@ impl Project {
 
     pub fn active_build(&self) -> &ActiveBuild {
         &self.active_build
+    }
+
+    /// Changed files' Git status words, by path.
+    pub fn git(&self) -> &HashMap<String, String> {
+        &self.git
     }
 
     pub fn show_hidden(&self) -> bool {
@@ -230,6 +248,7 @@ impl Project {
 
     fn files_changed(&mut self, paths: Option<Vec<String>>, cx: &mut Context<Self>) {
         self.rescan(cx);
+        self.read_git(cx);
         // A source or bibliography changed on disk (a save here, an outside
         // edit): the keys and labels may have too.
         let sources_changed = paths.as_ref().is_none_or(|paths| {
@@ -266,12 +285,43 @@ impl Project {
         }));
     }
 
+    /// Ask Git what changed, off the main thread. A folder outside Git, or
+    /// no git at all, marks nothing.
+    pub fn read_git(&mut self, cx: &mut Context<Self>) {
+        let root = self.root.clone();
+        let read = cx.background_spawn(async move {
+            lattice_core::git::status(&root)
+                .ok()
+                .filter(|status| status.repository)
+                .map(|status| {
+                    status
+                        .files
+                        .into_iter()
+                        .map(|file| (file.path, file.status))
+                        .collect::<HashMap<_, _>>()
+                })
+                .unwrap_or_default()
+        });
+        self._git = Some(cx.spawn(async move |this, cx| {
+            let git = read.await;
+            this.update(cx, |this, cx| {
+                if this.git != git {
+                    this.git = git;
+                    cx.emit(ProjectEvent::GitChanged);
+                    cx.notify();
+                }
+            })
+            .ok();
+        }));
+    }
+
     /// A rename, move or delete went through lattice-core, which rewrites
     /// the manifest when it names what changed (a main document, the primary
     /// bibliography): read it and the tree again.
     pub fn entries_changed(&mut self, cx: &mut Context<Self>) {
         self.reload_manifest(cx);
         self.rescan(cx);
+        self.read_git(cx);
     }
 
     /// Make `path` the document Build compiles (Set as main document).
@@ -338,7 +388,11 @@ pub mod project_snapshot {
 /// Open `root` and make its entity, or say why it would not open.
 pub async fn open(root: PathBuf, cx: &mut AsyncApp) -> Result<Entity<Project>, String> {
     let opened = Project::open(root, cx).await?;
-    Ok(cx.new(|cx| Project::new(opened, cx)))
+    Ok(cx.new(|cx| {
+        let mut project = Project::new(opened, cx);
+        project.read_git(cx);
+        project
+    }))
 }
 
 #[cfg(test)]

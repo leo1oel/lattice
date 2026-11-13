@@ -11,6 +11,7 @@ use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
 mod build_flow;
+mod documents;
 mod editor_adapter;
 mod fluid;
 mod pdf;
@@ -248,6 +249,7 @@ impl Run {
         self.editor_adapter(cx, &mut steps, &root).await?;
 
         self.tree_operations(cx, &mut steps, &root).await?;
+        self.documents_and_project(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 

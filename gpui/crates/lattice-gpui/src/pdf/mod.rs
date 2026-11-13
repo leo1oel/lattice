@@ -18,6 +18,7 @@ mod toolbar;
 mod view;
 mod window;
 
+pub(crate) use engine::{PdfEngine, RenderRequest};
 pub use find::FindOptions;
 pub use layout::FitMode;
 pub use outline_menu::OutlineState;

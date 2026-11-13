@@ -65,7 +65,7 @@ div()
 - `item(ix, row)` records a row's bounds without changing its layout; `probe(ix, kind)` does it from inside a positioned row built elsewhere (Kit's tree items).
   The rows must be built in the same view as the highlight.
 
-Where it runs today: `components::Menu` and `Select`, Kit's popup menus (`KitMenuGlide`, through `patches/gpui-component-lattice-hooks.diff`), the Project tree and the command palette.
+Where it runs today: `components::Menu` and `Select`, Kit's popup menus (`KitMenuGlide`, through `patches/gpui-component-lattice-hooks.diff`), the Project tree, the command palette, quick open and Find in project.
 Tabs, toolbar buttons and the titlebar's controls keep a per-control fade on the fast tier (`interaction::use_interaction`), as the app's do.
 
 ## Sliding plate

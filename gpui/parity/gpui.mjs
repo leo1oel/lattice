@@ -16,7 +16,7 @@ export function stageProject(dir, pdf) {
 }
 
 /** Run the scenario; resolves to its JSON result, with `png` the capture's path. */
-export function captureGpui({ app, project, theme, dir, name, timeoutMs = 180_000 }) {
+export function captureGpui({ app, project, theme, dir, name, screen = "mainWindow", timeoutMs = 180_000 }) {
   if (!existsSync(app)) throw new Error(`no GPUI app at ${app}; build it (cargo build --release in gpui/)`);
   const json = join(dir, `${name}.json`);
   const png = join(dir, `${name}.png`);
@@ -24,7 +24,7 @@ export function captureGpui({ app, project, theme, dir, name, timeoutMs = 180_00
   const run = spawnSync(app, [project, "--scenario", "parity", "--out", json], {
     // The scenario writes nothing else, but `shot` would put shot.json in the current directory.
     cwd: dir,
-    env: { ...process.env, LATTICE_APPEARANCE: theme, LATTICE_SHOT_OUT: png },
+    env: { ...process.env, LATTICE_APPEARANCE: theme, LATTICE_SHOT_OUT: png, LATTICE_PARITY_SCREEN: screen },
     timeout: timeoutMs,
     encoding: "utf8",
   });

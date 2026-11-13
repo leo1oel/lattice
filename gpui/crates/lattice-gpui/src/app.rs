@@ -107,6 +107,8 @@ pub fn init(scripted: bool, cx: &mut App) {
     lattice_editor::init(cx);
     load_keymaps(cx);
     crate::shell::workspaces::Workspaces::init(scripted, cx);
+    crate::recents::RecentProjects::init(scripted, cx);
+    crate::first_pages::FirstPages::init(scripted, cx);
     crate::shell::menus::install(cx);
     // The app ends with its last window, as the Tauri app does.
     cx.on_window_closed(|cx, _| {

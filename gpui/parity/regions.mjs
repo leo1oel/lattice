@@ -57,6 +57,29 @@ export const SCREENS = {
     // Drawn by different engines in the two apps (pdf.js and PDFium), so left out of the pixel budget.
     content: [".pdf-viewer-host"],
   },
+  // A window without a project (`?welcome=1&recents=1`): the newest recent
+  // project's folder is gone, so the welcome screen says so; the desk lays
+  // out the next three. The GPUI side stages the same list
+  // (crates/lattice-gpui/src/scenario/parity_welcome.rs).
+  welcome: {
+    label: "Welcome",
+    regions: [
+      { name: "welcome/settings", css: ".welcome-titlebar .icon-button" },
+      { name: "welcome/mark", css: ".welcome-content > .brand-mark" },
+      { name: "welcome/title", css: ".welcome-content > h1", text: true },
+      { name: "welcome/actions", css: ".welcome-actions" },
+      { name: "welcome/unopened", css: ".welcome-unopened", text: true },
+      { name: "welcome/recents-title", css: ".welcome-recents-title", text: true },
+      { name: "welcome/desk", css: ".welcome-desk" },
+      { name: "welcome/card/0", css: ".welcome-desk > li:nth-child(1) .welcome-desk-card", text: true },
+      { name: "welcome/card/1", css: ".welcome-desk > li:nth-child(2) .welcome-desk-card", text: true },
+      { name: "welcome/card/2", css: ".welcome-desk > li:nth-child(3) .welcome-desk-card", text: true },
+      { name: "welcome/more", css: ".welcome-more", text: true },
+    ],
+    // The desk's first page is drawn by pdf.js in the Tauri app and by
+    // PDFium here, so left out of the pixel budget.
+    content: [".welcome-desk-sheet[data-kind=\"page\"] > img"],
+  },
 };
 
 /**

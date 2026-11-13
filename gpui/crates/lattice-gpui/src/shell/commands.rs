@@ -13,10 +13,21 @@ use lattice_ui::Icon;
 
 use super::layout::Preset;
 
+mod projects;
+
 actions!(
     lattice,
     [
         OpenFolder,
+        OpenFolderHere,
+        NewProject,
+        CloneRepository,
+        ImportZip,
+        QuickOpen,
+        GoBack,
+        GoForward,
+        FindInProject,
+        ReplaceInProject,
         Build,
         Save,
         ForwardSync,
@@ -75,6 +86,15 @@ actions!(
         About,
     ]
 );
+
+/// Open a recent project: in a window of its own once this one shows a
+/// project, unless `here`.
+#[derive(Clone, Debug, PartialEq, Eq, gpui::Action)]
+#[action(namespace = lattice, no_json)]
+pub struct OpenRecentProject {
+    pub path: std::path::PathBuf,
+    pub here: bool,
+}
 
 /// Switch to the workspace with this id: the palette lists one per
 /// workspace, however many there are.
@@ -142,6 +162,9 @@ pub struct CommandContext {
     /// The workspaces' ids and names, in order.
     pub workspaces: Vec<(String, SharedString)>,
     pub projects: usize,
+    /// The recent projects other than this window's, newest first: name and
+    /// folder.
+    pub recent: Vec<(SharedString, std::path::PathBuf)>,
 }
 
 /// One row of the table.
@@ -244,6 +267,14 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         ));
     }
     if project {
+        out.push(Command::new(
+            "quick-open",
+            "Quick open file",
+            Section::Navigate,
+            QuickOpen,
+        ));
+        out.push(Command::new("back", "Back", Section::Navigate, GoBack).keys_only());
+        out.push(Command::new("forward", "Forward", Section::Navigate, GoForward).keys_only());
         out.push(
             Command::new(
                 "close-tab",
@@ -427,53 +458,20 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(
             Command::new("vim", "Vim mode", Section::Edit, ToggleVimMode).keywords("vi modal"),
         );
-    }
-    out.push(Command::new(
-        "open-folder",
-        "Open another folder",
-        Section::Project,
-        OpenFolder,
-    ));
-    out.push(Command::new(
-        "new-window",
-        "New window",
-        Section::Project,
-        NewWindow,
-    ));
-    if project {
         out.push(Command::new(
-            "open-in-new-window",
-            "Open this project in a new window",
-            Section::Project,
-            OpenInNewWindow,
+            "find",
+            "Find in project",
+            Section::Edit,
+            FindInProject,
+        ));
+        out.push(Command::new(
+            "replace",
+            "Replace in project",
+            Section::Edit,
+            ReplaceInProject,
         ));
     }
-    out.push(Command::new(
-        "doctor",
-        "Run TeX doctor",
-        Section::Project,
-        OpenTexDoctor,
-    ));
-    if context.projects > 1 {
-        out.push(Command::new(
-            "next-project",
-            "Next project",
-            Section::Project,
-            NextProject,
-        ));
-        out.push(Command::new(
-            "previous-project",
-            "Previous project",
-            Section::Project,
-            PreviousProject,
-        ));
-        out.push(Command::new(
-            "close-project",
-            "Close this project",
-            Section::Project,
-            CloseProject,
-        ));
-    }
+    projects::project_commands(context, &mut out);
     for (id, label, action) in [
         (
             "theme-light",
@@ -536,6 +534,17 @@ fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("b"), Build, beside_vim("!VimControl")),
+        // Vim's insert mode keeps Ctrl+P for its word completion.
+        KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
+        KeyBinding::new(m!("shift-f"), FindInProject, None),
+        // Back and forward through the places visited, over Zed's outdent
+        // and indent in the editor, as the Tauri app's are over
+        // CodeMirror's. Off macOS every Vim mode keeps Ctrl+[ as its Escape
+        // and Ctrl+] as go to definition.
+        KeyBinding::new(m!("["), GoBack, beside_vim("!vim_mode")),
+        KeyBinding::new(m!("]"), GoForward, beside_vim("!vim_mode")),
+        KeyBinding::new(m!("shift-h"), ReplaceInProject, None),
+        KeyBinding::new(m!("shift-n"), NewProject, None),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-j"), ForwardSync, None),
         // The Tauri app's next and previous build problem, in the editor
@@ -899,6 +908,50 @@ mod keymap_tests {
         assert_eq!(
             resolve_in_editor(zed, m!("shift-enter")),
             Some(ToggleMaximize.name())
+        );
+    }
+
+    #[test]
+    fn back_and_forward_win_over_zeds_indent_in_an_editor() {
+        let outdent = KeyBinding::new(m!("["), editor::actions::Outdent, Some("Editor"));
+        assert_eq!(resolve_in_editor(outdent, m!("[")), Some(GoBack.name()));
+        let indent = KeyBinding::new(m!("]"), editor::actions::Indent, Some("Editor"));
+        assert_eq!(resolve_in_editor(indent, m!("]")), Some(GoForward.name()));
+    }
+
+    #[test]
+    fn vim_keeps_ctrl_brackets_in_its_editor() {
+        // vim.json, "vim_mode == insert": ctrl-[ is Escape; "VimControl &&
+        // !menu": ctrl-] goes to the definition.
+        let bindings = || {
+            let mut bindings = vec![
+                KeyBinding::new(
+                    "ctrl-[",
+                    editor::actions::Cancel,
+                    Some("vim_mode == insert"),
+                ),
+                KeyBinding::new(
+                    "ctrl-]",
+                    editor::actions::GoToDefinition::default(),
+                    Some("VimControl && !menu"),
+                ),
+            ];
+            bindings.extend(default_bindings());
+            bindings
+        };
+        let insert = "Editor mode = full vim_mode = insert";
+        let normal = "Editor mode = full vim_mode = normal VimControl";
+        assert_eq!(
+            resolve(bindings(), insert, "ctrl-["),
+            Some(editor::actions::Cancel.name())
+        );
+        assert_eq!(
+            resolve(bindings(), normal, "ctrl-]"),
+            Some(editor::actions::GoToDefinition::default().name())
+        );
+        assert_eq!(
+            resolve(bindings(), "Editor mode = full", m!("[")),
+            Some(GoBack.name())
         );
     }
 

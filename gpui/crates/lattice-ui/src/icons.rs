@@ -93,6 +93,16 @@ lucide! {
     CIRCLE_X = "icons" / "circle-x";
     APP_WINDOW = "icons" / "app-window";
     CASE_SENSITIVE = "icons" / "case-sensitive";
+    FILE_ARCHIVE = "icons" / "file-archive";
+    FILE_PLAY = "icons" / "file-play";
+    FILE_PLUS = "icons" / "file-plus";
+    FOLDER_INPUT = "icons" / "folder-input";
+    ROTATE_CW = "icons" / "rotate-cw";
+    FOLDER_PLUS = "icons" / "folder-plus";
+    GIT_BRANCH = "icons" / "git-branch";
+    SPARKLES = "icons" / "sparkles";
+    TEXT_CURSOR_INPUT = "icons" / "text-cursor-input";
+    WRENCH = "icons" / "wrench";
     CHEVRON_UP = "icons" / "chevron-up";
     CORNER_UP_LEFT = "icons" / "corner-up-left";
     CORNER_UP_RIGHT = "icons" / "corner-up-right";
@@ -110,9 +120,13 @@ lucide! {
     DOWNLOAD = "lattice" / "download";
     ELLIPSIS = "lattice" / "ellipsis";
     EYE = "lattice" / "eye";
+    FOLDER = "lattice" / "folder";
+    HASH = "lattice" / "hash";
     INFO = "lattice" / "info";
     PENCIL = "lattice" / "pencil";
     PLUS = "lattice" / "plus";
+    REPLACE = "lattice" / "replace";
+    SETTINGS = "lattice" / "settings";
     TRASH = "lattice" / "trash";
 }
 
@@ -228,6 +242,11 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "pencil.svg",
     "plus.svg",
     "trash.svg",
+    // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).
+    "folder.svg",
+    "hash.svg",
+    "replace.svg",
+    "settings.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",

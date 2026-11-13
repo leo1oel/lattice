@@ -70,6 +70,9 @@ const SIDEBAR_CARD: f32 = 329.;
 
 impl Run {
     pub(super) async fn parity(&self, cx: &mut AsyncApp) -> Result<Value> {
+        if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("welcome") {
+            return self.parity_welcome(cx).await;
+        }
         native::order_front(self.native(cx)?);
         // The project opens on its own task and lays the window out as its
         // workspace has it, so the sidebar is widened only once that is done
@@ -148,34 +151,7 @@ impl Run {
                 )
             })?;
 
-        let mut regions = Map::new();
-        for (name, region) in parity::regions() {
-            let bounds = region.bounds.map(|b| {
-                json!({
-                    "x": f32::from(b.origin.x),
-                    "y": f32::from(b.origin.y),
-                    "w": f32::from(b.size.width),
-                    "h": f32::from(b.size.height),
-                })
-            });
-            let texts: Vec<Value> = region
-                .texts
-                .values()
-                .map(|t| {
-                    json!({
-                        "content": t.content.as_deref(),
-                        "family": t.family.as_ref(),
-                        "size": t.size,
-                        "weight": t.weight,
-                        "lineHeight": t.line_height,
-                    })
-                })
-                .collect();
-            regions.insert(
-                name.to_string(),
-                json!({ "bounds": bounds, "texts": texts }),
-            );
-        }
+        let regions = regions_json();
         Ok(json!({
             "png": out,
             "viewport": { "width": f32::from(viewport.width), "height": f32::from(viewport.height) },
@@ -186,4 +162,37 @@ impl Run {
             "regions": regions,
         }))
     }
+}
+
+/// Every region the probes recorded, in logical pixels.
+pub(super) fn regions_json() -> Map<String, Value> {
+    let mut regions = Map::new();
+    for (name, region) in parity::regions() {
+        let bounds = region.bounds.map(|b| {
+            json!({
+                "x": f32::from(b.origin.x),
+                "y": f32::from(b.origin.y),
+                "w": f32::from(b.size.width),
+                "h": f32::from(b.size.height),
+            })
+        });
+        let texts: Vec<Value> = region
+            .texts
+            .values()
+            .map(|t| {
+                json!({
+                    "content": t.content.as_deref(),
+                    "family": t.family.as_ref(),
+                    "size": t.size,
+                    "weight": t.weight,
+                    "lineHeight": t.line_height,
+                })
+            })
+            .collect();
+        regions.insert(
+            name.to_string(),
+            json!({ "bounds": bounds, "texts": texts }),
+        );
+    }
+    regions
 }

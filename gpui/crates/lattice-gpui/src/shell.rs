@@ -17,13 +17,18 @@ mod arrange;
 mod build;
 mod build_tools;
 pub mod commands;
+mod documents;
 mod entries;
 mod floating;
+mod ground;
+mod imports;
 pub mod layout;
 pub(crate) mod menus;
 mod palette;
 mod pdfs;
+mod saving;
 mod synctex;
+mod welcome_flow;
 pub mod windows;
 mod workspace_flow;
 pub mod workspaces;
@@ -33,9 +38,9 @@ use std::path::{Path, PathBuf};
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, PathPromptOptions, PromptLevel,
-    Render, SharedString, Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds,
-    WindowOptions, div, prelude::FluentBuilder as _, px, size,
+    InteractiveElement as _, IntoElement, ParentElement as _, PromptLevel, Render, SharedString,
+    Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
+    prelude::FluentBuilder as _, px, size,
 };
 use gpui_kit::component::{
     dock::{DockArea, DockEvent, PanelId},
@@ -45,7 +50,7 @@ use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock
 
 use build::BuildRequest;
 pub use commands::{
-    Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem, OpenFolder,
+    Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
 
@@ -156,6 +161,10 @@ pub struct Shell {
     slots: std::collections::HashMap<gpui_kit::component::dock::NodeId, u64>,
     palette: Option<Entity<palette::CommandPaletteView>>,
     shortcuts: Option<Entity<palette::ShortcutSheet>>,
+    /// Quick open, Find and Replace in project, and the files visited.
+    documents: documents::Documents,
+    /// The welcome screen and New project, without a project or over one.
+    lobby: welcome_flow::Lobby,
     /// The projects open in this window, in tab order; the open one is
     /// `project`'s.
     pub(crate) projects: Vec<OpenProject>,
@@ -183,11 +192,11 @@ impl Shell {
         bounds: Option<Bounds<gpui::Pixels>>,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
-        let bounds = bounds.unwrap_or_else(|| Bounds::centered(None, window_size(), cx));
+        let bounds = bounds.unwrap_or_else(|| Bounds::centered(None, windows::window_size(), cx));
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             window_min_size: Some(size(px(720.), px(480.))),
-            titlebar: titlebar_options(),
+            titlebar: windows::titlebar_options(),
             ..Default::default()
         };
         let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {
@@ -211,11 +220,12 @@ impl Shell {
             .detach();
         });
         windows::register(window, &shell, cx);
-        if let Some(root) = root {
-            window.update(cx, |_, window, cx| {
-                shell.update(cx, |shell, cx| shell.open_project(root, window, cx));
-            })?;
-        }
+        window.update(cx, |_, window, cx| {
+            shell.update(cx, |shell, cx| match root {
+                Some(root) => shell.open_project(root, window, cx),
+                None => shell.show_welcome(None, window, cx),
+            });
+        })?;
         Ok((window, shell))
     }
 
@@ -246,6 +256,12 @@ impl Shell {
             .detach();
         }
 
+        cx.observe_window_activation(window, |_, window, cx| {
+            if window.is_window_active() {
+                menus::refresh(cx);
+            }
+        })
+        .detach();
         cx.subscribe_in(&file_tree, window, Self::on_tree_event)
             .detach();
         cx.subscribe_in(
@@ -337,6 +353,8 @@ impl Shell {
             slots: Default::default(),
             palette: None,
             shortcuts: None,
+            documents: Default::default(),
+            lobby: Default::default(),
             projects: Vec::new(),
             closed_tabs: Vec::new(),
             save_task: None,
@@ -489,7 +507,7 @@ impl Shell {
         };
         if !self.projects.iter().any(|p| p.root == root) {
             let open = OpenProject {
-                name: project_display_name(&root),
+                name: windows::project_display_name(&root),
                 root: root.clone(),
             };
             match self
@@ -506,6 +524,8 @@ impl Shell {
         self.active_editor = None;
         self.queued_build = None;
         self.closed_tabs.clear();
+        self.forget_visits();
+        self.entered_project(&windows::project_display_name(&root), cx);
         self.tex_setup
             .update(cx, |center, _| center.set_root(Some(root.clone())));
         self.refresh_words(cx);
@@ -529,52 +549,6 @@ impl Shell {
         cx.notify();
     }
 
-    /// The window is closing: unsaved edits are saved first, and the window
-    /// closes once they are, staying open (with the save's notice) when one
-    /// could not be.
-    fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some(saved) = self.save_before_leaving(cx) else {
-            return true;
-        };
-        cx.spawn_in(window, async move |_, cx| {
-            if saved.await {
-                cx.update(|window, _| window.remove_window()).ok();
-            }
-        })
-        .detach();
-        false
-    }
-
-    /// Save every editor holding unsaved edits: `None` when none does, else
-    /// a task that resolves true once each is saved, false when one could
-    /// not be (its notice says why).
-    fn save_before_leaving(&mut self, cx: &mut Context<Self>) -> Option<Task<bool>> {
-        let saves = Self::save_dirty(&self.open_editors(), cx);
-        if saves.is_empty() {
-            return None;
-        }
-        Some(cx.spawn(async move |_, _| {
-            for save in saves {
-                match save.await {
-                    Ok(true) => {}
-                    Ok(false) => return false,
-                    Err(error) => {
-                        log::error!("{error:#}");
-                        return false;
-                    }
-                }
-            }
-            true
-        }))
-    }
-
-    /// Close the window as its close button does (`should_close`).
-    pub(crate) fn close_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.should_close(window, cx) {
-            window.remove_window();
-        }
-    }
-
     /// Open a source file in an editor tab (or switch to its tab), or a PDF in
     /// the preview, then go to `line` when given.
     pub fn open_path(
@@ -592,6 +566,9 @@ impl Shell {
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
+        let in_front = self
+            .active_editor()
+            .is_some_and(|editor| editor.read(cx).path() == path);
         let editor = match self.open_editor(&path, cx) {
             Some(editor) if self.panel_shown(PanelId::from(editor.entity_id()), cx) => {
                 let id = PanelId::from(editor.entity_id());
@@ -610,6 +587,7 @@ impl Shell {
             Some(line) => editor.go_to_line(line, window, cx),
             None => window.focus(&editor.editor().focus_handle(cx), cx),
         });
+        self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
@@ -728,32 +706,7 @@ impl Shell {
         cx.notify();
     }
 
-    pub(crate) fn open_folder(
-        &mut self,
-        _: &OpenFolder,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let paths = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: Some("Open LaTeX Project".into()),
-        });
-        cx.spawn_in(window, async move |this, cx| {
-            let Ok(Ok(Some(paths))) = paths.await else {
-                return;
-            };
-            let Some(root) = paths.into_iter().next() else {
-                return;
-            };
-            this.update_in(cx, |this, window, cx| this.open_project(root, window, cx))
-                .ok();
-        })
-        .detach();
-    }
-
-    fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
+    pub(super) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
         self.editors.retain(|editor| editor.upgrade().is_some());
         self.editors
             .iter()
@@ -761,51 +714,9 @@ impl Shell {
             .collect()
     }
 
-    /// Start saving each of `editors` that holds unsaved edits.
-    fn save_dirty(
-        editors: &[Entity<EditorPanel>],
-        cx: &mut Context<Self>,
-    ) -> Vec<Task<anyhow::Result<bool>>> {
-        let dirty: Vec<_> = editors
-            .iter()
-            .filter(|editor| editor.read(cx).is_dirty(cx))
-            .cloned()
-            .collect();
-        dirty
-            .into_iter()
-            .map(|editor| editor.update(cx, |editor, cx| editor.save(cx)))
-            .collect()
-    }
-
-    fn save_in_background(&mut self, cx: &mut Context<Self>) {
-        let editors = self.open_editors();
-        for save in Self::save_dirty(&editors, cx) {
-            cx.spawn(async move |_, _| {
-                if let Err(error) = save.await {
-                    log::error!("{error:#}");
-                }
-            })
-            .detach();
-        }
-    }
-
     /// The editor the writer was last in, if it is still open.
     pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
         self.active_editor.as_ref().and_then(WeakEntity::upgrade)
-    }
-
-    /// ⌘S: save, then build, as the Tauri app's "Save and build" does; only
-    /// a save when there is no document to build. A build under way queues
-    /// the next one, which would save only once it starts, so the save is
-    /// made now.
-    fn save_all(&mut self, _: &Save, window: &mut Window, cx: &mut Context<Self>) {
-        let build = self.has_document(cx);
-        if !build || self.build_task.is_some() {
-            self.save_in_background(cx);
-        }
-        if build {
-            self.run_build(BuildRequest::requested(), window, cx);
-        }
     }
 
     /// Count the manuscript's words again, and redraw the status bars that
@@ -860,54 +771,6 @@ impl Shell {
     }
 }
 
-/// A new window's size: 1440×900, or `LATTICE_WINDOW_SIZE` (`1015x680`), which
-/// lets a run lay the window out as a smaller screen would (GitHub's runners
-/// shrink the window to about 1015px wide).
-fn window_size() -> gpui::Size<gpui::Pixels> {
-    std::env::var("LATTICE_WINDOW_SIZE")
-        .ok()
-        .and_then(|value| {
-            let (width, height) = value.split_once('x')?;
-            Some(size(
-                px(width.trim().parse().ok()?),
-                px(height.trim().parse().ok()?),
-            ))
-        })
-        .unwrap_or_else(|| size(px(1440.), px(900.)))
-}
-
-/// The name of a project as its tab shows it: the name in its manifest,
-/// else the folder's.
-fn project_display_name(root: &Path) -> SharedString {
-    lattice_core::project::read_manifest(root)
-        .ok()
-        .map(|manifest| manifest.name)
-        .filter(|name| !name.is_empty())
-        .or_else(|| {
-            root.file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-        })
-        .unwrap_or_default()
-        .into()
-}
-
-#[cfg(target_os = "macos")]
-fn titlebar_options() -> Option<gpui::TitlebarOptions> {
-    // Lattice draws its own 40px titlebar with the traffic lights centred in
-    // it, 20px from the top (src-tauri/src/traffic_lights.rs).
-    Some(gpui::TitlebarOptions {
-        title: None,
-        appears_transparent: true,
-        traffic_light_position: Some(gpui::point(px(14.), px(13.))),
-    })
-}
-
-/// Elsewhere the system keeps its title bar, and Lattice's sits under it.
-#[cfg(not(target_os = "macos"))]
-fn titlebar_options() -> Option<gpui::TitlebarOptions> {
-    None
-}
-
 impl Focusable for Shell {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
@@ -921,7 +784,6 @@ impl Render for Shell {
             .id("lattice-shell")
             .key_context("LatticeShell")
             .track_focus(&self.focus_handle)
-            .on_action(cx.listener(Self::open_folder))
             .on_action(cx.listener(Self::build))
             .on_action(cx.listener(Self::save_all))
             .on_action(cx.listener(Self::forward_sync))
@@ -938,26 +800,15 @@ impl Render for Shell {
             .size_full()
             .bg(palette.window)
             .text_color(palette.text)
-            .child(crate::titlebar::render(self, window, cx))
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .bg(palette.chrome)
-                    .pt(px(WORKSPACE_TOP))
-                    .px(px(WORKSPACE_SIDE))
-                    .pb(px(WORKSPACE_SIDE))
-                    .children(lattice_ui::parity::probe("workspace"))
-                    .child(self.dock_area.clone())
-                    .when(
-                        self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
-                        |this| this.child(arrange::empty_center(self, cx)),
-                    )
-                    .children(self.floating.render(self.floating_area(window), cx)),
-            )
+            .children(self.welcome().cloned())
+            .when(self.welcome().is_none(), |this| {
+                this.child(crate::titlebar::render(self, window, cx))
+                    .child(self.workspace(window, cx))
+            })
             .children(self.palette.clone())
             .children(self.shortcuts.clone())
+            .children(self.document_overlays())
+            .children(self.lobby_dialogs())
             .child(self.notices.clone())
             .child(self.tex_setup.clone())
             .child(self.confirm.clone())
