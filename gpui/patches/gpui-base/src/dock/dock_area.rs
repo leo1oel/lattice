@@ -1685,13 +1685,6 @@ fn sync_split_panels(
     );
 }
 
-/// Lattice: whether a group with nothing beside it keeps its last panel.
-/// Trellis lets a region's last panel be dragged out or closed, the
-/// neighbours taking its room, so Lattice never pins one: the host takes a
-/// dock left empty away and draws its own empty center (lattice-gpui's
-/// shell, on `DockEvent::LayoutChanged`).
-const KEEP_LAST_PANEL: bool = false;
-
 fn plan_tree(tree: &PaneTree, collapsed: bool, locked: bool, out: &mut Vec<ContainerPlan>) {
     // The root has nothing beside it by definition.
     plan_node(tree.root(), true, collapsed, locked, out);
@@ -1725,7 +1718,7 @@ fn plan_node(
             node: node.id(),
             panels: panels.to_vec(),
             active_ix,
-            constraints: TabGroupConstraints::in_split(alone && KEEP_LAST_PANEL)
+            constraints: TabGroupConstraints::in_split(alone)
                 .dock_locked(locked)
                 .collapsed(collapsed),
         }),

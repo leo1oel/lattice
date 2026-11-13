@@ -126,8 +126,6 @@ pub(super) struct DocumentViews {
     width: std::rc::Rc<std::cell::Cell<Pixels>>,
     divider_hovered: bool,
     dragging: bool,
-    /// The view switch names its modes (room to spare in the strip).
-    named: bool,
 }
 
 impl DocumentViews {
@@ -139,7 +137,6 @@ impl DocumentViews {
             width: Default::default(),
             divider_hovered: false,
             dragging: false,
-            named: false,
         }
     }
 
@@ -253,35 +250,17 @@ impl EditorPanel {
     }
 
     /// The Edit / Split / Preview switch, in the panel's strip: icons, each
-    /// named in its tooltip, and named beside it too in room to spare.
+    /// named in its tooltip. The Tauri app also names them beside the icons
+    /// in room to spare (the Trellis patch's named state); the Trellis skin
+    /// does not report a strip's spare room yet, so they stay icons.
     pub(super) fn view_switch(
         &mut self,
-        window: &mut Window,
+        _: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let current = self.views.as_ref()?.view;
-        // Named only in room to spare beside every tab at its natural width
-        // (the Trellis patch's named state), judged from the strip as last
-        // drawn: its spare room with the switch as it was, plus what names
-        // took then, must hold the names.
-        let extra: Pixels = DocumentView::ALL
-            .iter()
-            .map(|view| Segmented::name_room(view.label(), window, cx))
-            .fold(px(0.), |sum, room| sum + room);
-        let panel = gpui_kit::component::dock::PanelId::from(cx.entity().entity_id());
-        let was_named = self.views.as_ref().is_some_and(|views| views.named);
-        let named = lattice_ui::dock::strip_spare(panel, cx)
-            .is_some_and(|spare| spare + if was_named { extra } else { px(0.) } >= extra);
-        if let Some(views) = &mut self.views
-            && views.named != named
-        {
-            views.named = named;
-            // The strip measures the switch's new width next frame.
-            cx.notify();
-        }
         let mut switch = Segmented::new("document-view")
-            .parity("html/views")
-            .named(named);
+            .parity("html/views");
         for view in DocumentView::ALL {
             let this = cx.entity().downgrade();
             switch = switch.icon_choice(

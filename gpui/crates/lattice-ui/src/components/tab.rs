@@ -13,7 +13,7 @@
 //! and its X are tab stops with the one focus ring; the X shows on the
 //! selected tab, under the pointer, and while it holds keyboard focus.
 //!
-//! Short of room the strip (`dock::strip`) asks a tab to give way: a
+//! Short of room the strip asks a tab to give way: a
 //! document's tab shrinks with an ellipsis down to a minimum width, and a
 //! named panel's tab (Project, PDF) drops its label for its icon alone.
 
@@ -52,7 +52,7 @@ pub const TAB_ICON_ONLY_INSET: Pixels = px(8.);
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
-/// How a tab fits its strip (`dock::strip::plan`).
+/// How a tab fits its strip (the Trellis skin's header plan).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TabFit {
     /// At its natural width.
