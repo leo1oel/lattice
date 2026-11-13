@@ -121,9 +121,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     // language.
     crate::settings::init(scripted, cx);
     if std::env::var_os("LATTICE_GPUI_VIM").is_some() {
-        crate::settings::update_appearance(cx, |appearance| {
-            appearance.editor_keymap = lattice_settings::EditorKeymap::Vim
-        });
+        crate::settings::use_vim_for_this_run(cx);
     }
     // Zed's own settings observer only reloads the theme when the selected
     // name differs from the one it saw last, which can run before the Lattice

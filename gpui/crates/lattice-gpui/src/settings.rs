@@ -101,6 +101,16 @@ pub fn init(scripted: bool, cx: &mut App) {
     watch(cx);
 }
 
+/// Turn Vim on for this run only, leaving the file as it is.
+pub fn use_vim_for_this_run(cx: &mut App) {
+    let before = get(cx).clone();
+    cx.global_mut::<AppSettings>()
+        .settings
+        .appearance
+        .editor_keymap = EditorKeymap::Vim;
+    apply(Some(&before), cx);
+}
+
 /// Change the settings: write them, then apply what changed.
 pub fn update(cx: &mut App, edit: impl FnOnce(&mut Settings)) {
     let before = get(cx).clone();
@@ -160,7 +170,7 @@ fn watch(cx: &mut App) {
             };
             let read = cx
                 .background_executor()
-                .spawn(async move { lattice_settings::read(&path) })
+                .spawn(async move { lattice_settings::read_live(&path) })
                 .await;
             cx.update(|cx| {
                 let before = get(cx).clone();
@@ -283,6 +293,11 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
         if before.is_none() || lattice_i18n::locale() != locale {
             lattice_i18n::set_locale(locale);
             crate::shell::menus::install_menus(cx);
+            crate::shell::windows::for_shells(
+                cx,
+                |_| true,
+                |shell, window, cx| shell.set_window_title(window, cx),
+            );
             cx.refresh_windows();
         }
     }

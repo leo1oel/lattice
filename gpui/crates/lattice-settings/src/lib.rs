@@ -38,29 +38,53 @@ impl Loaded {
     }
 }
 
-/// The settings in the file at `path`; `None` when there is none. A file
-/// that does not parse, or one from a newer version of the layout, is moved
-/// aside to `settings.json.unreadable` so the next save does not overwrite
-/// it, and reads as the defaults.
-pub fn read(path: &Path) -> Option<Settings> {
+/// The settings in the file at `path`, or why they cannot be read: `None`
+/// when there is no file.
+fn parse(path: &Path) -> Option<Result<Settings, String>> {
     let text = std::fs::read_to_string(path).ok()?;
-    match serde_json::from_str::<serde_json::Value>(&text) {
+    Some(match serde_json::from_str::<serde_json::Value>(&text) {
         Ok(value)
             if value
                 .get("version")
                 .and_then(serde_json::Value::as_u64)
                 .is_none_or(|version| version <= FILE_VERSION) =>
         {
-            return Some(Settings::from_value(&value));
+            Ok(Settings::from_value(&value))
         }
-        Ok(_) => log::warn!("{} is from a newer version of Lattice", path.display()),
-        Err(error) => log::warn!("{} does not parse: {error}", path.display()),
+        Ok(_) => Err(format!(
+            "{} is from a newer version of Lattice",
+            path.display()
+        )),
+        Err(error) => Err(format!("{} does not parse: {error}", path.display())),
+    })
+}
+
+/// The settings in the file at `path` at startup; `None` when there is
+/// none. A file that does not parse, or one from a newer version of the
+/// layout, is moved aside to `settings.json.unreadable` so the next save
+/// does not overwrite it, and reads as the defaults.
+pub fn read(path: &Path) -> Option<Settings> {
+    match parse(path)? {
+        Ok(settings) => Some(settings),
+        Err(reason) => {
+            log::warn!("{reason}");
+            let aside = path.with_extension("json.unreadable");
+            if let Err(error) = std::fs::rename(path, &aside) {
+                log::warn!("could not move {} aside: {error}", path.display());
+            }
+            Some(Settings::default())
+        }
     }
-    let aside = path.with_extension("json.unreadable");
-    if let Err(error) = std::fs::rename(path, &aside) {
-        log::warn!("could not move {} aside: {error}", path.display());
-    }
-    Some(Settings::default())
+}
+
+/// The settings in the file at `path` as it changes while the app runs;
+/// `None` when there is none or it cannot be read (a typo mid-edit, a
+/// half-written save, a newer layout), which leaves the file where it is
+/// so the settings in use stay until it reads again.
+pub fn read_live(path: &Path) -> Option<Settings> {
+    parse(path)?
+        .inspect_err(|reason| log::warn!("{reason}; keeping the settings in use"))
+        .ok()
 }
 
 /// Write the file whole beside the target, then move it over, so a crash
@@ -147,6 +171,27 @@ mod tests {
         assert!(path.with_extension("json.unreadable").exists());
         std::fs::write(&path, r#"{"version": 99, "themePreference": "dark"}"#).unwrap();
         assert_eq!(read(&path), Some(Settings::default()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_unreadable_file_while_running_is_left_in_place_and_reads_as_nothing() {
+        let dir = scratch("live");
+        let path = file_in(&dir);
+        let typo = "{ \"themePreference\": \"dark\", }";
+        std::fs::write(&path, typo).unwrap();
+        assert_eq!(read_live(&path), None);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), typo);
+        assert!(!path.with_extension("json.unreadable").exists());
+        std::fs::write(&path, r#"{"version": 99, "themePreference": "dark"}"#).unwrap();
+        assert_eq!(read_live(&path), None);
+        assert!(path.exists());
+        assert!(!path.with_extension("json.unreadable").exists());
+        std::fs::write(&path, r#"{"themePreference": "dark"}"#).unwrap();
+        assert_eq!(
+            read_live(&path).map(|settings| settings.theme_preference),
+            Some(ThemePreference::Dark)
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

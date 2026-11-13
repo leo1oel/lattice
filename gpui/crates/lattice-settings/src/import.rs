@@ -50,13 +50,12 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
     let defaults = Settings::default();
     let item = |key: &str| items.get(key).map(String::as_str);
     let json = |key: &str| item(key).and_then(|text| serde_json::from_str::<Value>(text).ok());
-    let (appearance, legacy) = match json("lattice.appearance.v5") {
-        Some(current) => (Some(current), false),
-        None => (
-            json("lattice.appearance.v4").or_else(|| json("lattice.appearance.v3")),
-            true,
-        ),
-    };
+    let current = item("lattice.appearance.v5");
+    let legacy = current.is_none();
+    let appearance = current
+        .or_else(|| item("lattice.appearance.v4"))
+        .or_else(|| item("lattice.appearance.v3"))
+        .and_then(|text| serde_json::from_str::<Value>(text).ok());
     let auto_build_mode = json("lattice.build-preferences.v2")
         .and_then(|value| {
             value
@@ -322,6 +321,21 @@ mod tests {
         assert_eq!(settings.appearance.tint.tag(), "dusk");
         assert_eq!(settings.author_name, "Grace");
         assert_eq!(settings.auto_build_mode, AutoBuildMode::Automatic);
+    }
+
+    #[test]
+    fn a_stored_appearance_that_does_not_parse_reads_as_the_defaults() {
+        let items: BTreeMap<String, String> = [
+            ("lattice.appearance.v5", "{ not json"),
+            ("lattice.appearance.v4", r#"{"tint":"dusk"}"#),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
+        assert_eq!(
+            settings_from_items(&items).appearance,
+            Appearance::default()
+        );
     }
 
     #[test]

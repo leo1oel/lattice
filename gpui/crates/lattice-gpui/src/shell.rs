@@ -443,6 +443,16 @@ impl Shell {
         }
     }
 
+    /// The window's title, in the interface language: the project's folder.
+    pub(crate) fn set_window_title(&self, window: &mut Window, cx: &App) {
+        if let Some(root) = self.root(cx) {
+            window.set_window_title(&t!(
+                "{0} — Lattice (GPUI preview)",
+                root.file_name().unwrap_or_default().to_string_lossy()
+            ));
+        }
+    }
+
     /// Open a project folder with lattice-core, as the Tauri app opens it,
     /// laid out as the project was left (its documents, its workspace). The
     /// project open before keeps its tab in the window: its layout is
@@ -538,10 +548,7 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
-        window.set_window_title(&t!(
-            "{0} — Lattice (GPUI preview)",
-            root.file_name().unwrap_or_default().to_string_lossy()
-        ));
+        self.set_window_title(window, cx);
         let restored = self.restore_layout(&root, main.as_deref(), window, cx);
         if let Some(main) = main.filter(|_| !restored) {
             self.open_path(main, None, window, cx);
