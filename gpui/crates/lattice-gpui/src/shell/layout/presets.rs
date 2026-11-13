@@ -44,7 +44,7 @@ impl Preset {
         let documents: Vec<View> = own
             .views()
             .into_iter()
-            .filter(|view| matches!(view, View::File(_)))
+            .filter(|view| matches!(view, View::File(_) | View::Reader(_)))
             .cloned()
             .collect();
         let half = (room.area() * PRESET_SHARE).round();
@@ -258,6 +258,27 @@ mod tests {
             }
         );
         assert_eq!(reading.center, Node::tabs([file("notes.md")]));
+    }
+
+    #[test]
+    fn a_paper_s_reader_is_kept_by_every_rearrangement() {
+        let reader = View::Reader(".research/papers/1706.03762/paper.md".into());
+        let mut own = Arrangement::default_for(room());
+        own.center = Node::tabs([file("main.tex"), reader.clone()]);
+        let reading = Preset::Reading.arrange(&own, Some("main.tex"), room());
+        assert_eq!(
+            reading.left.unwrap().node,
+            Node::Tabs {
+                views: vec![View::Papers, reader.clone()],
+                active: 1,
+                slot: None,
+            }
+        );
+        let writing = Preset::Writing.arrange(&own, Some("main.tex"), room());
+        assert!(writing.center.views().contains(&&reader));
+        let saved = serde_json::to_string(&own).unwrap();
+        let restored: Arrangement = serde_json::from_str(&saved).unwrap();
+        assert!(restored.center.views().contains(&&reader));
     }
 
     #[test]

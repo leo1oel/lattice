@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use lattice_core::{
-    bib_document::{BibEntry, BibSummary},
+    bib_document::{self, BibEdit, BibEntry, BibSummary},
     models::SymbolOccurrence,
     papers::PaperSummary,
 };
@@ -488,28 +488,36 @@ pub fn fields_from_query(query: &str) -> Option<QueryFill> {
 
 /// `existing` with `entry` appended after a blank line (`appendBibEntry`);
 /// refused when the key is taken.
-pub fn append_entry(
-    existing: &str,
-    entry: &str,
-    key: &str,
-    taken: &[String],
-) -> Result<String, String> {
-    if taken.iter().any(|other| other.eq_ignore_ascii_case(key)) {
+/// The keys taken are read from `existing` itself, never a list drawn from
+/// an older text; a text that does not read whole is not appended to. The
+/// edit touches only the file's end, so the rest keeps its place.
+pub fn append_entry(existing: &str, entry: &str, key: &str) -> Result<BibEdit, String> {
+    let document = bib_document::parse(existing)
+        .map_err(|error| crate::papers::bib_editor::unreadable_reason(&error))?;
+    if document
+        .entries
+        .iter()
+        .any(|other| other.key.eq_ignore_ascii_case(key))
+    {
         return Err(t!(
             "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference.",
             key = key
         ));
     }
-    let trimmed = existing.trim_end();
+    let kept = existing.trim_end().len();
     let terminated = if entry.ends_with('\n') {
         entry.to_string()
     } else {
         format!("{entry}\n")
     };
-    Ok(if trimmed.is_empty() {
-        terminated
-    } else {
-        format!("{trimmed}\n\n{terminated}")
+    Ok(BibEdit {
+        from: kept,
+        to: existing.len(),
+        insert: if kept == 0 {
+            terminated
+        } else {
+            format!("\n\n{terminated}")
+        },
     })
 }
 
@@ -648,11 +656,18 @@ mod tests {
             draft.format(),
             "@article{vaswani2017attention,\n  title = {Attention Is {All} You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam},\n  year = {2017},\n  journal = {NeurIPS},\n  url = {https://doi.org/10.1/x},\n  doi = {10.1/x}\n}\n"
         );
+        let appended = |existing: &str, entry: &str, key: &str| {
+            append_entry(existing, entry, key).map(|edit| bib_document::apply_edit(existing, &edit))
+        };
         assert_eq!(
-            append_entry("@misc{a}\n\n\n", "@misc{b}", "b", &["a".into()]).unwrap(),
+            appended("@misc{a}\n\n\n", "@misc{b}", "b").unwrap(),
             "@misc{a}\n\n@misc{b}\n"
         );
-        assert!(append_entry("@misc{a}", "@misc{A}", "A", &["a".into()]).is_err());
+        assert_eq!(appended("", "@misc{b}", "b").unwrap(), "@misc{b}\n");
+        assert!(appended("@misc{a}", "@misc{A}", "A").is_err());
+        assert!(appended("@misc{a,", "@misc{b}", "b").is_err());
+        let tail = append_entry("@misc{a}\n", "@misc{b}", "b").unwrap();
+        assert_eq!((tail.from, tail.to), (8, 9));
     }
 
     #[test]

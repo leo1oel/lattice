@@ -11,7 +11,6 @@ use gpui::{
 };
 
 use editor::{SelectionEffects, scroll::Autoscroll};
-use language::Point;
 
 use super::{DocumentView, EditorPanel, EditorPanelEvent};
 use crate::papers::{
@@ -25,6 +24,9 @@ use crate::papers::{
 pub(super) struct BibState {
     editor: Option<Entity<BibEditor>>,
     papers: Option<Entity<PapersPanel>>,
+    /// The source editor has the keyboard: only then does the list follow
+    /// its caret (`use-bib-source-sync.ts`), never a caret moved for it.
+    source_focused: bool,
 }
 
 /// The view the next bibliography opens in.
@@ -143,9 +145,9 @@ impl EditorPanel {
                     });
                 }
             }
-            BibEditorEvent::Picked { line } => {
+            BibEditorEvent::Picked { from } => {
                 if this.document_view() == Some(DocumentView::Split) {
-                    this.show_line(*line, window, cx);
+                    this.show_offset(*from, window, cx);
                 }
             }
         })
@@ -154,9 +156,15 @@ impl EditorPanel {
         bib
     }
 
-    /// The caret moved to `line`: the list beside the source follows it.
+    pub(super) fn bib_source_focused(&mut self, focused: bool) {
+        self.bib.source_focused = focused;
+    }
+
+    /// The writer moved the caret to `line`: the list beside the source
+    /// follows it.
     pub(super) fn bib_follow_caret(&mut self, line: u32, cx: &mut Context<Self>) {
         if self.document_view() == Some(DocumentView::Split)
+            && self.bib.source_focused
             && let Some(bib) = &self.bib.editor
         {
             bib.update(cx, |bib, cx| bib.follow_line(line, cx));
@@ -171,10 +179,13 @@ impl EditorPanel {
             .map(|bib| bib.focus_handle(cx))
     }
 
-    /// Put the cursor at the start of the 1-based `line`, in the middle of
-    /// the editor, leaving the focus where it is.
-    pub(crate) fn show_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
-        let point = Point::new(line.saturating_sub(1), 0);
+    /// Put the cursor at the byte offset `from`, in the middle of the
+    /// editor, leaving the focus where it is.
+    fn show_offset(&mut self, from: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let point = {
+            let buffer = self.buffer.read(cx);
+            buffer.offset_to_point(from.min(buffer.len()))
+        };
         self.editor.update(cx, |editor, cx| {
             editor.change_selections(
                 SelectionEffects::scroll(Autoscroll::center()),

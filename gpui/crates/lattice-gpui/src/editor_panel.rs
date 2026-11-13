@@ -334,6 +334,7 @@ impl EditorPanel {
                         cx.notify();
                     }
                     EditorEvent::Focused => {
+                        this.bib_source_focused(true);
                         if let Some(diagnostics) = &this.diagnostics {
                             diagnostics
                                 .update(cx, |diagnostics, cx| diagnostics.set_focused(true, cx));
@@ -342,6 +343,7 @@ impl EditorPanel {
                     }
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
+                        this.bib_source_focused(false);
                         if let Some(diagnostics) = &this.diagnostics {
                             diagnostics
                                 .update(cx, |diagnostics, cx| diagnostics.set_focused(false, cx));

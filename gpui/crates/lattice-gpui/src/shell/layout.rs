@@ -27,10 +27,9 @@ mod presets;
 pub use kit::{describe, read};
 pub use presets::{Preset, return_layout};
 
-/// The Tauri app's default row (`defaultLayout` in trellis-layout.ts): the
-/// navigators' column takes 0.36 and the PDF 0.64 of the width, and the
-/// first document takes 0.46 of it beside the navigators, the others keeping
-/// their proportions (`withDocumentPanel`).
+/// The Tauri app's default row (`defaultLayout`, `withDocumentPanel` in
+/// trellis-layout.ts): navigators 0.36 and PDF 0.64 of what the first
+/// document's 0.46 leaves.
 const NAVIGATOR_SHARE: f32 = 0.36 * (1. - DOCUMENT_SHARE);
 const PDF_SHARE: f32 = 0.64 * (1. - DOCUMENT_SHARE);
 const DOCUMENT_SHARE: f32 = 0.46;
@@ -54,19 +53,21 @@ pub enum View {
     Build,
     /// A document, by its path relative to the project.
     File(String),
+    /// A paper's reader, by its reading file's path.
+    Reader(String),
     /// Where the open documents go, in a workspace's saved arrangement.
     Documents,
 }
 
 impl View {
     pub fn is_document(&self) -> bool {
-        matches!(self, View::File(_) | View::Documents)
+        matches!(self, View::File(_) | View::Reader(_) | View::Documents)
     }
 
     /// A paper or PDF the Reading preset puts with the Papers library; every
     /// other document is written (`isReading` in trellis-layout.ts).
     fn is_reading(&self) -> bool {
-        matches!(self, View::File(path) if is_pdf(path))
+        matches!(self, View::Reader(_)) || matches!(self, View::File(p) if is_pdf(p))
     }
 }
 
@@ -424,8 +425,7 @@ impl Room {
         }
     }
 
-    /// The cards' total width, with the gutters between three of them taken
-    /// out, as Trellis shares a row.
+    /// The cards' total width less the gutters between three of them.
     fn row(&self) -> f32 {
         (self.width - WINDOW_SIDES - 2. * GUTTER).max(0.)
     }
@@ -436,8 +436,7 @@ impl Room {
         (self.height - 40. - 3. - 9.).max(0.)
     }
 
-    /// The dock area's width: the window less the chrome at its sides (less
-    /// the groups' own half-gutters).
+    /// The dock area's width: the window less the chrome at its sides.
     pub fn area(&self) -> f32 {
         (self.width - 18.).max(0.)
     }

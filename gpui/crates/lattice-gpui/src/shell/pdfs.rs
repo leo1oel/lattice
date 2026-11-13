@@ -328,7 +328,7 @@ impl Shell {
     }
 
     /// Whether a panel is the one shown in its tab group.
-    fn panel_in_front(&self, panel: PanelId, cx: &gpui::App) -> bool {
+    pub(super) fn panel_in_front(&self, panel: PanelId, cx: &gpui::App) -> bool {
         let area = self.dock_area.read(cx);
         PLACEMENTS.into_iter().any(|placement| {
             area.layout(placement)

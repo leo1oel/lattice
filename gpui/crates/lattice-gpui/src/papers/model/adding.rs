@@ -23,6 +23,17 @@ pub enum ReferenceKind {
 }
 
 impl ReferenceKind {
+    /// The kind as a reference's id names it, the same in every language.
+    fn id(self) -> &'static str {
+        match self {
+            ReferenceKind::Arxiv => "arxiv",
+            ReferenceKind::Doi => "doi",
+            ReferenceKind::Url => "url",
+            ReferenceKind::Bibtex => "bibtex",
+            ReferenceKind::Title => "title",
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             ReferenceKind::Arxiv => "arXiv",
@@ -167,12 +178,8 @@ pub struct ReferenceRecord {
 
 /// The parts of a line that hold something, joined as one.
 pub fn byline_of<'a>(parts: impl IntoIterator<Item = &'a str>) -> String {
-    parts
-        .into_iter()
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join(", ")
+    let parts: Vec<&str> = parts.into_iter().map(str::trim).collect();
+    lattice_i18n::join_phrases(&parts)
 }
 
 /// One reference the writer pasted: the text as given, and what it is.
@@ -263,7 +270,7 @@ pub fn parse_pasted_references(text: &str) -> Vec<PastedReference> {
             found.push((
                 offset,
                 PastedReference {
-                    id: format!("{}:{value}", kind.label()),
+                    id: format!("{}:{value}", kind.id()),
                     kind,
                     input: value.to_string(),
                     label: value.to_string(),

@@ -9,7 +9,7 @@ use lattice_core::papers::PaperSummary;
 
 use lattice_i18n::t;
 
-use super::Shell;
+use super::{Shell, layout::View};
 use crate::notices;
 use crate::papers::{
     PapersEvent, PapersPanel,
@@ -137,9 +137,61 @@ impl Shell {
         self.mark_paper(&path, cx);
     }
 
+    /// The reader a dock panel is, as an arrangement names it: by the
+    /// reading file it shows, so every rearrangement keeps it.
+    pub(super) fn reader_view(&self, panel: PanelId, cx: &gpui::App) -> Option<View> {
+        self.documents
+            .readers
+            .iter()
+            .find(|reader| PanelId::from(reader.entity_id()) == panel)
+            .map(|reader| View::Reader(reader.read(cx).path()))
+    }
+
+    /// The open reader showing `path`, where an arrangement puts it back.
+    pub(super) fn reader_panel(
+        &self,
+        path: &str,
+        cx: &gpui::App,
+    ) -> Option<std::sync::Arc<dyn gpui_kit::component::dock::BasePanelView>> {
+        self.documents
+            .readers
+            .iter()
+            .find(|reader| reader.read(cx).path() == path)
+            .map(|reader| panel_handle(reader.clone()))
+    }
+
+    /// What takes the keyboard back when a sheet closes: the editor of the
+    /// document in front while its tab is in front, else a paper's reader in
+    /// front, else that editor where it is. The editor's panel focus is its
+    /// own: a file showing only its visual form or preview takes the keys
+    /// there, not in the hidden source.
+    pub(super) fn front_focus(
+        &self,
+        editor: Option<&Entity<crate::editor_panel::EditorPanel>>,
+        cx: &gpui::App,
+    ) -> Option<gpui::FocusHandle> {
+        let shown =
+            editor.filter(|editor| self.panel_in_front(PanelId::from(editor.entity_id()), cx));
+        match (shown, self.front_reader_entity(cx), editor) {
+            (Some(editor), _, _) => Some(editor.read(cx).focus_handle(cx)),
+            (None, Some(reader), _) => Some(reader.focus_handle(cx)),
+            (None, None, editor) => editor.map(|editor| editor.read(cx).focus_handle(cx)),
+        }
+    }
+
     /// The reader in front, if a paper's: its reading file and the text it
     /// shows (for scenarios).
     pub(crate) fn front_reader(&self, cx: &gpui::App) -> Option<(String, String)> {
+        self.front_reader_entity(cx).map(|reader| {
+            let reader = reader.read(cx);
+            (
+                reader.path(),
+                reader.text(cx).unwrap_or_default().to_string(),
+            )
+        })
+    }
+
+    fn front_reader_entity(&self, cx: &gpui::App) -> Option<Entity<PaperReader>> {
         let area = self.dock_area.read(cx);
         let mut front = Vec::new();
         for placement in [
@@ -161,13 +213,7 @@ impl Shell {
             .readers
             .iter()
             .find(|reader| front.contains(&PanelId::from(reader.entity_id())))
-            .map(|reader| {
-                let reader = reader.read(cx);
-                (
-                    reader.path(),
-                    reader.text(cx).unwrap_or_default().to_string(),
-                )
-            })
+            .cloned()
     }
 
     /// ⌘W in a reader: its tab goes, and the reader with it. A reader is

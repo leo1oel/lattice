@@ -143,7 +143,7 @@ impl PaperReader {
                 match text {
                     Ok(text) => {
                         this.error = None;
-                        let body = strip_frontmatter(&text).to_string();
+                        let body = model::strip_frontmatter(&text).to_string();
                         this.markdown
                             .update(cx, |markdown, cx| markdown.reset(body.into(), cx));
                     }
@@ -310,17 +310,6 @@ impl PaperReader {
                         })),
                 )
             })
-    }
-}
-
-/// The bundle's front matter is the converter's bookkeeping, not text.
-fn strip_frontmatter(markdown: &str) -> &str {
-    let Some(rest) = markdown.strip_prefix("---\n") else {
-        return markdown;
-    };
-    match rest.find("\n---") {
-        Some(end) => rest[end + 4..].trim_start_matches(['\r', '\n']),
-        None => markdown,
     }
 }
 

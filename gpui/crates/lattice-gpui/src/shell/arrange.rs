@@ -10,8 +10,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, IntoElement, ParentElement as _, Styled as _,
-    Window, div, px,
+    AnyElement, App, Context, Entity, IntoElement, ParentElement as _, Styled as _, Window, div, px,
 };
 use gpui_kit::component::dock::{
     BasePanelView, DockPlacement, InsertTarget, PaneRef, PanelId, panel_handle,
@@ -102,6 +101,9 @@ impl Shell {
         if is(self.build_panel.entity_id()) {
             return Some(View::Build);
         }
+        if let Some(view) = self.reader_view(panel, cx) {
+            return Some(view);
+        }
         let root = self.root(cx)?;
         if let Some(path) = self
             .file_pdfs
@@ -129,7 +131,7 @@ impl Shell {
             View::Agent => self.agent.entity_id(),
             View::Pdf => self.pdf.entity_id(),
             View::Build => self.build_panel.entity_id(),
-            View::File(_) | View::Documents => return None,
+            View::File(_) | View::Reader(_) | View::Documents => return None,
         };
         Some(PanelId::from(id))
     }
@@ -157,6 +159,7 @@ impl Shell {
                 }
                 panel_handle(self.editor_for(&path, window, cx)?)
             }
+            View::Reader(path) => self.reader_panel(path, cx)?,
             View::Documents => return None,
         })
     }
@@ -320,15 +323,13 @@ impl Shell {
 
     /// The keyboard to the document in front, else to the window.
     pub(crate) fn focus_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(active) = self.active_document(cx)
-            && let Some(root) = self.root(cx)
-            && let Some(editor) = self.open_editor(&root.join(active), cx)
-        {
-            // The panel's own: a file showing only its visual form or
-            // preview takes the keys there, not in the hidden source.
-            window.focus(&editor.read(cx).focus_handle(cx), cx);
-        } else {
-            window.focus(&self.focus_handle, cx);
+        let editor = self
+            .active_document(cx)
+            .zip(self.root(cx))
+            .and_then(|(active, root)| self.open_editor(&root.join(active), cx));
+        match self.front_focus(editor.as_ref(), cx) {
+            Some(focus) => window.focus(&focus, cx),
+            None => window.focus(&self.focus_handle, cx),
         }
     }
 
@@ -664,7 +665,9 @@ fn place_view(arrangement: &mut Arrangement, view: View, home: &Arrangement) {
                 })
             }
         },
-        View::File(_) | View::Documents => arrangement.add_view(view, View::is_document),
+        View::File(_) | View::Reader(_) | View::Documents => {
+            arrangement.add_view(view, View::is_document)
+        }
     }
     for dock in [
         &mut arrangement.left,
