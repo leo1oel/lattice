@@ -45,7 +45,7 @@
 import "../shared/install";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import { mount, activateLocale } from "../shared/boot";
-import { host } from "../shared/host";
+import { afterLayout, host } from "../shared/host";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
 import { LatticeVisualMarkdownEditor } from "../../../src/editor/markdown/engine/lattice-visual-editor";
 import { MarkdownWorkspaceIndex } from "../../../src/editor/markdown/markdown-workspace-index";
@@ -225,11 +225,7 @@ function Markdown() {
 
   useEffect(() => {
     if (!opened || !ready) return;
-    let second = 0;
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => host().post("doc:drawn"));
-    });
-    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+    return afterLayout(() => host().post("doc:drawn"));
   }, [opened, ready]);
 
   // The reader's place: kept by the owner for the session, so a woken page

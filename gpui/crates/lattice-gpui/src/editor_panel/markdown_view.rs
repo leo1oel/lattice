@@ -18,7 +18,7 @@
 use std::time::{Duration, Instant};
 
 use editor::{
-    SelectionEffects,
+    MultiBufferOffset, SelectionEffects,
     actions::{Redo, Undo},
     display_map::ToDisplayPoint as _,
     scroll::Autoscroll,
@@ -90,7 +90,7 @@ impl EditorPanel {
         };
         match event {
             MarkdownEvent::Edit { base, source } => {
-                self.take_markdown_edit(document, base, source, cx)
+                self.take_markdown_edit(document, base, source, window, cx)
             }
             MarkdownEvent::Undo => self
                 .editor
@@ -121,6 +121,7 @@ impl EditorPanel {
         document: &Entity<StructuredDocument>,
         base: &str,
         source: &str,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let current = self.buffer.read(cx).text();
@@ -130,8 +131,13 @@ impl EditorPanel {
         }
         let (range, insert) = minimal_change(base, source);
         let insert = insert.to_string();
-        self.buffer.update(cx, |buffer, cx| {
-            buffer.edit([(range, insert)], None, cx);
+        // Through the editor's own transaction, so its undo has the
+        // selections to restore, as for an edit typed in the source.
+        let range = MultiBufferOffset(range.start)..MultiBufferOffset(range.end);
+        self.editor.update(cx, |editor, cx| {
+            editor.transact(window, cx, |editor, _, cx| {
+                editor.edit([(range, insert)], cx)
+            });
         });
     }
 
