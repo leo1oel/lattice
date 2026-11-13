@@ -429,6 +429,12 @@ impl AddPapers {
                         .update(cx, |papers, cx| papers.run_batch(requests, cx))
                     {
                         this.zotero = None;
+                    } else {
+                        crate::notices::info(
+                            t!("Add papers"),
+                            t!("Another import is running. Your selection is kept; add it once that finishes."),
+                            cx,
+                        );
                     }
                 }
                 ZoteroBrowserEvent::Back => this.zotero = None,
