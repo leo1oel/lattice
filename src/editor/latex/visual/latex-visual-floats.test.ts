@@ -180,6 +180,24 @@ After.`;
     expect(blocks[1].querySelector(".lx-tex-float-caption")?.textContent).toBe("Figure ?: A drawing.");
   });
 
+  it("keeps text's arguments and steps over spacing, length and definition commands in a float", async () => {
+    const doc = String.raw`\begin{wrapfigure}[12]{r}{0.4\textwidth}
+\vspace*{-2mm}
+\setlength{\tabcolsep}{4pt}
+\def\arraystretch{1.2}
+\includegraphics[width=\linewidth]{a.png}
+\textbf{Note:} see \ref{fig:a}.
+\end{wrapfigure}
+
+After.`;
+    const view = await visualView(doc);
+    const block = view.contentDOM.querySelector(".lx-tex-float-block")!;
+    expect(block.querySelector(".lx-tex-float-image")).not.toBeNull();
+    const words = [...block.querySelectorAll(".lx-tex-float-text")].map((node) => node.textContent?.trim());
+    expect(words).toEqual(["Note: see ?."]);
+    expect(block.querySelector(".lx-tex-float-text .lx-tex-bold")?.textContent).toBe("Note:");
+  });
+
   it("sets an author block with the preamble's macros, line breaks and font switches, without raw commands", async () => {
     const view = await visualView(AUTHOR, AUTHOR.length, host({ katexMacros: katexMacrosFromSources([AUTHOR_PREAMBLE]) }));
     const block = view.contentDOM.querySelector(".lx-tex-title-block")!;
@@ -209,6 +227,12 @@ After.`;
 });
 
 describe("float and table layout", () => {
+  it("names a caption by a label inside its braces", () => {
+    const nodes = parseFloat("\\begin{figure}\n\\includegraphics{a.png}\n\\caption{Results.\\label{fig:a}}\n\\label{fig:other}\n\\end{figure}", 0);
+    const caption = nodes.find((node) => node.kind === "caption");
+    expect(caption?.kind === "caption" && caption.label).toBe("fig:a");
+  });
+
   it("keeps each node's offset into the document", () => {
     const nodes = parseFloat(MINIPAGES, 100);
     const row = nodes.find((node) => node.kind === "row");

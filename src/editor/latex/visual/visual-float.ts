@@ -51,7 +51,7 @@ const BOX_WRAPPERS = new Map<string, number>([
   // How many arguments come before the content.
   ["resizebox", 2], ["resizebox*", 2], ["scalebox", 1], ["adjustbox", 1], ["makebox", 0], ["framebox", 0], ["fbox", 0],
   ["mbox", 0], ["centerline", 0], ["raisebox", 1], ["rotatebox", 1], ["colorbox", 1], ["fcolorbox", 2], ["hbox", 0],
-  ["vbox", 0], ["vcenter", 0], ["centerbox", 0], ["setlength", 0],
+  ["vbox", 0], ["vcenter", 0], ["centerbox", 0],
 ]);
 /* eslint-enable lingui/no-unlocalized-strings */
 
@@ -90,7 +90,12 @@ export function parseFloat(source: string, offset: number): FloatNode[] {
   const begin = /^\\begin\s*\{([^{}]+)\}\s*(?:\[[^\]]*\])?/.exec(source);
   const name = begin?.[1].trim() ?? "";
   const close = source.lastIndexOf(`\\end{${name}}`);
-  const start = begin ? begin[0].length : 0;
+  let start = begin ? begin[0].length : 0;
+  // `\begin{wrapfigure}[12]{r}[0pt]{0.4\textwidth}`: its placement and width are not content.
+  if (/^wrap(?:figure|table)\*?$/.test(name)) {
+    const placement = /^\s*\{[^{}]*\}\s*(?:\[[^\]]*\]\s*)?\{(?:[^{}]|\{[^{}]*\})*\}/.exec(source.slice(start));
+    if (placement) start += placement[0].length;
+  }
   const reader = new FloatReader(source, offset);
   const nodes = reader.blocks(start, close > start ? close : source.length, false, 0);
   numberCaptions(nodes);
@@ -111,7 +116,7 @@ function numberCaptions(nodes: FloatNode[]) {
   ordered.sort((a, b) => a.from - b.from);
   let open: Extract<FloatNode, { kind: "caption" }> | null = null;
   for (const node of ordered) {
-    if (node.kind === "caption") open = node;
+    if (node.kind === "caption") open = node.label ? null : node;
     else if (node.kind === "label" && open) {
       open.label = node.key;
       open = null;
@@ -218,8 +223,16 @@ class FloatReader {
         at++;
         continue;
       }
+      if (char === "{" && textFrom >= 0) {
+        // A group in a run of text (`\textbf{Ours}`'s argument) is the text's: kept whole for the inline renderer.
+        const end = groupEnd(source, at);
+        const close = end == null || end > to ? to : end;
+        addText(source.slice(at, close), at);
+        at = close;
+        continue;
+      }
       if (char === "{" || char === "}") {
-        // A bare group places what it holds: read through it.
+        // A bare group outside text places what it holds: read through it.
         at++;
         continue;
       }
@@ -306,8 +319,10 @@ class FloatReader {
           at = next;
           continue;
         }
+        // A `\label` inside the caption's braces names it, as one after it would.
+        const inner = /\\label\s*\{([^{}]*)\}/.exec(body.inner);
         block({
-          kind: "caption", text: body.inner, label: null, sub: sub || name === "subcaption",
+          kind: "caption", text: body.inner, label: inner ? inner[1].trim() : null, sub: sub || name === "subcaption",
           type: name === "caption*" ? "" : type, from: this.offset + body.from,
         });
         at = body.end;
@@ -365,7 +380,7 @@ class FloatReader {
         at = content.end;
         continue;
       }
-      const wrapped = BOX_WRAPPERS.get(name);
+      const wrapped = BOX_WRAPPERS.get(name) ?? BOX_WRAPPERS.get(name.replace(/\*$/, ""));
       if (wrapped !== undefined && depth < DEPTH_LIMIT) {
         let after = this.options(next, 2).end;
         for (let index = 0; index < wrapped; index++) after = this.options(this.group(after)?.end ?? after, 1).end;
@@ -381,10 +396,16 @@ class FloatReader {
         at = content.end;
         continue;
       }
-      const silent = SILENT.get(name);
+      if (name === "def" || name === "gdef") {
+        // `\def\arraystretch{1.2}`: a definition prints nothing.
+        const target = /^\s*\\(?:[A-Za-z@]+|.)(?:\s*#[1-9])*/.exec(source.slice(next));
+        const body = target ? this.group(next + target[0].length) : null;
+        at = body ? body.end : next;
+        continue;
+      }
+      const silent = SILENT.get(name.replace(/\*$/, ""));
       if (silent !== undefined) {
         let after = this.options(next, 1).end;
-        if (name === "hspace" || name === "vspace") after = source[this.skip(after)] === "*" ? this.skip(after) + 1 : after;
         for (let index = 0; index < silent; index++) after = this.group(after)?.end ?? after;
         // `\renewcommand{\arraystretch}{1.2}`: its first argument is a command, not a group.
         if (name === "renewcommand" && source[this.skip(next)] === "\\") {
