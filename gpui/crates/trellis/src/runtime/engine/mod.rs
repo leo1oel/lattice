@@ -640,7 +640,9 @@ impl Engine {
         locate_panel(&self.doc, id).map(|l| l.panel().selected.clone())
     }
 
-    /// The document, with the navigation state to persist.
+    /// The document, with the navigation state to persist. A tab torn out
+    /// by a drag is back in its panel here, so hosts never build on (or save)
+    /// a document whose record no panel holds.
     pub fn document(&self) -> LayoutDocument {
         let mut doc = self
             .torn_tab_home(&self.doc)

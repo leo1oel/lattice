@@ -576,9 +576,11 @@ impl Engine {
 
     /// A commit from outside the press (a view opened or closed while a tab
     /// or panel is held) ends it, so a later cancel or drop never puts back
-    /// the stale document the press started from. `next` was made from the
-    /// document as the drag left it, so a torn-out tab goes back into its
-    /// panel; its view is returned to count as open before the commit.
+    /// the stale document the press started from. A torn-out tab goes back
+    /// into its panel when `next` keeps its record but places it nowhere, is
+    /// left where `next` already places it, and opens at its default
+    /// placement when its panel is gone; its view is returned to count as
+    /// open before the commit.
     pub(crate) fn abandon_drag(&mut self, next: LayoutDocument) -> (LayoutDocument, Vec<String>) {
         let Some(view) = self.torn_view().map(str::to_string) else {
             self.drag = None;
