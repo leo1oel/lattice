@@ -529,7 +529,7 @@ impl Shell {
             return;
         };
         let path = root.join(active);
-        self.mark_paper(&path, cx);
+        self.mark_front_paper(&path, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path), cx));
     }

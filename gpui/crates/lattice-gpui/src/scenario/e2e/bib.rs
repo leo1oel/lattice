@@ -97,6 +97,8 @@ impl Run {
             })
         })?;
         self.press(cx, 'w', true).await?;
+        // The writer goes back to the manuscript, as the steps after expect.
+        self.open(cx, &root.join("main.tex"), None)?;
         Ok(())
     }
 }

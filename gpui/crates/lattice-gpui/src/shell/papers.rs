@@ -136,6 +136,15 @@ impl Shell {
             .map(|reader| PanelId::from(reader.entity_id()))
     }
 
+    /// Mark the paper in front: a reader's when one is, else the paper
+    /// `document` (the document in front) is the text of.
+    pub(super) fn mark_front_paper(&mut self, document: &Path, cx: &mut Context<Self>) {
+        match (self.front_reader(cx), self.root(cx)) {
+            (Some((reading, _)), Some(root)) => self.mark_paper(&root.join(reading), cx),
+            _ => self.mark_paper(document, cx),
+        }
+    }
+
     /// Readers the writer closed are let go of; they open anew.
     pub(super) fn forget_closed_readers(&mut self, cx: &mut Context<Self>) {
         let readers = std::mem::take(&mut self.documents.readers);
