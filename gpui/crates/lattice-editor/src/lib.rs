@@ -30,6 +30,7 @@ mod adapter;
 pub mod blocks;
 pub mod completion;
 pub mod decorations;
+pub mod folds;
 mod geometry;
 pub mod gutter;
 pub mod hover;
@@ -38,7 +39,9 @@ pub mod latex;
 pub mod remote_cursors;
 pub mod texlab;
 
-pub use adapter::{LatticeEditor, LatticeEditorEvent, Painted, PaintedCursor};
+pub use adapter::{
+    LatticeEditor, LatticeEditorEvent, Painted, PaintedCursor, PaintedGutter, PaintedLine,
+};
 pub use index::ProjectIndex;
 pub use texlab::TexlabService;
 

@@ -417,8 +417,7 @@ fn walk(
         return;
     };
     visiting.push(path.to_string());
-    let line_at =
-        |offset: usize| source[..offset.min(source.len())].matches('\n').count() as u32 + 1;
+    let mut lines = LineCounter::new(&source);
     for event in events(&source) {
         match event {
             Event::Appendix => *appendix = true,
@@ -440,7 +439,7 @@ fn walk(
                     level,
                     title,
                     path: path.to_string(),
-                    line: line_at(offset),
+                    line: lines.line_at(offset),
                     depth: levels.iter().filter(|open| **open != 0).count(),
                     starred,
                     appendix: *appendix,
@@ -470,9 +469,194 @@ fn walk(
     visiting.pop();
 }
 
+/// The 1-based line of a byte offset, counted on from the previous query so
+/// a scan whose offsets ascend reads the source once rather than once per
+/// heading.
+struct LineCounter<'a> {
+    source: &'a str,
+    offset: usize,
+    line: u32,
+}
+
+impl<'a> LineCounter<'a> {
+    fn new(source: &'a str) -> Self {
+        Self {
+            source,
+            offset: 0,
+            line: 1,
+        }
+    }
+
+    fn line_at(&mut self, offset: usize) -> u32 {
+        let offset = offset.min(self.source.len());
+        if offset < self.offset {
+            *self = Self::new(self.source);
+        }
+        self.line += self.source[self.offset..offset].matches('\n').count() as u32;
+        self.offset = offset;
+        self.line
+    }
+}
+
+/// One file's own headings, read from `source` without following its
+/// `\input`s: the outline a `.tex` outside the manuscript (notes, a
+/// standalone figure) shows of itself (`parseLatexOutline(source, path)`).
+pub fn file_outline(source: &str, path: &str) -> Vec<Heading> {
+    let mut lines = LineCounter::new(source);
+    let mut headings = Vec::new();
+    let mut levels: Vec<u8> = Vec::new();
+    let mut appendix = false;
+    for event in events(source) {
+        match event {
+            Event::Appendix => appendix = true,
+            Event::Section {
+                offset,
+                level,
+                title,
+                starred,
+            } => {
+                while levels.last().is_some_and(|open| *open >= level) {
+                    levels.pop();
+                }
+                headings.push(Heading {
+                    level,
+                    title,
+                    path: path.to_string(),
+                    line: lines.line_at(offset),
+                    depth: levels.len(),
+                    starred,
+                    appendix,
+                });
+                levels.push(level);
+            }
+            Event::Include { .. } => {}
+        }
+    }
+    headings
+}
+
+/// Each heading's number as the document typesets it (`outlineNumbers`):
+/// chapters (or sections, without chapters) and two levels below them,
+/// lettered after `\appendix`, parts in Roman numerals; a starred heading,
+/// and one deeper than that, has none.
+pub fn numbers(headings: &[Heading]) -> Vec<Option<String>> {
+    const PART: u8 = 1;
+    const CHAPTER: u8 = 2;
+    const SECTION: u8 = 3;
+    let top = if headings.iter().any(|heading| heading.level == CHAPTER) {
+        CHAPTER
+    } else {
+        SECTION
+    };
+    let deepest = top + 2;
+    let mut counters = [0u32; 6];
+    let mut parts = 0;
+    let mut lettered = false;
+    headings
+        .iter()
+        .map(|heading| {
+            if heading.starred {
+                return None;
+            }
+            if heading.level == PART {
+                parts += 1;
+                return Some(roman(parts));
+            }
+            if heading.level < top || heading.level > deepest {
+                return None;
+            }
+            if heading.appendix && !lettered && heading.level == top {
+                lettered = true;
+                counters[top as usize] = 0;
+            }
+            let level = heading.level as usize;
+            counters[level] += 1;
+            for counter in counters.iter_mut().skip(level + 1) {
+                *counter = 0;
+            }
+            let lead = if lettered {
+                letters(counters[top as usize])
+            } else {
+                counters[top as usize].to_string()
+            };
+            let rest = counters[top as usize + 1..=level]
+                .iter()
+                .map(u32::to_string);
+            Some(
+                std::iter::once(lead)
+                    .chain(rest)
+                    .collect::<Vec<_>>()
+                    .join("."),
+            )
+        })
+        .collect()
+}
+
+fn roman(value: u32) -> String {
+    const ROMAN: [(u32, &str); 7] = [
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    ];
+    let mut rest = value;
+    let mut out = String::new();
+    for (step, glyph) in ROMAN {
+        while rest >= step {
+            out.push_str(glyph);
+            rest -= step;
+        }
+    }
+    out
+}
+
+/// A, B, … Z, AA, AB: the appendix counter as `\Alph` sets it, past Z too.
+fn letters(value: u32) -> String {
+    if value == 0 {
+        return String::new();
+    }
+    let mut out = letters((value - 1) / 26);
+    out.push((b'A' + ((value - 1) % 26) as u8) as char);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn headings_number_as_the_document_typesets_them() {
+        let source = "\\section{Intro}\n\\subsection{A}\n\\subsubsection{Deep}\n\\paragraph{x}\n\\section*{Thanks}\n\\section{Method}\n\\subsection{B}\n\\appendix\n\\section{Proofs}\n\\subsection{Lemma}\n";
+        let headings = file_outline(source, "main.tex");
+        let titles: Vec<_> = headings.iter().map(|h| h.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            [
+                "Intro", "A", "Deep", "Thanks", "Method", "B", "Proofs", "Lemma"
+            ]
+        );
+        assert_eq!(headings[1].line, 2);
+        assert_eq!(headings[2].depth, 2);
+        let numbers: Vec<_> = numbers(&headings)
+            .into_iter()
+            .map(|n| n.unwrap_or_default())
+            .collect();
+        assert_eq!(numbers, ["1", "1.1", "1.1.1", "", "2", "2.1", "A", "A.1"]);
+    }
+
+    #[test]
+    fn parts_take_roman_numerals_and_chapters_lead() {
+        let source = "\\part{One}\n\\chapter{C}\n\\section{S}\n\\part{Two}\n\\chapter{D}\n";
+        let numbers: Vec<_> = numbers(&file_outline(source, "book.tex"))
+            .into_iter()
+            .map(|n| n.unwrap_or_default())
+            .collect();
+        assert_eq!(numbers, ["I", "1", "1.1", "II", "2"]);
+        assert_eq!(letters(27), "AA");
+    }
 
     #[test]
     fn titles_read_as_the_reader_sees_them() {

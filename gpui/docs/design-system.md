@@ -112,8 +112,8 @@ The app has four feels of the one bar, which differ only in what reveals it, how
 `.ink(color)` sets the thumb's ink before its 8/12/16% share: the source editor's bar takes the code ink.
 A wheel over any track scrolls what is under it (the app's overlay and list bars forward it by hand; the editor's did not, which this unifies).
 
-Kit's tree draws it with `.scrollbar(false)` (in the list feel); Kit's other scrollbars and Zed's editor keep their own, themed in Lattice's inks (`kit.rs`, `editor_theme`).
-The editor's overlay scrollbar (`lattice-editor`) moves onto `FluidScrollbar` with `ScrollbarFeel::EDITOR` and the code ink.
+Kit's tree draws it with `.scrollbar(false)` (in the list feel); Kit's other scrollbars keep their own, themed in Lattice's inks (`kit.rs`).
+The source editor draws it in place of Zed's (turned off in the settings), with `ScrollbarFeel::EDITOR` and the code ink (`lattice-editor`'s `adapter/scrollbar.rs`).
 
 ## Corners
 

@@ -24,6 +24,7 @@ mod tab;
 mod textarea;
 mod toolbar_button;
 mod tree_row;
+mod view_switch;
 
 pub use badge::{Badge, BadgeTone};
 pub use button::{Button, ButtonSize, ButtonVariant};
@@ -55,6 +56,7 @@ pub use tab::{
 pub use textarea::{TEXTAREA_MIN_HEIGHT, Textarea};
 pub use toolbar_button::ToolbarButton;
 pub use tree_row::{GitMark, TreeRow};
+pub use view_switch::ViewSwitch;
 
 use gpui::{BoxShadow, Hsla, px};
 

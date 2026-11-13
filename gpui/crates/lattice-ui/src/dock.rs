@@ -21,19 +21,21 @@
 //! forwards the dock hooks to it.
 
 mod panel_menu;
+mod spare_tools;
 pub mod strip;
+mod strip_room;
 
-use std::{
-    collections::{HashMap, HashSet},
-    rc::Rc,
-    sync::Arc,
-};
+use spare_tools::SpareToolsByPanel;
+pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools};
+use strip_room::{Measure, StripKey, StripRoom, forget_strips, measure};
+
+use std::{collections::HashSet, rc::Rc, sync::Arc};
 
 use gpui::{
     Anchor, AnimationExt as _, AnyElement, AnyView, App, AppContext as _, Axis, Context, Div,
-    Empty, Entity, EntityId, Global, InteractiveElement as _, IntoElement, ParentElement as _,
-    Pixels, Render, SharedString, Stateful, StatefulInteractiveElement as _, StyleRefinement,
-    Styled as _, WeakEntity, Window, canvas, div, prelude::FluentBuilder as _, px,
+    Empty, Entity, Global, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
+    Render, SharedString, Stateful, StatefulInteractiveElement as _, StyleRefinement, Styled as _,
+    WeakEntity, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::ResizeHandleContext;
 use gpui_kit::component::{
@@ -173,120 +175,6 @@ pub fn close_panel(group: &TabGroupContext, panel: PanelId, window: &mut Window,
         return;
     }
     group.close(panel, window, cx);
-}
-
-/// Each strip's measured width and its tools' natural width, by the area and
-/// group they belong to. A strip is laid out from last frame's measurements:
-/// a change is recorded after the frame and the window drawn again, so the
-/// strip catches up one frame later (`measure`).
-#[derive(Default)]
-struct StripRoom {
-    groups: HashMap<(EntityId, NodeId), Measured>,
-    /// The same by the panel each group displays: a group rebuilt around that
-    /// panel has a new node, and starts from the width it had.
-    panels: HashMap<(EntityId, PanelId), Measured>,
-}
-
-impl Global for StripRoom {}
-
-impl StripRoom {
-    fn get(&self, key: StripKey) -> Option<Measured> {
-        self.groups
-            .get(&(key.area, key.node))
-            .or_else(|| self.panels.get(&(key.area, key.panel?)))
-            .copied()
-    }
-}
-
-/// A strip: its area, its group and the panel it displays.
-#[derive(Clone, Copy)]
-struct StripKey {
-    area: EntityId,
-    node: NodeId,
-    panel: Option<PanelId>,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-struct Measured {
-    strip: Option<Pixels>,
-    tools: Option<Pixels>,
-}
-
-#[derive(Clone, Copy)]
-enum Measure {
-    Strip,
-    Tools,
-}
-
-impl Measure {
-    fn of(self, measured: &Measured) -> Option<Pixels> {
-        match self {
-            Measure::Strip => measured.strip,
-            Measure::Tools => measured.tools,
-        }
-    }
-
-    fn set(self, measured: &mut Measured, width: Pixels) {
-        match self {
-            Measure::Strip => measured.strip = Some(width),
-            Measure::Tools => measured.tools = Some(width),
-        }
-    }
-}
-
-/// Drop the measurements of `area`'s groups and panels that `keep_node` and
-/// `keep_panel` refuse.
-fn forget_strips(
-    area: EntityId,
-    keep_node: impl Fn(NodeId) -> bool,
-    keep_panel: impl Fn(PanelId) -> bool,
-    cx: &mut App,
-) {
-    if cx.has_global::<StripRoom>() {
-        let room = cx.global_mut::<StripRoom>();
-        room.groups
-            .retain(|(owner, node), _| *owner != area || keep_node(*node));
-        room.panels
-            .retain(|(owner, panel), _| *owner != area || keep_panel(*panel));
-    }
-}
-
-/// An invisible layer over its parent that records the parent's width.
-fn measure(key: StripKey, what: Measure) -> impl IntoElement {
-    canvas(
-        move |bounds, window, cx| {
-            let width = bounds.size.width;
-            let stale = |measured: Option<&Measured>| {
-                measured
-                    .and_then(|measured| what.of(measured))
-                    .is_none_or(|known| (known - width).abs() > px(0.5))
-            };
-            let changed = cx.try_global::<StripRoom>().is_none_or(|room| {
-                stale(room.groups.get(&(key.area, key.node)))
-                    || key
-                        .panel
-                        .is_some_and(|panel| stale(room.panels.get(&(key.area, panel))))
-            });
-            if changed {
-                // Recorded once this frame is done, then the window drawn
-                // again; a deferred effect runs whatever paces the frames.
-                let handle = window.window_handle();
-                cx.defer(move |cx| {
-                    let room = cx.default_global::<StripRoom>();
-                    what.set(room.groups.entry((key.area, key.node)).or_default(), width);
-                    if let Some(panel) = key.panel {
-                        what.set(room.panels.entry((key.area, panel)).or_default(), width);
-                    }
-                    handle.update(cx, |_, window, _| window.refresh()).ok();
-                });
-            }
-        },
-        |_, _, _, _| {},
-    )
-    .absolute()
-    .top_0()
-    .left_0()
-    .size_full()
 }
 
 /// The renderer to install on a `DockArea`.
@@ -512,12 +400,29 @@ impl TabGroupRenderer for LatticeTabs {
         let suffix = (!collapsed)
             .then(|| handle.and_then(|handle| handle.title_suffix(window, cx)))
             .flatten();
+        let tools_width = suffix.as_ref().and(measured.tools).unwrap_or_default();
         let plan = strip::plan(
             measured.strip.unwrap_or(px(f32::MAX / 4.)),
             &specs,
-            suffix.as_ref().and(measured.tools).unwrap_or_default(),
+            tools_width,
         );
         let suffix = suffix.filter(|_| plan.tools);
+        // The spare tools go first, before any tab gives way.
+        let spare = displayed
+            .filter(|_| suffix.is_some())
+            .and_then(|panel| {
+                cx.try_global::<SpareToolsByPanel>()
+                    .and_then(|registry| registry.0.get(&panel).cloned())
+            })
+            .filter(|spare| {
+                strip::room_to_spare(
+                    measured.strip.unwrap_or(px(f32::MAX / 4.)),
+                    &specs,
+                    tools_width,
+                    (spare.width)(window, cx),
+                )
+            })
+            .map(|spare| (spare.render)(window, cx));
 
         let tabs = visible
             .into_iter()
@@ -643,12 +548,20 @@ impl TabGroupRenderer for LatticeTabs {
             )
             .children(suffix.map(|suffix| {
                 div()
-                    .relative()
                     .flex()
                     .flex_none()
                     .items_center()
-                    .child(suffix)
-                    .child(measure(key, Measure::Tools))
+                    .gap(strip::SPARE_GAP)
+                    .children(spare)
+                    .child(
+                        div()
+                            .relative()
+                            .flex()
+                            .flex_none()
+                            .items_center()
+                            .child(suffix)
+                            .child(measure(key, Measure::Tools)),
+                    )
             }))
             .children(menu)
             .into_any_element()

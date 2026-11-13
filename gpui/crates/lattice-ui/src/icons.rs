@@ -112,6 +112,9 @@ lucide! {
     SQUARE_ARROW_DOWN_LEFT = "icons" / "square-arrow-down-left";
     SQUARE_ARROW_OUT_UP_RIGHT = "icons" / "square-arrow-out-up-right";
     WHOLE_WORD = "icons" / "whole-word";
+    /// A .tex file's Source / Visual switch.
+    CODE_XML = "icons" / "code-xml";
+    TYPE = "icons" / "type";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).

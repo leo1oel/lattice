@@ -151,6 +151,24 @@ impl CodeTheme {
     }
 }
 
+/// The source gutter's inks in `theme` (`src/styles/editor-workspace.css`):
+/// the line numbers, the current line's number, and the fold markers'.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GutterInk {
+    pub number: Hsla,
+    pub current: Hsla,
+    pub marker: Hsla,
+}
+
+pub fn gutter_ink(theme: CodeTheme, palette: &Palette) -> GutterInk {
+    let code = CodePalette::new(theme, palette);
+    GutterInk {
+        number: code.line_number,
+        current: code.ink,
+        marker: code.line_number_contrast,
+    }
+}
+
 /// One Zed theme family per code theme, holding its light-app and dark-app
 /// themes, as the bytes `theme_settings::load_user_theme` reads.
 pub fn zed_theme_families(tint: Tint, accent: Accent) -> Vec<Vec<u8>> {

@@ -2,9 +2,12 @@
 //! extension point on it.
 //!
 //! The view is the editor over its ground and current line (painted here,
-//! `current_line.rs`, as the Tauri app draws its line), with an overlay on
-//! top of it, laid over the same bounds, and Lattice's overlay scrollbar at
-//! its right edge (`scrollbar.rs`; Zed's own is turned off): the overlay paints gutter marks and remote carets in the
+//! `current_line.rs`, as the Tauri app draws its line), inset by Lattice's
+//! source gutter (`gutter_column.rs`: line numbers and fold markers, in place
+//! of Zed's gutter) and by the room the host keeps at its right edge (the
+//! outline rail's), with an overlay on top of it, laid over the whole view,
+//! and Lattice's overlay scrollbar at its right edge (`scrollbar.rs`; Zed's
+//! own is turned off): the overlay paints gutter marks and remote carets in the
 //! editor's coordinates, runs the pointer for hover cards (Zed's editor
 //! hovers only for its language servers), and holds the open card. Marks,
 //! highlights and block widgets are Zed's own, set through the editor's
@@ -16,7 +19,7 @@
 //! resize), so what it paints never trails the text.
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet},
     ops::Range,
     rc::Rc,
@@ -28,18 +31,21 @@ use editor::{
     display_map::{BlockPlacement, BlockProperties, BlockStyle, CustomBlockId},
 };
 use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable, HitboxBehavior,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Window, canvas, div,
+    App, AppContext as _, Bounds, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    HitboxBehavior, InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render,
+    SharedString, Styled as _, Subscription, TextRun, Window, canvas, div, point, px, size,
 };
 use language::{Buffer, BufferEvent, BufferSnapshot};
 use lattice_ui::ActiveLattice as _;
 
 mod current_line;
+mod gutter_column;
 mod overlay;
 mod pointer;
 mod scrollbar;
 
+use gutter_column::{GutterLayout, GutterPointer};
+pub use gutter_column::{PaintedGutter, PaintedLine};
 pub use overlay::{Painted, PaintedCursor};
 use pointer::Hover;
 
@@ -47,6 +53,7 @@ use crate::{
     blocks::{BlockSide, BlockWidget},
     completion::{CompletionSource, Offered, Provider, Sources},
     decorations::{self, Highlight, Mark},
+    folds::{FoldRange, FoldSource},
     gutter::GutterMark,
     hover::HoverProvider,
     remote_cursors::RemoteCursor,
@@ -87,7 +94,19 @@ pub struct LatticeEditor {
     cursors: Vec<AnchoredCursor>,
     hovered_cursor: Option<SharedString>,
     painted: Rc<RefCell<Painted>>,
-    scrollbar: scrollbar::Scrollbar,
+    scroll: scrollbar::EditorScroll,
+    /// The language's fold source, and what it answered since the last edit.
+    folds: Option<FoldSource>,
+    fold_cache: RefCell<HashMap<u32, Option<FoldRange>>>,
+    /// The source gutter's geometry as of the last render (`None` before
+    /// the first), the pointer over it and what it painted.
+    gutter_layout: Option<GutterLayout>,
+    gutter_pointer: GutterPointer,
+    painted_gutter: Rc<RefCell<PaintedGutter>>,
+    /// The room the text leaves at the editor's right edge.
+    end_clearance: Pixels,
+    /// The editor element's bounds as last laid out.
+    editor_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -96,7 +115,13 @@ impl EventEmitter<LatticeEditorEvent> for LatticeEditor {}
 impl LatticeEditor {
     /// Zed's editor over `buffer`, with the adapter's completion provider.
     pub fn new(buffer: Entity<Buffer>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let editor = cx.new(|cx| Editor::for_buffer(buffer.clone(), None, window, cx));
+        let editor = cx.new(|cx| {
+            let mut editor = Editor::for_buffer(buffer.clone(), None, window, cx);
+            // Lattice's gutter stands in for Zed's (`gutter_column.rs`).
+            editor.set_show_gutter(false, cx);
+            editor.set_offset_content(false, cx);
+            editor
+        });
         let sources: Sources = Rc::default();
         let offered: Offered = Rc::default();
         editor.update(cx, |zed, _| {
@@ -109,16 +134,16 @@ impl LatticeEditor {
         let subscriptions = vec![
             // The overlay follows the editor's layout.
             cx.observe(&editor, |_, _, cx| cx.notify()),
-            cx.subscribe(&editor, |this, _, event: &EditorEvent, cx| match event {
-                EditorEvent::Blurred => this.hovered_cursor = None,
-                // The overlay scrollbar shows while the text scrolls.
-                EditorEvent::ScrollPositionChanged { .. } => this.note_scroll(cx),
-                _ => {}
+            cx.subscribe(&editor, |this, _, event: &EditorEvent, _| {
+                if matches!(event, EditorEvent::Blurred) {
+                    this.hovered_cursor = None;
+                }
             }),
             // An edit closes the card, as typing into a key closes the
             // Tauri app's.
             cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| {
                 if matches!(event, BufferEvent::Edited { .. }) {
+                    this.fold_cache.get_mut().clear();
                     this.dismiss_hover(cx);
                 }
             }),
@@ -137,7 +162,14 @@ impl LatticeEditor {
             cursors: Vec::new(),
             hovered_cursor: None,
             painted: Rc::default(),
-            scrollbar: scrollbar::Scrollbar::default(),
+            scroll: scrollbar::EditorScroll::default(),
+            folds: None,
+            fold_cache: RefCell::default(),
+            gutter_layout: None,
+            gutter_pointer: GutterPointer::default(),
+            painted_gutter: Rc::default(),
+            end_clearance: px(0.),
+            editor_bounds: Rc::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -154,6 +186,83 @@ impl LatticeEditor {
     /// What the overlay painted last frame.
     pub fn painted(&self) -> Painted {
         self.painted.borrow().clone()
+    }
+
+    /// What the source gutter painted last frame.
+    pub fn painted_gutter(&self) -> PaintedGutter {
+        self.painted_gutter.borrow().clone()
+    }
+
+    /// Fold lines as `source` says (`None`: nothing folds; the gutter keeps
+    /// its fold column).
+    pub fn set_fold_source(&mut self, source: Option<FoldSource>, cx: &mut Context<Self>) {
+        self.folds = source;
+        self.fold_cache.get_mut().clear();
+        cx.notify();
+    }
+
+    /// The room the text leaves at the right edge.
+    pub fn end_clearance(&self) -> Pixels {
+        self.end_clearance
+    }
+
+    /// Keep `clearance` free at the editor's right edge: the text wraps
+    /// short of it, as CodeMirror's does beside the outline rail.
+    pub fn set_end_clearance(&mut self, clearance: Pixels, cx: &mut Context<Self>) {
+        if self.end_clearance != clearance {
+            self.end_clearance = clearance;
+            cx.notify();
+        }
+    }
+
+    /// The editor element's bounds, within the view's `bounds`: inset by the
+    /// gutter, and at the right by the clearance (less what Zed keeps
+    /// itself).
+    fn editor_bounds(&self, bounds: Bounds<Pixels>) -> Option<Bounds<Pixels>> {
+        let layout = self.gutter_layout?;
+        let left = bounds.left() + layout.text_start();
+        let right = bounds.right() - layout.element_end(self.end_clearance);
+        let pad = gutter_column::CONTENT_PADDING;
+        Some(Bounds {
+            origin: point(left, bounds.top() + pad),
+            size: size(
+                (right - left).max(px(0.)),
+                (bounds.size.height - pad * 2.).max(px(0.)),
+            ),
+        })
+    }
+
+    /// The buffer row in the middle of the editor, as of the last frame:
+    /// where the reader is.
+    pub fn middle_line(&self, window: &mut Window, cx: &mut App) -> Option<u32> {
+        let bounds = self.editor_bounds.get()?;
+        crate::geometry::Frame::read(&self.editor, bounds, window, cx)
+            .map(|frame| frame.middle_buffer_row())
+    }
+
+    /// Measure the gutter in the buffer font: a digit's advance, and as many
+    /// digits as the document needs past four.
+    fn measure_gutter(&mut self, window: &mut Window, cx: &mut App) -> GutterLayout {
+        let (font, font_size) = gutter_column::buffer_font(cx);
+        let run = TextRun {
+            len: 1,
+            font,
+            color: gpui::black(),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let ch = window
+            .text_system()
+            .shape_line("0".into(), font_size, &[run], None)
+            .width;
+        let lines = self.buffer.read(cx).max_point().row + 1;
+        let layout = GutterLayout {
+            ch,
+            digits: gutter_column::digits_for(lines),
+        };
+        self.gutter_layout = Some(layout);
+        layout
     }
 
     fn multi_anchor(&self, anchor: language::Anchor, cx: &App) -> Option<editor::Anchor> {
@@ -412,13 +521,21 @@ impl Render for LatticeEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let card = self.render_card(window, cx);
         let scrollbar = self.render_scrollbar(window, cx);
+        let layout = self.measure_gutter(window, cx);
+        let fades = self.gutter_fades(window, cx);
         let this = cx.entity();
         let under = cx.entity();
+        let gutter = cx.entity();
+        let gutter_paint = cx.entity();
+        let editor_bounds = self.editor_bounds.clone();
         let lattice = cx.lattice();
         let ground = lattice_ui::editor_theme::ground(lattice.code_theme, &lattice.palette);
         div()
             .relative()
             .size_full()
+            // The editor element may reach past the right edge (see
+            // `GutterLayout::element_end`): the view clips it.
+            .overflow_hidden()
             // Zed's editor is clear (the code theme leaves its ground to the
             // adapter): the ground, then the current line under the text.
             .bg(ground)
@@ -436,7 +553,45 @@ impl Render for LatticeEditor {
             )
             // Any key closes the card, as typing does in the Tauri app.
             .capture_key_down(cx.listener(|this, _, _, cx| this.dismiss_hover(cx)))
-            .child(self.editor.clone())
+            // Zed scrolls only under its own text: the gutter and the padding
+            // strips pass the wheel on, as CodeMirror's scroller takes it
+            // over its gutter.
+            .on_scroll(cx.listener(|this, event, _, cx| this.scroll_by_wheel(event, cx)))
+            .child(
+                div()
+                    .absolute()
+                    .top(gutter_column::CONTENT_PADDING)
+                    .bottom(gutter_column::CONTENT_PADDING)
+                    .left(layout.text_start())
+                    .right(layout.element_end(self.end_clearance))
+                    .child(self.editor.clone())
+                    .child(
+                        canvas(
+                            move |bounds, _, _| editor_bounds.set(Some(bounds)),
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_full(),
+                    ),
+            )
+            .child(
+                canvas(
+                    move |bounds, window, cx| {
+                        gutter.update(cx, |this, cx| this.prepaint_gutter(bounds, window, cx))
+                    },
+                    move |bounds, prepainted, window, cx| {
+                        gutter_paint.update(cx, |this, cx| {
+                            this.paint_gutter(bounds, prepainted, fades, window, cx)
+                        });
+                    },
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             .child(
                 canvas(
                     |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
