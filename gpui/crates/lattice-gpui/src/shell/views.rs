@@ -135,8 +135,8 @@ impl Shell {
 
     /// A panel for every view in the workspace's document, made as needed
     /// (an editor for a document, a viewer for a PDF), and none kept for a
-    /// view gone. A document that cannot be opened (its file is gone) loses
-    /// its view.
+    /// view gone. A document that cannot be opened (its file is gone), or a
+    /// root document's PDF with no kept copy, loses its view.
     pub(crate) fn sync_views(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let doc = self.document(cx);
         let mut gone = Vec::new();
@@ -172,7 +172,7 @@ impl Shell {
                     self.view_focus.insert(id.clone(), watch);
                     self.views.borrow_mut().insert(id.clone(), panel);
                 }
-                None if view.kind == "file" => gone.push(id.clone()),
+                None if view.kind == "file" || view.kind == ROOT_PDF => gone.push(id.clone()),
                 None => {}
             }
         }

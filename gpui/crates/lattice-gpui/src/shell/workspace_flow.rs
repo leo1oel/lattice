@@ -165,6 +165,11 @@ impl Shell {
             }
         };
         self.install(document, false, window, cx);
+        if let Some(live) = self.live_document.clone() {
+            self.root_pdfs.retain(|(open, _)| *open != live);
+            let id = super::views::root_pdf_id(&live);
+            self.engine_do(cx, |engine| engine.close(&id));
+        }
         self.follow_active_document(cx);
         !super::views::documents_of(&self.document(cx)).is_empty()
     }

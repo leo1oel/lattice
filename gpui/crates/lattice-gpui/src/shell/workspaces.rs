@@ -512,9 +512,6 @@ fn legacy_library(path: &Path) -> Option<Library> {
     })
 }
 
-/// The value saved at `path`. A file this build cannot read (`usable`
-/// refuses it, or it does not parse) is moved aside to `<name>.unreadable`
-/// before the caller falls back, so the next save does not overwrite it.
 /// A v1 project layout (GPUI Kit's arrangement) as a v2 one: its workspace
 /// kept, the rest left to the default.
 fn legacy_project(path: &Path) -> Option<ProjectLayout> {
@@ -530,6 +527,9 @@ fn legacy_project(path: &Path) -> Option<ProjectLayout> {
     })
 }
 
+/// The value saved at `path`. A file this build cannot read (`usable`
+/// refuses it, or it does not parse) is moved aside to `<name>.unreadable`
+/// before the caller falls back, so the next save does not overwrite it.
 fn read_json<T: serde::de::DeserializeOwned>(
     path: &Path,
     usable: impl Fn(&T) -> bool,
