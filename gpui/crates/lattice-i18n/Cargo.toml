@@ -1,0 +1,9 @@
+[package]
+name = "lattice-i18n"
+version = "0.1.0"
+description = "Lattice's interface languages on GPUI: English and Simplified Chinese from the Tauri app's Lingui catalogs, keyed by the English source string."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]

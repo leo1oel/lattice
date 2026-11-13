@@ -1,0 +1,10 @@
+# The Simplified Chinese for strings only the GPUI app shows, in the format of
+# the Tauri app's catalog (../../../../src/locales/zh-CN/messages.po), which
+# translates everything the two apps share. A message belongs here only while
+# that catalog lacks it (src/lib.rs tests the overlap); the coverage test
+# (tests/coverage.rs) asks every message the app translates for Chinese.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Language: zh-CN\n"
+

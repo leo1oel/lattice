@@ -8293,6 +8293,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "lattice-i18n"
+version = "0.1.0"
+
+[[package]]
 name = "lattice-ui"
 version = "0.1.0"
 dependencies = [

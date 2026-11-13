@@ -1,0 +1,4 @@
+# Messages the GPUI app shows that read the same in every language (product
+# and format names), one source string per line, beside the Tauri app's own
+# list (../../../../scripts/i18n-unlocalized-baseline.txt). The coverage test
+# fails on an entry no source string uses any more.
