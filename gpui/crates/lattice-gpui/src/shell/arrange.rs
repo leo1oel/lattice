@@ -550,18 +550,6 @@ impl Shell {
         cx.notify();
     }
 
-    /// The Project tree marks the document in front, whichever tab brought
-    /// it there.
-    pub(super) fn follow_active_document(&mut self, cx: &mut Context<Self>) {
-        let (Some(root), Some(active)) = (self.root(cx), self.active_document(cx)) else {
-            return;
-        };
-        let path = root.join(active);
-        self.mark_front_paper(&path, cx);
-        self.file_tree
-            .update(cx, |tree, cx| tree.set_current(Some(path), cx));
-    }
-
     /// The document in front: the one selected in the group of the editor
     /// last focused, else that editor while it is on screen (floating, or
     /// behind another tab), else the first group's selected one.
