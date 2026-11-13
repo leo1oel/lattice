@@ -390,7 +390,7 @@ fn clip_to(name: &str, chars: usize) -> String {
 }
 
 /// The state directory, or none for a run that keeps everything in memory.
-fn state_dir(scripted: bool) -> Option<PathBuf> {
+pub(crate) fn state_dir(scripted: bool) -> Option<PathBuf> {
     match std::env::var_os("LATTICE_GPUI_STATE_DIR") {
         Some(dir) if dir.is_empty() => None,
         Some(dir) => Some(PathBuf::from(dir)),
@@ -433,7 +433,7 @@ fn read_json<T: serde::de::DeserializeOwned>(
 
 /// Written whole beside the target, then moved over it, so a crash mid-write
 /// leaves the old file.
-fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
+pub(crate) fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

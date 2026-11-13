@@ -25,6 +25,7 @@ pub(crate) mod menus;
 mod palette;
 mod saving;
 mod synctex;
+mod welcome_flow;
 pub mod windows;
 mod workspace_flow;
 pub mod workspaces;
@@ -147,6 +148,8 @@ pub struct Shell {
     shortcuts: Option<Entity<palette::ShortcutSheet>>,
     /// Quick open, Find and Replace in project, and the files visited.
     documents: documents::Documents,
+    /// The welcome screen and New project, without a project or over one.
+    lobby: welcome_flow::Lobby,
     /// The projects open in this window, in tab order; the open one is
     /// `project`'s.
     pub(crate) projects: Vec<OpenProject>,
@@ -202,11 +205,12 @@ impl Shell {
             .detach();
         });
         windows::register(window, &shell, cx);
-        if let Some(root) = root {
-            window.update(cx, |_, window, cx| {
-                shell.update(cx, |shell, cx| shell.open_project(root, window, cx));
-            })?;
-        }
+        window.update(cx, |_, window, cx| {
+            shell.update(cx, |shell, cx| match root {
+                Some(root) => shell.open_project(root, window, cx),
+                None => shell.show_welcome(None, window, cx),
+            });
+        })?;
         Ok((window, shell))
     }
 
@@ -329,6 +333,7 @@ impl Shell {
             palette: None,
             shortcuts: None,
             documents: Default::default(),
+            lobby: Default::default(),
             projects: Vec::new(),
             closed_tabs: Vec::new(),
             save_task: None,
@@ -499,6 +504,7 @@ impl Shell {
         self.queued_build = None;
         self.closed_tabs.clear();
         self.forget_visits();
+        self.entered_project(&project_display_name(&root), cx);
         self.tex_setup
             .update(cx, |center, _| center.set_root(Some(root.clone())));
         self.refresh_words(cx);
@@ -768,6 +774,28 @@ impl Focusable for Shell {
     }
 }
 
+impl Shell {
+    /// The cards under the titlebar, on the chrome.
+    fn workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) -> gpui::Div {
+        let palette = cx.palette().clone();
+        div()
+            .relative()
+            .flex_1()
+            .min_h_0()
+            .bg(palette.chrome)
+            .pt(px(WORKSPACE_TOP))
+            .px(px(WORKSPACE_SIDE))
+            .pb(px(WORKSPACE_SIDE))
+            .children(lattice_ui::parity::probe("workspace"))
+            .child(self.dock_area.clone())
+            .when(
+                self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
+                |this| this.child(arrange::empty_center(self, cx)),
+            )
+            .children(self.floating.render(self.floating_area(window), cx))
+    }
+}
+
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
@@ -792,27 +820,15 @@ impl Render for Shell {
             .size_full()
             .bg(palette.window)
             .text_color(palette.text)
-            .child(crate::titlebar::render(self, window, cx))
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .bg(palette.chrome)
-                    .pt(px(WORKSPACE_TOP))
-                    .px(px(WORKSPACE_SIDE))
-                    .pb(px(WORKSPACE_SIDE))
-                    .children(lattice_ui::parity::probe("workspace"))
-                    .child(self.dock_area.clone())
-                    .when(
-                        self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
-                        |this| this.child(arrange::empty_center(self, cx)),
-                    )
-                    .children(self.floating.render(self.floating_area(window), cx)),
-            )
+            .children(self.welcome().cloned())
+            .when(self.welcome().is_none(), |this| {
+                this.child(crate::titlebar::render(self, window, cx))
+                    .child(self.workspace(window, cx))
+            })
             .children(self.palette.clone())
             .children(self.shortcuts.clone())
             .children(self.document_overlays())
+            .children(self.new_project_dialog().cloned())
             .child(self.notices.clone())
             .child(self.tex_setup.clone())
             .child(self.confirm.clone())
