@@ -54,6 +54,7 @@ use crate::project::{Project, ProjectEvent};
 pub mod add_sheet;
 pub mod audit;
 mod batch;
+pub mod bib_editor;
 mod downloads;
 mod field;
 mod inspector;
@@ -171,6 +172,9 @@ pub struct PapersPanel {
     pub(crate) papers: Vec<PaperSummary>,
     pub(crate) load: Load,
     pub(crate) facts: Facts,
+    /// Counts the scans of the manuscript's citations, for views that read
+    /// them too (a `.bib` file's visual form).
+    pub(crate) usage_revision: u64,
     input: Entity<InputState>,
     /// The query the text hits answer, and the hits by search identity.
     text_query: String,
@@ -226,6 +230,7 @@ impl PapersPanel {
             papers: Vec::new(),
             load: Load::Loading,
             facts: Facts::default(),
+            usage_revision: 0,
             input,
             text_query: String::new(),
             text_hits: HashMap::new(),
@@ -381,6 +386,7 @@ impl PapersPanel {
                     return;
                 }
                 this.facts.uses = usages.ok().map(Facts::group_uses);
+                this.usage_revision += 1;
                 cx.notify();
             })
             .ok();

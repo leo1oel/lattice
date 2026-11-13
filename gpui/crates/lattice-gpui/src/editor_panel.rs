@@ -34,7 +34,7 @@ use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Task, Window, div, prelude::*,
+    Subscription, Task, Window, div,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
@@ -46,13 +46,14 @@ use lattice_editor::{
     LatticeEditor, LatticeEditorEvent,
     latex::{self, diagnostics::TexlabDiagnostics},
 };
-use lattice_i18n::t;
 use lattice_ui::ActiveLattice as _;
 use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
+mod bib_view;
 mod disk_sync;
+mod menu;
 mod outline_panel;
 pub mod outline_rail;
 pub mod rail_outline;
@@ -79,12 +80,7 @@ gpui::actions!(
     ]
 );
 
-use crate::{
-    build_panel::BuildPanel,
-    editor_status,
-    project::Project,
-    shell::{Build, CleanRebuild, ForwardSync, StopBuild, ToggleVimMode},
-};
+use crate::{build_panel::BuildPanel, editor_status, project::Project};
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
@@ -194,8 +190,7 @@ pub struct EditorPanel {
     looking_for_file: bool,
     /// Its tab was closed (the file went from disk): it stops checking it.
     closed: bool,
-    /// An HTML file's Edit, Split and Preview views; `None` for a file
-    /// that is only ever its source.
+    /// An HTML or `.bib` file's Edit, Split and Preview views.
     views: Option<DocumentViews>,
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
@@ -216,6 +211,8 @@ pub struct EditorPanel {
     _todos: Option<Task<()>>,
     _poll: Task<()>,
     _subscriptions: Vec<Subscription>,
+    /// A `.bib` file's Preview and library (`bib_view.rs`).
+    bib: bib_view::BibState,
 }
 
 impl EditorPanel {
@@ -331,11 +328,13 @@ impl EditorPanel {
                         let moved = this.cursor.0 != line;
                         this.cursor = (line, column);
                         if moved {
+                            this.bib_follow_caret(line, cx);
                             cx.emit(EditorPanelEvent::CaretLine);
                         }
                         cx.notify();
                     }
                     EditorEvent::Focused => {
+                        this.bib_source_focused(true);
                         if let Some(diagnostics) = &this.diagnostics {
                             diagnostics
                                 .update(cx, |diagnostics, cx| diagnostics.set_focused(true, cx));
@@ -344,6 +343,7 @@ impl EditorPanel {
                     }
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
+                        this.bib_source_focused(false);
                         if let Some(diagnostics) = &this.diagnostics {
                             diagnostics
                                 .update(cx, |diagnostics, cx| diagnostics.set_focused(false, cx));
@@ -435,6 +435,7 @@ impl EditorPanel {
             _todos: None,
             _poll: poll,
             _subscriptions: subscriptions,
+            bib: Default::default(),
         };
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);
@@ -442,6 +443,7 @@ impl EditorPanel {
         // An HTML file opening in Preview or Split has its preview at once;
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
+        this.ensure_bib_for_view(window, cx);
         this.attach_spelling(cx);
         this
     }
@@ -650,9 +652,10 @@ impl EventEmitter<PanelEvent> for EditorPanel {}
 impl EventEmitter<EditorPanelEvent> for EditorPanel {}
 
 impl Focusable for EditorPanel {
-    /// The editor's, except while an HTML file shows only its preview.
+    /// The editor's, except while a file shows only its preview.
     fn focus_handle(&self, cx: &App) -> FocusHandle {
         match self.views.as_ref() {
+            _ if let Some(focus) = self.bib_focus(cx) => focus,
             Some(views) if views.view() == DocumentView::Preview => views
                 .preview()
                 .map(|preview| preview.read(cx).island().focus_handle(cx))
@@ -722,55 +725,7 @@ impl Panel for EditorPanel {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> PopupMenu {
-        // An HTML file's menu repeats its view switch, and has no build.
-        if let Some(current) = self.document_view() {
-            return menu
-                .menu_with_check(
-                    "Edit",
-                    current == DocumentView::Source,
-                    Box::new(ViewSource),
-                )
-                .menu_with_check("Split", current == DocumentView::Split, Box::new(ViewSplit))
-                .menu_with_check(
-                    "Preview",
-                    current == DocumentView::Preview,
-                    Box::new(ViewPreview),
-                )
-                .separator()
-                .menu("Find", Box::new(Deploy::find()))
-                .separator()
-                .menu_with_check(
-                    "Vim mode",
-                    crate::app::vim_mode_enabled(cx),
-                    Box::new(ToggleVimMode),
-                );
-        }
-        let building = self.build.read(cx).is_running();
-        menu.menu(t!("Build"), Box::new(Build))
-            .menu(t!("Clean rebuild"), Box::new(CleanRebuild))
-            .when(building, |menu| {
-                menu.menu(t!("Stop the build"), Box::new(StopBuild))
-            })
-            .menu(t!("Reveal cursor in PDF"), Box::new(ForwardSync))
-            .menu(t!("Find"), Box::new(Deploy::find()))
-            // The strip's Source / Visual switch, which goes first when the
-            // strip is short of room.
-            .when(latex::is_tex_source(&self.path), |menu| {
-                menu.separator()
-                    .menu_with_check("Source", true, Box::new(ShowSourceView))
-                    .menu_with_check_and_disabled(
-                        VISUAL_NOT_PORTED,
-                        false,
-                        Box::new(ShowVisualView),
-                        true,
-                    )
-            })
-            .separator()
-            .menu_with_check(
-                t!("Vim mode"),
-                crate::app::vim_mode_enabled(cx),
-                Box::new(ToggleVimMode),
-            )
+        self.panel_menu(menu, cx)
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -799,7 +754,8 @@ impl Render for EditorPanel {
             .children(search)
             .child(self.render_source(window, cx))
             .into_any_element();
-        let body = self.render_views(editor, status, cx);
+        let bib = self.bib_for_view(window, cx);
+        let body = self.render_views(editor, status, bib, cx);
         let mut registrar =
             DivRegistrar::new(|this: &Self, _, _| Some(this.search_bar.clone()), cx);
         BufferSearchBar::register(&mut registrar);

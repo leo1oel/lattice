@@ -247,10 +247,7 @@ mod tests {
     #[test]
     fn a_deleted_entry_takes_its_lines() {
         let source = "@misc{a, title={A}}\n\n@misc{b, title={B}}\n";
-        assert_eq!(
-            edited(source, delete_entry_edit),
-            "@misc{b, title={B}}\n"
-        );
+        assert_eq!(edited(source, delete_entry_edit), "@misc{b, title={B}}\n");
         let document = parse(source).unwrap();
         let last = apply_edit(source, &delete_entry_edit(source, &document.entries[1]));
         assert_eq!(last, "@misc{a, title={A}}\n");
