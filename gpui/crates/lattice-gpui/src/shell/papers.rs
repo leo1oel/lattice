@@ -168,18 +168,24 @@ impl Shell {
         })
     }
 
-    /// The reader selected in a panel on screen.
+    /// The reader selected in a panel on screen: the document in front's
+    /// when it is a reader, else the one opened last.
     fn front_reader_entity(&self, cx: &gpui::App) -> Option<Entity<PaperReader>> {
         let engine = self.workspace.read(cx).engine();
-        self.documents
+        let shown: Vec<(String, &Entity<PaperReader>)> = self
+            .documents
             .readers
             .iter()
-            .find(|reader| {
+            .filter(|reader| {
                 self.view_of_panel(reader.entity_id()).is_some_and(|view| {
                     engine.placement_of(&view) != ViewPlacement::Hidden && self.in_front(&view, cx)
                 })
             })
-            .cloned()
+            .map(|reader| (reader_key(&reader.read(cx).paper().arxiv_id), reader))
+            .collect();
+        let keys: Vec<&str> = shown.iter().map(|(key, _)| key.as_str()).collect();
+        let active = self.active_document(cx);
+        front_of(&keys, active.as_deref()).map(|at| shown[at].1.clone())
     }
 
     /// Mark the paper in front: a reader's when one is, else the paper
@@ -351,4 +357,28 @@ pub(super) fn reader_key(arxiv_id: &str) -> String {
 /// Whether a layout's document key is a paper's reader.
 pub(super) fn is_reader_key(key: &str) -> bool {
     key.starts_with(READER_PREFIX)
+}
+
+/// Which of the readers `shown` (keyed, in the order they were opened) is in
+/// front: the `active` document's, else the one opened last.
+fn front_of(shown: &[&str], active: Option<&str>) -> Option<usize> {
+    active
+        .and_then(|active| shown.iter().position(|key| *key == active))
+        .or_else(|| shown.len().checked_sub(1))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_reader_the_writer_is_on_is_in_front_of_another_shown() {
+        let (a, b) = (reader_key("2401.00001"), reader_key("2401.00002"));
+        let shown = [a.as_str(), b.as_str()];
+        assert_eq!(front_of(&shown, Some(b.as_str())), Some(1));
+        assert_eq!(front_of(&shown, Some(a.as_str())), Some(0));
+        // An editor in front: the reader opened last.
+        assert_eq!(front_of(&shown, Some("notes.tex")), Some(1));
+        assert_eq!(front_of(&[], Some(b.as_str())), None);
+    }
 }
