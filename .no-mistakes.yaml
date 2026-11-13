@@ -21,8 +21,8 @@ commands:
   # inputs changed, and `vitest related` plus the invariant tests, against the
   # merge base with origin/main. The fetch keeps that base current so the
   # scope is the branch's own diff; offline it falls back to the local ref.
-  # cargo test stays with the optional `pnpm signoff` and release CI: it needs the runtime resource stubs
-  # and a cold Tauri compile per run worktree.
+  # cargo test stays with the optional `pnpm signoff` and release CI: a Tauri
+  # compile takes minutes even in the machine's shared build tree.
   test: "(git fetch --quiet origin main || true) && pnpm gate:changed"
   # gate:changed already runs `pnpm lint` in full; this keeps the lint step
   # to the one cheap check of its own rather than a second oxlint pass.
@@ -52,6 +52,18 @@ test:
     prints "waiting for another GPUI release build" while another checkout's
     build holds the lock; wait for it rather than starting a second build.
 
+    Run every other cargo command that compiles (check, clippy, test, build)
+    the same way, never with plain `cargo` in the run worktree, where it
+    writes a cold multi-GB `gpui/target` or `src-tauri/target` that fills the
+    machine's disk:
+    - GPUI workspace: `node scripts/gpui-build.mjs -- test --release --locked
+      --workspace --features lattice-gpui/offscreen-shots` (or `-- clippy
+      --workspace ...`, `-- test -p lattice-ui ...`);
+    - Tauri crates: `node scripts/gpui-build.mjs -- clippy --manifest-path
+      src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` or
+      `-- test --manifest-path src-tauri/Cargo.toml --package research-writer`.
+    `cargo fmt` builds nothing and may run directly.
+
     The configured test command is the scoped gate (`pnpm gate:changed`), not
     the full suite: do not run `pnpm test` or the whole Vitest suite here.
 
@@ -67,3 +79,32 @@ test:
 
     If a change can only be verified in the real desktop app, say so in the
     test report instead of launching it.
+
+# The review agent compiles too, to check a finding: a plain `cargo test` or
+# `cargo clippy` there left an 8-10 GB gpui/target (or 2-3 GB src-tauri/target)
+# in each run worktree. These blocks are added only when the diff touches them.
+review:
+  path_instructions:
+    - path: "gpui/**"
+      instructions: |
+        To compile anything in the GPUI workspace (check, clippy, test,
+        build), run cargo through `node scripts/gpui-build.mjs -- <cargo
+        arguments>` from the worktree root, for example
+        `node scripts/gpui-build.mjs -- test --release --locked --workspace
+        --features lattice-gpui/offscreen-shots`, never plain `cargo` in
+        gpui/: it builds in the machine's shared, warm build tree under the
+        machine-wide lock instead of a cold multi-GB gpui/target in this run
+        worktree. Run it in the foreground and wait for it. `cargo fmt`
+        builds nothing and may run directly.
+    - path: "src-tauri/**"
+      instructions: |
+        To compile the Tauri crates (check, clippy, test), run cargo through
+        `node scripts/gpui-build.mjs -- <cargo arguments> --manifest-path
+        src-tauri/Cargo.toml` from the worktree root, for example
+        `node scripts/gpui-build.mjs -- clippy --manifest-path
+        src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`,
+        never plain `cargo` here: it builds in the machine's shared, warm
+        build tree under the machine-wide lock instead of a cold multi-GB
+        src-tauri/target in this run worktree. Never run the Tauri host
+        (`cargo run`, `pnpm tauri dev`). `cargo fmt` builds nothing and may
+        run directly.

@@ -26,7 +26,25 @@
  *   2. fetches PDFium there (`gpui/script/fetch-pdfium`), which the binary
  *      finds next to the tree it was built in;
  *   3. runs `cargo <args>` in its gpui/, with CARGO_BUILD_JOBS=4 unless set;
- *   4. after a `cargo build`, copies `lattice-gpui` back into this checkout.
+ *   4. after a `cargo build` of the GPUI workspace, copies `lattice-gpui` back
+ *      into this checkout.
+ *
+ * Validation runs (the no-mistakes pipeline's run worktrees, `pnpm signoff`)
+ * send every cargo command that compiles through here, whether build, check,
+ * clippy or test, for the Tauri crates as well as for gpui/. A worktree's own
+ * `cargo test` or `cargo clippy` in gpui/ wrote an 8-10 GB gpui/target, and
+ * one in src-tauri/ a 2-3 GB src-tauri/target, from cold, in every run
+ * worktree; through here the run worktree keeps only the copied-back binary
+ * (about 200 MB) and the shared tree's targets are the only ones that grow.
+ * A `--manifest-path` (relative to where this was started) is rewritten to the
+ * same file in the shared tree, so `-- clippy --manifest-path
+ * src-tauri/Cargo.toml` checks the Tauri crates there, in their own
+ * src-tauri/target. Since Cargo.toml paths are the shared tree's, every
+ * checkout's build of a crate lands on the same artifacts; the lock keeps a
+ * second checkout from mirroring its sources over a build still running, and
+ * each run compiles exactly the sources it mirrored. The Tauri crates need
+ * only a stub for the bundled Synara runtime (docs/synara-runtime.md), which
+ * this creates in the shared tree.
  *
  * The shared tree is `$LATTICE_GPUI_BUILD_DIR/lattice` (default
  * ~/Library/Caches/lattice-gpui-build on macOS, ~/.cache/lattice-gpui-build
@@ -37,9 +55,11 @@
  *   node scripts/gpui-build.mjs -- test --release --locked --workspace \
  *     --features lattice-gpui/offscreen-shots -- --include-ignored
  *                                                any other cargo command there
+ *   node scripts/gpui-build.mjs -- clippy --manifest-path src-tauri/Cargo.toml \
+ *     --all-targets -- -D warnings                the Tauri crates, there
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +82,31 @@ function profileDir(args) {
   const inline = args.find((arg) => arg.startsWith("--profile="));
   if (inline) return inline.slice("--profile=".length) === "dev" ? "debug" : inline.slice("--profile=".length);
   return args.includes("--release") || args.includes("-r") ? "release" : "debug";
+}
+
+/**
+ * Points a `--manifest-path` at the same file in the shared tree: relative to
+ * the directory this was started in, which must be inside the checkout. Only
+ * arguments before a bare `--` are cargo's; the rest belong to the test binary
+ * or the lint driver. Returns the rewritten arguments and whether they name a
+ * manifest outside the shared tree's gpui/ (no binary to copy back then).
+ */
+function sharedManifest(args, tree) {
+  const end = args.indexOf("--") >= 0 ? args.indexOf("--") : args.length;
+  let elsewhere = false;
+  const map = (value) => {
+    const relative = path.relative(repo, path.resolve(value));
+    if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error(`--manifest-path ${value} is outside ${repo}`);
+    if (!relative.startsWith(`gpui${path.sep}`)) elsewhere = true;
+    return path.join(tree, relative);
+  };
+  const out = args.map((arg, index) => {
+    if (index >= end) return arg;
+    if (arg.startsWith("--manifest-path=")) return `--manifest-path=${map(arg.slice("--manifest-path=".length))}`;
+    if (index > 0 && args[index - 1] === "--manifest-path") return map(arg);
+    return arg;
+  });
+  return { args: out, elsewhere };
 }
 
 function seconds(since) {
@@ -88,13 +133,14 @@ function runCargo(args, options) {
 
 async function main() {
   const separator = process.argv.indexOf("--");
-  const cargoArgs = separator >= 0 ? process.argv.slice(separator + 1) : DEFAULT_ARGS;
+  const givenArgs = separator >= 0 ? process.argv.slice(separator + 1) : DEFAULT_ARGS;
   if (separator < 0 && process.argv.length > 2) throw new Error(`unknown option ${process.argv[2]}; pass cargo arguments after --`);
-  if (cargoArgs.length === 0) throw new Error("no cargo arguments after --");
+  if (givenArgs.length === 0) throw new Error("no cargo arguments after --");
 
   const root = buildRoot();
   const tree = path.join(root, "lattice");
   mkdirSync(tree, { recursive: true });
+  const { args: cargoArgs, elsewhere } = sharedManifest(givenArgs, tree);
 
   await acquireGpuiLock(repo);
   try {
@@ -108,6 +154,13 @@ async function main() {
     const gpui = path.join(tree, "gpui");
     const fetched = spawnSync(path.join(gpui, "script", "fetch-pdfium"), [], { cwd: gpui, stdio: "inherit" });
     if (fetched.status !== 0) throw new Error("gpui/script/fetch-pdfium failed in the shared tree");
+    // Ignored, so the mirror never writes or deletes it; Tauri's resource
+    // manifest only needs the directory to exist.
+    const synara = path.join(tree, "src-tauri", "synara-runtime");
+    if (!existsSync(synara)) {
+      mkdirSync(synara, { recursive: true });
+      writeFileSync(path.join(synara, "placeholder.txt"), "");
+    }
 
     // The shared tree's own target/, whatever this shell points Cargo at.
     const env = { ...process.env, CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? "4" };
@@ -123,7 +176,7 @@ async function main() {
     }
     console.log(`gpui-build: cargo finished in ${seconds(started)}`);
 
-    if (cargoArgs[0] === "build" || cargoArgs[0] === "b") {
+    if ((cargoArgs[0] === "build" || cargoArgs[0] === "b") && !elsewhere) {
       const profile = profileDir(cargoArgs);
       const built = path.join(gpui, "target", profile, "lattice-gpui");
       if (!existsSync(built)) throw new Error(`${built} is missing after the build`);
