@@ -368,7 +368,13 @@ impl Run {
         steps.check(
             "⌘Z typed in the visual editor undoes the word through the buffer: the file and the page are back as they were",
             undone && page["quokka"] == false,
-            json!({ "undone": undone, "page": page }),
+            // The file as ⌘Z left it, when it is not back: a partial undo
+            // (the word split over two of the buffer's undo groups) shows here.
+            json!({
+                "undone": undone,
+                "page": page,
+                "text": if undone { Value::Null } else { json!(std::fs::read_to_string(path).unwrap_or_default()) },
+            }),
         );
         Ok(())
     }
