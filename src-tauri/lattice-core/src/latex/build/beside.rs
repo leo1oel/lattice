@@ -140,9 +140,11 @@ fn named_after(file: &str, job: &str) -> bool {
 
 /// After `hidden`, a failed hidden build: build once more beside the
 /// document with `build`, the hidden build's folder set aside meanwhile.
-/// Keep that build when it succeeds. Otherwise keep `hidden`, or the stop
-/// when the writer stopped it, with its folder and PDF back as they were and
-/// what the second build left beside the document gone.
+/// Keep that build when the folder was what failed: it succeeds, or fails
+/// only on the writer's own errors, with no package output missing any more.
+/// Otherwise keep `hidden`, or the stop when the writer stopped it, with its
+/// folder and PDF back as they were and what the second build left beside
+/// the document gone.
 pub(super) fn retry(
     root: &Path, hidden: BuildResult,
     build: impl FnOnce(AuxFiles) -> Result<(BuildResult, AuxFiles), String>,
@@ -162,7 +164,12 @@ pub(super) fn retry(
     }
     let (mut beside, _) = trial?;
     wide_event::record("built_beside", beside.success);
-    if beside.success {
+    let stopped = beside
+        .diagnostics
+        .iter()
+        .any(|diagnostic| matches!(diagnostic.code, Some("build-cancelled" | "build-stalled")));
+    let cured = !misses_its_own_output(&beside.diagnostics, &document);
+    if beside.success || (cured && !stopped) {
         remember(root, &document);
         retire_other_layout(root, &document, AuxFiles::Beside);
         beside.diagnostics.insert(0, note());
@@ -173,10 +180,6 @@ pub(super) fn retry(
         Some(bytes) => fs::write(&pdf_path, bytes),
         None => fs::remove_file(&pdf_path),
     };
-    let stopped = beside
-        .diagnostics
-        .iter()
-        .any(|diagnostic| matches!(diagnostic.code, Some("build-cancelled" | "build-stalled")));
     if stopped {
         return Ok((beside, AuxFiles::Hidden));
     }
@@ -353,5 +356,26 @@ mod tests {
         assert!(!worth_trying(&root, &failed_hidden_build("main.tex")));
         forget_failure(&root, "main.tex");
         assert!(worth_trying(&root, &failed_hidden_build("main.tex")));
+    }
+
+    #[test]
+    fn a_build_beside_left_with_only_the_writers_own_error_keeps_the_document_there() {
+        let parent = TempDir::new("latex-beside-own-error");
+        let root = project::create(&parent, "Beside").unwrap();
+        set_trusted(&root, true);
+        let typo = BuildResult {
+            diagnostics: parse_diagnostics("./main.tex:5: Undefined control sequence.\n"),
+            ..super::super::cancelled_build(std::time::Instant::now(), "failed", "main.tex")
+        };
+        let (result, layout) =
+            retry(&root, failed_hidden_build("main.tex"), |layout| Ok((typo, layout))).unwrap();
+        assert_eq!(layout, AuxFiles::Beside);
+        assert!(result.diagnostics.iter().any(|item| item.code == Some("built-beside")));
+        assert!(result
+            .diagnostics
+            .iter()
+            .any(|item| item.message == "Undefined control sequence."));
+        assert!(failed(&root).is_empty());
+        assert_eq!(layout_for(&root, AuxFiles::Hidden), AuxFiles::Beside);
     }
 }
