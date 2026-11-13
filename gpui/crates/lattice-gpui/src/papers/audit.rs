@@ -22,10 +22,6 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::{
-        LazyLock, Mutex,
-        atomic::{AtomicU64, Ordering},
-    },
 };
 
 use gpui::{
@@ -39,6 +35,7 @@ use serde::{Deserialize, Serialize};
 
 mod groups;
 mod messages;
+mod report;
 mod view;
 
 pub use groups::{Bucket, FixGroup, fix_group};
@@ -162,12 +159,6 @@ pub(super) fn entry_title(entry: &AuditEntry) -> String {
     }
 }
 
-/// The order the reports were asked for in, and the newest written of each
-/// project's report: a save that reaches the disk after a newer one of the
-/// same project is dropped.
-static REPORTS_ASKED: AtomicU64 = AtomicU64::new(0);
-static REPORT_WRITTEN: LazyLock<Mutex<HashMap<PathBuf, u64>>> = LazyLock::new(Default::default);
-
 /// What a check says when the tools it runs are not installed
 /// (`PAPER_TOOLS_MISSING`): every later check would fail the same way.
 const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
@@ -206,7 +197,8 @@ impl EventEmitter<AuditEvent> for Audit {}
 
 impl Audit {
     pub fn new(root: PathBuf, cx: &mut Context<Self>) -> Self {
-        let store = crate::shell::workspaces::state_dir(false).map(|dir| dir.join("audits"));
+        let store = crate::shell::workspaces::state_dir(crate::settings::scripted(cx))
+            .map(|dir| dir.join("audits"));
         let mut this = Self {
             root,
             store,
@@ -358,21 +350,9 @@ impl Audit {
             return;
         };
         let (root, report) = (self.root.clone(), self.report());
-        let asked = REPORTS_ASKED.fetch_add(1, Ordering::Relaxed) + 1;
-        cx.background_spawn(async move {
-            let mut written = REPORT_WRITTEN
-                .lock()
-                .unwrap_or_else(|poison| poison.into_inner());
-            let newest = written.entry(root.clone()).or_insert(0);
-            if *newest > asked {
-                return;
-            }
-            *newest = asked;
-            if let Err(error) = citation_audit::save_report(&store, &root, report) {
-                log::warn!("the reference check's report was not saved: {error}");
-            }
-        })
-        .detach();
+        let asked = report::ask();
+        cx.background_spawn(async move { report::write(&store, &root, asked, report) })
+            .detach();
     }
 
     pub(super) fn bucket(&self, index: usize) -> Bucket {
@@ -621,7 +601,6 @@ impl Audit {
             self.applied.remove(&index);
             self.kept.remove(&index);
         }
-        // Kept as it comes in: a sheet closed mid-run keeps what it heard.
         self.save(cx);
         cx.notify();
     }
@@ -633,7 +612,6 @@ impl Audit {
         self.busy = false;
         self.stopping = false;
         self.checking.clear();
-        self.save(cx);
         cx.notify();
     }
 
@@ -718,7 +696,6 @@ impl Audit {
             }
             this.update(cx, |this, cx| {
                 this.applying = false;
-                this.save(cx);
                 cx.notify();
             })
             .ok();
@@ -778,9 +755,9 @@ impl Audit {
         }
     }
 
+    /// A check under way stops with the sheet; what it found was saved as
+    /// it came in.
     pub(super) fn close(&mut self, cx: &mut Context<Self>) {
-        // A check under way stops with the sheet; what it found is kept.
-        self.save(cx);
         self.generation += 1;
         cx.emit(AuditEvent::Dismiss);
     }
