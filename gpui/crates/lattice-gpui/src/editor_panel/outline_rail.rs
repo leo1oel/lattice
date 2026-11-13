@@ -91,6 +91,8 @@ pub struct OutlineRail {
     pages: Option<Pages>,
     pages_task: Option<Task<()>>,
     pub(super) list: ScrollHandle,
+    /// Just opened: the list scrolls the current row to its middle.
+    pub(super) center_current: bool,
     /// The marks' bounds as last drawn.
     marks_bounds: std::rc::Rc<std::cell::Cell<Option<gpui::Bounds<Pixels>>>>,
 }
@@ -126,6 +128,7 @@ impl OutlineRail {
             pages: None,
             pages_task: None,
             list: ScrollHandle::new(),
+            center_current: false,
             marks_bounds: Default::default(),
         }
     }
@@ -275,6 +278,7 @@ impl OutlineRail {
         self.open = open;
         if open {
             self.opened += 1;
+            self.center_current = true;
             self.read_pages(cx);
         } else {
             self.over_panel = false;

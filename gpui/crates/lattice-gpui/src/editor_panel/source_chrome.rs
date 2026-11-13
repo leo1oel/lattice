@@ -91,6 +91,7 @@ impl EditorPanel {
             .update(cx, |lattice, cx| lattice.set_end_clearance(clearance, cx));
         let width = self.editor_width.clone();
         let rail = self.rail.clone();
+        let this = cx.entity().downgrade();
         div()
             .id("lattice-source")
             .relative()
@@ -100,12 +101,11 @@ impl EditorPanel {
             // current section, unless it is on the rail.
             .capture_any_mouse_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
             .capture_key_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
-            .on_scroll(cx.listener(|this, _, _, cx| this.release_rail(cx)))
             .child(self.lattice.clone())
             .children(self.rail.clone())
             .child(
                 gpui::canvas(
-                    move |bounds, _, cx| {
+                    move |bounds, window, cx| {
                         let new = bounds.size.width;
                         if width.get() != Some(new) {
                             width.set(Some(new));
@@ -115,8 +115,20 @@ impl EditorPanel {
                                 });
                             }
                         }
+                        window.insert_hitbox(bounds, gpui::HitboxBehavior::Normal)
                     },
-                    |_, _, _, _| {},
+                    // A wheel over the source ends the hold too. Zed and the
+                    // gutter stop a wheel that scrolls them, so the release
+                    // listens before them, in the capture phase.
+                    move |_, hitbox, window, _| {
+                        window.on_mouse_event(move |_: &gpui::ScrollEvent, phase, window, cx| {
+                            if phase == gpui::DispatchPhase::Capture
+                                && hitbox.should_handle_scroll(window)
+                            {
+                                this.update(cx, |this, cx| this.release_rail(cx)).ok();
+                            }
+                        });
+                    },
                 )
                 .absolute()
                 .top_0()

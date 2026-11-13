@@ -88,6 +88,7 @@ impl OutlineRail {
         .radius(shape::MENU.inner());
         // The number column: 2.5ch of the body face.
         let number_column = shaped_width("0", TextRole::Body, None, window, cx) * 2.5;
+        let center = std::mem::take(&mut self.center_current);
         let rows: Vec<AnyElement> = self
             .outline()
             .entries
@@ -111,6 +112,7 @@ impl OutlineRail {
                 };
                 let row = div()
                     .id(("outline-rail-row", index))
+                    .relative()
                     .flex()
                     .items_center()
                     .gap(px(8.))
@@ -160,6 +162,19 @@ impl OutlineRail {
                             .text_color(palette.text_secondary)
                             .child(format!("p.{page}"))
                     }))
+                    .when(selected && center, |row| {
+                        let list = self.list.clone();
+                        row.child(
+                            gpui::canvas(
+                                move |bounds, window, _| center_row(&list, bounds, window),
+                                |_, _, _, _| {},
+                            )
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .size_full(),
+                        )
+                    })
                     .tooltip(move |_, cx| LatticeTooltip::view(tooltip.clone(), None, cx))
                     .when(!leaving, |row| {
                         row.on_click(cx.listener(move |this, _, _, cx| this.choose(index, cx)))
@@ -255,5 +270,18 @@ impl OutlineRail {
                 .child(body)
                 .into_any_element(),
         )
+    }
+}
+
+/// Scroll `list` so the row drawn at `row` sits in its middle, as the Tauri
+/// outline opens (`scrollTop = offsetTop - (clientHeight - offsetHeight) / 2`).
+fn center_row(list: &gpui::ScrollHandle, row: gpui::Bounds<gpui::Pixels>, window: &mut Window) {
+    let viewport = list.bounds();
+    let offset = list.offset();
+    let top = row.top() - viewport.top() - offset.y;
+    let target = (top - (viewport.size.height - row.size.height) / 2.).max(px(0.));
+    if -target != offset.y {
+        list.set_offset(point(offset.x, -target));
+        window.refresh();
     }
 }
