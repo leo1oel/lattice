@@ -14,7 +14,7 @@ use std::{collections::HashMap, path::PathBuf};
 use gpui::{
     AnyElement, App, AppContext as _, Context, DragMoveEvent, Entity, Focusable as _,
     InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
-    StatefulInteractiveElement as _, Styled as _, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_ui::{ActiveLattice as _, Icon, components::Segmented};
 
@@ -315,17 +315,29 @@ impl EditorPanel {
                 let palette = cx.palette().clone();
                 let width = views.width.clone();
                 let ratio = cx.try_global::<SplitRatio>().copied().unwrap_or_default().0;
-                let (source_width, _) = split_widths(f32::from(width.get()), ratio);
+                let (source_width, preview_width) = split_widths(f32::from(width.get()), ratio);
+                let measured_once = width.get() > px(0.);
                 let strong = views.divider_hovered || views.dragging;
                 let measured = width.clone();
+                let panel = cx.entity().downgrade();
                 div()
                     .id("document-split")
                     .size_full()
                     .flex()
                     .relative()
                     .child(
+                        // A new width draws again: the first frame of a split
+                        // has no width yet, and lays its columns out on none.
                         gpui::canvas(
-                            move |bounds, _, _| measured.set(bounds.size.width),
+                            move |bounds, _, cx| {
+                                if measured.get() != bounds.size.width {
+                                    measured.set(bounds.size.width);
+                                    let panel = panel.clone();
+                                    cx.defer(move |cx| {
+                                        panel.update(cx, |_, cx| cx.notify()).ok();
+                                    });
+                                }
+                            },
                             |_, _, _, _| {},
                         )
                         .absolute()
@@ -387,7 +399,19 @@ impl EditorPanel {
                                     .on_drag(SplitDrag, |drag, _, _, cx| cx.new(|_| drag.clone())),
                             ),
                     )
-                    .child(div().flex_1().min_w_0().h_full().child(preview))
+                    // The preview's own width, as the source has: a column
+                    // only stretched to fill leaves wrapped text (a
+                    // bibliography's) without a width to wrap at.
+                    .child(
+                        div()
+                            .min_w_0()
+                            .h_full()
+                            .when(measured_once, |column| {
+                                column.flex_none().w(px(preview_width))
+                            })
+                            .when(!measured_once, |column| column.flex_1())
+                            .child(preview),
+                    )
                     .into_any_element()
             }
         }

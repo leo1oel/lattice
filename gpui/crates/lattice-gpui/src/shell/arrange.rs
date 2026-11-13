@@ -174,13 +174,13 @@ impl Shell {
 
     /// The keyboard to the document in front, else to the window.
     pub(crate) fn focus_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(active) = self.active_document(cx)
-            && let Some(root) = self.root(cx)
-            && let Some(editor) = self.open_editor(&root.join(active), cx)
-        {
-            window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
-        } else {
-            window.focus(&self.focus_handle, cx);
+        let editor = self
+            .active_document(cx)
+            .zip(self.root(cx))
+            .and_then(|(active, root)| self.open_editor(&root.join(active), cx));
+        match self.front_focus(editor.as_ref(), cx) {
+            Some(focus) => window.focus(&focus, cx),
+            None => window.focus(&self.focus_handle, cx),
         }
     }
 
@@ -522,18 +522,6 @@ impl Shell {
             .find_map(|panel| key_of(&panel.selected))
     }
 
-    /// The Project tree marks the document in front, whichever tab brought
-    /// it there.
-    pub(super) fn follow_active_document(&mut self, cx: &mut Context<Self>) {
-        let (Some(root), Some(active)) = (self.root(cx), self.active_document(cx)) else {
-            return;
-        };
-        let path = root.join(active);
-        self.mark_front_paper(&path, cx);
-        self.file_tree
-            .update(cx, |tree, cx| tree.set_current(Some(path), cx));
-    }
-
     /// The open documents, in tab order, with the active one.
     pub(crate) fn open_documents(&self, cx: &App) -> (String, Vec<String>) {
         let active = self.active_document(cx).unwrap_or_default();
@@ -544,5 +532,5 @@ impl Shell {
 /// A paper or PDF the Reading layout puts with the Papers library; every
 /// other document is written (`isReading`).
 pub(crate) fn is_reading(key: &str) -> bool {
-    key.starts_with("paper:") || key.to_ascii_lowercase().ends_with(".pdf")
+    super::papers::is_reader_key(key) || key.to_ascii_lowercase().ends_with(".pdf")
 }
