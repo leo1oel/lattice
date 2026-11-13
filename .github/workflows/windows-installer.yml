@@ -1,29 +1,13 @@
 name: Windows installer (experimental)
 
-# Independent of the already published Mac release. PR/manual runs never
-# publish; only the final job can write, and it executes trusted workflow code.
+# Independent of the already published Mac release. It runs after the Release
+# workflow and by hand (the way to prove a change to it; pull requests no
+# longer run it). Manual runs never publish; only the final job can write, and
+# it executes trusted workflow code.
 on:
   workflow_run:
     workflows: [Release]
     types: [completed]
-  pull_request:
-    paths:
-      - ".github/workflows/windows-installer.yml"
-      - ".github/actions/setup-pnpm/**"
-      - "scripts/*windows*"
-      - "scripts/prepare-build*"
-      - "scripts/prepare-presentation-runtime*"
-      - "scripts/check-presentation-runtime*"
-      - "scripts/app-size-report*"
-      - "scripts/check-font-leaks*"
-      - "scripts/lib/node-runtime*"
-      - "scripts/lib/windows-package*"
-      - "scripts/lib/util.mjs"
-      - "scripts/lib/runtime-prune.mjs"
-      - "scripts/synara-runtime.json"
-      - "src-tauri/tauri*.conf.json"
-      - "tools/open-slide-runtime/**"
-      - "rust-toolchain.toml"
   workflow_dispatch:
 
 permissions:
