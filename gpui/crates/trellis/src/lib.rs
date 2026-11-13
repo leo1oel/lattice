@@ -9,3 +9,6 @@
 //! see README.md and LICENSE.md.
 
 pub mod model;
+pub mod runtime;
+
+pub use runtime::engine::{Engine, Event, Options};

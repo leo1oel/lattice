@@ -10,6 +10,8 @@ pub mod tree;
 pub mod types;
 
 #[cfg(test)]
+mod requirements;
+#[cfg(test)]
 mod tests;
 
 pub use builder::{FloatSpec, LayoutSpec, PanelSpec, SplitSpec, StageSpec, ViewSpec, create_document, layout};
