@@ -98,11 +98,14 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   justify-content: center;
 }
 .latex-selection-tool button:hover { background: var(--control-active-soft); color: var(--text-primary); }
+/* A format the selection already has: pressing it again takes it off. */
+.latex-selection-tool button[aria-pressed="true"] { background: var(--toolbar-active-surface); color: var(--text-primary); }
 .latex-selection-tool button:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
 .latex-tool-menu { width: 180px; padding: 5px; }
 .latex-tool-menu button { width: 100%; min-height: 28px; border-radius: var(--radius-icon); padding: 0 var(--pad-inline-control-tight); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--gap-inline); text-align: left; font-size: var(--type-micro-size); }
 .latex-tool-menu button:hover { background: var(--control-active-soft); color: var(--text-primary); }
 .heading-menu button { justify-content: space-between; }
+.heading-menu button[aria-pressed="true"] { background: var(--toolbar-active-surface); color: var(--text-primary); }
 .heading-menu code { color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .latex-highlight-picker { width: auto; padding: 0; border: 0; border-radius: var(--radius-surface); background: transparent; box-shadow: none; }
 .link-menu { width: 250px; display: flex; align-items: end; gap: var(--gap-inline-tight); }

@@ -22,6 +22,7 @@ import { useExitPicture } from "../../components/ui/exit-picture";
 import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { Tip } from "../../components/icon-tip";
 import { HighlightPalette } from "./highlight-palette";
+import type { LatexSelectionFormats } from "./latex-format-toggle";
 import { highlighterOf, rememberHighlight, useHighlightPrefs } from "./highlighters";
 import { Input } from "../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
@@ -91,6 +92,8 @@ type ToolsProps = {
   canProofread?: boolean;
   /** The colour of the highlight around the selection (`latex-highlights.ts`), or null outside one. */
   highlight?: string | null;
+  /** The formats the selection is already in (`latex-format-toggle.ts`): their buttons show pressed, and take them off. */
+  formats?: LatexSelectionFormats | null;
   /** The selection's text and the document's highlight colours, for the custom picker. */
   sample?: string;
   documentColors?: readonly string[];
@@ -102,7 +105,7 @@ export function LatexSelectionToolbar(props: ToolsProps & {
   onDismiss: () => void;
 }) {
   const { t } = useLingui();
-  const { position, onDismiss, canComment, commentOnly, canProofread, highlight, sample, documentColors, onAction } = props;
+  const { position, onDismiss, canComment, commentOnly, canProofread, highlight, formats, sample, documentColors, onAction } = props;
   // It grows from the selection as every popup does and, gone, fades where it stood.
   const anchorRef = useRef<HTMLDivElement | null>(null);
   useExitPicture([anchorRef]);
@@ -142,6 +145,7 @@ export function LatexSelectionToolbar(props: ToolsProps & {
         commentOnly={commentOnly}
         canProofread={canProofread}
         highlight={highlight}
+        formats={formats}
         sample={sample}
         documentColors={documentColors}
         onAction={onAction}
@@ -171,6 +175,13 @@ function SelectionTools(props: ToolsProps) {
     setHighlightOpen(false);
   };
   const canAskAgent = Boolean(props.canProofread) && !props.commentOnly;
+  const { formats } = props;
+  const pressed = (action: LatexSelectionAction) => {
+    if (!formats) return undefined;
+    if (action === "quote") return formats.quote;
+    return action === "bold" || action === "italic" || action === "underline" || action === "strikethrough"
+      ? formats.inline.has(action) : undefined;
+  };
   const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
     : action === "proofread" || action === "polish" ? canAskAgent : !props.commentOnly);
   // The palette's Rewrite selection… opens the menu its button opens.
@@ -185,7 +196,7 @@ function SelectionTools(props: ToolsProps) {
         return (
           <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
             <Tip label={shortcut ? <>{label} <kbd>{shortcut}</kbd></> : label} side="top">
-              <button type="button" aria-label={label} onClick={() => onAction(action)}>
+              <button type="button" aria-label={label} aria-pressed={pressed(action)} onClick={() => onAction(action)}>
                 <Icon size={14} strokeWidth={1.8} />
               </button>
             </Tip>
@@ -214,7 +225,7 @@ function SelectionTools(props: ToolsProps) {
       <span className="latex-selection-tool separated">
         <Popover open={linkOpen} onOpenChange={setLinkOpen}>
           <Tip label={t`Link`} side="top">
-            <PopoverTrigger asChild><button type="button" aria-label={t`Link`}><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+            <PopoverTrigger asChild><button type="button" aria-label={t`Link`} aria-pressed={formats ? formats.link : undefined}><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
           </Tip>
           <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu link-menu ${selectionToolbarMenuClassName}`}>
             <label>{t`Link URL`}<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
@@ -227,11 +238,12 @@ function SelectionTools(props: ToolsProps) {
       <span className="latex-selection-tool">
         <Popover>
           <Tip label={t`Heading level`} side="top">
-            <PopoverTrigger asChild><button type="button" aria-label={t`Heading level`}><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+            <PopoverTrigger asChild><button type="button" aria-label={t`Heading level`} aria-pressed={formats ? Boolean(formats.heading) : undefined}><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
           </Tip>
           <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu heading-menu fluid-hover-surface ${selectionToolbarMenuClassName}`}>
             <FluidHoverSurface selector=".heading-menu > button" follow={null} />
-            {headingLevels.map(({ command, label }) => <button key={command} type="button" onClick={() => onAction("heading", command)}><span>{i18n._(label)}</span><code>\{command}</code></button>)}
+            {/* The selection's own level is pressed: choosing it again makes the text plain. */}
+            {headingLevels.map(({ command, label }) => <button key={command} type="button" aria-pressed={formats ? formats.heading === command : undefined} onClick={() => onAction("heading", command)}><span>{i18n._(label)}</span><code>\{command}</code></button>)}
           </PopoverContent>
         </Popover>
       </span>

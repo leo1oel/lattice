@@ -1,6 +1,9 @@
-import type { TransactionSpec } from "@codemirror/state";
+import type { Text, TransactionSpec } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { wrapRange } from "../editor/latex/latex-edits";
+import {
+  setLatexHeading, setLatexLink, toggleLatexInline, toggleLatexQuote, type FormatEdit,
+} from "../editor/latex/latex-format-toggle";
 import { highlightAround, highlightOpening, recolorHighlight, removeHighlight } from "../editor/latex/latex-highlights";
 import type { LatexSelectionAction } from "../editor/latex/latex-selection-toolbar";
 import {
@@ -19,21 +22,29 @@ export function editAndFocus(view: EditorView, spec: TransactionSpec) {
   view.focus();
 }
 
-/** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
-const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "rewrite" | "unhighlight">, (value?: string) => [string, string] | null> = {
-  bold: () => ["\\textbf{", "}"],
-  italic: () => ["\\textit{", "}"],
-  underline: () => ["\\underline{", "}"],
-  strikethrough: () => ["\\sout{", "}"],
-  highlight: (value) => [highlightOpening(value ?? ""), "}"],
-  heading: (value) => [`\\${value || "section"}{`, "}"],
-  quote: () => ["\\begin{quote}\n", "\n\\end{quote}"],
-  link: (value) => {
-    const url = value?.trim();
-    if (!url) return null;
-    // eslint-disable-next-line lingui/no-unlocalized-strings -- percent-encodings
-    const safeUrl = url.replace(/\\/g, "%5C").replace(/\{/g, "%7B").replace(/\}/g, "%7D");
-    return [`\\href{${safeUrl}}{`, "}"];
+/** The URL the toolbar's Link writes, its backslashes and braces percent-encoded so `\href` reads it. */
+function linkTarget(value?: string): string | null {
+  const url = value?.trim();
+  if (!url) return null;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- percent-encodings
+  return url.replace(/\\/g, "%5C").replace(/\{/g, "%7B").replace(/\}/g, "%7D");
+}
+
+/**
+ * The toolbar's formats, each a toggle (latex-format-toggle.ts): a selection
+ * already bold loses Bold rather than gaining a second `\textbf`. Null
+ * declines the edit.
+ */
+const SELECTION_FORMATS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "rewrite" | "highlight" | "unhighlight">, (doc: Text, from: number, to: number, value?: string) => FormatEdit | null> = {
+  bold: (doc, from, to) => toggleLatexInline(doc, from, to, "bold"),
+  italic: (doc, from, to) => toggleLatexInline(doc, from, to, "italic"),
+  underline: (doc, from, to) => toggleLatexInline(doc, from, to, "underline"),
+  strikethrough: (doc, from, to) => toggleLatexInline(doc, from, to, "strikethrough"),
+  heading: (doc, from, to, value) => setLatexHeading(doc, from, to, value || "section"),
+  quote: (doc, from, to) => toggleLatexQuote(doc, from, to),
+  link: (doc, from, to, value) => {
+    const url = linkTarget(value);
+    return url ? setLatexLink(doc, from, to, url) : null;
   },
 };
 
@@ -62,8 +73,11 @@ export function applySourceSelectionEdit(view: EditorView, action: Exclude<Sourc
     }
     if (action === "unhighlight") return;
   }
-  const wrap = SELECTION_WRAPS[action](value);
-  if (!wrap) return;
-  const edit = wrapRange(view.state.doc.toString(), range.from, range.to, ...wrap);
-  editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
+  if (action === "highlight") {
+    const edit = wrapRange(view.state.doc.toString(), range.from, range.to, highlightOpening(value ?? ""), "}");
+    editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
+    return;
+  }
+  const edit = SELECTION_FORMATS[action](view.state.doc, range.from, range.to, value);
+  if (edit) editAndFocus(view, edit);
 }

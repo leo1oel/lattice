@@ -17,11 +17,10 @@ import { wrapEnvironment } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
-import { LatexSelectionToolbar } from "../editor/latex/latex-selection-toolbar";
 import { openRewriteMenu } from "../editor/latex/selection-toolbar-placement";
 import { documentHighlightColors } from "../editor/latex/latex-highlights";
 import { applySourceSelectionEdit, editAndFocus, type SourceSelectionAction } from "./source-selection-edits";
-import { MarkdownSourceToolbar } from "./markdown-source-toolbar";
+import { SourceSelectionToolbar } from "./source-selection-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
@@ -1092,27 +1091,17 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
         onClose={() => setFigureInsertPending(null)}
         onInsert={confirmFigureInsert}
       />
-      {selectionToolbar && selectedText.trim() && !commentComposer && (selectionToolbar.format ? (
-        <MarkdownSourceToolbar
-          position={selectionToolbar.position}
-          format={selectionToolbar.format}
-          editable={props.document.editorEditable}
-          onAction={applySelectionAction}
-          onDismiss={dismissSelectionToolbar}
-        />
-      ) : (
-        <LatexSelectionToolbar
-          position={selectionToolbar.position}
-          canComment
-          canProofread={isLatexSourcePath(activeFile) && Boolean(props.preferences.projectRoot)}
-          highlight={selectionToolbar.highlight}
+      {selectionToolbar && selectedText.trim() && !commentComposer && (
+        <SourceSelectionToolbar
+          placement={selectionToolbar}
           sample={selectedText}
+          editable={props.document.editorEditable}
+          canProofread={isLatexSourcePath(activeFile) && Boolean(props.preferences.projectRoot)}
           documentColors={documentColors}
-          commentOnly={!props.document.editorEditable}
           onAction={applySelectionAction}
           onDismiss={dismissSelectionToolbar}
         />
-      ))}
+      )}
     </div>
   );
   const preview = props.document.activeAsset ? assetPreview(props.document.activeAsset)

@@ -418,6 +418,21 @@ describe("LaTeX editor keys", () => {
     expect(doc(view)).toBe("say \\emph{$word$} here");
   });
 
+  it("toggles bold, emphasis and inline math off when pressed again, never nesting them", () => {
+    const view = hostedView("say word here", 4, 8);
+    chord(view, "b");
+    expect(doc(view)).toBe("say \\textbf{word} here");
+    chord(view, "b");
+    expect(doc(view)).toBe("say word here");
+    chord(view, "i");
+    chord(view, "i");
+    expect(doc(view)).toBe("say word here");
+    chord(view, "M", { shiftKey: true });
+    chord(view, "M", { shiftKey: true });
+    expect(doc(view)).toBe("say word here");
+    expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe("word");
+  });
+
   it("selects the environment around the caret even after a search, and replaces only in the find bar", () => {
     const text = "\\begin{itemize}\n  \\item a\n\\end{itemize}\n";
     const view = hostedView(text, 20, 20);

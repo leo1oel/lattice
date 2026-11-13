@@ -8,13 +8,13 @@
 
 /** How a text-styling command draws its argument. */
 export type TextStyle =
-  | "bold" | "italic" | "emph" | "mono" | "underline" | "smallcaps" | "sans" | "roman" | "slanted" | "upright"
+  | "bold" | "italic" | "emph" | "mono" | "underline" | "strike" | "smallcaps" | "sans" | "roman" | "slanted" | "upright"
   | "footnote" | "link";
 
 /** Commands whose one braced argument is styled text: `\textbf{…}`. */
 export const STYLE_COMMANDS: ReadonlyMap<string, TextStyle> = new Map([
   ["textbf", "bold"], ["textit", "italic"], ["emph", "emph"], ["texttt", "mono"], ["underline", "underline"],
-  ["uline", "underline"], ["textsc", "smallcaps"], ["textsf", "sans"], ["textrm", "roman"], ["textsl", "slanted"],
+  ["uline", "underline"], ["sout", "strike"], ["textsc", "smallcaps"], ["textsf", "sans"], ["textrm", "roman"], ["textsl", "slanted"],
   ["textup", "upright"], ["textmd", "upright"], ["textnormal", "upright"], ["footnote", "footnote"], ["url", "link"],
 ]);
 

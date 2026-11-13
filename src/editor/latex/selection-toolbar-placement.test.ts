@@ -55,6 +55,16 @@ describe("selectionToolbarPlacement", () => {
     expect(highlightAround).toHaveBeenCalledTimes(2);
   });
 
+  it("reads the formats a LaTeX selection already has, for the toolbar's pressed buttons", () => {
+    const editor = sourceView("Hello \\textbf{\\emph{bold}} world");
+    editor.dispatch({ selection: { anchor: 20, head: 24 } });
+    const formats = selectionToolbarPlacement(editor, "main.tex")!.latexFormats!;
+    expect([...formats.inline].sort()).toEqual(["bold", "italic"]);
+    editor.dispatch({ selection: { anchor: 0, head: 5 } });
+    expect([...selectionToolbarPlacement(editor, "main.tex")!.latexFormats!.inline]).toEqual([]);
+    expect(selectionToolbarPlacement(editor, "notes.md")!.latexFormats).toBeNull();
+  });
+
   it("stays hidden while an input method composes over a selected range", () => {
     const editor = sourceView("Hello world");
     editor.dispatch({ selection: { anchor: 5 } });

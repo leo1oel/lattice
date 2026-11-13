@@ -1,6 +1,7 @@
 import type { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { clamp } from "../../lib/clamp";
+import { latexSelectionFormats, type LatexSelectionFormats } from "./latex-format-toggle";
 import { highlightAround } from "./latex-highlights";
 import type { LatexSelectionToolbarPosition } from "./latex-selection-toolbar";
 import { markdownSelectionFormat, type MarkdownSelectionFormat } from "../markdown/markdown-source-format";
@@ -11,6 +12,8 @@ export type SelectionToolbarPlacement = {
   highlight: string | null;
   /** What a Markdown selection already is, for the Markdown toolbar's pressed buttons; null for LaTeX. */
   format: MarkdownSelectionFormat | null;
+  /** What a LaTeX selection already is, for the LaTeX toolbar's pressed buttons; null for Markdown. */
+  latexFormats: LatexSelectionFormats | null;
   from: number;
   to: number;
   /** The document and file the selection was read in. */
@@ -84,11 +87,13 @@ export function selectionToolbarPlacement(
     return samePosition(previous.position, position) ? previous : { ...previous, position };
   }
   // A highlight around the selection: the palette ticks its colour and offers Remove.
-  const highlight = path.endsWith(".tex") ? highlightAround(view.state.doc, range.from, range.to) : null;
+  const latex = path.endsWith(".tex");
+  const highlight = latex ? highlightAround(view.state.doc, range.from, range.to) : null;
   return {
     position,
     highlight: highlight ? highlight.color ?? "" : null,
     format: markdown ? markdownSelectionFormat(view.state) : null,
+    latexFormats: latex ? latexSelectionFormats(view.state.doc, range.from, range.to) : null,
     from: range.from,
     to: range.to,
     doc: view.state.doc,
