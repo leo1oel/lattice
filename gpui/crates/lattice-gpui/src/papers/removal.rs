@@ -31,15 +31,29 @@ impl PapersPanel {
         cx.emit(PapersEvent::Remove(Box::new(paper.clone())));
     }
 
-    /// `remove`, once what the editors held is on disk.
-    pub(crate) fn remove_saved(&mut self, paper: &PaperSummary, cx: &mut Context<Self>) {
+    /// `remove`, once what the editors held is on disk, in the project at
+    /// `root` it was asked in. A switch to another project while it saves,
+    /// scans or asks drops it (`operationIsCurrent`).
+    pub(crate) fn remove_saved(
+        &mut self,
+        paper: &PaperSummary,
+        root: std::path::PathBuf,
+        cx: &mut Context<Self>,
+    ) {
         let Some(key) = paper.citation_key.clone() else {
             return;
         };
-        let Some(root) = self.root.clone() else {
+        if self.root.as_ref() != Some(&root) {
             return;
-        };
+        }
         let view = cx.entity().downgrade();
+        let current = {
+            let (view, root) = (view.clone(), root.clone());
+            move |cx: &App| {
+                view.upgrade()
+                    .is_some_and(|view| view.read(cx).root.as_ref() == Some(&root))
+            }
+        };
         let title = paper.title.clone();
         let preview_root = root.clone();
         let preview_key = key.clone();
@@ -49,10 +63,14 @@ impl PapersPanel {
         cx.spawn(async move |_, cx| {
             let preview = preview.await;
             cx.update(|cx| match preview {
+                _ if !current(cx) => {}
                 Err(error) => notices::error(t!("Could not remove the paper"), error, cx),
                 Ok(preview) => {
                     let question = t!("Remove “{title}” from the bibliography?", title = title);
                     let run = move |mode: CitationRemovalMode, cx: &mut App| {
+                        if !current(cx) {
+                            return;
+                        }
                         let (root, key) = (root.clone(), key.clone());
                         let view = view.clone();
                         let removal = cx.background_spawn(async move {

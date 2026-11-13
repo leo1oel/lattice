@@ -71,7 +71,8 @@ pub fn bucket(result: Option<&Finding>, applied: bool, kept: bool) -> Bucket {
     Bucket::Incomplete
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// In the order the Fix list shows them: what Apply all takes first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FixGroup {
     Published,
     Cosmetic,

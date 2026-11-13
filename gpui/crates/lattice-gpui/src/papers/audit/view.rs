@@ -38,7 +38,13 @@ fn mark(bucket: Bucket, checking: bool, palette: &Palette) -> (Icon, Hsla) {
 }
 
 impl Audit {
-    fn pills(&self, counts: &[(Bucket, usize)], cx: &mut Context<Self>) -> AnyElement {
+    /// `view`: the filter the list shows, as `render` settled it.
+    fn pills(
+        &self,
+        counts: &[(Bucket, usize)],
+        view: Option<Bucket>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let total = self.entries.len();
         let pill = |id: SharedString,
@@ -72,7 +78,7 @@ impl Audit {
             "audit-all".into(),
             t!("All").into(),
             total,
-            self.view.is_none(),
+            view.is_none(),
             None,
             cx,
         ));
@@ -81,7 +87,7 @@ impl Audit {
                 SharedString::from(format!("audit-{bucket:?}")),
                 bucket.label().into(),
                 *count,
-                self.view == Some(*bucket),
+                view == Some(*bucket),
                 Some(*bucket),
                 cx,
             ));
@@ -293,7 +299,7 @@ impl Audit {
                                             .truncate()
                                             .text_role(TextRole::Body, cx)
                                             .text_color(palette.text)
-                                            .child(entry.title.clone()),
+                                            .child(super::entry_title(entry)),
                                     ),
                             )
                             .when(!message.is_empty(), |text| {
@@ -574,18 +580,30 @@ impl Render for Audit {
                 )
             })
             .collect();
-        // A filter whose last finding was resolved falls back to everything.
+        // A filter whose last finding was resolved falls back to everything,
+        // and stays there (`shownView`).
         let view = self.view.filter(|view| {
             counts
                 .iter()
                 .any(|(bucket, count)| bucket == view && *count > 0)
         });
+        self.view = view;
         let shown: Vec<usize> = Bucket::ORDER
             .iter()
             .filter(|bucket| view.is_none_or(|view| view == **bucket))
             .flat_map(|bucket| {
-                let buckets = &buckets;
-                (0..buckets.len()).filter(move |index| buckets[*index] == *bucket)
+                let mut indexes: Vec<usize> = (0..buckets.len())
+                    .filter(|index| buckets[*index] == *bucket)
+                    .collect();
+                // Fixes Apply all takes first, a disputed one last.
+                if *bucket == Bucket::Fix {
+                    indexes.sort_by_key(|index| {
+                        self.results
+                            .get(index)
+                            .map(|result| super::fix_group(&result.changes))
+                    });
+                }
+                indexes
             })
             .collect();
         let count = |bucket: Bucket| {
@@ -652,7 +670,7 @@ impl Render for Audit {
             body.push(bar(&counts, &palette));
         }
         if total > 0 && count(Bucket::Unchecked) < total {
-            body.push(self.pills(&counts, cx));
+            body.push(self.pills(&counts, view, cx));
         }
         if total > 0 {
             let mut list = div()

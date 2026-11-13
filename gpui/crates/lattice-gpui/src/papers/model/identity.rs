@@ -153,11 +153,27 @@ fn web_url(value: Option<&str>) -> Option<WebUrl<'_>> {
     })
 }
 
+/// The DOI's resolver page, each part of the DOI escaped as
+/// `encodeURIComponent` does (`doiUrl`): a `#` or `<` in a DOI is part of it,
+/// not of the address.
 fn doi_url(doi: Option<&str>) -> Option<String> {
     let doi = doi?.trim();
-    BARE_DOI
-        .is_match(doi)
-        .then(|| format!("https://doi.org/{doi}"))
+    BARE_DOI.is_match(doi).then(|| {
+        let path: Vec<String> = doi.split('/').map(encode_component).collect();
+        format!("https://doi.org/{}", path.join("/"))
+    })
+}
+
+fn encode_component(part: &str) -> String {
+    let mut out = String::with_capacity(part.len());
+    for byte in part.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 
 /// Where a paper lives on the web, to read it there: its DOI's resolver,
@@ -171,19 +187,6 @@ pub fn link_url(paper: &PaperSummary) -> Option<String> {
         return Some(format!("https://arxiv.org/abs/{id}"));
     }
     web_url(paper.url.as_deref()).map(|url| url.href.to_string())
-}
-
-/// Whether the paper's own PDF is on the web (arXiv, or a cited `.pdf`).
-fn has_pdf_url(paper: &PaperSummary) -> bool {
-    if ARXIV_ID.is_match(&paper.arxiv_id) {
-        return true;
-    }
-    web_url(paper.url.as_deref()).is_some_and(|url| {
-        url.host
-            .trim_start_matches("www.")
-            .eq_ignore_ascii_case("alphaxiv.org")
-            || url.path.to_ascii_lowercase().ends_with(".pdf")
-    })
 }
 
 /// The paper's own PDF on the web (`paperPdfUrl`): arXiv's, alphaXiv's, or
@@ -237,10 +240,11 @@ pub fn can_download(paper: &PaperSummary) -> bool {
 
 /// A page cited by its address: no arXiv preprint, no DOI, not a PDF.
 pub fn is_web_page(paper: &PaperSummary) -> bool {
-    let Some(url) = paper.url.as_deref() else {
+    let Some(url) = paper.url.as_deref().filter(|url| !url.is_empty()) else {
         return false;
     };
-    if paper.doi.is_some() || has_pdf_url(paper) {
+    if paper.doi.as_deref().is_some_and(|doi| !doi.is_empty()) || ARXIV_ID.is_match(&paper.arxiv_id)
+    {
         return false;
     }
     !url.to_ascii_lowercase()
@@ -359,6 +363,33 @@ pub fn health_title(health: Option<&CitationHealth>) -> Option<String> {
 mod tests {
     use super::*;
     use crate::papers::model::test_support::{paper, with};
+
+    #[test]
+    fn a_doi_link_escapes_what_a_url_would_read_otherwise() {
+        let p = with(paper("x"), |p| p.doi = Some("10.1000/abc#1<2>".into()));
+        assert_eq!(
+            link_url(&p).as_deref(),
+            Some("https://doi.org/10.1000/abc%231%3C2%3E")
+        );
+    }
+
+    #[test]
+    fn an_alphaxiv_page_or_an_empty_doi_still_reads_as_a_web_page() {
+        let overview = with(paper("x"), |p| {
+            p.url = Some("https://www.alphaxiv.org/overview/2401.00001".into());
+            p.doi = Some(String::new());
+        });
+        assert!(is_web_page(&overview));
+        let pdf = with(paper("x"), |p| {
+            p.url = Some("https://example.com/a.PDF?x=1".into())
+        });
+        assert!(!is_web_page(&pdf));
+        let preprint = with(paper("x"), |p| {
+            p.arxiv_id = "1706.03762".into();
+            p.url = Some("https://example.com/".into());
+        });
+        assert!(!is_web_page(&preprint));
+    }
 
     #[test]
     fn authors_read_as_people() {

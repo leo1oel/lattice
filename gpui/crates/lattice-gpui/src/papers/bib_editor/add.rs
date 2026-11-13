@@ -128,8 +128,15 @@ impl AddReference {
                 )
             })
             .collect();
-        for (_, input) in &inputs {
-            subscriptions.push(cx.observe(input, |_, _, cx| cx.notify()));
+        for (field, input) in &inputs {
+            let venue = *field == Field::Venue;
+            subscriptions.push(cx.observe(input, move |this, input, cx| {
+                if venue {
+                    this.entry_type =
+                        model::venue_type(&this.entry_type, &input.read(cx).value()).to_string();
+                }
+                cx.notify()
+            }));
         }
         Self {
             target,

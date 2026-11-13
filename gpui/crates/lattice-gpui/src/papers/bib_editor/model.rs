@@ -486,6 +486,17 @@ pub fn fields_from_query(query: &str) -> Option<QueryFill> {
     (!value.is_empty()).then(|| QueryFill::Title(value.to_string()))
 }
 
+/// The type an entry is saved as once it names `venue` (`chooseVenue`): a
+/// preprint (@misc) with a venue becomes @inproceedings, so the venue is
+/// written as its booktitle rather than dropped.
+pub fn venue_type<'a>(entry_type: &'a str, venue: &str) -> &'a str {
+    if entry_type == "misc" && !venue.trim().is_empty() {
+        "inproceedings"
+    } else {
+        entry_type
+    }
+}
+
 /// `existing` with `entry` appended after a blank line (`appendBibEntry`);
 /// refused when the key is taken.
 pub fn append_entry(
@@ -653,6 +664,23 @@ mod tests {
             "@misc{a}\n\n@misc{b}\n"
         );
         assert!(append_entry("@misc{a}", "@misc{A}", "A", &["a".into()]).is_err());
+    }
+
+    #[test]
+    fn a_misc_entry_given_a_venue_is_saved_in_proceedings_with_it() {
+        assert_eq!(venue_type("misc", "  "), "misc");
+        assert_eq!(venue_type("article", "Nature"), "article");
+        let draft = Draft {
+            entry_type: venue_type("misc", "NeurIPS").into(),
+            key: "k".into(),
+            title: "T".into(),
+            booktitle: "NeurIPS".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            draft.format(),
+            "@inproceedings{k,\n  title = {T},\n  booktitle = {NeurIPS}\n}\n"
+        );
     }
 
     #[test]

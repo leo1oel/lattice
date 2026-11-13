@@ -427,6 +427,7 @@ impl Literature {
                                     .icon(if busy { Icon::LOADER } else { Icon::PLUS })
                                     .disabled(self.busy.is_some())
                                     .on_click(move |_, _, cx| {
+                                        cx.stop_propagation();
                                         add_view.update(cx, |this, cx| this.add(&add_hit, cx)).ok();
                                     }),
                             )
@@ -439,6 +440,7 @@ impl Literature {
                             .compact()
                             .icon(Icon::FILE_PEN_LINE)
                             .on_click(move |_, _, cx| {
+                                cx.stop_propagation();
                                 cite_view
                                     .update(cx, |this, cx| this.add_citation(&cite_hit, cx))
                                     .ok();
@@ -450,6 +452,7 @@ impl Literature {
                                 .compact()
                                 .icon(Icon::EXTERNAL_LINK)
                                 .on_click(move |_, _, cx| {
+                                    cx.stop_propagation();
                                     crate::papers::model::open_link(&page, cx)
                                 }),
                         )
@@ -676,6 +679,7 @@ impl Render for Literature {
         let viewport = window.viewport_size();
         let drawer = Drawer::new("literature", t!("Discover literature"))
             .width(px(480.).min(viewport.width))
+            .track_scroll(&self.scroll)
             .on_close(move |_, cx| {
                 close.update(cx, |this, cx| this.close(cx)).ok();
             })

@@ -52,6 +52,9 @@ impl Shell {
     /// editors hold is saved first, and a save that fails stops it, as
     /// `remove-reference-action.ts` does.
     fn remove_paper(&mut self, paper: PaperSummary, cx: &mut Context<Self>) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
         let saves = Self::save_dirty(&self.open_editors(), cx);
         let papers = self.papers.downgrade();
         cx.spawn(async move |_, cx| {
@@ -73,7 +76,7 @@ impl Shell {
                 }
             }
             papers
-                .update(cx, |papers, cx| papers.remove_saved(&paper, cx))
+                .update(cx, |papers, cx| papers.remove_saved(&paper, root, cx))
                 .ok();
         })
         .detach();
