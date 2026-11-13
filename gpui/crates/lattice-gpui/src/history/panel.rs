@@ -374,7 +374,9 @@ impl HistoryPanel {
     }
 
     fn shown(&self, cx: &App) -> bool {
-        self.on_screen.as_ref().is_none_or(|on_screen| on_screen(cx))
+        self.on_screen
+            .as_ref()
+            .is_none_or(|on_screen| on_screen(cx))
     }
 
     /// Off screen, a read waits until the panel is drawn again.

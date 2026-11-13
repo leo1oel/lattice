@@ -15,7 +15,10 @@ use lattice_ui::Icon;
 use super::trellis_layout::Preset;
 
 mod appearance;
+mod key_labels;
 mod projects;
+
+pub use key_labels::keys_label;
 
 actions!(
     lattice,
@@ -609,58 +612,6 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("cmd-m", Minimize, None),
     ]);
     bindings
-}
-
-/// The keys bound to `action`, as the palette and the shortcut sheet draw
-/// them ("⌘⇧↩").
-pub fn keys_label(action: &dyn Action, window: &gpui::Window) -> Option<SharedString> {
-    let binding = window.highest_precedence_binding_for_action(action)?;
-    let mut out = String::new();
-    for keystroke in binding.keystrokes() {
-        let modifiers = keystroke.modifiers();
-        #[cfg(target_os = "macos")]
-        {
-            if modifiers.control {
-                out.push('⌃');
-            }
-            if modifiers.alt {
-                out.push('⌥');
-            }
-            if modifiers.shift {
-                out.push('⇧');
-            }
-            if modifiers.platform {
-                out.push('⌘');
-            }
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            if modifiers.control {
-                out.push_str("Ctrl+");
-            }
-            if modifiers.alt {
-                out.push_str("Alt+");
-            }
-            if modifiers.shift {
-                out.push_str("Shift+");
-            }
-        }
-        out.push_str(&key_glyph(keystroke.key()));
-    }
-    Some(out.into())
-}
-
-fn key_glyph(key: &str) -> String {
-    match key {
-        "enter" => "↩".into(),
-        "escape" => "⎋".into(),
-        "backspace" => "⌫".into(),
-        "tab" => "⇥".into(),
-        "space" => "Space".into(),
-        "/" => "/".into(),
-        "f8" => "F8".into(),
-        other => other.to_uppercase(),
-    }
 }
 
 #[cfg(test)]
