@@ -569,6 +569,17 @@ impl Run {
             area_bounds.right() - right_width / 2.,
             area_bounds.top() + area_bounds.size.height / 2.,
         );
+        // The notices stack at the bottom right, over the right dock: with
+        // the Clean, package and TeX installs just before, their cards can
+        // cover the PDF's middle on a 768px CI screen and take the drop.
+        // Close them first, as the writer would.
+        let notices = cx.update(|cx| {
+            let stack = crate::notices::install(cx);
+            let titles = stack.read(cx).titles();
+            stack.update(cx, |stack, cx| stack.clear(cx));
+            titles
+        });
+        self.pause(cx, Duration::from_millis(200)).await;
         let native = self.native(cx)?;
         native::send_mouse(native, native::Mouse::Down, from)?;
         super::sleep(cx, Duration::from_millis(50)).await;
@@ -588,7 +599,7 @@ impl Run {
         let moved = right.contains("EditorPanel") && right.contains("PdfPanel");
         Ok((
             moved,
-            json!({ "from": [f32::from(from.x), f32::from(from.y)], "to": [f32::from(to.x), f32::from(to.y)], "right_dock": state["right_dock"] }),
+            json!({ "from": [f32::from(from.x), f32::from(from.y)], "to": [f32::from(to.x), f32::from(to.y)], "notices_closed": notices, "right_dock": state["right_dock"], "dock_area": state }),
         ))
     }
 }
