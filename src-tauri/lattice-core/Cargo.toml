@@ -4,7 +4,7 @@ name = "lattice-core"
 # the core reports `CARGO_PKG_VERSION` as Lattice's own, in the TeX Live
 # user agent, the terminal's TERM_PROGRAM_VERSION, TexLab's clientInfo and
 # research-env episodes.
-version = "0.16.16"
+version = "0.16.17"
 description = "Lattice's domain logic: projects, LaTeX builds, Overleaf sync, papers and the agent sidecar, shared by every shell"
 authors = ["Leonardo"]
 edition = "2021"
