@@ -25,6 +25,7 @@ mod imports;
 pub mod layout;
 pub(crate) mod menus;
 mod palette;
+mod papers;
 mod pdfs;
 mod saving;
 mod synctex;
@@ -64,6 +65,7 @@ use crate::{
     editor_panel::{EditorPanel, EditorPanelEvent},
     file_tree::FileTreePanel,
     notices::{self, NoticeStack},
+    papers::PapersPanel,
     pdf::{PdfPanel, PdfPanelKind},
     project::Project,
     stand_in_panels::{StandIn, StandInPanel},
@@ -114,7 +116,7 @@ pub struct Shell {
     dock_area: Entity<DockArea>,
     titlebar_drag: TitlebarDrag,
     file_tree: Entity<FileTreePanel>,
-    papers: Entity<StandInPanel>,
+    papers: Entity<PapersPanel>,
     agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
@@ -234,7 +236,7 @@ impl Shell {
         arrange::install_dock_hooks(cx);
         let dock_area = LatticeDock::dock_area("lattice", Some(1), window, cx);
         let file_tree = cx.new(FileTreePanel::new);
-        let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
+        let papers = cx.new(|cx| PapersPanel::new(window, cx));
         let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let build_panel = cx.new(BuildPanel::new);
@@ -263,6 +265,8 @@ impl Shell {
         })
         .detach();
         cx.subscribe_in(&file_tree, window, Self::on_tree_event)
+            .detach();
+        cx.subscribe_in(&papers, window, Self::on_papers_event)
             .detach();
         cx.subscribe_in(
             &build_panel,
@@ -396,6 +400,11 @@ impl Shell {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn file_tree(&self) -> &Entity<FileTreePanel> {
         &self.file_tree
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn papers(&self) -> &Entity<PapersPanel> {
+        &self.papers
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -533,6 +542,8 @@ impl Shell {
         self.close_root_pdfs(window, cx);
         self.live_document = project.read(cx).main_document().map(str::to_string);
         self.refresh_outline(window, cx);
+        self.papers
+            .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         window.set_window_title(&format!(
@@ -589,6 +600,7 @@ impl Shell {
         });
         self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);
+        self.mark_paper(&path, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
@@ -672,6 +684,7 @@ impl Shell {
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 let path = editor.read(cx).path().to_path_buf();
+                self.mark_paper(&path, cx);
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);

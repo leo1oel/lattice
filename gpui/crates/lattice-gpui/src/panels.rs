@@ -18,6 +18,7 @@ use crate::{
     build_panel::BuildPanel,
     editor_panel::EditorPanel,
     file_tree::FileTreePanel,
+    papers::PapersPanel,
     pdf::{PdfPanel, PdfPanelKind},
     stand_in_panels::StandInPanel,
 };
@@ -45,6 +46,8 @@ pub fn present_tabs(cx: &mut App) {
         };
         if view.clone().downcast::<FileTreePanel>().is_ok() {
             look(Icon::FOLDER_TREE, Surface::Chrome)
+        } else if view.clone().downcast::<PapersPanel>().is_ok() {
+            look(Icon::LIBRARY, Surface::Chrome)
         } else if let Ok(stand_in) = view.clone().downcast::<StandInPanel>() {
             look(stand_in.read(cx).kind().icon(), Surface::Chrome)
         } else if let Ok(pdf) = view.clone().downcast::<PdfPanel>() {

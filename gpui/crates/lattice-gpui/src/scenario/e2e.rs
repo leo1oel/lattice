@@ -14,6 +14,7 @@ mod build_flow;
 mod documents;
 mod editor_adapter;
 mod fluid;
+mod papers;
 mod pdf;
 mod saves;
 mod status_bar;
@@ -278,6 +279,7 @@ impl Run {
             steps.check(name, passed, detail);
         }
 
+        self.papers_panel(cx, &mut steps, &root).await?;
         self.closing_saves(cx, &mut steps, &root).await?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;

@@ -1,0 +1,181 @@
+//! The Papers panel on the project's own bibliography: a cited entry and a
+//! saved paper (a bundle written into the scratch copy, as an import leaves
+//! one) are listed with how often the manuscript cites each; typing narrows
+//! the list by metadata and by the saved text, whose matching lines come
+//! back under the paper; the Cited filter keeps what the manuscript cites;
+//! a click opens the paper's text and marks its row as the open one. The
+//! bibliography is put back afterwards, so the steps after this one see the
+//! project as it was. With `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the
+//! panel listing, searching and filtered, for a look review.
+
+use std::{path::Path, time::Duration};
+
+use anyhow::{Context as _, Result};
+use gpui::AsyncApp;
+use serde_json::json;
+
+use super::Steps;
+use crate::{papers::model::Filter, scenario::Run};
+
+const BUNDLE: &str = ".research/papers/1706.03762";
+const ENTRY: &str = "\n@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki},\n  journal = {NeurIPS},\n  year = {2017},\n  eprint = {1706.03762}\n}\n";
+const PAPER: &str = "---\ntitle: Attention Is All You Need\n---\n\n# Attention Is All You Need\n\n## Abstract\n\nThe dominant sequence transduction models are based on recurrent networks.\n\n## Method\n\nWe call our particular attention scaled dot-product attention.\n";
+
+impl Run {
+    pub(super) async fn papers_panel(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let bibliography = root.join("references.bib");
+        let original = std::fs::read_to_string(&bibliography)
+            .context("the e2e project needs references.bib")?;
+        std::fs::create_dir_all(root.join(BUNDLE))?;
+        std::fs::write(root.join(BUNDLE).join("paper.md"), PAPER)?;
+        std::fs::write(&bibliography, format!("{original}{ENTRY}"))?;
+        let papers = cx.update(|cx| self.shell.read(cx).papers().clone());
+
+        // The watcher sees the bibliography change; the panel reads the
+        // library again once the change settles.
+        let listed = self
+            .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                let panel = papers.read(cx);
+                panel.papers.len() == 2 && panel.uses_known()
+            })
+            .await;
+        let rows = cx.update(|cx| {
+            let panel = papers.read(cx);
+            panel
+                .papers
+                .iter()
+                .map(|paper| {
+                    json!({
+                        "title": paper.title,
+                        "uses": panel.facts.uses(paper),
+                        "fullText": paper.has_full_text,
+                    })
+                })
+                .collect::<Vec<_>>()
+        });
+        let uses_of = |title: &str| {
+            rows.iter()
+                .find(|row| row["title"] == title)
+                .map(|row| row["uses"].clone())
+        };
+        steps.check(
+            "Papers lists the bibliography with the saved text and how often the manuscript cites each",
+            listed
+                && uses_of("The TeXbook") == Some(json!(1))
+                && uses_of("Attention Is All You Need") == Some(json!(0))
+                && rows.iter().any(|row| row["fullText"] == true),
+            json!({ "rows": rows }),
+        );
+        self.papers_shot(cx, "papers-1-listed").await;
+
+        // A phrase only the saved text holds finds the paper, with its line.
+        self.with_window(cx, |_, window, cx| {
+            papers.update(cx, |panel, cx| panel.type_query("dot-product", window, cx))
+        })?;
+        let answered = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                papers.read(cx).settled(cx)
+            })
+            .await;
+        let (shown, hits) = cx.update(|cx| {
+            let panel = papers.read(cx);
+            let hits = panel
+                .current_hits(cx)
+                .map(|hits| {
+                    hits.values()
+                        .flat_map(|found| found.hits.iter().map(|hit| hit.text.clone()))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            (panel.shown_titles(cx), hits)
+        });
+        steps.check(
+            "a search finds a paper by its saved text and shows the matching line under it",
+            answered
+                && shown == ["Attention Is All You Need"]
+                && hits.iter().any(|hit| hit.contains("dot-product")),
+            json!({ "shown": shown, "hits": hits }),
+        );
+        self.papers_shot(cx, "papers-2-search").await;
+
+        // Metadata narrows at once: an author's name.
+        self.with_window(cx, |_, window, cx| {
+            papers.update(cx, |panel, cx| panel.type_query("knuth", window, cx))
+        })?;
+        self.wait_for(cx, Duration::from_secs(10), |_, cx| {
+            papers.read(cx).settled(cx)
+        })
+        .await;
+        let by_author = cx.update(|cx| papers.read(cx).shown_titles(cx));
+        steps.check(
+            "typing an author's name keeps the papers whose metadata holds it",
+            by_author == ["The TeXbook"],
+            json!({ "shown": by_author }),
+        );
+
+        // The Cited filter keeps what the manuscript cites.
+        self.with_window(cx, |_, window, cx| {
+            papers.update(cx, |panel, cx| {
+                panel.type_query("", window, cx);
+                panel.set_filter(Filter::Cited, cx);
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let cited = cx.update(|cx| papers.read(cx).shown_titles(cx));
+        self.papers_shot(cx, "papers-3-cited").await;
+        cx.update(|cx| papers.update(cx, |panel, cx| panel.set_filter(Filter::All, cx)));
+        steps.check(
+            "the Cited filter keeps the papers the manuscript cites",
+            cited == ["The TeXbook"],
+            json!({ "shown": cited }),
+        );
+
+        // A click opens the saved text and marks its row as the open one.
+        let opened = self.with_window(cx, |_, window, cx| {
+            papers.update(cx, |panel, cx| {
+                panel.open_titled("Attention Is All You Need", window, cx)
+            })
+        })?;
+        let reading = format!("{BUNDLE}/paper.md");
+        let open = self
+            .wait_for(cx, Duration::from_secs(5), |shell, cx| {
+                shell.read(cx).active_editor_path(cx).as_deref() == Some(reading.as_str())
+            })
+            .await;
+        let marked = cx.update(|cx| papers.read(cx).active_key());
+        steps.check(
+            "a click on a saved paper opens its text and marks its row as the open one",
+            opened && open && marked.as_deref() == Some("1706.03762"),
+            json!({ "opened": opened, "open": open, "marked": marked }),
+        );
+        if open {
+            self.press(cx, 'w', true).await?;
+        }
+
+        std::fs::write(&bibliography, original)?;
+        self.wait_for(cx, Duration::from_secs(15), |_, cx| {
+            papers.read(cx).papers.len() == 1
+        })
+        .await;
+        Ok(())
+    }
+
+    /// Save the window as `name` under `LATTICE_E2E_SHOTS`.
+    async fn papers_shot(&self, cx: &mut AsyncApp, name: &str) {
+        #[cfg(target_os = "macos")]
+        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
+            self.pause(cx, Duration::from_millis(300)).await;
+            let path = Path::new(&dir).join(format!("{name}.png"));
+            if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+                log::warn!("could not save {}: {error:#}", path.display());
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (cx, name);
+    }
+}
