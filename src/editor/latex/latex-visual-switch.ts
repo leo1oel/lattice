@@ -7,7 +7,7 @@
  * extension (the linters, Overleaf's layers, comments) stay as they were, and
  * the transaction carries no change, so nothing reaches a save or sync.
  */
-import { Compartment, StateEffect, type EditorState, type Extension } from "@codemirror/state";
+import { Compartment, Facet, StateEffect, type EditorState, type Extension } from "@codemirror/state";
 import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { latexView, subscribeLatexView } from "./latex-view-choice";
 import type { LatexEditorLiveData } from "./latex-editor";
@@ -26,6 +26,19 @@ export type LatexVisualHost = {
   /** Open the drawing an editable figure's entry file was made from (docs/editable-figures.md). */
   openDrawing?: (entryPath: string) => void;
 };
+
+/**
+ * Whether Visual mode draws something over the pointer at `position` (a
+ * hover's `side` says which side of it the pointer is). Visual mode provides
+ * it; the source editor's own hovers ask it and stand aside, since the
+ * pointer over a drawn chip lands on the command's source boundary, where
+ * they would describe `\cite` itself instead of what the chip shows.
+ */
+export const visualDrawnAt = Facet.define<(state: EditorState, position: number, side: -1 | 1) => boolean>();
+
+export function coveredByVisual(state: EditorState, position: number, side: -1 | 1): boolean {
+  return state.facet(visualDrawnAt).some((drawn) => drawn(state, position, side));
+}
 
 /** The project data Visual mode draws from changed (macros, the last build's numbers, citations): draw again. */
 export const latexVisualDataChanged = StateEffect.define<null>();

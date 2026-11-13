@@ -16,13 +16,15 @@
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
 import { annotationsAnswer, type MockAnnotation } from "../mock-backend/annotations";
 import { BUILD_STEPS, PREAMBLE_BUILD_STEPS, stageTypo, typoFailure, withError } from "../mock-backend/build";
-import { MOCK_MTIME, MockProject, copyBuffer, filesUnder, termMatcher } from "../mock-backend/project";
+import { MOCK_MTIME, MockProject, copyBuffer, termMatcher } from "../mock-backend/project";
 import { installTauriInternals, NOT_HANDLED, windowAnswer, type Args } from "../mock-backend/tauri-internals";
 import { textTasks } from "../mock-backend/text-tasks";
 import { arxivAnswer } from "./bench-arxiv";
 import { paintStandInDesktop } from "./bench-glass";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { bibliographyAnswer } from "./bench-bibliography";
+import { CROSSREFS_ROOT, crossrefsIndex, crossrefsProject } from "./bench-crossrefs";
+import { TUTORIAL_ROOT, tutorialFiles } from "./bench-tutorial";
 import { benchScale } from "./bench-scale";
 import { compareVersions, olderText } from "./bench-compare";
 import { addNestedTree } from "./bench-nested-tree";
@@ -63,18 +65,8 @@ const COMPARE_VERSIONS = compareVersions(params);
 
 /**
  * The project the page has open: the fixture, until the Guided tutorial entry
- * opens the bundled sample (src-tauri/templates/tutorial), as the backend's
- * `open_tutorial_project` does, so Get started can be seen here.
+ * opens the bundled sample (bench-tutorial.ts), so Get started can be seen here.
  */
-const TUTORIAL_ROOT = "/bench/Lattice Tutorials/Understanding Attention";
-const tutorialText = import.meta.glob<string>(
-  ["../../src-tauri/templates/tutorial/**/*", "!**/*.png", "!**/*.pdf"],
-  { query: "?raw", import: "default", eager: true },
-);
-const tutorialBinary = import.meta.glob<string>(
-  ["../../src-tauri/templates/tutorial/**/*.png", "../../src-tauri/templates/tutorial/**/*.pdf"],
-  { query: "?url", import: "default", eager: true },
-);
 const current = new MockProject({ root: ROOT, id: "lattice-perf-fixture", name: "Lattice perf fixture", files: fixture.files });
 // `?arxiv=long` names the project at length, for the export sheet's width checks.
 if (params.get("arxiv") === "long") current.name = "Understanding Attention in Transformer Language Models: A Long Study";
@@ -87,14 +79,16 @@ if (params.get("arxiv") === "long") current.name = "Understanding Attention in T
 const typo = params.get("build") === "typo";
 if (typo) stageTypo(current.files);
 
+async function openCrossrefs(): Promise<ProjectSnapshot> {
+  if (current.root !== CROSSREFS_ROOT) current.replace(await crossrefsProject());
+  return snapshot();
+}
+
 async function openTutorial(): Promise<ProjectSnapshot> {
   if (current.root !== TUTORIAL_ROOT) {
-    const tutorialFiles = new Map<string, string | Uint8Array>(filesUnder("tutorial", tutorialText));
-    for (const [path, url] of filesUnder("tutorial", tutorialBinary)) {
-      tutorialFiles.set(path, new Uint8Array(await (await fetch(url)).arrayBuffer()));
-    }
-    if (typo) stageTypo(tutorialFiles);
-    current.replace({ root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files: tutorialFiles });
+    const files = await tutorialFiles();
+    if (typo) stageTypo(files);
+    current.replace({ root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files });
   }
   return snapshot();
 }
@@ -340,7 +334,12 @@ function answer(command: string, args: Args): unknown {
   if (zotero !== NOT_HANDLED) return zotero;
   const shell = terminalAnswer(command, args, () => current);
   if (shell !== NOT_HANDLED) return shell;
-  const bibliography = bibliographyAnswer(command, args, { params, files: current.files, cited: current.root === TUTORIAL_ROOT || Boolean(scale.bibEntries) });
+  const bibliography = bibliographyAnswer(command, args, {
+    params,
+    files: current.files,
+    cited: current.root === TUTORIAL_ROOT || current.root === CROSSREFS_ROOT || Boolean(scale.bibEntries),
+    references: current.root === CROSSREFS_ROOT ? crossrefsIndex : undefined,
+  });
   if (bibliography !== NOT_HANDLED) return bibliography;
   // `?save=fail`: every write fails as a full disk does, for the save slot's failed state.
   if (command === "write_project_file" && params.get("save") === "fail") throw new Error("No space left on device (os error 28)");
@@ -358,6 +357,7 @@ function answer(command: string, args: Args): unknown {
       return { ...args?.template as object, id: "87654321-1234-4234-8234-123456789abc" };
     case "initial_project":
       // `?tutorial=1` starts in the tutorial project, as after its Guided tutorial entry.
+      if (params.has("crossrefs")) return openCrossrefs();
       return params.has("welcome") ? null : params.has("tutorial") ? openTutorial() : snapshot();
     case "refresh_project":
     case "open_project":

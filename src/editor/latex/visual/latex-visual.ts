@@ -28,6 +28,7 @@ import { isPointerRelease, pointerSelection } from "../../pointer-selection";
 import { overlaysTouch, sourceOverlays } from "../../source-overlays";
 import { buildReplacements, buildStyles, revealedConstructs, selectionPoints } from "./visual-decorations";
 import { visualDeletion } from "./visual-deletion";
+import { visualChipNavigation } from "./visual-hover";
 import { endDocumentOf, environmentIndex, openEnvironments, preambleOf } from "./visual-environments";
 import { scanConstructs, type Construct, type ScanFrame, type Span } from "./visual-scan";
 import { DISPLAY_MATH_ENVIRONMENTS, LIST_ENVIRONMENTS, SOURCE_ENVIRONMENTS } from "./visual-symbols";
@@ -284,6 +285,8 @@ export function latexVisual(host: LatexVisualHost): Extension {
     windowPlugin,
     pointerSelection,
     EditorView.editorAttributes.of({ class: "cm-latex-visual" }),
+    // Ahead of the press handler below: a ⌘-click on a chip jumps and never freezes the reveal.
+    Prec.highest(visualChipNavigation((state) => state.field(field, false), host)),
     // Before CodeMirror reads the press: from here until the release, constructs stay as they were drawn.
     Prec.highest(EditorView.domEventHandlers({
       mousedown(event, view) {

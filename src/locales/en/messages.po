@@ -767,6 +767,10 @@ msgstr "{minutes} minutes"
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "{modifier}-click the reference to go there directly"
+msgstr "{modifier}-click the reference to go there directly"
+
 #: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "{more} more replies"
@@ -7142,6 +7146,10 @@ msgstr "go"
 msgid "Go"
 msgstr "Go"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Go to"
+msgstr "Go to"
+
 #. placeholder {0}: entry.path
 #: src/papers/bibliography-audit.tsx
 msgid "Go to {BIBITEM} in {0}"
@@ -10042,6 +10050,10 @@ msgstr "Next reference"
 msgid "Next search result"
 msgstr "Next search result"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "No \\label with this name in the project."
+msgstr "No \\label with this name in the project."
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "No abstract from this source"
 msgstr "No abstract from this source"
@@ -10127,6 +10139,10 @@ msgstr "No document open"
 #: src/build/compile-explain.ts
 msgid "No entry for {key}"
 msgstr "No entry for {key}"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "No entry with this key in the project's bibliography."
+msgstr "No entry with this key in the project's bibliography."
 
 #: src/platform/host-errors-workspace.ts
 msgid "No figure made from a drawing was found in the typeset paper."

@@ -16,6 +16,8 @@ type Context = {
   files: ProjectFiles;
   /** The project's `.bib` entries reach `list_citations`: the tutorial and a `?bibEntries=` project do; the fixture cites nothing. */
   cited: boolean;
+  /** The labels `list_references` reports, when the open project stages them (crossrefs/index.json); none otherwise. */
+  references?: unknown;
 };
 
 /**
@@ -30,7 +32,7 @@ const STAGED_SKIPPED_SOURCES = [
 ];
 
 /** The answer to a bibliography command, or `NOT_HANDLED` for any other. */
-export function bibliographyAnswer(command: string, args: Args, { params, files, cited }: Context): unknown {
+export function bibliographyAnswer(command: string, args: Args, { params, files, cited, references }: Context): unknown {
   switch (command) {
     case "resolve_citation_query":
       return citationLookupAnswer(args, params);
@@ -42,7 +44,7 @@ export function bibliographyAnswer(command: string, args: Args, { params, files,
       if (params.get("index") === "failed") throw "Permission denied (os error 13)";
       return { citations: cited ? bibliographyCitations(files) : [], skipped: [] };
     case "list_references":
-      return { references: [], skipped: params.get("index") === "skipped" ? STAGED_SKIPPED_SOURCES : [] };
+      return { references: references ?? [], skipped: params.get("index") === "skipped" ? STAGED_SKIPPED_SOURCES : [] };
     default:
       return NOT_HANDLED;
   }

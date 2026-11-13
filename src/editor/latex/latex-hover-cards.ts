@@ -7,7 +7,7 @@ import {
 import { msg } from "@lingui/core/macro";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { PaperSummary } from "../../app-types";
-import { comboText } from "../../app/key-combos";
+import { comboKeys, comboText } from "../../app/key-combos";
 import { buttonClassName } from "../../components/ui/button-styles";
 import infinityLoaderUrl from "../../components/ui/infinity-loader.svg";
 import { i18n } from "../../i18n";
@@ -18,6 +18,7 @@ import { hoverAnchor } from "../hover-anchor";
 import { citationUsesSection } from "./citation-card-uses";
 import type { CitationReasonsApi } from "./citation-reason-editor";
 import { compiledLabels } from "./compiled-labels";
+import { coveredByVisual } from "./latex-visual-switch";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationHoverTarget, graphicsHoverTarget, referenceHoverTarget, resolveProjectPath } from "./latex-symbols";
 import { visibleLatexSource } from "./latex-visible-source";
@@ -99,20 +100,31 @@ function cardButton(action: CardAction, keyboard: boolean): HTMLButtonElement {
  * (Crossref health, uses in this paper, its arXiv id or DOI) and its actions.
  * `close` ends the card before an action leaves the editor.
  */
-function citationCard(
+type CitationCardHost = {
+  keyboard: boolean;
+  close: () => void;
+  onGotoDefinition?: (target: DefinitionTarget) => void;
+  /** The key's span here, and the page its note names. */
+  target: { from: number; to: number; page?: number };
+  reasons?: CitationReasonsContext;
+  /** One of several keys in a card: its uses in the paper are left out, so the card stays short. */
+  compact?: boolean;
+};
+
+function citationCard(view: EditorView, citation: CitationInfo, data: LatexEditorLiveData, host: CitationCardHost): HTMLDivElement {
+  const dom = createHoverCard("citation-hover-card", view, 160);
+  fillCitationEntry(dom, view, citation, data, host);
+  return dom;
+}
+
+/** A citation key's entry, its facts and actions, appended to `dom`. */
+function fillCitationEntry(
+  dom: HTMLElement,
   view: EditorView,
   citation: CitationInfo,
   data: LatexEditorLiveData,
-  host: {
-    keyboard: boolean;
-    close: () => void;
-    onGotoDefinition?: (target: DefinitionTarget) => void;
-    /** The key's span here, and the page its note names. */
-    target: { from: number; to: number; page?: number };
-    reasons?: CitationReasonsContext;
-  },
-): HTMLDivElement {
-  const dom = createHoverCard("citation-hover-card", view, 160);
+  host: CitationCardHost,
+): void {
   const { onOpenCitation } = data;
   const openPaper: CardAction | undefined = onOpenCitation && data.canOpenCitation?.(citation.key)
     ? { label: i18n._(msg`Open paper`), lead: true, run: () => { host.close(); onOpenCitation(citation.key, host.target.page); } }
@@ -152,7 +164,7 @@ function citationCard(
   dom.append(facts);
   const { reasons } = host;
   const canOpen = Boolean(onOpenCitation && data.canOpenCitation?.(citation.key));
-  dom.append(citationUsesSection(view, citation.key, {
+  if (!host.compact) dom.append(citationUsesSection(view, citation.key, {
     data,
     currentPath: reasons?.currentPath ?? "",
     reasons: reasons?.api,
@@ -191,7 +203,44 @@ function citationCard(
   const bar = element("div", "citation-card-actions");
   bar.append(...actions.map((action) => cardButton(action, host.keyboard)));
   dom.append(bar);
+}
+
+/**
+ * The card for the keys of one citation command, as Visual mode shows it on
+ * its chip: one section per key, in the order written, and a key with no
+ * bibliography entry says so rather than leaving its section out. A single
+ * key gets the full card the source shows.
+ */
+export function citationKeysCard(
+  view: EditorView,
+  keys: readonly { key: string; from: number; to: number; page?: number }[],
+  data: LatexEditorLiveData,
+  host: { close: () => void; onGotoDefinition?: (target: DefinitionTarget) => void },
+): HTMLDivElement {
+  const dom = createHoverCard("citation-hover-card", view, 160);
+  const several = keys.length > 1;
+  if (several) dom.classList.add("hover-card-sections");
+  dom.setAttribute("role", "group");
+  for (const target of keys) {
+    const section = several ? element("div", "hover-card-section") : dom;
+    const citation = citationFor(data, target.key);
+    if (citation) fillCitationEntry(section, view, citation, data, { ...host, keyboard: false, target, compact: several });
+    else unresolvedEntry(section, target.key, i18n._(msg`No entry with this key in the project's bibliography.`));
+    if (several) dom.append(section);
+  }
+  if (!several) {
+    const only = keys[0];
+    dom.setAttribute("aria-label", only ? (citationFor(data, only.key)?.title || only.key) : "");
+  }
   return dom;
+}
+
+/** A key or label nothing in the project defines: the key as written and why there is nothing to show. */
+function unresolvedEntry(dom: HTMLElement, key: string, reason: string): void {
+  dom.append(element("span", "citation-card-key", key));
+  const note = element("span", "hover-card-unresolved", reason);
+  note.prepend(factIcon(["m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3", "M12 9v4", "M12 17h.01"]));
+  dom.append(note);
 }
 
 const citationFor = (data: LatexEditorLiveData, key: string) =>
@@ -218,7 +267,8 @@ export function citationTooltips(
   onGotoDefinition?: (target: DefinitionTarget) => void,
   reasons?: CitationReasonsContext,
 ): Extension {
-  return [keyboardCard, hoverTooltip((view, position) => {
+  return [keyboardCard, hoverTooltip((view, position, side) => {
+    if (coveredByVisual(view.state, position, side)) return null;
     // The suggestion menu and the card would stack over the same key, and
     // the card would vanish as the pointer crossed into the menu.
     if (reasons?.api.editing(view.state) || completionStatus(view.state) !== null) return null;
@@ -377,13 +427,87 @@ function compiledFact(data: LatexEditorLiveData, reference: ReferenceInfo, destr
   return line;
 }
 
-export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (path: string) => Promise<string | null>) {
-  return hoverTooltip((view, position) => {
+/** What a reference card needs beyond the label: the edited text, the figure loader and the jump. */
+type ReferenceCardHost = {
+  data: LatexEditorLiveData;
+  /** The edited file's text, which may hold the label's equation unsaved. */
+  text: string;
+  loadImage?: (path: string) => Promise<string | null>;
+  destroyed: () => boolean;
+  close: () => void;
+  onGotoDefinition?: (target: DefinitionTarget) => void;
+};
+
+/** A label's target, as a reference card shows it: its kind, title or caption, number, preview, file and Go to. */
+function fillReferenceEntry(dom: HTMLElement, reference: ReferenceInfo, host: ReferenceCardHost): void {
+  const { data, text, loadImage, destroyed } = host;
+  const { imagePath } = reference;
+  if (imagePath && loadImage) dom.append(figurePreview(imagePath, reference.title || reference.label, loadImage, destroyed));
+  const heading = reference.title || reference.label;
+  const title = element("strong", "", heading);
+  title.title = heading;
+  const kind = element("small");
+  kind.append(element("span", "reference-hover-kind", referenceKindLabel(reference.kind)), ` ${reference.label}`);
+  kind.title = reference.label;
+  dom.append(kind, title);
+  const fact = compiledFact(data, reference, destroyed);
+  if (fact) dom.append(fact);
+  const equation = equationBody(text, reference);
+  if (equation) dom.append(equationPreview(equation, data.katexMacros, destroyed));
+  else if (reference.snippet) dom.append(element("pre", "", reference.snippet));
+  const where = element("em", "", reference.path);
+  where.title = reference.path;
+  dom.append(where);
+  const { onGotoDefinition } = host;
+  if (!onGotoDefinition) return;
+  const goto = cardButton({
+    label: i18n._(msg`Go to`),
+    lead: true,
+    run: () => {
+      host.close();
+      onGotoDefinition({ kind: "reference", path: reference.path, line: reference.line, label: reference.label });
+    },
+  }, false);
+  const modifier = comboKeys({ key: "", mod: true })[0];
+  goto.title = i18n._(msg`${modifier}-click the reference to go there directly`);
+  const bar = element("div", "citation-card-actions");
+  bar.append(goto);
+  dom.append(bar);
+}
+
+/** The labels the project defines, the last definition of each winning, as in the project index. */
+const referencesByLabel = (data: LatexEditorLiveData) => new Map(data.references.map((item) => [item.label, item]));
+
+/**
+ * The card for the labels of one reference command (`\cref{a,b}` names two),
+ * one section per label; a label nothing defines says so.
+ */
+export function referenceKeysCard(view: EditorView, keys: readonly string[], host: ReferenceCardHost): HTMLDivElement {
+  const dom = createHoverCard("reference-hover-card", view, 180);
+  const several = keys.length > 1;
+  if (several) dom.classList.add("hover-card-sections");
+  const references = referencesByLabel(host.data);
+  for (const key of keys) {
+    const section = several ? element("div", "hover-card-section") : dom;
+    const reference = references.get(key);
+    if (reference) fillReferenceEntry(section, reference, host);
+    else unresolvedEntry(section, key, i18n._(msg`No \\label with this name in the project.`));
+    if (several) dom.append(section);
+  }
+  return dom;
+}
+
+export function referenceTooltips(
+  live: () => LatexEditorLiveData,
+  loadImage?: (path: string) => Promise<string | null>,
+  onGotoDefinition?: (target: DefinitionTarget) => void,
+) {
+  return hoverTooltip((view, position, side) => {
+    if (coveredByVisual(view.state, position, side)) return null;
     const text = view.state.doc.toString();
     const target = referenceHoverTarget(text, position);
     const data = live();
-    // The last definition of a label wins, as in the project index.
-    const reference = target && new Map(data.references.map((item) => [item.label, item])).get(target.key);
+    const reference = target && referencesByLabel(data).get(target.key);
     if (!target || !reference) return null;
     return {
       pos: target.from,
@@ -392,18 +516,10 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
       create() {
         let destroyed = false;
         const dom = createHoverCard("reference-hover-card", view, 180);
-        const { imagePath } = reference;
-        if (imagePath && loadImage) dom.append(figurePreview(imagePath, reference.title || reference.label, loadImage, () => destroyed));
-        dom.append(
-          element("small", "", `${referenceKindLabel(reference.kind)} ${reference.label}`),
-          element("strong", "", reference.title || reference.label),
-        );
-        const fact = compiledFact(data, reference, () => destroyed);
-        if (fact) dom.append(fact);
-        const equation = equationBody(text, reference);
-        if (equation) dom.append(equationPreview(equation, data.katexMacros, () => destroyed));
-        else if (reference.snippet) dom.append(element("pre", "", reference.snippet));
-        dom.append(element("em", "", reference.path));
+        fillReferenceEntry(dom, reference, {
+          data, text, loadImage, destroyed: () => destroyed, onGotoDefinition,
+          close: () => view.dispatch({ effects: closeHoverTooltips }),
+        });
         return { dom, getCoords: hoverAnchor(view, target.from), destroy: () => { destroyed = true; } };
       },
     };
@@ -416,7 +532,8 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
  * gets no card: the missing-figure diagnostic already says so.
  */
 export function graphicsTooltips(live: () => LatexEditorLiveData, loadImage: (path: string) => Promise<string | null>) {
-  return hoverTooltip((view, position) => {
+  return hoverTooltip((view, position, side) => {
+    if (coveredByVisual(view.state, position, side)) return null;
     const target = graphicsHoverTarget(view.state.doc.toString(), position);
     if (!target || /^https?:/.test(target.path)) return null;
     const data = live();

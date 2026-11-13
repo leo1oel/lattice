@@ -16,6 +16,7 @@ import { changeMarksExtension } from "../change-marks";
 import { centerMatch, revealExtension } from "../editor-reveal";
 import { harperSpellcheck, type GrammarIgnores, type HarperProse, type IgnoreGrammar } from "../harper-spellcheck";
 import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
+import { coveredByVisual } from "./latex-visual-switch";
 import { deferIncludeJump, figureSourceDoubleClick } from "./figure-source-gesture";
 import {
   citationCompletions, citationIcon, compoundCompletions, includeCompletions, macroCompletions, openCitationAtCursor, referenceCompletions,
@@ -435,9 +436,9 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     highlightPaint(),
     reasons?.extension ?? [],
     citationTooltips(live, onGotoDefinition, reasonsContext),
-    referenceTooltips(live, options.loadReferenceImage),
+    referenceTooltips(live, options.loadReferenceImage, onGotoDefinition),
     options.loadReferenceImage ? graphicsTooltips(live, options.loadReferenceImage) : [],
-    texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
+    texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab, coveredByVisual),
     currentPath.endsWith(".tex") ? mathPreview(() => live().katexMacros) : [],
     linter((view) => indexDiagnostics(view.state.doc.toString(), live(), currentPath, options.onCreateMissingFile), {
       delay: 400,

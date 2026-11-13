@@ -148,9 +148,19 @@ export function texlabHover(
   };
 }
 
-export function texlabHoverTooltip(...args: Parameters<typeof texlabHover>) {
-  const hover = texlabHover(...args);
-  return hoverTooltip((view, pos) => hover(view.state, pos), { hoverTime: 420 });
+/**
+ * The hover card on the editor; `skip` says where another card owns the
+ * pointer (Visual mode's chips), so this one does not describe the command
+ * underneath.
+ */
+export function texlabHoverTooltip(
+  getPath: () => string,
+  fallback?: (state: EditorState, pos: number) => Tooltip | null,
+  texlab?: boolean,
+  skip?: (state: EditorState, pos: number, side: -1 | 1) => boolean,
+) {
+  const hover = texlabHover(getPath, fallback, texlab);
+  return hoverTooltip((view, pos, side) => (skip?.(view.state, pos, side) ? null : hover(view.state, pos)), { hoverTime: 420 });
 }
 
 export async function resolveTexlabDefinition(path: string, text: string, line: number, character: number): Promise<TexlabLocation | null> {
